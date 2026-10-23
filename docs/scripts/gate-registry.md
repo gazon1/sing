@@ -33,6 +33,9 @@ sche... | — | — |
 | maestro flow catalogue is current | blocking | `scripts/check-maestro-flow-catalogue.py` | check-maestro-flow-catalogue.py — the flow catalogue must match the tree. | — | — |
 | ui wait budgets are consistent | blocking | `scripts/check-ui-wait-budgets.py` | check-ui-wait-budgets.py — one number for the wait, in every layer that waits. | — | — |
 | git hooks path is per-worktree | advisory | `scripts/check-hooks-path.py` | check-hooks-path.py — `core.hooksPath` must not point at another checkout (#5... | — | — |
+| the cheat sheet stays a cheat sheet | blocking | `scripts/check-agents-size.py` | check-agents-size.py — AGENTS.md is a cheat sheet, and a cheat sheet has a size. | — | — |
+| a git command that reads a tree controls its environment | blocking | `scripts/check-git-environment.py` | check-git-environment.py — a git command that reads a tree must not inherit G... | — | — |
+| the checkout can work | blocking | `scripts/check-checkout-invariants.py` | check-checkout-invariants.py — the checkout has to be able to work. | — | — |
 | hook gates are declared once | blocking | `scripts/check-hook-gates.py` | check-hook-gates.py — the hook and CI must not drift apart silently. | — | — |
 | unwired surfaces | blocking | `scripts/find-unwired-surfaces.py` | Find surfaces that are fully implemented but wired to nothing. | — | — |
 | settings read by a feature | blocking | `scripts/check-dead-settings.py` | Find persisted settings that are collected, displayed, and read by no feature. | — | — |

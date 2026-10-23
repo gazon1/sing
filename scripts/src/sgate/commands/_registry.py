@@ -430,6 +430,24 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script_args=("--quiet",),
     ),
     GateSpec(
+        name="the cheat sheet stays a cheat sheet",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-agents-size.py"),
+    ),
+    GateSpec(
+        name="a git command that reads a tree controls its environment",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-git-environment.py"),
+    ),
+    GateSpec(
+        name="the checkout can work",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-checkout-invariants.py"),
+    ),
+    GateSpec(
         name="hook gates are declared once",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
@@ -1026,6 +1044,76 @@ GATE_CONTROLS: dict[str, Control] = {
     'detekt-registrations': Control(kind='sabotage', proves='scripts/check-detekt-registrations.sh', argv=('./scripts/check-detekt-registrations.sh',), path='config/detekt/detekt.yml', edit=Edit(kind='replace', old='no-runblocking:\n  NoRunBlocking:\n    active: true\n', new='', count=-1), why='a RuleSetId with no detekt.yml block never loads, so the rule never runs'),
     'baseline-ratchet': Control(kind='sabotage', proves='scripts/check-baseline-ratchet.py', argv=('{python}', 'scripts/check-baseline-ratchet.py'), path='config/detekt/baseline-shared.xml', edit=Edit(kind='replace', old='</CurrentIssues>', new='    <ID>Sabotage:Probe.kt:Probe</ID>\n  </CurrentIssues>', count=-1), why='a baseline that can grow silently stops being a ratchet and becomes a sink'),
     'hooks-path': Control(kind='sabotage', proves='scripts/check-hooks-path.py', argv=('{python}', 'scripts/check-hooks-path.py', '--quiet'), path='.githooks/pre-push', edit=Edit(kind='hooks_path'), why='hooks travel with the repository; local git config does not. A configured hooks path with nothing tracked under it is a gate that reports success because nothing ever asked it a question'),
+    # git-environment: a git command that reads a tree that is not this
+    # checkout's root inherits GIT_DIR from whatever hook started it, and then
+    # reads the wrong tree. The damage is not theoretical — on 2026-10-23 one
+    # run of the test suite, with GIT_DIR exported, wrote four values into the
+    # shared repository config. The probe appends such a command to the gate's
+    # own source: the smallest change that makes the rule find a violation.
+    'git-environment': Control(
+        kind='sabotage',
+        proves='scripts/check-git-environment.py',
+        argv=('{python}', 'scripts/check-git-environment.py'),
+        path='scripts/changed-modules.py',
+        edit=Edit(
+            kind='append',
+            new=(
+                '\n\ndef _control_probe(tree):\n'
+                '    return subprocess.run(\n'
+                '        ["git", "ls-files"], cwd=tree, capture_output=True, text=True, check=False,\n'
+                '    )\n'
+            ),
+        ),
+        why=(
+            'a git command that reads a tree inherits the GIT_DIR a hook exported, and '
+            'then reads the tree the hook runs in instead of the tree it was pointed '
+            'at. The digest of the wrong tree is a green verdict about the wrong tree, '
+            'and the write of the wrong config breaks every worktree that shares it'
+        ),
+    ),
+    # agents-size: AGENTS.md is read by every session, in one go, and every
+    # line of it is paid for whether the session needs it or not. The probe
+    # appends the kind of prose that grew the file to 517 lines.
+    'agents-size': Control(
+        kind='sabotage',
+        proves='scripts/check-agents-size.py',
+        argv=('{python}', 'scripts/check-agents-size.py'),
+        path='AGENTS.md',
+        edit=Edit(
+            kind='append',
+            # 120 lines: the file sits at 218 and the limit is 300, so a shorter
+            # append lands under the ceiling and the gate correctly passes —
+            # a control that proves nothing.
+            new='\n' + '\n'.join(f'filler line {i}' for i in range(120)) + '\n',
+        ),
+        why=(
+            'the cheat sheet is read in one go by every session, so a file that grows '
+            'past that point stops being read at all. The rules that need more room '
+            'belong in a document under docs/architecture/, with a pointer here'
+        ),
+    ),
+    # checkout-invariants: the checkout has to be able to commit, to run its
+    # hooks and to keep the SSH connection alive through a long hook. The
+    # probe changes the declared hooks path, so the live checkout no longer
+    # matches the promise it is held to.
+    'checkout-invariants': Control(
+        kind='sabotage',
+        proves='scripts/check-checkout-invariants.py',
+        argv=('{python}', 'scripts/check-checkout-invariants.py'),
+        path='config/checkout-invariants.json',
+        edit=Edit(
+            kind='replace',
+            old='"hooks_path": ".githooks"',
+            new='"hooks_path": ".hooks"',
+            count=1,
+        ),
+        why=(
+            'a bare checkout refuses every command, a lost hooks path runs no hooks at '
+            'all, and a lost keepalive kills the push after the hook said the tree was '
+            'clean. Each of them was diagnosed from scratch, because the symptom names '
+            'the failure and never the cause'
+        ),
+    ),
     # hook-gates: the record of what the hook judges drifts away from the hook
     # and from the CI. The probe removes one detekt module from the record —
     # exactly the state a new CI module leaves behind: CI judges the module, the

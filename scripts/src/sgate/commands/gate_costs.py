@@ -28,6 +28,21 @@ in the repository rather than a memory in someone's head.
 *Publication* — ``docs/testing/gate-costs.md`` carries the baseline as a generated
 block, and the gate "the published gate costs are current" says the two agree.
 
+The verdict is a second loop
+----------------------------
+The pre-push verdict runs on the tree that is being pushed, in the developer's
+checkout, and not in the loop above — so it is measured separately, by
+``scripts/measure-verdict-cost.py``, and written to its own record,
+``docs/testing/verdict-cost.json``. The page renders the verdict's price from that
+record and never from a number written in the template: a price that is typed
+into a generator is a claim nobody can check.
+
+A record that is absent or stale is published as such. The page says "not
+measured" when there is no record, and it says *stale* — with the reason — when
+the record describes another tree or another month. Dropping the numbers instead
+would leave a reader with neither a number nor a warning, which is the worse of
+the two failures.
+
 The honest limit
 ----------------
 A duration measured on one machine says nothing about another: a laptop with a cold
@@ -53,12 +68,13 @@ import statistics
 import subprocess
 import textwrap
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import click
 
 import sgate
+import sgate.repo  # noqa: F401  — the record's path is resolved from the repo root
 from sgate.commands.base import CLEAN, CONFIG_ERROR, IO_ERROR, VALIDATION_FAILURE, register
 from sgate.log import logger
 
@@ -86,6 +102,20 @@ MAX_SAMPLES = 10
 #: The markers of the generated block inside the published document.
 BEGIN_MARKER = "<!-- BEGIN GENERATED: sgate gate-costs -->"
 END_MARKER = "<!-- END GENERATED: sgate gate-costs -->"
+
+#: The record of the measured price of the local pre-push verdict.
+#:
+#: Its own file, and not a section of the baseline: the verdict runs on the tree
+#: that is being pushed, not in the loop the baseline prices, and it is measured
+#: by a different tool (``scripts/measure-verdict-cost.py``). The path lives here
+#: rather than in ``sgate.repo`` because the file belongs to that tool's world:
+#: the tool writes it, this command reads it, and neither owns the other.
+VERDICT_COST_JSON: Path = sgate.repo.ROOT / "docs" / "testing" / "verdict-cost.json"
+
+#: The sentinel that says "read the record from disk". A default of None would
+#: mean "there is no record", and the two are different worlds: one is a missing
+#: measurement, the other is a broken reader.
+FROM_FILE = object()
 
 
 # ── The environment a measurement belongs to ─────────────────────────────────────
@@ -285,14 +315,25 @@ def _entry(samples: list[int]) -> dict[str, object]:
 # ── The published document ──────────────────────────────────────────────────────
 
 
-def render_document(baseline: dict[str, object]) -> str:
+def render_document(baseline: dict[str, object], verdict: object = FROM_FILE) -> str:
     """The published document: prose, and the generated block with the numbers.
 
-    The block is regenerated from the baseline, and the gate says the committed
-    document is what the baseline says. A hand-edited number is therefore a failing
-    gate rather than a fact nobody can trace.
+    The block is regenerated from the baseline and from the verdict's record, and
+    the gate says the committed document is what those two say. A hand-edited
+    number is therefore a failing gate rather than a fact nobody can trace.
+
+    The verdict's price is read from ``docs/testing/verdict-cost.json`` — the
+    record ``scripts/measure-verdict-cost.py`` writes — so that no number about
+    the verdict is typed into this file. Pass ``verdict`` to render from
+    something else: a dict is the record, ``None`` says "there is no record" and
+    the page says so.
     """
     path = sgate.repo.GATE_COSTS_MD
+    if verdict is FROM_FILE:
+        record, problem = read_verdict_cost()
+    else:
+        record = verdict if isinstance(verdict, dict) else None
+        problem = "" if record is not None else "missing"
     header = f"""# What the verification loop costs
 
 The local loop is the sum of decisions nobody priced. This page publishes what it
@@ -317,7 +358,13 @@ To refresh the numbers:
 
 The block below is generated. A hand-edited number is a failing gate, not a fact.
 
-## The price of the pre-push verdict
+The price of the pre-push verdict is a second loop, and it is measured separately:
+the verdict runs on the tree that is being pushed, in the developer's checkout, and
+not in the loop above. `scripts/measure-verdict-cost.py` measures it and writes the
+record in `docs/testing/verdict-cost.json`; the last section of the generated block is
+rendered from that record and from nothing else. When the record is missing or stale,
+the section says so — a price published as current when it is not is worse than a
+price that is not published at all.
 
 The hook's detekt step is not in the block below: it runs on the tree that is
 being pushed, in the developer's checkout, and its cost is what the push
@@ -351,11 +398,260 @@ change that moves neither Kotlin nor rules, and four for a change in
 """
     footer = f"""{END_MARKER}
 """
-    return header + _render_block(baseline) + footer
+    return header + _render_block(baseline, record, problem) + footer
 
 
-def _render_block(baseline: dict[str, object]) -> str:
-    """The generated block: the medians, per gate and per step."""
+def _verdict_status(record: dict[str, object] | None, problem: str) -> dict[str, object]:
+    """What the gate says about the verdict's record, in machine-readable form.
+
+    The gate does not fail on a stale record — a stale record is a fact about an
+    older tree, and the page publishes it as such. It fails when the page and
+    the record disagree, and this says which of the two is in the page.
+    """
+    if record is None:
+        return {"present": False, "state": problem or "missing"}
+    return {
+        "present": True,
+        "state": record.get("status", "unknown"),
+        "measuredAt": record.get("measuredAt", ""),
+    }
+
+
+def read_verdict_cost(path: Path | None = None) -> tuple[dict[str, object] | None, str]:
+    """The record of the measured verdict price, and what is wrong with it.
+
+    Returns ``(record, problem)``. The record is ``None`` when there is nothing
+    to render — the file is absent, or it is not a record — and the problem says
+    which of the two it was, so that the page can say "not measured" instead of
+    pretending that a broken file is a missing measurement.
+    """
+    target = path or VERDICT_COST_JSON
+    if not target.is_file():
+        return None, "missing"
+    try:
+        document = json.loads(target.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.warning(f"could not read the verdict cost record at {target}: {exc}")
+        return None, "unreadable"
+    if not isinstance(document, dict):
+        logger.warning(f"the verdict cost record at {target} is not a record")
+        return None, "unreadable"
+    return document, ""
+
+
+def _render_verdict_block(record: dict[str, object] | None, problem: str) -> list[str]:
+    """The price of the pre-push verdict, rendered from the record.
+
+    Every number here comes out of the record. A number typed into this file
+    would be a claim nobody could check, and the whole point of the record is
+    that it can be.
+    """
+    lines: list[str] = ["### The price of the pre-push verdict", ""]
+    if record is None:
+        if problem == "unreadable":
+            lines.append(
+                "The record at `docs/testing/verdict-cost.json` could not be read, so "
+                "the price of the verdict is **unknown**, not zero. Rewrite the record:"
+            )
+        else:
+            lines.append(
+                "No verdict measurement is recorded, so the price of the verdict is "
+                "**unknown**, not zero. Measure it with:"
+            )
+        lines.append("")
+        lines.append("    python3 scripts/measure-verdict-cost.py")
+        lines.append("")
+        lines.append(
+            "The record it writes — `docs/testing/verdict-cost.json` — is what this "
+            "section is rendered from."
+        )
+        lines.append("")
+        lines.extend(_render_verdict_schema())
+        return lines
+
+    measured = record.get("measuredAt")
+    status = record.get("status")
+    sha = record.get("sha")
+    lines.append(
+        "Measured by `scripts/measure-verdict-cost.py`; the record is "
+        "`docs/testing/verdict-cost.json`"
+        + (f" — recorded {measured}" if measured else "")
+        + (f", tree {sha[:8]}" if isinstance(sha, str) and sha else "")
+        + "."
+    )
+    lines.append("")
+    expiry = _verdict_expiry(record)
+    if expiry:
+        lines.append(f"This record expires on {expiry} — after that it is a history.")
+        lines.append("")
+    judged = record.get("verdict")
+    if isinstance(judged, dict) and isinstance(judged.get("tasks"), list):
+        tasks = ", ".join(f"`{task}`" for task in judged["tasks"] if isinstance(task, str))
+        if tasks:
+            lines.append(
+                f"The verdict judged {tasks} — the price of a verdict is a price per "
+                "judged module."
+            )
+            lines.append("")
+    load = record.get("host")
+    if isinstance(load, dict) and load:
+        described = _describe_load(load)
+        if described:
+            lines.append(
+                f"Measured while {described} — the cost of the verdict is a property "
+                "of the verdict and the host together, and this is the host."
+            )
+            lines.append("")
+    if status == "stale":
+        reason = record.get("staleReason") or "the record was not refreshed"
+        lines.append(
+            f"**This record is stale** — {reason}. The numbers below describe the "
+            "tree that was measured, not the tree in front of you; read them as a "
+            "history, not as a price."
+        )
+        lines.append("")
+
+    phases = record.get("phases")
+    entries = [p for p in phases if isinstance(p, dict)] if isinstance(phases, list) else []
+    if entries:
+        lines.append("| Phase | Cost | What ran |")
+        lines.append("|---|---|---|")
+        for entry in entries:
+            lines.append(
+                f"| {entry.get('name')} | {_format_ms(entry.get('durationMs'))} "
+                f"| {entry.get('what')} |"
+            )
+        lines.append("")
+        lines.extend(_render_verdict_derivations(entries))
+        lines.extend(_render_verdict_notes(record, entries))
+        lines.extend(_render_verdict_commands(entries))
+    else:
+        lines.append("The record carries no measured phase, so there is no price to publish.")
+        lines.append("")
+    lines.extend(_render_verdict_schema())
+    return lines
+
+
+def _render_verdict_schema() -> list[str]:
+    """What the record's fields mean, and how to produce a new one.
+
+    The documentation of the record lives with the thing that renders it: a
+    reader who wants to know what `durationMs` is should not have to open a
+    second file to find out, and a second file would be a second thing to keep
+    true.
+    """
+    return [
+        "The record's fields:",
+        "",
+        "- `measuredAt` — when the measurement was taken.",
+        "- `status` — `fresh` or `stale`; a stale record says why in `staleReason`.",
+        "- `expiresDays` — how long the record stays fresh before it must be re-measured.",
+        "- `sha` — the tree the measurement was taken on.",
+        "- `treeDigest` — the content digest of that tree; a tree that no longer has "
+        "it makes the record stale.",
+        "- `environment`, `host` — the machine and its load: a duration without them "
+        "is not comparable with anything.",
+        "- `phases` — what was measured: `name`, `what`, `command`, `durationMs`, "
+        "`exitCode`, `note`.",
+        "- `notes` — the observations a number cannot make.",
+        "",
+        "To measure it again:",
+        "",
+        "    python3 scripts/measure-verdict-cost.py             # measure and write the record",
+        "    python3 scripts/measure-verdict-cost.py --refresh   # re-decide freshness only",
+        "",
+    ]
+
+
+def _verdict_expiry(record: dict[str, object]) -> str:
+    """The day the record stops being a price, read from the record itself.
+
+    Computed from the record and not from the clock: a page that decided for
+    itself what day it is would print a different sentence every day, and the
+    gate that compares the page with the render would fail for the wrong
+    reason.
+    """
+    measured = record.get("measuredAt")
+    expires = record.get("expiresDays")
+    if not isinstance(measured, str) or not isinstance(expires, int):
+        return ""
+    try:
+        taken = datetime.fromisoformat(measured)
+    except ValueError:
+        return ""
+    return (taken + timedelta(days=expires)).date().isoformat()
+
+
+def _render_verdict_derivations(entries: list[dict[str, object]]) -> list[str]:
+    """What the measured phases say when they are read against each other.
+
+    Derived here and not stored in the record: a derivation that is stored is a
+    number that can go stale without the phases it came from moving.
+    """
+    by_name = {
+        entry.get("name"): entry
+        for entry in entries
+        if isinstance(entry.get("name"), str)
+    }
+    lines: list[str] = []
+    read_only = by_name.get("detekt")
+    correcting = by_name.get("auto-correct")
+    if read_only and correcting:
+        read_ms = read_only.get("durationMs")
+        correct_ms = correcting.get("durationMs")
+        if isinstance(read_ms, int) and isinstance(correct_ms, int) and read_ms > 0:
+            overhead = correct_ms - read_ms
+            more = int(round(100 * overhead / read_ms))
+            share = int(round(100 * overhead / correct_ms)) if correct_ms > 0 else 0
+            lines.append(
+                f"Correcting the tree costs {_format_ms(overhead)} on top of the "
+                f"read-only run — {more} % more than the analysis, and {share} % of "
+                "the correcting run. The verdict reads the tree it judges and never "
+                "corrects it, so the push waits for the analysis and not for the "
+                "correction."
+            )
+            lines.append("")
+    return lines
+
+
+def _render_verdict_notes(record: dict[str, object], entries: list[dict[str, object]]) -> list[str]:
+    """The notes the record carries — the observations a number cannot make.
+
+    A phase note belongs to its phase and says so; a note on the record belongs
+    to the measurement as a whole.
+    """
+    notes: list[str] = []
+    for entry in entries:
+        note = entry.get("note")
+        if isinstance(note, str) and note:
+            notes.append(f"- `{entry.get('name')}`: {note}")
+    carried = record.get("notes")
+    if isinstance(carried, list):
+        for note in carried:
+            if isinstance(note, str) and note:
+                notes.append(f"- {note}")
+    if not notes:
+        return []
+    return ["Notes from the record:", "", *notes, ""]
+
+
+def _render_verdict_commands(entries: list[dict[str, object]]) -> list[str]:
+    """The command each phase ran, so that a number can be reproduced."""
+    lines = ["The command each phase ran is in the record:", ""]
+    for entry in entries:
+        command = entry.get("command")
+        if isinstance(command, str) and command:
+            lines.append(f"- `{command}`")
+    lines.append("")
+    return lines
+
+
+def _render_block(
+    baseline: dict[str, object],
+    verdict: dict[str, object] | None = None,
+    verdict_problem: str = "missing",
+) -> list[str]:
+    """The generated block: the medians, per gate and per step, and the verdict."""
     lines: list[str] = []
     env = baseline.get("environment")
     recorded = baseline.get("recordedAt")
@@ -384,6 +680,7 @@ def _render_block(baseline: dict[str, object]) -> str:
     lines.append("")
     lines.extend(_render_coverage_block())
     lines.extend(_render_ci_block(baseline))
+    lines.extend(_render_verdict_block(verdict, verdict_problem))
     return "\n".join(lines)
 
 
@@ -877,12 +1174,14 @@ def gate_costs(
         expected = render_document(baseline)
         path = sgate.repo.GATE_COSTS_MD
         current = path.read_text(encoding="utf-8") if path.is_file() else ""
+        record, problem = read_verdict_cost()
         if current != expected:
             if emit_json:
                 click.echo(json.dumps({
                     "passed": False,
                     "status": "outdated",
                     "path": str(path),
+                    "verdict": _verdict_status(record, problem),
                 }))
             else:
                 logger.error(
@@ -890,7 +1189,12 @@ def gate_costs(
                 )
             raise SystemExit(VALIDATION_FAILURE)
         if emit_json:
-            click.echo(json.dumps({"passed": True, "status": "current", "path": str(path)}))
+            click.echo(json.dumps({
+                "passed": True,
+                "status": "current",
+                "path": str(path),
+                "verdict": _verdict_status(record, problem),
+            }))
         else:
             logger.info(f"{path} is current")
         raise SystemExit(CLEAN)

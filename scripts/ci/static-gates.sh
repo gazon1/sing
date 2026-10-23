@@ -575,6 +575,30 @@ gate blocking "gate registry is current" sgate render-registry --check
 # --check` is the gate that says the file is current; after changing the
 # manifest, run `sgate render-static-gates --write`.
 gate blocking "the shell registry is current" sgate render-static-gates --check
+# AGENTS.md is read by every session, in one go, and every line of it
+# is paid for whether the session needs it or not. It was 517 lines; the rules
+# that needed more room moved to docs/architecture/, and this gate keeps the
+# file from growing back — a change that needs more room needs a document and
+# a pointer, not a longer cheat sheet.
+gate blocking "the cheat sheet stays a cheat sheet" python3 scripts/check-agents-size.py
+# Git exports GIT_DIR (and GIT_WORK_TREE, GIT_INDEX_FILE,
+# GIT_COMMON_DIR) to every hook it runs, and those variables override the
+# directory a git command was pointed at. A digest computed that way is a
+# digest of a tree nobody asked for — and a `git config` in a test's temporary
+# repository lands in the shared config of the checkout, which is how
+# core.sshCommand was once replaced by a test fixture.
+#
+# A script that reads a tree that is not its own checkout's root must remove
+# those variables from the environment the command inherits.
+gate blocking "a git command that reads a tree controls its environment" python3 scripts/check-git-environment.py
+# The checkout has to be able to commit, to run its hooks, and to
+# keep the SSH connection alive through a long pre-push hook. A bare checkout
+# refuses every command, a hooks path that leads nowhere runs no hooks at all,
+# and a lost keepalive kills the push after the hook said the tree was clean.
+#
+# The expected values are written down in config/checkout-invariants.json, and
+# scripts/doctor.sh reads the same file to diagnose a checkout that drifted.
+gate blocking "the checkout can work" python3 scripts/check-checkout-invariants.py
 #
 # What the verification loop costs.
 #

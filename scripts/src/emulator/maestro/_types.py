@@ -135,6 +135,10 @@ class DeviceDeps:
     #   and the copy that was missing was the one that mattered: the AVD
     #   that had just been restarted came up with the IME on, and every
     #   flow measured after that measured a half-covered screen.
+    #   It only ever does that to an emulator: a physical device belongs to
+    #   a person, and waking it behind their back is an intrusion. The real
+    #   implementation decides that itself (emulator._startup), so a bundle
+    #   that binds the real one inherits the rule.
     #   A bundle that does not care about a device gets nothing done to it:
     #   a fake that only asserts the flow's behaviour has no device to wake.
     #   The real bundle binds the real implementation.

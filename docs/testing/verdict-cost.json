@@ -1,0 +1,68 @@
+{
+  "checkedAt": "2026-10-23T23:37:16+03:00",
+  "environment": {
+    "cpus": 16,
+    "javaHome": "/usr/lib/jvm/java-25-openjdk",
+    "os": "Linux",
+    "python": "3.14.8"
+  },
+  "expiresDays": 30,
+  "host": {
+    "cpus": 16,
+    "load15m": 50.0,
+    "load1m": 34.0
+  },
+  "measuredAt": "2026-10-23",
+  "measuredCommands": {
+    "auto-correct": "./gw :shared:detekt --auto-correct --rerun --continue --no-daemon --console=plain",
+    "detekt": "./gw :shared:detekt --rerun --continue --no-daemon --console=plain",
+    "digest": "git ls-files -- *.kt *.kts",
+    "together": "./gw :shared:detekt :desktopApp:detekt --parallel --rerun --continue --no-daemon --console=plain"
+  },
+  "notes": [
+    "The measurement was taken in the development checkout, which is shared with ten agent sessions: the load average was 34\u201350, so the absolute numbers are an upper bound and the ratios between the phases are the fact.",
+    "These numbers were measured with the commands the tool ran BEFORE it was corrected, and the tool now measures different ones \u2014 so this record is a history, not a current price: the `together` phase was measured with `--parallel`, which the verdict never passes, and the `digest` phase measured `git ls-files` only, while the verdict hashes every Kotlin file with `git hash-object` as well.",
+    "The `auto-correct` number was obtained by running a CORRECTING detekt in the shared development checkout. The tool now runs that correction in a throwaway copy of the tree and refuses to correct the tree you are working in, so this number will not be reproduced the same way.",
+    "Re-measure with `python3 scripts/measure-verdict-cost.py` to publish a price of the commands the tool measures now."
+  ],
+  "phases": [
+    {
+      "command": "./gw :shared:detekt --rerun --continue --no-daemon --console=plain",
+      "durationMs": 307000,
+      "exitCode": 0,
+      "name": "detekt",
+      "note": "",
+      "what": "the analysis the verdict waits for \u2014 `:shared:detekt`, read-only"
+    },
+    {
+      "command": "./gw :shared:detekt --auto-correct --rerun --continue --no-daemon --console=plain",
+      "durationMs": 423000,
+      "exitCode": 0,
+      "name": "auto-correct",
+      "note": "measured by running a correcting detekt in the shared development checkout; the tool now corrects a throwaway copy and refuses to correct the tree you are working in",
+      "what": "the same run with `--auto-correct` \u2014 what the verdict deliberately does not do, because it reads the tree it judges"
+    },
+    {
+      "command": "git ls-files -- *.kt *.kts",
+      "durationMs": 1000,
+      "exitCode": 0,
+      "name": "digest",
+      "note": "measured with `git ls-files` only; the verdict's digest also runs `git hash-object` over every Kotlin file, and the tool now measures the whole digest",
+      "what": "the content digest the verdict computes before and after the analysis \u2014 measured here with `git ls-files` only, which is HALF of the verdict's digest (`git ls-files` plus `git hash-object` over every Kotlin file)"
+    },
+    {
+      "command": "./gw :shared:detekt :desktopApp:detekt --parallel --rerun --continue --no-daemon --console=plain",
+      "durationMs": 703000,
+      "exitCode": 0,
+      "name": "together",
+      "note": "the global `./gw` slots were already taken, so the two modules were serialised \u2014 parallelism was not available on this host; the command also carries `--parallel`, which the verdict does not pass, and the tool now measures the verdict's own invocation",
+      "what": "`:shared:detekt` and `:desktopApp:detekt` judged in ONE Gradle invocation \u2014 measured with `--parallel`, which the verdict never passes; the tool now measures the invocation the verdict makes"
+    }
+  ],
+  "schemaVersion": 2,
+  "sha": "5896686b8010b0ddf9942a8319e84ec23170f4de",
+  "staleReason": "the tool now measures `digest` with a different command (git ls-files -- *.kt *.kts && git ls-files --others --exclude-standard -- *.kt *.kts && git hash-object --stdin-paths); the record was measured with git ls-files -- *.kt *.kts; the tool now measures `together` with a different command (./gw :shared:detekt :desktopApp:detekt --rerun --continue --no-daemon --console=plain); the record was measured with ./gw :shared:detekt :desktopApp:detekt --parallel --rerun --continue --no-daemon --console=plain",
+  "status": "stale",
+  "treeDigest": "",
+  "verdict": {}
+}

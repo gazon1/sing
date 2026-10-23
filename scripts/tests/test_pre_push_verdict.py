@@ -12,7 +12,7 @@ The properties:
     that is only in the worktree cannot be reported against a tree nobody
     pushed;
   - a run that reports findings makes the verdict red;
-  - a run that CORRECTS a file makes the verdict red too, even when it exits
+  - a run that CHANGES the tree makes the verdict red too, even when it exits
     0 — the content it changed is the only evidence that the tree held a
     violation;
   - a clean tree and a clean run make the verdict green.
@@ -41,14 +41,26 @@ spec.loader.exec_module(mod)
 SOURCE = 'package com.example\n\nclass Example\n'
 
 #: A stand-in for ./gw. The mode says what detekt would do in this tree.
+#: It also records how it was called, so a test can see whether the verdict
+#: paid the Gradle configuration phase once or once per module.
 FAKE_GRADLE = """#!/usr/bin/env bash
+echo "$@" >> {record}
 case "{mode}" in
   fail)
     echo "Example.kt:1:1: ClassSignature: the class signature must be on one line" >&2
+    for task in "$@"; do
+      case "$task" in
+        :*:detekt) echo "> Task $task FAILED" ;;
+      esac
+    done
     exit 1
     ;;
-  correct)
-    printf 'package com.example\\n\\nclass Example\\n// corrected\\n' > shared/src/main/kotlin/Example.kt
+  crash)
+    echo "FAILURE: Build failed with an exception." >&2
+    exit 1
+    ;;
+  mutate)
+    printf 'package com.example\\n\\nclass Example\\n// mutated\\n' > shared/src/main/kotlin/Example.kt
     exit 0
     ;;
   *)
@@ -79,9 +91,16 @@ class VerdictTest(unittest.TestCase):
 
     def _gradle(self, mode: str) -> str:
         path = self.tmp / f'gradle-{mode}'
-        path.write_text(FAKE_GRADLE.format(mode=mode), encoding='utf-8')
+        path.write_text(FAKE_GRADLE.format(mode=mode, record=self.tmp / 'calls.log'), encoding='utf-8')
         path.chmod(0o755)
         return str(path)
+
+    def _calls(self) -> list[str]:
+        """One line per Gradle invocation the verdict made."""
+        record = self.tmp / 'calls.log'
+        if not record.exists():
+            return []
+        return [line for line in record.read_text(encoding='utf-8').splitlines() if line.strip()]
 
     def _judge(self, mode: str = 'clean', fallback: pathlib.Path | None = None) -> dict:
         return mod.judge(
@@ -120,18 +139,46 @@ class VerdictTest(unittest.TestCase):
         report = self._judge(mode='clean')
         self.assertTrue(report['clean'])
         self.assertEqual([], report['failed_tasks'])
-        self.assertFalse(report['corrected'])
+        self.assertFalse(report['mutated'])
 
     def test_a_run_that_reports_findings_is_red(self):
         report = self._judge(mode='fail')
         self.assertFalse(report['clean'])
         self.assertEqual([":shared:detekt"], report['failed_tasks'])
 
-    def test_a_run_that_corrects_a_file_is_red_even_when_it_exits_zero(self):
-        report = self._judge(mode='correct')
-        self.assertFalse(report['clean'], 'a corrected file is the evidence of a violation')
-        self.assertTrue(report['corrected'])
+    def test_a_run_that_changes_the_tree_is_red_even_when_it_exits_zero(self):
+        report = self._judge(mode='mutate')
+        self.assertFalse(report['clean'], 'a changed tree is the evidence of a violation')
+        self.assertTrue(report['mutated'])
         self.assertEqual([], report['failed_tasks'])
+
+    def test_a_run_that_fails_without_naming_a_task_is_red(self):
+        """A broken build is not a clean tree, and it names no module that failed."""
+        report = self._judge(mode='crash')
+        self.assertFalse(report['clean'])
+        self.assertEqual(['<the detekt run itself>'], report['failed_tasks'])
+
+    def test_the_verdict_reads_the_tree_and_does_not_correct_it(self):
+        """The correction is a separate step; the verdict only reports."""
+        self._judge(mode='fail')
+        for call in self._calls():
+            self.assertNotIn('--auto-correct', call)
+
+    def test_all_the_judged_modules_cost_one_gradle_invocation(self):
+        """One invocation pays the configuration phase once, not once per module."""
+        report = mod.judge(
+            self.repo,
+            self.sha,
+            None,
+            self._gradle('clean'),
+            (":shared:detekt", ":desktopApp:detekt"),
+            self.tmp / 'logs',
+        )
+        self.assertEqual(2, len(report['tasks']))
+        calls = self._calls()
+        self.assertEqual(1, len(calls), calls)
+        self.assertIn(':shared:detekt', calls[0])
+        self.assertIn(':desktopApp:detekt', calls[0])
 
     def test_the_digest_sees_a_change_the_status_line_would_hide(self):
         """A file that was already modified keeps its status line after a correction."""
@@ -169,8 +216,13 @@ class ModuleSelectionTest(unittest.TestCase):
 
     def _give_the_repo_an_identity(self, repo: pathlib.Path) -> None:
         """A runner has no git identity; a commit without one is refused."""
-        subprocess.run(['git', 'config', 'user.email', 'verdict@example.com'], cwd=repo, check=True)
-        subprocess.run(['git', 'config', 'user.name', 'Verdict'], cwd=repo, check=True)
+        subprocess.run(
+            ['git', 'config', 'user.email', 'verdict@example.com'], cwd=repo, check=True,
+            env=_clean_git_env(),
+        )
+        subprocess.run(
+            ['git', 'config', 'user.name', 'Verdict'], cwd=repo, check=True, env=_clean_git_env(),
+        )
 
     def _commit(self, message: str, files: dict[str, str]) -> str:
         for name, content in files.items():
@@ -257,6 +309,33 @@ class ModuleSelectionTest(unittest.TestCase):
         )
         self.assertEqual('origin/main', mod.default_base(self.repo))
 
+    def test_a_branch_with_an_upstream_is_measured_against_it(self):
+        """A branch that targets a release line is measured against that line."""
+        subprocess.run(
+            ['git', 'remote', 'add', 'origin', 'https://example.com/sing.git'], cwd=self.repo, check=True,
+        )
+        subprocess.run(
+            ['git', 'update-ref', 'refs/remotes/origin/main', self.base], cwd=self.repo, check=True,
+        )
+        subprocess.run(
+            ['git', 'update-ref', 'refs/remotes/origin/release', self.base], cwd=self.repo, check=True,
+        )
+        subprocess.run(
+            ['git', 'config', 'branch.release.remote', 'origin'], cwd=self.repo, check=True,
+        )
+        subprocess.run(
+            ['git', 'config', 'branch.release.merge', 'refs/heads/release'], cwd=self.repo, check=True,
+        )
+        subprocess.run(['git', 'branch', 'release'], cwd=self.repo, check=True)
+        self.assertEqual(self.base, mod.default_base(self.repo, 'release'))
+
+    def test_a_branch_without_an_upstream_falls_back_to_the_trunk(self):
+        subprocess.run(
+            ['git', 'update-ref', 'refs/remotes/origin/main', self.base], cwd=self.repo, check=True,
+        )
+        subprocess.run(['git', 'branch', 'feature'], cwd=self.repo, check=True)
+        self.assertEqual('origin/main', mod.default_base(self.repo, 'feature'))
+
     def test_a_checkout_that_does_not_know_the_trunk_has_no_default_base(self):
         self.assertIsNone(mod.default_base(self.repo))
 
@@ -292,7 +371,7 @@ class ModuleSelectionTest(unittest.TestCase):
         report = json.loads(result.stdout)
         self.assertEqual([], report['tasks'], report)
         self.assertIn('no detekt run', report['coverage_reason'])
-        self.assertFalse(report['corrected'], 'nothing ran, so nothing was corrected')
+        self.assertFalse(report['mutated'], 'nothing ran, so nothing changed')
         self.assertTrue(report['clean'], 'a change that needs no detekt run is not a violation')
         self.assertEqual(0, result.returncode)
 

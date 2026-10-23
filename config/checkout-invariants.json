@@ -1,0 +1,13 @@
+{
+  "purpose": "What a checkout of this repository must be able to do, and the values that say it. The gate (scripts/check-checkout-invariants.py) compares the live checkout against this declaration, and scripts/doctor.sh reads the same file to diagnose a checkout that has drifted. One declaration, two readers — a gate and a doctor that disagree are two policies.",
+
+  "bare": false,
+  "hooks_path": ".githooks",
+  "ssh_keepalive": "ServerAliveInterval",
+
+  "why": {
+    "bare": "A bare checkout refuses every command ('this operation must be run in a work tree'), so nothing can be committed and no tree can be judged.",
+    "hooks_path": "Git runs NO hooks when the path does not exist, and it runs them silently. A path that leads nowhere is a gate that reports success because nothing ever asked it a question.",
+    "ssh_keepalive": "Git opens the SSH connection to the remote BEFORE the pre-push hook runs, and the hook takes minutes. Without a keepalive the connection dies in the middle, and the push fails with 141 after the hook already said the tree was clean."
+  }
+}

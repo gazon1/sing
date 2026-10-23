@@ -68,7 +68,12 @@
 # destination is this script's decision rather than Git's, and a file that must
 # not be written cannot be written by accident.
 #
-# Idempotent: safe to re-run. Never starts Gradle, never touches the network.
+# Idempotent: safe to re-run. Never starts Gradle.
+#
+# It DOES touch the network, once: the Python environment is installed with uv
+# (the same installer CI uses), and uv resolves packages. Everything else here
+# is local. Pass SINGULARITY_TOOLS_VENV to choose where the venv goes.
+
 #
 # See docs/decisions/2026-10-04-gradle-daemon-isolation.md
 # See docs/decisions/2026-10-23-the-bare-flag-lives-in-the-worktree-config.md
@@ -235,6 +240,97 @@ echo "core.bare -> false (every worktree), core.hooksPath -> .githooks (this wor
 if [[ ! -d .githooks ]]; then
     echo "WARNING: this branch has no .githooks directory — hooks will not run here." >&2
     echo "         That is the case for older branches, not a failure of this script." >&2
+fi
+
+# ── The local environment file ───────────────────────────────────────────────
+#
+# `.env` holds the secrets a local run needs (API tokens, the Android signing
+# material) and it is gitignored, so it lives in ONE place — the canonical
+# checkout — and every worktree needs its own copy of it. A worktree without
+# it fails at the first command that reads a token, and the failure names the
+# missing variable, not the missing file.
+#
+# The copy is not tracked (`.env` is in .gitignore) and it is not overwritten:
+# a file that already exists here was put there by hand, and replacing it with
+# the canonical one would swap one set of secrets for another.
+#
+# The source is the CANONICAL checkout — the one place the repository's .env
+# lives — and never this worktree's own file.
+#
+# The canonical root is not always the parent of the common dir: the common
+# dir is the shared .git, and it sits INSIDE the canonical checkout
+# (…/checkout/.git), BESIDE it (…/checkout.git — a separate git dir), or, for
+# the bare repository's own main entry, in it. Every layout is tried, in that
+# order, and the first one that holds a .env is the source. The list is
+# resolved without Git, for the reason the rest of this script is: a worktree
+# Git considers bare answers no questions.
+canonical_roots=()
+common_base="$(basename "$common_dir")"
+common_parent="$(cd "$(dirname "$common_dir")" && pwd)"
+canonical_roots+=("$common_parent")
+if [[ "$common_base" == *.git && "$common_base" != ".git" ]]; then
+    canonical_roots+=("${common_parent}/${common_base%.git}")
+fi
+if [[ "$git_dir" == "$common_dir" ]]; then
+    # This is the repository's own main entry, so this worktree IS the
+    # canonical checkout.
+    canonical_roots+=("$root")
+fi
+
+env_source=""
+for candidate in "${canonical_roots[@]}"; do
+    if [[ -f "$candidate/.env" ]]; then
+        env_source="$candidate"
+        break
+    fi
+done
+
+if [[ -z "$env_source" ]]; then
+    echo ".env        -> not found in ${canonical_roots[0]} (nothing to copy)"
+elif [[ -f "$root/.env" ]]; then
+    echo ".env        -> already here (kept as it is)"
+else
+    cp "$env_source/.env" "$root/.env"
+    chmod 600 "$root/.env"
+    echo ".env        -> copied from $env_source"
+fi
+
+# ── The local Python environment ─────────────────────────────────────────────
+#
+# The gate suite is Python, and the gate CLI is an EDITABLE install of
+# scripts/src/: a venv made in one checkout resolves `import sgate` to the tree
+# it was installed from. A shared venv therefore makes every worktree judge
+# the tree that venv was made for — which is how a gate reports about a
+# checkout that is not in front of you.
+#
+# So this worktree gets its own venv, named after the worktree, and the
+# installer is the one CI uses (scripts/ci/setup-local-tools.sh) — one
+# arrangement, so a local run and a CI run of the same gate agree.
+#
+# The install needs the network (uv resolves the packages; actionlint is a
+# release download). A failure here is reported and the worktree stays usable:
+# the gates that need the venv will say which tool is missing.
+#
+# Where the venv goes is the caller's decision: SINGULARITY_TOOLS_VENV names
+# it, and without that variable the venv is named after the worktree. The
+# variable used to be forwarded to the installer and ignored here — so the
+# documented knob had no effect on the one thing it was documented to choose.
+if [[ -n "${SINGULARITY_TOOLS_VENV:-}" ]]; then
+    venv="$SINGULARITY_TOOLS_VENV"
+else
+    venv="$HOME/.venvs/singularity-todo-$(basename "$root")"
+fi
+if [[ -x "$venv/bin/python" ]]; then
+    echo "Python venv  -> $venv (already there)"
+else
+    echo "Python venv  -> $venv"
+    if SINGULARITY_TOOLS_VENV="$venv" bash "$root/scripts/ci/setup-local-tools.sh" >/dev/null 2>&1; then
+        echo "                ready: export PATH=\"$venv/bin:\$PATH\""
+    else
+        echo "                could not be created — the gate suite's tools are missing here." >&2
+        echo "                Fix it with:" >&2
+        echo "                  SINGULARITY_TOOLS_VENV=\"$venv\" bash scripts/ci/setup-local-tools.sh" >&2
+    fi
 fi
 
 guh="$("$root/scripts/setup-gradle-home.sh")"

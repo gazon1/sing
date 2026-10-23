@@ -324,6 +324,70 @@ class PrePushHookTest(unittest.TestCase):
         self.assertEqual(0, result.returncode, output)
         self.assertIn('nothing to judge', output)
         self.assertIn('detekt verdict: not taken', output)
+        # The reason is the verdict's own, not one the hook invented.
+        self.assertIn('no detekt run is needed', output)
+
+    def test_the_summary_carries_the_verdicts_own_reason(self):
+        """A change that moves Kotlin into a module with no detekt task.
+
+        The verdict has TWO reasons for taking none, and they are different
+        claims: a change that moves no Kotlin at all, and a change that moves
+        Kotlin into a module whose verdict is its test suite — it applies the
+        plain kotlin("jvm") plugin, so it has no detekt task of its own.
+
+        The hook used to substitute the first reason for the second: it told
+        the reader that a change which moves Kotlin moves no Kotlin. The
+        summary must carry the reason the verdict gave.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._commit_source(CLEAN_SOURCE, 'a clean file')
+        # The trunk the change is measured against.
+        head = _git('rev-parse', 'HEAD', cwd=self.repo).stdout.strip()
+        _git('update-ref', 'refs/remotes/origin/main', head, cwd=self.repo)
+        # A change in the module whose verdict is its test suite.
+        self._write(
+            'tools/unwritten-properties/src/main/kotlin/Example.kt',
+            CLEAN_SOURCE,
+        )
+        _git('add', '-A', cwd=self.repo)
+        _git('commit', '-q', '-m', 'a change in a module without a detekt task', cwd=self.repo)
+
+        result = self._push()
+
+        output = result.stdout + result.stderr
+        self.assertEqual(0, result.returncode, output)
+        self.assertIn('detekt verdict: not taken', output)
+        self.assertIn(
+            'no detekt task exists for it',
+            output,
+            'the summary did not carry the verdict\'s own reason:\n' + output,
+        )
+        self.assertNotIn(
+            'this change moves no Kotlin and no rules',
+            output,
+            'the hook substituted its own reason for the verdict\'s:\n' + output,
+        )
+
+    def test_the_coverage_claim_is_true(self):
+        """CI judges a hand-written list of modules, not every module.
+
+        The claim the hook used to make — "CI judges every module" — is false
+        as a statement about the mechanism: CI's detekt list is written out by
+        hand, while the hook's set comes from the module graph. A module the
+        graph knows and CI's list does not name is judged here and by nobody
+        else.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._commit_source(CLEAN_SOURCE, 'a clean file')
+
+        result = self._push()
+
+        output = result.stdout + result.stderr
+        self.assertEqual(0, result.returncode, output)
+        self.assertIn('CI judges the modules its own list names', output)
+        self.assertNotIn('CI judges every module', output)
 
     def test_the_verdict_is_taken_in_the_worktree_when_it_holds_the_pushed_tree(self):
         self._install_hook()

@@ -286,7 +286,14 @@ kover {
     // `scripts/check-coverage-task-list.py` is what keeps the two lists
     // honest against each other: every project with tests is either measured
     // by the report or excluded from its scope.
-    skipProjects(":detekt-rules", ":adr-cli")
+    //
+    // `:tools:unwritten-properties` is the third tooling module: it is a
+    // repository tool (it checks that properties are written down), it
+    // applies the plain kotlin("jvm") plugin — so it has no detekt task — and
+    // nothing in the app depends on it. Its tests are build tooling, not
+    // application behaviour, and they run in CI (the module was judged by
+    // nobody until 2026-10-23).
+    skipProjects(":detekt-rules", ":adr-cli", ":tools:unwritten-properties")
     instrumentation {
         includedClasses.add("com.singularity.todo.*")
     }

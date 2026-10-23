@@ -271,6 +271,20 @@ timed "detekt-rules:test" ./gw :detekt-rules:test --quiet || {
     exit 1
 }
 
+echo -e "${YELLOW}=== [8a/$TOTAL] the unwritten-properties tool's own tests ===${NC}"
+# The module that checks that a state property is written when it is read was
+# judged by nobody until 2026-10-23: not by CI, not by the hook, not even by
+# the module graph. CI runs its tests now, and this local loop runs them too
+# — a task that only one of the two surfaces names is exactly how a local
+# loop stays green on a module CI would fail (check-gate-wiring.py Part I).
+#
+# The tests are plain JUnit over the analysis, with no compiler — they run in
+# milliseconds, which is why they belong in the loop and not only in CI.
+timed "tools:unwritten-properties:test" ./gw :tools:unwritten-properties:test --quiet || {
+    echo -e "${RED}the unwritten-properties tool's tests FAILED${NC}"
+    exit 1
+}
+
 echo -e "${YELLOW}=== [8b/$TOTAL] detekt-rule branch coverage floor ===${NC}"
 # The floor is declared in settings.gradle.kts (DETEKT_RULE_BRANCH_FLOOR) and
 # bound by the module's own rule, which Kover's verify task enforces. Naming
