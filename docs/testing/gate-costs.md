@@ -18,6 +18,7 @@ To refresh the numbers:
 
     ./check.sh                       # measure the loop
     sgate gate-costs --record        # write the baseline and re-render this page
+    sgate gate-costs --record-ci     # record the branch's last finished CI run
 
 The block below is generated. A hand-edited number is a failing gate, not a fact.
 
@@ -120,20 +121,20 @@ Measured on 2026-10-22 — 16 vCPU, warm Gradle cache.
 
 The uninstrumented `:shared:jvmTest` in the table above is a different run: the Kover agent multiplies the cost of every test, and this is the number a timeout has to be set from.
 
-### The last CI run
+### The last finished run of `main`
 
-The CI loop is the one that blocks merges, so it is priced too — 2026-10-21T13:39:52Z — https://github.com/gazon1/sing/actions/runs/39609950342.
+The CI loop is the one that blocks merges, so it is priced too — 2026-10-23T14:54:00Z — https://github.com/gazon1/sing/actions/runs/39973576863.
 
 | Job | Duration |
 |------|----------|
-| Android (free) | 3 min 24 s |
-| Android (pro) | 4 min 15 s |
-| CI gate | 4.0 s |
-| Gate tooling | 4 min 03 s |
-| JVM tests, detekt, coverage | 31 min 29 s |
-| Static gates | 4 min 17 s |
-| adr-gate | 1 min 58 s |
-| changes | 6.0 s |
-| nightly-alert | — |
-| spec-create | — |
+| Android (free) | 2 min 01 s |
+| Android (pro) | 1 min 55 s |
+| CI gate | 2.0 s |
+| Gate tooling | 4 min 59 s |
+| JVM tests, detekt, coverage | 17 min 32 s |
+| Static gates | 10 min 27 s |
+| adr-gate | 1 min 38 s |
+| changes | 8.0 s |
+
+The run finished as **success**.
 <!-- END GENERATED: sgate gate-costs -->

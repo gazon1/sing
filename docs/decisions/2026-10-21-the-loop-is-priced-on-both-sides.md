@@ -40,6 +40,18 @@ measurement is used for a decision.**
   took, read from the runner's own record. Not a median and not a baseline — a hosted
   runner is not this machine, and the local baseline refuses to compare across
   machines for the same reason. A record, not a threshold.
+- That record is the **branch's** last **finished** run, and it carries the run's
+  verdict. A run that is still going has no duration for the jobs that have not
+  finished, so recording it would publish the price of half a loop as the price of
+  the loop. A pull request's run is the price of that pull request, not of the loop
+  that blocks every merge — and a reader who finds a price written next to a foreign
+  branch's failed run reads a price for something that was never measured. The
+  verdict travels with the durations: a price next to a failed run, without the
+  verdict, reads as the price of a green one.
+- A run whose jobs cannot be read is **not recorded**. The published section is
+  rendered from the recorded jobs, so a record with no jobs renders no section —
+  writing one would delete the price of the loop and say nothing about it. A failed
+  read leaves the recorded price alone.
 - The two duplicate declarations are gone, and a test says a control may not be
   written twice. The old guard could not see it: it compared the control lists with
   the *fixture* list, and a list that duplicates itself is invisible to a comparison
@@ -78,7 +90,7 @@ graph is declared in the build files.
 ## Consequences
 
 - The published page prices both loops: the local one with medians and a machine, the
-  CI one as a record of the last run.
+  CI one as a record of the branch's last finished run, with the run's verdict.
 - The local loop is measurably cheaper: the JSON-contract gate runs concurrently, and
   one duplicated control is gone.
 - A control written twice fails a test, in the registry and in the control lists.
