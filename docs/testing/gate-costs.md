@@ -21,35 +21,13 @@ To refresh the numbers:
 
 The block below is generated. A hand-edited number is a failing gate, not a fact.
 
-## The price of the pre-push verdict
-
-The hook's detekt step is not in the block below: it runs on the tree that is
-being pushed, in the developer's checkout, and its cost is what the push
-waits for. Measured on 2026-10-23 with the hook's own invocation
-(`./gw :shared:detekt :desktopApp:detekt --auto-correct --rerun`):
-
-| Path | Seconds | What ran |
-|---|---|---|
-| warm — the current worktree | 561 s | `:shared:detekt` 7 min 26 s, `:desktopApp:detekt` 1 min 51 s |
-| cold — a fresh worktree at the same sha | 565 s | `:shared:detekt` 8 min 20 s |
-
-Two readings, and one caveat:
-
-- **`:shared` is the whale.** 227 000 lines, 239 packages, 90 % of the verdict.
-  The other modules are seconds to two minutes.
-- **Warm is not warm.** The two paths cost the same, because `./gw` gives every
-  worktree a private `GRADLE_USER_HOME` and the configuration cache is cold in
-  a fresh worktree regardless. Judging in the current worktree saves the build
-  directory, not the analysis — the number of modules is the lever.
-- **Caveat:** the load average on this host was 34–50 (ten agent sessions
-  share the machine), so the absolute numbers are an upper bound. The ratio
-  between the paths is the fact.
-
-The verdict was narrowed to the modules the change can reach (ADR
-`2026-10-23-the-local-verdict-judges-what-the-change-reaches.md`), so the
-price now follows the change: one module for a narrow change, none for a
-change that moves neither Kotlin nor rules, and four for a change in
-`shared`. The local verdict is partial, and the hook says so.
+The price of the pre-push verdict is a second loop, and it is measured separately:
+the verdict runs on the tree that is being pushed, in the developer's checkout, and
+not in the loop above. `scripts/measure-verdict-cost.py` measures it and writes the
+record in `docs/testing/verdict-cost.json`; the last section of the generated block is
+rendered from that record and from nothing else. When the record is missing or stale,
+the section says so — a price published as current when it is not is worse than a
+price that is not published at all.
 
 <!-- BEGIN GENERATED: sgate gate-costs -->
 
@@ -136,4 +114,49 @@ The CI loop is the one that blocks merges, so it is priced too — 2026-10-21T13
 | changes | 6.0 s |
 | nightly-alert | — |
 | spec-create | — |
+
+### The price of the pre-push verdict
+
+Measured by `scripts/measure-verdict-cost.py`; the record is `docs/testing/verdict-cost.json` — recorded 2026-10-23, tree 5896686b.
+
+This record expires on 2026-11-22 — after that it is a history.
+
+Measured while the host was at load 34.0 on 16 CPUs — the cost of the verdict is a property of the verdict and the host together, and this is the host.
+
+| Phase | Cost | What ran |
+|---|---|---|
+| detekt | 5 min 07 s | the analysis the verdict waits for — `:shared:detekt`, read-only |
+| auto-correct | 7 min 03 s | the same run with `--auto-correct` — what the verdict deliberately does not do, because it reads the tree it judges |
+| digest | 1.0 s | the content digest the verdict computes before and after the analysis (`git ls-files` plus `git hash-object` over every Kotlin file) |
+| together | 11 min 43 s | `:shared:detekt` and `:desktopApp:detekt` judged in ONE Gradle invocation — whether judging several modules costs less than judging them one after the other |
+
+Correcting the tree costs 1 min 56 s on top of the read-only run — 38 % more than the analysis, and 27 % of the correcting run. The verdict reads the tree it judges and never corrects it, so the push waits for the analysis and not for the correction.
+
+Notes from the record:
+
+- `together`: the global `./gw` slots were already taken, so the two modules were serialised — parallelism was not available on this host
+- The measurement was taken in the development checkout, which is shared with ten agent sessions: the load average was 34–50, so the absolute numbers are an upper bound and the ratios between the phases are the fact.
+
+The command each phase ran is in the record:
+
+- `./gw :shared:detekt --rerun --continue --no-daemon --console=plain`
+- `./gw :shared:detekt --auto-correct --rerun --continue --no-daemon --console=plain`
+- `git ls-files -- *.kt *.kts`
+- `./gw :shared:detekt :desktopApp:detekt --parallel --rerun --continue --no-daemon --console=plain`
+
+The record's fields:
+
+- `measuredAt` — when the measurement was taken.
+- `status` — `fresh` or `stale`; a stale record says why in `staleReason`.
+- `expiresDays` — how long the record stays fresh before it must be re-measured.
+- `sha` — the tree the measurement was taken on.
+- `treeDigest` — the content digest of that tree; a tree that no longer has it makes the record stale.
+- `environment`, `host` — the machine and its load: a duration without them is not comparable with anything.
+- `phases` — what was measured: `name`, `what`, `command`, `durationMs`, `exitCode`, `note`.
+- `notes` — the observations a number cannot make.
+
+To measure it again:
+
+    python3 scripts/measure-verdict-cost.py             # measure and write the record
+    python3 scripts/measure-verdict-cost.py --refresh   # re-decide freshness only
 <!-- END GENERATED: sgate gate-costs -->

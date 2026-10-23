@@ -20,13 +20,16 @@ The tree is chosen like this:
   - a throwaway worktree at the pushed sha, otherwise. The hook already
     checks one out for the same sha and passes it as ``--fallback-tree``.
 
+The verdict READS the tree; it does not correct it.
+
 Two signals make the verdict red, and both are needed:
 
-  - the run's exit code — detekt's verdict on the findings it could not
-    correct;
-  - the content digest before and after the run — the findings it DID correct.
-    Auto-correct rewrites the file and reports success, so what it changed is
-    the only evidence that the tree held a violation.
+  - the run's exit code — detekt's verdict on the findings it reported;
+  - the content digest before and after the run — the evidence that the run
+    changed the tree it was judging. The verdict runs detekt read-only, so
+    this is a safety net rather than the usual case: it catches any task in
+    the invocation that writes to a source file (ADR
+    2026-10-23-the-verdict-reads-the-tree-it-does-not-correct-it.md).
 
 The digest is a hash over the content of every Kotlin file, not
 ``git status --porcelain``: a file that was already modified before the run
@@ -52,7 +55,7 @@ Usage:
 
 Exit codes:
     0 — the pushed tree is clean
-    1 — the pushed tree holds a violation, or detekt corrected one
+    1 — the pushed tree holds a violation, or the run changed the tree
     2 — the verdict could not be taken (no tree, no Gradle)
 """
 from __future__ import annotations
@@ -62,6 +65,7 @@ import importlib.util
 import json
 import os
 import pathlib
+import re
 import subprocess
 import sys
 
@@ -167,24 +171,51 @@ def changed_paths(tree: pathlib.Path, base: str, sha: str) -> list[str]:
     return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
 
-def default_base(tree: pathlib.Path) -> str | None:
+def default_base(tree: pathlib.Path, branch: str | None = None) -> str | None:
     """The ref the change is measured against when the push does not name one.
 
-    The trunk's remote-tracking ref, when this checkout knows it. It is the
-    right base for a branch that does not exist on the remote yet: the change
-    is the branch's diff against the trunk, and the modules to judge follow
-    from it. Without it the only safe reading of "what changed" is "everything",
-    and a one-line change would pay for eight detekt runs.
+    Three sources, in the order they are worth more:
+
+      1. the branch's own upstream — the branch it is a branch of. A branch
+         that targets a release line is measured against that line, not
+         against the trunk: measuring it against `main` would call every
+         change to the release line a change to the trunk, and judge the
+         modules the release line does not even have;
+      2. the trunk's remote-tracking ref (`origin/main`) — a branch that does
+         not exist on the remote yet is still a change *against the trunk*,
+         and measuring it against nothing would judge the whole repository —
+         every module, for a one-line change;
+      3. nothing — and then every module is judged, the safe direction.
     """
+    if branch:
+        upstream = _rev_parse(tree, f'{branch}@{{upstream}}')
+        if upstream:
+            return upstream
+    return DEFAULT_BASE if _rev_parse(tree, DEFAULT_BASE) else None
+
+
+def _rev_parse(tree: pathlib.Path, ref: str) -> str | None:
+    """The sha a ref points at, or None when the ref does not exist here."""
     result = subprocess.run(
-        ["git", "rev-parse", "--verify", "--quiet", DEFAULT_BASE],
+        ["git", "rev-parse", "--verify", "--quiet", ref],
         cwd=tree,
         env=tree_env(),
         capture_output=True,
         text=True,
         check=False,
     )
-    return DEFAULT_BASE if result.returncode == 0 else None
+    return result.stdout.strip() or None if result.returncode == 0 else None
+
+
+def module_of(task: str) -> str:
+    """The module a Gradle task belongs to.
+
+    `:shared:detekt` → `shared`; `:tools:unwritten-properties:test` →
+    `tools:unwritten-properties`. The module is a path in Gradle, so the name
+    can have more than one segment — taking the first one would say `tools`
+    and hide which module was meant.
+    """
+    return task[1:].rsplit(":", 1)[0] if task.startswith(":") else task
 
 
 def detekt_tasks_for_change(tree: pathlib.Path, base: str | None, sha: str) -> tuple[list[str], str]:
@@ -203,7 +234,7 @@ def detekt_tasks_for_change(tree: pathlib.Path, base: str | None, sha: str) -> t
     A range with no known base is judged in full: the safe direction.
     """
     graph = load_module_graph()
-    every = [f":{module}:detekt" for module in sorted(graph.TASKS)]
+    every = [f":{module}:detekt" for module in graph.TASKS.detekt_modules()]
 
     if base is None:
         return every, "the pushed range has no known base — every module is judged"
@@ -214,10 +245,26 @@ def detekt_tasks_for_change(tree: pathlib.Path, base: str | None, sha: str) -> t
         return every, f"{wide[0]} changed — the rules or the build moved, so every module is judged"
 
     tasks, _reasons = graph.plan(paths)
-    detekt = [task for task in tasks if task.endswith(":detekt")]
+    # The plan is the LOCAL plan: it names the gate scripts as well as the
+    # Gradle tasks, because a change to the gates is a change that has to be
+    # checked by the gates. The verdict is a Gradle verdict, so only the
+    # Gradle tasks are its business.
+    gradle_tasks = [task for task in tasks if task.startswith(":")]
+    detekt = [task for task in gradle_tasks if task.endswith(":detekt")]
     if not detekt:
+        if gradle_tasks:
+            # The change reaches a module that has no detekt task of its own:
+            # `:tools:unwritten-properties` applies the plain kotlin("jvm")
+            # plugin, so its verdict is its test suite. That is CI's to run —
+            # the local verdict is a detekt verdict, and it says so instead of
+            # claiming a clean tree it never measured.
+            modules = sorted({module_of(task) for task in gradle_tasks})
+            return [], (
+                f"the change reaches {', '.join(modules)}, whose verdict is its test suite — "
+                "no detekt task exists for it, so the local verdict does not judge it"
+            )
         return [], "this change moves no Kotlin and no rules — no detekt run is needed"
-    modules = sorted({task.split(":")[1] for task in detekt})
+    modules = sorted({module_of(task) for task in detekt})
     return detekt, f"the change reaches {', '.join(modules)}"
 
 
@@ -298,18 +345,69 @@ def kotlin_digest(tree: pathlib.Path) -> str:
     return hashed.stdout.strip()
 
 
-def run_task(tree: pathlib.Path, task: str, gradle_cmd: str, log: pathlib.Path) -> int:
-    """Run one detekt task in `tree`; return its exit code."""
+def run_tasks(
+    tree: pathlib.Path,
+    tasks: tuple[str, ...],
+    gradle_cmd: str,
+    log: pathlib.Path,
+) -> tuple[int, list[str]]:
+    """Run the detekt tasks in ONE Gradle invocation.
+
+    Returns the exit code and the tasks that failed.
+
+    One invocation, not one per task: the constraint that forced one Gradle
+    call per detekt task was `--auto-correct` reaching only the LAST task of
+    an invocation (ADR 2026-10-17). The verdict does not correct, so the
+    constraint is gone — and a single invocation pays the configuration phase
+    once instead of once per module, which is what a wide change costs.
+
+    The flag is NOT passed, and that is the point: the verdict reads the tree
+    it judges, so it cannot change the tree that is being pushed. Correction
+    is a separate step (`just detekt-fix`), and the verdict tells the user
+    about the findings instead of quietly repairing them.
+
+    `--rerun` forces re-analysis: without it Gradle is UP-TO-DATE and the
+    verdict would be about the previous run's inputs. `--rerun` re-runs
+    detekt alone and leaves its dependencies alone.
+
+    `--continue` runs every judged module even when an earlier one failed, so
+    the report names all the findings instead of the first one.
+    """
     log.parent.mkdir(parents=True, exist_ok=True)
     with log.open("w", encoding="utf-8") as out:
         result = subprocess.run(
-            [*gradle_cmd.split(), task, "--auto-correct", "--rerun", "--no-daemon", "--console=plain"],
+            [
+                *gradle_cmd.split(),
+                *tasks,
+                "--rerun",
+                "--continue",
+                "--no-daemon",
+                "--console=plain",
+            ],
             cwd=tree,
             stdout=out,
             stderr=subprocess.STDOUT,
             check=False,
         )
-    return result.returncode
+    return result.returncode, failed_tasks_in(log)
+
+
+#: Gradle's plain console prints a failed task as `> Task :module:detekt FAILED`.
+_FAILED_TASK = re.compile(r"^> Task (\S+) FAILED", re.MULTILINE)
+
+
+def failed_tasks_in(log: pathlib.Path) -> list[str]:
+    """The tasks the log says failed, in the order the log reports them."""
+    try:
+        text = log.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
+    seen: list[str] = []
+    for match in _FAILED_TASK.finditer(text):
+        task = match.group(1)
+        if task not in seen:
+            seen.append(task)
+    return seen
 
 
 def select_tree(repo: pathlib.Path, sha: str, fallback: pathlib.Path | None) -> tuple[pathlib.Path, str]:
@@ -340,13 +438,19 @@ def judge(
     before = kotlin_digest(tree) if tasks else ""
 
     failed: list[str] = []
-    for task in tasks:
-        rc = run_task(tree, task, gradle_cmd, log_dir / f"{task.strip(':').replace(':', '-')}-{sha[:8]}.log")
-        if rc != 0:
-            failed.append(task)
+    run_failed = False
+    if tasks:
+        log = log_dir / f"detekt-{sha[:8]}.log"
+        rc, failed = run_tasks(tree, tuple(tasks), gradle_cmd, log)
+        run_failed = rc != 0
+        if run_failed and not failed:
+            # The invocation failed without naming a task — a configuration
+            # failure, a broken build script. The verdict is red, and it says
+            # the run failed rather than naming a module that did not.
+            failed = ["<the detekt run itself>"]
 
     after = kotlin_digest(tree) if tasks else ""
-    corrected = bool(tasks) and before != after
+    mutated = bool(tasks) and before != after
 
     return {
         "sha": sha,
@@ -354,9 +458,10 @@ def judge(
         "tree_label": label,
         "tasks": list(tasks),
         "coverage_reason": reason,
+        "base": base,
         "failed_tasks": failed,
-        "corrected": corrected,
-        "clean": not failed and not corrected,
+        "mutated": mutated,
+        "clean": not run_failed and not mutated,
         "judged": bool(tasks),
         "log_dir": str(log_dir),
     }
@@ -382,6 +487,11 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="the ref the pushed range starts at; the change is measured against it",
     )
+    parser.add_argument(
+        "--branch",
+        default=None,
+        help="the branch being pushed — its upstream is the base when the push does not name one",
+    )
     parser.add_argument("--log-dir", default=None, help="where the detekt logs are written")
     parser.add_argument("--json", action="store_true", help="print the report as JSON")
     args = parser.parse_args(argv)
@@ -390,7 +500,7 @@ def main(argv: list[str] | None = None) -> int:
     fallback = pathlib.Path(args.fallback_tree).resolve() if args.fallback_tree else None
     log_dir = pathlib.Path(args.log_dir) if args.log_dir else pathlib.Path("/tmp/pre-push-verdict")
     tasks = tuple(t for t in args.tasks.split()) if args.tasks else None
-    base = args.base or default_base(repo)
+    base = args.base or default_base(repo, args.branch)
 
     try:
         report = judge(repo, args.sha, fallback, args.gradle_cmd, tasks, log_dir, base)
@@ -420,8 +530,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"   detekt verdict: nothing to judge — {report['coverage_reason']}")
     for task in report["failed_tasks"]:
         print(f"   detekt {task}: FAILED — see {report['log_dir']}")
-    if report["corrected"]:
-        print("   detekt corrected the tree that is being pushed:")
+    if report["mutated"]:
+        print("   the tree that is being pushed changed under the verdict run:")
         diff = subprocess.run(
             ["git", "--no-pager", "diff"],
             cwd=report["tree"],

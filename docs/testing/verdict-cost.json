@@ -1,0 +1,58 @@
+{
+  "environment": {
+    "cpus": 16,
+    "javaHome": "/usr/lib/jvm/java-25-openjdk",
+    "os": "Linux",
+    "python": "3.14.8"
+  },
+  "expiresDays": 30,
+  "host": {
+    "cpus": 16,
+    "load1m": 34.0,
+    "load15m": 50.0
+  },
+  "measuredAt": "2026-10-23",
+  "notes": [
+    "The measurement was taken in the development checkout, which is shared with ten agent sessions: the load average was 34–50, so the absolute numbers are an upper bound and the ratios between the phases are the fact."
+  ],
+  "phases": [
+    {
+      "command": "./gw :shared:detekt --rerun --continue --no-daemon --console=plain",
+      "durationMs": 307000,
+      "exitCode": 0,
+      "name": "detekt",
+      "note": "",
+      "what": "the analysis the verdict waits for — `:shared:detekt`, read-only"
+    },
+    {
+      "command": "./gw :shared:detekt --auto-correct --rerun --continue --no-daemon --console=plain",
+      "durationMs": 423000,
+      "exitCode": 0,
+      "name": "auto-correct",
+      "note": "",
+      "what": "the same run with `--auto-correct` — what the verdict deliberately does not do, because it reads the tree it judges"
+    },
+    {
+      "command": "git ls-files -- *.kt *.kts",
+      "durationMs": 1000,
+      "exitCode": 0,
+      "name": "digest",
+      "note": "",
+      "what": "the content digest the verdict computes before and after the analysis (`git ls-files` plus `git hash-object` over every Kotlin file)"
+    },
+    {
+      "command": "./gw :shared:detekt :desktopApp:detekt --parallel --rerun --continue --no-daemon --console=plain",
+      "durationMs": 703000,
+      "exitCode": 0,
+      "name": "together",
+      "note": "the global `./gw` slots were already taken, so the two modules were serialised — parallelism was not available on this host",
+      "what": "`:shared:detekt` and `:desktopApp:detekt` judged in ONE Gradle invocation — whether judging several modules costs less than judging them one after the other"
+    }
+  ],
+  "schemaVersion": 1,
+  "sha": "5896686b8010b0ddf9942a8319e84ec23170f4de",
+  "staleReason": "",
+  "status": "fresh",
+  "treeDigest": "",
+  "verdict": {}
+}

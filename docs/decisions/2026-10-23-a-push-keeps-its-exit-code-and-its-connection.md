@@ -65,6 +65,38 @@ is installed once for the whole repository.
   is harmless everywhere, and `just setup-hooks` already writes the shared
   config (`core.hooksPath`), so it is written next to it — in one place, once.
 
+## The keepalive, measured
+
+The keepalive above was an estimate: the connection "is closed by GitHub
+after some minutes of idleness", so a keepalive "should" hold it. Measured on
+2026-10-23, on the real remote, with a 13-minute idle period (780 s) between
+the connection and the command that used it — twice, once with
+`ServerAliveInterval=30` and once without:
+
+| connection | result |
+|---|---|
+| plain `ssh` | exit 124 (the timeout fired), after 780 s of idle |
+| with `ServerAliveInterval=30` | exit 124 (the timeout fired), after 780 s of idle |
+
+**Both connections survived thirteen minutes of idleness.** The keepalive
+buys nothing at that interval, which means the 141 this ADR was written
+about is not a plain idle timeout: an idle SSH connection to GitHub was
+closed by neither side during the whole measurement.
+
+So the keepalive stays — it is one line, it is harmless, and it removes a
+class of failure whose cause was never established — but the ADR no longer
+claims a mechanism it did not measure. What the measurement rules out is the
+easy explanation ("GitHub closes idle connections after N minutes"): on this
+remote, it does not.
+
+The 141 that was measured had a different context, and it is now explained
+by [2026-10-23-the-shared-config-is-one-file-and-every-worktree-writes-to-it.md](2026-10-23-the-shared-config-is-one-file-and-every-worktree-writes-to-it.md):
+the `core.sshCommand` in the config at that moment was not the keepalive at
+all — it was `ssh -p 2222 -i /home/me/key`, a **test fixture** that a test
+had written into the shared config, pointing at a port and a key that do not
+exist. The connection was not closed by an idle timeout; it was never
+established.
+
 ## Consequences
 
 - `scripts/tests/test_setup_worktree.py` now holds the worktree script to what

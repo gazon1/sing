@@ -241,7 +241,20 @@ for i in "${!PUSH_REFS[@]}"; do
         tree="$REPO_ROOT"
     fi
 
-    if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE python3 "$REPO_ROOT/scripts/build-version-catalog-gate.py" --quiet .); then
+    # Every gate below runs with the exported GIT_* variables removed.
+    #
+    # Git exports GIT_DIR (and GIT_WORK_TREE, GIT_INDEX_FILE) to a hook, and a
+    # hook runs gates, tests and scripts that call git in ANOTHER tree. Without
+    # the removal, a `git config` in a test's temporary repository writes into
+    # the repository the hook runs in — and this checkout is shared by ~20
+    # worktrees, so the damage lands in the shared config: a replaced
+    # core.sshCommand, a lost core.hooksPath, a rewritten remote. Measured on
+    # 2026-10-23: one run of the test suite wrote four such values.
+    #
+    # GIT_OBJECT_DIRECTORY and GIT_QUARANTINE_PATH are deliberately NOT
+    # removed: they hold the objects of the commits being pushed, and the
+    # verdict below has to see them.
+    if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR python3 "$REPO_ROOT/scripts/build-version-catalog-gate.py" --quiet .); then
         echo "   version-catalog gate: OK"
     else
         echo "   version-catalog gate: FAILED"
@@ -253,7 +266,7 @@ for i in "${!PUSH_REFS[@]}"; do
 
     if [ ! -d "$tree/Maestro/flows" ]; then
         echo "   maestro selector gate: SKIPPED (this tree has no Maestro/flows)"
-    elif (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE python3 "$REPO_ROOT/scripts/ci/validate-maestro-selectors.py" Maestro/flows); then
+    elif (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR python3 "$REPO_ROOT/scripts/ci/validate-maestro-selectors.py" Maestro/flows); then
         echo "   maestro selector gate: OK"
     else
         echo "   maestro selector gate: FAILED"
@@ -273,7 +286,7 @@ for i in "${!PUSH_REFS[@]}"; do
     # CI runs it either way.
     if ! python3 -c "import click" >/dev/null 2>&1; then
         echo "   ui wait budgets gate: SKIPPED (click is not installed)"
-    elif (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE PYTHONPATH="$REPO_ROOT/scripts/src" \
+    elif (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR PYTHONPATH="$REPO_ROOT/scripts/src" \
         python3 "$REPO_ROOT/scripts/check-ui-wait-budgets.py" --root "$tree"); then
         echo "   ui wait budgets gate: OK"
     else
@@ -324,7 +337,7 @@ for i in "${!PUSH_REFS[@]}"; do
                 echo "   $rule gate: SKIPPED (the pushed tree does not have this rule)"
                 continue
             fi
-            if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE PYTHONPATH="$REPO_ROOT/scripts/src" \
+            if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR PYTHONPATH="$REPO_ROOT/scripts/src" \
                 python3 "$tree/scripts/$rule.py" --quiet); then
                 echo "   $rule gate: OK"
             else
@@ -349,7 +362,7 @@ for i in "${!PUSH_REFS[@]}"; do
     # CI job that runs them runs the pushed tree's copies.
     if [ ! -d "$tree/scripts/tests" ]; then
         echo "   gate suite tests: SKIPPED (the pushed tree does not have them)"
-    elif (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE PYTHONPATH="$tree/scripts/src" \
+    elif (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR PYTHONPATH="$tree/scripts/src" \
         python3 -m unittest discover -s scripts/tests >/dev/null 2>&1); then
         echo "   gate suite tests: OK"
     else
@@ -410,7 +423,7 @@ for i in "${!PUSH_REFS[@]}"; do
     PROMISE_OUT="$(mktemp "${TMPDIR:-/tmp}/pre-push-promise-XXXXXX")"
 
     if promise_touched "shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt$"; then
-        if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE PYTHONPATH="$tree/scripts/src" \
+        if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR PYTHONPATH="$tree/scripts/src" \
             python3 "$tree/scripts/check-test-tags-catalog.py" --check --quiet) \
             >"$PROMISE_OUT" 2>&1; then
             echo "   tag catalogue gate: OK"
@@ -425,7 +438,7 @@ for i in "${!PUSH_REFS[@]}"; do
     fi
 
     if promise_touched "Maestro/flows/" || promise_touched "config/docs/maestro-flows.txt$"; then
-        if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE PYTHONPATH="$tree/scripts/src" \
+        if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR PYTHONPATH="$tree/scripts/src" \
             python3 "$tree/scripts/check-maestro-flow-catalogue.py") \
             >"$PROMISE_OUT" 2>&1; then
             echo "   maestro flow catalogue gate: OK"
@@ -440,7 +453,7 @@ for i in "${!PUSH_REFS[@]}"; do
     fi
 
     if promise_touched "openspec/changes/"; then
-        if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE PYTHONPATH="$tree/scripts/src" \
+        if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR PYTHONPATH="$tree/scripts/src" \
             python3 "$tree/scripts/check-issue-registry.py" --quiet) \
             >"$PROMISE_OUT" 2>&1; then
             echo "   issue registry gate: OK"
@@ -465,7 +478,7 @@ for i in "${!PUSH_REFS[@]}"; do
     #
     # They are text gates, so they cost seconds. The check is against the tree
     # being pushed, like every other gate here.
-    if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE PYTHONPATH="$tree/scripts/src" \
+    if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR PYTHONPATH="$tree/scripts/src" \
         python3 "$tree/scripts/check-di-fixture-sync.py" --root "$tree" --check); then
         echo "   DI fixture gate: OK"
     else
@@ -476,7 +489,7 @@ for i in "${!PUSH_REFS[@]}"; do
         echo "Run python3 scripts/check-di-fixture-sync.py to see where, or push with --no-verify."
     fi
 
-    if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE PYTHONPATH="$tree/scripts/src" \
+    if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR PYTHONPATH="$tree/scripts/src" \
         python3 "$tree/scripts/check-navigation-doc-sync.py" --root "$tree" --check); then
         echo "   navigation doc gate: OK"
     else
@@ -515,17 +528,22 @@ echo ""
 # missed because the worktree happens to be clean.
 #
 # Two signals make the verdict red, and both are needed: the run's exit code
-# (findings detekt could not correct) and the content digest before and after
-# the run (findings it did correct — auto-correct rewrites the file and
-# reports success, so what it changed is the only evidence of a violation).
+# (the findings detekt reported) and the content digest before and after the
+# run (the evidence that the run changed the tree it was judging).
 #
-# `--auto-correct` works (ADR 2026-10-17-detekt-auto-correct-works-use-it.md):
-# one invocation per module (not a combined task list — the flag only reaches
-# the last task of an invocation).
+# The verdict READS the tree; it does not correct it (ADR
+# 2026-10-23-the-verdict-reads-the-tree-it-does-not-correct-it.md). The
+# correction is a separate step — `just detekt-fix` — and the verdict names the
+# findings instead of quietly repairing the tree that is about to be pushed.
 #
-# `--rerun` forces re-analysis: without it Gradle is UP-TO-DATE and corrects
-# nothing. `--rerun` re-runs the task it is given and leaves its dependencies
-# alone, which is what makes this step affordable.
+# All the judged modules cost ONE Gradle invocation: the configuration phase is
+# paid once, not once per module. (One invocation per module was needed while
+# the verdict corrected: `--auto-correct` reaches only the last task of an
+# invocation — ADR 2026-10-17.)
+#
+# `--rerun` forces re-analysis: without it Gradle is UP-TO-DATE and the verdict
+# would be about the previous run's inputs. `--rerun` re-runs detekt alone and
+# leaves its dependencies alone.
 #
 # `--rerun-tasks` was the flag here until 2026-10-20, and it is the reason the
 # hook cost 8-10 minutes instead of the two the comment above it claims:
@@ -586,11 +604,14 @@ for i in "${!PUSH_REFS[@]}"; do
 
     # The base of the pushed range: the tree the remote already holds. It is
     # what the change is measured against. A branch the remote does not have
-    # yet is measured against the trunk instead (the script's default).
+    # yet is measured against its own upstream, and only then against the
+    # trunk (the script's default) — so a branch that targets a release line
+    # is not measured against `main`.
     base=""
     if [ -n "$remote_sha" ] && [ "$remote_sha" != "$ZERO_SHA" ]; then
         base="$remote_sha"
     fi
+    local_branch="${local_ref#refs/heads/}"
 
     new_temp_root
     verdict_rc=0
@@ -601,12 +622,14 @@ for i in "${!PUSH_REFS[@]}"; do
             --repo "$REPO_ROOT" \
             --fallback-tree "$fallback" \
             --base "$base" \
+            --branch "$local_branch" \
             --log-dir "$TMP_ROOT/verdict")" || verdict_rc=$?
     else
         verdict_out="$(python3 "$REPO_ROOT/scripts/pre-push-verdict.py" \
             --sha "$local_sha" \
             --repo "$REPO_ROOT" \
             --fallback-tree "$fallback" \
+            --branch "$local_branch" \
             --log-dir "$TMP_ROOT/verdict")" || verdict_rc=$?
     fi
     printf '%s\n' "$verdict_out"
@@ -633,7 +656,8 @@ for i in "${!PUSH_REFS[@]}"; do
 
     echo ""
     echo "pre-push FAILED — detekt reported findings in the tree that is being pushed ($local_ref)."
-    echo "Fix them and push again (or push with --no-verify)."
+    echo "Fix them and push again: 'just detekt-fix' applies the corrections, then amend and push"
+    echo "(or push with --no-verify)."
 done
 
 if [ "$DETEKT_FAILED" = "1" ]; then
