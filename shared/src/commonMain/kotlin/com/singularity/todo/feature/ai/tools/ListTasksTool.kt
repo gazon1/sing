@@ -7,7 +7,7 @@ import com.singularity.todo.core.ai.ToolOutputJson
 import com.singularity.todo.core.ai.decodeTaskPageCursor
 import com.singularity.todo.core.ai.encode
 import com.singularity.todo.core.platform.TimeZoneProvider
-import com.singularity.todo.core.settings.SettingsRepository
+import com.singularity.todo.core.tasks.TasksSettingsRepository
 import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
 import com.singularity.todo.feature.tasks.domain.logic.TaskSelection
 import com.singularity.todo.feature.tasks.domain.logic.TaskSelectionRequest
@@ -76,7 +76,7 @@ class ListTasksTool(
     private val checklistRepository: ChecklistRepository,
     private val clock: Clock,
     private val timeZoneProvider: TimeZoneProvider,
-    private val settingsRepository: SettingsRepository,
+    private val tasksSettingsRepository: TasksSettingsRepository,
 ) : SimpleTool<ListTasksInput>(TypeToken.of(ListTasksInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: ListTasksInput): String {
@@ -89,7 +89,7 @@ class ListTasksTool(
 
         val all = taskRepository.observeByFilter(TaskSelectionResolver.baseFilter()).first()
         val context = TaskToolSupport.context(all, clock, timeZoneProvider.current())
-        val stalenessDays = settingsRepository.stalenessThresholdDays.first()
+        val stalenessDays = tasksSettingsRepository.stalenessThresholdDays.first()
 
         val selected = all
             .filter { TaskSelectionResolver.matches(request, it, context) }

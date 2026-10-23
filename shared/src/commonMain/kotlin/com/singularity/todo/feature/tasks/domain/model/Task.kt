@@ -95,6 +95,29 @@ sealed interface TaskFilter {
     data class ByDateBucket(val bucket: RelativeBucket, val today: kotlinx.datetime.LocalDate) : TaskFilter
 }
 
+/**
+ * The wire name of [Task.tags].
+ *
+ * The reader that checks whether a document carries the tags looks for this
+ * name, and the annotation that writes it says the same name. One fact, one
+ * place: a rename cannot leave the check behind.
+ */
+const val TAGS_WIRE_NAME = "tags"
+
+/**
+ * The wire name of [Task.blockedBy].
+ *
+ * The domain calls the field `blockedBy` — it holds the edges that block the
+ * task — and the wire calls it `dependsOn`, because the field was already in
+ * the sync allow-list and in every backup ever written under that name. The
+ * two are one fact, so the name lives in one place: the annotation that writes
+ * it and the reader that looks for it both say this constant.
+ *
+ * A rename of a wire field is a change of the protocol, and it is made here,
+ * on purpose, rather than drifting apart between two files.
+ */
+const val BLOCKED_BY_WIRE_NAME = "dependsOn"
+
 @Serializable
 data class Task(
     val id: TaskId,
@@ -104,6 +127,7 @@ data class Task(
     val kind: TaskKind = TaskKind.Task,
     val projectId: ProjectId? = null,
     val parentTaskId: TaskId? = null,
+    @SerialName(TAGS_WIRE_NAME)
     val tags: List<TagId> = emptyList(),
     val dueDate: kotlinx.datetime.LocalDate? = null,
     val dueTime: kotlinx.datetime.LocalTime? = null, // "HH:mm:ss" via LocalTimeConverters / LocalTimeSerializer
@@ -158,7 +182,7 @@ data class Task(
      * @see 2026-09-18-task-dependencies
      * @see 2026-10-21-blocked-completion-guard
      */
-    @SerialName("dependsOn")
+    @SerialName(BLOCKED_BY_WIRE_NAME)
     val blockedBy: Set<TaskId> = emptySet(),
     /**
      * Tag IDs that the AI has suggested removing, and which the user has suppressed.

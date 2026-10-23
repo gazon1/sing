@@ -23,9 +23,11 @@ import com.singularity.todo.feature.tasks.domain.logic.TaskSeriesInvariants
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskDocument
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
+import com.singularity.todo.feature.tasks.domain.model.TaskSharedField
 import com.singularity.todo.feature.tasks.blockingDependencyIdsForUser
 import com.singularity.todo.feature.tasks.withExtras
 import com.singularity.todo.feature.tasks.domain.port.DependencyValidator
@@ -40,6 +42,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.serialization.builtins.SetSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlin.time.Clock
+import co.touchlab.kermit.Logger
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.database.UnitOfWork
 
@@ -52,6 +55,7 @@ class TaskRepositoryImpl(
     private val syncRepository: SyncRepository,
     private val unitOfWork: UnitOfWork,
     private val dependencyValidator: DependencyValidator,
+    private val log: Logger = Logger.withTag("TaskRepository"),
 ) : TaskRepository {
 
     // ── Helpers ────────────────────────────────────────────────────────────────
@@ -249,7 +253,7 @@ class TaskRepositoryImpl(
                 "A series write carries more than one series id: ${tasks.map { it.seriesId }}"
             }
             val aligned = TaskSeriesInvariants.alignedIfOneSeries(tasks)
-            aligned.map { item ->
+            val written = aligned.map { item ->
                 currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
                 // The same guard the single-row update has: an upsert onto a missing
                 // row would create it, and a series edit must never invent a member.
@@ -263,10 +267,23 @@ class TaskRepositoryImpl(
                 // the tags in the task but not in the database would leave the
                 // series saying two different things about the work — and the merge
                 // of two series is exactly the write that changes them.
-                writeTags(toUpdate, currentUid.value)
+                writeTags(toUpdate.id, toUpdate.tags, currentUid.value)
                 syncRepository.enqueue(toUpdate)
                 toUpdate
             }
+            // The batch is a series write, and a series write repairs the series:
+            // the members that were not in the batch follow the ones that were.
+            // The single-row update does the same, and the asymmetry was the
+            // kind of thing that reads as harmless until a partial batch left
+            // the series saying two things about the work.
+            //
+            // The batch has a claim about the tags: it wrote them a moment ago,
+            // and the repair propagates what the batch wrote. The claim is the
+            // one the caller gave the batch — a batch built from a task read
+            // through `get()` carries no tags, and writing that emptiness is
+            // the caller's mistake, the same one the single-row write refuses.
+            aligned.firstOrNull()?.let { source -> realignSeries(source, tagsClaimed = true) }
+            written
         }
     }
 
@@ -282,8 +299,15 @@ class TaskRepositoryImpl(
      *
      * Only the rows that actually differ are written, so changing an occurrence — a
      * date, a completion — does not rewrite the whole series for nothing.
+     *
+     * @param tagsClaimed whether the writer had a claim about the tags. A writer
+     *   that did not — a document that carries no `tags` key — says nothing about
+     *   the tags of the other members either, so the repair leaves them alone.
+     *   Without this, the arrival of a row with no tags claim would take the tags
+     *   off every other member of its series: the absence of a claim about a row
+     *   that is new here would read as "the work has no tags".
      */
-    private suspend fun realignSeries(source: Task) {
+    private suspend fun realignSeries(source: Task, tagsClaimed: Boolean = true) {
         val seriesId = source.seriesId ?: return
         // The rows that are realigned are the current profile's rows: a series is
         // one account's work, and this device does not rewrite another account's
@@ -314,10 +338,18 @@ class TaskRepositoryImpl(
         // invariants object decides *what the series says* — including which
         // fields are shared, so a field added to the enumeration is covered here
         // by construction.
+        //
+        // A writer with no claim about the tags repairs the other fields only:
+        // the tags of the members are not the source's to give away.
+        val fields: Collection<TaskSharedField> = if (tagsClaimed) {
+            TaskSharedField.entries
+        } else {
+            TaskSharedField.entries - TaskSharedField.Tags
+        }
         val memberTasks = members.map { member ->
             member.toTask(tags = tagRefs[member.id].orEmpty().toList())
         }
-        val realigned = TaskSeriesInvariants.membersToRealign(memberTasks, sourceTask)
+        val realigned = TaskSeriesInvariants.membersToRealign(memberTasks, sourceTask, fields)
         if (realigned.isEmpty()) return
 
         // The rows and the patches that describe them commit together. A row that
@@ -344,7 +376,7 @@ class TaskRepositoryImpl(
                 taskDao.upsert(stamped.toEntity(outgoingLinks = linksJsonOf(source.description)))
                 saveOutgoingLinks(member.id, source.description, repairedAt.toEpochMilliseconds())
                 val memberTags = tagRefs[memberId].orEmpty()
-                if (memberTags != sourceTags) {
+                if (tagsClaimed && memberTags != sourceTags) {
                     memberTags.forEach { tagId -> taskDao.removeTagRefForUser(memberId, tagId.value, uid) }
                     sourceTags.forEach { tagId -> taskDao.upsertTagCrossRefForUser(memberId, tagId.value, uid) }
                 }
@@ -361,12 +393,12 @@ class TaskRepositoryImpl(
      * about the work than the task does — and for a series that is the divergence
      * this whole feature exists to prevent.
      */
-    private suspend fun writeTags(task: Task, uid: String) {
-        val existing = taskDao.getTagIdsForUser(task.id.value, uid).first().toSet()
-        val wanted = task.tags.map { it.value }.toSet()
+    private suspend fun writeTags(id: TaskId, tags: List<TagId>, uid: String) {
+        val existing = taskDao.getTagIdsForUser(id.value, uid).first().toSet()
+        val wanted = tags.map { it.value }.toSet()
         if (existing == wanted) return
-        existing.forEach { tagId -> taskDao.removeTagRefForUser(task.id.value, tagId, uid) }
-        wanted.forEach { tagId -> taskDao.upsertTagCrossRefForUser(task.id.value, tagId, uid) }
+        existing.forEach { tagId -> taskDao.removeTagRefForUser(id.value, tagId, uid) }
+        wanted.forEach { tagId -> taskDao.upsertTagCrossRefForUser(id.value, tagId, uid) }
     }
 
     override fun observeSeries(seriesId: TaskSeriesId): Flow<List<Task>> =
@@ -473,7 +505,8 @@ class TaskRepositoryImpl(
 
     // ── Remote apply (pull handler) ────────────────────────────────────────────
 
-    override suspend fun upsert(task: Task): Task {
+    override suspend fun upsert(document: TaskDocument): Task {
+        val task = document.task
         // One unit of work: the document that arrives either lands whole or does
         // not land at all. A pull that wrote the row and then lost the tags
         // would leave the series saying two things about the work — the very
@@ -482,14 +515,19 @@ class TaskRepositoryImpl(
             if (task.userId == currentUser.scopedUserId.value) {
                 // The row that arrived.
                 taskDao.upsert(task.toEntity())
-                // The parts of the document that are not the row.
-                writeTaskParts(task)
+                // The parts of the document that are not the row — and only the
+                // parts the document speaks about.
+                writeTaskParts(task, document)
                 // A row that arrives from another device is the newest word about the work:
                 // the device that wrote it had already made the whole series say the same
                 // thing. So the local series follows it, and the rows that changed are pushed
                 // back — otherwise the two devices keep saying different things about one
                 // piece of work, and the series is a name for nothing.
-                realignSeries(task)
+                //
+                // The tags are the exception when the document says nothing about them:
+                // the arrival of a row with no claim about the tags says nothing about
+                // the tags of the other members either, so the repair leaves them be.
+                realignSeries(task, tagsClaimed = document.tags != null)
             } else {
                 // A row of another account — the lost-race path writes the row's own
                 // shadow — is that account's business: this device stores it and does
@@ -521,10 +559,15 @@ class TaskRepositoryImpl(
      * The path that applies a document applies all of it: the row, and these
      * parts, in one unit of work. The paths that apply *part* of a document —
      * an edit that changes the title — are a different thing, and they say so.
+     *
+     * And the parts the document does not speak about are not touched at all:
+     * a device that sends no `tags` key says nothing about the tags, and
+     * nothing is a claim that there are none.
      */
-    private suspend fun writeTaskParts(task: Task) {
+    private suspend fun writeTaskParts(task: Task, document: TaskDocument) {
         val uid = currentUser.scopedUserId.value.value
-        writeTags(task, uid)
+        // The tags: only when the document says something about them.
+        document.tags?.let { tags -> writeTags(task.id, tags, uid) }
         // The links are derived from the description: a document that carries a
         // description carries the links that description implies.
         //
@@ -534,11 +577,12 @@ class TaskRepositoryImpl(
         // document that says otherwise — and the next push would carry that
         // time to the other devices.
         saveOutgoingLinks(task.id, task.description, task.updatedAt.toEpochMillis())
-        writeBlockingDependencies(task, uid)
+        // The dependencies: only when the document says something about them.
+        document.blockedBy?.let { deps -> writeBlockingDependencies(task.id, deps, uid) }
     }
 
     /**
-     * Replaces the blocking edges of [task] with the ones the document carries.
+     * Replaces the blocking edges of [id] with the ones the document carries.
      *
      * Only the `BLOCKS` edges are touched: they are the ones the wire carries
      * (`dependsOn`), and the other verbs — a task that follows up another, one
@@ -546,25 +590,40 @@ class TaskRepositoryImpl(
      * with the document's edges would delete what the document never spoke
      * about.
      *
+     * A pair may carry several relations: the verbs are different claims about
+     * the same pair, and the document speaks about the blocking one only. The
+     * other relation of the pair stays, and the blocking edge is added beside
+     * it.
+     *
      * An edge that would close a cycle is refused on its own, and the rest of
      * the document still applies. The local graph stays acyclic — the code that
      * walks it assumes that — while a remote document that says something the
-     * local graph cannot hold does not stop the row from landing.
+     * local graph cannot hold does not stop the row from landing. The refusal
+     * is logged: a device that refuses an edge silently disagrees with the
+     * device that sent it, and the disagreement is invisible until somebody
+     * looks for it.
      */
-    private suspend fun writeBlockingDependencies(task: Task, uid: String) {
-        val desired = task.blockedBy.map { it.value }.toSet()
-        val existing = taskDao.getBlockingEdgeIdsForUser(task.id.value, uid, DependencyVerb.BLOCKS.name)
+    private suspend fun writeBlockingDependencies(id: TaskId, blockedBy: Set<TaskId>, uid: String) {
+        val desired = blockedBy.map { it.value }.toSet()
+        val existing = taskDao.getBlockingEdgeIdsForUser(id.value, uid, DependencyVerb.BLOCKS.name)
             .first()
             .toSet()
         (existing - desired).forEach { depId ->
-            taskDao.removeDependencyForVerb(task.id.value, depId, DependencyVerb.BLOCKS.name, uid)
+            taskDao.removeDependencyForVerb(id.value, depId, DependencyVerb.BLOCKS.name, uid)
         }
         (desired - existing).forEach { depId ->
             val closesCycle = dependencyValidator
-                .assertNoCycles(task.id, setOf(TaskId.fromString(depId)))
+                .assertNoCycles(id, setOf(TaskId.fromString(depId)))
                 .isFailure
-            if (closesCycle) return@forEach
-            taskDao.upsertDependencyForUser(task.id.value, depId, DependencyVerb.BLOCKS.name, uid)
+            if (closesCycle) {
+                log.w {
+                    "The task ${id.value} of the profile $uid was not made to wait for " +
+                        "$depId: the ${DependencyVerb.BLOCKS.name} edge would close a cycle in " +
+                        "the local graph. The row and the rest of the document were applied."
+                }
+                return@forEach
+            }
+            taskDao.upsertDependencyForUser(id.value, depId, DependencyVerb.BLOCKS.name, uid)
         }
     }
 

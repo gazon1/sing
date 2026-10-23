@@ -96,6 +96,7 @@ import com.singularity.todo.feature.tasks.domain.TaskDomain
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskDocument
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
@@ -819,7 +820,21 @@ open class FakeTaskRepository(
         }
     }
 
-    override suspend fun upsert(task: Task): Task {
+    /**
+     * Applies a document the way the production repository applies it.
+     *
+     * A document says what it carries: the parts it does not speak about are
+     * left alone. The fake used to store the whole task, which turned an
+     * absent claim into a deletion — the very defect the document type was
+     * introduced to remove — and a test written against the fake would have
+     * failed against the fake and passed against production.
+     */
+    override suspend fun upsert(document: TaskDocument): Task {
+        val stored = store[document.task.id.value]
+        val task = document.task.copy(
+            tags = document.tags ?: stored?.tags.orEmpty(),
+            blockedBy = document.blockedBy ?: stored?.blockedBy.orEmpty(),
+        )
         store.upsert(task)
         return task
     }

@@ -589,7 +589,13 @@ jobs:
           mcp=0
           python3 scripts/check-test-runs.py --require shared:jvmTest,desktopApp:test --since "$RUN_STARTED" --gradle-log build.log || jvm=$?
           python3 scripts/check-test-runs.py --require shared:testAndroidHostTest --since "$RUN_STARTED" --gradle-log build.log || host=$?
-          python3 scripts/check-test-runs.py --require mcp-server:test --since "$RUN_STARTED" --gradle-log build.log || mcp=$?
+          # The mcp-server module keeps ONE test: the end-to-end one, which spawns the
+          # jar. It is slow, so the fast population has nothing to run in that module —
+          # and "nothing ran" is not a failure of a source set that has nothing to run
+          # in this population. The floor is therefore compared where the test runs.
+          if [ "$TEST_POPULATION" = "full" ]; then
+            python3 scripts/check-test-runs.py --require mcp-server:test --since "$RUN_STARTED" --gradle-log build.log || mcp=$?
+          fi
           echo "test-run verdicts — jvm/desktop: $jvm, android-host: $host, mcp-server: $mcp"
           failed=0
           missing=0

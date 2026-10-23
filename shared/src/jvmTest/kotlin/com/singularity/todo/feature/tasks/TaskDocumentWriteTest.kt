@@ -2,6 +2,10 @@
 
 package com.singularity.todo.feature.tasks
 
+import co.touchlab.kermit.LogWriter
+import co.touchlab.kermit.Logger
+import co.touchlab.kermit.Severity
+import co.touchlab.kermit.loggerConfigInit
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
@@ -15,7 +19,9 @@ import com.singularity.todo.feature.tasks.data.parseLinksJson
 import com.singularity.todo.feature.tasks.domain.logic.DependencyValidatorImpl
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskDocument
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
@@ -37,7 +43,7 @@ import kotlin.test.assertTrue
 
 /**
  * A task document is more than a row, and every path that applies one has to
- * apply all of it.
+ * apply all of it — and only the parts it speaks about.
  *
  * ## Why a real database
  *
@@ -51,9 +57,14 @@ import kotlin.test.assertTrue
  * ## The rule
  *
  * A document that arrives from another device is applied whole: the row, the
- * tags, the links its description implies, and the blocking dependencies it
- * carries. The paths that apply *part* of a document — an edit that changes
- * the title — are a different thing, and the tags are one of those parts.
+ * links its description implies, and the parts it carries — the tags, the
+ * blocking dependencies. The paths that apply *part* of a document — an edit
+ * that changes the title — are a different thing, and the tags are one of
+ * those parts.
+ *
+ * And a part the document does not carry is not an empty part. It is the
+ * absence of a claim: a device that sends no `tags` key says nothing about the
+ * tags, and a claim that is not made is not a deletion.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("slow")
@@ -79,6 +90,9 @@ class TaskDocumentWriteTest {
         if (tempDirLazy.isInitialized()) tempDir.deleteRecursively()
     }
 
+    /** The log the repository writes to, and the test reads. */
+    private val logWriter = CapturingLogWriter()
+
     private fun repo(userId: UserId = alice): TaskRepository {
         val auth = FakeAuthRepository(Session.Anonymous(userId))
         val currentUser = FakeProfileAwareCurrentUser(auth)
@@ -90,7 +104,27 @@ class TaskDocumentWriteTest {
             syncRepository = FakeSyncRepository(),
             dependencyValidator = DependencyValidatorImpl(db.taskDao(), currentUser),
             unitOfWork = FakeUnitOfWork(),
+            log = Logger(loggerConfigInit(logWriter), "task-document-test"),
         )
+    }
+
+    /**
+     * The log the test reads.
+     *
+     * A refusal that nobody can see is a device that disagrees with the device
+     * that sent the document — and the disagreement repeats on every pull. The
+     * repository takes its logger as a parameter for exactly this reason.
+     */
+    private class CapturingLogWriter : LogWriter() {
+        /** One captured log entry. */
+        data class Entry(val severity: Severity, val message: String, val tag: String)
+
+        /** Everything the repository logged, in order. */
+        val entries: MutableList<Entry> = mutableListOf()
+
+        override fun log(severity: Severity, message: String, tag: String, throwable: Throwable?) {
+            entries += Entry(severity, message, tag)
+        }
     }
 
     private fun task(
@@ -102,6 +136,7 @@ class TaskDocumentWriteTest {
         blockedBy: Set<TaskId> = emptySet(),
         dueDate: LocalDate? = LocalDate(2026, 10, 5),
         updatedAt: Instant = Clock.System.now(),
+        seriesId: TaskSeriesId? = null,
     ) = Task(
         id = TaskId(id),
         title = title,
@@ -112,6 +147,7 @@ class TaskDocumentWriteTest {
         dueDate = dueDate,
         createdAt = updatedAt,
         updatedAt = updatedAt,
+        seriesId = seriesId,
     )
 
     private suspend fun linksOf(taskId: String, uid: UserId = alice): String? =
@@ -129,7 +165,13 @@ class TaskDocumentWriteTest {
         repo.create(task("t1")).getOrThrow()
         advanceUntilIdle()
 
-        repo.upsert(repo.get(TaskId("t1"))!!.copy(tags = listOf(TagId("tag-1"))))
+        repo.upsert(
+            TaskDocument(
+                task = repo.get(TaskId("t1"))!!,
+                tags = listOf(TagId("tag-1")),
+                blockedBy = null,
+            ),
+        )
         advanceUntilIdle()
 
         assertEquals(
@@ -147,13 +189,108 @@ class TaskDocumentWriteTest {
 
         // The document that arrives carries no tag: the tags of the task are the
         // tags of the document, so the tag the document dropped is gone.
-        repo.upsert(repo.get(TaskId("t1"))!!)
+        repo.upsert(
+            TaskDocument(
+                task = repo.get(TaskId("t1"))!!,
+                tags = emptyList(),
+                blockedBy = null,
+            ),
+        )
         advanceUntilIdle()
 
         assertEquals(
             emptyList(),
             tagsOf("t1"),
             "the tag the document dropped is gone",
+        )
+    }
+
+    @Test
+    fun `a document that says nothing about the tags leaves them alone`() = runTest {
+        val repo = repo()
+        repo.create(task("t1", tags = listOf(TagId("tag-1")))).getOrThrow()
+        advanceUntilIdle()
+
+        // The document says nothing about the tags: a device that sends no
+        // `tags` key makes no claim, and a claim that is not made is not a
+        // deletion.
+        repo.upsert(
+            TaskDocument(
+                task = repo.get(TaskId("t1"))!!,
+                tags = null,
+                blockedBy = null,
+            ),
+        )
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf("tag-1"),
+            tagsOf("t1"),
+            "the tags of the task are still the tags of the task",
+        )
+    }
+
+    @Test
+    fun `a document that says nothing about the tags leaves the tags of the series alone`() = runTest {
+        val repo = repo()
+        val series = TaskSeriesId("s1")
+        repo.create(task("t1", seriesId = series, tags = listOf(TagId("tag-1")))).getOrThrow()
+        repo.create(task("t2", seriesId = series)).getOrThrow()
+        advanceUntilIdle()
+        val before = db.taskDao().getByIdForUser("t1", alice.value)?.updatedAt
+
+        // The document that arrives is about t2, and it says nothing about the
+        // tags. The repair of the series copies the source's shared fields onto
+        // the members — but the source has no claim about the tags, so the tags
+        // of t1 are not t2's to take away.
+        repo.upsert(
+            TaskDocument(
+                task = repo.get(TaskId("t2"))!!,
+                tags = null,
+                blockedBy = null,
+            ),
+        )
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf("tag-1"),
+            tagsOf("t1"),
+            "the tag of the other member of the series is still there",
+        )
+        // And the member was not touched at all: the repair compares the shared
+        // fields the writer had a claim about, so a member that differs only in
+        // the tags is not written. Without that, the row would be rewritten and
+        // re-stamped for a claim that was never made.
+        assertEquals(
+            before,
+            db.taskDao().getByIdForUser("t1", alice.value)?.updatedAt,
+            "the member of the series was not written",
+        )
+    }
+
+    @Test
+    fun `a document that says nothing about the dependencies leaves them alone`() = runTest {
+        val repo = repo()
+        repo.create(task("t1")).getOrThrow()
+        repo.create(task("t2")).getOrThrow()
+        repo.setDependencies(TaskId("t1"), setOf(TaskId("t2"))).getOrThrow()
+        advanceUntilIdle()
+
+        // The document says nothing about the dependencies: a device that sends
+        // no `dependsOn` key makes no claim, and the local edges stay.
+        repo.upsert(
+            TaskDocument(
+                task = repo.get(TaskId("t1"))!!,
+                tags = null,
+                blockedBy = null,
+            ),
+        )
+        advanceUntilIdle()
+
+        val edges = edgesOf("t1")
+        assertTrue(
+            edges.any { it.dependsOnTaskId == "t2" },
+            "the dependency the document said nothing about is still there: $edges",
         )
     }
 
@@ -166,7 +303,11 @@ class TaskDocumentWriteTest {
         // The links are derived from the description: a document that carries a
         // description carries the links that description implies.
         repo.upsert(
-            repo.get(TaskId("t1"))!!.copy(description = "the details are in task://t9"),
+            TaskDocument(
+                task = repo.get(TaskId("t1"))!!.copy(description = "the details are in task://t9"),
+                tags = null,
+                blockedBy = null,
+            ),
         )
         advanceUntilIdle()
 
@@ -185,7 +326,13 @@ class TaskDocumentWriteTest {
         repo.create(task("t2")).getOrThrow()
         advanceUntilIdle()
 
-        repo.upsert(repo.get(TaskId("t1"))!!.copy(blockedBy = setOf(TaskId("t2"))))
+        repo.upsert(
+            TaskDocument(
+                task = repo.get(TaskId("t1"))!!,
+                tags = null,
+                blockedBy = setOf(TaskId("t2")),
+            ),
+        )
         advanceUntilIdle()
 
         val edges = edgesOf("t1")
@@ -204,7 +351,13 @@ class TaskDocumentWriteTest {
         advanceUntilIdle()
 
         // The document that arrives says the task depends on nothing.
-        repo.upsert(repo.get(TaskId("t1"))!!.copy(blockedBy = emptySet()))
+        repo.upsert(
+            TaskDocument(
+                task = repo.get(TaskId("t1"))!!,
+                tags = null,
+                blockedBy = emptySet(),
+            ),
+        )
         advanceUntilIdle()
 
         val edges = edgesOf("t1")
@@ -229,13 +382,56 @@ class TaskDocumentWriteTest {
         )
         advanceUntilIdle()
 
-        repo.upsert(repo.get(TaskId("t1"))!!.copy(blockedBy = emptySet()))
+        repo.upsert(
+            TaskDocument(
+                task = repo.get(TaskId("t1"))!!,
+                tags = null,
+                blockedBy = emptySet(),
+            ),
+        )
         advanceUntilIdle()
 
         val edges = edgesOf("t1")
         assertTrue(
             edges.any { it.dependsOnTaskId == "t2" && it.verb == DependencyVerb.FOLLOWS_UP.name },
             "the edge the document never spoke about survives: $edges",
+        )
+    }
+
+    @Test
+    fun `a pair may carry two relations`() = runTest {
+        val repo = repo()
+        repo.create(task("t1")).getOrThrow()
+        repo.create(task("t2")).getOrThrow()
+        // The pair already carries one relation: a follow-up.
+        db.taskDao().upsertDependencyForUser(
+            taskId = "t1",
+            depId = "t2",
+            verb = DependencyVerb.FOLLOWS_UP.name,
+            userId = alice.value,
+        )
+        advanceUntilIdle()
+
+        // The document says the task waits for the other one. The two relations
+        // are different claims about the same pair, and the document speaks
+        // about the blocking one only — so the follow-up stays.
+        repo.upsert(
+            TaskDocument(
+                task = repo.get(TaskId("t1"))!!,
+                tags = null,
+                blockedBy = setOf(TaskId("t2")),
+            ),
+        )
+        advanceUntilIdle()
+
+        val edges = edgesOf("t1")
+        assertTrue(
+            edges.any { it.verb == DependencyVerb.FOLLOWS_UP.name },
+            "the relation the document never spoke about survives: $edges",
+        )
+        assertTrue(
+            edges.any { it.verb == DependencyVerb.BLOCKS.name },
+            "the relation the document carried is applied beside it: $edges",
         )
     }
 
@@ -272,8 +468,9 @@ class TaskDocumentWriteTest {
         advanceUntilIdle()
 
         repo.upsert(
-            repo.get(TaskId("t1"))!!.copy(
-                title = "Pay the rent in full",
+            TaskDocument(
+                task = repo.get(TaskId("t1"))!!.copy(title = "Pay the rent in full"),
+                tags = null,
                 blockedBy = setOf(TaskId("t2")),
             ),
         )
@@ -295,6 +492,38 @@ class TaskDocumentWriteTest {
     }
 
     @Test
+    fun `a refused edge is recorded`() = runTest {
+        val repo = repo()
+        repo.create(task("t1")).getOrThrow()
+        repo.create(task("t2")).getOrThrow()
+        repo.setDependencies(TaskId("t2"), setOf(TaskId("t1"))).getOrThrow()
+        advanceUntilIdle()
+
+        repo.upsert(
+            TaskDocument(
+                task = repo.get(TaskId("t1"))!!.copy(title = "Pay the rent in full"),
+                tags = null,
+                blockedBy = setOf(TaskId("t2")),
+            ),
+        )
+        advanceUntilIdle()
+
+        // The refusal is a disagreement between two devices about the shape of
+        // the work, and it repeats on every pull. A refusal nobody can see is
+        // a device that silently disagrees.
+        val refusals = logWriter.entries.filter { it.message.contains("wait for") }
+        assertEquals(
+            1,
+            refusals.size,
+            "the refusal of the edge is in the log: ${logWriter.entries.map { it.message }}",
+        )
+        assertTrue(
+            refusals.single().message.contains("t2"),
+            "the line names the task that was not made to wait: ${refusals.single().message}",
+        )
+    }
+
+    @Test
     fun `another profile's row keeps the links it carried`() = runTest {
         // The row of the other profile, with its links, already on this device.
         val bobRepo = repo(bob)
@@ -310,7 +539,13 @@ class TaskDocumentWriteTest {
         // This device pulls that row. It is not on that profile, so it stores the
         // row and leaves the parts of the document alone — and the links the row
         // carried are the ones it keeps.
-        repo().upsert(task("t9", uid = bob, description = "the details are in task://t1"))
+        repo().upsert(
+            TaskDocument(
+                task = task("t9", uid = bob, description = "the details are in task://t1"),
+                tags = null,
+                blockedBy = null,
+            ),
+        )
         advanceUntilIdle()
 
         assertEquals(
@@ -327,7 +562,13 @@ class TaskDocumentWriteTest {
         advanceUntilIdle()
         val before = linksOf("t1")
 
-        repo.upsert(task("t9", uid = bob, description = "the details are in task://t1"))
+        repo.upsert(
+            TaskDocument(
+                task = task("t9", uid = bob, description = "the details are in task://t1"),
+                tags = null,
+                blockedBy = null,
+            ),
+        )
         advanceUntilIdle()
 
         assertEquals(

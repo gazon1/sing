@@ -47,6 +47,35 @@ import com.singularity.todo.feature.ai.tools.WriteTaskProposalTool
 import kotlin.reflect.KClass
 
 /**
+ * How a tool writes.
+ *
+ * ## Why this is declared rather than inferred
+ *
+ * The application's promise is that a write to the user's data asks first. The promise is
+ * only as good as the exception list, and an exception list nobody can see is a belief.
+ * Declaring the behaviour per tool turns it into something the build checks: a tool added
+ * without choosing one does not compile.
+ *
+ * The three values, and what each one promises:
+ *
+ * - [READ_ONLY] — nothing changes.
+ * - [PROPOSAL_WRITE] — the user's data changes only after the user confirms a proposal.
+ * - [DIRECT_WRITE_EXCEPTION] — the tool writes immediately, and **must** say why it sits
+ *   outside the pipeline. A reason is not decoration: it is what makes the exception
+ *   reviewable by somebody reading the registry rather than the tool's code.
+ */
+enum class WriteBehavior {
+    /** Does not change state. */
+    READ_ONLY,
+
+    /** Changes the user's data by proposing first. */
+    PROPOSAL_WRITE,
+
+    /** Writes directly. Requires a stated reason. */
+    DIRECT_WRITE_EXCEPTION,
+}
+
+/**
  * Declarative registry of every MCP tool.
  *
  * Every tool that can be called by an MCP client is declared here with its
@@ -127,12 +156,19 @@ object McpToolCatalog {
      *                   declared.
      * @param domain     logical domain: "tasks", "projects", "notes", "tags", "adr".
      * @param annotations behaviour hints for the LLM.
+     * @param writeBehavior how this tool writes. **No default**: a tool added without
+     *   declaring it does not compile, and the exception is a red build rather than a
+     *   tool that quietly writes.
+     * @param exceptionReason why a direct write sits outside the proposal pipeline.
+     *   Required for [WriteBehavior.DIRECT_WRITE_EXCEPTION] and forbidden otherwise.
      */
     data class ToolEntry(
         val name: String,
         val toolClass: KClass<out Tool<*, *>>,
         val domain: String,
         val annotations: ToolAnnotations = ToolAnnotations(),
+        val writeBehavior: WriteBehavior,
+        val exceptionReason: String? = null,
     )
 
     /**
@@ -145,6 +181,7 @@ object McpToolCatalog {
         // ── Tasks ──────────────────────────────────────────────────────────────
         ToolEntry(
             name = "create_task",
+            writeBehavior = WriteBehavior.PROPOSAL_WRITE,
             toolClass = CreateTaskTool::class,
             domain = "tasks",
             // The tool proposes: two calls with the same input are two proposals,
@@ -153,54 +190,63 @@ object McpToolCatalog {
         ),
         ToolEntry(
             name = "update_task",
+            writeBehavior = WriteBehavior.PROPOSAL_WRITE,
             toolClass = UpdateTaskTool::class,
             domain = "tasks",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "delete_task",
+            writeBehavior = WriteBehavior.PROPOSAL_WRITE,
             toolClass = DeleteTaskTool::class,
             domain = "tasks",
             annotations = ToolAnnotations(destructiveHint = true),
         ),
         ToolEntry(
             name = "list_tasks",
+            writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = ListTasksTool::class,
             domain = "tasks",
             annotations = ToolAnnotations(readOnlyHint = true),
         ),
         ToolEntry(
             name = "get_task",
+            writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = GetTaskTool::class,
             domain = "tasks",
             annotations = ToolAnnotations(readOnlyHint = true),
         ),
         ToolEntry(
             name = "write_task_proposal",
+            writeBehavior = WriteBehavior.PROPOSAL_WRITE,
             toolClass = WriteTaskProposalTool::class,
             domain = "tasks",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "search_tasks",
+            writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = SearchTasksTool::class,
             domain = "tasks",
             annotations = ToolAnnotations(readOnlyHint = true),
         ),
         ToolEntry(
             name = "first_step",
+            writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = FirstStepTool::class,
             domain = "tasks",
             annotations = ToolAnnotations(readOnlyHint = true),
         ),
         ToolEntry(
             name = "decompose_and_create",
+            writeBehavior = WriteBehavior.PROPOSAL_WRITE,
             toolClass = DecomposeAndCreateTool::class,
             domain = "tasks",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "list_linked_tasks",
+            writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = ListLinkedTasksTool::class,
             domain = "tasks",
             annotations = ToolAnnotations(readOnlyHint = true),
@@ -209,6 +255,7 @@ object McpToolCatalog {
         // ── Projects ─────────────────────────────────────────────────────────
         ToolEntry(
             name = "create_project",
+            writeBehavior = WriteBehavior.PROPOSAL_WRITE,
             toolClass = CreateProjectTool::class,
             domain = "projects",
             // The tool proposes: two calls with the same input are two proposals.
@@ -216,6 +263,7 @@ object McpToolCatalog {
         ),
         ToolEntry(
             name = "update_project",
+            writeBehavior = WriteBehavior.PROPOSAL_WRITE,
             toolClass = UpdateProjectTool::class,
             domain = "projects",
             // The tool proposes: two calls with the same input are two proposals.
@@ -223,18 +271,21 @@ object McpToolCatalog {
         ),
         ToolEntry(
             name = "delete_project",
+            writeBehavior = WriteBehavior.PROPOSAL_WRITE,
             toolClass = DeleteProjectTool::class,
             domain = "projects",
             annotations = ToolAnnotations(destructiveHint = true),
         ),
         ToolEntry(
             name = "list_projects",
+            writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = ListProjectsTool::class,
             domain = "projects",
             annotations = ToolAnnotations(readOnlyHint = true),
         ),
         ToolEntry(
             name = "get_project",
+            writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = GetProjectTool::class,
             domain = "projects",
             annotations = ToolAnnotations(readOnlyHint = true),
@@ -243,6 +294,7 @@ object McpToolCatalog {
         // ── Notes ─────────────────────────────────────────────────────────────
         ToolEntry(
             name = "create_note",
+            writeBehavior = WriteBehavior.PROPOSAL_WRITE,
             toolClass = CreateNoteTool::class,
             domain = "notes",
             // The tool proposes: two calls with the same input are two proposals.
@@ -250,6 +302,7 @@ object McpToolCatalog {
         ),
         ToolEntry(
             name = "update_note",
+            writeBehavior = WriteBehavior.PROPOSAL_WRITE,
             toolClass = UpdateNoteTool::class,
             domain = "notes",
             // The tool proposes: two calls with the same input are two proposals.
@@ -257,12 +310,14 @@ object McpToolCatalog {
         ),
         ToolEntry(
             name = "delete_note",
+            writeBehavior = WriteBehavior.PROPOSAL_WRITE,
             toolClass = DeleteNoteTool::class,
             domain = "notes",
             annotations = ToolAnnotations(destructiveHint = true),
         ),
         ToolEntry(
             name = "get_note",
+            writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = GetNoteTool::class,
             domain = "notes",
             annotations = ToolAnnotations(readOnlyHint = true),
@@ -271,12 +326,15 @@ object McpToolCatalog {
         // ── Tags ─────────────────────────────────────────────────────────────
         ToolEntry(
             name = "create_tag",
+            writeBehavior = WriteBehavior.DIRECT_WRITE_EXCEPTION,
+            exceptionReason = "A tag is not user content — a proposal for one is noise the user learns to dismiss.",
             toolClass = CreateTagTool::class,
             domain = "tags",
             annotations = ToolAnnotations(idempotentHint = true),
         ),
         ToolEntry(
             name = "delete_tag",
+            writeBehavior = WriteBehavior.PROPOSAL_WRITE,
             toolClass = DeleteTagTool::class,
             domain = "tags",
             annotations = ToolAnnotations(destructiveHint = true),
@@ -285,36 +343,44 @@ object McpToolCatalog {
         // ── ADR ──────────────────────────────────────────────────────────────
         ToolEntry(
             name = "write_adr",
+            writeBehavior = WriteBehavior.DIRECT_WRITE_EXCEPTION,
+            exceptionReason = "Writes a decision file under the project's decisions directory, not user data.",
             toolClass = WriteAdrTool::class,
             domain = "adr",
             annotations = ToolAnnotations(openWorldHint = true),
         ),
         ToolEntry(
             name = "list_adrs",
+            writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = ListAdrsTool::class,
             domain = "adr",
             annotations = ToolAnnotations(readOnlyHint = true),
         ),
         ToolEntry(
             name = "update_adr",
+            writeBehavior = WriteBehavior.DIRECT_WRITE_EXCEPTION,
+            exceptionReason = "Writes a decision file under the project's decisions directory, not user data.",
             toolClass = UpdateAdrTool::class,
             domain = "adr",
             annotations = ToolAnnotations(openWorldHint = true),
         ),
         ToolEntry(
             name = "read_adr",
+            writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = ReadAdrTool::class,
             domain = "adr",
             annotations = ToolAnnotations(readOnlyHint = true),
         ),
         ToolEntry(
             name = "list_open_deferred",
+            writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = ListOpenDeferredTool::class,
             domain = "adr",
             annotations = ToolAnnotations(readOnlyHint = true),
         ),
         ToolEntry(
             name = "search_decisions",
+            writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = SearchDecisionsTool::class,
             domain = "adr",
             annotations = ToolAnnotations(readOnlyHint = true),
@@ -323,6 +389,7 @@ object McpToolCatalog {
         // ── Documents ───────────────────────────────────────────────────────
         ToolEntry(
             name = "search_docs",
+            writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = SearchDocsTool::class,
             domain = "docs",
             annotations = ToolAnnotations(readOnlyHint = true),
@@ -331,90 +398,105 @@ object McpToolCatalog {
         // ── AI Write Tools ──────────────────────────────────────────────────
         ToolEntry(
             name = "refine_task",
+            writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = RefineTaskTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "smart_rewrite",
+            writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = SmartRewriteTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "generate_description",
+            writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = GenerateDescriptionTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "decompose_task",
+            writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = DecomposeTaskTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "generate_checklist",
+            writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = GenerateChecklistTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "pick_time",
+            writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = PickTimeTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "cluster_tasks",
+            writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = ClusterTasksTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "cluster_notes",
+            writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = ClusterNotesTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "project_review",
+            writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = ProjectReviewTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "weekly_plan",
+            writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = WeeklyPlanTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "improve_note",
+            writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = ImproveNoteTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "summarize_note",
+            writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = SummarizeNoteTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "extract_actions",
+            writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = ExtractActionsTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "rewrite_note",
+            writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = RewriteNoteTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "suggest_tags",
+            writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = SuggestTagsTool::class,
             domain = "ai",
             annotations = ToolAnnotations(),

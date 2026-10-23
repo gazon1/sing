@@ -85,6 +85,18 @@ sealed interface AppDestination : AppNavKey {
     }
 
     /**
+     * The external agent — a third-party agent hosted inside the application.
+     *
+     * A sub-route rather than a menu entry: the agent is a process, and processes are
+     * a desktop thing. A menu entry would put it on the mobile menu sheet, where
+     * there is nothing behind it.
+     */
+    @Serializable
+    data object ExternalAgent : AppDestination {
+        override val title = "External Agent"
+    }
+
+    /**
      * The proposals waiting for a decision.
      *
      * A change the assistant proposed and the user has not seen yet. The screen lists
@@ -365,6 +377,7 @@ val AppDestination.icon: ImageVector
         AppDestination.AiChat -> Icons.Filled.AutoAwesome
         is AppDestination.AttachmentViewer -> Icons.Filled.AttachFile
         AppDestination.Search -> Icons.Filled.Search
+        AppDestination.ExternalAgent -> Icons.Filled.AutoAwesome
         AppDestination.Proposals -> Icons.Filled.FactCheck
         AppDestination.Archive -> Icons.Filled.Check
         AppDestination.Settings -> Icons.Filled.Settings

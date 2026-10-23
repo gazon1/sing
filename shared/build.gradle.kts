@@ -247,6 +247,25 @@ kotlin {
             // Desktop UI — LocalAwtWindow for AwtMenuBarInstaller.
             implementation(libs.compose.ui.desktop)
 
+            // Agent Client Protocol — the client half, used by the external-agent
+            // screen. JVM-only on purpose: the SDK needs JDK 21, and this project
+            // keeps the Android target at JVM_11 bytecode. Nothing in commonMain or
+            // androidMain may depend on it — the mobile build must not acquire this.
+            implementation(libs.acp)
+            implementation(libs.acp.model)
+
+            // The MCP tool server. It lives here rather than in the `:mcp-server`
+            // module because the desktop application hands an external agent its tool
+            // access by running *this* server in its own `--mcp-server` mode: the agent
+            // must reach the same tools the application documents, and two copies of
+            // the server would be two toolsets that drift apart.
+            //
+            // JVM-only, like the protocol library above: the MCP Kotlin SDK has no
+            // Android artifact, and the mobile build must not acquire it.
+            implementation(libs.kotlin.sdk)
+            implementation(libs.ktor.io.jvm)
+            implementation(libs.kotlinx.io.core.jvm)
+
             // Bundled SQLite — same driver as Android, no external native dep required.
             implementation(libs.androidx.sqlite.bundled)
 

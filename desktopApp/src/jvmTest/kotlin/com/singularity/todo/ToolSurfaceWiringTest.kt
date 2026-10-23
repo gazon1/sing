@@ -4,6 +4,7 @@ import ai.koog.agents.core.tools.Tool
 import com.singularity.todo.core.di.coreLoggingModule
 import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.feature.ai.McpToolCatalog
+import com.singularity.todo.feature.ai.WriteBehavior
 import com.singularity.todo.test.helpers.testPlatformModule
 import org.junit.jupiter.api.Tag
 import org.koin.dsl.koinApplication
@@ -88,6 +89,37 @@ class ToolSurfaceWiringTest {
                     "${tool.descriptor.name} has no description; the agent would be told nothing",
                 )
             }
+
+            // ─── How each tool writes ───────────────────────────────────────────
+            //
+            // The promise that a write to the user's data asks first is only as good as
+            // the exception list, and an exception list nobody can check is a belief. The
+            // checks below are what make it a fact: a tool with no declared behaviour
+            // cannot be added, and a direct write cannot be added without a reason.
+            for (entry in declared) {
+                when (entry.writeBehavior) {
+                    WriteBehavior.DIRECT_WRITE_EXCEPTION -> assertTrue(
+                        !entry.exceptionReason.isNullOrBlank(),
+                        "${entry.name} writes directly and says nothing about why it sits " +
+                            "outside the proposal pipeline; an exception without a reason is " +
+                            "not an exception, it is a hole",
+                    )
+
+                    else -> assertTrue(
+                        entry.exceptionReason == null,
+                        "${entry.name} is ${entry.writeBehavior} and still carries an " +
+                            "exception reason; a reason that does not apply is a reason " +
+                            "nobody will read",
+                    )
+                }
+            }
+
+            val directWrites = declared.filter { it.writeBehavior == WriteBehavior.DIRECT_WRITE_EXCEPTION }
+            assertTrue(
+                directWrites.isNotEmpty(),
+                "no tool writes directly; if that is true, the exception list should be empty " +
+                    "rather than the classification being absent",
+            )
         } finally {
             app.close()
         }

@@ -5,12 +5,16 @@ package com.singularity.todo.core.di
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.draft.UserScopedDraftStore
+import com.singularity.todo.core.settings.SettingsRepository
+import com.singularity.todo.core.tasks.FixedProfileTasksSettingsRepository
+import com.singularity.todo.core.tasks.TasksSettingsRepository
 import com.singularity.todo.feature.archive.ArchiveViewModel
 import com.singularity.todo.feature.archive.domain.port.ArchiveRepository
 import com.singularity.todo.feature.archive.data.TaskDaoArchiveRepositoryImpl
 import com.singularity.todo.feature.checklist.data.ChecklistRepositoryImpl
 import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.search.SearchUseCase
 import com.singularity.todo.feature.search.SearchViewModel
 import com.singularity.todo.feature.search.data.SavedSearchRepositoryImpl
@@ -53,6 +57,38 @@ import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoord
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
+
+/**
+ * The task settings the tools read.
+ *
+ * ## Why the tools do not ask for the whole settings repository
+ *
+ * The application's settings live in the same store as the active profile id. A
+ * process that was told which profile to serve — the tool server an external agent
+ * talks to — must not open that store: the application is holding it, and the point of
+ * the fixed profile is that this process does not go near the application's stored
+ * profile state.
+ *
+ * The tools need exactly one setting, and they ask for it through the narrow
+ * [TasksSettingsRepository] port. That port is what makes the isolation possible: a
+ * tool that asked for the whole settings repository would pull the store in with it,
+ * and the whole graph would open the file the application is holding.
+ *
+ * So the answer depends on the mode:
+ * - **the application** gets the real setting, read from the real store;
+ * - **a process told which profile to serve** gets the default, and opens nothing.
+ *
+ * @param fixedProfileId the profile this process works as, or null to use the stored one.
+ */
+fun tasksSettingsModule(fixedProfileId: ProfileId?): org.koin.core.module.Module = module {
+    single<TasksSettingsRepository> {
+        if (fixedProfileId != null) {
+            FixedProfileTasksSettingsRepository()
+        } else {
+            get<SettingsRepository>()
+        }
+    }
+}
 
 /**
  * Tasks feature DI: repositories, use cases, ViewModels.

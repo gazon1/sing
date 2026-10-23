@@ -279,6 +279,34 @@ non-alphanumeric characters with `_`.
 | `PROFILE_CREATE_NAME_INPUT` | `profile_create_name_input` | |
 | `PROFILE_ITEM_PREFIX` | `profile_item_` | |
 
+### AI
+| Constant | Value | Where |
+|---|---|---|
+| `ACP_AGENT_CHIP_PREFIX` | `acp_agent_chip_` | |
+| `ACP_AGENT_COMMAND` | `acp_agent_command` | |
+| `ACP_AGENT_LIST` | `acp_agent_list` | |
+| `ACP_BACK_BUTTON` | `acp_back_button` | |
+| `ACP_CANCEL_BUTTON` | `acp_cancel_button` | |
+| `ACP_CONNECTING` | `acp_connecting` | |
+| `ACP_CONNECTION_ERROR` | `acp_connection_error` | |
+| `ACP_CONNECTION_STATUS` | `acp_connection_status` | |
+| `ACP_CONNECT_BUTTON` | `acp_connect_button` | |
+| `ACP_DISCONNECT_BUTTON` | `acp_disconnect_button` | |
+| `ACP_MESSAGES` | `acp_messages` | |
+| `ACP_NOTIFICATION_HOST` | `acp_notification_host` | |
+| `ACP_NO_TOOL_ACCESS_WARNING` | `acp_no_tool_access_warning` | |
+| `ACP_PERMISSION_ALLOW` | `acp_permission_allow` | |
+| `ACP_PERMISSION_DENY` | `acp_permission_deny` | |
+| `ACP_PERMISSION_SHEET` | `acp_permission_sheet` | |
+| `ACP_SCREEN` | `acp_screen` | |
+| `ACP_TURN_CANCELLED` | `acp_turn_cancelled` | |
+| `ACP_TURN_FAILED` | `acp_turn_failed` | |
+| `AGENT_PLAN_CARD` | `agent_plan_card` | |
+| `AGENT_TOOL_CALL_CARD` | `agent_tool_call_card` | |
+| `AGENT_TOOL_CALL_STATUS` | `agent_tool_call_status` | |
+| `AGENT_TOOL_CALL_SUMMARY` | `agent_tool_call_summary` | |
+| `AGENT_TOOL_CALL_SUMMARY_TOGGLE` | `agent_tool_call_summary_toggle` | |
+
 ### Calendar
 | Constant | Value | Where |
 |---|---|---|
@@ -391,6 +419,7 @@ use the expanded string directly).
 | `Dialog.title("discard")` | `"discard"` | `dialog_title_discard` | Dialog title |
 | `taskAction("Archive")` | `"Archive"` | `task_action_archive` | Long-press action rows |
 | `profileItem("Personal")` | `"Personal"` | `profile_item_personal` | Profile list items |
+| `acpAgentChip("gemini-cli")` | `"gemini-cli"` | `acp_agent_chip_gemini_cli` | The chip that selects one agent of the registry |
 | `genUi("whatsnew")` | `"whatsnew"` | `genui_whatsnew` | GenUI surfaces |
 | `calendarViewMode("month")` | `"month"` | `calendar_view_mode_month` | Calendar view-mode tabs (month / day / 4_days) |
 | `CalendarSync.googleCalendarRow("primary-cal")` | `"primary-cal"` | `calendar_sync_google_calendar_primary_cal` | One row per writable Google calendar |

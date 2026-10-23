@@ -5,6 +5,7 @@ import com.singularity.todo.core.di.coreLoggingModule
 import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.tasks.domain.model.TaskDocument
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailExtras
@@ -104,10 +105,12 @@ class TaskDetailCoordinatorGraphTest {
         // dependence on real-thread scheduling.
         val userId = koin.get<ProfileAwareCurrentUser>().liveScopedUserId.first()
         koin.get<TaskRepository>().upsert(
-            testTask(
-                id = TaskId(id),
-                title = title,
-                userId = userId,
+            TaskDocument.of(
+                testTask(
+                    id = TaskId(id),
+                    title = title,
+                    userId = userId,
+                ),
             ),
         )
     }

@@ -4,7 +4,7 @@ import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
 import com.singularity.todo.core.ai.ToolOutputJson
 import com.singularity.todo.core.platform.TimeZoneProvider
-import com.singularity.todo.core.settings.SettingsRepository
+import com.singularity.todo.core.tasks.TasksSettingsRepository
 import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
 import com.singularity.todo.feature.tasks.domain.logic.TaskSelectionResolver
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
@@ -43,7 +43,7 @@ class GetTaskTool(
     private val checklistRepository: ChecklistRepository,
     private val clock: Clock,
     private val timeZoneProvider: TimeZoneProvider,
-    private val settingsRepository: SettingsRepository,
+    private val tasksSettingsRepository: TasksSettingsRepository,
 ) : SimpleTool<GetTaskInput>(TypeToken.of(GetTaskInput::class.java), NAME, DESCRIPTION) {
 
     override suspend fun execute(args: GetTaskInput): String {
@@ -54,7 +54,7 @@ class GetTaskTool(
             GetTaskOutput(found = false, reason = "There is no task with id \"${args.taskId}\".")
         } else {
             val context = TaskToolSupport.context(all, clock, timeZoneProvider.current())
-            val stalenessDays = settingsRepository.stalenessThresholdDays.first()
+            val stalenessDays = tasksSettingsRepository.stalenessThresholdDays.first()
             GetTaskOutput(
                 found = true,
                 task = TaskToolSupport.detail(task, all, context, stalenessDays, checklistRepository),

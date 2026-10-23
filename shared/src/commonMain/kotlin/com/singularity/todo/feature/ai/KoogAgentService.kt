@@ -15,6 +15,7 @@ import com.singularity.todo.core.observability.ToolCallRecorder
 import com.singularity.todo.core.observability.ToolCallSource
 import com.singularity.todo.core.config.RemoteConfigPort
 import com.singularity.todo.core.di.PromptExecutorPort
+import com.singularity.todo.core.llm.AgentEvent
 import com.singularity.todo.core.llm.OpenAiConfig
 import com.singularity.todo.core.security.ProfileAwareSecureStorage
 import com.singularity.todo.core.settings.SettingsRepository
@@ -142,17 +143,21 @@ class KoogAgentService(
     }
 
     /**
-     * Streams chat responses token-by-token, letting the model call tools along the way.
+     * Streams a chat response as it happens, letting the model call tools along the way.
      *
      * The model is offered the same tools the [AIAgent] behind [generate] is offered, and
      * the same ones the kill switch left standing. Without this, the chat screen answered
      * questions about the user's own data from the model's imagination, while the tools sat
      * there unused.
+     *
+     * The stream carries activity, not just text: the text as it arrives, the tool calls and
+     * their outcomes, and the end of the turn. A reader can watch what the agent did.
      */
-    override fun streamChat(message: String): Flow<String> = flow {
+    override fun streamChat(message: String): Flow<AgentEvent> = flow {
         val apiKey = requireApiKey()
         if (apiKey == null) {
-            emit("(AI unavailable: API key not configured. Set it in Settings > AI Provider.)")
+            emit(AgentEvent.TextDelta("(AI unavailable: API key not configured. Set it in Settings > AI Provider.)"))
+            emit(AgentEvent.TurnCompleted)
             return@flow
         }
 
@@ -170,7 +175,7 @@ class KoogAgentService(
             .run(p) { conversation, descriptors ->
                 streamingExecutor.executeStreaming(conversation, model, descriptors)
             }
-            .collect { chunk -> emit(chunk) }
+            .collect { event -> emit(event) }
     }
 
     override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> = runCatchingCancellable {

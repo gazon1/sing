@@ -100,19 +100,29 @@ object TaskSeriesInvariants {
      * The member that was written is not among them — it is the source. The
      * others are only written when they actually differ, so a change to an
      * occurrence does not rewrite the whole series for nothing.
+     *
+     * [fields] narrows what the repair compares and copies. It exists for the
+     * writer that has no claim about one of the shared fields: a document that
+     * says nothing about the tags cannot say that the tags of the other
+     * members are wrong, so the repair leaves them alone instead of taking
+     * them off.
      */
-    fun membersToRealign(members: List<Task>, source: Task): List<Task> {
+    fun membersToRealign(
+        members: List<Task>,
+        source: Task,
+        fields: Collection<TaskSharedField> = TaskSharedField.entries,
+    ): List<Task> {
         val shared = sharedFieldsOf(source)
         return members
             .filter { member -> member.id != source.id }
             .filter { member ->
-                TaskSharedField.entries.any { field ->
+                fields.any { field ->
                     valueOf(member, field) != shared.getValue(field)
                 }
             }
             .map { member ->
                 var aligned = member
-                for (field in TaskSharedField.entries) {
+                for (field in fields) {
                     aligned = aligned.withSharedField(field, shared.getValue(field))
                 }
                 aligned

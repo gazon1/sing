@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.ai.chat
 
+import com.singularity.todo.core.llm.AgentEvent
 import com.singularity.todo.core.observability.RoomUsageRecorder
 import com.singularity.todo.core.observability.ToolUsageEvent
 import com.singularity.todo.feature.ai.TextGenPort
@@ -62,7 +63,7 @@ class UsageRecordingTextGen(
         return result
     }
 
-    override fun streamChat(message: String): Flow<String> {
+    override fun streamChat(message: String): Flow<AgentEvent> {
         val start = clock.now()
         val outputBuilder = StringBuilder()
 
@@ -105,9 +106,12 @@ class UsageRecordingTextGen(
                 )
                 throw e
             }
-            .map { chunk ->
-                outputBuilder.append(chunk)
-                chunk
+            .map { event ->
+                // Only the text counts towards the response the model produced. The activity
+                // around it is not output, and counting a tool call as tokens would make the
+                // recorded usage depend on how chatty the tool names are.
+                if (event is AgentEvent.TextDelta) outputBuilder.append(event.text)
+                event
             }
     }
 

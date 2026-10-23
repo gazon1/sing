@@ -151,6 +151,8 @@ fun testPlatformModule(): Module = module {
     single(qualifier = named("state")) { testDataStore("state") }
     single(qualifier = named("settings")) { testDataStore("settings_legacy") }
     single<DataStore<Preferences>> { testDataStore("user_settings_primary") }
+    // The active profile's own file, as in platformModule().
+    single(qualifier = named("profile_state")) { testDataStore("profile_state") }
     // Google sync runs on desktop, and the coordinator resolves its settings from here.
     // Without it, a graph that resolves the coordinator throws instead of skipping a pass.
     single(qualifier = named("calendar_sync")) { testDataStore("calendar_sync") }

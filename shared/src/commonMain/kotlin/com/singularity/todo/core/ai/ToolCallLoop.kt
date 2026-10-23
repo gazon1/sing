@@ -10,6 +10,9 @@ import ai.koog.serialization.JSONSerializer
 import ai.koog.serialization.kotlinx.KotlinxSerializer
 import ai.koog.serialization.kotlinx.toKoogJSONObject
 import ai.koog.utils.time.KoogClock
+import com.singularity.todo.core.llm.AgentEvent
+import com.singularity.todo.core.llm.ToolCallStatus
+import com.singularity.todo.core.llm.toolCallSummary
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -57,8 +60,25 @@ import kotlinx.serialization.json.Json
  *
  * ## What is emitted
  *
- * Only the model's text, as it arrives. Tool calls and tool outcomes are the conversation's
- * business, not the reader's: the person asked a question and wants the answer.
+ * The model's text as it arrives, **and** what it did while producing it.
+ *
+ * This used to emit the text and nothing else, on the principle that tool calls and tool
+ * outcomes are the conversation's business, not the reader's: the person asked a question
+ * and wanted the answer. That principle was right when the chat answered questions. It
+ * stopped being right the moment a question could be about the user's own data, because
+ * then three questions had no answer on the screen — *what did you just do to my tasks?*,
+ * *that tool you called, did it work?*, and *you have been busy for two minutes, are you
+ * stuck?* A failed tool was invisible, and a cancelled turn left the spinner running.
+ *
+ * So the loop now emits [AgentEvent]s: the text as it arrives, a tool call before it runs
+ * and again after it finished, and the end of the turn. The reader sees the work; the model
+ * still sees exactly what it saw before.
+ *
+ * A failed tool is an **event**, not an exception. The loop already turned a tool failure
+ * into a result the model could read — throwing would end the conversation over one failed
+ * tool — and that same outcome now also becomes a visible `FAILED` status. The failure is
+ * reported twice, to two different audiences: to the model as a result it can act on, and
+ * to the reader as a card that says it failed.
  */
 internal class ToolCallLoop(
     /**
@@ -92,16 +112,34 @@ internal class ToolCallLoop(
     fun run(
         initialPrompt: Prompt,
         stream: (Prompt, List<ToolDescriptor>) -> Flow<StreamFrame>,
-    ): Flow<String> = flow {
+    ): Flow<AgentEvent> = flow {
         var current = initialPrompt
         var toolRounds = 0
 
         while (true) {
-            val outcome = streamRound(current, descriptors, "r$toolRounds", stream) { emit(it) }
+            val outcome = streamRound(current, descriptors, "r$toolRounds", stream) { emit(AgentEvent.TextDelta(it)) }
 
-            if (outcome.calls.isEmpty()) return@flow
+            if (outcome.calls.isEmpty()) {
+                emit(AgentEvent.TurnCompleted)
+                return@flow
+            }
 
-            val results = outcome.calls.map { execute(it) }
+            val results = outcome.calls.map { pending ->
+                val call = pending.call
+                // The call is announced before it runs, so a card appears while the tool is
+                // still working rather than after it has already finished.
+                emit(AgentEvent.ToolCallUpdated(pending.id, call.tool, ToolCallStatus.RUNNING))
+                val result = execute(call)
+                emit(
+                    AgentEvent.ToolCallUpdated(
+                        id = pending.id,
+                        name = call.tool,
+                        status = if (result.isError) ToolCallStatus.FAILED else ToolCallStatus.COMPLETED,
+                        summary = toolCallSummary(call.tool, call.argsJson.toString()),
+                    ),
+                )
+                result
+            }
             current = conversationWith(current, outcome, results)
             toolRounds++
 
@@ -109,7 +147,8 @@ internal class ToolCallLoop(
                 // The cap is reached. The calls of this round were honoured above; the model
                 // now gets one round with no tools, so it answers in words rather than asking
                 // again.
-                streamRound(current, emptyList(), "r${toolRounds + 1}", stream) { emit(it) }
+                streamRound(current, emptyList(), "r${toolRounds + 1}", stream) { emit(AgentEvent.TextDelta(it)) }
+                emit(AgentEvent.TurnCompleted)
                 return@flow
             }
         }
@@ -134,7 +173,7 @@ internal class ToolCallLoop(
         onText: suspend (String) -> Unit,
     ): RoundOutcome {
         val text = StringBuilder()
-        val calls = mutableListOf<MessagePart.Tool.Call>()
+        val calls = mutableListOf<PendingCall>()
         var callSeq = 0
 
         stream(current, descriptors).collect { frame ->
@@ -151,7 +190,10 @@ internal class ToolCallLoop(
                     // settled here, once, and used on both sides.
                     val id = frame.id ?: "${callPrefix}_call_$callSeq"
                     callSeq++
-                    calls += MessagePart.Tool.Call(id = id, tool = frame.name, args = frame.content)
+                    calls += PendingCall(
+                        id = id,
+                        call = MessagePart.Tool.Call(id = id, tool = frame.name, args = frame.content),
+                    )
                 }
 
                 else -> Unit
@@ -175,7 +217,7 @@ internal class ToolCallLoop(
         assistant(
             buildList {
                 if (outcome.text.isNotBlank()) add(MessagePart.Text(outcome.text))
-                addAll(outcome.calls)
+                addAll(outcome.calls.map { it.call })
             },
         )
         user { results.forEach { toolResult(it) } }
@@ -225,7 +267,16 @@ internal class ToolCallLoop(
         MessagePart.Tool.Result(call.id, call.tool, message, isError = true)
 
     /** What one round of the model produced. */
-    private data class RoundOutcome(val text: String, val calls: List<MessagePart.Tool.Call>)
+    private data class RoundOutcome(val text: String, val calls: List<PendingCall>)
+
+    /**
+     * A call the model asked for, with the identifier that names it everywhere.
+     *
+     * The identifier is settled once, when the call is made, and carried alongside the call
+     * rather than read back out of it: the call's own identifier is nullable, and a card
+     * needs a name that is stable from the moment the tool starts to the moment it finishes.
+     */
+    private data class PendingCall(val id: String, val call: MessagePart.Tool.Call)
 
     private companion object {
         /**

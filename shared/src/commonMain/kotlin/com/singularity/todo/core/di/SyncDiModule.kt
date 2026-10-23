@@ -31,6 +31,7 @@ import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.core.sync.SyncRepositoryImpl
 import com.singularity.todo.core.sync.SyncRpc
 import com.singularity.todo.core.sync.SyncRunner
+import com.singularity.todo.core.sync.SyncScopeProvider
 import com.singularity.todo.core.sync.SyncStateRepository
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
@@ -218,6 +219,12 @@ fun syncModule(): org.koin.core.module.Module = module {
     single { seedPlanner() }
 
     // ─── Sync ViewModel ─────────────────────────────────────────────────
+
+    // The sync scope is the one place that needs both the session and the
+    // profile, which is why it is bound here and not in coreModule(): sync
+    // state is keyed by (owner, profile), and neither half identifies a scope
+    // on its own.
+    single<SyncScopeProvider> { AuthProfileSyncScopeProvider(get(), get()) }
 
     // Named, not positional: every parameter below is a different type, and a positional
     // call silently reorders them the moment one moves.
