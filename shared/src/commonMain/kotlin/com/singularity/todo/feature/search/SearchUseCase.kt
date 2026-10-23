@@ -11,7 +11,7 @@ import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.search.query.Options
 import com.singularity.todo.feature.search.query.Query
 import com.singularity.todo.feature.search.query.ResolvedSearchQuery
-import com.singularity.todo.feature.search.query.SearchMode
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.feature.search.query.titleMatchesFirst
 import com.singularity.todo.feature.search.query.SearchQueryResolver
 import com.singularity.todo.feature.search.query.SingularityQueryParser

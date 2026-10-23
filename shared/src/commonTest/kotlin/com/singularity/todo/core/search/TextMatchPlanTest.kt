@@ -28,7 +28,7 @@ class TextMatchPlanTest {
             ),
         )
 
-        val plan = rule.plan()
+        val plan = rule.plan(SearchMode.Word)
 
         assertEquals(
             TextMatchPlan.Narrowed(TextMatchQuery(terms = listOf("arch", "report"))),
@@ -46,7 +46,7 @@ class TextMatchPlanTest {
             combinesWithOr = true,
         )
 
-        val plan = rule.plan()
+        val plan = rule.plan(SearchMode.Word)
 
         assertEquals(
             TextMatchPlan.Narrowed(TextMatchQuery(terms = listOf("arch", "report"), combinesWithOr = true)),
@@ -66,7 +66,7 @@ class TextMatchPlanTest {
             ),
         )
 
-        val plan = rule.plan()
+        val plan = rule.plan(SearchMode.Word)
 
         assertEquals(
             TextMatchPlan.Narrowed(TextMatchQuery(terms = listOf("arch"))),
@@ -87,14 +87,14 @@ class TextMatchPlanTest {
             combinesWithOr = true,
         )
 
-        assertIs<TextMatchPlan.BroadScan>(rule.plan())
+        assertIs<TextMatchPlan.BroadScan>(rule.plan(SearchMode.Word))
     }
 
     @Test
     fun `a rule that says only what a record must not carry reads the rows`() {
         val rule = FreeTextRule(terms = listOf(FreeTextRule.Term(text = "draft", negated = true)))
 
-        assertIs<TextMatchPlan.BroadScan>(rule.plan())
+        assertIs<TextMatchPlan.BroadScan>(rule.plan(SearchMode.Word))
     }
 
     @Test
@@ -102,6 +102,6 @@ class TextMatchPlanTest {
         // There is nothing to look up. The use case answers a rule with no
         // terms with no records at all — the plan only says how the candidates
         // are found.
-        assertIs<TextMatchPlan.BroadScan>(FreeTextRule().plan())
+        assertIs<TextMatchPlan.BroadScan>(FreeTextRule().plan(SearchMode.Word))
     }
 }

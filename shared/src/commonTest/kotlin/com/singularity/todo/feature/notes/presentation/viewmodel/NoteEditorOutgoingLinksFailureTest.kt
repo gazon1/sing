@@ -31,6 +31,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+import com.singularity.todo.core.search.SearchMode
 
 /**
  * A save that could not write the outgoing links is not reported as a save (REQ-DRAFT-001).
@@ -82,8 +83,8 @@ class NoteEditorOutgoingLinksFailureTest {
     )
 
     private val emptyLinkRepo = object : InternalLinkRepository {
-        override suspend fun searchNotes(query: String): List<Note> = emptyList()
-        override suspend fun searchTasks(query: String): List<Task> = emptyList()
+        override suspend fun searchNotes(query: String, mode: SearchMode): List<Note> = emptyList()
+        override suspend fun searchTasks(query: String, mode: SearchMode): List<Task> = emptyList()
         override suspend fun getBacklinkNotes(noteId: String): List<Note> = emptyList()
         override suspend fun getBacklinkTasks(taskId: String): List<Task> = emptyList()
         override suspend fun getNotesLinkingToTask(taskId: String): List<Note> = emptyList()

@@ -6,6 +6,7 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.nav.Search
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.feature.tasks.domain.TaskDomain
 import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -239,24 +240,24 @@ class TasksDomainTest {
     fun `matchesFilter - Search by title`() {
         val today = LocalDate(2024, 1, 15)
         val task = taskWith(title = "Buy groceries")
-        assertTrue(TaskDomain.matchesFilter(task, TaskFilter.Search("groceries"), today))
-        assertTrue(TaskDomain.matchesFilter(task, TaskFilter.Search("BUY"), today))
-        assertFalse(TaskDomain.matchesFilter(task, TaskFilter.Search("electronics"), today))
+        assertTrue(TaskDomain.matchesFilter(task, TaskFilter.Search("groceries", SearchMode.Word), today))
+        assertTrue(TaskDomain.matchesFilter(task, TaskFilter.Search("BUY", SearchMode.Word), today))
+        assertFalse(TaskDomain.matchesFilter(task, TaskFilter.Search("electronics", SearchMode.Word), today))
     }
 
     @Test
     fun `matchesFilter - Search by description`() {
         val today = LocalDate(2024, 1, 15)
         val task = taskWith(title = "Task", description = "Buy milk and eggs")
-        assertTrue(TaskDomain.matchesFilter(task, TaskFilter.Search("milk"), today))
-        assertFalse(TaskDomain.matchesFilter(task, TaskFilter.Search("bread"), today))
+        assertTrue(TaskDomain.matchesFilter(task, TaskFilter.Search("milk", SearchMode.Word), today))
+        assertFalse(TaskDomain.matchesFilter(task, TaskFilter.Search("bread", SearchMode.Word), today))
     }
 
     @Test
     fun `matchesFilter - Search is case insensitive`() {
         val today = LocalDate(2024, 1, 15)
         val task = taskWith(title = "Buy Groceries")
-        assertTrue(TaskDomain.matchesFilter(task, TaskFilter.Search("groceries"), today))
-        assertTrue(TaskDomain.matchesFilter(task, TaskFilter.Search("BUY GROCERIES"), today))
+        assertTrue(TaskDomain.matchesFilter(task, TaskFilter.Search("groceries", SearchMode.Word), today))
+        assertTrue(TaskDomain.matchesFilter(task, TaskFilter.Search("BUY GROCERIES", SearchMode.Word), today))
     }
 }

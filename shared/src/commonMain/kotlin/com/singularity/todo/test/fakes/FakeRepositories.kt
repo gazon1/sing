@@ -58,6 +58,7 @@ import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
 import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
 import com.singularity.todo.core.schedule.WorkingDays
 import com.singularity.todo.core.tasks.TasksSettingsRepository
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.settings.SettingsDefaults
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
@@ -2257,19 +2258,25 @@ open class FakeNotesRepository(
             }
         }
 
-    override fun search(query: String): Flow<List<com.singularity.todo.feature.notes.Note>> =
+    /**
+     * The notes that carry the text, in the mode the caller states (F6, F8).
+     *
+     * Title only, matching production's `watchSearchByTitle` (`title LIKE ?`).
+     * The fake also matched body text, so a test seeded with body content would
+     * find a note here that production never returns. The fake is the test
+     * double, not a better spec — whether note search *should* cover bodies is
+     * a product question.
+     *
+     * The mode is applied with the rule the production code applies, so that
+     * the double and the production answer the same question about the same
+     * text.
+     */
+    override fun search(query: String, mode: SearchMode): Flow<List<com.singularity.todo.feature.notes.Note>> =
         currentUser.observeForCurrentUser { uid ->
             store.state.map { list ->
-                // Title only, matching production's `watchSearchByTitle`
-                // (`title LIKE ?`). The fake also matched body text, so a test
-                // seeded with body content would find a note here that production
-                // never returns. The fake is the test double, not a better spec —
-                // whether note search *should* cover bodies is a product question.
                 list.values.filter { note ->
-                    note.userId == uid && note.archivedAt == null && note.deletedAt == null && note.title.contains(
-                        query,
-                        ignoreCase = true,
-                    )
+                    note.userId == uid && note.archivedAt == null && note.deletedAt == null &&
+                        mode.matches(note.title, query)
                 }
             }
         }

@@ -7,7 +7,7 @@ import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.search.query.DefaultSearchQueryResolver
 import com.singularity.todo.feature.search.query.ProjectLookup
 import com.singularity.todo.feature.search.query.ProjectLookupResult
-import com.singularity.todo.feature.search.query.SearchMode
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.feature.search.query.SingularityQueryParser
 import com.singularity.todo.feature.search.query.TagLookup
 import com.singularity.todo.feature.search.query.TagLookupResult

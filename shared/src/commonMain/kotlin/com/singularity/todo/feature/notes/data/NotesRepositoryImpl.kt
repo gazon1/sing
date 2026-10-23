@@ -6,7 +6,9 @@ import com.singularity.todo.core.database.NoteDao
 import com.singularity.todo.core.database.NoteEntity
 import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.search.FreeTextRule
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.search.SearchTextIndex
+import com.singularity.todo.core.search.TextMatchPlan
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.notes.Note
@@ -159,9 +161,28 @@ class NotesRepositoryImpl(
         noteDao.watchRootNotes(uid.value).map { list -> list.map { it.toNote() } }
     }
 
-    override fun search(query: String): Flow<List<Note>> =
-        textIndex.observeNotes(FreeTextRule.singleTerm(query).indexQuery())
-            .map { rows -> rows.map { it.record } }
+    /**
+     * The notes that carry the text, in the mode the caller states.
+     *
+     * The word mode is answered by the index — the same port the search screen
+     * asks, so that the two answers cannot drift apart. The contains mode the
+     * index cannot answer at all (it stores words, not character positions), so
+     * the notes are read and matched in memory, the same answer the search
+     * screen gives.
+     */
+    override fun search(query: String, mode: SearchMode): Flow<List<Note>> {
+        val rule = FreeTextRule.singleTerm(query)
+        return when (rule.plan(mode)) {
+            is TextMatchPlan.Narrowed -> textIndex.observeNotes(rule.indexQuery(mode))
+                .map { rows -> rows.map { it.record } }
+
+            TextMatchPlan.BroadScan -> currentUser.observeForCurrentUser { uid ->
+                noteDao.watchAll(uid.value).map { notes ->
+                    notes.filter { note -> mode.matches(note.title, query) }.map { it.toNote() }
+                }
+            }
+        }
+    }
 
     override suspend fun createWithContent(
         id: NoteId,

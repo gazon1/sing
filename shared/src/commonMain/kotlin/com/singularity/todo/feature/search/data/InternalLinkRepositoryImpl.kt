@@ -6,12 +6,15 @@ import com.singularity.todo.core.database.toTask
 import com.singularity.todo.core.links.InternalLinkSchemes
 import com.singularity.todo.core.links.InternalLinks
 import com.singularity.todo.core.search.FreeTextRule
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.search.SearchTextIndex
+import com.singularity.todo.core.search.TextMatchPlan
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.toNote
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
 import com.singularity.todo.feature.tasks.domain.model.Task
+import kotlinx.coroutines.flow.first
 
 class InternalLinkRepositoryImpl(
     private val noteDao: NoteDao,
@@ -20,20 +23,51 @@ class InternalLinkRepositoryImpl(
     private val currentUser: ProfileAwareCurrentUser,
 ) : InternalLinkRepository {
 
-    override suspend fun searchNotes(query: String): List<Note> {
+    /**
+     * The notes offered for a link, in the mode the caller states.
+     *
+     * The word mode is answered by the index — the same port the search screen
+     * asks. The contains mode the index cannot answer (it stores words, not
+     * character positions), so the titles are read and matched in memory.
+     */
+    override suspend fun searchNotes(query: String, mode: SearchMode): List<Note> {
         if (query.isBlank()) return emptyList()
-        return textIndex.recentNoteTitles(
-            FreeTextRule.singleTerm(query).indexQuery(),
-            limit = SUGGESTION_LIMIT,
-        )
+        val rule = FreeTextRule.singleTerm(query)
+        return when (rule.plan(mode)) {
+            is TextMatchPlan.Narrowed ->
+                textIndex.recentNoteTitles(rule.indexQuery(mode), limit = SUGGESTION_LIMIT)
+
+            TextMatchPlan.BroadScan -> {
+                val userId = currentUser.scopedUserId.value.value
+                noteDao.watchAll(userId).first()
+                    .filter { note -> mode.matches(note.title, query) }
+                    .sortedByDescending { note -> note.updatedAt }
+                    .take(SUGGESTION_LIMIT)
+                    .map { note -> note.toNote() }
+            }
+        }
     }
 
-    override suspend fun searchTasks(query: String): List<Task> {
+    /**
+     * The tasks offered for a link, in the mode the caller states.
+     * See [searchNotes].
+     */
+    override suspend fun searchTasks(query: String, mode: SearchMode): List<Task> {
         if (query.isBlank()) return emptyList()
-        return textIndex.recentTaskTitles(
-            FreeTextRule.singleTerm(query).indexQuery(),
-            limit = SUGGESTION_LIMIT,
-        )
+        val rule = FreeTextRule.singleTerm(query)
+        return when (rule.plan(mode)) {
+            is TextMatchPlan.Narrowed ->
+                textIndex.recentTaskTitles(rule.indexQuery(mode), limit = SUGGESTION_LIMIT)
+
+            TextMatchPlan.BroadScan -> {
+                val userId = currentUser.scopedUserId.value.value
+                taskDao.watchActive(userId).first()
+                    .filter { task -> mode.matches(task.title, query) }
+                    .sortedByDescending { task -> task.updatedAt }
+                    .take(SUGGESTION_LIMIT)
+                    .map { task -> task.toTask() }
+            }
+        }
     }
 
     override suspend fun getBacklinkNotes(noteId: String): List<Note> {

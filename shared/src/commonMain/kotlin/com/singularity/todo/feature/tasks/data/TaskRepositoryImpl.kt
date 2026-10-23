@@ -13,12 +13,14 @@ import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.core.search.FreeTextRule
 import com.singularity.todo.core.search.SearchTextIndex
+import com.singularity.todo.core.search.TextMatchPlan
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.agenda.domain.logic.toDateRange
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tags.domain.model.TagEditActor
+import com.singularity.todo.feature.tasks.domain.TaskDomain
 import com.singularity.todo.feature.tasks.domain.logic.TaskSeriesInvariants
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
@@ -86,12 +88,24 @@ class TaskRepositoryImpl(
         // through the one port, so that the two answers cannot drift apart. The
         // index is scoped to the current user itself, so this path does not go
         // through the scoping below.
+        //
+        // The filter states the mode it searches in (F6, F8). In the word mode
+        // the index answers; in the contains mode the index cannot answer at
+        // all — it stores words, not character positions — so the rows are read
+        // and matched in memory, the same answer the search screen gives.
         if (filter is TaskFilter.Search) {
             // The index answers with the record and the place the word was
             // found; a filter asks for the record, and the position is the
             // search screen's business.
-            return textIndex.observeTasks(FreeTextRule.singleTerm(filter.query).indexQuery())
-                .map { rows -> rows.map { it.record } }
+            val rule = FreeTextRule.singleTerm(filter.query)
+            return when (rule.plan(filter.mode)) {
+                is TextMatchPlan.Narrowed -> textIndex.observeTasks(rule.indexQuery(filter.mode))
+                    .map { rows -> rows.map { it.record } }
+
+                TextMatchPlan.BroadScan -> observeAll().map { tasks ->
+                    tasks.filter { task -> TaskDomain.matches(filter.mode, task, filter.query) }
+                }
+            }
         }
         return currentUser.observeForCurrentUser { uid ->
             val today = LocalDate.fromEpochDays(

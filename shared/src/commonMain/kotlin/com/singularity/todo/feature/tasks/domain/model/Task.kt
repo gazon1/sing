@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.domain.model
 
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.DocType
 import com.singularity.todo.core.sync.Hlc
@@ -46,7 +47,16 @@ sealed interface TaskFilter {
     data object All : TaskFilter
     data class ByProject(val id: ProjectId) : TaskFilter
     data class ByTag(val id: TagId) : TaskFilter
-    data class Search(val query: String) : TaskFilter
+
+    /**
+     * The text filter of the task list.
+     *
+     * The [mode] is the mode the text is matched in (F6) — the filter states
+     * it, so that a caller never gets an answer from a rule it did not name.
+     * There is no default: a filter that does not say which mode it searches
+     * in would be the silent difference this rule exists to remove (F8).
+     */
+    data class Search(val query: String, val mode: SearchMode) : TaskFilter
 
     /** Calendar screen: all tasks with dueDate within [from]..[to] (inclusive). */
     data class ByDateRange(val from: kotlinx.datetime.LocalDate, val to: kotlinx.datetime.LocalDate) : TaskFilter

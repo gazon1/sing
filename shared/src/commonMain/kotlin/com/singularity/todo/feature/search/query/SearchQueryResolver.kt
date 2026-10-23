@@ -1,9 +1,11 @@
 package com.singularity.todo.feature.search.query
 
 import com.singularity.todo.core.search.FreeTextRule
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tasks.domain.TaskDomain
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
@@ -97,7 +99,7 @@ class DefaultSearchQueryResolver(
         // What the index can do for this rule — and the rule the mode answers with.
         // The plan is asked once and used twice: the post-filter below and the
         // answer the use case builds the flows from.
-        val plan = mode.plan(freeTextRule)
+        val plan = freeTextRule.plan(mode)
         if (!freeTextRule.isEmpty) {
             // A free-text word is a condition on tasks, not only on notes, projects
             // and tags. The resolver used to translate it into nothing for tasks,
@@ -114,7 +116,7 @@ class DefaultSearchQueryResolver(
             // the task's title and its description (F3), and the mode's plan says
             // what the index already answered.
             ctx.addPostFilter { task ->
-                freeTextRule.accepts(plan) { term -> mode.matches(task, term) }
+                freeTextRule.accepts(plan) { term -> TaskDomain.matches(mode, task, term) }
             }
         }
 

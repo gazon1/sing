@@ -13,6 +13,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+import com.singularity.todo.core.search.SearchMode
 
 /**
  * Covers the backlinks collector — the read-only producer that the old implementation
@@ -26,8 +27,8 @@ class TaskBacklinksCollectorTest {
         private val notes: List<Note> = emptyList(),
         private val tasks: List<com.singularity.todo.feature.tasks.domain.model.Task> = emptyList(),
     ) : InternalLinkRepository {
-        override suspend fun searchNotes(query: String) = notes
-        override suspend fun searchTasks(query: String) = tasks
+        override suspend fun searchNotes(query: String, mode: SearchMode) = notes
+        override suspend fun searchTasks(query: String, mode: SearchMode) = tasks
         override suspend fun getBacklinkNotes(noteId: String) = notes
         override suspend fun getBacklinkTasks(taskId: String) = tasks
         override suspend fun getNotesLinkingToTask(taskId: String) = notes
