@@ -778,6 +778,23 @@ gate blocking "adr references are valid" python3 scripts/check-adr-references.py
 # That is the whole reason it had no positive control; it has one now.
 gate blocking "script conventions" sgate conventions
 #
+# # The Compose stability contract — `config/compose/stability_config.conf` — is
+# # the only thing that tells the Compose compiler which types are stable. It is
+# # what makes a list row skip a recomposition when its task did not change.
+# #
+# # A name in that file which resolves to no type is not an error for the
+# # compiler: it matches nothing and is ignored. The contract then says less than
+# # it appears to say, and the only symptom is that rows keep recomposing — a
+# # performance fact with no error message attached to it. The second failure is
+# # quieter still: a contract that no module reads leaves every "stable" claim in
+# # the repository a claim about a file the compiler never saw.
+# #
+# # The gate reads the contract and the sources, and nothing else. It does not
+# # run the compiler and does not read the compiler's stability report: that
+# # report is a build artifact, and a gate that depends on build output is the
+# # fragility this repository already has a gate for.
+gate blocking "compose stability contract" python3 scripts/check-compose-stability-config.py
+#
 # A `hideKeyboard` is a BACK keypress when there is no keyboard to hide.
 #
 # Measured on a phone (2026-10-28): a flow's second `hideKeyboard` dismissed the
