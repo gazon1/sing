@@ -28,11 +28,14 @@ import importlib.util
 import io
 import os
 import pathlib
-import subprocess
 import sys
 import tempfile
 import unittest
 import unittest.mock
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+
+from git_sandbox import assert_own_repository, git as _git, sandbox_env  # noqa: E402
 
 SCRIPTS = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SCRIPTS / "src"))
@@ -54,7 +57,8 @@ class HooksRepoTest(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.root = pathlib.Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
-        self.git("init", "-q", str(self.root))
+        self.git("init", "-q", "-b", "main", ".")
+        assert_own_repository(self, self.root, self._env())
         # Neutralise the machine's git configuration: a global core.hooksPath
         # would otherwise decide the outcome of every case below.
         empty_config = self.root / "empty-gitconfig"
@@ -65,14 +69,17 @@ class HooksRepoTest(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
 
+    def _env(self):
+        """The environment the fixture's git commands run in.
+
+        The names git exports for a hook are removed, and the walk up stops at
+        the fixture's own directory: a command that does not find this
+        repository must fail, not find somebody else's.
+        """
+        return sandbox_env(self.root)
+
     def git(self, *args):
-        return subprocess.run(
-            ["git", *args],
-            cwd=self.root,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        return _git(*args, cwd=self.root, env=self._env())
 
     def set_hooks_path(self, value):
         self.git("config", "core.hooksPath", value)

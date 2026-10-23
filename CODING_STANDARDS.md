@@ -39,17 +39,20 @@ dead.
 A tool the assistant can call writes to a user's data. The write path in this
 repository is a **proposal**: the change is held, the user reads it, the user
 decides. That is the whole point of the proposal model, and it is checked by
-`scripts/check-ai-write-tools.py`.
+`shared/src/jvmTest/.../feature/ai/tools/WriteToolsOnlyProposeTest.kt` — a
+test, not a registry of exceptions: a file listing the exceptions is a second
+thing to keep in step with the code, and the code can change without it.
 
-A reviewing agent holds this line even where the gate cannot:
+A reviewing agent holds this line even where the test cannot:
 
-- **A tool that writes directly needs a written reason.** The registry is
-  `config/docs/ai-direct-writes.txt`; an entry there says *why* this tool may
-  not propose yet. A new direct writer without an entry is a finding, and the
-  fix is either to convert the tool or to write the reason down.
-- **The registry must shrink.** A tool that was converted has its entry
-  deleted. A registry that only grows is a work queue nobody is working
-  through.
+- **A tool that writes directly needs a written reason.** There is no registry
+  any more, so the reason is written in the change that introduces the writer:
+  what it writes, and why it cannot propose yet. A new direct writer without
+  that reason is a finding, and the fix is either to convert the tool or to
+  write the reason down.
+- **The set of direct writers must shrink.** A tool that was converted has its
+  test moved to the proposing side. A set that only grows is a work queue
+  nobody is working through.
 - **The assistant's words must match what happened.** A tool that proposed a
   change says the change was *proposed*. It does not say the task was changed,
   and it does not say it was saved. The user has not agreed to anything yet.
@@ -79,7 +82,7 @@ A reviewing agent applies the same standard to the diff it is reading:
 
 ## The message says what happened
 
-The repository's naming convention (`2026-10-20-green-means-one-thing.md`) is
+The repository's naming convention (`2026-10-21-green-means-one-thing.md`) is
 one sentence: **green means one thing**. In practice:
 
 - A message that names the cause beats a message that names the category.
