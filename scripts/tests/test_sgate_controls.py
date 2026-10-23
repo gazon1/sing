@@ -17,11 +17,36 @@ gate that passes.
 """
 from __future__ import annotations
 
+import pathlib
 import re
 import unittest
 
 from sgate.commands._registry import GATE_CONTROLS, GATES
 from sgate.controls import Control, Edit
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
+
+
+def _step_containing(text: str, needle: str) -> str | None:
+    """The name of the step whose text holds the FIRST occurrence of *needle*.
+
+    The first occurrence is the one that matters: the registry declares
+    `count=1`, and `_replace` replaces the first match — so a control lands
+    where its literal appears FIRST, not where its author meant it to.
+
+    The needle often IS the step's header (`- name: …` plus its `run:` line),
+    so the step is the one whose header starts at or before the occurrence —
+    not the one before it.
+    """
+    index = text.find(needle)
+    if index < 0:
+        return None
+    headers = [
+        (match.start(), match.group(1))
+        for match in re.finditer(r"^\s*- name: (.+?)\s*$", text, re.MULTILINE)
+        if match.start() <= index
+    ]
+    return headers[-1][1] if headers else None
 
 
 class TestRegistryImports(unittest.TestCase):
@@ -109,6 +134,56 @@ class TestTheControlThatMustBeAbleToFail(unittest.TestCase):
             self.assertIsNotNone(
                 control.edit.repl,
                 f"control {name!r} declares a regex edit with no replacement",
+            )
+
+    def test_every_control_still_hits_the_line_it_claims_to_prove(self):
+        """Every control's sabotage lands in the step its anchor names.
+
+        A control has two halves: the literal text it replaces, and the
+        `tracked_by` anchor that says which step the control is about. The
+        text resolves by the FIRST occurrence — the registry declares
+        `count=1` — and the anchor resolves by step name.
+
+        When the workflow's job graph moves, the two halves can come to point
+        at different steps: the control then lands in one step while claiming
+        another, and it passes while proving nothing. Green and vacuous is the
+        worst state a control can be in.
+        """
+        for name, control in GATE_CONTROLS.items():
+            anchor = control.tracked_by
+            if not anchor or "#" not in anchor:
+                continue
+            path, _, step_name = anchor.partition("#")
+            target = ROOT / path
+            if target.suffix not in (".yml", ".yaml"):
+                continue
+
+            text = target.read_text(encoding="utf-8")
+            self.assertIn(
+                f"- name: {step_name}",
+                text,
+                f"the control {name!r} anchors at a step that is not in {path}",
+            )
+
+            edit = control.edit
+            if edit is None or edit.kind != "replace":
+                continue
+            if control.path != path:
+                # The control edits another file; its anchor says which STEP
+                # proves the gate, and the step has to exist — nothing more to
+                # compare.
+                continue
+
+            landed = _step_containing(text, edit.old)
+            self.assertIsNotNone(
+                landed,
+                f"the control {name!r} replaces text that is no longer in {path}",
+            )
+            self.assertEqual(
+                step_name,
+                landed,
+                f"the control {name!r} lands in the step {landed!r} and claims "
+                f"to prove {step_name!r}",
             )
 
 

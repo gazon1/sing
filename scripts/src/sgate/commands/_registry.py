@@ -160,16 +160,41 @@ _KOVER_MIN_FLOOR: int = 60
 #: check.sh must still name it for the rehearsal to be valid.
 GRADLE_TASK_PARITY: dict[str, GradleTaskParity] = {
     ":shared:jvmTest": GradleTaskParity(
-        scope="covered",
+        scope="both",
         why=(
-            "CI reaches it through `koverReport`, which aggregates the test task and "
-            "instruments it. `ci.yml` never spells the task; adding a second literal "
-            "invocation would be noise, not coverage."
+            "CI names the task in the suite job's invocation. It used to reach it "
+            "through `koverReport`, which aggregated the test task and instrumented "
+            "it without ever writing the name — and a list that lives in the build "
+            "script is a list that has to stay in step with kover's, which is "
+            "exactly how kover silently stops measuring a module."
         ),
     ),
     ":desktopApp:test": GradleTaskParity(
-        scope="covered",
-        why="same route as :shared:jvmTest — `koverReport` in ci.yml's tests job.",
+        scope="both",
+        why=(
+            "same route as :shared:jvmTest — CI names the task in the suite job's "
+            "invocation now, and check.sh names it too."
+        ),
+    ),
+    ":mcp-server:test": GradleTaskParity(
+        scope="ci",
+        why=(
+            "CI runs it in the suite; the local loop compiles the module "
+            "(`:mcp-server:compileKotlin`) to validate its DI graph and leaves the "
+            "module's own tests to CI. The asymmetry used to be invisible here — CI "
+            "reached the task through `koverReport`, which never wrote the name — "
+            "and the suite job names it now, so it is declared rather than hidden."
+        ),
+    ),
+    ":androidApp:test": GradleTaskParity(
+        scope="ci",
+        why=(
+            "CI runs it in the suite; the local loop compiles the Android app "
+            "(`:androidApp:compileDebugKotlin`, `:androidApp:assembleDebug`) and runs "
+            "the instrumentation tier on a device, but not the unit-test task. Same "
+            "reason as `:mcp-server:test`: CI names the task now, so the asymmetry "
+            "is declared."
+        ),
     ),
     ":androidApp:connectedDebugAndroidTest": GradleTaskParity(
         scope="covered",
@@ -211,17 +236,17 @@ GRADLE_TASK_PARITY: dict[str, GradleTaskParity] = {
         ),
     ),
     ":shared:testAndroidHostTest": GradleTaskParity(
-        scope="covered",
+        scope="both",
         why=(
-            "CI reaches it through `koverReport`, which aggregates the test task and "
-            "instruments it; `ci.yml` never spells the task, and the Android host "
-            "source set was CI-only for a while — the local loop did not compile it "
-            "at all. That was a hole with a price: `LocalDate.minusDays` — an API "
-            "`kotlinx-datetime 0.8` does not have — passed a green detekt and 3266 "
-            "green JVM tests, because detekt runs without type resolution and the JVM "
-            "tests do not compile `src/androidMain`. Only the CI job said so. The "
-            "host test is a Robolectric test, so naming it here costs a minute and "
-            "no emulator."
+            "CI names the task in the suite job's invocation, and check.sh names it "
+            "too. It used to be reached by CI through `koverReport`, which never "
+            "wrote the name, and the Android host source set was CI-only for a while "
+            "— the local loop did not compile it at all. That was a hole with a "
+            "price: `LocalDate.minusDays` — an API `kotlinx-datetime 0.8` does not "
+            "have — passed a green detekt and 3266 green JVM tests, because detekt "
+            "runs without type resolution and the JVM tests do not compile "
+            "`src/androidMain`. Only the CI job said so. The host test is a "
+            "Robolectric test, so naming it here costs a minute and no emulator."
         ),
     ),
     ":shared:verifyToolSurface": GradleTaskParity(
@@ -1354,10 +1379,10 @@ GATE_CONTROLS: dict[str, Control] = {
             "the JVM job stayed green through 109 detekt findings for that reason "
             "(measured on run 38902346697, green, containing ':shared:detekt FAILED')"
         ),
-        tracked_by='.github/workflows/ci.yml#Gradle (tests + coverage + detekt)',
+        tracked_by='.github/workflows/ci.yml#Gradle (coverage)',
     ),
-    'build-output-readers': Control(kind='sabotage', proves='scripts/check-build-output-readers.py', argv=('{python}', 'scripts/check-build-output-readers.py'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='      - name: Coverage floors\n        run: ./gradlew :koverVerify -Ptest.population="$TEST_POPULATION"\n', new='      - name: Coverage floors\n        run: ./gradlew :koverVerify -Ptest.population="$TEST_POPULATION"\n      - name: Late flake pass\n        run: |\n          python3 scripts/check-flaky-tests.py \\\n            --current shared/build/test-results/jvmTest \\\n            --previous /tmp/prev\n', count=1), why="a step that reads build output and runs after a second Gradle invocation may be reading a directory that invocation re-ran: the traceability step failed this way on run 38933517902, and the flake step would have done it silently. The probe reproduces exactly that ordering — a build/test-results reader placed after the job's second test-capable invocation — and nothing else. The previous probe appended a bare `./gradlew :koverVerify` to the end of the file, which landed in `nightly-alert`, a job with one test-capable invocation and no readers: the gate ignores such a job by design, so the probe passed a sabotaged input and certified nothing. Both halves of that probe need the parser to read a backslash-continued command as one command — the producing invocation's tasks and the reader's path each sit on continuation lines — so the probe also pins the parser fix.", tracked_by='.github/workflows/ci.yml#Normalise desktop results into the scenario matrix'),
-    'gradle-test-population': Control(kind='sabotage', proves='scripts/check-gradle-test-population.py', argv=('{python}', 'scripts/check-gradle-test-population.py'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='run: ./gradlew :koverVerify -Ptest.population="$TEST_POPULATION"', new='run: ./gradlew :koverVerify', count=1), why="a Gradle invocation that follows the test run without -Ptest.tags measures Gradle's default, excludeTags('slow'): the slow scenario classes are skipped rather than executed, the suite stays green, and every gate that reads build/test-results/ afterwards is measuring a population nobody ran (run 38933517902)", tracked_by='.github/workflows/ci.yml#Normalise desktop results into the scenario matrix'),
+    'build-output-readers': Control(kind='sabotage', proves='scripts/check-build-output-readers.py', argv=('{python}', 'scripts/check-build-output-readers.py'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='      - name: Coverage floors\n        run: ./gradlew :koverVerify -Ptest.population="$TEST_POPULATION"\n', new='      - name: Coverage floors\n        run: ./gradlew :koverVerify -Ptest.population="$TEST_POPULATION"\n      - name: Late flake pass\n        run: |\n          python3 scripts/check-flaky-tests.py \\\n            --current shared/build/test-results/jvmTest \\\n            --previous /tmp/prev\n', count=1), why="a step that reads build output and runs after a second Gradle invocation may be reading a directory that invocation re-ran: the traceability step failed this way on run 38933517902, and the flake step would have done it silently. The probe reproduces exactly that ordering — a build/test-results reader placed after the job's second test-capable invocation — and nothing else. The previous probe appended a bare `./gradlew :koverVerify` to the end of the file, which landed in `nightly-alert`, a job with one test-capable invocation and no readers: the gate ignores such a job by design, so the probe passed a sabotaged input and certified nothing. Both halves of that probe need the parser to read a backslash-continued command as one command — the producing invocation's tasks and the reader's path each sit on continuation lines — so the probe also pins the parser fix.", tracked_by='.github/workflows/ci.yml#Coverage floors'),
+    'gradle-test-population': Control(kind='sabotage', proves='scripts/check-gradle-test-population.py', argv=('{python}', 'scripts/check-gradle-test-population.py'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='run: ./gradlew :koverVerify -Ptest.population="$TEST_POPULATION"', new='run: ./gradlew :koverVerify', count=1), why="a Gradle invocation that follows the test run without -Ptest.tags measures Gradle's default, excludeTags('slow'): the slow scenario classes are skipped rather than executed, the suite stays green, and every gate that reads build/test-results/ afterwards is measuring a population nobody ran (run 38933517902)", tracked_by='.github/workflows/ci.yml#Coverage floors'),
     'test-task-inputs': Control(kind='sabotage', proves='scripts/check-test-task-inputs.py', argv=('{python}', 'scripts/check-test-task-inputs.py'), path='shared/build.gradle.kts', edit=Edit(kind='replace', old='    inputs.dir(layout.projectDirectory.dir("../Maestro"))\n        .withPropertyName("maestroFlows")\n        .withPathSensitivity(PathSensitivity.RELATIVE)\n', new='', count=1), why='a test task reading a tree outside its module reports a stale verdict when that tree is not an input'),
     # The app coverage floor, declared where Kover reads it.
     #
