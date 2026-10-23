@@ -1,12 +1,32 @@
 #!/usr/bin/env python3
 """Parse Kover XML reports and emit a markdown coverage table.
 
-Emits a markdown table to stdout with per-module LINE / BRANCH / INSTRUCTION
+Emits a markdown table to stdout with per-package LINE / BRANCH / INSTRUCTION
 coverage. Designed to run in CI after `koverReport` has produced the XML
 artifact (build/reports/kover/report.xml).
 
+With `--summary`, a second block is printed first: the report's ROOT
+counters — the class count and the three instruction/branch/line totals.
+
+Why the class count is the one to read
+--------------------------------------
+The percentages alone cannot tell a full report from a partial one. The same
+2.82M instructions were reported for the fast population and for the full one,
+while the number of CLASSES differed (4634 against 4642): the fast run does
+not load the eight classes that only the slow population reaches, and Kover's
+report counts the classes it saw. A reader who compares "27.7%" with the
+recorded floor and sees a number that looks like a fifth of the codebase has
+misread the report — and then spends an hour measuring something that was
+never broken.
+
+The class count is the number that distinguishes the two, so it is printed.
+It is also the number that says which POPULATION the report measured: the
+fast population covers fewer classes than the full one, and the coverage
+floors are recorded per population for exactly that reason.
+
 Usage:
     python3 scripts/kover-markdown-table.py [xml_path]
+    python3 scripts/kover-markdown-table.py --summary [xml_path]
 
 Exit codes:
     0  — table printed (even if empty)
@@ -18,6 +38,14 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 KOVER_NS = ""          # Kover XML has no namespace
+
+#: The counters the summary prints, in the order a reader wants them.
+SUMMARY_COUNTERS = (
+    ("CLASS", "Classes"),
+    ("INSTRUCTION", "Instructions"),
+    ("BRANCH", "Branches"),
+    ("LINE", "Lines"),
+)
 
 
 def last_counter(root: ET.Element, counter_type: str) -> tuple[int, int]:
@@ -91,8 +119,52 @@ def format_table(rows: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def format_summary(counters: dict[str, tuple[int, int, str]]) -> str:
+    """The root counters as a small table.
+
+    `counters` maps a counter type to `(covered, total, percentage)`.
+    """
+    if not counters:
+        return "_No summary counters found._"
+
+    lines = [
+        "| What | Covered/total | % |",
+        "|---|---|---|",
+    ]
+    for counter_type, label in SUMMARY_COUNTERS:
+        entry = counters.get(counter_type)
+        if entry is None:
+            continue
+        covered, total, pct = entry
+        lines.append(f"| {label} | {covered}/{total} | {pct} |")
+    return "\n".join(lines)
+
+
+def parse_summary(xml_path: str | Path) -> dict[str, tuple[int, int, str]]:
+    """The report root's own counters: `(covered, total, percentage)`.
+
+    Kover writes one `<counter>` per package, per class and per method, and
+    a set of totals at the ROOT of the report. Only the root's own counters
+    are read here — a sum of the per-package counters would count the same
+    class twice, once through its package and once through itself.
+    """
+    root = ET.parse(xml_path).getroot()
+    counters: dict[str, tuple[int, int, str]] = {}
+    for element in root.findall("counter"):
+        counter_type = element.get("type")
+        if counter_type is None:
+            continue
+        missed = int(element.get("missed", 0))
+        covered = int(element.get("covered", 0))
+        total = missed + covered
+        counters[counter_type] = (covered, total, _pct(covered, total))
+    return counters
+
+
 def main() -> int:
-    xml_path = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("build/reports/kover/report.xml")
+    argv = [arg for arg in sys.argv[1:] if arg != "--summary"]
+    want_summary = "--summary" in sys.argv[1:]
+    xml_path = Path(argv[0]) if argv else Path("build/reports/kover/report.xml")
 
     if not xml_path.is_file():
         print(f"kover-markdown-table: {xml_path} not found", file=sys.stderr)
@@ -103,6 +175,15 @@ def main() -> int:
     except Exception as ex:
         print(f"kover-markdown-table: parse error: {ex}", file=sys.stderr)
         return 1
+
+    if want_summary:
+        try:
+            counters = parse_summary(xml_path)
+        except Exception as ex:
+            print(f"kover-markdown-table: parse error: {ex}", file=sys.stderr)
+            return 1
+        print(format_summary(counters))
+        print()
 
     print(format_table(rows))
     return 0

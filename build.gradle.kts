@@ -246,6 +246,49 @@ tasks.register("koverReport") {
 tasks.matching { it.name == "koverVerify" }.configureEach {
     dependsOn("koverReport")
 
+    // The estimate, printed before the run.
+    //
+    // The instrumented coverage run costs ~37 minutes (the Kover agent
+    // multiplies the cost of every test; the uninstrumented `:shared:jvmTest`
+    // takes 6 min 44 s). That number decides whether a timeout is adequate,
+    // and it was nowhere: a 15-minute timeout on a 37-minute task kills the
+    // run after a quarter of an hour and reports a failure that says nothing
+    // about the code.
+    //
+    // The estimate is read from `config/docs/coverage-cost.properties` — the
+    // same file `docs/testing/gate-costs.md` publishes, so the number the
+    // build prints and the number the reader reads cannot drift apart.
+    val coverageCostFile = rootProject.file("config/docs/coverage-cost.properties")
+    // Configuration time, not action time: the configuration cache forbids
+    // reaching for `project` at execution time, and the population is a
+    // property of the invocation, not of the run.
+    val coveragePopulation = (project.findProperty("test.population") as String?)?.takeIf { it.isNotEmpty() }
+        ?: "fast"
+    doFirst {
+        val costs = java.util.Properties().apply {
+            if (coverageCostFile.isFile) {
+                coverageCostFile.inputStream().use { load(it) }
+            }
+        }
+        val population = coveragePopulation
+        val millis = costs.getProperty("$population.ms")
+        val measuredAt = costs.getProperty("measuredAt") ?: "an unrecorded date"
+        if (millis == null) {
+            logger.lifecycle(
+                "koverVerify: no recorded cost for the '$population' population " +
+                    "(${coverageCostFile.name}) — this run is instrumented and takes " +
+                    "tens of minutes."
+            )
+        } else {
+            val minutes = millis.toLong() / 60_000
+            logger.lifecycle(
+                "koverVerify: the instrumented coverage run of the '$population' population " +
+                    "takes about $minutes min (measured $measuredAt; " +
+                    "${costs.getProperty("machine") ?: "an unnamed machine"}) — " +
+                    "see docs/testing/gate-costs.md"
+            )
+        }
+    }
 }
 
 // Same reasoning applies to the HTML report, so it gets a wrapper rather than a
@@ -328,21 +371,31 @@ abstract class KoverMarkdownTableTask : DefaultTask() {
 
     private fun updateModuleFromCounter(mod: ModuleCoverage, el: org.w3c.dom.Element) {
         val type = el.getAttribute("type")
-        if (type !in listOf("LINE", "BRANCH", "INSTRUCTION")) return
+        if (type !in listOf("LINE", "BRANCH", "INSTRUCTION", "CLASS")) return
         val missed  = el.getAttribute("missed").toIntOrNull()  ?: 0
         val covered = el.getAttribute("covered").toIntOrNull() ?: 0
         when (type) {
             "LINE"        -> { mod.lineMissed   = missed;  mod.lineCovered   = covered }
             "BRANCH"      -> { mod.branchMissed = missed;  mod.branchCovered = covered }
             "INSTRUCTION" -> { mod.instrMissed  = missed;  mod.instrCovered  = covered }
+            "CLASS"       -> { mod.classMissed  = missed;  mod.classCovered  = covered }
         }
     }
 
     private fun printTable(rows: List<ModuleCoverage>) {
-        println("| Module | LINE (covered/total) | BRANCH (covered/total) | INSTRUCTION (covered/total) |")
-        println("|---|---|---|---|")
+        // The CLASS column is the one that says WHICH report this is. The
+        // percentages alone cannot tell a full report from a partial one: the
+        // fast population and the full population reported the same 2.82M
+        // instructions, while their class counts differed (4634 against 4642),
+        // because the fast run does not load the eight classes only the slow
+        // population reaches. A reader who compares "27.7%" with a recorded
+        // floor and reads it as a fifth of the codebase has misread the
+        // report — and then measures something that was never broken.
+        println("| Module | CLASS (covered/total) | LINE (covered/total) | BRANCH (covered/total) | INSTRUCTION (covered/total) |")
+        println("|---|---|---|---|---|")
         for (r in rows) {
-            println("| ${r.name} | ${cell(r.lineCovered,   r.lineMissed)} " +
+            println("| ${r.name} | ${cell(r.classCovered,  r.classMissed)} " +
+                    "| ${cell(r.lineCovered,   r.lineMissed)} " +
                     "| ${cell(r.branchCovered, r.branchMissed)} " +
                     "| ${cell(r.instrCovered,  r.instrMissed)} |")
         }
@@ -359,6 +412,7 @@ private data class ModuleCoverage(val name: String) {
     var instrCovered = 0; var instrMissed = 0
     var lineCovered  = 0; var lineMissed  = 0
     var branchCovered = 0; var branchMissed = 0
+    var classCovered = 0; var classMissed = 0
 }
 
 tasks.register<KoverMarkdownTableTask>("koverMarkdownTable") {

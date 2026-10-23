@@ -347,8 +347,62 @@ def _render_block(baseline: dict[str, object]) -> str:
             median = entry.get("medianMs") if isinstance(entry, dict) else None
             lines.append(f"| {title}: {name} | {_format_ms(median)} |")
     lines.append("")
+    lines.extend(_render_coverage_block())
     lines.extend(_render_ci_block(baseline))
     return "\n".join(lines)
+
+
+def _read_coverage_costs() -> dict[str, str]:
+    """The measured cost of the instrumented coverage run, per population.
+
+    Its own file, and not a row of the table above: the instrumented run is
+    the one the Kover agent multiplies, and its cost decides whether a timeout
+    is adequate. The build reads the same file, so the number the build
+    prints and the number published here cannot drift apart.
+    """
+    path = sgate.repo.COVERAGE_COST_PROPERTIES
+    costs: dict[str, str] = {}
+    if not path.is_file():
+        return costs
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        costs[key.strip()] = value.strip()
+    return costs
+
+
+def _render_coverage_block() -> list[str]:
+    """The instrumented coverage run: what it costs, per population."""
+    costs = _read_coverage_costs()
+    if not costs:
+        return []
+    lines = ["### The instrumented coverage run", ""]
+    measured = costs.get("measuredAt")
+    machine = costs.get("machine")
+    if measured or machine:
+        lines.append(
+            f"Measured on {measured or 'an unrecorded date'}"
+            + (f" — {machine}" if machine else "")
+            + "."
+        )
+        lines.append("")
+    lines.append("| Population | Cost |")
+    lines.append("|---|---|")
+    for population in ("fast", "full"):
+        millis = costs.get(f"{population}.ms")
+        if millis is None:
+            continue
+        lines.append(f"| {population} | {_format_ms(int(millis))} |")
+    lines.append("")
+    lines.append(
+        "The uninstrumented `:shared:jvmTest` in the table above is a different "
+        "run: the Kover agent multiplies the cost of every test, and this is the "
+        "number a timeout has to be set from."
+    )
+    lines.append("")
+    return lines
 
 
 def _render_ci_block(baseline: dict[str, object]) -> list[str]:
@@ -560,16 +614,87 @@ def _duration_ms(started: object, completed: object) -> int | None:
     return int((second - first).total_seconds() * 1000)
 
 
+def measure_coverage_costs(populations: tuple[str, ...] = ("fast", "full")) -> dict[str, int]:
+    """Measure the instrumented coverage run, once per population.
+
+    This is the run the Kover agent multiplies: ~37 minutes for the fast
+    population on the development host. It is measured here rather than
+    copied from a log because the number decides whether a timeout is
+    adequate, and a timeout set from a stale number is a timeout set from a
+    guess.
+
+    A run that FAILS still costs the time it took — the coverage floor may be
+    below the recorded one — so the duration is taken either way, and the
+    failure is reported rather than swallowed.
+    """
+    measured: dict[str, int] = {}
+    for population in populations:
+        command = [
+            "./gw",
+            ":koverVerify",
+            f"-Ptest.population={population}",
+        ]
+        logger.info(f"measuring the instrumented coverage run: {population}")
+        started = time.monotonic()
+        result = subprocess.run(command, cwd=sgate.repo.ROOT, check=False)
+        elapsed = int((time.monotonic() - started) * 1000)
+        if result.returncode != 0:
+            logger.warning(
+                f"the '{population}' coverage run exited {result.returncode} — "
+                f"the duration is recorded anyway, but the run itself failed"
+            )
+        measured[population] = elapsed
+    return measured
+
+
+def write_coverage_costs(measured: dict[str, int]) -> None:
+    """Write the measured instrumented costs into their own file.
+
+    A separate file, and not a row of the baseline: this file is read by the
+    build (`:koverVerify` prints the estimate before it starts), and a build
+    reading the gate-costs baseline would make the loop's bookkeeping part of
+    the build's inputs.
+    """
+    path = sgate.repo.COVERAGE_COST_PROPERTIES
+    lines = [
+        "# The measured cost of the INSTRUMENTED coverage run.",
+        "#",
+        "# Written by `sgate gate-costs --record --coverage`. The build reads this",
+        "# file: `:koverVerify` prints the estimate before it starts, so that nobody",
+        "# sets a 15-minute timeout on a 37-minute task.",
+        "",
+    ]
+    for population in sorted(measured):
+        lines.append(f"{population}.ms={measured[population]}")
+    lines.append(f"measuredAt={datetime.now().astimezone().strftime('%Y-%m-%d')}")
+    lines.append(f"machine={os.cpu_count()} vCPU, warm Gradle cache")
+    lines.append("")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
 # ── The command ──────────────────────────────────────────────────────────────────
 
 
 @click.command("gate-costs")
 @click.option("--record", is_flag=True, help="Record the measured cycle into the committed baseline.")
 @click.option("--record-ci", is_flag=True, help="Record the last CI run's job durations into the baseline.")
+@click.option(
+    "--coverage",
+    is_flag=True,
+    help="Also measure the instrumented coverage run, once per population (slow: about an hour).",
+)
 @click.option("--render", is_flag=True, help="Render the published document from the baseline.")
 @click.option("--check", is_flag=True, help="Fail if the published document is not what the baseline says.")
 @click.option("--json", "emit_json", is_flag=True, help="Emit machine-readable output to stdout.")
-def gate_costs(record: bool, record_ci: bool, render: bool, check: bool, emit_json: bool) -> None:
+def gate_costs(
+    record: bool,
+    record_ci: bool,
+    coverage: bool,
+    render: bool,
+    check: bool,
+    emit_json: bool,
+) -> None:
     """Report, record, and publish what the verification loop costs.
 
     With no flag, the last measured cycle is printed next to the baseline, and
@@ -635,6 +760,18 @@ def gate_costs(record: bool, record_ci: bool, render: bool, check: bool, emit_js
         else:
             logger.info(f"{path} is current")
         raise SystemExit(CLEAN)
+
+    if coverage:
+        measured = measure_coverage_costs()
+        if not measured:
+            logger.error("the instrumented coverage run could not be measured")
+            raise SystemExit(IO_ERROR)
+        write_coverage_costs(measured)
+        logger.info(
+            "measured the instrumented coverage run: "
+            + ", ".join(f"{name} {_format_ms(value)}" for name, value in sorted(measured.items()))
+        )
+        write_document(render_document(baseline))
 
     if record:
         recorded = _record(baseline, measurement)
