@@ -2261,11 +2261,12 @@ open class FakeNotesRepository(
     /**
      * The notes that carry the text, in the mode the caller states (F6, F8).
      *
-     * Title only, matching production's `watchSearchByTitle` (`title LIKE ?`).
-     * The fake also matched body text, so a test seeded with body content would
-     * find a note here that production never returns. The fake is the test
-     * double, not a better spec — whether note search *should* cover bodies is
-     * a product question.
+     * Title only, as production searches it: the note is searched by its
+     * title (F3), and the production path is the index in the word mode and
+     * the rows in the contains mode. The fake used to match body text as
+     * well, so a test seeded with body content found a note here that
+     * production never returns. The fake is the test double, not a better
+     * spec — whether note search *should* cover bodies is a product question.
      *
      * The mode is applied with the rule the production code applies, so that
      * the double and the production answer the same question about the same

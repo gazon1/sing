@@ -91,7 +91,7 @@ class SearchUseCase(
     suspend operator fun invoke(
         query: Query,
         userId: String,
-        mode: SearchMode = SearchMode.Word,
+        mode: SearchMode,
     ): Flow<SearchResults> {
         val resolved = queryResolver.resolve(query, userId, mode)
         return buildResultsFlow(resolved, mode)
@@ -104,7 +104,7 @@ class SearchUseCase(
     suspend operator fun invoke(
         queryString: String,
         userId: String,
-        mode: SearchMode = SearchMode.Word,
+        mode: SearchMode,
     ): Flow<SearchResults> {
         val parser = SingularityQueryParser(queryString)
         val query = parser.parse()

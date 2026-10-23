@@ -178,7 +178,12 @@ class NotesRepositoryImpl(
 
             TextMatchPlan.BroadScan -> currentUser.observeForCurrentUser { uid ->
                 noteDao.watchAll(uid.value).map { notes ->
-                    notes.filter { note -> mode.matches(note.title, query) }.map { it.toNote() }
+                    notes.filter { note -> mode.matches(note.title, query) }
+                        // The same order the index answers in: the most recently
+                        // updated first. The two modes answer the same question,
+                        // and they answer it in the same order.
+                        .sortedByDescending { note -> note.updatedAt }
+                        .map { it.toNote() }
                 }
             }
         }

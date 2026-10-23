@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Instant
+import com.singularity.todo.core.search.SearchMode
 
 /**
  * What a search reads.
@@ -107,7 +108,7 @@ class SearchReadsTest {
 
     private suspend fun search(query: String): SearchResults {
         val parsed = SingularityQueryParser(query).parse()
-        return useCase(parsed, "user_1").first()
+        return useCase(parsed, "user_1", SearchMode.Word).first()
     }
 
     private companion object {

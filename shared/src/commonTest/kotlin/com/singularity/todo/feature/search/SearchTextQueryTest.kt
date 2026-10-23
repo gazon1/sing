@@ -25,6 +25,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Instant
+import com.singularity.todo.core.search.SearchMode
 
 /**
  * A free-text query filters the tasks.
@@ -138,7 +139,7 @@ class SearchTextQueryTest {
     }
 
     private suspend fun search(query: String): SearchResults =
-        useCase(SingularityQueryParser(query).parse(), TestUsers.DEFAULT.value).first()
+        useCase(SingularityQueryParser(query).parse(), TestUsers.DEFAULT.value, SearchMode.Word).first()
 
     private fun task(
         id: String,

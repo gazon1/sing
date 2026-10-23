@@ -78,15 +78,23 @@ class SearchModeTest {
         // mode, and once in `SearchMode.plan(rule)` for the contains mode. Two
         // places that answer one question are two answers — and this test is
         // the one that says the rule answers it.
+        //
+        // The same rule, asked in two modes, gets two answers; and the answer
+        // comes with the question, not beside it.
         val word = rule("port")
         val contains = rule("port")
 
         assertIs<TextMatchPlan.Narrowed>(word.plan(SearchMode.Word))
         assertEquals(TextMatchPlan.BroadScan, contains.plan(SearchMode.Contains))
         assertEquals(
+            TextMatchQuery(terms = listOf("port")),
             word.indexQuery(SearchMode.Word),
-            word.indexQuery(SearchMode.Word),
-            "the rule answers the same question the same way in the same mode",
+            "in the word mode the index is asked about the term",
+        )
+        assertEquals(
+            TextMatchQuery.EMPTY,
+            word.indexQuery(SearchMode.Contains),
+            "in the contains mode the index is asked nothing — it cannot answer it",
         )
     }
 

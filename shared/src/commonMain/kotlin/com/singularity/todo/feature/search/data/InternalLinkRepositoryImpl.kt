@@ -13,6 +13,7 @@ import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.toNote
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
+import com.singularity.todo.feature.tasks.domain.TaskDomain
 import com.singularity.todo.feature.tasks.domain.model.Task
 import kotlinx.coroutines.flow.first
 
@@ -62,10 +63,10 @@ class InternalLinkRepositoryImpl(
             TextMatchPlan.BroadScan -> {
                 val userId = currentUser.scopedUserId.value.value
                 taskDao.watchActive(userId).first()
-                    .filter { task -> mode.matches(task.title, query) }
+                    .map { task -> task.toTask() }
+                    .filter { task -> TaskDomain.matches(mode, task, query) }
                     .sortedByDescending { task -> task.updatedAt }
                     .take(SUGGESTION_LIMIT)
-                    .map { task -> task.toTask() }
             }
         }
     }
