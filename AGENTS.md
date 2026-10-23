@@ -64,6 +64,11 @@ tree, ui), `feature/` (agenda, ai, archive, attachments, auth, backup, calendar,
 notes, pomodoro, profile, projects, reminders, search, settings, statistics, tags, tasks),
 `test/fakes/` (Fake-реализации, без моков). **iOS нет** — только Android + JVM.
 
+Экспорты схемы Room — `shared/schemas/com.singularity.todo.core.database.AppDatabase/NN.json`.
+В `jvmTest` их читает **один** владелец: `MigrationRoundTripSupport.applyExportedSchema(N, connection)`
+(и `schemaFile(N)` — путь к экспорту). Тест миграции пишет «посади вот это — проверь вот это»,
+а не SQL; свой экземпляр фикстуры — это copy-paste, который ловит `MigrationFixtureHasOneOwnerTest`.
+
 ## Канонический CRUD-паттерн (новой фичи)
 
 `Ids.kt` (@JvmInline value class) → `*Domain.kt` (валидация) → `*Repository.kt`
@@ -240,8 +245,12 @@ python3 scripts/detekt-summary.py   # находки detekt по правила�
 > сессий — они делят CPU, RAM и Gradle home, но не `shared/build`. Полный
 > `:shared:jvmTest -Ptest.tags=fast,slow` в таком случае идёт час вместо
 > получаса, и таймаут-тесты (`CoroutineDiagnosticsTest`) флейкают от нагрузки, а
-> не от кода. Проверяй `uptime` перед полным прогоном; по умолчанию гоняй
-> целевой набор (`--tests`), а полный — когда целевой зелёный.
+> не от кода.
+>
+> Спроси у хоста, а не у памяти: `./sg host-load` (или `--json`). Порог — **2.0
+> на ядро**, измерено: на 16 ядрах load 16 (1.0/ядро) даёт `:shared:jvmTest` за
+> 8 минут, load 42–52 (2.6–3.2/ядро) — за 24. Занят → целевой набор
+> (`--tests`) или ждать; полный прогон — когда целевой зелёный.
 >
 > **Отчёт detekt** — это XML на находку. `scripts/detekt-summary.py` печатает
 > то же самое по правилам и местам в два-три экрана; выгружать `detekt.xml`
@@ -302,6 +311,11 @@ export PATH="$HOME/.venvs/singularity-todo-$(basename "$PWD")/bin:$PATH"
 > не нужен вовсе. Десять `sleep 30 && tail` — это десять раундов контекста
 > впустую. Лог, который нужен потом, пиши в файл с уникальным именем
 > (`build/diagnostics/<что>-<метка>.log`), а не перетирай общий.
+>
+> Если ждать всё-таки нужно — жди инструментом: `./wait-for <log> <паттерн>`
+> ждёт строку в логе и печатает хвост **один раз** (код 0 — нашлась, 1 —
+> таймаут, 2 — неверные аргументы). Опрос циклом — это тот же ждёшь, только
+> дороже.
 
 ## CI/CD
 
