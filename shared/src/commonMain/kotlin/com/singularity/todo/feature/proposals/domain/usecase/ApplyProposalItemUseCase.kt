@@ -80,7 +80,6 @@ class ApplyProposalItemUseCase(
                     // Lost the race — the other tap decided it. Re-read, so the caller is
                     // told what the item actually is now, instead of a stale pending copy.
                     ?: return@runCatchingCancellable proposals.getItem(itemId) ?: stored
-                claimed = true
 
                 // Everything that can fail after the claim happens inside this block: the
                 // rebuild of a stale plan and the dispatch itself. A failure that escaped it
@@ -200,33 +199,42 @@ class ApplyProposalItemUseCase(
      * before the claim. This lets the planner fail fast without burning the
      * one irreversible decision.
      */
-    private suspend fun buildPlan(item: ProposalItem, userId: UserId): ProposalPlan = when {
-        item.kind.isCreateVariant -> planner.planCreateItem(item, userId)
-
-        item.kind.isNoteBound -> {
-            // SetNoteField needs the note; DeleteNote and ExtractActions don't but
-            // passing the note for SetNoteField is what the planner needs.
-            val note = notes.get(NoteId(item.targetId))
-            planner.planNoteItem(item, note)
+    private suspend fun buildPlan(item: ProposalItem, userId: UserId): ProposalPlan {
+        // A change this build cannot read is refused here — before the claim — and
+        // the reason it carries is the reason the user reads. The change stays on
+        // the card: it is not applied, it is not lost.
+        val kind = item.kind
+        if (kind is ProposalItemKind.Unknown) {
+            error(kind.readFailure ?: "This change cannot be read.")
         }
+        return when {
+            kind.isCreateVariant -> planner.planCreateItem(item, userId)
 
-        item.kind.isTagBound -> {
-            val tag = tags.get(TagId.fromString(item.targetId))
-            planner.planTagItem(item, tag)
-        }
+            kind.isNoteBound -> {
+                // SetNoteField needs the note; DeleteNote and ExtractActions don't but
+                // passing the note for SetNoteField is what the planner needs.
+                val note = notes.get(NoteId(item.targetId))
+                planner.planNoteItem(item, note)
+            }
 
-        item.kind.isProjectBound -> {
-            val project = projects.get(ProjectId.fromString(item.targetId))
-            planner.planProjectItem(item, project)
-        }
+            kind.isTagBound -> {
+                val tag = tags.get(TagId.fromString(item.targetId))
+                planner.planTagItem(item, tag)
+            }
 
-        item.kind.isDeleteVariant -> planner.planDeleteItem(item)
+            kind.isProjectBound -> {
+                val project = projects.get(ProjectId.fromString(item.targetId))
+                planner.planProjectItem(item, project)
+            }
 
-        else -> {
-            // Fetch task and resolve tag ids before calling the planner.
-            val task = tasks.get(TaskId(item.targetId))
-            val resolvedTagIds = item.kind.resolveTagIds()
-            planner.planTaskItem(item, task, resolvedTagIds)
+            kind.isDeleteVariant -> planner.planDeleteItem(item)
+
+            else -> {
+                // Fetch task and resolve tag ids before calling the planner.
+                val task = tasks.get(TaskId(item.targetId))
+                val resolvedTagIds = kind.resolveTagIds()
+                planner.planTaskItem(item, task, resolvedTagIds)
+            }
         }
     }
 

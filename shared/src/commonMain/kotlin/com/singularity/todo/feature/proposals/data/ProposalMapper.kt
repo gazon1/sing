@@ -27,27 +27,25 @@ internal fun AiProposalEntity.toDomain(items: List<ProposalItem> = emptyList()):
 /**
  * Converts a persisted item row to the domain model.
  *
- * A `kind_json` blob that fails to parse yields `null` rather than throwing: one
- * corrupt row must not make the whole proposal card unrenderable, and the item is
- * already decided-or-pending state that the user can still act on via the rest of
- * the card. The caller filters nulls out.
+ * A `kind_json` blob this build cannot read is not a row to drop: it becomes a
+ * [ProposalItemKind.Unknown], so the change stays on the card with the reason it
+ * cannot be applied. One row the codec cannot make sense of must not make the
+ * whole proposal card unrenderable — and it must not make the change disappear
+ * either.
  */
-internal fun ProposalItemEntity.toDomainOrNull(): ProposalItem? {
-    val kind = decodeKind(kindJson) ?: return null
-    return ProposalItem(
-        id = ProposalItemId(id),
-        proposalId = ProposalId(proposalId),
-        kind = kind,
-        targetId = targetId,
-        humanSummary = humanSummary,
-        status = enumOrDefault(status, ProposalItemStatus.Pending),
-        fingerprint = fingerprint,
-        sortOrder = sortOrder,
-        decidedAt = decidedAt?.let(Instant::fromEpochMilliseconds),
-        decidedActor = decidedActor?.let { runCatching { DecidedActor.valueOf(it) }.getOrNull() },
-        rejectionReason = rejectionReason,
-    )
-}
+internal fun ProposalItemEntity.toDomain(): ProposalItem = ProposalItem(
+    id = ProposalItemId(id),
+    proposalId = ProposalId(proposalId),
+    kind = decodeKind(kindJson),
+    targetId = targetId,
+    humanSummary = humanSummary,
+    status = enumOrDefault(status, ProposalItemStatus.Pending),
+    fingerprint = fingerprint,
+    sortOrder = sortOrder,
+    decidedAt = decidedAt?.let(Instant::fromEpochMilliseconds),
+    decidedActor = decidedActor?.let { runCatching { DecidedActor.valueOf(it) }.getOrNull() },
+    rejectionReason = rejectionReason,
+)
 
 /**
  * Parses an enum name from the database, falling back to [fallback].
