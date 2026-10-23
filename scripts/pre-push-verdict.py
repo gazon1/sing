@@ -371,7 +371,7 @@ def main(argv: list[str] | None = None) -> int:
     base = args.base or default_base(repo)
 
     try:
-        report = judge(repo, args.sha, fallback, args.gradle_cmd, tasks, log_dir, args.base)
+        report = judge(repo, args.sha, fallback, args.gradle_cmd, tasks, log_dir, base)
     except VerdictUnavailable as exc:
         if args.json:
             print(json.dumps({"clean": False, "unavailable": str(exc)}, ensure_ascii=False))

@@ -18,8 +18,10 @@ The properties:
   - a clean tree and a clean run make the verdict green.
 """
 
+import json
 import pathlib
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -219,6 +221,28 @@ class ModuleSelectionTest(unittest.TestCase):
         sha = self._commit('change', {'desktopApp/src/main/kotlin/Main.kt': 'class Main\n'})
         tasks, _ = mod.detekt_tasks_for_change(self.repo, mod.default_base(self.repo), sha)
         self.assertEqual([':desktopApp:detekt'], tasks)
+
+    def test_the_command_measures_the_change_against_the_trunk_when_the_push_does_not_say(self):
+        """The whole path, through the command the hook calls."""
+        subprocess.run(
+            ['git', 'update-ref', 'refs/remotes/origin/main', self.base], cwd=self.repo, check=True,
+        )
+        sha = self._commit('change', {'docs/note.md': 'a note\n'})
+        result = subprocess.run(
+            [
+                sys.executable, str(MODULE_PATH),
+                '--sha', sha,
+                '--repo', str(self.repo),
+                '--log-dir', str(self.tmp / 'logs'),
+                '--json',
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        report = json.loads(result.stdout)
+        self.assertEqual([], report['tasks'], report)
+        self.assertIn('no detekt run', report['coverage_reason'])
 
 
 if __name__ == '__main__':
