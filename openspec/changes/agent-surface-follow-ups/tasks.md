@@ -18,9 +18,9 @@ Module prefixes: `shared/`, `mcp-server/`, `desktopApp/`.
 
 ## 3. The protocol's standard output (1.4)
 
-- [ ] shared/ Make the protocol's output a type that owns the stream, and pass it to everything that writes the protocol. `shared/src/jvmMain/kotlin/com/singularity/todo/mcp/ProtocolStdout.kt`
-- [ ] shared/ Point the logger at standard error explicitly, so the application's own log does not depend on the global redirect. `shared/src/jvmMain/kotlin/com/singularity/todo/core/log/`
-- [ ] shared/ Pin the contract: the protocol channel is the original standard output, and the logger writes to standard error without the redirect in place. `shared/src/jvmTest/kotlin/com/singularity/todo/mcp/ProtocolStdoutTest.kt`
+- [x] shared/ Make the protocol's output a type that owns the stream, and pass it to everything that writes the protocol. `shared/src/jvmMain/kotlin/com/singularity/todo/mcp/ProtocolStdout.kt`
+- [x] shared/ Point the logger at standard error explicitly, so the application's own log does not depend on the global redirect. `shared/src/jvmMain/kotlin/com/singularity/todo/core/log/`
+- [x] shared/ Pin the contract: the protocol channel is the original standard output, and the logger writes to standard error without the redirect in place. `shared/src/jvmTest/kotlin/com/singularity/todo/mcp/ProtocolStdoutTest.kt`
 
 ## 4. The module's rules (2.2)
 

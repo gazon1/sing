@@ -110,6 +110,8 @@ fun main(args: Array<String>): Unit = runToolServer(args)
 
 ```kotlin
 fun runToolServer(args: Array<String>): Unit = runBlocking {
+    installStderrLogging()
+    val protocolOut = ProtocolStdout.reserve()
     val selection = parseProfileSelection(args)
 
     // Both arguments at once is a request that says two different things, and neither of
@@ -161,6 +163,8 @@ fun runToolServer(args: Array<String>): Unit = runBlocking {
 - `runBlocking` at top level is **acceptable** here — this is a CLI main, not a hot path. Same reasoning as `koinBridge` (see ADR `2026-09-05-koin-suspend-bridge`).
 - `System.in` / `System.out` — stdio transport. **Never** `println` for logs (corrupts the JSON-RPC stream). Use `System.err` or kermit Logger. The server logs through kermit for the same reason: stdout is reserved for JSON-RPC frames.
 - **The reservation is enforced, not merely advised.** `ProtocolStdout.reserve()` takes standard output for the protocol and points `System.out` at standard error before anything else runs, so a stray `println` — the application's own log line, or a third-party library's start-up banner — lands on standard error instead of the protocol channel. The MCP specification says a stdio server *must not* write anything to standard output that is not a valid MCP message, and a client that takes that literally stops at the first line it cannot parse. See `shared/src/jvmMain/kotlin/com/singularity/todo/mcp/ProtocolStdout.kt`.
+- **The protocol's output is a value, not a side effect.** `ProtocolStdout` owns the stream and is passed to everything that writes the protocol — the transport and the early JSON-RPC error responses. A writer that holds it cannot write anywhere else; a writer that does not hold it cannot reach the protocol. The type *is* the contract; the redirect is only the defence against a third-party library that prints to standard output without asking.
+- **The logger is pointed at standard error by its own configuration.** The server installs `StderrLogWriter` before it reserves the channel, so the application's own log lines do not depend on the redirect. A defence that the thing you control leans on is not a defence — see `shared/src/jvmMain/kotlin/com/singularity/todo/core/log/StderrLogWriter.kt`.
 
 ## The profile argument
 

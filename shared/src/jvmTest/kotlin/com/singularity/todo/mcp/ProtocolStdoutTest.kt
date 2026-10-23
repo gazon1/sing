@@ -54,7 +54,7 @@ class ProtocolStdoutTest {
 
             assertSame(
                 before,
-                reserved,
+                reserved.asPrintStream(),
                 "The protocol must be written to the original standard output, " +
                     "not to the stream everything else was moved to.",
             )

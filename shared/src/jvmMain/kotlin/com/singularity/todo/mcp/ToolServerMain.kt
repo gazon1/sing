@@ -2,6 +2,8 @@ package com.singularity.todo.mcp
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.di.coreLoggingModule
+import com.singularity.todo.core.log.RedactingLogWriter
+import com.singularity.todo.core.log.StderrLogWriter
 import com.singularity.todo.core.di.domainModule
 import com.singularity.todo.core.di.platformModule
 import com.singularity.todo.core.observability.ToolCallContext
@@ -28,7 +30,6 @@ import kotlinx.io.buffered
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import java.io.File
-import java.io.PrintStream
 import kotlin.system.exitProcess
 import java.io.OutputStreamWriter
 import kotlin.time.Clock
@@ -80,6 +81,11 @@ fun runToolServer(args: Array<String>): Unit = runBlocking {
     // print in this process — this application's log, a library's start-up banner —
     // goes to standard error. See [ProtocolStdout] for why a client that parses
     // standard output strictly would otherwise lose the tool access entirely.
+    //
+    // The logger is pointed at standard error before anything can be logged, so the
+    // server's own log lines never depend on the redirect that follows. See
+    // [StderrLogWriter] for why the two are kept apart.
+    installStderrLogging()
     val protocolOut = ProtocolStdout.reserve()
     val selection = parseProfileSelection(args)
 
@@ -173,7 +179,7 @@ fun runToolServer(args: Array<String>): Unit = runBlocking {
 // dependency, a locked store, a broken native library. The caller gets a JSON-RPC error
 // and a non-zero exit code, not a stack trace.
 @Suppress("TooGenericExceptionCaught") // start-up has to fail in one place, whatever the failure was
-private fun bootstrapKoin(fixedProfileId: String?, protocolOut: PrintStream): Boolean = try {
+private fun bootstrapKoin(fixedProfileId: String?, protocolOut: ProtocolStdout): Boolean = try {
     startKoin {
         // A process that was told which profile to serve never opens the store that holds
         // the active profile — the store takes a file lock, and the application is holding
@@ -215,7 +221,7 @@ private fun bootstrapKoin(fixedProfileId: String?, protocolOut: PrintStream): Bo
 // built is a start-up failure, and the caller gets a JSON-RPC error and a non-zero exit
 // code, not a stack trace.
 @Suppress("TooGenericExceptionCaught") // start-up has to fail in one place, whatever the failure was
-private fun resolveDependencies(protocolOut: PrintStream): ServerDependencies? = try {
+private fun resolveDependencies(protocolOut: ProtocolStdout): ServerDependencies? = try {
     ServerDependencies.fromKoin()
 } catch (e: Throwable) {
     log.e(e) { "The server's dependencies could not be resolved: ${e.message}" }
@@ -237,7 +243,7 @@ private suspend fun profileExists(dependencies: ServerDependencies, profileId: S
  */
 // The same one-place failure as the start-up: the database either opens or it does not.
 @Suppress("TooGenericExceptionCaught") // the database either opens or it does not
-private suspend fun verifyDatabase(dependencies: ServerDependencies, protocolOut: PrintStream): Boolean = try {
+private suspend fun verifyDatabase(dependencies: ServerDependencies, protocolOut: ProtocolStdout): Boolean = try {
     dependencies.database.profileDao().count()
     true
 } catch (e: CancellationException) {
@@ -498,6 +504,18 @@ private fun installShutdownHook(server: Server) {
  * detail of the failure goes to the log, because the caller is not the party that can
  * act on it and a file path is not a thing an agent needs to be told.
  */
-private fun writeJsonRpcError(protocolOut: PrintStream, code: Int, message: String) {
-    OutputStreamWriter(protocolOut, Charsets.UTF_8).use { it.write(jsonRpcError(code, message) + "\n") }
+/**
+ * Points the logger at standard error.
+ *
+ * The protocol owns standard output, so the log cannot go there. Saying so here —
+ * rather than letting a global redirect carry the log there as a side effect — is
+ * what makes "the protocol owns standard output" a contract the code keeps rather
+ * than an arrangement it happens to have.
+ */
+private fun installStderrLogging() {
+    Logger.setLogWriters(RedactingLogWriter(StderrLogWriter()))
+}
+
+private fun writeJsonRpcError(protocolOut: ProtocolStdout, code: Int, message: String) {
+    OutputStreamWriter(protocolOut.asPrintStream(), Charsets.UTF_8).use { it.write(jsonRpcError(code, message) + "\n") }
 }
