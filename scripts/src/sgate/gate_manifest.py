@@ -360,8 +360,12 @@ pushed — and nothing in the tree said so. The finding existed in the reviewer'
 answer, in a session that was about to end.
 
 Every open change carries its verdict in `.specify/reviews/<slug>.md`: the
-change, the verdict, the date, the pull request, and what the review said. The
-changes that predate the rule are in `config/docs/review-verdicts-baseline.txt`,
+change, the verdict, the date, the pull request, the commit the review was
+made against, the digest of the change's contract documents, and what the
+review said. The digest is checked: a contract that moved after the verdict
+was written leaves a verdict that speaks for a change that is not there any
+more, and the gate says so. The changes that predate the rule are in
+`config/docs/review-verdicts-baseline.txt`,
 and that list only shrinks — accepting a new exception is an edit a reviewer
 can see, not a side effect of a maintenance command."""),
     "the tag catalogue matches the tags": Placement(

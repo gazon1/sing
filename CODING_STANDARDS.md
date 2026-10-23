@@ -77,6 +77,65 @@ A reviewing agent applies the same standard to the diff it is reading:
 - **A registry is checked, not written.** When a diff adds a list — a table, a
   catalogue, a set of names — ask what checks it against the code. A list that
   nothing checks is a sentence that reads like a fact.
+- **A gate that derives a set from the tree proves the set is complete.** A gate
+  that reads the classes, the suites or the modules out of the source and then
+  checks the ones it found has proved nothing about the ones it did not find:
+  the naming convention it reads, the sub-tag it ignores, the module it has no
+  mapping for. The gate's set is compared with an *independent* enumeration —
+  a second way of listing the same thing — and the comparison is part of the
+  gate, not a note in the pull request. The slow-class rule is the shape of
+  this: `unmapped_slow_classes` walks the test roots itself and names the
+  slow classes that live in a root it does not map, instead of trusting a
+  test to notice.
+
+---
+
+## A number that the tree can change is generated, not written
+
+A count is a claim about the tree, and the tree moves. A number written by hand
+in a living document is a claim that starts true and quietly stops being true:
+`docs/engineering/script-tooling-audit.md` says the corpus is 1676 Kotlin
+files, and the tree is now 1915 (`git ls-files '*.kt' | wc -l`). Nothing
+failed — the number was true when it was written, and nobody reading it could
+tell it apart from a number that was still true.
+
+- **A count that the tree can change comes from a generator.** The repository
+  already does this for the tag catalogue (`Maestro/TAGS.md` is generated and
+  checked against `TestTags.kt`) and for the gate catalogue
+  (`docs/tools/catalog.md`). A new count follows the same road: a generator, a
+  golden file, and a gate that says when the file is stale.
+- **A decision record is history; a living document is the present.** An ADR
+  states what was decided at a moment, and its numbers are the numbers of that
+  moment — they are not a defect when the tree moves on. A document that
+  describes the tree *now* — `AGENTS.md`, `docs/architecture/`, a catalogue —
+  states what is true now, and a number in it is a claim that has to be checked.
+  A reviewer reads a changed number in an ADR as a record and in a living
+  document as a claim.
+- **The reviewer compares the numbers in the diff with the tree.** When a diff
+  touches a document that states a count, the count is the first thing to
+  check: a number that does not match the tree is a defect even when nothing
+  else in the diff is wrong.
+
+---
+
+## A claim about CI names the workflow, the run and its conclusion
+
+"I checked CI and it is green" is not evidence while the repository runs
+several workflows: the one that answered "success" may have been the cache
+cleanup. A session that read the first successful line of a run list reported
+a green CI for a red branch, and the correction cost the reader a second pass
+over the logs.
+
+- **The claim is a whole line.** The workflow that decides, the run, and what
+  it concluded. `python3 scripts/ci-verdict.py <ref>` prints exactly that line
+  and exits with the conclusion — 0 for `success`, 1 for anything else, 2 when
+  there is no run at all, 3 when the run list could not be read. A missing run
+  is not a pass, and a list that could not be read is not a run.
+- **A run id on its own is not a claim.** "Run 39888582872" says nothing about
+  which workflow it was. The reviewer asks for the line the tool prints.
+- **The reviewer checks the claim against the branch.** A diff that says the
+  change is green names the run it means, and the run is of the branch the diff
+  is on.
 
 ---
 

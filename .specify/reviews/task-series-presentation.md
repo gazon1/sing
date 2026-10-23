@@ -2,7 +2,9 @@
 change: task-series-presentation
 verdict: fail
 date: 2026-10-23
-pr: 976
+pr: https://github.com/gazon1/sing/pull/976
+reviewed: d7bdc84a79d36cb0a9d47161c3ab8379c2615c2b
+documents: sha256:7b49474de4b25afbcb9eb6fc3c234d2b4e829f798145725a3d62847c8e5c0bc8
 ---
 
 ## What was reviewed
@@ -14,6 +16,15 @@ deleted series, and the statistics that count a series as one work.
 
 The reviewer was a separate agent given the diff (`git diff origin/main...HEAD`),
 the ADRs and the OpenSpec change, and nothing else.
+
+`reviewed:` is the head of the pull request as it landed — the state of the
+branch the review judged, and the branch the fixes are in. This pull request
+landed by merge, so the commit is in the history of `main` and a reader with
+the history can look at it.
+
+`documents:` is the digest of the contract as the verdict speaks for it — the
+change's proposal and its spec delta. The contract has not moved since the
+review, so the digest is the one the gate recomputes.
 
 ## What the review found
 

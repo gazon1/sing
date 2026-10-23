@@ -17,6 +17,13 @@ fixture table ``config/test-fixtures/runnable-test-members.txt`` is the contract
 and ``scripts/tests/test_runnable_test_members.py`` checks this file against it.
 
 Nothing here imports Kiwi, XML-RPC, or the network.
+
+The public names of this module are the ones a caller imports: `read_tags`
+(every class-level tag) and `read_tag` (the primary tag CI selects by). They
+were private (`_read_tags`, `_read_tag`) and re-exported under public names by
+`scripts/scanning.py`, so a reader of this module saw only the private spelling
+and a caller who guessed `read_tags` here got an `ImportError` — the public
+entry point of the scanner was the one name it did not answer to.
 """
 
 from __future__ import annotations
@@ -26,6 +33,18 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from scanners.source_text import line_depths, strip_code, strip_comments
+
+__all__ = [
+    "PKG_PREFIX",
+    "REPO_ROOT",
+    "RepoTest",
+    "TEST_ROOTS",
+    "has_runnable_test",
+    "read_tag",
+    "read_tags",
+    "scan_repository",
+    "test_classes_in",
+]
 
 # scripts/src/scanners/test_classes.py → [0]=scanners [1]=src [2]=scripts [3]=repo
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -118,7 +137,7 @@ def _tag_pattern(lines: list[str]) -> re.Pattern[str]:
     return re.compile(r'@(?:org\.junit\.jupiter\.api\.)?Tag\(\s*"([^"]+)"\s*\)')
 
 
-def _read_tags(source: str, class_name: str | None = None) -> list[str]:
+def read_tags(source: str, class_name: str | None = None) -> list[str]:
     """Все теги уровня КЛАССА, от ближайшего к декларации.
 
     Класс может нести больше одного тега: с 2026-10-22 медленный класс носит
@@ -178,7 +197,7 @@ def _read_tags(source: str, class_name: str | None = None) -> list[str]:
 CI_SELECTABLE_TAGS = frozenset({"fast", "slow"})
 
 
-def _read_tag(source: str, class_name: str | None = None) -> str:
+def read_tag(source: str, class_name: str | None = None) -> str:
     """Тег уровня КЛАССА, а не первый @Tag в файле.
 
     По правилам проекта каждый тестовый класс обязан иметь тег — иначе
@@ -200,9 +219,9 @@ def _read_tag(source: str, class_name: str | None = None) -> str:
     выбирается по основному. Ровно то же различение проводит
     TestTagCoverageTest: `CI_SELECTABLE_TAGS = {"fast", "slow"}`.
 
-    Правилу «какие теги у класса» нужен весь список: `_read_tags`.
+    Правилу «какие теги у класса» нужен весь список: `read_tags`.
     """
-    for value in _read_tags(source, class_name):
+    for value in read_tags(source, class_name):
         if value in CI_SELECTABLE_TAGS:
             return value
     # Под-тег без основного: класс не выбирается ни одной CI-выборкой, и
@@ -227,7 +246,7 @@ _TEST_MEMBER = re.compile(
 )
 
 
-def _test_classes_in(source: str) -> list[str]:
+def test_classes_in(source: str) -> list[str]:
     """Имена тест-классов верхнего уровня, объявленных в файле."""
     # Скобки считаются по коду: литералы и комментарии обнулены, поэтому
     # фигурная скобка внутри строки или KDoc не может оборвать тело класса.
@@ -307,7 +326,7 @@ def _has_test_member(code_lines: list[str], depths: list[int], class_index: int)
 
 def has_runnable_test(source: str) -> bool:
     """Есть ли в файле тест, который JUnit действительно выполнит."""
-    return bool(_test_classes_in(source))
+    return bool(test_classes_in(source))
 
 
 def scan_repository() -> tuple[list[RepoTest], list[tuple[str, str]]]:
@@ -338,7 +357,7 @@ def scan_repository() -> tuple[list[RepoTest], list[tuple[str, str]]]:
             # Имя класса, объявленного в файле. Файл может объявлять класс,
             # отличный от path.stem — это видимый признак расхождения
             # (PurchaseStateTest в NoopSubscriptionProviderTest.kt, и т.д.).
-            all_classes = _test_classes_in(source)
+            all_classes = test_classes_in(source)
             file_class = path.stem  # имя файла без расширения
             if file_class in all_classes:
                 declared_class = file_class
@@ -358,7 +377,7 @@ def scan_repository() -> tuple[list[RepoTest], list[tuple[str, str]]]:
                     # (NoopSubscriptionProviderTest.kt → PurchaseStateTest), честный
                     # ответ — untagged. Это видимый признак расхождения, а не
                     # тихая подстановка чужого тега.
-                    tag=_read_tag(source, path.stem),
+                    tag=read_tag(source, path.stem),
                     is_arch=".arch." in fqn or fqn.endswith(".arch"),
                     declared_class=declared_class,
                 )

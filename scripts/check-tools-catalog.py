@@ -68,6 +68,10 @@ EXTRA_TOOLS = [
         "scripts/detekt-summary.py",
         "Prints the detekt findings by rule and by place, instead of XML per finding.",
     ),
+    (
+        "scripts/ci-verdict.py",
+        "Prints the CI verdict of a commit, a branch or a pull request: the workflow, the run, the conclusion.",
+    ),
 ]
 
 
