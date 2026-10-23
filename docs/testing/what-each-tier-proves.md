@@ -105,6 +105,34 @@ request's `-Ptest.population=fast` selection:
   `Modifier.testTag(...)` in `shared/src/commonMain`, or a tag that moved onto a
   node that merges away, is caught by the JVM tier in seconds.
 
+## What the pull request does not prove
+
+The tiers above are test tiers. There is a third question a pull request used
+to answer and no longer does: **how much of the application is covered?**
+
+The app coverage floor (INSTRUCTION / BRANCH / LINE) is proved by the
+**coverage tier**, which is the trunk's job: the `coverage` job in `ci.yml`
+runs the suite under the Kover agent, on a push to the trunk, on the schedule,
+and on a pull request that asks for the full population. It does not run on an
+ordinary pull request.
+
+The reason is the order of the two facts: a floor describes a measurement, and
+a pull request does not take that measurement. The pull-request path runs the
+suite **without** the Kover agent — measured, not assumed — so a coverage
+number taken there would be about a different build than the one the floor is
+declared against. A pull request that failed a coverage floor would be failing
+on a measurement it never took, and a pull request that passed one would be
+passing on a number nobody computed.
+
+So a pull request proves: the tests it runs are green, the affected tests are
+green, detekt is clean, and the gates can still fail. It does not prove the
+coverage floor — the trunk does, and the floor's failure there is what makes
+it a floor.
+
+The floor itself, and the two populations it is declared for, live in
+`settings.gradle.kts`; the decision is ADR
+`2026-10-23-ci-fast-signal-and-coverage-off-the-pr-path.md`.
+
 ## The caveat, stated plainly
 
 The JVM tier's shell is the **desktop** shell. It shares the *screens* with
