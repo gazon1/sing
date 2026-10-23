@@ -19,14 +19,45 @@ The waits in these tests are short: the tool's own timeout is what is being
 tested, and a test that waits out a real timeout is a slow test.
 """
 
+import json
 import os
 import pathlib
+import re
 import subprocess
 import tempfile
+import time
 import unittest
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 TOOL = REPO / "wait-for"
+
+#: The measured cost of the longest run in this repository.
+#:
+#: Read from the files that recorded it, so the number the tool is measured
+#: against is the number the repository published:
+#:
+#: * `config/docs/gate-benchmarks.json` — the longest job of the last CI run;
+#: * `docs/testing/gate-costs.md` — the instrumented coverage run.
+#:
+#: A default timeout shorter than the longest run turns one run into two
+#: waits, which is the cost the tool exists to remove.
+
+
+def _longest_ci_job_seconds() -> float:
+    """The longest job of the last measured CI run, in seconds."""
+    benchmarks = json.loads(
+        (REPO / "config" / "docs" / "gate-benchmarks.json").read_text(encoding="utf-8"),
+    )
+    return max(benchmarks["ci"]["jobs"].values()) / 1000
+
+
+def _instrumented_run_seconds() -> float:
+    """The instrumented coverage run, in seconds — the longest local run."""
+    text = (REPO / "docs" / "testing" / "gate-costs.md").read_text(encoding="utf-8")
+    match = re.search(r"\|\s*fast\s*\|\s*(\d+)\s*min\s*(\d+)\s*s\s*\|", text)
+    if match is None:
+        raise AssertionError("the instrumented run cost is not where the test expects it")
+    return int(match.group(1)) * 60 + int(match.group(2))
 
 
 def _run(*arguments: str) -> subprocess.CompletedProcess:
@@ -92,6 +123,53 @@ class WaitForTest(unittest.TestCase):
         self.assertEqual(2, _run(str(self.log)).returncode)
         self.assertEqual(2, _run().returncode)
         self.assertEqual(2, _run(str(self.log), "pattern", "--timeout", "soon").returncode)
+
+    def test_the_default_timeout_covers_the_longest_measured_run(self) -> None:
+        """A 40-minute run must cost one wait, not two.
+
+        The default timeout is the number the repository published: the longest
+        CI job and the longest local run. A default shorter than those turns
+        one run into two waits — the cost this tool exists to remove.
+        """
+        usage = _run("--help").stdout
+        match = re.search(r"\(default (\d+)", usage)
+        self.assertIsNotNone(match, f"the usage does not name a default timeout: {usage}")
+        default = int(match.group(1))
+
+        self.assertGreaterEqual(
+            default,
+            _longest_ci_job_seconds(),
+            "the default timeout is shorter than the longest job of the last CI run",
+        )
+        self.assertGreaterEqual(
+            default,
+            _instrumented_run_seconds(),
+            "the default timeout is shorter than the instrumented coverage run",
+        )
+
+    def test_a_timeout_of_zero_waits_without_a_limit(self) -> None:
+        """The observer has no artificial ceiling.
+
+        The harness caps a poll at 30 seconds, so a waiter that gives up on a
+        schedule is a waiter that has to be called again. A timeout of zero
+        says: wait until the answer exists.
+        """
+        log = pathlib.Path(self.directory.name) / "later.log"
+        process = subprocess.Popen(
+            [str(TOOL), str(log), "DONE", "--timeout", "0", "--interval", "1"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        try:
+            time.sleep(2)
+            log.write_text("DONE\n", encoding="utf-8")
+            stdout, stderr = process.communicate(timeout=60)
+        finally:
+            process.kill()
+
+        self.assertEqual(0, process.returncode, stdout or stderr)
+        self.assertIn("DONE", stdout)
 
 
 if __name__ == "__main__":
