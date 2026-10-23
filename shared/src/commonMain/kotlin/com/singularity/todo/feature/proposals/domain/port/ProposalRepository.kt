@@ -112,6 +112,18 @@ interface ProposalRepository {
     ): ProposalItem?
 
     /**
+     * Puts a claimed item back into [ProposalItemStatus.Pending].
+     *
+     * The claim is the decision; the dispatch is the work. When the work fails, the
+     * decision must not stand on its own — nothing was changed, so the item goes back
+     * to `Pending` and the user can try again.
+     *
+     * Only an item this user's claim confirmed can be released, and only if nothing
+     * else has decided it since.
+     */
+    suspend fun release(id: ProposalItemId, userId: UserId): Result<Unit>
+
+    /**
      * Recompute the owning proposal's aggregate [ProposalStatus] from its items and
      * persist it. Called after every decision.
      */

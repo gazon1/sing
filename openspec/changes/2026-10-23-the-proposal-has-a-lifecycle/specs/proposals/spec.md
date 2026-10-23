@@ -96,3 +96,60 @@ because the codec is not a `when` over the type.
 - **Given** a kind that was added to the vocabulary
 - **When** the round-trip check runs
 - **Then** the check fails, naming the kind that has no sample
+
+### Requirement: REQ-PROP-013 A change that fails while it is applied goes back to waiting
+
+The claim of a change SHALL be the decision and the writing of the change SHALL be
+the work. When the work fails, the claim SHALL be released, the change SHALL go
+back to waiting for a decision, and the reason SHALL be visible next to it. A
+change that was not written SHALL NOT be recorded as decided.
+
+A change that writes several rows SHALL write all of them or none of them: the
+rows written before a later row fails SHALL be taken back, so that the next
+attempt — which is the user's — does not write them twice.
+
+**Rationale:** the change is confirmed before it is written, so that a proposal
+the app cannot apply does not burn its one decision. But a decision that is
+recorded for something that never happened is worse than a silent failure: the
+user sees the change as done, and it is not. And a change that leaves half of
+its rows behind would be applied twice the next time the user tries.
+
+#### Scenario: The write fails
+
+- **Given** a proposal waiting for a decision
+- **When** the user applies it and the write fails
+- **Then** the change is still waiting for a decision
+- **And** the reason is shown next to it
+- **And** the user can apply it again
+
+#### Scenario: The write breaks halfway
+
+- **Given** a proposal that adds three rows
+- **When** the second row fails
+- **Then** none of the three rows is on the task
+- **And** applying the proposal again adds each row once
+
+### Requirement: REQ-PROP-014 A date can be cleared
+
+The vocabulary SHALL hold the absence of a date, and the reader SHALL read an
+empty value as that absence rather than as a mistake. A task that can be given a
+due date SHALL be able to lose it again, and the stored shape SHALL stay the one
+the rows written before the typed dictionary already have.
+
+**Rationale:** the tools that set a date have always said that an empty value
+clears it. A vocabulary that refuses the empty value makes the tool's own
+description false, and turns "the task has no due date any more" into an error
+the model cannot recover from.
+
+#### Scenario: The model clears the due date
+
+- **Given** a task with a due date
+- **When** the model asks for the due date to be cleared
+- **Then** the proposal says the due date is cleared
+- **And** applying it leaves the task without a due date
+
+#### Scenario: The cleared date survives the database
+
+- **Given** a proposal that clears a due date
+- **When** it is written to the database and read back
+- **Then** it reads back as the same change

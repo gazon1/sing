@@ -101,6 +101,16 @@ A change the app cannot apply keeps its reason next to it as well, instead of fa
 silently: the screen reads the ViewModel's error events (which it did not do at all
 before, so every failure was invisible) and the card keeps the reason per item.
 
+A change that **fails while it is being applied** goes back to `Pending`. The claim is
+the decision and the dispatch is the work; when the work fails, the decision must not
+stand on its own — nothing was changed, so the item is released back to `Pending`, the
+reason is shown next to it, and the user can try again.
+
+And a change that **writes several rows writes all of them or none of them**: a change
+that adds three checklist items and fails on the second takes the first back, because
+the change goes back to waiting and the user will try again — the row that stayed would
+be there twice.
+
 ## Where the values come from
 
 The **collection** kinds (`SetTaskTags`, `AddTags`, `RemoveTags`, `AddChecklistItems`,
@@ -112,3 +122,15 @@ correctly.
 `TaskValue.Project` is the exception that proves the rule — it carries a project id,
 because the id is what the app resolves a name to, and the id is not something a user
 can retype. It is therefore not editable either.
+
+## The values that are allowed to be absent
+
+`TaskValue.DueDate` and `TaskValue.DueTime` hold **nothing** as well as a date: an
+empty value means "no due date" — which is how the tools that set the date have always
+said it. A task that can be given a date must be able to lose it again, so the value is
+nullable and the reader reads an empty string as the absence of a date, not as a
+mistake.
+
+The stored shape is unchanged: a cleared date is written as an empty `value`, which is
+the shape the rows written before the typed dictionary already have — so those rows keep
+reading, and the round-trip test covers the cleared date as well.

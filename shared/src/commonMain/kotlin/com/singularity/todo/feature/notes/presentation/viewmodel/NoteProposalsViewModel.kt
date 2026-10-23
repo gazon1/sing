@@ -2,6 +2,7 @@ package com.singularity.todo.feature.notes.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.runCatchingCancellable
+import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.observability.CrashReportingPort
@@ -18,8 +19,18 @@ import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUs
 import com.singularity.todo.feature.proposals.domain.usecase.EditProposalItemUseCase
 import kotlinx.coroutines.launch
 
-/** The changes waiting for a decision on this note. */
-data class NoteProposalsUiState(val proposals: List<AiProposal> = emptyList())
+/**
+ * The changes waiting for a decision on this note.
+ *
+ * @property failures Why the last attempt to apply or to change a change failed, by
+ *   the change it belongs to. The reason sits next to the change rather than in one
+ *   message about a batch: a user who cannot see *which* change failed cannot act on
+ *   it.
+ */
+data class NoteProposalsUiState(
+    val proposals: List<AiProposal> = emptyList(),
+    val failures: Map<ProposalItemId, String> = emptyMap(),
+)
 
 /** What the user did about a proposed change. */
 sealed interface NoteProposalsIntent : MviIntent {
@@ -85,7 +96,11 @@ class NoteProposalsViewModel(
     private val pendingWatch = vmScope.launch {
         proposals.watchProposalsForNote(noteId)
             .collect { list ->
-                updateState { NoteProposalsUiState(proposals = list.filter { it.pendingItems.isNotEmpty() }) }
+                // The failures are kept: a reason the user has not read yet is still a
+                // reason, and a new list of proposals must not wipe it.
+                updateState { state ->
+                    state.copy(proposals = list.filter { it.pendingItems.isNotEmpty() })
+                }
             }
     }
 
@@ -115,19 +130,40 @@ class NoteProposalsViewModel(
     private fun edit(itemId: ProposalItemId, text: String) {
         val userId = currentUser.scopedUserId.value
         emitError("Change the proposal", NoteProposalsUiEvent::ShowError) {
-            editProposalItem.edit(itemId, text, userId)
+            editProposalItem.edit(itemId, text, userId).also { result ->
+                result.onFailure { error -> recordFailure(itemId, error.toMessage("Change the proposal")) }
+                result.onSuccess { clearFailure(itemId) }
+            }
         }
     }
 
-    /** Apply every change of the proposal at once. */
+    /**
+     * Apply every change of the proposal at once.
+     *
+     * A batch where some of the changes failed is not a crash: the reason of each
+     * failed change sits next to that change. Throwing here would report a normal
+     * outcome to the crash reporter.
+     */
     private fun confirmAll(proposalId: ProposalId) {
         val userId = currentUser.scopedUserId.value
         emitError("Apply the changes", NoteProposalsUiEvent::ShowError) {
-            runCatchingCancellable { applyProposalItem.confirmAll(proposalId, userId) }
+            runCatchingCancellable {
+                val batch = applyProposalItem.confirmAll(proposalId, userId)
+                batch.failed.forEach { failed ->
+                    recordFailure(failed.itemId, failed.error.toMessage("Apply the change"))
+                }
+                batch.applied.forEach { applied -> clearFailure(applied.id) }
+                batch
+            }
         }
     }
 
-    /** Turn every change of the proposal down, one by one. */
+    /**
+     * Turn every change of the proposal down, one by one.
+     *
+     * A change that could not be turned down keeps its reason; the ones that were
+     * turned down have nothing left to explain, so their reason is cleared.
+     */
     private fun dismiss(proposalId: ProposalId) {
         val userId = currentUser.scopedUserId.value
         val waiting = stateFlow.value.proposals
@@ -136,7 +172,12 @@ class NoteProposalsViewModel(
             .orEmpty()
         emitError("Turn the changes down", NoteProposalsUiEvent::ShowError) {
             runCatchingCancellable {
-                waiting.forEach { item -> applyProposalItem.reject(item.id, userId, null) }
+                waiting.forEach { item ->
+                    applyProposalItem.reject(item.id, userId, null).also { result ->
+                        result.onFailure { error -> recordFailure(item.id, error.toMessage("Turn the change down")) }
+                        result.onSuccess { clearFailure(item.id) }
+                    }
+                }
             }
         }
     }
@@ -145,11 +186,24 @@ class NoteProposalsViewModel(
         val userId = currentUser.scopedUserId.value
         val label = if (confirm) "Apply the change" else "Reject the change"
         emitError(label, NoteProposalsUiEvent::ShowError) {
-            if (confirm) {
+            val result = if (confirm) {
                 applyProposalItem.confirm(itemId, userId)
             } else {
                 applyProposalItem.reject(itemId, userId)
             }
+            result.onFailure { error -> recordFailure(itemId, error.toMessage(label)) }
+            result.onSuccess { clearFailure(itemId) }
+            result
         }
+    }
+
+    /** Why a change could not be applied, next to the change it belongs to. */
+    private fun recordFailure(itemId: ProposalItemId, message: String) {
+        updateState { state -> state.copy(failures = state.failures + (itemId to message)) }
+    }
+
+    /** The change went through: there is nothing left to explain. */
+    private fun clearFailure(itemId: ProposalItemId) {
+        updateState { state -> state.copy(failures = state.failures - itemId) }
     }
 }

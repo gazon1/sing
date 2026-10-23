@@ -142,6 +142,8 @@ class ProposalRepositoryRefreshStatusTest {
 
         override suspend fun retractPendingItems(proposalId: String, userId: String): Int = 0
 
+        override suspend fun releaseClaim(userId: String, id: String, actor: String): Int = 0
+
         override suspend fun rejectedFingerprints(userId: String, limit: Int): List<String> = emptyList()
 
         override suspend fun deleteAllForUser(userId: String): Int = 0

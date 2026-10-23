@@ -67,6 +67,17 @@ actionable.** A change that could not be applied is *not* silently decided: it
 stays waiting, with its reason, so the user can fix the cause and try again —
 or turn it down.
 
+**A change that fails while it is being applied goes back to waiting.** The
+claim is the decision and the dispatch is the work; when the work fails, the
+decision is released, so the item is not recorded as decided by something that
+never happened.
+
+**A change that writes several rows writes all of them or none.** A change that
+adds three checklist items and fails on the second must not leave the first
+behind: the change goes back to waiting, and the user will try again — so the
+row that was written would be there twice. The dispatch therefore takes back
+what it wrote when a later row fails.
+
 ## Rationale
 
 The edit is the obvious missing piece, and the typed vocabulary is what makes
@@ -95,9 +106,14 @@ not apply is not a decision the app has made either.
 - **The stored item can be rewritten — but only while it is pending.** The
   rewrite carries the same guard the claim uses: a decided item is a decision,
   and rewriting it would rewrite what the user decided.
-- **The fingerprint does not change when the value does.** The fingerprint
-  identifies the *change* (this field of this task), not the value in it, so
-  the rejection guard keeps protecting the slot rather than one spelling of it.
+- **The fingerprint follows the change, not the value — with one exception.** For a
+  change of a field, the fingerprint identifies the field, so the rejection guard keeps
+  protecting the slot rather than one spelling of it. For a *creation*, the name of the
+  thing is the change: editing the title of a proposed task changes the fingerprint,
+  because a different thing being created is a different change.
+- **A failed apply releases the claim.** The item goes back to `Pending` instead of
+  being recorded as decided, so the failure is retryable and the card keeps saying what
+  went wrong.
 - **Not everything is editable.** Lists and ids are not, and saying so is part
   of the decision rather than an omission.
 

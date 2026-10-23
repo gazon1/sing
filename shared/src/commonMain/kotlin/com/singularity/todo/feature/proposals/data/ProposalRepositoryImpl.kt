@@ -138,6 +138,25 @@ class ProposalRepositoryImpl(
     )?.toDomainOrNull()
 
     /**
+     * Puts a confirmed item back into `Pending`.
+     *
+     * The item goes back rather than being deleted: the change was not applied, and
+     * the user may want it again. The reason it failed is reported by the caller, not
+     * stored here — the row keeps the decision fields empty, because there is no
+     * decision.
+     */
+    override suspend fun release(id: ProposalItemId, userId: UserId): Result<Unit> = runCatchingCancellable {
+        val released = items.releaseClaim(
+            userId = userId.value,
+            id = id.value,
+            actor = DecidedActor.User.name,
+        )
+        require(released > 0) {
+            "Proposal item ${id.value} was not released — it is no longer a confirmed change of this user"
+        }
+    }
+
+    /**
      * Recomputes a proposal's aggregate status from its items.
      *
      * Reported here rather than at the three `ApplyProposalItemUseCase` call sites that

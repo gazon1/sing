@@ -321,9 +321,14 @@ fun TaskDetailContent(
                                         is TaskDetailExtras.Unresolved -> emptyList()
                                         is TaskDetailExtras.Ready -> ex.proposals
                                     }
+                                    val proposalFailures = when (val ex = extras) {
+                                        is TaskDetailExtras.Unresolved -> emptyMap()
+                                        is TaskDetailExtras.Ready -> ex.proposalFailures
+                                    }
                                     if (proposals.isNotEmpty()) {
                                         TaskDetailProposalSection(
                                             proposals = proposals,
+                                            failures = proposalFailures,
                                             onConfirm = { itemId ->
                                                 coordinator.onIntent(
                                                     TaskDetailIntent.Domain.ConfirmProposalItem(itemId),

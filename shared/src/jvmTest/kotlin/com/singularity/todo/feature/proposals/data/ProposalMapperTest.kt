@@ -112,6 +112,23 @@ class ProposalMapperTest {
             "a tag field arrived without a sample — it would not be covered by the round trip",
         )
     }
+
+    @Test
+    fun `a cleared date survives the round trip`() {
+        // "No due date" is a value the task can hold, and it is written as an empty
+        // string — the shape the rows written before the typed dictionary already have.
+        // A codec that could not read it would drop the change from the card.
+        val cleared = listOf(
+            ProposalItemKind.SetTaskField(TaskValue.DueDate(null)),
+            ProposalItemKind.SetTaskField(TaskValue.DueTime(null)),
+        )
+
+        cleared.forEach { kind ->
+            val encoded = kind.toJsonString()
+            val decoded = decodeKind(encoded)
+            assertEquals(kind, decoded, "a cleared date does not survive the round trip: $encoded")
+        }
+    }
 }
 
 /**

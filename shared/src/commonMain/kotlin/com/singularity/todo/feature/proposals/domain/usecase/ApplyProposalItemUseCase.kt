@@ -15,7 +15,10 @@ import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
@@ -33,7 +36,10 @@ import com.singularity.todo.core.error.runCatchingCancellable
  *    the item `Pending` and re-tryable, rather than half-applied with a decision recorded.
  * 3. **Claim.** A compare-and-set moves the item out of `Pending`. Losing that race
  *    means another tap already decided it, and this call then does nothing at all.
- * 4. **Dispatch** against the row the claim read back, not an earlier read.
+ * 4. **Dispatch** against the row the claim read back, not an earlier read. A dispatch
+ *    that fails puts the item back into `Pending`: the work did not happen, so the
+ *    decision must not stand on its own — and the reason is reported next to the
+ *    change, where the user can read it and try again.
  * 5. **Refresh** the proposal's aggregate status.
  *
  * Reject is steps 1, 3 and 5 — no dispatch, but the reason is persisted so the
@@ -55,23 +61,75 @@ class ApplyProposalItemUseCase(
      * @return the item in its post-decision state. A failure is a precondition or
      *   dispatch error, in which case the item is still `Pending` and nothing changed.
      */
-    suspend fun confirm(itemId: ProposalItemId, userId: UserId): Result<ProposalItem> = runCatchingCancellable {
-        val stored = proposals.getItem(itemId) ?: error("Proposal item $itemId not found")
-        check(stored.status == ProposalItemStatus.Pending) {
-            "Proposal item $itemId is already ${stored.status.name}"
+    suspend fun confirm(itemId: ProposalItemId, userId: UserId): Result<ProposalItem> {
+        var claimed = false
+        return try {
+            runCatchingCancellable {
+                val stored = proposals.getItem(itemId) ?: error("Proposal item $itemId not found")
+                check(stored.status == ProposalItemStatus.Pending) {
+                    "Proposal item $itemId is already ${stored.status.name}"
+                }
+
+                // Plan first: a proposal that cannot be applied must not consume its one
+                // irreversible decision. All I/O (fetch task/note, resolve tag ids) happens
+                // here before the claim, so bad proposals fail fast.
+                val plan = buildPlan(stored, userId)
+
+                val claimedItem = proposals.claim(itemId, ProposalItemStatus.Confirmed, DecidedActor.User, null, userId)
+                    // Lost the race — the other tap decided it. Re-read, so the caller is
+                    // told what the item actually is now, instead of a stale pending copy.
+                    ?: return@runCatchingCancellable proposals.getItem(itemId) ?: stored
+                claimed = true
+
+                // Everything that can fail after the claim happens inside this block: the
+                // rebuild of a stale plan and the dispatch itself. A failure that escaped it
+                // would leave the item confirmed although nothing was written — the very
+                // thing the release below exists to prevent.
+                val applied = runCatchingCancellable {
+                    // The plan was built from the row read before the claim. If the row
+                    // changed in between — the user edited the value while the confirm was
+                    // in flight — the plan is stale, and dispatching it would write the old
+                    // value over the new one.
+                    val effective = if (claimedItem.kind == stored.kind) plan else buildPlan(claimedItem, userId)
+                    dispatch.dispatch(effective, userId)
+                }
+                if (applied.isFailure) {
+                    // The claim is the decision; the dispatch is the work. The work failed,
+                    // so the decision must not stand on its own: the item goes back to
+                    // Pending and the reason is reported next to it, where the user can read
+                    // it and retry.
+                    val failure = applied.exceptionOrNull()
+                        ?: IllegalStateException("Proposal item $itemId could not be applied")
+                    val released = releaseClaim(itemId, userId)
+                    throw released.exceptionOrNull()?.let { releaseFailure ->
+                        IllegalStateException(
+                            "${failure.message}; and the change could not be put back: ${releaseFailure.message}",
+                            failure,
+                        )
+                    } ?: failure
+                }
+                proposals.refreshStatus(claimedItem.proposalId, userId)
+                claimedItem
+            }
+        } catch (cancellation: CancellationException) {
+            // The scope was cancelled — the screen went away. The claim is still there, so
+            // it is released: a change nobody applied must not stay decided. The release
+            // runs in a context that is not cancelled any more.
+            if (claimed) {
+                withContext(NonCancellable) { proposals.release(itemId, userId) }
+            }
+            throw cancellation
         }
-
-        // Plan first: a proposal that cannot be applied must not consume its one
-        // irreversible decision. All I/O (fetch task/note, resolve tag ids) happens here
-        // before the claim, so bad proposals fail fast.
-        val plan = buildPlan(stored, userId)
-
-        val claimed = proposals.claim(itemId, ProposalItemStatus.Confirmed, DecidedActor.User, null, userId)
-            ?: return@runCatchingCancellable stored // lost the race — someone else decided it
-        dispatch.dispatch(plan, userId)
-        proposals.refreshStatus(claimed.proposalId, userId)
-        claimed
     }
+
+    /**
+     * Puts a claimed item back into `Pending`.
+     *
+     * The release runs in a context that is not cancelled: a cancellation is exactly the
+     * moment where the claim would otherwise be left behind.
+     */
+    private suspend fun releaseClaim(itemId: ProposalItemId, userId: UserId): Result<Unit> =
+        withContext(NonCancellable) { proposals.release(itemId, userId) }
 
     /**
      * Rejects [itemId], optionally recording [reason].

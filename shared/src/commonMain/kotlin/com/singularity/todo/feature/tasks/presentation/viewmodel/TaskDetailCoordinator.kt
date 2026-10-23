@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel
 
+import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
@@ -125,6 +126,17 @@ class TaskDetailCoordinator(
     private val taskLoad = MutableStateFlow<TaskLoad>(TaskLoad.Pending)
 
     private fun reportError(message: String) = tryEmit(TaskDetailUiEvent.Error(message))
+
+    /** Why a change could not be applied, next to the change it belongs to. */
+    private fun recordProposalFailure(itemId: ProposalItemId, message: String) {
+        proposalFailures.value = proposalFailures.value + (itemId to message)
+    }
+
+    /** The change went through: there is nothing left to explain. */
+    private fun clearProposalFailure(itemId: ProposalItemId) {
+        proposalFailures.value = proposalFailures.value - itemId
+    }
+
     private fun reportSaved(message: String) = tryEmit(TaskDetailUiEvent.Saved(message))
 
     /**
@@ -232,6 +244,15 @@ class TaskDetailCoordinator(
     }
 
     /**
+     * Why the last attempt to apply or to change a change failed, by the change.
+     *
+     * The reason lives here, next to the change it belongs to, and not only in the
+     * error notification: a notification says that something went wrong, and the user
+     * still cannot tell which of the changes it was.
+     */
+    private val proposalFailures = MutableStateFlow<Map<ProposalItemId, String>>(emptyMap())
+
+    /**
      * Combines time tracking, first-run, and AI proposals into one partition.
      *
      * Deliberately NOT a `stateIn(WhileSubscribed)`: the running timer is one of the
@@ -248,14 +269,17 @@ class TaskDetailCoordinator(
                     children.state,
                     taskFlow,
                     proposalsCollector?.state ?: flowOf(emptyList<AiProposal>()),
-                ) { timeState, childrenState, task, proposals ->
-                    Triple(timeState, childrenState, task) to proposals
-                }.collect { (triple, proposals) ->
+                    proposalFailures,
+                ) { timeState, childrenState, task, proposals, failures ->
+                    Triple(timeState, childrenState, task) to (proposals to failures)
+                }.collect { (triple, proposalsAndFailures) ->
                     val (timeState, childrenState, task) = triple
+                    val (proposals, failures) = proposalsAndFailures
                     sink.value = TaskDetailExtras.Ready(
                         timeSlotState = timeState,
                         firstRun = resolveFirstRun(childrenState, task),
                         proposals = proposals,
+                        proposalFailures = failures,
                     )
                 }
             }
@@ -477,9 +501,13 @@ class TaskDetailCoordinator(
                 val apply = deps.collaboration.applyProposal ?: return
                 val userId = deps.collaboration.currentUser.scopedUserId.value
                 vmScope.launch {
-                    apply.confirm(intent.itemId, userId).onFailure {
-                        reportError("Confirm failed: ${it.message}")
-                    }
+                    apply.confirm(intent.itemId, userId).fold(
+                        onSuccess = { clearProposalFailure(intent.itemId) },
+                        onFailure = {
+                            recordProposalFailure(intent.itemId, "Confirm failed: ${it.message}")
+                            reportError("Confirm failed: ${it.message}")
+                        },
+                    )
                 }
             }
 
@@ -487,9 +515,13 @@ class TaskDetailCoordinator(
                 val apply = deps.collaboration.applyProposal ?: return
                 val userId = deps.collaboration.currentUser.scopedUserId.value
                 vmScope.launch {
-                    apply.reject(intent.itemId, userId, intent.reason).onFailure {
-                        reportError("Reject failed: ${it.message}")
-                    }
+                    apply.reject(intent.itemId, userId, intent.reason).fold(
+                        onSuccess = { clearProposalFailure(intent.itemId) },
+                        onFailure = {
+                            recordProposalFailure(intent.itemId, "Reject failed: ${it.message}")
+                            reportError("Reject failed: ${it.message}")
+                        },
+                    )
                 }
             }
 
@@ -497,9 +529,13 @@ class TaskDetailCoordinator(
                 deps.collaboration.editProposal?.let { edit ->
                     val userId = deps.collaboration.currentUser.scopedUserId.value
                     vmScope.launch {
-                        edit.edit(intent.itemId, intent.text, userId).onFailure {
-                            reportError("Change failed: ${it.message}")
-                        }
+                        edit.edit(intent.itemId, intent.text, userId).fold(
+                            onSuccess = { clearProposalFailure(intent.itemId) },
+                            onFailure = {
+                                recordProposalFailure(intent.itemId, "Change failed: ${it.message}")
+                                reportError("Change failed: ${it.message}")
+                            },
+                        )
                     }
                 }
             }
@@ -509,6 +545,10 @@ class TaskDetailCoordinator(
                 val userId = deps.collaboration.currentUser.scopedUserId.value
                 vmScope.launch {
                     val batch = apply.confirmAll(intent.proposalId, userId)
+                    batch.failed.forEach { failed ->
+                        recordProposalFailure(failed.itemId, "Apply failed: ${failed.error.message}")
+                    }
+                    batch.applied.forEach { applied -> clearProposalFailure(applied.id) }
                     if (batch.failed.isNotEmpty()) {
                         reportError("${batch.failed.size} items could not be applied")
                     }

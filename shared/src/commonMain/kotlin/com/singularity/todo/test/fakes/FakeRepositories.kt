@@ -1063,6 +1063,15 @@ open class FakeTaskMutationsUseCase(repo: TaskRepository) : TaskMutationsUseCase
 class FakeChecklistRepository : ChecklistRepository {
     internal val items = MutableStateFlow<Map<String, ChecklistItem>>(emptyMap())
 
+    /**
+     * Makes [addItem] fail, for a test that needs a write to break halfway.
+     *
+     * The hook is asked for every title and returns null to let the write through, so
+     * a test can break the second row and not the first. Null by default, so an
+     * existing test changes nothing.
+     */
+    var addItemOverride: ((String) -> Result<ChecklistItemId>?)? = null
+
     /** Seeds items by merging into existing state (adds or overwrites by id). */
     fun seed(vararg items: ChecklistItem) {
         this.items.value += items.associateBy { it.id.value }
@@ -1081,16 +1090,19 @@ class FakeChecklistRepository : ChecklistRepository {
             .sortedBy { it.sortOrder }
     }
 
-    override suspend fun addItem(taskId: String, title: String): Result<ChecklistItemId> = runCatchingCancellable {
-        val item = ChecklistItem(
-            id = ChecklistItemId.generate(),
-            taskId = taskId,
-            title = title,
-            isCompleted = false,
-            sortOrder = 0,
-        )
-        items.value += (item.id.value to item)
-        item.id
+    override suspend fun addItem(taskId: String, title: String): Result<ChecklistItemId> {
+        addItemOverride?.invoke(title)?.let { return it }
+        return runCatchingCancellable {
+            val item = ChecklistItem(
+                id = ChecklistItemId.generate(),
+                taskId = taskId,
+                title = title,
+                isCompleted = false,
+                sortOrder = 0,
+            )
+            items.value += (item.id.value to item)
+            item.id
+        }
     }
 
     override suspend fun toggleItem(taskId: String, itemId: ChecklistItemId, actor: String): Result<Unit> =

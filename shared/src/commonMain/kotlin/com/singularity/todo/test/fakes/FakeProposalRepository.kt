@@ -135,6 +135,37 @@ class FakeProposalRepository(private val clock: Clock) : ProposalRepository {
         return decided
     }
 
+    /**
+     * Puts a confirmed item back into `Pending`.
+     *
+     * The mirror of the claim: only an item this user's claim confirmed goes back, and
+     * only if nothing else has decided it since. A release that matched no row is a
+     * failure, the way it is in the real repository — a fake that always succeeded here
+     * would let a test pass where the production code throws.
+     */
+    override suspend fun release(id: ProposalItemId, userId: UserId): Result<Unit> = runCatchingCancellable {
+        val before = items.value[id.value] ?: error("Proposal item ${id.value} not found")
+        check(before.status == ProposalItemStatus.Confirmed) {
+            "Proposal item ${id.value} is not confirmed"
+        }
+        check(before.decidedActor == DecidedActor.User) {
+            "Proposal item ${id.value} was not confirmed by the user"
+        }
+        check(proposals.value[before.proposalId.value]?.userId == userId) {
+            "Proposal item ${id.value} belongs to another user"
+        }
+        items.update { map ->
+            map + (
+                id.value to before.copy(
+                    status = ProposalItemStatus.Pending,
+                    decidedAt = null,
+                    decidedActor = null,
+                    rejectionReason = null,
+                )
+            )
+        }
+    }
+
     override suspend fun refreshStatus(proposalId: ProposalId, userId: UserId): Result<Unit> = runCatchingCancellable {
         val derived = derived(proposalId.value)
         proposals.update { map ->

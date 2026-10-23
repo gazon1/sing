@@ -39,6 +39,7 @@ fun TaskDetailProposalSection(
     onConfirmAll: (ProposalId) -> Unit,
     onDismiss: (ProposalId) -> Unit,
     onEdit: ((ProposalItemId, String) -> Unit)? = null,
+    failures: Map<ProposalItemId, String> = emptyMap(),
 ) {
     ProposalCardsSection(
         proposals = proposals,
@@ -47,6 +48,7 @@ fun TaskDetailProposalSection(
         onConfirmAll = onConfirmAll,
         onDismiss = onDismiss,
         onEdit = onEdit,
+        failures = failures,
     )
 }
 

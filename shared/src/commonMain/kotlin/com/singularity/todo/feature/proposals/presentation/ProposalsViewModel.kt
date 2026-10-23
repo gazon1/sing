@@ -120,7 +120,7 @@ class ProposalsViewModel(
 
     override fun onIntent(intent: ProposalsIntent) {
         when (intent) {
-            is ProposalsIntent.Confirm -> decide(intent.itemId, confirm = true)
+            is ProposalsIntent.Confirm -> decide(intent.itemId)
             is ProposalsIntent.Reject -> reject(intent.itemId, intent.reason)
             is ProposalsIntent.ConfirmAll -> confirmAll(intent.proposalId)
             is ProposalsIntent.Dismiss -> dismiss(intent.proposalId)
@@ -128,15 +128,12 @@ class ProposalsViewModel(
         }
     }
 
-    private fun decide(itemId: ProposalItemId, confirm: Boolean) {
+    /** Apply one change. The user turning it down goes through [reject], which carries the reason. */
+    private fun decide(itemId: ProposalItemId) {
         val userId = currentUser.scopedUserId.value
-        val label = if (confirm) "Apply the change" else "Reject the change"
+        val label = "Apply the change"
         emitError(label, ProposalsUiEvent::ShowError) {
-            val result = if (confirm) {
-                applyProposalItem.confirm(itemId, userId)
-            } else {
-                applyProposalItem.reject(itemId, userId)
-            }
+            val result = applyProposalItem.confirm(itemId, userId)
             result.onFailure { error -> recordFailure(itemId, error.toMessage(label)) }
             result.onSuccess { clearFailure(itemId) }
             result
@@ -154,6 +151,13 @@ class ProposalsViewModel(
         }
     }
 
+    /**
+     * Applies every change of one proposal.
+     *
+     * A batch where some of the changes failed is not a crash: the reason of each failed
+     * change sits next to that change. Throwing here would report a normal outcome to
+     * the crash reporter.
+     */
     private fun confirmAll(proposalId: ProposalId) {
         val userId = currentUser.scopedUserId.value
         emitError("Apply the changes", ProposalsUiEvent::ShowError) {
@@ -163,11 +167,7 @@ class ProposalsViewModel(
                     recordFailure(failed.itemId, failed.error.toMessage("Apply the change"))
                 }
                 batch.applied.forEach { applied -> clearFailure(applied.id) }
-                if (batch.failed.isNotEmpty()) {
-                    throw IllegalStateException(
-                        "${batch.failed.size} of the changes could not be applied.",
-                    )
-                }
+                batch
             }
         }
     }

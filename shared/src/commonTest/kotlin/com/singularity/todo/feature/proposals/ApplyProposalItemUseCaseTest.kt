@@ -294,6 +294,79 @@ class ApplyProposalItemUseCaseTest {
         assertEquals(ProposalItemStatus.Pending, proposals.getItem(id)?.status)
     }
 
+    // ── A decision that did not happen ───────────────────────────────────────
+
+    @Test
+    fun `a dispatch that fails leaves the item pending`() = runTest {
+        tasks.seed(task())
+        // The write fails at the dispatch, which is *after* the claim: by then the item
+        // has been decided. The change was not applied, so the decision must not stand
+        // on its own — the item goes back to pending and the user can try again.
+        tasks.softDeleteOverride = Result.failure(IllegalStateException("the write failed"))
+        val id = seedProposal(ProposalItemKind.DeleteTask(reason = null))
+
+        assertTrue(useCase.confirm(id, user).isFailure)
+
+        assertEquals(
+            ProposalItemStatus.Pending,
+            proposals.getItem(id)?.status,
+            "the change was not applied, so it must not be recorded as decided",
+        )
+    }
+
+    @Test
+    fun `a change that was released can be applied again`() = runTest {
+        tasks.seed(task())
+        tasks.softDeleteOverride = Result.failure(IllegalStateException("the write failed"))
+        val id = seedProposal(ProposalItemKind.DeleteTask(reason = null))
+
+        assertTrue(useCase.confirm(id, user).isFailure)
+        tasks.softDeleteOverride = null
+
+        assertTrue(useCase.confirm(id, user).isSuccess, "the second attempt goes through")
+        assertEquals(ProposalItemStatus.Confirmed, proposals.getItem(id)?.status)
+    }
+
+    @Test
+    fun `a write that breaks halfway leaves nothing behind`() = runTest {
+        tasks.seed(task())
+        // The second row fails, the first was written. The change goes back to waiting,
+        // so the user will try again — and the row that was written must not be there
+        // a second time.
+        checklist.addItemOverride = { title ->
+            if (title == "second") Result.failure(IllegalStateException("the write failed")) else null
+        }
+        val id = seedProposal(ProposalItemKind.AddChecklistItems(listOf("first", "second")))
+
+        assertTrue(useCase.confirm(id, user).isFailure)
+
+        assertEquals(
+            emptyList(),
+            checklist.watchByTask(taskId.value).first().map { it.title },
+            "the row that was written before the failure is taken back — otherwise the " +
+                "next attempt would add it twice",
+        )
+    }
+
+    @Test
+    fun `a change that breaks halfway can be applied again`() = runTest {
+        tasks.seed(task())
+        checklist.addItemOverride = { title ->
+            if (title == "second") Result.failure(IllegalStateException("the write failed")) else null
+        }
+        val id = seedProposal(ProposalItemKind.AddChecklistItems(listOf("first", "second")))
+
+        assertTrue(useCase.confirm(id, user).isFailure)
+        checklist.addItemOverride = null
+
+        assertTrue(useCase.confirm(id, user).isSuccess, "the second attempt goes through")
+        assertEquals(
+            listOf("first", "second"),
+            checklist.watchByTask(taskId.value).first().map { it.title }.sorted(),
+            "each row is written once",
+        )
+    }
+
     // ── Status ────────────────────────────────────────────────────────────────
 
     @Test

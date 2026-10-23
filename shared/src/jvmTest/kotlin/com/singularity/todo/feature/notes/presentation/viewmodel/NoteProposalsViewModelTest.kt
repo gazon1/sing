@@ -14,12 +14,14 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
+import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
 import com.singularity.todo.feature.proposals.domain.usecase.EditProposalItemUseCase
 import com.singularity.todo.feature.proposals.domain.usecase.ProposalDispatch
 import com.singularity.todo.feature.proposals.domain.usecase.ProposalPlanner
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.test.fakes.FakeChecklistRepository
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeNotesRepository
@@ -141,8 +143,55 @@ class NoteProposalsViewModelTest {
         assertTrue(viewModel.stateFlow.value.proposals.isEmpty(), "the decided change is gone")
     }
 
+    @Test
+    fun `a refused change keeps its reason next to it`() = runTest {
+        // The value the user typed does not read, so the change is refused — and the
+        // reason has to be visible. A refusal the user cannot see is a refusal the
+        // user can only guess at.
+        val itemId = seedProposal(
+            kind = ProposalItemKind.SetTaskField(TaskValue.Priority(TaskPriority.High)),
+        )
+
+        val viewModel = viewModel(backgroundScope)
+        runCurrent()
+
+        viewModel.onIntent(NoteProposalsIntent.Edit(itemId, "whenever"))
+        runCurrent()
+
+        val failure = viewModel.stateFlow.value.failures[itemId]
+        assertTrue(
+            failure != null && failure.contains("whenever"),
+            "the reason sits next to the change: ${viewModel.stateFlow.value.failures}",
+        )
+    }
+
+    @Test
+    fun `a change that goes through leaves no reason behind`() = runTest {
+        val itemId = seedProposal(
+            kind = ProposalItemKind.SetTaskField(TaskValue.Priority(TaskPriority.High)),
+        )
+
+        val viewModel = viewModel(backgroundScope)
+        runCurrent()
+
+        // A refused change leaves its reason behind; a change that goes through takes it away.
+        viewModel.onIntent(NoteProposalsIntent.Edit(itemId, "whenever"))
+        runCurrent()
+        assertTrue(viewModel.stateFlow.value.failures.isNotEmpty(), "the refusal left its reason")
+
+        viewModel.onIntent(NoteProposalsIntent.Edit(itemId, "high"))
+        runCurrent()
+
+        assertTrue(
+            viewModel.stateFlow.value.failures.isEmpty(),
+            "there is nothing to explain: ${viewModel.stateFlow.value.failures}",
+        )
+    }
+
     /** Seeds the note the proposal is about, and a one-item proposal for it. */
-    private suspend fun seedProposal(): ProposalItemId {
+    private suspend fun seedProposal(
+        kind: ProposalItemKind = ProposalItemKind.SetNoteField(NoteValue.Body("a shorter body")),
+    ): ProposalItemId {
         notes.seed(
             Note(
                 id = noteId,
@@ -155,7 +204,7 @@ class NoteProposalsViewModelTest {
         val item = ProposalItem(
             id = ProposalItemId.fromString("item-1"),
             proposalId = proposalId,
-            kind = ProposalItemKind.SetNoteField(NoteValue.Body("a shorter body")),
+            kind = kind,
             targetId = noteId.value,
             humanSummary = "Rewrite the body",
             status = ProposalItemStatus.Pending,

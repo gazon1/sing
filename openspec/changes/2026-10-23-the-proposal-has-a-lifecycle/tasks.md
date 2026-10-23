@@ -66,3 +66,36 @@
       not obvious
 - [x] `AGENTS.md` — the pointers, and the background-task rule with a
       completion criterion
+
+## Phase 7 — What the review found
+
+The first review of this change returned `fail`. These are its findings and what
+answered them.
+
+- [x] A dispatch that fails leaves the claim behind: the item was recorded as
+      decided although nothing was written. The claim is released now, and the
+      change goes back to waiting with its reason.
+- [x] An empty value could not clear a date — the tool's own description said it
+      could, so the documented behaviour was an error. The date and the time hold
+      the absence of a value, and an empty string reads as it.
+- [x] The note editor emitted its errors and nobody read them; the note and the
+      task detail now carry the reason per change, next to the change it belongs to.
+- [x] The plan was built from an earlier read, not from the row the claim read
+      back — an edit that landed in between would have been overwritten.
+- [x] Losing the race returned a pending item as if it had succeeded.
+- [x] The ADR claimed the fingerprint never changes with the value; true for a
+      field, false for a creation, and the ADR now says so.
+
+The second review returned `fail` as well, and it was right twice:
+
+- [x] The rebuild of a stale plan sat outside the guarded region, so a failure
+      there left the item confirmed although nothing was written. Everything that
+      can fail after the claim is inside one block now.
+- [x] A change that writes several rows could leave the first rows behind when a
+      later row failed — and the change goes back to waiting, so the next attempt
+      would have written them twice. The dispatch takes back what it wrote.
+- [x] The release that matched no row was reported as a success.
+- [x] A batch where some changes failed threw, and a normal outcome reached the
+      crash reporter.
+- [x] The tool's comment said `null` clears the date; only an empty string does.
+- [x] A branch that nothing could reach was left in the proposals screen.

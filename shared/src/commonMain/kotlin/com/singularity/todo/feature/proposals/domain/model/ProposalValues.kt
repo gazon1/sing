@@ -91,21 +91,35 @@ sealed interface TaskValue {
         override fun editableValue(): EditableValue<TaskValue> = editableOf("Priority")
     }
 
+    /**
+     * The due date — or nothing, which clears it.
+     *
+     * The value is nullable because "no due date" is a value the task can hold: a task
+     * with a due date can lose it again, and an empty string has always meant that in
+     * the tools that set the date.
+     */
     @Serializable
     @SerialName("DueDate")
-    data class DueDate(val value: LocalDate) : TaskValue {
+    data class DueDate(val value: LocalDate?) : TaskValue {
         override val fieldName: String = "DueDate"
-        override val summary: String = "Set the due date to $value"
-        override val text: String = value.toString()
+        override val summary: String
+            get() = if (value == null) "Clear the due date" else "Set the due date to $value"
+        override val text: String = value?.toString().orEmpty()
         override fun editableValue(): EditableValue<TaskValue> = editableOf("DueDate")
     }
 
+    /** The due time — or nothing, which clears it. The twin of [DueDate]. */
     @Serializable
     @SerialName("DueTime")
-    data class DueTime(val value: LocalTime) : TaskValue {
+    data class DueTime(val value: LocalTime?) : TaskValue {
         override val fieldName: String = "DueTime"
-        override val summary: String = "Set the due time to ${LocalTimeFormats.format(value)}"
-        override val text: String = LocalTimeFormats.format(value)
+        override val summary: String
+            get() = if (value == null) {
+                "Clear the due time"
+            } else {
+                "Set the due time to ${LocalTimeFormats.format(value)}"
+            }
+        override val text: String = value?.let { LocalTimeFormats.format(it) }.orEmpty()
         override fun editableValue(): EditableValue<TaskValue> = editableOf("DueTime")
     }
 
@@ -206,19 +220,28 @@ sealed interface TaskValue {
             return ReadResult.Ok(kind)
         }
 
-        /** The date [text] names, or why it does not read. */
-        fun readDate(text: String): ReadResult<LocalDate> {
+        /**
+         * The date [text] names — or nothing, which clears it — or why it does not read.
+         *
+         * An empty string means "no due date": that is what the tools that set the date
+         * have always said, and a task that can be given a date must be able to lose it.
+         */
+        fun readDate(text: String): ReadResult<LocalDate?> {
             val trimmed = text.trim()
+            if (trimmed.isEmpty()) return ReadResult.Ok(null)
             val date = runCatching { LocalDate.parse(trimmed) }.getOrNull()
-                ?: return ReadResult.Rejected("\"$trimmed\" is not a date. Use YYYY-MM-DD.")
+                ?: return ReadResult.Rejected("\"$trimmed\" is not a date. Use YYYY-MM-DD, or empty to clear it.")
             return ReadResult.Ok(date)
         }
 
-        /** The time [text] names, or why it does not read. */
-        fun readTime(text: String): ReadResult<LocalTime> {
+        /**
+         * The time [text] names — or nothing, which clears it — or why it does not read.
+         */
+        fun readTime(text: String): ReadResult<LocalTime?> {
             val trimmed = text.trim()
+            if (trimmed.isEmpty()) return ReadResult.Ok(null)
             val time = runCatching { LocalTimeFormats.parse(trimmed) }.getOrNull()
-                ?: return ReadResult.Rejected("\"$trimmed\" is not a time. Use HH:mm.")
+                ?: return ReadResult.Rejected("\"$trimmed\" is not a time. Use HH:mm, or empty to clear it.")
             return ReadResult.Ok(time)
         }
     }

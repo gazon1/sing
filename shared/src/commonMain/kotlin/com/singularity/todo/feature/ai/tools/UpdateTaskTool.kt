@@ -26,8 +26,8 @@ data class UpdateTaskInput(
     val kind: String? = null,
     val projectId: String? = null,
     val tagIds: List<String>? = null,
-    val dueDate: String? = null, // "YYYY-MM-DD" or null to clear
-    val dueTime: String? = null, // "HH:mm" or null to clear
+    val dueDate: String? = null, // "YYYY-MM-DD", or "" to clear the date
+    val dueTime: String? = null, // "HH:mm", or "" to clear the time
     val someday: Boolean? = null,
 )
 
@@ -143,7 +143,10 @@ class UpdateTaskTool(
         if (value == null) return FieldChange.Skip
         return when (val read = TaskValue.read(field, value)) {
             is ReadResult.Ok ->
-                if (read.value.text == current) {
+                // The value's own text is compared with what the task holds. An absent
+                // value is an empty text — so "clear the due date" on a task that has no
+                // due date is not a change, and nothing is proposed for it.
+                if (read.value.text == current.orEmpty()) {
                     FieldChange.Skip
                 } else {
                     FieldChange.Add(ProposalItemKind.SetTaskField(read.value))

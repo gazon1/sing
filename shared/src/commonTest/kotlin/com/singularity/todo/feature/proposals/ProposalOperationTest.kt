@@ -78,4 +78,25 @@ class ProposalOperationTest {
         val proposed = assertIs<ProposalOperation.Outcome.Proposed>(outcome)
         assertEquals(ProposalItemKind.AddTags(listOf("home")), proposed.kind)
     }
+
+    @Test
+    fun `an empty date clears the due date`() {
+        val outcome = ProposalOperation.toItem("set_due_date", "", emptyList())
+
+        val proposed = assertIs<ProposalOperation.Outcome.Proposed>(outcome)
+        assertEquals(
+            ProposalItemKind.SetTaskField(TaskValue.DueDate(null)),
+            proposed.kind,
+            "an empty date is how the tools have always said 'no due date' — and a task " +
+                "that can be given a date must be able to lose it",
+        )
+    }
+
+    @Test
+    fun `an empty time clears the due time`() {
+        val outcome = ProposalOperation.toItem("set_due_time", "", emptyList())
+
+        val proposed = assertIs<ProposalOperation.Outcome.Proposed>(outcome)
+        assertEquals(ProposalItemKind.SetTaskField(TaskValue.DueTime(null)), proposed.kind)
+    }
 }

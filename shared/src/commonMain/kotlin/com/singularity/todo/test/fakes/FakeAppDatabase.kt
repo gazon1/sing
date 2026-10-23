@@ -2537,6 +2537,33 @@ private class FakeProposalItemDao(
         return 1
     }
 
+    /**
+     * The mirror of the claim: a confirmed item goes back to `Pending`.
+     *
+     * The guard is the same shape as the claim's — the row must be confirmed, and
+     * confirmed by the actor that is releasing it — because a fake that released any
+     * confirmed row would let a second user undo a decision that was not theirs.
+     */
+    override suspend fun releaseClaim(userId: String, id: String, actor: String): Int {
+        val before = items.value[id]
+        val releasable = before != null &&
+            before.status == "Confirmed" &&
+            before.decidedActor == actor &&
+            proposals.value[before.proposalId]?.userId == userId
+        if (before == null || !releasable) return 0
+        items.update { map ->
+            map + (
+                id to before.copy(
+                    status = "Pending",
+                    decidedAt = null,
+                    decidedActor = null,
+                    rejectionReason = null,
+                )
+            )
+        }
+        return 1
+    }
+
     override suspend fun retractPendingItems(proposalId: String, userId: String): Int {
         val owned = proposals.value[proposalId]?.userId == userId
         val affected = if (owned) {

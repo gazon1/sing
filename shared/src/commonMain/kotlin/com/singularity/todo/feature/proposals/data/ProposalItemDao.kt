@@ -84,6 +84,33 @@ interface ProposalItemDao {
     suspend fun retractPendingItems(proposalId: String, userId: String): Int
 
     /**
+     * Puts a claimed item back into `Pending`.
+     *
+     * The claim is the decision; the dispatch is the work. When the work fails, the
+     * decision must not stand on its own: nothing was changed, so the item goes back
+     * to `Pending` and the user can try again — with the reason next to it.
+     *
+     * The condition is the mirror of the claim's: only an item that this user's claim
+     * confirmed, and that nothing else has decided since, can be released.
+     *
+     * @return 1 if the item was released, 0 if it was not confirmed by this user.
+     */
+    @Query(
+        """
+        UPDATE ai_proposal_item
+        SET status = 'Pending',
+            decided_at = NULL,
+            decided_actor = NULL,
+            rejection_reason = NULL
+        WHERE id = :id
+          AND proposal_id IN (SELECT id FROM ai_proposal WHERE user_id = :userId)
+          AND status = 'Confirmed'
+          AND decided_actor = :actor
+        """,
+    )
+    suspend fun releaseClaim(userId: String, id: String, actor: String): Int
+
+    /**
      * Rewrites what a pending item asks for.
      *
      * The user may change the value of a proposal before it is applied, and the
