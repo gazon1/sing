@@ -23,7 +23,7 @@ The block below is generated. A hand-edited number is a failing gate, not a fact
 
 ## The price of the pre-push verdict
 
-The hook's detekt step is not in the table below: it runs on the tree that is
+The hook's detekt step is not in the block below: it runs on the tree that is
 being pushed, in the developer's checkout, and its cost is what the push
 waits for. Measured on 2026-10-23 with the hook's own invocation
 (`./gw :shared:detekt :desktopApp:detekt --auto-correct --rerun`):
@@ -39,15 +39,15 @@ Two readings, and one caveat:
   The other modules are seconds to two minutes.
 - **Warm is not warm.** The two paths cost the same, because `./gw` gives every
   worktree a private `GRADLE_USER_HOME` and the configuration cache is cold in
-  a fresh worktree regardless. Judging in the current worktree saves the
-  build directory, not the analysis — the number of modules is the lever.
+  a fresh worktree regardless. Judging in the current worktree saves the build
+  directory, not the analysis — the number of modules is the lever.
 - **Caveat:** the load average on this host was 34–50 (ten agent sessions
   share the machine), so the absolute numbers are an upper bound. The ratio
   between the paths is the fact.
 
-The verdict was narrowed to the modules the change can reach
-(ADR `2026-10-23-the-local-verdict-judges-what-the-change-reaches.md`), so
-the price now follows the change: one module for a narrow change, none for a
+The verdict was narrowed to the modules the change can reach (ADR
+`2026-10-23-the-local-verdict-judges-what-the-change-reaches.md`), so the
+price now follows the change: one module for a narrow change, none for a
 change that moves neither Kotlin nor rules, and four for a change in
 `shared`. The local verdict is partial, and the hook says so.
 

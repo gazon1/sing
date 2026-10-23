@@ -5,11 +5,19 @@
 # to run on every push without making people reach for --no-verify.
 #
 # What runs here vs. in CI:
-#   Here:    structural gates (seconds) + detekt auto-correct (~2 min)
+#   Here:    structural gates (seconds) + the detekt verdict over the modules
+#            the change can reach (a minute for a narrow change; ~9 min for a
+#            change in `shared`, measured 2026-10-23 — the price is published
+#            in docs/testing/gate-costs.md)
 #   CI:      full suite — jvmTest, desktopApp:test, mcp-server:test,
 #            kover, static-gates, Maestro flows
 #
 # WHAT IS CHECKED: the tree that is being pushed, not the checked-out worktree.
+#
+# WHAT IS NOT: the modules the change does not reach. The local verdict is
+# partial — CI judges every module. The difference is written down in
+# config/hooks/pre-push.json, and scripts/check-hook-gates.py keeps that record
+# and this hook in step.
 #
 # `git push` hands the hook the refs it is about to write:
 #     <local ref> <local sha> <remote ref> <remote sha>

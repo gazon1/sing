@@ -23,6 +23,9 @@ code still matches the record, in both directions:
   - the partiality is stated: the hook judges what the change reaches, CI
     judges everything.
 
+The decision this gate enforces is recorded in
+`docs/decisions/2026-10-23-the-local-verdict-judges-what-the-change-reaches.md`.
+
 Usage:
     python3 scripts/check-hook-gates.py
     python3 scripts/check-hook-gates.py --json

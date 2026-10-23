@@ -35,6 +35,12 @@ import unittest
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 HOOK = REPO_ROOT / '.githooks' / 'pre-push'
 
+#: The verdict script the hook calls, and the module graph it reads to decide
+#: which modules to judge. Both travel with the repository — the hook calls the
+#: script, and the script computes the modules from the graph.
+VERDICT_SCRIPT = REPO_ROOT / 'scripts' / 'pre-push-verdict.py'
+CHANGED_MODULES = REPO_ROOT / 'scripts' / 'changed-modules.py'
+
 # The marker detekt would report on. The stand-in Gradle wrapper looks for it
 # in the Kotlin files of the tree it is run in.
 VIOLATION = 'PLANTED_VIOLATION'
@@ -103,9 +109,17 @@ class PrePushHookTest(unittest.TestCase):
     def _install_stubs(self) -> None:
         """The scripts the hook calls, and a Gradle wrapper that reports findings."""
         self._write('gradlew', FAKE_GRADLEW, executable=True)
+        # The verdict runs `./gw` — the wrapper that gives a worktree its own
+        # GRADLE_USER_HOME — so the stand-in is installed under that name too.
+        self._write('gw', FAKE_GRADLEW, executable=True)
         self._write('scripts/build-version-catalog-gate.py', PASSING_PYTHON_GATE)
         self._write('scripts/check-ui-wait-budgets.py', PASSING_PYTHON_GATE)
         self._write('scripts/ci/validate-maestro-selectors.py', PASSING_PYTHON_GATE)
+        # The verdict and the module graph it reads are part of the repository:
+        # the hook calls the script, and the script computes the modules to
+        # judge from the graph.
+        self._write('scripts/pre-push-verdict.py', VERDICT_SCRIPT.read_text(encoding='utf-8'))
+        self._write('scripts/changed-modules.py', CHANGED_MODULES.read_text(encoding='utf-8'))
 
     def _commit_source(self, content: str, message: str) -> None:
         self._write('shared/src/main/kotlin/Example.kt', content)
