@@ -18,7 +18,6 @@ import com.singularity.todo.feature.proposals.domain.usecase.EditProposalItemUse
 import com.singularity.todo.feature.proposals.presentation.ProposalDecisionStyles
 import com.singularity.todo.feature.proposals.presentation.ProposalDecisions
 import com.singularity.todo.feature.proposals.presentation.ProposalErrorSink
-import com.singularity.todo.feature.proposals.presentation.ProposalFailureStore
 import kotlinx.coroutines.launch
 
 /**
@@ -89,23 +88,6 @@ class NoteProposalsViewModel(
     ) {
 
     /**
-     * The reasons the last attempt failed, by change.
-     *
-     * The store owns them; this editor's state shows them. The state is rebuilt
-     * from the proposals the editor was given, and a reason kept inside that
-     * state alone was lost on every rebuild — so the reasons live in the store,
-     * and the state mirrors them.
-     */
-    private val failureStore = ProposalFailureStore()
-
-    /** The reasons, mirrored into the state the editor draws from. */
-    private val failureWatch = vmScope.launch {
-        failureStore.state.collect { reasons ->
-            updateState { state -> state.copy(failures = reasons) }
-        }
-    }
-
-    /**
      * The five operations, in one place.
      *
      * The note editor, the review screen and the task detail all answer a
@@ -117,7 +99,6 @@ class NoteProposalsViewModel(
         applyProposalItem = applyProposalItem,
         editProposalItem = editProposalItem,
         style = ProposalDecisionStyles.noteEditor,
-        failures = failureStore,
         errors = ProposalErrorSink { label, _, error ->
             // The ViewModel's own error path: it reports the failure to the crash
             // reporter and shows it as a one-shot event. The failure is rethrown
@@ -126,6 +107,19 @@ class NoteProposalsViewModel(
         },
         userId = { currentUser.scopedUserId.value },
     )
+
+    /**
+     * The reasons, mirrored into the state the editor draws from.
+     *
+     * The decisions keep the reasons — one store, whatever the surface — and this
+     * editor shows them. A reason kept inside the editor's own state alone was
+     * lost on every rebuild.
+     */
+    private val failureWatch = vmScope.launch {
+        decisions.failures.collect { reasons ->
+            updateState { state -> state.copy(failures = reasons) }
+        }
+    }
 
     /**
      * The collector of what is waiting.

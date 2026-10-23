@@ -43,11 +43,12 @@ import kotlin.test.assertTrue
 /**
  * The five operations every proposal surface performs.
  *
- * The surface-specific parts — the wording, the place the reasons live, the way a
- * failure is reported — belong to the surface. What is checked here is that the
- * shared operations keep the rules they promise: a failed change keeps its own
- * reason next to it, a change that worked has its reason cleared, and a batch
- * where some changes failed is not an error.
+ * The surface-specific parts — the wording and the way a failure is reported —
+ * belong to the surface. The reasons are the decisions' own: one store, whatever
+ * the surface, and a surface shows them by reading them. What is checked here is
+ * that the shared operations keep the rules they promise: a failed change keeps
+ * its own reason next to it, a change that worked has its reason cleared, and a
+ * batch where some changes failed is not an error.
  */
 @Tag("fast")
 class ProposalDecisionsTest {
@@ -76,7 +77,6 @@ class ProposalDecisionsTest {
         dispatch = ProposalDispatch(tasks, tags, checklist, timeTracking, notes, projects, deleteProject, clock),
     )
 
-    private val failures = ProposalFailureStore()
     private val errors = RecordingErrorSink()
 
     /** The wording of a surface that says what it does. */
@@ -92,12 +92,13 @@ class ProposalDecisionsTest {
 
     @Test
     fun `a change that works has its reason forgotten`() = runTest {
+        val decisions = newDecisions()
         val item = seedProposal()
-        failures.record(item.id, "an earlier failure")
+        decisions.recordFailure(item.id, "an earlier failure")
 
-        decisions().applyChange(item.id)
+        decisions.applyChange(item.id)
 
-        assertNull(failures.state.value[item.id], "the change worked: there is nothing left to explain")
+        assertNull(decisions.failures.value[item.id], "the change worked: there is nothing left to explain")
         assertEquals(
             ProposalItemStatus.Confirmed,
             storedItem(item.id).status,
@@ -109,9 +110,10 @@ class ProposalDecisionsTest {
     fun `a change that cannot be applied keeps the reason next to it`() = runTest {
         val item = seedProposal(seedTask = false)
 
-        decisions().applyChange(item.id)
+        val decisions = newDecisions()
+        decisions.applyChange(item.id)
 
-        val reason = failures.state.value[item.id]
+        val reason = decisions.failures.value[item.id]
         assertNotNull(reason, "the reason is shown next to the change that failed")
         assertTrue(reason.contains("not found"), "the reason says what was wrong: $reason")
     }
@@ -120,7 +122,8 @@ class ProposalDecisionsTest {
     fun `a failure is reported to the user`() = runTest {
         val item = seedProposal(seedTask = false)
 
-        decisions().applyChange(item.id)
+        val decisions = newDecisions()
+        decisions.applyChange(item.id)
 
         assertEquals(1, errors.reports.size, "the user is told")
         assertEquals("Apply the change", errors.reports.first().label, "under the operation's name")
@@ -130,7 +133,8 @@ class ProposalDecisionsTest {
     fun `the reason the user typed is stored with the refusal`() = runTest {
         val item = seedProposal()
 
-        decisions().turnDownChange(item.id, "the priority is right already")
+        val decisions = newDecisions()
+        decisions.turnDownChange(item.id, "the priority is right already")
 
         assertEquals(
             "the priority is right already",
@@ -143,8 +147,8 @@ class ProposalDecisionsTest {
     fun `a surface that does not store the reason drops it`() = runTest {
         val item = seedProposal()
 
-        decisions(style = reviewStyle.copy(storesRejectionReason = false))
-            .turnDownChange(item.id, "the priority is right already")
+        val decisions = newDecisions(style = reviewStyle.copy(storesRejectionReason = false))
+        decisions.turnDownChange(item.id, "the priority is right already")
 
         assertNull(storedItem(item.id).rejectionReason, "the reason is not stored")
     }
@@ -154,11 +158,12 @@ class ProposalDecisionsTest {
         val applied = seedProposal()
         val failed = seedItem("item-2", targetId = "t-missing")
 
-        decisions().applyAll(proposalId)
+        val decisions = newDecisions()
+        decisions.applyAll(proposalId)
 
         assertTrue(errors.reports.isEmpty(), "a partly failed batch is a normal outcome")
-        assertNull(failures.state.value[applied.id], "the change that worked has nothing to explain")
-        assertNotNull(failures.state.value[failed.id], "the change that failed keeps its own reason")
+        assertNull(decisions.failures.value[applied.id], "the change that worked has nothing to explain")
+        assertNotNull(decisions.failures.value[failed.id], "the change that failed keeps its own reason")
     }
 
     @Test
@@ -166,8 +171,12 @@ class ProposalDecisionsTest {
         seedProposal()
         seedItem("item-2", targetId = "t-missing")
 
-        decisions(style = reviewStyle.copy(batchFailureText = { count -> "$count items could not be applied" }))
-            .applyAll(proposalId)
+        val decisions = newDecisions(
+            style = reviewStyle.copy(
+                batchFailureText = { count -> "$count items could not be applied" },
+            ),
+        )
+        decisions.applyAll(proposalId)
 
         assertEquals(1, errors.reports.size, "the user is told")
         assertEquals(
@@ -181,7 +190,8 @@ class ProposalDecisionsTest {
     fun `turning a whole proposal down turns every waiting change down`() = runTest {
         val item = seedProposal()
 
-        decisions().dismiss { listOf(item) }
+        val decisions = newDecisions()
+        decisions.dismiss { listOf(item) }
 
         assertEquals(ProposalItemStatus.Rejected, storedItem(item.id).status, "the change is turned down")
     }
@@ -191,10 +201,10 @@ class ProposalDecisionsTest {
         val item = seedProposal()
         val missing = item.copy(id = ProposalItemId.fromString("item-missing"))
 
-        decisions(style = reviewStyle.copy(dismissOne = "Turn the change down"))
-            .dismiss { listOf(missing) }
+        val decisions = newDecisions(style = reviewStyle.copy(dismissOne = "Turn the change down"))
+        decisions.dismiss { listOf(missing) }
 
-        assertNotNull(failures.state.value[missing.id], "the reason is shown next to the change")
+        assertNotNull(decisions.failures.value[missing.id], "the reason is shown next to the change")
     }
 
     @Test
@@ -202,16 +212,18 @@ class ProposalDecisionsTest {
         val item = seedProposal()
         val missing = item.copy(id = ProposalItemId.fromString("item-missing"))
 
-        decisions().dismiss { listOf(missing) }
+        val decisions = newDecisions()
+        decisions.dismiss { listOf(missing) }
 
-        assertTrue(failures.state.value.isEmpty(), "the proposal's own status says what became of it")
+        assertTrue(decisions.failures.value.isEmpty(), "the proposal's own status says what became of it")
     }
 
     @Test
     fun `withdrawing a proposal takes its waiting changes with it`() = runTest {
         val item = seedProposal()
 
-        decisions(withdraw = { id, userId -> proposals.retract(id, userId) }).withdraw(proposalId)
+        val decisions = newDecisions(withdraw = { id, userId -> proposals.retract(id, userId) })
+        decisions.withdraw(proposalId)
 
         assertEquals(ProposalItemStatus.Retracted, storedItem(item.id).status, "the change is withdrawn")
     }
@@ -220,8 +232,8 @@ class ProposalDecisionsTest {
     fun `a withdrawal that fails is reported`() = runTest {
         seedProposal()
 
-        decisions(withdraw = { _, _ -> Result.failure(IllegalStateException("no such proposal")) })
-            .withdraw(proposalId)
+        val decisions = newDecisions(withdraw = { _, _ -> Result.failure(IllegalStateException("no such proposal")) })
+        decisions.withdraw(proposalId)
 
         assertEquals(1, errors.reports.size, "the user is told")
         assertEquals("Dismiss the proposal", errors.reports.first().label, "under the operation's name")
@@ -229,7 +241,8 @@ class ProposalDecisionsTest {
 
     @Test
     fun `a failure that arrives as a thrown exception is shown where the surface shows it`() = runTest {
-        decisions(withdraw = { _, _ -> throw IllegalStateException("boom") }).withdraw(proposalId)
+        val decisions = newDecisions(withdraw = { _, _ -> throw IllegalStateException("boom") })
+        decisions.withdraw(proposalId)
 
         assertEquals(1, errors.reports.size, "the user is told")
         assertEquals("Dismiss the proposal", errors.reports.first().label, "under the operation's name")
@@ -239,9 +252,10 @@ class ProposalDecisionsTest {
     fun `a value that does not read is refused with the reason`() = runTest {
         val item = seedProposal()
 
-        decisions().changeValue(item.id, "whenever")
+        val decisions = newDecisions()
+        decisions.changeValue(item.id, "whenever")
 
-        val reason = failures.state.value[item.id]
+        val reason = decisions.failures.value[item.id]
         assertNotNull(reason, "the reason is shown next to the change")
         assertTrue(reason.contains("whenever"), "the reason says what was wrong: $reason")
     }
@@ -250,9 +264,10 @@ class ProposalDecisionsTest {
     fun `a surface without a write path decides nothing`() = runTest {
         val item = seedProposal()
 
-        decisions(apply = null).applyChange(item.id)
+        val decisions = newDecisions(apply = null)
+        decisions.applyChange(item.id)
 
-        assertTrue(failures.state.value.isEmpty(), "nothing failed")
+        assertTrue(decisions.failures.value.isEmpty(), "nothing failed")
         assertTrue(errors.reports.isEmpty(), "nothing was reported")
         assertEquals(ProposalItemStatus.Pending, storedItem(item.id).status, "nothing was decided")
     }
@@ -260,7 +275,7 @@ class ProposalDecisionsTest {
     /**
      * The shared operations, wired the way a surface wires them.
      */
-    private fun decisions(
+    private fun newDecisions(
         style: ProposalDecisionStyle = reviewStyle,
         apply: ApplyProposalItemUseCase? = useCase,
         edit: EditProposalItemUseCase? = EditProposalItemUseCase(proposals),
@@ -269,7 +284,6 @@ class ProposalDecisionsTest {
         applyProposalItem = apply,
         editProposalItem = edit,
         style = style,
-        failures = failures,
         errors = errors,
         userId = { user },
         withdrawProposal = withdraw,
