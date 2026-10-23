@@ -208,7 +208,7 @@ def suppressed_for_disabled(text: str, disabled: dict[str, int]) -> list[str]:
     default="config/detekt/detekt.yml",
     help=(
         "detekt config to read `active: false` from. Default: detekt.yml. "
-        "A module on a different config (mcp-server uses detekt-minimal.yml) "
+        "A module on a different config (androidApp uses detekt-minimal.yml) "
         "must be named explicitly or the disabled set will be wrong for it."
     ),
 )

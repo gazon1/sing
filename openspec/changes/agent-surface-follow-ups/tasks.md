@@ -24,8 +24,8 @@ Module prefixes: `shared/`, `mcp-server/`, `desktopApp/`.
 
 ## 4. The module's rules (2.2)
 
-- [ ] mcp-server/ Judge the module by the root detekt configuration and by the project's own rules, like every other module. `mcp-server/build.gradle.kts`
-- [ ] mcp-server/ Fix whatever that surfaces, rather than baselining it. `mcp-server/src/test/kotlin/com/singularity/todo/mcp/McpServerEndToEndTest.kt`
+- [x] mcp-server/ Judge the module by the root detekt configuration and by the project's own rules, like every other module. `mcp-server/build.gradle.kts`
+- [x] mcp-server/ Fix whatever that surfaces, rather than baselining it. `mcp-server/src/test/kotlin/com/singularity/todo/mcp/McpServerEndToEndTest.kt`
 
 ## 5. The two god classes (2.3)
 
