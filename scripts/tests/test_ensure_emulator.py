@@ -775,5 +775,66 @@ class AvdPreflightTest(unittest.TestCase):
         self.assertIn("none", message)
 
 
+class DevicePreparationTest(unittest.TestCase):
+    """An acquired device is a prepared device.
+
+    The preparation — wake, unlock, and the IME setting — used to be written
+    three times: in the Maestro CLI, in the Maestro runner and in the e2e
+    script. The copy that was missing was the one that mattered most: the AVD
+    that ``acquire_device`` had just started after a crash came up with the
+    IME on, so every flow measured after that measured a screen half-covered
+    by a keyboard. Six measurements in one session were wrong that way.
+    """
+
+    def _recorded_commands(self, serial: str = "emulator-5554") -> list[str]:
+        """Acquire a ready device and return every adb command that was run."""
+        seen: list[str] = []
+
+        def recording(args: list[str], *, timeout: float = 5, **kwargs):
+            seen.append(" ".join(args))
+            return _make_fake_try_run(_std_table(serial))(args, timeout=timeout, **kwargs)
+
+        with unittest.mock.patch.object(_device, "try_run_detailed", recording):
+            acq = _startup.acquire_device(serial)
+        self.assertTrue(acq, f"the device was not acquired: {acq}")
+        return seen
+
+    def test_acquiring_a_device_wakes_it(self):
+        commands = self._recorded_commands()
+        self.assertTrue(
+            any("input keyevent KEYCODE_WAKEUP" in c for c in commands),
+            f"the acquired device was never woken: {commands}",
+        )
+
+    def test_acquiring_a_device_unlocks_it(self):
+        commands = self._recorded_commands()
+        self.assertTrue(
+            any("input keyevent 82" in c for c in commands),
+            f"the acquired device was never unlocked: {commands}",
+        )
+
+    def test_acquiring_a_device_takes_the_soft_keyboard_away(self):
+        commands = self._recorded_commands()
+        self.assertTrue(
+            any("show_ime_with_hard_keyboard" in c and c.rstrip().endswith("0") for c in commands),
+            f"the IME was left on: {commands}",
+        )
+
+    def test_the_ime_setting_has_one_owner(self):
+        """One meaning, one place — so the next copy cannot drift from it."""
+        root = pathlib.Path(__file__).resolve().parent.parent
+        owners = [
+            path.relative_to(root).as_posix()
+            for path in sorted(root.rglob("*.py"))
+            if "tests" not in path.parts
+            and "show_ime_with_hard_keyboard" in path.read_text(encoding="utf-8", errors="replace")
+        ]
+        self.assertEqual(
+            ["src/emulator/_startup.py"],
+            owners,
+            "the IME setting is written in more than one place: it will drift",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -269,10 +269,11 @@ def run_one_flow(
                     serial = parts[0]
                     break
 
-        deps.adb_on(
-            serial, "shell", "settings", "put", "secure",
-            "show_ime_with_hard_keyboard", "0",
-        )
+        # Wake + unlock + IME: the same preparation every acquired device gets
+        # (emulator._startup.prepare_device). The device may have been alive
+        # without being acquired above, so this is not redundant with
+        # acquire_device — it is the same meaning, called from here.
+        deps.prepare_device(serial)
 
         if not skip_install:
             install_cp = deps.gradle_install_debug(serial)

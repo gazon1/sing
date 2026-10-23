@@ -1,4 +1,4 @@
-"""Tests for setup-worktree.sh — the keepalive it puts on the SSH connection.
+"""Tests for setup-worktree.sh — the keepalive it must NOT put on the SSH connection.
 
 The pre-push hook takes a detekt verdict, and git opens its SSH connection to
 the remote *before* the hook runs. A verdict that takes minutes leaves the
@@ -6,16 +6,18 @@ connection idle, GitHub closes it, and the push fails with 141 — after the
 hook printed its own verdict and said the tree was clean. Measured on
 2026-10-28, on the first push of the pushed-tree verdict.
 
-The remedy is a client-side keepalive, and the script that prepares a
-worktree is where it belongs: the rule is then in the code rather than in the
-memory of whoever pushes next.
+The remedy is a client-side keepalive. It now lives in the SHARED config,
+written by the `just setup-hooks` recipe: the keepalive is harmless in every
+worktree, and a per-worktree copy had to be applied by hand in each one — so
+a fresh worktree, or the canonical checkout, could still lose the connection.
 
 Two properties are held here:
 
-  - a worktree that has no core.sshCommand gets one with a keepalive;
-  - a worktree that already has a core.sshCommand keeps it — the value may
-    carry a different binary, a port or an identity, and overwriting it would
-    break the push in a way nobody would read as this.
+  - the worktree script sets no core.sshCommand of its own — the shared
+    config owns that value now;
+  - a core.sshCommand that already exists is left alone — the value may carry
+    a different binary, a port or an identity, and overwriting it would break
+    the push in a way nobody would read as this.
 """
 
 import pathlib
@@ -58,6 +60,7 @@ class SetupWorktreeTest(unittest.TestCase):
         )
 
     def _ssh_command(self) -> str:
+        """The effective core.sshCommand (worktree value, else shared value)."""
         result = subprocess.run(
             ['git', 'config', '--get', 'core.sshCommand'],
             cwd=self.repo,
@@ -66,13 +69,12 @@ class SetupWorktreeTest(unittest.TestCase):
         )
         return result.stdout.strip()
 
-    def test_a_worktree_without_a_ssh_command_gets_one_with_a_keepalive(self):
+    def test_the_script_sets_no_ssh_command(self):
         result = self._run()
 
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-        command = self._ssh_command()
-        self.assertIn('ServerAliveInterval', command)
-        self.assertIn('ssh', command)
+        self.assertEqual('', self._ssh_command())
+        self.assertNotIn('ServerAliveInterval', result.stdout)
 
     def test_a_configured_ssh_command_is_left_alone(self):
         subprocess.run(

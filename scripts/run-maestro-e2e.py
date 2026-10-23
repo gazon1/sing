@@ -43,6 +43,7 @@ _added = str(SCRIPTS_SRC) not in sys.path
 if _added:
     sys.path.insert(0, str(SCRIPTS_SRC))
 from emulator.maestro._flow import suite_selection  # noqa: E402
+from emulator._startup import prepare_device  # noqa: E402
 
 if _added:
     sys.path.remove(str(SCRIPTS_SRC))
@@ -344,11 +345,11 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_FAIL
     print(f"{GREEN}APK installed.{_col('0', '')}", flush=True)
 
-    # ── Wake + unlock ───────────────────────────────────────────────────────
-    try_run(["adb", "-s", device, "shell", "input", "keyevent", "KEYCODE_WAKEUP"])
-    try_run(["adb", "-s", device, "shell", "input", "keyevent", "82"])  # unlock
-    try_run(["adb", "-s", device, "shell", "settings", "put", "secure",
-             "show_ime_with_hard_keyboard", "0"])
+    # ── Wake + unlock + IME ───────────────────────────────────────────────────
+    # One owner for the meaning: emulator._startup.prepare_device. The device
+    # may have come from --skip-ensure (already running, never acquired), so
+    # the preparation is not implied by the acquisition here.
+    prepare_device(device)
 
     # ── Wait for app ready ──────────────────────────────────────────────────
     print(f"{YELLOW}Waiting for app to be ready...{_col('0', '')}", flush=True)

@@ -48,6 +48,19 @@ def _device_api_level(serial: str) -> int | None:
     return None
 
 
+def _prepare_device(serial: str) -> None:
+    """Prepare the device, for a bundle that does not say.
+
+    The preparation is an action on a real device — wake it, unlock it, take
+    the soft keyboard out of the way — so a bundle that does not care about
+    the device gets nothing done to it. A fake that only asserts the flow's
+    behaviour has no device to wake, and asking the real adb would wake a
+    real one. The real bundle binds the real implementation, and that is the
+    one a run uses.
+    """
+    return None
+
+
 @dataclass(frozen=True)
 class DeviceDeps:
     """Explicit device-layer dependencies for run_one_flow and CLI main.
@@ -117,11 +130,21 @@ class DeviceDeps:
     app_installed: Callable[[str], bool] = _app_installed
     device_api_level: Callable[[str], int | None] = _device_api_level
 
+    # * ``prepare_device`` wakes the device, unlocks it and takes the soft
+    #   keyboard out of the way — the meaning that was written three times,
+    #   and the copy that was missing was the one that mattered: the AVD
+    #   that had just been restarted came up with the IME on, and every
+    #   flow measured after that measured a half-covered screen.
+    #   A bundle that does not care about a device gets nothing done to it:
+    #   a fake that only asserts the flow's behaviour has no device to wake.
+    #   The real bundle binds the real implementation.
+    prepare_device: Callable[[str], None] = _prepare_device
+
 
 def _default_device_deps() -> DeviceDeps:
     """Lazily build the real DeviceDeps to avoid circular imports at module scope."""
     from emulator._device import adb, adb_on, device_alive
-    from emulator._startup import acquire_device
+    from emulator._startup import acquire_device, prepare_device
     from emulator.maestro._artifacts import capture_artifacts
     from emulator.maestro._device import (
         app_installed,
@@ -153,6 +176,7 @@ def _default_device_deps() -> DeviceDeps:
             apk_sha_from_device=lambda serial: _apk_sha_from_device(serial, deps),
             gradle_install_debug=gradle_install_debug,
             acquire_device=acquire_device,
+            prepare_device=prepare_device,
             adb=adb,
             adb_on=adb_on,
             reset_adb_server=reset_adb_server,

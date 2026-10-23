@@ -289,33 +289,27 @@ echo ""
 
 # ── detekt verdict (about the tree that is being pushed) ────────────────
 #
-# Two signals, and both of them are taken about the tree that is being pushed:
+# The decision — which tree to judge, and whether the tree changed under
+# detekt's feet — lives in scripts/pre-push-verdict.py, where it is
+# unit-tested. It used to be bash here, with two branches nothing exercised.
 #
-#   1. the run's own exit code — detekt's verdict on the findings it could
-#      not correct;
-#   2. the content digest before and after the run — the findings detekt DID
-#      correct. Auto-correct rewrites the file and reports success, so what it
-#      changed is the only evidence that the tree held a violation.
+# What the verdict means, in one paragraph: the tree that is being pushed is
+# judged, not the worktree. The current worktree is judged when it holds
+# byte-identical content for everything detekt can read — then it IS the
+# pushed tree, and judging it there is warm (this checkout's own Gradle home
+# and build directories). Otherwise a tree that holds the pushed content is
+# judged, so a violation that is only in the worktree is not reported against
+# a tree nobody pushed, and a violation that is in the pushed tree is not
+# missed because the worktree happens to be clean.
 #
-# The digest is a content hash over every Kotlin file, not
-# `git status --porcelain`: a file that was already modified before the run
-# keeps the same status line (" M path") after the correction, so a status
-# comparison cannot see that anything happened. The verdict has to be about
-# the content, or it is about nothing.
-#
-# WHERE the verdict is taken depends on what the worktree holds:
-#
-#   - the worktree holds byte-identical content for everything detekt reads:
-#     the worktree IS the pushed tree, and judging it there is warm — the
-#     Gradle daemon and the build directories are this checkout's own;
-#   - anything else: a throwaway worktree at the pushed sha. A violation that
-#     is only in the worktree is then not reported against a tree nobody
-#     pushed, and a violation that is in the pushed tree is not missed
-#     because the worktree happens to be clean.
+# Two signals make the verdict red, and both are needed: the run's exit code
+# (findings detekt could not correct) and the content digest before and after
+# the run (findings it did correct — auto-correct rewrites the file and
+# reports success, so what it changed is the only evidence of a violation).
 #
 # `--auto-correct` works (ADR 2026-10-17-detekt-auto-correct-works-use-it.md):
-# one invocation per module (not a combined task list — the flag only reaches the
-# last task of an invocation).
+# one invocation per module (not a combined task list — the flag only reaches
+# the last task of an invocation).
 #
 # `--rerun` forces re-analysis: without it Gradle is UP-TO-DATE and corrects
 # nothing. `--rerun` re-runs the task it is given and leaves its dependencies
@@ -326,63 +320,9 @@ echo ""
 # `--rerun-tasks` re-runs the WHOLE task graph of the invocation, so every
 # Kotlin compilation of `:shared` and `:desktopApp` was re-done from scratch on
 # every push, only for detekt to re-analyse the sources that were compiled
-# anyway. `--rerun` re-runs detekt alone. Measured on this tree: the
-# `--rerun-tasks` invocation was still running after 18 minutes and was stopped;
-# the `--rerun` invocation finishes in a couple of minutes.
+# anyway. `--rerun` re-runs detekt alone.
 
 echo "=== Pre-push [$CURRENT_BRANCH] — detekt verdict (about the pushed tree) ==="
-
-DETEKT_TASKS=(:shared:detekt :desktopApp:detekt)
-
-# The paths that can change a detekt verdict:
-#   - the Kotlin sources detekt analyses;
-#   - the build scripts that decide which source sets are scanned;
-#   - the detekt config, the baseline and the custom rules;
-#   - the version catalog the build scripts read;
-#   - .editorconfig — ktlint reads it from inside detekt (max_line_length,
-#     ktlint_class_signature_rule_force_multiline_when_parameter_count…),
-#     so a worktree with a different .editorconfig is judged by different
-#     rules than the tree it is standing in for.
-#
-# A worktree that differs in any of them is a different tree, and a verdict
-# about it is a verdict about something nobody is pushing.
-DETEKT_PATHSPECS=(
-    ':(glob)**/*.kt'
-    ':(glob)**/*.kts'
-    'config/detekt/**'
-    'build-logic/**'
-    'detekt-rules/**'
-    'gradle/**'
-    '.editorconfig'
-)
-
-# The content of every Kotlin file in a tree, as one hash. Tracked and
-# untracked: detekt reads both, and a correction to an untracked file is as
-# much a violation as a correction to a tracked one.
-#
-# `git hash-object --stdin-paths` reads the paths FROM stdin — passing them as
-# arguments as well is an error, which is what the first version of this did.
-kotlin_digest() {
-    local tree="$1"
-    (
-        cd "$tree" || exit 1
-        {
-            git ls-files -- '*.kt' '*.kts'
-            git ls-files --others --exclude-standard -- '*.kt' '*.kts'
-        } | git hash-object --stdin-paths | git hash-object --stdin
-    )
-}
-
-# Does the current worktree hold exactly the content of $1 for everything
-# detekt can read?
-worktree_holds_sha() {
-    local sha="$1" untracked
-    git diff --quiet "$sha" -- "${DETEKT_PATHSPECS[@]}" 2>/dev/null || return 1
-    # Untracked files are invisible to `git diff`: a new Kotlin file in the
-    # worktree is analysed by detekt and is not in the pushed tree.
-    untracked="$(git status --porcelain --untracked-files=all -- "${DETEKT_PATHSPECS[@]}" 2>/dev/null | grep -c '^??' || true)"
-    [ "$untracked" = "0" ]
-}
 
 DETEKT_FAILED=0
 # How many trees were actually judged: a verdict that was not taken is not a
@@ -407,100 +347,68 @@ for i in "${!PUSH_REFS[@]}"; do
     esac
     judged_shas="$judged_shas $local_sha "
 
-    if [ -z "$remote_sha" ] || [ "$remote_sha" = "$ZERO_SHA" ]; then
-        RANGE=("${local_sha}" --not --remotes)
-    else
-        RANGE=("${remote_sha}..${local_sha}")
-    fi
-
     # Does this push carry Kotlin at all? Only the pushed commits count: the
     # verdict is about the pushed tree, and a Kotlin file that is only in the
     # worktree is not in it.
     #
-    # Skipping when it does not is how a Python-only push got held hostage by
-    # an unrelated Kotlin finding — and the author's response to a hook that
-    # blocks on someone else's code is `--no-verify`, which costs every other
-    # gate too. CI runs blocking detekt over the whole tree regardless, so
-    # skipping here stops a ~2 minute Gradle run on a change that cannot need
-    # it, and stops nothing else.
-    #
-    # Captured instead of piped: with `pipefail`, `grep -q` closing the pipe
-    # early can make the pipeline report SIGPIPE (141) for a hit.
-    if [ -z "$(git log --name-only --pretty=format: "${RANGE[@]}" -- '*.kt' '*.kts' 2>/dev/null)" ]; then
-        echo "no Kotlin in $local_ref — the detekt verdict is not taken (blocking detekt still runs in CI)"
+    # The modules to judge are computed by scripts/pre-push-verdict.py from the
+    # module graph: a change in one module judges that module and the ones
+    # that compile against it, a change in the rules or in the build judges
+    # every module, and a change that moves neither Kotlin nor rules needs no
+    # detekt run at all. So the question "does this push carry Kotlin?" is
+    # answered there, by the same code that decides what to judge — not here,
+    # by a second rule that can disagree with it.
+    echo ""
+    echo "→ $local_ref → $remote_ref @ $local_sha"
+
+    # The worktree this hook already checked out for this sha, if any: the
+    # verdict falls back to it when the current worktree holds something else.
+    fallback=""
+    if [ -n "${REF_TREES[$i]:-}" ]; then
+        fallback="${REF_TREES[$i]}"
+    fi
+
+    # The base of the pushed range: the tree the remote already holds. It is
+    # what the change is measured against. A brand new branch has no base, and
+    # then every module is judged — the safe direction.
+    base=""
+    if [ -n "$remote_sha" ] && [ "$remote_sha" != "$ZERO_SHA" ]; then
+        base="$remote_sha"
+    fi
+
+    new_temp_root
+    verdict_rc=0
+    if [ -n "$base" ]; then
+        python3 "$REPO_ROOT/scripts/pre-push-verdict.py" \
+            --sha "$local_sha" \
+            --repo "$REPO_ROOT" \
+            --fallback-tree "$fallback" \
+            --base "$base" \
+            --log-dir "$TMP_ROOT/verdict" || verdict_rc=$?
+    else
+        python3 "$REPO_ROOT/scripts/pre-push-verdict.py" \
+            --sha "$local_sha" \
+            --repo "$REPO_ROOT" \
+            --fallback-tree "$fallback" \
+            --log-dir "$TMP_ROOT/verdict" || verdict_rc=$?
+    fi
+
+    if [ "$verdict_rc" = "0" ]; then
+        DETEKT_JUDGED=$((DETEKT_JUDGED + 1))
         continue
     fi
 
-    # Which tree holds the pushed content?
-    if worktree_holds_sha "$local_sha"; then
-        judge_tree="$REPO_ROOT"
-        judge_label="the current worktree — byte-identical to ${local_sha:0:8}"
-    else
-        judge_tree="$(tree_for_sha "$local_sha" || true)"
-        if [ -z "$judge_tree" ]; then
-            if checkout_pushed_tree "$local_sha" "detekt-${local_sha:0:8}"; then
-                judge_tree="$CHECKOUT_TREE"
-            else
-                judge_tree=""
-            fi
-        fi
-        judge_label="a temporary worktree at ${local_sha:0:8}"
-    fi
-
-    if [ -z "$judge_tree" ]; then
+    DETEKT_FAILED=1
+    if [ "$verdict_rc" = "2" ]; then
         echo ""
-        echo "   !!! no tree holds ${local_sha:0:8} — the detekt verdict could not be taken"
-        DETEKT_FAILED=1
+        echo "pre-push FAILED — the detekt verdict could not be taken for $local_ref."
+        echo "The tree that is being pushed was not judged, so this push is not certified."
         continue
     fi
 
     echo ""
-    echo "→ $local_ref → $remote_ref @ $local_sha"
-    echo "   detekt verdict taken on $judge_label"
-    DETEKT_JUDGED=$((DETEKT_JUDGED + 1))
-
-    new_temp_root
-    before="$(kotlin_digest "$judge_tree")"
-    detekt_failed=0
-
-    for task in "${DETEKT_TASKS[@]}"; do
-        log="$TMP_ROOT/detekt-${task//:/-}-${local_sha:0:8}.log"
-        rc=0
-        (
-            cd "$judge_tree" || exit 1
-            ./gradlew "$task" \
-                --auto-correct --rerun --no-daemon --console=plain
-        ) >"$log" 2>&1 || rc=$?
-        if [ "$rc" = "0" ]; then
-            echo "   detekt $task: OK"
-        else
-            detekt_failed=1
-            echo "   detekt $task: FAILED (exit $rc) — the last lines of the run:"
-            tail -n 30 "$log" | sed 's/^/      /'
-        fi
-    done
-
-    after="$(kotlin_digest "$judge_tree")"
-
-    if [ "$detekt_failed" = "1" ]; then
-        DETEKT_FAILED=1
-        echo ""
-        echo "pre-push FAILED — detekt reported findings in the tree that is being pushed ($local_ref)."
-        echo "Fix them and push again (or push with --no-verify)."
-    fi
-
-    if [ "$before" != "$after" ]; then
-        DETEKT_FAILED=1
-        echo ""
-        echo "pre-push FAILED — detekt corrected the tree that is being pushed ($local_ref)."
-        if [ "$judge_tree" = "$REPO_ROOT" ]; then
-            echo "The corrected files are in your working tree: review the diff, amend the commit, push again."
-            git --no-pager diff --stat
-        else
-            echo "The corrections were made in the temporary worktree — here is what detekt changed:"
-            git -C "$judge_tree" --no-pager diff
-        fi
-    fi
+    echo "pre-push FAILED — detekt reported findings in the tree that is being pushed ($local_ref)."
+    echo "Fix them and push again (or push with --no-verify)."
 done
 
 if [ "$DETEKT_FAILED" = "1" ]; then
@@ -511,11 +419,13 @@ fi
 
 echo ""
 if [ "$DETEKT_JUDGED" = "0" ]; then
-    echo "detekt verdict: not taken — this push carries no Kotlin"
+    echo "detekt verdict: not taken — nothing was pushed to judge"
 else
-    echo "detekt verdict: the pushed tree is clean"
+    echo "detekt verdict: the pushed tree is clean for the modules the change can affect"
+    echo "detekt coverage: CI judges every module; the hook judges the ones this change reaches"
 fi
 echo ""
+
 
 # ── Worktree shortcut ──────────────────────────────────────────────────
 # In a worktree --git-dir differs from --git-common-dir.  Worktrees run their own

@@ -23,6 +23,7 @@ sche... | — | — |
 | maestro flow catalogue is current | blocking | check-maestro-flow-catalogue.py — the flow catalogue must match the tree. | — | — |
 | ui wait budgets are consistent | blocking | check-ui-wait-budgets.py — one number for the wait, in every layer that waits. | — | — |
 | git hooks path is per-worktree | advisory | check-hooks-path.py — `core.hooksPath` must not point at another checkout (#5... | — | — |
+| hook gates are declared once | blocking | check-hook-gates.py — the hook and CI must not drift apart silently. | — | — |
 | unwired surfaces | blocking | Find surfaces that are fully implemented but wired to nothing. | — | — |
 | settings read by a feature | blocking | Find persisted settings that are collected, displayed, and read by no feature. | — | — |
 | a write tool proposes before it writes | blocking | check-ai-write-tools.py — a tool that writes a user's data must say so. | — | — |

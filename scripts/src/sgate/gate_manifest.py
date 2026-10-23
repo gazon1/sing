@@ -236,6 +236,22 @@ PLACEMENTS: dict[str, Placement] = {
 # An absolute core.hooksPath is correct in exactly one checkout and silently wrong in
 # every worktree, and git config does not travel with the repo (#519).""",
     ),
+    "hook gates are declared once": Placement(
+        kind=PlacementKind.STATIC,
+        command='sgate hook_gates_are_declared_once',
+        note="""# The pre-push hook judges three gates of forty-one and the detekt modules a
+# change reaches; the CI judges every module. Both numbers were lines in a
+# bash script, and nothing compared them with the other side — so "detekt" in
+# the hook read as "detekt" over the whole tree, and a violation in an
+# untouched module looked like it would be caught locally.
+#
+# The difference is written down — config/hooks/pre-push.json — and this gate
+# checks that the code still matches the record, in both directions: a gate the
+# record names and the hook does not run, a script the hook runs and the record
+# does not name, a module the CI judges and the record does not list. The
+# partiality is part of the record, because an unwritten partiality reads as a
+# full one.""",
+    ),
     "unwired surfaces": Placement(
         kind=PlacementKind.STATIC,
         command='sgate unwired_surfaces',

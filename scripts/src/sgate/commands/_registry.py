@@ -371,6 +371,12 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script_args=("--quiet",),
     ),
     GateSpec(
+        name="hook gates are declared once",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-hook-gates.py"),
+    ),
+    GateSpec(
         name="unwired surfaces",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
@@ -877,6 +883,27 @@ GATE_CONTROLS: dict[str, Control] = {
     'detekt-registrations': Control(kind='sabotage', proves='scripts/check-detekt-registrations.sh', argv=('./scripts/check-detekt-registrations.sh',), path='config/detekt/detekt.yml', edit=Edit(kind='replace', old='no-runblocking:\n  NoRunBlocking:\n    active: true\n', new='', count=-1), why='a RuleSetId with no detekt.yml block never loads, so the rule never runs'),
     'baseline-ratchet': Control(kind='sabotage', proves='scripts/check-baseline-ratchet.py', argv=('{python}', 'scripts/check-baseline-ratchet.py'), path='config/detekt/baseline-shared.xml', edit=Edit(kind='replace', old='</CurrentIssues>', new='    <ID>Sabotage:Probe.kt:Probe</ID>\n  </CurrentIssues>', count=-1), why='a baseline that can grow silently stops being a ratchet and becomes a sink'),
     'hooks-path': Control(kind='sabotage', proves='scripts/check-hooks-path.py', argv=('{python}', 'scripts/check-hooks-path.py', '--quiet'), path='.githooks/pre-push', edit=Edit(kind='hooks_path'), why='hooks travel with the repository; local git config does not. A configured hooks path with nothing tracked under it is a gate that reports success because nothing ever asked it a question'),
+    # hook-gates: the record of what the hook judges drifts away from the hook
+    # and from the CI. The probe removes one detekt module from the record —
+    # exactly the state a new CI module leaves behind: CI judges the module, the
+    # record does not mention it, and nothing says so. A reader of the hook
+    # would read "detekt" as "the whole tree" and be wrong.
+    'hook-gates': Control(
+        kind='sabotage',
+        proves='scripts/check-hook-gates.py',
+        argv=('{python}', 'scripts/check-hook-gates.py'),
+        path='config/hooks/pre-push.json',
+        edit=Edit(
+            kind='replace',
+            old='      ":mcp-server:detekt",\n',
+            new='',
+            count=1,
+        ),
+        why='the hook judges three gates of forty-one and the modules a change reaches; the CI judges '
+            'every module. That difference is written down in config/hooks/pre-push.json, and the '
+            'record is the only place it can be read. A module the CI judges and the record does not '
+            'mention is a difference nobody can see — which is the state this gate exists for',
+    ),
     'skill-drift': Control(kind='sabotage', proves='scripts/check-skill-drift.py', argv=('{python}', 'scripts/check-skill-drift.py'), path='.agents/skills/singularity-todo-decisions-workflow/SKILL.md', edit=Edit(kind='replace', old='`singularity-adr validate`', new='`singularity-adr verifai`', count=1), why='a skill that lists commands the tool does not have sends an agent to run something that does not exist'),
     'workflow-env-context': Control(kind='sabotage', proves='scripts/check-workflow-env-context.py', argv=('{python}', 'scripts/check-workflow-env-context.py'), path='.github/workflows/e2e.yml', edit=Edit(kind='replace', old="  EMULATOR_GPU_MODE: ${{ vars.EMULATOR_GPU_MODE || 'off' }}", new="  EMULATOR_GPU_MODE_TYPO: ${{ vars.EMULATOR_GPU_MODE || 'off' }}", count=1), why='renaming the definition while the reference keeps the old name is the smallest possible version of the failure this gate exists for: the `env` context does not hold the runner\'s environment, so `${{ env.X }}` for an undefined X expands to the empty string and the path silently becomes a path to nothing. That is how the Maestro shards spent a release cycle failing with "emulator binary not found in PATH" while the cache carried an empty directory'),
     'maestro-flow-catalogue': Control(kind='sabotage', proves='scripts/check-maestro-flow-catalogue.py', argv=('{python}', 'scripts/check-maestro-flow-catalogue.py'), path='config/docs/maestro-flows.txt', edit=Edit(kind='regex', pattern=r'^Maestro/flows/smoke/01-launch-today\.yaml\n', repl='', flags='MULTILINE'), why='a flow deleted from the tree without a word leaves the suite smaller and the run green: the suite reports the flows that are left, and the one that is gone is a line in a diff nobody reads. Removing a line from the catalogue puts the flow back into the tree without putting it back into the promise, which is the state this gate exists to refuse'),
