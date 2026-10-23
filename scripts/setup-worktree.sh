@@ -16,7 +16,7 @@
 # worktree is silent — no error, just the wrong directory being modified.
 #
 # The obvious global fix is `core.hooksPath = .githooks` (relative, resolved per
-# worktree). It is deliberately not applied here: 7 of this repository's 38
+# worktree). It is deliberately not applied here: some of this repository's
 # worktrees are on branches that predate the .githooks directory, and switching
 # the shared value would silently leave those with no hooks at all — trading one
 # silent misdirection for a larger silent absence.
@@ -34,10 +34,12 @@
 # work tree dies with "fatal: this operation must be run in a work tree" —
 # `git status`, `git add`, `git commit`, `git rebase`, all of them.
 #
-# `git worktree add` writes that line itself — but only when the extension is
-# already on. A worktree created before the switch never gets it, so turning
-# the extension on breaks every worktree in the repository at once, including
-# the one the script was run from.
+# `git worktree add` does NOT write that line. Measured on git 2.56: the
+# command copies the MAIN worktree's `config.worktree` into the new worktree's
+# — and the main worktree of a bare repository has no such file, so a new
+# worktree gets nothing and is born broken. A worktree created before the
+# switch never gets the line either. Every worktree needs the repair, and a
+# worktree created afterwards needs it just as much.
 #
 # Therefore the order here is not cosmetic:
 #
@@ -47,11 +49,24 @@
 #   3. the extension is switched on LAST — nothing is broken at any point.
 #
 # The per-worktree config is written with `git config --file <path>`, never
-# with `git config --worktree`. In a worktree that Git considers bare, the
-# latter resolves its target through Git and lands in the SHARED config
-# instead; a `core.bare = false` written there turns a bare repository into a
-# non-bare one, and the script would have broken the repository instead of
-# repairing it.
+# with `git config --worktree`. The two commands do not write to the same
+# place, and the destination depends on the command:
+#
+#   - `git config --worktree` resolves its target through Git. In a linked
+#     worktree it lands in that worktree's own `config.worktree`; in the MAIN
+#     entry of a bare repository it lands in the main entry's `config.worktree`,
+#     where a `core.bare = false` un-bares the repository — `git rev-parse
+#     --is-bare-repository` answers `false` there. Without the extension it
+#     lands in the shared config, or is refused outright when the repository
+#     has more than one working tree.
+#   - plain `git config` always lands in the SHARED config, from any worktree
+#     — including a worktree Git already considers bare. That is how a
+#     `core.bare = false` reached the shared config of a bare repository and
+#     un-bared it for every worktree at once.
+#
+# `--file` writes exactly the file it is given: no repository is resolved, the
+# destination is this script's decision rather than Git's, and a file that must
+# not be written cannot be written by accident.
 #
 # Idempotent: safe to re-run. Never starts Gradle, never touches the network.
 #
@@ -77,6 +92,14 @@ die() {
 # worktree's `.git` is that git dir itself. The common dir — where the shared
 # config and every linked worktree's own directory live — is named by the
 # `commondir` file inside a linked worktree's git dir.
+#
+# The readability of `.git` is checked here, because the tools that read it
+# report the permission failure in their own words — `sed: can't read ...:
+# Permission denied` — and the operator is left guessing which of the many
+# permissions in a repository is the one that is wrong.
+if [[ -e "$root/.git" && ! -r "$root/.git" ]]; then
+    die "$root/.git is not readable — check its permissions and run this again"
+fi
 if [[ -f "$root/.git" ]]; then
     gitdir_line="$(sed -n 's/^gitdir: //p' "$root/.git")"
     [[ -n "$gitdir_line" ]] || die "$root/.git does not name a git directory"
@@ -130,10 +153,31 @@ set_value() {  # <file> <key> <value>
 
 shared_bare_before="$(git config --file "$shared_config" --get core.bare || true)"
 
+# Is this the BARE REPOSITORY ITSELF rather than one of its worktrees?
+#
+# The two look alike from the outside: in both, the `.git` is a directory and
+# `git_dir` equals `common_dir`. They differ in the shared config: a bare
+# repository says `core.bare = true`, and the main worktree of an ordinary
+# repository does not.
+#
+# It matters, because a `core.bare = false` written in the main entry's
+# per-worktree config turns the bare repository into a non-bare one — and
+# nothing else in the tree would notice. The bare repository's main entry is
+# not a worktree, so it is not repaired here: it is left as it is.
+is_bare_main_entry=false
+if [[ "$git_dir" == "$common_dir" && "$shared_bare_before" == "true" ]]; then
+    is_bare_main_entry=true
+fi
+
 # This worktree: the bare flag first (a bare worktree cannot run Git at all),
 # then the hooks path.
-set_value "$worktree_config" core.bare false
-set_value "$worktree_config" core.hooksPath .githooks
+if [[ "$is_bare_main_entry" == "true" ]]; then
+    set_value "$worktree_config" core.hooksPath .githooks
+    echo "this is the bare repository itself, not a worktree of it — its bare flag is left alone"
+else
+    set_value "$worktree_config" core.bare false
+    set_value "$worktree_config" core.hooksPath .githooks
+fi
 
 # Every OTHER worktree of the repository needs the bare flag too, and it needs
 # it before the extension is switched on: a worktree that Git considers bare
@@ -158,7 +202,14 @@ if [[ "$(git config --file "$shared_config" --get extensions.worktreeConfig || t
 fi
 
 # ── Check the result, in Git's own words ────────────────────────────────────
-if [[ "$(git rev-parse --is-bare-repository 2>/dev/null || echo unknown)" != "false" ]]; then
+# The bare repository's main entry is EXPECTED to answer `true` — it is the
+# repository, not a worktree of it. Every other worktree has to answer
+# `false`: that is what "a worktree that works" looks like in Git's words.
+if [[ "$is_bare_main_entry" == "true" ]]; then
+    if [[ "$(git rev-parse --is-bare-repository 2>/dev/null || echo unknown)" != "true" ]]; then
+        die "the bare repository's main entry does not answer 'true' — check $shared_config"
+    fi
+elif [[ "$(git rev-parse --is-bare-repository 2>/dev/null || echo unknown)" != "false" ]]; then
     die "this worktree is still treated as a bare repository — check $worktree_config"
 fi
 

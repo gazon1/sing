@@ -75,6 +75,10 @@ class SetupWorktreeTest(unittest.TestCase):
         return sandbox_env(self.tmp)
 
     def _run(self) -> subprocess.CompletedProcess:
+        # The environment is cleaned here too, not only for the git calls:
+        # the script resolves the repository through git (`git config`,
+        # `git rev-parse`), and with an inherited GIT_DIR it would write the
+        # repository-wide switch into the developer's checkout.
         return subprocess.run(
             ['bash', str(self.script)],
             cwd=self.repo,
