@@ -2,7 +2,7 @@
 change: the-task-document-is-written-whole
 verdict: fail
 date: 2026-10-23
-pr: pending
+pr: 997
 ---
 
 ## What was reviewed
