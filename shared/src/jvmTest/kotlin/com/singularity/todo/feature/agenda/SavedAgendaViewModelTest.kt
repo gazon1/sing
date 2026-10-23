@@ -3,7 +3,6 @@
 package com.singularity.todo.feature.agenda
 
 import co.touchlab.kermit.Logger
-import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
@@ -64,12 +63,12 @@ class SavedAgendaViewModelTest {
     // type inference in the local extension function's return type.
     private fun TestScope.testVm(mode: SavedAgendaScreenMode) = testVm(
         stateAccessor = { vm: SavedAgendaViewModel -> vm.stateFlow },
-        factory = { testScope, _ ->
+        factory = { scope ->
             SavedAgendaViewModel(
                 deps = SavedAgendaDeps(repo = fakeRepo, clock = FakeClock(SAVED_AGENDA_NOW), log = Logger),
                 mode = mode,
                 seedStore = seedStore,
-                scope = AutoCloseableCoroutineScope(testScope.coroutineContext),
+                scope = scope,
             )
         },
     )
@@ -84,12 +83,12 @@ class SavedAgendaViewModelTest {
         afterInit = { vm, bgScope ->
             bgScope.launch { vm.events.collect { events += it } }
         },
-        factory = { testScope, _ ->
+        factory = { scope ->
             SavedAgendaViewModel(
                 deps = SavedAgendaDeps(repo = fakeRepo, clock = FakeClock(SAVED_AGENDA_NOW), log = Logger),
                 mode = mode,
                 seedStore = seedStore,
-                scope = AutoCloseableCoroutineScope(testScope.coroutineContext),
+                scope = scope,
             )
         },
     )

@@ -6,6 +6,7 @@ import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.platform.todayFlow
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.feature.notes.Note
@@ -79,6 +80,15 @@ class NotesListViewModel(
         /** Keystrokes settle for this long before a repository query runs. */
         const val SEARCH_DEBOUNCE_MS = 200L
 
+        /**
+         * The mode the notes list searches in.
+         *
+         * The list is a surface, and a surface states the mode it searches in
+         * (F8). The word mode is the one it states: the search is asked of the
+         * index, and the index answers the beginning of a word (F6).
+         */
+        val NOTE_SEARCH_MODE: SearchMode = SearchMode.Word
+
         /** 5-second undo window, matching the snackbar duration. */
         const val UNDO_WINDOW_MS = 5_000L
 
@@ -146,7 +156,7 @@ class NotesListViewModel(
             val notesFlow = combine(filterFlow, debouncedQueryFlow) { f, query -> f to query }
                 .flatMapLatest { (f, query) ->
                     val flow = when {
-                        query.text.isNotBlank() -> repo.search(query.text)
+                        query.text.isNotBlank() -> repo.search(query.text, NOTE_SEARCH_MODE)
                         f == NoteFilter.All -> repo.observeAll()
                         f == NoteFilter.Pinned -> repo.watchPinned()
                         else -> repo.watchArchived()

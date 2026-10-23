@@ -21,6 +21,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.time.Clock
+import com.singularity.todo.core.search.SearchMode
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
@@ -40,8 +41,8 @@ class NotePreviewTest {
     )
 
     private val emptyLinkRepo = object : InternalLinkRepository {
-        override suspend fun searchNotes(query: String): List<Note> = emptyList()
-        override suspend fun searchTasks(query: String): List<Task> = emptyList()
+        override suspend fun searchNotes(query: String, mode: SearchMode): List<Note> = emptyList()
+        override suspend fun searchTasks(query: String, mode: SearchMode): List<Task> = emptyList()
         override suspend fun getBacklinkNotes(noteId: String): List<Note> = emptyList()
         override suspend fun getBacklinkTasks(taskId: String): List<Task> = emptyList()
         override suspend fun getNotesLinkingToTask(taskId: String): List<Note> = emptyList()

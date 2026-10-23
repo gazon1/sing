@@ -45,12 +45,14 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.feature.projects.presentation.components.ProjectDetailActions
 import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsNavigator
+import com.singularity.todo.feature.tasks.domain.TaskDomain
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.components.TaskCard
@@ -260,6 +262,20 @@ private fun ProjectDetailQuickAddInput(
     }
 }
 
+/**
+ * The mode the "add an existing task" popup searches in.
+ *
+ * The popup is a surface, and a surface states the mode it searches in (F8).
+ * It reads the tasks it already holds, and the term may occur anywhere in the
+ * task's title or in its description (F3) — so it states the contains mode.
+ * The switch belongs to the search screen; a popup that has no switch states
+ * the mode it uses.
+ *
+ * The contains mode folds the diacritics the way the index folds them (F7),
+ * so a search for "cafe" finds "Café" here as well.
+ */
+private val TASK_PICKER_SEARCH_MODE: SearchMode = SearchMode.Contains
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddExistingTaskPopup(
@@ -274,7 +290,7 @@ private fun AddExistingTaskPopup(
             if (query.isBlank()) {
                 tasks.take(10)
             } else {
-                tasks.filter { it.title.contains(query, ignoreCase = true) }.take(10)
+                tasks.filter { TaskDomain.matches(TASK_PICKER_SEARCH_MODE, it, query) }.take(10)
             }
         }
     }

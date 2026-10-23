@@ -18,10 +18,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 
 /**
  * Separators used to pack list payloads into single text columns.
@@ -43,14 +40,72 @@ private val payloadJson = Json { ignoreUnknownKeys = true }
 /**
  * Decodes the `kind_json` blob back into a [ProposalItemKind].
  *
- * @return null if the blob is unparseable or names a type we do not know — which
- *   happens when an older build wrote a kind a newer build dropped. A value this
- *   build cannot read is not a null: it is a value that carries the reason.
+ * A blob this build cannot read is not a `null`: it is a change that carries the
+ * reason it cannot be read. The row was written by a build that knew a kind this
+ * one does not, or the blob is not a blob at all — and a change that quietly
+ * disappears from the card is a change nobody decided about. So the reader always
+ * returns a kind, and the kind it returns for a blob it cannot read is
+ * [ProposalItemKind.Unknown], which the card shows with its reason.
+ *
+ * @param raw the stored blob, exactly as it was found. It is kept inside the
+ *   [ProposalItemKind.Unknown] so the row can be written back unchanged.
  */
-internal fun decodeKind(raw: String): ProposalItemKind? = runCatching {
-    val obj = payloadJson.parseToJsonElement(raw) as JsonObject
-    decodeTaskKind(obj) ?: decodeEntityKind(obj) ?: decodeCreationKind(obj) ?: decodeDeletionKind(obj)
-}.getOrNull()
+internal fun decodeKind(raw: String): ProposalItemKind {
+    val obj = runCatching { payloadJson.parseToJsonElement(raw) as JsonObject }.getOrNull()
+        ?: return ProposalItemKind.Unknown(raw)
+    // The sealed format first: it is the one this build writes.
+    //
+    // A flat blob cannot be read as a sealed one by accident: every sealed
+    // variant carries a payload the flat format does not have — a nested object
+    // for a value, an array for a list, a nested object for a created thing — and
+    // a flat blob has a string where the sealed one has that structure. So the
+    // flat blob either fails to decode as sealed, or it decodes to the very same
+    // value (the deletions and the unknown kind, whose two shapes are one).
+    decodeSealed(obj)?.let { return it }
+    // The flat format: what the builds before this one wrote. It stays readable
+    // until the oldest supported build is this one — see the ADR.
+    return decodeFlat(obj, raw) ?: ProposalItemKind.Unknown(raw)
+}
+
+/**
+ * The blob read as the sealed format — or null when it is not one.
+ *
+ * The sealed format is the model's own shape: a discriminator and the payload
+ * the variant actually has. A field that is renamed or dropped in the model is a
+ * field the sealed reader refuses to guess at, and a blob it refuses is a blob
+ * the flat reader gets a chance at, and then [ProposalItemKind.Unknown].
+ */
+private fun decodeSealed(obj: JsonObject): ProposalItemKind? =
+    runCatching { payloadJson.decodeFromJsonElement(ProposalItemKind.serializer(), obj) }.getOrNull()
+
+/**
+ * The blob read as the flat format — the one the builds before this one wrote.
+ *
+ * The flat format packs a payload into text columns and names the field
+ * separately from the value, so a value is re-read through the domain's reader:
+ * a priority is the string "High" here, and the domain says what that is. It
+ * stays readable for as long as a build that writes it can be in the user's
+ * hands.
+ */
+private fun decodeFlat(obj: JsonObject, raw: String): ProposalItemKind? =
+    decodeUnknownKind(obj, raw)
+        ?: decodeTaskKind(obj)
+        ?: decodeEntityKind(obj)
+        ?: decodeCreationKind(obj)
+        ?: decodeDeletionKind(obj)
+
+/**
+ * The change that was written as a change this build cannot read.
+ *
+ * It is read first: the row says so itself, and the blob it carries is the
+ * original one — the whole stored blob when the row does not name it.
+ */
+private fun decodeUnknownKind(obj: JsonObject, raw: String): ProposalItemKind? =
+    if (obj.stringOrNull("type") == "Unknown") {
+        ProposalItemKind.Unknown(obj.stringOrNull("raw") ?: raw)
+    } else {
+        null
+    }
 
 /**
  * The kinds a task carries: its fields, its tags, its checklist, its subtasks, its time.
@@ -179,134 +234,19 @@ private fun decodeProposedNote(obj: JsonObject): ProposedNote = ProposedNote(
     parentNoteId = obj.stringOrNull("parentNoteId"),
 )
 
-/** Serializes a kind for storage. */
-internal fun ProposalItemKind.toJsonString(): String = toJsonObject().toString()
-
 /**
- * Renders a [ProposalItemKind] to a compact JSON object for the `kind_json` column.
+ * Serializes a kind for storage.
  *
- * Uses [buildJsonObject] rather than polymorphic serialization so the stored shape
- * stays flat and greppable in the database.
+ * The sealed format: the model's own shape, written by the model's own
+ * serializer. The flat format this replaces was written by hand, field by
+ * field, and a field the model renamed was a field the flat writer kept
+ * writing under the old name — or stopped writing, and the value read back as
+ * something else. The sealed format cannot do that: the serializer and the
+ * model are the same declaration, so a field that changed is a field the
+ * serializer changed with.
  */
-private fun ProposalItemKind.toJsonObject(): JsonObject = buildJsonObject {
-    put("type", this@toJsonObject::class.simpleName ?: "Unknown")
-    writeTaskPayload(this@toJsonObject, this)
-    writeEntityPayload(this@toJsonObject, this)
-    writeCreationPayload(this@toJsonObject, this)
-    writeDeletionPayload(this@toJsonObject, this)
-}
-
-/**
- * The payload of the kinds a task carries.
- *
- * The payload is written by group rather than by one long `when`: the vocabulary
- * grew, and a single `when` over every kind is a function nobody can read — and
- * a function nobody can read is one that gets a new kind added to it wrongly.
- */
-private fun writeTaskPayload(kind: ProposalItemKind, into: JsonObjectBuilder) {
-    when (kind) {
-        is ProposalItemKind.SetTaskField -> {
-            into.put("field", kind.value.fieldName)
-            into.put("value", kind.value.text)
-        }
-
-        is ProposalItemKind.SetTagField -> {
-            into.put("field", kind.value.fieldName)
-            into.put("value", kind.value.text)
-        }
-
-        is ProposalItemKind.SetTaskTags -> into.put("tagIds", kind.tagIds.joinToString(ProposalPayloadSep.LIST))
-
-        is ProposalItemKind.AddTags -> into.put("names", kind.names.joinToString(ProposalPayloadSep.LIST))
-
-        is ProposalItemKind.RemoveTags -> into.put("tagIds", kind.tagIds.joinToString(ProposalPayloadSep.LIST))
-
-        is ProposalItemKind.AddChecklistItems -> into.put("texts", kind.texts.joinToString(ProposalPayloadSep.LIST))
-
-        is ProposalItemKind.AddSubtasks -> into.put("titles", kind.titles.joinToString(ProposalPayloadSep.LIST))
-
-        is ProposalItemKind.AddTimeEntries -> {
-            into.put(
-                "entries",
-                kind.entries.joinToString(ProposalPayloadSep.RECORD) {
-                    "${it.startedAt}${ProposalPayloadSep.FIELD}${it.endedAt}" +
-                        "${ProposalPayloadSep.FIELD}${it.note.orEmpty()}"
-                },
-            )
-        }
-
-        else -> Unit
-    }
-}
-
-/** The payload of the kinds a note or a project carries. */
-private fun writeEntityPayload(kind: ProposalItemKind, into: JsonObjectBuilder) {
-    when (kind) {
-        is ProposalItemKind.SetNoteField -> {
-            into.put("field", kind.value.fieldName)
-            into.put("value", kind.value.text)
-        }
-
-        is ProposalItemKind.SetProjectField -> {
-            into.put("field", kind.value.fieldName)
-            into.put("value", kind.value.text)
-        }
-
-        else -> Unit
-    }
-}
-
-/** The payload of the kinds that bring something into being. */
-private fun writeCreationPayload(kind: ProposalItemKind, into: JsonObjectBuilder) {
-    when (kind) {
-        is ProposalItemKind.CreateTask -> {
-            into.put("title", kind.task.title)
-            kind.task.description?.let { into.put("description", it) }
-            into.put("priority", kind.task.priority.name)
-            into.put("kind", kind.task.kind.name)
-            kind.task.projectId?.let { into.put("projectId", it) }
-            kind.task.parentTaskId?.let { into.put("parentTaskId", it) }
-            into.put("tagIds", kind.task.tagIds.joinToString(ProposalPayloadSep.LIST))
-            kind.task.dueDate?.let { into.put("dueDate", it.toString()) }
-            kind.task.dueTime?.let { into.put("dueTime", LocalTimeFormats.format(it)) }
-            into.put("someday", kind.task.someday)
-        }
-
-        is ProposalItemKind.CreateProject -> {
-            into.put("name", kind.project.name)
-            kind.project.description?.let { into.put("description", it) }
-            into.put("color", kind.project.color)
-            kind.project.icon?.let { into.put("icon", it) }
-        }
-
-        is ProposalItemKind.CreateNote -> {
-            into.put("title", kind.note.title)
-            kind.note.bodyHtml?.let { into.put("bodyHtml", it) }
-            into.put("isFolder", kind.note.isFolder)
-            kind.note.parentNoteId?.let { into.put("parentNoteId", it) }
-        }
-
-        is ProposalItemKind.ExtractActions -> into.put("actions", kind.actions.joinToString(ProposalPayloadSep.LIST))
-
-        is ProposalItemKind.CreateTag -> {
-            into.put("name", kind.tag.name)
-            into.put("color", kind.tag.color)
-        }
-
-        else -> Unit
-    }
-}
-
-/** The payload of the kinds that take something away. */
-private fun writeDeletionPayload(kind: ProposalItemKind, into: JsonObjectBuilder) {
-    when (kind) {
-        is ProposalItemKind.DeleteNote -> kind.reason?.let { into.put("reason", it) }
-        is ProposalItemKind.DeleteTask -> kind.reason?.let { into.put("reason", it) }
-        is ProposalItemKind.DeleteProject -> kind.reason?.let { into.put("reason", it) }
-        is ProposalItemKind.DeleteTag -> kind.reason?.let { into.put("reason", it) }
-        else -> Unit
-    }
-}
+internal fun ProposalItemKind.toJsonString(): String =
+    payloadJson.encodeToString(ProposalItemKind.serializer(), this)
 
 /** Splits a packed list column, dropping blanks. */
 private fun JsonObject.list(key: String): List<String> = stringOrNull(key).orEmpty()

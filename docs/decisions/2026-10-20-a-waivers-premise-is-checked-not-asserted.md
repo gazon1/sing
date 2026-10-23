@@ -9,7 +9,8 @@ date: 2026-10-20
 
 One gate in this repository is red on a clean tree: `detekt-rule-coverage-floor`.
 Its positive control raises the branch-coverage floor in
-`detekt-rules/build.gradle.kts` and requires the Gradle task to fail — but
+`settings.gradle.kts` (the floor is declared there since 2026-10-23 and only
+bound by the module) and requires the Gradle task to fail — but
 sabotage proves nothing when the gate is already failing, so the control is
 **waived from the clean-run guard** (`needs_clean_run=False`).
 

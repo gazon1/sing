@@ -884,10 +884,10 @@ jobs:
           ./gradlew -q :detekt-rules:koverLog -Ptest.population="$TEST_POPULATION" 2>&1 | \
             grep "^detekt-rules branch coverage" >> "$GITHUB_STEP_SUMMARY" || true
 
-      # detekt-rules branch coverage floor: 60% (below 2026-10-10 measured 65.1%),
-      # declared once — DETEKT_RULE_BRANCH_FLOOR in detekt-rules/build.gradle.kts —
-      # and enforced by Kover's own verify rule, not by a script that parses Kover's
-      # XML. Blocking.
+      # detekt-rules branch coverage floor: 60% (below 2026-10-15 measured 65.6%, 725/1105),
+      # declared once — DETEKT_RULE_BRANCH_FLOOR in settings.gradle.kts, bound by
+      # the module's rule — and enforced by Kover's own verify rule, not by a script
+      # that parses Kover's XML. Blocking.
       # Runs here (not in the static-gates registry) because it needs Gradle.
       # `./check.sh` names the same task, so the local loop rehearses this gate:
       # scripts/check-gate-wiring.py Part I would fail otherwise.
@@ -902,10 +902,11 @@ jobs:
       # false alarm (#206).
       #
       # GATE_WIRING_GRADLE=1 because the `detekt-rule-coverage-floor` positive control
-      # is gradle-backed: it raises DETEKT_RULE_BRANCH_FLOOR and requires
-      # :detekt-rules:koverVerify to exit non-zero. Without this env var that control is
-      # SKIPPED here, which is the same as not running it — check.sh has always set the
-      # variable and CI never has, so the control has only ever proven anything locally.
+      # is gradle-backed: it raises DETEKT_RULE_BRANCH_FLOOR in settings.gradle.kts and
+      # requires :detekt-rules:koverVerify to exit non-zero. Without this env var that
+      # control is SKIPPED here, which is the same as not running it — check.sh has
+      # always set the variable and CI never has, so the control has only ever proven
+      # anything locally.
       # Affordable for the same reason as check.sh: the Gradle step above already ran, so
       # configuration is cached and the control costs a verify pass, not a test suite.
       # `--except-can-fail`: the fast controls are proved by the static job

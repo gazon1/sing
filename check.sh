@@ -286,10 +286,11 @@ timed "tools:unwritten-properties:test" ./gw :tools:unwritten-properties:test --
 }
 
 echo -e "${YELLOW}=== [8b/$TOTAL] detekt-rule branch coverage floor ===${NC}"
-# The floor lives in detekt-rules/build.gradle.kts (DETEKT_RULE_BRANCH_FLOOR) and
-# is enforced by Kover's own verify rule. Naming both tasks here is what keeps CI's
-# identical steps honest — check-gate-wiring.py Part I fails a Gradle task that
-# only one of the two surfaces names.
+# The floor is declared in settings.gradle.kts (DETEKT_RULE_BRANCH_FLOOR) and
+# bound by the module's own rule, which Kover's verify task enforces. Naming
+# both tasks here is what keeps CI's identical steps honest —
+# check-gate-wiring.py Part I fails a Gradle task that only one of the two
+# surfaces names.
 #
 # koverLog first, so a local run shows the number it is about to be judged by —
 # the same line ci.yml's advisory summary renders. It exits non-zero when the
@@ -299,14 +300,14 @@ echo -e "${YELLOW}=== [8b/$TOTAL] detekt-rule branch coverage floor ===${NC}"
     exit 1
 }
 timed "detekt-rules:koverVerify" ./gw :detekt-rules:koverVerify || {
-    echo -e "${RED}detekt-rule branch coverage is below the floor (see DETEKT_RULE_BRANCH_FLOOR)${NC}"
+    echo -e "${RED}detekt-rule branch coverage is below the floor (see DETEKT_RULE_BRANCH_FLOOR in settings.gradle.kts)${NC}"
     exit 1
 }
 echo -e "${GREEN}detekt-rule branch coverage floor met${NC}"
 
 echo -e "${YELLOW}=== [9/$TOTAL] coverage floors (app + detekt-rules) ===${NC}"
 # :koverVerify enforces INSTRUCTION 27% / BRANCH 20% / LINE 27% from settings.gradle.kts.
-# :detekt-rules:koverVerify enforces BRANCH 60% from detekt-rules/build.gradle.kts.
+# :detekt-rules:koverVerify enforces BRANCH 60% from the floor declared in settings.gradle.kts.
 #
 # `:koverVerify` measures what is in the task graph, and the aggregation plugin never
 # depends on the test tasks itself — so the task carries `dependsOn("koverReport")`

@@ -20,6 +20,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.days
 import kotlinx.datetime.LocalDate
+import com.singularity.todo.core.search.SearchMode
 
 @Tag("fast")
 class SearchQueryResolverTest {

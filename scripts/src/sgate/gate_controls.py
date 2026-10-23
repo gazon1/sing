@@ -989,8 +989,10 @@ FIXTURE_GATES = [
         needs_clean_run=False,
     ),
     # The detekt-rule-coverage fixture that used to close this list was retired
-    # when the branch-coverage floor moved into detekt-rules/build.gradle.kts and
-    # the gate became `:detekt-rules:koverVerify` (ci.yml + check.sh). Its two
+    # when the branch-coverage floor moved into the build and the gate became
+    # `:detekt-rules:koverVerify` (ci.yml + check.sh). The floor itself moved on
+    # again on 2026-10-23 — it is declared in settings.gradle.kts now, with the
+    # module binding it. Its two
     # halves live elsewhere now: the *declaration* is held by Part C's
     # `kover_verify_rules_without_usable_floor`, and the *run* by the SABOTAGE
     # control `detekt-rule-coverage-floor`, which raises the constant and

@@ -85,4 +85,51 @@ data class ProposalItem(
      * because a change the user cannot see is a change nobody decided about.
      */
     val readFailure: String? get() = kind.readFailure
+
+    /**
+     * What the user reads for a change that has already been decided.
+     *
+     * The wording belongs to the change, not to the surface: three surfaces draw
+     * the same card, and a card that says "Turned down" in one place and
+     * "Rejected" in another is two answers to one question. So the surface
+     * prints what the domain says, and never asks what the status is.
+     */
+    val outcomeLabel: String
+        get() = when (status) {
+            ProposalItemStatus.Confirmed -> "Applied"
+            ProposalItemStatus.Rejected -> "Turned down"
+            ProposalItemStatus.Retracted -> "Withdrawn"
+            ProposalItemStatus.Pending -> "Waiting"
+        }
+
+    companion object {
+
+        /**
+         * A change waiting for a decision.
+         *
+         * The surfaces that start a proposal build the change they propose, and a
+         * change that was proposed is waiting — that is what "proposed" means. So
+         * the status is the domain's word for it, and a surface does not name it:
+         * a surface that names the status is a surface that has opinions about
+         * the lifecycle, and the lifecycle is not the surface's.
+         */
+        fun pending(
+            id: ProposalItemId,
+            proposalId: ProposalId,
+            kind: ProposalItemKind,
+            targetId: String,
+            humanSummary: String,
+            fingerprint: String,
+            sortOrder: Int = 0,
+        ): ProposalItem = ProposalItem(
+            id = id,
+            proposalId = proposalId,
+            kind = kind,
+            targetId = targetId,
+            humanSummary = humanSummary,
+            status = ProposalItemStatus.Pending,
+            fingerprint = fingerprint,
+            sortOrder = sortOrder,
+        )
+    }
 }

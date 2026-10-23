@@ -284,4 +284,5 @@ is a *renderer* (the markdown table), not a verdict.
 - `docs/decisions/2026-10-15-kover-floor-lives-in-the-build-file.md` — the principle
   this follows: the floor lives in the file that declares the rule
 - `settings.gradle.kts` — the floors
-- `detekt-rules/build.gradle.kts` — the floor that works, and the control that proves it
+- `detekt-rules/build.gradle.kts` — the module's rule, which binds the floor
+  declared in the settings file (since 2026-10-23), and the control that proves it

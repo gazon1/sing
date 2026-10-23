@@ -30,6 +30,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Instant
+import com.singularity.todo.core.search.SearchMode
 
 /**
  * One free-text rule for every kind of record.
@@ -253,7 +254,7 @@ class SearchFreeTextRuleTest {
     // ─── Helpers ────────────────────────────────────────────────────────────────
 
     private suspend fun search(query: String): SearchResults =
-        useCase(SingularityQueryParser(query).parse(), TestUsers.DEFAULT.value).first()
+        useCase(SingularityQueryParser(query).parse(), TestUsers.DEFAULT.value, SearchMode.Word).first()
 
     private fun task(id: String, title: String): Task = Task(
         id = TaskId(id),

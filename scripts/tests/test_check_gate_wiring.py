@@ -150,13 +150,42 @@ kover {
 }
 '''
 
-    def _kover_findings(self, build_text: str) -> list[str]:
+    #: The module as it stands since 2026-10-23: the floor is DECLARED in
+    #: settings.gradle.kts and only BOUND here.
+    KOVER_BOUND_TO_THE_SETTINGS_FLOOR = '''
+val DETEKT_RULE_BRANCH_FLOOR: Int =
+    (gradle.extra["kover.detektRulesBranchCoverageFloor"] as? Int)
+        ?: error("settings.gradle.kts must declare the detekt-rules branch coverage floor")
+
+kover {
+    reports {
+        total {
+            verify {
+                rule("detekt-rules branch coverage") {
+                    bound { minValue = DETEKT_RULE_BRANCH_FLOOR }
+                }
+            }
+        }
+    }
+}
+'''
+
+    #: The settings script, where the coverage floors are declared.
+    SETTINGS_WITH_THE_FLOOR = '''
+val DETEKT_RULE_BRANCH_FLOOR = 60
+'''
+
+    def _kover_findings(self, build_text: str, settings_text: str | None = None) -> list[str]:
         """Point the kover-floor check at one synthetic module and read findings."""
         original_root = gw.ROOT
         with _tmpdir() as tmp:
             module = pathlib.Path(tmp) / 'mod'
             module.mkdir()
             (module / 'build.gradle.kts').write_text(build_text, encoding='utf-8')
+            if settings_text is not None:
+                (pathlib.Path(tmp) / 'settings.gradle.kts').write_text(
+                    settings_text, encoding='utf-8'
+                )
             gw.ROOT = pathlib.Path(tmp)
             try:
                 return gw.kover_verify_rules_without_usable_floor()
@@ -188,6 +217,37 @@ kover {
         """The real floor is a named constant, so a literal-only check would
         report the repository as having no floor at all."""
         self.assertEqual([], self._kover_findings(self.KOVER_SABOTAGED))
+
+    def test_a_floor_declared_in_the_settings_file_is_resolved(self):
+        """Since 2026-10-23 the floors are declared in settings.gradle.kts.
+
+        The module's rule binds the constant declared there, so a resolver
+        that only looked at the module's own file would report a floor that
+        is declared and enforced as missing.
+        """
+        self.assertEqual(
+            [],
+            self._kover_findings(
+                self.KOVER_BOUND_TO_THE_SETTINGS_FLOOR, self.SETTINGS_WITH_THE_FLOOR
+            ),
+        )
+
+    def test_a_bound_constant_the_settings_file_does_not_declare_is_reported(self):
+        """The constant has to be somewhere the resolver can read."""
+        findings = self._kover_findings(self.KOVER_BOUND_TO_THE_SETTINGS_FLOOR)
+        self.assertEqual(1, len(findings), findings)
+        self.assertIn('could not be resolved', findings[0])
+
+    def test_a_rule_that_binds_a_literal_is_reported(self):
+        """A literal is a floor of that literal — here, one percent."""
+        findings = self._kover_findings(
+            self.KOVER_BOUND_TO_THE_SETTINGS_FLOOR.replace(
+                'minValue = DETEKT_RULE_BRANCH_FLOOR', 'minValue = 1'
+            ),
+            self.SETTINGS_WITH_THE_FLOOR,
+        )
+        self.assertEqual(1, len(findings), findings)
+        self.assertIn('below 60', findings[0])
 
     def test_an_unresolved_constant_is_reported_not_ignored(self):
         findings = self._kover_findings(

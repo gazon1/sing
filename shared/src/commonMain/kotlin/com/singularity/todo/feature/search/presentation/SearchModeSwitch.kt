@@ -15,7 +15,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.text.SelectableText
-import com.singularity.todo.feature.search.query.SearchMode
+import com.singularity.todo.core.search.SearchMode
 
 /**
  * The switch that states which question the search is asking.

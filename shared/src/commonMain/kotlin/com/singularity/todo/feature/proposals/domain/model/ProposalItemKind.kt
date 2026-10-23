@@ -321,6 +321,32 @@ sealed interface ProposalItemKind {
         override val fingerprintTarget: String = ""
         override fun editableProposal(): EditableProposal? = null
     }
+
+    /**
+     * A change this build cannot read.
+     *
+     * The row was written by a build that knew a kind this one does not, or the
+     * blob is not a blob this build can make sense of at all. The change is still
+     * a change: it stays on the card, with the reason it cannot be applied, and
+     * the user can turn it down. A change that vanishes from the card is a change
+     * nobody decided about — and the user is the only one who can decide it.
+     *
+     * What it cannot be is applied: there is nothing to apply. The reason says so
+     * where the user reads it, instead of the row disappearing.
+     *
+     * @property raw The stored blob, exactly as it was found. It is kept so the
+     *   change can be written back unchanged — a row this build cannot read must
+     *   not become a row this build *rewrites* into something else.
+     */
+    @Serializable
+    @SerialName("Unknown")
+    data class Unknown(val raw: String) : ProposalItemKind {
+        override val humanSummary: String = "A change this version cannot read"
+        override val fingerprintTarget: String = raw
+        override val readFailure: String? =
+            "This change was written by another version of the app, and this one cannot read it."
+        override fun editableProposal(): EditableProposal? = null
+    }
 }
 
 /** Trimmed, blank-free, de-duplicated, sorted — the canonical form for hashing. */

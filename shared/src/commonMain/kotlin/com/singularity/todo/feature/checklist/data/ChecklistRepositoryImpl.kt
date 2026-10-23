@@ -21,7 +21,11 @@ class ChecklistRepositoryImpl(
     override fun watchByTask(taskId: String): Flow<List<ChecklistItem>> =
         dao.watchByTask(taskId).map { list -> list.map { it.toItem() } }
 
-    override suspend fun addItem(taskId: String, title: String): Result<ChecklistItemId> = runCatchingCancellable {
+    override suspend fun addItem(
+        taskId: String,
+        title: String,
+        id: ChecklistItemId,
+    ): Result<ChecklistItemId> = runCatchingCancellable {
         // Append, not `0`. This wrote `sortOrder = 0` for every item, while
         // `createBatch` in this same class numbers from `index`, and the DAO
         // reads back with `ORDER BY sort_order ASC`. A new item therefore tied
@@ -34,7 +38,7 @@ class ChecklistRepositoryImpl(
         // happens to agree with insertion order.
         val sortOrder = dao.watchByTask(taskId).first().size
         val item = ChecklistItem(
-            id = ChecklistItemId.generate(),
+            id = id,
             taskId = taskId,
             title = title,
             isCompleted = false,

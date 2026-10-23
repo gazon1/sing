@@ -8,60 +8,32 @@ import kotlinx.coroutines.flow.asStateFlow
 /**
  * Where the reason a change failed lives.
  *
- * The reason belongs next to the change it belongs to — under the change on the
- * card, in the same state the card reads. Where "next to" is depends on the
- * surface: the review screen and the note editor keep the reasons in their own
- * state, the task detail in a flow of its own that the assembled state reads.
+ * One store, one implementation. The reason belongs next to the change it belongs
+ * to — under the change on the card, in the same state the card reads. Three
+ * surfaces show changes — the review screen, the note editor and the task detail
+ * — and they used to keep the reasons three different ways: two of them wrote
+ * into the surface's own state, the third kept a flow of its own, because that
+ * state's assembled from nine combined inputs and a reason kept inside it was
+ * lost on every rebuild.
  *
- * The shared decisions write through this and never look at it.
+ * The two ways are now one: the store keeps the reasons in a flow, and a surface
+ * that draws them in its own state mirrors that flow. The store owns the
+ * reasons; a surface shows them.
  */
-interface ProposalFailureStore {
-
-    /** Keeps [message] next to the change it belongs to. */
-    fun record(itemId: ProposalItemId, message: String)
-
-    /** Forgets the reason of a change that worked. */
-    fun clear(itemId: ProposalItemId)
-}
-
-/**
- * A store that keeps the reasons in a flow of its own.
- *
- * The task detail's reasons live outside the assembled state on purpose: that
- * state is rebuilt from nine combined inputs, and a reason kept inside it would
- * be lost on every rebuild.
- */
-class MutableProposalFailureStore : ProposalFailureStore {
+class ProposalFailureStore {
 
     private val reasons = MutableStateFlow<Map<ProposalItemId, String>>(emptyMap())
 
     /** The reasons, as the surface's state shows them. */
     val state: StateFlow<Map<ProposalItemId, String>> = reasons.asStateFlow()
 
-    override fun record(itemId: ProposalItemId, message: String) {
+    /** Keeps [message] next to the change it belongs to. */
+    fun record(itemId: ProposalItemId, message: String) {
         reasons.value = reasons.value + (itemId to message)
     }
 
-    override fun clear(itemId: ProposalItemId) {
+    /** Forgets the reason of a change that worked. */
+    fun clear(itemId: ProposalItemId) {
         reasons.value = reasons.value - itemId
-    }
-}
-
-/**
- * A store that keeps the reasons in a state holder of the surface's own shape.
- *
- * A surface whose state already carries the reasons writes them through this
- * instead of keeping a second copy of them.
- */
-fun proposalFailureStore(
-    onRecord: (ProposalItemId, String) -> Unit,
-    onClear: (ProposalItemId) -> Unit,
-): ProposalFailureStore = object : ProposalFailureStore {
-    override fun record(itemId: ProposalItemId, message: String) {
-        onRecord(itemId, message)
-    }
-
-    override fun clear(itemId: ProposalItemId) {
-        onClear(itemId)
     }
 }

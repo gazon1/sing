@@ -58,6 +58,7 @@ import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
 import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
 import com.singularity.todo.core.schedule.WorkingDays
 import com.singularity.todo.core.tasks.TasksSettingsRepository
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.settings.SettingsDefaults
 import com.singularity.todo.core.settings.SettingsRepository
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
@@ -765,9 +766,19 @@ open class FakeTaskRepository(
         createCallOverride?.invoke(item.title)?.let { return it }
         return runCatchingCancellable {
             store.upsert(item)
+            afterCreate?.invoke(item)
             item
         }
     }
+
+    /**
+     * Runs after the task was created and before the call returns.
+     *
+     * The hook is where a test stands for the screen that went away in the middle
+     * of a write: the row is there, and the write never came back. Null by
+     * default, so an existing test changes nothing.
+     */
+    var afterCreate: (suspend (Task) -> Unit)? = null
 
     override suspend fun update(item: Task): Result<Task> {
         updateOverride?.let { return it }
@@ -1096,6 +1107,17 @@ class FakeChecklistRepository : ChecklistRepository {
     var addItemOverride: ((String) -> Result<ChecklistItemId>?)? = null
 
     /**
+     * Runs after the row was written and before the write returns.
+     *
+     * The hook is where a test stands for the write that committed and then lost
+     * its result: the row is there, and the id the caller would have got never
+     * arrived. That is the moment a write is cut short *after* the database has
+     * committed — the moment the id has to be known already. Null by default, so
+     * an existing test changes nothing.
+     */
+    var afterWrite: (suspend (ChecklistItemId) -> Unit)? = null
+
+    /**
      * The ids [delete] was called for, in order — the calls that were cut short included.
      *
      * A take-back that runs twice shows here, and a row that is taken back twice is a
@@ -1133,17 +1155,22 @@ class FakeChecklistRepository : ChecklistRepository {
             .sortedBy { it.sortOrder }
     }
 
-    override suspend fun addItem(taskId: String, title: String): Result<ChecklistItemId> {
+    override suspend fun addItem(
+        taskId: String,
+        title: String,
+        id: ChecklistItemId,
+    ): Result<ChecklistItemId> {
         addItemOverride?.invoke(title)?.let { return it }
         return runCatchingCancellable {
             val item = ChecklistItem(
-                id = ChecklistItemId.generate(),
+                id = id,
                 taskId = taskId,
                 title = title,
                 isCompleted = false,
                 sortOrder = 0,
             )
             items.value += (item.id.value to item)
+            afterWrite?.invoke(item.id)
             item.id
         }
     }
@@ -2272,20 +2299,27 @@ open class FakeNotesRepository(
             }
         }
 
-    override fun search(query: String): Flow<List<com.singularity.todo.feature.notes.Note>> =
+    /**
+     * The notes that carry the text, in the mode the caller states (F6, F8).
+     *
+     * Title only, as production searches it: the note is searched by its
+     * title (F3), and the production path is the index in the word mode and
+     * the rows in the contains mode. The fake used to match body text as
+     * well, so a test seeded with body content found a note here that
+     * production never returns. The fake is the test double, not a better
+     * spec — whether note search *should* cover bodies is a product question.
+     *
+     * The mode is applied with the rule the production code applies, so that
+     * the double and the production answer the same question about the same
+     * text.
+     */
+    override fun search(query: String, mode: SearchMode): Flow<List<com.singularity.todo.feature.notes.Note>> =
         currentUser.observeForCurrentUser { uid ->
             store.state.map { list ->
-                // Title only, matching production's `watchSearchByTitle`
-                // (`title LIKE ?`). The fake also matched body text, so a test
-                // seeded with body content would find a note here that production
-                // never returns. The fake is the test double, not a better spec —
-                // whether note search *should* cover bodies is a product question.
                 list.values.filter { note ->
-                    note.userId == uid && note.archivedAt == null && note.deletedAt == null && note.title.contains(
-                        query,
-                        ignoreCase = true,
-                    )
-                }
+                    note.userId == uid && note.archivedAt == null && note.deletedAt == null &&
+                        mode.matches(note.title, query)
+                }.sortedByDescending { note -> note.updatedAt }
             }
         }
 

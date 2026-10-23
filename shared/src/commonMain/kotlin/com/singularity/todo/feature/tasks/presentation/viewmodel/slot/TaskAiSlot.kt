@@ -9,7 +9,6 @@ import com.singularity.todo.feature.proposals.domain.logic.ProposalFingerprint
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
-import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposedTimeEntry
@@ -204,15 +203,13 @@ class TaskAiSlot(
         summary: String,
     ): ProposalItem {
         val id = ProposalItemId.generate()
-        return ProposalItem(
+        return ProposalItem.pending(
             id = id,
             proposalId = proposalId,
             kind = kind,
             targetId = targetId,
             humanSummary = summary,
-            status = ProposalItemStatus.Pending,
             fingerprint = ProposalFingerprint.of(kind, targetId),
-            sortOrder = 0,
         )
     }
 

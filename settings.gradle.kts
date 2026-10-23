@@ -128,8 +128,8 @@ val measuredFullPopulation = selectedTags.any { it == "slow" }
 // Named constants, not bare literals, because the minimum acceptable floor is policy and the
 // measured value is a fact — mixing them in one number means raising the floor looks
 // like a measurement and lowering it looks like a rounding. The `require` block is the
-// same contract as DETEKT_RULE_BRANCH_FLOOR's in detekt-rules/build.gradle.kts: the build
-// file is the claim, and the claim is checked where it is made.
+// same contract as DETEKT_RULE_BRANCH_FLOOR's below: the declaration is the claim, and the
+// claim is checked in the file that makes it.
 //
 // FULL population — the floor this repository carried before the split, measured
 // 2026-10-15: 27.6 instruction / 20.7 branch / 27.4 line.
@@ -201,6 +201,61 @@ require(FAST_LINE_COVERAGE_FLOOR >= 31) {
     "app fast-population line coverage floor must not drop below 31% — " +
         "measured 31.26% on 2026-10-22"
 }
+
+// The detekt-rules branch-coverage floor.
+//
+// Branch coverage inside the custom detekt rules, not "is the rule wired up":
+// the two rules found to be no-ops on 2026-10-05 both had full file coverage
+// in the sense that mattered and zero behavioural coverage. 60 %, set below the
+// 65.1 % (627/963 branches) measured 2026-10-10 and re-measured at 65.6 %
+// (725/1105) on 2026-10-15. A floor, not a target — raise it in the same
+// commit that raises coverage, and never lower it without recording why here;
+// below 60 also means editing `_KOVER_MIN_FLOOR` in the gate registry, which is
+// deliberate friction rather than an oversight.
+//
+// It moved here from detekt-rules/build.gradle.kts on 2026-10-23. Every
+// coverage floor of this repository is declared in this file, so the policy has
+// one home; the module used to be a second home for one number, and the gate
+// that checks the declaration had to carry an exception for it. The module
+// still binds the floor — Kover reads the rule there — but it no longer
+// declares it.
+//
+// The gap is a list, not a percentage. `just tkr`'s branch section printed this on
+// 2026-10-15 — 65.6% (725/1105), worst ten by missed branch:
+// NoEmptyOnClickLambdaRule (31), NoPopupWithoutResourceIdMapping (29),
+// PassThroughUseCaseRule (22), NoSwallowedCancellation (20),
+// NoUnwiredReporterInBindingPolicy (17), NoRealDelayInTestRule (16),
+// IntentMethodNameRule (16), NoOpUpdateStateRule (16), NoCoroutineLaunchInInit (16),
+// ProhibitUserIdInObserveRule (15) — 34 of 60 rule classes had at least one missed
+// branch, so the head of the list is where the next test goes, not where it ends.
+val DETEKT_RULE_BRANCH_FLOOR = 60
+
+// The floor's minimum lives HERE, not in a gate script that reads it back out of
+// this file. It was `_KOVER_MIN_FLOOR = 60` in scripts/check-gate-wiring.py until
+// 2026-10-15, and that copy was a second home for one number — the exact "three
+// copies of a floor" defect ADR 2026-10-15-kover-floor-lives-in-the-build-file
+// exists to end.
+//
+// The assertion is deliberately the *minimum acceptable*, not a restatement: raising the
+// floor needs no edit here, while lowering it past this line is the "a floor that cannot
+// fail" defect and has to be a deliberate, visible change to this line.
+//
+// `require` rather than a comment because a comment is what the Python regex was reading
+// by proxy. Here it runs on every configuration, including in CI, and a mistake is a
+// configuration failure instead of a passing gate.
+require(DETEKT_RULE_BRANCH_FLOOR >= 60) {
+    "detekt-rules branch coverage floor must not drop below 60% — a lower floor lets " +
+        "koverVerify pass on a suite that stopped exercising the rules, which is the " +
+        "defect this constant exists to prevent. Measured 65.6% on 2026-10-15."
+}
+
+// The module binds the floor instead of declaring it, because that is where Kover
+// reads the rule. A settings script cannot be imported by a build script, so the
+// value travels through `gradle.extra` — the extra properties of the Gradle object
+// are the one channel a settings script and a module's build script share. The
+// module reads it back under this key and fails configuration with a message that
+// says what to declare, if it is ever missing.
+gradle.extra["kover.detektRulesBranchCoverageFloor"] = DETEKT_RULE_BRANCH_FLOOR
 
 // The floors that apply to THIS run.
 val appInstructionCoverageFloor =

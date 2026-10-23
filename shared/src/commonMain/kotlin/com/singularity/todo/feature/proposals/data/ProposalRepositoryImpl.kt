@@ -63,7 +63,7 @@ class ProposalRepositoryImpl(
 
     override fun watchProposal(id: ProposalId): Flow<AiProposal?> =
         combine(dao.watchProposal(id.value), items.watchItemsForProposal(id.value)) { row, items ->
-            row?.let { it.toDomain(items.mapNotNull(ProposalItemEntity::toDomainOrNull)) }
+            row?.let { it.toDomain(items.map(ProposalItemEntity::toDomain)) }
         }
 
     override fun watchProposalsByStatus(status: ProposalStatus): Flow<List<AiProposal>> =
@@ -96,7 +96,7 @@ class ProposalRepositoryImpl(
         proposal.items.forEach { item -> insertIfAbsent(item) }
     }
 
-    override suspend fun getItem(id: ProposalItemId): ProposalItem? = items.getItem(id.value)?.toDomainOrNull()
+    override suspend fun getItem(id: ProposalItemId): ProposalItem? = items.getItem(id.value)?.toDomain()
 
     /**
      * Rewrites a pending item's change.
@@ -111,7 +111,7 @@ class ProposalRepositoryImpl(
         kind: ProposalItemKind,
         userId: UserId,
     ): Result<ProposalItem?> = runCatchingCancellable {
-        val stored = items.getItem(id.value)?.toDomainOrNull() ?: return@runCatchingCancellable null
+        val stored = items.getItem(id.value)?.toDomain() ?: return@runCatchingCancellable null
         val rewritten = items.updatePendingItem(
             userId = userId.value,
             id = id.value,
@@ -119,7 +119,7 @@ class ProposalRepositoryImpl(
             humanSummary = kind.humanSummary,
             fingerprint = ProposalFingerprint.of(kind, stored.targetId),
         )
-        if (rewritten == 0) null else items.getItem(id.value)?.toDomainOrNull()
+        if (rewritten == 0) null else items.getItem(id.value)?.toDomain()
     }
 
     override suspend fun claim(
@@ -135,7 +135,7 @@ class ProposalRepositoryImpl(
         decidedAt = clock.now().toEpochMilliseconds(),
         actor = actor.name,
         reason = reason,
-    )?.toDomainOrNull()
+    )?.toDomain()
 
     /**
      * Puts a confirmed item back into `Pending`.
@@ -217,7 +217,7 @@ class ProposalRepositoryImpl(
      * the task unrenderable.
      */
     private suspend fun hydrate(row: AiProposalEntity): AiProposal =
-        row.toDomain(items.getItemsForProposal(row.id).mapNotNull(ProposalItemEntity::toDomainOrNull))
+        row.toDomain(items.getItemsForProposal(row.id).map(ProposalItemEntity::toDomain))
 
     /**
      * Inserts an item unless its fingerprint is already on this proposal.

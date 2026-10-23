@@ -294,6 +294,23 @@ The rule holds for both modes (F6): the word mode and the contains mode answer
 the same way about the same text, and a negated term rules out exactly the
 records the positive term finds.
 
+**F8 — every search surface states the mode it searches in.** A surface that
+runs a search states the mode the free text is matched in (F6), and the mode is
+a parameter of the surface's contract — not a property of the screen that
+happens to own the switch.
+
+The mode used to belong to one screen. The note search, the link
+autocompletion and the task filter went on without one, and the difference
+between them was silent: the search screen could answer a question the others
+could not, and nothing said so. A surface that does not offer the switch
+states the mode it searches in; that is a different thing from a surface whose
+mode is an accident of where the code happens to be written.
+
+The rule of the mode is one rule for every kind of record (F3), so every
+surface states the same mode or a different one deliberately. The mode lives in
+`core/search` beside the rule that decides what the index can do with it —
+see `docs/decisions/2026-10-23-the-mode-is-a-property-of-every-search-surface.md`.
+
 ### 6.1 Why a conjunction, and not the alternatives
 
 The two alternatives were a disjunction (any term may match) and the joined
@@ -346,8 +363,12 @@ across nine classes, each carrying `@Tag`. The rule of §6 is also asserted per 
 task, note, project, tag — in
 `shared/src/commonTest/kotlin/com/singularity/todo/feature/search/SearchFreeTextRuleTest.kt`,
 because a rule that only holds for one kind of record is not a rule. The mode of F6 is
-asserted in `SearchModeTest` — the rule of each mode and the plan of each mode — and in
-`SearchContainsModeTest`, which asks the search the same query in both modes.
+asserted in `shared/src/commonTest/kotlin/com/singularity/todo/core/search/SearchModeTest.kt`
+— the rule of each mode and the plan of each mode — and in
+`SearchContainsModeTest`, which asks the search the same query in both modes. F8 — every
+surface states its mode — is asserted against real SQLite in
+`shared/src/jvmTest/kotlin/com/singularity/todo/feature/search/SearchSurfacesStateTheirModeTest.kt`,
+which asks the note search and the task filter the same question in both modes.
 
 The suite is organised by the sections above rather than by implementation unit, so a
 failure names a rule and not a class. Where a rule is easy to get subtly wrong — R1, R3,
@@ -402,14 +423,15 @@ the grammar the owners implement.
 
 | What | Where | Who answers |
 |---|---|---|
-| The rule — terms, negation, conjunction | `core/search/FreeTextRule.kt` | `plan()` |
-| The question the index is asked | `core/search/FreeTextRule.kt` → `indexQuery()` | the rule — nobody else builds it |
+| The rule — terms, negation, conjunction | `core/search/FreeTextRule.kt` | `plan(mode)` |
+| The question the index is asked | `core/search/FreeTextRule.kt` → `indexQuery(mode)` | the rule — nobody else builds it |
 | The plan — can the index narrow it? | `core/search/TextMatchPlan.kt` | `Narrowed` / `BroadScan` |
 | The form of the question | `core/search/TextMatch.kt` → `TextMatchQuery` | terms and the connective |
 | The matcher — does this text match? | `core/search/TextMatch.kt` → `TextMatch` | word (F2a) / contains |
-| The mode — Word or Contains | `feature/search/query/SearchMode.kt` | the surface that runs the search |
+| The mode — Word or Contains | `core/search/SearchMode.kt` | the surface that runs the search (F8) |
 | The surface of a task | `feature/tasks/domain/TaskDomain.kt` → `searchableText` | the task's own title and description (F3) |
-| The callers of the index | `feature/notes/data/NotesRepositoryImpl.kt`, `feature/search/data/InternalLinkRepositoryImpl.kt`, `feature/tasks/data/TaskRepositoryImpl.kt` | they ask the rule for the question |
+| The callers of the index | `feature/search/SearchUseCase.kt`, `feature/notes/data/NotesRepositoryImpl.kt`, `feature/search/data/InternalLinkRepositoryImpl.kt`, `feature/tasks/data/TaskRepositoryImpl.kt` | they ask the rule for the question |
+| The surfaces that state the mode | `feature/notes/presentation/viewmodel/NotesListViewModel.kt` (word), `feature/notes/presentation/viewmodel/NoteEditor.kt` (word), `feature/tasks/domain/model/Task.kt` → `TaskFilter.Search` (word — the filter carries the mode, and the app does not build the filter today), `feature/projects/presentation/viewmodel/ProjectsViewModel.kt` (contains), `feature/projects/presentation/screen/ProjectDetailBody.kt` (contains) | each states the mode it searches in (F8) |
 
 Three consequences, each of them a rule rather than a habit:
 
@@ -424,8 +446,19 @@ Three consequences, each of them a rule rather than a habit:
   them itself.
 - **The mode belongs to the surface, not to the query** (F6). The search screen
   owns the switch and the sentence that says what it costs; the notes list, the
-  link autocompletion and the task list search by the word rule (F2a) and do not
-  carry a mode of their own.
+  link autocompletion and the task list search by the word rule (F2a) and state
+  it (F8). The surfaces that filter the rows they already hold — the project
+  list and the "add an existing task" popup — state the contains mode, because
+  a term may occur anywhere in a name, in a title or in a description. A
+  surface without the switch states the mode it uses; that is the point of
+  F8, not an exemption from it.
+- **The mode is a parameter of the surface's contract, and the rule decides
+  with it** (F6, F8). The surface states the mode; the rule answers what the
+  index can do under it — `FreeTextRule.plan(mode)`. The decision used to be
+  made twice: once in the rule for the word mode, and once in
+  `SearchMode.plan(rule)` for the contains mode. Two places that answer one
+  question are two answers, and the second one answered a question the first
+  one had already answered.
 
 The rule moved to `core/search` for this reason: it sits next to the plan, the
 question and the matcher it produces, and next to the index port it is

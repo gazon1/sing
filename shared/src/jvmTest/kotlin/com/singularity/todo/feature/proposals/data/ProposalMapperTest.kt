@@ -27,15 +27,25 @@ import kotlin.test.assertNotNull
  *
  * ## What this is a control for
  *
- * The kind is stored as a flat JSON payload and read back by a codec that decodes on
- * a **string** — the type name of the kind. So a kind the codec was not taught to
- * read does not fail: it decodes to nothing, the item is dropped, and the proposal
- * simply loses a change. The compiler cannot help here — the `when`s over
+ * The kind is stored as JSON and read back by a codec. A kind the codec was not
+ * taught to read used to decode to nothing: the item was dropped, and the proposal
+ * simply lost a change. The compiler cannot help there — the `when`s over
  * `ProposalItemKind` in the domain are exhaustive, and the codec is not a `when` over
  * the type.
  *
+ * Now the codec always answers with a kind, and the kind it answers with for a blob
+ * it cannot read is `ProposalItemKind.Unknown` — the change stays on the card with
+ * the reason it cannot be applied, and the user can still turn it down.
+ *
  * The vocabulary grew from 15 kinds to 19 while this repository was being worked on,
  * so this is not a hypothetical.
+ *
+ * ## What the format is
+ *
+ * The sealed format: the model's own shape, written by the model's own serializer.
+ * A field that is renamed in the model is a field the serializer changed with, so a
+ * value cannot read back as something else. The flat format the builds before this
+ * one wrote is still read — a row they wrote is a row the user still has.
  *
  * ## How the test knows what the vocabulary is
  *
@@ -131,6 +141,68 @@ class ProposalMapperTest {
     }
 
     @Test
+    fun `a kind this build does not know keeps the change`() {
+        // A row written by a build that knew a kind this one does not. The change
+        // must not vanish: it is still a change, and the user has to be able to
+        // decide about it — and to turn it down.
+        val encoded = """{"type":"ArchiveEverything","targetId":"t1"}"""
+
+        val decoded = decodeKind(encoded)
+
+        assertEquals(
+            ProposalItemKind.Unknown(encoded),
+            decoded,
+            "the change is kept as the change this build cannot read",
+        )
+        assertNotNull(
+            (decoded as ProposalItemKind.Unknown).readFailure,
+            "the reason the change cannot be read is with the change",
+        )
+    }
+
+    @Test
+    fun `a blob that is not a blob keeps the change`() {
+        val encoded = "not json at all"
+
+        assertEquals(
+            ProposalItemKind.Unknown(encoded),
+            decodeKind(encoded),
+            "the change is kept — as the change this build cannot read",
+        )
+    }
+
+    @Test
+    fun `the flat format of the builds before this one still reads`() {
+        // The flat format is what the builds before this one wrote, and a row they
+        // wrote is a row the user still has. So the flat reader stays until the
+        // oldest build in the user's hands is this one.
+        assertEquals(
+            ProposalItemKind.SetTaskField(TaskValue.Title("Buy milk")),
+            decodeKind("""{"type":"SetTaskField","field":"Title","value":"Buy milk"}"""),
+        )
+        assertEquals(
+            ProposalItemKind.SetTaskTags(listOf("tag-1", "tag-2")),
+            decodeKind("""{"type":"SetTaskTags","tagIds":"tag-1\u001Ftag-2"}"""),
+        )
+        assertEquals(
+            ProposalItemKind.AddChecklistItems(listOf("buy", "cook")),
+            decodeKind("""{"type":"AddChecklistItems","texts":"buy\u001Fcook"}"""),
+        )
+        assertEquals(
+            ProposalItemKind.AddSubtasks(listOf("Pick up milk")),
+            decodeKind("""{"type":"AddSubtasks","titles":"Pick up milk"}"""),
+        )
+        assertEquals(
+            ProposalItemKind.CreateTask(ProposedTask(title = "Buy milk", priority = TaskPriority.High)),
+            decodeKind("""{"type":"CreateTask","title":"Buy milk","priority":"High"}"""),
+        )
+        assertEquals(
+            ProposalItemKind.DeleteNote(reason = "it is old"),
+            decodeKind("""{"type":"DeleteNote","reason":"it is old"}"""),
+        )
+    }
+
+    @Test
     fun `a value this build cannot read keeps the change`() {
         // A row written by a build that knew the priority, read by one that does not.
         // The change must not vanish: it is still a change, and the user has to be
@@ -200,6 +272,11 @@ private fun samples(): List<ProposalItemKind> = listOf(
     ProposalItemKind.AddChecklistItems(listOf("buy", "cook")),
     ProposalItemKind.AddSubtasks(listOf("Pick up milk")),
     ProposalItemKind.AddTimeEntries(listOf(ProposedTimeEntry(1_000L, 3_600L, "walk"))),
+
+    // The change this build cannot read. A kind that arrives in the vocabulary has
+    // to be covered here too: the round trip has to hold for it, or the change a
+    // user cannot read would be a change that disappears on the way to the database.
+    ProposalItemKind.Unknown("""{"type":"ArchiveEverything"}"""),
 
     // The creations.
     ProposalItemKind.CreateTask(

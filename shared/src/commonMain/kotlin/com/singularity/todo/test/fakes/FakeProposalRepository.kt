@@ -98,6 +98,15 @@ class FakeProposalRepository(private val clock: Clock) : ProposalRepository {
     override suspend fun getItem(id: ProposalItemId): ProposalItem? = items.value[id.value]
 
     /**
+     * Runs after the claim was committed and before the call returns.
+     *
+     * The hook is where a test stands for the cancellation that arrives between
+     * the transaction and the return. Null by default, so an existing test changes
+     * nothing.
+     */
+    var afterClaim: (suspend () -> Unit)? = null
+
+    /**
      * Rewrites a pending item's change, the way the DAO does.
      *
      * The summary and the fingerprint follow the kind: they belong to the value, so a
@@ -145,6 +154,10 @@ class FakeProposalRepository(private val clock: Clock) : ProposalRepository {
             rejectionReason = reason,
         )
         items.update { it + (id.value to decided) }
+        // The claim is committed and the call is still in flight. A scope that is
+        // cancelled here must not leave the claim standing: the change waits again,
+        // because nothing was written.
+        afterClaim?.invoke()
         return decided
     }
 

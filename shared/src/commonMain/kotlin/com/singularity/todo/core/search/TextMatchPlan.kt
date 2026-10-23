@@ -19,7 +19,7 @@ package com.singularity.todo.core.search
  * with two answers.
  *
  * A named state says both: the caller reads what the index can do, and the
- * place that decides is the rule itself — see `FreeTextRule.plan()`.
+ * place that decides is the rule itself — see `FreeTextRule.plan(mode)`.
  */
 sealed interface TextMatchPlan {
 

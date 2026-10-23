@@ -15,10 +15,10 @@ import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
 import com.singularity.todo.feature.proposals.domain.usecase.EditProposalItemUseCase
-import com.singularity.todo.feature.proposals.presentation.ProposalDecisionStyle
+import com.singularity.todo.feature.proposals.presentation.ProposalDecisionStyles
 import com.singularity.todo.feature.proposals.presentation.ProposalDecisions
 import com.singularity.todo.feature.proposals.presentation.ProposalErrorSink
-import com.singularity.todo.feature.proposals.presentation.proposalFailureStore
+import com.singularity.todo.feature.proposals.presentation.ProposalFailureStore
 import kotlinx.coroutines.launch
 
 /**
@@ -89,6 +89,23 @@ class NoteProposalsViewModel(
     ) {
 
     /**
+     * The reasons the last attempt failed, by change.
+     *
+     * The store owns them; this editor's state shows them. The state is rebuilt
+     * from the proposals the editor was given, and a reason kept inside that
+     * state alone was lost on every rebuild — so the reasons live in the store,
+     * and the state mirrors them.
+     */
+    private val failureStore = ProposalFailureStore()
+
+    /** The reasons, mirrored into the state the editor draws from. */
+    private val failureWatch = vmScope.launch {
+        failureStore.state.collect { reasons ->
+            updateState { state -> state.copy(failures = reasons) }
+        }
+    }
+
+    /**
      * The five operations, in one place.
      *
      * The note editor, the review screen and the task detail all answer a
@@ -99,15 +116,8 @@ class NoteProposalsViewModel(
     private val decisions = ProposalDecisions(
         applyProposalItem = applyProposalItem,
         editProposalItem = editProposalItem,
-        style = noteEditorStyle,
-        failures = proposalFailureStore(
-            onRecord = { itemId, message ->
-                updateState { state -> state.copy(failures = state.failures + (itemId to message)) }
-            },
-            onClear = { itemId ->
-                updateState { state -> state.copy(failures = state.failures - itemId) }
-            },
-        ),
+        style = ProposalDecisionStyles.noteEditor,
+        failures = failureStore,
         errors = ProposalErrorSink { label, _, error ->
             // The ViewModel's own error path: it reports the failure to the crash
             // reporter and shows it as a one-shot event. The failure is rethrown
@@ -138,6 +148,7 @@ class NoteProposalsViewModel(
     /** The collector stops with the ViewModel. */
     override fun onCleared() {
         pendingWatch.cancel()
+        failureWatch.cancel()
         super.onCleared()
     }
 
@@ -161,25 +172,5 @@ class NoteProposalsViewModel(
 
             is NoteProposalsIntent.Edit -> vmScope.launch { decisions.changeValue(intent.itemId, intent.text) }
         }
-    }
-
-    private companion object {
-        /**
-         * How this editor words a proposal decision.
-         *
-         * The reason the user typed is not stored with the refusal here: this
-         * editor has always dropped it, and the shared operations keep that as it
-         * was rather than changing what the model is told.
-         */
-        val noteEditorStyle = ProposalDecisionStyle(
-            apply = "Apply the change",
-            reject = "Reject the change",
-            applyAll = "Apply the changes",
-            applyOne = "Apply the change",
-            dismiss = "Turn the changes down",
-            dismissOne = "Turn the change down",
-            change = "Change the proposal",
-            storesRejectionReason = false,
-        )
     }
 }

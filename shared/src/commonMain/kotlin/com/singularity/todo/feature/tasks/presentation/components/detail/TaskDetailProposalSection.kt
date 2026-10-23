@@ -9,7 +9,6 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
-import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
 import com.singularity.todo.feature.proposals.domain.model.TaskValue
@@ -70,22 +69,20 @@ private fun TaskDetailProposalSectionPreview() = PreviewThemed(darkTheme = false
                 createdAt = PreviewSamples.now,
                 updatedAt = PreviewSamples.now,
                 items = listOf(
-                    ProposalItem(
+                    ProposalItem.pending(
                         id = ProposalItemId.fromString("pi_1"),
                         proposalId = proposalId,
                         kind = ProposalItemKind.SetTaskField(TaskValue.Priority(TaskPriority.High)),
                         targetId = "t1",
                         humanSummary = "Set the priority to High",
-                        status = ProposalItemStatus.Pending,
                         fingerprint = "set-priority-high",
                     ),
-                    ProposalItem(
+                    ProposalItem.pending(
                         id = ProposalItemId.fromString("pi_2"),
                         proposalId = proposalId,
                         kind = ProposalItemKind.AddSubtasks(listOf("Draft the outline")),
                         targetId = "t1",
                         humanSummary = "Add the subtask “Draft the outline”",
-                        status = ProposalItemStatus.Pending,
                         fingerprint = "add-subtask-outline",
                     ),
                 ),

@@ -9,6 +9,7 @@ import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.ui.DraftMviViewModel
 import com.singularity.todo.core.ui.DraftUiState
 import com.singularity.todo.core.text.Revisioned
@@ -38,7 +39,6 @@ import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.NoteValue
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
-import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
@@ -393,15 +393,13 @@ internal class NoteEditor(
             else -> return@launch
         }
 
-        val item = ProposalItem(
+        val item = ProposalItem.pending(
             id = com.singularity.todo.core.ids.ProposalItemId.generate(),
             proposalId = com.singularity.todo.core.ids.ProposalId.generate(),
             kind = kind,
             targetId = noteId,
             humanSummary = summary,
-            status = ProposalItemStatus.Pending,
             fingerprint = ProposalFingerprint.of(kind, noteId),
-            sortOrder = 0,
         )
         val proposal = AiProposal(
             id = item.proposalId,
@@ -446,11 +444,21 @@ internal class NoteEditor(
 
     // ─── Link search ─────────────────────────────────────────────────────
 
-    suspend fun searchNotesForLink(query: String): List<LinkResult> = linkRepo.searchNotes(query)
-        .map { LinkResult(it.id.value, it.title, LinkKind.Note) }
+    /**
+     * The notes offered for a link, while the person types.
+     *
+     * The editor states the mode it searches in (F8): the word mode — the
+     * suggestion list is asked of the index on every keystroke, and the index
+     * answers the beginning of a word (F6).
+     */
+    suspend fun searchNotesForLink(query: String): List<LinkResult> =
+        linkRepo.searchNotes(query, LINK_SEARCH_MODE)
+            .map { LinkResult(it.id.value, it.title, LinkKind.Note) }
 
-    suspend fun searchTasksForLink(query: String): List<LinkResult> = linkRepo.searchTasks(query)
-        .map { LinkResult(it.id.value, it.title, LinkKind.Task) }
+    /** The tasks offered for a link. See [searchNotesForLink]. */
+    suspend fun searchTasksForLink(query: String): List<LinkResult> =
+        linkRepo.searchTasks(query, LINK_SEARCH_MODE)
+            .map { LinkResult(it.id.value, it.title, LinkKind.Task) }
 
     // ─── Cleanup ─────────────────────────────────────────────────────────
 
@@ -458,5 +466,17 @@ internal class NoteEditor(
         // The watcher must not re-seed an editor that is on its way out.
         rewriteWatcher.stop()
         discard()
+    }
+
+    private companion object {
+        /**
+         * The mode the link suggestions are searched in.
+         *
+         * The editor is a surface, and a surface states the mode it searches in
+         * (F8). The word mode is the one it states: the list is asked of the
+         * index on every keystroke, and the index answers the beginning of a
+         * word (F6).
+         */
+        val LINK_SEARCH_MODE: SearchMode = SearchMode.Word
     }
 }

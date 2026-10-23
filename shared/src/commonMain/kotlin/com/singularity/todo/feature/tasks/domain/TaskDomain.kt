@@ -3,7 +3,7 @@ package com.singularity.todo.feature.tasks.domain
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.search.TextMatch
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.feature.agenda.domain.logic.toDateRange
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -139,6 +139,23 @@ object TaskDomain {
     fun searchableText(task: Task): List<String?> = listOf(task.title, task.description)
 
     /**
+     * True when [term] matches [task] under [mode]'s rule.
+     *
+     * A task is searched by its title and its description (F3) — the surfaces
+     * the task domain names, so that the rule of the mode and the rule of the
+     * task list cannot drift apart on what a task is searched by.
+     *
+     * The rule of the mode lives in `core/search`; what a *task* is searched
+     * by lives here, and the two meet in this function.
+     *
+     * @param mode the mode the free text is matched in (F6).
+     * @param task the task to look at.
+     * @param term the term to look for.
+     */
+    fun matches(mode: SearchMode, task: Task, term: String): Boolean =
+        mode.matchesAny(searchableText(task), term)
+
+    /**
      * Checks if a task matches the given filter.
      * Pure predicate function - fully testable.
      */
@@ -161,9 +178,10 @@ object TaskDomain {
 
         is TaskFilter.ByTag -> task.tags.contains(filter.id) && !task.isTrashed
 
-        // Word-prefix matching — the semantics of the full-text index, so that
-        // the in-memory rule and the index answer the same question.
-        is TaskFilter.Search -> TextMatch.matchesAny(searchableText(task), filter.query)
+        // The filter states the mode it searches in (F6, F8) — the word mode is
+        // the rule of the full-text index, so that the in-memory rule and the
+        // index answer the same question.
+        is TaskFilter.Search -> filter.mode.matchesAny(searchableText(task), filter.query)
 
         is TaskFilter.ByDateRange ->
             task.dueDate != null &&

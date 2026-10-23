@@ -2,7 +2,6 @@
 
 package com.singularity.todo.feature.proposals.presentation
 
-import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
@@ -32,6 +31,7 @@ import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeTimeTrackingRepository
 import com.singularity.todo.test.fakes.TestUsers
 import com.singularity.todo.test.helpers.TestVmContext
+import com.singularity.todo.test.helpers.VmScope
 import com.singularity.todo.test.helpers.testVm
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -95,13 +95,14 @@ class ProposalsViewModelTest {
             afterInit = { vm, bgScope ->
                 bgScope.launch { vm.events.collect { events += it } }
             },
-        ) { _, bgScope ->
+            vmScope = VmScope.Background,
+        ) { scope ->
             ProposalsViewModel(
                 proposals = proposals,
                 applyProposalItem = useCase,
                 editProposalItem = EditProposalItemUseCase(proposals),
                 currentUser = FakeProfileAwareCurrentUser(user),
-                scope = testScope(bgScope),
+                scope = scope,
             )
         }
 
