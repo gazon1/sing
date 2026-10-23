@@ -1,0 +1,28 @@
+# spec-kit issue record — hand-written.
+#
+# Not imported from an OpenSpec change: the importer rebuilds the records it
+# owns from scratch (`scripts/openspec-import-all.py` writes each file
+# wholesale), so this record is written by hand.
+---
+version: '1.0'
+type: openspec-change
+slug: the-task-document-is-written-whole
+date: '2026-10-23'
+title: 'A task document is written whole, by one writer'
+status: accepted
+change_type: active
+speckit_imported: false
+adr_refs:
+- 2026-10-23-a-task-document-is-written-whole
+tags:
+- tasks
+- sync
+- database
+- mapping
+documents:
+  proposal: openspec/changes/the-task-document-is-written-whole/proposal.md
+  design: openspec/changes/the-task-document-is-written-whole/design.md
+  tasks: openspec/changes/the-task-document-is-written-whole/tasks.md
+specs_dir: openspec/changes/the-task-document-is-written-whole/specs
+is_stub: false
+openspec_path: openspec/changes/the-task-document-is-written-whole
