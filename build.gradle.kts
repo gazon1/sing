@@ -1,7 +1,3 @@
-import dev.detekt.gradle.Detekt
-import dev.detekt.gradle.extensions.DetektExtension
-import java.io.File
-
 plugins {
     // this is necessary to avoid the plugins to be loaded multiple times
     // in each subproject's classloader
@@ -23,6 +19,10 @@ plugins {
     // to every project INCLUDING the root via beforeProject — so the plugin is already
     // on the classpath and the ID resolves; Gradle deduplicates it silently.
 }
+
+import dev.detekt.gradle.Detekt
+import dev.detekt.gradle.extensions.DetektExtension
+import java.io.File
 
 allprojects {
     // Version constants from gradle.properties (not catalog) — avoids catalog accessor shadowing
@@ -150,6 +150,10 @@ subprojects {
                     "${if (selectedPopulation.isNotEmpty()) ", population=$selectedPopulation" else ""}" +
                     "${if (selectedTags.isNotEmpty()) ", tags=$selectedTags" else ""})",
             )
+        }
+    }
+}
+
 // detektChanged — the scoped lint: the same detekt, over the changed files
 // ---------------------------------------------------------------------------
 // WHY

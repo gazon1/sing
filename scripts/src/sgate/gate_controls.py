@@ -655,17 +655,13 @@ SCRIPT_GATES = [
         cmd=["./scripts/check-doc-links.sh"],
         why="a documentation link that points at a file which is not there is a dead reference the reader follows and finds nothing",
     ),
-    # ai-write-tools: the registry declared this control on 2026-10-22, and the
-    # twin that runs it was never written — so the gate was registered, the
-    # control was declared, and nothing ever broke the file the gate reads.
-    # The registry holds the edit (it removes the one entry from
-    # `config/docs/ai-direct-writes.txt`), so the twin is the name and the
-    # command, and the harness fills in the rest.
-    ScriptGate(
-        name="ai-write-tools",
-        cmd=[sys.executable, "scripts/check-ai-write-tools.py"],
-        why="a tool that writes a user's data without saying so is a change the user never saw",
-    ),
+    # ai-write-tools: removed — the invariant it policed ("a tool that writes a
+    # user's data without saying so") is a test now, not a file: the tools are
+    # called and the user's data is found unchanged, and the tools' own source is
+    # scanned for a reach to a write repository. A registry of exceptions kept in
+    # a file is a second thing to keep in step with the code, and the code can
+    # change without it. See the 2026-10-23 ADR on the invariant being a test.
+    #
     # backlog-issue-refs: removed — the gate and its script are gone, and the
     # snapshot it policed (94 OPEN issues, none with a Backlog field) was the
     # failure state it detected, so no control could tell "clean run" from
