@@ -104,13 +104,17 @@ invitation to poll, and it has no completion criterion. The sharpened rule names
 completion criterion (the notification that the task finished) and says where the size
 of the wait comes from (a measurement, not a guess).
 
-**D8. No `CODING_STANDARDS.md`.** Not because standards are bad, but because there is
-nothing to put in it yet. Every mistake of the session was mechanical or informational:
-a missing control (D4), a missing measurement (D5), a missing pointer, a missing
-provenance check. Not one of them was a judgement call that a reviewer would have made
-differently — and a document with no work behind it is a document nobody reads. The one
-candidate that exists is already a control: "a verify task that reads an artifact must
-declare the task that produces it" is D4's rule in another guise.
+**D8. Nothing from this session belongs in `CODING_STANDARDS.md`.** The file exists —
+upstream created it on 2026-10-22, and it says what it is for: "the rules a **reviewing**
+agent applies when it reads a diff … the rules that no gate checks, because a gate can
+only check what has a shape". Every mistake of this session was mechanical or
+informational: a missing control (D4), a missing measurement (D5), a missing pointer, a
+missing provenance check. Not one of them was a judgement call that a reviewer would
+have made differently — and the retrospective's own conclusion was "no candidate, and
+that IS the conclusion". The one candidate it named — "a verify task that reads an
+artifact must declare the task that produces it" — is not prose but a CONTROL, and it
+is one now: D4's gate, and the `dependsOn("koverReport")` line that makes `:koverVerify`
+read a report that exists.
 
 # Rationale
 
