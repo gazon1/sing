@@ -51,6 +51,7 @@ import platform
 import shutil
 import statistics
 import subprocess
+import textwrap
 import time
 from datetime import datetime
 from pathlib import Path
@@ -647,26 +648,77 @@ def measure_coverage_costs(populations: tuple[str, ...] = ("fast", "full")) -> d
     return measured
 
 
-def write_coverage_costs(measured: dict[str, int]) -> None:
+def _coverage_cost_header(
+    measured: dict[str, int],
+    measured_at: str,
+    uninstrumented_ms: int | None,
+) -> list[str]:
+    """The prose above the numbers, written where the numbers are written.
+
+    The rationale lives here, and not in the file: a re-measure that replaced
+    the file with a header of its own would erase the reason the number
+    exists — which is what a reader of the next timeout needs, and the two
+    numbers that look backwards.
+    """
+    costs = ", ".join(
+        f"{_format_ms(measured[population])} for the {population} population"
+        for population in sorted(measured)
+    )
+    against = (
+        f" — against {_format_ms(uninstrumented_ms)} for the uninstrumented "
+        "`:shared:jvmTest`"
+        if uninstrumented_ms
+        else ""
+    )
+    paragraphs = [
+        "The measured cost of the INSTRUMENTED coverage run.",
+        "This is NOT the same run as the uninstrumented `:shared:jvmTest` in the "
+        "table of `docs/testing/gate-costs.md`: the Kover agent multiplies the cost "
+        "of every test, and the instrumented run is the one that decides whether a "
+        f"timeout is adequate. On {measured_at} it took {costs}{against}.",
+        "Two numbers that look backwards are not: the full population is CHEAPER "
+        "than the fast one, because the fast population is a subset of the classes "
+        "and the instrumented overhead is per-class-per-run. The number to plan "
+        "against is the larger of the two.",
+        "The build reads this file: `:koverVerify` prints the estimate before it "
+        "starts, so that nobody sets a 15-minute timeout on a 37-minute task.",
+        f"Measured on {measured_at} with a warm Gradle cache, on the development host "
+        f"({os.cpu_count()} vCPU). A CI runner has 4 vCPU: the same run there is "
+        "slower, which is why the CI job's timeout is set from the upper end and not "
+        "from this number.",
+        "To re-measure: `sgate gate-costs --record --coverage` (about an hour: it "
+        "runs the instrumented coverage once per population).",
+    ]
+    lines: list[str] = []
+    for index, paragraph in enumerate(paragraphs):
+        if index:
+            lines.append("#")
+        lines.extend(f"# {line}" for line in textwrap.wrap(paragraph, width=76))
+    lines.append("")
+    return lines
+
+
+def write_coverage_costs(
+    measured: dict[str, int],
+    uninstrumented_ms: int | None = None,
+    measured_at: str | None = None,
+) -> None:
     """Write the measured instrumented costs into their own file.
 
     A separate file, and not a row of the baseline: this file is read by the
     build (`:koverVerify` prints the estimate before it starts), and a build
     reading the gate-costs baseline would make the loop's bookkeeping part of
     the build's inputs.
+
+    The prose is written here too, so that re-measuring replaces the numbers
+    and leaves the reasoning that makes them readable.
     """
     path = sgate.repo.COVERAGE_COST_PROPERTIES
-    lines = [
-        "# The measured cost of the INSTRUMENTED coverage run.",
-        "#",
-        "# Written by `sgate gate-costs --record --coverage`. The build reads this",
-        "# file: `:koverVerify` prints the estimate before it starts, so that nobody",
-        "# sets a 15-minute timeout on a 37-minute task.",
-        "",
-    ]
+    day = measured_at or datetime.now().astimezone().strftime("%Y-%m-%d")
+    lines = _coverage_cost_header(measured, day, uninstrumented_ms)
     for population in sorted(measured):
         lines.append(f"{population}.ms={measured[population]}")
-    lines.append(f"measuredAt={datetime.now().astimezone().strftime('%Y-%m-%d')}")
+    lines.append(f"measuredAt={day}")
     lines.append(f"machine={os.cpu_count()} vCPU, warm Gradle cache")
     lines.append("")
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -766,7 +818,15 @@ def gate_costs(
         if not measured:
             logger.error("the instrumented coverage run could not be measured")
             raise SystemExit(IO_ERROR)
-        write_coverage_costs(measured)
+        steps = baseline.get("steps")
+        uninstrumented = None
+        if isinstance(steps, dict):
+            entry = steps.get("shared:jvmTest")
+            if isinstance(entry, dict):
+                median = entry.get("medianMs")
+                if isinstance(median, int):
+                    uninstrumented = median
+        write_coverage_costs(measured, uninstrumented)
         logger.info(
             "measured the instrumented coverage run: "
             + ", ".join(f"{name} {_format_ms(value)}" for name, value in sorted(measured.items()))
