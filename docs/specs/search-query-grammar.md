@@ -449,9 +449,9 @@ Three consequences, each of them a rule rather than a habit:
   link autocompletion and the task list search by the word rule (F2a) and state
   it (F8). The surfaces that filter the rows they already hold — the project
   list and the "add an existing task" popup — state the contains mode, because
-  a term may occur anywhere in a name or in a title. A surface without the
-  switch states the mode it uses; that is the point of F8, not an exemption
-  from it.
+  a term may occur anywhere in a name, in a title or in a description. A
+  surface without the switch states the mode it uses; that is the point of
+  F8, not an exemption from it.
 - **The mode is a parameter of the surface's contract, and the rule decides
   with it** (F6, F8). The surface states the mode; the rule answers what the
   index can do under it — `FreeTextRule.plan(mode)`. The decision used to be

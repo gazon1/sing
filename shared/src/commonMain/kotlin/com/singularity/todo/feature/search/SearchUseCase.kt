@@ -227,15 +227,24 @@ class SearchUseCase(
         // change to the notes.
         if (rule.isEmpty) return flowOf(emptyList())
 
-        val source: Flow<List<IndexedRecord<Note>>> = when (plan) {
-            is TextMatchPlan.Narrowed -> textIndex.observeNotes(plan.query)
+        return when (plan) {
+            is TextMatchPlan.Narrowed -> textIndex.observeNotes(plan.query).map { notes ->
+                notes.filter { note -> rule.accepts(plan) { term -> mode.matches(note.record.title, term) } }
+            }
 
             TextMatchPlan.BroadScan -> noteRepo.observeAll().map { notes ->
-                notes.map { note -> IndexedRecord(note, emptyList()) }
+                // The index answers the word mode: the newest first, and
+                // twenty of them. The contains mode reads the rows, and it
+                // answers the same way — the same order, the same ceiling —
+                // so that the mode says how the rows are matched and not what
+                // the answer looks like. The order of `observeAll` is the
+                // list's own order (pinned first, then the manual order),
+                // and that order belongs to the notes list, not to a search.
+                notes.filter { note -> rule.accepts(plan) { term -> mode.matches(note.title, term) } }
+                    .sortedByDescending { note -> note.updatedAt }
+                    .take(NOTES_LIMIT)
+                    .map { note -> IndexedRecord(note, emptyList()) }
             }
-        }
-        return source.map { notes ->
-            notes.filter { note -> rule.accepts(plan) { term -> mode.matches(note.record.title, term) } }
         }
     }
 
@@ -294,5 +303,17 @@ class SearchUseCase(
             SortOrder.PRIORITY -> tasks.sortedBy { it.record.priority }
         }
         return if (descending) sorted.reversed() else sorted
+    }
+
+    private companion object {
+        /**
+         * How many notes a search answers with.
+         *
+         * The index's own note query carries the same ceiling (`LIMIT 20`),
+         * and the contains mode reads the rows itself — so it keeps the
+         * ceiling the index keeps. A mode that says how the rows are matched
+         * must not say what the answer looks like.
+         */
+        const val NOTES_LIMIT = 20
     }
 }

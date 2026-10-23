@@ -183,6 +183,12 @@ class SearchSurfacesStateTheirModeTest {
         notes.createWithContent(NoteId("n1"), "Airport transfer", "# body", "<p>body</p>")
         clock.advanceBy(1_000)
         notes.createWithContent(NoteId("n2"), "Airport transfer", "# body", "<p>body</p>")
+        // The manual order of the notes is the list's own order, and the
+        // list puts the note with the lower sort order first — the older one.
+        // Without the sort the search would answer in that order, and the
+        // answer would not be the index's.
+        clock.advanceBy(1_000)
+        notes.setSortOrder(NoteId("n2"), 5)
 
         assertEquals(
             listOf("n2", "n1"),

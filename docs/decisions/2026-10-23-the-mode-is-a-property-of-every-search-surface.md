@@ -52,7 +52,8 @@ surface's contract. The rule decides what the index can do with it.**
   list, the link autocompletion and the task filter state the word mode; the
   search screen states the mode the person chose. The project list and the
   "add an existing task" popup state the contains mode: they filter the rows
-  they already hold, and a term may occur anywhere in a name or in a title. A
+  they already hold, and a term may occur anywhere in a name, in a title or in
+  a description. A
   surface that does not offer the switch states the mode it uses — that is
   different from a surface whose mode is an accident of where the code
   happens to be written.
