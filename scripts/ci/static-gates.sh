@@ -265,7 +265,7 @@ gate blocking "declared dependencies are used" sgate declared_dependencies_are_u
 # fixed list of documents — a number published anywhere else is a claim this gate
 # does not check, and that limit is written down in the gate's own docstring.
 gate blocking "published measurements match the record" python3 scripts/check-published-measurements.py
-# The heap of a test fork was a literal string in four build scripts, and the
+# The heap of a test fork was a literal string in five build scripts, and the
 # heap of the Gradle daemon was a literal string in `gradle.properties`. The
 # measurement behind them lived in an ADR that no build read and no gate held.
 #
