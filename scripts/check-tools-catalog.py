@@ -72,6 +72,10 @@ EXTRA_TOOLS = [
         "scripts/ci-verdict.py",
         "Prints the CI verdict of a commit, a branch or a pull request: the workflow, the run, the conclusion.",
     ),
+    (
+        "scripts/prune-merged-branches.py",
+        "Plans the deletion of local branches whose pull request is merged; deletes them only with --yes.",
+    ),
 ]
 
 

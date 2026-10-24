@@ -116,6 +116,17 @@ discovered later.
 
 - Branch from `main`, keep it short, and rebase before you push — the branch
   moves.
+- **After a squash-merge, the branch stays.** A squash-merge does not make
+  the branch an ancestor of `main`, so `git branch --merged` does not list it
+  and `git branch -d` refuses to delete it. Run
+  [`scripts/prune-merged-branches.py`](scripts/prune-merged-branches.py): it
+  prints the local branches whose pull request is merged, and with `--yes`
+  deletes them. Without the flag it only prints the plan. The plan deletes
+  only the branches whose tip is the commit that was merged or an ancestor
+  of it — a branch behind the merged head holds nothing that is not already
+  in `main` — and that no worktree holds; a branch that moved on after the
+  merge is printed separately, with the commits it carries, and is left to
+  you.
 - **Never force-push `main`.**
 - The commit message is the record. What broke, and why this fixes it, is worth
   more than a summary of the diff.
