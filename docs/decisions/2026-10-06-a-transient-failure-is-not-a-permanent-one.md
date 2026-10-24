@@ -138,12 +138,21 @@ Recorded because it was found while reading the same code, and left alone
 deliberately rather than folded in.
 
 After the pull fix, `ApplyOutcome.Conflict` is constructed **nowhere** in
-production. The pull path applies a remote document wholesale and performs no
-field-level merge — the per-field HLC merge that could produce a lost field lives
-on the push side — so "a field lost to a newer one" cannot occur on this path at
+production. The pull path applies a remote document read against the row that is
+already here — the document wins wherever it speaks, and the row keeps what the
+document does not speak about — but nothing on that path is compared version by
+version; the per-field HLC merge that could produce a lost field lives on the
+push side. So "a field lost to a newer one" cannot occur on this path at
 all. `PullStep.Done.conflicted` and the `conflicts` field on `PullSummary` are
 therefore structurally unreachable, and `SyncEnginePullTest` only reaches them by
 registering a handler that returns `Conflict` directly.
+
+(The sentence above once said that the pull path "applies a remote document
+wholesale and performs no field-level merge". That was true when it was written
+and stopped being true when the row started being read against the document
+(`2026-10-23-the-row-keeps-what-the-document-does-not-say`); the conclusion was
+never affected, because a comparison of versions is what the conclusion is
+about.)
 
 A counter that cannot become non-zero is the same kind of lie the pull summary
 used to tell, so removing the arm and the field is the honest end state. It is not

@@ -184,6 +184,9 @@ all, and that emptiness is a reading artefact, not a claim.
   outside the row, and the limitation this decision closes for the row
 - ADR `2026-10-23-a-task-document-is-written-whole` — why the row is written
   whole
+- ADR `2026-10-06-a-transient-failure-is-not-a-permanent-one` — why the pull
+  path has no `Conflict` arm: nothing on that path is compared version by
+  version, and this change does not make it so
 - ADR `2026-10-04-sync-event-carries-post-merge-document.md` — the document a
   pull carries
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/sync/TaskDocumentMerge.kt`

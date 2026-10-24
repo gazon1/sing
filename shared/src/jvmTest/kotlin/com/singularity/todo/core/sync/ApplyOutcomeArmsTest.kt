@@ -20,7 +20,7 @@ import kotlin.test.assertFalse
  * Once that catch was split correctly, nothing constructed the arm, and `PullSummary.conflicts`
  * became a field that could only ever hold zero. A counter that cannot become non-zero is
  * a lie of the same family the summary used to tell: it reads as "the engine reports
- * conflicts", so nobody goes looking for the missing merge.
+ * conflicts", so nobody goes looking for the missing version-aware merge.
  *
  * The arm was also structurally impossible. Applying a pull event upserts the remote
  * document: the document wins wherever it speaks and the row keeps what the document does
