@@ -2,7 +2,7 @@
 change: the-row-keeps-what-the-document-does-not-say
 verdict: pass
 date: 2026-10-24
-pr: 0
+pr: 1048
 reviewed: 3332a2f8f6dfa090864b6ae1107905dc698a0a61
 documents: sha256:534432dc44ee02a15a693a03bca06a55c8f91a5ea584e1b70d6ecdb301565d05
 ---
