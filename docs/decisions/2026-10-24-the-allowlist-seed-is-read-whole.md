@@ -81,9 +81,9 @@ is not a parenthesis of the code, and the count must not see it.
 The facts above are recorded, not fixed. The vocabulary is a choice of the
 generator — a small one, and a local one — and it is left open because a
 commit that regenerates the seed should not also change what the seed says
-about the types it did not have to touch. The `profile` type is a fact about the protocol: the
-server has it and the client's contract does not describe it, and only a
-change of the protocol can say what a profile is.
+about the types it did not have to touch. The `profile` type is a fact
+about the protocol: the server has it and the client's contract does not
+describe it, and only a change of the protocol can say what a profile is.
 
 Nothing applies the generated seed automatically: the file has no timestamp,
 the migration runner does not see it, and the gate that compares it with the
@@ -111,11 +111,11 @@ because they are string literals, and the blanking has taken them away.
   comment still yields every field after the comment.
 - A reader that stops early is invisible to a gate that compares the file
   with the reader. The test is the part that is not the file.
-- The vocabulary mismatch stays open — it is a line of the generator, waiting
-  for a commit that changes the generator on purpose. The `profile` entity
-  type of the server stays open too, and that one is a fact about the
-  protocol: the client's contract does not describe a profile, and nothing but
-  a change of the protocol can say what a profile is.
+- The vocabulary mismatch stays open — it is a small and local change of the
+  generator, waiting for a commit that changes the generator on purpose. The
+  `profile` entity type of the server stays open too, and that one is a fact
+  about the protocol: the client's contract does not describe a profile, and
+  nothing but a change of the protocol can say what a profile is.
 
 ## Links
 
