@@ -14,26 +14,30 @@ exists and names real types, but no module reads it. The compiler is then never
 told anything, and every "stable" claim in the repository's documentation is a
 claim about a file nothing loads.
 
-So this gate checks four things:
+So this gate checks five things:
 
   1. every entry is a syntactically valid fully-qualified name;
   2. every entry resolves to a type that exists — a declared type in the shared
      sources for a project namespace, an imported type for a library one;
   3. the file is actually wired into the modules that compile composables;
-  4. every site the register of debt names is still declared in the sources.
+  4. every site the register of debt names is still declared in the sources;
+  5. every parameter the register of debt names is still declared by some
+     declaration of that site.
 
-The fourth one is a different failure from the first three. The contract names
-*types*, and the compiler ignores a name it cannot resolve — a contract entry
-that rots is a contract that says less than it appears to. The register of debt
-(`ComposeCollectionExemptions.kt`) names *composables*, and a register entry
-whose composable was deleted is worse than a dead contract entry: the detekt
-rule exempts by name, so a stale entry exempts nothing and the debt it was
+The fourth and the fifth are a different failure from the first three. The
+contract names *types*, and the compiler ignores a name it cannot resolve — a
+contract entry that rots is a contract that says less than it appears to. The
+register of debt (`ComposeCollectionExemptions.kt`) names *composables* and the
+raw collection parameters they still declare, and a register entry whose
+composable was deleted is worse than a dead contract entry: the detekt rule
+exempts by name, so a stale entry exempts nothing and the debt it was
 accounting for is invisible in both directions.
 
-The rule itself catches the entries that are stale in the *parameters* — a
-parameter that was renamed, removed or retyped. It cannot catch a composable
-that is gone: the rule visits the code that exists. That is what this gate is
-for; it reads the sources, not a build artifact.
+The rule catches the entries that are stale in the *type* — a parameter that
+was retyped. It cannot catch the other two: a parameter that was renamed or
+removed has no declared type to compare, and a composable that is gone is not
+visited at all. That is what this gate is for; it reads the sources, not a
+build artifact.
 
 What it does NOT check
 ----------------------
@@ -79,7 +83,10 @@ WIRED_MODULES = (
 #: shared sources; entries outside it are library types and must be imported.
 PROJECT_NAMESPACE = "com.singularity.todo."
 
-_PACKAGE = re.compile(r"^package\s+([\w.]+)")
+#: The package a source declares. The line may be preceded by a file-level
+#: annotation or a comment, so the pattern is anchored per line and not to the
+#: start of the file.
+_PACKAGE = re.compile(r"^package\s+([\w.]+)", re.M)
 _DECLARATION = re.compile(
     r"^(?:@\w+(?:\([^)]*\))?\s+)*"
     r"(?:public\s+|internal\s+|private\s+|protected\s+|abstract\s+|sealed\s+|open\s+"
@@ -102,7 +109,22 @@ DEBT_REGISTER = (
 )
 
 #: The modules whose sources may declare a registered composable.
-REGISTER_MODULES = ("shared", "desktopApp", "androidApp")
+#:
+#: Every module detekt scans, because the rule and the gate must see the same
+#: tree: a site the gate cannot find would be reported as deleted, while the
+#: rule still sees it and demands an exemption the gate cannot register. The
+#: modules without composables today are listed anyway — the list is a promise
+#: about where a composable may appear, not a measurement of where one does.
+REGISTER_MODULES = (
+    "shared",
+    "desktopApp",
+    "androidApp",
+    "core-base",
+    "adr-cli",
+    "adr-core",
+    "mcp-server",
+    "pro",
+)
 
 #: The body of the register's map — the places a site may be named. The map
 #: runs to the end of the file: the entries are read one by one, and a body
@@ -311,6 +333,12 @@ def _declares(text: str, name: str) -> bool:
     )
 
 
+def _package_of(text: str) -> str:
+    """The package the source declares, or an empty string when it declares none."""
+    match = _PACKAGE.search(text)
+    return match.group(1) if match else ""
+
+
 def declaring_files(site: str, roots: list[pathlib.Path]) -> list[pathlib.Path]:
     """The files that declare the composable the register names.
 
@@ -323,6 +351,12 @@ def declaring_files(site: str, roots: list[pathlib.Path]) -> list[pathlib.Path]:
     package — and in this repository several do — must not stand in for the
     declaration that was deleted, or the gate would pass a tree where the
     registered composable is gone.
+
+    "Inside the package" means the package the file *declares*, not the
+    directory the file sits in. A directory holds the sub-packages as well,
+    and a namesake in a sub-package would mask a deleted site exactly as a
+    namesake in another package would — the package declaration is what says
+    which package a name belongs to.
     """
     parts = site.split(".")
     for split in range(len(parts) - 1, 0, -1):
@@ -336,6 +370,12 @@ def declaring_files(site: str, roots: list[pathlib.Path]) -> list[pathlib.Path]:
             texts = {
                 path: path.read_text(encoding="utf-8", errors="replace")
                 for path in directory.rglob("*.kt")
+            }
+            # The file must belong to the package being searched — a file in a
+            # sub-package directory that declares another package is not a
+            # namesake of this one.
+            texts = {
+                path: text for path, text in texts.items() if _package_of(text) == package
             }
             # The file must declare the function and the classes it is nested
             # in — the names of one site belong to one declaration.
@@ -355,22 +395,29 @@ def site_exists(site: str, roots: list[pathlib.Path]) -> bool:
     return bool(declaring_files(site, roots))
 
 
-def declared_parameters(site: str, roots: list[pathlib.Path]) -> set[str]:
-    """The names of the parameters the composable declares.
+def declared_parameters(site: str, roots: list[pathlib.Path]) -> tuple[bool, set[str]]:
+    """Whether a declaration of the composable was found, and the names it declares.
 
     Every overload of the composable counts: `Nav3State.toDecoratedEntries` is
     declared twice, and the register may describe either of them.
+
+    The flag matters: "the declaration has no parameters" and "the declaration
+    was not found" are different facts, and a gate that cannot tell them apart
+    skips the site in both cases — which is how a registered parameter that was
+    deleted along with the last other parameter of the composable survives.
     """
     names: set[str] = set()
     function_name = site.split(".")[-1]
+    found = False
     for path in declaring_files(site, roots):
         text = path.read_text(encoding="utf-8", errors="replace")
         for match in re.finditer(
             rf"\bfun\s+(?:<[^>]*>\s*)?(?:[\w.]+\.)?{re.escape(function_name)}\s*\(",
             text,
         ):
+            found = True
             names |= _parameter_names(text, match.end() - 1)
-    return names
+    return found, names
 
 
 def _parameter_names(text: str, open_paren: int) -> set[str]:
@@ -442,11 +489,13 @@ def check_register_parameters(
         parameters = register.get(site) or {}
         if not parameters:
             continue
-        declared = declared_parameters(site, roots)
+        declared, names = declared_parameters(site, roots)
         if not declared:
+            # No declaration of the composable at all — the site check reports
+            # that, and a missing declaration has no parameters to compare.
             continue
         for name in parameters:
-            if name in declared:
+            if name in names:
                 continue
             findings.append(
                 f"the register of debt names a parameter '{name}' of {site}, and no "
