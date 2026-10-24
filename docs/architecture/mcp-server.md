@@ -132,13 +132,15 @@ The refusal is a **value**, not an `exitProcess` call buried in the middle of a 
 That is the point of the split: "what does the server do when it cannot start?" used to
 be answerable only by reading the whole entry point, and now it is a type with two cases.
 
-The start-up it replaced ran nine steps in one function — parse, refuse an ambiguous
-request, warn about a deprecated argument, build the graph, resolve the dependencies,
-verify the database, refuse a profile that does not exist, bootstrap the profiles, read
-the configuration, build the server. The order and the log lines are what they were;
-only the shape changed. The refusals are not: where the old code called `exitProcess`
-and said nothing, the start-up now answers with a JSON-RPC error — the client is told
-why the server did not start, instead of being left to notice a closed pipe.
+The start-up it replaced ran twelve steps in one function — reserve the protocol, parse
+the arguments, refuse an ambiguous request, warn about a deprecated argument, build the
+graph, resolve the dependencies, verify the database, refuse a profile that does not
+exist, bootstrap the profiles, read the configuration, build the server, serve. The
+order, the log lines, the JSON-RPC codes and the exit codes are all exactly what they
+were; only the shape changed. A refusal is now a value the start-up returns and the
+entry point writes, rather than an `exitProcess` call buried in a sequence — and the
+client sees the same error frame either way, because the old code wrote that frame
+before it exited.
 
 **Critical details:**
 - **`session.onClose + Job.join()` is mandatory.** The SDK does not block on its own — this is the canonical pattern from the upstream `samples/weather-stdio-server/.../McpWeatherServer.kt:55-62`. See ADR `2026-09-07-mcp-stdio-blocking-lifecycle` for the full rationale and regression test.

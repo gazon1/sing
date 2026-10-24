@@ -133,7 +133,7 @@ class AcpClient(
     private val logger = Logger.withTag("acp-client")
 
     /**
-     * The lock that serialises the three transitions of this class's lifecycle.
+     * The lock that serialises the two transitions that can wait.
      *
      * The transitions are suspending — the handshake waits for the agent, and the
      * goodbye waits for its answer — so the lock has to be one that can be held

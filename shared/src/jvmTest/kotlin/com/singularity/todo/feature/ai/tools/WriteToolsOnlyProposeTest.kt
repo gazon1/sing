@@ -305,9 +305,9 @@ class WriteToolsOnlyProposeTest {
      * Both nets are name-based, and the check says so rather than claiming more:
      * the narrow one recognises a repository by the receiver's name, the wide one
      * recognises a write by the method's name, and a write whose method is called
-     * something neither list holds is invisible to them. A write in a helper that
-     * sits above no tool class is invisible in the same way — which is why a write
-     * that belongs to no class is a finding of its own rather than a gap.
+     * something neither list holds is invisible to them. A write that belongs to no
+     * tool class is seen but cannot be attributed — the scan cannot say whose
+     * write it is — and that is a finding of its own rather than a gap.
      */
     private val scan: Scan by lazy { scanSources() }
 
@@ -347,11 +347,12 @@ class WriteToolsOnlyProposeTest {
                         .toList()
                     if (userData.isNotEmpty() || other.isNotEmpty()) {
                         if (owner == null) {
-                            // The call belongs to no tool: it sits in a helper above
-                            // every class, or in a class the scan does not know. A
-                            // write that belongs to no tool is a finding of its own —
-                            // the scan cannot attribute it, and a write it cannot
-                            // attribute is a write nobody checked.
+                            // The call belongs to no tool: no tool class stands
+                            // above it — it sits in a helper at the top of the
+                            // file, or in a class the scan does not recognise as
+                            // a tool. A write that belongs to no tool is a finding
+                            // of its own — the scan cannot attribute it, and a
+                            // write it cannot attribute is a write nobody checked.
                             outside += (userData + other).distinct().sorted()
                         } else {
                             val existing = found[owner] ?: Writes()

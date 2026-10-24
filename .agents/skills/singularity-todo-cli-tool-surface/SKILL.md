@@ -243,23 +243,23 @@ reads, so the keys below are the tool names.
 
 | Tool | Annotation |
 |---|---|
-| `create_task` | `idempotentHint = true` |
-| `update_task` | `idempotentHint = true` |
+| `create_task` | none |
+| `update_task` | none |
 | `delete_task` | `destructiveHint = true` |
 | `list_tasks` | `readOnlyHint = true` |
 | `get_task` | `readOnlyHint = true` |
 | `search_tasks` | `readOnlyHint = true` |
 | `list_linked_tasks` | `readOnlyHint = true` |
-| `create_project` | `idempotentHint = true` |
-| `update_project` | `idempotentHint = true` |
+| `create_project` | none |
+| `update_project` | none |
 | `delete_project` | `destructiveHint = true` |
 | `list_projects` | `readOnlyHint = true` |
 | `get_project` | `readOnlyHint = true` |
-| `create_note` | `idempotentHint = true` |
-| `update_note` | `idempotentHint = true` |
+| `create_note` | none |
+| `update_note` | none |
 | `delete_note` | `destructiveHint = true` |
 | `get_note` | `readOnlyHint = true` |
-| `create_tag` | `idempotentHint = true` |
+| `create_tag` | none |
 | `delete_tag` | `destructiveHint = true` |
 | `write_adr` | `openWorldHint = true` (creates a file outside the database) |
 | `update_adr` | `openWorldHint = true` (rewrites a file) |
@@ -270,8 +270,9 @@ reads, so the keys below are the tool names.
 | `search_docs` | `readOnlyHint = true` |
 | `decompose_and_create` | none |
 
-The table is generated from `McpToolCatalog.kt`, and the drift gate checks the `adr`
-domain of it against the tool classes — so a row that stops being true is caught.
+The table is kept by hand against `McpToolCatalog.kt`. The drift gate checks the `adr`
+domain of the exported surface against the tool classes, and the flag keys — it does
+not read this table, so a row that stops being true is not caught here.
 
 ## Pagination for List Tools
 

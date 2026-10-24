@@ -55,10 +55,10 @@ So the check is now two-sided, and it reads the scan's two nets separately:
 Both nets are name-based, and the design says so rather than claiming more: the narrow
 one recognises a repository by the receiver's name, the wide one recognises a write by
 the method's name, and a write whose method is called something neither list holds is
-invisible to them. A write in a helper that sits above no tool class is invisible in the
-same way, so a write that belongs to no class is a finding of its own rather than a
-gap. The reach is what it is, and a gate that claims more than it can see is the thing
-this change is against.
+invisible to them. A write that belongs to no tool class is seen but cannot be
+attributed — the scan cannot say whose write it is — and that is a finding of its own
+rather than a gap. The reach is what it is, and a gate that claims more than it can
+see is the thing this change is against.
 
 This found a real drift: `create_tag` was declared a direct-write exception, and the tool
 had been converted to the proposal path without the declaration following. The declaration
@@ -112,7 +112,7 @@ somewhere else in the file.
 
 So it becomes a type:
 
-- `ProtocolOutput` owns the protocol's stream and is passed to everything that writes the
+- `ProtocolStdout` owns the protocol's stream and is passed to everything that writes the
   protocol. A writer that holds it cannot write anywhere else, and a writer that does not
   hold it cannot write to the protocol.
 - The logger is pointed at standard error explicitly, so the application's own log lines do
@@ -142,7 +142,7 @@ The split is three collaborators the ViewModel owns: one that connects and disco
 that runs a turn, and one that brokers a permission request. The ViewModel keeps the MVI
 surface — the state, the intents, the one-shot events — and delegates the work.
 
-**`ToolServerMain`** runs nine start-up steps in one function: reserve the protocol, parse
+**`ToolServerMain`** runs twelve start-up steps in one function: reserve the protocol, parse
 the arguments, refuse an ambiguous request, warn about a deprecated one, build the graph,
 resolve the dependencies, verify the database, refuse a profile that does not exist,
 bootstrap the profiles, read the configuration, build the server, serve.

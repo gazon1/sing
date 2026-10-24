@@ -49,7 +49,7 @@ redirect, so the one thing the repository controls leaned on an arrangement nobo
 see in the logging code.
 
 And two classes had grown past the shape they were written for: the screen's ViewModel
-held four concerns, and the tool server's entry point ran nine start-up steps in one
+held four concerns, and the tool server's entry point ran twelve start-up steps in one
 function, with the two refusals buried as `exitProcess` calls in the middle of it.
 
 ## Idea
@@ -94,9 +94,10 @@ An unchecked write has to be a visible one.
 
 Both nets are name-based, and the record says so rather than claiming more: a write
 through a method whose name is not among the verbs the nets hold is invisible to them,
-and so is a write in a helper that sits above no tool class — which is why a write that
-belongs to no class is a finding of its own rather than a gap. The reach is what it is,
-and a gate that claims more than it can see is the thing this change is against.
+and a write that belongs to no tool class is seen but cannot be attributed — the scan
+cannot say whose write it is — which is why a write that belongs to no class is a
+finding of its own rather than a gap. The reach is what it is, and a gate that claims
+more than it can see is the thing this change is against.
 
 The round trip — propose, unchanged, confirm writes, decline changes nothing — is now
 every proposal-gated tool's contract, not two tools' contract.
