@@ -3,8 +3,8 @@ change: the-row-keeps-what-the-document-does-not-say-for-every-type
 verdict: pass
 date: 2026-10-29
 pr: 1099
-reviewed: a7dd2f393b74db18ea6c346d3be50128b052958a
-documents: sha256:26fca3187d96f55998748dd0e634f901eaecddeef02726fc0e819ab365e22910
+reviewed: a0391cc210e0cd1c8da286b67956e6a701791758
+documents: sha256:720b625fd8d996864448598c9f23da45af739c259ad50094178b85c2c3d7e3b1
 ---
 
 # The row keeps what the document does not say, for every type
@@ -58,12 +58,21 @@ project", which is what the rest of both documents already said.
 ## Why this verdict is re-issued
 
 The contract of this change moved after the review was made: the wording of
-the sentence the review asked about changed, and with it the digest. A verdict
-that speaks for a contract that is not there any more speaks for nothing, so
-the verdict is re-issued with the digest the contract carries now. The
-`reviewed:` field still names the commit the review read — `a7dd2f39` — and
-what came after it is what the reviews asked for: the two sentences about
-"every type", and the two comments the second review found untrue.
+the sentence the review asked about changed, and the decision that carries it
+was renamed, and with them the digest. A verdict that speaks for a contract
+that is not there any more speaks for nothing, so the verdict is re-issued
+with the digest the contract carries now.
+
+The `reviewed:` field names the commit the review read — `a0391cc2`, the
+head of the branch when the reviews were made. Two things came after it: the
+two sentences about "every type" and the two comments the second review found
+untrue, which the reviews asked for; and the rename of the decision, which is
+mechanical and moves the file into the end of the corpus of decisions — the
+corpus is measured in the order of the names, and a decision that sorts inside
+the measured prefix moves the prefix and the numbers the record states.
+
+The branch was also rebased onto a newer `main` after the reviews, so the
+commit the reviews read has the same content and a new name.
 
 ## What the review checked
 

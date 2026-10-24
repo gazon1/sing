@@ -3,7 +3,7 @@ change: the-row-keeps-what-the-document-does-not-say
 verdict: pass
 date: 2026-10-29
 pr: 1048
-reviewed: a7dd2f393b74db18ea6c346d3be50128b052958a
+reviewed: a0391cc210e0cd1c8da286b67956e6a701791758
 documents: sha256:aeeb5e88e1a9571c768951079b836ba1cadefe8970ba625e8acd0ee04c5ce770
 ---
 
@@ -38,9 +38,15 @@ what it says — is unchanged, and the change that generalises it says so in its
 own ADR.
 
 The `reviewed:` field names the commit the re-issuing review read — the head
-of the generalisation change — and not `78f720a3`, which the eight rounds were
-made against: the eight rounds judged the rule, and this re-issue is about the
-link that the generalisation moved.
+of the generalisation change, `a0391cc2` — and not `78f720a3`, which the eight
+rounds were made against: the eight rounds judged the rule, and this re-issue
+is about the link that the generalisation moved.
+
+The branch was rebased onto a newer `main` after the reviews, so the commit
+the reviews read has the same content and a new name, and the decision that
+carries the rule was renamed with it — a rename that moves it into the end of
+the corpus of decisions, because the corpus is measured in the order of the
+names.
 
 ## The eight rounds, in short
 
