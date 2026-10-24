@@ -52,16 +52,18 @@ import kotlin.test.assertTrue
  *
  * ## Where the gate comes from now
  *
- * The platform gate is the conjunction of the three seams' own `isSupported` flags
+ * The platform gate is the conjunction of the four seams' own `isSupported` flags
  * — the provider that talks to the system calendar, the repository that stores the
- * preference, and the queries that list the apps to write into. Each port is the
- * authority on what *it* can do, and the panel needs all three; on the desktop all
- * three say no. The gate used to be `CalendarPermissionRequester.isSupported`,
- * which answered the same question about a different thing: whether this device may
- * *ask* for the calendar permission. The two agree on every platform the app ships
- * on, but only one of them is about the capability the panel is offering, and the
- * no-op ports now say so themselves instead of answering every call with "not
- * available".
+ * preference, the queries that list the apps to write into, and the scheduler that
+ * runs the sync afterwards. Each port is the authority on what *it* can do, and the
+ * panel needs all four; on the desktop all four say no. The gate used to be
+ * `CalendarPermissionRequester.isSupported`, which answered the same question about
+ * a different thing: whether this device may *ask* for the calendar permission.
+ * The two agree on every platform the app ships on, but only one of them is about
+ * the capability the panel is offering, and the no-op ports now say so themselves
+ * instead of answering every call with "not available". The permission requester's
+ * flag is gone rather than left unread: a capability flag with no reader is a
+ * promise nobody keeps.
  *
  * ## What is still open
  *
@@ -123,7 +125,7 @@ class CalendarSyncViewModelCapabilityTest {
             Result.success(emptyMap())
     }
 
-    private object FakeScheduler : CalendarSyncWorkScheduler {
+    private class FakeScheduler(override val isSupported: Boolean = true) : CalendarSyncWorkScheduler {
         override fun enqueueSync() = Unit
         override fun cancelSync() = Unit
     }
@@ -179,15 +181,17 @@ class CalendarSyncViewModelCapabilityTest {
         provider: CalendarProviderPort,
         scope: kotlinx.coroutines.CoroutineScope,
         supported: Boolean = true,
+        schedulerSupported: Boolean = true,
     ): Pair<CalendarSyncViewModel, AutoCloseableCoroutineScope> {
         val vmScope = testScope(scope)
+        val scheduler = FakeScheduler(schedulerSupported)
         return CalendarSyncViewModel(
             syncRepo = FakeSyncRepo(isSupported = supported),
             calendarProvider = provider,
-            scheduler = FakeScheduler,
+            scheduler = scheduler,
             appQueries = FakeAppQueries(supported),
             orchestrator = CalendarSyncOrchestrator(
-                scheduler = FakeScheduler,
+                scheduler = scheduler,
                 scope = scope,
                 dirtyHashProvider = DirtyHashProvider(FakeTaskRepository(), FakeSyncRepo()),
                 crashReporter = NoOpCrashReportingPort(),
@@ -247,21 +251,21 @@ class CalendarSyncViewModelCapabilityTest {
     }
 
     /**
-     * The panel's gate is the conjunction of the three seams' flags.
+     * The panel's gate is the conjunction of the four seams' flags.
      *
-     * The provider alone is not enough: the panel also stores a preference and
-     * offers a picker, so a platform where any one of the three cannot do its job
-     * must not be offered the panel. The desktop is exactly that platform — all
-     * three no-ops answer "no" — and the screen has to say so instead of showing a
-     * switch that does nothing.
+     * The provider alone is not enough: the panel also stores a preference, offers
+     * a picker and schedules the sync, so a platform where any one of the four
+     * cannot do its job must not be offered the panel. The desktop is exactly that
+     * platform — all four no-ops answer "no" — and the screen has to say so
+     * instead of showing a switch that does nothing.
      */
     @Test
-    fun `the panel's gate is the conjunction of the three seams`() = runTest {
+    fun `the panel's gate is the conjunction of the four seams`() = runTest {
         val (supported, supportedScope) = viewModel(WorkingProvider(), this)
         try {
             assertTrue(
                 supported.stateFlow.value.deviceSyncSupported,
-                "a platform where all three seams can work must be offered the panel",
+                "a platform where all four seams can work must be offered the panel",
             )
         } finally {
             supportedScope.close()
@@ -279,6 +283,30 @@ class CalendarSyncViewModelCapabilityTest {
             )
         } finally {
             unsupportedScope.close()
+        }
+    }
+
+    /**
+     * A scheduler that cannot schedule closes the gate as well.
+     *
+     * The scheduler is the fourth seam: the panel offers a sync that runs later, so
+     * a platform that cannot schedule that run cannot deliver what the panel
+     * promises. Its flag is read for the same reason the other three are.
+     */
+    @Test
+    fun `a scheduler that cannot schedule closes the gate`() = runTest {
+        val (vm, vmScope) = viewModel(
+            provider = WorkingProvider(),
+            scope = this,
+            schedulerSupported = false,
+        )
+        try {
+            assertFalse(
+                vm.stateFlow.value.deviceSyncSupported,
+                "a platform that cannot schedule the sync must not be offered the panel",
+            )
+        } finally {
+            vmScope.close()
         }
     }
 

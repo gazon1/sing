@@ -371,12 +371,16 @@ class CalendarSyncViewModel(
 ) : MviViewModel<CalendarSyncUiState, CalendarSyncIntent, Nothing>(
         initialState = CalendarSyncUiState(
             importWindow = importWindow,
-            // The panel needs three seams, and it is offered only when all three can
+            // The panel needs four seams, and it is offered only when all four can
             // do their job here. Each port answers for itself, so the answer does not
-            // depend on which one the screen happened to ask first.
+            // depend on which one the screen happened to ask first: the provider that
+            // talks to the calendar, the repository that stores the preference, the
+            // queries that list the apps to write into, and the scheduler that runs
+            // the sync afterwards.
             deviceSyncSupported = calendarProvider.isSupported &&
                 syncRepo.isSupported &&
-                appQueries.isSupported,
+                appQueries.isSupported &&
+                scheduler.isSupported,
         ),
         crashReporter = crashReporter,
         scope = scope,
@@ -762,11 +766,12 @@ class CalendarSyncViewModel(
                 }
                 .onFailure {
                     // Nothing is set to "unsupported" here, and deliberately: the platform
-                    // gate is `CalendarPermissionRequester.isSupported`, which the screen
-                    // reads and which knows the answer without making a call. Deciding it
-                    // from a call result means a transient failure — a revoked permission,
-                    // a sick content provider — reads as "this device cannot", and the one
-                    // panel that would have told the user apart is the one that goes dark.
+                    // gate is the conjunction of the seams' own `isSupported` flags,
+                    // which the screen reads and which know the answer without making a
+                    // call. Deciding it from a call result means a transient failure —
+                    // a revoked permission, a sick content provider — reads as "this
+                    // device cannot", and the one panel that would have told the user
+                    // apart is the one that goes dark.
                     //
                     // A failed read is not a capability verdict, and `hasPermissions`
                     // already covers the permission case with a dialog to fix it.
