@@ -9,6 +9,8 @@ import dev.detekt.api.RuleSet
 import dev.detekt.api.RuleSetId
 import dev.detekt.api.RuleSetProvider
 import org.jetbrains.kotlin.psi.KtClass
+import org.jetbrains.kotlin.psi.KtClassOrObject
+import org.jetbrains.kotlin.psi.KtObjectDeclaration
 import org.jetbrains.kotlin.psi.KtParameter
 import org.jetbrains.kotlin.psi.KtProperty
 
@@ -46,6 +48,14 @@ import org.jetbrains.kotlin.psi.KtProperty
  * inferred. Those are known limits, not oversights: resolving them needs
  * semantic analysis this rule does not have.
  *
+ * The rule also cannot see a promise broken **through** a contained type: a
+ * class marked `@Immutable` whose property is another class that holds a raw
+ * collection breaks the promise just as surely, and the rule cannot know it
+ * without resolving the type. The same is true of a `@Immutable` sealed
+ * interface whose implementations hold one — the implementations are separate
+ * declarations, and they are checked when they carry the annotation
+ * themselves.
+ *
  * @see NoUnstableCollectionParamRule — the other half of the stability contract.
  * @see 2026-10-22-compose-stability-contract
  */
@@ -53,6 +63,22 @@ class NoFalseImmutableRule(config: Config) : Rule(config, "", null) {
 
     override fun visitClass(klass: KtClass) {
         super.visitClass(klass)
+        checkImmutable(klass)
+    }
+
+    override fun visitObjectDeclaration(klass: KtObjectDeclaration) {
+        super.visitObjectDeclaration(klass)
+        checkImmutable(klass)
+    }
+
+    /**
+     * The check itself, for a class or an object.
+     *
+     * An `object` is not a `KtClass` in the PSI, so a rule that only visited
+     * classes never looked at one — and `@Immutable object` is a promise in
+     * exactly the same sense.
+     */
+    private fun checkImmutable(klass: KtClassOrObject) {
         if (!klass.isImmutable()) return
 
         klass.declaredProperties().forEach { declared ->
@@ -98,7 +124,7 @@ class NoFalseImmutableRule(config: Config) : Rule(config, "", null) {
      * property, and a rule that reads only the body sees a class with no
      * fields and calls it immutable.
      */
-    private fun KtClass.declaredProperties(): List<DeclaredProperty> {
+    private fun KtClassOrObject.declaredProperties(): List<DeclaredProperty> {
         val fromConstructor = primaryConstructorParameters
             .filter { it.hasValOrVar() }
             .map { parameter ->
@@ -123,7 +149,7 @@ class NoFalseImmutableRule(config: Config) : Rule(config, "", null) {
     }
 
     /** True when the class carries the Compose `@Immutable` annotation. */
-    private fun KtClass.isImmutable(): Boolean =
+    private fun KtClassOrObject.isImmutable(): Boolean =
         annotationEntries.any { entry ->
             entry.typeReference?.text?.substringAfterLast('.') == IMMUTABLE
         }
@@ -150,7 +176,8 @@ class NoFalseImmutableRule(config: Config) : Rule(config, "", null) {
         // nested route object whose last segment happens to be spelled `List`.
         val qualifier = name.substringBeforeLast('.', "")
         if (qualifier.isNotEmpty() && qualifier != "kotlin.collections") return null
-        return if (name in RAW_COLLECTIONS) name else null
+        val simple = name.substringAfterLast('.')
+        return if (simple in RAW_COLLECTIONS) simple else null
     }
 
     /** A property the class declares, and what it declares it as. */

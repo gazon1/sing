@@ -195,6 +195,41 @@ class NoFalseImmutableRuleTest {
     }
 
     @Test
+    fun `the stdlib collection spelled with its package is flagged`() {
+        // `kotlin.collections.List` is the same collection as `List`, and a rule
+        // that missed the spelling would be a rule a developer could walk
+        // around by writing the type out.
+        val code = """
+            package com.singularity.todo.feature.tasks
+
+            import androidx.compose.runtime.Immutable
+
+            @Immutable
+            class TaskBadge {
+                val tags: kotlin.collections.List<String> = emptyList()
+            }
+        """
+        assertEquals(1, findings(code).size)
+    }
+
+    @Test
+    fun `an immutable object with a raw collection is flagged`() {
+        // An `object` is not a class in the PSI, and a rule that only visited
+        // classes never looked at one.
+        val code = """
+            package com.singularity.todo.feature.tasks
+
+            import androidx.compose.runtime.Immutable
+
+            @Immutable
+            object TaskBadge {
+                val tags: List<String> = emptyList()
+            }
+        """
+        assertEquals(1, findings(code).size)
+    }
+
+    @Test
     fun `a finding the rule reports is not marked as suppressed`() {
         // A non-empty `suppressReasons` means "this finding is suppressed", and
         // detekt drops such a finding before it reaches the report. A rule that
