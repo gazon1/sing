@@ -738,11 +738,17 @@ def _render_coverage_block() -> list[str]:
 
 
 def _render_ci_block(baseline: dict[str, object]) -> list[str]:
-    """The CI side of the loop: the last run's jobs and what each took.
+    """The CI side of the loop: one run's jobs and what each took.
 
     Not a median and not a baseline: a hosted runner is not this machine, and the
     comparison this file refuses to make across machines is the same one. So the
     numbers are published as a record of one run, with the run it came from.
+
+    The record is that run, not the newest one. A heading that says "the last
+    finished run" is a claim about the newest run, and every push to the branch
+    makes it false — the page outlives the run it names. The record goes stale
+    when the workflow's jobs change, because then it prices a loop that no longer
+    exists; the branch moving is not that.
     """
     ci = baseline.get("ci")
     if not isinstance(ci, dict):
@@ -750,7 +756,7 @@ def _render_ci_block(baseline: dict[str, object]) -> list[str]:
     jobs = ci.get("jobs")
     if not isinstance(jobs, dict) or not jobs:
         return []
-    lines = [f"### The last finished run of `{CI_BRANCH}`", ""]
+    lines = [f"### The recorded run of `{CI_BRANCH}`", ""]
     created = ci.get("createdAt")
     url = ci.get("url")
     if created or url:
@@ -758,6 +764,15 @@ def _render_ci_block(baseline: dict[str, object]) -> list[str]:
         if url:
             where += f" — {url}"
         lines.append(f"The CI loop is the one that blocks merges, so it is priced too{where}.")
+        lines.append("")
+        lines.append(
+            "The record is that run, not the newest one. It is stale when the workflow's "
+            "jobs change: a job renamed, added or removed turns it into a price of a "
+            "loop that no longer exists. It is not stale when "
+            f"`{CI_BRANCH}` moves — a later run with the same jobs is another sample of "
+            "the same loop, so re-recording it would move the numbers without making "
+            "the page truer."
+        )
         lines.append("")
     lines.append("| Job | Duration |")
     lines.append("|------|----------|")

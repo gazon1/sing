@@ -393,9 +393,39 @@ class PublishedPageTest(unittest.TestCase):
 
         text = costs.render_document(baseline)
 
-        self.assertIn("### The last finished run of `main`", text)
+        self.assertIn("### The recorded run of `main`", text)
         self.assertIn("JVM tests, detekt, coverage", text)
         self.assertIn("31 min 30 s", text)
+
+    def test_the_record_is_not_claimed_to_be_the_newest_run(self):
+        """The heading must not expire on the next push to the branch.
+
+        "The last finished run of `main`" is a claim about the NEWEST run: every
+        push to the branch makes the page's own heading false, and a document that
+        outlives the run it names cannot carry a superlative. The record goes stale
+        when the workflow's jobs change — that is the change that turns it into a
+        price of a loop that no longer exists — and the branch moving is not that.
+        """
+        baseline = {
+            "schemaVersion": 1,
+            "recordedAt": "2026-10-21T10:00:00Z",
+            "environment": {"os": "Linux"},
+            "gates": {},
+            "steps": {},
+            "ci": {
+                "runId": 1,
+                "url": "https://example.invalid/run/1",
+                "createdAt": "2026-10-21T09:00:00Z",
+                "jobs": {"JVM tests": 1_890_000},
+            },
+        }
+
+        text = costs.render_document(baseline)
+
+        self.assertNotIn("last finished run", text)
+        self.assertIn("The record is that run, not the newest one.", text)
+        self.assertIn("It is stale when the workflow's jobs change", text)
+        self.assertIn("It is not stale when `main` moves", text)
 
     def test_without_a_ci_run_the_section_is_absent(self):
         baseline = {
@@ -408,7 +438,7 @@ class PublishedPageTest(unittest.TestCase):
 
         text = costs.render_document(baseline)
 
-        self.assertNotIn("### The last finished run", text)
+        self.assertNotIn("### The recorded run", text)
 
     def test_the_verdict_of_the_recorded_run_is_published(self):
         """A reader must see whether the priced run was green.

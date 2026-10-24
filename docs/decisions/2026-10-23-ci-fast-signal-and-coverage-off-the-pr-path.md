@@ -173,9 +173,10 @@ with the published page. So renaming the job invalidated nothing — the
 published page simply kept naming a job that no longer exists. The
 measurements are re-recorded anyway, because the point of the page is the
 price of the loop as it is now, and a price that names the old jobs is a
-price of the old loop. Until that re-record lands, the published page still
-prints the old job name and its old duration; the page is the record, and
-the record is one change behind.
+price of the old loop. The re-record landed with #1083: the page prices the
+loop of the new job names, from the first trunk run that carries them. What
+makes a record stale is decided in the ADR of 2026-10-21 — the workflow's
+jobs changing, not the branch moving — and nothing enforces it yet.
 
 **The custom rules keep their own instrumentation.** `:detekt-rules` applies
 the Kover plugin itself, so its tests are instrumented whatever the settings

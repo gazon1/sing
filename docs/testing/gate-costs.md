@@ -127,9 +127,11 @@ Measured on 2026-10-22 — 16 vCPU, warm Gradle cache.
 
 The uninstrumented `:shared:jvmTest` in the table above is a different run: the Kover agent multiplies the cost of every test, and this is the number a timeout has to be set from.
 
-### The last finished run of `main`
+### The recorded run of `main`
 
 The CI loop is the one that blocks merges, so it is priced too — 2026-10-24T10:12:52Z — https://github.com/gazon1/sing/actions/runs/40085015804.
+
+The record is that run, not the newest one. It is stale when the workflow's jobs change: a job renamed, added or removed turns it into a price of a loop that no longer exists. It is not stale when `main` moves — a later run with the same jobs is another sample of the same loop, so re-recording it would move the numbers without making the page truer.
 
 | Job | Duration |
 |------|----------|

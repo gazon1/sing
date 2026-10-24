@@ -40,7 +40,7 @@ measurement is used for a decision.**
   took, read from the runner's own record. Not a median and not a baseline — a hosted
   runner is not this machine, and the local baseline refuses to compare across
   machines for the same reason. A record, not a threshold.
-- That record is the **branch's** last **finished** run, and it carries the run's
+- That record is one **finished** run of the branch, and it carries the run's
   verdict. A run that is still going has no duration for the jobs that have not
   finished, so recording it would publish the price of half a loop as the price of
   the loop. A pull request's run is the price of that pull request, not of the loop
@@ -48,6 +48,14 @@ measurement is used for a decision.**
   branch's failed run reads a price for something that was never measured. The
   verdict travels with the durations: a price next to a failed run, without the
   verdict, reads as the price of a green one.
+- **The record is that run, not the newest one.** It is stale when the workflow's
+  jobs change — a job renamed, added or removed turns it into a price of a loop that
+  no longer exists — and it is **not** stale when the branch moves: a later run with
+  the same jobs is another sample of the same loop, so re-recording it would move the
+  numbers without making the page truer. The published heading used to say "the last
+  finished run of `main`", which is a claim about the newest run: every push to the
+  branch made the page's own heading false within the hour, and a document that
+  outlives the run it names cannot carry a superlative.
 - A run whose jobs cannot be read is **not recorded**. The published section is
   rendered from the recorded jobs, so a record with no jobs renders no section —
   writing one would delete the price of the loop and say nothing about it. A failed
@@ -90,7 +98,15 @@ graph is declared in the build files.
 ## Consequences
 
 - The published page prices both loops: the local one with medians and a machine, the
-  CI one as a record of the branch's last finished run, with the run's verdict.
+  CI one as a record of one finished run of the branch, with the run's verdict. The
+  record goes stale when the workflow's jobs change, not when the branch moves.
+- **The criterion is written down, not enforced.** Nothing compares the recorded job
+  names with the workflow's: `sgate gate-costs` renders the recorded map and compares
+  the published page with the baseline, and `check-published-measurements.py` reads
+  the coverage record, not the CI one. So a renamed job leaves the record naming a
+  job that no longer exists until somebody re-records it — which is exactly what the
+  false names did, and the page kept them for a change. A gate that compares the
+  recorded jobs with the workflow's is the follow-up.
 - The local loop is measurably cheaper: the JSON-contract gate runs concurrently, and
   one duplicated control is gone.
 - A control written twice fails a test, in the registry and in the control lists.
