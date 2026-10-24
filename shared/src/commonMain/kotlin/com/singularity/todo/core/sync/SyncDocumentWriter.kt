@@ -6,7 +6,9 @@ import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.projects.domain.model.INHERITED_TAG_GROUP_IDS_WIRE_NAME
 import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.model.ProjectDocument
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tags.Tag
@@ -101,7 +103,7 @@ internal class SyncDocumentWriter(
                 noteRepo.upsert(noteDocument(document))
 
             DocType.Project ->
-                projectRepo.upsert(StableJson.decodeFromString(serializer<Project>(), document.toString()))
+                projectRepo.upsert(projectDocument(document))
 
             DocType.Tag ->
                 tagRepo.upsert(tagDocument(document))
@@ -175,6 +177,41 @@ internal class SyncDocumentWriter(
         toJson = { note: Note -> note.toJson() },
         decode = { merged -> StableJson.decodeFromString(serializer<Note>(), merged.toString()) },
     )
+
+    /**
+     * The document as a project, read against the row that is already here.
+     *
+     * The same rule as the task's and the note's: the document wins wherever it
+     * speaks, and where it says nothing the project that is already here keeps
+     * saying what it says. A project document from a device that predates a
+     * field carries no key for it, and writing that absence as the model's
+     * default would empty the field on this device — silently, because the
+     * project is written whole.
+     *
+     * The inheritance is not a field of the row: it lives in a cross-reference
+     * table, and the row that is read cannot see it. So the merge leaves the
+     * key alone — the local row makes no claim about the inheritance — and the
+     * claim the document makes about it travels beside the project.
+     */
+    private suspend fun projectDocument(document: JsonObject): ProjectDocument {
+        // The key is read before the decode, because after it the two cases are
+        // the same project: the field the model cannot do without has a default,
+        // and the difference between "inherits nothing" and "says nothing about
+        // the inheritance" is gone.
+        val carriesInheritance = document.containsKey(INHERITED_TAG_GROUP_IDS_WIRE_NAME)
+        val project = mergedRow(
+            document = document,
+            read = { id: String -> projectRepo.get(ProjectId.fromString(id)) },
+            toJson = { project: Project ->
+                JsonObject(project.toJson().filterKeys { it != INHERITED_TAG_GROUP_IDS_WIRE_NAME })
+            },
+            decode = { merged -> StableJson.decodeFromString(serializer<Project>(), merged.toString()) },
+        )
+        return ProjectDocument(
+            project = project,
+            inheritedTagGroupIds = if (carriesInheritance) project.inheritedTagGroupIds else null,
+        )
+    }
 
     /** The document as a tag, read against the row that is already here. */
     private suspend fun tagDocument(document: JsonObject): Tag = mergedRow(

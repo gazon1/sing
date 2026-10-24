@@ -7,6 +7,7 @@ import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.model.ProjectDocument
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.test.helpers.DesktopShell
@@ -85,13 +86,17 @@ class NavigationFlowTest {
     fun plans_detail_survives_tab_roundtrip() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
         val epoch = Instant.fromEpochMilliseconds(0)
         koin.get<ProjectsRepository>().upsert(
-            Project(
-                id = ProjectId.fromString("robot-project-roundtrip"),
-                name = "Roadmap",
-                color = 0xFF2196F3.toInt(),
-                createdAt = epoch,
-                updatedAt = epoch,
-                userId = koin.get<ProfileAwareCurrentUser>().scopedUserId.value,
+            ProjectDocument(
+                Project(
+                    id = ProjectId.fromString("robot-project-roundtrip"),
+                    name = "Roadmap",
+                    color = 0xFF2196F3.toInt(),
+                    createdAt = epoch,
+                    updatedAt = epoch,
+                    userId = koin.get<ProfileAwareCurrentUser>().scopedUserId.value,
+                ),
+                // The document claims the groups it carries, and it carries none.
+                emptySet(),
             ),
         )
 
@@ -122,13 +127,17 @@ class NavigationFlowTest {
     ) { koin ->
         val epoch = Instant.fromEpochMilliseconds(0)
         val project = koin.get<ProjectsRepository>().upsert(
-            Project(
-                id = ProjectId.fromString("robot-project-policy"),
-                name = "Roadmap",
-                color = 0xFF2196F3.toInt(),
-                createdAt = epoch,
-                updatedAt = epoch,
-                userId = koin.get<ProfileAwareCurrentUser>().scopedUserId.value,
+            ProjectDocument(
+                Project(
+                    id = ProjectId.fromString("robot-project-policy"),
+                    name = "Roadmap",
+                    color = 0xFF2196F3.toInt(),
+                    createdAt = epoch,
+                    updatedAt = epoch,
+                    userId = koin.get<ProfileAwareCurrentUser>().scopedUserId.value,
+                ),
+                // The document claims the groups it carries, and it carries none.
+                emptySet(),
             ),
         )
         tasks(koin).given(due = today, title = "Ship the policy", projectId = project.id)
