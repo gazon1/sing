@@ -12,7 +12,9 @@ import com.singularity.todo.core.database.AppDatabaseFactory
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.sync.DocType
 import com.singularity.todo.core.sync.FakeSyncRepository
+import com.singularity.todo.core.sync.SyncDocumentWriter
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl
 import com.singularity.todo.feature.tasks.data.parseLinksJson
@@ -24,10 +26,19 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.test.fakes.FakeAuthRepository
+import com.singularity.todo.test.fakes.FakeClock
+import com.singularity.todo.test.fakes.FakeNotesRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.test.fakes.FakeProjectsRepository
+import com.singularity.todo.test.fakes.FakeTagGroupRepository
+import com.singularity.todo.test.fakes.FakeTagsRepository
+import com.singularity.todo.test.fakes.FakeTimeTrackingRepository
 import com.singularity.todo.test.fakes.FakeUnitOfWork
 import java.io.File
 import java.nio.file.Files
+import kotlin.test.AfterTest
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -35,11 +46,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
+import kotlinx.serialization.json.JsonObject
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
-import kotlin.test.AfterTest
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 /**
  * A task document is more than a row, and every path that applies one has to
@@ -552,6 +561,46 @@ class TaskDocumentWriteTest {
             before,
             linksOf("t9", bob),
             "the row of the other profile kept the links it carried",
+        )
+    }
+
+    @Test
+    fun `a document that carries no series id still leaves the series saying one thing`() = runTest {
+        val repo = repo()
+        val series = TaskSeriesId("series-1")
+        repo.createSeries(
+            listOf(
+                task("t1", seriesId = series, title = "Pay the rent"),
+                task("t2", seriesId = series, title = "Pay the rent"),
+            ),
+        ).getOrThrow()
+        advanceUntilIdle()
+
+        // The document that arrives carries no series id: a device that
+        // predates the series sends no such key. The row keeps the series it
+        // has — and the series still says one thing about the work, because
+        // the document changed a task of the series, and the rule of the
+        // series does not depend on whether the sender knew about it.
+        val writer = SyncDocumentWriter(
+            taskRepo = repo,
+            noteRepo = FakeNotesRepository(),
+            projectRepo = FakeProjectsRepository(),
+            tagRepo = FakeTagsRepository(),
+            tagGroupRepo = FakeTagGroupRepository(),
+            timeTrackingRepo = FakeTimeTrackingRepository(FakeClock()),
+        )
+        val arriving = task("t1", seriesId = series, title = "Pay the rent in full")
+        writer.upsert(
+            DocType.Task,
+            JsonObject(arriving.toJson().filterKeys { it != "seriesId" }),
+        )
+        advanceUntilIdle()
+
+        val members = repo.observeSeries(series).first().associateBy { it.id.value }
+        assertEquals(
+            "Pay the rent in full",
+            members.getValue("t2").title,
+            "the series says one thing about the work",
         )
     }
 
