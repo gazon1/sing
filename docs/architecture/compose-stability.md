@@ -66,10 +66,11 @@ as well as where it is used.
   types that exist, the modules read it, the types it names keep the promise
   it makes for them, and the register of debt still matches the repository.
   An entry may name a **class** or an **interface** — the compiler honours an
-  interface entry and applies it to the implementations that carry the
-  interface, so the promise covers those too, and the gate checks them. An
-  `object` is stable without the contract, and a `typealias` resolves to no
-  class: both are findings, because both say less than they appear to.
+  interface entry, and the promise it makes is about the *instances* of that
+  interface: an instance may be any of the implementations, so the gate checks
+  them too, and holds them to the same promise. An `object` is stable without
+  the contract, and a `typealias` resolves to no class: both are findings,
+  because both say less than they appear to.
 
 ## The rule that decides everything
 

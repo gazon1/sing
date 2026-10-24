@@ -106,6 +106,11 @@ class ComposeStabilityConfigTest(unittest.TestCase):
         baseline: str | None = None,
     ) -> int:
         register_path = register if register is not None else root / "no-register.kt"
+        if register is None:
+            # An empty register, not a missing one: the gate reads the file it
+            # is pointed at, and a file that is not there is a finding of its
+            # own — the debt is not measured at all.
+            write(register_path, "val KNOWN = mapOf()\n")
         baseline_path = root / "debt-baseline.conf"
         if baseline is None:
             # The recorded size follows the fixture, so that the ratchet is
@@ -617,6 +622,144 @@ class ComposeStabilityConfigTest(unittest.TestCase):
                 "}\n",
             )
             self.assertEqual(self.run_gate(root, conf), 0)
+
+    def test_a_declaration_without_a_parameter_list_takes_no_body(self):
+        """A declaration without a parameter list has no body either.
+
+        `interface Api` on one line and `class Impl { … }` on the next is two
+        declarations. The search for a body must stop at the line break: a
+        `var` that belongs to the second declaration is not the first one's,
+        and the gate must not report it twice — or report it against the
+        wrong type.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            conf = build_tree(root, f"{PACKAGE}.Repo\n")
+            write(
+                root / "shared" / "src" / "commonMain" / "kotlin" / "com" / "singularity"
+                / "todo" / "feature" / "tasks" / "domain" / "model" / "Task.kt",
+                f"package {PACKAGE}\n\n"
+                "interface Repo\n\n"
+                "class TaskRepo {\n"
+                "    var mutable: String = \"\"\n"
+                "}\n",
+            )
+            self.assertEqual(self.run_gate(root, conf), 0)
+
+    def test_a_namesake_in_another_package_is_not_an_implementation(self):
+        """A simple name says nothing about which one it is.
+
+        Two packages may declare an interface with the same simple name. The
+        one in another package is a different interface, and a class that
+        carries it does not carry ours — so the promise of our entry does not
+        reach it.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            conf = build_tree(root, f"{PACKAGE}.Repo\n")
+            write(
+                root / "shared" / "src" / "commonMain" / "kotlin" / "com" / "singularity"
+                / "todo" / "feature" / "tasks" / "domain" / "model" / "Task.kt",
+                f"package {PACKAGE}\n\ninterface Repo\n",
+            )
+            write(
+                root / "shared" / "src" / "commonMain" / "kotlin" / "com" / "singularity"
+                / "todo" / "core" / "other" / "Other.kt",
+                "package com.singularity.todo.core.other\n\n"
+                "interface Repo\n\n"
+                "class OtherRepo : Repo {\n"
+                "    var mutable: String = \"\"\n"
+                "}\n",
+            )
+            self.assertEqual(self.run_gate(root, conf), 0)
+
+    def test_an_implementation_in_another_package_is_found(self):
+        """The implementation is found when the file imports the interface."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            conf = build_tree(root, f"{PACKAGE}.Repo\n")
+            write(
+                root / "shared" / "src" / "commonMain" / "kotlin" / "com" / "singularity"
+                / "todo" / "feature" / "tasks" / "domain" / "model" / "Task.kt",
+                f"package {PACKAGE}\n\ninterface Repo\n",
+            )
+            write(
+                root / "shared" / "src" / "commonMain" / "kotlin" / "com" / "singularity"
+                / "todo" / "core" / "other" / "Other.kt",
+                f"import {PACKAGE}.Repo\n\n"
+                "package com.singularity.todo.core.other\n\n"
+                "class OtherRepo : Repo {\n"
+                "    var mutable: String = \"\"\n"
+                "}\n",
+            )
+            self.assertEqual(self.run_gate(root, conf), 1)
+
+    def test_a_use_site_annotation_on_the_same_line_is_checked(self):
+        """`@get:JvmName("x") var x: String` is a property.
+
+        The use-site target has a colon in it, and a pattern that does not
+        allow the colon does not see the property at all — so the `var` behind
+        it goes unchecked.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            conf = build_tree(root, f"{PACKAGE}.Task\n")
+            write(
+                root / "shared" / "src" / "commonMain" / "kotlin" / "com" / "singularity"
+                / "todo" / "feature" / "tasks" / "domain" / "model" / "Task.kt",
+                f"package {PACKAGE}\n\n"
+                "class Task {\n"
+                "    @get:JvmName(\"name\") var name: String = \"\"\n"
+                "}\n",
+            )
+            self.assertEqual(self.run_gate(root, conf), 1)
+
+    def test_a_fun_interface_is_a_declaration(self):
+        """`fun interface` is an interface, and the gate must see it."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            conf = build_tree(root, f"{PACKAGE}.Repo\n")
+            write(
+                root / "shared" / "src" / "commonMain" / "kotlin" / "com" / "singularity"
+                / "todo" / "feature" / "tasks" / "domain" / "model" / "Task.kt",
+                f"package {PACKAGE}\n\n"
+                "fun interface Repo {\n"
+                "    fun call()\n"
+                "}\n",
+            )
+            self.assertEqual(self.run_gate(root, conf), 0)
+
+    def test_an_inner_class_is_a_declaration(self):
+        """An inner class is a class, and the gate must see it."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            conf = build_tree(root, f"{PACKAGE}.Task.Nested\n")
+            write(
+                root / "shared" / "src" / "commonMain" / "kotlin" / "com" / "singularity"
+                / "todo" / "feature" / "tasks" / "domain" / "model" / "Task.kt",
+                f"package {PACKAGE}\n\n"
+                "class Task {\n"
+                "    inner class Nested {\n"
+                "        var mutable: String = \"\"\n"
+                "    }\n"
+                "}\n",
+            )
+            self.assertEqual(self.run_gate(root, conf), 1)
+
+    def test_a_missing_register_is_not_a_shrunk_debt(self):
+        """A register that was not read is not a register that shrank.
+
+        The message about a shrunk debt asks for a number to be lowered, and
+        lowering it to zero switches the measurement off — the debt would then
+        grow unnoticed.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            conf = build_tree(root, f"{PACKAGE}.Task\n")
+            self.assertEqual(
+                self.run_gate(root, conf, register=root / "no-such-register.kt"),
+                1,
+            )
 
     def test_an_entry_that_names_an_interface_passes(self):
         """An interface is something the compiler can use.

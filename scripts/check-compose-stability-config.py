@@ -25,10 +25,11 @@ So this gate checks seven things:
      contract, and a `typealias` resolves to no class at all: both are
      reported, because both say less than they appear to;
   4. the file is actually wired into the modules that compile composables;
-  5. every type the contract names keeps the promise it makes for it — no
-     `var`, no collection that can change after construction. For an interface
-     the promise covers the implementations too, because the compiler applies
-     the entry to them;
+  5. every type the contract names **from this project's namespace** keeps the
+     promise it makes for it — no `var`, no collection that can change after
+     construction. For an interface the promise covers the implementations too,
+     because an instance of the interface may be one of them. A library type
+     is not checked: its declarations are not in these sources;
   6. every site the register of debt names is still declared in the sources;
   7. every parameter the register of debt names is still declared by some
      declaration of that site, and the register has not grown past the size
@@ -55,6 +56,15 @@ It does not run the compiler, and it does not read the compiler's stability
 report. The report is a build artifact: it exists only when a compilation ran,
 and it is not a thing a gate may depend on. The contract is checked where it
 lives — in a source file.
+
+It does not check the declarations of a library type: they are not in these
+sources. Such an entry is checked for existence only — that the codebase
+imports the type it names — and the promise for it is taken on trust.
+
+An entry may not carry a wildcard in the middle of the name. The compiler's
+matcher accepts `com.example.*.Foo`, and this gate does not: the entry is
+reported as a name that is not fully qualified. The contract uses no such
+entry, and a wildcard at the end of a name is what it is for.
 
 Usage:
     python3 scripts/check-compose-stability-config.py
@@ -125,7 +135,8 @@ _IMPORT = re.compile(r"^import\s+([\w.]+)", re.M)
 _DECLARATION_WITH_KIND = re.compile(
     r"^[ \t]*(?:@\w+(?:\([^)]*\))?\s+)*"
     r"(?:public\s+|internal\s+|private\s+|protected\s+|abstract\s+|sealed\s+|open\s+"
-    r"|data\s+|value\s+|enum\s+|annotation\s+|expect\s+|actual\s+|inline\s+)*"
+    r"|data\s+|value\s+|enum\s+|annotation\s+|expect\s+|actual\s+|inline\s+|fun\s+"
+    r"|inner\s+)*"
     r"(class|interface|object)\s+([A-Za-z_]\w*)",
     re.M,
 )
@@ -142,6 +153,8 @@ class Declaration:
     kind: str
     properties: list[tuple[str, str, str | None, str | None]] = field(default_factory=list)
     supertypes: list[str] = field(default_factory=list)
+    package: str = ""
+    imports: frozenset[str] = frozenset()
 
 
 @dataclass
@@ -167,7 +180,7 @@ class _Site:
 #: check that does not see a property is not a check.
 _PROPERTY = re.compile(
     r"^\s*"
-    r"(?:@[\w.]+(?:\([^)]*\))?[ \t]*\n?[ \t]*)*"
+    r"(?:@[\w.]+(?::[\w.]+)?(?:\([^)]*\))?[ \t]*\n?[ \t]*)*"
     r"(?:(?:private|public|internal|protected|override|lateinit|open|final|abstract|"
     r"const|expect|actual)[ \t]+)*"
     r"(val|var)[ \t]+([A-Za-z_]\w*)",
@@ -292,11 +305,16 @@ def declared_declarations(sources: list[pathlib.Path]) -> dict[str, Declaration]
                 )
             )
         names = _qualified_names(package, sites)
+        imports = frozenset(
+            match.group(1) for match in _IMPORT.finditer(text)
+        )
         for index, site in enumerate(sites):
             declarations[names[index]] = Declaration(
                 kind=site.kind,
                 properties=_properties_of(site.constructor, site.body),
                 supertypes=site.supertypes,
+                package=package,
+                imports=imports,
             )
         for match in _TYPEALIAS.finditer(text):
             fqn = f"{package}.{match.group(1)}" if package else match.group(1)
@@ -329,7 +347,25 @@ def imported_types(sources: list[pathlib.Path]) -> set[str]:
 #: What may follow a class header that a line break ended. The header
 #: continues when the next line is part of it; when it is not, the class is
 #: over and the next declaration is somebody else's.
-_HEADER_CONTINUES = (":", "{", "<", ",", "where", ")")
+#:
+#: The modifiers are in the list because a header may break before them:
+#: `class Task` on one line and `private constructor(...)` on the next is the
+#: same header.
+_HEADER_CONTINUES = (
+    ":",
+    "{",
+    "<",
+    ",",
+    "where",
+    ")",
+    "private",
+    "public",
+    "internal",
+    "protected",
+    "constructor",
+    "expect",
+    "actual",
+)
 
 
 def _continues_header(text: str, position: int) -> bool:
@@ -429,8 +465,14 @@ def _class_parts(
     position = after_name
     constructor = ""
     supertypes: list[str] = []
-    while position < len(text) and text[position].isspace():
-        position += 1
+    # The space between the name and what follows decides whether the header
+    # is over: a header that ends on the line break is over, and what follows
+    # is another declaration. The whitespace has to be skipped *with* that
+    # knowledge — skipping it blindly loses the line break, and a declaration
+    # without a parameter list then takes the body of the next one.
+    position, crossed = _skip_space(text, position)
+    if crossed and not _continues_header(text, position):
+        return constructor, "", None, supertypes
     visibility = re.compile(r"(?:private|public|internal|protected|expect|actual)[ \t]+")
     matched = visibility.match(text, position)
     if matched is not None:
@@ -689,8 +731,9 @@ def check_contract_honesty(
                 targets += _implementations_of(qualified, declarations, ancestors)
             for target in targets:
                 reached = "" if target == qualified else (
-                    f" — the entry for {qualified} reaches it, because it carries "
-                    f"the interface"
+                    f" — {qualified} is the type the contract vouches for, and this "
+                    f"declaration is one of its implementations, so an instance of it may "
+                    f"be compared by equals"
                 )
                 for kind, name, type_text, initializer in declarations[target].properties:
                     if kind == "var":
@@ -729,8 +772,10 @@ def _ancestors(declarations: dict[str, Declaration]) -> dict[str, set[str]]:
     """For every declaration, the declarations it carries as supertypes.
 
     A supertype is written by its simple name, so the name is resolved against
-    the declarations of the same package first — the package says which one it
-    is — and against the rest of the tree otherwise.
+    the declarations of the same package — the package says which one it is —
+    and against the ones the file imports. A name that is neither belongs to
+    nothing the gate can see, and an unresolved supertype is no implementation
+    at all: a namesake in another package is not the interface.
     """
     by_simple: dict[str, list[str]] = {}
     for fqn in declarations:
@@ -740,11 +785,15 @@ def _ancestors(declarations: dict[str, Declaration]) -> dict[str, set[str]]:
         candidates = by_simple.get(name, [])
         if not candidates:
             return None
-        package = owner.rsplit(".", 1)[0] if "." in owner else ""
+        package = declarations[owner].package
         for candidate in candidates:
-            if candidate.rsplit(".", 1)[0] == package:
+            if declarations[candidate].package == package:
                 return candidate
-        return candidates[0]
+        imported = declarations[owner].imports
+        for candidate in candidates:
+            if candidate in imported:
+                return candidate
+        return None
 
     ancestors: dict[str, set[str]] = {}
 
@@ -1282,7 +1331,16 @@ def cli(
         roots = source_roots(root)
         findings += check_register_sites(sites, roots)
         findings += check_register_parameters(sites, debt, roots)
-    findings += check_debt_size(debt, read_debt_baseline(debt_baseline))
+    if not register.is_file():
+        # A register that was not read is not a register that shrank: the debt
+        # is not measured at all, and a ratchet that measures nothing lets the
+        # debt grow unnoticed.
+        findings.append(
+            f"the register of debt was not read: {register} is missing — the debt "
+            "cannot be measured, and the ratchet below cannot hold it",
+        )
+    else:
+        findings += check_debt_size(debt, read_debt_baseline(debt_baseline))
 
     for finding in findings:
         click.echo(f"[compose-stability] {finding}")

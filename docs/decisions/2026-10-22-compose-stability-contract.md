@@ -429,13 +429,18 @@ wrong one; a type that holds a `MutableList` has a collection that can change
 after construction, and `equals` of a collection that changed is a lie about
 "the same content".
 
-The gate now reads the declaration of every type the contract names and
-rejects those two. What it cannot see is the rest of the promise: the
-contract also says that the collections a type holds are rebuilt on every read
-and never mutated afterwards, and *that* is a statement about every write in
-the program — a question about data flow, not about declarations. A read-only
-`List` is allowed, because `Task` holds a `List<TagId>` on purpose; the
+The gate now reads the declaration of every type the contract names from this
+project's namespace and rejects those two. What it cannot see is the rest of the
+promise: the contract also says that the collections a type holds are rebuilt on
+every read and never mutated afterwards, and *that* is a statement about every
+write in the program — a question about data flow, not about declarations. A
+read-only `List` is allowed, because `Task` holds a `List<TagId>` on purpose; the
 mutable spellings are what a declaration can show, and those are rejected.
+
+A library type is the one case the check does not reach: its declarations are
+not in these sources. `kotlinx.datetime.LocalDate` and the two others are
+listed on the strength of the library's own immutability, and the gate checks
+only that the codebase imports them.
 
 ### The kinds are told apart by what the compiler does with them
 
@@ -452,9 +457,12 @@ compiler's own report:
 - **An interface** is honoured. The compiler matches the entry against the
   supertypes of a class as well, so an entry for `UiNode` made
   `UiNode.Checkbox` and `UiNode.TextField` stable, and the `$stable` marker
-  appeared in their class files. The promise therefore covers the
+  appeared in their class files. The promise the contract makes is about the
+  *instances* of the interface: an instance may be any of the implementations,
+  and the compiler compares it by `equals`. So the promise covers the
   implementations, and the gate checks them: it finds them by their supertypes
-  and holds them to the same promise.
+  — a name in the same package, or an imported one — and holds them to the
+  same promise.
 - **An object** the compiler judges stable on its own — an object is a
   singleton, so there is nothing to compare, and the stability report shows
   the objects of this repository as `stable class` with no entry for them at
