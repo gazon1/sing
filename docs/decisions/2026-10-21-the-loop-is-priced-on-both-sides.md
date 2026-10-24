@@ -113,16 +113,20 @@ graph is declared in the build files.
   the run did not run, and the set of jobs a trunk push runs depends on the
   paths the push touched, so "the workflow's trunk jobs" is not a fixed set. A
   matrix job is expanded before the comparison — the runner shows
-  `Android (free)` and `Android (pro)` where the workflow declares one job, and
-  an `exclude` takes a leg away from both sides.
-- **A job whose display name the gate cannot compute silences it, and says so.**
-  A name that holds an expression other than a matrix reference
-  (`Nightly ${{ github.event.schedule }}`) is resolved by the runner and
-  recorded resolved; the gate cannot compute it. Comparing the two would report
-  a healthy tree as stale, so the gate does not compare them — and it does not
-  guess either: while such a job is in the workflow, no recorded name can be
-  proven gone, and the gate names the job that stopped it. A gate that stops
-  proving and says why is not a gate that goes quiet.
+  `Android (free)` and `Android (pro)` where the workflow declares one job. An
+  `exclude` takes an axis-generated leg away from both sides; it does not take
+  an `include` entry away, because GitHub processes every `exclude` before
+  every `include`.
+- **A job whose display name the gate cannot compute makes only ITS name
+  unproven, and says so.** A name that holds an expression other than a matrix
+  reference (`Nightly ${{ github.event.schedule }}`) is resolved by the runner
+  and recorded resolved; the gate cannot compute it. Comparing the two would
+  report a healthy tree as stale, so the gate does not compare them. The name
+  becomes a pattern instead (`Nightly *`), and only a recorded name that
+  matches it is left unproven — one uncomputable job must not silence the rest
+  of the gate. The gate prints the names it could not prove, whatever
+  `--quiet` says: a gate that stops proving and says why is not a gate that
+  goes quiet.
 - The local loop is measurably cheaper: the JSON-contract gate runs concurrently, and
   one duplicated control is gone.
 - A control written twice fails a test, in the registry and in the control lists.

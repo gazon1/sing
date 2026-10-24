@@ -190,12 +190,17 @@ names the ones that are gone. The comparison is one-sided on purpose: the record
 holds the jobs that RAN and the workflow declares the jobs that CAN run, so equality
 would be red forever. A matrix job is expanded before the comparison, because the
 runner shows `Android (free)` and `Android (pro)` where the workflow declares one
-job.
+job; an `exclude` takes an axis-generated leg away from both sides, while an
+`include` entry is a leg whatever the excludes say.
 
 What it does not see: a job renamed and renamed back, an edit that keeps every name
-and changes what a job does, and a job added to the trunk path — the set of jobs a
-trunk push runs depends on the paths the push touched. The limit is written down in
-the gate's own docstring.""",
+and changes what a job does, and a job added to the workflow — a job the record
+does not name is indistinguishable from a job the run did not run, and the set of
+jobs a trunk push runs depends on the paths the push touched. A job whose display
+name the gate cannot compute (a name holding an expression other than a matrix
+reference) makes only the recorded names that match its pattern unproven; the gate
+prints them rather than going quiet. The limit is written down in the gate's own
+docstring.""",
     ),
     "the memory budget is one record": Placement(
         kind=PlacementKind.STATIC,

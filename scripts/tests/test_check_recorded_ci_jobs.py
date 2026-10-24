@@ -116,6 +116,47 @@ jobs:
       - run: echo nightly
 """
 
+WORKFLOW_WITH_EXPRESSION_AND_A_JOB = """\
+name: CI
+
+on:
+  schedule: []
+
+jobs:
+  nightly:
+    name: Nightly ${{ github.event.schedule }}
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo nightly
+  tests:
+    name: JVM tests
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo tests
+"""
+
+WORKFLOW_WITH_INCLUDE_AND_EXCLUDE = """\
+name: CI
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  android:
+    name: Android (${{ matrix.variant }})
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        include:
+          - variant: free
+          - variant: pro
+        exclude:
+          - variant: pro
+    steps:
+      - run: echo android
+"""
+
 
 def _record(jobs: dict[str, int] | None) -> str:
     """A baseline holding a CI record with the given jobs."""
@@ -312,6 +353,15 @@ class TheExcludedLegTest(RecordedJobsTest):
 
         self.assertEqual(code, mod.CLEAN)
 
+    def test_an_exclude_does_not_take_an_include_leg_away(self) -> None:
+        """GitHub processes every `exclude` before every `include`."""
+        self.workflow.write_text(WORKFLOW_WITH_INCLUDE_AND_EXCLUDE, encoding='utf-8')
+        self._write({'Android (free)': 129_000, 'Android (pro)': 220_000})
+
+        code = self._run()
+
+        self.assertEqual(code, mod.CLEAN)
+
 
 class TheUncomputableNameTest(RecordedJobsTest):
     """A name the gate cannot compute cannot prove that a recorded job is gone."""
@@ -324,13 +374,30 @@ class TheUncomputableNameTest(RecordedJobsTest):
 
         self.assertEqual(code, mod.CLEAN)
 
-    def test_the_gate_says_which_job_stopped_it_from_proving_that(self) -> None:
+    def test_the_gate_says_which_recorded_job_it_could_not_prove(self) -> None:
         self.workflow.write_text(WORKFLOW_WITH_EXPRESSION, encoding='utf-8')
         self._write({'Nightly 2026-10-24': 60_000})
 
         self._run()
 
-        self.assertIn('nightly', self.output.getvalue())
+        self.assertIn('Nightly 2026-10-24', self.output.getvalue())
+
+    def test_an_uncomputable_name_does_not_silence_the_rest_of_the_gate(self) -> None:
+        """One job the gate cannot compute must not stop it from proving another one gone."""
+        self.workflow.write_text(WORKFLOW_WITH_EXPRESSION, encoding='utf-8')
+        self._write({'Nightly 2026-10-24': 60_000, 'nowhere': 1_000})
+
+        code = self._run()
+
+        self.assertEqual(code, mod.VALIDATION_FAILURE)
+
+    def test_a_renamed_job_is_still_a_finding_next_to_an_uncomputable_name(self) -> None:
+        self.workflow.write_text(WORKFLOW_WITH_EXPRESSION_AND_A_JOB, encoding='utf-8')
+        self._write({'JVM tests [renamed]': 1_000})
+
+        code = self._run()
+
+        self.assertEqual(code, mod.VALIDATION_FAILURE)
 
 
 class TheMalformedRecordTest(RecordedJobsTest):
@@ -363,12 +430,12 @@ class TheReadingTest(unittest.TestCase):
         self.assertEqual(mod.recorded_jobs('{"schemaVersion": 1}'), [])
 
     def test_the_declared_jobs_include_the_key_of_a_nameless_job(self) -> None:
-        names, opaque = mod.declared_jobs(WORKFLOW)
+        names, patterns = mod.declared_jobs(WORKFLOW)
 
         self.assertIn('changes', names)
         self.assertIn('Static gates', names)
         self.assertIn('CI gate', names)
-        self.assertEqual(opaque, [])
+        self.assertEqual(patterns, [])
 
     def test_the_declared_jobs_expand_the_matrix(self) -> None:
         names, _ = mod.declared_jobs(WORKFLOW)
@@ -384,10 +451,10 @@ class TheReadingTest(unittest.TestCase):
         self.assertIn('Android (free)', names)
         self.assertNotIn('Android (tablet)', names)
 
-    def test_a_name_the_gate_cannot_compute_is_reported_as_opaque(self) -> None:
-        names, opaque = mod.declared_jobs(WORKFLOW_WITH_EXPRESSION)
+    def test_a_name_the_gate_cannot_compute_becomes_a_pattern(self) -> None:
+        names, patterns = mod.declared_jobs(WORKFLOW_WITH_EXPRESSION)
 
-        self.assertEqual(opaque, ['nightly'])
+        self.assertEqual(patterns, ['Nightly *'])
         self.assertNotIn('Nightly ${{ github.event.schedule }}', names)
 
     def test_a_malformed_ci_block_is_an_error(self) -> None:

@@ -50,9 +50,11 @@ What the rule does NOT see
 - **A job whose display name the gate cannot compute.** A name that holds an
   expression other than a matrix reference (`Nightly ${{ github.event.schedule }}`)
   is resolved by the runner and recorded resolved, and the gate cannot compute
-  it. It does not compare the two — a healthy tree would read as stale — and it
-  does not guess: while such a job is in the workflow, no recorded name can be
-  proven gone, and the gate says which job stopped it from proving that.
+  it. It does not compare the two — a healthy tree would read as stale. The
+  name becomes a pattern instead (`Nightly *`), and only a recorded name that
+  matches it is left unproven: one uncomputable job does not silence the rest
+  of the gate. The gate prints the names it could not prove, whatever
+  `--quiet` says.
 
 Usage:
     python3 scripts/check-recorded-ci-jobs.py            # report
@@ -67,6 +69,7 @@ Exit codes:
 
 from __future__ import annotations
 
+import fnmatch
 import itertools
 import json
 import pathlib
@@ -151,9 +154,17 @@ def _legs(matrix: object) -> list[dict[str, object]]:
     `tasks`). Both shapes are read: the axes give the combinations, and every
     `include` entry is a leg of its own.
 
-    `exclude` takes legs away: the runner never shows an excluded leg, so a
-    gate that declares it would accept a record of a job the workflow does not
-    run any more — the exact false negative the gate exists to prevent.
+    `exclude` takes axis-generated legs away: the runner never shows an
+    excluded combination, so a gate that declares it would accept a record of
+    a job the workflow does not run any more — the exact false negative the
+    gate exists to prevent.
+
+    `exclude` does NOT take an `include` entry away. GitHub processes every
+    `exclude` against the axis combinations first and every `include` after
+    it, so an include entry is a leg whatever the excludes say. A gate that
+    excluded an include entry would report a job the runner still shows as
+    gone — a false positive on a healthy tree, in the matrix style this
+    repository uses.
     """
     if not isinstance(matrix, dict):
         return [{}]
@@ -165,20 +176,18 @@ def _legs(matrix: object) -> list[dict[str, object]]:
     legs: list[dict[str, object]] = []
     if axes:
         keys = sorted(axes)
+        exclude = matrix.get('exclude')
+        excludes = [entry for entry in exclude if isinstance(entry, dict)] if isinstance(exclude, list) else []
         for combination in itertools.product(*(axes[key] for key in keys)):
-            legs.append(dict(zip(keys, combination)))
+            leg = dict(zip(keys, combination))
+            if any(_excluded(leg, entry) for entry in excludes):
+                continue
+            legs.append(leg)
     include = matrix.get('include')
     if isinstance(include, list):
         for entry in include:
             if isinstance(entry, dict):
                 legs.append(dict(entry))
-    exclude = matrix.get('exclude')
-    if isinstance(exclude, list):
-        legs = [
-            leg
-            for leg in legs
-            if not any(_excluded(leg, entry) for entry in exclude)
-        ]
     return legs or [{}]
 
 
@@ -193,8 +202,8 @@ def _excluded(leg: dict[str, object], entry: object) -> bool:
     return all(key in leg and leg[key] == value for key, value in entry.items())
 
 
-def _expand(template: str, matrix: object) -> tuple[list[str], bool]:
-    """The display names one job produces, one per matrix leg.
+def _expand(template: str, matrix: object) -> tuple[list[str], list[str]]:
+    """The display names one job produces, and the patterns of the ones it cannot.
 
     A leg whose placeholders do not all resolve produces no name: the runner
     would not show `Android (${{ matrix.variant }})` either, and a name the
@@ -203,11 +212,14 @@ def _expand(template: str, matrix: object) -> tuple[list[str], bool]:
     A name that still holds an expression the gate cannot resolve is a name
     the gate cannot compute — the runner resolves it, the record holds the
     resolved text, and comparing the two would report a healthy tree as
-    stale. The second value of the pair says so: the job exists, but its
-    display name is unknown, and an unknown name cannot prove that a recorded
-    job is gone.
+    stale. Such a name becomes a PATTERN instead: the expression becomes a
+    wildcard (`Nightly ${{ github.event.schedule }}` → `Nightly *`), and only
+    a recorded name that matches it is ambiguous. Every other recorded name
+    can still be proven gone — one uncomputable job must not silence the
+    whole gate.
     """
     names: list[str] = []
+    patterns: list[str] = []
     for leg in _legs(matrix):
         missing = [
             key for key in _MATRIX_REF.findall(template) if key not in leg
@@ -216,21 +228,23 @@ def _expand(template: str, matrix: object) -> tuple[list[str], bool]:
             continue
         name = _MATRIX_REF.sub(lambda match: str(leg[match.group(1)]), template)
         if _ANY_EXPR.search(name):
-            return names, True
+            patterns.append(_ANY_EXPR.sub('*', name))
+            continue
         names.append(name)
-    return names, False
+    return names, patterns
 
 
 def declared_jobs(text: str) -> tuple[set[str], list[str]]:
-    """Every job name the workflow declares, and the jobs it cannot name.
+    """Every job name the workflow declares, and the patterns it cannot name.
 
     A job's display name is its `name:`, or its own key when it declares none —
     the runner shows the key in that case (`changes`, `adr-gate`).
 
-    The second value holds the keys of the jobs whose display name the gate
+    The second value holds the patterns of the jobs whose display name the gate
     cannot compute (a name that holds an expression other than a matrix
-    reference). Their names are unknown, so the gate cannot prove that a
-    recorded job is gone while one of them is in the workflow.
+    reference). A recorded name that matches one of them may be that job's
+    resolved name, so the gate cannot prove it gone — but a recorded name that
+    matches none of them can still be proven gone.
     """
     try:
         document = yaml.safe_load(text)
@@ -242,31 +256,44 @@ def declared_jobs(text: str) -> tuple[set[str], list[str]]:
     if not isinstance(jobs, dict):
         raise ValueError('the workflow declares no jobs')
     names: set[str] = set()
-    opaque: list[str] = []
+    patterns: list[str] = []
     for key, job in jobs.items():
         if not isinstance(job, dict):
             continue
         template = str(job.get('name') or key)
         strategy = job.get('strategy')
         matrix = strategy.get('matrix') if isinstance(strategy, dict) else None
-        expanded, unresolved = _expand(template, matrix)
+        expanded, uncomputable = _expand(template, matrix)
         names.update(expanded)
-        if unresolved:
-            opaque.append(str(key))
-    return names, opaque
+        patterns.extend(uncomputable)
+    return names, patterns
 
 
-def findings(recorded: list[str], declared: set[str], opaque: list[str]) -> list[str]:
+def ambiguous_names(recorded: list[str], declared: set[str], patterns: list[str]) -> list[str]:
+    """The recorded names that match a job whose display name is unknown.
+
+    These are the names the gate cannot prove gone: the workflow declares a
+    job whose display name it cannot compute, and the record may hold that
+    job's resolved name.
+    """
+    return [
+        name
+        for name in recorded
+        if name not in declared
+        and any(fnmatch.fnmatchcase(name, pattern) for pattern in patterns)
+    ]
+
+
+def findings(recorded: list[str], declared: set[str], patterns: list[str]) -> list[str]:
     """The recorded jobs the workflow no longer declares.
 
-    A workflow that declares a job whose display name the gate cannot compute
-    makes every recorded name ambiguous: the record may hold that job's
-    resolved name. The gate reports nothing then — it cannot prove anything —
-    and says so instead of guessing.
+    A recorded name that matches a job whose display name the gate cannot
+    compute is not a finding — the gate cannot prove it gone. Every other
+    unmatched recorded name is: one uncomputable job must not silence the
+    whole gate.
     """
-    if opaque:
-        return []
-    return [name for name in recorded if name not in declared]
+    ambiguous = set(ambiguous_names(recorded, declared, patterns))
+    return [name for name in recorded if name not in declared and name not in ambiguous]
 
 
 @click.command()
@@ -288,7 +315,7 @@ def cli(ctx: click.Context, quiet: bool, root: str | None) -> None:
 
     try:
         recorded = recorded_jobs(record_path.read_text(encoding='utf-8'))
-        declared, opaque = declared_jobs(workflow_path.read_text(encoding='utf-8'))
+        declared, patterns = declared_jobs(workflow_path.read_text(encoding='utf-8'))
     except (OSError, ValueError) as error:
         click.echo(f'ERROR: {error}')
         raise ctx.exit(IO_ERROR) from error
@@ -301,14 +328,17 @@ def cli(ctx: click.Context, quiet: bool, root: str | None) -> None:
             )
         raise ctx.exit(CLEAN)
 
-    missing = findings(recorded, declared, opaque)
+    missing = findings(recorded, declared, patterns)
+    ambiguous = ambiguous_names(recorded, declared, patterns)
 
-    if opaque and not quiet:
+    if ambiguous:
+        # Printed whatever `--quiet` says: this is a limit of what the gate can
+        # prove, and a limit nobody reads is a limit nobody knows about.
         click.echo(
-            f'check-recorded-ci-jobs: the workflow declares '
-            f'{len(opaque)} job(s) whose display name the gate cannot compute '
-            f'({", ".join(opaque)}) — no recorded job can be proven gone while one '
-            f'of them is in the workflow'
+            f'check-recorded-ci-jobs: {len(ambiguous)} recorded job(s) match a job '
+            f'whose display name the gate cannot compute '
+            f'({", ".join(sorted(patterns))}) — the gate cannot prove they are gone: '
+            f'{", ".join(sorted(ambiguous))}'
         )
 
     for name in missing:
@@ -331,8 +361,8 @@ def cli(ctx: click.Context, quiet: bool, root: str | None) -> None:
 
     if not quiet:
         click.echo(
-            f'check-recorded-ci-jobs: OK — {len(recorded)} recorded jobs are still '
-            f'jobs the workflow declares'
+            f'check-recorded-ci-jobs: OK — {len(recorded) - len(ambiguous)} recorded '
+            f'jobs are still jobs the workflow declares'
         )
     raise ctx.exit(CLEAN)
 
