@@ -3,6 +3,7 @@ package com.singularity.todo.core.auth
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.functions.Functions
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.storage.Storage
 import kotlinx.coroutines.sync.Mutex
@@ -102,5 +103,9 @@ open class SupabaseClientProvider(private val resolver: SupabaseConfigResolver, 
         install(Postgrest)
         // The backup feature's remote half: the archive goes into a Storage bucket.
         install(Storage)
+        // The Google grant's remote half: the server redeems the one-time code and
+        // holds the refresh token. The SDK carries the session, so the call is made
+        // as the signed-in user and the server can bind the grant to that account.
+        install(Functions)
     }
 }

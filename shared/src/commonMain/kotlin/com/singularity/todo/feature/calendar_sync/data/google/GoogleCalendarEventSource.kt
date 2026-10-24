@@ -1,7 +1,8 @@
 package com.singularity.todo.feature.calendar_sync.data.google
 
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.network.createHttpClient
-import com.singularity.todo.feature.calendar_sync.auth.GoogleCredentialStore
+import com.singularity.todo.feature.calendar_sync.auth.GoogleAccessTokenProvider
 import com.singularity.todo.feature.calendar_sync.domain.model.ChangePage
 import com.singularity.todo.feature.calendar_sync.domain.model.GoogleCalendarSummary
 import com.singularity.todo.feature.calendar_sync.domain.model.GoogleEvent
@@ -53,7 +54,14 @@ import kotlin.time.Clock
  */
 class GoogleCalendarEventSource(
     private val httpClient: HttpClient = createHttpClient(),
-    private val credentials: GoogleCredentialStore,
+    /**
+     * The access token, renewed as needed.
+     *
+     * Not the credential store: on Android the refresh token lives on the server, so
+     * the device cannot renew it and has to ask. The provider knows which of the two
+     * it is on — see [GoogleAccessTokenProvider].
+     */
+    private val accessTokens: GoogleAccessTokenProvider,
     private val userId: String,
     private val json: Json = Json { ignoreUnknownKeys = true },
     /**
@@ -211,7 +219,7 @@ class GoogleCalendarEventSource(
     }
 
     private suspend fun requireToken(): String =
-        credentials.load(userId)?.accessToken
+        accessTokens.accessToken(UserId.fromString(userId))
             ?: throw CalendarSyncException.PermissionRevokedException(
                 "No Google credential for this profile — the user has to connect again",
             )

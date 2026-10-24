@@ -66,6 +66,12 @@ import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewKey
 import com.singularity.todo.feature.agenda.domain.port.DefaultAgendaViewSettingsRepository
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
+import com.singularity.todo.feature.calendar_sync.auth.GoogleAuthorizationException
+import com.singularity.todo.feature.calendar_sync.auth.GoogleAuthorizationRequest
+import com.singularity.todo.feature.calendar_sync.auth.GoogleAuthorizer
+import com.singularity.todo.feature.calendar_sync.auth.GoogleCredentials
+import com.singularity.todo.feature.calendar_sync.auth.GoogleGrant
+import com.singularity.todo.feature.calendar_sync.auth.PendingGoogleAuthorization
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarAppInfo
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncEvent
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarAppQueries
@@ -3148,4 +3154,63 @@ class FakeTagGroupRepository(private val currentUser: ProfileAwareCurrentUser = 
      */
     private fun unsupported(operation: String): Result<Nothing> =
         Result.failure(UnsupportedOperationException("FakeTagGroupRepository.$operation is not needed yet"))
+}
+
+/**
+ * A [GoogleAuthorizer] that never opens a browser.
+ *
+ * The consent is a platform activity, so a test that wants one drives this fake
+ * rather than a network. It records what it was asked for, which is the "this code
+ * is wired" assertion this repository keeps needing.
+ */
+class FakeGoogleAuthorizer(
+    private val result: Result<GoogleCredentials> = Result.failure(
+        GoogleAuthorizationException("This fake was not given a sign-in to report"),
+    ),
+    private val clientId: String? = null,
+) : GoogleAuthorizer {
+    /** The user id the sign-in was asked for, or null if it never ran. */
+    var authorizedFor: String? = null
+        private set
+
+    /** The client ids this fake was asked to store, in order. */
+    val storedClientIds = mutableListOf<String>()
+
+    /** The sign-in this fake prepared, or null when it never prepared one. */
+    var prepared: PendingGoogleAuthorization? = null
+        private set
+
+    /** The grant this fake was asked to redeem, or null when it never redeemed one. */
+    var redeemedGrant: GoogleGrant? = null
+        private set
+
+    override suspend fun configuredClientId(): String? = clientId
+
+    override suspend fun storeClientId(clientId: String) {
+        storedClientIds += clientId
+    }
+
+    override suspend fun beginAuthorization(): Result<PendingGoogleAuthorization> {
+        val pending = PendingGoogleAuthorization(
+            request = GoogleAuthorizationRequest(
+                clientId = clientId ?: "fake-client-id",
+                scopes = listOf("https://www.googleapis.com/auth/calendar"),
+                state = "fake-state",
+                codeChallenge = "fake-code-challenge",
+            ),
+            codeVerifier = "fake-code-verifier",
+        )
+        prepared = pending
+        return Result.success(pending)
+    }
+
+    override suspend fun redeem(
+        pending: PendingGoogleAuthorization,
+        grant: GoogleGrant,
+        userId: String,
+    ): Result<GoogleCredentials> {
+        authorizedFor = userId
+        redeemedGrant = grant
+        return result
+    }
 }

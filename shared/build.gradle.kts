@@ -308,11 +308,25 @@ kotlin {
             // Supabase Storage bucket. Without it the "push to cloud" button can
             // only pretend.
             implementation(libs.storage.kt)
+
+            // The Google account sign-in. The library is used for the credential
+            // chooser and the platform's failure modes; the token exchange is this
+            // project's, because the library has no refresh token.
+            implementation(libs.kmpauth.google)
         }
 
         androidMain.dependencies {
             implementation(libs.compose.ui.tooling)
             implementation(libs.compose.ui.tooling.preview)
+
+            // Google's authorization API — the offline authorization request that
+            // produces the one-time code the server redeems.
+            //
+            // Declared here, not taken from KMPAuth: KMPAuth declares Play Services as
+            // an `implementation` dependency, so it reaches the *runtime* classpath and
+            // not the *compile* one. The classes are then missing exactly where they
+            // are needed — in this project's own code, which asks Google for the grant.
+            implementation(libs.play.services.auth)
 
             // Room Android
             implementation(libs.androidx.room3.runtime)

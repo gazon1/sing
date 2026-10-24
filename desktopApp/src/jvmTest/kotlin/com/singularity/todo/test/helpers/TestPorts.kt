@@ -33,6 +33,13 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import com.singularity.todo.core.auth.oauth.OAuthBrowser
+import com.singularity.todo.core.auth.oauth.OAuthConsentException
+import com.singularity.todo.core.auth.oauth.OAuthRedirectSocket
+import com.singularity.todo.feature.calendar_sync.auth.GoogleAccessTokenProvider
+import com.singularity.todo.feature.calendar_sync.auth.GoogleCredentials
+import com.singularity.todo.feature.calendar_sync.auth.GoogleGrant
+import com.singularity.todo.feature.calendar_sync.auth.GoogleGrantRedeemer
 
 /**
  * Inert implementations of the JVM ports a desktop flow test would otherwise
@@ -327,4 +334,63 @@ class RecordingNotifier : Notifier {
     override fun post(tag: String, title: String, body: String, viewId: String?) {
         posted += Triple(tag, title, body)
     }
+}
+
+/**
+ * A browser that opens nothing.
+ *
+ * The desktop sign-in opens the consent page in the host's browser and waits for a
+ * redirect on a loopback port. A test must not do either: the browser would take the
+ * machine's focus, and the redirect would wait for a human who is not there.
+ */
+class InertOAuthBrowser : OAuthBrowser {
+    val opened = mutableListOf<String>()
+
+    override suspend fun open(url: String): Boolean {
+        opened += url
+        return false
+    }
+}
+
+/**
+ * A redirect socket that never accepts anything.
+ *
+ * The real one binds a port and blocks until the browser comes back with the code.
+ * Here it fails immediately, so a test that presses "Connect Google" gets an error
+ * instead of hanging for the timeout.
+ */
+class InertOAuthRedirectSocket : OAuthRedirectSocket {
+    override suspend fun bind(): Int = 0
+
+    override suspend fun acceptRequestTarget(timeoutMs: Long): Result<String> =
+        Result.failure(OAuthConsentException("No browser is attached to this test"))
+
+    override suspend fun respondDone() = Unit
+
+    override fun close() = Unit
+}
+
+/**
+ * A grant redeemer that redeems nothing.
+ *
+ * The production implementations talk to Google and to the server. A test that reaches
+ * this port wants the *wiring* — that the button leads here — and not a token.
+ */
+class InertGoogleGrantRedeemer : GoogleGrantRedeemer {
+    override suspend fun redeem(
+        grant: GoogleGrant,
+        clientId: String,
+        codeVerifier: String?,
+    ): Result<GoogleCredentials> =
+        Result.failure(IllegalStateException("No Google grant is redeemed in a test"))
+}
+
+/**
+ * An access-token provider that has no token.
+ *
+ * The sync asks for a token and gets nothing, which is the state the screen is in
+ * before the account is connected.
+ */
+class InertGoogleAccessTokenProvider : GoogleAccessTokenProvider {
+    override suspend fun accessToken(userId: UserId): String? = null
 }

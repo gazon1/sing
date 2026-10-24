@@ -8,6 +8,10 @@ import com.singularity.todo.core.ui.featureSlot.combineStates
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarAppInfo
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncStatus
 import com.singularity.todo.feature.calendar_sync.auth.GoogleCredentialStore
+import com.singularity.todo.feature.calendar_sync.auth.GoogleAuthorizer
+import com.singularity.todo.feature.calendar_sync.auth.GoogleAuthorizationRequest
+import com.singularity.todo.feature.calendar_sync.auth.GoogleGrant
+import com.singularity.todo.feature.calendar_sync.auth.PendingGoogleAuthorization
 import com.singularity.todo.feature.calendar_sync.domain.model.GoogleCalendarSummary
 import com.singularity.todo.feature.calendar_sync.domain.model.ImportWindow
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarAppQueries
@@ -16,6 +20,7 @@ import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPo
 import com.singularity.todo.feature.calendar_sync.domain.port.CalendarSyncRepository
 import com.singularity.todo.feature.calendar_sync.domain.port.GoogleCalendarSettingsRepository
 import com.singularity.todo.core.auth.CurrentUser
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.error.runCatchingResult
 import com.singularity.todo.feature.calendar_sync.sync.CalendarSyncOrchestrator
 import com.singularity.todo.feature.calendar_sync.sync.GoogleSyncCoordinator
@@ -54,6 +59,38 @@ data class CalendarSyncUiState(
     /** Whether a Google account is connected for this profile. */
     val googleConnected: Boolean = false,
     /**
+     * The OAuth client id the Google sign-in will use, or null when none is configured.
+     *
+     * Shown so the user can see *which* project the app talks to. A client id is not a
+     * secret — it ships inside the APK — but the project behind it decides whose
+     * calendar the sync writes into, and that is worth being visible.
+     */
+    val googleClientId: String? = null,
+    /**
+     * True while the consent step is running.
+     *
+     * The sign-in happens in a browser, so the app is not doing anything visible for
+     * a while. Without this the button looks broken for the whole of it.
+     */
+    val googleAuthorizing: Boolean = false,
+    /**
+     * The sign-in the screen has to carry out, or null when there is none.
+     *
+     * The consent is a platform activity, so the screen owns the launcher that runs
+     * it and the ViewModel owns the state — the same split the calendar permission
+     * request uses. The request carries the *public* half of the PKCE pair; the
+     * secret half stays in the ViewModel and never reaches the screen.
+     */
+    val googleAuthorizationRequest: GoogleAuthorizationRequest? = null,
+    /**
+     * The client id the sign-in would use, or null when none is configured.
+     *
+     * Separate from [googleClientId], which is what the user is *typing*: the field
+     * holds a half-finished id most of the time, and the consent needs the id that
+     * is actually configured.
+     */
+    val googleConfiguredClientId: String? = null,
+    /**
      * True when the connected Google grant has no refresh token, so background sync will
      * stop when the access token expires and the user has to re-authorise.
      */
@@ -72,6 +109,16 @@ data class CalendarSyncUiState(
      * nothing in it and no explanation.
      */
     val googleError: String? = null,
+    /**
+     * Why the sign-in did not finish, if it did not.
+     *
+     * Separate from [googleError], which means "I could not list your calendars".
+     * A sign-in failure belongs to the *account* section, which is the only section
+     * rendered while the account is not connected — a sign-in error written into
+     * [googleError] would land in the calendar picker, and that picker is not rendered
+     * at all until the account is connected. The failure would then be invisible.
+     */
+    val googleSignInError: String? = null,
     /**
      * Whether a Google sync pass is running right now.
      *
@@ -167,8 +214,62 @@ sealed interface CalendarSyncIntent : MviIntent {
     /** Switch the tab between the system calendar and Google. */
     data class SelectProvider(val provider: CalendarProvider) : CalendarSyncIntent
 
-    /** Connect or disconnect the Google account. */
+    /**
+     * Disconnect the Google account.
+     *
+     * Connecting is [ConnectGoogle] and not this intent: connecting means running
+     * an OAuth consent step in a browser, and folding that into a flag called
+     * "connected" is what made the button a no-op — it set a boolean that the
+     * credential store then contradicted, and the user was left with a control
+     * that did nothing and no explanation.
+     */
     data class SetGoogleConnected(val connected: Boolean) : CalendarSyncIntent
+
+    /**
+     * Run the Google consent step and store the credential.
+     *
+     * The consent is a platform activity, so this intent does not sign anybody in by
+     * itself: it prepares the request, and the screen carries the consent out and
+     * reports back with [GoogleAuthorizationCompleted] or [GoogleAuthorizationFailed].
+     */
+    data object ConnectGoogle : CalendarSyncIntent
+
+    /**
+     * The consent produced a grant.
+     *
+     * What the grant is depends on the platform: an authorization code the device
+     * redeems, or a one-time code the server redeems. Either way the ViewModel does
+     * not care — it hands it over and stores what comes back.
+     */
+    data class GoogleAuthorizationCompleted(val grant: GoogleGrant) : CalendarSyncIntent
+
+    /**
+     * The consent did not produce a grant.
+     *
+     * The reason is the user's: "no Google account on this device" and "Play services
+     * are out of date" are different problems with different fixes, and a screen that
+     * says "sign-in failed" for both has thrown that away.
+     */
+    data class GoogleAuthorizationFailed(val reason: String) : CalendarSyncIntent
+
+    /**
+     * The client id the user is typing.
+     *
+     * The value is kept in the state and *not* written to the secure store on
+     * every keystroke: the store is a keystore, and a paste followed by a
+     * backspace is two writes of a value nobody asked to keep. [SaveGoogleClientId]
+     * is what persists it.
+     */
+    data class SetGoogleClientId(val clientId: String) : CalendarSyncIntent
+
+    /**
+     * Persists the client id from the field.
+     *
+     * A blank value is refused rather than stored: a stored blank and a stored
+     * client id look the same at the next read, and the failure would surface
+     * as an OAuth error from Google several screens later.
+     */
+    data object SaveGoogleClientId : CalendarSyncIntent
 
     data class SelectGoogleCalendar(val calendarId: String) : CalendarSyncIntent
 
@@ -201,6 +302,9 @@ sealed interface CalendarSyncIntent : MviIntent {
  *   [crashReporter] is chosen independently, so nothing would guarantee that a handled failure
  *   and an escaped background failure reach the same place.
  */
+// 19 functions: the screen drives two providers from one state holder — the system
+// calendar and Google — and each of them needs its own connect/refresh/load path.
+@Suppress("TooManyFunctions")
 class CalendarSyncViewModel(
     private val syncRepo: CalendarSyncRepository,
     private val calendarProvider: CalendarProviderPort,
@@ -230,6 +334,15 @@ class CalendarSyncViewModel(
      * way the three hard-coded `ImportWindow.DEFAULT` references did.
      */
     private val importWindow: ImportWindow,
+    /**
+     * The Google sign-in itself: consent, token exchange, and the write of the
+     * credential.
+     *
+     * Injected rather than constructed so the screen can be tested against a
+     * sign-in that succeeds, is refused, or fails — three outcomes the user
+     * sees differently, and only one of which used to be reachable at all.
+     */
+    private val googleAuthorization: GoogleAuthorizer,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<CalendarSyncUiState, CalendarSyncIntent, Nothing>(
@@ -238,6 +351,16 @@ class CalendarSyncViewModel(
         scope = scope,
     ) {
     // MviViewModel handles addCloseable(scope) — no manual call needed
+
+    /**
+     * The sign-in that is under way, and the secret half of its PKCE pair.
+     *
+     * Kept here rather than in the state: the verifier must not travel to the
+     * screen, and the state is what the screen reads. It is dropped as soon as the
+     * grant comes back or the consent fails. A verifier that outlives its request is
+     * a verifier that can be replayed.
+     */
+    private var pendingAuthorization: PendingGoogleAuthorization? = null
 
     init {
         // The transform projects; the collector applies. Writing state from inside a
@@ -269,6 +392,15 @@ class CalendarSyncViewModel(
                 }
             }.collect { reduce -> updateState { reduce(it) } }
         }
+        // The client id is read once, on open: it is a configuration, not
+        // something that changes under the screen, and the screen needs it to
+        // say which Google project the sync writes into.
+        vmScope.launch {
+            val clientId = googleAuthorization.configuredClientId()
+            updateState {
+                it.copy(googleClientId = clientId, googleConfiguredClientId = clientId)
+            }
+        }
     }
 
     override fun onIntent(intent: CalendarSyncIntent) {
@@ -283,6 +415,11 @@ class CalendarSyncViewModel(
             is CalendarSyncIntent.SelectAppPackage -> selectAppPackage(intent.packageName)
             is CalendarSyncIntent.SelectProvider -> selectProvider(intent.provider)
             is CalendarSyncIntent.SetGoogleConnected -> setGoogleConnected(intent.connected)
+            CalendarSyncIntent.ConnectGoogle -> connectGoogle()
+            is CalendarSyncIntent.GoogleAuthorizationCompleted -> completeGoogleAuthorization(intent.grant)
+            is CalendarSyncIntent.GoogleAuthorizationFailed -> failGoogleAuthorization(intent.reason)
+            is CalendarSyncIntent.SetGoogleClientId -> setGoogleClientId(intent.clientId)
+            CalendarSyncIntent.SaveGoogleClientId -> saveGoogleClientId()
             is CalendarSyncIntent.SelectGoogleCalendar -> selectGoogleCalendar(intent.calendarId)
             is CalendarSyncIntent.SetImportFromGoogle -> setImportFromGoogle(intent.enabled)
         }
@@ -335,6 +472,143 @@ class CalendarSyncViewModel(
             }
             updateState { it.copy(googleConnected = true, googleError = null) }
             refreshGoogleConnection()
+        }
+    }
+
+    /**
+     * Prepares the consent step and hands it to the screen.
+     *
+     * The failure path is the one that matters here: a sign-in that fails leaves
+     * the account disconnected and says why, because the alternative — a button
+     * that does nothing — is what this feature looked like before the consent
+     * step existed.
+     */
+    private fun connectGoogle() {
+        vmScope.launch {
+            updateState { it.copy(googleAuthorizing = true, googleSignInError = null) }
+            googleAuthorization.beginAuthorization()
+                .onSuccess { pending ->
+                    pendingAuthorization = pending
+                    updateState { it.copy(googleAuthorizationRequest = pending.request) }
+                }
+                .onFailure { error ->
+                    Logger.w(error) { "The Google sign-in could not be prepared" }
+                    updateState {
+                        it.copy(
+                            googleAuthorizing = false,
+                            googleConnected = false,
+                            googleSignInError = error.message ?: "The Google sign-in did not finish",
+                        )
+                    }
+                }
+        }
+    }
+
+    /**
+     * The consent came back with a grant: redeem it and store the credential.
+     *
+     * A grant without a prepared request is a grant this ViewModel cannot redeem —
+     * the secret half of the PKCE pair is gone, and the code would be redeemed
+     * against the wrong client. It is reported rather than ignored: a silent
+     * no-op here is exactly the failure this feature had.
+     */
+    private fun completeGoogleAuthorization(grant: GoogleGrant) {
+        val pending = pendingAuthorization
+        if (pending == null) {
+            updateState {
+                it.copy(
+                    googleAuthorizing = false,
+                    googleAuthorizationRequest = null,
+                    googleSignInError = "The Google sign-in came back without a request to answer",
+                )
+            }
+            return
+        }
+        vmScope.launch {
+            googleAuthorization.redeem(pending, grant, currentUser.current.value)
+                .onSuccess { credentials ->
+                    pendingAuthorization = null
+                    updateState {
+                        it.copy(
+                            googleAuthorizing = false,
+                            googleAuthorizationRequest = null,
+                            googleConnected = true,
+                            googleCanRenew = credentials.canRenew,
+                            googleError = null,
+                            googleSignInError = null,
+                        )
+                    }
+                    refreshGoogleConnection()
+                }
+                .onFailure { error ->
+                    Logger.w(error) { "The Google grant could not be redeemed" }
+                    pendingAuthorization = null
+                    updateState {
+                        it.copy(
+                            googleAuthorizing = false,
+                            googleAuthorizationRequest = null,
+                            googleConnected = false,
+                            googleSignInError = error.message ?: "The Google sign-in did not finish",
+                        )
+                    }
+                }
+        }
+    }
+
+    /**
+     * The consent failed. The account stays disconnected and the reason is shown.
+     */
+    private fun failGoogleAuthorization(reason: String) {
+        pendingAuthorization = null
+        updateState {
+            it.copy(
+                googleAuthorizing = false,
+                googleAuthorizationRequest = null,
+                googleConnected = false,
+                googleSignInError = reason,
+            )
+        }
+    }
+
+    /**
+     * Keeps the client id the user is typing.
+     *
+     * Nothing is written here — the value lives in the state until
+     * [saveGoogleClientId] persists it. The field is the editor, the state is
+     * its draft, and the keystore is written once, on the button.
+     */
+    private fun setGoogleClientId(clientId: String) {
+        updateState { it.copy(googleClientId = clientId, googleError = null) }
+    }
+
+    /**
+     * Writes the client id from the field into the secure store.
+     *
+     * A blank value is refused here rather than in the resolver, so the screen
+     * can say why nothing happened instead of watching the field clear itself.
+     */
+    private fun saveGoogleClientId() {
+        vmScope.launch {
+            val trimmed = currentState.googleClientId?.trim().orEmpty()
+            if (trimmed.isEmpty()) {
+                updateState { it.copy(googleError = "A client id cannot be empty") }
+                return@launch
+            }
+            runCatchingCancellable { googleAuthorization.storeClientId(trimmed) }
+                .onSuccess {
+                    updateState {
+                        it.copy(
+                            googleClientId = trimmed,
+                            googleConfiguredClientId = trimmed,
+                            googleError = null,
+                        )
+                    }
+                }.onFailure { error ->
+                    Logger.w(error) { "The Google client id could not be saved" }
+                    updateState {
+                        it.copy(googleError = error.message ?: "The client id could not be saved")
+                    }
+                }
         }
     }
 

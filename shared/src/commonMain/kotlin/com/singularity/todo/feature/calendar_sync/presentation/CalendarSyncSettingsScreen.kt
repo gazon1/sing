@@ -7,10 +7,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -26,19 +28,28 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.SettingsSection
+import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
 import com.singularity.todo.core.ui.text.SelectableText
+import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.feature.calendar_sync.domain.model.CalendarSyncStatus
 import com.singularity.todo.feature.calendar_sync.domain.model.GoogleCalendarSummary
 import com.singularity.todo.feature.calendar_sync.permission.rememberCalendarPermissionRequester
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarProvider.Google
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarProvider.SystemCalendar
+import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.ConnectGoogle
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.LoadCalendars
+import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.SaveGoogleClientId
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.SelectAppPackage
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.SelectCalendar
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.SelectGoogleCalendar
+import com.singularity.todo.feature.calendar_sync.auth.GoogleAuthorization
+import com.singularity.todo.feature.calendar_sync.auth.rememberGoogleConsent
+import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.GoogleAuthorizationCompleted
+import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.GoogleAuthorizationFailed
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.SelectProvider
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.SetEnabled
+import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.SetGoogleClientId
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.SetGoogleConnected
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.SetImportFromGoogle
 import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncIntent.SyncNow
@@ -65,9 +76,41 @@ fun CalendarSyncSettingsScreen(modifier: Modifier = Modifier) {
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
 
     val permissionRequester = rememberCalendarPermissionRequester()
+    val googleConsent = rememberGoogleConsent(state.googleConfiguredClientId)
 
     LaunchedEffect(Unit) {
         viewModel.onIntent(LoadCalendars)
+    }
+
+    // The consent is a platform activity, so the screen owns the launcher and the
+    // ViewModel owns the state: the ViewModel asks through `googleAuthorizationRequest`,
+    // and the answer comes back as an intent. The same split the calendar permission
+    // uses, for the same reason — the thing that has to run is a platform thing.
+    val authorizationRequest = state.googleAuthorizationRequest
+    LaunchedEffect(authorizationRequest, googleConsent) {
+        val request = authorizationRequest ?: return@LaunchedEffect
+        googleConsent.authorize(
+            clientId = request.clientId,
+            scopes = request.scopes,
+            expectedState = request.state,
+            buildUrl = { redirectUri ->
+                GoogleAuthorization.buildUrl(
+                    clientId = request.clientId,
+                    redirectUri = redirectUri,
+                    scopes = request.scopes,
+                    codeChallenge = request.codeChallenge,
+                    state = request.state,
+                )
+            },
+        ) { result ->
+            result
+                .onSuccess { grant -> viewModel.onIntent(GoogleAuthorizationCompleted(grant)) }
+                .onFailure { error ->
+                    viewModel.onIntent(
+                        GoogleAuthorizationFailed(error.message ?: "The Google sign-in did not finish"),
+                    )
+                }
+        }
     }
 
     Column(
@@ -329,6 +372,11 @@ private fun systemStatusText(status: CalendarSyncStatus): String = when (status)
 @Composable
 private fun GoogleCalendarPanel(state: CalendarSyncUiState, onIntent: (CalendarSyncIntent) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        // The client id comes first because the sign-in needs it: a user who presses
+        // "Connect" without one gets an error from Google's own page, which names
+        // neither the setting nor where it belongs.
+        GoogleClientIdSection(state = state, onIntent = onIntent)
+
         GoogleAccountSection(state = state, onIntent = onIntent)
 
         if (state.googleConnected) {
@@ -337,6 +385,62 @@ private fun GoogleCalendarPanel(state: CalendarSyncUiState, onIntent: (CalendarS
         }
 
         GoogleSyncSection(state = state, onIntent = onIntent)
+    }
+}
+
+/**
+ * The OAuth client id the sign-in uses.
+ *
+ * ## Why the user can set it
+ *
+ * A client id is not a secret — it ships inside every copy of the app that uses
+ * it, and Google's own guidance is that the client secret that goes with an
+ * installed client is not confidential either. What the client id *does*
+ * decide is which Google Cloud project the app talks to, and therefore whose
+ * calendar the sync writes into. That is the user's choice, not the packager's,
+ * so the field is here rather than only in a build file.
+ *
+ * ## Why it is its own section
+ *
+ * The client id is needed *before* the sign-in, not after it, and a user who
+ * has never been to the Google Cloud console needs to read what to do. Keeping
+ * it inside the account section would bury it under a button that cannot work
+ * without it.
+ */
+@Composable
+private fun GoogleClientIdSection(state: CalendarSyncUiState, onIntent: (CalendarSyncIntent) -> Unit) {
+    // Bridged, not anchored: the field is editable, and the ViewModel needs the
+    // text while the user types it — the bridge keeps the two in step. The value
+    // is a *draft* until the button says otherwise, so a keystroke never writes
+    // to the keystore; only the save does.
+    val clientIdState = rememberBridgedTextFieldState(
+        source = StaticText(state.googleClientId.orEmpty()),
+        onTextChanged = { onIntent(SetGoogleClientId(it)) },
+    )
+    SettingsSection(title = "Google Cloud client id") {
+        Text(
+            "Create a Web application OAuth client in the Google Cloud console and paste its " +
+                "client id here. On desktop, add http://localhost as an authorised redirect URI; " +
+                "on Android the app talks to Google directly and needs no redirect URI. " +
+                "The id is not a secret; the project behind it decides whose calendar the sync writes into.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        OutlinedTextField(
+            state = clientIdState,
+            label = { Text("Client id") },
+            lineLimits = TextFieldLineLimits.SingleLine,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+        )
+        Button(
+            onClick = { onIntent(SaveGoogleClientId) },
+            enabled = clientIdState.text.toString().isNotBlank(),
+            modifier = Modifier.padding(top = 8.dp),
+        ) {
+            Text("Save client id")
+        }
     }
 }
 
@@ -357,11 +461,39 @@ private fun GoogleAccountSection(state: CalendarSyncUiState, onIntent: (Calendar
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 8.dp),
             )
+            // The sign-in's own failure. It belongs here because this is the only
+            // section rendered while the account is not connected — a failure written
+            // into the calendar-picker error would never be seen.
+            state.googleSignInError?.let { reason ->
+                SelectableText(
+                    text = "Could not connect your Google account: $reason",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
+            // Without a client id there is nothing to connect *to*. The button says so
+            // rather than sending the user to Google's own error page, which names
+            // neither the setting nor where it belongs.
+            val hasClientId = !state.googleConfiguredClientId.isNullOrBlank()
+            if (!hasClientId) {
+                Text(
+                    text = "Add your Google Cloud client id above and save it to connect an account.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
             Button(
-                onClick = { onIntent(SetGoogleConnected(true)) },
+                onClick = { onIntent(ConnectGoogle) },
+                enabled = !state.googleAuthorizing && hasClientId,
                 modifier = Modifier.testTag(TestTags.CalendarSync.GOOGLE_CONNECT_BUTTON),
             ) {
-                Text("Connect Google account")
+                // The sign-in happens in the browser or in Google's own sheet, so the
+                // app has nothing to show for a while. A button that stays "Connect"
+                // through the whole of it reads as a button that does nothing — which
+                // is exactly what this one used to do.
+                Text(if (state.googleAuthorizing) "Waiting for the sign-in…" else "Connect Google account")
             }
             return@SettingsSection
         }

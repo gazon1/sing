@@ -2,10 +2,15 @@ package com.singularity.todo.feature.calendar_sync.di
 
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.auth.CurrentUser
+import com.singularity.todo.core.auth.SecureStorage
 import com.singularity.todo.core.observability.crashReportingFailureHandler
+import com.singularity.todo.feature.calendar_sync.auth.GoogleAuthorizationService
+import com.singularity.todo.feature.calendar_sync.auth.GoogleAuthorizer
 import com.singularity.todo.feature.calendar_sync.auth.GoogleClientIdResolver
 import com.singularity.todo.feature.calendar_sync.auth.GoogleCredentialStore
+import com.singularity.todo.feature.calendar_sync.auth.GoogleTokenGateway
 import com.singularity.todo.feature.calendar_sync.auth.SecureStorageGoogleCredentialStore
+import com.singularity.todo.feature.calendar_sync.auth.SupabaseGoogleTokenGateway
 import com.singularity.todo.feature.calendar_sync.data.GoogleCalendarSettingsRepositoryImpl
 import com.singularity.todo.feature.calendar_sync.data.google.GoogleCalendarEventSource
 import com.singularity.todo.feature.calendar_sync.domain.model.ImportWindow
@@ -53,6 +58,12 @@ import org.koin.dsl.module
  * platform module for the same reason [com.singularity.todo.core.sync.SyncPeriodicTrigger]
  * is — "which platform am I on" must not be answered by a type test on an injected dependency.
  */
+// A DI module is a list of bindings, and the reason each binding is shaped the way
+// it is — singleton or factory, this dependency or that one — is worth more here
+// than the line budget. Splitting the module would either move the rationale away
+// from the binding it explains, or hide `single { get() }` calls from the Koin
+// compiler plugin that checks the graph at compile time.
+@Suppress("LongMethod")
 fun calendarSyncModule(): Module = module {
     // ─── Google Calendar ───────────────────────────────────────────────
     //
@@ -84,10 +95,31 @@ fun calendarSyncModule(): Module = module {
     // GoogleClientIdConfig for why a user's pasted value still outranks it.
     single { GoogleClientIdResolver() }
 
-    // Not registered here: the token client needs a client id, and the sign-in screen
-    // constructs it from whatever GoogleClientIdResolver returns — the user's paste if
-    // there is one, the build-time value otherwise. Binding it with a placeholder id would
-    // turn a missing configuration into an OAuth error from Google.
+    // ─── The Google sign-in ──────────────────────────────────────────────
+    //
+    // The consent itself is not here: it is a platform activity, and the screen
+    // owns the launcher that runs it. What is here is everything around it — the
+    // client id, the redemption, the store.
+    //
+    // The gateway to the project's own server is common: the function is deployed
+    // once and every platform talks to it the same way. Whether the *redemption*
+    // happens on the device or on the server is the platform's business, and the
+    // redeemer binding says which — see the platform modules.
+    single<GoogleTokenGateway> { SupabaseGoogleTokenGateway(get()) }
+
+    // The sign-in itself: prepare the request, redeem the grant, write the credential.
+    //
+    // The redeemer is built per platform rather than here, because the two platforms
+    // redeem in different places: the desktop can do it on the device, and Android
+    // cannot — its code can only be redeemed by whoever holds the client secret.
+    single<GoogleAuthorizer> {
+        GoogleAuthorizationService(
+            clientIdResolver = get(),
+            secureStorage = get<SecureStorage>(),
+            redeemer = get(),
+            credentialStore = get(),
+        )
+    }
 
     // The event source is a factory, not a singleton. It is scoped to one profile — it holds
     // a `userId` and reads that profile's credential — and a calendar sync is per-user, so a
@@ -98,7 +130,7 @@ fun calendarSyncModule(): Module = module {
     // `CurrentUser` is the one place that already knows how to derive it.
     factory<CalendarEventSource> {
         GoogleCalendarEventSource(
-            credentials = get(),
+            accessTokens = get(),
             userId = get<CurrentUser>().current.value,
             clock = get(),
             importWindow = get(),
@@ -203,6 +235,7 @@ fun calendarSyncModule(): Module = module {
             // factory holding a snapshot of the signed-in profile — see its own registration.
             googleSync = get(),
             importWindow = get(),
+            googleAuthorization = get(),
             crashReporter = get(),
         )
     }

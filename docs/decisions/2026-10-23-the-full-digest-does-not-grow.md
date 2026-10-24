@@ -143,14 +143,15 @@ history it was never measured against. The corpus is a series — the file as it
 every earlier date is the corpus with the newest decisions left out — and the budget
 has to lie above the whole series.
 
-The measurement (2026-10-23, the prefix series rendered and measured):
+The measurement (2026-10-24, the prefix series rendered and measured again — the
+corpus moved, and a moved corpus is re-measured, not re-read):
 
 | what | measured |
 |---|---|
-| the last 50 decisions | 0.200 lines each |
-| the last 100 decisions | 0.190 lines each |
-| the last 200 decisions | 0.225 lines each |
-| the whole corpus | 0.289 lines each |
+| the last 50 decisions | 0.180 lines each |
+| the last 100 decisions | 0.180 lines each |
+| the last 200 decisions | 0.220 lines each |
+| the whole corpus | 0.287 lines each |
 | the index section alone, the worst window of 50 in the history | 0.240 lines each |
 | the whole file, the worst window of 50 in the history, at N=80 | 0.980 lines each |
 

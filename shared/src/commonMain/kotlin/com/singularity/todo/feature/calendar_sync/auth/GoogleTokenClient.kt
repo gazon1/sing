@@ -10,6 +10,37 @@ import io.ktor.http.Parameters
 import io.ktor.http.ParametersBuilder
 
 /**
+ * Redeems an authorization code for a credential.
+ *
+ * A port, so that the code that *orchestrates* the sign-in — consent, exchange,
+ * storage — can be driven by a fake. The HTTP call itself stays in
+ * [GoogleTokenClient]; what the caller needs is the ability to hand it a code.
+ */
+interface GoogleTokenExchange {
+    /**
+     * Redeems an authorization [code] for a durable credential.
+     *
+     * @param redirectUri must match the one used for the sign-in; Google rejects the
+     *   exchange otherwise, with a message that does not name the mismatch.
+     * @param codeVerifier the PKCE verifier sent on the authorization request, when one was
+     *   used. Google requires it for installed apps; it is not sent by the web flow.
+     */
+    suspend fun exchangeCode(
+        code: String,
+        redirectUri: String,
+        codeVerifier: String? = null,
+    ): GoogleCredentials
+
+    /**
+     * Redeems [refreshToken] for a fresh access token.
+     *
+     * Google returns **no** refresh token on a refresh response — the existing one
+     * stays valid — which is why the caller must carry it over.
+     */
+    suspend fun refresh(refreshToken: String): GoogleCredentials
+}
+
+/**
  * The half of Google OAuth that KMPAuth cannot do.
  *
  * ## Why this exists at all
@@ -33,7 +64,8 @@ import io.ktor.http.ParametersBuilder
  * receives. This client redeems it, with the same client id the sign-in used, so the
  * exchange needs no second registration and no PKCE verifier beyond what was sent.
  */
-class GoogleTokenClient(private val httpClient: HttpClient = createHttpClient(), private val clientId: String) {
+class GoogleTokenClient(private val httpClient: HttpClient = createHttpClient(), private val clientId: String) :
+    GoogleTokenExchange {
 
     /**
      * Redeems an authorization [code] for a durable credential.
@@ -43,10 +75,10 @@ class GoogleTokenClient(private val httpClient: HttpClient = createHttpClient(),
      * @param codeVerifier the PKCE verifier sent on the authorization request, when one was
      * used. Google requires it for installed apps; it is not sent by the web flow.
      */
-    suspend fun exchangeCode(
+    override suspend fun exchangeCode(
         code: String,
         redirectUri: String,
-        codeVerifier: String? = null,
+        codeVerifier: String?,
     ): GoogleCredentials {
         val params = ParametersBuilder().apply {
             append("client_id", clientId)
@@ -76,7 +108,7 @@ class GoogleTokenClient(private val httpClient: HttpClient = createHttpClient(),
      * valid — which is why the caller must carry it over. [GoogleCredentialStore] is the
      * thing that guarantees that carry-over.
      */
-    suspend fun refresh(refreshToken: String): GoogleCredentials {
+    override suspend fun refresh(refreshToken: String): GoogleCredentials {
         val params = ParametersBuilder().apply {
             append("client_id", clientId)
             append("refresh_token", refreshToken)

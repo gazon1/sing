@@ -141,6 +141,10 @@
     <ID>PackageName:EventShadowCodec.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageName:EventShadowCodecTest.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageName:FailureType.kt:package com.singularity.todo.feature.calendar_sync.error</ID>
+    <ID>PackageName:GoogleAccessTokenProvider.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
+    <ID>PackageName:GoogleAuthorization.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
+    <ID>PackageName:GoogleAuthorizationService.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
+    <ID>PackageName:GoogleAuthorizationServiceTest.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
     <ID>PackageName:GoogleCalendarEventSource.kt:package com.singularity.todo.feature.calendar_sync.data.google</ID>
     <ID>PackageName:GoogleCalendarSettingsRepository.kt:package com.singularity.todo.feature.calendar_sync.domain.port</ID>
     <ID>PackageName:GoogleCalendarSettingsRepositoryImpl.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
@@ -148,6 +152,9 @@
     <ID>PackageName:GoogleClientIdConfig.jvm.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
     <ID>PackageName:GoogleClientIdConfig.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
     <ID>PackageName:GoogleClientIdResolverTest.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
+    <ID>PackageName:GoogleConsent.android.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
+    <ID>PackageName:GoogleConsent.jvm.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
+    <ID>PackageName:GoogleConsent.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
     <ID>PackageName:GoogleCredentialStore.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
     <ID>PackageName:GoogleCredentialStoreTest.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
     <ID>PackageName:GoogleEvent.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>
@@ -155,6 +162,7 @@
     <ID>PackageName:GoogleEventJsonTest.kt:package com.singularity.todo.feature.calendar_sync.data.google</ID>
     <ID>PackageName:GoogleEventTaskMapper.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageName:GoogleEventTaskMapperTest.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
+    <ID>PackageName:GoogleGrantRedeemer.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
     <ID>PackageName:GooglePushPlanner.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageName:GooglePushPlannerTest.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageName:GoogleSyncCoordinator.kt:package com.singularity.todo.feature.calendar_sync.sync</ID>
@@ -171,10 +179,14 @@
     <ID>PackageName:GoogleTaskApplierTest.kt:package com.singularity.todo.feature.calendar_sync.sync</ID>
     <ID>PackageName:GoogleTokenClient.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
     <ID>PackageName:GoogleTokenClientTest.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
+    <ID>PackageName:GoogleTokenGateway.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
     <ID>PackageName:ImportWindow.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>
     <ID>PackageName:ImportWindowTest.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>
     <ID>PackageName:JvmCalendarAppQueries.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:LlmUseCase.kt:package com.singularity.todo.feature.ai.use_cases</ID>
+    <ID>PackageName:LocalGoogleAccessTokenProvider.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
+    <ID>PackageName:LocalGoogleAccessTokenProviderTest.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
+    <ID>PackageName:LocalGoogleGrantRedeemer.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
     <ID>PackageName:NoopCalendarProvider.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:NoopCalendarSyncRepositoryImpl.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageName:NoopCalendarSyncWorkScheduler.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
@@ -183,6 +195,10 @@
     <ID>PackageName:RecurrenceRuleMapperTest.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageName:RruleGenerator.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageName:RruleGeneratorTest.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
+    <ID>PackageName:SupabaseGoogleAccessTokenProvider.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
+    <ID>PackageName:SupabaseGoogleGrantRedeemer.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
+    <ID>PackageName:SupabaseGoogleTokenGateway.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
+    <ID>PackageName:SupabaseGoogleTokenGatewayTest.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
     <ID>PackageName:SyncDiffMerge.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageName:SyncDiffMergeTest.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageName:SyncPlan.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>
@@ -227,6 +243,10 @@
     <ID>PackageNaming:EventShadowCodec.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageNaming:EventShadowCodecTest.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageNaming:FailureType.kt:package com.singularity.todo.feature.calendar_sync.error</ID>
+    <ID>PackageNaming:GoogleAccessTokenProvider.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
+    <ID>PackageNaming:GoogleAuthorization.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
+    <ID>PackageNaming:GoogleAuthorizationService.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
+    <ID>PackageNaming:GoogleAuthorizationServiceTest.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
     <ID>PackageNaming:GoogleCalendarEventSource.kt:package com.singularity.todo.feature.calendar_sync.data.google</ID>
     <ID>PackageNaming:GoogleCalendarSettingsRepository.kt:package com.singularity.todo.feature.calendar_sync.domain.port</ID>
     <ID>PackageNaming:GoogleCalendarSettingsRepositoryImpl.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
@@ -234,6 +254,9 @@
     <ID>PackageNaming:GoogleClientIdConfig.jvm.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
     <ID>PackageNaming:GoogleClientIdConfig.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
     <ID>PackageNaming:GoogleClientIdResolverTest.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
+    <ID>PackageNaming:GoogleConsent.android.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
+    <ID>PackageNaming:GoogleConsent.jvm.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
+    <ID>PackageNaming:GoogleConsent.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
     <ID>PackageNaming:GoogleCredentialStore.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
     <ID>PackageNaming:GoogleCredentialStoreTest.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
     <ID>PackageNaming:GoogleEvent.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>
@@ -241,6 +264,7 @@
     <ID>PackageNaming:GoogleEventJsonTest.kt:package com.singularity.todo.feature.calendar_sync.data.google</ID>
     <ID>PackageNaming:GoogleEventTaskMapper.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageNaming:GoogleEventTaskMapperTest.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
+    <ID>PackageNaming:GoogleGrantRedeemer.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
     <ID>PackageNaming:GooglePushPlanner.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageNaming:GooglePushPlannerTest.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageNaming:GoogleSyncCoordinator.kt:package com.singularity.todo.feature.calendar_sync.sync</ID>
@@ -257,10 +281,14 @@
     <ID>PackageNaming:GoogleTaskApplierTest.kt:package com.singularity.todo.feature.calendar_sync.sync</ID>
     <ID>PackageNaming:GoogleTokenClient.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
     <ID>PackageNaming:GoogleTokenClientTest.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
+    <ID>PackageNaming:GoogleTokenGateway.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
     <ID>PackageNaming:ImportWindow.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>
     <ID>PackageNaming:ImportWindowTest.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>
     <ID>PackageNaming:JvmCalendarAppQueries.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageNaming:LlmUseCase.kt:package com.singularity.todo.feature.ai.use_cases</ID>
+    <ID>PackageNaming:LocalGoogleAccessTokenProvider.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
+    <ID>PackageNaming:LocalGoogleAccessTokenProviderTest.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
+    <ID>PackageNaming:LocalGoogleGrantRedeemer.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
     <ID>PackageNaming:NoopCalendarProvider.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageNaming:NoopCalendarSyncRepositoryImpl.kt:package com.singularity.todo.feature.calendar_sync.data</ID>
     <ID>PackageNaming:NoopCalendarSyncWorkScheduler.kt:package com.singularity.todo.feature.calendar_sync.work</ID>
@@ -269,6 +297,10 @@
     <ID>PackageNaming:RecurrenceRuleMapperTest.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageNaming:RruleGenerator.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageNaming:RruleGeneratorTest.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
+    <ID>PackageNaming:SupabaseGoogleAccessTokenProvider.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
+    <ID>PackageNaming:SupabaseGoogleGrantRedeemer.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
+    <ID>PackageNaming:SupabaseGoogleTokenGateway.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
+    <ID>PackageNaming:SupabaseGoogleTokenGatewayTest.kt:package com.singularity.todo.feature.calendar_sync.auth</ID>
     <ID>PackageNaming:SyncDiffMerge.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageNaming:SyncDiffMergeTest.kt:package com.singularity.todo.feature.calendar_sync.domain.logic</ID>
     <ID>PackageNaming:SyncPlan.kt:package com.singularity.todo.feature.calendar_sync.domain.model</ID>

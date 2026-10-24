@@ -22,6 +22,15 @@ data class GoogleCredentials(val accessToken: String, val refreshToken: String?,
      * Callers should check this rather than discovering it an hour later.
      */
     val canRenew: Boolean get() = !refreshToken.isNullOrBlank()
+
+    /**
+     * Whether the access token is past the point where Google would reject it.
+     *
+     * The expiry is Google's, not the app's: the token response carries it, and a
+     * credential without one is treated as expired — a token of unknown age is not a
+     * token to send.
+     */
+    val isExpired: Boolean get() = System.currentTimeMillis() >= expiresAtEpochMs
 }
 
 /**

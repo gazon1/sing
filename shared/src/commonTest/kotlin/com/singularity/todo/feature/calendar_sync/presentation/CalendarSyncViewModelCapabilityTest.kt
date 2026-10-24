@@ -23,6 +23,7 @@ import com.singularity.todo.feature.calendar_sync.sync.DirtyHashProvider
 import com.singularity.todo.feature.calendar_sync.sync.GoogleSyncCoordinator
 import com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import com.singularity.todo.test.fakes.FakeGoogleAuthorizer
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -196,6 +197,7 @@ class CalendarSyncViewModelCapabilityTest {
                 clock = kotlin.time.Clock.System,
             ),
             importWindow = ImportWindow.DEFAULT,
+            googleAuthorization = FakeGoogleAuthorizer(),
             crashReporter = NoOpCrashReportingPort(),
             scope = vmScope,
         ) to vmScope

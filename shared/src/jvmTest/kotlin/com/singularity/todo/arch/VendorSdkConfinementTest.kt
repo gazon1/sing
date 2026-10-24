@@ -20,12 +20,13 @@ import kotlin.test.assertTrue
  * project's. Each step compiles, each looks local, and by the end the vendor's
  * types are in the domain model and a version bump is a migration.
  *
- * The boundary is drawn at **four files**, because the SDK is needed in exactly
- * four places: to own a client (`SupabaseClientProvider`), to speak auth
- * (`SupabaseAuthGateway`), to speak PostgREST (`PostgrestSyncRpc`), and to speak
- * Storage (`SupabaseStorageRemoteBackupService`). Everything else the SDK
- * offers — the session flow, the plugin surface, the user model — is reached
- * through a project interface, so it can be replaced or tested without a network.
+ * The boundary is drawn at **five files**, because the SDK is needed in exactly
+ * five places: to own a client (`SupabaseClientProvider`), to speak auth
+ * (`SupabaseAuthGateway`), to speak PostgREST (`PostgrestSyncRpc`), to speak
+ * Storage (`SupabaseStorageRemoteBackupService`) and to call an Edge Function
+ * (`SupabaseGoogleTokenGateway`). Everything else the SDK offers — the session
+ * flow, the plugin surface, the user model — is reached through a project
+ * interface, so it can be replaced or tested without a network.
  *
  * ## Why the rule is one file per seam
  *
@@ -136,6 +137,7 @@ class VendorSdkConfinementTest {
             "auth/SupabaseAuthGateway.kt",
             "sync/PostgrestSyncRpc.kt",
             "backup/SupabaseStorageRemoteBackupService.kt",
+            "calendar_sync/auth/SupabaseGoogleTokenGateway.kt",
         )
     }
 }

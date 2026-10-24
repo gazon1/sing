@@ -46,10 +46,14 @@ port. The authority on which binding is which is the seam registry
 | `FileSharePort` | `JvmFileSharePort` | `AndroidFileSharePort` | checked |
 | `FileSourceFactory` | `JvmFileSourceFactory` | `AndroidFileSourceFactory` | checked |
 | `FileSystem` | `JvmFileSystem` | `AndroidFileSystem` | checked |
+| `GoogleAccessTokenProvider` | `LocalGoogleAccessTokenProvider` | `SupabaseGoogleAccessTokenProvider` | checked |
+| `GoogleGrantRedeemer` | `LocalGoogleGrantRedeemer` | `SupabaseGoogleGrantRedeemer` | checked |
 | `GoogleSyncPeriodicTrigger` | `DelayLoopGoogleSyncPeriodicTrigger` | `AndroidGoogleSyncPeriodicTrigger` | checked |
 | `Haptic` | `createHaptic` | `AndroidHaptic` | checked |
 | `HostEnvironmentPort` | `JvmHostEnvironment` | `AndroidHostEnvironment` | checked |
 | `Notifier` | `JvmNotifier` | `AndroidNotifier` | checked |
+| `OAuthBrowser` | `JvmOAuthBrowser` | - | checked |
+| `OAuthRedirectSocket` | `JvmOAuthRedirectSocket` | - | checked |
 | `PomodoroScheduler` | - | `PomodoroAlarmScheduler` | checked |
 | `PomodoroTaskListProvider` | `JvmPomodoroTaskListProvider` | `AndroidPomodoroTaskListProvider` | checked |
 | `PomodoroTimer` | `JvmPomodoroTimer` | `AndroidPomodoroTimer` | checked |

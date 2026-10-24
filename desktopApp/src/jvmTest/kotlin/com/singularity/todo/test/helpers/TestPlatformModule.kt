@@ -57,6 +57,10 @@ import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.atomic.AtomicInteger
 import com.singularity.todo.core.database.UnitOfWork
+import com.singularity.todo.core.auth.oauth.OAuthBrowser
+import com.singularity.todo.core.auth.oauth.OAuthRedirectSocket
+import com.singularity.todo.feature.calendar_sync.auth.GoogleAccessTokenProvider
+import com.singularity.todo.feature.calendar_sync.auth.GoogleGrantRedeemer
 
 /**
  * The JVM platform bindings a desktop flow test needs, rebuilt without touching
@@ -210,6 +214,20 @@ fun testPlatformModule(): Module = module {
     // Settings → Account is the only caller, and a test that presses it wants the failure
     // mode, not a window opening on a CI box with no display.
     single<FileSharePort> { InertFileSharePort() }
+
+    // ─── The Google sign-in ──────────────────────────────────────────────────────
+    //
+    // Four more definitions that `platformModule()` binds and this module did not.
+    // They are inert rather than real: the browser would take the machine's focus and
+    // the redirect would wait for a human, so a test that presses "Connect Google"
+    // gets an error rather than a hang.
+    single<OAuthBrowser> { InertOAuthBrowser() }
+
+    single<OAuthRedirectSocket> { InertOAuthRedirectSocket() }
+
+    single<GoogleGrantRedeemer> { InertGoogleGrantRedeemer() }
+
+    single<GoogleAccessTokenProvider> { InertGoogleAccessTokenProvider() }
 
     // ─── Background work ──────────────────────────────────────────────────────
     //
