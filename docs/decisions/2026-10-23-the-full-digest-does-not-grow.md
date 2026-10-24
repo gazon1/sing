@@ -64,7 +64,7 @@ The index is folded, the same way the orientation layer was folded:
 
 - **Every decision appears exactly once**, in a packed index, as
   `` `slug` — Title #tag1 #tag2 ``. Nothing is capped and nothing is dropped: of the
-  814 decisions this was measured on, 788 are active, 16 open, 11 deferred and 26
+  814 decisions this was measured on, 787 are active, 16 open, 11 deferred and 27
   superseded — all are named.
 - **The per-tag consequence sections are gone.** Consequences are body text; the file
   carried a second copy of them, once per tag the decision carried. The index now says
@@ -112,7 +112,7 @@ all three:
 `2026-09-26-adr-supersede-process` is the corpus's own rule: the replaced decision
 carries `status: superseded` and `superseded-by:`, and the replacing one carries
 `supersedes:`. Reading only the third edge means reading one side of a rule that has
-two sides. 19 of the 814 decisions carry the reverse edge, and 8 of them are named
+two sides. 20 of the 814 decisions carry the reverse edge, and 8 of them are named
 by no `supersedes:` at all — those 8 were shown in the index as if they were still in
 force, and were in no status group at all.
 
@@ -122,18 +122,18 @@ frontmatter still says `deferred` is not pending any more, and one that says
 `accepted` is not in force either. The groups are exclusive — a decision is in one of
 them, never in two — and the superseded group wins over open and deferred.
 
-The counts on that corpus are 16 open, 11 deferred and 26 superseded, and the 26 are
-the 18 the `supersedes:` edges named, plus 8 the decisions said of themselves. The
+The counts on that corpus are 16 open, 11 deferred and 27 superseded, and the 27 are
+the 19 the `supersedes:` edges named, plus 8 the decisions said of themselves. The
 superseded decisions are not listed in the index of the decisions in force; the index
-carries 788 of the 814, and the Status section names the other 26.
+carries 787 of the 814, and the Status section names the other 27.
 
 ## Rationale
 
 The cost of a decision in the index is now a record rather than a row. A record costs
 ~135 characters (measured on the corpus of 814 decisions); a row cost a line. The index
-section grew from 72 lines at 400 decisions to 153 at 814 — **0.196 lines per
+section grew from 72 lines at 400 decisions to 152 at 814 — **0.193 lines per
 decision**. The pre-fold file cost **2.75** lines per decision; the folded file costs
-0.289 over the whole corpus and 0.20 over the last 50 decisions.
+0.287 over the whole corpus and 0.18 over the last 50 decisions.
 
 ### The budget is a line above the whole history, not above one point
 
@@ -143,14 +143,15 @@ history it was never measured against. The corpus is a series — the file as it
 every earlier date is the corpus with the newest decisions left out — and the budget
 has to lie above the whole series.
 
-The measurement (2026-10-23, the prefix series rendered and measured):
+The measurement (2026-10-24, the prefix series rendered and measured again — the corpus
+moved under the record, and the numbers below are the ones measured now):
 
 | what | measured |
 |---|---|
-| the last 50 decisions | 0.200 lines each |
-| the last 100 decisions | 0.190 lines each |
-| the last 200 decisions | 0.225 lines each |
-| the whole corpus | 0.289 lines each |
+| the last 50 decisions | 0.180 lines each |
+| the last 100 decisions | 0.180 lines each |
+| the last 200 decisions | 0.220 lines each |
+| the whole corpus | 0.287 lines each |
 | the index section alone, the worst window of 50 in the history | 0.240 lines each |
 | the whole file, the worst window of 50 in the history, at N=80 | 0.980 lines each |
 
@@ -188,7 +189,7 @@ moved to the Status section, and the file is one line shorter for it.)
 
 The budget is monotone in N and grows with it: there is no floor under it and no
 ceiling over it that the corpus alone can reach. The corpus's own growth is slower than
-the rate at which the budget grows — the index grows by 0.196 lines per decision while
+the rate at which the budget grows — the index grows by 0.193 lines per decision while
 the budget grows by 0.30 — so the margin widens instead of closing. What the file can
 run into is the rate: growing faster than the fold allows is a finding about the
 generator, not about the corpus.
@@ -222,9 +223,9 @@ drift apart; a test holds them together.
 
 ## Consequences
 
-- `DIGEST-full.md` is 265 lines instead of 2235, and the budget is a line above the
+- `DIGEST-full.md` is 264 lines instead of 2235, and the budget is a line above the
   history rather than a countdown.
-- The orientation layer is 95 lines against its own constant ceiling of 120, and its
+- The orientation layer is 99 lines against its own constant ceiling of 120, and its
   size does not depend on the corpus: the renderer takes the decisions it draws from as
   an argument, so the property can be measured on an artificial corpus instead of
   assumed.
