@@ -51,6 +51,12 @@ Exit codes:
     2 = there is no run of that workflow for the commit
     3 = the run list could not be read (GitHub was not asked, or it did not answer)
 
+The tool does not wait for GitHub for ever: the call to `gh` has a deadline
+of twenty seconds, and a call that runs into it is reported as "gh did not
+answer in 20 seconds — the verdict is not known" — exit code 3. A caller that
+asks the verdict in the middle of a push must not wait for the network, and
+must not need a program it cannot count on having.
+
 The line names the workflow by its file name — `ci.yml` — because that is the
 name the tool takes and the name the reader needs to find the run. GitHub
 reports the same workflow as "CI"; the tool reads the runs of the file and
@@ -136,14 +142,28 @@ def verdict_from_runs(runs: list[dict], workflow: str) -> tuple[str, int]:
     return line, NOT_SUCCESS
 
 
+#: How long the call to `gh` may take. The deadline belongs here and not in
+#: the caller: `timeout` is a GNU coreutils command, and a caller that shells
+#: out to it works on Linux and silently does nothing on a machine without it.
+#: The push that asks for the verdict must not wait for the network, and it
+#: must not need a program it cannot count on having.
+GH_TIMEOUT_SECONDS = 20
+
+
 def _gh(args: list[str], repo: str) -> str:
     """Run `gh` and return its output, or raise."""
-    result = subprocess.run(  # noqa: S603 — a fixed argv, no shell
-        ['gh', *args, '--repo', repo],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        result = subprocess.run(  # noqa: S603 — a fixed argv, no shell
+            ['gh', *args, '--repo', repo],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=GH_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(
+            f'gh did not answer in {GH_TIMEOUT_SECONDS} seconds — the verdict is not known'
+        ) from None
     if result.returncode != 0:
         message = (result.stderr or result.stdout or 'gh failed').strip()
         raise RuntimeError(message.splitlines()[0] if message else 'gh failed')

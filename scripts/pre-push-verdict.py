@@ -63,13 +63,40 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
-import os
 import pathlib
 import re
 import subprocess
 import sys
 
 ROOT: pathlib.Path = pathlib.Path(__file__).resolve().parent.parent
+
+# The one answer to "which git variables must a command inside a tree not
+# inherit". It lives in `scripts/src/sgate/gatekit/gitenv.py` because the
+# gates, the hook and the tests all need it, and a second copy of the list in
+# this file is a list that goes stale: the hook and this script dropped
+# different sets of the names for a while, and nobody noticed because both
+# were right about the tree they ran in. ADR
+# `docs/decisions/2026-10-23-a-test-fixture-must-not-reach-the-developers-repository.md`.
+#
+# It is loaded *by path*, the way `scripts/changed-modules.py` is loaded below,
+# and not imported as `sgate.gatekit.gitenv`: the package `sgate` imports
+# `click` and `loguru` when it is imported, and the hook runs this script with
+# the ambient `python3`, which is not guaranteed to have either. A verdict that
+# dies on an import is a push that fails for a reason that has nothing to do
+# with the verdict. `scripts/gitenv_loader.py` is that way of loading, and it
+# is shared with the other scripts that cannot reach the package either — the
+# loading is one answer too.
+#
+# The loader lives beside this script, so the directory has to be on the path
+# before it can be imported. The hook runs the script by its path, which puts
+# the directory there on its own; a test that loads the script by path does
+# not, and the line below is what makes both work.
+_SCRIPTS_DIR = str(pathlib.Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
+from gitenv_loader import load_gitenv  # noqa: E402
+
 
 #: The paths that can change a detekt verdict:
 #:   - the Kotlin sources detekt analyses;
@@ -120,22 +147,12 @@ DEFAULT_BASE = "origin/main"
 DEFAULT_GRADLE = "./gw"
 
 
-def tree_env() -> dict[str, str]:
-    """The environment for a git command that runs inside a tree.
-
-    Git exports GIT_DIR (and GIT_WORK_TREE, GIT_INDEX_FILE) for the hook, and
-    they point at THIS worktree: a `git ls-files` inside the pushed tree would
-    list the original worktree's files, and the digest would be of a tree
-    nobody pushed. The pushed tree has its own `.git` file, and git finds it
-    when the environment does not say otherwise.
-    """
-    env = dict(os.environ)
-    for name in ('GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR'):
-        env.pop(name, None)
-    return env
-
 class VerdictUnavailable(Exception):
     """The verdict could not be taken — there is no tree to judge."""
+
+
+#: The answer, taken from the file that owns it.
+tree_env = load_gitenv().tree_env
 
 
 def load_module_graph():

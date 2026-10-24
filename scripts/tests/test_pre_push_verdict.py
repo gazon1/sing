@@ -26,12 +26,34 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import unittest.mock
 
 import importlib.util
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / 'src'))
+#: The loader the script uses, imported the way the script imports it — the
+#: loader is one file for the whole repository, and a test that wrote its own
+#: would be the second copy of the way to reach the answer.
+SCRIPTS = pathlib.Path(__file__).resolve().parent.parent
+if str(SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS))
 
-from sgate.gatekit.gitenv import tree_env as _clean_git_env  # noqa: E402
+import gitenv_loader  # noqa: E402
+
+#: The canonical answer, and the file it comes from.
+GITENV_PATH = pathlib.Path(__file__).resolve().parent.parent / 'src' / 'sgate' / 'gatekit' / 'gitenv.py'
+GITENV_MODULE_NAME = gitenv_loader.GITENV_MODULE_NAME
+
+#: The canonical module, loaded the way the script loads it.
+#:
+#: The script registers the module under a name of its own, so the script and
+#: this test hold the *same* module object — the identity check below is
+#: therefore a statement about the script, not about the cache. The file the
+#: module came from is checked separately, so the cache cannot vouch for
+#: itself.
+load_gitenv = gitenv_loader.load_gitenv
+
+gitenv = load_gitenv()
+_clean_git_env = gitenv.tree_env
 
 MODULE_PATH = pathlib.Path(__file__).resolve().parent.parent / 'pre-push-verdict.py'
 spec = importlib.util.spec_from_file_location('pre_push_verdict', MODULE_PATH)
@@ -374,6 +396,57 @@ class ModuleSelectionTest(unittest.TestCase):
         self.assertFalse(report['mutated'], 'nothing ran, so nothing changed')
         self.assertTrue(report['clean'], 'a change that needs no detekt run is not a violation')
         self.assertEqual(0, result.returncode)
+
+
+class GitEnvironmentTest(unittest.TestCase):
+    """The verdict takes its git environment from the one canonical answer.
+
+    The script used to keep a copy of the list of variables a git command
+    inside a tree must not inherit. The list was right — and the copy was a
+    second answer to the same question, so the next variable git exports would
+    have been dropped here and not in the gates. The answer lives in
+    `sgate.gatekit.gitenv`, and this test says which one the script uses.
+    """
+
+    def setUp(self) -> None:
+        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='pre-push-gitenv-'))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+    def _repo(self, name: str) -> pathlib.Path:
+        repo = self.tmp / name
+        repo.mkdir()
+        subprocess.run(['git', 'init', '-q', '-b', 'main'], cwd=repo, check=True, env=_clean_git_env())
+        (repo / 'a.txt').write_text('a\n', encoding='utf-8')
+        subprocess.run(['git', 'add', '-A'], cwd=repo, check=True, env=_clean_git_env())
+        subprocess.run(
+            ['git', '-c', 'user.email=verdict@example.com', '-c', 'user.name=Verdict',
+             'commit', '-q', '-m', 'a file'],
+            cwd=repo, check=True, env=_clean_git_env(),
+        )
+        return repo
+
+    def test_the_verdict_uses_the_canonical_git_environment(self):
+        """One answer: the function the gates and the tests use is this one."""
+        self.assertIs(mod.tree_env, gitenv.tree_env)
+        self.assertEqual(
+            pathlib.Path(gitenv.__file__).resolve(),
+            GITENV_PATH.resolve(),
+            'the answer is the one the repository owns, not a copy of it',
+        )
+
+    def test_a_foreign_git_environment_does_not_leak_into_the_judged_tree(self):
+        """The behaviour that answer buys: git inside the tree means that tree."""
+        tree = self._repo('tree')
+        other = self._repo('other')
+        hook_env = {
+            'GIT_DIR': str(other / '.git'),
+            'GIT_WORK_TREE': str(other),
+            'GIT_INDEX_FILE': str(other / '.git' / 'index'),
+            'GIT_COMMON_DIR': str(other / '.git'),
+        }
+        with unittest.mock.patch.dict(os.environ, hook_env):
+            top = mod.git(tree, 'rev-parse', '--show-toplevel').strip()
+        self.assertEqual(str(tree.resolve()), top)
 
 
 if __name__ == '__main__':

@@ -78,10 +78,21 @@ from __future__ import annotations
 import ast
 import pathlib
 import re
+import sys
 
 import click
 
-from sgate.commands.base import run
+# The sgate package lives in this checkout's own `scripts/src`, and the answer
+# this script takes from it — the list of the variables git exports to a hook —
+# is about this checkout. The bootstrap puts that root on the path before the
+# import, the way `scripts/check-hook-gates.py` does: an import that happens
+# first is already bound to another tree's package under the same name.
+_scripts_src = str(pathlib.Path(__file__).resolve().parent / 'src')
+if _scripts_src not in sys.path:
+    sys.path.insert(0, _scripts_src)
+
+from sgate.commands.base import run  # noqa: E402
+from sgate.gatekit.gitenv import INHERITED_FROM_HOOK  # noqa: E402
 
 CLEAN = 0
 VALIDATION_FAILURE = 1
@@ -89,8 +100,10 @@ VALIDATION_FAILURE = 1
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 #: The variables git exports to a hook. They name the worktree the hook runs in,
-#: and they win over the directory a git command is pointed at.
-GIT_VARS = ('GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR')
+#: and they win over the directory a git command is pointed at. The list is the
+#: owner's — `sgate.gatekit.gitenv` answers this question for the whole
+#: repository, and a second copy here is a list that goes stale.
+GIT_VARS = INHERITED_FROM_HOOK
 
 #: git subcommands that WRITE the repository or the index. They are not tree
 #: reads: the rule is about a command that reports a fact about a tree's

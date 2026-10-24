@@ -59,11 +59,14 @@
 # not say otherwise.
 #
 # Every step of this hook that runs in the tree being pushed therefore starts
-# with `env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE`, and the script it
-# calls — `scripts/pre-push-verdict.py` — runs its own git commands through
-# `tree_env()`. A command added inside that tree has to do the same: the
-# contract is not enforced, it is written down, and the next command that
-# forgets it breaks silently, on a tree that was fine.
+# with `env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR`,
+# and the script it calls — `scripts/pre-push-verdict.py` — runs its own git
+# commands through the same answer: `tree_env()` from
+# `scripts/src/sgate/gatekit/gitenv.py`, which is where the list of the names
+# lives, so the hook, the gates and the tests cannot disagree about it. A
+# command added inside that tree has to do the same: the contract is not
+# enforced, it is written down, and the next command that forgets it breaks
+# silently, on a tree that was fine.
 #
 # Runs on ALL branches (both main checkout and worktrees).
 # Use `git push --no-verify` to skip this hook when needed (e.g., WIP commits).
@@ -76,6 +79,14 @@ cd "$REPO_ROOT"
 
 CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 ZERO_SHA="0000000000000000000000000000000000000000"
+
+# Git passes the remote it pushes to as the first argument, and that remote's
+# url as the second. The remote is named `origin` by convention and by most
+# clones, but nothing guarantees it: `git push fork main` pushes to `fork`, and
+# a question about `origin` would then be about another repository. The step
+# that prints the CI verdict below asks about the remote that receives the
+# push, so it needs the name.
+PUSH_REMOTE_NAME="${1:-origin}"
 
 # ── The push description (stdin) ──────────────────────────────────────────
 #
@@ -808,6 +819,102 @@ else
 fi
 echo ""
 
+
+# ── The CI verdict of what is being pushed ───────────────────────────────
+#
+# One line: the workflow, the run, the conclusion. The tool that prints it is
+# `scripts/ci-verdict.py`, and this is where it is called from — a verdict
+# that nobody reads is not a verdict, and the run id on its own is not one
+# either (a repository has several workflows, and the one that says "success"
+# may be the cache cleanup).
+#
+# It never fails the push, for two reasons that are both true most of the
+# time: CI has not seen this commit yet — that is the usual answer for a first
+# push — and a push may not depend on the network. The line is information;
+# the verdict that blocks a push is the one above. The deadline belongs to
+# the tool, which asks `gh` and gives up on its own: "a push must not depend
+# on the network" is not true of a call that waits for the network to give up.
+echo ""
+echo "=== CI verdict (about the pushed ref tips) ==="
+if ! command -v gh >/dev/null 2>&1; then
+    echo "   ci verdict: SKIPPED (gh is not installed)"
+elif ! python3 -c "import click" >/dev/null 2>&1; then
+    echo "   ci verdict: SKIPPED (click is not installed)"
+else
+    # The repository the verdict is about: the one that receives the push.
+    # The push url is that one; the fetch url is the fallback for a remote
+    # that has no push url of its own, and for a push url that is not a
+    # repository whose runs we can ask about. A remote that is not on GitHub
+    # has no repository to ask about, so the step says so instead of asking
+    # about somebody else's.
+    #
+    # The remote is the one git named in the first argument, not always
+    # `origin`: a push to a fork asks about the fork.
+    #
+    # The urls are read from the configuration and not from `git remote
+    # get-url`: that one expands the `insteadOf` rules, and the expanded url
+    # of a developer who pushes to a mirror is not a GitHub url at all — the
+    # step would skip, and the verdict would be lost. The configuration says
+    # where the push is going.
+    #
+    # The first url is taken when there are several, because that is the one
+    # `git remote get-url` named before.
+    ci_verdict_args=()
+    ci_verdict_repo=""
+    ci_verdict_remote="$PUSH_REMOTE_NAME"
+    ci_verdict_push_url="$(git config --get-all "remote.${ci_verdict_remote}.pushurl" 2>/dev/null | sed -n 1p || true)"
+    ci_verdict_fetch_url="$(git config --get-all "remote.${ci_verdict_remote}.url" 2>/dev/null | sed -n 1p || true)"
+    if [ -z "$ci_verdict_push_url" ] && [ -z "$ci_verdict_fetch_url" ]; then
+        case "$ci_verdict_remote" in
+            *://*|*@*:*)
+                # A push to a url rather than to a named remote: git hands the
+                # url over as the remote name too, and the configuration has
+                # no entry for a url. The url is the repository the push
+                # reaches, so it is the candidate — and it is the *expanded*
+                # url, which is the one the push really goes to.
+                ci_verdict_fetch_url="$ci_verdict_remote"
+                ;;
+            *)
+                # A remote git named that the configuration does not describe:
+                # the answer comes from `origin`, which is where most pushes
+                # go, and the line below says which remote it asked about.
+                ci_verdict_remote="origin"
+                ci_verdict_push_url="$(git config --get-all remote.origin.pushurl 2>/dev/null | sed -n 1p || true)"
+                ci_verdict_fetch_url="$(git config --get-all remote.origin.url 2>/dev/null | sed -n 1p || true)"
+                ;;
+        esac
+    fi
+    for candidate in "$ci_verdict_push_url" "$ci_verdict_fetch_url"; do
+        case "$candidate" in
+            *github.com[:/]*/*)
+                ci_verdict_repo="$(printf '%s' "$candidate" | sed -E 's#.*github\.com[:/]+##; s#\.git$##')"
+                ci_verdict_args=(--repo "$ci_verdict_repo")
+                break
+                ;;
+        esac
+    done
+    if [ -z "$ci_verdict_repo" ]; then
+        echo "   ci verdict: SKIPPED ($ci_verdict_remote is not a GitHub repository)"
+    else
+        # One line per pushed ref tip, and one line per commit that several
+        # refs point at: two refs of one commit are one commit, and the answer
+        # about it is one answer.
+        ci_verdict_seen=""
+        for sha in "${PUSH_LOCAL_SHAS[@]}"; do
+            [ "$sha" != "$ZERO_SHA" ] || continue
+            case "$ci_verdict_seen" in
+                *"|$sha|"*) continue ;;
+            esac
+            ci_verdict_seen="$ci_verdict_seen|$sha|"
+            ci_verdict_line="$(python3 "$REPO_ROOT/scripts/ci-verdict.py" "$sha" ${ci_verdict_args[@]+"${ci_verdict_args[@]}"} 2>&1 || true)"
+            # The remote is named in the line: a reader who pushed to a fork
+            # must be able to see that the answer is about the fork, and not
+            # about the repository the clone came from.
+            echo "   [$ci_verdict_remote] $ci_verdict_line"
+        done
+    fi
+fi
+echo ""
 
 # ── Worktree shortcut ──────────────────────────────────────────────────
 # In a worktree --git-dir differs from --git-common-dir.  Worktrees run their own

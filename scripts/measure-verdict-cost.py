@@ -85,6 +85,15 @@ from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 
+#: The answer to "which git variables must a command inside a tree not
+#: inherit" belongs to `sgate.gatekit.gitenv`. This script cannot import the
+#: package — it pulls in `click` and `loguru`, and this script has no
+#: third-party dependency today — so it loads the owner by path, the way
+#: `scripts/pre-push-verdict.py` does. The loader is the same file for both:
+#: `scripts/gitenv_loader.py`, which sits beside this script and is therefore
+#: importable without a path of its own.
+from gitenv_loader import INHERITED_FROM_HOOK, tree_env as gitenv_tree_env
+
 ROOT = Path(__file__).resolve().parent.parent
 
 #: The committed record of the measured price of the verdict.
@@ -366,15 +375,16 @@ def measure_auto_correct(gradle_cmd: str, tasks: tuple[str, ...], repo: Path) ->
 #: not inherit them: they name the tree the hook runs in, not the tree the
 #: command was pointed at (ADR 2026-10-23-a-test-fixture-must-not-reach-the-
 #: developers-repository.md, and scripts/check-git-environment.py).
-GIT_ENVIRONMENT = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR")
+#:
+#: The list is not written here: the owner of that answer is
+#: `sgate.gatekit.gitenv`, and this script reaches it the way a script that
+#: cannot import the package reaches it — by path.
+GIT_ENVIRONMENT = INHERITED_FROM_HOOK
 
 
 def tree_env() -> dict[str, str]:
     """The environment for a git command that reads a tree of its own."""
-    env = dict(os.environ)
-    for name in GIT_ENVIRONMENT:
-        env.pop(name, None)
-    return env
+    return gitenv_tree_env()
 
 
 def kotlin_digest(repo: Path) -> tuple[str, int]:
