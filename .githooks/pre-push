@@ -259,6 +259,9 @@ keep_suite_log() {
     [ -f "$source" ] || return 0
     mkdir -p "$(dirname "$kept")" 2>/dev/null || return 0
     cp "$source" "$kept" 2>/dev/null || return 0
+    # The temporary copy has served its purpose: the kept one outlives the
+    # push, and the temporary directory is not the place to leave it.
+    rm -f "$source" 2>/dev/null || true
     echo "   the whole log is at $kept"
 }
 
@@ -456,8 +459,13 @@ for i in "${!PUSH_REFS[@]}"; do
     # The suite's output goes to a file, and the failing test names are
     # printed: a step that says "FAILED" without saying which test failed
     # costs the reader the whole push.
-    suite_log="$TMP_ROOT/gate-suite-$i.log"
-    suite_log_kept="$REPO_ROOT/build/diagnostics/pre-push-gate-suite-$i.log"
+    # The log lives in a file of its own, not in the hook's temp root: the
+    # temp root is created only when a pushed sha is checked out, and a push
+    # of a sha that does not resolve falls back to the worktree with no temp
+    # root at all — a log path built from it was `/gate-suite-0.log`, and the
+    # hook failed on the *log*, not on the suite.
+    suite_log="$(mktemp "${TMPDIR:-/tmp}/pre-push-gate-suite-XXXXXX.log")"
+    suite_log_kept="$REPO_ROOT/build/diagnostics/pre-push-gate-suite-$(date +%Y%m%d-%H%M%S)-$i.log"
     if [ ! -d "$tree/scripts/tests" ]; then
         echo "   gate suite tests: SKIPPED (the pushed tree does not have them)"
     elif [ ! -f "$tree/scripts/run-gate-tests.py" ]; then
@@ -469,17 +477,21 @@ for i in "${!PUSH_REFS[@]}"; do
             PYTHONPATH="$tree/scripts/src" \
             python3 -m unittest discover -s scripts/tests >"$suite_log" 2>&1); then
             echo "   gate suite tests: OK (the tree has no runner — plain unittest)"
+            rm -f "$suite_log"
         else
             echo "   gate suite tests: FAILED"
             GATES_FAILED=1
             report_failed_tests "$suite_log"
             keep_suite_log "$suite_log" "$suite_log_kept"
+            echo ""
+            echo "pre-push FAILED — the gate suite's own tests do not pass in the tree of $local_ref."
         fi
     elif (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR \
         GATE_SUITE_INSIDE_HOOK=1 \
         PYTHONPATH="$tree/scripts/src" \
         python3 "$tree/scripts/run-gate-tests.py" >"$suite_log" 2>&1); then
         echo "   gate suite tests: OK"
+        rm -f "$suite_log"
     else
         echo "   gate suite tests: FAILED"
         GATES_FAILED=1

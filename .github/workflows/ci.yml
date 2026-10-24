@@ -73,11 +73,13 @@ jobs:
             scripts:
               - 'scripts/**'
               - '.github/**'
+              - '.githooks/**'
               - 'docs/**'
             gates:
               - 'scripts/**'
               - 'config/**'
               - '.github/**'
+              - '.githooks/**'
             android:
               - 'androidApp/**'
               - 'shared/src/android*/**'
