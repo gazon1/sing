@@ -761,6 +761,31 @@ class ComposeStabilityConfigTest(unittest.TestCase):
                 1,
             )
 
+    def test_an_entry_covers_the_subclass_below_it(self):
+        """The promise of a class covers the classes below it.
+
+        The compiler matches the entry against the supertypes of a class, so an
+        entry for a sealed class reaches its subclasses — and an instance of
+        the sealed class may be one of them. A `var` in a subclass breaks the
+        promise the contract makes for the class.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            conf = build_tree(root, f"{PACKAGE}.Node\n")
+            write(
+                root / "shared" / "src" / "commonMain" / "kotlin" / "com" / "singularity"
+                / "todo" / "feature" / "tasks" / "domain" / "model" / "Task.kt",
+                f"package {PACKAGE}\n\n"
+                "sealed class Node {\n"
+                "    abstract val id: String\n"
+                "}\n\n"
+                "class Leaf : Node() {\n"
+                "    override val id: String = \"\"\n"
+                "    var mutable: String = \"\"\n"
+                "}\n",
+            )
+            self.assertEqual(self.run_gate(root, conf), 1)
+
     def test_an_entry_that_names_an_interface_passes(self):
         """An interface is something the compiler can use.
 

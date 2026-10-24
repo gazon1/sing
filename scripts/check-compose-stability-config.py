@@ -27,9 +27,9 @@ So this gate checks seven things:
   4. the file is actually wired into the modules that compile composables;
   5. every type the contract names **from this project's namespace** keeps the
      promise it makes for it — no `var`, no collection that can change after
-     construction. For an interface the promise covers the implementations too,
-     because an instance of the interface may be one of them. A library type
-     is not checked: its declarations are not in these sources;
+     construction. The promise covers the types below it too, because an
+     instance of a contracted type may be one of them. A library type is not
+     checked: its declarations are not in these sources;
   6. every site the register of debt names is still declared in the sources;
   7. every parameter the register of debt names is still declared by some
      declaration of that site, and the register has not grown past the size
@@ -707,9 +707,11 @@ def check_contract_honesty(
     and the compiler does not tell it. The mutable spellings are what it can
     see, and those it rejects.
 
-    An interface is a promise about its implementations too: the compiler
-    applies the entry to the classes that carry the interface, so a `var` in
-    an implementation breaks the promise the contract makes for the interface.
+    An entry is a promise about the instances of the type it names, and an
+    instance may be of any type below it: the compiler matches the entry
+    against the supertypes of a class as well, so the subclasses of a
+    contracted class and the implementations of a contracted interface are
+    covered by the promise too. A `var` in one of them breaks it.
     """
     findings: list[str] = []
     ancestors = _ancestors(declarations)
@@ -726,13 +728,15 @@ def check_contract_honesty(
                 # not a class the compiler can match: the entry check reports
                 # both, and there is no promise of ours to keep here.
                 continue
-            targets = [qualified]
-            if declaration.kind == "interface":
-                targets += _implementations_of(qualified, declarations, ancestors)
+            targets = [qualified] + _implementations_of(
+                qualified,
+                declarations,
+                ancestors,
+            )
             for target in targets:
                 reached = "" if target == qualified else (
                     f" — {qualified} is the type the contract vouches for, and this "
-                    f"declaration is one of its implementations, so an instance of it may "
+                    f"declaration is one of the types below it, so an instance of it may "
                     f"be compared by equals"
                 )
                 for kind, name, type_text, initializer in declarations[target].properties:
