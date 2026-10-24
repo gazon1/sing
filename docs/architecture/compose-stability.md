@@ -99,6 +99,14 @@ for a month of calendar entries. So:
    The gate will tell you if the name does not resolve, and it will tell you
    if the type you named does not keep the promise: a `var` or a mutable
    collection in a contract type is a finding.
+
+   "The compiler would judge it unstable" has an exact reading, and the
+   stability report is where to read it: a parameter the compiler knows to be
+   stable is printed with a `stable` marker, a parameter it can only judge at
+   runtime is printed **without** one. The second kind is the one the contract
+   promotes — a runtime judgement is a check in the generated code, and the
+   check can fall back to comparing by identity. A parameter the report prints
+   with the `stable` marker needs no entry at all.
 2. **Is the parameter a collection?** Declare it `ImmutableList` /
    `ImmutableSet` / `ImmutableMap` and build it at the boundary with
    `toImmutableList()` / `toImmutableSet()`. The detekt rule

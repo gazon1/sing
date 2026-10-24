@@ -474,6 +474,54 @@ compiler's own report:
 The first two are what the contract is for; the last two are entries that say
 less than they appear to, which is the failure this whole decision is about.
 
+### The leaves are declared, and the cascade starts at the root
+
+A type the compiler cannot judge needs the contract. It cannot judge an
+interface — always runtime-unstable, whatever it holds — and it cannot judge a
+class that holds a plain `List`, because the list can change after
+construction. The contract grew by ten such types on 2026-10-24, and they come
+in three shapes.
+
+**The roots.** `ProposalItemStatus` and `ProposalItemKind` are sealed
+interfaces, `SpotlightShape` is one too, and `LogbookEntry` is a sealed
+interface over a note or a time tracking row. The compiler judges an interface
+by nothing at all, so every class that holds one is unstable with it. The
+entry reaches the implementations, and the class above becomes stable by
+itself: `ProposalItem` holds two such interfaces, and it needed both roots.
+
+**The leaves that hold a plain `List`.** `AiProposal` holds its changes in one;
+`MenuNode.SubMenu` holds its children in one. Both are rebuilt on every read
+and never mutated afterwards — the promise `Task` makes with its
+`List<TagId>`, and the reason `Task` is in the contract.
+
+**The parameter types themselves.** `AiTestResult` and `SelectorTemplate` are
+sealed interfaces; `ThemeMode` and `LocalDataDisposition` are sealed classes.
+The compiler judges none of them, and each is the type of a parameter.
+
+Measured on 2026-10-24, on the shared module and its 526 composables: the
+report of the compiler went from **1561 stable / 346 runtime-unstable / 3
+unstable** to **1583 / 324 / 3**. Twenty-two parameters moved from
+runtime-unstable to known-stable:
+
+- `node: MenuNode` ×2, `node: Action` ×3 and `node: SubMenu` ×3 — the menu of
+  the desktop shell;
+- `proposal: AiProposal` ×1 — a proposed change;
+- `entries: ImmutableList<LogbookEntry>` ×1 — the logbook of a task;
+- `aiTestResult: AiTestResult` ×2 and `result: AiTestResult` ×1 — the probe of
+  the AI provider settings;
+- `template: SelectorTemplate` ×2 and `pendingTemplate: SelectorTemplate?` ×1
+  — the agenda selector;
+- `themeMode: ThemeMode` ×1, `themeMode: ThemeMode?` ×1 and `selected:
+  ThemeMode` ×1 — the theme;
+- `disposition: LocalDataDisposition?` ×2 and `selected: LocalDataDisposition?`
+  ×1 — what happens to the local data when an account is claimed.
+
+The three roots did not move a parameter of their own, and that is expected:
+they are not parameter types. What they changed is above them — the properties
+of `ProposalItem` and of `SpotlightStep` are compile-time stable now, where
+they were runtime-unstable before, and the class above them is compared by
+`equals` instead of by identity.
+
 ### The register of debt is a ratchet
 
 The register names the composables that still take a raw collection, and under
