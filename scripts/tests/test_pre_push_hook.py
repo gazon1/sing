@@ -452,6 +452,47 @@ class PrePushHookTest(unittest.TestCase):
         asked = gh_log.read_text(encoding='utf-8') if gh_log.exists() else ''
         self.assertIn('--repo fork/mine', asked)
 
+    def test_the_verdict_is_about_the_repository_the_push_names_and_not_the_mirror_it_is_rewritten_to(self):
+        """A mirror the push is rewritten to is not the repository CI runs in.
+
+        The urls are read from the configuration, so a rewrite the developer
+        has set up does not change the answer: the repository the push names
+        is the repository whose runs are asked about.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._write('scripts/ci-verdict.py', CI_VERDICT_SCRIPT.read_text(encoding='utf-8'))
+        self._commit_source(CLEAN_SOURCE, 'a clean file')
+        bin_dir = self.tmp / 'bin'
+        bin_dir.mkdir()
+        gh = bin_dir / 'gh'
+        gh.write_text(FAKE_GH, encoding='utf-8')
+        gh.chmod(0o755)
+        # The push names a GitHub repository, and a rule rewrites what it
+        # names to a mirror that is not one.
+        _git('remote', 'add', 'origin', str(self.remote), cwd=self.repo)
+        _git('remote', 'set-url', 'origin', 'git@github.com:owner/repo.git', cwd=self.repo)
+        _git('config', 'url.https://mirror.example.com/.insteadOf', 'git@github.com:', cwd=self.repo)
+        gh_log = self.tmp / 'gh.log'
+        env = _clean_git_env()
+        env['PATH'] = f'{bin_dir}{os.pathsep}{env.get("PATH", "")}'
+        env['FAKE_GH_LOG'] = str(gh_log)
+        sha = _git('rev-parse', 'HEAD', cwd=self.repo).stdout.strip()
+
+        result = subprocess.run(
+            [str(self.repo / '.githooks' / 'pre-push'), 'origin', 'git@github.com:owner/repo.git'],
+            cwd=self.repo,
+            input=f'refs/heads/main {sha} refs/heads/main {sha}\n',
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+        output = result.stdout + result.stderr
+        self.assertEqual(0, result.returncode, output)
+        asked = gh_log.read_text(encoding='utf-8') if gh_log.exists() else ''
+        self.assertIn('--repo owner/repo', asked)
+
     def test_a_push_to_a_remote_that_is_not_github_asks_nobody(self):
         """The step must not ask about a repository the remote is not.
 

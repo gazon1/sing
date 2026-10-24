@@ -123,6 +123,7 @@ class DeadlineTest(unittest.TestCase):
         with unittest.mock.patch.object(mod.subprocess, 'run', fake_run):
             mod._gh(['run', 'list'], 'owner/repo')
         self.assertEqual(mod.GH_TIMEOUT_SECONDS, seen.get('timeout'))
+        self.assertEqual(20, seen.get('timeout'), 'the deadline is twenty seconds')
 
     def test_a_call_that_does_not_answer_says_so(self) -> None:
         def fake_run(args, **kwargs):

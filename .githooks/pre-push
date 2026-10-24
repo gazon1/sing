@@ -841,13 +841,17 @@ else
     # about somebody else's.
     #
     # The urls are read from the configuration and not from `git remote
-    # get-url`: that one expands the `insteadOf` rules, and a developer who
-    # pushes to a mirror would then be asked about the mirror. The
-    # configuration says where the push is going.
+    # get-url`: that one expands the `insteadOf` rules, and the expanded url
+    # of a developer who pushes to a mirror is not a GitHub url at all — the
+    # step would skip, and the verdict would be lost. The configuration says
+    # where the push is going.
+    #
+    # The first url is taken when there are several, because that is the one
+    # `git remote get-url` named before.
     ci_verdict_args=()
     ci_verdict_repo=""
-    ci_verdict_push_url="$(git config --get remote.origin.pushurl 2>/dev/null || true)"
-    ci_verdict_fetch_url="$(git config --get remote.origin.url 2>/dev/null || true)"
+    ci_verdict_push_url="$(git config --get-all remote.origin.pushurl 2>/dev/null | sed -n 1p || true)"
+    ci_verdict_fetch_url="$(git config --get-all remote.origin.url 2>/dev/null | sed -n 1p || true)"
     for candidate in "$ci_verdict_push_url" "$ci_verdict_fetch_url"; do
         case "$candidate" in
             *github.com[:/]*/*)

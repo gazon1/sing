@@ -52,10 +52,10 @@ Exit codes:
     3 = the run list could not be read (GitHub was not asked, or it did not answer)
 
 The tool does not wait for GitHub for ever: the call to `gh` has a deadline
-of twenty seconds, and a call that runs into it is reported as "GitHub did
-not answer" — exit code 3. A caller that asks the verdict in the middle of a
-push must not wait for the network, and must not need a program it cannot
-count on having.
+of twenty seconds, and a call that runs into it is reported as "gh did not
+answer in 20 seconds — the verdict is not known" — exit code 3. A caller that
+asks the verdict in the middle of a push must not wait for the network, and
+must not need a program it cannot count on having.
 
 The line names the workflow by its file name — `ci.yml` — because that is the
 name the tool takes and the name the reader needs to find the run. GitHub
