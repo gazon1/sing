@@ -167,13 +167,15 @@ class SearchUseCase(
             // This asks the rule about the *title* only — it is a question about
             // one surface of the record, asked to order the records the index
             // already found. It is not a filter: a record the index found is in
-            // the answer whatever this says.
+            // the answer whatever this says. And it is not the record's own
+            // surfaces either: those answer "does this record match", and every
+            // record here matches — the ranking asks the other question.
             //
             // The partition happens after the sort, so the order the user asked
             // for is the order inside each group. See `titleMatchesFirst`.
             if (!rule.isEmpty) {
                 result = titleMatchesFirst(result) { record ->
-                    rule.satisfiesPositives { term -> mode.matches(record.record, term) }
+                    rule.satisfiesPositives { term -> mode.matches(record.record.title, term) }
                 }
             }
 

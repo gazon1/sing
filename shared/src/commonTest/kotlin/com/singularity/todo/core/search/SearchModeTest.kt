@@ -75,9 +75,11 @@ class SearchModeTest {
         assertTrue(SearchMode.Word.matches(record, "air"))
         assertFalse(SearchMode.Word.matches(record, "port"))
         assertTrue(SearchMode.Contains.matches(record, "port"))
-        assertTrue(
+        assertEquals(
+            SearchMode.Contains.matchesAny(record.searchableSurfaces, "port"),
             SearchMode.Contains.matches(record, "port"),
-            "the second surface is searched as well as the first",
+            "the record-level matcher asks the same question as the surface list — the record " +
+                "decides which text is searched",
         )
     }
 

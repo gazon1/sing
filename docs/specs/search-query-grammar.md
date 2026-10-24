@@ -438,10 +438,8 @@ Three consequences, each of them a rule rather than a habit:
 
 - **A record says what it is searched by.** A caller does not choose the
   text: it hands the record to the matcher, and the record answers with its
-  own surfaces (F3). The map was written at every call site, and the call
-  sites disagreed — one branch of one search read the title while another
-  read the title and the description, and the difference between them was a
-  record lost without a word.
+  own surfaces (F3). The map was written at every call site, and nothing in
+  the tree could check one call site against another.
 - **A caller of the index does not write the question.** It asks the rule:
   `FreeTextRule.singleTerm(text).indexQuery()`. A hand-written question is a
   decision about what the index can answer, taken away from the rule that knows

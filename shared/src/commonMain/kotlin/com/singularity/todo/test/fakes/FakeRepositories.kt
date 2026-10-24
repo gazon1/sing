@@ -2318,7 +2318,7 @@ open class FakeNotesRepository(
             store.state.map { list ->
                 list.values.filter { note ->
                     note.userId == uid && note.archivedAt == null && note.deletedAt == null &&
-                        mode.matches(note.title, query)
+                        mode.matches(note, query)
                 }.sortedByDescending { note -> note.updatedAt }
             }
         }

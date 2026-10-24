@@ -300,5 +300,4 @@ data class CreateTaskInput(
      * The recurrence rule for the new task, or null for a non-recurring task.
      */
     val recurrence: RecurrenceSpec? = null,
-
 )

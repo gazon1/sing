@@ -353,10 +353,22 @@ class FtsMatcherAgreementTest {
      * The corpus folds the diacritics per character, the way `unicode61`
      * does; the contains mode folds the same way, or a search in the
      * contains mode would answer about a different text than the index does.
+     *
+     * The index is asked too: the claim is about the two folding *the same
+     * way*, and a test that asks only the contains mode proves half of it.
      */
     @Test
-    fun `the contains mode folds the diacritics the way the index folds them`() {
-        assertTrue(TextMatch.contains("café latte", "cafe"))
+    fun `the contains mode folds the diacritics the way the index folds them`() = runTest {
+        seed()
+
+        assertTrue(
+            indexIds("cafe").contains("t-cafe"),
+            "the index folds the diacritics: \"cafe\" finds \"café latte\"",
+        )
+        assertTrue(
+            texts.filter { (text, _) -> TextMatch.contains(text, "cafe") }.any { it.second == "t-cafe" },
+            "the contains mode folds the diacritics the same way the index does",
+        )
         assertTrue(TextMatch.contains("Café Latte", "CAFE"))
         assertFalse(TextMatch.contains("café latte", "caffe"))
         assertTrue(

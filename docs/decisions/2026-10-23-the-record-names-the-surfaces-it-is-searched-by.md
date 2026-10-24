@@ -12,12 +12,16 @@ tags: [search, architecture, grammar]
 F3 says what a record is searched by: a task by its title and its
 description, a note by its title, a project and a tag by their name.
 
-That map was written at every call site, and the call sites disagreed. The
-contains branch of the task autocomplete read the title alone, while the word
-branch of the same search asked the index — and the index holds the title and
-the description. Two branches of one question gave two answers, and the
-difference between them was a record lost without a word. It took two rounds
-of review to find it, and the second round had to be told about it.
+That map was written at every call site, and the call sites could not be checked
+against each other. The task autocomplete and the task filter answered "does
+this task match" through `TaskDomain.matches`, which knew the map; the search
+screen's ranking asked the rule about the *title* alone, on purpose, because
+that was a different question; and the notes repository and the projects list
+each carried a list of their own fields. Every one of those lists was a
+statement about the same map, written in a place where the next reader had to
+find it to know whether it was right — and the review of one PR found the
+word branch of the task autocomplete reading the title while the index it
+asked held the title and the description.
 
 The ceiling of an answer had the same shape: the index's note query carried
 `LIMIT 20`, and the in-memory branch carried `NOTES_LIMIT = 20`, and the two
@@ -38,9 +42,14 @@ call.**
 - `SearchMode.matches(record, term)` is the one call a surface makes. It
   asks the record for its surfaces and asks the matcher about them; a caller
   no longer chooses the text, so a caller can no longer choose it wrong.
+  A question about *one* surface — the ranking, which asks whether the title
+  carries the word — still asks about that surface on purpose, and says so.
 - `core/search/SearchLimits.kt` holds the ceilings. The index's query and the
-  in-memory branch read the same number, so a search answers with the same
-  size whichever mode it ran in.
+  in-memory branch read the same number, so the number is written once. The
+  size of an answer is still the size the mode produces: the index's ceiling
+  is applied to its candidates and the in-memory ceiling to the rows the
+  contains mode filtered, so the word mode may answer with fewer records than
+  the ceiling and the contains mode with exactly as many.
 
 ## Consequences
 
@@ -54,9 +63,9 @@ call.**
   rule with the real index; it now also asserts that the contains mode loses
   nothing the index found — the weaker rule has to find everything the
   stronger one finds — and that the contains mode folds the diacritics the
-  way the index folds them. The property is one-sided on purpose: the
-  contains mode answers *more* ("port" finds "airport"), and that is the
-  escape hatch working.
+  way the index folds them, asking the index too. The property is one-sided
+  on purpose: the contains mode answers *more* ("port" finds "airport"), and
+  that is the escape hatch working.
 - A phrase is not covered by that property, and the corpus says so: a phrase
   is a question about tokens that stand next to each other, while the
   contains mode asks whether the phrase occurs in a row. "snake_case
