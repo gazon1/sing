@@ -22,10 +22,8 @@ A gate script that no registry entry names is not a gate — it is run by a surf
 | `scripts/ci/preflight-gate-tools.sh` | Says which tool is missing and how to get it, before a gate cannot run. |
 | `scripts/ci/new-gate.py` | Registers a gate in every place it has to be, in one command. |
 | `scripts/detekt-summary.py` | Prints the detekt findings by rule and by place, instead of XML per finding. |
-<<<<<<< HEAD
 | `scripts/ci-verdict.py` | Prints the CI verdict of a commit, a branch or a pull request: the workflow, the run, the conclusion. The pre-push hook calls it about the commit that is going out, so the verdict is a line of the push. |
 | `scripts/prune-merged-branches.py` | Plans the deletion of local branches whose pull request is merged; deletes them only with --yes. |
->>>>>>> f0eb330a (feat(tooling): хук печатает вердикт CI о пушащемся коммите)
 
 ## The modules of the gate suite
 
