@@ -102,17 +102,17 @@ graph is declared in the build files.
 - The published page prices both loops: the local one with medians and a machine, the
   CI one as a record of one finished run of the branch, with the run's verdict. The
   record goes stale when the workflow's jobs change, not when the branch moves.
-- **The criterion is written down, not enforced.** Nothing compares the recorded job
-  names with the workflow's: `sgate gate-costs` renders the recorded map and compares
-  the published page with the baseline, and `check-published-measurements.py` reads
-  the coverage record, not the CI one. So a renamed job leaves the record naming a
-  job that no longer exists until somebody re-records it — which is exactly what the
-  false names did, and the page kept them for a change. A gate that compares the
-  recorded names with the workflow's declared names is the follow-up, and it has to
-  be a **containment** check, not an equality one: the record holds the jobs that
-  RAN, and the workflow declares the jobs that CAN run, so equality would be red
-  forever. And the comparison is a proxy for what the criterion says — it sees a
-  rename, not an edit that keeps every name and changes what a job does.
+- **The criterion is enforced — in one direction.** `scripts/check-recorded-ci-jobs.py`
+  compares every job the record names with the jobs the workflow declares, and
+  names the ones that are gone. The comparison is a **containment** check: the
+  record holds the jobs that RAN and the workflow declares the jobs that CAN
+  run, so equality would be red forever. And it is a proxy for what the
+  criterion says — it sees a rename, not an edit that keeps every name and
+  changes what a job does. What it does not see at all is a job **added** to
+  the trunk path: the set of jobs a trunk push runs depends on the paths the
+  push touched, so "the workflow's trunk jobs" is not a fixed set. A matrix job
+  is expanded before the comparison — the runner shows `Android (free)` and
+  `Android (pro)` where the workflow declares one job.
 - The local loop is measurably cheaper: the JSON-contract gate runs concurrently, and
   one duplicated control is gone.
 - A control written twice fails a test, in the registry and in the control lists.

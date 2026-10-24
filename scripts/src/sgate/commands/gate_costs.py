@@ -771,7 +771,8 @@ def _render_ci_block(baseline: dict[str, object]) -> list[str]:
             "into a price of a loop that no longer exists. It is not stale when "
             f"`{CI_BRANCH}` moves — a later run with the same jobs is another sample of "
             "the same loop, so re-recording it would move the numbers without making "
-            "the page truer."
+            "the page truer. A gate says so when it happens: "
+            "`scripts/check-recorded-ci-jobs.py` names the job that is gone."
         )
         lines.append("")
     lines.append("| Job | Duration |")
