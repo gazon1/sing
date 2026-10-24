@@ -3,7 +3,7 @@ change: the-client-meets-a-real-bridge
 verdict: pass
 date: 2026-10-24
 pr: 1114
-reviewed: e1f353be05079a0f4e51ffddc41be8ba205511c6
+reviewed: 7798020293a4ecc055542197ba6c1b1977995041
 documents: sha256:5cda382b3cf9c9e4759e964e1101472268bf89b6eb6d91700a31f18e282206f6
 ---
 
@@ -137,6 +137,23 @@ order, with a new session id — and the file says which reader produced them.
 before the probe runs; and the architecture document did not say that a *crashed* probe
 also exits zero, because the task ignores the probe's exit value. All three are said
 now.
+
+**After the review — the CI found what six rounds had not.** The `SubprocessConfinedTest`
+gate — "only Subprocess spawns a process" — failed on the branch: the probe started the
+bridge with `ProcessBuilder` of its own, outside `core/process`. The rule is right and
+the probe was wrong; a spawn outside `core/process` is a spawn that `SubprocessTest`
+does not cover, and the defect that class of spawn carries — closing a read end early
+and delivering SIGPIPE to the child — has shipped twice in this repository.
+
+The child is started by `Subprocess.spawnDuplex` now, and the probe wraps the child's
+output in a tee afterwards: the transcript is still a copy taken underneath the
+protocol's reader, not a second reader of the stream. A bridge that could not be
+started is now a report instead of a stack trace.
+
+The reason it took a CI run and not a review round is worth writing down: the rule is
+a *test*, and a review that does not run the suite does not see it. The fix was
+checked by the gate that found it, by the ACP tests, by detekt, and by the probe
+against the real bridge.
 
 **Round 5 — no blocking findings.** The fifth round found the change sound: the
 round-4 fixes were real in the code, every claim it could check against the
