@@ -48,6 +48,13 @@ and each of them has its own task. A class of `androidHostTest` does not
 exist under `:shared:jvmTest` — the filter that names it selects nothing
 there, and a run that ran nothing reports green.
 
+One task runs MORE than the selection, and the map says so rather than
+letting the reader assume otherwise: `:shared:testAndroidHostTest` is exempt
+from the tag filter (`shared/build.gradle.kts`), so the command that names
+one android host class runs the WHOLE android host source set — every class
+in it, slow ones included. The selection is a candidate set, and for that
+one source set the run is wider than the candidate.
+
 Usage:
     python3 scripts/test-impact-map.py                  # the test classes, one per line
     python3 scripts/test-impact-map.py --explain        # the same, with the reasons
@@ -115,6 +122,11 @@ GATE_AREAS: tuple[str, ...] = (
 #: the filter that names it selects nothing there, and Gradle fails a test task
 #: that ran no test. The class was named, the run was green, and the class
 #: never ran.
+#:
+#: `:shared:testAndroidHostTest` runs more than the map selects: it is exempt
+#: from the tag filter (`shared/build.gradle.kts`), so the command that names
+#: one class of that source set runs every class in it. The map's promise is a
+#: candidate set, and for that source set the run is wider than the candidate.
 SOURCE_SET_TASKS: dict[str, str] = {
     'shared/src/commonTest': ':shared:jvmTest',
     'shared/src/jvmTest': ':shared:jvmTest',
