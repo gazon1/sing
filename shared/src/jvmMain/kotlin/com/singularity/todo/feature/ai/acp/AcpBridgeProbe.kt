@@ -45,9 +45,9 @@ private fun methodsOf(frames: List<String>): List<Pair<String, Int>> {
  *
  * The bridge keeps talking after the session it answered, and what it says then is
  * what the probe is for. A window, and not a moment, is what makes the promise
- * checkable: **every frame the bridge wrote in the window, and that reached the
- * client, is in the transcript**, and a frame that comes later is a frame the records
- * do not claim.
+ * checkable: **every frame the bridge wrote in the window, and that the protocol's
+ * reader had taken by the time the drain ended, is in the transcript**, and a frame
+ * that comes later is a frame the records do not claim.
  *
  * The window is a plain length of time and not a heuristic. A quiet period would
  * end the read as soon as the bridge stopped talking — and a bridge that announces

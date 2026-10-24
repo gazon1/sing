@@ -53,9 +53,9 @@ bytes as they pass: one reader, one copy.
 the session it answered: its available commands come on a timer. A transcript read the
 moment the connect returned would miss that frame — and it is one of the frames this
 probe is for. So the probe reads the bridge's stream for thirty seconds after the
-connect, and the promise is the simple one: every frame the bridge wrote in the window,
-and that reached the client, is in the transcript — and a frame that comes later is a
-frame the records do not claim. A short drain follows the window, because a frame the
+connect, and the promise is the simple one: every frame the bridge wrote in the
+window, and that the protocol's reader had taken by the time the drain ended, is in the
+transcript — and a frame that comes later is a frame the records do not claim. A short drain follows the window, because a frame the
 bridge wrote in its last milliseconds may not have been read yet, and the copy happens
 when the protocol's reader takes the bytes.
 

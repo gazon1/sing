@@ -62,8 +62,9 @@ built on a frame that was not always there.
 
 So the probe reads the bridge's stream for thirty seconds after the connect, and
 writes the transcript down when the window is over. The promise is the simple one:
-**every frame the bridge wrote in the window, and that reached the client, is in the
-transcript**, and a frame that comes later is a frame the records do not claim.
+**every frame the bridge wrote in the window, and that the protocol's reader had
+taken by the time the drain ended, is in the transcript**, and a frame that comes
+later is a frame the records do not claim.
 
 The window closes at a moment, and a frame the bridge wrote in its last milliseconds
 may not have been read yet — the protocol's reader and the copy under it are two

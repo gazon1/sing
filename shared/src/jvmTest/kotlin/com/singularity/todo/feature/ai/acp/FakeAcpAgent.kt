@@ -92,6 +92,8 @@ private fun handle(line: String, mode: String, json: Json, transcript: java.io.F
                     id,
                     """{"protocolVersion":$version,"agentCapabilities":{},"authMethods":[],""" +
                         """"agentInfo":{"name":"fake-agent","version":"1.0"}}""",
+                    "initialize",
+                    transcript,
                 )
                 // The real bridge announces its authentication state during the
                 // handshake, before the session answer — as a notification: a method
@@ -109,17 +111,17 @@ private fun handle(line: String, mode: String, json: Json, transcript: java.io.F
         // real bridge's three — a session setting this application does not show. They
         // are here because the bridge sends them: a fake that answers a different
         // session than the bridge does proves nothing about the bridge.
-        "session/new" -> respond(id, SESSION_RESPONSE)
+        "session/new" -> respond(id, SESSION_RESPONSE, "session/new", transcript)
 
         // The goodbye is answered, as a real agent answers it. A request that is
         // received and never answered is the one failure the client cannot defend
         // against on its own — so the agent that behaves well answers, and the mode
         // below is the one that does not.
-        "session/close" -> if (mode != MODE_MUTE_CLOSE) respond(id, "{}")
+        "session/close" -> if (mode != MODE_MUTE_CLOSE) respond(id, "{}", "session/close", transcript)
 
         "session/prompt" -> {
             if (mode == MODE_CRASH) return false
-            // The bridge announces its commands right after the session is open. The
+            // The bridge announces its commands after the session is open. The
             // fake announces them *here* — while the turn is running — because that is
             // the window in which a session update could become something the reader
             // sees, and a fake that announced it before the turn would prove nothing
@@ -138,7 +140,7 @@ private fun handle(line: String, mode: String, json: Json, transcript: java.io.F
                     """"content":{"type":"text","text":"hello from the fake agent"},"messageId":"m1"}}""",
                 transcript,
             )
-            respond(id, PROMPT_RESPONSE)
+            respond(id, PROMPT_RESPONSE, "session/prompt", transcript)
         }
 
         else -> Unit
@@ -146,11 +148,20 @@ private fun handle(line: String, mode: String, json: Json, transcript: java.io.F
     return true
 }
 
-private fun respond(id: JsonElement?, result: String) {
+/**
+ * Answers a request.
+ *
+ * The answer is written down as well as printed: a test that says a notification
+ * arrived *while the turn was running* has to be able to show that the answer came
+ * after it — and the transcript is the only place where the order is written.
+ */
+private fun respond(id: JsonElement?, result: String, method: String, transcript: java.io.File?) {
     // The id is echoed exactly as it arrived — a number stays a number. See the note
     // where it is read.
     val idPart = id?.toString() ?: "null"
-    println("""{"jsonrpc":"2.0","id":$idPart,"result":$result}""")
+    val frame = """{"jsonrpc":"2.0","id":$idPart,"result":$result}"""
+    transcript?.appendText("ANSWERED: $method $frame\n")
+    println(frame)
     System.out.flush()
 }
 
