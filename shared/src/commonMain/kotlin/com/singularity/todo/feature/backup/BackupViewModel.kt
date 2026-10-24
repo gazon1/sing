@@ -8,6 +8,7 @@ import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.exportOptions
 import com.singularity.todo.core.backup.importOptions
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
@@ -222,7 +223,12 @@ class BackupViewModel(
         repository.push(backupId)
             .onFailure { e ->
                 updateState { it.copy(isWorking = false) }
-                crashReporter.report(e, BACKUP_PUSH_FAILED)
+                // The error's own code when it has one: a refused session, a
+                // bucket that does not exist and a lost connection are three
+                // defects, and one key for all three is how "the anon key went
+                // instead of the user's token" and "the row-level policy
+                // refused the write" ended up in the same group.
+                crashReporter.report(e, (e as? AppError)?.code ?: BACKUP_PUSH_FAILED)
                 emit(Error(e.message ?: "Push failed"))
             }
             .onSuccess {

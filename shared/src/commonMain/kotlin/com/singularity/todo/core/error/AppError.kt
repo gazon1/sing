@@ -44,6 +44,10 @@ sealed class AppError(message: String, val code: String, cause: Throwable?) : Ru
     class Network(message: String, code: String = "error.network", cause: Throwable? = null) :
         AppError(message, code, cause)
 
+    /** The server answered, and the answer was no: a policy refused, a request made no sense. */
+    class Rejected(message: String, code: String = "error.rejected", cause: Throwable? = null) :
+        AppError(message, code, cause)
+
     /** Unclassified. [runCatchingResult] is the only producer; it always attaches [cause]. */
     class Unknown(message: String, code: String = "error.unknown", cause: Throwable? = null) :
         AppError(message, code, cause)
