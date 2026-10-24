@@ -89,8 +89,8 @@ FAKE_GH = """#!/usr/bin/env bash
 if [ -n "${FAKE_GH_LOG:-}" ]; then
   printf '%s\\n' "$*" >> "$FAKE_GH_LOG"
 fi
-cat <<'JSON'
-[{"databaseId": 39888579980, "conclusion": "success", "status": "completed", "url": "https://github.com/gazon1/sing/actions/runs/39888579980", "workflowName": "CI"}]
+cat <<JSON
+[{"databaseId": 39888579980, "conclusion": "${FAKE_GH_CONCLUSION:-success}", "status": "completed", "url": "https://github.com/gazon1/sing/actions/runs/39888579980", "workflowName": "CI"}]
 JSON
 """
 
@@ -413,6 +413,88 @@ class PrePushHookTest(unittest.TestCase):
         asked = gh_log.read_text(encoding='utf-8') if gh_log.exists() else ''
         self.assertIn(f'--commit {pushed}', asked)
         self.assertIn('--repo example/fork', asked)
+
+    def test_a_failing_ci_verdict_does_not_block_the_push(self):
+        """The verdict is a line of the push. A red line is not a red push.
+
+        The CI verdict is printed for the reader, before the push goes out —
+        and the push goes out anyway, because CI has not seen this commit yet
+        in the usual case, and a push that depends on CI is a push that
+        depends on the network. A verdict that says "failure" must therefore
+        be printed and not obeyed.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._write('scripts/ci-verdict.py', CI_VERDICT_SCRIPT.read_text(encoding='utf-8'))
+        self._commit_source(CLEAN_SOURCE, 'a clean file')
+        bin_dir = self.tmp / 'bin'
+        bin_dir.mkdir()
+        gh = bin_dir / 'gh'
+        gh.write_text(FAKE_GH, encoding='utf-8')
+        gh.chmod(0o755)
+        _git('remote', 'add', 'origin', str(self.remote), cwd=self.repo)
+        _git('remote', 'set-url', 'origin', 'git@github.com:example/fork.git', cwd=self.repo)
+        _git('remote', 'set-url', '--push', 'origin', str(self.remote), cwd=self.repo)
+        env = _clean_git_env()
+        env['PATH'] = f'{bin_dir}{os.pathsep}{env.get("PATH", "")}'
+        # The stand-in answers the way a red run answers.
+        env['FAKE_GH_CONCLUSION'] = 'failure'
+
+        result = subprocess.run(
+            ['git', 'push', 'origin', 'main'],
+            cwd=self.repo,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+        output = result.stdout + result.stderr
+        self.assertIn('ci.yml  run 39888579980  failure', output)
+        self.assertIn('=== Pre-push OK ===', output)
+        self.assertEqual(0, result.returncode, output)
+
+    def test_the_verdict_is_about_the_remote_the_push_reaches(self):
+        """A push to a fork asks about the fork, not about `origin`.
+
+        Git names the remote it pushes to as the first argument of the hook,
+        and a clone has more than one remote often enough: `origin` is a
+        convention, not a rule. The verdict that names `origin` when the push
+        went to `fork` is a verdict about another repository.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._write('scripts/ci-verdict.py', CI_VERDICT_SCRIPT.read_text(encoding='utf-8'))
+        self._commit_source(CLEAN_SOURCE, 'a clean file')
+        bin_dir = self.tmp / 'bin'
+        bin_dir.mkdir()
+        gh = bin_dir / 'gh'
+        gh.write_text(FAKE_GH, encoding='utf-8')
+        gh.chmod(0o755)
+        # Two remotes: `origin` is the GitHub repository the clone came from,
+        # `fork` is the one this push goes to.
+        _git('remote', 'add', 'origin', str(self.remote), cwd=self.repo)
+        _git('remote', 'set-url', 'origin', 'git@github.com:example/upstream.git', cwd=self.repo)
+        _git('remote', 'add', 'fork', str(self.remote), cwd=self.repo)
+        _git('remote', 'set-url', 'fork', 'git@github.com:example/the-fork.git', cwd=self.repo)
+        _git('remote', 'set-url', '--push', 'fork', str(self.remote), cwd=self.repo)
+        gh_log = self.tmp / 'gh.log'
+        env = _clean_git_env()
+        env['PATH'] = f'{bin_dir}{os.pathsep}{env.get("PATH", "")}'
+        env['FAKE_GH_LOG'] = str(gh_log)
+
+        result = subprocess.run(
+            ['git', 'push', 'fork', 'main'],
+            cwd=self.repo,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+        output = result.stdout + result.stderr
+        self.assertEqual(0, result.returncode, output)
+        asked = gh_log.read_text(encoding='utf-8') if gh_log.exists() else ''
+        self.assertIn('--repo example/the-fork', asked)
+        self.assertNotIn('--repo example/upstream', asked)
 
     def test_the_verdict_is_about_the_repository_the_push_reaches(self):
         """The push url is the repository that receives the push.

@@ -80,6 +80,14 @@ cd "$REPO_ROOT"
 CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 ZERO_SHA="0000000000000000000000000000000000000000"
 
+# Git passes the remote it pushes to as the first argument, and that remote's
+# url as the second. The remote is named `origin` by convention and by most
+# clones, but nothing guarantees it: `git push fork main` pushes to `fork`, and
+# a question about `origin` would then be about another repository. The step
+# that prints the CI verdict below asks about the remote that receives the
+# push, so it needs the name.
+PUSH_REMOTE_NAME="${1:-origin}"
+
 # ── The push description (stdin) ──────────────────────────────────────────
 #
 # One line per ref. It is read ONCE, here, and everything below works from
@@ -840,6 +848,9 @@ else
     # has no repository to ask about, so the step says so instead of asking
     # about somebody else's.
     #
+    # The remote is the one git named in the first argument, not always
+    # `origin`: a push to a fork asks about the fork.
+    #
     # The urls are read from the configuration and not from `git remote
     # get-url`: that one expands the `insteadOf` rules, and the expanded url
     # of a developer who pushes to a mirror is not a GitHub url at all — the
@@ -850,8 +861,17 @@ else
     # `git remote get-url` named before.
     ci_verdict_args=()
     ci_verdict_repo=""
-    ci_verdict_push_url="$(git config --get-all remote.origin.pushurl 2>/dev/null | sed -n 1p || true)"
-    ci_verdict_fetch_url="$(git config --get-all remote.origin.url 2>/dev/null | sed -n 1p || true)"
+    ci_verdict_remote="$PUSH_REMOTE_NAME"
+    ci_verdict_push_url="$(git config --get-all "remote.${ci_verdict_remote}.pushurl" 2>/dev/null | sed -n 1p || true)"
+    ci_verdict_fetch_url="$(git config --get-all "remote.${ci_verdict_remote}.url" 2>/dev/null | sed -n 1p || true)"
+    if [ -z "$ci_verdict_push_url" ] && [ -z "$ci_verdict_fetch_url" ]; then
+        # A remote git named that the configuration does not describe: the
+        # answer comes from `origin`, which is where most pushes go, and the
+        # line below says which remote it asked about.
+        ci_verdict_remote="origin"
+        ci_verdict_push_url="$(git config --get-all remote.origin.pushurl 2>/dev/null | sed -n 1p || true)"
+        ci_verdict_fetch_url="$(git config --get-all remote.origin.url 2>/dev/null | sed -n 1p || true)"
+    fi
     for candidate in "$ci_verdict_push_url" "$ci_verdict_fetch_url"; do
         case "$candidate" in
             *github.com[:/]*/*)
@@ -862,7 +882,7 @@ else
         esac
     done
     if [ -z "$ci_verdict_repo" ]; then
-        echo "   ci verdict: SKIPPED (origin is not a GitHub repository)"
+        echo "   ci verdict: SKIPPED ($ci_verdict_remote is not a GitHub repository)"
     else
         # One line per pushed ref tip, and one line per commit that several
         # refs point at: two refs of one commit are one commit, and the answer
