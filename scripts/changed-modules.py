@@ -456,8 +456,9 @@ BUILD_AREAS = (
 #: tests and the detekt run. These answer a different question: "what has to
 #: compile for the commit to be a commit that compiles". A commit gate wants
 #: the second, and it wants it for the module the change TOUCHES — not for the
-#: modules that compile against it: the reach of a change is judged by the
-#: pre-push verdict and by CI, which compiles every module.
+#: modules that compile against it: the reach of a change is judged by CI,
+#: which is the compiler's verdict, and by the pre-push verdict, which runs
+#: detekt without type resolution and is therefore not the compiler.
 #:
 #: Every module in `PATH_MODULES` has an entry here, and every entry names
 #: either the tasks that compile it or nothing at all — an empty list means

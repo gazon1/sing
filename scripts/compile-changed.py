@@ -41,9 +41,9 @@ Three rules, and why each one:
 The scope is the modules the change TOUCHES, and not the modules that compile
 against them. That is a deliberate narrowing, and its price is stated in the
 ADR of 2026-10-23: the REACH of a change — what it can break — is judged by
-the pre-push verdict, which judges the affected modules, and by CI, which
-compiles every module on every push. The commit hook answers one question:
-does the code I just wrote compile?
+the pre-push verdict, which runs detekt without type resolution and is
+therefore not the compiler, and by CI, which is the compiler's verdict. The
+commit hook answers one question: does the code I just wrote compile?
 
 Usage
 -----
@@ -163,9 +163,10 @@ def plan(graph, paths: list[str]) -> tuple[list[str], list[str], list[str], list
     else:
         # The modules the change TOUCHES — and only those. The modules that
         # compile against them are the change's REACH, and the reach is judged
-        # by the pre-push verdict and by CI, which compiles every module on
-        # every push. The commit hook answers one question: does the code I
-        # just wrote compile?
+        # by the pre-push verdict, which runs detekt without type resolution
+        # and is therefore not the compiler, and by CI, which is the compiler's
+        # verdict. The commit hook answers one question: does the code I just
+        # wrote compile?
         modules = set()
         for owner in sorted(owners):
             if owner not in graph.COMPILE_TASKS:
