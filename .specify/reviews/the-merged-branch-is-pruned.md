@@ -2,7 +2,7 @@
 change: the-merged-branch-is-pruned
 verdict: pass
 date: 2026-10-24
-pr: https://github.com/gazon1/sing/pull/1050
+pr: https://github.com/gazon1/sing/pull/1051
 reviewed: ff488ee4333b4fe8f0d0fbcbca21c98e2dd77b5a
 documents: sha256:0058c62b46482bdb6106a11d0e0e9ae2d2ccc0134cd5086c6bd60156c636fc62
 ---
