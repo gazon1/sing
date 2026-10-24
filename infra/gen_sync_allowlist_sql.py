@@ -29,8 +29,9 @@ def mask_non_code(source: str) -> str:
 
     What is blanked: the text of a line comment, the text of a block
     comment, and the whole of a string literal — the quotes included. Every
-    blanked character becomes one space, so the result is the same length as
-    the source and a position in one is a position in the other.
+    blanked character becomes one character — a space, or the newline it was
+    — so the result is the same length as the source and a position in one is
+    a position in the other.
     """
     out = []
     i = 0

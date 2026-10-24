@@ -56,19 +56,37 @@ has a one-line fix. It is not fixed here because a bug-fix commit that
 regenerates the seed should not also change what the seed says about types
 it did not have to touch.
 
-**The seed says more than the server accepts.** `seriesId` (task) and
-`closedAt` (project) are in the client's contract and in the generated seed,
-and the server's table does not list them — while `SyncContract.kt` says the
-server "must accept" `seriesId`, or a synced task is rejected as a document
-with an unknown field. That is pre-existing: the old seed says the same, and
-nothing applies the seed. It is named here because the fact that the seed is
-the client's contract, and not the server's table, is what makes it visible.
+**The seed says more than the server accepts.** `id` (every type), `seriesId`
+(task) and `closedAt` (project) are in the client's contract and in the
+generated seed, and the server's table does not list them — while
+`SyncContract.kt` says the server "must accept" `seriesId`, or a synced task
+is rejected as a document with an unknown field. That is pre-existing: the old
+seed says the same, and nothing applies the seed. It is named here because the
+fact that the seed is the client's contract, and not the server's table, is
+what makes it visible.
 
 ## Idea
 
 A list of fields is read by counting the parentheses that close it, on a
 source in which the comments and the strings are blanked out. The count is
 taken on the blanked source and the fields are taken from the original one.
+
+## Decision
+
+The generator reads a list by counting parentheses, on a source in which the
+comments and the string literals are blanked out. A parenthesis in a comment
+is not a parenthesis of the code, and the count must not see it.
+
+The two facts above are recorded, not fixed. The vocabulary is a choice of the
+generator — one line of it — and it is left open because a commit that
+regenerates the seed should not also change what the seed says about the types
+it did not have to touch. The `profile` type is a fact about the protocol: the
+server has it and the client's contract does not describe it, and only a change
+of the protocol can say what a profile is.
+
+Nothing applies the generated seed automatically: the file has no timestamp,
+the migration runner does not see it, and the gate that compares it with the
+generator is its only reader.
 
 ## Rationale
 
@@ -83,31 +101,20 @@ becomes a space, so the source keeps its length and the count is taken over
 the code alone. The fields themselves are read from the original source,
 because they are string literals, and the blanking has taken them away.
 
-## Decision
-
-The generator reads a list by counting parentheses, on a source in which the
-comments and the string literals are blanked out. A parenthesis in a comment
-is not a parenthesis of the code, and the count must not see it.
-
-The two facts above are recorded, not fixed. The vocabulary is a question
-about the protocol — which names the server's table uses — and it belongs to a
-change of the protocol, with the server's own migration as the fact it is
-decided against. Nothing applies the generated seed automatically: the file
-has no timestamp, the migration runner does not see it, and the gate that
-compares it with the generator is its only reader.
-
 ## Consequences
 
 - The seed names the three client-side fields of the task again, and the gate
   that compares it with the contract now compares it with a reader that reads
   the whole list. The test `scripts/tests/test_gen_sync_allowlist_sql.py`
-  holds the reader to that: a contract with a parenthesis in a comment still
-  yields every field after the comment.
+  holds the reader to that: a contract with an unbalanced parenthesis in a
+  comment still yields every field after the comment.
 - A reader that stops early is invisible to a gate that compares the file
   with the reader. The test is the part that is not the file.
-- The vocabulary mismatch stays open, and the `profile` entity type of the
-  server has no counterpart in the client's contract. Both are facts about
-  the protocol, not about the generator.
+- The vocabulary mismatch stays open — it is a line of the generator, waiting
+  for a commit that changes the generator on purpose. The `profile` entity
+  type of the server stays open too, and that one is a fact about the
+  protocol: the client's contract does not describe a profile, and nothing but
+  a change of the protocol can say what a profile is.
 
 ## Links
 

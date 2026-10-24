@@ -17,10 +17,9 @@ the generator agreed.
 
 The properties asserted here:
 
-* a `)` inside a comment does not end the list — the fields after it are
-  still written;
-* a `(` inside a comment does not open a level — the list ends at the
-  parenthesis that closes the call;
+* an unbalanced `(` inside a comment does not open a level — the list still
+  ends at the parenthesis that closes the call, and the fields after the
+  comment are still fields of the list;
 * the fields are the ones the contract declares, in the order it declares
   them.
 
@@ -87,14 +86,13 @@ class GeneratorTest(unittest.TestCase):
         return seed.read_text(encoding="utf-8")
 
     def test_a_parenthesis_in_a_comment_does_not_end_the_list(self):
-        """The fields after the comment's `)` are still fields of the list.
+        """The fields after the comment are still fields of the list.
 
         The comment above holds an *unbalanced* `(` — it opens and never
         closes — and a reader that counts parentheses over a source it has
         not blanked out loses a level there and never finds the end of the
-        list. A reader that stops at the first `)` stops at the wrong place,
-        silently, and with a seed that agrees with the generator that stopped
-        there too.
+        list. A reader that stops at the wrong place stops silently, and with
+        a seed that agrees with the generator that stopped there too.
         """
         seed = self.generate()
         self.assertIn("('task', 'id', true)", seed)
