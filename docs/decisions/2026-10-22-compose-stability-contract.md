@@ -474,6 +474,69 @@ compiler's own report:
 The first two are what the contract is for; the last two are entries that say
 less than they appear to, which is the failure this whole decision is about.
 
+### The leaves are declared, and the cascade starts at the root
+
+A type the compiler cannot judge needs the contract. It cannot judge an
+interface — always runtime-unstable, whatever it holds — and it cannot judge a
+class that holds a plain `List`, because the list can change after
+construction. The contract grew by twelve such types on 2026-10-24, and they
+come in three shapes.
+
+**The roots.** `ProposalItemStatus` and `ProposalItemKind` are sealed
+interfaces, `SpotlightShape` is one too, and `LogbookEntry` is a sealed
+interface over a note or a time tracking row. The compiler judges an interface
+by nothing at all, so every class that holds one is unstable with it. The
+entry reaches the implementations, and the promise of the interface covers them
+— which is what lets the gate hold every implementation of `ProposalItemKind`
+and of `ProposalItemStatus` to the same promise.
+
+**The leaves that hold a plain `List`.** `AiProposal` holds its changes in one;
+`MenuNode.SubMenu` holds its children in one. Both are rebuilt on every read
+and never mutated afterwards — the promise `Task` makes with its
+`List<TagId>`, and the reason `Task` is in the contract. The builder of the
+menu copies the list it is given, so the promise does not depend on the
+caller.
+
+**The parameter types themselves.** `ProposalItem`, `SpotlightStep`,
+`AiTestResult`, `SelectorTemplate`, `ThemeMode` and `LocalDataDisposition` are
+the types of the parameters, and each is a class the compiler judges at
+runtime, an interface, or a sealed class. A root entry is not enough for them:
+the compiler still judges a class that holds an interface at runtime, because
+the interface may carry an implementation it cannot see — so the entry of the
+class itself is what the parameter needs.
+
+Measured on 2026-10-24, on the shared module and the 688 composables its
+report lists: the report of the compiler went from **1561 stable / 346
+runtime-unstable / 3 unstable** to **1587 / 320 / 3**. Twenty-six parameters
+moved from runtime-unstable to known-stable:
+
+- `node: MenuNode` ×2, `node: Action` ×3 and `node: SubMenu` ×3 — the menu of
+  the desktop shell;
+- `proposal: AiProposal` ×1 — a proposed change;
+- `item: ProposalItem` ×2 — a proposed change, one row of it;
+- `entries: ImmutableList<LogbookEntry>` ×1 — the logbook of a task;
+- `step: SpotlightStep` ×2 — a step of the tour;
+- `aiTestResult: AiTestResult` ×2 and `result: AiTestResult` ×1 — the probe of
+  the AI provider settings;
+- `template: SelectorTemplate` ×2 and `pendingTemplate: SelectorTemplate?` ×1
+  — the agenda selector;
+- `themeMode: ThemeMode` ×1, `themeMode: ThemeMode?` ×1 and `selected:
+  ThemeMode` ×1 — the theme;
+- `disposition: LocalDataDisposition?` ×2 and `selected: LocalDataDisposition?`
+  ×1 — what happens to the local data when an account is claimed.
+
+A known-stable parameter is compared by `equals` and nothing else. A
+runtime-unstable one is compared by `equals` only when the runtime value
+happens to be stable, and by identity otherwise — so the report of the
+compiler is the list of the places where that difference still decides
+something.
+
+One honest caveat about the menu: `MenuNode.Action` holds a lambda, and
+`equals` of a data class compares a lambda by identity. Two menus that look
+the same are therefore rarely equal, and the skip the report promises is
+skipped less often than the numbers suggest. The promise still holds — a
+lambda does not change — but it buys less here than elsewhere.
+
 ### The register of debt is a ratchet
 
 The register names the composables that still take a raw collection, and under

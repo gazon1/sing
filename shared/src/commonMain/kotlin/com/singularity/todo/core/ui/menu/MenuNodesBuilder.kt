@@ -65,7 +65,9 @@ class MenuNodesBuilder {
             label = label,
             icon = icon,
             enabled = enabled,
-            children = children,
+            // A copy: the caller keeps its list, and the node keeps a list
+            // that never changes after this. The contract vouches for that.
+            children = children.toList(),
         )
     }
 
