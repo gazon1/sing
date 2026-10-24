@@ -301,6 +301,17 @@ three configuration options where the fake answered with one mode and no options
 client survived all of it. The fake now sends the same shapes, so the suite covers
 what the bridge sends rather than what we taught the fake to send.
 
+**When the transcript is read.** When the bridge goes quiet. The bridge keeps talking
+after the session it answered — its available commands come on a timer, and its
+authentication state comes when its own probe resolves — so a transcript read the
+moment the connect returned would be a snapshot of a race. The probe waits for the
+quiet, and the frames are written down when it has lasted. The bridge's own frames are
+committed with the change
+(`openspec/changes/the-client-meets-a-real-bridge/bridge-transcript.txt`), so the
+claims about them can be checked without a network. The list of models the machine is
+configured for, and the catalogue of commands it happens to have installed, are
+redacted there — they are the machine's, not the bridge's — and the file says which.
+
 ## The known limitation: the agent's own token cost is not surfaced
 The protocol carries usage: `SessionUpdate.UsageUpdate` arrives as a session update, and
 `PromptResponse.usage` carries `Usage` (input, output, and total tokens) at the end of

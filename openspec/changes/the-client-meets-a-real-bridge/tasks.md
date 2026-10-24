@@ -1,29 +1,31 @@
-# The client meets a real bridge — tasks
+# Tasks: The client meets a real bridge
+
+Module prefixes: `shared/`, `mcp-server/`, `desktopApp/`.
 
 ## 1. The probe
 
-- [x] 1.1 Spawn the bridge and drive the application's own client against it
-- [x] 1.2 Copy the bridge's frames without a second reader of its standard output
-- [x] 1.3 Report the verdict, the agent's name and version, the methods it used and the frames
-- [x] 1.4 A Gradle task that runs it, beside `exportToolSurface`
-- [x] 1.5 A script that runs the task and turns the verdict into an exit code
+- [x] shared/ Spawn a real bridge and drive the application's own client against it, and report the verdict, the agent's name and version, the methods the bridge used and its frames. `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpBridgeProbe.kt`
+- [x] shared/ Take the transcript underneath the protocol's reader, and read it when the bridge has gone quiet — a bridge that announces things after the session it answered must not have its announcements cut off by the snapshot. `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpBridgeProbe.kt`
+- [x] shared/ Give the probe a Gradle task, beside the tool surface's export. `shared/build.gradle.kts`
+- [x] shared/ Give the probe a script whose exit code is the verdict. `scripts/acp-bridge-probe.sh`
 
 ## 2. What the bridge sent that the fake did not
 
-- [x] 2.1 The authentication status notification, right after the handshake
-- [x] 2.2 The available-commands notification, right after the session is open
-- [x] 2.3 The five permission modes and the three configuration options in the session answer
-- [x] 2.4 The fake sends them, so the suite covers what the bridge sends
-- [x] 2.5 A test that says the client survives a notification it has no answer for
+- [x] shared/ Send the authentication status notification in the fake, as the bridge sends it right after the handshake. `shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/acp/FakeAcpAgent.kt`
+- [x] shared/ Send the available-commands notification in the fake, as the bridge sends it right after the session is open. `shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/acp/FakeAcpAgent.kt`
+- [x] shared/ Send the bridge's five permission modes and its three configuration options in the fake's session answer. `shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/acp/FakeAcpAgent.kt`
+- [x] shared/ Test that a notification the application has no answer for does not stop the conversation, and produces no activity for the reader. `shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/acp/AcpClientProcessTest.kt`
 
 ## 3. The records
 
-- [x] 3.1 The decision: `docs/decisions/2026-10-24-the-client-meets-a-real-bridge.md`
-- [x] 3.2 The architecture document says how to run the probe
-- [x] 3.3 The issue record: `.specify/issues/the-client-meets-a-real-bridge.yaml`
+- [x] shared/ Record the decision this change makes. `docs/decisions/2026-10-24-the-client-meets-a-real-bridge.md`
+- [x] shared/ Write down the bridge's own frames, so that every claim about them can be checked without a network. `openspec/changes/the-client-meets-a-real-bridge/bridge-transcript.txt`
+- [x] shared/ Say in the architecture document how to run the probe, and what it covers. `docs/architecture/acp-client.md`
+- [x] shared/ Refresh the decisions digest. `./scripts/refresh-decisions-digest.sh`
+- [ ] shared/ Write the verdict for this change's review. `.specify/reviews/the-client-meets-a-real-bridge.md`
 
-## 4. What was not exercised, and says so
+## 4. Verification
 
-- [x] 4.1 The prompt half needs the agent behind the bridge to be signed in
-- [x] 4.2 The tool-call half needs the same credentials, a tool server and a profile
-- [x] 4.3 The proposal and the design say so in words, not in a footnote
+- [x] Run the tests for the changed module. `./gw :shared:jvmTest --tests "com.singularity.todo.feature.ai.acp.*" -Ptest.population=full`
+- [x] Run the linter over the changed module. `./gw :shared:detekt`
+- [x] Run the probe against the real bridge. `scripts/acp-bridge-probe.sh`

@@ -9,15 +9,28 @@ import java.io.InputStream
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 
 /** The method of a JSON-RPC frame, with its quotes. */
 private val METHOD = Regex("\"method\"\\s*:\\s*\"([^\"]+)\"")
 
 /** The patience of a probe that may be downloading the bridge's package. */
 private val BRIDGE_TIMEOUT: Duration = 3.minutes
+
+/** How long the bridge may stay silent before the transcript is considered complete. */
+private val QUIET_PERIOD: Duration = 2.seconds
+
+/** How long the probe waits for the bridge to go quiet, whatever it does. */
+private val QUIET_LIMIT: Duration = 30.seconds
+
+/** How often the probe looks at the transcript while it waits. */
+private val POLL_INTERVAL: Duration = 100.milliseconds
 
 /**
  * The application's client, against a real agent bridge.
@@ -101,15 +114,15 @@ object AcpBridgeProbe {
                 connectTimeout = BRIDGE_TIMEOUT,
             )
             try {
-                runCatchingCancellable { client.connect() }.fold(
+                val verdict = runCatchingCancellable { client.connect() }.fold(
                     onSuccess = { info ->
                         Report(
                             connected = true,
                             agentName = info.name,
                             agentVersion = info.version,
                             failure = null,
-                            methods = transcript.methods(),
-                            transcript = transcript.frames(),
+                            methods = emptyList(),
+                            transcript = emptyList(),
                         )
                     },
                     onFailure = { failure ->
@@ -118,10 +131,21 @@ object AcpBridgeProbe {
                             agentName = "",
                             agentVersion = "",
                             failure = failure.message ?: failure::class.simpleName.orEmpty(),
-                            methods = transcript.methods(),
-                            transcript = transcript.frames(),
+                            methods = emptyList(),
+                            transcript = emptyList(),
                         )
                     },
+                )
+                // The bridge keeps talking after the session it answered: its
+                // available commands come on a timer, and its authentication state
+                // comes when its own probe resolves. A transcript read the moment the
+                // connect returned would miss both — and those are the frames this
+                // probe is for. So the transcript is read when the bridge has stopped
+                // talking, or when the wait runs out.
+                transcript.awaitQuiet(QUIET_PERIOD, QUIET_LIMIT)
+                verdict.copy(
+                    methods = transcript.methods(),
+                    transcript = transcript.frames(),
                 )
             } finally {
                 client.close()
@@ -141,22 +165,61 @@ object AcpBridgeProbe {
      */
     private class Transcript {
         private val buffer = StringBuilder()
+        private var arrivals = 0
 
         fun tee(source: InputStream): InputStream = object : FilterInputStream(source) {
             override fun read(bytes: ByteArray, offset: Int, length: Int): Int {
                 val read = super.read(bytes, offset, length)
-                if (read > 0) {
-                    synchronized(buffer) {
-                        buffer.append(String(bytes, offset, read, Charsets.UTF_8))
-                    }
-                }
+                if (read > 0) copy(bytes, offset, read)
                 return read
+            }
+
+            // The single-byte read does not go through the bulk one: a reader that
+            // asks for one byte at a time would bypass the copy, and the transcript
+            // would quietly lose whatever it missed.
+            override fun read(): Int {
+                val read = super.read()
+                if (read >= 0) copy(byteArrayOf(read.toByte()), 0, 1)
+                return read
+            }
+
+            private fun copy(bytes: ByteArray, offset: Int, length: Int) {
+                synchronized(buffer) {
+                    buffer.append(String(bytes, offset, length, Charsets.UTF_8))
+                    arrivals++
+                }
             }
         }
 
         fun frames(): List<String> = synchronized(buffer) {
             buffer.toString().lines().filter { it.isNotBlank() }
         }
+
+        /**
+         * Waits until the bridge stops talking.
+         *
+         * The quiet period is measured on the clock, not on the frames: a bridge that
+         * says nothing at all must not make the probe wait for the limit. And the
+         * limit is there so that a bridge that never goes quiet does not make the
+         * probe wait for ever.
+         */
+        suspend fun awaitQuiet(quiet: Duration, limit: Duration) {
+            val started = TimeSource.Monotonic.markNow()
+            var seen = arrivals()
+            var quietSince = TimeSource.Monotonic.markNow()
+            while (started.elapsedNow() < limit) {
+                delay(POLL_INTERVAL)
+                val now = arrivals()
+                if (now != seen) {
+                    seen = now
+                    quietSince = TimeSource.Monotonic.markNow()
+                } else if (quietSince.elapsedNow() >= quiet) {
+                    return
+                }
+            }
+        }
+
+        private fun arrivals(): Int = synchronized(buffer) { arrivals }
 
         /**
          * The methods the bridge used, and how often each came.

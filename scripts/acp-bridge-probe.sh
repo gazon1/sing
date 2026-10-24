@@ -27,36 +27,54 @@ export TMPDIR="${TMPDIR:-$HOME/.cache/pompano-tmp}"
 mkdir -p "$TMPDIR"
 
 log="$(mktemp "$TMPDIR/acp-bridge-probe.XXXXXX.log")"
+command_file="$(mktemp "$TMPDIR/acp-bridge-command.XXXXXX")"
 
-# The bridge's command line: what the caller said, or the Claude bridge.
-bridge="${*:-npx -y @agentclientprotocol/claude-agent-acp}"
+# The bridge's command line: what the caller said, or the Claude bridge. The
+# caller's arguments stay arguments — they are not joined into a string and split
+# again — and they travel into a file, one per line, because the daemon's
+# environment is not this shell's.
+if [ "$#" -gt 0 ]; then
+  bridge_args=("$@")
+else
+  bridge_args=(npx -y @agentclientprotocol/claude-agent-acp)
+fi
 
-if ! command -v npx >/dev/null 2>&1; then
+# `npx` is only required when the bridge *is* an npx invocation. A bridge that is
+# installed some other way does not need node, and a script that refused it would
+# be a script about npx rather than about the client.
+if [ "${bridge_args[0]}" = "npx" ] && ! command -v npx >/dev/null 2>&1; then
   echo "acp-bridge-probe: node is not installed — the bridge is an 'npx' invocation, so there is nothing to drive." >&2
-  echo "acp-bridge-probe: log: $log" >&2
   exit 1
 fi
 
+printf '%s\n' "${bridge_args[@]}" > "$command_file"
+
 echo "=== the client meets a real bridge ==="
-echo "bridge: ${bridge}"
+echo "bridge: ${bridge_args[*]}"
 echo "log: $log"
 
 # The probe is a program, not a test: it needs the compiled classes and the JVM
-# runtime classpath, and the build is the thing that has both. The bridge's command
-# line travels as a property, because the daemon's environment is not this shell's.
-./gw :shared:acpBridgeProbe -PacpBridge="$bridge" --console=plain --quiet > "$log" 2>&1
+# runtime classpath, and the build is the thing that has both.
+./gw :shared:acpBridgeProbe -PacpBridgeFile="$command_file" --console=plain --quiet > "$log" 2>&1
 rc=$?
 
-# The build's own failure and the probe's verdict are different things: a build that
-# did not compile says nothing about the bridge, and a probe that failed says
-# everything. Both are printed, and the script's exit code is the probe's.
+# Three different things can happen here, and they are three different answers:
+# the build failed (nothing was probed), the probe ran and did not connect (the
+# bridge did not answer), and the probe ran and connected (the verdict). Only the
+# third is a success, and a build that failed after the probe printed its verdict
+# is not a success either.
 if [ "$rc" -ne 0 ] && ! grep -q "^connected:" "$log"; then
-  echo "acp-bridge-probe: the probe did not run. The log says:" >&2
+  echo "acp-bridge-probe: the probe did not run — the build failed. The log says:" >&2
   tail -40 "$log" >&2
   exit "$rc"
 fi
 
-grep -E "^(bridge|connected|agent|failure|methods|frames| )" "$log" || true
+grep -E "^(bridge|working directory|connected|agent|failure|methods|frames| )" "$log" || true
+
+if [ "$rc" -ne 0 ]; then
+  echo "=== the probe ran, and the build failed afterwards ===" >&2
+  exit "$rc"
+fi
 
 if grep -q "^connected: true" "$log"; then
   echo "=== the client completed the handshake against the real bridge ==="

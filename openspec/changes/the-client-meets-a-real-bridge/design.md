@@ -31,9 +31,10 @@ skip it. So the pass is a *program*:
 - `:shared:acpBridgeProbe` — the Gradle task that runs it, beside `exportToolSurface`,
   which is the same shape: a `main` in `jvmMain` and a task that has the compiled
   classes and the runtime classpath.
-- `scripts/acp-bridge-probe.sh` — the way in. It checks that `npx` is there, runs the
-  task, and turns the output into an exit code: zero when the handshake completed, one
-  when it did not.
+- `scripts/acp-bridge-probe.sh` — the way in. It checks that `npx` is there when the
+  bridge *is* an npx invocation, runs the task, and turns the output into an exit code:
+  zero when the handshake completed, one when it did not. A build that failed and a
+  probe that did not connect are two different answers, and the script says which.
 
 The task does not fail the build on a failed probe. A task that did would make every
 build on a machine depend on whether the network was up.
@@ -50,12 +51,32 @@ The copy is a byte copy and not a line copy, so a frame that arrives in two piec
 still one frame in the transcript. The transcript is what a reader looks at when a
 bridge's behaviour has to be compared with the fake's.
 
+## When the transcript is read
+
+When the bridge goes quiet.
+
+The bridge keeps talking after the session it answered: the available commands come on
+a timer, and the authentication state comes when its own probe resolves — which may be
+seconds later, and may never come. A transcript read the moment the connect returned
+would be a snapshot of a race: it would contain the notifications sometimes, and the
+change would be built on a frame that was not always there.
+
+So the probe waits for the bridge to stop talking — a quiet period, measured on the
+clock rather than on the frames, so that a bridge that says nothing at all does not
+make the probe wait — and reads the transcript when the quiet has lasted long enough,
+or when the limit runs out. The frames that arrive in that window are the ones the
+change is about, and they are now in the transcript every time.
+
 ## What the fake learns
 
-The fake is taught the bridge's shapes: the two notifications and the session answer
-with five modes and three configuration options. The fake keeps the models the client
-requires, so it answers a superset of the bridge's session — a client that reads both
-is the client that reads the bridge.
+The fake is taught the bridge's shapes: the two notifications, the five modes and the
+three configuration options. The fake keeps the models the client requires, so it
+answers a superset of the bridge's session — a client that reads both is the client
+that reads the bridge.
+
+The values are the fake's own. The bridge's list of models is whatever the machine it
+runs on is configured for, and a machine's configuration is not the repository's
+business; what the client has to read is the shape.
 
 The client's adapter already ignores the session settings (available commands, current
 mode, configuration options): they belong to a settings screen, not to the story of

@@ -1,0 +1,33 @@
+The bridge's own frames, as this application's client saw them.
+
+Taken from `scripts/acp-bridge-probe.sh` against
+`@agentclientprotocol/claude-agent-acp` 0.95.0, on 2026-10-24. The probe drives the
+client and copies the bytes underneath the protocol's reader, so these are the frames
+the bridge wrote, in the order it wrote them.
+
+Two things are redacted, and both of them are the machine's rather than the bridge's:
+
+  * the *model* configuration option carries the list of models the machine running the
+    bridge is configured for. The option itself, its category, its type and its shape
+    are here; the models it offers are not;
+  * the available commands are the machine's own catalogue — what the agent behind the
+    bridge happens to have installed — and not a property of the protocol. The
+    notification, its `sessionUpdate` kind and two of its commands are here; the rest
+    are not.
+
+Neither redaction touches what the client has to read: the shape of the frames is the
+whole point of this file, and the shape is complete.
+
+What the frames show, and what the fake now sends:
+
+  * the handshake's answer carries five permission modes and three configuration
+    options — a mode, a model and an effort level;
+  * the authentication state comes as a notification, right after the handshake;
+  * the available commands come as another notification, right after the session is
+    open — later than the session answer, which is why the probe reads the transcript
+    when the bridge goes quiet.
+
+{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{"_meta":{"claudeCode":{"promptQueueing":true},"authStatus":{}},"promptCapabilities":{"image":true,"embeddedContext":true},"mcpCapabilities":{"http":true,"sse":true},"auth":{"logout":{}},"providers":{},"loadSession":true,"sessionCapabilities":{"additionalDirectories":{},"close":{},"delete":{},"fork":{},"list":{},"resume":{},"systemPrompt":{"mode":{"override":{}}}}},"agentInfo":{"name":"@agentclientprotocol/claude-agent-acp","title":"Claude Agent","version":"0.95.0"},"authMethods":[],"_meta":{"steering":{"supported":true}}}}
+{"jsonrpc":"2.0","method":"_auth/status_update","params":{"authStatus":{"kind":"none","label":"Not logged in"}}}
+{"jsonrpc":"2.0","id":2,"result":{"sessionId":"d0a7e1b3-cdca-470f-98a7-634717d06a23","modes":{"currentModeId":"default","availableModes":[{"id":"default","name":"Manual","description":"Always ask before making changes"},{"id":"acceptEdits","name":"Accept edits","description":"Automatically accept all file edits"},{"id":"plan","name":"Plan","description":"Create a plan before making changes"},{"id":"auto","name":"Auto","description":"Claude handles permission decisions"},{"id":"bypassPermissions","name":"Bypass permissions","description":"Accepts all permissions"}]},"configOptions":[{"id":"mode","name":"Mode","description":"Session permission mode","category":"mode","type":"select","currentValue":"default","options":[{"value":"default","name":"Manual","description":"Always ask before making changes"},{"value":"acceptEdits","name":"Accept edits","description":"Automatically accept all file edits"},{"value":"plan","name":"Plan","description":"Create a plan before making changes"},{"value":"auto","name":"Auto","description":"Claude handles permission decisions"},{"value":"bypassPermissions","name":"Bypass permissions","description":"Accepts all permissions"}]},{"id":"model","name":"Model","description":"AI model to use","category":"model","type":"select","currentValue":"redacted","options":["...the machine's own model list, redacted..."]},{"id":"effort","name":"Effort","description":"Available effort levels for this model","category":"thought_level","type":"select","currentValue":"high","options":[{"value":"default","name":"Default"},{"value":"low","name":"Low"},{"value":"medium","name":"Medium"},{"value":"high","name":"High"},{"value":"xhigh","name":"Xhigh"},{"value":"max","name":"Max"}]}]}}
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"d0a7e1b3-cdca-470f-98a7-634717d06a23","update":{"sessionUpdate":"available_commands_update","availableCommands":[{"name":"adaptive","description":"Instructions to make or update an app's UI so that it adapts to different Android devices including phones, tablets, foldables, laptops, desktop, TV, Auto and XR. It includes how to handle different window sizes, pointing devices (such as mouse) and text entry devices (such as keyboard) using the Compose MediaQuery API. It also covers multi-pane layouts using Navigation3 Scenes, adaptive UI components (such as buttons) with varying target sizes, and adaptive layouts (including navigation areas - nav rails and nav bars) using the Compose Grid and FlexBox APIs. (user)","input":null},{"name":"deep-research","description":"Deep research harness — fan-out web searches, fetch sources, adversarially verify claims, synthesize a cited report. (dynamic workflow)","input":null},{"name":"...","description":"... 67 more commands, redacted: the machine's own command catalogue, not the bridge's shape.","input":null}]}}}

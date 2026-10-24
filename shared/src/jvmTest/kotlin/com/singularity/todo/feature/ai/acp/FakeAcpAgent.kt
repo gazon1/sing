@@ -28,12 +28,12 @@ import kotlinx.serialization.json.jsonPrimitive
  *
  * From a real bridge. `@agentclientprotocol/claude-agent-acp` 0.95.0 was run against
  * this application's own client — `scripts/acp-bridge-probe.sh` — and what it sent was
- * written down: five permission modes, three configuration options, an authentication
- * status announced as a notification, and the available commands announced as another
- * one. This fake sends the same things, because a fake that answers a different
- * session than the bridge does proves nothing about the bridge — and the client's
- * tolerance of a notification it has no answer for is worth nothing if no notification
- * ever arrives.
+ * written down: five permission modes, three configuration options (a mode, a model
+ * and an effort level), an authentication status announced as a notification, and the
+ * available commands announced as another one. This fake sends the same things,
+ * because a fake that answers a different session than the bridge does proves nothing
+ * about the bridge — and the client's tolerance of a notification it has no answer for
+ * is worth nothing if no notification ever arrives.
  *
  * ## The modes
  *
@@ -179,12 +179,18 @@ private const val AUTH_STATUS_METHOD = "_auth/status_update"
  * response that leaves them out is not a response it can read — so the request it
  * belongs to never completes, and the client waits for an answer that was sent.
  *
- * The five modes and the three configuration options are the real bridge's, taken
- * from the transcript of `scripts/acp-bridge-probe.sh` against
- * `@agentclientprotocol/claude-agent-acp` 0.95.0. They are session settings this
- * application does not show, and the fake sends them because the bridge sends them:
- * a fake that answers a different session than the bridge does proves nothing about
- * the bridge.
+ * The five modes are the real bridge's, taken from the transcript of
+ * `scripts/acp-bridge-probe.sh` against `@agentclientprotocol/claude-agent-acp`
+ * 0.95.0, and so are the three configuration options — a mode, a model and an
+ * effort level, each with the options it offers. They are session settings this
+ * application does not show, and the fake sends them because the bridge sends
+ * them: a fake that answers a different session than the bridge does proves
+ * nothing about the bridge.
+ *
+ * The *values* are the fake's own — the model is the fake's model — because the
+ * bridge's list of models is whatever the machine it runs on is configured for, and
+ * a machine's configuration is not the repository's business. The shape is what the
+ * client has to read.
  */
 private const val SESSION_RESPONSE =
     """{"sessionId":"$SESSION_ID",""" +
@@ -196,8 +202,21 @@ private const val SESSION_RESPONSE =
         """{"id":"bypassPermissions","name":"Bypass permissions","description":"Accepts all permissions"}]},""" +
         """"models":{"currentModelId":"fake-model",""" +
         """"availableModels":[{"modelId":"fake-model","name":"Fake model"}]},""" +
-        """"configOptions":[{"id":"mode","name":"Mode","description":"Session permission mode",""" +
-        """"category":"mode","type":"select","currentValue":"default","options":[]}]}"""
+        """"configOptions":[""" +
+        """{"id":"mode","name":"Mode","description":"Session permission mode","category":"mode",""" +
+        """"type":"select","currentValue":"default","options":[""" +
+        """{"value":"default","name":"Manual","description":"Always ask before making changes"},""" +
+        """{"value":"acceptEdits","name":"Accept edits","description":"Automatically accept all file edits"},""" +
+        """{"value":"plan","name":"Plan","description":"Create a plan before making changes"},""" +
+        """{"value":"auto","name":"Auto","description":"Claude handles permission decisions"},""" +
+        """{"value":"bypassPermissions","name":"Bypass permissions","description":"Accepts all permissions"}]},""" +
+        """{"id":"model","name":"Model","description":"AI model to use","category":"model","type":"select",""" +
+        """"currentValue":"fake-model","options":[""" +
+        """{"value":"fake-model","name":"Fake model","description":"The model this fake agent is"}]},""" +
+        """{"id":"effort","name":"Effort","description":"Available effort levels for this model",""" +
+        """"category":"thought_level","type":"select","currentValue":"high","options":[""" +
+        """{"value":"default","name":"Default"},{"value":"low","name":"Low"},{"value":"medium","name":"Medium"},""" +
+        """{"value":"high","name":"High"},{"value":"xhigh","name":"Xhigh"},{"value":"max","name":"Max"}]}]}"""
 
 /**
  * The answer to "session/prompt".

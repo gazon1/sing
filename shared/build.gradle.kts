@@ -1225,11 +1225,16 @@ val acpBridgeProbe = tasks.register<JavaExec>("acpBridgeProbe") {
     val jvmClasses = layout.buildDirectory.dir("classes/kotlin/jvm/main")
     mainClass.set("com.singularity.todo.feature.ai.acp.AcpBridgeProbeKt")
     classpath(files(jvmClasses), configurations.named("jvmRuntimeClasspath"))
-    // The bridge's command line comes from a property, because the daemon's
-    // environment is not the shell's: an exported variable would not reach the
-    // forked JVM.
-    val bridge = providers.gradleProperty("acpBridge").getOrElse(acpBridgeDefault)
-    args(listOf(rootProject.layout.projectDirectory.asFile.absolutePath) + bridge.split(" "))
+    // The bridge's command line travels in a file, one argument per line: a command
+    // line that travels as a string comes back as a string, and a path with a space
+    // in it does not survive being split on spaces.
+    val commandFile = providers.gradleProperty("acpBridgeFile").orNull
+    val bridge = if (commandFile != null) {
+        rootProject.file(commandFile).readLines().filter { it.isNotBlank() }
+    } else {
+        acpBridgeDefault.split(" ")
+    }
+    args(listOf(rootProject.layout.projectDirectory.asFile.absolutePath) + bridge)
     inputs.files(jvmClasses)
     dependsOn("compileKotlinJvm")
     // The bridge may be an `npx` invocation downloading its package on first use,
