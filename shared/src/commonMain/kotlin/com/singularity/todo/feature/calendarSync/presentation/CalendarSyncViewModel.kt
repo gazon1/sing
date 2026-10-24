@@ -120,6 +120,19 @@ data class CalendarSyncUiState(
      */
     val googleSignInError: String? = null,
     /**
+     * Why the credential was not revoked, if it was not.
+     *
+     * "Disconnect" clears the credential on this device and asks the server to cancel the
+     * grant. The two can come apart: the device forgets the token, and the server keeps
+     * renewing it. The person is then disconnected *here* while a live grant sits on a
+     * server they cannot see — which is the promise the button did not keep.
+     *
+     * It belongs to the account section, like [googleSignInError]: that is the only
+     * section rendered while the account is not connected, and this failure only ever
+     * happens on the way to disconnected.
+     */
+    val googleDisconnectError: String? = null,
+    /**
      * Whether a Google sync pass is running right now.
      *
      * Separate from [isLoading], which is the *calendar list* loading. They are different
@@ -457,6 +470,12 @@ class CalendarSyncViewModel(
     private fun setGoogleConnected(connected: Boolean) {
         vmScope.launch {
             if (!connected) {
+                // The credential has to stop working, not only be forgotten here. The
+                // refresh token lives on the server — or in the device's keystore on the
+                // desktop — and it keeps working until somebody cancels it. The revoke
+                // goes *first*: a device that has already cleared its own copy cannot
+                // cancel what it handed out.
+                val revoked = googleAuthorization.revoke(currentUser.current.value)
                 credentialStore.clear(currentUser.current.value)
                 googleSettings.setSelectedCalendarId(null)
                 updateState {
@@ -466,11 +485,24 @@ class CalendarSyncViewModel(
                         googleCalendars = emptyList(),
                         selectedGoogleCalendarId = null,
                         googleError = null,
+                        // The device is disconnected either way — the person asked for
+                        // that, and the local credential is gone. What failed is the
+                        // server's half, and the user is the only one who can cancel it.
+                        googleDisconnectError = revoked.exceptionOrNull()?.let { error ->
+                            "The account was disconnected on this device, but the grant was not " +
+                                "revoked: ${error.message ?: error::class.simpleName}"
+                        },
                     )
                 }
                 return@launch
             }
-            updateState { it.copy(googleConnected = true, googleError = null) }
+            updateState {
+                it.copy(
+                    googleConnected = true,
+                    googleError = null,
+                    googleDisconnectError = null,
+                )
+            }
             refreshGoogleConnection()
         }
     }

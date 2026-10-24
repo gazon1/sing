@@ -48,6 +48,7 @@ port. The authority on which binding is which is the seam registry
 | `FileSystem` | `JvmFileSystem` | `AndroidFileSystem` | checked |
 | `GoogleAccessTokenProvider` | `LocalGoogleAccessTokenProvider` | `SupabaseGoogleAccessTokenProvider` | checked |
 | `GoogleGrantRedeemer` | `LocalGoogleGrantRedeemer` | `SupabaseGoogleGrantRedeemer` | checked |
+| `GoogleGrantRevoker` | `LocalGoogleGrantRevoker` | `SupabaseGoogleGrantRevoker` | checked |
 | `GoogleSyncPeriodicTrigger` | `DelayLoopGoogleSyncPeriodicTrigger` | `AndroidGoogleSyncPeriodicTrigger` | checked |
 | `Haptic` | `createHaptic` | `AndroidHaptic` | checked |
 | `HostEnvironmentPort` | `JvmHostEnvironment` | `AndroidHostEnvironment` | checked |

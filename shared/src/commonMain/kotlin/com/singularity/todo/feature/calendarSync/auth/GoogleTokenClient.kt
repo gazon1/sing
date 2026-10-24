@@ -38,6 +38,14 @@ interface GoogleTokenExchange {
      * stays valid — which is why the caller must carry it over.
      */
     suspend fun refresh(refreshToken: String): GoogleCredentials
+
+    /**
+     * Revokes [refreshToken] at Google, so that it stops working.
+     *
+     * This is the half of "disconnect" that forgetting the credential on this device
+     * cannot do: the token still works wherever else it was handed out.
+     */
+    suspend fun revoke(refreshToken: String)
 }
 
 /**
@@ -119,6 +127,31 @@ class GoogleTokenClient(private val httpClient: HttpClient = createHttpClient(),
         return performTokenRequest(params).copy(refreshToken = refreshToken)
     }
 
+    /**
+     * Revokes [refreshToken] at Google, so that it stops working.
+     *
+     * Forgetting a token on this device is not the same as revoking it: the token still
+     * works, and whoever holds it can keep using it. Google's revoke endpoint needs no
+     * client secret — it is a public client operation — so the desktop can cancel its
+     * own credential without asking the server that never had it.
+     *
+     * Google answers 200 for a token it does not know as well: revoking something that
+     * is already dead is a success, not a failure.
+     */
+    override suspend fun revoke(refreshToken: String) {
+        val response = httpClient.submitForm(
+            url = REVOKE_ENDPOINT,
+            formParameters = ParametersBuilder().apply {
+                append("token", refreshToken)
+            }.build(),
+        )
+        if (response.status != HttpStatusCode.OK) {
+            throw GoogleAuthorizationException(
+                "Google refused to revoke the token (HTTP ${response.status.value})",
+            )
+        }
+    }
+
     private suspend fun performTokenRequest(params: Parameters): GoogleCredentials {
         val response = httpClient.submitForm(
             url = TOKEN_ENDPOINT,
@@ -180,5 +213,8 @@ class GoogleTokenClient(private val httpClient: HttpClient = createHttpClient(),
     companion object {
         /** Google's OAuth 2.0 token endpoint. */
         const val TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
+
+        /** Google's token revocation endpoint. */
+        const val REVOKE_ENDPOINT = "https://oauth2.googleapis.com/revoke"
     }
 }

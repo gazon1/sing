@@ -70,6 +70,8 @@ class LocalGoogleAccessTokenProviderTest {
             refreshedWith = refreshToken
             return renewed
         }
+
+        override suspend fun revoke(refreshToken: String) = Unit
     }
 
     private fun provider(
@@ -153,6 +155,8 @@ class LocalGoogleAccessTokenProviderTest {
 
             override suspend fun refresh(refreshToken: String): GoogleCredentials =
                 throw IllegalStateException("the grant is gone")
+
+            override suspend fun revoke(refreshToken: String) = Unit
         }
         val provider = provider(store, exchange)
 

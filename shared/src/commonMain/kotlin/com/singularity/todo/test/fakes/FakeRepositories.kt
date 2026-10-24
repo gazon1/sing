@@ -3184,6 +3184,19 @@ class FakeGoogleAuthorizer(
     var redeemedGrant: GoogleGrant? = null
         private set
 
+    /** The user id the revoke was asked for, or null when it never ran. */
+    var revokedFor: String? = null
+        private set
+
+    /** When set, the revoke fails with this instead of succeeding. */
+    var revokeFailure: Throwable? = null
+
+    override suspend fun revoke(userId: String): Result<Unit> {
+        revokedFor = userId
+        val failure = revokeFailure
+        return if (failure == null) Result.success(Unit) else Result.failure(failure)
+    }
+
     override suspend fun configuredClientId(): String? = clientId
 
     override suspend fun storeClientId(clientId: String) {

@@ -64,6 +64,22 @@ class GoogleAuthorizationServiceTest {
         }
     }
 
+    /**
+     * A revoker that records what it was asked to cancel.
+     *
+     * The revoke is the other half of a disconnect, and the service has to pass it
+     * through: the sign-in and the sign-out are the same account.
+     */
+    private class FakeGrantRevoker : GoogleGrantRevoker {
+        var revokedFor: String? = null
+            private set
+
+        override suspend fun revoke(userId: String): Result<Unit> {
+            revokedFor = userId
+            return Result.success(Unit)
+        }
+    }
+
     /** Keeps what was saved, so a test can ask what reached the store. */
     private class RecordingCredentialStore : GoogleCredentialStore {
         val saved = mutableMapOf<String, GoogleCredentials>()
@@ -84,6 +100,7 @@ class GoogleAuthorizationServiceTest {
         redeemer: GoogleGrantRedeemer = FakeGrantRedeemer(),
         store: GoogleCredentialStore = RecordingCredentialStore(),
         buildTimeClientId: String? = "build-time-id",
+        revoker: GoogleGrantRevoker = FakeGrantRevoker(),
     ): Triple<GoogleAuthorizationService, RecordingCredentialStore, FakeGrantRedeemer> {
         val recording = store as RecordingCredentialStore
         val token = redeemer as FakeGrantRedeemer
@@ -94,6 +111,7 @@ class GoogleAuthorizationServiceTest {
             clientIdResolver = resolver,
             secureStorage = storage,
             redeemer = token,
+            revoker = revoker,
             credentialStore = recording,
         )
         return Triple(service, recording, token)
@@ -258,5 +276,23 @@ class GoogleAuthorizationServiceTest {
 
         assertTrue(result.isFailure)
         assertTrue(store.saved.isEmpty(), "a refused sign-in must not leave a credential")
+    }
+
+    /**
+     * The revoke reaches the revoker, for the profile it names.
+     *
+     * The service is where the sign-in and the sign-out meet: the caller asks the
+     * authorizer, and the authorizer asks whichever platform holds the credential. A
+     * revoke that stopped at the authorizer would leave the grant alive.
+     */
+    @Test
+    fun `the revoke reaches the revoker`() = runTest {
+        val revoker = FakeGrantRevoker()
+        val (service, _, _) = service(revoker = revoker)
+
+        val result = service.revoke("user-1")
+
+        assertTrue(result.isSuccess, "the revoke must succeed: $result")
+        assertEquals("user-1", revoker.revokedFor)
     }
 }

@@ -90,6 +90,15 @@ interface GoogleAuthorizer {
         grant: GoogleGrant,
         userId: String,
     ): Result<GoogleCredentials>
+
+    /**
+     * Makes the credential [userId] holds stop working.
+     *
+     * The other half of a sign-in: forgetting the credential on this device is not
+     * enough, because the refresh token — on the server or in the keystore — keeps
+     * working until somebody cancels it.
+     */
+    suspend fun revoke(userId: String): Result<Unit>
 }
 
 /**
@@ -115,6 +124,7 @@ class GoogleAuthorizationService(
     private val clientIdResolver: GoogleClientIdResolver,
     private val secureStorage: SecureStorage,
     private val redeemer: GoogleGrantRedeemer,
+    private val revoker: GoogleGrantRevoker,
     private val credentialStore: GoogleCredentialStore,
 ) : GoogleAuthorizer {
 
@@ -159,6 +169,15 @@ class GoogleAuthorizationService(
         credentialStore.save(userId, credentials)
         credentials
     }
+
+    /**
+     * Makes the credential stop working.
+     *
+     * The revoke happens *before* the caller forgets the credential: a device that
+     * has already cleared its own copy cannot cancel what it handed out, and the
+     * server would keep renewing a grant the person believes they ended.
+     */
+    override suspend fun revoke(userId: String): Result<Unit> = revoker.revoke(userId)
 
     /**
      * The client id the sign-in would use, or null when none is configured.

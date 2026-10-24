@@ -472,6 +472,18 @@ private fun GoogleAccountSection(state: CalendarSyncUiState, onIntent: (Calendar
                     modifier = Modifier.padding(bottom = 8.dp),
                 )
             }
+            // The disconnect's own failure. It belongs here for the same reason the
+            // sign-in's does: this is the only section rendered while the account is
+            // not connected, and a failure written into the calendar-picker error
+            // would never be seen.
+            state.googleDisconnectError?.let { reason ->
+                SelectableText(
+                    text = reason,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
             // Without a client id there is nothing to connect *to*. The button says so
             // rather than sending the user to Google's own error page, which names
             // neither the setting nor where it belongs.

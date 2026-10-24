@@ -40,6 +40,7 @@ import com.singularity.todo.feature.calendarSync.auth.GoogleAccessTokenProvider
 import com.singularity.todo.feature.calendarSync.auth.GoogleCredentials
 import com.singularity.todo.feature.calendarSync.auth.GoogleGrant
 import com.singularity.todo.feature.calendarSync.auth.GoogleGrantRedeemer
+import com.singularity.todo.feature.calendarSync.auth.GoogleGrantRevoker
 
 /**
  * Inert implementations of the JVM ports a desktop flow test would otherwise
@@ -383,6 +384,17 @@ class InertGoogleGrantRedeemer : GoogleGrantRedeemer {
         codeVerifier: String?,
     ): Result<GoogleCredentials> =
         Result.failure(IllegalStateException("No Google grant is redeemed in a test"))
+}
+
+/**
+ * A revoker that revokes nothing.
+ *
+ * The production implementations talk to Google and to the server. A test that reaches
+ * this port wants the *wiring* — that the disconnect button leads here — and not a
+ * revoked credential.
+ */
+class InertGoogleGrantRevoker : GoogleGrantRevoker {
+    override suspend fun revoke(userId: String): Result<Unit> = Result.success(Unit)
 }
 
 /**

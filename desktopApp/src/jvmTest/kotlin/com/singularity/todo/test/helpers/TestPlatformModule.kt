@@ -61,6 +61,7 @@ import com.singularity.todo.core.auth.oauth.OAuthBrowser
 import com.singularity.todo.core.auth.oauth.OAuthRedirectSocket
 import com.singularity.todo.feature.calendarSync.auth.GoogleAccessTokenProvider
 import com.singularity.todo.feature.calendarSync.auth.GoogleGrantRedeemer
+import com.singularity.todo.feature.calendarSync.auth.GoogleGrantRevoker
 
 /**
  * The JVM platform bindings a desktop flow test needs, rebuilt without touching
@@ -226,6 +227,10 @@ fun testPlatformModule(): Module = module {
     single<OAuthRedirectSocket> { InertOAuthRedirectSocket() }
 
     single<GoogleGrantRedeemer> { InertGoogleGrantRedeemer() }
+
+    // The revoke half of a disconnect: a test that presses the button wants the
+    // wiring, not a credential cancelled at Google.
+    single<GoogleGrantRevoker> { InertGoogleGrantRevoker() }
 
     single<GoogleAccessTokenProvider> { InertGoogleAccessTokenProvider() }
 

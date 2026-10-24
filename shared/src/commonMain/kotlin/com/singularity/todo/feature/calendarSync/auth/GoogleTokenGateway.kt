@@ -39,4 +39,17 @@ interface GoogleTokenGateway {
      * hundredth.
      */
     suspend fun accessToken(): Result<GoogleCredentials>
+
+    /**
+     * Makes the credential the server holds stop working.
+     *
+     * The server keeps the refresh token, and a device that only forgets its own copy
+     * leaves a credential that still works: the person who pressed "disconnect" would
+     * have a live grant on a server they cannot see, and the server would keep
+     * renewing it.
+     *
+     * Success includes the case where there was nothing to revoke — the account is
+     * disconnected either way.
+     */
+    suspend fun revoke(): Result<Unit>
 }
