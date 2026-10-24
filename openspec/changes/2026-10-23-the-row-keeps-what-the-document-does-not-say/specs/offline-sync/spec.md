@@ -31,6 +31,11 @@ The row of a task of another profile SHALL be written as the document says:
 this device does not own that row, so it does not read it and does not speak
 about the fields the document is silent about.
 
+A document that omits a field the model cannot do without SHALL be read
+against the row that is already on this device and SHALL be applied as far as
+it goes: the missing field takes the row's own value, and the rest of the
+document is applied. Such a document is a partial write, not a dropped event.
+
 The fields that live outside the row — the tags and the blocking edges — are
 not covered by this requirement: their claims are separate, and the merge of
 a document with a row SHALL NOT add the local row's values for them. A part
@@ -63,6 +68,13 @@ the document does not carry is left alone, as the rule of the parts says.
 - **When** a document about it arrives that carries no `seriesId` key
 - **Then** the row of that task is written as the document says, and the fields
       the document is silent about take the model's defaults
+
+#### Scenario: A document that omits a field the model cannot do without
+
+- **Given** a task with a user id on this device
+- **When** a document arrives that carries no `userId` key
+- **Then** the document is applied against the row that is already here, and the
+      row keeps its user id
 
 #### Scenario: A document about a task this device has never seen
 

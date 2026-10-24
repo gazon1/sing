@@ -154,11 +154,20 @@ internal class SyncDocumentWriter(
      * or `null` when there is none.
      *
      * The id is read from the document itself, because the document is what
-     * names the row — and the row of a task of another profile is not this
-     * device's row to read.
+     * names the row.
+     *
+     * The row of a task of another profile is not this device's row to read.
+     * The read below is scoped to the profile this device is signed in as, so
+     * a document of another profile would find *this* profile's row whenever
+     * the two profiles hold a task with the same id — and the merge would
+     * fill the foreign row with this profile's values. The owner of the
+     * document is therefore compared with the profile of this device before
+     * the row is read: a document of another profile is written as it says.
      */
     private suspend fun localTaskOf(document: JsonObject): Task? {
         val id = (document["id"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: return null
+        val owner = (document["userId"] as? JsonPrimitive)?.takeIf { it.isString }?.content
+        if (owner != null && owner != taskRepo.currentUserId().value) return null
         return taskRepo.get(TaskId.fromString(id))
     }
 

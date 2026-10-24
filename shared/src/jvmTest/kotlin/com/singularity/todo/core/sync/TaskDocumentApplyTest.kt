@@ -170,6 +170,26 @@ class TaskDocumentApplyTest {
     }
 
     @Test
+    fun `a document of another profile is not filled from this profile's row`() = runTest {
+        // Two profiles of one account can hold a task with the same id. The
+        // row this profile holds must not fill the row of the other profile:
+        // the merge reads the row of this profile, and the document belongs
+        // to somebody else.
+        val repo = FakeTaskRepository()
+        repo.add(local)
+        val foreign = local.copy(userId = UserId("bob"))
+
+        writer(repo).upsert(
+            DocType.Task,
+            documentOf(foreign, without = setOf("seriesId")),
+        )
+
+        val stored = assertNotNull(repo.tasks.value[TaskId.fromString("t1").value])
+        assertEquals(UserId("bob"), stored.userId, "the row of another profile was written")
+        assertNull(stored.seriesId, "the row of another profile is not filled from this profile's row")
+    }
+
+    @Test
     fun `the id of the document names the row the merge reads`() = runTest {
         // The row the merge reads is the row of the task the document is about,
         // not the row of some other task on this device.

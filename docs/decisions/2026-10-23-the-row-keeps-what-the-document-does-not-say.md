@@ -49,6 +49,11 @@ says.
    same task, because the difference between "no series" and "no claim about
    the series" is gone.
 
+   The row that is read is this profile's row. A document of another profile
+   is not read against anything: two profiles of one account can hold a task
+   with the same id, and the row of this profile must not fill the row of the
+   other one.
+
 2. **A claim is still a claim.** A document that carries `seriesId: null` says
    the task stands alone, and it takes the task out of its series. Only the
    *absence* of the key is an absence of a claim. The server already applies
@@ -149,6 +154,12 @@ all, and that emptiness is a reading artefact, not a claim.
 - The repository keeps its shape: `upsert` takes the document — the row and the
   claims about the parts — and the merge happens where the document and the
   row meet: in the sync layer, before the document reaches the repository.
+- A document that omits a field the model cannot do without is read against
+  the row that is already here, and it is applied as far as it goes: the
+  missing field takes the row's own value, and the rest of the document is
+  applied. Before this change such a document failed to decode, and the pull
+  dropped it and left the row alone. Now a truncated document is a partial
+  write, and the pull reports success.
 - The rule covers every key of the row, the bookkeeping included. `hlc` and
   `serverVersion` are keys of the row like any other: a document that says
   nothing about them leaves the row's own, and a document that says
