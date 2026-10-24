@@ -47,10 +47,28 @@ open class SupabaseClientProvider(private val resolver: SupabaseConfigResolver, 
      * Reads the secure store on every call rather than trusting a cached config,
      * because another screen can change it; the *client* is what is expensive, so
      * that is what the cache holds.
+     *
+     * ## Why the config is remembered together with the client
+     *
+     * The cache is keyed on the configuration, and the key has to be stored next to
+     * the value it describes. Building a client without recording the config it was
+     * built for leaves the key empty, the comparison against the resolved config
+     * never matches, and every call builds a *new* client.
+     *
+     * That is not a performance detail. The session lives inside the client's
+     * `Auth` plugin: a sign-in fills the plugin of the client it ran against, and
+     * a request made through a different client instance finds an empty plugin and
+     * falls back to the anon key. The symptom is a signed-in user whose requests
+     * arrive as a stranger — which for the backup feature means a row-level
+     * security policy refusing an upload the user is entitled to make.
      */
     open suspend fun client(): SupabaseClient? = lock.withLock {
         val config = resolver.resolve(store) ?: return@withLock null
-        cachedClient?.takeIf { cachedConfig == config } ?: build(config)
+        cachedClient?.takeIf { cachedConfig == config }
+            ?: build(config).also {
+                cachedConfig = config
+                cachedClient = it
+            }
     }
 
     /**
