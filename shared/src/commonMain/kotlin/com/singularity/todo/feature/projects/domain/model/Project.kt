@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.projects.domain.model
 
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.search.Searchable
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.DocType
 import com.singularity.todo.core.sync.Hlc
@@ -70,7 +71,18 @@ data class Project(
     // ─── Sync fields ───────────────────────────────────────────────────────────
     val serverVersion: Long = 0,
     val hlc: Hlc? = null,
-) : SyncableEntity {
+) : SyncableEntity,
+    Searchable {
+
+    /**
+     * The surfaces a project is searched by (F3): its name.
+     *
+     * The project says so, so no caller has to remember it — and no caller
+     * can remember it wrong.
+     */
+    override val searchableSurfaces: List<String?>
+        get() = listOf(name)
+
     // SyncableEntity implementation
     override val syncId: String get() = id.value
     override val docType: DocType get() = DocType.Project

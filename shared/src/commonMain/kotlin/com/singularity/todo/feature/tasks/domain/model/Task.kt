@@ -2,6 +2,7 @@ package com.singularity.todo.feature.tasks.domain.model
 
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.search.SearchMode
+import com.singularity.todo.core.search.Searchable
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.DocType
 import com.singularity.todo.core.sync.Hlc
@@ -229,7 +230,19 @@ data class Task(
     val serverVersion: Long = 0,
     /** Hybrid Logical Clock timestamp; null for local-only tasks. */
     val hlc: Hlc? = null,
-) : SyncableEntity {
+) : SyncableEntity,
+    Searchable {
+
+    /**
+     * The surfaces a task is searched by (F3): its title and its description.
+     *
+     * The task knows this, so no caller has to remember it — a caller that
+     * had to remember it would eventually remember it wrong, and the record
+     * would be lost without a word.
+     */
+    override val searchableSurfaces: List<String?>
+        get() = listOf(title, description)
+
     val isCompleted: Boolean get() = completedAt != null
     val isTrashed: Boolean get() = archivedAt != null
 

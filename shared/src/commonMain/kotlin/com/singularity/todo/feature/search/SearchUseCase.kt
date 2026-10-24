@@ -2,6 +2,8 @@ package com.singularity.todo.feature.search
 
 import com.singularity.todo.core.search.FreeTextRule
 import com.singularity.todo.core.search.IndexedRecord
+import com.singularity.todo.core.search.SearchLimits
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.search.SearchTextIndex
 import com.singularity.todo.core.search.TextMatchPlan
 import com.singularity.todo.feature.notes.Note
@@ -11,7 +13,6 @@ import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.search.query.Options
 import com.singularity.todo.feature.search.query.Query
 import com.singularity.todo.feature.search.query.ResolvedSearchQuery
-import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.feature.search.query.titleMatchesFirst
 import com.singularity.todo.feature.search.query.SearchQueryResolver
 import com.singularity.todo.feature.search.query.SingularityQueryParser
@@ -166,7 +167,9 @@ class SearchUseCase(
             // This asks the rule about the *title* only — it is a question about
             // one surface of the record, asked to order the records the index
             // already found. It is not a filter: a record the index found is in
-            // the answer whatever this says.
+            // the answer whatever this says. And it is not the record's own
+            // surfaces either: those answer "does this record match", and every
+            // record here matches — the ranking asks the other question.
             //
             // The partition happens after the sort, so the order the user asked
             // for is the order inside each group. See `titleMatchesFirst`.
@@ -229,7 +232,7 @@ class SearchUseCase(
 
         return when (plan) {
             is TextMatchPlan.Narrowed -> textIndex.observeNotes(plan.query).map { notes ->
-                notes.filter { note -> rule.accepts(plan) { term -> mode.matches(note.record.title, term) } }
+                notes.filter { note -> rule.accepts(plan) { term -> mode.matches(note.record, term) } }
             }
 
             TextMatchPlan.BroadScan -> noteRepo.observeAll().map { notes ->
@@ -240,9 +243,9 @@ class SearchUseCase(
                 // the answer looks like. The order of `observeAll` is the
                 // list's own order (pinned first, then the manual order),
                 // and that order belongs to the notes list, not to a search.
-                notes.filter { note -> rule.accepts(plan) { term -> mode.matches(note.title, term) } }
+                notes.filter { note -> rule.accepts(plan) { term -> mode.matches(note, term) } }
                     .sortedByDescending { note -> note.updatedAt }
-                    .take(NOTES_LIMIT)
+                    .take(SearchLimits.NOTES)
                     .map { note -> IndexedRecord(note, emptyList()) }
             }
         }
@@ -265,7 +268,7 @@ class SearchUseCase(
         }
         return source.map { projects ->
             projects.filter { project ->
-                rule.accepts(plan) { term -> mode.matches(project.record.name, term) }
+                rule.accepts(plan) { term -> mode.matches(project.record, term) }
             }
         }
     }
@@ -286,7 +289,7 @@ class SearchUseCase(
             }
         }
         return source.map { tags ->
-            tags.filter { tag -> rule.accepts(plan) { term -> mode.matches(tag.record.name, term) } }
+            tags.filter { tag -> rule.accepts(plan) { term -> mode.matches(tag.record, term) } }
         }
     }
 
@@ -303,17 +306,5 @@ class SearchUseCase(
             SortOrder.PRIORITY -> tasks.sortedBy { it.record.priority }
         }
         return if (descending) sorted.reversed() else sorted
-    }
-
-    private companion object {
-        /**
-         * How many notes a search answers with.
-         *
-         * The index's own note query carries the same ceiling (`LIMIT 20`),
-         * and the contains mode reads the rows itself — so it keeps the
-         * ceiling the index keeps. A mode that says how the rows are matched
-         * must not say what the answer looks like.
-         */
-        const val NOTES_LIMIT = 20
     }
 }

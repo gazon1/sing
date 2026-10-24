@@ -64,6 +64,25 @@ class SearchModeTest {
     }
 
     @Test
+    fun `a record answers with its own surfaces`() {
+        // The record says what it is searched by (F3), and the caller does not
+        // choose the text — so a caller cannot answer the question about the
+        // wrong field.
+        val record = object : Searchable {
+            override val searchableSurfaces: List<String?> = listOf("Trip", "Airport transfer")
+        }
+
+        assertTrue(SearchMode.Word.matches(record, "air"))
+        assertFalse(SearchMode.Word.matches(record, "port"))
+        assertTrue(SearchMode.Contains.matches(record, "port"))
+        assertFalse(
+            SearchMode.Word.matches(record.searchableSurfaces.first(), "port"),
+            "the word rule asks about the beginning of a word — \"Airport transfer\" does not " +
+                "start with \"port\", and the record-level answer has to say so",
+        )
+    }
+
+    @Test
     fun `the word mode narrows the rule and the index answers it`() {
         val plan = rule("port").plan(SearchMode.Word)
 

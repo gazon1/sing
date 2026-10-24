@@ -126,19 +126,6 @@ object TaskDomain {
     )
 
     /**
-     * The surfaces of a task that free text is matched against — its title and
-     * its description (F3).
-     *
-     * This is the one place that says what a task is searched by. The search
-     * screen and the task list both match free text against a task, and they
-     * have to agree on the surfaces — otherwise the same question gets two
-     * answers, and the answer depends on which screen asked it.
-     *
-     * @param task the task whose surfaces are asked for.
-     */
-    fun searchableText(task: Task): List<String?> = listOf(task.title, task.description)
-
-    /**
      * True when [term] matches [task] under [mode]'s rule.
      *
      * A task is searched by its title and its description (F3) — the surfaces
@@ -153,7 +140,7 @@ object TaskDomain {
      * @param term the term to look for.
      */
     fun matches(mode: SearchMode, task: Task, term: String): Boolean =
-        mode.matchesAny(searchableText(task), term)
+        mode.matches(task, term)
 
     /**
      * Checks if a task matches the given filter.
@@ -181,7 +168,7 @@ object TaskDomain {
         // The filter states the mode it searches in (F6, F8) — the word mode is
         // the rule of the full-text index, so that the in-memory rule and the
         // index answer the same question.
-        is TaskFilter.Search -> filter.mode.matchesAny(searchableText(task), filter.query)
+        is TaskFilter.Search -> filter.mode.matches(task, filter.query)
 
         is TaskFilter.ByDateRange ->
             task.dueDate != null &&
