@@ -70,6 +70,51 @@ class SubTestWithMessageTest(unittest.TestCase):
                 self.assertNotEqual(case, 2, "the third case is the one that fails")
 """
 
+SAME_CLASS_NAME = """
+import unittest
+
+
+class SameTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        raise RuntimeError("the class could not be set up")
+
+    def test_never_runs(self):
+        self.assertTrue(True)
+"""
+
+SAME_CLASS_NAME_ELSEWHERE = """
+import unittest
+
+
+class SameTest(unittest.TestCase):
+    def test_it_passes(self):
+        self.assertTrue(True)
+"""
+
+MODULE_ERROR = """
+import unittest
+
+
+def setUpModule():
+    raise RuntimeError("the module could not be set up")
+
+
+class InsideTest(unittest.TestCase):
+    def test_never_runs(self):
+        self.assertTrue(True)
+"""
+
+UNEXPECTED_SUCCESS = """
+import unittest
+
+
+class ExpectedFailureTest(unittest.TestCase):
+    @unittest.expectedFailure
+    def test_it_was_expected_to_fail(self):
+        self.assertTrue(True)
+"""
+
 TWO_CLASSES_ONE_BROKEN = """
 import unittest
 
@@ -209,6 +254,15 @@ class ReportTest(unittest.TestCase):
             document = ET.parse(report).getroot()
             self.assertEqual("1", document.get("errors"))
 
+    def test_a_tests_directory_that_is_not_there_leaves_a_report(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            report = root / "junit.xml"
+            self.assertEqual(1, run(root / "no-such-directory", report))
+            self.assertTrue(report.is_file())
+            document = ET.parse(report).getroot()
+            self.assertEqual("1", document.get("errors"))
+
     def test_a_suite_with_no_tests_says_so(self):
         # `unittest` exits with 5 when no test ran, and a green exit for a
         # suite that ran nothing is a green that nobody wrote.
@@ -274,6 +328,40 @@ class OutcomeTest(unittest.TestCase):
         failures = cases[0].findall("failure")
         self.assertEqual(1, len(failures))
         self.assertIn("the third case is the one that fails", failures[0].get("message"))
+
+    def test_a_class_error_is_written_once_when_two_modules_share_a_class_name(self):
+        # The repository has classes with the same name in different modules
+        # (`CliTest` is in nine of them), and an error written into every
+        # suite of every name would be counted as many times as there are
+        # suites.
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            tests = root / "tests"
+            tests.mkdir()
+            (tests / "test_a.py").write_text(SAME_CLASS_NAME, encoding="utf-8")
+            (tests / "test_b.py").write_text(SAME_CLASS_NAME_ELSEWHERE, encoding="utf-8")
+            report = root / "junit.xml"
+            self.assertEqual(1, run(tests, report))
+            document = ET.parse(report).getroot()
+            self.assertEqual("1", document.get("errors"))
+            self.assertEqual(1, len(document.findall(".//error")))
+
+    def test_a_module_error_is_in_the_report(self):
+        # `setUpModule` belongs to no class, and the report gives the module
+        # a suite of its own — a red run with a green report is the worst of
+        # the two answers.
+        document = self._run(MODULE_ERROR)
+        self.assertEqual("1", document.get("errors"))
+        errors = document.findall(".//error")
+        self.assertEqual(1, len(errors))
+        self.assertIn("the module could not be set up", errors[0].get("message"))
+
+    def test_an_unexpected_success_is_a_failure_in_the_report(self):
+        document = self._run(UNEXPECTED_SUCCESS)
+        self.assertEqual("1", document.get("failures"))
+        failures = document.findall(".//failure")
+        self.assertEqual(1, len(failures))
+        self.assertIn("expected to fail", failures[0].get("message"))
 
     def test_a_skipped_test_is_skipped_in_the_report(self):
         document = self._run(SKIPPED)

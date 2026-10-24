@@ -70,6 +70,12 @@ NO_TESTS_RAN = 5
 #: `setUpClass (tests.test_x.A)`.
 CLASS_ERROR = re.compile(r'^(setUpClass|tearDownClass|setUpModule|tearDownModule) \((?P<target>.+)\)$')
 
+#: The outcomes that belong to a class.
+CLASS_OUTCOMES = frozenset({'setUpClass', 'tearDownClass'})
+
+#: The outcomes that belong to a module.
+MODULE_OUTCOMES = frozenset({'setUpModule', 'tearDownModule'})
+
 
 class RecordingResult(unittest.TextTestResult):
     """A result that remembers how long each test took.
@@ -136,7 +142,7 @@ def _outcomes(
 
 
 def _class_errors(result: RecordingResult) -> dict[str, list[tuple[str, str]]]:
-    """The errors that belong to a class or a module, not to a test.
+    """The errors that belong to a class, not to a test.
 
     `setUpClass` fails before any test of the class runs, so there is no
     `<testcase>` to hang the error on — the report carries it as a testcase
@@ -150,7 +156,22 @@ def _class_errors(result: RecordingResult) -> dict[str, list[tuple[str, str]]]:
     errors: dict[str, list[tuple[str, str]]] = {}
     for outcome, text in result.errors:
         match = CLASS_ERROR.match(outcome.id())
-        if match is not None:
+        if match is not None and match.group(1) in CLASS_OUTCOMES:
+            errors.setdefault(match.group("target"), []).append((match.group(1), text))
+    return errors
+
+
+def _module_errors(result: RecordingResult) -> dict[str, list[tuple[str, str]]]:
+    """The errors that belong to a module, not to a class.
+
+    `setUpModule` fails before any test of the module runs, and it belongs to
+    no class at all — the report gives the module a suite of its own, so that
+    the error is in the report and not only on the console.
+    """
+    errors: dict[str, list[tuple[str, str]]] = {}
+    for outcome, text in result.errors:
+        match = CLASS_ERROR.match(outcome.id())
+        if match is not None and match.group(1) in MODULE_OUTCOMES:
             errors.setdefault(match.group("target"), []).append((match.group(1), text))
     return errors
 
@@ -158,11 +179,14 @@ def _class_errors(result: RecordingResult) -> dict[str, list[tuple[str, str]]]:
 def _same_class(target: str, classname: str) -> bool:
     """Whether a class error belongs to the suite of this class.
 
-    `unittest` names the class of a `setUpClass` failure by its id —
-    `tests.test_x.A` — and the suite is named by the module and the class
-    name. The two are compared by the tail, which is the class itself.
+    `unittest` names the class of a `setUpClass` failure by its full id —
+    `test_x.A` — and the suite is named the same way. The names are compared
+    whole: the base name is not enough, because the repository has classes
+    with the same name in different modules (`CliTest` is in nine of them),
+    and an error written into every suite of every name would be counted as
+    many times as there are suites.
     """
-    return target.rsplit(".", 1)[-1] == classname.rsplit(".", 1)[-1]
+    return target == classname
 
 
 def _skipped(result: RecordingResult) -> dict[str, str]:
@@ -188,6 +212,8 @@ def write_report(
     @param elapsed how long the run took.
     """
     skipped = _skipped(result)
+    expected = {test.id(): reason for test, reason in result.expectedFailures}
+    unexpected = {test.id() for test in result.unexpectedSuccesses}
     class_errors = _class_errors(result)
     document = ET.Element("testsuites", {"name": "gate scripts' own tests", "time": f"{elapsed:.3f}"})
     counts = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
@@ -219,6 +245,21 @@ def write_report(
             if not outcomes and test.id() in skipped:
                 ET.SubElement(case, "skipped", {"message": str(skipped[test.id()])[:200]})
                 suite_counts["skipped"] += 1
+            elif not outcomes and test.id() in expected:
+                ET.SubElement(
+                    case,
+                    "skipped",
+                    {"message": str(expected[test.id()])[:200]},
+                )
+                suite_counts["skipped"] += 1
+            elif not outcomes and test.id() in unexpected:
+                element = ET.SubElement(
+                    case,
+                    "failure",
+                    {"message": "the test was expected to fail and passed"},
+                )
+                element.text = "the test was expected to fail and passed"
+                suite_counts["failures"] += 1
 
         for target, errors in class_errors.items():
             if not _same_class(target, classname):
@@ -234,6 +275,25 @@ def write_report(
                 suite_counts["tests"] += 1
                 suite_counts["errors"] += 1
 
+        for key, value in suite_counts.items():
+            suite.set(key, str(value))
+        for key in counts:
+            counts[key] += suite_counts[key]
+
+    module_errors = _module_errors(result)
+    for module, errors in module_errors.items():
+        suite = ET.SubElement(document, "testsuite", {"name": module})
+        suite_counts = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
+        for name, text in errors:
+            case = ET.SubElement(
+                suite,
+                "testcase",
+                {"classname": module, "name": name, "time": "0.000"},
+            )
+            element = ET.SubElement(case, "error", {"message": _message_of(text)[:200]})
+            element.text = text
+            suite_counts["tests"] += 1
+            suite_counts["errors"] += 1
         for key, value in suite_counts.items():
             suite.set(key, str(value))
         for key in counts:
@@ -266,7 +326,42 @@ def run(tests_dir: pathlib.Path, junit_xml: pathlib.Path | None) -> int:
     @param junit_xml where the report is written; `None` writes no report.
     """
     loader = unittest.TestLoader()
-    suite = loader.discover(start_dir=str(tests_dir), top_level_dir=str(tests_dir))
+    try:
+        suite = loader.discover(start_dir=str(tests_dir), top_level_dir=str(tests_dir))
+    except (ImportError, OSError) as exc:
+        # The tests are not there, or not readable. The report says so — a
+        # report that is missing in the case where the run is broken is the
+        # report nobody needs.
+        print(f"run-gate-tests: the tests were not found: {exc}", file=sys.stderr)
+        if junit_xml is not None:
+            document = ET.Element(
+                "testsuites",
+                {
+                    "name": "gate scripts' own tests",
+                    "tests": "1",
+                    "failures": "0",
+                    "errors": "1",
+                    "skipped": "0",
+                    "time": "0.000",
+                },
+            )
+            suite_element = ET.SubElement(document, "testsuite", {"name": "discovery"})
+            case = ET.SubElement(
+                suite_element,
+                "testcase",
+                {"classname": "discovery", "name": "the tests were found", "time": "0.000"},
+            )
+            element = ET.SubElement(case, "error", {"message": str(exc)[:200]})
+            element.text = str(exc)
+            suite_element.set("tests", "1")
+            suite_element.set("failures", "0")
+            suite_element.set("errors", "1")
+            suite_element.set("skipped", "0")
+            junit_xml.parent.mkdir(parents=True, exist_ok=True)
+            tree = ET.ElementTree(document)
+            ET.indent(tree, space="  ")
+            tree.write(junit_xml, encoding="utf-8", xml_declaration=True)
+        return 1
 
     # A module that does not import becomes a failed test, the way `unittest`
     # does it: the loader leaves the error in `loader.errors` and the suite
