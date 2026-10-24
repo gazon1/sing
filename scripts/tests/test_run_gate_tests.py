@@ -418,6 +418,52 @@ class ForeignGateToolingTest(unittest.TestCase):
         self.assertIn("FOREIGN", result.stdout)
         self.assertIn("the suite was not run", result.stderr)
 
+    def test_a_foreign_namespace_package_is_refused_too(self):
+        """A package directory without an `__init__.py` is still a package.
+
+        It is a *namespace* package: the finder has no origin to report, only
+        the place it found the package in. That place is the answer to the
+        question the runner asks, and a foreign one has to be refused exactly
+        like a foreign regular package.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            package = pathlib.Path(tmp) / "sgate"
+            package.mkdir()
+            # No `__init__.py`: the package is a namespace package.
+            result = self._run(tmp)
+
+        self.assertEqual(2, result.returncode, result.stdout + result.stderr)
+        self.assertIn("the suite was not run", result.stderr)
+
+    def test_a_tree_that_carries_its_own_namespace_package_is_not_refused(self):
+        """The tree's own package is not foreign, whatever shape it has.
+
+        A tree that carries `scripts/src/sgate` without an `__init__.py` is a
+        tree with its own tooling. The runner used to read "no origin" as "no
+        package here" and refused it — and the refusal said the suite would
+        measure another checkout, which was not true.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            tree = pathlib.Path(tmp)
+            (tree / "scripts" / "src" / "sgate").mkdir(parents=True)
+            runner = tree / "scripts" / "run-gate-tests.py"
+            runner.write_text(RUNNER.read_text(encoding="utf-8"), encoding="utf-8")
+            tests_dir = tree / "tests"
+            tests_dir.mkdir()
+            env = dict(os.environ)
+            env["PYTHONPATH"] = str(tree / "scripts" / "src")
+            result = subprocess.run(
+                [sys.executable, str(runner), "--tests-dir", str(tests_dir)],
+                capture_output=True,
+                text=True,
+                env=env,
+                cwd=str(tree),
+                check=False,
+            )
+
+        self.assertNotEqual(2, result.returncode, result.stdout + result.stderr)
+        self.assertNotIn("the suite was not run", result.stderr)
+
     def test_this_checkouts_sgate_is_not_refused(self):
         """The control: the refusal is about the origin, not about running."""
         result = self._run(str(_ROOT / "scripts" / "src"))

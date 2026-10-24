@@ -338,14 +338,25 @@ def gate_tooling_origin() -> pathlib.Path | None:
     question `scripts/check-gate-tooling-origin.py` asks, asked the same way:
     without importing the package, because importing it is what has to be
     reported on.
+
+    A package that has no `__init__.py` is a *namespace package*: it has no
+    origin, but it has a place it was found in, and that place answers the
+    question the same way. Reading "no origin" as "no package here" made the
+    runner refuse a tree that carried its own — and the refusal said the suite
+    would measure another checkout, which was not true.
     """
     try:
         spec = importlib.util.find_spec("sgate")
     except (ImportError, ValueError):
         return None
-    if spec is None or not spec.origin:
+    if spec is None:
         return None
-    return pathlib.Path(spec.origin).resolve().parent
+    if spec.origin:
+        return pathlib.Path(spec.origin).resolve().parent
+    locations = list(spec.submodule_search_locations or [])
+    if not locations:
+        return None
+    return pathlib.Path(locations[0]).resolve()
 
 
 def refuse_foreign_gate_tooling() -> bool:

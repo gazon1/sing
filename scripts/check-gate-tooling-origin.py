@@ -68,14 +68,25 @@ LOCAL_SGATE = (ROOT / "scripts" / "src" / "sgate").resolve()
 
 
 def sgate_origin() -> pathlib.Path | None:
-    """Where the importable `sgate` package comes from, or None."""
+    """Where the importable `sgate` package comes from, or None.
+
+    A package without an `__init__.py` is a *namespace package*: the finder
+    has no origin to report, only the place it found the package in. That
+    place answers the question the same way, and a tree that carries its own
+    namespace package is not a tree without a package.
+    """
     try:
         spec = importlib.util.find_spec("sgate")
     except (ImportError, ValueError):
         return None
-    if spec is None or not spec.origin:
+    if spec is None:
         return None
-    return pathlib.Path(spec.origin).resolve().parent
+    if spec.origin:
+        return pathlib.Path(spec.origin).resolve().parent
+    locations = list(spec.submodule_search_locations or [])
+    if not locations:
+        return None
+    return pathlib.Path(locations[0]).resolve()
 
 
 @click.command()
