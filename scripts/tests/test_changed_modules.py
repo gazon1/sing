@@ -476,6 +476,35 @@ def _load_lint():
     return module
 
 
+class TheGraphRefusesToPlanWhenItDisagreesWithTheBuild(unittest.TestCase):
+    """A plan built from a graph that contradicts the build means nothing.
+
+    The command must REFUSE to build a plan when the check fails. The check
+    itself is left real here: the disagreement is produced by the graph the
+    command reads, not by a stubbed check — a stubbed check would pass even if
+    the check had been turned into a no-op.
+    """
+
+    def test_the_command_stops_when_the_graph_and_the_build_disagree(self):
+        ghost = changed.Module(
+            name='ghost',
+            gradle_path=':ghost',
+            directory='ghost',
+            conditional=False,
+        )
+        original = changed.MODULES
+        changed.MODULES = {**original, 'ghost': ghost}
+        self.addCleanup(self._restore_modules, original)
+
+        code = changed.main([])
+
+        self.assertEqual(2, code)
+
+    @staticmethod
+    def _restore_modules(original) -> None:
+        changed.MODULES = original
+
+
 class TheBaseIsUsableTest(unittest.TestCase):
     """A base that cannot be measured against is a failure, not an empty plan."""
 
