@@ -149,6 +149,30 @@ be applied in the module that *declares* the type and not only in the modules
 that read it — and why `scripts/check-compose-stability-config.py` checks both
 `shared` and `desktopApp`.
 
+### A rule that marks its own findings as suppressed is mute
+
+The first version of `NoUnstableCollectionParam` reported every finding with
+`suppressReasons = listOf("NoUnstableCollectionParam")` — a copy of a line
+that read like a description of the rule. In detekt a non-empty
+`suppressReasons` means *this finding is suppressed*, and detekt drops such a
+finding before it reaches the report. The rule therefore reported nothing in
+the build while its own unit test saw every finding: the test calls the rule
+directly, the build goes through detekt's reporting layer.
+
+Nothing was red. `:shared:detekt` said "0 number of total findings" and the
+tree was green, and that green meant "the rule is mute", not "the code is
+clean". The sites the rule was written to catch were sitting in the tree the
+whole time.
+
+Two lessons, both mechanical:
+
+- a rule's finding must carry `suppressReasons = emptyList()`, and the rule
+  test has to assert that — a test that counts findings cannot see a finding
+  that the reporting layer would drop;
+- **a rule that has never fired is indistinguishable from a rule that has
+  nothing to say.** The proof that the rule works is a red run on a tree that
+  contains the thing it forbids, not a green run.
+
 ### The contract is an input of the compilation
 
 The Compose compiler plugin passes the contract as a *plugin option*, and
@@ -197,16 +221,21 @@ across 712 composables. After the contract and the conversion of the hot
 states, it reported **1522 stable, 322 runtime-unstable and 3 unstable**.
 
 The 56 parameters that vanished from the unstable class were the date and time
-value classes; the 23 that vanished from the runtime class were `Task` (7),
-`Note` (7), `Project` (3), `Tag` (2) and `Attachment` (2). The domain models in
-list rows — the thing the whole exercise was for — are now compared by
-`equals`, and a row whose task did not change skips itself.
+value classes; the 27 that vanished from the runtime class were the eleven
+types the contract names besides the value classes — `Task` (7), `Note` (7),
+`Project` (3), `Tag` (2), `Attachment` (2) and one each of `Reminder`,
+`ChecklistItem`, `CalendarTaskUi`, `TaskDraft`, `ProjectWithCounts` and
+`SectionPrefill`. The domain models in list rows — the thing the whole
+exercise was for — are now compared by `equals`, and a row whose task did not
+change skips itself.
 
 The remainder, 322 runtime-unstable parameters, is dominated by raw
-collections: 59 `List` parameters, 11 `Set` parameters and 6 `Map` parameters
-across 55 composables. That is the next piece of work, and it is recorded
-rather than hidden — `ComposeCollectionExemptions.kt` names every one of them,
-so the debt is visible and every new raw collection parameter is a finding.
+collections: 82 parameters across 62 composables — 62 `List`, 11 `Set`, 8
+`Map` and one `MutableList` — and the register that names them
+(`ComposeCollectionExemptions.kt`) is counted from that list rather than
+estimated. That is the next piece of work, and it is recorded rather than
+hidden: the register names every parameter of every site, so the debt is
+visible and every new raw collection parameter is a finding.
 
 Two things the measurement taught that no amount of reading the source would
 have:
@@ -245,7 +274,7 @@ states the same thing in a form the compiler can honour.
   `docs/decisions/2026-09-26-konsist-architecture-tests.md` is now the real
   one: presentation types live in presentation so that the domain does not
   depend on it.
-- The remaining 93 raw collection parameters are a known debt with a known
+- The remaining 82 raw collection parameters are a known debt with a known
   owner. Converting them is mechanical, but it is not free: each one changes
   a signature and every call site, and the plan that produced this decision put
   a full sweep over the composables outside its scope.
