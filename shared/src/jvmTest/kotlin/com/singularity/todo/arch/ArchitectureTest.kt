@@ -146,10 +146,19 @@ class ArchitectureTest {
 
         /**
          * `CreateTaskFromDraft` (domain/usecase) consumes presentation-state
-         * `TaskDraft` / `DueDateOption`. Those types are `@Serializable` data holders
-         * annotated with Compose `@Immutable` for stability — moving them to domain
-         * would violate the "pure domain has no Compose imports" convention
-         * (see ADR 2026-09-26-konsist-architecture-tests, debt entry).
+         * `TaskDraft` / `DueDateOption`.
+         *
+         * The reason is the layer, not an annotation: those types live in
+         * presentation so that the domain does not depend on it, and the use
+         * case is the one place where the draft crosses that boundary on its
+         * way into the domain. They used to carry Compose `@Immutable` for
+         * stability, which is not what makes them stable now — the stability
+         * contract (`config/compose/stability_config.conf`) is — and which
+         * would have been a worse reason, because it made the domain's
+         * dependency on the UI toolkit a permanent one.
+         *
+         * @see 2026-10-22-compose-stability-contract
+         * @see 2026-09-26-konsist-architecture-tests
          */
         private val LAYER_ALLOWLIST = setOf("feature/tasks/domain/usecase/CreateTaskFromDraft.kt")
 

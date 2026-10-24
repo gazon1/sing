@@ -67,9 +67,12 @@ Violations fixed as part of this ADR: `CalendarAppInfo` → `domain/model`,
   2.3.21, while Konsist 0.17.3 was built on 2.1.0. Parsing the full commonMain works —
   no PSI incompatibility found. If a future Kotlin release breaks parsing, the fallback
   is reimplementing rules 1–7 as detekt rules.
-- `TaskDraft`/`DueDateOption` stay in presentation (allowlisted): they carry Compose
-  `@Immutable` for stability; moving them to domain would violate the "pure domain has
-  no Compose imports" convention.
+- `TaskDraft`/`DueDateOption` stay in presentation (allowlisted): they live there so that the
+  domain does not depend on it, and `CreateTaskFromDraft` is the one place where the draft
+  crosses that boundary on its way into the domain. They used to carry Compose `@Immutable`
+  for stability; that annotation is gone (see `2026-10-22-compose-stability-contract`) —
+  the stability contract is what makes them stable now, and an annotation would have made
+  the domain's dependency on the UI toolkit a permanent one.
 
 ## Consequences
 

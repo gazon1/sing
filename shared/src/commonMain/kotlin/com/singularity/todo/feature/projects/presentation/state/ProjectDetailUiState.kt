@@ -4,8 +4,8 @@ import com.singularity.todo.feature.projects.presentation.model.ParentOption
 import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
 import com.singularity.todo.feature.projects.presentation.model.TagGroupOption
 import com.singularity.todo.feature.tasks.domain.model.Task
+import kotlinx.collections.immutable.ImmutableList
 
-@Immutable
 sealed interface ProjectDetailUiState {
     data object Loading : ProjectDetailUiState
     data object NotFound : ProjectDetailUiState
@@ -29,11 +29,11 @@ sealed interface ProjectDetailUiState {
          */
         val hideBlocked: Boolean = false,
         /** Parent-picker options; excludes this project, deleted and non-root projects. */
-        val parentOptions: List<ParentOption>,
+        val parentOptions: ImmutableList<ParentOption>,
         /** Active tasks outside this project, for the "add existing task" picker. */
-        val availableTasks: List<Task>,
+        val availableTasks: ImmutableList<Task>,
         /** All tag group options for the inherited-groups picker; excludes soft-deleted groups. */
-        val tagGroups: List<TagGroupOption>,
+        val tagGroups: ImmutableList<TagGroupOption>,
         /**
          * A close that was refused until the user confirms it, because one of the
          * project's tasks has an unfinished prerequisite.

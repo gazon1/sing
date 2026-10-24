@@ -27,6 +27,36 @@ val coroutinesDebugAgent = configurations.create("coroutinesDebugAgent") {
     isCanBeResolved = true
 }
 
+koinCompiler {
+    // userLogs = true // uncomment to see detected definitions during development
+}
+
+// The stability contract — the shared list of types the Compose compiler
+// treats as stable. It must be the same file `shared` uses: two contracts
+// would mean two answers to "is this parameter stable", and the desktop
+// module is where the composable-level tests run.
+//
+// `stabilityConfigurationFiles` (plural) rather than `stabilityConfigurationFile`
+// (singular): the singular form is deprecated and fails the build with an
+// error in this compiler version.
+val composeStabilityConfiguration: RegularFile =
+    rootProject.layout.projectDirectory.file("config/compose/stability_config.conf")
+
+composeCompiler {
+    stabilityConfigurationFiles.addAll(composeStabilityConfiguration)
+}
+
+// The contract is a compiler input, but the Compose compiler plugin passes it
+// as a plugin option — and plugin options are not part of the compile task's
+// up-to-date inputs. Without this declaration, editing the contract leaves the
+// compilation UP-TO-DATE: the new classification never reaches the bytecode,
+// and a contract change looks like it took effect when nothing changed.
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().configureEach {
+    inputs.file(composeStabilityConfiguration)
+        .withPropertyName("composeStabilityConfiguration")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+}
+
 kotlin {
     // The app runs on 21 — the JDK gradle-daemon-jvm.properties pins the daemon
     // to, and the only one desktop flows are verified on. Toolchaining here
@@ -34,6 +64,21 @@ kotlin {
     // launcher on this host is 25), so compile, test forks and `run` all use 21
     // without relying on daemon inheritance (#413).
     jvmToolchain(21)
+
+    // Compose stability report — an audit instrument, not a gate. See the
+    // matching block in `shared/build.gradle.kts` for why it is opt-in and why
+    // nothing in CI reads it.
+    compilerOptions {
+        if (providers.gradleProperty("composeStabilityReport").orNull?.toBoolean() == true) {
+            freeCompilerArgs.addAll(
+                listOf(
+                    "-P",
+                    "plugin:androidx.compose.compiler.plugins.kotlin:reportsDestination=" +
+                        layout.buildDirectory.dir("compose_compiler_reports/desktop").get().asFile.absolutePath,
+                ),
+            )
+        }
+    }
 }
 
 sourceSets {

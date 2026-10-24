@@ -27,6 +27,8 @@ import com.singularity.todo.feature.tasks.presentation.state.TaskTimeSlotIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUi
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskAiSlot
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskBacklinksCollector
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskBacklinksState
@@ -387,21 +389,21 @@ class TaskDetailCoordinator(
             titleDraft = draftState.title,
             descriptionDraft = draftState.description,
             project = entityState.project,
-            tags = entityState.tags,
-            checklist = childrenState.checklist,
-            reminders = reminderState.reminders,
-            attachments = childrenState.attachments,
-            subtasks = childrenState.subtasks,
-            blockedBy = task.blockedBy,
-            availableTasks = entityState.availableTasks,
-            linkedNotes = backlinkState.notes,
-            linkedTasks = backlinkState.tasks,
-            logbookEntries = logState.allEntries,
+            tags = entityState.tags.toImmutableList(),
+            checklist = childrenState.checklist.toImmutableList(),
+            reminders = reminderState.reminders.toImmutableList(),
+            attachments = childrenState.attachments.toImmutableList(),
+            subtasks = childrenState.subtasks.toImmutableList(),
+            blockedBy = task.blockedBy.toImmutableSet(),
+            availableTasks = entityState.availableTasks.toImmutableList(),
+            linkedNotes = backlinkState.notes.toImmutableList(),
+            linkedTasks = backlinkState.tasks.toImmutableList(),
+            logbookEntries = logState.allEntries.toImmutableList(),
             timeSlotState = when (val ex = extras) {
                 is TaskDetailExtras.Unresolved -> TaskTimeSlotState.Idle
                 is TaskDetailExtras.Ready -> ex.timeSlotState
             },
-            seriesMembers = entityState.seriesMembers,
+            seriesMembers = entityState.seriesMembers.toImmutableList(),
             firstRun = when (val ex = extras) {
                 is TaskDetailExtras.Unresolved -> FirstRun.Unresolved
                 is TaskDetailExtras.Ready -> ex.firstRun

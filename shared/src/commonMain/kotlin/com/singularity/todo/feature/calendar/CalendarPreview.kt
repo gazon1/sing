@@ -9,6 +9,8 @@ import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
 import com.singularity.todo.feature.calendar.presentation.components.calendar.groupedByDate
 import com.singularity.todo.feature.calendar.presentation.screen.CalendarContent
 import com.singularity.todo.feature.calendar.presentation.state.CalendarUiState
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableMap
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.datetime.LocalDate
 
@@ -47,8 +49,10 @@ private object CalendarPreviewData {
         return CalendarUiState.Loaded(
             anchor = anchor,
             viewMode = viewMode,
-            visibleDates = visibleRange(anchor, viewMode),
-            tasksByDate = sampleTasks.groupedByDate(),
+            visibleDates = visibleRange(anchor, viewMode).toImmutableList(),
+            tasksByDate = sampleTasks.groupedByDate()
+                .mapValues { (_, tasks) -> tasks.toImmutableList() }
+                .toImmutableMap(),
             // A fixed date, not the host's today. A preview that highlights
             // "now" changes what it renders from one day to the next, which is
             // the same host-dependence #91 is about, in a file nobody thought to

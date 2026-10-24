@@ -15,6 +15,8 @@ import com.singularity.todo.feature.ai.use_cases.ProjectReviewUseCase
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.model.ProjectWithCounts
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.projects.presentation.state.ProjectSortOrder
@@ -74,7 +76,7 @@ class ProjectsViewModel(
         initialState = ProjectsUiState.Loading(
             searchQuery = FieldOwnedText.empty(),
             sortOrder = ProjectSortOrder.Name,
-            closedProjects = emptyList(),
+            closedProjects = persistentListOf(),
         ),
         crashReporter = crashReporter,
         scope = scope,
@@ -123,14 +125,14 @@ class ProjectsViewModel(
                             ProjectsUiState.Empty(
                                 searchQuery = query,
                                 sortOrder = sort,
-                                closedProjects = closed,
+                                closedProjects = closed.toImmutableList(),
                             )
                         } else {
                             ProjectsUiState.Content(
-                                projects = sorted,
+                                projects = sorted.toImmutableList(),
                                 searchQuery = query,
                                 sortOrder = sort,
-                                closedProjects = closed,
+                                closedProjects = closed.toImmutableList(),
                             )
                         }
                     }
@@ -146,7 +148,7 @@ class ProjectsViewModel(
                             message = cause.toMessage(),
                             searchQuery = _searchQuery.value,
                             sortOrder = _sortOrder.value,
-                            closedProjects = closedProjectsOnScreen(),
+                            closedProjects = closedProjectsOnScreen().toImmutableList(),
                         ),
                     )
                 }

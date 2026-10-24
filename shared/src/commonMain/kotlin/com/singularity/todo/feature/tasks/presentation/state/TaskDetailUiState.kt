@@ -1,5 +1,4 @@
 package com.singularity.todo.feature.tasks.presentation.state
-import androidx.compose.runtime.Immutable
 import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.core.text.OwnedText
 import com.singularity.todo.core.text.Revisioned
@@ -13,9 +12,24 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.LogbookEntry
 import com.singularity.todo.feature.timetracking.domain.model.TaskTimeSlotState
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
 
 /**
  * Read model для экрана просмотра задачи.
+ *
+ * ## Why the collections are persistent
+ *
+ * Every collection here is an [ImmutableList] / [ImmutableSet]: the Compose
+ * compiler treats those as known-stable, so a composable that takes one of
+ * them compares it by `equals` instead of by identity. The Room mapper builds
+ * a new instance of each collection on every read, so an identity comparison
+ * would recompose the section every time the screen is observed.
+ *
+ * The screen *state* around this model deliberately keeps no such claim: see
+ * [TaskDetailUiState] for why the annotation was removed there.
  */
 data class TaskDetailUi(
     val task: Task,
@@ -31,22 +45,22 @@ data class TaskDetailUi(
     /** Draft description owned by VM — prevents mirror-state in Composable. */
     val descriptionDraft: Revisioned<String> = Revisioned.initial(task.description ?: ""),
     val project: Project? = null,
-    val tags: List<Tag> = emptyList(),
-    val checklist: List<ChecklistItem> = emptyList(),
-    val reminders: List<Reminder> = emptyList(),
-    val attachments: List<Attachment> = emptyList(),
+    val tags: ImmutableList<Tag> = persistentListOf(),
+    val checklist: ImmutableList<ChecklistItem> = persistentListOf(),
+    val reminders: ImmutableList<Reminder> = persistentListOf(),
+    val attachments: ImmutableList<Attachment> = persistentListOf(),
     /** Direct child tasks (1-level hierarchy only). */
-    val subtasks: List<Task> = emptyList(),
+    val subtasks: ImmutableList<Task> = persistentListOf(),
     /** IDs of tasks this task depends on. Used to populate [DependencyPickerSheet]. */
-    val blockedBy: Set<TaskId> = emptySet(),
+    val blockedBy: ImmutableSet<TaskId> = persistentSetOf(),
     /** Tasks available for dependency selection (not trashed, not self). */
-    val availableTasks: List<Task> = emptyList(),
+    val availableTasks: ImmutableList<Task> = persistentListOf(),
     /** Notes that link TO this task via task:// URL scheme. */
-    val linkedNotes: List<Note> = emptyList(),
+    val linkedNotes: ImmutableList<Note> = persistentListOf(),
     /** Tasks that link TO this task via task:// URL scheme. */
-    val linkedTasks: List<Task> = emptyList(),
+    val linkedTasks: ImmutableList<Task> = persistentListOf(),
     /** Logbook entries (notes + time entries) attached to this task, newest first. */
-    val logbookEntries: List<LogbookEntry> = emptyList(),
+    val logbookEntries: ImmutableList<LogbookEntry> = persistentListOf(),
     /** Time tracking state for this task. */
     val timeSlotState: TaskTimeSlotState = TaskTimeSlotState.Idle,
     /**
@@ -55,7 +69,7 @@ data class TaskDetailUi(
      * Empty for a task that stands alone — which is most of them. The series
      * card renders from this list and offers the actions that reach all of it.
      */
-    val seriesMembers: List<Task> = emptyList(),
+    val seriesMembers: ImmutableList<Task> = persistentListOf(),
     /** First-run state for this task. */
     val firstRun: FirstRun = FirstRun.Unresolved,
 ) {
@@ -84,8 +98,16 @@ data class TaskDetailUi(
  *
  * @property pendingBlockedClose A task whose prerequisites are still open, waiting for the
  *        user to confirm closing it anyway. Null when no confirmation is pending.
+ *
+ * ## Why there is no `@Immutable` here
+ *
+ * The annotation made the compiler compare the screen state by `equals` — a
+ * deep walk over the task's tags, checklist, subtasks and logbook, on every
+ * comparison. A screen state is compared by identity: that is O(1), and the
+ * screen body is cheap to re-run because the *leaves* inside it are stable
+ * and skip themselves. The annotation was a claim about the whole screen that
+ * nobody had measured; the leaves carry the stability instead.
  */
-@Immutable
 sealed interface TaskDetailUiState {
     data object Loading : TaskDetailUiState
     data class Error(val message: String) : TaskDetailUiState

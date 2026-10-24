@@ -756,3 +756,23 @@ popup-test-tag:
 non-tagged-maestro-elements:
   NonTaggedMaestroElements:
     active: false
+
+# Added 2026-10-22. A @Composable function must not take a raw collection
+# parameter: the Compose compiler cannot treat an interface as stable, so the
+# composable is not skippable. Persistent collections (ImmutableList /
+# PersistentList) are known-stable and compare structurally, so they give both
+# halves — stability and a cheap comparison.
+#
+# The rule only looks at @Composable functions; a repository or ViewModel method
+# taking a List is ordinary Kotlin and is not flagged.
+no-unstable-collection-param:
+  NoUnstableCollectionParam:
+    active: true
+
+# Added 2026-10-22. Bans casting to MutableList / MutableSet / MutableMap.
+# The stability contract declares domain types stable, and the compiler
+# compares them by equals — a collection mutated after such a cast keeps
+# comparing equal to its old contents, so the UI goes stale without an error.
+no-mutable-collection-cast:
+  NoMutableCollectionCast:
+    active: true

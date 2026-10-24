@@ -37,6 +37,7 @@ import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.LogbookEntry
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -56,7 +57,7 @@ import androidx.compose.material3.MaterialTheme
  */
 @Composable
 fun LogbookSection(
-    entries: List<LogbookEntry>,
+    entries: ImmutableList<LogbookEntry>,
     onOpenNote: (NoteId) -> Unit,
     onAddNote: (TaskId) -> Unit,
     currentTaskId: TaskId,

@@ -26,8 +26,11 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.tasks.domain.model.Task
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
+import kotlinx.collections.immutable.toImmutableSet
 
 /**
  * Multi-select task dependency picker sheet.
@@ -43,8 +46,8 @@ import com.singularity.todo.feature.tasks.presentation.components.TaskEditorShee
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DependencyPickerSheet(
-    currentDeps: Set<TaskId>,
-    availableTasks: List<Task>,
+    currentDeps: ImmutableSet<TaskId>,
+    availableTasks: ImmutableList<Task>,
     onApply: (Set<TaskId>) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -75,9 +78,9 @@ fun DependencyPickerSheet(
                         isChecked = task.id in selected,
                         onToggle = { id ->
                             selected = if (id in selected) {
-                                selected - id
+                                (selected - id).toImmutableSet()
                             } else {
-                                selected + id
+                                (selected + id).toImmutableSet()
                             }
                         },
                     )

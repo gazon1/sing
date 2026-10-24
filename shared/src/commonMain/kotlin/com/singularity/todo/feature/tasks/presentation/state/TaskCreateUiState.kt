@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.tasks.presentation.state
 
-import androidx.compose.runtime.Immutable
 import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.core.text.FieldOwnedTextAsString
 import com.singularity.todo.core.text.StaticText
@@ -12,8 +11,24 @@ import kotlinx.serialization.Serializable
 
 /**
  * Immutable UI state of the task creation screen.
+ *
+ * ## Why there is no `@Immutable`, and why the file no longer imports Compose
+ *
+ * The annotation made the compiler compare this state by `equals`, and the
+ * draft inside it holds three collections — an `equals` walked all of them on
+ * every comparison.
+ *
+ * The draft is listed in the stability contract
+ * (`config/compose/stability_config.conf`) instead: `kotlinx.serialization`
+ * cannot serialize a persistent collection, so the draft cannot be given the
+ * type that would make it stable *and* serializable. The contract is the
+ * honest way to say it.
+ *
+ * That is also why this file no longer imports `androidx.compose.runtime`: a
+ * domain-free presentation model has no business depending on the UI
+ * toolkit, and the architecture test (`ArchitectureTest.kt`) records the one
+ * place where a presentation type still reaches into the domain.
  */
-@Immutable
 data class TaskCreateUiState(
     val draft: TaskDraft = TaskDraft(),
     val isSaveEnabled: Boolean = false,
@@ -33,7 +48,6 @@ data class TaskCreateUiState(
  * field's own text, a seed (the draft as it was stored, a section's prefill), or a clear.
  */
 @Serializable
-@Immutable
 data class TaskDraft(
     @Serializable(with = FieldOwnedTextAsString::class)
     val title: FieldOwnedText = FieldOwnedText.empty(),
@@ -95,7 +109,6 @@ data class TaskDraft(
  * so the draft is self-contained and fully serializable.
  */
 @Serializable
-@Immutable
 data class DraftChecklistItem(val id: String, val text: String, val isChecked: Boolean = false)
 
 /**
@@ -104,7 +117,6 @@ data class DraftChecklistItem(val id: String, val text: String, val isChecked: B
  * so the draft is self-contained and fully serializable.
  */
 @Serializable
-@Immutable
 data class DraftAttachment(val url: String, val title: String? = null)
 
 /**

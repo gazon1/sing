@@ -40,6 +40,11 @@ import com.singularity.todo.feature.calendar.domain.logic.toLocalDate
 import com.singularity.todo.feature.calendar.domain.logic.toYearMonth
 import com.singularity.todo.feature.calendar.domain.logic.yearMonthForPage
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskUi
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableList
 import com.singularity.todo.feature.calendar.presentation.state.CalendarIntent
 import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
 import kotlinx.datetime.LocalDate
@@ -68,7 +73,7 @@ fun MonthGridView(
     monthAnchor: LocalDate,
     today: LocalDate,
     selectedDate: LocalDate,
-    tasksByDate: Map<LocalDate, List<CalendarTaskUi>>,
+    tasksByDate: ImmutableMap<LocalDate, ImmutableList<CalendarTaskUi>>,
     onDayClick: (LocalDate) -> Unit,
     onTaskClick: (CalendarTaskUi) -> Unit,
     onMonthPageChanged: (YearMonth) -> Unit,
@@ -76,7 +81,7 @@ fun MonthGridView(
     modifier: Modifier = Modifier,
     pageCount: Int = 240,
     pagerState: PagerState = rememberPagerState(initialPage = pageCount / 2) { pageCount },
-    selectedDates: Set<LocalDate> = emptySet(),
+    selectedDates: ImmutableSet<LocalDate> = persistentSetOf(),
     onDayLongPress: (LocalDate) -> Unit = {},
 ) {
     val palette = LocalCalendarPalette.current
@@ -179,7 +184,7 @@ private fun MonthGridPage(
                         isToday = date == today,
                         isSelected = date == selectedDate,
                         isDateSelected = date in selectedDates,
-                        tasks = tasksByDate[date].orEmpty(),
+                        tasks = tasksByDate[date].orEmpty().toImmutableList(),
                         onClick = { onDayClick(date) },
                         onTaskClick = onTaskClick,
                         onEmptyCellLongPress = onEmptyCellLongPress,
@@ -201,7 +206,7 @@ private fun MonthDayCell(
     isToday: Boolean,
     isSelected: Boolean,
     isDateSelected: Boolean,
-    tasks: List<CalendarTaskUi>,
+    tasks: ImmutableList<CalendarTaskUi>,
     onClick: () -> Unit,
     onTaskClick: (CalendarTaskUi) -> Unit,
     onEmptyCellLongPress: (LocalDate) -> Unit,

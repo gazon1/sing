@@ -28,6 +28,7 @@ import com.singularity.todo.feature.reminders.ReminderType
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
+import kotlinx.collections.immutable.toImmutableList
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
@@ -239,11 +240,11 @@ internal object PreviewSamples {
     ): TaskDetailUi = TaskDetailUi(
         task = task,
         project = project,
-        tags = tags,
-        checklist = checklist,
-        reminders = reminders,
-        attachments = attachments,
-        subtasks = subtasks,
+        tags = tags.toImmutableList(),
+        checklist = checklist.toImmutableList(),
+        reminders = reminders.toImmutableList(),
+        attachments = attachments.toImmutableList(),
+        subtasks = subtasks.toImmutableList(),
     )
 }
 

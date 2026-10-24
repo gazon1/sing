@@ -23,6 +23,8 @@ import com.singularity.todo.feature.projects.presentation.state.ProjectCloseConf
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailIntent
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiEvent
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiState
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import com.singularity.todo.feature.reminders.domain.port.ProjectRemindersRepository
 import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
 import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
@@ -306,9 +308,9 @@ class ProjectDetailViewModel(
                             ),
                             hideCompleted = visibility.hideCompleted,
                             hideBlocked = visibility.hideBlocked,
-                            parentOptions = emptyList(),
-                            availableTasks = emptyList(),
-                            tagGroups = emptyList(),
+                            parentOptions = persistentListOf(),
+                            availableTasks = persistentListOf(),
+                            tagGroups = persistentListOf(),
                         )
                     }
                 }
@@ -323,9 +325,9 @@ class ProjectDetailViewModel(
                 ) { state, parentOptions, availableTasks, offsets, tagGroups ->
                     if (state is ProjectDetailUiState.Content) {
                         state.copy(
-                            parentOptions = parentOptions,
-                            availableTasks = availableTasks,
-                            tagGroups = tagGroups,
+                            parentOptions = parentOptions.toImmutableList(),
+                            availableTasks = availableTasks.toImmutableList(),
+                            tagGroups = tagGroups.toImmutableList(),
                             ui = state.ui.copy(
                                 reminderOffsetMinutes = offsets.current,
                                 defaultReminderOffset = offsets.default,

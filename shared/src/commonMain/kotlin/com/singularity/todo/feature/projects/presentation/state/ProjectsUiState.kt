@@ -1,9 +1,9 @@
 package com.singularity.todo.feature.projects.presentation.state
-import androidx.compose.runtime.Immutable
 import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectWithCounts
+import kotlinx.collections.immutable.ImmutableList
 
 enum class ProjectSortOrder { Name, Color }
 
@@ -26,8 +26,16 @@ enum class ProjectSortOrder { Name, Color }
  * not have to think about, and the value it quietly supplies is the one the state had
  * before the user typed anything: the transient variants ([Loading], [Error]) would
  * reset the search field of a screen that is merely reporting a failure.
+ *
+ * ## Why there is no `@Immutable` here
+ *
+ * The list of projects is compared by identity. An `equals` over every project
+ * on the screen would walk every project on every comparison of the state, and
+ * the state is compared whenever the screen observes it. The *row* is what
+ * should be stable, and it is: `Project` is in the stability contract
+ * (`config/compose/stability_config.conf`), so a row that shows an unchanged
+ * project skips itself. See docs/architecture/compose-stability.md.
  */
-@Immutable
 sealed interface ProjectsUiState {
 
     /**
@@ -53,13 +61,13 @@ sealed interface ProjectsUiState {
      * depend on the filter: a screen with no open projects still shows the closed
      * ones, and that is the [Empty] state.
      */
-    val closedProjects: List<Project>
+    val closedProjects: ImmutableList<Project>
 
     /** The list is being loaded for the first time. */
     data class Loading(
         override val searchQuery: FieldOwnedText,
         override val sortOrder: ProjectSortOrder,
-        override val closedProjects: List<Project>,
+        override val closedProjects: ImmutableList<Project>,
     ) : ProjectsUiState
 
     /**
@@ -72,15 +80,15 @@ sealed interface ProjectsUiState {
     data class Empty(
         override val searchQuery: FieldOwnedText,
         override val sortOrder: ProjectSortOrder,
-        override val closedProjects: List<Project>,
+        override val closedProjects: ImmutableList<Project>,
     ) : ProjectsUiState
 
     /** The list holds projects. */
     data class Content(
-        val projects: List<ProjectWithCounts>,
+        val projects: ImmutableList<ProjectWithCounts>,
         override val searchQuery: FieldOwnedText,
         override val sortOrder: ProjectSortOrder,
-        override val closedProjects: List<Project>,
+        override val closedProjects: ImmutableList<Project>,
     ) : ProjectsUiState
 
     /**
@@ -95,7 +103,7 @@ sealed interface ProjectsUiState {
         val message: String,
         override val searchQuery: FieldOwnedText,
         override val sortOrder: ProjectSortOrder,
-        override val closedProjects: List<Project>,
+        override val closedProjects: ImmutableList<Project>,
     ) : ProjectsUiState
 }
 

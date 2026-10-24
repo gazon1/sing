@@ -775,6 +775,22 @@ SCRIPT_GATES = [
                 'clean'
             ),
         ),
+        ScriptGate(
+            name="compose-stability-contract",
+            cmd=[sys.executable, "scripts/check-compose-stability-config.py"],
+            # The sabotage is declared in the registry (see _registry.GATE_CONTROLS);
+            # this entry exists so Part J proves the gate can actually fail.
+            #
+            # Without this twin the gate would have a control in the registry and
+            # nothing that runs it: Part J asks "does every registered gate have a
+            # positive control?", and it looks for the answer among the twins.
+            why=(
+                "the stability contract is the only thing that tells the Compose compiler "
+                "which types are stable; a name in it that resolves to nothing, or a "
+                "contract no module reads, leaves every 'stable' claim in the repository "
+                "a claim about a file the compiler never saw"
+            ),
+        ),
 ]
 
 @dataclass(frozen=True)

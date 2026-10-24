@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
+import kotlinx.collections.immutable.ImmutableList
 
 /**
  * Tags section for [com.singularity.todo.feature.tasks.presentation.screen.TaskDetailScreen].
@@ -29,7 +30,7 @@ import com.singularity.todo.feature.tags.TagId
  * Renders up to 5 tags as chips, each with a remove button.
  */
 @Composable
-fun TaskDetailTagsSection(tags: List<Tag>, onDeleteTag: (TagId) -> Unit, modifier: Modifier = Modifier) {
+fun TaskDetailTagsSection(tags: ImmutableList<Tag>, onDeleteTag: (TagId) -> Unit, modifier: Modifier = Modifier) {
     if (tags.isEmpty()) return
     ExtraSectionCard(
         icon = { Icon(Icons.AutoMirrored.Filled.Label, contentDescription = null) },

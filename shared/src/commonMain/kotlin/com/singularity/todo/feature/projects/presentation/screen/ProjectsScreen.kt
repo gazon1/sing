@@ -45,6 +45,8 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.model.ProjectWithCounts
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.ImmutableList
 import com.singularity.todo.feature.projects.presentation.components.ProjectCard
 import com.singularity.todo.feature.projects.presentation.components.ProjectCardActions
 import com.singularity.todo.feature.projects.presentation.nav.LocalProjectsNavigator
@@ -217,7 +219,7 @@ private fun ProjectsContent(
  */
 @Composable
 private fun ClosedProjectsSection(
-    closedProjects: List<Project>,
+    closedProjects: ImmutableList<Project>,
     onReopen: (ProjectId) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -257,8 +259,8 @@ private fun ClosedProjectRow(project: Project, onReopen: () -> Unit) {
 
 @Composable
 private fun ProjectList(
-    projects: List<ProjectWithCounts>,
-    closedProjects: List<Project>,
+    projects: ImmutableList<ProjectWithCounts>,
+    closedProjects: ImmutableList<Project>,
     modifier: Modifier = Modifier,
     onNavigateToProject: (ProjectId) -> Unit,
     onCreateProject: () -> Unit,
@@ -308,14 +310,14 @@ private fun ProjectsScreenContentPreview() = ProjectsPreviewWrapper {
     PreviewThemed(darkTheme = false, useSurface = false) {
         ProjectsContent(
             state = ProjectsUiState.Content(
-                projects = listOf(
+                projects = persistentListOf(
                     ProjectWithCounts(PreviewSamples.project("p1", "Inbox", 0xFF2196F3.toInt()), 5, 2),
                     ProjectWithCounts(PreviewSamples.project("p2", "Work", 0xFFF44336.toInt()), 12, 8),
                     ProjectWithCounts(PreviewSamples.project("p3", "Personal", 0xFF9C27B0.toInt()), 0, 0),
                 ),
                 searchQuery = FieldOwnedText.empty(),
                 sortOrder = ProjectSortOrder.Name,
-                closedProjects = emptyList(),
+                closedProjects = persistentListOf(),
             ),
             onNavigateToProject = {},
             onCreateProject = {},
@@ -334,7 +336,7 @@ private fun ProjectsScreenEmptyPreview() = ProjectsPreviewWrapper {
             state = ProjectsUiState.Empty(
                 searchQuery = FieldOwnedText.empty(),
                 sortOrder = ProjectSortOrder.Name,
-                closedProjects = emptyList(),
+                closedProjects = persistentListOf(),
             ),
             onNavigateToProject = {},
             onCreateProject = {},
@@ -351,12 +353,12 @@ private fun ProjectsScreenDarkPreview() = ProjectsPreviewWrapper {
     PreviewThemed(darkTheme = true, useSurface = false) {
         ProjectsContent(
             state = ProjectsUiState.Content(
-                projects = listOf(
+                projects = persistentListOf(
                     ProjectWithCounts(PreviewSamples.project("p1", "Archived", 0xFF607D8B.toInt()), 3, 1),
                 ),
                 searchQuery = FieldOwnedText.empty(),
                 sortOrder = ProjectSortOrder.Name,
-                closedProjects = emptyList(),
+                closedProjects = persistentListOf(),
             ),
             onNavigateToProject = {},
             onCreateProject = {},

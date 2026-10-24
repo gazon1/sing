@@ -32,6 +32,8 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.domain.model.Task
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  * Section showing direct child tasks of a task.
@@ -47,7 +49,7 @@ import com.singularity.todo.feature.tasks.domain.model.Task
  */
 @Composable
 fun SubtasksSection(
-    subtasks: List<Task>,
+    subtasks: ImmutableList<Task>,
     onToggle: (Task) -> Unit,
     onDelete: (Task) -> Unit,
     onOpen: (Task) -> Unit,
@@ -177,7 +179,7 @@ private fun SubtaskRow(
 @Composable
 private fun SubtasksSectionEmptyPreview() = PreviewThemed(darkTheme = false) {
     SubtasksSection(
-        subtasks = emptyList(),
+        subtasks = persistentListOf(),
         onToggle = { },
         onDelete = { },
         onOpen = { },
@@ -189,7 +191,7 @@ private fun SubtasksSectionEmptyPreview() = PreviewThemed(darkTheme = false) {
 @Composable
 private fun SubtasksSectionWithItemsPreview() = PreviewThemed(darkTheme = false) {
     SubtasksSection(
-        subtasks = listOf(
+        subtasks = persistentListOf(
             PreviewSamples.task(id = "t2", title = "Collect requirements", completed = true),
             PreviewSamples.task(id = "t3", title = "Draft the spec"),
         ),

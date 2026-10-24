@@ -953,6 +953,17 @@ _REGISTERED: tuple[GateSpec, ...] = (
             script=Path("scripts/check-tools-catalog.py"),
             script_args=("--check",),
         ),
+        GateSpec(
+            name="compose stability contract",
+            # Blocking: the contract is the only thing that tells the Compose
+            # compiler which types are stable. A name in it that resolves to
+            # nothing, or a contract no module reads, means every "stable" claim
+            # in the repository is a claim about a file the compiler never saw —
+            # and nothing else in the build would say so.
+            mode=GateMode.BLOCKING,
+            cmd_type=CmdType.PYTHON3,
+            script=Path("scripts/check-compose-stability-config.py"),
+        ),
 )
 
 
@@ -1136,6 +1147,25 @@ GATE_CONTROLS: dict[str, Control] = {
             'mention is a difference nobody can see — which is the state this gate exists for',
     ),
     'skill-drift': Control(kind='sabotage', proves='scripts/check-skill-drift.py', argv=('{python}', 'scripts/check-skill-drift.py'), path='.agents/skills/singularity-todo-decisions-workflow/SKILL.md', edit=Edit(kind='replace', old='`singularity-adr validate`', new='`singularity-adr verifai`', count=1), why='a skill that lists commands the tool does not have sends an agent to run something that does not exist'),
+    'compose-stability-contract': Control(
+        kind='sabotage',
+        proves='scripts/check-compose-stability-config.py',
+        argv=('{python}', 'scripts/check-compose-stability-config.py'),
+        path='config/compose/stability_config.conf',
+        edit=Edit(
+            kind='append',
+            new='\ncom.singularity.todo.feature.tasks.domain.model.TaskThatDoesNotExist\n',
+        ),
+        why=(
+            'a name in the stability contract that resolves to no type is not an error '
+            'for the compiler — it matches nothing and is ignored. The contract then says '
+            'less than it appears to say, and the only symptom is that list rows keep '
+            'recomposing: a performance fact with no error message attached to it, and '
+            'no other gate in the repository would ever notice. The probe appends '
+            'exactly such a name — a class the project does not have — and the gate must '
+            'say so.'
+        ),
+    ),
     'workflow-env-context': Control(kind='sabotage', proves='scripts/check-workflow-env-context.py', argv=('{python}', 'scripts/check-workflow-env-context.py'), path='.github/workflows/e2e.yml', edit=Edit(kind='replace', old="  EMULATOR_GPU_MODE: ${{ vars.EMULATOR_GPU_MODE || 'off' }}", new="  EMULATOR_GPU_MODE_TYPO: ${{ vars.EMULATOR_GPU_MODE || 'off' }}", count=1), why='renaming the definition while the reference keeps the old name is the smallest possible version of the failure this gate exists for: the `env` context does not hold the runner\'s environment, so `${{ env.X }}` for an undefined X expands to the empty string and the path silently becomes a path to nothing. That is how the Maestro shards spent a release cycle failing with "emulator binary not found in PATH" while the cache carried an empty directory'),
     'maestro-flow-catalogue': Control(kind='sabotage', proves='scripts/check-maestro-flow-catalogue.py', argv=('{python}', 'scripts/check-maestro-flow-catalogue.py'), path='config/docs/maestro-flows.txt', edit=Edit(kind='regex', pattern=r'^Maestro/flows/smoke/01-launch-today\.yaml\n', repl='', flags='MULTILINE'), why='a flow deleted from the tree without a word leaves the suite smaller and the run green: the suite reports the flows that are left, and the one that is gone is a line in a diff nobody reads. Removing a line from the catalogue puts the flow back into the tree without putting it back into the promise, which is the state this gate exists to refuse'),
     'maestro-keyboard-commands': Control(kind='sabotage', proves='scripts/check-maestro-keyboard-commands.py', argv=('{python}', 'scripts/check-maestro-keyboard-commands.py'), path='Maestro/flows/smoke/01-launch-today.yaml', edit=Edit(kind='replace', old='- assertVisible:\n    id: tasks_fab', new='- hideKeyboard\n- assertVisible:\n    id: tasks_fab', count=1), why='a `hideKeyboard` that follows nothing but assertions is a BACK keypress in disguise: the editors are dialogs, so BACK dismisses them, and the flow then fails on an element the editor was holding. The probe adds exactly that command to a flow that types nothing, and the gate must say so instead of reading the flow as well-formed'),
