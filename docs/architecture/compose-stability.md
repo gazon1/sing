@@ -144,3 +144,11 @@ Three rules guard the contract:
   broken promise shows up as a screen that is one recomposition out of date.
   `@Stable` is deliberately not covered: a `@Stable` holder of observable
   state (`private var by mutableStateOf(...)`) is the ordinary pattern.
+
+The two rules that ask "is this a raw collection?" share one list of names
+(`RawCollectionTypes`), so they cannot end up disagreeing about it. It covers
+the interfaces (`List`, `Set`, `Map`, `Collection`), the mutable spellings
+(`MutableList`, `MutableSet`, `MutableMap`, `ArrayList`, `HashSet`, `HashMap`)
+and `Array`. `Iterable` and `Sequence` are deliberately out: they are rare as
+a parameter of a composable, and a rule that fires rarely is a rule people
+turn off.

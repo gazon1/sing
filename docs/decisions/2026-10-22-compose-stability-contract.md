@@ -59,7 +59,7 @@ infrastructure that already exists:
    stable. One file, shared by every module that compiles composables.
 3. **Stabilize the leaves.** Persistent collections in the leaf and section
    models; the false `@Immutable` annotations removed from the screen states.
-4. **Protect.** Two detekt rules and one static gate, none of which reads
+4. **Protect.** Three detekt rules and one static gate, none of which reads
    build output.
 
 ## Decision
@@ -188,16 +188,22 @@ the report forces the compilation to re-run instead of trusting the inputs.
 ### Protection is in the sources
 
 - `NoUnstableCollectionParam` (detekt): a `@Composable` function must not take
-  a raw `List` / `Set` / `Map` / `Collection` parameter.
+  a raw `List` / `Set` / `Map` / `Collection` parameter, and a registered
+  parameter must still declare the type the register recorded.
 - `NoMutableCollectionCast` (detekt): no `as MutableList` / `as MutableSet` /
   `as MutableMap`. There are none in the repository today; the rule exists
   because the contract is now written down, and a rule that only describes
   last year's mistakes is a comment.
+- `NoFalseImmutable` (detekt): a class or an object marked `@Immutable` must
+  not declare a `var` or a raw collection. The promise is one the compiler
+  cannot check, so the rule checks it.
 - `scripts/check-compose-stability-config.py`: the contract names types that
   exist, and the modules that compile composables actually read it. A name that
   resolves to nothing makes the compiler ignore it, and a contract no module
   reads is not a contract; neither failure has an error message attached to it
-  anywhere else in the build.
+  anywhere else in the build. The same gate reads the register of debt against
+  the repository: a registered site that no source declares, and a registered
+  parameter that no declaration of that site has.
 
 ### The remaining raw collection parameters are named, not hidden
 
@@ -330,6 +336,26 @@ A qualified name quoted in the register's own prose is not a site either. The
 reader of the register is a program now, and a program that reads prose as
 data learns to complain about prose.
 
+Two more ways the same check could pass a tree it should have failed, both
+found by review rather than by a test failing:
+
+- **A namesake in a sub-package.** The package *directory* holds the
+  sub-packages as well, so a search that reads the directory and never looks at
+  the package a file declares finds a namesake in `…presentation.sub` and
+  calls the deleted site alive. The package declaration is what says which
+  package a name belongs to, and it is now what the gate reads.
+- **A composable whose last parameter was deleted.** "The declaration declares
+  no parameters" and "no declaration was found" are different facts, and the
+  check treated them as one: the site was skipped, and a register entry naming
+  a parameter the code no longer has survived. The debt was paid by removing
+  the parameter, and a check that cannot see the payment will keep counting it.
+
+A third one is a bug in the gate itself rather than in its logic: the package
+of a file was read by anchoring the pattern to the **start of the file**, so a
+file with a licence header or a file-level annotation in front of its package
+line was read as having no package at all — and every site in it was reported
+as gone. Nine sites were reported as deleted by that alone.
+
 ### A false `@Immutable` is a rule away from coming back
 
 `@Immutable` is a promise the compiler cannot check: the instance never
@@ -367,6 +393,15 @@ change and Compose is not told about it, and a `@Stable` class with
 `private var by mutableStateOf(...)` is the ordinary pattern in this
 repository: the state is observable through the snapshot system, and the
 annotation is about the *reference* being stable, not about the fields.
+
+The two rules answer the same question — is this type a raw collection? — so
+they share one list of names (`RawCollectionTypes`), because two lists that
+drift apart are a rule that contradicts the other. The list covers the mutable
+spellings (`MutableList`, `ArrayList`, `HashSet`, `HashMap`) and `Array` as
+well as the interfaces; `Iterable` and `Sequence` are deliberately out, because
+they are rare as a parameter of a composable and a rule that fires rarely is a
+rule people turn off. Their absence is a statement about how often the rule
+reports, not about whether they are stable: they are not.
 
 ## Rationale
 
@@ -449,8 +484,9 @@ states the same thing in a form the compiler can honour.
   a signature and every call site, and the plan that produced this decision put
   a full sweep over the composables outside its scope.
 - The report is not a gate, so nothing in CI will notice if a future change
-  makes the contract stale. The gate on the contract file, and the detekt rule
-  on new raw collection parameters, are what stand in its place.
+  makes the contract stale. The gate on the contract file, the gate on the
+  register of debt, and the detekt rules on new raw collection parameters and
+  on a false `@Immutable` are what stand in its place.
 
 ## Links
 
