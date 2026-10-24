@@ -284,8 +284,10 @@ sample is not deterministic.
 
 # Links
 
-- `openspec/changes/ci-fast-signal-and-coverage-off-the-pr-path/` — the
-  requirement change: REQ-3 gains a floor's home, REQ-26 is new
+- the requirement change, filed away under `openspec/changes/archive/` as
+  `ci-fast-signal-and-coverage-off-the-pr-path` — the archive prefixes the
+  directory with the date it was filed. REQ-3 gains a floor's home, REQ-26 is
+  new
 - `openspec/specs/test-execution-integrity/spec.md` — the capability
 - `docs/decisions/2026-10-22-ci-fast-only-pr-full-on-schedule.md` — the
   population split this change inherits
