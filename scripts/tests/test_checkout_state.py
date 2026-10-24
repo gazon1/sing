@@ -29,6 +29,14 @@ import tempfile
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
+
+# This checkout's package root, before the module under test is loaded: the
+# module imports `sgate.gatekit.budget`, and without this line the import
+# resolves to whatever `sgate` is installed on the machine — which is how a
+# test ends up asserting another checkout's number (the hazard this command
+# exists to report).
+sys.path.insert(0, str(ROOT / 'scripts' / 'src'))
+
 MODULE_PATH = ROOT / 'scripts' / 'src' / 'sgate' / 'commands' / 'checkout_state.py'
 spec = importlib.util.spec_from_file_location('checkout_state', MODULE_PATH)
 mod = importlib.util.module_from_spec(spec)
@@ -92,9 +100,9 @@ class CheckoutStateTest(unittest.TestCase):
         report = mod._report(state)
         self.assertNotIn('DIVERGED', report)
 
-    def test_a_checkout_that_is_behind_and_ahead_is_diverged(self):
-        # The upstream moved on, and the checkout carries commits of its own:
-        # the state in which a commit carries somebody else's work.
+    def test_a_branch_that_is_behind_by_one_is_not_stale(self):
+        # The ordinary state of a branch: `main` moved one commit since the
+        # branch was made. The command must not call that a problem.
         self._commit('first')
         self._upstream()
         self._commit('second')
@@ -103,8 +111,29 @@ class CheckoutStateTest(unittest.TestCase):
         _git('commit', '--quiet', '--allow-empty', '-m', 'a commit upstream does not have', cwd=self.tmp)
         state = mod._state(self.tmp)
         self.assertTrue(state['ahead'])
-        self.assertTrue(state['behind'])
-        self.assertIn('DIVERGED', mod._report(state))
+        self.assertEqual(1, state['behind'])
+        report = mod._report(state)
+        self.assertNotIn('STALE BASE', report)
+        self.assertNotIn('DIVERGED', report)
+
+    def test_a_base_that_is_many_commits_behind_is_stale(self):
+        # The tree the reader looks at is not the tree the work will be based
+        # on: the base is stale, and the command says so.
+        self._commit('first')
+        for i in range(mod.STALE_BASE_COMMITS + 1):
+            _git('commit', '--quiet', '--allow-empty', '-m', f'upstream {i}', cwd=self.tmp)
+        _git('update-ref', 'origin/main', 'HEAD', cwd=self.tmp)
+        _git('reset', '--hard', '--quiet', 'HEAD~%d' % (mod.STALE_BASE_COMMITS + 1), cwd=self.tmp)
+        state = mod._state(self.tmp)
+        self.assertGreaterEqual(state['behind'], mod.STALE_BASE_COMMITS)
+        self.assertIn('STALE BASE', mod._report(state))
+
+    def test_the_carried_commits_are_asked_for_rather_than_accused(self):
+        self._commit('first')
+        self._upstream()
+        self._commit('second')
+        report = mod._report(mod._state(self.tmp))
+        self.assertIn('are they yours?', report)
 
     def test_the_carried_commits_are_named(self):
         self._commit('first')

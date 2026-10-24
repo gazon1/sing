@@ -32,12 +32,19 @@ current directory, and `sgate whereami` keeps answering the other question —
 
 What "not a clean base" means
 -----------------------------
-A branch that is ahead of `origin/main` and not behind it is a feature branch:
-it carries work that is not upstream yet, and that is the normal state of a
-branch. A checkout that is **both** ahead and behind is carrying something
-that is not upstream *and* not based on it — a foreign fixture, a stale
-snapshot, a rebase that was never finished. That is the state in which a
-commit carries somebody else's work, so `--strict` fails on it.
+A branch that is ahead of `origin/main` is doing its job: it carries work that
+is not upstream yet, and that is the normal state of a branch. The command
+does not guess whether that work is the reader's — it lists the commits, with
+their author and date, and asks.
+
+A base that is **many commits behind** is a different thing: the tree the
+reader is looking at is not the tree the work will be based on, and the work
+will need a rebase before it merges. That is what `--strict` fails on, and
+the threshold is written down in the module (`STALE_BASE_COMMITS`).
+
+The tree itself is reported too — one line of `git diff --shortstat` — because
+"12127 files changed" and "3 files changed" are different states of a
+checkout, and the second is what a working branch looks like.
 
 Nothing is refused
 ------------------
@@ -52,9 +59,9 @@ Usage:
     sgate checkout-state --strict   # exit 1 when the checkout is not a clean base
 
 Exit codes:
-    0 = the state was printed (and, with --strict, the checkout is a clean base)
-    1 = with --strict: the checkout is not a clean base
-    2 = the current directory is not inside a git checkout
+    0 = the state was printed (and, with --strict, the base is not stale)
+    1 = with --strict: the base is stale, or the instructions do not fit
+    3 = the current directory is not inside a git checkout
 """
 
 from __future__ import annotations
@@ -76,6 +83,35 @@ UPSTREAM_REF = "origin/main"
 #: that `origin/main` does not have is a report; a checkout carrying two
 #: thousand is a wall, and the count says how many there are.
 MAX_LISTED = 20
+
+#: How many commits behind `origin/main` make a checkout's base stale.
+#:
+#: One commit behind is ordinary: `main` moves in parallel tranches, and a
+#: branch made yesterday is behind today. Many commits behind means the work
+#: will need a rebase before it merges, and the tree the agent is looking at
+#: is not the tree the work will be based on.
+#:
+#: The threshold is a judgement, and it is written down here so that it can
+#: be argued with rather than discovered.
+STALE_BASE_COMMITS = 10
+
+
+def _git_code(*args: str, cwd: pathlib.Path) -> int | None:
+    """The exit code of one git command, or None when it could not run.
+
+    The exit code is the answer for the questions whose answer is a difference
+    rather than a text: `git diff --quiet` exits 1 when the files differ and
+    128 when the ref does not exist, and those are not the same fact.
+    """
+    result = subprocess.run(
+        ["git", *args],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=tree_env(),
+    )
+    return result.returncode
 
 
 def _git(*args: str, cwd: pathlib.Path) -> str | None:
@@ -138,12 +174,18 @@ def _worktrees(root: pathlib.Path) -> list[dict[str, str]]:
 
 
 def _instructions(root: pathlib.Path) -> dict[str, object]:
-    """The project instructions of this checkout: their size, and their origin."""
+    """The project instructions of this checkout: their size, and their origin.
+
+    `differs` is a fact about the file or it is unknown: `git diff --quiet`
+    exits 1 when the files differ and 128 when the ref is not there, and a
+    missing ref is not a difference.
+    """
     path = root / PROJECT_INSTRUCTIONS_FILE
     if not path.is_file():
-        return {"bytes": 0, "budget": PROJECT_INSTRUCTIONS_BUDGET, "fits": True, "differs": False}
+        return {"bytes": 0, "budget": PROJECT_INSTRUCTIONS_BUDGET, "fits": True, "differs": None}
     size = len(path.read_bytes())
-    differs = _git("diff", "--quiet", UPSTREAM_REF, "--", PROJECT_INSTRUCTIONS_FILE, cwd=root) is None
+    code = _git_code("diff", "--quiet", UPSTREAM_REF, "--", PROJECT_INSTRUCTIONS_FILE, cwd=root)
+    differs = True if code == 1 else (False if code == 0 else None)
     return {
         "bytes": size,
         "budget": PROJECT_INSTRUCTIONS_BUDGET,
@@ -179,6 +221,8 @@ def _state(root: pathlib.Path) -> dict[str, object]:
                     {"sha": parts[0], "author": parts[1], "date": parts[2], "subject": parts[3]}
                 )
 
+    tree = _git("diff", "--shortstat", UPSTREAM_REF, "HEAD", cwd=root) or ""
+
     return {
         "root": str(root),
         "branch": _git("rev-parse", "--abbrev-ref", "HEAD", cwd=root) or "",
@@ -189,6 +233,7 @@ def _state(root: pathlib.Path) -> dict[str, object]:
         "behind": behind,
         "ahead": ahead,
         "carrying": carried,
+        "tree": tree,
         "worktrees": _worktrees(root),
         "instructions": _instructions(root),
     }
@@ -208,11 +253,15 @@ def _report(state: dict[str, object]) -> str:
             f"upstream:   {state['upstream']} is {state['behind']} commits ahead of this "
             f"checkout; this checkout is {state['ahead']} commits ahead of it"
         )
-        if state["behind"] and state["ahead"]:
+        if state["behind"] >= STALE_BASE_COMMITS:
             lines.append(
-                "            DIVERGED — this checkout carries commits that are not upstream "
-                "and is not based on upstream. Do not commit here: use a worktree of your own."
+                f"            STALE BASE — this checkout is {state['behind']} commits behind "
+                f"{state['upstream']}. The tree you are looking at is not the tree the work "
+                f"will be based on: fetch and rebase before you build on it."
             )
+        tree = state.get("tree")
+        if tree:
+            lines.append(f"            tree vs {state['upstream']}: {tree}")
     else:
         lines.append(
             f"upstream:   {state['upstream']} is not known here — run `git fetch origin` before "
@@ -223,12 +272,17 @@ def _report(state: dict[str, object]) -> str:
     assert isinstance(carried, list)
     if carried:
         lines.append("")
-        lines.append(f"carrying {state['ahead']} commit(s) that {state['upstream']} does not have:")
+        lines.append(
+            f"carrying {state['ahead']} commit(s) that {state['upstream']} does not have "
+            f"(are they yours?):"
+        )
         for entry in carried:
             assert isinstance(entry, dict)
             lines.append(
                 f"  {entry['sha']}  {entry['date']}  {entry['author']}  {entry['subject']}"
             )
+        if state["ahead"] > len(carried):
+            lines.append(f"  … and {state['ahead'] - len(carried)} more")
 
     worktrees = state["worktrees"]
     assert isinstance(worktrees, list)
@@ -248,10 +302,16 @@ def _report(state: dict[str, object]) -> str:
     if size:
         verdict = "fits" if instructions["fits"] else "DOES NOT FIT — the harness truncates it"
         lines.append(f"instructions: {PROJECT_INSTRUCTIONS_FILE} is {size} bytes of {budget} — {verdict}")
-        if instructions["differs"]:
+        differs = instructions["differs"]
+        if differs is True:
             lines.append(
                 f"             it differs from {state['upstream']}'s — a checkout on a branch "
                 f"changes it on purpose; a checkout nobody owns changes it by accident"
+            )
+        elif differs is None:
+            lines.append(
+                f"             it cannot be compared with {state['upstream']}'s — the ref is "
+                f"not here, so the comparison is unknown rather than equal"
             )
     else:
         lines.append(f"instructions: {PROJECT_INSTRUCTIONS_FILE} is missing here")
@@ -284,8 +344,12 @@ def checkout_state(emit_json: bool, strict: bool) -> None:
 
     instructions = state["instructions"]
     assert isinstance(instructions, dict)
-    diverged = bool(state["behind"]) and bool(state["ahead"])
-    if strict and (diverged or not instructions["fits"]):
+    # The strict answer is about the base, not about the commits: a branch that
+    # is ahead of `origin/main` is a branch that is doing its job. A branch
+    # that is many commits behind is a branch whose work will need a rebase
+    # before it merges.
+    stale_base = int(state["behind"]) >= STALE_BASE_COMMITS
+    if strict and (stale_base or not instructions["fits"]):
         raise SystemExit(1)
     raise SystemExit(CLEAN)
 

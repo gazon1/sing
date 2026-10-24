@@ -1129,11 +1129,14 @@ GATE_CONTROLS: dict[str, Control] = {
         path='AGENTS.md',
         edit=Edit(
             kind='append',
-            # 120 lines: the file sits at 218 and the limit is 300, so a shorter
-            # append lands under the ceiling and the gate correctly passes —
-            # a control that proves nothing. The long line takes the same
-            # append over the byte budget as well: the gate holds two
-            # ceilings, and one sabotage that breaks both proves both.
+            # 120 lines: the file sits well under the 300-line limit, so a
+            # shorter append lands under the ceiling and the gate correctly
+            # passes — a control that proves nothing. The long line takes the
+            # same append over the byte budget as well, so the gate fails
+            # whichever ceiling it enforces. One control, one gate: the byte
+            # ceiling on its own is proved by the unit test
+            # (scripts/tests/test_check_agents_size.py), which fails when the
+            # byte branch is removed.
             new='\n' + '\n'.join(f'filler line {i}' for i in range(120)) + '\n'
             + 'budget probe. ' * 2000 + '\n',
         ),

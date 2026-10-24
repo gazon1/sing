@@ -29,8 +29,9 @@ The **lines** are the repository's own ceiling: a cheat sheet is read in one
 go, and every line is paid for by every session.
 
 The **bytes** are the harness's ceiling: the project instructions are read
-into the agent's context and truncated to fit the injection budget — 32768
-bytes of UTF-8. The truncation is silent about the part that did not fit, and
+into the agent's context and truncated to fit the injection budget
+(`sgate.gatekit.budget.PROJECT_INSTRUCTIONS_BUDGET`). The truncation is silent
+about the part that did not fit, and
 the agent cannot tell that the rules it did not read were there. On 2026-10-24
 a checkout carried an `AGENTS.md` of 45165 bytes — over the budget by 12400
 bytes — and the session in it was given instructions that ended in the middle
