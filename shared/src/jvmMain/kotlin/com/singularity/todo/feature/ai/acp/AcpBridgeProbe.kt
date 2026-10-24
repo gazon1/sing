@@ -3,6 +3,7 @@ package com.singularity.todo.feature.ai.acp
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.process.DuplexProcess
 import com.singularity.todo.core.process.ProcessTree
+import com.singularity.todo.core.process.Subprocess
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FilterInputStream
@@ -126,10 +127,34 @@ object AcpBridgeProbe {
      */
     suspend fun run(command: List<String>, workingDirectory: String): Report {
         val transcript = Transcript()
-        val child = ProcessBuilder(command)
-            .redirectError(ProcessBuilder.Redirect.INHERIT)
-            .directory(File(workingDirectory))
-            .start()
+        // The child is started by `core/process`, because that is where spawning lives:
+        // a spawn outside it is a spawn nobody's tests cover, and the defect that class
+        // of spawn carries — closing a read end early and delivering SIGPIPE to the
+        // child — has shipped twice in this repository.
+        //
+        // The probe then wraps the child's output in a tee. The transcript is a copy
+        // taken *underneath* the protocol's reader, not a second reader of the stream:
+        // two readers would race each other for a line, and the loser would be the
+        // protocol.
+        val child = runCatchingCancellable {
+            Subprocess.spawnDuplex(
+                argv = command,
+                workingDirectory = File(workingDirectory),
+                // The bridge's diagnostics go to the person running the probe: "the
+                // agent refused to start" and "the agent printed the reason it
+                // refused to start" are different support questions.
+                stderrSink = { line -> System.err.println(line) },
+            ).process
+        }.getOrElse { failure ->
+            return Report(
+                connected = false,
+                agentName = "",
+                agentVersion = "",
+                failure = failure.message ?: failure::class.simpleName.orEmpty(),
+                methods = emptyList(),
+                transcript = emptyList(),
+            )
+        }
         val process = DuplexProcess(child, child.outputStream, transcript.tee(child.inputStream))
         val tree = ProcessTree(child.toHandle())
         val scope = CoroutineScope(SupervisorJob())
