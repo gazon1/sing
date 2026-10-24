@@ -30,16 +30,40 @@
 quick:
     #!/bin/bash
     set -euo pipefail
-    # Mirrors the `quick` job (`.github/workflows/ci.yml`, step "Run the
-    # affected tests"). The job runs the same tool with the same population;
-    # the job adds `-Pcoverage.enabled=false`, which the map's own invocation
-    # does not need — the map selects classes, it does not run a suite.
+    # Mirrors the `quick` job (`.github/workflows/ci.yml`, steps "Select the
+    # affected tests" and "Run the affected tests"), including the shape of
+    # the run: the map writes the COMMANDS, and each of them is evaluated with
+    # the coverage agent switched off.
+    #
+    # `-Pcoverage.enabled=false` is not optional here. The property DEFAULTS to
+    # on (`settings.gradle.kts`), so a run without it is instrumented — and the
+    # instrumented run is the difference between a signal and a wait. The map
+    # does not add the flag itself: it emits the command it would run, and the
+    # caller decides what to run it with. The job's own comment says the same
+    # thing, and this recipe says it too, because a local run that quietly
+    # measures coverage answers a question the pull request does not ask.
     #
     # `--population fast` names the population the repository declares in
-    # `config/test-populations.properties`. The fast half is the contract
-    # (the requirement R5 of the change this mirrors), so the fast half is
-    # what runs here too.
-    python3 scripts/test-impact-map.py --run --population fast --gradle ./gw
+    # `config/test-populations.properties`. The fast half is the contract (R5
+    # of the change this mirrors), so the fast half is what runs here too.
+    #
+    # `--gradle ./gw` reaches this worktree's private Gradle home; the job
+    # uses `./gradlew`, which is right on a runner and wrong here.
+    selection="$(mktemp)"
+    trap 'rm -f "$selection"' EXIT
+    if ! python3 scripts/test-impact-map.py --command --population fast --gradle ./gw > "$selection"; then
+        echo "the selection could not be computed — see the output above"
+        exit 1
+    fi
+    if grep -q '^test-impact-map: the change selects no test class$' "$selection"; then
+        echo "the change claims no test class — there is nothing to run, and that is an answer"
+        exit 0
+    fi
+    while read -r command; do
+        [ -n "$command" ] || continue
+        echo "running: $command -Pcoverage.enabled=false"
+        eval "$command -Pcoverage.enabled=false"
+    done < "$selection"
 
 [group('ci')]
 [doc('The suite without the coverage agent — the verdict')]
@@ -48,12 +72,21 @@ tests:
     #!/bin/bash
     set -euo pipefail
     # Mirrors the `tests` job (`.github/workflows/ci.yml`, step "Gradle
-    # (tests)"). Same tasks, same flags, minus what is CI's: the retry flags
-    # and the step logging are the runner's business.
+    # (tests)"). Same tasks, same properties.
     #
     # `-Pcoverage.enabled=false` is the point of the tier: the pull-request
     # path carries no instrumented suite, and a local run that measured
     # coverage would answer a question the pull request does not ask.
+    #
+    # `-Dsingularity.test.a11y=fail` makes an accessibility violation FAIL
+    # the run (the desktop harness throws on it). It is not log verbosity,
+    # and dropping it would make this recipe answer a weaker question than
+    # the job: a local run would pass where CI fails.
+    #
+    # `-Dsingularity.test.steps=true` makes the harness print its steps. It
+    # changes the log, not the verdict.
+    #
+    # The retry flags are CI's business — they read the runner's event.
     #
     # The population defaults to `fast` — the pull request's population. Pass
     # another one to run what the schedule runs.
@@ -69,7 +102,9 @@ tests:
         :detekt-rules:test \
         :tools:unwritten-properties:test \
         -Ptest.population="$population" \
-        -Pcoverage.enabled=false
+        -Pcoverage.enabled=false \
+        -Dsingularity.test.steps=true \
+        -Dsingularity.test.a11y=fail
 
 [group('ci')]
 [doc('Detekt for the eight modules CI judges')]
@@ -80,9 +115,11 @@ detekt:
     # Mirrors the `detekt` job (`.github/workflows/ci.yml`, step "Gradle
     # (detekt)"). The eight modules are the ones
     # `config/hooks/pre-push.json` names, and the gate
-    # `scripts/check-hook-gates.py` compares that record with this file in
-    # both directions — so a module added here and not there is a finding,
-    # and a module added there and not here is a finding too.
+    # `scripts/check-hook-gates.py` compares that record with
+    # `.github/workflows/ci.yml` in both directions — NOT with this recipe:
+    # nothing reads a `.just` file, so a module added here and not to the
+    # workflow stays green. This recipe is a mirror, not a source of truth,
+    # and it says so.
     #
     # The auto-fix is NOT here: the job's first step runs
     # `scripts/ci/detekt-auto-fix.sh`, which commits and pushes a correction
@@ -134,5 +171,10 @@ coverage:
     # The floor, checked against the measurement the run above produced.
     ./gw :koverVerify -Ptest.population="$population"
     # The table and the log: advisory, and rendered from the same numbers.
+    # The job's "Coverage report" step renders TWO of them — the app's
+    # instruction coverage (`:koverLog`) and the detekt rules' branch coverage
+    # (`:detekt-rules:koverLog`) — so both are here. `|| true` declares them
+    # advisory: the blocking check is `:koverVerify` above.
     ./gw :koverMarkdownTable -Ptest.population="$population" || true
     ./gw -q :koverLog -Ptest.population="$population" || true
+    ./gw -q :detekt-rules:koverLog -Ptest.population="$population" || true
