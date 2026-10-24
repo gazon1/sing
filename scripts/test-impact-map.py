@@ -48,12 +48,13 @@ and each of them has its own task. A class of `androidHostTest` does not
 exist under `:shared:jvmTest` — the filter that names it selects nothing
 there, and a run that ran nothing reports green.
 
-One task runs MORE than the selection, and the map says so rather than
+One task is not narrowed by the POPULATION, and the map says so rather than
 letting the reader assume otherwise: `:shared:testAndroidHostTest` is exempt
-from the tag filter (`shared/build.gradle.kts`), so the command that names
-one android host class runs the WHOLE android host source set — every class
-in it, slow ones included. The selection is a candidate set, and for that
-one source set the run is wider than the candidate.
+from the tag filter (`shared/build.gradle.kts`), so the population does not
+narrow that task — a class the population excludes would still run if the map
+named it. What narrows it is the map's own `--tests` filter, which Gradle
+applies to the task: the command runs exactly the class it names. The
+population selects the candidate set; the filter runs it.
 
 Usage:
     python3 scripts/test-impact-map.py                  # the test classes, one per line
@@ -123,10 +124,12 @@ GATE_AREAS: tuple[str, ...] = (
 #: that ran no test. The class was named, the run was green, and the class
 #: never ran.
 #:
-#: `:shared:testAndroidHostTest` runs more than the map selects: it is exempt
-#: from the tag filter (`shared/build.gradle.kts`), so the command that names
-#: one class of that source set runs every class in it. The map's promise is a
-#: candidate set, and for that source set the run is wider than the candidate.
+#: `:shared:testAndroidHostTest` is not narrowed by the POPULATION: it is
+#: exempt from the tag filter (`shared/build.gradle.kts`), so a class the
+#: population excludes would still run if the map named it. What narrows it is
+#: the `--tests` filter the map puts on the command — the run is exactly the
+#: class the map names. The population selects the candidate set; the filter
+#: runs it.
 SOURCE_SET_TASKS: dict[str, str] = {
     'shared/src/commonTest': ':shared:jvmTest',
     'shared/src/jvmTest': ':shared:jvmTest',
