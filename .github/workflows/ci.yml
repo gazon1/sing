@@ -261,6 +261,14 @@ jobs:
         with:
           node-version: 22
 
+      # Deno runs the Edge Function's own tests — the server half of the Google
+      # OAuth exchange, which holds a client secret and redeems a one-time code.
+      # The npm package is the official binary; the version is pinned like every
+      # other tool here, because a test run that changes with the tool is a test
+      # run nobody can reproduce.
+      - name: Set up Deno
+        run: npm install -g deno@2.9.5
+
       # Replaced gate() function + collect_and_report() from static-gates.sh with
       # sgate run-all: single CLI entry point, parallel execution, aggregate exit,
       # unified JSON for CI parsers.  static-gates.sh is now a pure registry (source

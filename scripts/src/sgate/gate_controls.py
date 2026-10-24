@@ -1065,6 +1065,40 @@ def _setup_maestro_results(root: Path) -> None:
     )
     # ... and the second flow produced no report at all.
 
+def _setup_edge_function_tests(root: Path) -> None:
+    """The Edge Function, with its refusal of a mismatched redirect URI undone.
+
+    The function is the server half of the Google OAuth exchange: a client
+    secret, a one-time code and a refresh token. The tests are the only thing
+    that says a mismatched redirect URI is refused, a spent code is answered as
+    spent, and a call that never comes back is a timeout.
+
+    The copy answers 200 to the refusal instead of 400 — the failure the tests
+    exist to catch, and the one that reaches the device as "everything is
+    fine".
+    """
+    function = root / "function"
+    function.mkdir(parents=True)
+    source = _REPO_ROOT / "supabase" / "functions" / "google-oauth-exchange"
+    for name in ("index.ts", "index_test.ts"):
+        shutil.copy2(source / name, function / name)
+
+    handler = (function / "index.ts").read_text(encoding="utf-8")
+    broken = handler.replace(
+        """        { error: `${what}: the redirect URI does not match the one Google saw`, reason: error.reason },
+        400,""",
+        """        { error: `${what}: the redirect URI does not match the one Google saw`, reason: error.reason },
+        200,""",
+    )
+    if broken == handler:
+        # A fixture that did not change anything would prove nothing: the copy
+        # would pass, and the control would look like a gate that cannot fail.
+        raise RuntimeError(
+            "the fixture did not change the function — the copy would pass the tests"
+        )
+    (function / "index.ts").write_text(broken, encoding="utf-8")
+
+
 def _setup_baseline_ratchet(root: Path) -> None:
     """A repository whose branch grew the detekt baseline.
 
@@ -1076,9 +1110,9 @@ def _setup_baseline_ratchet(root: Path) -> None:
 
     The fixture is a repository of its own, because the comparison needs a
     history: a branch that forks from `main` and grows the baseline by one
-    entry. The gate is pointed at that repository with `--root`, so it reads
-    the fixture's baseline, the fixture's detekt config and the fixture's
-    git — the checkout the gate lives in has the wrong history.
+    entry. The gate copy stands in that repository's `scripts/`, so its own
+    root is the fixture's root, and it reads the fixture's baseline and the
+    fixture's git.
 
     A sabotage in the real tree could not do this. The real tree's baseline
     was *shrunk* by the branch that renamed the calendar-sync package, and a
@@ -1088,9 +1122,14 @@ def _setup_baseline_ratchet(root: Path) -> None:
     the baseline must be caught.
     """
     repo = root / "repo"
+    (repo / "scripts").mkdir(parents=True)
     (repo / "config" / "detekt").mkdir(parents=True)
     (repo / "mcp-server").mkdir(parents=True)
 
+    shutil.copy2(
+        _REPO_ROOT / "scripts" / "check-baseline-ratchet.py",
+        repo / "scripts" / "check-baseline-ratchet.py",
+    )
     # A detekt config with nothing switched off: the gate's phantom invariant
     # would otherwise fail the run for a reason that has nothing to do with the
     # growth the fixture is about.
@@ -1181,7 +1220,7 @@ def _git(repo: Path, *args: str, env: dict[str, str]) -> None:
 FIXTURE_GATES = [
     FixtureGate(
         name="baseline-ratchet",
-        cmd=[sys.executable, "scripts/check-baseline-ratchet.py", "--root", "{tmp}/repo"],
+        cmd=[sys.executable, "{tmp}/repo/scripts/check-baseline-ratchet.py"],
         setup=_setup_baseline_ratchet,
         why=(
             "a baseline that can grow silently stops being a ratchet and becomes a sink — "
@@ -1189,6 +1228,16 @@ FIXTURE_GATES = [
             "merge-base, so the fixture has to be a branch that really grew one"
         ),
         needs_clean_run=False,
+    ),
+    FixtureGate(
+        name="edge-function-tests",
+        cmd=["deno", "test", "{tmp}/function"],
+        setup=_setup_edge_function_tests,
+        why=(
+            "the server half of the OAuth exchange is the part nobody can see, and its "
+            "failures used to reach the device as one answer — the tests are what tells "
+            "a mismatched redirect URI from a spent code from a call that never came back"
+        ),
     ),
     FixtureGate(
         name="flaky-tests",

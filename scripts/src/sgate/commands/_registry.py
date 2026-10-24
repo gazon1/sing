@@ -382,6 +382,15 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script_args=("scripts/tests",),
     ),
     GateSpec(
+        name="the edge functions' own tests",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PATH,
+        path_cmd=("deno", "test", "supabase/functions/google-oauth-exchange/"),
+        # The tool is not on every machine. A gate that cannot run is reported
+        # as skipped rather than as passed — and the skip is visible.
+        kiwi_required=True,
+    ),
+    GateSpec(
         name="build-output readers precede the invocations that rewrite them",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
@@ -1093,7 +1102,7 @@ GATE_CONTROLS: dict[str, Control] = {
     'baseline-ratchet': Control(
         kind='fixture',
         proves='scripts/check-baseline-ratchet.py',
-        argv=('{python}', 'scripts/check-baseline-ratchet.py', '--root', '{tmp}/repo'),
+        argv=('{python}', '{tmp}/repo/scripts/check-baseline-ratchet.py'),
         fixture='setup_baseline_ratchet',
         why=(
             "a baseline that can grow silently stops being a ratchet and becomes a sink. "
@@ -1353,6 +1362,20 @@ GATE_CONTROLS: dict[str, Control] = {
     'supabase-schema-integrity': Control(kind='sabotage', proves='scripts/check-supabase-schema-integrity.py', argv=('{python}', 'scripts/check-supabase-schema-integrity.py'), path='supabase/migrations/2026-10-07-sync_schema.sql', edit=Edit(kind='append', new='\ncreate or replace function public.sync_control_probe(p_type text)\nreturns text as $$ select p_type $$ language sql;\n'), why='a function added without a fingerprint makes the header understate the schema, and the header is the part a reader trusts; the live half of #221 needs credentials and stays manual, so this is the half that can be a gate'),
     'rebase-compiles': Control(kind='sabotage', proves='scripts/check-rebase-compiles.py', argv=('{python}', 'scripts/check-rebase-compiles.py'), path='shared/src/commonMain/kotlin/com/singularity/todo/core/di/CoreDiModule.kt', edit=Edit(kind='replace', old='    single<DeviceIdProvider> { get<DataStoreSessionStore>() }', new='    // single<DeviceIdProvider> { get<DataStoreSessionStore>() }', count=-1), why="an import removed from a DI module silently breaks every consumer; the compile gate detects the resulting 'unresolved reference' before jvmTest does"),
     'slow-tests-ran': Control(kind='fixture', proves='scripts/check-slow-tests-ran.py', argv=('{python}', 'scripts/check-slow-tests-ran.py', '--root', '{tmp}'), fixture='setup_slow_tests_ran', why="a test the local loop never runs is a test whose breakage nobody local ever sees: McpServerEndToEndTest was tagged slow, sat broken on main since the read surface changed the shape of its answer, and was found by CI rather than by anyone holding the tree", needs_clean_run=False, tracked_by='.github/workflows/ci.yml#Slow tests ran'),
+    'edge-function-tests': Control(
+        kind='fixture',
+        proves='supabase/functions/google-oauth-exchange/index_test.ts',
+        argv=('deno', 'test', '{tmp}/function'),
+        fixture='setup_edge_function_tests',
+        why=(
+            "the server half of the OAuth exchange is the part nobody can see: it holds "
+            "the client secret, redeems the one-time code and stores the refresh token. "
+            "Its three failures — a redirect URI that does not match, a code that was "
+            "already spent, and a call to Google that never came back — used to reach "
+            "the device as one answer, and the probe answers a refusal with 200 to prove "
+            "the tests are still looking"
+        ),
+    ),
     'flaky-tests': Control(kind='fixture', proves='scripts/check-flaky-tests.py', argv=('{python}', 'scripts/check-flaky-tests.py', '--current', '{tmp}/cur', '--previous', '{tmp}/prev'), fixture='setup_flaky_tests', why='a test that passed yesterday and fails today must be reported until it is acknowledged', needs_clean_run=False),
     'measure-flake-rate': Control(kind='fixture', proves='scripts/measure-flake-rate.py', argv=('{python}', 'scripts/measure-flake-rate.py', '--current', '{tmp}/run-01', '{tmp}/run-02', '--runs', '2', '--baseline', '{tmp}/empty-baseline.txt', '--max-flaky-rate', '0.0'), fixture='setup_measure_flake_rate', why="a status flip between two runs must be reported as an unacknowledged flake until it is baselined — the same property check-flaky-tests.py is probed for, but here it is the N-run aggregator's own gate logic (rate ceiling + baseline acknowledgement) that must not be swallows", needs_clean_run=False),
     'agent-review': Control(
