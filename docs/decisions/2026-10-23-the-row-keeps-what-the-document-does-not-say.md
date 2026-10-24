@@ -189,10 +189,12 @@ all, and that emptiness is a reading artefact, not a claim.
   version, and this change does not make it so
 - ADR `2026-10-04-sync-event-carries-post-merge-document.md` — the document a
   pull carries
-- `shared/src/commonMain/kotlin/com/singularity/todo/core/sync/TaskDocumentMerge.kt`
+- `shared/src/commonMain/kotlin/com/singularity/todo/core/sync/DocumentMerge.kt`
+  — the merge, generalised to every type by
+  `2026-10-24-the-row-keeps-what-the-document-does-not-say-for-every-type`
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncDocumentWriter.kt`
   — `taskDocument`, where the document meets the row
-- `shared/src/jvmTest/kotlin/com/singularity/todo/core/sync/TaskDocumentMergeTest.kt`
+- `shared/src/jvmTest/kotlin/com/singularity/todo/core/sync/DocumentMergeTest.kt`
 - `shared/src/jvmTest/kotlin/com/singularity/todo/core/sync/TaskDocumentApplyTest.kt`
 - `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/TaskSeriesWritePathTest.kt`
   — the repair of the series, and the document that does not trigger it
