@@ -133,6 +133,7 @@ COMMAND_MODULES: dict[str, str] = {
     "settings_read_by_a_feature": "gate",
     "test_task_external_inputs_declared": "gate",
     "gate_costs": "gate",
+    "checkout_state": "utility",
     "device_holders": "utility",
     "host_load": "utility",
     "info": "utility",
@@ -1130,8 +1131,11 @@ GATE_CONTROLS: dict[str, Control] = {
             kind='append',
             # 120 lines: the file sits at 218 and the limit is 300, so a shorter
             # append lands under the ceiling and the gate correctly passes —
-            # a control that proves nothing.
-            new='\n' + '\n'.join(f'filler line {i}' for i in range(120)) + '\n',
+            # a control that proves nothing. The long line takes the same
+            # append over the byte budget as well: the gate holds two
+            # ceilings, and one sabotage that breaks both proves both.
+            new='\n' + '\n'.join(f'filler line {i}' for i in range(120)) + '\n'
+            + 'budget probe. ' * 2000 + '\n',
         ),
         why=(
             'the cheat sheet is read in one go by every session, so a file that grows '
