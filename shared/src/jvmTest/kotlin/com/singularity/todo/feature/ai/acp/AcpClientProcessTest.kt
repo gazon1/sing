@@ -99,10 +99,10 @@ class AcpClientProcessTest {
     /**
      * A notification the application has no answer for does not stop the conversation.
      *
-     * The real bridge announces its authentication state right after the handshake, and
-     * its commands after the session is open. Both are notifications: a method with no
-     * id, answering no request this application made, and neither one is something the
-     * reader needs to see. The client has to read them and carry on — a client that
+     * The real bridge announces its authentication state during the handshake, before
+     * the session answer, and its commands after the session is open. Both are
+     * notifications: a method with no id, answering no request this application made,
+     * and neither one is something the reader needs to see. The client has to read them and carry on — a client that
      * treated an unknown notification as a failure would never get past the handshake
      * with a real bridge, and it would never show the reader anything.
      *
@@ -112,9 +112,9 @@ class AcpClientProcessTest {
      *
      * The commands notification is sent *during* the turn, which is the window in which
      * a session update could become something the reader sees. A notification sent
-     * before the turn would be dropped by the protocol library before it ever reached
-     * the client's adapter, and a test over it would prove nothing about the half that
-     * matters. The agent writes down what it sent, so this test can show that the
+     * before the turn is handed to this application's own notification handler — which
+     * deliberately does nothing — and never reaches the client's adapter, so a test over
+     * it would prove nothing about the half that matters. The agent writes down what it sent, so this test can show that the
      * notification really was sent while the turn was running.
      */
     @Test

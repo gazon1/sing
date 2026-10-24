@@ -93,10 +93,11 @@ private fun handle(line: String, mode: String, json: Json, transcript: java.io.F
                     """{"protocolVersion":$version,"agentCapabilities":{},"authMethods":[],""" +
                         """"agentInfo":{"name":"fake-agent","version":"1.0"}}""",
                 )
-                // The real bridge announces its authentication state right after the
-                // handshake — as a notification: a method with no id, and one this
-                // application has no answer for. The client has to survive it, and a
-                // fake that never sends it cannot say that it does.
+                // The real bridge announces its authentication state during the
+                // handshake, before the session answer — as a notification: a method
+                // with no id, and one this application has no answer for. The client
+                // has to survive it, and a fake that never sends it cannot say that
+                // it does.
                 notify(AUTH_STATUS_METHOD, """{"authStatus":{"kind":"none","label":"Not logged in"}}""", transcript)
             }
         }

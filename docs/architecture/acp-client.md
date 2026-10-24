@@ -299,20 +299,25 @@ profile and a database on top of that.
 not fail the build on a probe that did not connect — a build that depended on the
 network would be a build that fails in a tunnel — so `:shared:acpBridgeProbe` on its own
 reports `BUILD SUCCESSFUL` whatever the bridge did, and the script reads the verdict out
-of the probe's output. Run the script when you want an answer.
+of the probe's output. Run the script when you want an answer. That has a consequence
+worth knowing: the build's exit code is zero even when the probe *crashed*, so "the
+build failed" and "the probe crashed" are told apart by the absence of the verdict line
+and not by the exit code.
 
 **What it found.** The bridge announces two notifications our fake never sent — its
-authentication state during the handshake, before the session answer, and its available commands right after
-the session is open — and it answers `session/new` with five permission modes and
-three configuration options where the fake answered with one mode and no options. The
-client survived all of it. The fake now sends the same shapes, so the suite covers
-what the bridge sends rather than what we taught the fake to send.
+authentication state during the handshake, before the session answer, and its available
+commands after the session is open — and it answers `session/new` with five permission
+modes and three configuration options where the fake answered with one mode and no
+options. The client survived all of it. The fake now sends the same shapes, so the
+suite covers what the bridge sends rather than what we taught the fake to send.
 
 **When the transcript is read.** When the window is over. The bridge keeps talking
 after the session it answered — its available commands come on a timer — so a
 transcript read the moment the connect returned would be a snapshot of a race. The
 probe reads the bridge's stream for thirty seconds after the connect, and the promise
-is the simple one: every frame the bridge wrote in the window is in the transcript. The
+is the simple one: every frame the bridge wrote in the window, and that reached the
+client, is in the transcript. A short drain follows the window, so that a frame the
+bridge wrote in its last milliseconds is not cut off by the boundary. The
 window is a length of time and not a heuristic — an earlier version waited for the
 bridge to go quiet, and a quiet period cuts off a bridge that announces on a longer
 timer, every time, not sometimes. The authentication notification is a different case:

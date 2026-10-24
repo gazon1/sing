@@ -15,7 +15,7 @@ Module prefixes: `shared/`, `mcp-server/`, `desktopApp/`.
 ## 2. What the bridge sent that the fake did not
 
 - [x] shared/ Send the authentication status notification in the fake, as the bridge sends it during the handshake and before the session answer. `shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/acp/FakeAcpAgent.kt`
-- [x] shared/ Send the available-commands notification in the fake during the turn, where a session update could become activity the reader sees — a notification sent before the turn is dropped by the protocol library before the client's adapter sees it. `shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/acp/FakeAcpAgent.kt`
+- [x] shared/ Send the available-commands notification in the fake during the turn, where a session update could become activity the reader sees — a notification sent before the turn is handed to this application's own notification handler, which does nothing, and never reaches the client's adapter. `shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/acp/FakeAcpAgent.kt`
 - [x] shared/ Send the bridge's five permission modes and its three configuration options in the fake's session answer. `shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/acp/FakeAcpAgent.kt`
 - [x] shared/ Test that a notification the application has no answer for does not stop the conversation, and produces no activity for the reader — counted, not merely absent from the texts. `shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/acp/AcpClientProcessTest.kt`
 - [x] shared/ Write down what the fake sent, so that the test can show the notification really was sent while the turn was running. `shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/acp/FakeAcpAgent.kt`

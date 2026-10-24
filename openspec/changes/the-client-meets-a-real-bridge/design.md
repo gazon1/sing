@@ -62,8 +62,15 @@ built on a frame that was not always there.
 
 So the probe reads the bridge's stream for thirty seconds after the connect, and
 writes the transcript down when the window is over. The promise is the simple one:
-**every frame the bridge wrote in the window is in the transcript**, and a frame that
-comes later is a frame the records do not claim.
+**every frame the bridge wrote in the window, and that reached the client, is in the
+transcript**, and a frame that comes later is a frame the records do not claim.
+
+The window closes at a moment, and a frame the bridge wrote in its last milliseconds
+may not have been read yet — the protocol's reader and the copy under it are two
+steps, and the copy happens when the reader takes the bytes. So the probe drains the
+stream for a moment after the window: three hundred milliseconds of quiet, and three
+seconds at most. Without the drain, the promise would hold for every frame but one
+written microseconds before the boundary.
 
 The window is a length of time and not a heuristic. An earlier version waited for the
 bridge to *go quiet* — and a quiet period ends the read as soon as the bridge stops
