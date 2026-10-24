@@ -248,9 +248,34 @@ class NoUnstableCollectionParamRuleTest {
     }
 
     @Test
-    fun `a registered parameter the composable no longer declares is stale`() {
-        // The register names `blockerTitles`. The composable does not declare
-        // it any more: the debt was paid, and the register still counts it.
+    fun `a registered parameter that became a persistent collection is stale`() {
+        // The debt is paid when the parameter becomes persistent, and the
+        // register has to hear about it: a check that only looked at the
+        // parameters that are *still* raw would never notice.
+        val code = """
+            package com.singularity.todo.core.ui.components
+
+            import androidx.compose.runtime.Composable
+            import kotlinx.collections.immutable.ImmutableList
+
+            @Composable
+            fun BlockedCompletionDialog(blockerTitles: ImmutableList<String>) {
+            }
+        """
+        val found = findings(code)
+        assertEquals(1, found.size)
+        assertTrue(
+            found[0].message.contains("ImmutableList"),
+            "the finding should name the type the code declares, got: ${found[0].message}",
+        )
+    }
+
+    @Test
+    fun `a registered parameter the composable no longer declares is not the rule's business`() {
+        // A parameter that is gone has no declared type to compare, and a
+        // composable may have overloads — so "this parameter is missing here"
+        // is not the same as "this parameter is gone". The gate answers that
+        // question, because it reads the whole repository.
         val code = """
             package com.singularity.todo.core.ui.components
 
@@ -260,12 +285,7 @@ class NoUnstableCollectionParamRuleTest {
             fun BlockedCompletionDialog() {
             }
         """
-        val found = findings(code)
-        assertEquals(1, found.size)
-        assertTrue(
-            found[0].message.contains("blockerTitles"),
-            "the finding should name the stale parameter, got: ${found[0].message}",
-        )
+        assertEquals(0, findings(code).size)
     }
 
     @Test
