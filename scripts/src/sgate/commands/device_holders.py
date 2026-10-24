@@ -274,9 +274,13 @@ def device_holders(emit_json: bool, serial: str | None) -> None:
         devices = [device for device in devices if device["serial"] == serial]
 
     unknown: str | None = None
-    if serial is not None:
+    if serial is not None and devices is not None:
+        # Only a device list can answer "this serial is not connected". With adb
+        # silent, the serial may be attached to a machine that did not answer —
+        # and saying "no such device" next to "adb did not answer" is two
+        # answers, one of them a guess.
         known = any(entry["serial"] == serial for entry in locks) or any(
-            device["serial"] == serial for device in (devices or [])
+            device["serial"] == serial for device in devices
         )
         if not known:
             unknown = serial
