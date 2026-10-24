@@ -19,8 +19,11 @@ attempt, in ways that would have shipped a gate that could not fail:
     with a planted entry, the invariant reported zero phantoms.
 """
 
+import contextlib
 import importlib.util
+import io
 import pathlib
+import tempfile
 import unittest
 
 SCRIPT = (
@@ -30,6 +33,8 @@ SCRIPT = (
 _spec = importlib.util.spec_from_file_location('check_baseline_ratchet', SCRIPT)
 ratchet = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(ratchet)
+
+from git_sandbox import git as _git, sandbox_env  # noqa: E402
 
 
 # A config with one disabled rule, one enabled rule, and a ruleset-level
@@ -165,6 +170,130 @@ class SuppressedForDisabledTest(unittest.TestCase):
         disabled = ratchet.disabled_rules(CONFIG)
         self.assertEqual(3, ratchet.count_entries(self.BASELINE))
         self.assertEqual(2, len(ratchet.suppressed_for_disabled(self.BASELINE, disabled)))
+
+
+class MergeBaseComparisonTest(unittest.TestCase):
+    """The ratchet must measure the branch's own growth.
+
+    ## The defect this covers
+
+    The gate compared the baseline in the working tree with the baseline at
+    `HEAD`. On a pull request those are the same file — CI checks out a commit
+    and reads the file that commit carries — so the comparison was "the file
+    against itself" and a branch could add a hundred suppressions without the
+    gate noticing. The revision that answers the question is the merge-base:
+    the commit where the branch forked from the base branch.
+
+    The tests below are a pair: one says the branch's growth is caught, and
+    the other says the comparison it replaced would have missed it. The second
+    is what makes the first mean something — a test that only proves the gate
+    fails would also pass against a gate that failed for the wrong reason.
+    """
+
+    BASELINE_REL = pathlib.Path('config/detekt/baseline-shared.xml')
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.repo = pathlib.Path(self._tmp.name) / 'repo'
+        self.repo.mkdir()
+        self.env = sandbox_env(self.repo)
+        _git('init', '-b', 'main', cwd=self.repo, env=self.env)
+        self.baseline = self.repo / self.BASELINE_REL
+        self.baseline.parent.mkdir(parents=True, exist_ok=True)
+        self.baseline.write_text(self._baseline(2), encoding='utf-8')
+        _git('add', '-A', cwd=self.repo, env=self.env)
+        _git('commit', '-m', 'the base', cwd=self.repo, env=self.env)
+        # The gate's own ROOT is the repository it reads; pointing it at the
+        # sandbox is what makes the resolution and the comparison talk about
+        # the fixture's history rather than the developer's.
+        self._original_root = ratchet.ROOT
+        ratchet.ROOT = self.repo
+        self.addCleanup(self._restore_root)
+
+    def _restore_root(self) -> None:
+        ratchet.ROOT = self._original_root
+
+    @staticmethod
+    def _baseline(entries: int) -> str:
+        body = '\n'.join(
+            f'    <ID>Rule{i}:File.kt:Fqcn$member{i}</ID>' for i in range(entries)
+        )
+        return (
+            '<?xml version="1.0" ?>\n'
+            '<SmellBaseline>\n'
+            '  <ManuallySuppressedIssues/>\n'
+            '  <CurrentIssues>\n'
+            f'{body}\n'
+            '  </CurrentIssues>\n'
+            '</SmellBaseline>\n'
+        )
+
+    def _commit(self, message: str) -> None:
+        _git('add', '-A', cwd=self.repo, env=self.env)
+        _git('commit', '-m', message, cwd=self.repo, env=self.env)
+
+    def _grow_on_a_branch(self) -> None:
+        _git('checkout', '-b', 'feature', cwd=self.repo, env=self.env)
+        self.baseline.write_text(self._baseline(3), encoding='utf-8')
+        self._commit('the branch grows the baseline')
+
+    def _run(self, comparison_ref: str) -> tuple[bool, str]:
+        """Run the check against `comparison_ref`, in the sandbox repository."""
+        buffer = io.StringIO()
+        with contextlib.redirect_stdout(buffer):
+            ok = ratchet._check_one(self.baseline, 0, {}, comparison_ref, 'the test')
+        return ok, buffer.getvalue()
+
+    def test_a_branch_that_grows_the_baseline_is_caught(self):
+        self._grow_on_a_branch()
+        comparison_ref, label = ratchet.resolve_comparison_ref(None)
+        self.assertNotEqual('HEAD', comparison_ref, label)
+        ok, output = self._run(comparison_ref)
+        self.assertFalse(ok, output)
+        self.assertIn('grew by 1', output)
+
+    def test_the_comparison_it_replaces_would_have_missed_it(self):
+        """The control: `HEAD` is the file against itself.
+
+        The branch committed its growth, so the working tree and `HEAD` agree
+        and the old comparison found nothing to complain about. This is the
+        blindness the merge-base comparison removes.
+        """
+        self._grow_on_a_branch()
+        ok, output = self._run('HEAD')
+        self.assertTrue(ok, output)
+        self.assertIn('unchanged', output)
+
+    def test_a_branch_that_shrinks_the_baseline_passes(self):
+        _git('checkout', '-b', 'feature', cwd=self.repo, env=self.env)
+        self.baseline.write_text(self._baseline(1), encoding='utf-8')
+        self._commit('the branch pays the debt down')
+        comparison_ref, _label = ratchet.resolve_comparison_ref(None)
+        ok, output = self._run(comparison_ref)
+        self.assertTrue(ok, output)
+        self.assertIn('shrank by 1', output)
+
+    def test_a_branch_that_keeps_the_baseline_passes(self):
+        _git('checkout', '-b', 'feature', cwd=self.repo, env=self.env)
+        (self.repo / 'README.md').write_text('the branch touches something else\n')
+        self._commit('the branch touches something else')
+        comparison_ref, _label = ratchet.resolve_comparison_ref(None)
+        ok, output = self._run(comparison_ref)
+        self.assertTrue(ok, output)
+        self.assertIn('unchanged', output)
+
+    def test_no_base_branch_falls_back_to_head_and_says_so(self):
+        """A repository whose only branch is not `main` has no base to find.
+
+        The fallback is the file against itself — the very blindness this
+        change removes — so the resolution has to name it rather than take it
+        quietly.
+        """
+        _git('branch', '-m', 'main', 'only-branch', cwd=self.repo, env=self.env)
+        comparison_ref, label = ratchet.resolve_comparison_ref(None)
+        self.assertEqual('HEAD', comparison_ref)
+        self.assertIn('no base branch found', label)
 
 
 if __name__ == '__main__':

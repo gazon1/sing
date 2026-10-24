@@ -21,8 +21,14 @@ justified in review. This is the industry-standard replacement for a mass
 baseline purge: ratchet, don't purge.
 
 Contract:
-  * Baseline file is compared against its committed state in git. A PR that
+  * Baseline file is compared against its state at the **merge-base** with the
+    base branch — the commit where this branch forked from `main`. A PR that
     grows the baseline fails, naming the delta.
+  * The base branch is `origin/main`, then `main`; `--base` and
+    `SGATE_BASE_REF` override that. When neither exists (a shallow checkout,
+    a single-branch repository) the comparison falls back to `HEAD` and the
+    gate says so — the fallback is the file against itself, and that has to be
+    visible rather than silent.
   * `git` is required. Without it the check fails loudly rather than skipping —
     a check that silently passes when it cannot run is the defect class this
     whole change is about.
@@ -74,6 +80,7 @@ Exit codes:
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import sys
@@ -164,6 +171,105 @@ def git_show(path: Path, rev: str = "HEAD") -> str | None:
     return out.stdout
 
 
+#: The refs the base branch is looked for under, in the order they are tried.
+#:
+#: `origin/main` first: a working copy that has a remote is the normal case, and
+#: the remote's main is the branch the pull request targets. `main` after it, for
+#: the checkout that has no remote — a fixture, or a clone whose remote was
+#: removed.
+_BASE_CANDIDATES = (
+    "origin/main",
+    "main",
+    "refs/remotes/origin/main",
+    "refs/heads/main",
+)
+
+
+def _git(*args: str) -> subprocess.CompletedProcess[str]:
+    try:
+        return subprocess.run(
+            ["git", *args],
+            capture_output=True,
+            text=True,
+            check=False,
+            cwd=ROOT,
+        )
+    except FileNotFoundError:
+        raise GitUnavailable("git not found — cannot verify the baseline ratchet") from None
+
+
+def ref_exists(ref: str) -> bool:
+    """Whether `ref` resolves to a commit in this repository."""
+    out = _git("rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}")
+    return out.returncode == 0
+
+
+def merge_base(base: str) -> str | None:
+    """The commit where `base` and HEAD share their history, or None.
+
+    This is the common ancestor, and it is what a pull request's diff is
+    measured against: everything from here to HEAD is the branch's own work.
+    """
+    out = _git("merge-base", base, "HEAD")
+    if out.returncode != 0:
+        return None
+    found = out.stdout.strip()
+    return found or None
+
+
+def resolve_comparison_ref(explicit: str | None) -> tuple[str, str]:
+    """The revision the baseline is compared against, and a label for it.
+
+    ## Why not HEAD
+
+    The baseline used to be compared with `HEAD`, and that made the gate
+    vacuous in the place it matters. On a pull request the working tree *is*
+    `HEAD` — CI checks out a commit and the file on disk is that commit's file
+    — so the comparison was "the file against itself", and a branch could grow
+    the baseline by a hundred entries without the gate noticing.
+
+    The revision that answers the question is the **merge-base**: the commit
+    where the branch forked from the base branch. The baseline at that commit
+    is the debt the branch inherited; the baseline in the working tree is the
+    debt the branch leaves behind. The difference is the branch's own growth,
+    which is exactly what a ratchet is supposed to measure.
+
+    ## When there is no base branch
+
+    A shallow checkout has no `origin/main`, and a repository with one branch
+    has no merge-base to find. In that case the gate falls back to `HEAD` and
+    **says so**: a check that silently degrades to "compare the file with
+    itself" is the defect this change removes, so the fallback is announced
+    rather than taken quietly.
+    """
+    if explicit:
+        if not ref_exists(explicit):
+            return "HEAD", f"HEAD (the requested base '{explicit}' does not exist)"
+        found = merge_base(explicit)
+        if not found:
+            return "HEAD", f"HEAD (no merge-base with '{explicit}')"
+        return found, f"merge-base({explicit}, HEAD) = {found[:12]}"
+
+    from_env = os.environ.get("SGATE_BASE_REF", "").strip()
+    if from_env:
+        if not ref_exists(from_env):
+            return "HEAD", f"HEAD (SGATE_BASE_REF='{from_env}' does not exist)"
+        found = merge_base(from_env)
+        if not found:
+            return "HEAD", f"HEAD (no merge-base with SGATE_BASE_REF='{from_env}')"
+        return found, f"merge-base({from_env}, HEAD) = {found[:12]}"
+
+    for candidate in _BASE_CANDIDATES:
+        if not ref_exists(candidate):
+            continue
+        found = merge_base(candidate)
+        if not found:
+            continue
+        return found, f"merge-base({candidate}, HEAD) = {found[:12]}"
+
+    return "HEAD", "HEAD (no base branch found — the branch's own growth is invisible)"
+
+
 def rule_of_entry(entry: str) -> str:
     """The rule name an `<ID>` belongs to.
 
@@ -219,12 +325,24 @@ def suppressed_for_disabled(text: str, disabled: dict[str, int]) -> list[str]:
     default=0,
     help="entries allowed to be added per file per run (default: 0)",
 )
+@click.option(
+    "--base",
+    "base",
+    default=None,
+    help=(
+        "the branch the baseline is compared against. The comparison is made "
+        "against the merge-base of this branch and that one, so the delta the "
+        "gate measures is the branch's own work. Default: origin/main, then "
+        "main; SGATE_BASE_REF overrides it."
+    ),
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
     baseline: tuple[str, ...],
     config: str,
     max_growth: int,
+    base: str | None,
 ) -> None:
     """Fail when a detekt baseline grows."""
     # Both module baselines are ratcheted. This originally watched only
@@ -246,10 +364,25 @@ def cli(
         raise ctx.exit(VALIDATION_FAILURE)
     disabled = disabled_rules(config_path.read_text(encoding="utf-8"))
 
+    try:
+        comparison_ref, comparison_label = resolve_comparison_ref(base)
+    except GitUnavailable as exc:
+        click.echo(f"ERROR: {exc}", err=True)
+        raise ctx.exit(VALIDATION_FAILURE) from None
+
+    click.echo(f"check-baseline-ratchet: comparing against {comparison_label}")
+    if comparison_ref == "HEAD":
+        click.echo(
+            "check-baseline-ratchet: WARNING — no base branch to measure the "
+            "branch's own growth against. The comparison below is the working "
+            "tree against HEAD, which on a pull request is the file against "
+            "itself."
+        )
+
     failed = False
     try:
         for bp in baselines:
-            if not _check_one(bp, max_growth, disabled):
+            if not _check_one(bp, max_growth, disabled, comparison_ref, comparison_label):
                 failed = True
     except GitUnavailable as exc:
         click.echo(f"ERROR: {exc}", err=True)
@@ -259,7 +392,13 @@ def cli(
     raise ctx.exit(CLEAN)
 
 
-def _check_one(baseline: Path, max_growth: int, disabled: dict[str, int]) -> bool:
+def _check_one(
+    baseline: Path,
+    max_growth: int,
+    disabled: dict[str, int],
+    comparison_ref: str = "HEAD",
+    comparison_label: str = "HEAD",
+) -> bool:
     if not baseline.is_file():
         click.echo(f"ERROR: baseline not found: {baseline}", err=True)
         return False
@@ -304,7 +443,7 @@ def _check_one(baseline: Path, max_growth: int, disabled: dict[str, int]) -> boo
         return False
 
     try:
-        committed_text = git_show(baseline)
+        committed_text = git_show(baseline, comparison_ref)
     except GitUnavailable:
         raise
 
@@ -325,6 +464,7 @@ def _check_one(baseline: Path, max_growth: int, disabled: dict[str, int]) -> boo
             f"check-baseline-ratchet: FAIL — {name} grew by {growth} "
             f"entry(ies) ({committed} -> {current})"
         )
+        click.echo(f"  measured against {comparison_label}")
         click.echo("")
         click.echo("Newly suppressed findings:")
         for item in added[:20]:
