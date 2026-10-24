@@ -9,8 +9,10 @@
 ### Requirement: REQ-DCOV-001
 
 Every Gradle module that holds Kotlin source **SHALL** be judged by the repository's detekt
-configuration and by the project's own rules. The rules module itself is the one exception:
-it *is* the project's own rules, and it is judged by the configuration that suits them.
+configuration and by the project's own rules. Two modules are the exceptions: the rules
+module, which *is* the project's own rules and is judged by the configuration that suits
+them, and `:tools:unwritten-properties`, which holds a tool's own analysis code rather
+than application source.
 
 **Rationale:** a module on a reduced configuration is a module whose rules are a choice
 nobody made. The configuration was a launcher module's; the module is not that any more, and

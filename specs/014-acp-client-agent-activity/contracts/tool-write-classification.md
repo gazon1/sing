@@ -67,7 +67,7 @@ This classification is about **our** writes, and only about our writes:
 |---|---|---|
 | External agent permission requests | the agent's own tools (bash, file writes) | the confirmation sheet in the app |
 | Proposal pipeline | our writes to the user's data | the existing proposal confirmation |
-| Direct-write exception | three named tools | the registry reason, verified by test |
+| Direct-write exception | two named tools | the registry reason, verified by test |
 
 An agent's permission request never gates our writes — those go to the agent over the tool server and come back as proposals. And our permission sheet never gates the agent's own tools. The two are separate mechanisms and must not be presented to the user as one.
 
@@ -77,5 +77,5 @@ An agent's permission request never gates our writes — those go to the agent o
 |---|---|
 | Classify in the test rather than the registry | A test can check consistency, but a tool author has nothing to fill in; the registry is where the choice is made. |
 | Default `writeBehavior` to `READ_ONLY` | Turns "forgot to classify" into "silently allowed to write". |
-| Route the two exceptions through proposals too | A proposal for a tag rename is noise the user learns to dismiss; a proposal for writing a decision record interrupts a flow that never touched user data. Both would train the user to approve reflexively, which is worse than the exception. |
+| Route the two exceptions through proposals too | A proposal for writing a decision record interrupts a flow that never touched user data; both would train the user to approve reflexively, which is worse than the exception. A tag used to be the third exception, on the grounds that "a proposal for one is noise the user learns to dismiss" — and that reasoning was wrong: a tag is user content, and the tool proposes like every other change to what the user owns. |
 | Derive the behaviour from the existing annotations | The existing hints describe the MCP-visible shape; the question here is "what happens to the user's data", which is a different statement. |

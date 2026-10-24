@@ -56,7 +56,7 @@ import kotlin.test.assertTrue
  * So this test drives the whole round trip and asserts on the state of the
  * user's data after each step — not on the tool's own report of what it did.
  *
- * ## The two representatives
+ * ## The creation and the deletion
  *
  * - [CreateTaskTool] — a creation: the thing does not exist until the user says yes.
  * - [DeleteTaskTool] — a destructive change: the thing must still be there when

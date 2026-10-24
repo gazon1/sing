@@ -151,6 +151,7 @@ bootstrap the profiles, read the configuration, build the server, serve.
 
 The split moves the start-up out of the entry point: the steps are functions of their own,
 and what they came to is a value — either a server to serve or the reason it cannot
-start. The entry point becomes: read the arguments, start the server, serve.
+start. The entry point becomes: point the log at standard error, take the protocol
+channel, read the arguments, start the server, serve.
 
 Neither split changes what the code does. They change where a reader has to look.
