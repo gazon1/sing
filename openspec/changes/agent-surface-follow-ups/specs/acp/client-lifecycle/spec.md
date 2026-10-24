@@ -8,12 +8,17 @@
 
 ### Requirement: REQ-ACPL-001
 
-The client's connect, close and terminate transitions **SHALL** be mutually exclusive, so
-that a close cannot land between two assignments of the connection's fields.
+The client's connect and close transitions **SHALL** be mutually exclusive, so that a
+close cannot land between two assignments of the connection's fields. The terminate
+transition **SHALL NOT** wait for that exclusion, and **SHALL** leave the client in one
+state or the other when it lands during another transition.
 
 **Rationale:** the client holds four fields that are set together and cleared together. A
 transition that interleaves with another leaves a session bound to a closed transport — a
-state no reader of the code would expect and no test would have asked for.
+state no reader of the code would expect and no test would have asked for. The terminate
+is the exception, because it exists to end a conversation that is not ending: it cannot
+suspend, and a terminate that waited for a close that was waiting for an agent would be
+a terminate that never fires.
 
 #### Scenario: A close lands during a connect
 - A connect is in flight

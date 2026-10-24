@@ -34,8 +34,9 @@ were converted to the proposal path, and the claim moved into
 tools instead of reading them.
 
 But a test that only scans the sources cannot see a declaration that is wrong. The scan
-recognises a write on a repository of the user's own data; it does not recognise a write
-through any other port, and it never compares what it saw with what the catalogue says.
+recognises a write on a repository of the user's own data; it does not place a write
+through any other port on that data, and it never compares what it saw with what the
+catalogue says.
 
 So the check is now two-sided, and it reads the scan's two nets separately:
 
@@ -47,8 +48,17 @@ So the check is now two-sided, and it reads the scan's two nets separately:
   it cannot see: a check that fails on what it cannot see teaches its readers to ignore
   it. The named ones are exempt from that branch; an exception the scan cannot verify and
   that nobody has named is still a finding, because the name is a claim somebody has to
-  argue for. The ADR tools write a decision file through a storage port the scan does not
-  recognise, and an unchecked write should be a visible one.
+  argue for. The ADR tools write a decision file through a storage port, and the scan
+  cannot place that write on the user's own data — it is not the user's tasks. An
+  unchecked write should be a visible one.
+
+Both nets are name-based, and the design says so rather than claiming more: the narrow
+one recognises a repository by the receiver's name, the wide one recognises a write by
+the method's name, and a write whose method is called something neither list holds is
+invisible to them. A write in a helper that sits above no tool class is invisible in the
+same way, so a write that belongs to no class is a finding of its own rather than a
+gap. The reach is what it is, and a gate that claims more than it can see is the thing
+this change is against.
 
 This found a real drift: `create_tag` was declared a direct-write exception, and the tool
 had been converted to the proposal path without the declaration following. The declaration

@@ -82,25 +82,34 @@ finding too: a stale exception is a promise nobody keeps.
 
 What the scan cannot see is *whose* data a write touched. It casts two nets — one that
 recognises a write on a repository of the user's own data, and a wider one that catches a
-write through any port — and only the first can place a write on the user's data. An
-exception whose write the wider net sees and the first cannot is therefore *named* among
-the exceptions the check could not verify, and the naming is what keeps the check honest:
-a check that fails on what it cannot see teaches its readers to ignore it, so the named
-ones are exempt from that branch rather than failed by it. The name is a claim that
-somebody has to argue for, not a way to silence a finding: an exception the check cannot
-verify and that nobody has named is a finding, because then the check is failing on what
-it cannot see for no reason.
+write whose method is named like a write whatever port it goes through — and only the
+first can place a write on the user's data. An exception whose write the wider net sees
+and the first cannot is therefore *named* among the exceptions the check could not verify,
+and the naming is what keeps the check honest: a check that fails on what it cannot see
+teaches its readers to ignore it, so the named ones are exempt from that branch rather
+than failed by it. The name is a claim that somebody has to argue for, not a way to
+silence a finding: an exception the check cannot verify and that nobody has named is a
+finding, because then the check is failing on what it cannot see for no reason.
 An unchecked write has to be a visible one.
+
+Both nets are name-based, and the record says so rather than claiming more: a write
+through a method whose name is not among the verbs the nets hold is invisible to them,
+and so is a write in a helper that sits above no tool class — which is why a write that
+belongs to no class is a finding of its own rather than a gap. The reach is what it is,
+and a gate that claims more than it can see is the thing this change is against.
 
 The round trip — propose, unchanged, confirm writes, decline changes nothing — is now
 every proposal-gated tool's contract, not two tools' contract.
 
-**The client's transitions are mutually exclusive.**
+**The client's transitions are mutually exclusive, except the one that cannot wait.**
 
-`connect()`, `close()` and `terminate()` take a lock; the fields that are read outside it
-are read safely. A `Mutex` rather than a `synchronized` block, because the transitions are
-suspending. The test is the race itself: a turn in flight, a close during it, and an
-assertion that the client ends in one state or the other.
+`connect()` and `close()` take a lock; the fields that are read outside it are read safely.
+`terminate()` *tries* that lock rather than taking it, because it cannot suspend — one of
+its callers is a ViewModel being cleared — and because it exists to end a conversation
+that is not ending: a terminate that waited for a close that was waiting for an agent
+would be a terminate that never fires. A `Mutex` rather than a `synchronized` block,
+because the transitions are suspending. The test is the race itself: a turn in flight, a
+close during it, and an assertion that the client ends in one state or the other.
 
 **The protocol's output is a value.**
 
@@ -165,10 +174,14 @@ the session. The ViewModel keeps what a screen is about: what the reader sees.
   is a crash at start-up rather than a warning, because the entry would be a promise the
   user cannot read.
 - `create_tag` is a proposal-gated tool now, in the catalogue as well as in the code.
-- The exceptions the source scan cannot verify are a named list in the test. A tool that
-  writes through a new port has to be added to it — deliberately, with a human looking.
-- The client's `connect`, `close` and `terminate` are now mutually exclusive; a caller
-  that used to rely on two of them overlapping is now serialised.
+- The exceptions the source scan cannot verify are a named list in the test. A tool whose
+  write the scan sees but cannot place on the user's own data has to be added to it —
+  deliberately, with a human looking. A tool whose write the scan does not see at all has
+  to be made visible to the scan first: a name cannot stand in for a write nobody can find.
+- The client's `connect` and `close` are now mutually exclusive; a caller that used to
+  rely on two of them overlapping is now serialised. `terminate` is deliberately not: it
+  ends the conversation whatever the lock is doing, and clears the fields itself when no
+  transition is running.
 - The protocol's stream is a `ProtocolStdout` rather than a `PrintStream`. Everything that
   wrote the protocol now says so in its signature.
 - The ViewModel's collaborators are constructed inside it, not injected. They are part of

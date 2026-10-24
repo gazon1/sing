@@ -22,9 +22,10 @@ corpus in `docs/decisions/` is not numbered.
   catalogue, and it was the *publication* of it that was missing. The export's own
   version goes up; the contract's does not.
 - **A gate over the ADR tools' writes.** `write_adr` and `update_adr` write through
-  a storage port that the repository scan cannot see, so the two-sided check names
-  them as the exceptions it cannot verify rather than failing them. A gate that
-  cannot see the write would be a gate that lies.
+  a storage port, and the scan cannot place that write on the user's own data — it is
+  a decision file, not the user's tasks. So the two-sided check names them as the
+  exceptions it cannot verify rather than failing them. A gate that cannot see the
+  write would be a gate that lies.
 - **A lock that makes the close wait.** Mutual exclusion of the four lifecycle
   fields and a fast disconnect are separate questions. A lock alone would make a
   close that lands during a handshake wait out the handshake — a minute, for an

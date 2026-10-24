@@ -177,7 +177,8 @@ class AcpClient(
     /**
      * The protocol on top of the transport.
      *
-     * Read and written under [lifecycle] only, like [transport].
+     * Read and written under [lifecycle] only — unlike [transport], which a close
+     * that has to end a handshake reads before it waits for the lock.
      */
     private var protocol: Protocol? = null
 

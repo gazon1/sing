@@ -59,9 +59,6 @@ internal class AcpTurnRunner(
     private var job: Job? = null
     private var outcomeRecorded: Boolean = false
 
-    /** The turn that is on screen, and the job that is running it. */
-    fun currentTurn(): RunningTurn = RunningTurn(currentTurn, job)
-
     /**
      * Starts a turn.
      *

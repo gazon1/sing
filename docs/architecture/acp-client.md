@@ -218,9 +218,14 @@ quietly granted access would be a hole in a guarantee the application makes abou
 user's files. An agent with file and terminal access would have a second, quieter way
 to change the user's data, and it would not ask.
 
-**The client's transitions are mutually exclusive.** `connect()`, `close()` and
-`terminate()` take a lifecycle lock, so a `close()` cannot land between two assignments
-of the connection's fields and leave a session bound to a closed transport. The fields
+**The client's transitions are mutually exclusive — except the one that cannot wait.**
+`connect()` and `close()` take a lifecycle lock, so a `close()` cannot land between two
+assignments of the connection's fields and leave a session bound to a closed transport.
+`terminate()` *tries* that lock rather than taking it: it cannot suspend — one of its
+callers is a ViewModel being cleared — and it exists to end a conversation that is not
+ending, so a terminate that waited for a close that was waiting for an agent would be a
+terminate that never fires. It ends the process and the pipes whatever the lock is
+doing, and clears the fields itself when no transition is running. The fields
 that are read outside the lock — `prompt()` is not a suspend function — are read safely
 rather than under it. The screen only closes a session it already holds, so the defect
 was latent rather than live; it is closed anyway, because a latent race is one code
