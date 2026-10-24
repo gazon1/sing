@@ -36,7 +36,7 @@ probe anybody was reading.
 **The CI loop is priced too, the overlap is fixed where it is a defect, and the
 measurement is used for a decision.**
 
-- The published page carries a second section: the last CI run's jobs and what each
+- The published page carries a second section: the recorded run's jobs and what each
   took, read from the runner's own record. Not a median and not a baseline — a hosted
   runner is not this machine, and the local baseline refuses to compare across
   machines for the same reason. A record, not a threshold.
@@ -48,11 +48,13 @@ measurement is used for a decision.**
   branch's failed run reads a price for something that was never measured. The
   verdict travels with the durations: a price next to a failed run, without the
   verdict, reads as the price of a green one.
-- **The record is that run, not the newest one.** It is stale when the workflow's
+- **The published record need not be the newest one.** It is stale when the workflow's
   jobs change — a job renamed, added or removed turns it into a price of a loop that
   no longer exists — and it is **not** stale when the branch moves: a later run with
   the same jobs is another sample of the same loop, so re-recording it would move the
-  numbers without making the page truer. The published heading used to say "the last
+  numbers without making the page truer. The recorder still takes the newest finished
+  run — that is the run it can read; what the criterion changes is that a branch that
+  moved does not make the record false. The published heading used to say "the last
   finished run of `main`", which is a claim about the newest run: every push to the
   branch made the page's own heading false within the hour, and a document that
   outlives the run it names cannot carry a superlative.
@@ -106,7 +108,11 @@ graph is declared in the build files.
   the coverage record, not the CI one. So a renamed job leaves the record naming a
   job that no longer exists until somebody re-records it — which is exactly what the
   false names did, and the page kept them for a change. A gate that compares the
-  recorded jobs with the workflow's is the follow-up.
+  recorded names with the workflow's declared names is the follow-up, and it has to
+  be a **containment** check, not an equality one: the record holds the jobs that
+  RAN, and the workflow declares the jobs that CAN run, so equality would be red
+  forever. And the comparison is a proxy for what the criterion says — it sees a
+  rename, not an edit that keeps every name and changes what a job does.
 - The local loop is measurably cheaper: the JSON-contract gate runs concurrently, and
   one duplicated control is gone.
 - A control written twice fails a test, in the registry and in the control lists.

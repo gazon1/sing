@@ -224,7 +224,7 @@ class GateCostsTest(unittest.TestCase):
 
 
 class CiCostTest(unittest.TestCase):
-    """The CI side of the loop: the last run's jobs, read from the runner's own record.
+    """The CI side of the loop: the recorded run's jobs, read from the runner's own record.
 
     These numbers are not comparable with the local ones — a hosted runner is not
     this machine — so they are published as a record of one run, with no median and
@@ -422,8 +422,8 @@ class PublishedPageTest(unittest.TestCase):
 
         text = costs.render_document(baseline)
 
-        self.assertNotIn("last finished run", text)
-        self.assertIn("The record is that run, not the newest one.", text)
+        self.assertNotIn("### The last finished run", text)
+        self.assertIn("The record need not be the newest run", text)
         self.assertIn("It is stale when the workflow's jobs change", text)
         self.assertIn("It is not stale when `main` moves", text)
 

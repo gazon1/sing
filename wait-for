@@ -20,8 +20,8 @@
 #
 # 3600 seconds, because the longest run this repository measures is longer than
 # half an hour: the instrumented coverage run costs 37 min 25 s
-# (docs/testing/gate-costs.md), and the longest job of the last CI run cost
-# 31 min 29 s (config/docs/gate-benchmarks.json). A default shorter than the
+# (docs/testing/gate-costs.md), and the longest job of the recorded CI run cost
+# 26 min 52 s (config/docs/gate-benchmarks.json). A default shorter than the
 # longest run turns one run into two waits — the exact cost this tool exists to
 # remove. `--timeout 0` waits without a limit, for a run nobody has priced yet.
 #

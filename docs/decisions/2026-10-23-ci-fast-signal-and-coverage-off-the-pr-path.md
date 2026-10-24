@@ -168,8 +168,9 @@ to resolve to a step name, not to a name the workflow used to carry.
 The JOB name was the one that could not move on its own, and the reason was
 not the one the first draft of this paragraph gave. Nothing compares the
 recorded job names with the workflow's: `sgate gate-costs` renders the
-recorded map, and `check-published-measurements.py` compares the baseline
-with the published page. So renaming the job invalidated nothing — the
+recorded map and compares the published page with the baseline, and
+`check-published-measurements.py` reads the coverage record, not the CI one.
+So renaming the job invalidated nothing — the
 published page simply kept naming a job that no longer exists. The
 measurements are re-recorded anyway, because the point of the page is the
 price of the loop as it is now, and a price that names the old jobs is a

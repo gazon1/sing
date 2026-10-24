@@ -766,9 +766,9 @@ def _render_ci_block(baseline: dict[str, object]) -> list[str]:
         lines.append(f"The CI loop is the one that blocks merges, so it is priced too{where}.")
         lines.append("")
         lines.append(
-            "The record is that run, not the newest one. It is stale when the workflow's "
-            "jobs change: a job renamed, added or removed turns it into a price of a "
-            "loop that no longer exists. It is not stale when "
+            "The record need not be the newest run: it is the run it names. It is stale "
+            "when the workflow's jobs change: a job renamed, added or removed turns it "
+            "into a price of a loop that no longer exists. It is not stale when "
             f"`{CI_BRANCH}` moves — a later run with the same jobs is another sample of "
             "the same loop, so re-recording it would move the numbers without making "
             "the page truer."
@@ -909,8 +909,8 @@ def read_ci_run(repository: str = CI_REPOSITORY) -> dict[str, object] | None:
 
     These numbers are **not** comparable with the local ones: a hosted runner is
     not this machine, and the local baseline refuses to compare across machines for
-    the same reason. So they are published as "the last run", with no median and no
-    baseline: a record, not a threshold.
+    the same reason. So they are published as one recorded run, with no median and
+    no baseline: a record, not a threshold.
 
     The run has to be a FINISHED one. A run that is still going has no duration
     for the jobs that have not finished yet, and no conclusion to print — and a

@@ -36,7 +36,7 @@ TOOL = REPO / "wait-for"
 #: Read from the files that recorded it, so the number the tool is measured
 #: against is the number the repository published:
 #:
-#: * `config/docs/gate-benchmarks.json` — the longest job of the last CI run;
+#: * `config/docs/gate-benchmarks.json` — the longest job of the recorded CI run;
 #: * `docs/testing/gate-costs.md` — the instrumented coverage run.
 #:
 #: A default timeout shorter than the longest run turns one run into two
@@ -139,7 +139,7 @@ class WaitForTest(unittest.TestCase):
         self.assertGreaterEqual(
             default,
             _longest_ci_job_seconds(),
-            "the default timeout is shorter than the longest job of the last CI run",
+            "the default timeout is shorter than the longest job of the recorded CI run",
         )
         self.assertGreaterEqual(
             default,

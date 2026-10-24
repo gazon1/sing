@@ -25,7 +25,7 @@ of them — 67 %. The diagnosis cost about six calls and a restart of a
 | One session's draft | 54,912 inodes | `find /tmp/wt-phaseb -xdev \| wc -l` |
 | The largest draft on the host | 86,802 inodes | `find /tmp/hookremote.git -xdev \| wc -l` |
 | The longest run in this repository | 37 min 25 s | `docs/testing/gate-costs.md` |
-| The longest job of the last CI run | 31 min 29 s | `config/docs/gate-benchmarks.json` |
+| The longest job of the recorded CI run | 26 min 52 s | `config/docs/gate-benchmarks.json` |
 
 The inode numbers come from `os.statvfs` — the call `df -i` makes. The tool
 reads them directly, so the numbers it prints and the numbers `df` prints are
