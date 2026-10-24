@@ -55,6 +55,15 @@ hook's own flags (`--no-daemon`, one invocation per list):
 | `:mcp-server:compileKotlin` | 251 s | warm |
 | `:androidApp:compileDebugKotlin` | 497 s | cold |
 | `:detekt-rules:compileKotlin` | 46 s | cold |
+| every module at once: `:shared` (main + test), `:core-base`, `:adr-core`, `:adr-cli`, `:detekt-rules`, `:desktopApp`, `:mcp-server`, `:tools:unwritten-properties` | 842 s | cold, **one invocation**, no Android SDK |
+
+**The rows are separate invocations, and they do not add up.** Each row was
+measured on its own, so each one paid for the Gradle configuration by itself.
+The last row is the whole set in a single invocation, and it costs 842 s
+rather than the sum of the parts — one configuration, one build. That is also
+why the old hook's two invocations cost 1038 s while its first invocation
+alone cost 645 s: what was expensive was the second invocation, not the
+modules it compiled.
 
 So the old hook paid **645 s + 393 s = 1038 s** for every commit, whatever the
 change — for a change that might have been a line in a document. A second run
@@ -101,9 +110,25 @@ Three rules, and the reason for each:
 
 **The scope is the modules the change touches, and not the modules that compile
 against them.** That is a deliberate narrowing, and it is where the reach of a
-change is judged instead: the pre-push verdict judges the affected modules, and
-CI compiles every module on every push. The commit hook answers one question:
-does the code I just wrote compile?
+change is judged instead. What judges it, precisely:
+
+- **The pre-push verdict judges the reach with detekt** — style, complexity and
+  the repository's own rules, on the modules the change reaches. Detekt runs
+  **without type resolution** in this repository, so it is not the compiler:
+  a *type* error in a reachable module passes the verdict.
+- **CI is the compiler's verdict.** Every push builds the modules that carry
+  the app — `:shared` through the JVM tests, `:desktopApp` and `:mcp-server`
+  through their test tasks, `:androidApp` through `compileDebugKotlin` — so a
+  type error in a reachable module fails the push.
+- **One module is neither built nor tested by CI:**
+  `:tools:unwritten-properties` is a standalone analysis module that nothing
+  depends on, and no CI job builds it. A change in it is verified by the
+  commit hook alone, and its own tests do not run in CI. That is a hole in
+  CI's coverage, not a consequence of this decision, and it is named here
+  rather than left for someone to find out the hard way.
+
+The commit hook answers one question, and only that one: does the code I just
+wrote compile?
 
 The narrowing is not only a price argument, though it is that too. The old
 pair was redundant in one direction: `:desktopApp` depends on `:shared`, so
@@ -133,8 +158,12 @@ compile nobody can trust a week later.
   it does touch still blocks it — that is the check, and `--no-verify` remains
   the way past every check the hook makes.
 - A change in `:shared` that breaks `:desktopApp` is no longer found at commit
-  time; it is found by the pre-push verdict and by CI. That is the narrowing,
-  stated here rather than discovered later.
+  time. It is found by **CI**, which compiles the app's modules on every push —
+  and the pre-push verdict does *not* find it, because detekt there runs
+  without type resolution. That is the narrowing, stated here rather than
+  discovered later, and so is the hole it leaves: `:tools:unwritten-properties`
+  is built by no CI job, so a change in it is verified by the commit hook
+  alone.
 - The Android target is CI's, and the local loop says so rather than pretending
   it checked.
 - The module graph grew a table: `COMPILE_TASKS` says what has to compile for

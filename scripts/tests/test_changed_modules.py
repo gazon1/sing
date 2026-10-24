@@ -422,6 +422,44 @@ class TheLintStepSeesTheSamePathsTest(unittest.TestCase):
 
         self.assertIn('shared/My File.kt', paths)
 
+    def test_a_tracked_file_with_a_space_is_listed_after_it_changed(self):
+        """The working-tree diff names the file too, not only the untracked list.
+
+        A file that is already tracked and was changed is the common case; the
+        lint step reads it through `git diff HEAD`, and that path has to be
+        read in the format that does not quote.
+        """
+        lint = _load_lint()
+        original_root = lint.ROOT
+        lint.ROOT = self.tmp
+        self.addCleanup(self._restore_root, lint, original_root)
+        self._git('add', '-A')
+        self._git('commit', '-m', 'add the file', '-q')
+        (self.tmp / 'shared' / 'My File.kt').write_text('val a = 2\n', encoding='utf-8')
+
+        paths = lint.changed_paths('origin/main')
+
+        self.assertIn('shared/My File.kt', paths)
+
+    def test_a_committed_file_with_a_space_is_listed(self):
+        """The committed diff names the file as well."""
+        lint = _load_lint()
+        original_root = lint.ROOT
+        lint.ROOT = self.tmp
+        self.addCleanup(self._restore_root, lint, original_root)
+        self._git('add', '-A')
+        self._git('commit', '-m', 'add the file', '-q')
+        base = subprocess.run(
+            ['git', 'rev-parse', 'HEAD'], cwd=self.tmp, check=True,
+            capture_output=True, text=True,
+        ).stdout.strip()
+        (self.tmp / 'shared' / 'My File.kt').write_text('val a = 3\n', encoding='utf-8')
+        self._git('commit', '-am', 'change the file', '-q')
+
+        paths = lint.changed_paths(base)
+
+        self.assertIn('shared/My File.kt', paths)
+
     @staticmethod
     def _restore_root(lint, original_root) -> None:
         lint.ROOT = original_root
