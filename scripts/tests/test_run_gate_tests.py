@@ -6,7 +6,9 @@ The gate scripts' own tests run in CI as a step of a job, and a step's console
 is a bad place for a failure: the repository's own rule is that the cause of a
 failed test is in an artifact and not in the step log. These tests pin that the
 runner writes a report a reader can open, and that the report says what the
-console says.
+console says — including the cases the console reports in ways the report has
+to carry too: a sub-test that failed, a class that could not be set up, a
+skipped test, and a module that does not import.
 """
 
 import importlib.util
@@ -28,7 +30,6 @@ run = _runner.run
 #: A counter that gives every generated module its own name.
 _COUNTER = itertools.count()
 
-
 PASSING = """
 import unittest
 
@@ -46,6 +47,42 @@ class FailingTest(unittest.TestCase):
     def test_it_fails(self):
         self.assertEqual(1, 2, "the answer is not the one this test wanted")
 """
+
+SUB_TEST = """
+import unittest
+
+
+class SubTestTest(unittest.TestCase):
+    def test_the_cases(self):
+        for case in range(3):
+            with self.subTest(case=case):
+                self.assertNotEqual(case, 2, "the third case is the one that fails")
+"""
+
+CLASS_ERROR = """
+import unittest
+
+
+class BrokenClassTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        raise RuntimeError("the class could not be set up")
+
+    def test_never_runs(self):
+        self.assertTrue(True)
+"""
+
+SKIPPED = """
+import unittest
+
+
+class SkippedTest(unittest.TestCase):
+    @unittest.skip("not on this platform")
+    def test_it_is_skipped(self):
+        self.assertTrue(True)
+"""
+
+NOT_IMPORTABLE = "this is not python(\n"
 
 
 def _tests_dir(directory: pathlib.Path, body: str) -> pathlib.Path:
@@ -82,6 +119,7 @@ class ReportTest(unittest.TestCase):
         self.assertIsNotNone(document)
         self.assertEqual("1", document.get("tests"))
         self.assertEqual("0", document.get("failures"))
+        self.assertEqual("0", document.get("errors"))
 
     def test_a_failing_suite_exits_non_zero(self):
         code, _ = self._run(FAILING)
@@ -110,8 +148,70 @@ class ReportTest(unittest.TestCase):
             root = pathlib.Path(directory)
             tests = root / "tests"
             tests.mkdir()
-            (tests / "test_broken.py").write_text("this is not python(", encoding="utf-8")
+            (tests / "test_broken.py").write_text(NOT_IMPORTABLE, encoding="utf-8")
             self.assertEqual(1, run(tests, root / "junit.xml"))
+
+    def test_a_module_that_does_not_import_still_leaves_a_report(self):
+        # The report is the reason the job publishes an artifact, and the case
+        # where the report is missing is exactly the case where somebody needs
+        # it.
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            tests = root / "tests"
+            tests.mkdir()
+            (tests / "test_broken.py").write_text(NOT_IMPORTABLE, encoding="utf-8")
+            report = root / "junit.xml"
+            self.assertEqual(1, run(tests, report))
+            self.assertTrue(report.is_file())
+            document = ET.parse(report).getroot()
+            self.assertEqual("1", document.get("errors"))
+
+    def test_a_suite_with_no_tests_says_so(self):
+        # `unittest` exits with 5 when no test ran, and a green exit for a
+        # suite that ran nothing is a green that nobody wrote.
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            tests = root / "tests"
+            tests.mkdir()
+            self.assertEqual(5, run(tests, root / "junit.xml"))
+
+
+class OutcomeTest(unittest.TestCase):
+    """The outcomes the console reports and the report has to carry too."""
+
+    def _run(self, body: str) -> ET.Element:
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            tests = _tests_dir(root, body)
+            report = root / "junit.xml"
+            run(tests, report)
+            return ET.parse(report).getroot()
+
+    def test_a_sub_test_that_failed_is_a_failure_of_its_test(self):
+        document = self._run(SUB_TEST)
+        cases = document.findall(".//testcase")
+        self.assertEqual(1, len(cases))
+        self.assertEqual("test_the_cases", cases[0].get("name"))
+        failures = cases[0].findall("failure")
+        self.assertEqual(1, len(failures))
+        self.assertIn("the third case is the one that fails", failures[0].get("message"))
+        self.assertEqual("1", document.get("failures"))
+
+    def test_a_class_that_could_not_be_set_up_is_an_error_of_its_own(self):
+        document = self._run(CLASS_ERROR)
+        errors = document.findall(".//error")
+        self.assertEqual(1, len(errors))
+        self.assertIn("the class could not be set up", errors[0].get("message"))
+        self.assertEqual("1", document.get("errors"))
+        self.assertEqual("0", document.get("failures"))
+
+    def test_a_skipped_test_is_skipped_in_the_report(self):
+        document = self._run(SKIPPED)
+        skipped = document.findall(".//skipped")
+        self.assertEqual(1, len(skipped))
+        self.assertIn("not on this platform", skipped[0].get("message"))
+        self.assertEqual("1", document.get("skipped"))
+        self.assertEqual("1", document.get("tests"))
 
 
 if __name__ == "__main__":

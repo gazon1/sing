@@ -19,7 +19,7 @@ artifact and not in the step log* — the step log prints the first lines of a
 stacktrace, and the text that explains the failure is somewhere else. The
 gate scripts' own tests had the opposite shape: their whole explanation was
 in a step log that nobody opens, and a red `Gate tooling` job said only that
-something among 2383 assertions was wrong.
+something among thousands of assertions was wrong.
 
 So the gate scripts' tests leave a report too — the same JUnit XML shape the
 Kotlin tests leave, in the same artifact convention, read by the same tools.
@@ -27,10 +27,16 @@ Kotlin tests leave, in the same artifact convention, read by the same tools.
 What this script does
 ---------------------
 It runs the tests of `scripts/tests` and writes a JUnit XML document: one
-`<testsuite>` per test class, one `<testcase>` per test, and a `<failure>` with
-the traceback for every test that failed. The exit code is the one `unittest`
-would have returned — zero when everything passed, one otherwise — so the
-script can replace the `unittest` call without changing what the job means.
+`<testsuite>` per test class, one `<testcase>` per test, a `<failure>` for
+every test that failed and an `<error>` for every error — including the ones
+that belong to a class rather than to a test (`setUpClass`) and the ones that
+a sub-test produced. The exit code is the one `unittest` would have returned:
+zero when everything passed, five when no test ran at all, one otherwise.
+
+A test module that cannot be imported is a failure of that module and not the
+end of the run: the report is written anyway, because the report is the reason
+the job publishes an artifact, and the case where the report is missing is
+exactly the case where somebody needs it.
 
 Usage:
     python3 scripts/run-gate-tests.py
@@ -38,13 +44,15 @@ Usage:
 
 Exit codes:
     0 — every test passed
-    1 — a test failed, or the report could not be written
+    1 — a test failed, or a test module could not be imported
+    5 — no test ran
 """
 
 from __future__ import annotations
 
 import argparse
 import pathlib
+import re
 import sys
 import time
 import unittest
@@ -54,6 +62,13 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 #: Where the gate scripts' own tests live.
 DEFAULT_TESTS_DIR = ROOT / "scripts" / "tests"
+
+#: The exit code `unittest` returns when no test ran.
+NO_TESTS_RAN = 5
+
+#: An error that belongs to a class or a module, not to a test:
+#: `setUpClass (tests.test_x.A)`.
+CLASS_ERROR = re.compile(r'^(setUpClass|tearDownClass|setUpModule|tearDownModule) \((?P<target>.+)\)$')
 
 
 class RecordingResult(unittest.TextTestResult):
@@ -78,6 +93,24 @@ class RecordingResult(unittest.TextTestResult):
         self.durations[test.id()] = 0.0 if started is None else time.monotonic() - started
 
 
+class LoadErrorTest(unittest.TestCase):
+    """A test module that could not be imported, carried as a failing test.
+
+    `unittest` does the same thing: a module that does not import becomes a
+    failed test in the suite, and the rest of the suite still runs. The
+    report says so as well — the report is the reason the job publishes an
+    artifact, and the case where the report is missing is exactly the case
+    where somebody needs it.
+    """
+
+    def __init__(self, error: str) -> None:
+        super().__init__()
+        self._error = error
+
+    def runTest(self) -> None:
+        raise AssertionError(self._error)
+
+
 def _classname(test: unittest.TestCase) -> str:
     """The class a test belongs to, as a fully qualified name."""
     cls = type(test)
@@ -85,30 +118,59 @@ def _classname(test: unittest.TestCase) -> str:
     return f"{module}.{cls.__qualname__}" if module else cls.__qualname__
 
 
-def _failure_of(result: RecordingResult, test_id: str) -> tuple[str, str, str] | None:
-    """The failure of one test — its kind, its message and its traceback.
+def _belongs_to(outcome_id: str, test_id: str) -> bool:
+    """Whether an outcome belongs to a test.
 
-    The message is the last line of the traceback: it is the line that names
-    the exception and says what it was — `AssertionError: the answer is not
-    the one this test wanted` — and a reader who opens the report sees it
-    without opening the traceback.
-
-    @param result the outcome of the run.
-    @param test_id the id of the test.
+    A sub-test's outcome carries the test's id and the parameters of the sub
+    case — `test_x.B.test_sub (i=1)` — and it belongs to the test it came
+    from.
     """
-    for outcome, text in result.failures:
-        if outcome.id() == test_id:
-            return "AssertionError", _message_of(text), text
-    for outcome, text in result.errors:
-        if outcome.id() == test_id:
-            return "Error", _message_of(text), text
-    return None
+    return outcome_id == test_id or outcome_id.startswith(test_id + " (")
 
 
 def _message_of(traceback_text: str) -> str:
     """The line of a traceback that says what happened."""
     lines = [line for line in traceback_text.splitlines() if line.strip()]
     return lines[-1].strip() if lines else ""
+
+
+def _outcomes(
+    result: RecordingResult,
+    test_id: str,
+) -> list[tuple[str, str, str]]:
+    """The outcomes of one test — `(kind, message, traceback)` for each."""
+    outcomes: list[tuple[str, str, str]] = []
+    for outcome, text in result.failures:
+        if _belongs_to(outcome.id(), test_id):
+            outcomes.append(("failure", _message_of(text), text))
+    for outcome, text in result.errors:
+        if _belongs_to(outcome.id(), test_id):
+            outcomes.append(("error", _message_of(text), text))
+    return outcomes
+
+
+def _class_errors(result: RecordingResult) -> list[tuple[str, str, str]]:
+    """The errors that belong to a class or a module, not to a test.
+
+    `setUpClass` fails before any test of the class runs, so there is no
+    `<testcase>` to hang the error on — the report carries it as a testcase
+    of its own, named after the class it belongs to.
+    """
+    errors: list[tuple[str, str, str]] = []
+    for outcome, text in result.errors:
+        match = CLASS_ERROR.match(outcome.id())
+        if match is not None:
+            errors.append((match.group("target"), match.group(1), text))
+    return errors
+
+
+def _skipped(result: RecordingResult) -> dict[str, str]:
+    """The tests that were skipped, and why.
+
+    `unittest` keeps the skipped tests as a list of `(test, reason)` pairs —
+    not as a mapping — and a reader of the report wants the reason.
+    """
+    return {test.id(): reason for test, reason in result.skipped}
 
 
 def write_report(
@@ -124,31 +186,19 @@ def write_report(
     @param suites the tests of every class, by class name.
     @param elapsed how long the run took.
     """
-    document = ET.Element(
-        "testsuites",
-        {
-            "name": "gate scripts' own tests",
-            "tests": str(result.testsRun),
-            "failures": str(len(result.failures)),
-            "errors": str(len(result.errors)),
-            "skipped": str(len(result.skipped)),
-            "time": f"{elapsed:.3f}",
-        },
-    )
+    skipped = _skipped(result)
+    document = ET.Element("testsuites", {"name": "gate scripts' own tests", "time": f"{elapsed:.3f}"})
+    counts = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
+
     for classname, tests in suites.items():
-        suite = ET.SubElement(
-            document,
-            "testsuite",
-            {
-                "name": classname,
-                "tests": str(len(tests)),
-                "failures": str(sum(1 for test in tests if _failure_of(result, test.id()))),
-                "errors": "0",
-                "skipped": str(sum(1 for test in tests if test.id() in result.skipped)),
-                "time": f"{sum(result.durations.get(test.id(), 0.0) for test in tests):.3f}",
-            },
-        )
+        suite = ET.SubElement(document, "testsuite", {"name": classname})
+        suite_counts = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
+
         for test in tests:
+            if test.id() not in result.durations:
+                # The test never ran — its class failed to set up, and that
+                # error is carried by the class-level testcase below.
+                continue
             case = ET.SubElement(
                 suite,
                 "testcase",
@@ -158,18 +208,50 @@ def write_report(
                     "time": f"{result.durations.get(test.id(), 0.0):.3f}",
                 },
             )
-            failure = _failure_of(result, test.id())
-            if failure is not None:
-                kind, message, text = failure
-                element = ET.SubElement(case, "failure", {"message": message[:200], "type": kind})
+            suite_counts["tests"] += 1
+            outcomes = _outcomes(result, test.id())
+            for kind, message, text in outcomes:
+                element = ET.SubElement(case, kind, {"message": message[:200]})
                 element.text = text
-            elif test.id() in result.skipped:
-                ET.SubElement(case, "skipped", {"message": result.skipped[test.id()]})
+                suite_counts["failures" if kind == "failure" else "errors"] += 1
+            if not outcomes and test.id() in skipped:
+                ET.SubElement(case, "skipped", {"message": str(skipped[test.id()])[:200]})
+                suite_counts["skipped"] += 1
+
+        for target, name, text in _class_errors(result):
+            case = ET.SubElement(
+                suite,
+                "testcase",
+                {"classname": target, "name": name, "time": "0.000"},
+            )
+            element = ET.SubElement(case, "error", {"message": _message_of(text)[:200]})
+            element.text = text
+            suite_counts["tests"] += 1
+            suite_counts["errors"] += 1
+
+        for key, value in suite_counts.items():
+            suite.set(key, str(value))
+        for key in counts:
+            counts[key] += suite_counts[key]
+
+    for key, value in counts.items():
+        document.set(key, str(value))
 
     path.parent.mkdir(parents=True, exist_ok=True)
     tree = ET.ElementTree(document)
     ET.indent(tree, space="  ")
     tree.write(path, encoding="utf-8", xml_declaration=True)
+
+
+def _flatten(suite: unittest.TestSuite) -> list[unittest.TestCase]:
+    """Every test of a suite, in the order the suite holds them."""
+    tests: list[unittest.TestCase] = []
+    for item in suite:
+        if isinstance(item, unittest.TestSuite):
+            tests.extend(_flatten(item))
+        else:
+            tests.append(item)
+    return tests
 
 
 def run(tests_dir: pathlib.Path, junit_xml: pathlib.Path | None) -> int:
@@ -180,10 +262,12 @@ def run(tests_dir: pathlib.Path, junit_xml: pathlib.Path | None) -> int:
     """
     loader = unittest.TestLoader()
     suite = loader.discover(start_dir=str(tests_dir), top_level_dir=str(tests_dir))
-    if loader.errors:
-        for error in loader.errors:
-            print(error, file=sys.stderr)
-        return 1
+
+    # A module that does not import becomes a failed test, the way `unittest`
+    # does it — and the rest of the suite still runs.
+    load_errors = [error for error in loader.errors]
+    for error in load_errors:
+        suite.addTest(LoadErrorTest(error))
 
     # The tests are collected before the run: `unittest` reuses the suite for
     # the results, and a suite that was run holds the failures and `None` for
@@ -202,18 +286,12 @@ def run(tests_dir: pathlib.Path, junit_xml: pathlib.Path | None) -> int:
         write_report(junit_xml, result, suites, elapsed)
         print(f"run-gate-tests: the report is at {junit_xml}", file=sys.stderr)
 
-    return 0 if result.wasSuccessful() else 1
-
-
-def _flatten(suite: unittest.TestSuite) -> list[unittest.TestCase]:
-    """Every test of a suite, in the order the suite holds them."""
-    tests: list[unittest.TestCase] = []
-    for item in suite:
-        if isinstance(item, unittest.TestSuite):
-            tests.extend(_flatten(item))
-        else:
-            tests.append(item)
-    return tests
+    if not result.wasSuccessful():
+        return 1
+    if not tests:
+        print("run-gate-tests: NO TESTS RAN", file=sys.stderr)
+        return NO_TESTS_RAN
+    return 0
 
 
 def main() -> int:

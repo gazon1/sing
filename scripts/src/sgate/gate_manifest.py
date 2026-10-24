@@ -912,10 +912,10 @@ fragility this repository already has a gate for.""",
     "gate scripts' own unit tests": Placement(
         kind=PlacementKind.ELSEWHERE,
         reason=(
-            "CI runs them as a step of the `meta` job: `python3 -m unittest discover "
-            "-s scripts/tests`. 1187 assertions in 70 seconds — more than every other "
-            "gate in the static job together — and they are about the gates, not "
-            "about the app, so they belong beside the gates and not behind the JVM "
+            "CI runs them as a step of the `Gate tooling` job: "
+            "`python3 scripts/run-gate-tests.py`, which writes the JUnit XML the "
+            "job publishes as an artifact. The suite is about the gates, not about "
+            "the app, so it belongs beside the gates and not behind the JVM "
             "tests."
         ),
         tracked_by=".github/workflows/ci.yml#Gate scripts' own unit tests",
