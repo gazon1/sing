@@ -14,12 +14,26 @@ exists and names real types, but no module reads it. The compiler is then never
 told anything, and every "stable" claim in the repository's documentation is a
 claim about a file nothing loads.
 
-So this gate checks three things:
+So this gate checks four things:
 
   1. every entry is a syntactically valid fully-qualified name;
   2. every entry resolves to a type that exists — a declared type in the shared
      sources for a project namespace, an imported type for a library one;
-  3. the file is actually wired into the modules that compile composables.
+  3. the file is actually wired into the modules that compile composables;
+  4. every site the register of debt names is still declared in the sources.
+
+The fourth one is a different failure from the first three. The contract names
+*types*, and the compiler ignores a name it cannot resolve — a contract entry
+that rots is a contract that says less than it appears to. The register of debt
+(`ComposeCollectionExemptions.kt`) names *composables*, and a register entry
+whose composable was deleted is worse than a dead contract entry: the detekt
+rule exempts by name, so a stale entry exempts nothing and the debt it was
+accounting for is invisible in both directions.
+
+The rule itself catches the entries that are stale in the *parameters* — a
+parameter that was renamed, removed or retyped. It cannot catch a composable
+that is gone: the rule visits the code that exists. That is what this gate is
+for; it reads the sources, not a build artifact.
 
 What it does NOT check
 ----------------------
@@ -80,6 +94,27 @@ _IMPORT = re.compile(r"^import\s+([\w.]+)", re.M)
 #: be a wildcard — `*` for one package level, `**` for the level and everything
 #: under it.
 _ENTRY = re.compile(r"^[A-Za-z_]\w*(\.[A-Za-z_]\w*)*(\.\*{1,2})?$")
+
+#: The register of debt: the composables that still take a raw collection.
+DEBT_REGISTER = (
+    ROOT / "detekt-rules" / "src" / "main" / "kotlin" / "com" / "singularity" / "todo"
+    / "detekt" / "ComposeCollectionExemptions.kt"
+)
+
+#: The modules whose sources may declare a registered composable.
+REGISTER_MODULES = ("shared", "desktopApp", "androidApp")
+
+#: A qualified name in the register — the keys of the exemption map.
+_REGISTER_SITE = re.compile(r'"(com\.singularity\.[\w.]+)"')
+
+#: How a source declares a name. Three shapes, because the register names
+#: classes, functions and properties alike. A function may carry a type
+#: parameter list and a receiver — `fun <T> Nav3State.toDecoratedEntries(`.
+_DECLARATION_SHAPES = (
+    r"\b(?:class|object|interface)\s+{name}\b",
+    r"\bfun\s+(?:<[^>]*>\s*)?(?:[\w.]+\.)?{name}\s*\(",
+    r"\b(?:val|var)\s+(?:[\w.]+\.)?{name}\b",
+)
 
 
 def read_entries(conf: pathlib.Path) -> list[tuple[int, str]]:
@@ -182,6 +217,94 @@ def check_wiring(root: pathlib.Path) -> list[str]:
     return findings
 
 
+def read_register_sites(register: pathlib.Path) -> list[str]:
+    """The qualified names the register of debt names, in the order it names them."""
+    if not register.is_file():
+        return []
+    text = register.read_text(encoding="utf-8", errors="replace")
+    sites: list[str] = []
+    for match in _REGISTER_SITE.finditer(text):
+        site = match.group(1)
+        if site not in sites:
+            sites.append(site)
+    return sites
+
+
+def source_roots(root: pathlib.Path) -> list[pathlib.Path]:
+    """The Kotlin source roots of the modules that may declare a composable."""
+    roots: list[pathlib.Path] = []
+    for module in REGISTER_MODULES:
+        base = root / module / "src"
+        if not base.is_dir():
+            continue
+        roots.extend(path for path in base.glob("*/kotlin") if path.is_dir())
+    return roots
+
+
+def _declares(text: str, name: str) -> bool:
+    """True when the source text declares a name of that spelling."""
+    escaped = re.escape(name)
+    return any(
+        re.search(shape.format(name=escaped), text) for shape in _DECLARATION_SHAPES
+    )
+
+
+def site_exists(site: str, roots: list[pathlib.Path]) -> bool:
+    """True when some source declares the composable the register names.
+
+    The qualified name does not say where the package ends and the
+    declarations begin, so every split is tried: the longest package first,
+    because a package that does not exist as a directory cannot hold the
+    declaration.
+
+    A source root that does not lay its files out by package path cannot be
+    searched by path, so the name is looked for in the whole root as well —
+    a gate that reports sixty false positives because a module moved its
+    sources is a gate that gets switched off.
+    """
+    parts = site.split(".")
+    for split in range(len(parts) - 1, 0, -1):
+        package = ".".join(parts[:split])
+        names = parts[split:]
+        relative = pathlib.Path(*package.split("."))
+        for root in roots:
+            directory = root / relative
+            if not directory.is_dir():
+                continue
+            texts = [
+                path.read_text(encoding="utf-8", errors="replace")
+                for path in directory.rglob("*.kt")
+            ]
+            if texts and all(any(_declares(text, name) for text in texts) for name in names):
+                return True
+    return _declared_anywhere(site.split(".")[-1], roots)
+
+
+def _declared_anywhere(name: str, roots: list[pathlib.Path]) -> bool:
+    """True when some source anywhere declares a name of that spelling."""
+    escaped = re.escape(name)
+    patterns = [shape.format(name=escaped) for shape in _DECLARATION_SHAPES]
+    for root in roots:
+        for path in root.rglob("*.kt"):
+            text = path.read_text(encoding="utf-8", errors="replace")
+            if any(re.search(pattern, text) for pattern in patterns):
+                return True
+    return False
+
+
+def check_register_sites(sites: list[str], roots: list[pathlib.Path]) -> list[str]:
+    """The findings for the register of debt. Empty means every site still exists."""
+    findings: list[str] = []
+    for site in sites:
+        if site_exists(site, roots):
+            continue
+        findings.append(
+            f"the register of debt names '{site}', and no source declares it — "
+            "the entry accounts for a composable that no longer exists; delete it",
+        )
+    return findings
+
+
 @click.command()
 @click.option(
     "--conf",
@@ -204,8 +327,21 @@ def check_wiring(root: pathlib.Path) -> list[str]:
     show_default=True,
     help="the repository root, for the wiring check",
 )
+@click.option(
+    "--register",
+    type=click.Path(path_type=pathlib.Path),
+    default=DEBT_REGISTER,
+    show_default=True,
+    help="the register of debt whose sites must still exist",
+)
 @click.pass_context
-def cli(ctx: click.Context, conf: pathlib.Path, source_root: pathlib.Path, root: pathlib.Path) -> None:
+def cli(
+    ctx: click.Context,
+    conf: pathlib.Path,
+    source_root: pathlib.Path,
+    root: pathlib.Path,
+    register: pathlib.Path,
+) -> None:
     """Check that the Compose stability contract names real types and is wired."""
     if not conf.is_file():
         click.echo(f"[compose-stability] the contract is missing: {conf}")
@@ -223,6 +359,10 @@ def cli(ctx: click.Context, conf: pathlib.Path, source_root: pathlib.Path, root:
     findings = check_entries(entries, declared_types(sources), imported_types(sources))
     findings += check_wiring(root)
 
+    sites = read_register_sites(register)
+    if sites:
+        findings += check_register_sites(sites, source_roots(root))
+
     for finding in findings:
         click.echo(f"[compose-stability] {finding}")
 
@@ -237,7 +377,8 @@ def cli(ctx: click.Context, conf: pathlib.Path, source_root: pathlib.Path, root:
 
     click.echo(
         f"[compose-stability] {len(entries)} entries resolve to real types, "
-        f"and the contract is wired into {len(WIRED_MODULES)} module(s)."
+        f"the contract is wired into {len(WIRED_MODULES)} module(s), "
+        f"and all {len(sites)} registered site(s) still exist."
     )
     raise ctx.exit(CLEAN)
 
