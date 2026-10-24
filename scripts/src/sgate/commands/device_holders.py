@@ -41,11 +41,12 @@ Usage:
 Exit codes:
     0 = the report was printed
     1 = with --serial: that device is held by a live run
-    2 = the lock directory could not be read
+    3 = the lock directory could not be read
 """
 
 from __future__ import annotations
 
+import errno
 import json as _json
 import os
 import pathlib
@@ -55,12 +56,8 @@ import click
 
 from sgate.commands.base import CLEAN, CONFIG_ERROR, register
 
-#: How a lock file is named, and where the locks live. Both are the emulator
-#: package's own — read from it, not written out here: a second copy of the
-#: naming is a second answer to "which file holds this device?".
-LOCK_PREFIX = "singularity-maestro-"
-LOCK_SUFFIX = ".lock"
-
+#: How long `adb devices` may take before the command gives up on it.
+ADB_TIMEOUT_SECONDS = 10
 
 def _lock_dir() -> pathlib.Path:
     """Where the device locks live."""
@@ -69,14 +66,37 @@ def _lock_dir() -> pathlib.Path:
     return pathlib.Path(LOCK_DIR)
 
 
+def _lock_names() -> tuple[str, str]:
+    """The prefix and the suffix of a lock file's name.
+
+    They are the emulator package's own: the lock that takes a device and the
+    report that says who holds it have to agree on which file is the lock. A
+    second copy of the name is a second answer to "which file holds this
+    device?" — and when the two disagree, the report says every device is free
+    while a device is held.
+    """
+    from emulator.maestro._lock import LOCK_PREFIX, LOCK_SUFFIX
+
+    return LOCK_PREFIX, LOCK_SUFFIX
+
+
 def _pid_alive(pid: int) -> bool:
-    """Whether a process is still running."""
+    """Whether a process with this pid is running.
+
+    This is **pid liveness, not identity**: after a pid is reused, a lock
+    whose owner is gone is reported as held. The report says the pid, and the
+    owner's command line, so a reader can see the mismatch — the same
+    weakness the lock itself has, and the same answer it gives.
+    """
+    if pid <= 0:
+        # `os.kill(0, 0)` would test the caller's own process group.
+        return False
     try:
         os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
+    except OSError as exc:
+        # ESRCH is the "no such process" answer; anything else (a permission
+        # error, say) means the process is there and may not be ours to ask.
+        return exc.errno != errno.ESRCH
     return True
 
 
@@ -84,7 +104,9 @@ def _command_line(pid: int) -> str:
     """The command line of a process, or an empty string.
 
     Read from `/proc`, so it is the command as it is running — which is what
-    names the session that holds the device.
+    names the session that holds the device. It is the argv of a process of
+    the same user, and it can carry tokens: the report prints the beginning
+    of it, and the reader is the person who owns the machine.
     """
     try:
         raw = pathlib.Path(f"/proc/{pid}/cmdline").read_bytes()
@@ -94,14 +116,27 @@ def _command_line(pid: int) -> str:
 
 
 def _locks(lock_dir: pathlib.Path) -> list[dict[str, object]]:
-    """Every lock in the directory, and what each one says."""
+    """Every lock in the directory, and what each one says.
+
+    The directory is read with `os.scandir`, not with `glob`: from Python 3.13
+    on, `glob` swallows the `OSError` of a directory it cannot read and
+    returns an empty list — so an unreadable directory would be reported as
+    "no device is claimed", which is the opposite of what happened.
+    """
+    prefix, suffix = _lock_names()
     found: list[dict[str, object]] = []
     try:
-        entries = sorted(lock_dir.glob(f"{LOCK_PREFIX}*{LOCK_SUFFIX}"))
+        with os.scandir(lock_dir) as entries:
+            names = sorted(
+                entry.name
+                for entry in entries
+                if entry.name.startswith(prefix) and entry.name.endswith(suffix)
+            )
     except OSError as exc:
         raise FileNotFoundError(str(exc)) from exc
-    for entry in entries:
-        serial = entry.name[len(LOCK_PREFIX): -len(LOCK_SUFFIX)]
+    for name in names:
+        entry = lock_dir / name
+        serial = name[len(prefix): -len(suffix)]
         owner: int | None = None
         try:
             text = entry.read_text(encoding="utf-8").strip()
@@ -123,20 +158,29 @@ def _locks(lock_dir: pathlib.Path) -> list[dict[str, object]]:
 
 
 def _connected_devices() -> list[dict[str, str]]:
-    """The devices `adb` sees, and their state."""
+    """The devices `adb` sees, and their state.
+
+    `adb devices` is asked with a timeout: a wedged adb server must not hang
+    the command forever. The header is skipped by what it says rather than by
+    its position — adb prints a version-mismatch notice on stdout sometimes,
+    and a device dropped because of it is a device the report does not have.
+    """
     try:
         result = subprocess.run(
             ["adb", "devices"],
             capture_output=True,
             text=True,
             check=False,
+            timeout=ADB_TIMEOUT_SECONDS,
         )
-    except OSError:
+    except (OSError, subprocess.TimeoutExpired):
         return []
     devices: list[dict[str, str]] = []
-    for line in result.stdout.splitlines()[1:]:
+    for line in result.stdout.splitlines():
         parts = line.split()
-        if len(parts) >= 2:
+        if len(parts) >= 2 and parts[0] == "List":
+            continue
+        if len(parts) >= 2 and parts[1] in ("device", "offline", "unauthorized"):
             devices.append({"serial": parts[0], "state": parts[1]})
     return devices
 
@@ -156,6 +200,8 @@ def _report(locks: list[dict[str, object]], devices: list[dict[str, str]]) -> st
                 detail = f"held by pid {owner} (alive)"
                 if command:
                     detail += f"  {command[:120]}"
+            elif entry["owner"] is None:
+                detail = "unreadable — the owner is unknown, so the device is free"
             else:
                 detail = f"stale — pid {entry['owner']} is gone, the device is free"
             lines.append(f"  {serial:<24} {detail}")
@@ -212,6 +258,14 @@ def device_holders(emit_json: bool, serial: str | None) -> None:
     else:
         click.echo(_report(locks, devices))
 
+    if serial is not None:
+        known = any(entry["serial"] == serial for entry in locks) or any(
+            device["serial"] == serial for device in devices
+        )
+        if not known and not emit_json:
+            click.echo(
+                f"no such device: {serial} — it is neither locked nor connected"
+            )
     if serial is not None and any(entry["held"] for entry in locks):
         raise SystemExit(1)
     raise SystemExit(CLEAN)
