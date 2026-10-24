@@ -2,7 +2,7 @@
 change: the-row-keeps-what-the-document-does-not-say-for-every-type
 verdict: pass
 date: 2026-10-29
-pr: 1099
+pr: 1113
 reviewed: a0391cc210e0cd1c8da286b67956e6a701791758
 documents: sha256:720b625fd8d996864448598c9f23da45af739c259ad50094178b85c2c3d7e3b1
 ---
@@ -73,6 +73,10 @@ the measured prefix moves the prefix and the numbers the record states.
 
 The branch was also rebased onto a newer `main` after the reviews, so the
 commit the reviews read has the same content and a new name.
+
+The `pr:` field names #1113 — the pull request where the contract moved. A
+re-issue names the pull request it is about, and this one is about that pull
+request.
 
 ## What the review checked
 

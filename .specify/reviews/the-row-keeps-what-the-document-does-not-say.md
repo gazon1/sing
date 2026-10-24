@@ -2,7 +2,7 @@
 change: the-row-keeps-what-the-document-does-not-say
 verdict: pass
 date: 2026-10-29
-pr: 1048
+pr: 1113
 reviewed: a0391cc210e0cd1c8da286b67956e6a701791758
 documents: sha256:aeeb5e88e1a9571c768951079b836ba1cadefe8970ba625e8acd0ee04c5ce770
 ---
@@ -47,6 +47,10 @@ the reviews read has the same content and a new name, and the decision that
 carries the rule was renamed with it — a rename that moves it into the end of
 the corpus of decisions, because the corpus is measured in the order of the
 names.
+
+The `pr:` field names #1113 — the pull request where the contract moved. The
+review itself was made in #1048; the re-issue is about the pull request that
+moved the contract, and that is the one it names.
 
 ## The eight rounds, in short
 
