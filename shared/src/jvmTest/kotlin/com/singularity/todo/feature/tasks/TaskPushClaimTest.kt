@@ -207,16 +207,19 @@ class TaskPushClaimTest {
     }
 
     @Test
-    fun `the claim is read inside the transaction, and it sees the write`() = runTest {
+    fun `the claim is the task the write left`() = runTest {
         val repo = repo()
         repo.create(task("t1")).getOrThrow()
         advanceUntilIdle()
         sync.enqueuedEntities.clear()
 
-        // The write and the read are one transaction: the tag is written and
-        // the claim is read back before the transaction commits. A read taken
-        // *before* the write would carry the tags the row had before, which
-        // here is none — and the test would fail.
+        // The claim is what the write left behind. The tag is written and the
+        // claim is read back in the same transaction, so the claim carries the
+        // tag the write has just left. A read taken *before* the write would
+        // carry the tags the row had before, which here is none — and the test
+        // would fail. (A read taken after the commit would see the tag too,
+        // which is why the test is named after the claim and not after the
+        // place the read happens.)
         repo.setTags(TaskId("t1"), listOf(TagId("tag-1"))).getOrThrow()
         advanceUntilIdle()
 

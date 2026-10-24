@@ -3,7 +3,7 @@ change: a-push-carries-what-the-database-holds
 verdict: pass
 date: 2026-10-23
 pr: 1043
-reviewed: 25b21d41a68f33c9763238362c6ef92a723cfee1
+reviewed: 6da0efbf319d8fb0f78ba18bd5f6f3c680e60168
 documents: sha256:6a626459e49c454e6c549bec5e802456b60f227041c5efafe82ceb30847d67fe
 ---
 
@@ -124,6 +124,34 @@ documented; removing a tag the task does not carry rewrote every cross-ref
 and re-pushed; `freshTasks` reads the cross-refs of the whole profile; a
 create pushes a task without the edges the caller carried.
 
+### Round four — PASS, with one should-fix and two nits
+
+The fourth reviewer read the change against the contracts it states, at the
+tip of the branch, and confirmed the substance: the assembly reads the row
+and the cross-refs, the direction of the edges agrees with `toTask` and
+`withExtras`, the read happens inside the transaction that wrote it — checked
+against Room 3.0.0's own bytecode rather than assumed — and the tag edit
+goes through the path that owns the tags. No blocker. What was open:
+
+1. **Should-fix — the verdict's test count was stale.** It said "three of
+   the six tests fail". The class had seven tests by then, and the
+   reverted-fix experiment had been run against six of them. The experiment
+   was re-run against the seven-test class: three of the seven fail — the
+   tags of an edit, the dependencies of an edit and the dependencies of a
+   batch write.
+
+2. **Nit — the transaction test's name claimed more than the test pins.**
+   It said the claim is read *inside the transaction*; the assertion holds
+   for a read taken after the commit too, which is what the verdict itself
+   said a round earlier. The name is now the claim: the task the write left.
+
+3. **Nit — a write that changes nothing does not repair the series, and
+   the ADR did not say so.** The early return in `setTags` skips the repair
+   as well as the write and the push. A series another writer left
+   inconsistent therefore stays that way until a write that moves something
+   touches it. The code was right; the ADR now says it.
+
+
 ## What was done about it
 
 - The ADR carries a frontmatter block now — `title`, `date`, `status`,
@@ -146,6 +174,15 @@ create pushes a task without the edges the caller carried.
   is a no-op, and a no-op is not a claim.
 - The spec's scenario is named for what it pins — *the claim is the task the
   write left* — and the requirement says where the read happens.
+- The test is named for the same thing: *the claim is the task the write
+  left*. The name it had said the claim was read inside the transaction,
+  which the assertion alone cannot tell: a read taken after the commit
+  would see the tag too.
+- The reverted-fix check was re-run against the seven-test class, and it is
+  three of the seven that fail — the tags of an edit, the dependencies of an
+  edit and the dependencies of a batch write.
+- The ADR says that a write which changes nothing does not repair the
+  series either, because it repairs nothing.
 
 ### The fix itself
 
@@ -164,9 +201,9 @@ create pushes a task without the edges the caller carried.
   test pins that the claim sees the write, not where the read happens: a read
   taken after the commit would see the tag too.
 - The test was checked against a reverted fix: with `update()` and
-  `updateAll()` pushing the caller's copy again, three of the six tests fail
-  — the tags of an edit, the dependencies of an edit and the dependencies of
-  a batch write. The tests pin the defect, not the code.
+  `updateAll()` pushing the caller's copy again, three of the seven tests
+  fail — the tags of an edit, the dependencies of an edit and the
+  dependencies of a batch write. The tests pin the defect, not the code.
 - The ADR no longer promises a re-stamp of `updatedAt`: it says the stamp
   does not change and that what changes is that the push no longer carries
   the caller's copy.

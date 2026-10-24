@@ -123,7 +123,10 @@ the change at once, and the push carries what the database holds.
 - A write that changes nothing claims nothing. `setTags` with the tags the row
   already carries writes nothing and pushes nothing: a claim about a set that
   did not move says nothing new, and the screen may ask, but the wire is not
-  told.
+  told. It does not repair the series either, because it repairs nothing. A
+  series that another writer left inconsistent stays that way until a write
+  that moves something touches it — the repair follows the write, and a write
+  that changed nothing has nothing to repair.
 - The bulk delete of a profile reads the cross-refs before it deletes them —
   that is the only way to say what the work had — and pushes the tasks it
   assembled from them. It is the one path that does not read the parts back,
