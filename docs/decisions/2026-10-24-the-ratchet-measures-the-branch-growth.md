@@ -44,6 +44,10 @@ compared against.**
 - The base branch is `origin/main`, then `main`. `--base <ref>` and `SGATE_BASE_REF` override it.
 - The revision compared against is `git merge-base <base> HEAD`. The gate prints it:
   `comparing against merge-base(origin/main, HEAD) = e553498147c9`.
+- `--root <path>` measures another repository: the baselines, the detekt config and the git
+  history are all read from there. The gate's own checkout has the wrong history for the
+  question — a control needs a branch that really grew the baseline, and only a repository of
+  its own can be that branch. See `2026-10-24-the-ratchets-control-is-a-fixture`.
 - When no base branch exists — a shallow checkout, a repository with one branch — the comparison
   falls back to `HEAD` **and the gate says so in a warning**. The fallback is the blindness this
   change removes, so it is announced rather than taken quietly.
@@ -87,6 +91,8 @@ branch's and only the branch's — the same definition GitHub uses for the diff 
 
 - `scripts/check-baseline-ratchet.py` — the comparison and the resolution of the base branch.
 - `scripts/tests/test_check_baseline_ratchet.py` — the pair of tests, and the control.
+- `docs/decisions/2026-10-24-the-ratchets-control-is-a-fixture.md` — the control of this gate, and
+  why it cannot be a sabotage in the real tree.
 - `docs/decisions/2026-10-04-measurement-integrity.md` — a baseline that ratchets in one
   direction only.
 - `docs/decisions/2026-10-16-ci-gradle-step-cannot-fail.md` — the same family of defect: a step

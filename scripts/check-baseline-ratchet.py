@@ -32,6 +32,10 @@ Contract:
   * `git` is required. Without it the check fails loudly rather than skipping —
     a check that silently passes when it cannot run is the defect class this
     whole change is about.
+  * `--root <path>` measures another repository: the baselines, the detekt
+    config and the git history are all read from there. The gate's own
+    checkout has the wrong history for the question — a fixture needs a
+    branch that really grew the baseline.
   * A brand-new baseline file (first commit) is allowed once, then ratchets.
 
 ## What this does NOT check — read before trusting it
@@ -72,6 +76,7 @@ actually clean, run `./check.sh`, not this script.
 
 Usage:
   python3 scripts/check-baseline-ratchet.py [--baseline <path>] [--max-growth N]
+                                              [--base <ref>] [--root <path>]
 
 Exit codes:
   0 — baseline did not grow (or shrank)
@@ -336,6 +341,17 @@ def suppressed_for_disabled(text: str, disabled: dict[str, int]) -> list[str]:
         "main; SGATE_BASE_REF overrides it."
     ),
 )
+@click.option(
+    "--root",
+    "root",
+    default=None,
+    help=(
+        "the repository to measure. Default: the root of the checkout this "
+        "script lives in. A fixture points it at a repository of its own, "
+        "because the gate measures a branch's growth and a branch needs a "
+        "history — the checkout the gate lives in has the wrong one."
+    ),
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -343,8 +359,16 @@ def cli(
     config: str,
     max_growth: int,
     base: str | None,
+    root: str | None,
 ) -> None:
     """Fail when a detekt baseline grows."""
+    # The root is a module global on purpose: every function below reads it at
+    # call time, and the tests replace it the same way. Pointing the gate at
+    # another repository is the same operation, done once, before anything is
+    # measured.
+    global ROOT  # noqa: PLW0603 — the root is the gate's subject, set once here
+    if root is not None:
+        ROOT = Path(root).resolve()
     # Both module baselines are ratcheted. This originally watched only
     # `baseline-shared.xml`, which left `baseline-desktopApp.xml` free to grow
     # unchecked — and it had already drifted from 3 entries to 32 before anyone

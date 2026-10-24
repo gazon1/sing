@@ -1090,7 +1090,22 @@ GATE_CONTROLS: dict[str, Control] = {
     'profile-reset-inventory': Control(kind='sabotage', proves='scripts/ci/check-profile-reset-inventory.py', argv=('{python}', 'scripts/ci/check-profile-reset-inventory.py'), path='docs/architecture/wipe-inventory.md', edit=Edit(kind='replace', old='| `sync_state` | not profile content |', new='| `sync_state` | wiped |', count=1), why='the document claiming more than the code does is the failure this gate exists for: the ADR that describes the profile reset says it reaches the whole profile, and the code reached five things. The probe makes the inventory call the sync cursor profile content — a table whose deletion would make the next pull restore everything the reset just removed. The code does not wipe it, so the document and the code now disagree, and the gate must say so.'),
     'release-tags': Control(kind='sabotage', proves='scripts/check-release-tags.py', argv=('{python}', 'scripts/check-release-tags.py'), path='config/docs/releases-snapshot.json', edit=Edit(kind='replace', old='    "v0.2.1-rc.1"\n  ],', new='    "v0.2.1-rc.1",\n    "v9.9.9-probe"\n  ],', count=1), why='a tag that produced no release is the failure this gate exists for: `meta` proved the tag was on main with a green CI run, `publish` still did not run, and nothing said so. The probe appends exactly such a tag — recorded as neither released nor excused.'),
     'detekt-registrations': Control(kind='sabotage', proves='scripts/check-detekt-registrations.sh', argv=('./scripts/check-detekt-registrations.sh',), path='config/detekt/detekt.yml', edit=Edit(kind='replace', old='no-runblocking:\n  NoRunBlocking:\n    active: true\n', new='', count=-1), why='a RuleSetId with no detekt.yml block never loads, so the rule never runs'),
-    'baseline-ratchet': Control(kind='sabotage', proves='scripts/check-baseline-ratchet.py', argv=('{python}', 'scripts/check-baseline-ratchet.py'), path='config/detekt/baseline-shared.xml', edit=Edit(kind='replace', old='</CurrentIssues>', new='    <ID>Sabotage:Probe.kt:Probe</ID>\n  </CurrentIssues>', count=-1), why='a baseline that can grow silently stops being a ratchet and becomes a sink'),
+    'baseline-ratchet': Control(
+        kind='fixture',
+        proves='scripts/check-baseline-ratchet.py',
+        argv=('{python}', 'scripts/check-baseline-ratchet.py', '--root', '{tmp}/repo'),
+        fixture='setup_baseline_ratchet',
+        why=(
+            "a baseline that can grow silently stops being a ratchet and becomes a sink. "
+            "The gate measures the branch's own growth against the merge-base with the "
+            "base branch, so the control is a fixture: a repository whose branch forks "
+            "from main and grows the baseline by one entry. A sabotage in the real tree "
+            "could not ask that question — the tree the control runs in has a baseline "
+            "the branch shrank, and a net comparison against the merge-base correctly "
+            "says it is still smaller than what it inherited"
+        ),
+        needs_clean_run=False,
+    ),
     'hooks-path': Control(kind='sabotage', proves='scripts/check-hooks-path.py', argv=('{python}', 'scripts/check-hooks-path.py', '--quiet'), path='.githooks/pre-push', edit=Edit(kind='hooks_path'), why='hooks travel with the repository; local git config does not. A configured hooks path with nothing tracked under it is a gate that reports success because nothing ever asked it a question'),
     # git-environment: a git command that reads a tree that is not this
     # checkout's root inherits GIT_DIR from whatever hook started it, and then
