@@ -5,8 +5,8 @@ Module prefixes: `shared/`, `mcp-server/`, `desktopApp/`.
 ## 1. The probe
 
 - [x] shared/ Spawn a real bridge and drive the application's own client against it, and report the verdict, the agent's name and version, the methods the bridge used and its frames. `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpBridgeProbe.kt`
-- [x] shared/ Take the transcript underneath the protocol's reader, and read it when the bridge has gone quiet — a bridge that announces things after the session it answered must not have its announcements cut off by the snapshot. `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpBridgeProbe.kt`
-- [x] shared/ Wait a minimum before the quiet may be accepted, so that a bridge which announces on a timer longer than the quiet period is not snapshotted before its announcement — every time, not sometimes. `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpBridgeProbe.kt`
+- [x] shared/ Take the transcript underneath the protocol's reader, and read it over a window after the connect — a bridge that announces things after the session it answered must not have its announcements cut off by the snapshot. `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpBridgeProbe.kt`
+- [x] shared/ Read the transcript over a fixed window and not over a quiet period, so that a bridge which announces on a timer cannot have its announcement cut off — every time, not sometimes. `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpBridgeProbe.kt`
 - [x] shared/ Copy the bridge's bytes and decode them once, so that a chunk boundary inside a multi-byte character cannot put a replacement character into a transcript that is called verbatim. `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpBridgeProbe.kt`
 - [x] shared/ Give the probe a Gradle task, beside the tool surface's export. `shared/build.gradle.kts`
 - [x] shared/ Keep the probe's verdict out of the build's exit code, so that a probe which did not connect is a report and not a failed build. `shared/build.gradle.kts`
@@ -14,7 +14,7 @@ Module prefixes: `shared/`, `mcp-server/`, `desktopApp/`.
 
 ## 2. What the bridge sent that the fake did not
 
-- [x] shared/ Send the authentication status notification in the fake, as the bridge sends it right after the handshake. `shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/acp/FakeAcpAgent.kt`
+- [x] shared/ Send the authentication status notification in the fake, as the bridge sends it during the handshake and before the session answer. `shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/acp/FakeAcpAgent.kt`
 - [x] shared/ Send the available-commands notification in the fake during the turn, where a session update could become activity the reader sees — a notification sent before the turn is dropped by the protocol library before the client's adapter sees it. `shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/acp/FakeAcpAgent.kt`
 - [x] shared/ Send the bridge's five permission modes and its three configuration options in the fake's session answer. `shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/acp/FakeAcpAgent.kt`
 - [x] shared/ Test that a notification the application has no answer for does not stop the conversation, and produces no activity for the reader — counted, not merely absent from the texts. `shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/acp/AcpClientProcessTest.kt`

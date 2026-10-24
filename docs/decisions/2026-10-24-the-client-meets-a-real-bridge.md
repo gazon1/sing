@@ -49,14 +49,17 @@ its exit code.
 standard output, and a second reader would race it for a line. So the probe tees the
 bytes as they pass: one reader, one copy.
 
-**The transcript is read when the bridge goes quiet.** The bridge keeps talking after
+**The transcript is read when the window is over.** The bridge keeps talking after
 the session it answered: its available commands come on a timer. A transcript read the
 moment the connect returned would miss that frame — and it is one of the frames this
-probe is for. So the probe waits for the bridge to stop talking: a quiet period of two
-seconds, measured on the clock, and a minimum of ten seconds before the quiet may be
-accepted, because a timer longer than the quiet period would put the frame after the
-snapshot every time. The limit of thirty seconds is where the promise ends, and the
-records say so rather than the probe pretending otherwise.
+probe is for. So the probe reads the bridge's stream for thirty seconds after the
+connect, and the promise is the simple one: every frame the bridge wrote in the window
+is in the transcript, and a frame that comes later is a frame the records do not claim.
+
+The window is a length of time and not a heuristic. An earlier version waited for the
+bridge to go quiet, and a quiet period ends the read as soon as the bridge stops
+talking — so a bridge that announces on a longer timer has its announcement cut off,
+every time, not sometimes. A fixed window has no such edge.
 
 The two notifications are not in the same place, and the records say which is which:
 the authentication status arrives when the bridge's own probe resolves — in the
@@ -82,17 +85,19 @@ of the probe's own output, and the three answers it can give stay apart: the bui
 failed, the bridge did not answer, or the handshake completed.
 
 **The fake sends the bridge's shapes.** The authentication status notification
-(`_auth/status_update`, right after the handshake), the available-commands notification
+(`_auth/status_update`, during the handshake and before the session answer), the
+available-commands notification
 (`session/update` with `available_commands_update`), five permission modes, and three
 configuration options — a mode, a model and an effort level — in the answer to
-`session/new`. The fake keeps the models the client requires, so it answers a superset
-of the bridge's session — a client that reads both is the client that reads the bridge.
+`session/new`. The fake's session answer has the same shape as the bridge's, with the
+fake's own values — and one field more: the models, which the bridge leaves out and
+the fake keeps. A client that reads both is the client that reads the bridge.
 The *values* are the fake's own: the bridge's list of models is whatever the machine it
 runs on is configured for, and a machine's configuration is not the repository's
 business. The shape is what the client has to read.
 
 The available-commands notification is sent by the fake *during* the turn, where the
-bridge sends it right after the session is open. The moment is the fake's own, and it
+bridge sends it after the session is open. The moment is the fake's own, and it
 is chosen: a notification sent before the turn is dropped by the protocol library
 before the client's adapter ever sees it, and a test over it would say nothing about
 the window in which a session update could become something the reader sees.
@@ -113,18 +118,20 @@ stated in the file. The shape of every frame is complete, and the shape is the p
 
 The handshake completed against `@agentclientprotocol/claude-agent-acp` 0.95.0 on the
 first run, protocol version 1, and the client named the agent correctly. The difference
-was in what the bridge sends *around* the handshake — the two notifications, the five
-modes, the three configuration options — and none of it broke the client.
+was in what the bridge sends besides the initialize answer, and after the session is
+open — the two notifications, the five modes, the three configuration options — and none
+of it broke the client.
 
 That is the finding, and it is worth stating plainly: **the client was already
-compatible, and nothing in the suite had said so.** The compatibility was luck until
-the probe ran.
+compatible, and nothing in the suite had said so.** The compatibility was an assumption
+until the probe ran, and an assumption that nobody had checked is worth no more than a
+guess.
 
 The reasons for the shape of the change follow from what a test can and cannot do here.
 A test cannot reach the network, so the pass is a program. A program has no second
 reader of the protocol's stream, so the transcript is a copy taken underneath it. A
 bridge that talks after the session it answered would have its announcements cut off
-by a snapshot taken too early, so the snapshot waits for the quiet. And a finding that
+by a snapshot taken too early, so the snapshot waits for a window. And a finding that
 lives in one run's transcript decays, so the fake learns it and the suite covers it.
 
 ## Consequences

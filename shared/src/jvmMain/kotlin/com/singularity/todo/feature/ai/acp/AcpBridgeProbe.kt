@@ -13,10 +13,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
-import kotlin.time.TimeSource
 
 /** The method of a JSON-RPC frame, with its quotes. */
 private val METHOD = Regex("\"method\"\\s*:\\s*\"([^\"]+)\"")
@@ -24,27 +22,21 @@ private val METHOD = Regex("\"method\"\\s*:\\s*\"([^\"]+)\"")
 /** The patience of a probe that may be downloading the bridge's package. */
 private val BRIDGE_TIMEOUT: Duration = 3.minutes
 
-/** How long the bridge may stay silent before the transcript is considered complete. */
-private val QUIET_PERIOD: Duration = 2.seconds
-
 /**
- * How long the probe waits before it may accept the bridge as quiet.
+ * How long the probe reads the bridge's stream after the connect.
  *
- * A quiet period alone is not a guarantee: the bridge announces its available commands
- * on a timer, and a timer longer than the quiet period would put the frame after the
- * snapshot — every time, not sometimes. So the probe waits at least this long after
- * the connect, and then waits for the quiet on top of it. The boundary of the promise
- * is the limit below: a bridge that announces something later than that is outside
- * what this probe can promise, and the records say so rather than the probe pretending
- * otherwise.
+ * The bridge keeps talking after the session it answered, and what it says then is
+ * what the probe is for. A window, and not a moment, is what makes the promise
+ * checkable: **every frame the bridge wrote in the window is in the transcript**, and
+ * a frame that comes later is a frame the records do not claim.
+ *
+ * The window is a plain length of time and not a heuristic. A quiet period would
+ * end the read as soon as the bridge stopped talking — and a bridge that announces
+ * on a timer longer than the quiet period would have its announcement cut off, every
+ * time, not sometimes. A fixed window has no such edge: it either holds the frame or
+ * it does not, and the reader can tell which by looking at the clock.
  */
-private val MIN_WAIT: Duration = 10.seconds
-
-/** How long the probe waits for the bridge to go quiet, whatever it does. */
-private val QUIET_LIMIT: Duration = 30.seconds
-
-/** How often the probe looks at the transcript while it waits. */
-private val POLL_INTERVAL: Duration = 100.milliseconds
+private val TRANSCRIPT_WINDOW: Duration = 30.seconds
 
 /**
  * The application's client, against a real agent bridge.
@@ -87,7 +79,7 @@ object AcpBridgeProbe {
      * @param agentVersion the agent's own version, as it announced it.
      * @param failure why the connect failed, when it did.
      * @param methods the methods the bridge used, in order, with how often each came.
-     * @param transcript every frame the bridge sent, verbatim.
+     * @param transcript every frame the bridge wrote while the probe was reading.
      */
     data class Report(
         val connected: Boolean,
@@ -151,14 +143,16 @@ object AcpBridgeProbe {
                     },
                 )
                 // The bridge keeps talking after the session it answered: its
-                // available commands come on a timer, and a transcript read the moment
-                // the connect returned would miss that frame — which is one of the
-                // frames this probe is for. The authentication notification is a
-                // different case: the bridge sends it when its own authentication probe
-                // resolves, and in the recorded run that happened during the handshake,
-                // before the session answer. So the transcript is read when the bridge
-                // has stopped talking, or when the wait runs out.
-                transcript.awaitQuiet(QUIET_PERIOD, QUIET_LIMIT, MIN_WAIT)
+                // available commands come on a timer. A transcript read the moment the
+                // connect returned would miss that frame — and it is one of the frames
+                // this probe is for. So the transcript is read when the window is
+                // over: everything the bridge wrote in the window is in it.
+                //
+                // The authentication notification is a different case: the bridge sends
+                // it when its own authentication probe resolves, and in the recorded
+                // run that was during the handshake, before the session answer — so it
+                // was in the transcript already when the connect returned.
+                delay(TRANSCRIPT_WINDOW)
                 verdict.copy(
                     methods = transcript.methods(),
                     transcript = transcript.frames(),
@@ -186,7 +180,6 @@ object AcpBridgeProbe {
      */
     private class Transcript {
         private val buffer = ByteArrayOutputStream()
-        private var chunks = 0
 
         fun tee(source: InputStream): InputStream = object : FilterInputStream(source) {
             override fun read(bytes: ByteArray, offset: Int, length: Int): Int {
@@ -207,7 +200,6 @@ object AcpBridgeProbe {
             private fun copy(bytes: ByteArray, offset: Int, length: Int) {
                 synchronized(buffer) {
                     buffer.write(bytes, offset, length)
-                    chunks++
                 }
             }
         }
@@ -215,38 +207,6 @@ object AcpBridgeProbe {
         fun frames(): List<String> = synchronized(buffer) {
             String(buffer.toByteArray(), Charsets.UTF_8).lines().filter { it.isNotBlank() }
         }
-
-        /**
-         * Waits until the bridge stops talking.
-         *
-         * The quiet period is measured on the clock, not on the frames: a bridge that
-         * says nothing at all must not make the probe wait for the limit. And the
-         * limit is there so that a bridge that never goes quiet does not make the
-         * probe wait for ever.
-         *
-         * The minimum is there for the other side of the same promise: a bridge that
-         * announces something on a timer longer than the quiet period would be
-         * snapshotted before the announcement, every time. So the probe waits at least
-         * that long before it may accept the quiet, and the limit is where the promise
-         * ends.
-         */
-        suspend fun awaitQuiet(quiet: Duration, limit: Duration, minimum: Duration) {
-            val started = TimeSource.Monotonic.markNow()
-            var seen = chunks()
-            var quietSince = TimeSource.Monotonic.markNow()
-            while (started.elapsedNow() < limit) {
-                delay(POLL_INTERVAL)
-                val now = chunks()
-                if (now != seen) {
-                    seen = now
-                    quietSince = TimeSource.Monotonic.markNow()
-                } else if (quietSince.elapsedNow() >= quiet && started.elapsedNow() >= minimum) {
-                    return
-                }
-            }
-        }
-
-        private fun chunks(): Int = synchronized(buffer) { chunks }
 
         /**
          * The methods the bridge used, and how often each came.
