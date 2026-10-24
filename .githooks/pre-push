@@ -230,6 +230,24 @@ tree_for_sha() {
     return 1
 }
 
+# The names of the tests that failed, from the suite's own output.
+#
+# `unittest` prints one line per failure — "FAIL: test_x" — and this hook used
+# to throw the whole output away, so a red push said only that the suite did
+# not pass. The names are the beginning of the answer, and the answer is what
+# the person pushing needs.
+report_failed_tests() {
+    local log="$1" names
+    [ -f "$log" ] || return 0
+    # `|| true`: the hook runs with `set -euo pipefail`, and a log without a
+    # failing test is a log whose grep found nothing.
+    names="$(grep -E '^(FAIL|ERROR): ' "$log" | head -20 || true)"
+    if [ -n "$names" ]; then
+        echo "   the failing tests:"
+        printf '%s\n' "$names" | sed 's/^/     /'
+    fi
+}
+
 # ── Structural gates (seconds, no Gradle) ────────────────────────────────
 #
 # Both gates run against the TREE THAT IS BEING PUSHED. The gate scripts are
@@ -410,6 +428,21 @@ for i in "${!PUSH_REFS[@]}"; do
     # So the suite runs without those names. The fixtures also scrub them
     # themselves (scripts/tests/git_sandbox.py), because the suite is run
     # outside a hook too, and this line is the belt to their braces.
+    # The suite runs inside a hook, so the marker is set.
+    #
+    # One of the suite's own tests drives the hook through a real push, and the
+    # hook runs the suite — so a suite that runs inside a hook runs itself: the
+    # hook's step pushes, the push runs the hook, the hook runs the suite, and
+    # the suite pushes again. On 2026-10-23 that recursion is what made this
+    # step fail: the probe test asserted that the probe had run, and the probe
+    # ran one tree deeper than the assertion was about. The test skips itself
+    # when the marker is set, and it runs everywhere else — in CI, and by
+    # anybody who runs the suite by hand.
+    #
+    # The suite's output goes to a file, and the failing test names are
+    # printed: a step that says "FAILED" without saying which test failed
+    # costs the reader the whole push.
+    suite_log="$TMP_ROOT/gate-suite-$i.log"
     if [ ! -d "$tree/scripts/tests" ]; then
         echo "   gate suite tests: SKIPPED (the pushed tree does not have them)"
     elif [ ! -f "$tree/scripts/run-gate-tests.py" ]; then
@@ -417,23 +450,27 @@ for i in "${!PUSH_REFS[@]}"; do
         # runs the same tests — and a push of an old branch is not blocked by
         # a file that branch does not have.
         if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR \
+            GATE_SUITE_INSIDE_HOOK=1 \
             PYTHONPATH="$tree/scripts/src" \
-            python3 -m unittest discover -s scripts/tests >/dev/null 2>&1); then
+            python3 -m unittest discover -s scripts/tests >"$suite_log" 2>&1); then
             echo "   gate suite tests: OK (the tree has no runner — plain unittest)"
         else
             echo "   gate suite tests: FAILED"
             GATES_FAILED=1
+            report_failed_tests "$suite_log"
         fi
     elif (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR \
+        GATE_SUITE_INSIDE_HOOK=1 \
         PYTHONPATH="$tree/scripts/src" \
-        python3 "$tree/scripts/run-gate-tests.py" >/dev/null 2>&1); then
+        python3 "$tree/scripts/run-gate-tests.py" >"$suite_log" 2>&1); then
         echo "   gate suite tests: OK"
     else
         echo "   gate suite tests: FAILED"
         GATES_FAILED=1
+        report_failed_tests "$suite_log"
         echo ""
         echo "pre-push FAILED — the gate suite's own tests do not pass in the tree of $local_ref."
-        echo "Run python3 scripts/run-gate-tests.py to see where, or push with --no-verify."
+        echo "The failing tests are named above; the whole log is at $suite_log."
     fi
 
     # ── The promise files ─────────────────────────────────────────────────
