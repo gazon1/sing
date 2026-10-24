@@ -45,8 +45,8 @@ Projects + tags:
 - `create_project(name, color?, icon?, description?, colorHex?)` — **proposes** a
   project; the user confirms it. Pass `colorHex: "#RRGGBB"` (preferred) OR
   `color: 4283215696` (ARGB int).
-- `create_tag(name, color?, colorHex?)` — same color contract. This one still
-  writes directly; a tag is the vocabulary, not the user's work.
+- `create_tag(name, color?, colorHex?)` — same color contract. It **proposes** a
+  tag; the user confirms it, and the proposal names the id the tag will have.
 - `list_tasks({projectId: "..."})` ≡ `list_linked_tasks(projectId)` — same query.
 
 Decomposition:
@@ -113,7 +113,8 @@ Describing the toolbox itself:
    → proposes the project; the user confirms it, and the proposal names the
      id the project will have — store that projectId
 2. create_tag(name="mcp-<topic>", colorHex="#4CAF50")
-   → store tagId (this one writes directly)
+   → proposes the tag; the user confirms it, and the proposal names the id
+     the tag will have — store that tagId
 3. create_task(
      title="<root task>",
      description="<what + how to verify>",

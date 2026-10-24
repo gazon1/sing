@@ -31,7 +31,7 @@ invisible not because nobody looked, but because nothing that read them *could* 
 
 Two things made it look otherwise:
 
-* the step's name is `Gradle (tests + coverage + detekt)`, and its comment block
+* the step's name is `Gradle (tests)`, and its comment block
   reasons at length about how each Gradle flag affects the verdicts;
 * `check-test-runs.py --gradle-log build.log` reads the log on the very next steps, so
   the step reads as instrumented. It reads the log to exempt `UP-TO-DATE` tasks from

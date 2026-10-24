@@ -31,6 +31,17 @@ import pathlib
 #: so a test can point it somewhere else after this module is loaded.
 LOCK_DIR = pathlib.Path(os.environ.get("MAESTRO_LOCK_DIR", "/tmp"))
 
+#: The name of a lock file, without the serial and without the suffix.
+#:
+#: The name is written down here, once: the lock that takes a device and the
+#: report that says who holds it have to agree on which file is the lock, and
+#: a second copy of the name is a second answer to "which file holds this
+#: device?".
+LOCK_PREFIX = "singularity-maestro-"
+
+#: The suffix of a lock file.
+LOCK_SUFFIX = ".lock"
+
 
 class DeviceLocked(RuntimeError):
     """Another run holds this device."""
@@ -91,7 +102,7 @@ class DeviceLock:
     def path(self) -> pathlib.Path:
         """Where this device's lock file lives."""
         safe = self.serial.replace("/", "_")
-        return self.dir / f"singularity-maestro-{safe}.lock"
+        return self.dir / f"{LOCK_PREFIX}{safe}{LOCK_SUFFIX}"
 
     def _owner(self) -> int | None:
         """The PID in the lock file, or None when it cannot be read."""

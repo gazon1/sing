@@ -156,19 +156,26 @@ verdict) and once with it (the measurement). That is the price of a floor
 that is enforced where it is computed, and it is paid where the measurement
 is wanted rather than everywhere.
 
-**One name in the workflow is now false and stays; the other is free to
-change.** The suite job's step is still called
-`Gradle (tests + coverage + detekt)` and the job is still called
-`JVM tests, detekt, coverage`, and neither runs coverage or detekt any
-more. The STEP name is free to rename: the registry control that anchored at
-it moved to the coverage job with the job graph (see the anchors paragraph
-below), and `scripts/check-waiver-references.py` requires an anchor to
-resolve to a step name — not to a name the workflow used to carry. The JOB
-name stays, because it is a key in the published measurements
-(`config/docs/gate-benchmarks.json`), and renaming it there would
-invalidate them. A false name that resolves is cheaper than a dangling
-anchor; the debt is recorded here rather than hidden in a rename that would
-invalidate the measurements.
+**Both false names are renamed, and the measurements are re-recorded.** The
+suite job's step was called `Gradle (tests + coverage + detekt)` and the job
+`JVM tests, detekt, coverage`, and neither ran coverage or detekt any more.
+Both are renamed — the step to `Gradle (tests)`, the job to `JVM tests` — and
+the step's rename was safe because the registry control that anchored at it
+had already moved to the coverage job with the job graph (see the anchors
+paragraph below), and `scripts/check-waiver-references.py` requires an anchor
+to resolve to a step name, not to a name the workflow used to carry.
+
+The JOB name was the one that could not move on its own, and the reason was
+not the one the first draft of this paragraph gave. Nothing compares the
+recorded job names with the workflow's: `sgate gate-costs` renders the
+recorded map, and `check-published-measurements.py` compares the baseline
+with the published page. So renaming the job invalidated nothing — the
+published page simply kept naming a job that no longer exists. The
+measurements are re-recorded anyway, because the point of the page is the
+price of the loop as it is now, and a price that names the old jobs is a
+price of the old loop. Until that re-record lands, the published page still
+prints the old job name and its old duration; the page is the record, and
+the record is one change behind.
 
 **The custom rules keep their own instrumentation.** `:detekt-rules` applies
 the Kover plugin itself, so its tests are instrumented whatever the settings
@@ -203,9 +210,50 @@ passes while proving nothing.
 keeps a number out of the contract; the number is measured on the first real
 pull request with this change and recorded in `docs/testing/gate-costs.md`.
 
+That first real pull request was #1053, and its run (40076129625) says what
+the change bought. The names are the runner's own — the rename came later, so
+the run calls the suite job what it was called then:
+
+| job (as the runner named it) | wall time |
+|---|---|
+| Affected tests | 30 s |
+| CI gate | 4 s |
+| changes | 9 s |
+| Agent review | 20 s |
+| Android (free) | 1 min 20 s |
+| Android (pro) | 1 min 59 s |
+| adr-gate | 1 min 30 s |
+| detekt | 5 min 03 s |
+| Gate tooling | 5 min 33 s |
+| Static gates | 7 min 35 s |
+| JVM tests, detekt, coverage | 14 min 22 s |
+| Coverage | skipped — an ordinary pull request measures nothing |
+
+Two rows of that table are about the ASK, not the answer, and the difference
+matters. The "Affected tests" job took 30 seconds, but in this run its
+selection was EMPTY — the change touched only workflow and documentation
+files, so the map named no test class and the step that runs them was
+skipped. Thirty seconds is what asking costs when there is nothing to run;
+what a run with a selection costs is not measured yet, and saying otherwise
+would publish a number that answers a different question. The suite job is
+the verdict, and at 14 minutes it is the long pole of the pull-request path.
+
+The device tier is not in this table: the `instrumented` job (5 min 35 s)
+belongs to the `android-device-tests` workflow (run 40076129662), not to this
+one.
+
 **The `cost` of the local recipe changed.** `just tests::impact` now runs the
 fast population and reaches the private Gradle home through `./gw`. The same
 tool should not answer two different questions locally and in CI.
+
+**The local loop learned the tiers.** `check.sh` still answers every question
+at once — that is what a push wants. But a change that is still finding out
+whether it compiles wants one question at a time, and the CI now answers four
+of them separately. So there is a `just ci::` module with one recipe per
+tier (`ci::quick`, `ci::tests`, `ci::detekt`, `ci::coverage`), each naming the
+workflow step it mirrors. A local run and a CI run of the same tier answer the
+same question, and a recipe that drifts from its job is visible in the diff
+where the job changed.
 
 # Alternatives considered
 
@@ -236,8 +284,10 @@ sample is not deterministic.
 
 # Links
 
-- `openspec/changes/ci-fast-signal-and-coverage-off-the-pr-path/` — the
-  requirement change: REQ-3 gains a floor's home, REQ-26 is new
+- the requirement change, filed away under `openspec/changes/archive/` as
+  `ci-fast-signal-and-coverage-off-the-pr-path` — the archive prefixes the
+  directory with the date it was filed. REQ-3 gains a floor's home, REQ-26 is
+  new
 - `openspec/specs/test-execution-integrity/spec.md` — the capability
 - `docs/decisions/2026-10-22-ci-fast-only-pr-full-on-schedule.md` — the
   population split this change inherits

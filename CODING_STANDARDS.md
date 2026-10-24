@@ -346,6 +346,42 @@ a sentence elsewhere became false. That is the review's work.
 
 ---
 
+## A rule that replaces a rule names what it replaced
+
+The search had a rule: *a record that carries the word in its title is a
+better answer than one that carries it in its body.* A branch replaced it with
+a predicate — `SearchMode.matches(record, term)`, which asks about the
+record's whole surface list. The replacement was correct in itself, and it
+took the ranking with it: the ranking asks about *one* surface, and the new
+predicate asks about all of them.
+
+Nothing failed. The corpus case for the ranking supplies its own predicate, so
+it passes whatever the use case asks, and nothing asserted the order through
+the use case. **The review caught it before the merge** (PR #1047, round one):
+the ranking asks the rule about the title alone now —
+`mode.matches(record.record.title, term)`, inside `titleMatchesFirst`.
+
+The lesson is not about that rule. It is about what a change that replaces a
+rule owes its reader:
+
+- **Which behaviour the old rule produced, and what produces it now.** In
+  words, not in the shape of the new code: "the title question is now asked of
+  the title alone" is a claim a reviewer can check against the tree; "the
+  ranking moved into `titleMatchesFirst`" is a description of the diff.
+- **The corpus carries a case that fails if the behaviour comes back
+  missing.** A replacement whose corpus cannot tell the difference between the
+  old behaviour and the new one has not proved that it kept anything — and a
+  corpus that brings its own predicate proves nothing about the wiring.
+
+A replacement without both is a deletion that reads as a refactoring.
+
+The two halves are not equally mechanical. The corpus case **is** a gate: it
+fails when the behaviour comes back missing. What no gate can make is the
+judgement — that the behaviour which went missing was one anybody wanted, and
+not one nobody had noticed for a year. That judgement is the review's work.
+
+---
+
 These are checked; a reviewer verifies the check was run rather than
 re-deriving them.
 
@@ -355,10 +391,10 @@ re-deriving them.
 | A document writes only the parts it carries; a part it does not carry is not written | `TaskDocumentPartsTest`, `TaskDocumentWriteTest`, review |
 | A push carries what the database holds; the emptiness of a read is not a claim | `TaskPushClaimTest`, `TaskDaoArchiveRepositoryImplTest`, review |
 | Every test class carries `@Tag` (`fast`, or `slow` when it crosses a process boundary) | `TestTagCoverageTest` |
-| No `delay()` in tests — virtual time and `awaitState` | `AGENTS.md`, review |
+| No `delay()` in tests — virtual time and `awaitState` | detekt `NoRealDelayInTest` (a delay over 500 ms) + review |
 | ViewModels take an injected `AutoCloseableCoroutineScope`; never `viewModelScope` | detekt + review |
 | No pass-through use cases | `PassThroughUseCase` detekt rule |
-| No `stateIn` in a ViewModel | `AGENTS.md`, review |
+| No `stateIn` in a ViewModel | detekt `NoStateIn` + review |
 | No `runBlocking` in production code | detekt + review |
 | `catch (CancellationException)` before a general `catch` | detekt |
 | A swallowed exception keeps its cause | detekt `SwallowedException` |

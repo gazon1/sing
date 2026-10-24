@@ -70,7 +70,9 @@ EXTRA_TOOLS = [
     ),
     (
         "scripts/ci-verdict.py",
-        "Prints the CI verdict of a commit, a branch or a pull request: the workflow, the run, the conclusion.",
+        "Prints the CI verdict of a commit, a branch or a pull request: the workflow, the run, "
+        "the conclusion. The pre-push hook calls it about the commit that is going out, so the "
+        "verdict is a line of the push.",
     ),
     (
         "scripts/prune-merged-branches.py",

@@ -50,7 +50,17 @@ import sys
 
 import click
 
-from sgate.commands.base import run
+# The sgate package lives in this checkout's own `scripts/src`, and the answer
+# this script takes from it — the environment a gate must read the repository
+# in — is about this checkout. The bootstrap puts that root on the path before
+# the import, the way `scripts/check-hook-gates.py` does: an import that
+# happens first is already bound to another tree's package under the same name.
+_scripts_src = str(pathlib.Path(__file__).resolve().parent / 'src')
+if _scripts_src not in sys.path:
+    sys.path.insert(0, _scripts_src)
+
+from sgate.commands.base import run  # noqa: E402
+from sgate.gatekit.gitenv import tree_env  # noqa: E402
 
 CLEAN = 0
 VALIDATION_FAILURE = 1
@@ -65,21 +75,13 @@ DECLARATION = ROOT / 'config' / 'checkout-invariants.json'
 
 #: The environment git exports to a hook. A gate that reads the config must
 #: not read the one the hook points at — that is the whole failure this gate
-#: exists to catch, and reading it would hide the answer.
-GIT_ENVIRONMENT = (
-    'GIT_DIR',
-    'GIT_WORK_TREE',
-    'GIT_INDEX_FILE',
-    'GIT_COMMON_DIR',
-)
+#: exists to catch, and reading it would hide the answer. The answer belongs
+#: to `sgate.gatekit.gitenv`; this gate takes it from there.
 
 
 def clean_env() -> dict[str, str]:
     """The environment without the variables git exports to a hook."""
-    env = dict(os.environ)
-    for name in GIT_ENVIRONMENT:
-        env.pop(name, None)
-    return env
+    return tree_env()
 
 
 def config(key: str) -> str | None:

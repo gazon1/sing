@@ -18,6 +18,7 @@
 | `NoDroppedUiStateProperty` | `NoDroppedUiStatePropertyRule.kt` | `no-dropped-ui-state-property` | Bans a variant of a sealed `*UiState` that does not carry the properties of the | `NoDroppedUiStatePropertyRuleTest` | yes |
 | `NoEmptyOnClickLambda` | `NoEmptyOnClickLambdaRule.kt` | `no-empty-onclick-lambda` | Bans empty lambda placeholders passed as event handlers in composable calls, | `NoEmptyOnClickLambdaRuleTest` | yes |
 | `NoFactoryViewModel` | `NoFactoryViewModelRule.kt` | `no-factory-viewmodel` | Bans registering ViewModels in Koin via the per-injection `factory { }` / `factoryOf(::...)` | `NoFactoryViewModelRuleTest` | yes |
+| `NoFalseImmutable` | `NoFalseImmutableRule.kt` | `no-false-immutable` | A class marked `@Immutable` has to be immutable. | `NoFalseImmutableRuleTest` | yes |
 | `NoMutableCollectionCast` | `NoMutableCollectionCastRule.kt` | `no-mutable-collection-cast` | Bans casting to a mutable collection type. | `NoMutableCollectionCastRuleTest` | yes |
 | `NoOpUpdateState` | `NoOpUpdateStateRule.kt` | `no-op-update-state` | Bans `updateState { it }` — a reducer that returns its input unchanged. | `NoOpUpdateStateRuleTest` | yes |
 | `NoPopupWithoutResourceIdMapping` | `NoPopupWithoutResourceIdMapping.kt` | `popup-test-tag` | Bans the pattern where a `testTag()` call appears inside a Popup-owning container | `NoPopupWithoutResourceIdMappingTest` | yes |
@@ -42,6 +43,6 @@
 | `VmCloseable` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | Requires a ViewModel with a `scope` parameter to call `addCloseable(scope)`, or its scope is never cancelled. | `RuleFiresSmokeTest (shared)` | yes |
 | `VmScopePosition` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | Bans a `scope` parameter that is not last, so injected dependencies read in declaration order. | `RuleFiresSmokeTest (shared)` | yes |
 
-**34 rules.** Regenerate with `python3 scripts/gen-detekt-rule-table.py`; verify with `--check`.
+**35 rules.** Regenerate with `python3 scripts/gen-detekt-rule-table.py`; verify with `--check`.
 
 <!-- END GENERATED RULE TABLE -->

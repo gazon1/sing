@@ -769,3 +769,10 @@ no-unstable-collection-param:
 no-mutable-collection-cast:
   NoMutableCollectionCast:
     active: true
+
+# Added 2026-10-24. Bans a false @Immutable: the annotation is a promise the
+# compiler cannot check, and a class with a `var` or a raw collection breaks
+# it silently — the screen shows a value that is one recomposition out of date.
+no-false-immutable:
+  NoFalseImmutable:
+    active: true

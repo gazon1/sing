@@ -1,9 +1,14 @@
 package com.singularity.todo.feature.ai.acp
 
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.process.ProcessTree
 import com.singularity.todo.core.process.Subprocess
+import com.singularity.todo.test.helpers.awaitState
 import java.io.File
+import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.test.runTest
@@ -11,6 +16,7 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
@@ -31,6 +37,15 @@ import kotlin.time.Duration.Companion.seconds
  *
  * Each of those ends the conversation in a way the reader has to be told about, and
  * each of them is invisible to a double — the double is the answer.
+ *
+ * ## The lifecycle
+ *
+ * The last two tests are about the client's own transitions rather than the pipe:
+ * a close that lands while a turn is running, and a close that lands while a
+ * connect is still waiting for the agent. Both are races, and a race that has no
+ * test is a race that comes back. They are here, in this file, because they need a
+ * real agent on the other end of the pipe — the agent that does not answer the
+ * handshake, and the turn that is still running when the screen goes away.
  *
  * ## The agent
  *
@@ -184,13 +199,337 @@ class AcpClientProcessTest {
         // so the wait is a real two seconds and not a virtual one.
         withContext(Dispatchers.IO) { client.close() }
 
+        awaitExit(agent.process.process)
         assertTrue(
             !agent.process.process.isAlive,
             "the agent's process is gone even though it never answered the goodbye",
         )
     }
 
+    @Test
+    fun `a close that lands during a turn ends the turn and leaves the client closed`() = runTest {
+        val agent = startAgent(MODE_GOOD)
+
+        val client = AcpClient(
+            scope = this,
+            process = agent.process,
+            tree = agent.tree,
+            operations = AcpClientSessionOperations { PermissionDecision.Declined },
+            toolServer = null,
+        )
+        withContext(Dispatchers.IO) { client.connect() }
+
+        // The turn is held open on purpose. The collector stops at the agent's first
+        // message and waits for the test to let it go, so the close below lands
+        // while the turn is still running.
+        //
+        // Nothing here sleeps to arrange that: the release is what ends the turn,
+        // and the test decides when. A turn that was over before the close arrived
+        // would test nothing, and a turn that waited for a timer would test the
+        // timer.
+        val answered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val events = mutableListOf<AcpTurnEvent>()
+        val turn = async {
+            // The failure is caught inside the coroutine, and that is not a detail:
+            // an exception that leaves an `async` cancels the scope it was started
+            // in, and a cancelled scope cannot finish the test it is in.
+            //
+            // What the turn ends with is the protocol's business — the transport
+            // goes under it, and the flow ends with the transport. That the turn
+            // ends is this test's.
+            runCatchingCancellable {
+                client.prompt("hello").collect { event ->
+                    events += event
+                    answered.complete(Unit)
+                    release.await()
+                }
+            }
+        }
+
+        answered.await()
+        withContext(Dispatchers.IO) { client.close() }
+        release.complete(Unit)
+
+        val ended = turn.await()
+
+        assertTrue(
+            events.isNotEmpty(),
+            "the agent's answer arrived before the close, so the turn really was in flight",
+        )
+        assertEquals(
+            "closed",
+            stateOf(client),
+            "the client is closed, not half-updated",
+        )
+        awaitExit(agent.process.process)
+        assertTrue(
+            !agent.process.process.isAlive,
+            "the agent's process is gone: $ended",
+        )
+    }
+
+    @Test
+    fun `a close that lands during a connect cuts it short, and the client ends closed`() = runTest {
+        val agent = startAgent(MODE_SILENT)
+
+        val client = AcpClient(
+            scope = this,
+            process = agent.process,
+            tree = agent.tree,
+            operations = AcpClientSessionOperations { PermissionDecision.Declined },
+            toolServer = null,
+            connectTimeout = 2.seconds,
+        )
+
+        // Both transitions run on the test's own dispatcher, and that is what makes
+        // the order certain rather than likely: the connect is queued first and
+        // holds the client's lifecycle lock while it waits for an answer that will
+        // not come, so the close is asked for while the connect is in flight.
+        //
+        // The deadline is on the virtual clock here, so the wait is instant.
+        //
+        // The failure is caught rather than thrown out of the coroutine: an
+        // exception that leaves an `async` is reported to the test scope, and a
+        // failed scope cancels the very close this test is about.
+        val connect = async {
+            try {
+                client.connect()
+                null
+            } catch (e: AgentHandshakeTimeout) {
+                e
+            } catch (e: AgentUnavailable) {
+                e
+            }
+        }
+        val close = async { client.close() }
+
+        // The close ends the handshake rather than waiting for it: the connect fails
+        // with "the agent stopped", not with its own deadline. A close that waited
+        // out the handshake would leave the reader looking at a screen that says
+        // "connecting" for as long as the agent takes to answer — a minute, if the
+        // agent is an `npx` invocation downloading its package.
+        //
+        // So the guard is not "the close wins the race"; it is "the close ends the
+        // handshake and the fields are cleared once, by one of them". Which of the
+        // two fails the connect is the protocol's business.
+        val failure = connect.await()
+        assertTrue(
+            failure is AgentUnavailable,
+            "the close ended the handshake instead of waiting out its deadline: $failure",
+        )
+        close.await()
+
+        assertEquals(
+            "closed",
+            stateOf(client),
+            "the client is closed, not half-updated",
+        )
+    }
+
+    /**
+     * The close that lands *before* the connect, rather than during it.
+     *
+     * This is the other order the two transitions can take, and it reaches a
+     * different line: the connect finds the conversation already over before it
+     * has a handshake to cut short, so it gives up as soon as it has built its
+     * transport.
+     *
+     * What it has to leave behind is nothing. The client promises that a
+     * connection which did not happen leaves nothing behind — no transport with
+     * a reader still running on it, no protocol, no client — and the transport
+     * this connect builds is the thing that has to be given back.
+     */
+    @Test
+    fun `a close that lands before the connect leaves the client closed`() = runTest {
+        val agent = startAgent(MODE_SILENT)
+
+        val client = AcpClient(
+            scope = this,
+            process = agent.process,
+            tree = agent.tree,
+            operations = AcpClientSessionOperations { PermissionDecision.Declined },
+            toolServer = null,
+            connectTimeout = 2.seconds,
+        )
+
+        // The close comes first, and it finishes: there is no conversation left to
+        // close afterwards, so the connect below is the connect of a client that
+        // has already been closed.
+        //
+        // On the IO dispatcher, like the other close: closing the agent's process
+        // waits for it to go, and that is blocking work.
+        withContext(Dispatchers.IO) { client.close() }
+
+        val failure = runCatching { client.connect() }.exceptionOrNull()
+        assertTrue(
+            failure is AgentUnavailable,
+            "the connect noticed that the conversation was over: $failure",
+        )
+        assertEquals(
+            "The conversation ended before the agent answered.",
+            failure.message,
+            "the connect failed because the conversation was already over, and not because the " +
+                "agent went quiet — the other branch of this failure says something else",
+        )
+        assertEquals(
+            "closed",
+            stateOf(client),
+            "the client is closed, not half-updated",
+        )
+        awaitExit(agent.process.process)
+        assertTrue(
+            !agent.process.process.isAlive,
+            "the agent's process is gone",
+        )
+    }
+
+    /**
+     * The terminate that lands during a close.
+     *
+     * A terminate is the one transition that cannot wait: the screen is going away
+     * and there is nowhere left to wait in. So it *tries* the lock rather than
+     * taking it, and a terminate that lands while a close holds the lock has to end
+     * the conversation anyway — and leave the client in one state, not half of one.
+     *
+     * The close here is the slow one. The agent answers everything but the goodbye,
+     * so the close holds the lock while it waits for an answer that is not coming,
+     * and that window is where the terminate lands.
+     */
+    @Test
+    fun `a terminate that lands during a close ends the conversation`() = runTest {
+        val agent = startAgent(MODE_MUTE_CLOSE)
+
+        val client = AcpClient(
+            scope = this,
+            process = agent.process,
+            tree = agent.tree,
+            operations = AcpClientSessionOperations { PermissionDecision.Declined },
+            toolServer = null,
+            closeTimeout = 30.seconds,
+        )
+        withContext(Dispatchers.IO) { client.connect() }
+        assertEquals("connected", stateOf(client), "the agent answered the handshake")
+
+        // The close runs on the IO dispatcher: the goodbye it waits for is answered
+        // by a real process, and a real process answers on a real clock.
+        val close = async(Dispatchers.IO) { client.close() }
+
+        // The agent has received the goodbye and is not answering it, so the close
+        // is holding the lock — which is the state the terminate has to cope with.
+        awaitState { agent.transcript.readText().contains("session/close") }
+
+        // The terminate cannot take the lock — the close has it — and it does not
+        // wait for it either. It ends the conversation anyway: the tree and the
+        // pipes go, the goodbye fails, and the close's teardown finishes the job.
+        client.terminate()
+        close.await()
+
+        assertEquals(
+            "closed",
+            stateOf(client),
+            "the client is closed, not half-updated",
+        )
+        awaitExit(agent.process.process)
+        assertTrue(
+            !agent.process.process.isAlive,
+            "the agent's process is gone",
+        )
+    }
+
+    /**
+     * The connect that gave up leaves nothing behind.
+     *
+     * The client's promise is that a connection which did not happen leaves nothing
+     * behind: no session, no transport, no protocol, no client. The client says so
+     * in the comment on [AcpClient.connect], and a promise that nothing can see is a
+     * promise nothing can break — a client that kept the transport it built and
+     * dropped only the session would be half a connection, and every other
+     * assertion in this file would still be green.
+     *
+     * So the client has one field the tests can read, and this test reads it.
+     */
+    @Test
+    fun `a connect that gave up leaves nothing behind`() = runTest {
+        val agent = startAgent(MODE_SILENT)
+
+        val client = AcpClient(
+            scope = this,
+            process = agent.process,
+            tree = agent.tree,
+            operations = AcpClientSessionOperations { PermissionDecision.Declined },
+            toolServer = null,
+            connectTimeout = 2.seconds,
+        )
+
+        // The connect runs on the IO dispatcher: the agent is a real process and
+        // it never answers, so the deadline is a real one. On the test's own
+        // dispatcher the agent's blocking read would hold the thread the timeout
+        // has to run on.
+        assertFailsWith<Exception> { withContext(Dispatchers.IO) { client.connect() } }
+
+        assertFalse(
+            client.holdsConnection,
+            "the connection that did not happen left nothing behind — no transport, no " +
+                "protocol, no session",
+        )
+        assertEquals(
+            "closed",
+            stateOf(client),
+            "and the client is not connected either",
+        )
+
+        // The teardown still works, and the caller is the one who ends the agent:
+        // the client does not own the process, so the process is still there and
+        // has to be closed by the hand that started it.
+        withContext(Dispatchers.IO) { client.close() }
+        awaitExit(agent.process.process)
+        assertTrue(
+            !agent.process.process.isAlive,
+            "the agent's process is gone once the caller has closed it",
+        )
+    }
+
     // ── Fixtures ───────────────────────────────────────────────────────────────
+
+    /**
+     * The client's state, as a caller can see it.
+     *
+     * The client publishes no state of its own, so its state is read the way a
+     * caller reads it: by asking for a turn. A connected client hands back a flow; a
+     * closed one says it is not connected. Anything else is the half-updated state
+     * the client's lifecycle guard exists to prevent.
+     *
+     * What this cannot see is a session bound to a closed transport: asking for a
+     * turn hands back a flow either way, and the flow fails when it is collected.
+     * The lock is what keeps that state unreachable, and the assertions below bite
+     * on the part a caller can see — a client that is neither connected nor closed
+     * is a failure. The rest of it — a transport the client kept when its connect
+     * gave up — is what [AcpClient.holdsConnection] is for.
+     */
+    private fun stateOf(client: AcpClient): String = runCatching { client.prompt("probe") }.fold(
+        onSuccess = { "connected" },
+        onFailure = { failure ->
+            if (failure is IllegalStateException && failure.message == "The client is not connected") {
+                "closed"
+            } else {
+                "half-updated: $failure"
+            }
+        },
+    )
+
+    /**
+     * Waits for the agent's process to be gone.
+     *
+     * The tree's grace period is measured on the test's virtual clock, and the
+     * operating system's reaping of a killed process is not: a process that has
+     * been killed has to die in real time, and a machine under load takes longer
+     * at it. So the test waits for the exit and then asks, rather than asking
+     * straight away and hoping the machine was idle.
+     */
+    private fun awaitExit(process: java.lang.Process) {
+        runCatching { process.onExit().get(EXIT_TIMEOUT_SECONDS, TimeUnit.SECONDS) }
+    }
 
     private class RunningAgent(
         val process: com.singularity.todo.core.process.DuplexProcess,
@@ -217,6 +556,9 @@ class AcpClientProcessTest {
 
     private companion object {
         const val FAKE_AGENT_CLASS = "com.singularity.todo.feature.ai.acp.FakeAcpAgentKt"
+
+        /** How long a real process is given to die before the test gives up on it. */
+        const val EXIT_TIMEOUT_SECONDS = 10L
 
         const val MODE_GOOD = "good"
         const val MODE_BAD_VERSION = "bad-version"

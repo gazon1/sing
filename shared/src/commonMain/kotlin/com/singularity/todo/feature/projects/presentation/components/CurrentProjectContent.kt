@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.projects.presentation.components
 
-import androidx.compose.runtime.Immutable
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -17,9 +16,23 @@ import com.singularity.todo.feature.tags.domain.model.TagGroupId
  * [actions] value class instead keeps the type honest — every sheet dispatches through the
  * same named helpers the rest of the screen uses, and no callback is optional.
  *
+ * ## Why there is no `@Immutable` here
+ *
+ * The class carries three raw collections — the child projects, the tag groups and the
+ * inherited tag group ids — and `@Immutable` promises that the instance never changes.
+ * The compiler believes the promise and never looks at the fields, so a list that
+ * changes underneath it goes unnoticed: the sheet shows a value that is one
+ * recomposition out of date.
+ *
+ * The promise was false, and the annotation bought exactly the thing that hid it:
+ * the skipping. Making it true means persistent collections, which is the same debt
+ * the register of raw collection parameters names — and that sweep is not this
+ * change's business. Until then the class is honestly unstable. The
+ * `NoFalseImmutable` rule keeps the annotation from coming back.
+ *
  * @see ProjectDetailActions
+ * @see docs/architecture/compose-stability.md
  */
-@Immutable
 class CurrentProjectContent(
     val name: String,
     val color: Int,

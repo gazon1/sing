@@ -76,6 +76,7 @@ PYTHONPATH=scripts/src python3 -m unittest discover -s scripts/tests
   - Note: the `Kover verify (detekt-rules)` step (`ci.yml:887-888`) keeps its **exact two lines**. The `waiver-references` control's `old` text is that block verbatim (`_registry.py:1274`), and `_replace` refuses a no-op — a reformat would make the control phase error, not fail quietly.
   - Note: the invocation's **non-test** parts stay. `:mcp-server:jar` must remain in the same invocation (`ci.yml:434-437`): `McpServerEndToEndTest` skips itself when the jar is absent — a silent pass. `:shared:verifyToolSurface` stays too.
   - Note: the step's **name** stays `Gradle (tests + coverage + detekt)`, because `scripts/src/sgate/commands/_registry.py:1215` anchors a control at it and `scripts/check-waiver-references.py:31-38` requires the anchor to resolve to a step name. The name becomes false; renaming it breaks the anchor. The debt is recorded, not paid silently.
+    (Paid later: this task re-points that anchor at the coverage job, and once it had moved the name was free. The follow-up change renamed the step to `Gradle (tests)` and the job to `JVM tests`.)
   - Note: the `GRADLE_TASK_PARITY` entries for `:shared:jvmTest` and `:desktopApp:test` change from `covered` to `both`, because CI now names them. The gate passes either way (`scripts/check-gate-wiring.py:2343-2349` only asks that `check.sh` names a `covered` task), but an entry that stops describing the graph is a declaration that rots.
 
 - [x] T007 A coverage job carries the instrumented suite, the floor, the report and

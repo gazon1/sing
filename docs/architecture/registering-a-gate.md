@@ -119,6 +119,7 @@ is the other way round: it writes by default, `--check` verifies.
   different tree than the files on disk.
 - **The pre-push hook is a separate list.** A gate that must run against the tree
   being pushed is named in `PRE_PUSH_TREE_RULES` (`_registry.py`); the hook runs
-  those rules with `env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE`, so a rule
-  that reads a tree of its own must build its own environment — see
-  `scripts/pre-push-verdict.py` (`tree_env()`) and `scripts/check-git-environment.py`.
+  those rules with `env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR`,
+  so a rule that reads a tree of its own must build its own environment — see
+  `scripts/src/sgate/gatekit/gitenv.py` (`tree_env()`, the owner of that answer)
+  and `scripts/check-git-environment.py`.

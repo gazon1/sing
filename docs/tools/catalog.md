@@ -22,7 +22,7 @@ A gate script that no registry entry names is not a gate — it is run by a surf
 | `scripts/ci/preflight-gate-tools.sh` | Says which tool is missing and how to get it, before a gate cannot run. |
 | `scripts/ci/new-gate.py` | Registers a gate in every place it has to be, in one command. |
 | `scripts/detekt-summary.py` | Prints the detekt findings by rule and by place, instead of XML per finding. |
-| `scripts/ci-verdict.py` | Prints the CI verdict of a commit, a branch or a pull request: the workflow, the run, the conclusion. |
+| `scripts/ci-verdict.py` | Prints the CI verdict of a commit, a branch or a pull request: the workflow, the run, the conclusion. The pre-push hook calls it about the commit that is going out, so the verdict is a line of the push. |
 | `scripts/prune-merged-branches.py` | Plans the deletion of local branches whose pull request is merged; deletes them only with --yes. |
 
 ## The modules of the gate suite
@@ -44,6 +44,7 @@ The package the gate scripts import. The list is read from the files: a module t
 | `sgate.commands.build_output_readers` | native Click for: build-output readers precede the invocations that rewrite them. |
 | `sgate.commands.conventions` | shim for check-script-conventions.py. |
 | `sgate.commands.decisions_digest_within_budget` | custom gate: DIGEST.md within budget. |
+| `sgate.commands.device_holders` | who holds a device right now? |
 | `sgate.commands.gate_costs` | what the gates cost, and what that cost says. |
 | `sgate.commands.gradle_test_population` | native Click for: gradle invocations keep one test population. |
 | `sgate.commands.host_load` | is this host busy enough to matter? |

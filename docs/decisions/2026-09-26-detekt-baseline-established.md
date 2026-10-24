@@ -5,6 +5,15 @@ status: accepted
 review: after PR-0.3 (KDoc batch)
 ---
 
+> **Superseded in part (2026-10-23):** "modules without a baseline (androidApp,
+> mcp-server) use `config/detekt/detekt-minimal.yml`, which excludes all custom rule-set
+> sections" no longer holds. `androidApp` moved to the root configuration on 2026-10-05,
+> and `:mcp-server` moved with the change behind
+> [2026-10-23-the-agent-surface-says-what-it-does.md](2026-10-23-the-agent-surface-says-what-it-does.md)
+> — both now apply the repository's configuration and the project's own rules, and a
+> finding in either is a finding like a finding anywhere else. The rest of this decision
+> — the baseline itself, the warn-only day one, the ratchet — still holds.
+
 # detekt baseline established
 
 ## Context

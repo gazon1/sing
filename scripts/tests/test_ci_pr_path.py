@@ -564,9 +564,14 @@ class ControlHarnessPlacement(unittest.TestCase):
         self.assertIn("github.event_name == 'schedule'", env["WITH_CONTROLS"])
 
         # And the corpus is the gates' own declarations, the configuration they
-        # read, and the workflow they read.
+        # read, the workflow they read, and the hook that runs them: the
+        # pre-push hook is a gate surface too, and a change that touches only
+        # the hook runs neither the gate suite nor the static gates otherwise.
         filters = _filters(jobs["changes"])
-        self.assertEqual({"scripts/**", "config/**", ".github/**"}, set(filters["gates"]))
+        self.assertEqual(
+            {"scripts/**", "config/**", ".github/**", ".githooks/**"},
+            set(filters["gates"]),
+        )
 
         # The `changes` job publishes the answer the condition reads.
         self.assertIn("gates", jobs["changes"].get("outputs", {}))

@@ -197,6 +197,15 @@ pipeline — a write becomes a proposal, the user decides, and only then is it w
 Every tool declares how it writes (`WriteBehavior` in
 `shared/src/commonMain/kotlin/com/singularity/todo/feature/ai/McpToolCatalog.kt`), and
 the write behaviour has no default: a tool added without choosing one does not compile.
+The declaration is **published** in the exported tool surface
+(`config/docs/tool-surface.json`), so a reader outside the compiler can read it, and
+**enforced** by the catalogue itself: a tool that writes directly carries the reason it
+sits outside the proposal pipeline, and nothing else carries a reason.
+
+Every proposal-gated tool is driven through the whole round trip: the call proposes, the
+user's data is unchanged, the confirmation writes, and the refusal changes nothing. The
+refusal is the half that gets forgotten — a tool that proposes and then writes anyway
+passes every test that only looks at the confirmation path.
 
 **The application advertises neither the file system nor the terminal.**
 `AcpClient.connect()` sends `ClientCapabilities()` with no `fs` and no `terminal`. The
@@ -208,6 +217,19 @@ the protocol never asks; one that asks anyway is told no. An implementation that
 quietly granted access would be a hole in a guarantee the application makes about the
 user's files. An agent with file and terminal access would have a second, quieter way
 to change the user's data, and it would not ask.
+
+**The client's transitions are mutually exclusive — except the one that cannot wait.**
+`connect()` and `close()` take a lifecycle lock, so a `close()` cannot land between two
+assignments of the connection's fields and leave a session bound to a closed transport.
+`terminate()` *tries* that lock rather than taking it: it cannot suspend — one of its
+callers is a ViewModel being cleared — and it exists to end a conversation that is not
+ending, so a terminate that waited for a close that was waiting for an agent would be a
+terminate that never fires. It ends the process and the pipes whatever the lock is
+doing, and clears the fields itself when no transition is running. The fields
+that are read outside the lock — `prompt()` is not a suspend function — are read safely
+rather than under it. The screen only closes a session it already holds, so the defect
+was latent rather than live; it is closed anyway, because a latent race is one code
+change away from a live one.
 
 **One server, one toolset.** The tool server the agent is handed is *the same server
 the application runs*: the implementation lives in the shared JVM runtime
@@ -265,7 +287,10 @@ its own provider, and this application does not see that bill.
 | `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpAgentProfile.kt` | The agent registry: what to launch, shown before it runs |
 | `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpAgentLauncher.kt` | Starting a real process and building the session around it |
 | `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpAgentSession.kt` | The interface the screen talks to, so the protocol stays behind one door |
-| `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/external/AcpExternalAgentViewModel.kt` | The state, the intents, and the ownership of the process tree |
+| `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/external/AcpExternalAgentViewModel.kt` | The state, the intents, and the screen's own logic |
+| `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/external/AcpAgentConversation.kt` | The conversation: the agent's process, the session on top of it, and the process tree that ends both |
+| `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/external/AcpTurnRunner.kt` | A turn: its clock, and the rules about when it may write to the screen |
+| `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/external/AcpPermissionBroker.kt` | The permission handshake: a question with a deadline |
 | `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/external/AcpExternalAgentScreen.kt` | The screen and the permission sheet |
 | `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/di/AcpDiModule.jvm.kt` | The Koin bindings, composed into the desktop module list only |
 | `shared/src/jvmMain/kotlin/com/singularity/todo/core/process/Subprocess.kt` | Spawning the agent and talking to its pipes |

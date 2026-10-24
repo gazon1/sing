@@ -67,7 +67,12 @@ Three separate contours, kept separate:
 |---|---|---|
 | The agent's permission requests | the agent's own tools | the confirmation sheet in the application |
 | The proposal pipeline | the application's writes to the user's data | the existing proposal confirmation |
-| The direct-write exceptions | three named tools | the reason recorded in the registry |
+| The direct-write exceptions | two named tools | the reason recorded in the registry |
+
+> **Amended (2026-10-23):** there were three exceptions, and `create tag` was one of
+> them — the tool had been proposing for a while and the declaration had not caught up.
+> A tag is user content after all, so it is a proposal-gated tool now. See
+> `docs/decisions/2026-10-23-the-agent-surface-says-what-it-does.md`.
 
 Presenting them as one mechanism would tell the user that they are protecting something they
 are not, and would train them to approve reflexively.

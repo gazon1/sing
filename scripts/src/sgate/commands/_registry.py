@@ -114,6 +114,12 @@ PRE_PUSH_SCRIPTS: tuple[str, ...] = (
     # nothing about the tree — but the hook runs it, and a script the hook
     # runs and no record names is a script nobody knows about.
     "scripts/run-gate-tests.py",
+
+    # The hook asks the CI verdict about the commit it is pushing. It is not
+    # a gate — it decides nothing and blocks nothing — but the hook runs it,
+    # and a script the hook runs and the record does not name is a script
+    # nobody knows runs.
+    "scripts/ci-verdict.py",
 ) + tuple(f"scripts/{rule}.py" for rule in PRE_PUSH_TREE_RULES)
 
 COMMAND_MODULES: dict[str, str] = {
@@ -127,6 +133,7 @@ COMMAND_MODULES: dict[str, str] = {
     "settings_read_by_a_feature": "gate",
     "test_task_external_inputs_declared": "gate",
     "gate_costs": "gate",
+    "device_holders": "utility",
     "host_load": "utility",
     "info": "utility",
     "render_registry": "utility",

@@ -18,6 +18,12 @@ import kotlin.test.assertTrue
  * that the three cases that must stay quiet (a persistent collection, a
  * non-composable function, a stable parameter) are not.
  *
+ * The exemption is keyed by the *parameter*, so the register has two directions
+ * to be wrong in, and both are pinned here: a raw parameter the register does
+ * not name is a finding even at a known site, and a registered parameter the
+ * composable no longer declares (or declares with another type) is a stale
+ * entry — the debt it accounts for is gone, and the register still counts it.
+ *
  * The fixture is compiled through the **Path** overload of
  * `compileContentForTest`, not the `(content, packageName)` one: the string
  * overload wraps the content in a `KtScript`, so `KtFile.declarations` is
@@ -69,6 +75,59 @@ class NoUnstableCollectionParamRuleTest {
         """
         val found = findings(code)
         assertEquals(2, found.size)
+    }
+
+    @Test
+    fun `a composable taking a mutable or concrete collection is flagged`() {
+        // The rule promises to report a *raw collection*, not only the `List`
+        // and the `Map`. A set that names only those two leaves the mutable
+        // spellings — and `Array` — as a way to walk around it.
+        val code = """
+            package com.singularity.todo.feature.tasks
+
+            import androidx.compose.runtime.Composable
+
+            @Composable
+            fun TaskRow(items: MutableList<String>) {
+            }
+
+            @Composable
+            fun TaskRow2(items: MutableSet<String>) {
+            }
+
+            @Composable
+            fun TaskRow3(items: MutableMap<String, Int>) {
+            }
+
+            @Composable
+            fun TaskRow4(items: Collection<String>) {
+            }
+
+            @Composable
+            fun TaskRow5(items: Array<String>) {
+            }
+        """
+        val found = findings(code)
+        assertEquals(5, found.size)
+    }
+
+    @Test
+    fun `the stdlib collection spelled with its package is flagged`() {
+        // `kotlin.collections.List` is the same collection as `List`, and a rule
+        // that missed the spelling would be a rule a developer could walk
+        // around by writing the type out.
+        val code = """
+            package com.singularity.todo.feature.tasks
+
+            import androidx.compose.runtime.Composable
+
+            @Composable
+            fun TaskRow(tags: kotlin.collections.List<String>) {
+            }
+        """
+        val found = findings(code)
+        assertEquals(1, found.size)
+        assertTrue(found[0].message.contains("List"))
     }
 
     @Test
@@ -220,5 +279,126 @@ class NoUnstableCollectionParamRuleTest {
             }
         """
         assertEquals(1, findings(code).size)
+    }
+
+    @Test
+    fun `a raw parameter a known site does not name is flagged`() {
+        // The exemption is keyed by the parameter, not by the composable: a raw
+        // collection parameter added to a known site is a finding, because the
+        // register does not account for it.
+        val code = """
+            package com.singularity.todo.core.ui.components
+
+            import androidx.compose.runtime.Composable
+
+            @Composable
+            fun BlockedCompletionDialog(blockerTitles: List<String>, alsoBlocked: List<String>) {
+            }
+        """
+        val found = findings(code)
+        assertEquals(1, found.size)
+        assertTrue(found[0].message.contains("alsoBlocked") || found[0].message.contains("raw"))
+    }
+
+    @Test
+    fun `a registered parameter that became a persistent collection is stale`() {
+        // The debt is paid when the parameter becomes persistent, and the
+        // register has to hear about it: a check that only looked at the
+        // parameters that are *still* raw would never notice.
+        val code = """
+            package com.singularity.todo.core.ui.components
+
+            import androidx.compose.runtime.Composable
+            import kotlinx.collections.immutable.ImmutableList
+
+            @Composable
+            fun BlockedCompletionDialog(blockerTitles: ImmutableList<String>) {
+            }
+        """
+        val found = findings(code)
+        assertEquals(1, found.size)
+        assertTrue(
+            found[0].message.contains("ImmutableList"),
+            "the finding should name the type the code declares, got: ${found[0].message}",
+        )
+    }
+
+    @Test
+    fun `a registered parameter the composable no longer declares is not the rule's business`() {
+        // A parameter that is gone has no declared type to compare, and a
+        // composable may have overloads — so "this parameter is missing here"
+        // is not the same as "this parameter is gone". The gate answers that
+        // question, because it reads the whole repository.
+        val code = """
+            package com.singularity.todo.core.ui.components
+
+            import androidx.compose.runtime.Composable
+
+            @Composable
+            fun BlockedCompletionDialog() {
+            }
+        """
+        assertEquals(0, findings(code).size)
+    }
+
+    @Test
+    fun `a registered parameter declared with another type is stale`() {
+        val code = """
+            package com.singularity.todo.core.ui.components
+
+            import androidx.compose.runtime.Composable
+
+            @Composable
+            fun BlockedCompletionDialog(blockerTitles: Set<String>) {
+            }
+        """
+        val found = findings(code)
+        assertEquals(1, found.size)
+        assertTrue(
+            found[0].message.contains("Set<String>"),
+            "the finding should name the type the code declares, got: ${found[0].message}",
+        )
+    }
+
+    @Test
+    fun `a nested composable is named the way the compiler names it`() {
+        // The Compose compiler prints the classes a function is nested in first
+        // and the function last: `…feature.nav.Nav3State.toDecoratedEntries`.
+        // The register is keyed by that name, so a rule that computed it the
+        // other way round would not find the entry — and would report a site
+        // the register accounts for.
+        val code = """
+            package com.singularity.todo.feature.nav
+
+            import androidx.compose.runtime.Composable
+
+            class Nav3State {
+                @Composable
+                fun toDecoratedEntries(entryDecorators: List<NavEntryDecorator<NavKey>>) {
+                }
+            }
+        """
+        assertEquals(0, findings(code).size)
+    }
+
+    @Test
+    fun `a registered type spelled with a package qualifier is the same type`() {
+        // The source spells the element type fully qualified; the register
+        // spells it short. They are the same type, and a rule that compared the
+        // text would call a living entry stale.
+        val code = """
+            package com.singularity.todo.feature.nav
+
+            import androidx.compose.runtime.Composable
+
+            class Nav3State {
+                @Composable
+                fun toDecoratedEntries(
+                    entryDecorators: List<androidx.navigation3.runtime.NavEntryDecorator<NavKey>>,
+                ) {
+                }
+            }
+        """
+        assertEquals(0, findings(code).size)
     }
 }

@@ -58,16 +58,21 @@ The registry already matches the exposed set exactly, and an existing check enfo
 This change extends that check rather than adding a second one, because a second check
 would be a second thing to keep right.
 
-The three direct-write exceptions are stated with their reasons in the registry, so the
+The direct-write exceptions are stated with their reasons in the registry, so the
 guarantee can be audited without reading tool code:
 
 | Tool | Reason |
 |---|---|
-| create tag | A tag is not user content. A proposal for one is noise the user learns to dismiss. |
 | write decision record | Writes a decision file, not user data. |
 | update decision record | Writes a decision file, not user data. |
 
-Two of the three are decisions about *this* application's data model, not about protocols.
+> **Amended (2026-10-23):** there were three exceptions, and `create tag` was one of
+> them — "a tag is not user content, a proposal for one is noise". The tool had been
+> proposing for a while and the declaration had not caught up; a tag is user content
+> after all, so it is a proposal-gated tool now. See
+> `docs/decisions/2026-10-23-the-agent-surface-says-what-it-does.md`.
+
+Both are decisions about *this* application's data model, not about protocols.
 If either is later judged differently, it is a one-line change in the registry plus the
 reasons — which is why the reason is a field rather than a comment.
 
