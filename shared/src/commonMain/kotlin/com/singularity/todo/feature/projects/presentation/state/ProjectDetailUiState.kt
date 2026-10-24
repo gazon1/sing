@@ -1,5 +1,4 @@
 package com.singularity.todo.feature.projects.presentation.state
-import androidx.compose.runtime.Immutable
 import com.singularity.todo.feature.projects.presentation.model.ParentOption
 import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
 import com.singularity.todo.feature.projects.presentation.model.TagGroupOption
@@ -48,8 +47,19 @@ sealed interface ProjectDetailUiState {
 /**
  * A project close waiting for the user's confirmation.
  *
+ * ## Why there is no `@Immutable` here
+ *
+ * The class carries a raw `List<String>`, and `@Immutable` promises that the
+ * instance never changes. The compiler believes the promise and never looks at
+ * the fields, so a list that changes underneath it goes unnoticed.
+ *
+ * The promise was false, and the annotation bought exactly the thing that hid
+ * it: the skipping. Making it true means a persistent collection — the same
+ * debt the register of raw collection parameters names. Until that sweep, the
+ * class is honestly unstable, and the `NoFalseImmutable` rule keeps the
+ * annotation from coming back.
+ *
  * @property blockedTaskTitles the titles of the tasks that are in the way.
  * @property openTaskCount how many of the project's tasks the close will close.
  */
-@Immutable
 data class ProjectCloseConfirmation(val blockedTaskTitles: List<String>, val openTaskCount: Int)
