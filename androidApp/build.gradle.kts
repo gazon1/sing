@@ -234,6 +234,20 @@ android {
             // before it runs a single flow. Gradle accepts `+` in versionName;
             // the character survives into the manifest unchanged.
             versionNameSuffix = "+g${gitShaProvider.get()}"
+            // A debug build normally replaces the installed app in place. When the
+            // installed app carries a different signature — a release build signed
+            // with the key from the CI secrets — Android refuses the update, and
+            // the only way in is to uninstall, which takes the app's local data
+            // with it. A suffix turns the debug build into a second app on the
+            // device: it installs next to the release build and each keeps its own
+            // data, so a fix can be tried on a phone that carries real data.
+            //
+            // Off by default. Maestro flows and the CI smoke run address the app
+            // as `com.singularity.todo`, and that name must not move.
+            val parallelInstallSuffix = (project.findProperty("parallelInstallSuffix") as String?) ?: ""
+            if (parallelInstallSuffix.isNotEmpty()) {
+                applicationIdSuffix = parallelInstallSuffix
+            }
         }
         release {
             isMinifyEnabled = true
