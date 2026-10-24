@@ -102,3 +102,32 @@ real Android graph, so a missing directory fails there rather than on a phone.
 **What is still unverified.** The backup directory and the attachment directory are now the paths
 the `FileProvider` publishes (`files/backups`, `files/attachments`), which is what makes "Save to
 file" able to hand out a URI at all.
+
+## The bucket is a separate kind of setting
+
+The upload to the cloud needs three things in the Supabase project, and only one of them is
+obvious:
+
+1. the project itself — URL and anon key, both at build time;
+2. a bucket named `backups`;
+3. **policies on `storage.objects` that let a signed-in user write into it.**
+
+The third is the one that is easy to miss. `storage.objects` has row level security on, and a
+project with no policies on it denies every insert with "new row violates row-level security
+policy" — a message that names the database and says nothing about the setting that is missing.
+The bucket has to exist *and* be writable; creating the bucket is not enough.
+
+`supabase/migrations/2026-10-24-backup_storage_bucket.sql` does both, and it is idempotent so it
+can be applied to a project that already has the bucket.
+
+The policies are scoped to the bucket **and** to the caller's own uid. The path of an archive is
+`"<user id>/<file name>"` and a user id is `"<profile id>/<auth uid>"` for every install that uses
+a profile other than the default one, so the policy reads the **last** folder of the path — which is
+the uid in both shapes — rather than the first one, which is the profile id and something the server
+has never heard of. A policy that checked only the bucket would let any signed-in account read and
+delete another account's archives as soon as it could guess the path, and the path starts with the
+account's own uid. The path keeps the archives apart on the client; the policy keeps them apart on
+the server.
+
+`BackupBucketPolicyTest` reads the migration and fails when a policy on the bucket is not scoped to
+the uid — including a positive control, so a rule that cannot fail is caught as well.
