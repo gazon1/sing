@@ -461,7 +461,7 @@ jobs:
             -Pcoverage.enabled=true \
             2>&1 | tee build.log
 
-      # App coverage floors (INSTRUCTION 27% / BRANCH 20% / LINE 27%), declared in
+      # App coverage floors (INSTRUCTION 27% / BRANCH 23% / LINE 31%), declared in
       # settings.gradle.kts and enforced by Kover's own verify task. Blocking.
       # Runs here because it needs Gradle; static-gates.sh has no Gradle.
       #
@@ -650,6 +650,13 @@ jobs:
       # The tool's output contract is what makes the three distinguishable: an
       # empty selection is reported on stdout, where this step reads it, and a
       # failed comparison exits non-zero.
+      #
+      # The FAST population, and it is the fast population by contract (R5):
+      # this job answers "what is worth running first", and the answer is the
+      # fast half. The `changes` job publishes the population the SUITE job
+      # runs — on a `run-full-tests` pull request that is `full` — so the two
+      # jobs select different halves on purpose. The signal runs BESIDE the
+      # suite; it is not a copy of it, and it does not claim to be.
       - name: Select the affected tests
         id: selection
         run: |
@@ -901,13 +908,14 @@ jobs:
       # and the floor would move. They are tooling, like `:detekt-rules`, which
       # the settings file skips for the same reason.
 
-      # The name is load-bearing and it is now a lie: the step runs neither
-      # coverage nor detekt any more. `scripts/src/sgate/commands/_registry.py`
-      # anchored the `workflow-exit-status` control at
-      # `.github/workflows/ci.yml#Gradle (tests + coverage + detekt)`, and
-      # `scripts/check-waiver-references.py:31-38` requires that anchor to
-      # resolve to a STEP NAME. A false name is cheaper than a dangling
-      # anchor; the debt is recorded in the ADR.
+      # The name is now a lie: the step runs neither coverage nor detekt any
+      # more. It is FREE to rename: the registry's anchors moved to the
+      # coverage job with the job graph — `workflow-exit-status` anchors at
+      # `.github/workflows/ci.yml#Gradle (coverage)` now — and
+      # `scripts/check-waiver-references.py` requires an anchor to resolve to
+      # a STEP NAME, not to a name this file used to carry. The JOB name
+      # (`JVM tests, detekt, coverage`) is the one that stays: it is a key in
+      # `config/docs/gate-benchmarks.json`. The debt is recorded in the ADR.
       - name: Gradle (tests + coverage + detekt)
         run: |
           set -o pipefail

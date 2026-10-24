@@ -49,6 +49,61 @@ def _step_containing(text: str, needle: str) -> str | None:
     return headers[-1][1] if headers else None
 
 
+def _job_blocks(text: str) -> dict[str, tuple[int, int]]:
+    """The job blocks of a workflow: job id -> (first line, last line).
+
+    The jobs are the blocks at indent 2 under `jobs:`. A job-level attribute
+    — a `timeout-minutes:` above the steps — belongs to a job and to no step,
+    and this is what says which job that is.
+    """
+    lines = text.splitlines()
+    blocks: dict[str, tuple[int, int]] = {}
+    current: str | None = None
+    start = 0
+    inside = False
+    for number, line in enumerate(lines, start=1):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        indent = len(line) - len(line.lstrip())
+        if not inside:
+            if indent == 0 and stripped == "jobs:":
+                inside = True
+            continue
+        if indent == 2:
+            match = re.match(r"^([A-Za-z0-9_.\-]+):", stripped)
+            if match:
+                if current is not None:
+                    blocks[current] = (start, number - 1)
+                current = match.group(1)
+                start = number
+    if current is not None:
+        blocks[current] = (start, len(lines))
+    return blocks
+
+
+def _steps_line(lines: list[str], start: int, end: int) -> int | None:
+    """The line of a job block's `steps:` key."""
+    for number in range(start, min(end, len(lines)) + 1):
+        if lines[number - 1].strip() == "steps:":
+            return number
+    return None
+
+
+def _step_names(text: str, job_id: str) -> list[str]:
+    """The names of the steps of a job, in the order the workflow declares them."""
+    lines = text.splitlines()
+    block = _job_blocks(text).get(job_id)
+    if block is None:
+        return []
+    start, end = block
+    return [
+        match.group(1)
+        for number in range(start, min(end, len(lines)) + 1)
+        if (match := re.match(r"^      - name: (.+?)\s*$", lines[number - 1]))
+    ]
+
+
 class TestRegistryImports(unittest.TestCase):
     """Assembling every control must succeed at import time."""
 
@@ -179,6 +234,40 @@ class TestTheControlThatMustBeAbleToFail(unittest.TestCase):
                 landed,
                 f"the control {name!r} replaces text that is no longer in {path}",
             )
+            if landed == step_name:
+                continue
+
+            # The landed step is not the anchored one. Either the sabotage
+            # landed in ANOTHER step — the defect this test exists for — or it
+            # landed in a job-level attribute, which belongs to a job and to no
+            # step: the coverage job's `timeout-minutes:` sits above its
+            # steps. In the second case the anchor names a step OF THAT JOB,
+            # and the job is what the control is about.
+            index = text.find(edit.old)
+            line = text.count("\n", 0, index) + 1
+            lines = text.splitlines()
+            blocks = _job_blocks(text)
+            job_id = next(
+                (
+                    job
+                    for job, (start, end) in blocks.items()
+                    if start <= line <= end
+                ),
+                None,
+            )
+            self.assertIsNotNone(
+                job_id,
+                f"the control {name!r} edits a line that is in no job of {path}",
+            )
+            steps_line = _steps_line(lines, *blocks[job_id])
+            if steps_line is not None and line < steps_line:
+                self.assertIn(
+                    step_name,
+                    _step_names(text, job_id),
+                    f"the control {name!r} lands in the job {job_id!r} and claims "
+                    f"to prove {step_name!r}, which is a step of another job",
+                )
+                continue
             self.assertEqual(
                 step_name,
                 landed,

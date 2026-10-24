@@ -156,20 +156,40 @@ verdict) and once with it (the measurement). That is the price of a floor
 that is enforced where it is computed, and it is paid where the measurement
 is wanted rather than everywhere.
 
-**Two names in the workflow are now false, and they stay.** The suite job's
-step is still called `Gradle (tests + coverage + detekt)` and the job is still
-called `JVM tests, detekt, coverage`, and neither runs coverage or detekt any
-more. The step name is load-bearing — a registry control anchors at it, and
-`scripts/check-waiver-references.py` requires that anchor to resolve to a
-step name — and the job name is a key in the published measurements. A false
-name that resolves is cheaper than a dangling anchor; the debt is recorded
-here rather than hidden in a rename that would invalidate the measurements.
+**One name in the workflow is now false and stays; the other is free to
+change.** The suite job's step is still called
+`Gradle (tests + coverage + detekt)` and the job is still called
+`JVM tests, detekt, coverage`, and neither runs coverage or detekt any
+more. The STEP name is free to rename: the registry control that anchored at
+it moved to the coverage job with the job graph (see the anchors paragraph
+below), and `scripts/check-waiver-references.py` requires an anchor to
+resolve to a step name — not to a name the workflow used to carry. The JOB
+name stays, because it is a key in the published measurements
+(`config/docs/gate-benchmarks.json`), and renaming it there would
+invalidate them. A false name that resolves is cheaper than a dangling
+anchor; the debt is recorded here rather than hidden in a rename that would
+invalidate the measurements.
 
 **The custom rules keep their own instrumentation.** `:detekt-rules` applies
 the Kover plugin itself, so its tests are instrumented whatever the settings
 switch says, and their branch-coverage floor (`Kover verify (detekt-rules)`)
 stays on the pull-request path. That is deliberate: the path enforces that
 floor, so the measurement it carries is one it acts on.
+
+**R4's wording is wider than the job graph, and the gap is recorded here.**
+R4 says "no other pull-request job shall name a detekt task", and the pro leg
+of the `android` job names `:pro:detekt`. The split is deliberate — the pro
+catalogue is outside the module graph the record describes, so the record
+lists it apart (`config/hooks/pre-push.json`, `judged_by_ci_outside_the_module_graph`),
+and the `detekt` job does not judge it. But the requirement's words do not say
+so, and a requirement a reader has to reinterpret is a requirement that will
+be read the other way. The wording is not reworded here — the requirement is
+the contract, and a contract that is edited to match the implementation stops
+being the thing the implementation is checked against. The gap is recorded
+beside it instead, and the test
+(`scripts/tests/test_ci_pr_path.py::DetektIsJudgedOnce`) counts the eight
+modules the record names and pins the one exception, so the exception is
+visible and cannot grow unnoticed.
 
 **The registry's control anchors moved with the job graph.** The
 `workflow-exit-status`, `build-output-readers` and `gradle-test-population`
