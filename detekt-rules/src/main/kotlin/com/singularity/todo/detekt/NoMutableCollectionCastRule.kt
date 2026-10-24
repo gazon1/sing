@@ -9,6 +9,7 @@ import dev.detekt.api.RuleSet
 import dev.detekt.api.RuleSetId
 import dev.detekt.api.RuleSetProvider
 import org.jetbrains.kotlin.psi.KtBinaryExpressionWithTypeRHS
+import org.jetbrains.kotlin.psi.KtNullableType
 import org.jetbrains.kotlin.psi.KtUserType
 
 /**
@@ -60,7 +61,12 @@ class NoMutableCollectionCastRule(config: Config) : Rule(config, "", null) {
         val operation = expression.operationReference.text
         if (operation != "as" && operation != "as?") return
 
-        val userType = expression.right?.typeElement as? KtUserType ?: return
+        // `as MutableList?` — the cast target is a nullable type, and the
+        // mutable collection is inside it. Reading only the type element would
+        // miss every nullable cast, which is a shape the codebase uses.
+        val element = expression.right?.typeElement ?: return
+        val type = (element as? KtNullableType)?.innerType ?: element
+        val userType = type as? KtUserType ?: return
         val name = userType.referencedName
         if (name !in MUTABLE_COLLECTIONS) return
 
@@ -73,7 +79,7 @@ class NoMutableCollectionCastRule(config: Config) : Rule(config, "", null) {
                     "goes stale. Build the mutable collection first, then hand over an " +
                     "immutable one (toImmutableList() / toImmutableSet() / toImmutableMap()).",
                 references = emptyList(),
-                suppressReasons = listOf("NoMutableCollectionCast"),
+                suppressReasons = emptyList(),
             ),
         )
     }

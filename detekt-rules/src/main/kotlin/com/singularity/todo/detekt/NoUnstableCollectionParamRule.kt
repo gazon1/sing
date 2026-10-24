@@ -70,7 +70,7 @@ class NoUnstableCollectionParamRule(config: Config) : Rule(config, "", null) {
                         "toImmutableList() / toImmutableSet() at the boundary, or wrap a local " +
                         "list in remember { }.",
                     references = emptyList(),
-                    suppressReasons = listOf("NoUnstableCollectionParam"),
+                    suppressReasons = emptyList(),
                 ),
             )
         }
@@ -120,6 +120,12 @@ class NoUnstableCollectionParamRule(config: Config) : Rule(config, "", null) {
         // `List<Tag>?` is still a raw collection: nullability does not make it stable.
         val type = (element as? KtNullableType)?.innerType ?: element
         val userType = type as? KtUserType ?: return null
+        // A qualified name is not the stdlib collection. `NotesRoute.List` is a
+        // nested route object — the last segment happens to be spelled `List`,
+        // and a rule that called it a collection would send the reader to
+        // convert a route into a persistent collection.
+        val qualifier = userType.qualifier?.text
+        if (qualifier != null && qualifier != "kotlin.collections") return null
         val name = userType.referencedName
         return if (name in RAW_COLLECTIONS) name else null
     }

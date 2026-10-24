@@ -125,6 +125,52 @@ class NoUnstableCollectionParamRuleTest {
     }
 
     @Test
+    fun `a qualified type whose last segment is a collection name is not flagged`() {
+        // `NotesRoute.List` is a nested route object, not a list. The rule reads
+        // the last segment of the name, and a rule that called this a collection
+        // would send the reader to convert a route into a persistent collection.
+        val code = """
+            package com.singularity.todo.feature.notes
+
+            import androidx.compose.runtime.Composable
+
+            sealed interface NotesRoute {
+                data object List : NotesRoute
+            }
+
+            @Composable
+            fun NotesListScreen(route: NotesRoute.List) {
+            }
+        """
+        assertEquals(0, findings(code).size)
+    }
+
+    @Test
+    fun `a finding the rule reports is not marked as suppressed`() {
+        // A non-empty `suppressReasons` means "this finding is suppressed", and
+        // detekt drops such a finding before it reaches the report. A rule that
+        // marks its own findings suppressed is mute: the unit test sees the
+        // finding (it calls the rule directly), the build sees nothing. The
+        // rule test therefore has to look at the finding, not only at its count.
+        val code = """
+            package com.singularity.todo.feature.tasks
+
+            import androidx.compose.runtime.Composable
+
+            @Composable
+            fun TaskRow(tags: List<String>) {
+            }
+        """
+        val found = findings(code)
+        assertEquals(1, found.size)
+        assertTrue(
+            found[0].suppressReasons.isEmpty(),
+            "the rule marked its own finding as suppressed, so detekt would drop it: " +
+                "the rule would report nothing in the build and everything here",
+        )
+    }
+
+    @Test
     fun `the message names the persistent collection to use`() {
         val code = """
             package com.singularity.todo.feature.tasks
