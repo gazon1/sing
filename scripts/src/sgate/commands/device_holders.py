@@ -266,7 +266,11 @@ def device_holders(emit_json: bool, serial: str | None) -> None:
     if serial is not None:
         locks = [entry for entry in locks if entry["serial"] == serial]
     devices = _connected_devices()
-    if serial is not None:
+    if serial is not None and devices is not None:
+        # `devices is None` means adb did not answer. There is nothing to filter
+        # then, and filtering anyway is a crash on the way to the answer: the
+        # device may still be held, and the report has to say that adb was
+        # silent instead of dying on a `None`.
         devices = [device for device in devices if device["serial"] == serial]
 
     unknown: str | None = None

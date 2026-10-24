@@ -27,6 +27,7 @@ import importlib.util
 import json
 import os
 import pathlib
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -40,6 +41,9 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT / 'scripts' / 'src'))
 
 from emulator.maestro._lock import LOCK_PREFIX, LOCK_SUFFIX, DeviceLock  # noqa: E402
+
+#: What the fake `adb` answers: the header, then one device.
+DEVICE_LIST = 'List of devices attached\nemulator-5554\tdevice\n'
 
 MODULE_PATH = ROOT / 'scripts' / 'src' / 'sgate' / 'commands' / 'device_holders.py'
 spec = importlib.util.spec_from_file_location('device_holders', MODULE_PATH)
@@ -169,7 +173,25 @@ class TheCommandRunsTest(unittest.TestCase):
         import shutil
         shutil.rmtree(self.tmp, ignore_errors=True)
 
-    def _run(self, *args: str):
+    def _fake_adb(self, output: str) -> pathlib.Path:
+        """A directory with an `adb` that answers with a fixed device list.
+
+        The command asks the machine's `adb`, and the machine's `adb` answers
+        with the machine's devices — so a test that asks the real one is a test
+        of the machine, and it fails on a runner that has no `adb` at all. The
+        fake answers the same way on every machine, and the runner without adb
+        gets the same verdict as the one with it.
+        """
+        bindir = pathlib.Path(tempfile.mkdtemp(prefix='device-holders-adb-'))
+        self.addCleanup(shutil.rmtree, bindir, True)
+        (bindir / 'devices.txt').write_text(output, encoding='utf-8')
+        script = bindir / 'adb'
+        script.write_text('#!/bin/sh\ncat "$(dirname "$0")/devices.txt"\n', encoding='utf-8')
+        script.chmod(0o755)
+        return bindir
+
+    def _run(self, *args: str, adb: pathlib.Path | None = None):
+        path = f'{adb}:{os.environ["PATH"]}' if adb is not None else os.environ['PATH']
         return subprocess.run(
             [sys.executable, '-m', 'sgate', 'device-holders', *args],
             cwd=ROOT,
@@ -177,6 +199,7 @@ class TheCommandRunsTest(unittest.TestCase):
             text=True,
             env={
                 **os.environ,
+                'PATH': path,
                 'PYTHONPATH': str(ROOT / 'scripts' / 'src'),
                 'MAESTRO_LOCK_DIR': str(self.tmp),
             },
@@ -184,7 +207,7 @@ class TheCommandRunsTest(unittest.TestCase):
         )
 
     def test_the_command_prints_a_report(self):
-        result = self._run('--json')
+        result = self._run('--json', adb=self._fake_adb(DEVICE_LIST))
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         payload = json.loads(result.stdout)
         self.assertIn('locks', payload)
@@ -193,25 +216,25 @@ class TheCommandRunsTest(unittest.TestCase):
     def test_a_held_device_is_answered_with_a_non_zero_exit_code(self):
         path = DeviceLock('emulator-5554', lock_dir=self.tmp).path
         path.write_text(f'{os.getpid()}\n', encoding='utf-8')
-        result = self._run('--serial', 'emulator-5554')
+        result = self._run('--serial', 'emulator-5554', adb=self._fake_adb(DEVICE_LIST))
         self.assertEqual(1, result.returncode, result.stdout + result.stderr)
         self.assertIn('emulator-5554', result.stdout)
 
     def test_a_free_device_is_answered_with_a_zero_exit_code(self):
-        result = self._run('--serial', 'emulator-5554')
+        result = self._run('--serial', 'emulator-5554', adb=self._fake_adb(DEVICE_LIST))
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
 
     def test_a_stale_lock_answers_zero(self):
         path = DeviceLock('emulator-5554', lock_dir=self.tmp).path
         path.write_text(f'{_dead_pid()}\n', encoding='utf-8')
-        result = self._run('--serial', 'emulator-5554')
+        result = self._run('--serial', 'emulator-5554', adb=self._fake_adb(DEVICE_LIST))
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
 
     def test_the_command_leaves_the_lock_directory_alone(self):
         path = DeviceLock('emulator-5554', lock_dir=self.tmp).path
         path.write_text(f'{os.getpid()}\n', encoding='utf-8')
         before = {p.name: p.read_bytes() for p in self.tmp.iterdir()}
-        self._run('--serial', 'emulator-5554')
+        self._run('--serial', 'emulator-5554', adb=self._fake_adb(DEVICE_LIST))
         after = {p.name: p.read_bytes() for p in self.tmp.iterdir()}
         self.assertEqual(before, after)
 
@@ -222,7 +245,7 @@ class TheCommandRunsTest(unittest.TestCase):
         path = DeviceLock('emulator-5554', lock_dir=self.tmp).path
         path.write_text(f'{_dead_pid()}\n', encoding='utf-8')
         before = {p.name: p.read_bytes() for p in self.tmp.iterdir()}
-        self._run('--serial', 'emulator-5554')
+        self._run('--serial', 'emulator-5554', adb=self._fake_adb(DEVICE_LIST))
         after = {p.name: p.read_bytes() for p in self.tmp.iterdir()}
         self.assertEqual(before, after)
 
@@ -267,8 +290,42 @@ class TheCommandRunsTest(unittest.TestCase):
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         self.assertIn('adb did not answer', result.stdout)
 
+    def test_asking_about_one_serial_when_adb_cannot_be_asked_does_not_crash(self):
+        # There is no device list to filter when adb did not answer, and a
+        # command that filters it anyway dies before it answers: the device
+        # may still be held, and the report has to say that adb was silent.
+        result = subprocess.run(
+            [sys.executable, '-m', 'sgate', 'device-holders', '--serial', 'emulator-5554'],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            env={
+                **os.environ,
+                'PATH': '/nonexistent',
+                'PYTHONPATH': str(ROOT / 'scripts' / 'src'),
+                'MAESTRO_LOCK_DIR': str(self.tmp),
+            },
+            check=False,
+        )
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertIn('adb did not answer', result.stdout)
+        self.assertNotIn('Traceback', result.stderr)
+
+    def test_the_device_list_is_the_one_adb_named(self):
+        # The command asks the `adb` it finds on PATH. A test that asked the
+        # machine's own adb would be a test of the machine — and it failed on
+        # a runner that has no adb at all.
+        result = self._run('--json', adb=self._fake_adb(DEVICE_LIST))
+        payload = json.loads(result.stdout)
+        self.assertEqual(['emulator-5554'], [d['serial'] for d in payload['devices']])
+
+    def test_asking_about_one_serial_leaves_the_other_devices_out(self):
+        result = self._run('--serial', 'emulator-5554', '--json', adb=self._fake_adb(DEVICE_LIST))
+        payload = json.loads(result.stdout)
+        self.assertEqual(['emulator-5554'], [d['serial'] for d in payload['devices']])
+
     def test_an_unknown_serial_says_so_in_json_too(self):
-        result = self._run('--serial', 'nope-1234', '--json')
+        result = self._run('--serial', 'nope-1234', '--json', adb=self._fake_adb(DEVICE_LIST))
         payload = json.loads(result.stdout)
         self.assertEqual('nope-1234', payload['unknown'])
 
