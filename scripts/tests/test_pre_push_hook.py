@@ -125,6 +125,50 @@ CLEAN_SOURCE = 'package com.example\n\nclass Example\n'
 # the test outside what the git environment looked like from in there.
 MARKER_ENV = 'PRE_PUSH_GIT_ENV_MARKER'
 
+#: The environment variable the hook sets when it runs the suite.
+#:
+#: `PrePushHookTest` drives the hook through a real push, and the hook runs the
+#: suite — so a suite that runs inside a hook runs itself: the hook's step
+#: pushes, the push runs the hook, the hook runs the suite, and the suite
+#: pushes again. On 2026-10-23 that recursion is what made the hook's own step
+#: fail: the probe test asserted that the probe had run, and the probe ran one
+#: tree deeper than the assertion was about.
+#:
+#: Inside a hook the class is therefore skipped. It runs everywhere else — in
+#: CI, and by anybody who runs the suite by hand — so the coverage stays where
+#: it belongs and the hook's step is one level deep.
+INSIDE_HOOK_ENV = 'GATE_SUITE_INSIDE_HOOK'
+
+#: True when this module runs inside the hook.
+inside_hook = bool(os.environ.get(INSIDE_HOOK_ENV))
+
+# A gate suite test that writes down the environment the suite ran in.
+#
+# It is committed into the pushed tree, so the hook's gate-suite step runs it
+# inside that tree. It answers one question: did the suite run inside a hook?
+SUITE_ENV_PROBE = '''"""A gate suite test that writes down the environment the suite ran in."""
+
+import os
+import pathlib
+import unittest
+
+PROBE_ENV = '{marker_env}'
+INSIDE_HOOK_ENV = '{inside_hook_env}'
+
+
+class SuiteEnvironmentTest(unittest.TestCase):
+    """The suite writes down the environment it ran in."""
+
+    def test_it_writes_what_it_saw(self):
+        marker = os.environ.get(PROBE_ENV)
+        if marker:
+            pathlib.Path(marker).write_text(
+                'inside_hook=' + os.environ.get(INSIDE_HOOK_ENV, '') + '\\n',
+                encoding='utf-8',
+            )
+        self.assertTrue(True)
+'''.format(marker_env=MARKER_ENV, inside_hook_env=INSIDE_HOOK_ENV)
+
 # A gate suite test that shells out to git — the shape the real suite has.
 #
 # It is committed into the pushed tree, so the hook's gate-suite step runs it
@@ -199,6 +243,10 @@ def _git(*args: str, cwd: pathlib.Path) -> subprocess.CompletedProcess:
 
 
 
+@unittest.skipIf(
+    inside_hook,
+    'the suite is running inside a hook, and this test drives one',
+)
 class PrePushHookTest(unittest.TestCase):
     """The hook, driven through a real push."""
 
@@ -273,14 +321,17 @@ class PrePushHookTest(unittest.TestCase):
         _git('add', '-A', cwd=self.repo)
         _git('commit', '-q', '-m', message, cwd=self.repo)
 
-    def _push(self) -> subprocess.CompletedProcess:
+    def _push(self, env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
         _git('remote', 'add', 'origin', str(self.remote), cwd=self.repo)
+        push_env = _clean_git_env()
+        if env:
+            push_env.update(env)
         return subprocess.run(
             ['git', 'push', 'origin', 'main'],
             cwd=self.repo,
             capture_output=True,
             text=True,
-            env=_clean_git_env(),
+            env=push_env,
         )
 
     def _linked_worktree(self) -> pathlib.Path:
@@ -346,6 +397,25 @@ class PrePushHookTest(unittest.TestCase):
 
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         self.assertIn('=== Pre-push OK ===', result.stdout + result.stderr)
+
+    def test_the_suite_runs_inside_a_hook(self):
+        # The gate-suite step of the hook runs the suite in the tree being
+        # pushed — so the suite runs inside a hook, and the marker says so.
+        # The suite's own test — the one that drives the hook through a real
+        # push — skips itself when it sees the marker: a suite that drives the
+        # hook from inside the hook is a suite that runs itself, and on
+        # 2026-10-23 that recursion is what made this step fail.
+        self._install_hook()
+        self._install_stubs()
+        self._write('scripts/tests/test_probe.py', SUITE_ENV_PROBE)
+        self._commit_source(CLEAN_SOURCE, 'a clean file')
+
+        marker = self.tmp / 'suite-env.txt'
+        result = self._push(env={MARKER_ENV: str(marker)})
+
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertTrue(marker.exists(), 'the suite did not run in the pushed tree')
+        self.assertIn('inside_hook=1', marker.read_text(encoding='utf-8'))
 
     def test_a_tree_without_the_runner_still_runs_the_suite(self):
         # A branch that predates the runner has no runner, and a push of an
@@ -911,6 +981,42 @@ class HookGitEnvironmentTest(unittest.TestCase):
                     line,
                     f'the hook drops the git environment incompletely: {line.strip()}',
                 )
+
+
+@unittest.skipIf(
+    inside_hook,
+    'the suite is running inside a hook, and this test runs the suite inside a hook',
+)
+class InsideHookTest(unittest.TestCase):
+    """The suite that runs inside a hook does not run the hook's own test.
+
+    The reason is the recursion: the hook's gate-suite step runs the suite in
+    the tree being pushed, and one of the suite's tests pushes through the
+    hook — so the suite pushes, the push runs the hook, and the hook runs the
+    suite again, one tree deeper. On 2026-10-23 that recursion is what made
+    the hook's own step fail: the probe test asserted that the probe had run,
+    and the probe ran one tree deeper than the assertion was about.
+    """
+
+    def test_the_hook_test_class_is_skipped_inside_a_hook(self):
+        result = subprocess.run(
+            [sys.executable, '-m', 'unittest', '-v', 'scripts.tests.test_pre_push_hook'],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            env={**os.environ, INSIDE_HOOK_ENV: '1'},
+        )
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        # The reason, and not the word "skipped": the class that holds this
+        # test is skipped too, and its own skip would satisfy a weaker
+        # assertion. The reason named here belongs to the class that drives
+        # the hook — the one whose absence of a skip is the recursion.
+        self.assertIn(
+            'the suite is running inside a hook, and this test drives one',
+            result.stdout + result.stderr,
+            'the suite ran the hook\'s own test inside a hook:\n'
+            + result.stdout + result.stderr,
+        )
 
 
 if __name__ == '__main__':
