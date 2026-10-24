@@ -234,9 +234,11 @@ comparison runs in both directions:
 
 - a raw collection parameter the register does not name is a finding, even at a
   known site;
-- a registered parameter that no overload of the composable declares is
-  **stale**, and a registered parameter whose type the code no longer declares
-  is stale too.
+- a registered parameter whose type the code no longer declares is **stale** —
+  and the comparison runs for every registered parameter, raw or not, because a
+  parameter that became persistent is exactly how the register shrinks. A check
+  that only looked at the parameters that are *still* raw would never notice
+  that the debt was paid.
 
 Switching the two-sided check on produced **20 findings on the first run**:
 
@@ -255,10 +257,31 @@ Switching the two-sided check on produced **20 findings on the first run**:
 the raw collection. A check that looked at a single overload reported the other
 one's parameters as missing — five false findings on one class.
 
-So the stale check runs **after** the file has been visited: the parameters of
-every overload are collected first, and an entry is stale only when no overload
-declares the parameter. The rule uses detekt's `preVisit` / `postVisit` hooks
-for that, which is the only place where "the whole file" is visible.
+The first fix was to collect the parameters of every overload before judging:
+the rule gathered them per file and compared the register against the result in
+`postVisit`. That fixed the case in the tree and left a trap: Kotlin allows
+top-level overloads of the same name in **different files** of one package, and
+the rule sees one file at a time. The moment a registered composable got such
+an overload, the build would fail on a correct tree.
+
+So the rule stopped judging that question at all. "This parameter is missing
+here" is not the same as "this parameter is gone", and the rule cannot tell the
+difference. The gate can: it reads the repository.
+
+### The rule judges the code that is there, the gate judges the register
+
+The division is now explicit, and it is a division of *capability*, not of
+effort:
+
+- the **rule** compares the code that exists with the register: a raw
+  collection parameter the register does not name, and a registered parameter
+  whose declared type no longer matches what the register recorded;
+- the **gate** compares the register with the repository: a registered site
+  that no source declares any more, and a registered parameter that no
+  declaration of that site has.
+
+Neither of them can do the other's job. The rule sees the exact types and the
+exact parameters; the gate sees the whole tree.
 
 ### The qualified name is the one the compiler prints — and it was not
 
@@ -285,11 +308,27 @@ deciding to pay it.
 
 That case belongs to the gate (`scripts/check-compose-stability-config.py`),
 which reads the sources rather than the code that survived. It resolves every
-registered site to a declaration and fails when there is none.
+registered site to a declaration and fails when there is none, and it resolves
+every registered parameter to a declaration of that site and fails when there
+is none.
 
-Two mechanisms, because they have different capabilities: the rule knows the
-exact parameter types and sees overloads; the gate sees the whole repository
-and finds what is no longer there.
+The first version of that check searched the whole tree for the name, as a
+fallback for a source root that does not lay its files out by package path.
+The fallback **masked the deletion it was written for**: `ListPickerSheet` is
+declared in two packages in this repository, so deleting the registered one
+still left a declaration of the same name — in the wrong package — and the
+gate passed. A check that cannot tell a deletion from a namesake is not a
+check.
+
+The fallback is gone. The site is resolved inside its own package, and the
+gate says so when it is not there. A source root that does not follow the
+package layout is a thing to fix, not to paper over: the gate would have
+reported sixty false positives, and a gate that reports sixty false positives
+gets switched off.
+
+A qualified name quoted in the register's own prose is not a site either. The
+reader of the register is a program now, and a program that reads prose as
+data learns to complain about prose.
 
 ### A false `@Immutable` is a rule away from coming back
 
@@ -308,6 +347,20 @@ It found two on its first run, with four properties between them:
 `CurrentProjectContent` (three raw collections) and `ProjectCloseConfirmation`
 (one raw list). Both annotations were removed, with the reason written down at
 the class.
+
+A third one was found by reading rather than by the rule: `SettingsUiState`,
+a sealed interface marked `@Immutable` whose implementation carries
+`EphemeralState.Ai` — and that carries a raw `List<String>` of model names. The
+rule cannot see it, and saying so is part of the rule's contract: a promise
+broken **through** a contained type needs resolution, and the rule reads
+declared types, not resolved ones.
+
+The annotation was removed there too, and the reason is the same trade the
+rest of this decision makes: what `@Immutable` bought was a *deep* comparison
+of the whole settings state — every model name, every saved view — and a
+screen state is cheap to re-run and expensive to compare. Making the promise
+true instead means persistent collections inside `EphemeralState`, and that is
+the same debt the register of raw collection parameters names.
 
 `@Stable` is deliberately **not** covered. `@Stable` says the instance may
 change and Compose is not told about it, and a `@Stable` class with
@@ -342,11 +395,12 @@ visible and every new raw collection parameter is a finding.
 Those numbers are a measurement of a tree that keeps moving, so they are
 dated rather than eternal. Re-measured on 2026-10-25, after this decision's
 own second half (the false `@Immutable` removed, the register keyed by the
-parameter), the same report reads **1542 stable, 365 runtime-unstable and 4
+parameter), the same report reads **1535 stable, 372 runtime-unstable and 4
 unstable** across 728 composables. Most of the movement is other people's
-composables; one parameter is ours — `CurrentProjectContent` lost its false
-`@Immutable` and moved from the stable class into the runtime one, which is
-exactly what that annotation was hiding.
+composables; the rest is ours — `CurrentProjectContent` and the settings state
+lost their false `@Immutable` and moved from the stable class into the runtime
+one, which is exactly what those annotations were hiding. Seven parameters
+moved, because the settings state is read by seven composables.
 
 The 82 raw collection parameters did **not** move: the fresh report counts the
 runtime class by type and finds the same 62 `List`, 11 `Set`, 8 `Map` and one

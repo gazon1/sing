@@ -112,20 +112,21 @@ directory is git-ignored — nothing in CI may depend on it.
 
 `ComposeCollectionExemptions.kt` lists the composables that still take a raw
 collection, and under each of them the parameters that still carry one. It is a
-register of debt, not an allowance, and the detekt rule
-`NoUnstableCollectionParam` reads it in both directions:
+register of debt, not an allowance, and it is read from both sides:
 
-- a raw collection parameter the register does **not** name is a finding, even
-  when the composable itself is a known site — the exemption is keyed by the
-  parameter, not by the composable;
-- a registered parameter that no overload of the composable declares any more
-  is **stale**, and so is one whose type the code no longer declares. The debt
-  was paid, or changed shape, and the register says otherwise.
+- the detekt rule `NoUnstableCollectionParam` compares the code that is there
+  with the register: a raw collection parameter the register does **not** name
+  is a finding, even when the composable itself is a known site, and a
+  registered parameter whose declared type no longer matches the register is a
+  finding too — that is what happens when a debt is paid;
+- the gate `scripts/check-compose-stability-config.py` compares the register
+  with the repository: a registered site that no source declares any more is a
+  finding, and so is a registered parameter that no declaration of that site
+  has.
 
-A composable that was deleted altogether leaves its entry behind, and no rule
-can see it. The gate `scripts/check-compose-stability-config.py` closes that
-gap: it resolves every registered site to a declaration in the sources and
-fails when there is none.
+Neither can do the other's job. The rule sees exact types and exact
+parameters; the gate sees the whole tree, including the overloads that live in
+different files and the composables that were deleted.
 
 Converting one means: the parameter becomes `ImmutableList` / `ImmutableSet` /
 `ImmutableMap`, the value is built at the boundary with `toImmutableList()` /
