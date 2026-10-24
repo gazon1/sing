@@ -222,6 +222,7 @@ def _state(root: pathlib.Path) -> dict[str, object]:
                 )
 
     tree = _git("diff", "--shortstat", UPSTREAM_REF, "HEAD", cwd=root) or ""
+    upstream_date = _git("log", "-1", "--format=%cs", UPSTREAM_REF, cwd=root) or ""
 
     return {
         "root": str(root),
@@ -230,6 +231,7 @@ def _state(root: pathlib.Path) -> dict[str, object]:
         "headSubject": _git("log", "-1", "--format=%s", cwd=root) or "",
         "upstream": UPSTREAM_REF,
         "upstreamKnown": upstream_known,
+        "upstreamDate": upstream_date,
         "behind": behind,
         "ahead": ahead,
         "carrying": carried,
@@ -253,6 +255,12 @@ def _report(state: dict[str, object]) -> str:
             f"upstream:   {state['upstream']} is {state['behind']} commits ahead of this "
             f"checkout; this checkout is {state['ahead']} commits ahead of it"
         )
+        date = state.get("upstreamDate")
+        if date:
+            lines.append(
+                f"            counted against the local {state['upstream']} of {date} — "
+                f"the numbers are only as fresh as that ref: `git fetch origin` first"
+            )
         if state["behind"] >= STALE_BASE_COMMITS:
             lines.append(
                 f"            STALE BASE — this checkout is {state['behind']} commits behind "
@@ -265,7 +273,7 @@ def _report(state: dict[str, object]) -> str:
     else:
         lines.append(
             f"upstream:   {state['upstream']} is not known here — run `git fetch origin` before "
-            f"trusting the numbers above"
+            f"trusting the numbers"
         )
 
     carried = state["carrying"]
@@ -323,7 +331,10 @@ def _report(state: dict[str, object]) -> str:
 @click.option(
     "--strict",
     is_flag=True,
-    help="Exit 1 when the checkout is not a clean base (diverged, or the instructions do not fit).",
+    help=(
+        "Exit 1 when the base is stale (at least STALE_BASE_COMMITS behind "
+        "origin/main), or the project instructions do not fit the budget."
+    ),
 )
 def checkout_state(emit_json: bool, strict: bool) -> None:
     """Print what the checkout the caller stands in is carrying."""

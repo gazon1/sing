@@ -15,8 +15,8 @@ These tests hold the command to its own claims:
 
   - it answers about the checkout the caller stands in, not the checkout the
     installed `sgate` belongs to;
-  - a checkout that is behind and ahead of `origin/main` is reported as
-    diverged — the state in which a commit carries somebody else's work;
+  - a base that is many commits behind is reported as stale, and a branch that
+    is only one commit behind is not;
   - a branch that is only ahead is not diverged: that is a feature branch;
   - the instructions are measured against the budget the harness gives them.
 """
@@ -114,7 +114,6 @@ class CheckoutStateTest(unittest.TestCase):
         self.assertEqual(1, state['behind'])
         report = mod._report(state)
         self.assertNotIn('STALE BASE', report)
-        self.assertNotIn('DIVERGED', report)
 
     def test_a_base_that_is_many_commits_behind_is_stale(self):
         # The tree the reader looks at is not the tree the work will be based
@@ -143,6 +142,30 @@ class CheckoutStateTest(unittest.TestCase):
         carried = state['carrying']
         self.assertEqual(1, len(carried), carried)
         self.assertEqual('second', carried[0]['subject'])
+
+    def test_a_missing_upstream_leaves_the_comparison_unknown(self):
+        # `git diff --quiet` exits 1 when the files differ and 128 when the ref
+        # is not there. "Unknown" is not "equal".
+        (self.tmp / 'AGENTS.md').write_text('x' * 10, encoding='utf-8')
+        state = mod._state(self.tmp)
+        self.assertFalse(state['upstreamKnown'])
+        self.assertIsNone(state['instructions']['differs'])
+        self.assertIn('unknown', mod._report(state))
+
+    def test_the_carried_list_says_how_many_it_did_not_print(self):
+        self._commit('first')
+        self._upstream()
+        for i in range(mod.MAX_LISTED + 5):
+            _git('commit', '--quiet', '--allow-empty', '-m', f'commit {i}', cwd=self.tmp)
+        report = mod._report(mod._state(self.tmp))
+        self.assertIn('and 5 more', report)
+
+    def test_the_upstream_ref_carries_the_date_it_was_counted_against(self):
+        self._commit('first')
+        self._upstream()
+        state = mod._state(self.tmp)
+        self.assertTrue(state['upstreamDate'])
+        self.assertIn('only as fresh as that ref', mod._report(state))
 
     def test_the_instructions_are_measured_against_the_budget(self):
         (self.tmp / 'AGENTS.md').write_text('x' * 10, encoding='utf-8')
