@@ -285,6 +285,13 @@ bridge; a test that cannot run is a skipped test, and this repository does not a
 those. It is a program (`AcpBridgeProbe`) with a Gradle task
 (`:shared:acpBridgeProbe`) beside it, the same shape as `exportToolSurface`.
 
+The probe starts the bridge the way the launcher starts an agent —
+`Subprocess.spawnDuplex(...)`, and a `ProcessTree` over the handle. Spawning belongs to
+`core/process`: a spawn outside it is a spawn nobody's tests cover, and the defect that
+class of spawn carries has shipped twice in this repository. The probe then wraps the
+child's output in a tee, because the transcript is a copy taken *underneath* the
+protocol's reader and not a second reader of the stream.
+
 **What it covers.** The handshake and the session — the protocol's own layers, and the
 ones this application owns. Against `@agentclientprotocol/claude-agent-acp` 0.95.0 the
 client completed the handshake on the first run.
