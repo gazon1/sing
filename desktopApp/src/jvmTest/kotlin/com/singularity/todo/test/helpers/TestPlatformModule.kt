@@ -9,7 +9,7 @@ import com.singularity.todo.core.observability.ToolCallRecorder
 import com.singularity.todo.core.platform.HostEnvironmentPort
 import com.singularity.todo.core.platform.JvmHostEnvironment
 import com.singularity.todo.core.work.BackgroundWorkScheduler
-import com.singularity.todo.feature.calendar_sync.work.GoogleSyncPeriodicTrigger
+import com.singularity.todo.feature.calendarSync.work.GoogleSyncPeriodicTrigger
 import kotlinx.coroutines.CoroutineScope
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.backup.BackupCodec
@@ -33,13 +33,13 @@ import com.singularity.todo.core.platform.haptics.createHaptic
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.sync.SyncPeriodicTrigger
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
-import com.singularity.todo.feature.calendar_sync.data.NoopCalendarProvider
-import com.singularity.todo.feature.calendar_sync.data.NoopCalendarSyncRepositoryImpl
-import com.singularity.todo.feature.calendar_sync.domain.port.CalendarAppQueries
-import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
-import com.singularity.todo.feature.calendar_sync.domain.port.CalendarSyncRepository
-import com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler
-import com.singularity.todo.feature.calendar_sync.work.NoopCalendarSyncWorkScheduler
+import com.singularity.todo.feature.calendarSync.data.NoopCalendarProvider
+import com.singularity.todo.feature.calendarSync.data.NoopCalendarSyncRepositoryImpl
+import com.singularity.todo.feature.calendarSync.domain.port.CalendarAppQueries
+import com.singularity.todo.feature.calendarSync.domain.port.CalendarProviderPort
+import com.singularity.todo.feature.calendarSync.domain.port.CalendarSyncRepository
+import com.singularity.todo.feature.calendarSync.work.CalendarSyncWorkScheduler
+import com.singularity.todo.feature.calendarSync.work.NoopCalendarSyncWorkScheduler
 import com.singularity.todo.feature.pomodoro.PomodoroConfig
 import com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
@@ -59,8 +59,8 @@ import java.util.concurrent.atomic.AtomicInteger
 import com.singularity.todo.core.database.UnitOfWork
 import com.singularity.todo.core.auth.oauth.OAuthBrowser
 import com.singularity.todo.core.auth.oauth.OAuthRedirectSocket
-import com.singularity.todo.feature.calendar_sync.auth.GoogleAccessTokenProvider
-import com.singularity.todo.feature.calendar_sync.auth.GoogleGrantRedeemer
+import com.singularity.todo.feature.calendarSync.auth.GoogleAccessTokenProvider
+import com.singularity.todo.feature.calendarSync.auth.GoogleGrantRedeemer
 
 /**
  * The JVM platform bindings a desktop flow test needs, rebuilt without touching

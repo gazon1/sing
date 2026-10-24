@@ -66,7 +66,7 @@ internal object ComposeCollectionExemptions {
         "com.singularity.todo.feature.calendar.presentation.components.calendar.MonthGridPage" to
             "tasksByDate: Map<LocalDate, List<CalendarTaskUi>>; " +
             "selectedDates: Set<LocalDate>?",
-        "com.singularity.todo.feature.calendar_sync.presentation.CalendarAppPicker" to
+        "com.singularity.todo.feature.calendarSync.presentation.CalendarAppPicker" to
             "availableApps: List<CalendarAppInfo>",
         "com.singularity.todo.feature.checklist.components.ChecklistEditorSheet" to "items: List<ChecklistItem>",
         "com.singularity.todo.feature.notes.presentation.screen.BacklinksSheet" to "backlinks: List<Note>",

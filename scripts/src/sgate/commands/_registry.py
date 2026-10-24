@@ -1521,11 +1521,11 @@ GATE_CONTROLS: dict[str, Control] = {
             kind='sabotage',
             proves='scripts/check-link-grammar.py',
             argv=('{python}', 'scripts/check-link-grammar.py', '--check',),
-            path='shared/src/commonMain/kotlin/com/singularity/todo/feature/calendar_sync/domain/model/CalendarSyncEvent.kt',
+            path='shared/src/commonMain/kotlin/com/singularity/todo/feature/calendarSync/domain/model/CalendarSyncEvent.kt',
             edit=Edit(
                 kind='replace',
-                old='package com.singularity.todo.feature.calendar_sync.domain.model',
-                new='package com.singularity.todo.feature.calendar_sync.domain.model\n\nprivate val handWrittenLink = "singularity://task/abc"',
+                old='package com.singularity.todo.feature.calendarSync.domain.model',
+                new='package com.singularity.todo.feature.calendarSync.domain.model\n\nprivate val handWrittenLink = "singularity://task/abc"',
                 count=1,
             ),
             why=(

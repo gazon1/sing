@@ -137,7 +137,7 @@ class VendorSdkConfinementTest {
             "auth/SupabaseAuthGateway.kt",
             "sync/PostgrestSyncRpc.kt",
             "backup/SupabaseStorageRemoteBackupService.kt",
-            "calendar_sync/auth/SupabaseGoogleTokenGateway.kt",
+            "calendarSync/auth/SupabaseGoogleTokenGateway.kt",
         )
     }
 }

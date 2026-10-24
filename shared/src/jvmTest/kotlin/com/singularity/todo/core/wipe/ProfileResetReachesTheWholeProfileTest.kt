@@ -31,10 +31,10 @@ import com.singularity.todo.core.sync.SyncOutboxEntity
 import com.singularity.todo.core.sync.SyncShadowEntity
 import com.singularity.todo.core.sync.SyncStateEntity
 import com.singularity.todo.feature.agenda.data.SavedAgendaViewsRepositoryImpl
-import com.singularity.todo.feature.calendar_sync.data.CalendarImportEventEntity
-import com.singularity.todo.feature.calendar_sync.data.CalendarSyncStateEntity
-import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
-import com.singularity.todo.feature.calendar_sync.data.GoogleEventShadowEntity
+import com.singularity.todo.feature.calendarSync.data.CalendarImportEventEntity
+import com.singularity.todo.feature.calendarSync.data.CalendarSyncStateEntity
+import com.singularity.todo.feature.calendarSync.data.CalendarSyncTaskMapEntity
+import com.singularity.todo.feature.calendarSync.data.GoogleEventShadowEntity
 import com.singularity.todo.feature.notes.data.NotesRepositoryImpl
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.data.ProjectsRepositoryImpl

@@ -168,9 +168,9 @@ alone is not enough for the desktop, and the other way round.
 
 - `docs/decisions/2026-10-05-google-oauth-hybrid-kmpauth-plus-own-token-exchange.md` — the
   decision this one supersedes.
-- `shared/src/commonMain/kotlin/com/singularity/todo/feature/calendar_sync/auth/` — the client id
+- `shared/src/commonMain/kotlin/com/singularity/todo/feature/calendarSync/auth/` — the client id
   resolver, the credential store and the token client.
-- `shared/src/androidMain/kotlin/com/singularity/todo/feature/calendar_sync/auth/` — the offline
+- `shared/src/androidMain/kotlin/com/singularity/todo/feature/calendarSync/auth/` — the offline
   authorization request.
 - `supabase/functions/` — the exchange function.
 - [Google: OAuth 2.0 for native apps](https://developers.google.com/identity/protocols/oauth2/native-app)

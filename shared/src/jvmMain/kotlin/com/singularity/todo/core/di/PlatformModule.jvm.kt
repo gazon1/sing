@@ -46,21 +46,21 @@ import com.singularity.todo.core.sync.work.JvmSyncWorkScheduler
 import com.singularity.todo.core.work.BackgroundWorkScheduler
 import com.singularity.todo.core.work.JvmBackgroundWorkScheduler
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
-import com.singularity.todo.feature.calendar_sync.data.JvmCalendarAppQueries
-import com.singularity.todo.feature.calendar_sync.data.NoopCalendarProvider
-import com.singularity.todo.feature.calendar_sync.auth.GoogleAccessTokenProvider
-import com.singularity.todo.feature.calendar_sync.auth.GoogleGrantRedeemer
-import com.singularity.todo.feature.calendar_sync.auth.GoogleTokenClient
-import com.singularity.todo.feature.calendar_sync.auth.LocalGoogleAccessTokenProvider
-import com.singularity.todo.feature.calendar_sync.auth.LocalGoogleGrantRedeemer
-import com.singularity.todo.feature.calendar_sync.data.NoopCalendarSyncRepositoryImpl
-import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
-import com.singularity.todo.feature.calendar_sync.domain.port.CalendarSyncRepository
-import com.singularity.todo.feature.calendar_sync.sync.GoogleSyncCoordinator
-import com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler
-import com.singularity.todo.feature.calendar_sync.work.DelayLoopGoogleSyncPeriodicTrigger
-import com.singularity.todo.feature.calendar_sync.work.GoogleSyncPeriodicTrigger
-import com.singularity.todo.feature.calendar_sync.work.NoopCalendarSyncWorkScheduler
+import com.singularity.todo.feature.calendarSync.data.JvmCalendarAppQueries
+import com.singularity.todo.feature.calendarSync.data.NoopCalendarProvider
+import com.singularity.todo.feature.calendarSync.auth.GoogleAccessTokenProvider
+import com.singularity.todo.feature.calendarSync.auth.GoogleGrantRedeemer
+import com.singularity.todo.feature.calendarSync.auth.GoogleTokenClient
+import com.singularity.todo.feature.calendarSync.auth.LocalGoogleAccessTokenProvider
+import com.singularity.todo.feature.calendarSync.auth.LocalGoogleGrantRedeemer
+import com.singularity.todo.feature.calendarSync.data.NoopCalendarSyncRepositoryImpl
+import com.singularity.todo.feature.calendarSync.domain.port.CalendarProviderPort
+import com.singularity.todo.feature.calendarSync.domain.port.CalendarSyncRepository
+import com.singularity.todo.feature.calendarSync.sync.GoogleSyncCoordinator
+import com.singularity.todo.feature.calendarSync.work.CalendarSyncWorkScheduler
+import com.singularity.todo.feature.calendarSync.work.DelayLoopGoogleSyncPeriodicTrigger
+import com.singularity.todo.feature.calendarSync.work.GoogleSyncPeriodicTrigger
+import com.singularity.todo.feature.calendarSync.work.NoopCalendarSyncWorkScheduler
 import com.singularity.todo.feature.pomodoro.JvmPomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.JvmPomodoroTimer
 import com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider
@@ -310,7 +310,7 @@ actual fun platformModule(): Module = module {
         NoopCalendarSyncWorkScheduler()
     }
 
-    single<com.singularity.todo.feature.calendar_sync.domain.port.CalendarAppQueries> {
+    single<com.singularity.todo.feature.calendarSync.domain.port.CalendarAppQueries> {
         JvmCalendarAppQueries()
     }
 

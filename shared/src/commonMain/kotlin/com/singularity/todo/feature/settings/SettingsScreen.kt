@@ -63,7 +63,7 @@ import com.singularity.todo.core.ui.theme.AiStatusColors
 import com.singularity.todo.feature.backup.BackupIntent
 import com.singularity.todo.feature.backup.BackupScreen
 import com.singularity.todo.feature.backup.BackupViewModel
-import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncSettingsScreen
+import com.singularity.todo.feature.calendarSync.presentation.CalendarSyncSettingsScreen
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.NavCallbacks

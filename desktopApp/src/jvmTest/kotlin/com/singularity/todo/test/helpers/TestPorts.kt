@@ -14,7 +14,7 @@ import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
 import com.singularity.todo.core.work.BackgroundWorkScheduler
 import com.singularity.todo.core.work.JobSchedule
-import com.singularity.todo.feature.calendar_sync.work.GoogleSyncPeriodicTrigger
+import com.singularity.todo.feature.calendarSync.work.GoogleSyncPeriodicTrigger
 import com.singularity.todo.feature.pomodoro.PomodoroConfig
 import com.singularity.todo.feature.pomodoro.PomodoroPhase
 import com.singularity.todo.feature.pomodoro.PomodoroState
@@ -36,10 +36,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import com.singularity.todo.core.auth.oauth.OAuthBrowser
 import com.singularity.todo.core.auth.oauth.OAuthConsentException
 import com.singularity.todo.core.auth.oauth.OAuthRedirectSocket
-import com.singularity.todo.feature.calendar_sync.auth.GoogleAccessTokenProvider
-import com.singularity.todo.feature.calendar_sync.auth.GoogleCredentials
-import com.singularity.todo.feature.calendar_sync.auth.GoogleGrant
-import com.singularity.todo.feature.calendar_sync.auth.GoogleGrantRedeemer
+import com.singularity.todo.feature.calendarSync.auth.GoogleAccessTokenProvider
+import com.singularity.todo.feature.calendarSync.auth.GoogleCredentials
+import com.singularity.todo.feature.calendarSync.auth.GoogleGrant
+import com.singularity.todo.feature.calendarSync.auth.GoogleGrantRedeemer
 
 /**
  * Inert implementations of the JVM ports a desktop flow test would otherwise

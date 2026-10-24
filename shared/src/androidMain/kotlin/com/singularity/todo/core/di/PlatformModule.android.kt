@@ -45,20 +45,20 @@ import com.singularity.todo.core.sync.work.AndroidSyncWorkScheduler
 import com.singularity.todo.core.work.AndroidBackgroundWorkScheduler
 import com.singularity.todo.core.work.BackgroundWorkScheduler
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
-import com.singularity.todo.feature.calendar_sync.data.AndroidCalendarAppQueries
-import com.singularity.todo.feature.calendar_sync.data.AndroidCalendarProvider
-import com.singularity.todo.feature.calendar_sync.data.CalendarSyncSettingsRepositoryImpl
-import com.singularity.todo.feature.calendar_sync.auth.GoogleAccessTokenProvider
-import com.singularity.todo.feature.calendar_sync.auth.GoogleGrantRedeemer
-import com.singularity.todo.feature.calendar_sync.auth.SupabaseGoogleAccessTokenProvider
-import com.singularity.todo.feature.calendar_sync.auth.SupabaseGoogleGrantRedeemer
-import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
-import com.singularity.todo.feature.calendar_sync.domain.port.CalendarSyncRepository
-import com.singularity.todo.feature.calendar_sync.sync.GoogleSyncCoordinator
-import com.singularity.todo.feature.calendar_sync.work.AndroidCalendarSyncWorkScheduler
-import com.singularity.todo.feature.calendar_sync.work.AndroidGoogleSyncPeriodicTrigger
-import com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler
-import com.singularity.todo.feature.calendar_sync.work.GoogleSyncPeriodicTrigger
+import com.singularity.todo.feature.calendarSync.data.AndroidCalendarAppQueries
+import com.singularity.todo.feature.calendarSync.data.AndroidCalendarProvider
+import com.singularity.todo.feature.calendarSync.data.CalendarSyncSettingsRepositoryImpl
+import com.singularity.todo.feature.calendarSync.auth.GoogleAccessTokenProvider
+import com.singularity.todo.feature.calendarSync.auth.GoogleGrantRedeemer
+import com.singularity.todo.feature.calendarSync.auth.SupabaseGoogleAccessTokenProvider
+import com.singularity.todo.feature.calendarSync.auth.SupabaseGoogleGrantRedeemer
+import com.singularity.todo.feature.calendarSync.domain.port.CalendarProviderPort
+import com.singularity.todo.feature.calendarSync.domain.port.CalendarSyncRepository
+import com.singularity.todo.feature.calendarSync.sync.GoogleSyncCoordinator
+import com.singularity.todo.feature.calendarSync.work.AndroidCalendarSyncWorkScheduler
+import com.singularity.todo.feature.calendarSync.work.AndroidGoogleSyncPeriodicTrigger
+import com.singularity.todo.feature.calendarSync.work.CalendarSyncWorkScheduler
+import com.singularity.todo.feature.calendarSync.work.GoogleSyncPeriodicTrigger
 import com.singularity.todo.feature.pomodoro.AndroidPomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.AndroidPomodoroTimer
 import com.singularity.todo.feature.pomodoro.PomodoroAlarmScheduler
@@ -348,7 +348,7 @@ actual fun platformModule(): Module = module {
     }
 
     // Calendar app picker — queries PackageManager for installed calendar apps
-    single<com.singularity.todo.feature.calendar_sync.domain.port.CalendarAppQueries> {
+    single<com.singularity.todo.feature.calendarSync.domain.port.CalendarAppQueries> {
         AndroidCalendarAppQueries(get())
     }
 

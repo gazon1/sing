@@ -127,8 +127,8 @@ when the answer is "excluded".
 | `feature/auth/presentation/AttachAccountScreen.kt` | selectable | the explanation of what the account is for |
 | `feature/auth/presentation/MagicLinkConfirmScreen.kt` | selectable | the instruction that says what to do next |
 | `feature/backup/BackupScreen.kt` | selectable | the backup id, which a person has to write down somewhere |
-| `feature/calendar_sync/presentation/CalendarAppPicker.kt` | selectable | the message that reports the fallback |
-| `feature/calendar_sync/presentation/CalendarSyncSettingsScreen.kt` | selectable | the failure messages — the ones a person has to read out to support |
+| `feature/calendarSync/presentation/CalendarAppPicker.kt` | selectable | the message that reports the fallback |
+| `feature/calendarSync/presentation/CalendarSyncSettingsScreen.kt` | selectable | the failure messages — the ones a person has to read out to support |
 | `feature/checklist/components/ChecklistEditorSheet.kt` | selectable | the empty state tells the person what is missing |
 | `feature/notes/presentation/screen/NotePreviewScreen.kt` | selectable | the note body; its links are the note's own, handled by the screen |
 | `feature/pomodoro/PomodoroScreen.kt` | selectable | the message that reports the capability is missing |

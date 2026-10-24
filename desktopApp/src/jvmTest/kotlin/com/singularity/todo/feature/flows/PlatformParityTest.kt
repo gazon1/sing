@@ -11,7 +11,7 @@ import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.SharePort
 import com.singularity.todo.core.security.SecureStoragePort
-import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
+import com.singularity.todo.feature.calendarSync.domain.port.CalendarProviderPort
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test

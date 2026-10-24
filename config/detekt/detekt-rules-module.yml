@@ -239,18 +239,11 @@ naming:
     # exemption below. Inline that getter and this can be re-enabled.
     active: false
   PackageNaming:
-    # 70 findings, all `feature.calendar_sync` (and `calendar_sync`'s sub-packages),
-    # counting both the `PackageNaming` and the `PackageName` rules.
-    #
-    # It was 43 when this was first recorded, deferred pending the domain/port split
-    # (plan C2). That split has since happened and is written up in
-    # `docs/decisions/2026-10-05-google-calendar-two-ports-and-local-wins.md`, so the
-    # original blocker is gone — but the rename itself is now a 114-file mechanical
-    # change that deserves to be its own reviewed commit rather than riding along on a
-    # feature branch, where it would bury the sync work in 114 files of package churn.
-    #
-    # When it is done, it is `calendar_sync` -> `calendarSync` across declarations and
-    # imports, and this whole section should be deleted rather than re-deferred.
+    # The package names are camelCase since the 2026-10-24 rename, and the rule
+    # agrees with the code: it is the guard that keeps the next package from
+    # arriving snake_case. The 202 baseline entries it carried are gone, and the
+    # rule is declared here because a rule that runs on detekt's defaults without
+    # a decision behind it is not a decision.
     active: true
   VariableNaming:
     active: true

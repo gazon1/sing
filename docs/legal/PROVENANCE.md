@@ -141,8 +141,8 @@ commit. Rewriting file contents is not sufficient — see ADR
 | `core/analytics/Analytics.kt` | 83 | Tasks.org (GPL-3.0) | `logEvent` / `identify` / `logEventOncePerDay` shape. ADR `2026-09-23-analytics-port` states the names were chosen to match. |
 | `core/analytics/AnalyticsEvents.kt` | 144 | Tasks.org (GPL-3.0) | Naming convention for event names and `PARAM_*` keys. |
 | `core/analytics/NoopAnalytics.kt` | 15 | Tasks.org (GPL-3.0) | No-op implementation. |
-| `feature/calendar_sync/sync/SyncSource.kt` | 49 | Tasks.org (GPL-3.0) | `SyncSource` enum, narrowed to one-way sync. |
-| `feature/calendar_sync/error/CalendarSyncExceptions.kt` | 29 | Tasks.org (GPL-3.0) | Layered `SyncException` hierarchy. |
+| `feature/calendarSync/sync/SyncSource.kt` | 49 | Tasks.org (GPL-3.0) | `SyncSource` enum, narrowed to one-way sync. |
+| `feature/calendarSync/error/CalendarSyncExceptions.kt` | 29 | Tasks.org (GPL-3.0) | Layered `SyncException` hierarchy. |
 | `core/settings/SettingsBundle.kt` | — | Orgzly (GPL-3.0) | The persisted / ephemeral settings split, described in its own KDoc. |
 
 **Assessment.** Interface shapes, method names and enum members are the kind of

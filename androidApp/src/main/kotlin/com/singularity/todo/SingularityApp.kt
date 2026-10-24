@@ -14,9 +14,9 @@ import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.crashReportingFailureHandler
 import com.singularity.todo.core.version.appVersion
 import org.koin.core.module.Module
-import com.singularity.todo.feature.calendar_sync.sync.CalendarSyncOrchestrator
-import com.singularity.todo.feature.calendar_sync.work.GOOGLE_SYNC_INTERVAL_MINUTES
-import com.singularity.todo.feature.calendar_sync.work.GoogleSyncPeriodicTrigger
+import com.singularity.todo.feature.calendarSync.sync.CalendarSyncOrchestrator
+import com.singularity.todo.feature.calendarSync.work.GOOGLE_SYNC_INTERVAL_MINUTES
+import com.singularity.todo.feature.calendarSync.work.GoogleSyncPeriodicTrigger
 import com.singularity.todo.feature.gate.gateModule
 import com.singularity.todo.core.work.BackgroundWorkBootstrapper
 import com.singularity.todo.feature.profile.ProfileBootstrapper

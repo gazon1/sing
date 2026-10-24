@@ -30,7 +30,7 @@ core/di/
   KoogPromptExecutorPort.kt / PromptExecutorPort.kt / KoogPromptExecutorFactory.kt
 
 feature/agenda/AgendaDiModule.kt                  — agendaModule()
-feature/calendar_sync/di/CalendarSyncDiModule.kt  — calendarSyncModule()
+feature/calendarSync/di/CalendarSyncDiModule.kt  — calendarSyncModule()
 feature/whatsnew/di/WhatsNewDiModule.kt           — whatsNewModule()
 ```
 
