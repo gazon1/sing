@@ -129,18 +129,20 @@ The uninstrumented `:shared:jvmTest` in the table above is a different run: the 
 
 ### The last finished run of `main`
 
-The CI loop is the one that blocks merges, so it is priced too — 2026-10-23T14:54:00Z — https://github.com/gazon1/sing/actions/runs/39973576863.
+The CI loop is the one that blocks merges, so it is priced too — 2026-10-24T10:12:52Z — https://github.com/gazon1/sing/actions/runs/40085015804.
 
 | Job | Duration |
 |------|----------|
-| Android (free) | 2 min 01 s |
-| Android (pro) | 1 min 55 s |
-| CI gate | 2.0 s |
-| Gate tooling | 4 min 59 s |
-| JVM tests, detekt, coverage | 17 min 32 s |
-| Static gates | 10 min 27 s |
-| adr-gate | 1 min 38 s |
-| changes | 8.0 s |
+| Android (free) | 2 min 09 s |
+| Android (pro) | 3 min 40 s |
+| CI gate | 4.0 s |
+| Coverage | 26 min 52 s |
+| Gate tooling | 5 min 52 s |
+| JVM tests | 19 min 39 s |
+| Static gates | 7 min 54 s |
+| adr-gate | 1 min 43 s |
+| changes | 6.0 s |
+| detekt | 4 min 25 s |
 
 The run finished as **success**.
 
