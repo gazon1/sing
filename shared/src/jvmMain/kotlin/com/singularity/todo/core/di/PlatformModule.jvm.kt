@@ -5,6 +5,10 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import com.singularity.todo.core.backup.BackupCodec
 import com.singularity.todo.core.backup.JvmBackupCodec
+import com.singularity.todo.core.auth.oauth.JvmOAuthBrowser
+import com.singularity.todo.core.auth.oauth.JvmOAuthRedirectSocket
+import com.singularity.todo.core.auth.oauth.OAuthBrowser
+import com.singularity.todo.core.auth.oauth.OAuthRedirectSocket
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
 import com.singularity.todo.core.database.contract.createSqlDriver
@@ -42,16 +46,21 @@ import com.singularity.todo.core.sync.work.JvmSyncWorkScheduler
 import com.singularity.todo.core.work.BackgroundWorkScheduler
 import com.singularity.todo.core.work.JvmBackgroundWorkScheduler
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
-import com.singularity.todo.feature.calendar_sync.data.JvmCalendarAppQueries
-import com.singularity.todo.feature.calendar_sync.data.NoopCalendarProvider
-import com.singularity.todo.feature.calendar_sync.data.NoopCalendarSyncRepositoryImpl
-import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
-import com.singularity.todo.feature.calendar_sync.domain.port.CalendarSyncRepository
-import com.singularity.todo.feature.calendar_sync.sync.GoogleSyncCoordinator
-import com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler
-import com.singularity.todo.feature.calendar_sync.work.DelayLoopGoogleSyncPeriodicTrigger
-import com.singularity.todo.feature.calendar_sync.work.GoogleSyncPeriodicTrigger
-import com.singularity.todo.feature.calendar_sync.work.NoopCalendarSyncWorkScheduler
+import com.singularity.todo.feature.calendarSync.data.JvmCalendarAppQueries
+import com.singularity.todo.feature.calendarSync.data.NoopCalendarProvider
+import com.singularity.todo.feature.calendarSync.auth.GoogleAccessTokenProvider
+import com.singularity.todo.feature.calendarSync.auth.GoogleGrantRedeemer
+import com.singularity.todo.feature.calendarSync.auth.GoogleTokenClient
+import com.singularity.todo.feature.calendarSync.auth.LocalGoogleAccessTokenProvider
+import com.singularity.todo.feature.calendarSync.auth.LocalGoogleGrantRedeemer
+import com.singularity.todo.feature.calendarSync.data.NoopCalendarSyncRepositoryImpl
+import com.singularity.todo.feature.calendarSync.domain.port.CalendarProviderPort
+import com.singularity.todo.feature.calendarSync.domain.port.CalendarSyncRepository
+import com.singularity.todo.feature.calendarSync.sync.GoogleSyncCoordinator
+import com.singularity.todo.feature.calendarSync.work.CalendarSyncWorkScheduler
+import com.singularity.todo.feature.calendarSync.work.DelayLoopGoogleSyncPeriodicTrigger
+import com.singularity.todo.feature.calendarSync.work.GoogleSyncPeriodicTrigger
+import com.singularity.todo.feature.calendarSync.work.NoopCalendarSyncWorkScheduler
 import com.singularity.todo.feature.pomodoro.JvmPomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.JvmPomodoroTimer
 import com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider
@@ -210,15 +219,27 @@ actual fun platformModule(): Module = module {
 
     single<BackupCodec> { JvmBackupCodec() }
 
+    // ─── The OAuth consent step ─────────────────────────────────────────
+    //
+    // The browser and the loopback socket are the two pieces of the sign-in
+    // that touch the operating system. Everything that decides something about
+    // the redirect lives in common code.
+    single<OAuthBrowser> { JvmOAuthBrowser() }
+
+    single<OAuthRedirectSocket> { JvmOAuthRedirectSocket() }
+
     // NoOp on JVM — the definition must exist even though it is inert, or
     // injection throws inside composition and Compose retries every frame.
     single<CrashReportingPort> { JvmCrashReportingPort() }
 
-    single<String> { userHome + "/.singularity-todo/backups" }
+    single<String>(BackupDirQualifier) { userHome + "/.singularity-todo/backups" }
 
-    single<String> { userHome + "/.singularity-todo/logs" }
+    single<String>(LogDirQualifier) { userHome + "/.singularity-todo/logs" }
 
-    single { LogBundleExporter(get(), get(), get()) }
+    // The same folder the desktop's file revealer opens.
+    single<String>(AttachmentDirQualifier) { userHome + "/.singularity-todo/attachments" }
+
+    single { LogBundleExporter(get(LogDirQualifier), get(), get()) }
 
     // ─── Pomodoro Timer ─────────────────────────────────────────────────
 
@@ -289,7 +310,7 @@ actual fun platformModule(): Module = module {
         NoopCalendarSyncWorkScheduler()
     }
 
-    single<com.singularity.todo.feature.calendar_sync.domain.port.CalendarAppQueries> {
+    single<com.singularity.todo.feature.calendarSync.domain.port.CalendarAppQueries> {
         JvmCalendarAppQueries()
     }
 
@@ -303,6 +324,29 @@ actual fun platformModule(): Module = module {
         DelayLoopGoogleSyncPeriodicTrigger(
             coordinatorProvider = { get<GoogleSyncCoordinator>() },
             scope = get(),
+        )
+    }
+
+    // ─── The Google grant ────────────────────────────────────────────────
+    //
+    // The grant is redeemed on the *device*, and the token is renewed there too.
+    //
+    // A Desktop OAuth client is a public client: Google lets it exchange a code and
+    // renew a refresh token without a client secret. The desktop is the user's own
+    // machine, so the refresh token belongs in the user's own keystore — and no server
+    // is involved at all.
+    single<GoogleGrantRedeemer> {
+        LocalGoogleGrantRedeemer(
+            tokenClientFactory = { clientId -> GoogleTokenClient(httpClient = get(), clientId = clientId) },
+        )
+    }
+
+    single<GoogleAccessTokenProvider> {
+        LocalGoogleAccessTokenProvider(
+            credentialStore = get(),
+            clientIdResolver = get(),
+            secureStorage = get(),
+            tokenClientFactory = { clientId -> GoogleTokenClient(httpClient = get(), clientId = clientId) },
         )
     }
 }

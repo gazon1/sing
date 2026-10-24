@@ -1,10 +1,10 @@
 package com.singularity.todo.core.database
 
 import com.singularity.todo.core.database.contract.createSqlDriver
-import com.singularity.todo.feature.calendar_sync.data.CalendarImportEventEntity
-import com.singularity.todo.feature.calendar_sync.data.CalendarSyncStateEntity
-import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapEntity
-import com.singularity.todo.feature.calendar_sync.data.GoogleEventShadowEntity
+import com.singularity.todo.feature.calendarSync.data.CalendarImportEventEntity
+import com.singularity.todo.feature.calendarSync.data.CalendarSyncStateEntity
+import com.singularity.todo.feature.calendarSync.data.CalendarSyncTaskMapEntity
+import com.singularity.todo.feature.calendarSync.data.GoogleEventShadowEntity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag

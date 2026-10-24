@@ -304,11 +304,29 @@ kotlin {
             implementation(libs.auth.kt)
             implementation(libs.postgrest.kt)
             implementation(libs.functions.kt)
+            // The remote half of the backup feature: the archive goes into a
+            // Supabase Storage bucket. Without it the "push to cloud" button can
+            // only pretend.
+            implementation(libs.storage.kt)
+
+            // The Google account sign-in. The library is used for the credential
+            // chooser and the platform's failure modes; the token exchange is this
+            // project's, because the library has no refresh token.
+            implementation(libs.kmpauth.google)
         }
 
         androidMain.dependencies {
             implementation(libs.compose.ui.tooling)
             implementation(libs.compose.ui.tooling.preview)
+
+            // Google's authorization API — the offline authorization request that
+            // produces the one-time code the server redeems.
+            //
+            // Declared here, not taken from KMPAuth: KMPAuth declares Play Services as
+            // an `implementation` dependency, so it reaches the *runtime* classpath and
+            // not the *compile* one. The classes are then missing exactly where they
+            // are needed — in this project's own code, which asks Google for the grant.
+            implementation(libs.play.services.auth)
 
             // Room Android
             implementation(libs.androidx.room3.runtime)
@@ -756,6 +774,23 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     // a gate that cannot be invalidated by the change it watches.
     inputs.file(rootProject.file("docs/specs/search-query-grammar.md"))
         .withPropertyName("searchQueryGrammarSpec")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    // The backup bucket's RLS policy, read by `BackupBucketPolicyTest`.
+    //
+    // That test answers "is every policy on the backups bucket scoped to the
+    // caller's own uid?" — a policy that checked only the bucket would let any
+    // signed-in account read and delete another account's archives, so the check
+    // has to read the migration itself rather than a copy of it. The path is
+    // declared for the reason `searchQueryGrammar.spec` is declared: a derived
+    // path is invisible to scripts/check-test-task-inputs.py, which fails when a
+    // path-valued system property points outside its module with no input
+    // covering it.
+    systemProperty(
+        "backupBucketPolicy.migration",
+        rootProject.file("supabase/migrations/2026-10-24-backup_storage_bucket.sql").absolutePath,
+    )
+    inputs.file(rootProject.file("supabase/migrations/2026-10-24-backup_storage_bucket.sql"))
+        .withPropertyName("backupBucketPolicyMigration")
         .withPathSensitivity(PathSensitivity.RELATIVE)
     // The text-field inventory in the skill, read by `TextFieldShapeConventionTest`.
     //

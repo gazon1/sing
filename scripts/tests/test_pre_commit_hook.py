@@ -28,6 +28,7 @@ the tests take well under a second and need no build.
 """
 
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -40,6 +41,23 @@ sys.path.insert(0, str(REPO_ROOT / 'scripts' / 'src'))
 from sgate.gatekit.gitenv import sandbox_env  # noqa: E402
 
 HOOK = REPO_ROOT / '.githooks' / 'pre-commit'
+
+#: The scripts the hook calls, read from the hook itself.
+#:
+#: The fixture copies the hook into a repository of its own, and the hook calls
+#: scripts that live in the tree it runs in. When the hook grew a dependency —
+#: `scripts/staged-tree.py`, which holds the working tree at the index — the
+#: fixture did not know about it, and the hook failed in a repository that had
+#: no such file: the commit was refused for a reason that had nothing to do
+#: with the compile, and five tests said so at push time.
+#:
+#: Reading the names from the hook is what keeps the fixture and the hook in
+#: step: a hook that grows a dependency gets it copied in, and a hook that
+#: names a script that does not exist fails the copy loudly, here, instead of
+#: in somebody's push.
+def _scripts_the_hook_needs() -> set[str]:
+    text = HOOK.read_text(encoding='utf-8')
+    return set(re.findall(r'scripts/[A-Za-z0-9_.\-]+\.py', text))
 
 #: The stand-in for the Gradle wrapper. It writes down what it was asked to
 #: do and decides the verdict from a marker file, so a test can make the
@@ -93,18 +111,14 @@ class PreCommitHookTest(unittest.TestCase):
         _git('config', 'core.hooksPath', '.githooks', cwd=self.repo)
         self._write('.githooks/pre-commit', HOOK.read_text(encoding='utf-8'), executable=True)
         self._write('gw', FAKE_GW, executable=True)
+        # Every script the hook calls is the repository's own, and the fixture
+        # copies them in. The fixture is a real repository then, not a stand-in
+        # for one.
+        for relative in sorted(_scripts_the_hook_needs()):
+            self._write(relative, (REPO_ROOT / relative).read_text(encoding='utf-8'))
+        # The lint step is the one exception: it is a stand-in that passes
+        # without a build, because the tests are about the compile.
         self._write('scripts/lint-changed.py', PASSING_LINT)
-        # The compile step is a script of its own, and it reads the module
-        # graph — both are the repository's, so both are copied in. The fixture
-        # is a real repository then, not a stand-in for one.
-        self._write(
-            'scripts/changed-modules.py',
-            (REPO_ROOT / 'scripts' / 'changed-modules.py').read_text(encoding='utf-8'),
-        )
-        self._write(
-            'scripts/compile-changed.py',
-            (REPO_ROOT / 'scripts' / 'compile-changed.py').read_text(encoding='utf-8'),
-        )
         (self.repo / 'README.md').write_text('seed\n', encoding='utf-8')
         _git('add', '-A', cwd=self.repo)
         # The seed is the fixture, not the thing under test, and the hook needs

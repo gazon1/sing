@@ -74,6 +74,16 @@ checks that the registry still imports.
    things depend on, and a new gate inserted at the top of a list changes it
    for no reason.
 
+6. **`scripts/run-gate-tests.py` refuses to measure a foreign tree.** The gate
+   scripts' own tests are the one suite that is run by hand, on a machine that
+   may have another checkout's editable install of `sgate` on the import path.
+   The runner asks where the importable `sgate` comes from before it starts —
+   the same question `scripts/check-gate-tooling-origin.py` asks, asked the
+   same way — and refuses with that check's own message when the answer is
+   another checkout or no checkout at all. The refusal has its own exit code
+   (2), so "the suite is red" and "the suite never measured this tree" are not
+   the same line in a CI log.
+
 ## Rationale
 
 - **The runner's job is to run *this* code.** A gate suite that certifies
@@ -94,6 +104,16 @@ checks that the registry still imports.
   and the word "push" is not always a claim. Blocking on that would make the
   build red for a sentence nobody has to fix, and the cost of that is a gate
   people learn to ignore.
+
+- **Seventy-two anonymous failures are worse than one refusal.** With another
+  checkout's `sgate` in reach, the suite failed in 72 places, and every failure
+  was about code this checkout does not contain: the number says nothing, and
+  the diagnostics point in every direction at once. The reader is left to guess
+  that the tree under them is not the tree that was measured. A refusal that
+  names the checkout the tooling serves replaces a hundred facts with one.
+  The check itself already existed — `check-gate-tooling-origin.py`, and the
+  static-gates registry runs it first — but the suite was run by hand, and the
+  hand-run path had no such question asked of it.
 
 - **The rule is data because the rule is what changes.** A document moves, a
   convention changes, a column is added — none of those is a change of
@@ -119,10 +139,17 @@ checks that the registry still imports.
   restore succeeded, repairs an interrupted run on the next run, and says what
   it would touch under `--dry-run`.
 
+- The gate suite refuses, before it starts, when the importable `sgate` serves
+  another checkout — and the message is the one the origin check prints, with
+  the command that fixes it. The cost is one refused run on a machine with a
+  stale editable install; the alternative is a suite that reports about a tree
+  the reader is not working in.
+
 ## Links
 
 - `scripts/src/sgate/gatekit/` — the shared pieces.
 - `scripts/ci/new-gate.py` — the one-command registration.
+- `scripts/check-gate-tooling-origin.py` — the question the runner asks first.
 - `docs/tools/README.md` — the tool surface, in prose.
 - `docs/decisions/2026-10-21-one-owner-of-stdout.md` — the hazard this closes.
 - `openspec/changes/the-gates-run-on-every-machine/` — why the package is

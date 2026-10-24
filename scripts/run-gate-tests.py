@@ -45,14 +45,17 @@ Usage:
 Exit codes:
     0 — every test passed
     1 — a test failed, or a test module could not be imported
+    2 — the run was refused: the importable `sgate` serves another checkout
     5 — no test ran
 """
 
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import pathlib
 import re
+import subprocess
 import sys
 import time
 import unittest
@@ -65,6 +68,14 @@ DEFAULT_TESTS_DIR = ROOT / "scripts" / "tests"
 
 #: The exit code `unittest` returns when no test ran.
 NO_TESTS_RAN = 5
+
+#: The exit code when the run was refused before it started.
+#:
+#: Distinct from 1 ("a test failed") on purpose: a reader — and a CI step —
+#: has to be able to tell "the suite is red" from "the suite never measured
+#: this tree". The second is not a failure of the code; it is the absence of a
+#: measurement, and collapsing the two makes the first look like the second.
+REFUSED = 2
 
 #: An error that belongs to a class or a module, not to a test:
 #: `setUpClass (tests.test_x.A)`.
@@ -319,6 +330,87 @@ def _flatten(suite: unittest.TestSuite) -> list[unittest.TestCase]:
     return tests
 
 
+def gate_tooling_origin() -> pathlib.Path | None:
+    """Where the importable `sgate` package comes from, or None.
+
+    The gate CLI is an *editable* install of `scripts/src/`, so whichever
+    checkout was installed decides what `import sgate` finds. This is the same
+    question `scripts/check-gate-tooling-origin.py` asks, asked the same way:
+    without importing the package, because importing it is what has to be
+    reported on.
+
+    A package that has no `__init__.py` is a *namespace package*: it has no
+    origin, but it has a place it was found in, and that place answers the
+    question the same way. Reading "no origin" as "no package here" made the
+    runner refuse a tree that carried its own — and the refusal said the suite
+    would measure another checkout, which was not true.
+    """
+    try:
+        spec = importlib.util.find_spec("sgate")
+    except (ImportError, ValueError):
+        return None
+    if spec is None:
+        return None
+    if spec.origin:
+        return pathlib.Path(spec.origin).resolve().parent
+    locations = list(spec.submodule_search_locations or [])
+    if not locations:
+        return None
+    return pathlib.Path(locations[0]).resolve()
+
+
+def refuse_foreign_gate_tooling() -> bool:
+    """Whether the run has to be refused, and the reason in the gate's words.
+
+    ## What went wrong
+
+    With a foreign editable install in reach, this suite failed in 72 places.
+    Every one of those failures was about a file that is not in this checkout:
+    the foreign `sgate` has a different registry, a different set of gate
+    commands and a different set of helpers, so the tests that exercise them
+    failed on assertions about code this tree does not contain. The number 72
+    says nothing; the diagnostics point in every direction at once.
+
+    The suite did not measure this tree and it did not fail on this tree. It
+    measured another one, and the failures were the other tree's shape.
+
+    ## What this does
+
+    The refusal happens **before** the suite runs, and it names the checkout the
+    tooling serves and the checkout it should serve. The message is the one
+    `scripts/check-gate-tooling-origin.py` prints, run as a subprocess: two
+    places that name the same problem have to say the same thing about it.
+
+    A missing `sgate` is refused too, with the preflight's fix — a suite whose
+    every module fails to import is the same absence of a measurement.
+    """
+    origin = gate_tooling_origin()
+    local = (ROOT / "scripts" / "src" / "sgate").resolve()
+    if origin == local:
+        return False
+
+    report = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "check-gate-tooling-origin.py")],
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    sys.stdout.write(report.stdout)
+    # The origin check writes to stdout and this runner's own lines go to
+    # stderr. Without the flush, stdout's buffer is written at exit and the
+    # two streams arrive in the wrong order — the explanation before the
+    # reason it is explaining.
+    sys.stdout.flush()
+    sys.stderr.write(report.stderr)
+    print("", file=sys.stderr)
+    print("run-gate-tests: the suite was not run.", file=sys.stderr)
+    print("run-gate-tests: it would have measured the tree the gate CLI serves —", file=sys.stderr)
+    print("run-gate-tests: not this one. The failures it reports would have been", file=sys.stderr)
+    print("run-gate-tests: about a checkout that is not in front of you.", file=sys.stderr)
+    return True
+
+
 def run(tests_dir: pathlib.Path, junit_xml: pathlib.Path | None) -> int:
     """The gate scripts' own tests, and the report they leave.
 
@@ -412,6 +504,8 @@ def main() -> int:
         help="Write the JUnit XML report to this path.",
     )
     args = parser.parse_args()
+    if refuse_foreign_gate_tooling():
+        return REFUSED
     return run(args.tests_dir, args.junit_xml)
 
 

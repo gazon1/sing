@@ -3,7 +3,9 @@ package com.singularity.todo.core.auth
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.functions.Functions
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.storage.Storage
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -47,10 +49,28 @@ open class SupabaseClientProvider(private val resolver: SupabaseConfigResolver, 
      * Reads the secure store on every call rather than trusting a cached config,
      * because another screen can change it; the *client* is what is expensive, so
      * that is what the cache holds.
+     *
+     * ## Why the config is remembered together with the client
+     *
+     * The cache is keyed on the configuration, and the key has to be stored next to
+     * the value it describes. Building a client without recording the config it was
+     * built for leaves the key empty, the comparison against the resolved config
+     * never matches, and every call builds a *new* client.
+     *
+     * That is not a performance detail. The session lives inside the client's
+     * `Auth` plugin: a sign-in fills the plugin of the client it ran against, and
+     * a request made through a different client instance finds an empty plugin and
+     * falls back to the anon key. The symptom is a signed-in user whose requests
+     * arrive as a stranger — which for the backup feature means a row-level
+     * security policy refusing an upload the user is entitled to make.
      */
     open suspend fun client(): SupabaseClient? = lock.withLock {
         val config = resolver.resolve(store) ?: return@withLock null
-        cachedClient?.takeIf { cachedConfig == config } ?: build(config)
+        cachedClient?.takeIf { cachedConfig == config }
+            ?: build(config).also {
+                cachedConfig = config
+                cachedClient = it
+            }
     }
 
     /**
@@ -81,5 +101,11 @@ open class SupabaseClientProvider(private val resolver: SupabaseConfigResolver, 
     private fun build(config: SupabaseConfig): SupabaseClient = createSupabaseClient(config.url, config.anonKey) {
         install(Auth)
         install(Postgrest)
+        // The backup feature's remote half: the archive goes into a Storage bucket.
+        install(Storage)
+        // The Google grant's remote half: the server redeems the one-time code and
+        // holds the refresh token. The SDK carries the session, so the call is made
+        // as the signed-in user and the server can bind the grant to that account.
+        install(Functions)
     }
 }

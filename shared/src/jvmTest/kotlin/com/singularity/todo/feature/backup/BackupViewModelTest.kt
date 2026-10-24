@@ -20,6 +20,7 @@ import com.singularity.todo.core.settings.SettingsImporter
 import com.singularity.todo.feature.backup.BackupUiEvent
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeBackupRepository
+import com.singularity.todo.test.fakes.FakeFileSharePort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -86,6 +87,7 @@ class BackupViewModelTest {
             settingsExporter = stubSettingsExporter,
             settingsImporter = stubSettingsImporter,
             fileSourceFactory = fileSourceFactory,
+            fileSharePort = FakeFileSharePort(),
             scope = testScope(scope),
         )
     }
@@ -269,6 +271,7 @@ class BackupViewModelTest {
             settingsExporter = stubSettingsExporter,
             settingsImporter = importer,
             fileSourceFactory = factory,
+            fileSharePort = FakeFileSharePort(),
             scope = testScope(backgroundScope),
         )
         advanceUntilIdle()

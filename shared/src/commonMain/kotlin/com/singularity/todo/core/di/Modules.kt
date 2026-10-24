@@ -5,7 +5,7 @@ import com.singularity.todo.core.appearance.di.appearanceSettingsModule
 import com.singularity.todo.core.settings.settingsContributorsModule
 import com.singularity.todo.feature.agenda.agendaModule
 import com.singularity.todo.feature.ai.di.aiSettingsModule
-import com.singularity.todo.feature.calendar_sync.di.calendarSyncModule
+import com.singularity.todo.feature.calendarSync.di.calendarSyncModule
 import com.singularity.todo.core.work.backgroundWorkModule
 import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.profile.profileModule

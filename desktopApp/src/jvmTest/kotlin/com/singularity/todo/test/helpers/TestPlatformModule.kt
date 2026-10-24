@@ -9,11 +9,14 @@ import com.singularity.todo.core.observability.ToolCallRecorder
 import com.singularity.todo.core.platform.HostEnvironmentPort
 import com.singularity.todo.core.platform.JvmHostEnvironment
 import com.singularity.todo.core.work.BackgroundWorkScheduler
-import com.singularity.todo.feature.calendar_sync.work.GoogleSyncPeriodicTrigger
+import com.singularity.todo.feature.calendarSync.work.GoogleSyncPeriodicTrigger
 import kotlinx.coroutines.CoroutineScope
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.backup.BackupCodec
 import com.singularity.todo.core.config.RemoteConfigPort
+import com.singularity.todo.core.di.AttachmentDirQualifier
+import com.singularity.todo.core.di.BackupDirQualifier
+import com.singularity.todo.core.di.LogDirQualifier
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.files.FileOpener
 import com.singularity.todo.core.files.FileRevealer
@@ -30,13 +33,13 @@ import com.singularity.todo.core.platform.haptics.createHaptic
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.sync.SyncPeriodicTrigger
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
-import com.singularity.todo.feature.calendar_sync.data.NoopCalendarProvider
-import com.singularity.todo.feature.calendar_sync.data.NoopCalendarSyncRepositoryImpl
-import com.singularity.todo.feature.calendar_sync.domain.port.CalendarAppQueries
-import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
-import com.singularity.todo.feature.calendar_sync.domain.port.CalendarSyncRepository
-import com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler
-import com.singularity.todo.feature.calendar_sync.work.NoopCalendarSyncWorkScheduler
+import com.singularity.todo.feature.calendarSync.data.NoopCalendarProvider
+import com.singularity.todo.feature.calendarSync.data.NoopCalendarSyncRepositoryImpl
+import com.singularity.todo.feature.calendarSync.domain.port.CalendarAppQueries
+import com.singularity.todo.feature.calendarSync.domain.port.CalendarProviderPort
+import com.singularity.todo.feature.calendarSync.domain.port.CalendarSyncRepository
+import com.singularity.todo.feature.calendarSync.work.CalendarSyncWorkScheduler
+import com.singularity.todo.feature.calendarSync.work.NoopCalendarSyncWorkScheduler
 import com.singularity.todo.feature.pomodoro.PomodoroConfig
 import com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.PomodoroTimer
@@ -54,6 +57,10 @@ import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.atomic.AtomicInteger
 import com.singularity.todo.core.database.UnitOfWork
+import com.singularity.todo.core.auth.oauth.OAuthBrowser
+import com.singularity.todo.core.auth.oauth.OAuthRedirectSocket
+import com.singularity.todo.feature.calendarSync.auth.GoogleAccessTokenProvider
+import com.singularity.todo.feature.calendarSync.auth.GoogleGrantRedeemer
 
 /**
  * The JVM platform bindings a desktop flow test needs, rebuilt without touching
@@ -172,7 +179,14 @@ fun testPlatformModule(): Module = module {
     single<FileSourceFactory> { InertFileSourceFactory() }
     single<SharePort> { InertSharePort() }
     single<BackupCodec> { UnusedBackupCodec() }
-    single<String> { tempRoot().resolve("backups").absolutePath }
+    // The directories, qualified the way the production platform modules qualify
+    // them. An unqualified `String` in the graph is a trap: Koin resolves a `String`
+    // parameter *by type*, so a directory that belongs to something else gets used
+    // for it without a word. That is how the attachments ended up in the log
+    // directory.
+    single<String>(BackupDirQualifier) { tempRoot().resolve("backups").absolutePath }
+    single<String>(LogDirQualifier) { tempRoot().resolve("logs").absolutePath }
+    single<String>(AttachmentDirQualifier) { tempRoot().resolve("attachments").absolutePath }
 
     // ─── Settings screen (SettingsViewModel) ────────────────────────────────
     //
@@ -193,13 +207,27 @@ fun testPlatformModule(): Module = module {
     // rather than `FakeLogBundleExporter`: its constructor only reads a directory path, and
     // exercising the real ZIP writer here is what would catch a change to it. The fake
     // remains available for tests that want an inert one.
-    single { LogBundleExporter(tempRoot().resolve("logs").absolutePath, get(), get()) }
+    single { LogBundleExporter(get(LogDirQualifier), get(), get()) }
 
     // Inert rather than `JvmFileSharePort`, for the same reason as `InertSharePort` above:
     // the real one hands a file to the host desktop's file manager. The log-export row on
     // Settings → Account is the only caller, and a test that presses it wants the failure
     // mode, not a window opening on a CI box with no display.
     single<FileSharePort> { InertFileSharePort() }
+
+    // ─── The Google sign-in ──────────────────────────────────────────────────────
+    //
+    // Four more definitions that `platformModule()` binds and this module did not.
+    // They are inert rather than real: the browser would take the machine's focus and
+    // the redirect would wait for a human, so a test that presses "Connect Google"
+    // gets an error rather than a hang.
+    single<OAuthBrowser> { InertOAuthBrowser() }
+
+    single<OAuthRedirectSocket> { InertOAuthRedirectSocket() }
+
+    single<GoogleGrantRedeemer> { InertGoogleGrantRedeemer() }
+
+    single<GoogleAccessTokenProvider> { InertGoogleAccessTokenProvider() }
 
     // ─── Background work ──────────────────────────────────────────────────────
     //

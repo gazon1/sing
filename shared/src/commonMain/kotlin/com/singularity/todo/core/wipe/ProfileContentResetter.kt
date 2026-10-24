@@ -7,9 +7,9 @@ import com.singularity.todo.core.database.ReminderDao
 import com.singularity.todo.core.database.SavedSearchDao
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
-import com.singularity.todo.feature.calendar_sync.data.CalendarImportEventDao
-import com.singularity.todo.feature.calendar_sync.data.CalendarSyncTaskMapDao
-import com.singularity.todo.feature.calendar_sync.data.GoogleEventShadowDao
+import com.singularity.todo.feature.calendarSync.data.CalendarImportEventDao
+import com.singularity.todo.feature.calendarSync.data.CalendarSyncTaskMapDao
+import com.singularity.todo.feature.calendarSync.data.GoogleEventShadowDao
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository

@@ -15,7 +15,7 @@ import kotlin.time.Clock
  * Repository for local backup management and remote backup push/pull.
  *
  * Local backups are zip files scanned from `backupDir` every 5 seconds via [observeAll].
- * Remote operations use [StubRemoteBackupService] for upload/download.
+ * Remote operations use [RemoteBackupService] for upload/download.
  */
 interface BackupRepository {
     /**
@@ -30,7 +30,14 @@ interface BackupRepository {
      */
     suspend fun createBackup(): Result<BackupResult>
 
-    /** Exports a full backup (tasks, notes, projects, tags, settings) to a zip in `backupDir`. */
+    /**
+     * Exports a full backup (tasks, notes, projects, tags, settings) to a zip in `backupDir`.
+     *
+     * [ExportOptions.destPath] is a **file name**, not a path: the repository owns the
+     * backup directory and joins the two. A caller that passes a path instead writes
+     * outside the backup directory — on Android that is the read-only root, and the
+     * export fails with `EROFS`.
+     */
     suspend fun export(options: ExportOptions): Result<BackupResult>
 
     /** Imports a backup zip, restoring all entities. */
@@ -58,7 +65,7 @@ interface BackupRepository {
 class BackupRepositoryImpl(
     private val exporter: BackupExporter,
     private val importer: BackupImporter,
-    private val remoteService: StubRemoteBackupService,
+    private val remoteService: RemoteBackupService,
     private val fs: FileSystem,
     private val backupDir: String,
     private val currentUser: ProfileAwareCurrentUser,
@@ -75,9 +82,8 @@ class BackupRepositoryImpl(
     override suspend fun createBackup(): Result<BackupResult> {
         val timestamp = clock.now().toEpochMilliseconds()
         val fileName = "singularity_backup_$timestamp.zip"
-        val destPath = "$backupDir/$fileName"
         val userId = currentUser.scopedUserId.value
-        return export(ExportOptions(userId = userId, destPath = destPath))
+        return export(ExportOptions(userId = userId, destPath = fileName))
     }
 
     private suspend fun scanBackups(): List<BackupMetadata> {
@@ -103,7 +109,8 @@ class BackupRepositoryImpl(
     override suspend fun export(options: ExportOptions): Result<BackupResult> =
         runCatchingCancellable {
             fs.ensureDir(backupDir)
-            exporter.export(options).getOrThrow()
+            val destPath = resolveBackupDestination(backupDir, options.destPath)
+            exporter.export(options.copy(destPath = destPath)).getOrThrow()
         }
 
     override suspend fun import(options: ImportOptions): Result<RestoreResult> = importer.import(options)
@@ -129,4 +136,24 @@ class BackupRepositoryImpl(
         remoteRef: String,
         destPath: String,
     ): Result<Unit> = remoteService.download(remoteRef, destPath, currentUser.scopedUserId.value)
+}
+
+/**
+ * Resolves a backup **file name** to its full path inside [backupDir].
+ *
+ * The repository owns the backup directory, so no caller can aim the archive
+ * outside it: a path that arrives here is rejected rather than followed. That
+ * rejection is what turns "the export silently wrote to the filesystem root" —
+ * which on Android is a read-only `/`, and fails with `EROFS` — into a loud,
+ * explainable failure.
+ *
+ * @throws IllegalArgumentException when [fileName] is blank or carries a path
+ *   separator.
+ */
+internal fun resolveBackupDestination(backupDir: String, fileName: String): String {
+    require(fileName.isNotBlank()) { "a backup needs a file name" }
+    require('/' !in fileName && '\\' !in fileName) {
+        "a backup destination is a file name inside the backup directory, not a path: $fileName"
+    }
+    return "$backupDir/$fileName"
 }

@@ -794,6 +794,17 @@ gate blocking "script conventions" sgate conventions
 # report is a build artifact, and a gate that depends on build output is the
 # fragility this repository already has a gate for.
 gate blocking "compose stability contract" python3 scripts/check-compose-stability-config.py
+# The server half of the Google OAuth exchange, under test.
+#
+# The function holds a client secret, redeems a one-time code and stores a
+# refresh token, and it is the only half of that exchange that nobody could see
+# working. Its three failures — a redirect URI that does not match, a code that
+# was already spent, and a call to Google that never came back — used to reach
+# the device as one answer: "the connection failed".
+#
+# The tool is Deno, and it is not on every machine: the gate is skipped where
+# Deno is absent, and the skip says so rather than passing quietly.
+gate blocking "the edge functions' own tests" deno test supabase/functions/google-oauth-exchange/
 #
 # A `hideKeyboard` is a BACK keypress when there is no keyboard to hide.
 #

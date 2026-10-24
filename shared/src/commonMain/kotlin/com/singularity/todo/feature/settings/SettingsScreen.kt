@@ -63,7 +63,7 @@ import com.singularity.todo.core.ui.theme.AiStatusColors
 import com.singularity.todo.feature.backup.BackupIntent
 import com.singularity.todo.feature.backup.BackupScreen
 import com.singularity.todo.feature.backup.BackupViewModel
-import com.singularity.todo.feature.calendar_sync.presentation.CalendarSyncSettingsScreen
+import com.singularity.todo.feature.calendarSync.presentation.CalendarSyncSettingsScreen
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.NavCallbacks
@@ -294,6 +294,7 @@ private fun BackupScreenWrapper(onBack: () -> Unit) {
         onRestore = { path -> backupVm.onIntent(BackupIntent.Restore(path)) },
         onDelete = { id -> backupVm.onIntent(BackupIntent.Delete(id)) },
         onPush = { id -> backupVm.onIntent(BackupIntent.Push(id)) },
+        onSaveToFile = { id -> backupVm.onIntent(BackupIntent.SaveToFile(id)) },
         onExportSettings = { backupVm.onIntent(BackupIntent.ExportSettingsSnapshot) },
         onSelectSettingsFile = pickSettings,
         onShareSettingsJson = { json -> sharePort.shareText("Singularity settings", json) },

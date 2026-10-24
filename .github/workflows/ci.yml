@@ -192,7 +192,14 @@ jobs:
         || github.event_name == 'workflow_dispatch'
       )
     steps:
+      # The baseline ratchet compares the working tree against the merge-base
+      # with `origin/main`, so the base reference has to exist. A shallow
+      # checkout has no such ref: the comparison would fall back to `HEAD`,
+      # and on a pull request `HEAD` is the file against itself — a check that
+      # cannot see the branch's own growth is not a check.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       # One gate in this job needs the build: `declared dependencies are used`
       # asks Gradle which files each configuration resolved and reads the jars
@@ -253,6 +260,14 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 22
+
+      # Deno runs the Edge Function's own tests — the server half of the Google
+      # OAuth exchange, which holds a client secret and redeems a one-time code.
+      # The npm package is the official binary; the version is pinned like every
+      # other tool here, because a test run that changes with the tool is a test
+      # run nobody can reproduce.
+      - name: Set up Deno
+        run: npm install -g deno@2.9.5
 
       # Replaced gate() function + collect_and_report() from static-gates.sh with
       # sgate run-all: single CLI entry point, parallel execution, aggregate exit,

@@ -21,6 +21,21 @@
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
+    <!--
+      `usesCleartextTraffic="true"`: the endpoints this app talks to are the user's
+      own. The Supabase project is a URL the user types in ("Connect your server")
+      or a value baked in at build time, and a self-hosted project on a home
+      network is plain `http://` — the network security policy refuses it
+      otherwise, and the error the user sees names a policy rather than the URL
+      they typed. The same is true of the AI provider's base URL, which points
+      at a local model server more often than not.
+
+      A network security config cannot scope this: the hosts are LAN addresses
+      that differ per installation, and the config matches hosts literally.
+
+      HTTPS is unaffected — this says nothing about certificate validation, and
+      every endpoint the app itself hardcodes is https.
+    -->
     <application
         android:name="${appClass}"
         android:allowBackup="true"
@@ -30,6 +45,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
+        android:usesCleartextTraffic="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity
             android:exported="true"

@@ -2,5 +2,11 @@
 <paths>
     <files-path name="attachments" path="attachments/" />
     <files-path name="logs" path="logs/" />
+    <!--
+      The backup directory. Without this root the FileProvider refuses to hand
+      out a URI for an archive, and "Save to file" fails on every device with a
+      message that says nothing about the cause.
+    -->
+    <files-path name="backups" path="backups/" />
     <cache-path name="cache" path="." />
 </paths>

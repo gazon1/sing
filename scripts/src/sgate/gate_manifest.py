@@ -920,6 +920,20 @@ fragility this repository already has a gate for.""",
         ),
         tracked_by=".github/workflows/ci.yml#Gate scripts' own unit tests",
     ),
+    "the edge functions' own tests": Placement(
+        kind=PlacementKind.STATIC,
+        command="deno test supabase/functions/google-oauth-exchange/",
+        note="""The server half of the Google OAuth exchange, under test.
+
+The function holds a client secret, redeems a one-time code and stores a
+refresh token, and it is the only half of that exchange that nobody could see
+working. Its three failures — a redirect URI that does not match, a code that
+was already spent, and a call to Google that never came back — used to reach
+the device as one answer: "the connection failed".
+
+The tool is Deno, and it is not on every machine: the gate is skipped where
+Deno is absent, and the skip says so rather than passing quietly.""",
+    ),
     "instrumented test floor": Placement(
         kind=PlacementKind.ELSEWHERE,
         reason=(

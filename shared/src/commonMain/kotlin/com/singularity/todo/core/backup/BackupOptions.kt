@@ -33,6 +33,13 @@ class ImportOptionsBuilder {
 
 data class ExportOptions(
     val userId: UserId,
+    /**
+     * **File name** of the archive, not a path.
+     *
+     * The repository owns the backup directory and joins the two, so a caller
+     * cannot aim the export outside that directory. A path here is rejected
+     * rather than followed.
+     */
     val destPath: String,
     val includeAttachments: Boolean = true,
     val appVersion: String = appVersion().name,

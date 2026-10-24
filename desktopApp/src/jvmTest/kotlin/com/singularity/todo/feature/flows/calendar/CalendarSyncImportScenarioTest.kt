@@ -2,7 +2,7 @@ package com.singularity.todo.feature.flows.calendar
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.feature.calendar_sync.domain.model.ImportWindow
+import com.singularity.todo.feature.calendarSync.domain.model.ImportWindow
 import com.singularity.todo.test.fakes.TestUsers
 import com.singularity.todo.test.helpers.connectedCredential
 import com.singularity.todo.test.helpers.googleCalendarModule

@@ -11,11 +11,10 @@ import com.singularity.todo.core.observability.RoomUsageRecorder
  * today, and the other two are traps:
  *
  * - **Auto-backup** has no configuration. There is no `autoBackup` preference, no
- *   interval, no destination policy, and `StubRemoteBackupService` returns the local
- *   path as a pseudo-remote URL and an empty list for remote contents. Writing an
- *   "auto backup" job would mean inventing all of it — and a backup job that silently
- *   does nothing, because the destination is a stub, is exactly the inert-seam defect
- *   this package was built to end. It needs a product decision first.
+ *   interval, and no destination policy. Writing an "auto backup" job would mean
+ *   inventing all of it — and a backup job that silently does nothing is exactly
+ *   the inert-seam defect this package was built to end. It needs a product
+ *   decision first.
  * - **Archive/purge of soft-deleted tasks** has no cutoff anywhere in the codebase:
  *   no retention setting, no `TaskDao` method that removes rows, and the archive screen
  *   is the only surface that shows them. Same problem — a job whose policy does not

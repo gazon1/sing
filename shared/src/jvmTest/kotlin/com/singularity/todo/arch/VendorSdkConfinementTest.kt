@@ -20,11 +20,24 @@ import kotlin.test.assertTrue
  * project's. Each step compiles, each looks local, and by the end the vendor's
  * types are in the domain model and a version bump is a migration.
  *
- * The boundary is drawn at **three files**, because the SDK is needed in exactly
- * three places: to own a client (`SupabaseClientProvider`), to speak PostgREST
- * (`PostgrestSyncRpc`), and to speak auth (`SupabaseAuthGateway`). Everything else
- * the SDK offers — the session flow, the plugin surface, the user model — is reached
- * through a project interface, so it can be replaced or tested without a network.
+ * The boundary is drawn at **six files**, because the SDK is needed in exactly
+ * six places: to own a client (`SupabaseClientProvider`), to speak auth
+ * (`SupabaseAuthGateway`), to speak PostgREST (`PostgrestSyncRpc`), to speak
+ * Storage (`SupabaseStorageRemoteBackupService`), to call an Edge Function
+ * (`SupabaseGoogleTokenGateway`) and to tell its failures apart
+ * (`SupabaseTransportFailure`). Everything else the SDK offers — the session
+ * flow, the plugin surface, the user model — is reached through a project
+ * interface, so it can be replaced or tested without a network.
+ *
+ * ## Why the rule is one file per seam
+ *
+ * A seam is a file, not a package and not a class: one vendor-touching class per
+ * file, named after the vendor role it plays. A file that holds both a project
+ * interface and the vendor implementation of it (the way the backup port and its
+ * Storage implementation started out) puts the vendor's types in a file that
+ * other code reads for the interface alone, and the boundary stops being
+ * readable. Splitting the file keeps the import list of every other file free of
+ * the vendor, which is the thing this gate is for.
  *
  * ## Why this is a scan
  *
@@ -77,7 +90,7 @@ class VendorSdkConfinementTest {
     }
 
     @Test
-    fun `the two declared seams still exist and still import the sdk`() {
+    fun `the declared seams still exist and still import the sdk`() {
         // Without this, deleting a seam file would make the rule above vacuously
         // true: no file would be an offender because nothing would import anything.
         // The rule would keep passing while measuring nothing at all.
@@ -124,6 +137,9 @@ class VendorSdkConfinementTest {
             "auth/SupabaseClientProvider.kt",
             "auth/SupabaseAuthGateway.kt",
             "sync/PostgrestSyncRpc.kt",
+            "backup/SupabaseStorageRemoteBackupService.kt",
+            "calendarSync/auth/SupabaseGoogleTokenGateway.kt",
+            "transport/SupabaseTransportFailure.kt",
         )
     }
 }

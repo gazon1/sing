@@ -275,11 +275,8 @@ SCRIPT_GATES = [
         cmd=["./scripts/check-detekt-registrations.sh"],
         why="a RuleSetId with no detekt.yml block never loads, so the rule never runs",
     ),
-    ScriptGate(
-        name="baseline-ratchet",
-        cmd=[sys.executable, "scripts/check-baseline-ratchet.py"],
-        why="a baseline that can grow silently stops being a ratchet and becomes a sink",
-    ),
+    # The baseline ratchet is not here: its control is a fixture, and a fixture
+    # that builds a repository of its own is in FIXTURE_GATES below.
     # The app coverage floor, declared where Kover reads it.
     #
     # The floors were declared in the root build script for months, in a
@@ -1068,7 +1065,180 @@ def _setup_maestro_results(root: Path) -> None:
     )
     # ... and the second flow produced no report at all.
 
+def _setup_edge_function_tests(root: Path) -> None:
+    """The Edge Function, with its refusal of a mismatched redirect URI undone.
+
+    The function is the server half of the Google OAuth exchange: a client
+    secret, a one-time code and a refresh token. The tests are the only thing
+    that says a mismatched redirect URI is refused, a spent code is answered as
+    spent, and a call that never comes back is a timeout.
+
+    The copy answers 200 to the refusal instead of 400 — the failure the tests
+    exist to catch, and the one that reaches the device as "everything is
+    fine".
+    """
+    function = root / "function"
+    function.mkdir(parents=True)
+    source = _REPO_ROOT / "supabase" / "functions" / "google-oauth-exchange"
+    for name in ("index.ts", "index_test.ts"):
+        shutil.copy2(source / name, function / name)
+
+    handler = (function / "index.ts").read_text(encoding="utf-8")
+    broken = handler.replace(
+        """        { error: `${what}: the redirect URI does not match the one Google saw`, reason: error.reason },
+        400,""",
+        """        { error: `${what}: the redirect URI does not match the one Google saw`, reason: error.reason },
+        200,""",
+    )
+    if broken == handler:
+        # A fixture that did not change anything would prove nothing: the copy
+        # would pass, and the control would look like a gate that cannot fail.
+        raise RuntimeError(
+            "the fixture did not change the function — the copy would pass the tests"
+        )
+    (function / "index.ts").write_text(broken, encoding="utf-8")
+
+
+def _setup_baseline_ratchet(root: Path) -> None:
+    """A repository whose branch grew the detekt baseline.
+
+    The ratchet compares the baseline in the working tree with the baseline at
+    the **merge-base** with the base branch — the common ancestor, which is
+    what a pull request's diff is measured against. That is the only revision
+    that can see the branch's own growth: on a pull request the working tree
+    *is* `HEAD`, so a comparison with `HEAD` is the file against itself.
+
+    The fixture is a repository of its own, because the comparison needs a
+    history: a branch that forks from `main` and grows the baseline by one
+    entry. The gate copy stands in that repository's `scripts/`, so its own
+    root is the fixture's root, and it reads the fixture's baseline and the
+    fixture's git.
+
+    A sabotage in the real tree could not do this. The real tree's baseline
+    was *shrunk* by the branch that renamed the calendar-sync package, and a
+    net comparison against the merge-base says "still smaller than what it
+    inherited" — which is true, and which is also the gate working. The
+    fixture asks the question the gate exists to answer: a branch that grows
+    the baseline must be caught.
+    """
+    repo = root / "repo"
+    (repo / "scripts").mkdir(parents=True)
+    (repo / "config" / "detekt").mkdir(parents=True)
+    (repo / "mcp-server").mkdir(parents=True)
+
+    shutil.copy2(
+        _REPO_ROOT / "scripts" / "check-baseline-ratchet.py",
+        repo / "scripts" / "check-baseline-ratchet.py",
+    )
+    # A detekt config with nothing switched off: the gate's phantom invariant
+    # would otherwise fail the run for a reason that has nothing to do with the
+    # growth the fixture is about.
+    (repo / "config" / "detekt" / "detekt.yml").write_text(
+        "style:\n  active: true\n  MagicNumber:\n    active: true\n",
+        encoding="utf-8",
+    )
+    (repo / "config" / "detekt" / "baseline-shared.xml").write_text(
+        _baseline_xml(2),
+        encoding="utf-8",
+    )
+    (repo / "config" / "detekt" / "baseline-desktopApp.xml").write_text(
+        _baseline_xml(0),
+        encoding="utf-8",
+    )
+    (repo / "mcp-server" / "detekt-baseline.xml").write_text(
+        _baseline_xml(0),
+        encoding="utf-8",
+    )
+
+    env = _sandbox_env(repo)
+    _git(repo, "init", "-b", "main", env=env)
+    _git(repo, "add", "-A", env=env)
+    _git(repo, "commit", "-m", "the base", env=env)
+    _git(repo, "checkout", "-b", "feature", env=env)
+    (repo / "config" / "detekt" / "baseline-shared.xml").write_text(
+        _baseline_xml(3),
+        encoding="utf-8",
+    )
+    _git(repo, "add", "-A", env=env)
+    _git(repo, "commit", "-m", "the branch grows the baseline", env=env)
+
+
+def _baseline_xml(entries: int) -> str:
+    """A detekt baseline with `entries` suppressed findings."""
+    body = "\n".join(
+        f"    <ID>Probe{i}:Probe.kt:Fqcn$member{i}</ID>" for i in range(entries)
+    )
+    return (
+        '<?xml version="1.0" ?>\n'
+        "<SmellBaseline>\n"
+        "  <ManuallySuppressedIssues/>\n"
+        "  <CurrentIssues>\n"
+        f"{body}\n"
+        "  </CurrentIssues>\n"
+        "</SmellBaseline>\n"
+    )
+
+
+def _sandbox_env(root: Path) -> dict[str, str]:
+    """An environment in which git means the repository it discovers.
+
+    Git exports `GIT_DIR` and `GIT_WORK_TREE` for the hooks it runs, and a
+    fixture that inherits them writes its commits into somebody else's
+    repository.
+    """
+    env = dict(os.environ)
+    for name in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR"):
+        env.pop(name, None)
+    env["GIT_CEILING_DIRECTORIES"] = str(root)
+    env.update(
+        {
+            "GIT_AUTHOR_NAME": "Sandbox Fixture",
+            "GIT_AUTHOR_EMAIL": "sandbox@example.com",
+            "GIT_COMMITTER_NAME": "Sandbox Fixture",
+            "GIT_COMMITTER_EMAIL": "sandbox@example.com",
+        }
+    )
+    return env
+
+
+def _git(repo: Path, *args: str, env: dict[str, str]) -> None:
+    """A git command in the fixture's repository, which must succeed."""
+    result = subprocess.run(
+        ["git", *args],
+        cwd=str(repo),
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"git {' '.join(args)} failed in the fixture: {result.stderr.strip()}"
+        )
+
+
 FIXTURE_GATES = [
+    FixtureGate(
+        name="baseline-ratchet",
+        cmd=[sys.executable, "{tmp}/repo/scripts/check-baseline-ratchet.py"],
+        setup=_setup_baseline_ratchet,
+        why=(
+            "a baseline that can grow silently stops being a ratchet and becomes a sink — "
+            "and the gate that watches it measures the branch's own growth against the "
+            "merge-base, so the fixture has to be a branch that really grew one"
+        ),
+        needs_clean_run=False,
+    ),
+    FixtureGate(
+        name="edge-function-tests",
+        cmd=["deno", "test", "{tmp}/function"],
+        setup=_setup_edge_function_tests,
+        why=(
+            "the server half of the OAuth exchange is the part nobody can see, and its "
+            "failures used to reach the device as one answer — the tests are what tells "
+            "a mismatched redirect URI from a spent code from a call that never came back"
+        ),
+    ),
     FixtureGate(
         name="flaky-tests",
         cmd=[sys.executable, "scripts/check-flaky-tests.py", "--current", "{tmp}/cur", "--previous", "{tmp}/prev"],

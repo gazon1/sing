@@ -25,6 +25,17 @@ sealed interface BackupIntent : MviIntent {
     /** Upload a stored backup to the remote endpoint. */
     data class Push(val id: BackupId) : BackupIntent
 
+    /**
+     * Hand a stored backup to the platform, so the user can keep it outside the app.
+     *
+     * A backup in the app's own storage is a backup the user cannot get at: it dies
+     * with the app, and there is no way to copy it to a laptop or to cloud storage.
+     * The system share sheet is the one mechanism every platform already has for
+     * "give this file to the user" — on Android it is also where "Save to Files"
+     * lives.
+     */
+    data class SaveToFile(val id: BackupId) : BackupIntent
+
     /** Export settings as a JSON snapshot for the platform share sheet. */
     data object ExportSettingsSnapshot : BackupIntent
 

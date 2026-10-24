@@ -3,6 +3,8 @@ package com.singularity.todo.core.di
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.singularity.todo.core.backup.BackupCodec
+import com.singularity.todo.core.backup.BackupRepository
+import com.singularity.todo.core.attachments.AttachmentStorage
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.UnitOfWork
 import com.singularity.todo.core.files.FileOpener
@@ -21,13 +23,13 @@ import com.singularity.todo.core.sync.SyncEngine
 import com.singularity.todo.core.sync.SyncPeriodicTrigger
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
-import com.singularity.todo.feature.calendar_sync.domain.port.CalendarAppQueries
-import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
-import com.singularity.todo.feature.calendar_sync.domain.port.CalendarSyncRepository
-import com.singularity.todo.feature.calendar_sync.sync.GoogleSyncCoordinator
-import com.singularity.todo.feature.calendar_sync.sync.GoogleSyncEngine
-import com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler
-import com.singularity.todo.feature.calendar_sync.work.GoogleSyncPeriodicTrigger
+import com.singularity.todo.feature.calendarSync.domain.port.CalendarAppQueries
+import com.singularity.todo.feature.calendarSync.domain.port.CalendarProviderPort
+import com.singularity.todo.feature.calendarSync.domain.port.CalendarSyncRepository
+import com.singularity.todo.feature.calendarSync.sync.GoogleSyncCoordinator
+import com.singularity.todo.feature.calendarSync.sync.GoogleSyncEngine
+import com.singularity.todo.feature.calendarSync.work.CalendarSyncWorkScheduler
+import com.singularity.todo.feature.calendarSync.work.GoogleSyncPeriodicTrigger
 import com.singularity.todo.feature.gate.gateModule
 import com.singularity.todo.feature.pomodoro.PomodoroScheduler
 import org.junit.Test
@@ -122,6 +124,15 @@ class AndroidGraphResolutionTest {
             assertNotNull(koin.get<FileSourceFactory>())
             assertNotNull(koin.get<BackupCodec>())
             assertNotNull(koin.get<CrashReportingPort>())
+
+            // The backup half. `AttachmentStorage` takes its directory as a plain
+            // `String`, so the graph has to *say* which directory that is: a `String`
+            // resolved by type used to be the log directory, and the attachments were
+            // written into it. `BackupRepository` sits behind that storage, so
+            // resolving it walks the whole chain — the importer, the exporter, the
+            // remote service and the storage under them.
+            assertNotNull(koin.get<AttachmentStorage>())
+            assertNotNull(koin.get<BackupRepository>())
 
             // The sync half. `SyncEngine` takes `() -> SyncDocumentWriter`, so the
             // cycle closes only when the writer is asked for — leaf first, then the

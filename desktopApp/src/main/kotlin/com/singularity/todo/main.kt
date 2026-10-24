@@ -20,8 +20,8 @@ import okio.Path
 import okio.Path.Companion.toPath
 import com.singularity.todo.core.version.appVersion
 import com.singularity.todo.feature.ai.acp.di.acpModule
-import com.singularity.todo.feature.calendar_sync.work.GOOGLE_SYNC_INTERVAL_MINUTES
-import com.singularity.todo.feature.calendar_sync.work.GoogleSyncPeriodicTrigger
+import com.singularity.todo.feature.calendarSync.work.GOOGLE_SYNC_INTERVAL_MINUTES
+import com.singularity.todo.feature.calendarSync.work.GoogleSyncPeriodicTrigger
 import com.singularity.todo.feature.gate.gateModule
 import co.touchlab.kermit.Logger
 import com.singularity.todo.feature.reminders.JvmReminderFireCommand

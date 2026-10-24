@@ -382,6 +382,15 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script_args=("scripts/tests",),
     ),
     GateSpec(
+        name="the edge functions' own tests",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PATH,
+        path_cmd=("deno", "test", "supabase/functions/google-oauth-exchange/"),
+        # The tool is not on every machine. A gate that cannot run is reported
+        # as skipped rather than as passed — and the skip is visible.
+        kiwi_required=True,
+    ),
+    GateSpec(
         name="build-output readers precede the invocations that rewrite them",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
@@ -1090,7 +1099,22 @@ GATE_CONTROLS: dict[str, Control] = {
     'profile-reset-inventory': Control(kind='sabotage', proves='scripts/ci/check-profile-reset-inventory.py', argv=('{python}', 'scripts/ci/check-profile-reset-inventory.py'), path='docs/architecture/wipe-inventory.md', edit=Edit(kind='replace', old='| `sync_state` | not profile content |', new='| `sync_state` | wiped |', count=1), why='the document claiming more than the code does is the failure this gate exists for: the ADR that describes the profile reset says it reaches the whole profile, and the code reached five things. The probe makes the inventory call the sync cursor profile content — a table whose deletion would make the next pull restore everything the reset just removed. The code does not wipe it, so the document and the code now disagree, and the gate must say so.'),
     'release-tags': Control(kind='sabotage', proves='scripts/check-release-tags.py', argv=('{python}', 'scripts/check-release-tags.py'), path='config/docs/releases-snapshot.json', edit=Edit(kind='replace', old='    "v0.2.1-rc.1"\n  ],', new='    "v0.2.1-rc.1",\n    "v9.9.9-probe"\n  ],', count=1), why='a tag that produced no release is the failure this gate exists for: `meta` proved the tag was on main with a green CI run, `publish` still did not run, and nothing said so. The probe appends exactly such a tag — recorded as neither released nor excused.'),
     'detekt-registrations': Control(kind='sabotage', proves='scripts/check-detekt-registrations.sh', argv=('./scripts/check-detekt-registrations.sh',), path='config/detekt/detekt.yml', edit=Edit(kind='replace', old='no-runblocking:\n  NoRunBlocking:\n    active: true\n', new='', count=-1), why='a RuleSetId with no detekt.yml block never loads, so the rule never runs'),
-    'baseline-ratchet': Control(kind='sabotage', proves='scripts/check-baseline-ratchet.py', argv=('{python}', 'scripts/check-baseline-ratchet.py'), path='config/detekt/baseline-shared.xml', edit=Edit(kind='replace', old='</CurrentIssues>', new='    <ID>Sabotage:Probe.kt:Probe</ID>\n  </CurrentIssues>', count=-1), why='a baseline that can grow silently stops being a ratchet and becomes a sink'),
+    'baseline-ratchet': Control(
+        kind='fixture',
+        proves='scripts/check-baseline-ratchet.py',
+        argv=('{python}', '{tmp}/repo/scripts/check-baseline-ratchet.py'),
+        fixture='setup_baseline_ratchet',
+        why=(
+            "a baseline that can grow silently stops being a ratchet and becomes a sink. "
+            "The gate measures the branch's own growth against the merge-base with the "
+            "base branch, so the control is a fixture: a repository whose branch forks "
+            "from main and grows the baseline by one entry. A sabotage in the real tree "
+            "could not ask that question — the tree the control runs in has a baseline "
+            "the branch shrank, and a net comparison against the merge-base correctly "
+            "says it is still smaller than what it inherited"
+        ),
+        needs_clean_run=False,
+    ),
     'hooks-path': Control(kind='sabotage', proves='scripts/check-hooks-path.py', argv=('{python}', 'scripts/check-hooks-path.py', '--quiet'), path='.githooks/pre-push', edit=Edit(kind='hooks_path'), why='hooks travel with the repository; local git config does not. A configured hooks path with nothing tracked under it is a gate that reports success because nothing ever asked it a question'),
     # git-environment: a git command that reads a tree that is not this
     # checkout's root inherits GIT_DIR from whatever hook started it, and then
@@ -1338,6 +1362,20 @@ GATE_CONTROLS: dict[str, Control] = {
     'supabase-schema-integrity': Control(kind='sabotage', proves='scripts/check-supabase-schema-integrity.py', argv=('{python}', 'scripts/check-supabase-schema-integrity.py'), path='supabase/migrations/2026-10-07-sync_schema.sql', edit=Edit(kind='append', new='\ncreate or replace function public.sync_control_probe(p_type text)\nreturns text as $$ select p_type $$ language sql;\n'), why='a function added without a fingerprint makes the header understate the schema, and the header is the part a reader trusts; the live half of #221 needs credentials and stays manual, so this is the half that can be a gate'),
     'rebase-compiles': Control(kind='sabotage', proves='scripts/check-rebase-compiles.py', argv=('{python}', 'scripts/check-rebase-compiles.py'), path='shared/src/commonMain/kotlin/com/singularity/todo/core/di/CoreDiModule.kt', edit=Edit(kind='replace', old='    single<DeviceIdProvider> { get<DataStoreSessionStore>() }', new='    // single<DeviceIdProvider> { get<DataStoreSessionStore>() }', count=-1), why="an import removed from a DI module silently breaks every consumer; the compile gate detects the resulting 'unresolved reference' before jvmTest does"),
     'slow-tests-ran': Control(kind='fixture', proves='scripts/check-slow-tests-ran.py', argv=('{python}', 'scripts/check-slow-tests-ran.py', '--root', '{tmp}'), fixture='setup_slow_tests_ran', why="a test the local loop never runs is a test whose breakage nobody local ever sees: McpServerEndToEndTest was tagged slow, sat broken on main since the read surface changed the shape of its answer, and was found by CI rather than by anyone holding the tree", needs_clean_run=False, tracked_by='.github/workflows/ci.yml#Slow tests ran'),
+    'edge-function-tests': Control(
+        kind='fixture',
+        proves='supabase/functions/google-oauth-exchange/index_test.ts',
+        argv=('deno', 'test', '{tmp}/function'),
+        fixture='setup_edge_function_tests',
+        why=(
+            "the server half of the OAuth exchange is the part nobody can see: it holds "
+            "the client secret, redeems the one-time code and stores the refresh token. "
+            "Its three failures — a redirect URI that does not match, a code that was "
+            "already spent, and a call to Google that never came back — used to reach "
+            "the device as one answer, and the probe answers a refusal with 200 to prove "
+            "the tests are still looking"
+        ),
+    ),
     'flaky-tests': Control(kind='fixture', proves='scripts/check-flaky-tests.py', argv=('{python}', 'scripts/check-flaky-tests.py', '--current', '{tmp}/cur', '--previous', '{tmp}/prev'), fixture='setup_flaky_tests', why='a test that passed yesterday and fails today must be reported until it is acknowledged', needs_clean_run=False),
     'measure-flake-rate': Control(kind='fixture', proves='scripts/measure-flake-rate.py', argv=('{python}', 'scripts/measure-flake-rate.py', '--current', '{tmp}/run-01', '{tmp}/run-02', '--runs', '2', '--baseline', '{tmp}/empty-baseline.txt', '--max-flaky-rate', '0.0'), fixture='setup_measure_flake_rate', why="a status flip between two runs must be reported as an unacknowledged flake until it is baselined — the same property check-flaky-tests.py is probed for, but here it is the N-run aggregator's own gate logic (rate ceiling + baseline acknowledgement) that must not be swallows", needs_clean_run=False),
     'agent-review': Control(
@@ -1545,11 +1583,11 @@ GATE_CONTROLS: dict[str, Control] = {
             kind='sabotage',
             proves='scripts/check-link-grammar.py',
             argv=('{python}', 'scripts/check-link-grammar.py', '--check',),
-            path='shared/src/commonMain/kotlin/com/singularity/todo/feature/calendar_sync/domain/model/CalendarSyncEvent.kt',
+            path='shared/src/commonMain/kotlin/com/singularity/todo/feature/calendarSync/domain/model/CalendarSyncEvent.kt',
             edit=Edit(
                 kind='replace',
-                old='package com.singularity.todo.feature.calendar_sync.domain.model',
-                new='package com.singularity.todo.feature.calendar_sync.domain.model\n\nprivate val handWrittenLink = "singularity://task/abc"',
+                old='package com.singularity.todo.feature.calendarSync.domain.model',
+                new='package com.singularity.todo.feature.calendarSync.domain.model\n\nprivate val handWrittenLink = "singularity://task/abc"',
                 count=1,
             ),
             why=(

@@ -410,7 +410,7 @@ All VMs in the project extend `MviViewModel` as of 2026-09-25:
 | VM | File | Notes |
 |---|---|---|
 | `TagsViewModel` | `feature/tags/TagsViewModel.kt` | PoC migration — MviViewModel |
-| `CalendarSyncViewModel` | `feature/calendar_sync/presentation/CalendarSyncViewModel.kt` | Full MviViewModel migration |
+| `CalendarSyncViewModel` | `feature/calendarSync/presentation/CalendarSyncViewModel.kt` | Full MviViewModel migration |
 | `CalendarViewModel` | `feature/calendar/presentation/viewmodel/CalendarViewModel.kt` | Full MviViewModel migration |
 | `AuthViewModel` | `feature/auth/AuthViewModel.kt` | Full MviViewModel migration |
 | `BackupViewModel` | `feature/backup/BackupViewModel.kt` | Full MviViewModel migration |

@@ -1,7 +1,9 @@
 package com.singularity.todo.core.sync
 
 import com.singularity.todo.core.error.AppError
+import com.singularity.todo.core.error.TransportException
 import com.singularity.todo.core.error.runCatchingCancellable
+import com.singularity.todo.core.error.transportError
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -96,6 +98,13 @@ class SupabaseSyncApiClient(private val rpc: SyncRpc) : SyncApiClient {
      * Cancellation passes through untouched: a coroutine cancelled mid-request is
      * not a failed request, and reporting it as one puts a spurious
      * `sync.rpc_failed` into the crash reporter every time a sync is superseded.
+     *
+     * A classified failure keeps its class: a refused identity is
+     * `sync.unauthorized`, a function that is not in the schema cache is
+     * `sync.not_found`, a call that never arrived is `sync.network_failed`. The
+     * dashboard groups by the code, and one group for all four is how "the anon
+     * key went instead of the user's token" and "the row-level policy refused the
+     * write" ended up in the same place.
      */
     @Suppress("TooGenericExceptionCaught")
     private suspend fun callRpc(function: String, call: suspend (String) -> String): String = try {
@@ -104,10 +113,18 @@ class SupabaseSyncApiClient(private val rpc: SyncRpc) : SyncApiClient {
         throw e
     } catch (e: AppError) {
         throw e
+    } catch (e: TransportException) {
+        throw transportError(
+            area = "sync",
+            failure = e.failure,
+            message = e.message ?: "$function failed",
+            cause = e,
+            rejectedCode = REJECTED_CODE,
+        )
     } catch (e: Exception) {
         throw AppError.Network(
             "$function failed: ${e.message ?: e::class.simpleName}",
-            code = "sync.rpc_failed",
+            code = REJECTED_CODE,
             cause = e,
         )
     }
@@ -163,5 +180,15 @@ class SupabaseSyncApiClient(private val rpc: SyncRpc) : SyncApiClient {
                 },
             )
         }
+    }
+
+    private companion object {
+        /**
+         * The code for the class that means "something else went wrong".
+         *
+         * The name is the one the dashboard already groups under, and renaming
+         * it would split a group that is one defect into four.
+         */
+        const val REJECTED_CODE = "sync.rpc_failed"
     }
 }

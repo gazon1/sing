@@ -24,7 +24,8 @@ import com.singularity.todo.core.backup.BackupImporter
 import com.singularity.todo.core.backup.BackupRepository
 import com.singularity.todo.core.backup.BackupRepositoryImpl
 import com.singularity.todo.core.backup.DefaultBackupFileNamer
-import com.singularity.todo.core.backup.StubRemoteBackupService
+import com.singularity.todo.core.backup.RemoteBackupService
+import com.singularity.todo.core.backup.SupabaseStorageRemoteBackupService
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.draft.DataStoreDraftStore
 import com.singularity.todo.core.draft.DraftStore
@@ -80,7 +81,6 @@ import com.singularity.todo.feature.reminders.domain.port.ProjectRemindersReposi
 import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import com.singularity.todo.feature.settings.SettingsViewModel
 import kotlinx.coroutines.flow.first
-import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.scope.Scope
@@ -284,7 +284,11 @@ fun coreModule(): org.koin.core.module.Module =
             )
         }
 
-        factoryOf(::AttachmentStorage)
+        // The directory is named here rather than resolved by type: `AttachmentStorage`
+        // takes a plain `String`, and a plain `String` in the graph used to be a
+        // directory that belonged to something else entirely. The attachments were
+        // written into the log directory.
+        factory { AttachmentStorage(fs = get(), dir = get(AttachmentDirQualifier)) }
 
         // Notes written against spans of a text attachment. Bound here rather than in a
         // feature module because the entity and its repository live in core/attachments — the
@@ -324,7 +328,14 @@ fun coreModule(): org.koin.core.module.Module =
 
         single { DefaultBackupFileNamer() }
 
-        singleOf(::StubRemoteBackupService)
+        // The remote half of the backup feature.
+        //
+        // A Supabase Storage bucket, not a stub: the previous implementation
+        // returned success without uploading anything, so the button reported
+        // "Backup pushed" and nothing was pushed. The real one fails honestly
+        // when there is no project configured, which is the answer the user
+        // needs.
+        single<RemoteBackupService> { SupabaseStorageRemoteBackupService(get(), get()) }
 
         // ─── IDs / Clock ────────────────────────────────────────────────────
 
@@ -387,7 +398,7 @@ fun coreModule(): org.koin.core.module.Module =
                 importer = get(),
                 remoteService = get(),
                 fs = get(),
-                backupDir = get<String>(),
+                backupDir = get(BackupDirQualifier),
                 currentUser = get(),
                 clock = get(),
             )
@@ -480,6 +491,7 @@ fun coreModule(): org.koin.core.module.Module =
                 settingsExporter = get(),
                 settingsImporter = get(),
                 fileSourceFactory = get(),
+                fileSharePort = get(),
                 crashReporter = get(),
             )
         }

@@ -100,9 +100,9 @@ generalises: **global namespace for our own ids, composite for remote ones.**
 
 ## Links
 
-- `feature/calendar_sync/domain/logic/BidirectionalMerge.kt` — the merge.
+- `feature/calendarSync/domain/logic/BidirectionalMerge.kt` — the merge.
 - `core/id/IdGen.kt` — why existing keys are safe.
-- `feature/calendar_sync/domain/logic/RecurrenceRuleMapper.kt` — why Google's rule is
+- `feature/calendarSync/domain/logic/RecurrenceRuleMapper.kt` — why Google's rule is
   stored verbatim.
 - Investigation recorded in the plan: the local-hash dedup gate that made two-way sync
   impossible, and the class-of-bug sweep that came with it.

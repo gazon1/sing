@@ -45,16 +45,20 @@ import com.singularity.todo.core.sync.work.AndroidSyncWorkScheduler
 import com.singularity.todo.core.work.AndroidBackgroundWorkScheduler
 import com.singularity.todo.core.work.BackgroundWorkScheduler
 import com.singularity.todo.core.sync.work.SyncWorkScheduler
-import com.singularity.todo.feature.calendar_sync.data.AndroidCalendarAppQueries
-import com.singularity.todo.feature.calendar_sync.data.AndroidCalendarProvider
-import com.singularity.todo.feature.calendar_sync.data.CalendarSyncSettingsRepositoryImpl
-import com.singularity.todo.feature.calendar_sync.domain.port.CalendarProviderPort
-import com.singularity.todo.feature.calendar_sync.domain.port.CalendarSyncRepository
-import com.singularity.todo.feature.calendar_sync.sync.GoogleSyncCoordinator
-import com.singularity.todo.feature.calendar_sync.work.AndroidCalendarSyncWorkScheduler
-import com.singularity.todo.feature.calendar_sync.work.AndroidGoogleSyncPeriodicTrigger
-import com.singularity.todo.feature.calendar_sync.work.CalendarSyncWorkScheduler
-import com.singularity.todo.feature.calendar_sync.work.GoogleSyncPeriodicTrigger
+import com.singularity.todo.feature.calendarSync.data.AndroidCalendarAppQueries
+import com.singularity.todo.feature.calendarSync.data.AndroidCalendarProvider
+import com.singularity.todo.feature.calendarSync.data.CalendarSyncSettingsRepositoryImpl
+import com.singularity.todo.feature.calendarSync.auth.GoogleAccessTokenProvider
+import com.singularity.todo.feature.calendarSync.auth.GoogleGrantRedeemer
+import com.singularity.todo.feature.calendarSync.auth.SupabaseGoogleAccessTokenProvider
+import com.singularity.todo.feature.calendarSync.auth.SupabaseGoogleGrantRedeemer
+import com.singularity.todo.feature.calendarSync.domain.port.CalendarProviderPort
+import com.singularity.todo.feature.calendarSync.domain.port.CalendarSyncRepository
+import com.singularity.todo.feature.calendarSync.sync.GoogleSyncCoordinator
+import com.singularity.todo.feature.calendarSync.work.AndroidCalendarSyncWorkScheduler
+import com.singularity.todo.feature.calendarSync.work.AndroidGoogleSyncPeriodicTrigger
+import com.singularity.todo.feature.calendarSync.work.CalendarSyncWorkScheduler
+import com.singularity.todo.feature.calendarSync.work.GoogleSyncPeriodicTrigger
 import com.singularity.todo.feature.pomodoro.AndroidPomodoroTaskListProvider
 import com.singularity.todo.feature.pomodoro.AndroidPomodoroTimer
 import com.singularity.todo.feature.pomodoro.PomodoroAlarmScheduler
@@ -261,16 +265,36 @@ actual fun platformModule(): Module = module {
 
     single<BackupCodec> { AndroidBackupCodec() }
 
+    // ─── The OAuth consent step ─────────────────────────────────────────
+    //
+    // There is nothing to bind here, and that is the point.
+    //
+    // The desktop consent opens a browser and waits on a loopback socket; the desktop
+    // module binds both. Android cannot use that flow: Google blocked the loopback
+    // redirect for Android OAuth clients in October 2022, and custom URI schemes are
+    // not supported either. Here the consent runs through Google's own authorization
+    // API, and Play Services carries the answer back — so the piece that touches the
+    // operating system is the activity result, and only a composition can own one.
+    // The consent therefore lives in `GoogleConsent.android.kt`, not in the graph.
+    //
+    // The difference is recorded rather than left implicit:
+    // `shared/src/jvmTest/resources/platform-seams.tsv` lists the browser and the socket
+    // as desktop-only seams, with the reason.
+
     // Free core: the log-file reporter. The pro catalogue overrides this binding
     // with the Tracer-backed one, which is why it is a `single<CrashReportingPort>`
     // and not a concrete type — the override has to be substitutable.
     single<CrashReportingPort> { FileCrashReportingPort(get()) }
 
-    single<String> { get<Context>().filesDir.absolutePath + "/backups" }
+    single<String>(BackupDirQualifier) { get<Context>().filesDir.absolutePath + "/backups" }
 
-    single<String> { get<Context>().filesDir.absolutePath + "/logs" }
+    single<String>(LogDirQualifier) { get<Context>().filesDir.absolutePath + "/logs" }
 
-    single { LogBundleExporter(get(), get(), get()) }
+    // The attachments live next to the other app data, in the folder the
+    // FileProvider publishes as `attachments/`.
+    single<String>(AttachmentDirQualifier) { get<Context>().filesDir.absolutePath + "/attachments" }
+
+    single { LogBundleExporter(get(LogDirQualifier), get(), get()) }
 
     // ─── Notifications ─────────────────────────────────────────────────
 
@@ -324,7 +348,7 @@ actual fun platformModule(): Module = module {
     }
 
     // Calendar app picker — queries PackageManager for installed calendar apps
-    single<com.singularity.todo.feature.calendar_sync.domain.port.CalendarAppQueries> {
+    single<com.singularity.todo.feature.calendarSync.domain.port.CalendarAppQueries> {
         AndroidCalendarAppQueries(get())
     }
 
@@ -351,6 +375,25 @@ actual fun platformModule(): Module = module {
     // profile was active when this trigger was built.
     single<GoogleSyncPeriodicTrigger> {
         AndroidGoogleSyncPeriodicTrigger(get(), coordinatorProvider = { get<GoogleSyncCoordinator>() })
+    }
+
+    // ─── The Google grant ────────────────────────────────────────────────
+    //
+    // Android redeems the grant on the *server*, and the server renews the token.
+    //
+    // Google's offline flow hands the app a one-time code and keeps the refresh token
+    // behind it; only a holder of the client secret can redeem it, and a client secret
+    // inside an APK is a secret that has leaked. So the device asks the project's own
+    // Edge Function, and the function does the part that needs the secret.
+    //
+    // The desktop redeems on the device instead — a Desktop OAuth client is a public
+    // client and needs no secret — so the two platforms bind different implementations
+    // of the same two ports. The gateway itself is common: the function is deployed
+    // once and every platform talks to it the same way.
+    single<GoogleGrantRedeemer> { SupabaseGoogleGrantRedeemer(gateway = get()) }
+
+    single<GoogleAccessTokenProvider> {
+        SupabaseGoogleAccessTokenProvider(gateway = get(), credentialStore = get())
     }
 
     // ─── Haptics ─────────────────────────────────────────────────────────

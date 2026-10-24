@@ -138,6 +138,27 @@ jobs:
 
       - uses: ./.github/actions/setup-jvm-gradle
 
+      # The Google OAuth client id, when the project has one.
+      #
+      # A client id is not a secret — it ships inside every copy of the app that
+      # uses it — but it is a per-project value, so it lives in a repository
+      # secret rather than in the tree. It is optional on purpose: a build
+      # without one still works, and the app asks the user to paste their own
+      # id in the Calendar settings.
+      - name: Write the Google client id into local.properties
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+        run: |
+          if [ -z "${GOOGLE_CLIENT_ID}" ]; then
+            echo "No GOOGLE_CLIENT_ID secret — the app will ask the user for one."
+            exit 0
+          fi
+          # Appended, not written over: `local.properties` may already carry
+          # other keys, and a later key wins in a properties file, so the id
+          # here is the one the build reads.
+          printf 'google.client.id=%s\n' "$GOOGLE_CLIENT_ID" >> local.properties
+          echo "Wrote google.client.id to local.properties"
+
       - name: Build release APK
         run: |
           ./gradlew :androidApp:assembleRelease \

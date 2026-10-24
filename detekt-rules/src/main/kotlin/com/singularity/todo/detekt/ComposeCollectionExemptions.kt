@@ -112,7 +112,7 @@ internal object ComposeCollectionExemptions {
                 "tasksByDate" to "Map<LocalDate, List<CalendarTaskUi>>",
                 "selectedDates" to "Set<LocalDate>",
             ),
-        "com.singularity.todo.feature.calendar_sync.presentation.CalendarAppPicker" to
+        "com.singularity.todo.feature.calendarSync.presentation.CalendarAppPicker" to
             mapOf("availableApps" to "List<CalendarAppInfo>"),
         "com.singularity.todo.feature.checklist.components.ChecklistEditorSheet" to
             mapOf("items" to "List<ChecklistItem>"),
