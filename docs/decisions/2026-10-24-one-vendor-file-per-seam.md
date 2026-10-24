@@ -3,7 +3,6 @@ title: "One vendor file per seam: the SDK touches six files, each of them alone"
 date: 2026-10-24
 status: superseded
 slug: one-vendor-file-per-seam
-supersedes: null
 superseded-by: 2026-10-24-the-storage-seam-is-the-bucket
 ---
 

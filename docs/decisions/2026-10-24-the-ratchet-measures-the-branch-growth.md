@@ -3,7 +3,6 @@ title: "The ratchet measures the branch's growth, so it compares against the mer
 date: 2026-10-24
 status: accepted
 slug: the-ratchet-measures-the-branch-growth
-supersedes: null
 ---
 
 # The ratchet measures the branch's growth, so it compares against the merge-base

@@ -3,7 +3,6 @@ title: "The session lives in the client: the cache must remember what it built"
 date: 2026-10-24
 status: accepted
 slug: the-session-lives-in-the-client
-supersedes: null
 ---
 
 # The session lives in the client: the cache must remember what it built

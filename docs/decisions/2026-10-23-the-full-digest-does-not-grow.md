@@ -133,7 +133,7 @@ The cost of a decision in the index is now a record rather than a row. A record 
 ~135 characters (measured on the corpus of 814 decisions); a row cost a line. The index
 section grew from 72 lines at 400 decisions to 152 at 814 — **0.193 lines per
 decision**. The pre-fold file cost **2.75** lines per decision; the folded file costs
-0.287 over the whole corpus and 0.18 over the last 50 decisions.
+0.289 over the whole corpus and 0.20 over the last 50 decisions.
 
 ### The budget is a line above the whole history, not above one point
 
@@ -144,14 +144,17 @@ every earlier date is the corpus with the newest decisions left out — and the 
 has to lie above the whole series.
 
 The measurement (2026-10-24, the prefix series rendered and measured again — the corpus
-moved under the record, and the numbers below are the ones measured now):
+moved under the record, and the numbers below are the ones measured now). The corpus moved
+this time because two `supersedes:` edges that named their target wrongly now name it
+rightly, and the digest no longer carries the targets' Consequences: the edges are in the
+tail, their targets in the measured prefix, so the prefix renders shorter.
 
 | what | measured |
 |---|---|
-| the last 50 decisions | 0.180 lines each |
-| the last 100 decisions | 0.180 lines each |
-| the last 200 decisions | 0.220 lines each |
-| the whole corpus | 0.287 lines each |
+| the last 50 decisions | 0.200 lines each |
+| the last 100 decisions | 0.190 lines each |
+| the last 200 decisions | 0.225 lines each |
+| the whole corpus | 0.289 lines each |
 | the index section alone, the worst window of 50 in the history | 0.240 lines each |
 | the whole file, the worst window of 50 in the history, at N=80 | 0.980 lines each |
 

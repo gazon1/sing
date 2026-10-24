@@ -16,6 +16,18 @@ interface OAuthBrowser {
      *   waiting for a redirect that will never come.
      */
     suspend fun open(url: String): Boolean
+
+    /**
+     * Whether a browser can be opened at all.
+     *
+     * The consent step needs one, and the answer is not always yes: a headless
+     * machine has neither a display nor a browser, and there the "Connect" button
+     * has to be disabled *before* the user presses it rather than failing after.
+     *
+     * This is a separate question from [open] on purpose: [open] acts, and asking it
+     * to find out whether it could act would open a window to answer a question.
+     */
+    fun isAvailable(): Boolean
 }
 
 /**

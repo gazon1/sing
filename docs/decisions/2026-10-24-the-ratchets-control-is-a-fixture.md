@@ -3,7 +3,6 @@ title: "The ratchet's control is a fixture, because a sabotage cannot grow the b
 date: 2026-10-24
 status: accepted
 slug: the-ratchets-control-is-a-fixture
-supersedes: null
 ---
 
 # The ratchet's control is a fixture, because a sabotage cannot grow the baseline

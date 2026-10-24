@@ -347,6 +347,8 @@ class RecordingNotifier : Notifier {
 class InertOAuthBrowser : OAuthBrowser {
     val opened = mutableListOf<String>()
 
+    override fun isAvailable(): Boolean = false
+
     override suspend fun open(url: String): Boolean {
         opened += url
         return false
