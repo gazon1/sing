@@ -96,7 +96,9 @@ into the tree that is being pushed, alone, and that tree need not carry the
 package". It does not travel alone. The hook invokes it from the checkout —
 `python3 "$REPO_ROOT/scripts/pre-push-verdict.py"` — and the checkout carries
 `scripts/src`, so the answer is importable from where the script is run. The
-script loads it by path, the way it loads `scripts/changed-modules.py`: the
+script loads it by path, the way it loads `scripts/changed-modules.py`, and it
+does it through `scripts/gitenv_loader.py` — the one loader the scripts that
+cannot reach the package share. The reason is the same in every case: the
 package `sgate` pulls in `click` and `loguru` when it is imported, and the
 hook calls this script with the ambient `python3`, which is not guaranteed to
 have either. A verdict that dies on an import is a push that fails for a
@@ -106,10 +108,9 @@ The other three copies went the same way. `scripts/check-git-environment.py`
 and `scripts/check-checkout-invariants.py` import the package already, so they
 take the names from the owner; `scripts/measure-verdict-cost.py` cannot —
 it has no third-party dependency and does not want one — so it loads the
-owner by path too, through `scripts/gitenv_loader.py`, the one loader the
-scripts that cannot reach the package share. A copy of the list is a second
-answer to the same question, and the next variable git exports would have
-been dropped in one place and not in the other.
+owner by path too. A copy of the list is a second answer to the same
+question, and the next variable git exports would have been dropped in one
+place and not in the other.
 
 The same rule landed on `main` in parallel, in PR #992: the hook drops the
 environment for every step it runs in the pushed tree, and two of the fixtures
