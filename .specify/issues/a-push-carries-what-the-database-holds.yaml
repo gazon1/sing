@@ -1,0 +1,27 @@
+# spec-kit issue record — hand-written.
+#
+# Not imported from an OpenSpec change: the importer rebuilds the records it
+# owns from scratch (`scripts/openspec-import-all.py` writes each file
+# wholesale), so this record is written by hand.
+---
+version: '1.0'
+type: openspec-change
+slug: a-push-carries-what-the-database-holds
+date: '2026-10-23'
+title: 'A push carries what the database holds'
+status: accepted
+change_type: active
+speckit_imported: false
+adr_refs:
+- 2026-10-23-a-push-carries-what-the-database-holds
+tags:
+- tasks
+- sync
+- database
+documents:
+  proposal: openspec/changes/a-push-carries-what-the-database-holds/proposal.md
+  design: openspec/changes/a-push-carries-what-the-database-holds/design.md
+  tasks: openspec/changes/a-push-carries-what-the-database-holds/tasks.md
+specs_dir: openspec/changes/a-push-carries-what-the-database-holds/specs
+is_stub: false
+openspec_path: openspec/changes/a-push-carries-what-the-database-holds

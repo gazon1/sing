@@ -122,6 +122,26 @@ class TaskDaoArchiveRepositoryImplTest {
     }
 
     @Test
+    fun `bulk archive does not tell the server that the work has no tags`() = runTest {
+        db.taskDao().upsert(task("a", user.value, completed = true))
+        db.taskDao().upsertTagCrossRefForUser("a", "tag-1", user.value)
+
+        val result = repo.archiveCompletedTasks()
+
+        assertTrue(result.isSuccess, "archive failed: ${result.exceptionOrNull()}")
+        // The row on its own carries no tags — they live in a cross-ref table —
+        // and on the wire an empty tag list says "the work has no tags". The
+        // server would apply that, and every other device would lose the tags
+        // on the next pull.
+        val pushed = sync.enqueuedEntities.last()
+        assertEquals(
+            listOf("tag-1"),
+            (pushed as com.singularity.todo.feature.tasks.domain.model.Task).tags.map { it.value },
+            "the pushed task carries the tags the database holds",
+        )
+    }
+
+    @Test
     fun `already archived tasks are not re-pushed`() = runTest {
         db.taskDao().upsert(task("old", user.value, completed = true))
         db.taskDao().archiveCompletedForUser(Clock.System.now().toEpochMilliseconds(), user.value)

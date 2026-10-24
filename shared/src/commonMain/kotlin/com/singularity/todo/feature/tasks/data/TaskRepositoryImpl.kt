@@ -31,6 +31,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import com.singularity.todo.feature.tasks.domain.model.TaskSharedField
 import com.singularity.todo.feature.tasks.blockingDependencyIdsForUser
+import com.singularity.todo.feature.tasks.freshTask
 import com.singularity.todo.feature.tasks.withExtras
 import com.singularity.todo.feature.tasks.domain.port.DependencyValidator
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
@@ -192,7 +193,11 @@ class TaskRepositoryImpl(
             toInsert.tags.forEach { tagId ->
                 taskDao.upsertTagCrossRefForUser(toInsert.id.value, tagId.value, currentUid.value)
             }
-            syncRepository.enqueue(toInsert)
+            // The push carries what the database holds. The create wrote the tags
+            // a moment ago, and the edges it did not write are the ones the
+            // database does not have — an edge the caller carried but the create
+            // did not write would be a claim about an edge that is not there.
+            enqueueFresh(toInsert.id)
             toInsert
         }
     }
@@ -223,7 +228,17 @@ class TaskRepositoryImpl(
             // what they should be. If `get()` ever starts loading them, this
             // comment is the thing that has to be read again.
             realignSeries(toUpdate)
-            syncRepository.enqueue(toUpdate)
+            // The push carries the state the database holds, not the state the
+            // caller held. The caller read the task through `get()`, which does
+            // not load the tags and the blocking edges — they live in cross-ref
+            // tables — so the task in hand carries two empty collections that
+            // say nothing about the work. On the wire an empty collection is a
+            // claim: "the work has no tags", "the work waits for nothing". The
+            // server applies the claim, and every other device loses the tags
+            // on the next pull. The same rule the local write follows — the
+            // emptiness of a read is not the truth about the work — has to
+            // follow the push.
+            enqueueFresh(toUpdate.id)
             toUpdate
         }
     }
@@ -249,7 +264,10 @@ class TaskRepositoryImpl(
                 toInsert.tags.forEach { tagId ->
                     taskDao.upsertTagCrossRefForUser(toInsert.id.value, tagId.value, currentUid.value)
                 }
-                syncRepository.enqueue(toInsert)
+                // The push carries what the database holds — the row, the tags
+                // just written, and the edges the create did not write and the
+                // database therefore does not have.
+                enqueueFresh(toInsert.id)
                 toInsert
             }
         }
@@ -282,7 +300,13 @@ class TaskRepositoryImpl(
                 // series saying two different things about the work — and the merge
                 // of two series is exactly the write that changes them.
                 writeTags(toUpdate.id, toUpdate.tags, currentUid.value)
-                syncRepository.enqueue(toUpdate)
+                // The push carries the state the database holds. The batch
+                // writes the tags — they are a shared field of a series — but it
+                // does not write the blocking edges, and the task in hand may
+                // carry no edges at all: a batch built from a task read through
+                // `get()` holds none. On the wire an empty set is a claim, and
+                // the server would apply it as "the work waits for nothing".
+                enqueueFresh(toUpdate.id)
                 toUpdate
             }
             // The batch is a series write, and a series write repairs the series:
@@ -453,18 +477,8 @@ class TaskRepositoryImpl(
      * already ships the full snapshot, so no protocol change is involved.
      */
     private suspend fun enqueueFresh(id: TaskId) {
-        val row = taskDao.getByIdForUser(id.value, currentUser.scopedUserId.value.value) ?: return
-        val tags = taskDao.getTagIdsForUser(id.value, currentUser.scopedUserId.value.value).first()
-            .map { TagId.fromString(it) }
-        // Only the blocking edges: the pushed task has to carry the same
-        // dependency set the local model carries, or the two would describe
-        // different graphs and a later pull would restore edges the model had
-        // already dropped.
-        val deps = taskDao.blockingDependencyIdsForUser(id.value, currentUser.scopedUserId.value.value)
-            .first()
-            .map { TaskId.fromString(it) }
-            .toSet()
-        syncRepository.enqueue(row.toTask(tags = tags, blockedBy = deps))
+        val task = taskDao.freshTask(id.value, currentUser.scopedUserId.value) ?: return
+        syncRepository.enqueue(task)
     }
 
     override suspend fun delete(id: TaskId): Result<Unit> = softDelete(id)
@@ -788,6 +802,13 @@ class TaskRepositoryImpl(
 
             val removed = existingTagIds - newTagIds
             val added = newTagIds - existingTagIds
+
+            // Nothing changed: the tags the row carries are the tags the caller
+            // asked for. Nothing is written and nothing is pushed — a write that
+            // changes nothing is not a claim, and a claim about a set that did
+            // not move says nothing new. Removing a tag the task does not carry
+            // lands here.
+            if (removed.isEmpty() && added.isEmpty()) return@write
 
             // Apply cross-ref changes
             existingTagStrings.forEach { tagId -> taskDao.removeTagRefForUser(taskId.value, tagId, uid) }

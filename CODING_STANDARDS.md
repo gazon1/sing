@@ -264,6 +264,35 @@ A reviewing agent watches for the path that writes the row and stops:
   into a deletion. A fake that lies about the contract makes every test
   written against it a test of the fake.
 
+---
+
+## A push carries what the database holds
+
+A device that sends a part says what the part is. On the wire an empty tag
+list is a claim — "the work has no tags" — and the server applies it, and
+every other device loses the tags on the next pull. The wire has no state for
+"I did not look": only for "here is the value" and "here is the emptiness".
+
+So a device that did not look must not send the emptiness. A task read
+through `get()` carries no tags and no blocking edges — they live in
+cross-ref tables — and a write path that pushes the caller's task sends the
+emptiness of the read as a claim about the work. The write path has to push
+the task as the database holds it: the row, the tags and the edges, read back
+after the write.
+
+A reviewing agent watches for the path that enqueues and stops:
+
+- An enqueue of the caller's task rather than of the task the database holds.
+  The two differ exactly where a part lives outside the row.
+- An enqueue of a row that was read without its cross-refs — a bulk archive
+  that pushes `row.toTask()` sends "the work has no tags" for every task it
+  archives.
+- A second copy of "what a task is for the wire". One assembly
+  (`TaskDao.freshTask`) answers the question for every caller; a copy drifts,
+  and the drift is silent.
+- A device that means "this work has no tags" — that is a claim, and it is
+  allowed. The defect is the claim the device did not mean.
+
 The mechanical part is a gate: `TaskRowWriterTest` checks that every column of
 the task row has a writer in the mapper the repository uses, and that a column
 without one is declared out loud; the behaviour is `TaskDocumentWriteTest`,
@@ -324,6 +353,7 @@ re-deriving them.
 |---|---|
 | Fakes, not mocks; mocks only for outgoing calls | `AGENTS.md`, review |
 | A document writes only the parts it carries; a part it does not carry is not written | `TaskDocumentPartsTest`, `TaskDocumentWriteTest`, review |
+| A push carries what the database holds; the emptiness of a read is not a claim | `TaskPushClaimTest`, `TaskDaoArchiveRepositoryImplTest`, review |
 | Every test class carries `@Tag` (`fast`, or `slow` when it crosses a process boundary) | `TestTagCoverageTest` |
 | No `delay()` in tests — virtual time and `awaitState` | `AGENTS.md`, review |
 | ViewModels take an injected `AutoCloseableCoroutineScope`; never `viewModelScope` | detekt + review |

@@ -28,6 +28,19 @@ import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
  * Everything that is not listed below therefore writes one occurrence: the
  * dates, the times, the kind, the pin, the dependencies, the completion state.
  *
+ * ## The tags are in the list, but the slot does not write them
+ *
+ * The tag intents map to [TaskSharedField.Tags] because the rule is the rule:
+ * the tags describe the work, so every member of a series carries them. The
+ * entity slot does not write them through [sharedFieldOf] though — it writes
+ * them through `setTags`, the path that owns the cross-ref table the tags live
+ * in. The series is repaired there: the row whose tags changed says what the
+ * work is tagged with, and the other members follow it.
+ *
+ * The mapping stays because the rule is unchanged, and it is what states it:
+ * a field that is a shared field of a series is a shared field of a series,
+ * whatever path writes it.
+ *
  * @see TaskSharedField
  */
 internal fun sharedFieldOf(intent: TaskDetailIntent.Domain): TaskSharedField? = when (intent) {

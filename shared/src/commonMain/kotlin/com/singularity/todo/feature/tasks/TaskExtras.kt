@@ -10,6 +10,7 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 /**
@@ -86,3 +87,57 @@ private data class TaskExtras(val tagsByTask: Map<String, List<String>>, val dep
  */
 internal fun TaskDao.blockingDependencyIdsForUser(taskId: String, userId: String): Flow<List<String>> =
     getBlockingEdgeIdsForUser(taskId, userId, DependencyVerb.BLOCKS.name)
+
+/**
+ * The task as the database holds it — the row, the tags and the blocking edges.
+ *
+ * This is the assembly the wire needs. A task that travels to the server is a
+ * claim about the work, and a claim has to be true: on the wire an empty tag
+ * list says "the work has no tags" and an empty dependency set says "the work
+ * waits for nothing". The server applies the claim, and every other device
+ * loses the tags on the next pull.
+ *
+ * So the parts come from the database, not from the caller. A caller that read
+ * a task through `get()` holds no tags and no edges — they live in cross-ref
+ * tables, and the read was not interested in them — and the emptiness of that
+ * read is not the truth about the work.
+ *
+ * @param id the task to assemble.
+ * @param uid the owner of the task.
+ * @return the task as the database holds it, or null when there is no such row.
+ */
+internal suspend fun TaskDao.freshTask(id: String, uid: UserId): Task? {
+    val row = getByIdForUser(id, uid.value) ?: return null
+    val tags = getTagIdsForUser(id, uid.value).first().map { TagId.fromString(it) }
+    val deps = blockingDependencyIdsForUser(id, uid.value).first().map { TaskId.fromString(it) }.toSet()
+    return row.toTask(tags = tags, blockedBy = deps)
+}
+
+/**
+ * The tasks as the database holds them — the row, the tags and the blocking
+ * edges — read in one pass.
+ *
+ * The same answer [freshTask] gives for one task, for many: the cross-refs are
+ * read once for the whole set rather than once per task. A bulk write that
+ * pushes a row it has read without its cross-refs sends "the work has no tags"
+ * for every row it touches.
+ *
+ * @param rows the task rows to assemble.
+ * @param uid the owner of the tasks.
+ */
+internal suspend fun TaskDao.freshTasks(rows: List<TaskEntity>, uid: UserId): List<Task> {
+    if (rows.isEmpty()) return emptyList()
+    val tagsByTask = listAllTagsForUser(uid.value)
+        .groupBy { it.taskId }
+        .mapValues { (_, refs) -> refs.map { TagId.fromString(it.tagId) } }
+    val depsByTask = listAllDependenciesForUser(uid.value)
+        .filter { it.verb == DependencyVerb.BLOCKS.name }
+        .groupBy { it.taskId }
+        .mapValues { (_, refs) -> refs.map { TaskId.fromString(it.dependsOnTaskId) }.toSet() }
+    return rows.map { row ->
+        row.toTask(
+            tags = tagsByTask[row.id].orEmpty(),
+            blockedBy = depsByTask[row.id].orEmpty(),
+        )
+    }
+}
