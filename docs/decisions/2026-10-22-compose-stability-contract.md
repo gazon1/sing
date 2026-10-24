@@ -437,6 +437,35 @@ the program — a question about data flow, not about declarations. A read-only
 `List` is allowed, because `Task` holds a `List<TagId>` on purpose; the
 mutable spellings are what a declaration can show, and those are rejected.
 
+### The kinds are told apart by what the compiler does with them
+
+An entry in the contract is a name, and the names are not all the same thing.
+The gate used to treat "not a class" as one failure for all of them. That was
+wrong in one direction and imprecise in the other: it refused entries that
+work, and it explained every refusal with a reason that fitted none of them.
+
+Measured on 2026-10-24, by adding an entry, rebuilding and reading the
+compiler's own report:
+
+- **A class** is what the stability file lists. An entry for it is the
+  contract doing its job.
+- **An interface** is honoured. The compiler matches the entry against the
+  supertypes of a class as well, so an entry for `UiNode` made
+  `UiNode.Checkbox` and `UiNode.TextField` stable, and the `$stable` marker
+  appeared in their class files. The promise therefore covers the
+  implementations, and the gate checks them: it finds them by their supertypes
+  and holds them to the same promise.
+- **An object** the compiler judges stable on its own — an object is a
+  singleton, so there is nothing to compare, and the stability report shows
+  the objects of this repository as `stable class` with no entry for them at
+  all. An entry for one says nothing that was not already said, and it makes
+  the reader believe the object needs vouching for. The gate reports it.
+- **A typealias** is not a class, and the compiler matches class names, so an
+  entry for one resolves to nothing. The gate reports it.
+
+The first two are what the contract is for; the last two are entries that say
+less than they appear to, which is the failure this whole decision is about.
+
 ### The register of debt is a ratchet
 
 The register names the composables that still take a raw collection, and under

@@ -14,17 +14,27 @@ exists and names real types, but no module reads it. The compiler is then never
 told anything, and every "stable" claim in the repository's documentation is a
 claim about a file nothing loads.
 
-So this gate checks five things:
+So this gate checks seven things:
 
   1. every entry is a syntactically valid fully-qualified name;
   2. every entry resolves to a type that exists — a declared type in the shared
      sources for a project namespace, an imported type for a library one;
-  3. the file is actually wired into the modules that compile composables;
-  4. every site the register of debt names is still declared in the sources;
-  5. every parameter the register of debt names is still declared by some
-     declaration of that site.
+  3. every entry names something the compiler can use — a **class**, or an
+     **interface**, which the compiler honours and applies to the
+     implementations as well. An `object` is judged stable without the
+     contract, and a `typealias` resolves to no class at all: both are
+     reported, because both say less than they appear to;
+  4. the file is actually wired into the modules that compile composables;
+  5. every type the contract names keeps the promise it makes for it — no
+     `var`, no collection that can change after construction. For an interface
+     the promise covers the implementations too, because the compiler applies
+     the entry to them;
+  6. every site the register of debt names is still declared in the sources;
+  7. every parameter the register of debt names is still declared by some
+     declaration of that site, and the register has not grown past the size
+     recorded in `config/compose/stability_debt_baseline.conf`.
 
-The fourth and the fifth are a different failure from the first three. The
+The last three are a different failure from the first four. The
 contract names *types*, and the compiler ignores a name it cannot resolve — a
 contract entry that rots is a contract that says less than it appears to. The
 register of debt (`ComposeCollectionExemptions.kt`) names *composables* and the
@@ -56,6 +66,7 @@ from __future__ import annotations
 import pathlib
 import re
 import sys
+from dataclasses import dataclass, field
 
 import click
 
@@ -87,32 +98,91 @@ PROJECT_NAMESPACE = "com.singularity.todo."
 #: annotation or a comment, so the pattern is anchored per line and not to the
 #: start of the file.
 _PACKAGE = re.compile(r"^package\s+([\w.]+)", re.M)
-_DECLARATION = re.compile(
-    r"^(?:@\w+(?:\([^)]*\))?\s+)*"
-    r"(?:public\s+|internal\s+|private\s+|protected\s+|abstract\s+|sealed\s+|open\s+"
-    r"|data\s+|value\s+|enum\s+|annotation\s+|expect\s+|actual\s+|inline\s+)*"
-    r"(?:class|interface|object)\s+([A-Za-z_]\w*)",
-    re.M,
-)
-_TYPEALIAS = re.compile(r"^typealias\s+([A-Za-z_]\w*)", re.M)
+_TYPEALIAS = re.compile(r"^[ \t]*typealias\s+([A-Za-z_]\w*)", re.M)
 _IMPORT = re.compile(r"^import\s+([\w.]+)", re.M)
 
-#: A class declaration, with the position where its header ends. The property
-#: check needs the constructor and the body, not only the name.
-_CLASS = re.compile(
-    r"^[ \t]*(?:@\w+(?:\([^)]*\))?[ \t]*\n?[ \t]*)*"
-    r"(?:public |internal |private |protected |abstract |sealed |open |data |value |"
-    r"enum |annotation |expect |actual |inline )*"
-    r"class[ \t]+([A-Za-z_]\w*)",
+#: A declaration with the kind of thing it declares, and where it starts.
+#:
+#: The kinds differ in what the compiler does with them, and the gate has to
+#: tell them apart rather than lump them together:
+#:
+#:  * a **class** is what the compiler's stability file lists, and an entry
+#:    for it is exactly what the contract is for;
+#:  * an **interface** is honoured too — the compiler matches the entry
+#:    against the supertypes of a class as well, so an entry for an interface
+#:    reaches the implementations that carry it. Measured on 2026-10-24: an
+#:    entry for `UiNode` made `UiNode.Checkbox` and `UiNode.TextField` stable,
+#:    and the marker appeared in their class files;
+#:  * an **object** the compiler judges stable on its own — an object is a
+#:    singleton, so the compiler infers stability for it whatever it holds.
+#:    The stability report shows them as `stable class` with no entry in the
+#:    contract at all;
+#:  * a **typealias** is not a class: the compiler matches class names, so an
+#:    entry that names an alias resolves to nothing.
+#:
+#: The declaration may be nested, so the pattern allows the indentation a
+#: nested declaration carries.
+_DECLARATION_WITH_KIND = re.compile(
+    r"^[ \t]*(?:@\w+(?:\([^)]*\))?\s+)*"
+    r"(?:public\s+|internal\s+|private\s+|protected\s+|abstract\s+|sealed\s+|open\s+"
+    r"|data\s+|value\s+|enum\s+|annotation\s+|expect\s+|actual\s+|inline\s+)*"
+    r"(class|interface|object)\s+([A-Za-z_]\w*)",
     re.M,
 )
+
+#: What the sources declare about one name.
+#:
+#: The kind decides what the compiler does with an entry for the name, so the
+#: kind is part of what the gate knows. The properties are what the promise
+#: is checked against, and the supertypes are what says who implements the
+#: name — an entry for an interface reaches the implementations, so the
+#: promise covers them too.
+@dataclass
+class Declaration:
+    kind: str
+    properties: list[tuple[str, str, str | None, str | None]] = field(default_factory=list)
+    supertypes: list[str] = field(default_factory=list)
+
+
+@dataclass
+class _Site:
+    """One declaration as it sits in a source file."""
+
+    kind: str
+    name: str
+    position: int
+    body_range: tuple[int, int] | None
+    constructor: str
+    body: str
+    supertypes: list[str]
+
 
 #: A property declaration: `val` or `var`, and its name. The type is read
 #: separately, because a type may be generic, inferred, or followed by an
 #: accessor — a pattern that one regex cannot tell apart.
+#:
+#: The modifiers are the ones Kotlin allows in front of a property, and the
+#: annotations may carry a use-site target (`@get:JvmName("x")`) — a property
+#: that the pattern does not match is a property the check does not see, and a
+#: check that does not see a property is not a check.
 _PROPERTY = re.compile(
-    r"^\s*(?:@\w+(?:\([^)]*\))?\s+)*"
-    r"(?:private |public |internal |protected )?(val|var)[ \t]+([A-Za-z_]\w*)",
+    r"^\s*"
+    r"(?:@[\w.]+(?:\([^)]*\))?[ \t]*\n?[ \t]*)*"
+    r"(?:(?:private|public|internal|protected|override|lateinit|open|final|abstract|"
+    r"const|expect|actual)[ \t]+)*"
+    r"(val|var)[ \t]+([A-Za-z_]\w*)",
+)
+
+#: The factories that build a collection that can change. A property whose type
+#: is inferred is invisible to the declared type — but the initializer is not,
+#: and a `mutableListOf()` says the same thing as a `MutableList`.
+_MUTABLE_FACTORIES = (
+    "mutableListOf",
+    "mutableSetOf",
+    "mutableMapOf",
+    "arrayListOf",
+    "hashSetOf",
+    "hashMapOf",
 )
 
 #: The collection types that can change after they are built. A contract type
@@ -191,18 +261,59 @@ def kotlin_sources(source_root: pathlib.Path) -> list[pathlib.Path]:
     return sorted(p for p in source_root.rglob("*.kt") if p.is_file())
 
 
-def declared_types(sources: list[pathlib.Path]) -> set[str]:
-    """Every fully-qualified type name declared in the given sources."""
-    types: set[str] = set()
+def declared_declarations(sources: list[pathlib.Path]) -> dict[str, Declaration]:
+    """Every declaration the sources declare, by its fully-qualified name.
+
+    The name is the one the Compose compiler prints: the enclosing
+    declarations come first and the declaration itself last. A nested class
+    therefore reads as `Outer.Nested`, and two declarations of the same name in
+    different packages stay apart — which is what makes the checks below able
+    to say anything about a *particular* type.
+
+    A typealias is a declaration too, and it is kept apart from the classes:
+    the compiler matches class names, so an alias is a name it cannot use.
+    """
+    declarations: dict[str, Declaration] = {}
     for path in sources:
         text = path.read_text(encoding="utf-8", errors="replace")
-        package_match = _PACKAGE.search(text)
-        package = package_match.group(1) if package_match else ""
-        for match in _DECLARATION.finditer(text):
-            types.add(f"{package}.{match.group(1)}" if package else match.group(1))
+        package = _package_of(text)
+        sites: list[_Site] = []
+        for match in _DECLARATION_WITH_KIND.finditer(text):
+            constructor, body, body_range, supertypes = _class_parts(text, match.end())
+            sites.append(
+                _Site(
+                    kind=match.group(1),
+                    name=match.group(2),
+                    position=match.start(),
+                    body_range=body_range,
+                    constructor=constructor,
+                    body=body,
+                    supertypes=supertypes,
+                )
+            )
+        names = _qualified_names(package, sites)
+        for index, site in enumerate(sites):
+            declarations[names[index]] = Declaration(
+                kind=site.kind,
+                properties=_properties_of(site.constructor, site.body),
+                supertypes=site.supertypes,
+            )
         for match in _TYPEALIAS.finditer(text):
-            types.add(f"{package}.{match.group(1)}" if package else match.group(1))
-    return types
+            fqn = f"{package}.{match.group(1)}" if package else match.group(1)
+            declarations.setdefault(fqn, Declaration(kind="typealias"))
+    return declarations
+
+
+def _qualified_names(package: str, sites: list[_Site]) -> list[str]:
+    """The fully-qualified name of every declaration, in the order they sit."""
+    names: list[str] = [""] * len(sites)
+    for index, site in enumerate(sites):
+        # A declaration inside another declaration's body is nested: its name
+        # carries the enclosing one, the way the compiler prints it.
+        parent = _enclosing_declaration(index, sites)
+        base = names[parent] if parent is not None else package
+        names[index] = f"{base}.{site.name}" if base else site.name
+    return names
 
 
 def imported_types(sources: list[pathlib.Path]) -> set[str]:
@@ -215,35 +326,115 @@ def imported_types(sources: list[pathlib.Path]) -> set[str]:
     return imports
 
 
-def _body_start(text: str, position: int) -> int | None:
+#: What may follow a class header that a line break ended. The header
+#: continues when the next line is part of it; when it is not, the class is
+#: over and the next declaration is somebody else's.
+_HEADER_CONTINUES = (":", "{", "<", ",", "where", ")")
+
+
+def _continues_header(text: str, position: int) -> bool:
+    """True when the text at `position` continues a class header."""
+    return text.startswith(_HEADER_CONTINUES, position)
+
+
+def _indentation_of(text: str, position: int) -> int:
+    """How far the line holding `position` is indented."""
+    start = text.rfind("\n", 0, position) + 1
+    return len(text[start:position]) - len(text[start:position].lstrip())
+
+
+def _next_meaningful_line(text: str, position: int) -> tuple[int, int] | None:
+    """The position and the indentation of the next line that carries code.
+
+    Blank lines are skipped: they say nothing about where the next
+    declaration is.
+    """
+    index = position
+    while index < len(text):
+        end = text.find("\n", index)
+        if end == -1:
+            end = len(text)
+        line = text[index:end]
+        stripped = line.strip()
+        if stripped:
+            return index, len(line) - len(line.lstrip())
+        index = end + 1
+    return None
+
+
+def _body_start(text: str, position: int, indent: int) -> int | None:
     """The index of the brace that opens a class body, or None when there is none.
 
     The brace is looked for at bracket depth zero, so a `{` inside a default
     value or a lambda in the header does not pass for the body.
+
+    A class without a body has no body. The search must not run into the next
+    class and take *its* body, or the properties of one class are attributed
+    to another — and a class that promises to be immutable is failed for a
+    `var` it does not have. The end of the class is where the next
+    declaration starts: a line indented no further than the class itself.
     """
     stack: list[str] = []
-    for index in range(position, len(text)):
+    index = position
+    while index < len(text):
         char = text[index]
+        if char == "\n" and not stack:
+            following = _next_meaningful_line(text, index + 1)
+            if following is None:
+                return None
+            line_start, line_indent = following
+            if line_indent <= indent and not _continues_header(text, line_start):
+                return None
         if _opens(char, text, index):
             if char == "{" and not stack:
                 return index
             stack.append(_closer_of(char))
         elif _closes(char) and stack and stack[-1] == char:
             stack.pop()
+        index += 1
     return None
 
 
-def _class_parts(text: str, after_name: int) -> tuple[str, str, tuple[int, int] | None]:
-    """The constructor parameters, the body, and the range of the body.
+def _skip_space(text: str, position: int) -> tuple[int, bool]:
+    """Skip the whitespace, and say whether a line break was crossed."""
+    crossed = False
+    while position < len(text) and text[position].isspace():
+        if text[position] == "\n":
+            crossed = True
+        position += 1
+    return position, crossed
+
+
+def _class_parts(
+    text: str,
+    after_name: int,
+) -> tuple[str, str, tuple[int, int] | None, list[str]]:
+    """The constructor parameters, the body, the body's range and the supertypes.
 
     The header is walked rather than pattern-matched: a class may declare a
-    secondary constructor, a supertype, or both, and the body is the first
-    brace at depth zero after all of that.
+    secondary constructor — with a visibility modifier, as `private
+    constructor(...)` — a supertype, or both, and the body is the first brace
+    at depth zero after all of that.
+
+    A class without a body has no body. The search for one must not run into
+    the next class and take *its* body, or the properties of one class are
+    attributed to another — and a class that promises to be immutable is
+    failed for a `var` it does not have. The header ends where the next
+    declaration starts: at a line indented no further than the class itself.
+
+    The supertypes come out of the same walk: the list after the colon. They
+    are what says who implements the name, and an entry for an interface
+    reaches the implementations that carry it.
     """
     position = after_name
     constructor = ""
+    supertypes: list[str] = []
     while position < len(text) and text[position].isspace():
         position += 1
+    visibility = re.compile(r"(?:private|public|internal|protected|expect|actual)[ \t]+")
+    matched = visibility.match(text, position)
+    if matched is not None:
+        position = matched.end()
     if text[position:position + 11] == "constructor":
         position += 11
         while position < len(text) and text[position].isspace():
@@ -251,24 +442,51 @@ def _class_parts(text: str, after_name: int) -> tuple[str, str, tuple[int, int] 
     if position < len(text) and text[position] == "(":
         close = _matching_paren(text, position)
         if close is None:
-            return "", "", None
+            return "", "", None, []
         constructor = text[position + 1:close]
         position = close + 1
-    while position < len(text) and text[position].isspace():
-        position += 1
+    indent = _indentation_of(text, after_name)
+    position, crossed = _skip_space(text, position)
+    if crossed and not _continues_header(text, position):
+        # The header ended on the line break: what follows is another
+        # declaration, not the body of this one.
+        return constructor, "", None, supertypes
     if position < len(text) and text[position] == ":":
         # The supertype list, up to the body.
-        start = _body_start(text, position)
+        start = _body_start(text, position, indent)
         if start is None:
-            return constructor, "", None
+            # No body: the supertype list ends with the line it is on.
+            end = text.find("\n", position)
+            end = len(text) if end == -1 else end
+            return constructor, "", None, _supertype_names(text[position + 1:end])
+        supertypes = _supertype_names(text[position + 1:start])
         position = start
-    body_start = _body_start(text, position)
+    body_start = _body_start(text, position, indent)
     if body_start is None:
-        return constructor, "", None
+        return constructor, "", None, supertypes
     body_end = _matching_paren(text, body_start)
     if body_end is None:
-        return constructor, "", None
-    return constructor, text[body_start + 1:body_end], (body_start, body_end)
+        return constructor, "", None, supertypes
+    return constructor, text[body_start + 1:body_end], (body_start, body_end), supertypes
+
+
+def _supertype_names(text: str) -> list[str]:
+    """The names of the supertypes a declaration lists.
+
+    The names are simple ones — the last segment — because that is how a
+    declaration writes them, and the enclosing package says which one it is.
+    """
+    names: list[str] = []
+    for part in _split_parameters(text):
+        name = part.strip()
+        if not name:
+            continue
+        name = name.split("<", 1)[0].strip()
+        name = name.split("(", 1)[0].strip()
+        if not name:
+            continue
+        names.append(name.split(".")[-1].strip())
+    return names
 
 
 def _top_level_statements(body: str) -> list[str]:
@@ -298,12 +516,23 @@ def _declared_type(text: str) -> str | None:
     An inferred type cannot be read from the text — and an inferred type is
     not necessarily a collection, so nothing may be concluded from it.
     """
+    declared, _ = _split_type_and_initializer(text)
+    return declared
+
+
+def _split_type_and_initializer(text: str) -> tuple[str | None, str | None]:
+    """The declared type and the initializer of a property declaration.
+
+    The type ends where the accessor or the default value begins; the
+    initializer is what follows the `=`. A property that declares no type has
+    no declared type, and its initializer is the whole remainder.
+    """
     if ":" not in text:
-        return None
+        return None, _initializer_of(text)
     rest = text.split(":", 1)[1]
     depth = 0
-    end = len(rest)
     index = 0
+    type_end = len(rest)
     while index < len(rest):
         char = rest[index]
         if char in "<([":
@@ -316,29 +545,47 @@ def _declared_type(text: str) -> str | None:
             or rest.startswith(" set", index)
             or rest.startswith(" by", index)
         ):
-            end = index
+            type_end = index
             break
         index += 1
-    declared = rest[:end].strip().rstrip(",").strip()
-    return declared or None
+    declared = rest[:type_end].strip().rstrip(",").strip()
+    return (declared or None), _initializer_of(rest[type_end:])
 
 
-def _parse_property(text: str) -> tuple[str, str, str | None] | None:
-    """The property a declaration declares: kind, name and declared type."""
+def _initializer_of(text: str) -> str | None:
+    """The initializer of a property, or None when it has none."""
+    depth = 0
+    for index, char in enumerate(text):
+        if char in "<([":
+            depth += 1
+        elif char in ">)]":
+            depth -= 1
+        elif char == "=" and depth == 0:
+            initializer = text[index + 1:].strip()
+            return initializer or None
+    return None
+
+
+def _parse_property(text: str) -> tuple[str, str, str | None, str | None] | None:
+    """The property a declaration declares: kind, name, type and initializer."""
     match = _PROPERTY.match(text)
     if match is None:
         return None
     kind, name = match.group(1), match.group(2)
-    return kind, name, _declared_type(text[match.end():])
+    declared, initializer = _split_type_and_initializer(text[match.end():])
+    return kind, name, declared, initializer
 
 
-def _properties_of(constructor: str, body: str) -> list[tuple[str, str, str | None]]:
-    """The properties a class declares: kind, name and declared type.
+def _properties_of(
+    constructor: str,
+    body: str,
+) -> list[tuple[str, str, str | None, str | None]]:
+    """The properties a class declares: kind, name, type and initializer.
 
     The constructor parameters that carry `val` or `var` are properties of the
     class, and so are the ones declared in its body.
     """
-    properties: list[tuple[str, str, str | None]] = []
+    properties: list[tuple[str, str, str | None, str | None]] = []
     for part in _split_parameters(constructor):
         parsed = _parse_property(part)
         if parsed is not None:
@@ -350,38 +597,44 @@ def _properties_of(constructor: str, body: str) -> list[tuple[str, str, str | No
     return properties
 
 
-def declared_classes(
-    sources: list[pathlib.Path],
-) -> dict[str, list[tuple[str, str, str | None]]]:
-    """Every class the sources declare, by its fully-qualified name.
+def _initializer_factory(text: str | None) -> str | None:
+    """The mutable collection factory an initializer calls, or None.
 
-    The name is the one the Compose compiler prints: the enclosing classes
-    come first and the class itself last. A nested class therefore reads as
-    `Outer.Nested`, and two classes of the same name in different packages
-    stay apart — which is what makes the check below able to say anything
-    about a *particular* type.
+    A property whose type is inferred is invisible to the declared type — but
+    its initializer is not, and `mutableListOf()` says exactly what a
+    `MutableList` says.
     """
-    classes: dict[str, list[tuple[str, str, str | None]]] = {}
-    for path in sources:
-        text = path.read_text(encoding="utf-8", errors="replace")
-        package = _package_of(text)
-        found: list[tuple[str, int, tuple[int, int] | None, str, str]] = []
-        for match in _CLASS.finditer(text):
-            name = match.group(1)
-            constructor, body, body_range = _class_parts(text, match.end())
-            found.append((name, match.start(), body_range, constructor, body))
-        for index, (name, position, body_range, constructor, body) in enumerate(found):
-            qualified = f"{package}.{name}" if package else name
-            # A class declared inside another class's body is nested: its name
-            # carries the enclosing class, the way the compiler prints it.
-            for other_name, other_position, other_range, _, _ in found:
-                if other_range is None or other_position >= position:
-                    continue
-                if other_range[0] <= position <= other_range[1]:
-                    qualified = f"{qualified}.{other_name}"
-                    break
-            classes.setdefault(qualified, _properties_of(constructor, body))
-    return classes
+    if text is None:
+        return None
+    for factory in _MUTABLE_FACTORIES:
+        # The call may carry type arguments: `mutableListOf<String>()`.
+        if re.search(rf"\b{re.escape(factory)}\s*(?:<[^>]*>)?\s*\(", text):
+            return factory
+    return None
+
+
+def _enclosing_declaration(
+    index: int,
+    sites: list[_Site],
+) -> int | None:
+    """The declaration the one at `index` is declared inside, if any.
+
+    The innermost one: a declaration inside a declaration inside a declaration
+    is inside both, and the name the compiler prints carries them in that
+    order.
+    """
+    position = sites[index].position
+    best: int | None = None
+    best_size: int | None = None
+    for other, site in enumerate(sites):
+        if other == index or site.body_range is None:
+            continue
+        if not site.body_range[0] <= position <= site.body_range[1]:
+            continue
+        size = site.body_range[1] - site.body_range[0]
+        if best_size is None or size < best_size:
+            best, best_size = other, size
+    return best
 
 
 def _is_mutable_collection(type_text: str) -> bool:
@@ -393,7 +646,7 @@ def _is_mutable_collection(type_text: str) -> bool:
 
 def check_contract_honesty(
     entries: list[tuple[int, str]],
-    classes: dict[str, list[tuple[str, str, str | None]]],
+    declarations: dict[str, Declaration],
 ) -> list[str]:
     """The findings for the types the contract names.
 
@@ -411,32 +664,145 @@ def check_contract_honesty(
     mutated is not a thing this check can see — it needs to know every write,
     and the compiler does not tell it. The mutable spellings are what it can
     see, and those it rejects.
+
+    An interface is a promise about its implementations too: the compiler
+    applies the entry to the classes that carry the interface, so a `var` in
+    an implementation breaks the promise the contract makes for the interface.
     """
     findings: list[str] = []
+    ancestors = _ancestors(declarations)
     for number, entry in entries:
-        if not entry.startswith(PROJECT_NAMESPACE) or "*" in entry:
+        if not entry.startswith(PROJECT_NAMESPACE):
             continue
-        properties = classes.get(entry)
-        if properties is None:
-            # The entry check reports a name that resolves to nothing.
-            continue
-        for kind, name, type_text in properties:
-            if kind == "var":
-                findings.append(
-                    f"{number}: {entry} declares a mutable property '{name}' — the "
-                    "contract tells the compiler the type is stable, and the compiler "
-                    "compares it by equals: a var means there is a second version of "
-                    "the value, and the comparison is of the wrong one",
+        for qualified in _covered_types(entry, declarations):
+            declaration = declarations.get(qualified)
+            if declaration is None:
+                # The entry check reports a name that resolves to nothing.
+                continue
+            if declaration.kind in ("object", "typealias"):
+                # An object is stable without the contract, and a typealias is
+                # not a class the compiler can match: the entry check reports
+                # both, and there is no promise of ours to keep here.
+                continue
+            targets = [qualified]
+            if declaration.kind == "interface":
+                targets += _implementations_of(qualified, declarations, ancestors)
+            for target in targets:
+                reached = "" if target == qualified else (
+                    f" — the entry for {qualified} reaches it, because it carries "
+                    f"the interface"
                 )
-            elif type_text and _is_mutable_collection(type_text):
-                findings.append(
-                    f"{number}: {entry} holds '{name}: {type_text.strip()}', and that "
-                    "collection can change after the instance is built — the contract "
-                    "tells the compiler the type is stable, and the compiler compares "
-                    "it by equals, so a collection that changed compares equal to its "
-                    "old contents",
-                )
+                for kind, name, type_text, initializer in declarations[target].properties:
+                    if kind == "var":
+                        findings.append(
+                            f"{number}: {target} declares a mutable property '{name}' — the "
+                            "contract tells the compiler the type is stable, and the compiler "
+                            "compares it by equals: a var means there is a second version of "
+                            f"the value, and the comparison is of the wrong one{reached}",
+                        )
+                        continue
+                    if type_text and _is_mutable_collection(type_text):
+                        findings.append(
+                            f"{number}: {target} holds '{name}: {type_text.strip()}', and "
+                            "that collection can change after the instance is built — the "
+                            "contract tells the compiler the type is stable, and the compiler "
+                            "compares it by equals, so a collection that changed compares equal "
+                            f"to its old contents{reached}",
+                        )
+                        continue
+                    if type_text is None:
+                        # The type is inferred, so the declared type says nothing. The
+                        # initializer does: `mutableListOf()` is a `MutableList`.
+                        factory = _initializer_factory(initializer)
+                        if factory is not None:
+                            findings.append(
+                                f"{number}: {target} holds '{name}', built by "
+                                f"'{factory}(...)' — the type is inferred, so the declared "
+                                "type says nothing, but the collection can change after the "
+                                "instance is built, and the contract tells the compiler the "
+                                f"type is stable{reached}",
+                            )
     return findings
+
+
+def _ancestors(declarations: dict[str, Declaration]) -> dict[str, set[str]]:
+    """For every declaration, the declarations it carries as supertypes.
+
+    A supertype is written by its simple name, so the name is resolved against
+    the declarations of the same package first — the package says which one it
+    is — and against the rest of the tree otherwise.
+    """
+    by_simple: dict[str, list[str]] = {}
+    for fqn in declarations:
+        by_simple.setdefault(fqn.split(".")[-1], []).append(fqn)
+
+    def resolve(owner: str, name: str) -> str | None:
+        candidates = by_simple.get(name, [])
+        if not candidates:
+            return None
+        package = owner.rsplit(".", 1)[0] if "." in owner else ""
+        for candidate in candidates:
+            if candidate.rsplit(".", 1)[0] == package:
+                return candidate
+        return candidates[0]
+
+    ancestors: dict[str, set[str]] = {}
+
+    def collect(fqn: str, seen: frozenset[str]) -> set[str]:
+        if fqn in ancestors:
+            return ancestors[fqn]
+        if fqn in seen:
+            # A cycle in the sources; the names it carries are enough.
+            return set()
+        result: set[str] = set()
+        for name in declarations[fqn].supertypes:
+            parent = resolve(fqn, name)
+            if parent is None:
+                continue
+            result.add(parent)
+            result |= collect(parent, seen | {fqn})
+        ancestors[fqn] = result
+        return result
+
+    for fqn in declarations:
+        collect(fqn, frozenset())
+    return ancestors
+
+
+def _implementations_of(
+    interface: str,
+    declarations: dict[str, Declaration],
+    ancestors: dict[str, set[str]],
+) -> list[str]:
+    """The declarations that carry the interface as a supertype.
+
+    The compiler matches the entry for an interface against the supertypes of
+    a class as well, so the implementations are covered by the promise the
+    contract makes for the interface.
+    """
+    return sorted(fqn for fqn, parents in ancestors.items() if interface in parents)
+
+
+def _covered_types(entry: str, declarations: dict[str, Declaration]) -> list[str]:
+    """The types a contract entry speaks about.
+
+    A wildcard entry speaks about every type under it — and a check that skips
+    a wildcard skips the whole subtree under it, which is exactly where a
+    `var` would hide.
+    """
+    if "*" not in entry:
+        return [entry]
+    if entry.endswith("**"):
+        prefix = entry[:-2]
+        return [name for name in declarations if name.startswith(prefix)]
+    # A single star reaches one package level only, the way the compiler's
+    # matcher reads it.
+    prefix = entry[:-1]
+    return [
+        name
+        for name in declarations
+        if name.startswith(prefix) and "." not in name[len(prefix):]
+    ]
 
 
 def read_debt_baseline(path: pathlib.Path) -> dict[str, int]:
@@ -499,10 +865,23 @@ def check_debt_size(
 
 def check_entries(
     entries: list[tuple[int, str]],
-    declared: set[str],
+    declarations: dict[str, Declaration],
     imported: set[str],
 ) -> list[str]:
-    """The findings for the contract's entries. Empty means the contract holds."""
+    """The findings for the contract's entries. Empty means the contract holds.
+
+    The kinds are told apart, because they do different things:
+
+      * a **class** is what the compiler's stability file lists, and an entry
+        for it is exactly what the contract is for;
+      * an **interface** the compiler honours as well — it matches the entry
+        against the supertypes of a class, so the entry reaches the
+        implementations that carry the interface;
+      * an **object** the compiler judges stable on its own, so an entry for
+        it says nothing that was not already said;
+      * a **typealias** is not a class at all, and the compiler matches class
+        names, so an entry for it resolves to nothing.
+    """
     findings: list[str] = []
     for number, entry in entries:
         if not _ENTRY.match(entry):
@@ -513,13 +892,24 @@ def check_entries(
             continue
 
         if entry.startswith(PROJECT_NAMESPACE):
-            if entry in declared:
+            declaration = declarations.get(entry)
+            if declaration is not None:
+                if declaration.kind == "object":
+                    findings.append(
+                        f"{number}: {entry} is an object, and the compiler judges an object "
+                        "stable on its own — the entry says nothing that was not already "
+                        "said; delete it, or name the class that carries the data",
+                    )
+                elif declaration.kind == "typealias":
+                    findings.append(
+                        f"{number}: {entry} is a typealias, and the compiler matches class "
+                        "names — a typealias is not a class, so the entry resolves to "
+                        "nothing",
+                    )
                 continue
             # A wildcard under our own namespace names a package, not a type.
-            if entry.endswith("**"):
-                prefix = entry[:-2]
-                if any(name.startswith(prefix) for name in declared):
-                    continue
+            if "*" in entry and _covered_types(entry, declarations):
+                continue
             findings.append(
                 f"{number}: {entry} names no type declared in the shared sources — "
                 "the contract would silently do nothing for it",
@@ -881,8 +1271,9 @@ def cli(
         raise ctx.exit(VALIDATION_FAILURE)
 
     sources = kotlin_sources(source_root)
-    findings = check_entries(entries, declared_types(sources), imported_types(sources))
-    findings += check_contract_honesty(entries, declared_classes(sources))
+    declarations = declared_declarations(sources)
+    findings = check_entries(entries, declarations, imported_types(sources))
+    findings += check_contract_honesty(entries, declarations)
     findings += check_wiring(root)
 
     debt = read_register(register)

@@ -65,6 +65,11 @@ as well as where it is used.
 - `scripts/check-compose-stability-config.py` — the gate: the contract names
   types that exist, the modules read it, the types it names keep the promise
   it makes for them, and the register of debt still matches the repository.
+  An entry may name a **class** or an **interface** — the compiler honours an
+  interface entry and applies it to the implementations that carry the
+  interface, so the promise covers those too, and the gate checks them. An
+  `object` is stable without the contract, and a `typealias` resolves to no
+  class: both are findings, because both say less than they appear to.
 
 ## The rule that decides everything
 
