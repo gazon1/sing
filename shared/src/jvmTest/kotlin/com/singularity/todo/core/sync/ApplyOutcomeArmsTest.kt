@@ -22,14 +22,16 @@ import kotlin.test.assertFalse
  * a lie of the same family the summary used to tell: it reads as "the engine reports
  * conflicts", so nobody goes looking for the missing merge.
  *
- * The arm was also structurally impossible. Applying a pull event is a wholesale upsert of
- * the remote document with no field-level merge, so nothing can be lost to a newer field
- * on this path — the per-field HLC merge that makes that possible lives on the push side.
+ * The arm was also structurally impossible. Applying a pull event upserts the remote
+ * document: the document wins wherever it speaks and the row keeps what the document does
+ * not speak about, but nothing on this path is compared version by version, so nothing can
+ * be lost to a newer field here — the per-field HLC merge that makes that possible lives on
+ * the push side.
  *
  * So this asserts the shape rather than a behaviour: three arms, `Conflict` not among
- * them, and a summary that carries no conflict count. If someone adds a real merge to the
- * pull path, this fails and makes them say why — which is the moment the arm should come
- * back.
+ * them, and a summary that carries no conflict count. If someone adds a version comparison
+ * to the pull path, this fails and makes them say why — which is the moment the arm should
+ * come back.
  *
  * ## Why a scanner and not Konsist
  *
@@ -132,10 +134,10 @@ class ApplyOutcomeArmsTest {
         assertFalse(
             "Conflict" in arms,
             "Conflict has come back. It must come back with a reason: the pull path " +
-                "upserts the remote document wholesale and merges no fields, so a field " +
-                "cannot be lost to a newer one here. If a field-level merge has been " +
-                "added to this path, say so in ApplyOutcome's KDoc — and check that " +
-                "nothing is manufacturing the arm from a catch block again.",
+                "upserts the remote document, and nothing on this path is compared version " +
+                "by version, so a field cannot be lost to a newer one here. If a version " +
+                "comparison has been added to this path, say so in ApplyOutcome's KDoc — and " +
+                "check that nothing is manufacturing the arm from a catch block again.",
         )
     }
 
