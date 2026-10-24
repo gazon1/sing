@@ -2,7 +2,7 @@
 change: the-client-meets-a-real-bridge
 verdict: pass
 date: 2026-10-24
-pr: 1099
+pr: 1114
 reviewed: e1f353be05079a0f4e51ffddc41be8ba205511c6
 documents: sha256:5cda382b3cf9c9e4759e964e1101472268bf89b6eb6d91700a31f18e282206f6
 ---
