@@ -1,9 +1,9 @@
 ---
 change: agent-surface-follow-ups
-verdict: fail
+verdict: pass
 date: 2026-10-23
 pr: https://github.com/gazon1/sing/pull/1041
-reviewed: b00a2a94822283c432ff0ef994d8348d126e9e21
+reviewed: 727421656bc5963119929ffb0f7db50c3f00e2e2
 documents: sha256:8f23ab31dca253d0646e8392dcc80e33b67128712ebf115718a7a8e6b574f7b1
 ---
 
@@ -39,8 +39,24 @@ trust.
 ## The review of this change, and what it found
 
 The change was reviewed by a separate agent, in rounds, each one given the diff
-and the change's own records. The first four rounds failed, and each failure
-was a real defect rather than a matter of taste.
+and the change's own records. The first seven rounds failed, and each failure
+was a real defect rather than a matter of taste. The eighth found none, and its
+observations are closed.
+
+**The eighth round found no blocking defect and seven observations.** Six are
+closed: the client's promise that a connection which did not happen leaves
+nothing behind had no observable, so a client that kept the transport it had
+built and dropped only the session — half a connection, the state the lock
+exists to prevent — would have passed every lifecycle assertion; the round trip
+was enforced per file and not in aggregate, so a fourteenth proposal-gated tool
+would have shipped with no contract and every test green; the `delete_task`
+refusal asserted that the task survived but not that the proposal was refused;
+the helper that reads the client's state described a branch it could not reach;
+the skill's tool table still presented a write as a write; and the count of the
+detekt findings below said twenty and enumerated eleven. The seventh is left
+standing on purpose: a commit message calls the entry point's start-up nine
+steps where the records say twelve, and a commit message is the record of what
+happened.
 
 **The first round found that the change's central claim was not delivered.**
 `create_tag` had been reclassified as proposal-gated, and no test drove it
@@ -181,6 +197,13 @@ a mangled line in one of the contract tests.
 - The two races are tested against a real agent on the other end of the pipe,
   not against a fake of one: a close that lands during a turn, and a close that
   lands during a connect.
+- The round trip is checked in aggregate, not per file: the tools the contract
+  tests name against the tools the catalogue calls proposal-gated. A
+  proposal-gated tool with no contract test would fail that check, instead of
+  shipping with every test green.
+- The client's promise that a connection which did not happen leaves nothing
+  behind is asserted, through one field the tests can read: a connect that gave
+  up holds no session, no transport, no protocol and no client.
 
 ## Links
 
