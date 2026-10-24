@@ -28,9 +28,9 @@ def mask_non_code(source: str) -> str:
     place, and the gate that compares the two saw nothing.
 
     What is blanked: the text of a line comment, the text of a block
-    comment, and the text of a string literal. The quotes stay, so that the
-    result is still the same length as the source and a position in one is a
-    position in the other.
+    comment, and the whole of a string literal — the quotes included. Every
+    blanked character becomes one space, so the result is the same length as
+    the source and a position in one is a position in the other.
     """
     out = []
     i = 0

@@ -40,6 +40,9 @@ REPO_ROOT = SCRIPTS.parent
 GENERATOR = REPO_ROOT / "infra" / "gen_sync_allowlist_sql.py"
 
 # A contract whose comment holds the parenthesis that used to end the list.
+# The parenthesis in the comment is *unbalanced* — there is no closing one —
+# so a reader that counts parentheses over a source it has not blanked out
+# loses the level and never finds the end of the list.
 CONTRACT = """\
 package com.singularity.todo.core.sync
 
@@ -47,7 +50,7 @@ object SyncContract {
 
     private val TASK_ALLOWLIST = setOf(
         // The client-side sync metadata the server stores without enforcing
-        // (serverVersion=0, hlc=null for a local row)
+        // (serverVersion=0, hlc=null for a local row
         "id",
         "title",
         "serverVersion",
@@ -86,9 +89,12 @@ class GeneratorTest(unittest.TestCase):
     def test_a_parenthesis_in_a_comment_does_not_end_the_list(self):
         """The fields after the comment's `)` are still fields of the list.
 
-        The comment above holds `(serverVersion=0, hlc=null for a local row)`,
-        and a reader that stops at the first `)` stops there — silently, and
-        with a seed that agrees with the generator that stopped there too.
+        The comment above holds an *unbalanced* `(` — it opens and never
+        closes — and a reader that counts parentheses over a source it has
+        not blanked out loses a level there and never finds the end of the
+        list. A reader that stops at the first `)` stops at the wrong place,
+        silently, and with a seed that agrees with the generator that stopped
+        there too.
         """
         seed = self.generate()
         self.assertIn("('task', 'id', true)", seed)

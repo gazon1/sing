@@ -48,6 +48,41 @@ writes `tag_group` and `time_entry`; the generator writes `taggroup` and
 `timeentry`, because it lower-cases the name of the `DocType`. The server
 also has a `profile` type, which the client's contract does not describe.
 
+The vocabulary is not a question about the protocol: the client's own
+`DocType` enum already carries the server's words — `TagGroup("tag_group")`,
+`TimeEntry("time_entry")` — and the generator lower-cases the enum's *name*
+instead of using the enum's value. That is a choice of the generator, and it
+has a one-line fix. It is not fixed here because a bug-fix commit that
+regenerates the seed should not also change what the seed says about types
+it did not have to touch.
+
+**The seed says more than the server accepts.** `seriesId` (task) and
+`closedAt` (project) are in the client's contract and in the generated seed,
+and the server's table does not list them — while `SyncContract.kt` says the
+server "must accept" `seriesId`, or a synced task is rejected as a document
+with an unknown field. That is pre-existing: the old seed says the same, and
+nothing applies the seed. It is named here because the fact that the seed is
+the client's contract, and not the server's table, is what makes it visible.
+
+## Idea
+
+A list of fields is read by counting the parentheses that close it, on a
+source in which the comments and the strings are blanked out. The count is
+taken on the blanked source and the fields are taken from the original one.
+
+## Rationale
+
+The reader has to know where a list ends, and the file it reads is Kotlin:
+the end of a list is a parenthesis, and a parenthesis can sit inside a
+comment or inside a string. A reader that counts over the raw file counts
+those too, and stops in the wrong place — at a place that looks like the end
+of the list to everything that reads the file the same way.
+
+The blanking is what separates the two. Every character that is not code
+becomes a space, so the source keeps its length and the count is taken over
+the code alone. The fields themselves are read from the original source,
+because they are string literals, and the blanking has taken them away.
+
 ## Decision
 
 The generator reads a list by counting parentheses, on a source in which the
