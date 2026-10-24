@@ -3,6 +3,7 @@ package com.singularity.todo.feature.ai.acp
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.process.DuplexProcess
 import com.singularity.todo.core.process.ProcessTree
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FilterInputStream
 import java.io.InputStream
@@ -25,6 +26,19 @@ private val BRIDGE_TIMEOUT: Duration = 3.minutes
 
 /** How long the bridge may stay silent before the transcript is considered complete. */
 private val QUIET_PERIOD: Duration = 2.seconds
+
+/**
+ * How long the probe waits before it may accept the bridge as quiet.
+ *
+ * A quiet period alone is not a guarantee: the bridge announces its available commands
+ * on a timer, and a timer longer than the quiet period would put the frame after the
+ * snapshot — every time, not sometimes. So the probe waits at least this long after
+ * the connect, and then waits for the quiet on top of it. The boundary of the promise
+ * is the limit below: a bridge that announces something later than that is outside
+ * what this probe can promise, and the records say so rather than the probe pretending
+ * otherwise.
+ */
+private val MIN_WAIT: Duration = 10.seconds
 
 /** How long the probe waits for the bridge to go quiet, whatever it does. */
 private val QUIET_LIMIT: Duration = 30.seconds
@@ -137,12 +151,14 @@ object AcpBridgeProbe {
                     },
                 )
                 // The bridge keeps talking after the session it answered: its
-                // available commands come on a timer, and its authentication state
-                // comes when its own probe resolves. A transcript read the moment the
-                // connect returned would miss both — and those are the frames this
-                // probe is for. So the transcript is read when the bridge has stopped
-                // talking, or when the wait runs out.
-                transcript.awaitQuiet(QUIET_PERIOD, QUIET_LIMIT)
+                // available commands come on a timer, and a transcript read the moment
+                // the connect returned would miss that frame — which is one of the
+                // frames this probe is for. The authentication notification is a
+                // different case: the bridge sends it when its own authentication probe
+                // resolves, and in the recorded run that happened during the handshake,
+                // before the session answer. So the transcript is read when the bridge
+                // has stopped talking, or when the wait runs out.
+                transcript.awaitQuiet(QUIET_PERIOD, QUIET_LIMIT, MIN_WAIT)
                 verdict.copy(
                     methods = transcript.methods(),
                     transcript = transcript.frames(),
@@ -162,10 +178,15 @@ object AcpBridgeProbe {
      * The transcript is a copy of the bytes, not a second reader: the protocol owns
      * the stream, and the copy is taken underneath it, so the two never race for a
      * line.
+     *
+     * The copy is a copy of *bytes*: they are accumulated and decoded once, at the
+     * end. Decoding each chunk on its own would cut a multi-byte character in half
+     * whenever a chunk boundary fell inside one, and the transcript would carry a
+     * replacement character where the bridge had written an em dash.
      */
     private class Transcript {
-        private val buffer = StringBuilder()
-        private var arrivals = 0
+        private val buffer = ByteArrayOutputStream()
+        private var chunks = 0
 
         fun tee(source: InputStream): InputStream = object : FilterInputStream(source) {
             override fun read(bytes: ByteArray, offset: Int, length: Int): Int {
@@ -185,14 +206,14 @@ object AcpBridgeProbe {
 
             private fun copy(bytes: ByteArray, offset: Int, length: Int) {
                 synchronized(buffer) {
-                    buffer.append(String(bytes, offset, length, Charsets.UTF_8))
-                    arrivals++
+                    buffer.write(bytes, offset, length)
+                    chunks++
                 }
             }
         }
 
         fun frames(): List<String> = synchronized(buffer) {
-            buffer.toString().lines().filter { it.isNotBlank() }
+            String(buffer.toByteArray(), Charsets.UTF_8).lines().filter { it.isNotBlank() }
         }
 
         /**
@@ -202,24 +223,30 @@ object AcpBridgeProbe {
          * says nothing at all must not make the probe wait for the limit. And the
          * limit is there so that a bridge that never goes quiet does not make the
          * probe wait for ever.
+         *
+         * The minimum is there for the other side of the same promise: a bridge that
+         * announces something on a timer longer than the quiet period would be
+         * snapshotted before the announcement, every time. So the probe waits at least
+         * that long before it may accept the quiet, and the limit is where the promise
+         * ends.
          */
-        suspend fun awaitQuiet(quiet: Duration, limit: Duration) {
+        suspend fun awaitQuiet(quiet: Duration, limit: Duration, minimum: Duration) {
             val started = TimeSource.Monotonic.markNow()
-            var seen = arrivals()
+            var seen = chunks()
             var quietSince = TimeSource.Monotonic.markNow()
             while (started.elapsedNow() < limit) {
                 delay(POLL_INTERVAL)
-                val now = arrivals()
+                val now = chunks()
                 if (now != seen) {
                     seen = now
                     quietSince = TimeSource.Monotonic.markNow()
-                } else if (quietSince.elapsedNow() >= quiet) {
+                } else if (quietSince.elapsedNow() >= quiet && started.elapsedNow() >= minimum) {
                     return
                 }
             }
         }
 
-        private fun arrivals(): Int = synchronized(buffer) { arrivals }
+        private fun chunks(): Int = synchronized(buffer) { chunks }
 
         /**
          * The methods the bridge used, and how often each came.

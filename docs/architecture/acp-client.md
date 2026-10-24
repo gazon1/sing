@@ -302,10 +302,14 @@ client survived all of it. The fake now sends the same shapes, so the suite cove
 what the bridge sends rather than what we taught the fake to send.
 
 **When the transcript is read.** When the bridge goes quiet. The bridge keeps talking
-after the session it answered — its available commands come on a timer, and its
-authentication state comes when its own probe resolves — so a transcript read the
-moment the connect returned would be a snapshot of a race. The probe waits for the
-quiet, and the frames are written down when it has lasted. The bridge's own frames are
+after the session it answered — its available commands come on a timer — so a
+transcript read the moment the connect returned would be a snapshot of a race. The
+probe waits for the quiet (two seconds, measured on the clock), and not before ten
+seconds have passed, so that a timer longer than the quiet period cannot put the frame
+after the snapshot every time. Thirty seconds is where the promise ends. The
+authentication notification is a different case: the bridge sends it when its own probe
+resolves — in the recorded run, during the handshake, before the session answer — so it
+was in the transcript already when the connect returned. The bridge's own frames are
 committed with the change
 (`openspec/changes/the-client-meets-a-real-bridge/bridge-transcript.txt`), so the
 claims about them can be checked without a network. The list of models the machine is

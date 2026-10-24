@@ -97,7 +97,7 @@ private fun handle(line: String, mode: String, json: Json, transcript: java.io.F
                 // handshake — as a notification: a method with no id, and one this
                 // application has no answer for. The client has to survive it, and a
                 // fake that never sends it cannot say that it does.
-                notify(AUTH_STATUS_METHOD, """{"authStatus":{"kind":"none","label":"Not logged in"}}""")
+                notify(AUTH_STATUS_METHOD, """{"authStatus":{"kind":"none","label":"Not logged in"}}""", transcript)
             }
         }
 
@@ -109,16 +109,7 @@ private fun handle(line: String, mode: String, json: Json, transcript: java.io.F
         // real bridge's three — a session setting this application does not show. They
         // are here because the bridge sends them: a fake that answers a different
         // session than the bridge does proves nothing about the bridge.
-        "session/new" -> {
-            respond(id, SESSION_RESPONSE)
-            // And the bridge announces its commands right after the session is open.
-            notify(
-                "session/update",
-                """{"sessionId":"$SESSION_ID","update":{"sessionUpdate":"available_commands_update",""" +
-                    """"availableCommands":[{"name":"adaptive","description":"Instructions to make or""" +
-                    """ update an app's UI so that it adapts to different devices"}]}}""",
-            )
-        }
+        "session/new" -> respond(id, SESSION_RESPONSE)
 
         // The goodbye is answered, as a real agent answers it. A request that is
         // received and never answered is the one failure the client cannot defend
@@ -128,10 +119,24 @@ private fun handle(line: String, mode: String, json: Json, transcript: java.io.F
 
         "session/prompt" -> {
             if (mode == MODE_CRASH) return false
+            // The bridge announces its commands right after the session is open. The
+            // fake announces them *here* — while the turn is running — because that is
+            // the window in which a session update could become something the reader
+            // sees, and a fake that announced it before the turn would prove nothing
+            // about that window at all. The shape is the bridge's; the moment is the
+            // one that tests something.
+            notify(
+                "session/update",
+                """{"sessionId":"$SESSION_ID","update":{"sessionUpdate":"available_commands_update",""" +
+                    """"availableCommands":[{"name":"adaptive","description":"Instructions to make or""" +
+                    """ update an app's UI so that it adapts to different devices","input":null}]}}""",
+                transcript,
+            )
             notify(
                 "session/update",
                 """{"sessionId":"$SESSION_ID","update":{"sessionUpdate":"agent_message_chunk",""" +
                     """"content":{"type":"text","text":"hello from the fake agent"},"messageId":"m1"}}""",
+                transcript,
             )
             respond(id, PROMPT_RESPONSE)
         }
@@ -155,9 +160,14 @@ private fun respond(id: JsonElement?, result: String) {
  * The real bridge sends two of them — its authentication state and its commands —
  * and neither is a request this application made. The client has to read them and
  * carry on, and the fake sends them so that the tests say so.
+ *
+ * What the fake *sent* is written down as well as what it received: a test that
+ * claims a notification arrived during the turn has to be able to show that it did.
  */
-private fun notify(method: String, params: String) {
-    println("""{"jsonrpc":"2.0","method":"$method","params":$params}""")
+private fun notify(method: String, params: String, transcript: java.io.File?) {
+    val frame = """{"jsonrpc":"2.0","method":"$method","params":$params}"""
+    transcript?.appendText("SENT: $frame\n")
+    println(frame)
     System.out.flush()
 }
 

@@ -28,6 +28,9 @@ mkdir -p "$TMPDIR"
 
 log="$(mktemp "$TMPDIR/acp-bridge-probe.XXXXXX.log")"
 command_file="$(mktemp "$TMPDIR/acp-bridge-command.XXXXXX")"
+# The command file is scratch: it goes when the script does. The log stays — its
+# path is printed, and a reader who wants the frames goes and reads it.
+trap 'rm -f "$command_file"' EXIT
 
 # The bridge's command line: what the caller said, or the Claude bridge. The
 # caller's arguments stay arguments — they are not joined into a string and split
@@ -55,26 +58,29 @@ echo "log: $log"
 
 # The probe is a program, not a test: it needs the compiled classes and the JVM
 # runtime classpath, and the build is the thing that has both.
+#
+# Three different things can happen here, and they are three different answers: the
+# build failed (nothing was probed), the probe ran and did not connect (the bridge did
+# not answer), and the probe ran and connected (the verdict). Only the third is a
+# success. The build's own failure and the probe's verdict are different things, and
+# the task does not fail the build on a failed probe — so the exit code alone cannot
+# tell them apart: the verdict is read out of the probe's own output.
 ./gw :shared:acpBridgeProbe -PacpBridgeFile="$command_file" --console=plain --quiet > "$log" 2>&1
 rc=$?
 
-# Three different things can happen here, and they are three different answers:
-# the build failed (nothing was probed), the probe ran and did not connect (the
-# bridge did not answer), and the probe ran and connected (the verdict). Only the
-# third is a success, and a build that failed after the probe printed its verdict
-# is not a success either.
-if [ "$rc" -ne 0 ] && ! grep -q "^connected:" "$log"; then
-  echo "acp-bridge-probe: the probe did not run — the build failed. The log says:" >&2
+if [ "$rc" -ne 0 ]; then
+  echo "acp-bridge-probe: the probe did not run — the build failed, or the task was stopped. The log says:" >&2
   tail -40 "$log" >&2
   exit "$rc"
 fi
 
-grep -E "^(bridge|working directory|connected|agent|failure|methods|frames| )" "$log" || true
-
-if [ "$rc" -ne 0 ]; then
-  echo "=== the probe ran, and the build failed afterwards ===" >&2
-  exit "$rc"
+if ! grep -q "^connected:" "$log"; then
+  echo "acp-bridge-probe: the probe did not print a verdict — it did not finish. The log says:" >&2
+  tail -40 "$log" >&2
+  exit 1
 fi
+
+grep -E "^(bridge|working directory|connected|agent|failure|methods|frames| )" "$log" || true
 
 if grep -q "^connected: true" "$log"; then
   echo "=== the client completed the handshake against the real bridge ==="

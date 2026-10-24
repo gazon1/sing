@@ -28,3 +28,9 @@ card on the reader's screen that nothing justified.
 - The session is open
 - The agent sends a notification this application made no request for
 - The conversation continues, and the reader is told nothing about the notification
+
+#### Scenario: The agent announces in the middle of a turn
+- The reader has asked the agent something, and the turn is running
+- The agent sends a notification this application made no request for
+- The turn continues, and the reader is told nothing about the notification — the only
+  activity is what the agent said

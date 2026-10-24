@@ -42,7 +42,7 @@ The difference was in what the bridge sends *around* the handshake:
 | Authentication state | `_auth/status_update`, a notification, right after the handshake | nothing |
 | Available commands | `session/update` with `available_commands_update`, right after the session is open | nothing |
 | Permission modes | five: `default`, `acceptEdits`, `plan`, `auto`, `bypassPermissions` | one: `default` |
-| Configuration options | three — a mode, a model and an effort level | nothing |
+| Configuration options | three — a mode, a model and an effort level | one — a mode, with no choices |
 
 None of it broke the client, and that is the point: it would have broken on a bridge
 that announced something the protocol library of the day did not model. The client now

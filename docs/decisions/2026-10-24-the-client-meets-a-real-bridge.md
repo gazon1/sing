@@ -50,11 +50,18 @@ standard output, and a second reader would race it for a line. So the probe tees
 bytes as they pass: one reader, one copy.
 
 **The transcript is read when the bridge goes quiet.** The bridge keeps talking after
-the session it answered: its available commands come on a timer, and its
-authentication state comes when its own probe resolves. A transcript read the moment
-the connect returned would miss both — and those are the very frames this probe is
-for. So the probe waits for the bridge to stop talking, and the frames are written down
-when it has.
+the session it answered: its available commands come on a timer. A transcript read the
+moment the connect returned would miss that frame — and it is one of the frames this
+probe is for. So the probe waits for the bridge to stop talking: a quiet period of two
+seconds, measured on the clock, and a minimum of ten seconds before the quiet may be
+accepted, because a timer longer than the quiet period would put the frame after the
+snapshot every time. The limit of thirty seconds is where the promise ends, and the
+records say so rather than the probe pretending otherwise.
+
+The two notifications are not in the same place, and the records say which is which:
+the authentication status arrives when the bridge's own probe resolves — in the
+recorded run, during the handshake, before the session answer — while the available
+commands arrive after the session is open.
 
 **The fake learns.** What the bridge sends that the fake did not becomes something the
 fake sends, and a test covers it. A finding that lives only in the transcript of one run
@@ -70,18 +77,25 @@ The probe is `AcpBridgeProbe`, a `main` in `shared/src/jvmMain` beside the clien
 drives; `:shared:acpBridgeProbe` runs it, beside `exportToolSurface`, which is the same
 shape; `scripts/acp-bridge-probe.sh` is the way in and turns the output into an exit
 code. The task does not fail the build on a failed probe — a build that depended on the
-network would be a build that fails in a tunnel.
+network would be a build that fails in a tunnel — so the script reads the verdict out
+of the probe's own output, and the three answers it can give stay apart: the build
+failed, the bridge did not answer, or the handshake completed.
 
 **The fake sends the bridge's shapes.** The authentication status notification
 (`_auth/status_update`, right after the handshake), the available-commands notification
-(`session/update` with `available_commands_update`, right after the session is open),
-five permission modes, and three configuration options — a mode, a model and an effort
-level — in the answer to `session/new`. The fake keeps the models the client requires,
-so it answers a superset of the bridge's session — a client that reads both is the
-client that reads the bridge. The *values* are the fake's own: the bridge's list of
-models is whatever the machine it runs on is configured for, and a machine's
-configuration is not the repository's business. The shape is what the client has to
-read.
+(`session/update` with `available_commands_update`), five permission modes, and three
+configuration options — a mode, a model and an effort level — in the answer to
+`session/new`. The fake keeps the models the client requires, so it answers a superset
+of the bridge's session — a client that reads both is the client that reads the bridge.
+The *values* are the fake's own: the bridge's list of models is whatever the machine it
+runs on is configured for, and a machine's configuration is not the repository's
+business. The shape is what the client has to read.
+
+The available-commands notification is sent by the fake *during* the turn, where the
+bridge sends it right after the session is open. The moment is the fake's own, and it
+is chosen: a notification sent before the turn is dropped by the protocol library
+before the client's adapter ever sees it, and a test over it would say nothing about
+the window in which a session update could become something the reader sees.
 
 **The client's reading of a notification is specified.** A notification that answers no
 request the application made is read and produces nothing: the conversation continues,
