@@ -1,7 +1,4 @@
-package com.singularity.todo.feature.proposals.domain.logic
-
-import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
-import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
+package com.singularity.todo.feature.proposals.domain.model
 
 /**
  * Derives a proposal's aggregate status from its items' statuses.
@@ -13,6 +10,10 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
  * [ProposalStatus.Pending]. A proposal card that still offers "confirm all" is
  * harmless; one that disappears while an item is still awaiting a decision loses the
  * user's work silently.
+ *
+ * It lives beside the model it reads because it is a fold over the model's values
+ * and nothing else: the proposal derives its own status from its own changes, and
+ * a rule that cannot be reached from the model would have to be asked for.
  */
 object ProposalStatusReducer {
 
@@ -25,7 +26,10 @@ object ProposalStatusReducer {
         // there is no outstanding decision for the card to prompt about.
         itemStatuses.isEmpty() -> ProposalStatus.Resolved
 
-        itemStatuses.any { it == ProposalItemStatus.Pending } -> ProposalStatus.Pending
+        // A change this build cannot read the status of has not been decided — the
+        // user never said yes and never said no. So the proposal keeps waiting for
+        // them, and the change carries the reason it cannot be applied.
+        itemStatuses.any { !it.isDecided } -> ProposalStatus.Pending
 
         // A retraction anywhere retires the whole proposal — the model took it back.
         itemStatuses.any { it == ProposalItemStatus.Retracted } -> ProposalStatus.Retracted

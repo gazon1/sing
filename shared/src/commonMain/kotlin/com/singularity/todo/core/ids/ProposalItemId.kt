@@ -3,10 +3,10 @@ package com.singularity.todo.core.ids
 import kotlinx.serialization.Serializable
 
 /**
- * Identity for an [com.singularity.todo.feature.proposals.domain.ProposalItem].
+ * Identity for an [com.singularity.todo.feature.proposals.domain.model.ProposalItem].
  *
  * Items are one-shot: a single tap on confirm/reject transitions the item out of
- * [com.singularity.todo.feature.proposals.domain.ProposalItemStatus.Pending] exactly
+ * [com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus.Pending] exactly
  * once, so a double-tap cannot apply twice.
  */
 @Serializable

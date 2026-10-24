@@ -6,9 +6,8 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
-import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
-import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
+import com.singularity.todo.feature.proposals.domain.model.ProposalTargetKind
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlin.time.Clock
 
@@ -18,6 +17,14 @@ import kotlin.time.Clock
  * Reduces duplication between [TaskAiSlot] and note/proposal UI surfaces.
  * All proposal-creating code shares the same construction logic, so changes to the
  * entity shape (e.g. adding `sortOrder` or changing `fingerprint`) are made in one place.
+ *
+ * ## Why the target is not written down here
+ *
+ * The builder used to take the kind of target as a second declaration, beside the
+ * change it was about — and a caller that got the two apart wrote a proposal the
+ * confirmation screen would never find. The change says what it is about
+ * ([ProposalItemKind.target]), so the builder reads it from there: there is nothing
+ * left to type, and nothing left to get wrong.
  */
 object ProposalBuilder {
 
@@ -26,7 +33,6 @@ object ProposalBuilder {
      *
      * @param kind The action kind (e.g. [ProposalItemKind.SetTaskField]).
      * @param taskId The target task.
-     * @param targetId String form of [taskId] (used in [ProposalItem.targetId]).
      * @param userId Proposal owner.
      * @param source Which surface triggered this proposal.
      * @param clock For timestamps.
@@ -37,14 +43,16 @@ object ProposalBuilder {
         userId: UserId,
         source: ProposalSource,
         clock: Clock,
-    ): Pair<AiProposal, List<ProposalItem>> = forTarget(
-        kind = kind,
-        targetKind = AiProposal.TARGET_KIND_TASK,
-        targetId = taskId.value,
-        userId = userId,
-        source = source,
-        clock = clock,
-    )
+    ): Pair<AiProposal, List<ProposalItem>> {
+        requireTarget(kind, ProposalTargetKind.Task)
+        return forTarget(
+            kind = kind,
+            targetId = taskId.value,
+            userId = userId,
+            source = source,
+            clock = clock,
+        )
+    }
 
     /**
      * Builds a single-item proposal for a note-bound action.
@@ -61,29 +69,27 @@ object ProposalBuilder {
         userId: UserId,
         source: ProposalSource,
         clock: Clock,
-    ): Pair<AiProposal, List<ProposalItem>> = forTarget(
-        kind = kind,
-        targetKind = AiProposal.TARGET_KIND_NOTE,
-        targetId = noteId,
-        userId = userId,
-        source = source,
-        clock = clock,
-    )
+    ): Pair<AiProposal, List<ProposalItem>> {
+        requireTarget(kind, ProposalTargetKind.Note)
+        return forTarget(
+            kind = kind,
+            targetId = noteId,
+            userId = userId,
+            source = source,
+            clock = clock,
+        )
+    }
 
     /**
      * Builds a single-item proposal against any kind of target.
      *
      * The general form, for the targets that are neither a task nor a note — a
-     * project, a tag. The specialised forms above say the target kind for the two
-     * common cases, because a caller that gets the kind wrong writes a proposal the
-     * confirmation screen will not find.
+     * project, a tag. The change says which one it is, so the caller does not.
      *
-     * @param targetKind one of the `AiProposal.TARGET_KIND_*` constants.
      * @param targetId the target's id, in string form.
      */
     fun forTarget(
         kind: ProposalItemKind,
-        targetKind: String,
         targetId: String,
         userId: UserId,
         source: ProposalSource,
@@ -95,11 +101,10 @@ object ProposalBuilder {
         val item = newItem(kind, targetId, itemId, proposalId)
         val proposal = AiProposal(
             id = proposalId,
-            targetKind = targetKind,
+            targetKind = kind.target.targetKind,
             targetId = targetId,
             userId = userId,
             source = source,
-            status = ProposalStatus.Pending,
             createdAt = now,
             updatedAt = now,
             items = listOf(item),
@@ -116,14 +121,16 @@ object ProposalBuilder {
         userId: UserId,
         source: ProposalSource,
         clock: Clock,
-    ): Pair<AiProposal, List<ProposalItem>> = multiForTarget(
-        items = items,
-        targetKind = AiProposal.TARGET_KIND_TASK,
-        targetId = taskId.value,
-        userId = userId,
-        source = source,
-        clock = clock,
-    )
+    ): Pair<AiProposal, List<ProposalItem>> {
+        requireTarget(items, ProposalTargetKind.Task)
+        return multiForTarget(
+            items = items,
+            targetId = taskId.value,
+            userId = userId,
+            source = source,
+            clock = clock,
+        )
+    }
 
     /**
      * Builds a multi-item proposal against any kind of target.
@@ -131,10 +138,13 @@ object ProposalBuilder {
      * The general form of [multiForTask]: a change that touches a project, a note
      * or a tag has more than one thing to say, and a proposal holds them together
      * so the user decides about the whole change at once.
+     *
+     * The changes say what they are about, and a proposal holds changes about one
+     * thing — so the kind of target is read from them, and a batch that mixes
+     * kinds fails loudly instead of being addressed to the wrong thing.
      */
     fun multiForTarget(
         items: List<ProposalItem>,
-        targetKind: String,
         targetId: String,
         userId: UserId,
         source: ProposalSource,
@@ -145,11 +155,10 @@ object ProposalBuilder {
         val updatedItems = items.map { it.copy(proposalId = proposalId) }
         val proposal = AiProposal(
             id = proposalId,
-            targetKind = targetKind,
+            targetKind = targetKindOf(updatedItems),
             targetId = targetId,
             userId = userId,
             source = source,
-            status = ProposalStatus.Pending,
             createdAt = now,
             updatedAt = now,
             items = updatedItems,
@@ -172,20 +181,54 @@ object ProposalBuilder {
         proposalId = ProposalId.generate(),
     )
 
+    /**
+     * Refuses a change that is about something else than the id it was proposed
+     * against.
+     *
+     * The two are separate facts: the change says what it is about, and the id
+     * says which one. A caller that mixes them would write a proposal addressed to
+     * a task that holds a note's change — a proposal the confirmation screen does
+     * not show, and the user never sees.
+     */
+    private fun requireTarget(kind: ProposalItemKind, expected: ProposalTargetKind) {
+        val declared = kind.target.targetKind
+        require(declared == expected) {
+            "The change is about ${declared.storageValue}, but it was proposed against a " +
+                "${expected.storageValue} id."
+        }
+    }
+
+    /**
+     * The kind of target a batch of changes is about.
+     *
+     * A proposal holds changes about one thing. A batch that mixes kinds is not a
+     * proposal about anything, and it is refused rather than addressed to whichever
+     * change happened to come first.
+     */
+    private fun requireTarget(items: List<ProposalItem>, expected: ProposalTargetKind) {
+        val declared = targetKindOf(items)
+        require(declared == expected) {
+            "The changes are about ${declared.storageValue}, but they were proposed against a " +
+                "${expected.storageValue} id."
+        }
+    }
+
+    /** The one kind of target the changes in a batch are about. */
+    private fun targetKindOf(items: List<ProposalItem>): ProposalTargetKind =
+        ProposalTargetKind.of(items.map { it.kind })
+
     @Suppress("FunctionExpressionBody")
     private fun newItem(
         kind: ProposalItemKind,
         targetId: String,
         itemId: ProposalItemId,
         proposalId: ProposalId,
-    ): ProposalItem = ProposalItem(
+    ): ProposalItem = ProposalItem.pending(
         id = itemId,
         proposalId = proposalId,
         kind = kind,
         targetId = targetId,
         humanSummary = kind.humanSummary,
-        status = ProposalItemStatus.Pending,
         fingerprint = ProposalFingerprint.of(kind, targetId),
-        sortOrder = 0,
     )
 }

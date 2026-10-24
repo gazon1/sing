@@ -7,7 +7,6 @@ import com.singularity.todo.feature.ai.WriteBehavior
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
-import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -429,7 +428,7 @@ class WriteToolsOnlyProposeTest {
     // ─── Fixtures ──────────────────────────────────────────────────────────────
 
     private suspend fun pendingProposals(): List<AiProposal> =
-        proposals.watchProposalsByStatus(ProposalStatus.Pending).first()
+        proposals.watchWaitingProposals().first()
 
     private fun note() = Note(
         id = NoteId.generate(),

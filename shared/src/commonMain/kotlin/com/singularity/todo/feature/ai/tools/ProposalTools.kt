@@ -25,7 +25,6 @@ import kotlin.time.Clock
  *
  * @param items The changes the proposal holds. One item per change, so the user
  *   reads "Update title" and "Set priority" and decides about each.
- * @param targetKind What the change is about — a task, a note, a project.
  * @param targetId The thing the change is about. For a creation this is the id
  *   the thing *will* have: it does not exist yet, and the proposal says which
  *   one it will be.
@@ -35,12 +34,10 @@ internal suspend fun proposeChange(
     userId: UserId,
     clock: Clock,
     items: List<ProposalItem>,
-    targetKind: String,
     targetId: String,
 ): Result<AiProposal> = runCatchingCancellable {
     val (proposal, _) = ProposalBuilder.multiForTarget(
         items = items,
-        targetKind = targetKind,
         targetId = targetId,
         userId = userId,
         source = ProposalSource.Agent,

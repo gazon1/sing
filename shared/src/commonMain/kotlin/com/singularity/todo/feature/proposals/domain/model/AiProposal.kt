@@ -52,45 +52,61 @@ enum class ProposalStatus {
  * Proposals may target a task, note, project, or tag identified by `targetKind` / `targetId`.
  *
  * @param id Unique identity.
- * @param targetKind The entity kind each item in this proposal applies to.
+ * @param targetKind The entity kind each item in this proposal applies to. It is
+ *   derived from the changes themselves — see [ProposalTarget.targetKind] — so a
+ *   proposal cannot be addressed to the wrong thing.
  * @param targetId The entity id each item applies to.
  * @param userId Owner.
  * @param source Which surface produced the proposal.
- * @param status Aggregate status, derived from the items.
  * @param createdAt Creation timestamp.
  * @param updatedAt Last modification timestamp.
  * @param items The individual proposed changes.
  */
 data class AiProposal(
     val id: ProposalId,
-    val targetKind: String,
+    val targetKind: ProposalTargetKind,
     val targetId: String,
     val userId: UserId,
     val source: ProposalSource,
-    val status: ProposalStatus,
     val createdAt: Instant,
     val updatedAt: Instant,
     val items: List<ProposalItem> = emptyList(),
 ) {
-    /** Items still awaiting a decision. */
-    val pendingItems: List<ProposalItem> get() = items.filter { it.status.isPending }
+    /**
+     * The aggregate status, derived from the changes.
+     *
+     * It used to be a column of its own, read from the row and written beside the
+     * changes. Two copies of one fact, and they could disagree: a proposal whose
+     * items were all decided still said "waiting", because the summary row was
+     * written before the decisions and never recomputed. So the status is what the
+     * changes say it is, and the row's column is a cache of this answer.
+     */
+    val status: ProposalStatus get() = ProposalStatusReducer.reduce(items.map { it.status })
 
     /**
-     * Items that have already been decided.
+     * Changes that still wait for the user's decision.
+     *
+     * A change whose status this build cannot read is in here: the user never
+     * said yes and never said no, so it is still theirs to turn down. It is not
+     * applicable, and the card says why.
+     */
+    val pendingItems: List<ProposalItem> get() = items.filter { !it.status.isDecided }
+
+    /**
+     * Changes that have already been decided.
      *
      * The card draws them, muted and with the reason. A refusal the user cannot see
      * is a refusal they cannot learn from — and a proposal that is half decided still
      * has to tell the whole story.
      */
-    val decidedItems: List<ProposalItem> get() = items.filter { !it.status.isPending }
+    val decidedItems: List<ProposalItem> get() = items.filter { it.status.isDecided }
 
-    companion object {
-        const val TARGET_KIND_TASK = "TASK"
-        const val TARGET_KIND_NOTE = "NOTE"
-        const val TARGET_KIND_PROJECT = "PROJECT"
-        const val TARGET_KIND_TAG = "TAG"
-    }
+    /**
+     * True while something in this proposal still waits for a decision.
+     *
+     * The question a surface asks: "is there anything here for the user?" The
+     * answer belongs to the proposal, so a surface does not derive it from a status
+     * of its own.
+     */
+    val isWaiting: Boolean get() = pendingItems.isNotEmpty()
 }
-
-/** True while the item has not been decided. */
-val ProposalItemStatus.isPending: Boolean get() = this == ProposalItemStatus.Pending

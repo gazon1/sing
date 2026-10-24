@@ -12,12 +12,10 @@ import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
-import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
 import com.singularity.todo.feature.proposals.domain.usecase.EditProposalItemUseCase
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
@@ -135,11 +133,10 @@ class ProposalsViewModel(
      * `NoCoroutineLaunchInInit` exists to protect.
      */
     private val pendingWatch = vmScope.launch {
-        proposals.watchProposalsByStatus(ProposalStatus.Pending)
-            // The domain answers "is anything still waiting": a surface that asks
-            // the status itself has opinions about the lifecycle, and the
-            // lifecycle is not the surface's.
-            .map { list -> list.filter { proposal -> proposal.pendingItems.isNotEmpty() } }
+        // The domain answers "is anything still waiting": a surface that asks
+        // the status itself has opinions about the lifecycle, and the
+        // lifecycle is not the surface's.
+        proposals.watchWaitingProposals()
             .collect { list ->
                 updateState { state ->
                     state.copy(isLoading = false, proposals = list)

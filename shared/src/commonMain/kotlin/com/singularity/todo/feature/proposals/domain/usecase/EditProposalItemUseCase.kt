@@ -44,7 +44,7 @@ class EditProposalItemUseCase(private val proposals: ProposalRepository) {
         runCatchingCancellable {
             val stored = proposals.getItem(itemId) ?: error("The proposal is no longer there.")
             check(stored.status == ProposalItemStatus.Pending) {
-                "This change was already ${stored.status.name.lowercase()}."
+                stored.statusFailure ?: "This change was already ${stored.status.name.lowercase()}."
             }
             val editable = stored.kind.editableProposal()
                 ?: error("This change has no value you can change.")

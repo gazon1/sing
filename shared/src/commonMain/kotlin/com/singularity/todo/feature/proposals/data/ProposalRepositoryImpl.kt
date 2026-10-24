@@ -10,13 +10,14 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.proposals.domain.logic.ProposalFingerprint
-import com.singularity.todo.feature.proposals.domain.logic.ProposalStatusReducer
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.DecidedActor
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
+import com.singularity.todo.feature.proposals.domain.model.ProposalStatusReducer
+import com.singularity.todo.feature.proposals.domain.model.ProposalTargetKind
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -51,14 +52,20 @@ class ProposalRepositoryImpl(
 
     override fun watchProposalsForTask(taskId: TaskId): Flow<List<AiProposal>> =
         currentUser.scopedUserId.flatMapLatest { userId ->
-            dao.watchProposalsForTarget(taskId.value, AiProposal.TARGET_KIND_TASK, userId.value)
-                .map { rows -> rows.map { row -> hydrate(row) } }
+            dao.watchProposalsForTarget(
+                taskId.value,
+                ProposalTargetKind.Task.storageValue,
+                userId.value,
+            ).map { rows -> rows.map { row -> hydrate(row) } }
         }
 
     override fun watchProposalsForNote(noteId: NoteId): Flow<List<AiProposal>> =
         currentUser.scopedUserId.flatMapLatest { userId ->
-            dao.watchProposalsForTarget(noteId.value, AiProposal.TARGET_KIND_NOTE, userId.value)
-                .map { rows -> rows.map { row -> hydrate(row) } }
+            dao.watchProposalsForTarget(
+                noteId.value,
+                ProposalTargetKind.Note.storageValue,
+                userId.value,
+            ).map { rows -> rows.map { row -> hydrate(row) } }
         }
 
     override fun watchProposal(id: ProposalId): Flow<AiProposal?> =
@@ -66,16 +73,20 @@ class ProposalRepositoryImpl(
             row?.let { it.toDomain(items.map(ProposalItemEntity::toDomain)) }
         }
 
-    override fun watchProposalsByStatus(status: ProposalStatus): Flow<List<AiProposal>> =
+    /**
+     * The proposals that still wait for a decision.
+     *
+     * The filter is the domain's question — a proposal is waiting while one of
+     * its changes is undecided — and it is asked of the changes, not of the row's
+     * copy of the status. A proposal whose changes were all decided still said
+     * "waiting" in the row when the recomputation was missed, and a review screen
+     * that asked the row offered the user a change to apply twice.
+     */
+    override fun watchWaitingProposals(): Flow<List<AiProposal>> =
         currentUser.scopedUserId.flatMapLatest { userId ->
-            dao.watchProposalsByStatus(userId.value, status.name)
+            dao.watchWaitingProposals(userId.value)
                 .map { rows -> rows.map { row -> hydrate(row) } }
-        }
-
-    override fun watchProposalsByTargetKind(targetKind: String, status: ProposalStatus): Flow<List<AiProposal>> =
-        currentUser.scopedUserId.flatMapLatest { userId ->
-            dao.watchProposalsByTargetKind(userId.value, targetKind, status.name)
-                .map { rows -> rows.map { row -> hydrate(row) } }
+                .map { proposals -> proposals.filter { it.isWaiting } }
         }
 
     override suspend fun save(proposal: AiProposal): Result<Unit> = runCatchingCancellable {
@@ -85,8 +96,8 @@ class ProposalRepositoryImpl(
                 id = proposal.id.value,
                 userId = proposal.userId.value,
                 source = proposal.source.name,
-                status = ProposalStatusReducer.reduce(proposal.items.map { it.status }).name,
-                targetKind = proposal.targetKind,
+                status = proposal.status.name,
+                targetKind = proposal.targetKind.storageValue,
                 targetId = proposal.targetId,
                 createdAt = proposal.createdAt.toEpochMilliseconds(),
                 updatedAt = now,
@@ -125,6 +136,7 @@ class ProposalRepositoryImpl(
     override suspend fun claim(
         id: ProposalItemId,
         status: ProposalItemStatus,
+        expected: ProposalItemStatus,
         actor: DecidedActor,
         reason: String?,
         userId: UserId,
@@ -132,6 +144,7 @@ class ProposalRepositoryImpl(
         id = id.value,
         userId = userId.value,
         status = status.name,
+        expectedStatus = expected.name,
         decidedAt = clock.now().toEpochMilliseconds(),
         actor = actor.name,
         reason = reason,
@@ -185,7 +198,7 @@ class ProposalRepositoryImpl(
         // inference. Without it this compiles to Result<Int> and fails to assign.
         runCatchingCancellable<Unit> {
             val items = items.getItemsForProposal(proposalId.value)
-            val derived = ProposalStatusReducer.reduce(items.map { ProposalItemStatus.valueOf(it.status) })
+            val derived = ProposalStatusReducer.reduce(items.map { ProposalItemStatus.read(it.status) })
             dao.updateProposalStatus(proposalId.value, derived.name, clock.now().toEpochMilliseconds(), userId.value)
         }.also { result ->
             val error = result.exceptionOrNull() ?: return@also

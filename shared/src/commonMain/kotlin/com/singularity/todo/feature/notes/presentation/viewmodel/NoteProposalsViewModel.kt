@@ -134,7 +134,7 @@ class NoteProposalsViewModel(
                 // The failures are kept: a reason the user has not read yet is still a
                 // reason, and a new list of proposals must not wipe it.
                 updateState { state ->
-                    state.copy(proposals = list.filter { it.pendingItems.isNotEmpty() })
+                    state.copy(proposals = list.filter { it.isWaiting })
                 }
             }
     }

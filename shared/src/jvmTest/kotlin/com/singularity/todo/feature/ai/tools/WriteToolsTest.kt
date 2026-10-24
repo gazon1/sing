@@ -8,7 +8,7 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.NoteValue
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
-import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
+import com.singularity.todo.feature.proposals.domain.model.ProposalTargetKind
 import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -83,7 +83,7 @@ class WriteToolsTest {
 
     /** The proposals waiting for a decision. */
     private suspend fun pendingProposals(): List<AiProposal> =
-        fakeProposalRepo.watchProposalsByStatus(ProposalStatus.Pending).first()
+        fakeProposalRepo.watchWaitingProposals().first()
 
     // ─── CreateTaskTool ─────────────────────────────────────────────────────────
 
@@ -102,7 +102,7 @@ class WriteToolsTest {
         assertTrue(fakeTaskRepo.tasks.value.values.none { it.title == "Buy groceries" })
 
         val proposal = pendingProposals().single()
-        assertEquals(AiProposal.TARGET_KIND_TASK, proposal.targetKind)
+        assertEquals(ProposalTargetKind.Task, proposal.targetKind)
         val item = proposal.items.single()
         val kind = item.kind as ProposalItemKind.CreateTask
         assertEquals("Buy groceries", kind.task.title)

@@ -12,7 +12,7 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
-import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
+import com.singularity.todo.feature.proposals.domain.model.ProposalTargetKind
 import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import kotlinx.coroutines.test.runTest
@@ -75,7 +75,7 @@ class ProposalRepositoryReleaseTest {
     fun `a confirmed change goes back to waiting`() = runTest {
         val repo = repository(user)
         val itemId = seed(repo, user)
-        repo.claim(itemId, ProposalItemStatus.Confirmed, DecidedActor.User, null, user)
+        repo.claim(itemId, ProposalItemStatus.Confirmed, ProposalItemStatus.Pending, DecidedActor.User, null, user)
 
         val released = repo.release(itemId, user)
 
@@ -102,7 +102,7 @@ class ProposalRepositoryReleaseTest {
     fun `a change of another user is not put back`() = runTest {
         val owner = repository(user)
         val itemId = seed(owner, user)
-        owner.claim(itemId, ProposalItemStatus.Confirmed, DecidedActor.User, null, user)
+        owner.claim(itemId, ProposalItemStatus.Confirmed, ProposalItemStatus.Pending, DecidedActor.User, null, user)
 
         val released = repository(other).release(itemId, other)
 
@@ -118,7 +118,7 @@ class ProposalRepositoryReleaseTest {
     fun `a refused change is not put back`() = runTest {
         val repo = repository(user)
         val itemId = seed(repo, user)
-        repo.claim(itemId, ProposalItemStatus.Rejected, DecidedActor.User, "not now", user)
+        repo.claim(itemId, ProposalItemStatus.Rejected, ProposalItemStatus.Pending, DecidedActor.User, "not now", user)
 
         val released = repo.release(itemId, user)
 
@@ -130,7 +130,7 @@ class ProposalRepositoryReleaseTest {
     fun `a change is put back after the profile switched`() = runTest {
         val owner = repository(user)
         val itemId = seed(owner, user)
-        owner.claim(itemId, ProposalItemStatus.Confirmed, DecidedActor.User, null, user)
+        owner.claim(itemId, ProposalItemStatus.Confirmed, ProposalItemStatus.Pending, DecidedActor.User, null, user)
 
         // The profile switched between the claim and the release: the screen moved on,
         // or the user opened another profile. The guard is the user's — the row still
@@ -153,11 +153,10 @@ class ProposalRepositoryReleaseTest {
         repo.save(
             AiProposal(
                 id = proposalId,
-                targetKind = AiProposal.TARGET_KIND_TASK,
+                targetKind = ProposalTargetKind.Task,
                 targetId = "task-1",
                 userId = owner,
                 source = ProposalSource.Agent,
-                status = ProposalStatus.Pending,
                 createdAt = Clock.System.now(),
                 updatedAt = Clock.System.now(),
                 items = listOf(

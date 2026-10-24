@@ -4,7 +4,6 @@ import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
 import com.singularity.todo.core.ai.ToolOutputJson
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
-import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProjectValue
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
@@ -66,7 +65,6 @@ class UpdateProjectTool(
             userId = currentUser.scopedUserId.value,
             clock = clock,
             items = proposalItems(kinds, args.projectId),
-            targetKind = AiProposal.TARGET_KIND_PROJECT,
             targetId = args.projectId,
         )
 

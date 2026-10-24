@@ -3,7 +3,6 @@ package com.singularity.todo.feature.ai.tools
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
-import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
 import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -79,7 +78,7 @@ class WriteTaskProposalToolTest {
         assertEquals(null, stored.dueDate, "a proposal does not change the task")
 
         // And there is a proposal waiting for a decision.
-        val pending = proposals.watchProposalsByStatus(ProposalStatus.Pending).first()
+        val pending = proposals.watchWaitingProposals().first()
         assertEquals(1, pending.size)
         assertEquals(ProposalSource.Agent, pending.single().source)
         assertEquals(
@@ -124,7 +123,7 @@ class WriteTaskProposalToolTest {
         assertFalse(result["proposalCreated"]!!.jsonPrimitive.content.toBoolean())
         val error = result["error"]!!.jsonPrimitive.content
         assertTrue(error.contains("set_title"), "the answer lists the operations: $error")
-        assertTrue(proposals.watchProposalsByStatus(ProposalStatus.Pending).first().isEmpty())
+        assertTrue(proposals.watchWaitingProposals().first().isEmpty())
     }
 
     @Test
@@ -140,7 +139,7 @@ class WriteTaskProposalToolTest {
 
         assertFalse(result["proposalCreated"]!!.jsonPrimitive.content.toBoolean())
         assertTrue(result["error"]!!.jsonPrimitive.content.contains("value"))
-        assertTrue(proposals.watchProposalsByStatus(ProposalStatus.Pending).first().isEmpty())
+        assertTrue(proposals.watchWaitingProposals().first().isEmpty())
     }
 
     @Test
@@ -156,7 +155,7 @@ class WriteTaskProposalToolTest {
 
         assertFalse(result["proposalCreated"]!!.jsonPrimitive.content.toBoolean())
         assertTrue(result["error"]!!.jsonPrimitive.content.contains("item"))
-        assertTrue(proposals.watchProposalsByStatus(ProposalStatus.Pending).first().isEmpty())
+        assertTrue(proposals.watchWaitingProposals().first().isEmpty())
     }
 
     @Test
@@ -173,6 +172,6 @@ class WriteTaskProposalToolTest {
 
         assertFalse(result["proposalCreated"]!!.jsonPrimitive.content.toBoolean())
         assertTrue(result["error"]!!.jsonPrimitive.content.contains("no task"))
-        assertTrue(proposals.watchProposalsByStatus(ProposalStatus.Pending).first().isEmpty())
+        assertTrue(proposals.watchWaitingProposals().first().isEmpty())
     }
 }

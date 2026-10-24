@@ -9,8 +9,8 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
-import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
 import com.singularity.todo.feature.proposals.domain.model.NoteValue
+import com.singularity.todo.feature.proposals.domain.model.ProposalTargetKind
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeProposalRepository
 import kotlinx.coroutines.flow.first
@@ -57,11 +57,10 @@ class NoteProposalsPortTest {
         val proposalId = ProposalId.fromString("prop-1")
         return AiProposal(
             id = proposalId,
-            targetKind = AiProposal.TARGET_KIND_NOTE,
+            targetKind = ProposalTargetKind.Note,
             targetId = noteId,
             userId = UserId.anonymous,
             source = ProposalSource.Detail,
-            status = ProposalStatus.Pending,
             createdAt = now,
             updatedAt = now,
             items = listOf(

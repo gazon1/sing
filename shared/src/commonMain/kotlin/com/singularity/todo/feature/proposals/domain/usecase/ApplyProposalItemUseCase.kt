@@ -7,6 +7,8 @@ import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.proposals.domain.model.DecidedActor
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
+import com.singularity.todo.feature.proposals.domain.model.isDecided
+import com.singularity.todo.feature.proposals.domain.model.isPending
 import com.singularity.todo.feature.proposals.domain.model.ProposalTarget
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.projects.domain.model.ProjectId
@@ -69,8 +71,8 @@ class ApplyProposalItemUseCase(
         try {
             return runCatchingCancellable {
                 val stored = proposals.getItem(itemId) ?: error("Proposal item $itemId not found")
-                check(stored.status == ProposalItemStatus.Pending) {
-                    "Proposal item $itemId is already ${stored.status.name}"
+                check(stored.status.isPending) {
+                    stored.statusFailure ?: "Proposal item $itemId is already ${stored.status.name}"
                 }
 
                 // Plan first: a proposal that cannot be applied must not consume its one
@@ -90,6 +92,7 @@ class ApplyProposalItemUseCase(
                     val item = proposals.claim(
                         itemId,
                         ProposalItemStatus.Confirmed,
+                        ProposalItemStatus.Pending,
                         DecidedActor.User,
                         null,
                         userId,
@@ -165,9 +168,17 @@ class ApplyProposalItemUseCase(
     suspend fun reject(itemId: ProposalItemId, userId: UserId, reason: String? = null): Result<ProposalItem> =
         runCatchingCancellable {
             val stored = proposals.getItem(itemId) ?: error("Proposal item $itemId not found")
+            // A change that has not been decided can be turned down — including one
+            // whose status this build cannot read: the user never said yes to it,
+            // so it is theirs to refuse. A change that *was* decided is not, and
+            // saying so is better than a button that does nothing.
+            check(!stored.status.isDecided) {
+                "This change was already ${stored.status.name.lowercase()}."
+            }
             val claimed = proposals.claim(
                 itemId,
                 ProposalItemStatus.Rejected,
+                stored.status,
                 DecidedActor.User,
                 reason?.trim()?.takeIf { it.isNotEmpty() },
                 userId,
