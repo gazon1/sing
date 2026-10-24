@@ -26,7 +26,7 @@ Module prefixes: `shared/`, `mcp-server/`, `desktopApp/`.
 - [x] shared/ Write down the bridge's own frames, so that every claim about them can be checked without a network — with the machine's own model list and command catalogue redacted, and the shape of every frame kept. `openspec/changes/the-client-meets-a-real-bridge/bridge-transcript.txt`
 - [x] shared/ Say in the architecture document how to run the probe, and what it covers. `docs/architecture/acp-client.md`
 - [x] shared/ Refresh the decisions digest. `./scripts/refresh-decisions-digest.sh`
-- [ ] shared/ Write the verdict for this change's review. `.specify/reviews/the-client-meets-a-real-bridge.md`
+- [x] shared/ Write the verdict for this change's review. `.specify/reviews/the-client-meets-a-real-bridge.md`
 
 ## 4. Verification
 
