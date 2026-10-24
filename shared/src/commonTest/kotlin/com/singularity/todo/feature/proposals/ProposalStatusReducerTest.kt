@@ -1,6 +1,6 @@
 package com.singularity.todo.feature.proposals
 
-import com.singularity.todo.feature.proposals.domain.logic.ProposalStatusReducer
+import com.singularity.todo.feature.proposals.domain.model.ProposalStatusReducer
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
 import org.junit.jupiter.api.Tag
@@ -31,14 +31,23 @@ class ProposalStatusReducerTest {
 
     @Test
     fun `pending wins over every other status`() {
-        val all = ProposalItemStatus.entries
-        for (other in all - ProposalItemStatus.Pending) {
+        for (other in decidedAndUnreadable) {
             assertEquals(
                 ProposalStatus.Pending,
                 ProposalStatusReducer.reduce(listOf(other, ProposalItemStatus.Pending)),
                 "a pending item must keep the card open regardless of $other",
             )
         }
+    }
+
+    @Test
+    fun `a status this build cannot read keeps the proposal pending`() {
+        // The user never said yes and never said no, so the change is still theirs
+        // to turn down — and the card must not disappear while it is.
+        assertEquals(
+            ProposalStatus.Pending,
+            ProposalStatusReducer.reduce(listOf(ProposalItemStatus.Unknown("Applied"))),
+        )
     }
 
     @Test
@@ -93,6 +102,22 @@ class ProposalStatusReducerTest {
             ProposalStatusReducer.reduce(
                 listOf(ProposalItemStatus.Rejected, ProposalItemStatus.Rejected),
             ),
+        )
+    }
+
+    private companion object {
+
+        /**
+         * Every status a change can be in apart from "waiting".
+         *
+         * The ones this build knows, and the one it does not: an unreadable status
+         * is not a decision either.
+         */
+        val decidedAndUnreadable: List<ProposalItemStatus> = listOf(
+            ProposalItemStatus.Confirmed,
+            ProposalItemStatus.Rejected,
+            ProposalItemStatus.Retracted,
+            ProposalItemStatus.Unknown("Applied"),
         )
     }
 }

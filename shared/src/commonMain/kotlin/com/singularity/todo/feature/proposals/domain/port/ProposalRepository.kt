@@ -53,17 +53,16 @@ interface ProposalRepository {
     fun watchProposal(id: ProposalId): Flow<AiProposal?>
 
     /**
-     * Watch proposals in a given aggregate [status].
+     * Watch the proposals that still wait for a decision.
+     *
+     * The question is the domain's: a proposal is waiting while one of its changes
+     * is undecided, and the repository answers it. A caller that asked for a
+     * status instead would be asking the row — and the row's own copy of the
+     * status is a cache that can disagree with the changes it summarizes.
+     *
      * Scoped to the current user via [com.singularity.todo.feature.profile.ProfileAwareCurrentUser].
      */
-    fun watchProposalsByStatus(status: ProposalStatus): Flow<List<AiProposal>>
-
-    /**
-     * Watch proposals for a specific [targetKind] (e.g. [com.singularity.todo.feature.proposals.domain.model.AiProposal.TARGET_KIND_TASK])
-     * in a given aggregate [status].
-     * Scoped to the current user via [com.singularity.todo.feature.profile.ProfileAwareCurrentUser].
-     */
-    fun watchProposalsByTargetKind(targetKind: String, status: ProposalStatus): Flow<List<AiProposal>>
+    fun watchWaitingProposals(): Flow<List<AiProposal>>
 
     /**
      * Persist a proposal together with its items, replacing any items already stored
@@ -97,8 +96,14 @@ interface ProposalRepository {
     ): Result<ProposalItem?>
 
     /**
-     * Transition an item out of [ProposalItemStatus.Pending] via compare-and-set.
+     * Transition an item out of the status it is expected to carry, via compare-and-set.
      *
+     * @param status the status the item goes to.
+     * @param expected the status the row has to carry for this call to win the race —
+     *   [ProposalItemStatus.Pending] for a change this build can apply, and the status
+     *   it was read with for a change whose status this build cannot read. A turn-down
+     *   has to be able to reach that second kind: the user is refusing a change they
+     *   cannot apply, and a refusal they cannot make is a card they cannot clear.
      * @return the decided item if this call won the race, or null if the item was
      *   already decided. A null return is the normal outcome of a double-tap and is
      *   **not** an error: the caller must apply nothing.
@@ -106,6 +111,7 @@ interface ProposalRepository {
     suspend fun claim(
         id: ProposalItemId,
         status: ProposalItemStatus,
+        expected: ProposalItemStatus,
         actor: DecidedActor,
         reason: String?,
         userId: UserId,

@@ -3,6 +3,8 @@ package com.singularity.todo.feature.proposals.data
 import com.singularity.todo.feature.proposals.domain.model.NoteValue
 import com.singularity.todo.feature.proposals.domain.model.ProjectValue
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
+import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
+import com.singularity.todo.feature.proposals.domain.model.isPending
 import com.singularity.todo.feature.proposals.domain.model.ProposedNote
 import com.singularity.todo.feature.proposals.domain.model.ProposedProject
 import com.singularity.todo.feature.proposals.domain.model.ProposedTag
@@ -20,6 +22,7 @@ import kotlinx.serialization.descriptors.elementNames
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -244,6 +247,37 @@ class ProposalMapperTest {
         assertEquals(
             ProposalItemKind.DeleteNote(reason = "it is old"),
             decodeKind("""{"type":"DeleteNote","reason":"it is old"}"""),
+        )
+    }
+
+    @Test
+    fun `a status this build does not know is not read as waiting`() {
+        // A row written by a build that knew a status this one does not. Reading it
+        // as "waiting" would make the change applicable again — and it may already
+        // have been applied, so applying it a second time is the one thing this
+        // must not do.
+        val entity = ProposalItemEntity(
+            id = "pi_1",
+            proposalId = "prop_1",
+            kindJson = ProposalItemKind.SetTaskField(TaskValue.Title("Buy milk")).toJsonString(),
+            targetId = "t1",
+            humanSummary = "Set the title to Buy milk",
+            status = "Applied",
+            fingerprint = "fp_1",
+            sortOrder = 0,
+        )
+
+        val item = entity.toDomain()
+
+        assertEquals(
+            ProposalItemStatus.Unknown("Applied"),
+            item.status,
+            "a status this build does not know is not read as another one",
+        )
+        assertFalse(item.status.isPending, "a change this build cannot place is not waiting")
+        assertNotNull(
+            item.readFailure,
+            "the reason the change cannot be applied is with the change",
         )
     }
 

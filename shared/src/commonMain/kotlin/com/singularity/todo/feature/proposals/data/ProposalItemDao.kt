@@ -22,10 +22,16 @@ import kotlinx.coroutines.flow.Flow
  *
  * ## The claim
  *
- * [claimItem] is the only path that moves an item out of `pending`, and it does so
- * with a compare-and-set (`WHERE status = 'Pending'`). A double-tap, or a retry after
- * a crash, loses the race and gets 0 back — the caller then applies nothing. Doing
- * this as read-then-write instead would let both taps dispatch.
+ * [claimItem] is the only path that moves an item out of the status it carries, and
+ * it does so with a compare-and-set (`WHERE status = :expectedStatus`). A
+ * double-tap, or a retry after a crash, loses the race and gets 0 back — the
+ * caller then applies nothing. Doing this as read-then-write instead would let
+ * both taps dispatch.
+ *
+ * The expected status is not always `Pending`: a turn-down has to reach a change
+ * whose status this build cannot read, so the caller passes the status the row
+ * is expected to carry. The compare-and-set is the same either way — the row
+ * has to be in the state the change was read in.
  */
 @Dao
 interface ProposalItemDao {
@@ -50,6 +56,12 @@ interface ProposalItemDao {
     /**
      * The compare-and-set that makes confirm/reject exactly-once.
      *
+     * The condition is the status the row is expected to carry — `Pending` for a
+     * change this build can apply, and the name it was written with for a change
+     * whose status this build cannot read. A turn-down has to be able to reach
+     * that second kind: the user is refusing a change they cannot apply, and a
+     * refusal they cannot make is a card they cannot clear.
+     *
      * @return 1 if this call won the race, 0 if the item was already decided.
      */
     @Query(
@@ -61,24 +73,33 @@ interface ProposalItemDao {
             rejection_reason = :reason
         WHERE id = :id
           AND proposal_id IN (SELECT id FROM ai_proposal WHERE user_id = :userId)
-          AND status = 'Pending'
+          AND status = :expectedStatus
         """,
     )
     suspend fun claimItem(
         userId: String,
         id: String,
         status: String,
+        expectedStatus: String,
         decidedAt: Long,
         actor: String,
         reason: String?,
     ): Int
 
+    /**
+     * Withdraws every change of a proposal that has not been decided.
+     *
+     * Not just the waiting ones: a change whose status this build cannot read has
+     * not been decided either, and it is the user's to withdraw. A withdrawal that
+     * left it behind would keep the proposal on the card with nothing the user
+     * could do about it.
+     */
     @Query(
         """
         UPDATE ai_proposal_item SET status = 'Retracted'
         WHERE proposal_id = :proposalId
           AND proposal_id IN (SELECT id FROM ai_proposal WHERE user_id = :userId)
-          AND status = 'Pending'
+          AND status NOT IN ('Confirmed','Rejected','Retracted')
         """,
     )
     suspend fun retractPendingItems(proposalId: String, userId: String): Int
@@ -172,11 +193,12 @@ interface ProposalItemDao {
         id: String,
         userId: String,
         status: String,
+        expectedStatus: String,
         decidedAt: Long,
         actor: String,
         reason: String?,
     ): ProposalItemEntity? {
-        val claimed = claimItem(userId, id, status, decidedAt, actor, reason)
+        val claimed = claimItem(userId, id, status, expectedStatus, decidedAt, actor, reason)
         return if (claimed > 0) getItem(id) else null
     }
 

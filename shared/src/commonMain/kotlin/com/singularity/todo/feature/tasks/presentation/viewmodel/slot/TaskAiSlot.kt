@@ -10,7 +10,7 @@ import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
-import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
+import com.singularity.todo.feature.proposals.domain.model.ProposalTargetKind
 import com.singularity.todo.feature.proposals.domain.model.ProposedTimeEntry
 import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -81,11 +81,10 @@ class TaskAiSlot(
         val items = buildProposalItems(action, task, proposalId)
         val proposal = AiProposal(
             id = proposalId,
-            targetKind = AiProposal.TARGET_KIND_TASK,
+            targetKind = ProposalTargetKind.of(items.map { it.kind }),
             targetId = task.id.value,
             userId = userId,
             source = ProposalSource.Detail,
-            status = ProposalStatus.Pending,
             createdAt = now,
             updatedAt = now,
             items = items,

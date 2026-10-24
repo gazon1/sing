@@ -27,8 +27,9 @@ class TaskProposalsCollector(scope: AutoCloseableCoroutineScope, proposals: Flow
     init {
         scope.launch {
             proposals.collect { all ->
-                // Only show proposals that have at least one pending item.
-                _state.value = all.filter { it.pendingItems.isNotEmpty() }
+                // Only show proposals that have at least one change waiting for the
+                // user. The question is the proposal's own.
+                _state.value = all.filter { it.isWaiting }
             }
         }
     }

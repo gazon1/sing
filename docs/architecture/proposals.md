@@ -111,6 +111,28 @@ handles it. The compiler says so if one of the three is missing — a change
 that was routed by a forgotten predicate used to fail at runtime, on a user's
 device, as a change applied to the wrong thing.
 
+### What a proposal is addressed to
+
+A proposal row is addressed by a kind of target and an id. The id is the
+caller's to state; the kind is **read from the change**, because the change
+already says what it is about.
+
+`ProposalTargetKind` carries the four kinds the row has always carried
+(`TASK`, `NOTE`, `PROJECT`, `TAG`) plus `Unknown` — for a name this build does
+not know, which is a proposal about something it cannot name and not one it may
+misaddress to a task.
+
+A creation says what it brings into being (`CreateTask` is about a task,
+`CreateTag` about a tag), so `ProposalTarget.Creation` is not "something". The
+builder reads the kind, the caller cannot write it, and a change offered the id
+of another kind of target is refused rather than written. A proposal holds
+changes about one thing: a batch that mixes kinds is refused too.
+
+The kind used to be written beside the change — thirteen places, a string each,
+with nothing checking the two. A caller that wrote the wrong one wrote a
+proposal the confirmation screen does not show: a change that was proposed and
+cannot be found.
+
 ### The flat shape, and when it goes
 
 The rows in the wild carry the flat shape, so the reader still reads it — and
@@ -139,6 +161,16 @@ or wait for an update. That is paid only between two releases.
 | `Confirmed` | Applied. The write happened. |
 | `Rejected` | Turned down, by the user or by a batch action. The reason is kept and shown. |
 | `Retracted` | Withdrawn with the proposal. |
+| `Unknown` | A status this build does not know — written by a newer build. |
+
+A status this build does not know is **not** read as `Pending`. `Pending` is the
+one status that says "this change can still be applied", so reading an unknown
+name as `Pending` would apply a change that had already been applied. An
+unknown status is neither waiting nor decided: the change cannot be applied, the
+card says why (and names the status it was written with), and the user can still
+turn it down — the compare-and-set expects the status the change was read with,
+so a refusal reaches it. The name it was found with is kept, so the row is
+written back unchanged.
 
 Two things the user can do to a `Pending` item:
 
@@ -161,6 +193,18 @@ And a change that **writes several rows writes all of them or none of them**: a 
 that adds three checklist items and fails on the second takes the first back, because
 the change goes back to waiting and the user will try again — the row that stayed would
 be there twice.
+
+## The status of a proposal
+
+A proposal has no status of its own: **its status is what its changes say.** The
+summary column in the row is a cache — it is written, and it is not read into the
+domain, because it was written on a best-effort path and was therefore expected
+to be stale sometimes.
+
+So the surfaces ask the proposal (`isWaiting`), the repository asks the domain
+(`watchWaitingProposals`), and a surface that names a status fails the build: the
+gate `ProposalLifecycleStaysInTheDomainTest` says so for the status of a change
+and for the status of a proposal alike.
 
 ## Where the values come from
 

@@ -40,7 +40,6 @@ import com.singularity.todo.feature.proposals.domain.model.NoteValue
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
-import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -403,11 +402,10 @@ internal class NoteEditor(
         )
         val proposal = AiProposal(
             id = item.proposalId,
-            targetKind = AiProposal.TARGET_KIND_NOTE,
+            targetKind = kind.target.targetKind,
             targetId = noteId,
             userId = userId,
             source = ProposalSource.Detail,
-            status = ProposalStatus.Pending,
             createdAt = now,
             updatedAt = now,
             items = listOf(item),

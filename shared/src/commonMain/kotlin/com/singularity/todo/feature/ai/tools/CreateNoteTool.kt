@@ -6,7 +6,6 @@ import com.singularity.todo.core.ai.ToolOutputJson
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.domain.NoteContentMapper
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
-import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposedNote
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
@@ -71,7 +70,6 @@ class CreateNoteTool(
             userId = currentUser.scopedUserId.value,
             clock = clock,
             items = proposalItems(listOf(kind), noteId.value),
-            targetKind = AiProposal.TARGET_KIND_NOTE,
             targetId = noteId.value,
         )
 

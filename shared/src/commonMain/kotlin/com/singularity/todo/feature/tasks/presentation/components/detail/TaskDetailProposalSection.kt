@@ -10,7 +10,7 @@ import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
-import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
+import com.singularity.todo.feature.proposals.domain.model.ProposalTargetKind
 import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.proposals.presentation.components.ProposalCardsSection
@@ -61,11 +61,10 @@ private fun TaskDetailProposalSectionPreview() = PreviewThemed(darkTheme = false
         proposals = listOf(
             AiProposal(
                 id = proposalId,
-                targetKind = AiProposal.TARGET_KIND_TASK,
+                targetKind = ProposalTargetKind.Task,
                 targetId = "t1",
                 userId = UserId.anonymous,
                 source = ProposalSource.Detail,
-                status = ProposalStatus.Pending,
                 createdAt = PreviewSamples.now,
                 updatedAt = PreviewSamples.now,
                 items = listOf(

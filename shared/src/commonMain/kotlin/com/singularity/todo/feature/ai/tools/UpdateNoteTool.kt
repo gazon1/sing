@@ -8,7 +8,6 @@ import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.domain.NoteContentMapper
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
-import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.NoteValue
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
@@ -66,7 +65,6 @@ class UpdateNoteTool(
             userId = currentUser.scopedUserId.value,
             clock = clock,
             items = proposalItems(kinds, args.noteId),
-            targetKind = AiProposal.TARGET_KIND_NOTE,
             targetId = args.noteId,
         )
 

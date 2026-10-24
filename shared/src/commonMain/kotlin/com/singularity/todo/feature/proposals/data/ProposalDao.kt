@@ -17,7 +17,9 @@ import kotlinx.coroutines.flow.Flow
  *
  * @param source Which surface produced the proposal.
  * @param status Aggregate status, derived from the items by
- *   [com.singularity.todo.feature.proposals.domain.logic.ProposalStatusReducer].
+ *   [com.singularity.todo.feature.proposals.domain.model.ProposalStatusReducer].
+ *   The column is a cache of that answer: it is written, and the domain derives the
+ *   status from the items instead of reading it back.
  */
 @Entity(
     tableName = "ai_proposal",
@@ -81,10 +83,17 @@ data class ProposalItemEntity(
  *
  * ## The claim
  *
- * [claimItem] is the only path that moves an item out of `pending`, and it does so
- * with a compare-and-set (`WHERE status = 'pending'`). A double-tap, or a retry after
- * a crash, loses the race and gets `false` back — the caller then applies nothing.
- * Doing this as read-then-write instead would let both taps dispatch.
+ * A change is decided through [ProposalItemDao.claimItem], which moves an item
+ * out of the status it carries with a compare-and-set. A double-tap, or a retry
+ * after a crash, loses the race and gets 0 back — the caller then applies
+ * nothing. Doing this as read-then-write instead would let both taps dispatch.
+ *
+ * ## The status column
+ *
+ * The column is a cache of what the changes say — see
+ * [com.singularity.todo.feature.proposals.domain.model.ProposalStatusReducer] —
+ * and it is written, never read into the domain. The questions that need the
+ * truth ask the changes.
  */
 @Dao
 interface ProposalDao {
@@ -109,23 +118,31 @@ interface ProposalDao {
     )
     fun watchProposalsForTarget(targetId: String, targetKind: String, userId: String): Flow<List<AiProposalEntity>>
 
+    /**
+     * The proposals of one user that still wait for a decision, newest first.
+     *
+     * The question is asked of the *changes*, not of the row's own status column:
+     * the column is a cache of what the changes say, and a cache that disagrees
+     * with the changes would hide a proposal the user still has to decide about.
+     *
+     * The same rule the domain applies — a change that has not been decided keeps
+     * the proposal waiting — is written here as SQL, so the rows that have to be
+     * read are the ones that are waiting and not every proposal the user ever
+     * made.
+     */
     @Query(
         """
-        SELECT * FROM ai_proposal
-        WHERE user_id = :userId AND target_kind = :targetKind AND status = :status
-        ORDER BY created_at DESC
+        SELECT p.* FROM ai_proposal p
+        WHERE p.user_id = :userId
+          AND EXISTS (
+            SELECT 1 FROM ai_proposal_item i
+            WHERE i.proposal_id = p.id
+              AND i.status NOT IN ('Confirmed','Rejected','Retracted')
+          )
+        ORDER BY p.created_at DESC
         """,
     )
-    fun watchProposalsByTargetKind(userId: String, targetKind: String, status: String): Flow<List<AiProposalEntity>>
-
-    @Query(
-        """
-        SELECT * FROM ai_proposal
-        WHERE user_id = :userId AND status = :status
-        ORDER BY created_at DESC
-        """,
-    )
-    fun watchProposalsByStatus(userId: String, status: String): Flow<List<AiProposalEntity>>
+    fun watchWaitingProposals(userId: String): Flow<List<AiProposalEntity>>
 
     @Query(
         """

@@ -179,7 +179,7 @@ class FakeAppDatabase : AppDatabase() {
         _projects,
     )
     override fun timeEntryDao(): TimeEntryDao = FakeTimeEntryDao(_timeEntries)
-    override fun proposalDao(): ProposalDao = FakeProposalDao(_proposals)
+    override fun proposalDao(): ProposalDao = FakeProposalDao(_proposals, _proposalItems)
     override fun proposalItemDao(): ProposalItemDao = FakeProposalItemDao(_proposals, _proposalItems)
 
     /**
@@ -2419,13 +2419,24 @@ private class FakeTimeEntryDao(private val store: MutableStateFlow<Map<String, T
 }
 
 /**
+ * The statuses that mean the user has already answered.
+ *
+ * The same three the domain knows: a change in one of them is decided, and a
+ * proposal whose changes are all decided is not waiting for anything.
+ */
+private val DECIDED_STATUSES = setOf("Confirmed", "Rejected", "Retracted")
+
+/**
  * In-memory [ProposalDao].
  *
  * The compare-and-set in [claimItem] is reproduced faithfully — it is the property
  * under test in `ApplyProposalItemUseCaseTest` (a second tap must apply nothing), so
  * a fake that always returned 1 would make that test lie.
  */
-private class FakeProposalDao(private val proposals: MutableStateFlow<Map<String, AiProposalEntity>>) : ProposalDao {
+private class FakeProposalDao(
+    private val proposals: MutableStateFlow<Map<String, AiProposalEntity>>,
+    private val items: MutableStateFlow<Map<String, ProposalItemEntity>>,
+) : ProposalDao {
 
     override suspend fun upsertProposal(entity: AiProposalEntity) {
         proposals.update { it + (entity.id to entity) }
@@ -2449,24 +2460,21 @@ private class FakeProposalDao(private val proposals: MutableStateFlow<Map<String
             .sortedByDescending { it.createdAt }
     }
 
-    override fun watchProposalsByTargetKind(
-        userId: String,
-        targetKind: String,
-        status: String,
-    ): Flow<List<AiProposalEntity>> = proposals.map { map ->
-        map.values
-            .filter {
-                it.userId == userId &&
-                    it.targetKind == targetKind &&
-                    it.status == status
-            }
-            .sortedByDescending { it.createdAt }
-    }
-
-    override fun watchProposalsByStatus(userId: String, status: String): Flow<List<AiProposalEntity>> =
-        proposals.map { map ->
-            map.values.filter { it.userId == userId && it.status == status }
-                .sortedByDescending { it.createdAt }
+    /**
+     * The proposals that still wait for a decision.
+     *
+     * The rule is the domain's: a change that has not been decided keeps the
+     * proposal waiting. The rows are the same ones the real query asks for — the
+     * waiting ones and not every proposal the user ever made.
+     */
+    override fun watchWaitingProposals(userId: String): Flow<List<AiProposalEntity>> =
+        combine(proposals, items) { rows, allItems ->
+            rows.values.filter { row ->
+                row.userId == userId &&
+                    allItems.values.any {
+                        it.proposalId == row.id && it.status !in DECIDED_STATUSES
+                    }
+            }.sortedByDescending { it.createdAt }
         }
 
     override suspend fun updateProposalStatus(id: String, status: String, updatedAt: Long, userId: String): Int {
@@ -2517,13 +2525,16 @@ private class FakeProposalItemDao(
         userId: String,
         id: String,
         status: String,
+        expectedStatus: String,
         decidedAt: Long,
         actor: String,
         reason: String?,
     ): Int {
         val before = items.value[id] ?: return 0
-        // The whole point: only a row still in Pending can transition.
-        if (before.status != "Pending") return 0
+        // The whole point: only a row in the status the caller expects can transition.
+        // The expected status is not always "Pending" — a turn-down has to reach a
+        // change whose status this build cannot read.
+        if (before.status != expectedStatus) return 0
         if (proposals.value[before.proposalId]?.userId != userId) return 0
         items.update { map ->
             map + (
@@ -2568,7 +2579,9 @@ private class FakeProposalItemDao(
     override suspend fun retractPendingItems(proposalId: String, userId: String): Int {
         val owned = proposals.value[proposalId]?.userId == userId
         val affected = if (owned) {
-            items.value.values.filter { it.proposalId == proposalId && it.status == "Pending" }
+            items.value.values.filter {
+                it.proposalId == proposalId && it.status !in DECIDED_STATUSES
+            }
         } else {
             emptyList()
         }

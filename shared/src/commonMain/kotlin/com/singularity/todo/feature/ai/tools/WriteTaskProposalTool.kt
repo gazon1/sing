@@ -12,7 +12,6 @@ import com.singularity.todo.feature.proposals.domain.logic.ProposalFingerprint
 import com.singularity.todo.feature.proposals.domain.logic.ProposalOperation
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
-import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ReadResult
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
@@ -99,15 +98,13 @@ class WriteTaskProposalTool(
 
         val result = runCatchingCancellable {
             val userId = currentUser.scopedUserId.value
-            val item = ProposalItem(
+            val item = ProposalItem.pending(
                 id = ProposalItemId.generate(),
                 proposalId = ProposalId.generate(),
                 kind = kind,
                 targetId = taskId.value,
                 humanSummary = kind.humanSummary,
-                status = ProposalItemStatus.Pending,
                 fingerprint = ProposalFingerprint.of(kind, taskId.value),
-                sortOrder = 0,
             )
 
             val (proposal, _) = ProposalBuilder.multiForTask(

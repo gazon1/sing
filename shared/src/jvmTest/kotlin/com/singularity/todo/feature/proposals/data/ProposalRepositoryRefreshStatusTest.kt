@@ -91,16 +91,7 @@ class ProposalRepositoryRefreshStatusTest {
             userId: String,
         ): Flow<List<AiProposalEntity>> = flowOf(emptyList())
 
-        override fun watchProposalsByTargetKind(
-            userId: String,
-            targetKind: String,
-            status: String,
-        ): Flow<List<AiProposalEntity>> = flowOf(emptyList())
-
-        override fun watchProposalsByStatus(
-            userId: String,
-            status: String,
-        ): Flow<List<AiProposalEntity>> = flowOf(emptyList())
+        override fun watchWaitingProposals(userId: String): Flow<List<AiProposalEntity>> = flowOf(emptyList())
 
         override suspend fun updateProposalStatus(
             id: String,
@@ -135,6 +126,7 @@ class ProposalRepositoryRefreshStatusTest {
             userId: String,
             id: String,
             status: String,
+            expectedStatus: String,
             decidedAt: Long,
             actor: String,
             reason: String?,

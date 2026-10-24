@@ -12,7 +12,7 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
-import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
+import com.singularity.todo.feature.proposals.domain.model.ProposalTargetKind
 import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
 import com.singularity.todo.feature.proposals.domain.usecase.EditProposalItemUseCase
@@ -362,11 +362,10 @@ class TaskDetailCoordinatorTest {
         proposals.save(
             AiProposal(
                 id = proposalId,
-                targetKind = AiProposal.TARGET_KIND_TASK,
+                targetKind = ProposalTargetKind.Task,
                 targetId = "t1",
                 userId = TEST_USER,
                 source = ProposalSource.Detail,
-                status = ProposalStatus.Pending,
                 createdAt = clock.now(),
                 updatedAt = clock.now(),
                 items = listOf(item),

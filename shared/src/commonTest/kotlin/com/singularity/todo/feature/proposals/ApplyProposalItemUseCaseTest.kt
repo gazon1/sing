@@ -12,6 +12,7 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
 import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
+import com.singularity.todo.feature.proposals.domain.model.ProposalTargetKind
 import com.singularity.todo.feature.proposals.domain.model.ProposedTimeEntry
 import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
@@ -119,11 +120,47 @@ class ApplyProposalItemUseCaseTest {
         proposals.save(
             AiProposal(
                 id = proposalId,
-                targetKind = AiProposal.TARGET_KIND_TASK,
+                targetKind = ProposalTargetKind.Task,
                 targetId = target,
                 userId = user,
                 source = ProposalSource.Detail,
-                status = ProposalStatus.Pending,
+                createdAt = clock.now(),
+                updatedAt = clock.now(),
+                items = listOf(item),
+            ),
+        )
+        return item.id
+    }
+
+    /**
+     * Seeds a one-item proposal whose change carries [status].
+     *
+     * A row written by a build that knew a status this one does not is the case
+     * this is for: the change may already have been applied, and this build
+     * cannot tell.
+     */
+    private suspend fun seedProposalWithStatus(
+        kind: ProposalItemKind,
+        status: ProposalItemStatus,
+        target: String = taskId.value,
+    ): ProposalItemId {
+        val proposalId = ProposalId.generate()
+        val item = ProposalItem(
+            id = ProposalItemId.generate(),
+            proposalId = proposalId,
+            kind = kind,
+            targetId = target,
+            humanSummary = "summary",
+            status = status,
+            fingerprint = ProposalFingerprint.of(kind, target),
+        )
+        proposals.save(
+            AiProposal(
+                id = proposalId,
+                targetKind = ProposalTargetKind.Task,
+                targetId = target,
+                userId = user,
+                source = ProposalSource.Detail,
                 createdAt = clock.now(),
                 updatedAt = clock.now(),
                 items = listOf(item),
@@ -548,6 +585,51 @@ class ApplyProposalItemUseCaseTest {
     }
 
     @Test
+    fun `a status this build cannot read is refused, and the change is not applied again`() = runTest {
+        tasks.seed(task(title = "Original"))
+        // A row written by a build that knew a status this one does not. The change
+        // may already have been applied — so this build must not apply it a second
+        // time, and it must say why instead of doing nothing quietly.
+        val id = seedProposalWithStatus(
+            kind = ProposalItemKind.SetTaskField(TaskValue.Title("Applied already")),
+            status = ProposalItemStatus.Unknown("Applied"),
+        )
+
+        val result = useCase.confirm(id, user)
+
+        assertTrue(result.isFailure, "a change whose status does not read cannot be applied")
+        assertTrue(
+            result.exceptionOrNull()?.message?.contains("Applied") == true,
+            "the reason names the status this build does not know: ${result.exceptionOrNull()?.message}",
+        )
+        assertEquals(
+            "Original",
+            tasks.get(taskId)?.title,
+            "the task is not written to — the change may already have been applied",
+        )
+    }
+
+    @Test
+    fun `a change whose status this build cannot read can still be turned down`() = runTest {
+        // The user never said yes to it, so it is theirs to refuse — and a change
+        // they cannot refuse is a card they cannot clear. The refusal records the
+        // reason it could not be applied.
+        val id = seedProposalWithStatus(
+            kind = ProposalItemKind.SetTaskField(TaskValue.Title("Applied already")),
+            status = ProposalItemStatus.Unknown("Applied"),
+        )
+
+        val result = useCase.reject(id, user, "I do not want this")
+
+        assertTrue(result.isSuccess, "the change is turned down: $result")
+        assertEquals(
+            ProposalItemStatus.Rejected,
+            proposals.getItem(id)?.status,
+            "the change is refused, so the card can be cleared",
+        )
+    }
+
+    @Test
     fun `the value the user typed while the change was in flight is the one applied`() = runTest {
         tasks.seed(task())
         val id = seedProposal(ProposalItemKind.SetTaskField(TaskValue.Title("Old title")))
@@ -616,11 +698,10 @@ class ApplyProposalItemUseCaseTest {
         proposals.save(
             AiProposal(
                 id = proposalId,
-                targetKind = AiProposal.TARGET_KIND_TASK,
+                targetKind = ProposalTargetKind.Task,
                 targetId = taskId.value,
                 userId = user,
                 source = ProposalSource.Card,
-                status = ProposalStatus.Pending,
                 createdAt = clock.now(),
                 updatedAt = clock.now(),
                 items = items,
@@ -661,11 +742,10 @@ class ApplyProposalItemUseCaseTest {
         proposals.save(
             AiProposal(
                 id = proposalId,
-                targetKind = AiProposal.TARGET_KIND_TASK,
+                targetKind = ProposalTargetKind.Task,
                 targetId = taskId.value,
                 userId = user,
                 source = ProposalSource.Card,
-                status = ProposalStatus.Pending,
                 createdAt = clock.now(),
                 updatedAt = clock.now(),
                 items = listOf(good, bad),

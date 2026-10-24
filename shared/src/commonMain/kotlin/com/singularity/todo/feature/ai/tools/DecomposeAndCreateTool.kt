@@ -12,7 +12,6 @@ import ai.koog.utils.time.KoogClock
 import com.singularity.todo.core.ai.ToolOutputJson
 import com.singularity.todo.feature.ai.prompts.Prompts
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
-import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ReadResult
 import com.singularity.todo.feature.proposals.domain.model.TaskValue
@@ -146,7 +145,6 @@ class DecomposeAndCreateTool(
             userId = userId,
             clock = clock,
             items = items,
-            targetKind = AiProposal.TARGET_KIND_TASK,
             targetId = args.parentTaskId ?: ids.first(),
         )
 

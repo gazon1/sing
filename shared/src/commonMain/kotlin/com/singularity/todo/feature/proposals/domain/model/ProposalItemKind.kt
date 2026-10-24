@@ -38,8 +38,17 @@ sealed interface TagBoundKind
  *
  * There is no row to read before it is applied — the change names the id the thing
  * *will* have — so the group is its own.
+ *
+ * A creation knows what it brings into being, and says so: the thing it creates is
+ * the target the proposal is addressed to. A creation that did not say would leave
+ * the caller to type the kind of target by hand — which is the mistake this whole
+ * arrangement exists to make impossible.
  */
-sealed interface CreationBoundKind
+sealed interface CreationBoundKind {
+
+    /** What this change brings into being. */
+    val targetKind: ProposalTargetKind
+}
 
 /**
  * What a change is about.
@@ -59,20 +68,45 @@ sealed interface CreationBoundKind
  */
 sealed interface ProposalTarget {
 
+    /**
+     * What this change is about, in the word the row is addressed by.
+     *
+     * The target is the one place that knows: a change about a task says so, and a
+     * creation says what it brings into being. So a caller that has to write down
+     * what the change is about has nothing left to write — and a caller that gets it
+     * wrong cannot, because there is no second declaration to get wrong.
+     */
+    val targetKind: ProposalTargetKind
+
     /** The change brings something into being. There is no row to read. */
-    data class Creation(val kind: CreationBoundKind) : ProposalTarget
+    data class Creation(val kind: CreationBoundKind) : ProposalTarget {
+        /** What this change brings into being — see [ProposalTarget]. */
+        override val targetKind: ProposalTargetKind get() = kind.targetKind
+    }
 
     /** The change touches a task. */
-    data class OnTask(val kind: TaskBoundKind) : ProposalTarget
+    data class OnTask(val kind: TaskBoundKind) : ProposalTarget {
+        /** What this change is about — see [ProposalTarget]. */
+        override val targetKind: ProposalTargetKind get() = ProposalTargetKind.Task
+    }
 
     /** The change touches a note. */
-    data class OnNote(val kind: NoteBoundKind) : ProposalTarget
+    data class OnNote(val kind: NoteBoundKind) : ProposalTarget {
+        /** What this change is about — see [ProposalTarget]. */
+        override val targetKind: ProposalTargetKind get() = ProposalTargetKind.Note
+    }
 
     /** The change touches a project. */
-    data class OnProject(val kind: ProjectBoundKind) : ProposalTarget
+    data class OnProject(val kind: ProjectBoundKind) : ProposalTarget {
+        /** What this change is about — see [ProposalTarget]. */
+        override val targetKind: ProposalTargetKind get() = ProposalTargetKind.Project
+    }
 
     /** The change touches a tag. */
-    data class OnTag(val kind: TagBoundKind) : ProposalTarget
+    data class OnTag(val kind: TagBoundKind) : ProposalTarget {
+        /** What this change is about — see [ProposalTarget]. */
+        override val targetKind: ProposalTargetKind get() = ProposalTargetKind.Tag
+    }
 
     /**
      * The change cannot be applied by this build.
@@ -80,8 +114,26 @@ sealed interface ProposalTarget {
      * The reason belongs to the change, not to the target: the kind that says it
      * cannot be read says why, and the card shows that reason.
      */
-    data object Unreadable : ProposalTarget
+    data object Unreadable : ProposalTarget {
+        /**
+         * What this change is about — see [ProposalTarget].
+         *
+         * A change this build cannot read does not say what it is about, and it is
+         * not known to be about a task either. The name it is given here is the
+         * absence of one, not a kind of target it was written with.
+         */
+        override val targetKind: ProposalTargetKind
+            get() = ProposalTargetKind.Unknown(UNREADABLE_TARGET_KIND)
+    }
 }
+
+/**
+ * The name given to a kind of target nobody knows.
+ *
+ * A row written by a newer build carries the kind it was written with, and the
+ * mapper reads that. This name is only for a change that is not read at all.
+ */
+private const val UNREADABLE_TARGET_KIND = "UNKNOWN"
 
 /**
  * The change a single [ProposalItem] asks for.
@@ -347,6 +399,9 @@ sealed interface ProposalItemKind {
         CreationBoundKind {
         /** What this change is about — see [ProposalTarget]. */
         override val target: ProposalTarget = ProposalTarget.Creation(this)
+
+        /** What this change brings into being — see [ProposalTarget]. */
+        override val targetKind: ProposalTargetKind = ProposalTargetKind.Tag
         override val humanSummary: String = "Create a tag «${tag.name.asCardValue()}»"
         override val fingerprintTarget: String = tag.name.trim().lowercase()
         override fun editableProposal(): EditableProposal = EditableProposal(tag.name) { newText ->
@@ -373,6 +428,9 @@ sealed interface ProposalItemKind {
         CreationBoundKind {
         /** What this change is about — see [ProposalTarget]. */
         override val target: ProposalTarget = ProposalTarget.Creation(this)
+
+        /** What this change brings into being — see [ProposalTarget]. */
+        override val targetKind: ProposalTargetKind = ProposalTargetKind.Task
         override val humanSummary: String = "Create a task «${task.title.asCardValue()}»"
         override val fingerprintTarget: String = task.title.trim().lowercase()
         override fun editableProposal(): EditableProposal = EditableProposal(task.title) { newText ->
@@ -393,6 +451,9 @@ sealed interface ProposalItemKind {
         CreationBoundKind {
         /** What this change is about — see [ProposalTarget]. */
         override val target: ProposalTarget = ProposalTarget.Creation(this)
+
+        /** What this change brings into being — see [ProposalTarget]. */
+        override val targetKind: ProposalTargetKind = ProposalTargetKind.Project
         override val humanSummary: String = "Create a project «${project.name.asCardValue()}»"
         override val fingerprintTarget: String = project.name.trim().lowercase()
         override fun editableProposal(): EditableProposal = EditableProposal(project.name) { newText ->
@@ -413,6 +474,9 @@ sealed interface ProposalItemKind {
         CreationBoundKind {
         /** What this change is about — see [ProposalTarget]. */
         override val target: ProposalTarget = ProposalTarget.Creation(this)
+
+        /** What this change brings into being — see [ProposalTarget]. */
+        override val targetKind: ProposalTargetKind = ProposalTargetKind.Note
         override val humanSummary: String = "Create a note «${note.title.asCardValue()}»"
         override val fingerprintTarget: String = note.title.trim().lowercase()
         override fun editableProposal(): EditableProposal = EditableProposal(note.title) { newText ->

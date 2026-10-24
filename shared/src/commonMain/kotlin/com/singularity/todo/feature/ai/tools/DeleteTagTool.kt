@@ -5,7 +5,6 @@ import ai.koog.serialization.TypeToken
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.proposals.domain.logic.ProposalBuilder
-import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
@@ -43,7 +42,6 @@ class DeleteTagTool(
 
             val (proposal, _) = ProposalBuilder.forTarget(
                 kind = ProposalItemKind.DeleteTag(args.reason),
-                targetKind = AiProposal.TARGET_KIND_TAG,
                 targetId = args.tagId,
                 userId = userId,
                 source = ProposalSource.Agent,

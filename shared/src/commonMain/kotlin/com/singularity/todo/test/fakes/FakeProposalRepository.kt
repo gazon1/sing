@@ -4,18 +4,19 @@ import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.proposals.domain.logic.ProposalFingerprint
-import com.singularity.todo.feature.proposals.domain.logic.ProposalStatusReducer
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.DecidedActor
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
-import com.singularity.todo.feature.proposals.domain.model.ProposalStatus
+import com.singularity.todo.feature.proposals.domain.model.ProposalTargetKind
+import com.singularity.todo.feature.proposals.domain.model.isDecided
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlin.time.Clock
@@ -51,33 +52,43 @@ class FakeProposalRepository(private val clock: Clock) : ProposalRepository {
      */
     var beforeClaim: (suspend () -> Unit)? = null
 
-    override fun watchProposalsForTask(taskId: TaskId): Flow<List<AiProposal>> = proposals.map { map ->
-        map.values.filter { it.targetKind == AiProposal.TARGET_KIND_TASK && it.targetId == taskId.value }
-            .sortedByDescending { it.createdAt }
-            .map(::withItems)
-    }
+    override fun watchProposalsForTask(taskId: TaskId): Flow<List<AiProposal>> =
+        withItems().map { list ->
+            list.filter { it.targetKind == ProposalTargetKind.Task && it.targetId == taskId.value }
+                .sortedByDescending { it.createdAt }
+        }
 
-    override fun watchProposalsForNote(noteId: NoteId): Flow<List<AiProposal>> = proposals.map { map ->
-        map.values.filter { it.targetKind == AiProposal.TARGET_KIND_NOTE && it.targetId == noteId.value }
-            .sortedByDescending { it.createdAt }
-            .map(::withItems)
-    }
+    override fun watchProposalsForNote(noteId: NoteId): Flow<List<AiProposal>> =
+        withItems().map { list ->
+            list.filter { it.targetKind == ProposalTargetKind.Note && it.targetId == noteId.value }
+                .sortedByDescending { it.createdAt }
+        }
 
     override fun watchProposal(id: ProposalId): Flow<AiProposal?> =
-        proposals.map { map -> map[id.value]?.let(::withItems) }
+        withItems().map { list -> list.firstOrNull { it.id == id } }
 
-    override fun watchProposalsByStatus(status: ProposalStatus): Flow<List<AiProposal>> = proposals.map { map ->
-        map.values.filter { it.status == status }
+    /**
+     * The proposals that still wait for a decision.
+     *
+     * The question is the proposal's own: a proposal is waiting while one of its
+     * changes is undecided.
+     */
+    override fun watchWaitingProposals(): Flow<List<AiProposal>> = withItems().map { list ->
+        list.filter { it.isWaiting }
             .sortedByDescending { it.createdAt }
-            .map(::withItems)
     }
 
-    override fun watchProposalsByTargetKind(targetKind: String, status: ProposalStatus): Flow<List<AiProposal>> =
-        proposals.map { map ->
-            map.values.filter { it.targetKind == targetKind && it.status == status }
-                .sortedByDescending { it.createdAt }
-                .map(::withItems)
-        }
+    /**
+     * Every proposal of the user, with the changes each one holds.
+     *
+     * The rows and the changes are watched together, because the answer a
+     * proposal gives about itself comes from its changes: a fake that watched
+     * only the rows would not notice that a change was decided, and a surface
+     * waiting for that notice would keep showing a proposal nobody has to
+     * decide about.
+     */
+    private fun withItems(): Flow<List<AiProposal>> =
+        combine(proposals, items) { rows, _ -> rows.values.map(::withItems) }
 
     override suspend fun save(proposal: AiProposal): Result<Unit> = runCatchingCancellable {
         saveOverride?.let { return@runCatchingCancellable it.getOrThrow() }
@@ -92,7 +103,7 @@ class FakeProposalRepository(private val clock: Clock) : ProposalRepository {
             }
             if (!clash) items.update { it + (item.id.value to item) }
         }
-        proposals.update { it + (proposal.id.value to proposal.copy(status = derived(proposal.id.value))) }
+        proposals.update { it + (proposal.id.value to proposal) }
     }
 
     override suspend fun getItem(id: ProposalItemId): ProposalItem? = items.value[id.value]
@@ -134,6 +145,7 @@ class FakeProposalRepository(private val clock: Clock) : ProposalRepository {
     override suspend fun claim(
         id: ProposalItemId,
         status: ProposalItemStatus,
+        expected: ProposalItemStatus,
         actor: DecidedActor,
         reason: String?,
         userId: UserId,
@@ -143,7 +155,10 @@ class FakeProposalRepository(private val clock: Clock) : ProposalRepository {
         // looks like from here.
         beforeClaim?.invoke()
         val before = items.value[id.value] ?: return null
-        if (before.status != ProposalItemStatus.Pending) return null
+        // The row has to be in the status the caller expected — the compare-and-set
+        // the DAO does. The expected status is not always "Pending": a turn-down
+        // has to reach a change whose status this build cannot read.
+        if (before.status != expected) return null
         // Ownership is checked through the owning proposal, exactly as the DAO's
         // subquery does — a fake that skipped this would hide a cross-user write.
         if (proposals.value[before.proposalId.value]?.userId != userId) return null
@@ -193,11 +208,12 @@ class FakeProposalRepository(private val clock: Clock) : ProposalRepository {
     }
 
     override suspend fun refreshStatus(proposalId: ProposalId, userId: UserId): Result<Unit> = runCatchingCancellable {
-        val derived = derived(proposalId.value)
+        // The status is what the changes say it is, so there is nothing to
+        // recompute here — only the row's own timestamp to move.
         proposals.update { map ->
             val row = map[proposalId.value] ?: return@update map
             if (row.userId != userId) return@update map
-            map + (proposalId.value to row.copy(status = derived, updatedAt = clock.now()))
+            map + (proposalId.value to row.copy(updatedAt = clock.now()))
         }
     }
 
@@ -205,7 +221,10 @@ class FakeProposalRepository(private val clock: Clock) : ProposalRepository {
         val owned = proposals.value[id.value]?.userId == userId
         items.update { map ->
             map.mapValues { (key, value) ->
-                if (owned && value.proposalId.value == id.value && value.status == ProposalItemStatus.Pending) {
+                // Everything that has not been decided — including a change whose
+                // status this build cannot read, which is the user's to withdraw
+                // as well.
+                if (owned && value.proposalId.value == id.value && !value.status.isDecided) {
                     value.copy(status = ProposalItemStatus.Retracted)
                 } else {
                     value
@@ -215,7 +234,7 @@ class FakeProposalRepository(private val clock: Clock) : ProposalRepository {
         proposals.update { map ->
             val row = map[id.value] ?: return@update map
             if (!owned) return@update map
-            map + (id.value to row.copy(status = ProposalStatus.Retracted, updatedAt = clock.now()))
+            map + (id.value to row.copy(updatedAt = clock.now()))
         }
     }
 
@@ -235,7 +254,4 @@ class FakeProposalRepository(private val clock: Clock) : ProposalRepository {
         items.value.values.filter { it.proposalId.value == proposalId.value }.sortedBy { it.sortOrder }
 
     private fun withItems(proposal: AiProposal): AiProposal = proposal.copy(items = itemsOf(proposal.id))
-
-    private fun derived(proposalId: String): ProposalStatus =
-        ProposalStatusReducer.reduce(itemsOf(ProposalId(proposalId)).map { it.status })
 }
