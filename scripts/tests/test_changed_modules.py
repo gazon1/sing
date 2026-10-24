@@ -21,7 +21,10 @@ not know is a module nothing runs, and nothing says so.
 
 import importlib.util
 import pathlib
+import shutil
+import subprocess
 import sys
+import tempfile
 import unittest
 
 SCRIPTS = pathlib.Path(__file__).resolve().parent.parent
@@ -97,6 +100,21 @@ class PlanTest(unittest.TestCase):
         self.assertIn(':shared:jvmTest', tasks)
         self.assertIn(':mcp-server:test', tasks)
         self.assertIn(':adr-core:jvmTest', tasks)
+        self.assertIn('scripts/ci/static-gates.sh', tasks)
+
+    def test_a_change_to_the_convention_plugins_runs_everything(self):
+        """`build-logic/` holds the convention plugins every module uses.
+
+        A change to one of them changes how every module is built, so the plan
+        has to be the whole tree. The area was missing, and the plan for such a
+        change was "nothing runs" — while the pre-push verdict, which knows
+        the same fact, judged every module.
+        """
+        tasks, _reasons = changed.plan(['build-logic/src/main/kotlin/Convention.kt'])
+
+        self.assertIn(':shared:jvmTest', tasks)
+        self.assertIn(':desktopApp:test', tasks)
+        self.assertIn(':detekt-rules:test', tasks)
         self.assertIn('scripts/ci/static-gates.sh', tasks)
 
     def test_a_path_no_module_owns_runs_nothing(self):
@@ -329,6 +347,379 @@ class FallbackTest(unittest.TestCase):
         prefixes = changed.path_modules(modules)
 
         self.assertEqual('shared', prefixes['shared/'])
+class TheGraphIsCompleteTest(unittest.TestCase):
+    """The graph cannot be allowed to fall behind the build.
+
+    Two tables have to agree: the table that says which module owns a path, and
+    the table that says what has to compile for that module. When they disagree
+    a module has no owner of its compile, and the commit gate skips it in
+    silence.
+    """
+
+    def test_every_module_the_graph_names_has_a_compile_entry(self):
+        """A module with no entry is a graph that has fallen behind the build."""
+        missing = sorted(set(changed.PATH_MODULES.values()) - set(changed.COMPILE_TASKS))
+
+        self.assertEqual(
+            [], missing,
+            f'these modules own paths but have no compile entry: {missing}',
+        )
+
+    def test_a_module_that_is_not_compiled_locally_says_why(self):
+        """An empty compile list needs a reason, or the skip is silent."""
+        silent = sorted(
+            module for module, tasks in changed.COMPILE_TASKS.items()
+            if not tasks and module not in changed.NOT_COMPILED_LOCALLY
+        )
+
+        self.assertEqual(
+            [], silent,
+            f'these modules are not compiled locally and do not say why: {silent}',
+        )
+
+    def test_every_compile_task_belongs_to_a_module_of_the_graph(self):
+        """A compile task for a module nobody owns is a typo waiting to happen."""
+        owners = set(changed.PATH_MODULES.values())
+        orphans = sorted(
+            module for module in changed.COMPILE_TASKS
+            if module not in owners
+        )
+
+        self.assertEqual([], orphans, f'these modules are compiled but own no path: {orphans}')
+
+
+class TheLintStepSeesTheSamePathsTest(unittest.TestCase):
+    """The lint step reads the paths of the change too, and it reads them raw.
+
+    Git quotes a path with a space, a quote or a backslash, and a quoted path
+    does not name a file — so the lint would not look at the file that was
+    just written.
+    """
+
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='lint-changed-'))
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+        self._git('init', '-q')
+        self._git('config', 'user.email', 'test@example.com')
+        self._git('config', 'user.name', 'Test')
+        self._git('commit', '--allow-empty', '-m', 'base', '-q')
+        (self.tmp / 'shared').mkdir()
+        (self.tmp / 'shared' / 'My File.kt').write_text('val a = 1\n', encoding='utf-8')
+
+    def _git(self, *args: str) -> None:
+        subprocess.run(
+            ['git', *args], cwd=self.tmp, check=True, capture_output=True, text=True,
+        )
+
+    def test_a_kotlin_file_with_a_space_is_listed(self):
+        """The file that was just written is the file the lint looks at."""
+        lint = _load_lint()
+        original_root = lint.ROOT
+        lint.ROOT = self.tmp
+        self.addCleanup(self._restore_root, lint, original_root)
+
+        paths = lint.changed_paths('origin/main')
+
+        self.assertIn('shared/My File.kt', paths)
+
+    def test_a_tracked_file_with_a_space_is_listed_after_it_changed(self):
+        """The working-tree diff names the file too, not only the untracked list.
+
+        A file that is already tracked and was changed is the common case; the
+        lint step reads it through `git diff HEAD`, and that path has to be
+        read in the format that does not quote.
+        """
+        lint = _load_lint()
+        original_root = lint.ROOT
+        lint.ROOT = self.tmp
+        self.addCleanup(self._restore_root, lint, original_root)
+        self._git('add', '-A')
+        self._git('commit', '-m', 'add the file', '-q')
+        (self.tmp / 'shared' / 'My File.kt').write_text('val a = 2\n', encoding='utf-8')
+
+        paths = lint.changed_paths('origin/main')
+
+        self.assertIn('shared/My File.kt', paths)
+
+    def test_a_committed_file_with_a_space_is_listed(self):
+        """The committed diff names the file as well."""
+        lint = _load_lint()
+        original_root = lint.ROOT
+        lint.ROOT = self.tmp
+        self.addCleanup(self._restore_root, lint, original_root)
+        self._git('add', '-A')
+        self._git('commit', '-m', 'add the file', '-q')
+        base = subprocess.run(
+            ['git', 'rev-parse', 'HEAD'], cwd=self.tmp, check=True,
+            capture_output=True, text=True,
+        ).stdout.strip()
+        (self.tmp / 'shared' / 'My File.kt').write_text('val a = 3\n', encoding='utf-8')
+        self._git('commit', '-am', 'change the file', '-q')
+
+        paths = lint.changed_paths(base)
+
+        self.assertIn('shared/My File.kt', paths)
+
+    @staticmethod
+    def _restore_root(lint, original_root) -> None:
+        lint.ROOT = original_root
+
+
+def _load_lint():
+    """`scripts/lint-changed.py`, loaded the way the hook loads it."""
+    path = pathlib.Path(__file__).resolve().parent.parent / 'lint-changed.py'
+    spec = importlib.util.spec_from_file_location('lint_changed', path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules['lint_changed'] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+class TheGraphRefusesToPlanWhenItDisagreesWithTheBuild(unittest.TestCase):
+    """A plan built from a graph that contradicts the build means nothing.
+
+    The command must REFUSE to build a plan when the check fails. The check
+    itself is left real here: the disagreement is produced by the graph the
+    command reads, not by a stubbed check — a stubbed check would pass even if
+    the check had been turned into a no-op.
+
+    The base is `HEAD`, not the default one. The default base is
+    `origin/main`, and a CI checkout is a detached, depth-1 commit with no
+    such ref — there the base cannot be measured against, the command returns
+    2 for THAT reason, and the test would pass whatever the check does. With
+    `HEAD` the base always resolves, so the only way to code 2 is the
+    disagreement the test stages.
+    """
+
+    def test_the_command_stops_when_the_graph_and_the_build_disagree(self):
+        ghost = changed.Module(
+            name='ghost',
+            gradle_path=':ghost',
+            directory='ghost',
+            conditional=False,
+        )
+        original = changed.MODULES
+        changed.MODULES = {**original, 'ghost': ghost}
+        self.addCleanup(self._restore_modules, original)
+
+        code = changed.main(['--base', 'HEAD'])
+
+        self.assertEqual(2, code)
+
+    @staticmethod
+    def _restore_modules(original) -> None:
+        changed.MODULES = original
+
+
+class TheBaseIsUsableTest(unittest.TestCase):
+    """A base that cannot be measured against is a failure, not an empty plan."""
+
+    def test_a_base_that_does_not_resolve_is_not_usable(self):
+        self.assertFalse(changed.base_usable('origin/there-is-no-such-remote'))
+        self.assertTrue(changed.base_usable('HEAD'))
+
+    def test_the_command_stops_when_the_base_cannot_be_used(self):
+        """The command that reads the graph makes the same check.
+
+        A plan that covers only the working tree while looking like a plan for
+        the whole change is the silent loss the check exists to prevent.
+        """
+        code = changed.main(['--base', 'origin/there-is-no-such-remote'])
+
+        self.assertEqual(2, code)
+
+    def test_a_base_without_a_merge_base_is_not_usable(self):
+        """Unrelated histories: the three-dot diff fails, and the error is quiet.
+
+        The ref resolves, so a check that only looks at the ref says yes — and
+        the committed part of the change is not counted.
+        """
+        tmp = pathlib.Path(tempfile.mkdtemp(prefix='changed-modules-'))
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+
+        def git(*args: str) -> None:
+            subprocess.run(
+                ['git', *args], cwd=tmp, check=True, capture_output=True, text=True,
+            )
+
+        git('init', '-q')
+        git('config', 'user.email', 'test@example.com')
+        git('config', 'user.name', 'Test')
+        git('commit', '--allow-empty', '-m', 'base', '-q')
+        # A history of its own: it shares no commit with this one.
+        orphan = tmp / 'orphan'
+        orphan.mkdir()
+        subprocess.run(
+            ['git', 'init', '-q'], cwd=orphan, check=True, capture_output=True,
+        )
+        subprocess.run(
+            ['git', '-c', 'user.email=t@e.com', '-c', 'user.name=T',
+             'commit', '--allow-empty', '-m', 'orphan', '-q'],
+            cwd=orphan, check=True, capture_output=True,
+        )
+        sha = subprocess.run(
+            ['git', 'rev-parse', 'HEAD'], cwd=orphan, check=True,
+            capture_output=True, text=True,
+        ).stdout.strip()
+        subprocess.run(
+            ['git', 'fetch', '-q', '--no-tags', str(orphan),
+             f'{sha}:refs/remotes/origin/other'],
+            cwd=tmp, check=True, capture_output=True, text=True,
+        )
+
+        original_root = changed.ROOT
+        self._original_root = original_root
+        changed.ROOT = tmp
+        self.addCleanup(self._restore_root)
+
+        # The ref resolves ...
+        self.assertEqual(
+            0,
+            subprocess.run(
+                ['git', 'rev-parse', '--verify', '--quiet', 'origin/other^{commit}'],
+                cwd=tmp, capture_output=True, text=True, check=False,
+            ).returncode,
+            'the ref itself resolves',
+        )
+        # ... but the change cannot be measured against it.
+        self.assertFalse(changed.base_usable('origin/other'))
+
+    def _restore_root(self) -> None:
+        changed.ROOT = self._original_root
+
+
+class ThePathsComeOutOfGitTest(unittest.TestCase):
+    """The paths are read out of git, and git has two ways to hide them.
+
+    A rename is reported as one path, and a path with a non-ASCII character is
+    quoted. Both hide a change from the module that owns it, and both do it
+    quietly.
+    """
+
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='changed-modules-'))
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+        self._git('init', '-q')
+        self._git('config', 'user.email', 'test@example.com')
+        self._git('config', 'user.name', 'Test')
+        self._git('commit', '--allow-empty', '-m', 'base', '-q')
+        self._original_root = changed.ROOT
+        changed.ROOT = self.tmp
+        self.addCleanup(self._restore_root)
+
+    def _restore_root(self):
+        changed.ROOT = self._original_root
+
+    def _git(self, *args: str) -> None:
+        subprocess.run(
+            ['git', *args], cwd=self.tmp, check=True, capture_output=True, text=True,
+        )
+
+    def test_a_rename_names_the_old_path_and_the_new_one(self):
+        """A file that moved is a change of the module it moved OUT of.
+
+        The old path is the module that lost a file, and the new path is the
+        module that gained one. Both are changes.
+        """
+        (self.tmp / 'shared').mkdir()
+        (self.tmp / 'shared' / 'A.kt').write_text('val a = 1\n', encoding='utf-8')
+        self._git('add', '.')
+        self._git('commit', '-m', 'add', '-q')
+        self._git('mv', 'shared/A.kt', 'shared/B.kt')
+
+        paths = changed.changed_paths('origin/main')
+
+        self.assertIn('shared/A.kt', paths, 'the module that LOST the file is named')
+        self.assertIn('shared/B.kt', paths, 'the module that GAINED the file is named')
+
+    def test_a_rename_in_a_commit_names_the_old_path_and_the_new_one(self):
+        """A committed rename is a change of the module it moved OUT of.
+
+        The diff is asked for renames as renames turned off, so git reports the
+        move as what it is to the module graph — a deletion in one place and an
+        addition in another. Without that, the diff would name only the new
+        path, and the module that lost the file would never learn of it.
+        """
+        (self.tmp / 'shared').mkdir()
+        (self.tmp / 'shared' / 'A.kt').write_text('val a = 1\n', encoding='utf-8')
+        self._git('add', '.')
+        self._git('commit', '-m', 'add', '-q')
+        base = subprocess.run(
+            ['git', 'rev-parse', 'HEAD'], cwd=self.tmp, check=True,
+            capture_output=True, text=True,
+        ).stdout.strip()
+        self._git('mv', 'shared/A.kt', 'shared/B.kt')
+        self._git('commit', '-m', 'rename', '-q')
+
+        paths = changed.changed_paths(base)
+
+        self.assertIn('shared/A.kt', paths, 'the module that LOST the file is named')
+        self.assertIn('shared/B.kt', paths, 'the module that GAINED the file is named')
+
+    def test_a_path_with_a_non_ascii_character_is_not_quoted(self):
+        """Git quotes a non-ASCII path unless it is asked not to.
+
+        A quoted path starts with a quote character, so no module claims it and
+        the change is silently unowned.
+        """
+        (self.tmp / 'shared').mkdir()
+        (self.tmp / 'shared' / 'Ünïcode.kt').write_text('val a = 1\n', encoding='utf-8')
+
+        paths = changed.changed_paths('origin/main')
+
+        self.assertIn('shared/Ünïcode.kt', paths)
+
+    def test_a_path_with_a_space_is_not_quoted(self):
+        """Git quotes a path with a space whatever `quotePath` says.
+
+        A quoted path starts with a quote character, so no module claims it
+        and the change is silently unowned — the commit passes without
+        compiling anything.
+        """
+        (self.tmp / 'shared').mkdir()
+        (self.tmp / 'shared' / 'My File.kt').write_text('val a = 1\n', encoding='utf-8')
+
+        paths = changed.changed_paths('origin/main')
+
+        self.assertIn('shared/My File.kt', paths)
+
+    def test_a_path_with_a_space_is_owned_by_its_module(self):
+        """The path that is read is the path the module graph can match."""
+        (self.tmp / 'shared').mkdir()
+        (self.tmp / 'shared' / 'My File.kt').write_text('val a = 1\n', encoding='utf-8')
+
+        paths = changed.changed_paths('origin/main')
+        owner = next(
+            (module for prefix, module in changed.PATH_MODULES.items()
+             if any(path.startswith(prefix) for path in paths)),
+            None,
+        )
+
+        self.assertEqual('shared', owner)
+
+    def test_a_path_with_an_arrow_in_it_is_a_path(self):
+        """`->` is a separator in the old format and a character in a name."""
+        (self.tmp / 'shared').mkdir()
+        (self.tmp / 'shared' / 'a -> b.kt').write_text('val a = 1\n', encoding='utf-8')
+
+        paths = changed.changed_paths('origin/main')
+
+        self.assertIn('shared/a -> b.kt', paths)
+
+    def test_a_non_ascii_path_is_owned_by_its_module(self):
+        """The path that is read is the path the module graph can match."""
+        (self.tmp / 'shared').mkdir()
+        (self.tmp / 'shared' / 'Ünïcode.kt').write_text('val a = 1\n', encoding='utf-8')
+
+        paths = changed.changed_paths('origin/main')
+        owner = next(
+            (module for prefix, module in changed.PATH_MODULES.items()
+             if any(path.startswith(prefix) for path in paths)),
+            None,
+        )
+
+        self.assertEqual('shared', owner)
 
 
 if __name__ == '__main__':

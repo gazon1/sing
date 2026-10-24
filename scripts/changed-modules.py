@@ -12,10 +12,19 @@ Answering it with "everything" is safe and useless. Answering it with a guess is
 worse. So the answer is computed from the module graph the build files declare:
 
 * a change in a module can break the modules that compile against it, and those
-  are read out of the build files, not guessed;
+  are read out of the build files, not guessed — that is the change's REACH, and
+  the reach is what the local verdict judges;
 * a change in the build itself can break everything, and that is a separate case;
 * a change under `scripts/`, `docs/` or `config/` is a change to the *gates*, so
   the gate suite is what has to run.
+
+Two questions live in this graph, and they are not the same question. The REACH of
+a change — what it can break — is `DOWNSTREAM`, and the local verdict and the
+pre-push detekt read it. The modules a change TOUCHES — what the change is
+made of — is `COMPILE_TASKS`, and the commit gate reads it. The commit gate
+compiles the modules the change touches, not the ones it can break: the reach is
+judged by CI, which is the compiler's verdict, and by the pre-push verdict, which
+runs detekt without type resolution and is therefore not the compiler at all.
 
 The module list is read, not written
 ------------------------------------
@@ -433,12 +442,59 @@ CONDITIONAL_POLICY = 'exclude'
 #: Paths that change the build itself. Everything downstream of them is affected.
 BUILD_AREAS = (
     'gradle/',
+    'build-logic/',
     'gradlew',
     'gradlew.bat',
     'gradle.properties',
     'build.gradle.kts',
     'settings.gradle.kts',
 )
+
+#: What has to COMPILE for a module that changed.
+#:
+#: The tasks above answer "what has to run to know the change is good" — the
+#: tests and the detekt run. These answer a different question: "what has to
+#: compile for the commit to be a commit that compiles". A commit gate wants
+#: the second, and it wants it for the module the change TOUCHES — not for the
+#: modules that compile against it: the reach of a change is judged by CI,
+#: which is the compiler's verdict, and by the pre-push verdict, which runs
+#: detekt without type resolution and is therefore not the compiler.
+#:
+#: Every module in `PATH_MODULES` has an entry here, and every entry names
+#: either the tasks that compile it or nothing at all — an empty list means
+#: "this module is not compiled locally", and the reason is in
+#: `NOT_COMPILED_LOCALLY`. A module with NO entry is a graph that has fallen
+#: behind the build, and the commit gate says so instead of compiling nothing
+#: and calling it a pass.
+#:
+#: Only the JVM targets are here. The Android target of `:shared` is compiled
+#: by `:androidApp`, and `:androidApp` itself needs the Android SDK — the
+#: Android toolchain is CI's, and the local loop says so rather than
+#: pretending it checked. `scripts/compile-changed.py` holds that policy.
+COMPILE_TASKS: dict[str, list[str]] = {
+    'shared': [':shared:compileKotlinJvm', ':shared:compileTestKotlinJvm'],
+    'core-base': [':core-base:compileKotlinJvm'],
+    'adr-core': [':adr-core:compileKotlinJvm'],
+    'adr-cli': [':adr-cli:compileKotlin'],
+    'detekt-rules': [':detekt-rules:compileKotlin'],
+    'desktopApp': [':desktopApp:compileKotlin'],
+    'mcp-server': [':mcp-server:compileKotlin'],
+    'androidApp': [':androidApp:compileDebugKotlin'],
+    'tools:unwritten-properties': [':tools:unwritten-properties:compileKotlin'],
+    'pro': [],
+}
+
+#: The modules the local loop does not compile, and why.
+#:
+#: An empty list in `COMPILE_TASKS` means "not compiled here", and this is
+#: where the reason lives. A change in such a module is not a silent skip: the
+#: commit gate prints the reason.
+NOT_COMPILED_LOCALLY: dict[str, str] = {
+    'pro': (
+        'the pro catalogue exists only in the -PwithPro build — CI compiles it, '
+        'and a free clone has no pro sources to compile'
+    ),
+}
 
 #: The areas where a change is a change to the *gates* rather than to the app.
 GATE_AREAS = (
@@ -494,31 +550,104 @@ def consistency_errors(
     return errors
 
 
+def base_usable(base: str) -> bool:
+    """Whether the change can be measured against the base at all.
+
+    Two ways it cannot: the ref does not resolve, or it resolves and has no
+    merge base with `HEAD` — the histories are unrelated. Both are silent
+    losses: the three-dot diff fails, the committed part of the change is not
+    counted, and the plan looks like a plan for the whole change while
+    covering only the working tree.
+
+    A base that cannot be measured against is a failure, not an empty plan.
+    """
+    resolved = subprocess.run(
+        ['git', 'rev-parse', '--verify', '--quiet', f'{base}^{{commit}}'],
+        cwd=ROOT, capture_output=True, text=True, check=False,
+    )
+    if resolved.returncode != 0:
+        return False
+    merge_base = subprocess.run(
+        ['git', 'merge-base', base, 'HEAD'],
+        cwd=ROOT, capture_output=True, text=True, check=False,
+    )
+    return merge_base.returncode == 0
+
+
+def porcelain_paths(output: str) -> list[str]:
+    """The paths of a `git status --porcelain -z` output.
+
+    The `-z` format is the one that does not quote. Git quotes a path that
+    holds a space, a quote or a backslash — always, whatever `quotePath` says
+    — and a quoted path starts with a quote character, so no module claims it
+    and the change is silently unowned. With `-z` the paths are written as they
+    are and the records are separated by NUL.
+
+    A rename is two records: the new path, and the original path right after
+    it. Both are changes — the module that gained the file and the module that
+    lost it.
+    """
+    records = [record for record in output.split('\0') if record]
+    paths: list[str] = []
+    index = 0
+    while index < len(records):
+        record = records[index]
+        index += 1
+        if len(record) < 4:
+            continue
+        code, path = record[:2], record[3:]
+        if 'R' in code or 'C' in code:
+            # The original path of the move is the next record.
+            if index < len(records):
+                paths.append(records[index])
+                index += 1
+        if path:
+            paths.append(path)
+    return paths
+
+
 def changed_paths(base: str) -> list[str]:
     """The paths this change touches: committed and uncommitted alike.
 
     A change that is not committed yet is still a change, and a lane that only
     looked at the commits would run nothing for the work in front of the
     developer.
+
+    Three things about the paths are not obvious and all of them cost a missed
+    module:
+
+    * **A rename names two paths.** A file that moved out of a module is a
+      change of that module: the module lost a file, and it may no longer
+      compile. So the old path counts as well as the new one, and the diff is
+      asked for renames as renames turned off (`--no-renames`), which makes git
+      report a move as what it is to the module graph — a deletion in one
+      place and an addition in another.
+    * **Git quotes a path it considers unusual.** A path with a space, a quote
+      or a backslash is written in quotes, and the quoted path starts with a
+      quote character — so no module claims it, and the change is silently
+      unowned. A path with a non-ASCII character is quoted too, unless it is
+      asked not to (`core.quotePath=false`). The status and the diff are read
+      in the `-z` format, where nothing is quoted at all.
+    * **An untracked directory is one path.** Git collapses a directory that is
+      untracked as a whole into the directory name, so a new file inside it
+      never appears by name. The status is asked for the untracked files one by
+      one (`--untracked-files=all`), so each file is a path of its own.
     """
     paths: list[str] = []
     committed = subprocess.run(
-        ['git', 'diff', '--name-only', f'{base}...HEAD'],
+        ['git', '-c', 'core.quotePath=false', 'diff', '--name-only', '-z',
+         '--no-renames', f'{base}...HEAD'],
         cwd=ROOT, capture_output=True, text=True, check=False,
     )
     if committed.returncode == 0:
-        paths.extend(line.strip() for line in committed.stdout.splitlines() if line.strip())
+        paths.extend(part for part in committed.stdout.split('\0') if part)
     working = subprocess.run(
-        ['git', 'status', '--porcelain'],
+        ['git', '-c', 'core.quotePath=false', 'status', '--porcelain', '-z',
+         '--untracked-files=all'],
         cwd=ROOT, capture_output=True, text=True, check=False,
     )
     if working.returncode == 0:
-        for line in working.stdout.splitlines():
-            name = line[3:].strip()
-            if ' -> ' in name:
-                name = name.split(' -> ', 1)[1].strip()
-            if name:
-                paths.append(name)
+        paths.extend(porcelain_paths(working.stdout))
     seen: set[str] = set()
     ordered: list[str] = []
     for path in paths:
@@ -623,6 +752,15 @@ def main(argv: list[str]) -> int:
             print(f'error: {error}', file=sys.stderr)
         print(
             'the module graph and the build disagree — no plan can be trusted',
+            file=sys.stderr,
+        )
+        return 2
+
+    if not base_usable(args.base):
+        print(
+            f'changed-modules: the base {args.base!r} cannot be measured against — it '
+            f'does not resolve, or it has no merge base with HEAD. The committed part '
+            f'of the change would not be counted.',
             file=sys.stderr,
         )
         return 2

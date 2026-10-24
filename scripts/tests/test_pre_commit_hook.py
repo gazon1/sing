@@ -17,7 +17,10 @@ wrapper that records what it was asked to compile:
   - a commit in a worktree COMPILES (the wrapper is asked for the compile);
   - a commit in a worktree whose compile FAILS does not happen (this is the
     regression: before, the commit succeeded because nothing was compiled);
-  - a commit in the main checkout still compiles.
+  - a commit in the main checkout still compiles;
+  - a commit that touches no module compiles NOTHING (the compile follows the
+    change, so a change to a gate script or a document does not pay for a
+    Kotlin compile that cannot say anything about it).
 
 Nothing here touches the developer's repository: the repository, the worktree
 and the hook copy are all temporary, and the Gradle wrapper is a stand-in, so
@@ -56,6 +59,13 @@ import sys
 sys.exit(0)
 """
 
+#: A file inside a module — the change the compile is about. A change outside
+#: every module compiles nothing, and that is a case of its own.
+MODULE_FILE = 'shared/src/main/kotlin/Example.kt'
+
+#: A file no module owns — a document, a script, a configuration file.
+GATE_FILE = 'notes.md'
+
 
 def _git(*args: str, cwd: pathlib.Path) -> subprocess.CompletedProcess:
     return subprocess.run(
@@ -84,9 +94,26 @@ class PreCommitHookTest(unittest.TestCase):
         self._write('.githooks/pre-commit', HOOK.read_text(encoding='utf-8'), executable=True)
         self._write('gw', FAKE_GW, executable=True)
         self._write('scripts/lint-changed.py', PASSING_LINT)
+        # The compile step is a script of its own, and it reads the module
+        # graph — both are the repository's, so both are copied in. The fixture
+        # is a real repository then, not a stand-in for one.
+        self._write(
+            'scripts/changed-modules.py',
+            (REPO_ROOT / 'scripts' / 'changed-modules.py').read_text(encoding='utf-8'),
+        )
+        self._write(
+            'scripts/compile-changed.py',
+            (REPO_ROOT / 'scripts' / 'compile-changed.py').read_text(encoding='utf-8'),
+        )
         (self.repo / 'README.md').write_text('seed\n', encoding='utf-8')
         _git('add', '-A', cwd=self.repo)
-        _git('commit', '-q', '-m', 'seed', cwd=self.repo)
+        # The seed is the fixture, not the thing under test, and the hook needs
+        # `origin/main` to exist before it can measure anything.
+        _git('commit', '-q', '-m', 'seed', '--no-verify', cwd=self.repo)
+        # The hook measures the change against `origin/main`, so the fixture
+        # needs that ref. A clone has it; without it the hook stops for the
+        # right reason and the test would measure the wrong thing.
+        _git('update-ref', 'refs/remotes/origin/main', 'HEAD', cwd=self.repo)
 
     def _write(self, relative: str, content: str, *, executable: bool = False) -> pathlib.Path:
         path = self.repo / relative
@@ -105,12 +132,14 @@ class PreCommitHookTest(unittest.TestCase):
         # from Git, so what runs in the worktree is the worktree's own copy.
         return worktree
 
-    def _commit(self, where: pathlib.Path) -> subprocess.CompletedProcess:
+    def _commit(self, where: pathlib.Path, relative: str = MODULE_FILE) -> subprocess.CompletedProcess:
         # The seed commit ran the hook as well, so the marker of the commit
         # under test starts empty — otherwise a test would read the seed's
         # call and prove nothing about the commit it made.
         (where / 'gw-calls.txt').unlink(missing_ok=True)
-        (where / 'change.txt').write_text('change\n', encoding='utf-8')
+        target = where / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text('change\n', encoding='utf-8')
         _git('add', '-A', cwd=where)
         return subprocess.run(
             ['git', 'commit', '-m', 'change'],
@@ -160,6 +189,42 @@ class PreCommitHookTest(unittest.TestCase):
 
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         self.assertIn(':shared:compileKotlinJvm', self._calls(self.repo))
+
+    def test_a_commit_that_touches_no_module_compiles_nothing(self):
+        """The compile follows the change.
+
+        The hook used to compile `:shared` and `:desktopApp` for every commit,
+        whatever the change was: a change to a document paid for a Kotlin
+        compile that could not say anything about it. A change no module owns
+        compiles nothing — and the commit still happens.
+        """
+        worktree = self._linked_worktree()
+
+        result = self._commit(worktree, GATE_FILE)
+
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertNotIn(
+            ':shared:compileKotlinJvm',
+            self._calls(worktree),
+            'a change that touches no module must not pay for a module compile',
+        )
+
+    def test_a_commit_compiles_the_modules_the_change_touches(self):
+        """The compile is the modules the change touches, and no others.
+
+        A change in `:desktopApp` compiles `:desktopApp` — not `:shared`, which
+        it does not compile against. The hardcoded pair compiled `:shared` for
+        every commit, and a change that did not touch it was blocked by
+        somebody else's breakage in it.
+        """
+        worktree = self._linked_worktree()
+
+        result = self._commit(worktree, 'desktopApp/src/main/kotlin/Example.kt')
+
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        calls = self._calls(worktree)
+        self.assertIn(':desktopApp:compileKotlin', calls)
+        self.assertNotIn(':shared:compileKotlinJvm', calls)
 
 
 def _committed(worktree: pathlib.Path) -> bool:
