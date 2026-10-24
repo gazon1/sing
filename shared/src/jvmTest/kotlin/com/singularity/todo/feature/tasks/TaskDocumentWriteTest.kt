@@ -25,6 +25,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskDocument
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeNotesRepository
@@ -102,9 +103,11 @@ class TaskDocumentWriteTest {
     /** The log the repository writes to, and the test reads. */
     private val logWriter = CapturingLogWriter()
 
+    private fun currentUser(userId: UserId = alice): ProfileAwareCurrentUser =
+        FakeProfileAwareCurrentUser(FakeAuthRepository(Session.Anonymous(userId)))
+
     private fun repo(userId: UserId = alice): TaskRepository {
-        val auth = FakeAuthRepository(Session.Anonymous(userId))
-        val currentUser = FakeProfileAwareCurrentUser(auth)
+        val currentUser = currentUser(userId)
         return TaskRepositoryImpl(
             taskDao = db.taskDao(),
             textIndex = db.textIndex(currentUser),
@@ -588,6 +591,7 @@ class TaskDocumentWriteTest {
             tagRepo = FakeTagsRepository(),
             tagGroupRepo = FakeTagGroupRepository(),
             timeTrackingRepo = FakeTimeTrackingRepository(FakeClock()),
+            currentUser = currentUser(),
         )
         val arriving = task("t1", seriesId = series, title = "Pay the rent in full")
         writer.upsert(

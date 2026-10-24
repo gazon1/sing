@@ -11,7 +11,6 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonArray
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -19,12 +18,13 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * The row's own absences are not deletions.
+ * The document wins wherever it speaks; where it says nothing, the row that is
+ * already here keeps saying what it says.
  *
  * ## The defect this is for
  *
- * A task document is decoded into a [Task], and the fields the model cannot do
- * without have defaults: `seriesId` defaults to no series, `recurrence` to no
+ * A document is decoded into a row, and the fields the model cannot do without
+ * have defaults: `seriesId` defaults to no series, `recurrence` to no
  * recurrence, `estimateMinutes` to no estimate. A document that carries no
  * `seriesId` key therefore decoded into a task that says "this task stands
  * alone" — and the row is written whole, so the task silently left its series
@@ -38,9 +38,21 @@ import kotlin.test.assertTrue
  *
  * The document wins wherever it speaks. Where it says nothing, the row that is
  * already here keeps saying what it says.
+ *
+ * ## Why the merge is not about one type
+ *
+ * The row is given as the JSON the model writes — the same names the document
+ * uses — so the two are compared key by key and the same rule serves every
+ * type that is synced. The fixture here is a task, because the task is where
+ * the defect was found; what is under test is the rule and not the task.
+ *
+ * The parts that live *outside* the row — the tags and the blocking edges —
+ * are not the row's to claim, and the merge does not decide that: the caller
+ * filters them out before the row arrives here. That is the caller's
+ * knowledge, and it is tested where the caller is.
  */
 @Tag("fast")
-class TaskDocumentMergeTest {
+class DocumentMergeTest {
 
     private val local = Task(
         id = TaskId.fromString("t1"),
@@ -57,6 +69,9 @@ class TaskDocumentMergeTest {
         updatedAt = Instant.fromEpochMilliseconds(0),
     )
 
+    /** The row, as the model writes it — the same names the document uses. */
+    private val localRow: JsonObject = local.toJson()
+
     private fun document(vararg entries: Pair<String, JsonElement>): JsonObject =
         JsonObject(entries.toMap())
 
@@ -64,21 +79,21 @@ class TaskDocumentMergeTest {
 
     @Test
     fun `a document that carries no series id leaves the series of the row alone`() {
-        val merged = mergeWithLocalRow(document("id" to JsonPrimitive("t1")), local)
+        val merged = mergeWithLocalRow(document("id" to JsonPrimitive("t1")), localRow)
 
         assertEquals(JsonPrimitive("s1"), merged["seriesId"])
     }
 
     @Test
     fun `a document that carries no recurrence leaves the recurrence of the row alone`() {
-        val merged = mergeWithLocalRow(document("id" to JsonPrimitive("t1")), local)
+        val merged = mergeWithLocalRow(document("id" to JsonPrimitive("t1")), localRow)
 
-        assertEquals(local.toJson()["recurrence"], merged["recurrence"])
+        assertEquals(localRow["recurrence"], merged["recurrence"])
     }
 
     @Test
     fun `a document that carries no estimate leaves the estimate of the row alone`() {
-        val merged = mergeWithLocalRow(document("id" to JsonPrimitive("t1")), local)
+        val merged = mergeWithLocalRow(document("id" to JsonPrimitive("t1")), localRow)
 
         assertEquals(JsonPrimitive(30), merged["estimateMinutes"])
     }
@@ -90,7 +105,7 @@ class TaskDocumentMergeTest {
         // The key is there and it says null: that is a claim, and it wins.
         val merged = mergeWithLocalRow(
             document("id" to JsonPrimitive("t1"), "seriesId" to JsonPrimitive(null as String?)),
-            local,
+            localRow,
         )
 
         assertTrue(merged.containsKey("seriesId"), "the document speaks about the series: null is a claim")
@@ -101,43 +116,31 @@ class TaskDocumentMergeTest {
     fun `the document wins where it speaks`() {
         val merged = mergeWithLocalRow(
             document("id" to JsonPrimitive("t1"), "title" to JsonPrimitive("Pay the rent in full")),
-            local,
+            localRow,
         )
 
         assertEquals(JsonPrimitive("Pay the rent in full"), merged["title"])
     }
 
     @Test
-    fun `a document about a task this device has never seen is the task`() {
+    fun `a document about a row this device has never seen is the document`() {
         val arriving = document("id" to JsonPrimitive("t9"), "title" to JsonPrimitive("New"))
 
         assertEquals(arriving, mergeWithLocalRow(arriving, null))
     }
 
-    // ── the parts that live outside the row ────────────────────────────────
+    // ── the names ──────────────────────────────────────────────────────────
 
     @Test
-    fun `the merge does not speak about the tags the document does not carry`() {
-        val merged = mergeWithLocalRow(document("id" to JsonPrimitive("t1")), local)
+    fun `a row that writes a field under another name does not fill it`() {
+        // The merge compares key by key, and it does not guess a name. A row
+        // that writes the series under another name is a row that says nothing
+        // about `seriesId` — and filling it from such a row would be the merge
+        // inventing a correspondence that the wire does not make.
+        val renamed = JsonObject(localRow - "seriesId" + ("series_id" to JsonPrimitive("s1")))
 
-        assertFalse(merged.containsKey("tags"), "the tags are not the row's to claim")
-    }
+        val merged = mergeWithLocalRow(document("id" to JsonPrimitive("t1")), renamed)
 
-    @Test
-    fun `the merge does not speak about the dependencies the document does not carry`() {
-        val merged = mergeWithLocalRow(document("id" to JsonPrimitive("t1")), local)
-
-        assertFalse(merged.containsKey("dependsOn"), "the blocking edges are not the row's to claim")
-    }
-
-    @Test
-    fun `the tags the document carries are the tags of the document`() {
-        val tags = buildJsonArray { add(JsonPrimitive("tag-1")) }
-        val merged = mergeWithLocalRow(
-            document("id" to JsonPrimitive("t1"), "tags" to tags),
-            local,
-        )
-
-        assertEquals(tags, merged["tags"])
+        assertFalse(merged.containsKey("seriesId"), "the row does not speak about that name")
     }
 }

@@ -3106,7 +3106,18 @@ class FakeTagGroupRepository(private val currentUser: ProfileAwareCurrentUser = 
     override fun observe(id: TagGroupId): Flow<TagGroup?> =
         currentUser.observeForCurrentUser { _ -> store.state.map { it[id.value] } }
 
-    override suspend fun get(id: TagGroupId): TagGroup? = store[id.value]
+    /**
+     * Scoped to the current user, matching production's `getByIdForUser`.
+     *
+     * The sync apply path reads the row that is already here, and a row of
+     * another profile is not this profile's row: reading it would let a
+     * document be filled with another profile's values. A double that reads
+     * across profiles would hide exactly that.
+     */
+    override suspend fun get(id: TagGroupId): TagGroup? {
+        val uid = currentUser.scopedUserId.value
+        return store[id.value]?.takeIf { it.userId == uid }
+    }
 
     override suspend fun create(input: CreateTagGroupInput): Result<TagGroup> =
         unsupported("create")
