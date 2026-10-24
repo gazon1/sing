@@ -116,10 +116,33 @@ a verdict that carries the digest of a contract that is not there any more is
 a finding — and whether the re-issue was earned is the reviewer's question,
 because a re-issue is a claim in a diff like any other.
 
-The two verdicts are allowed to disagree, and neither one is checked against
-the other: the file's `fail` says the review found something, and the
-comment's `fail` keeps the pull request red until a later review says `pass`.
-One of them is a record, the other is a gate.
+The two verdicts do **not** answer one question, and the check does not compare
+them. The comment is the **pull request's** verdict, and it is transient on
+purpose: the newest review decides whether the pull request is red today, and
+a later `pass` clears an earlier `fail`. The file is the **change's** verdict,
+and it is a permanent record — a `fail` there is legal and stays, because "the
+review found something" is the interesting case and the file is where that is
+written down. A gate that demanded the two agree would demand a state this
+repository does not have: a pull request carrying a change whose review found
+something could never be green, because the file keeps saying `fail` and the
+file is not re-issued unless the contract moves.
+
+What the two share is the **pointer**: the file's `pr:` field names the pull
+request whose review it records, and the `Agent review` job checks that the
+pointer and the pull request agree about what was reviewed:
+
+- a verdict file that names this pull request has to be about a change **this**
+  pull request carries;
+- a change whose **contract** this pull request moves has to carry a verdict
+  that names **this** pull request — a contract that moves is re-issued, and
+  the re-issue names the pull request where the contract moved.
+
+So a re-issue that names another pull request is a finding, and so is a verdict
+file that names this pull request and reviews a change this pull request does
+not carry. The format of a
+verdict file — its frontmatter, the two verdicts it may carry, the pull request
+it names — lives in `scripts/src/sgate/gatekit/verdicts.py`, and both gates
+read it from there.
 
 ### Draft vs. ready
 
