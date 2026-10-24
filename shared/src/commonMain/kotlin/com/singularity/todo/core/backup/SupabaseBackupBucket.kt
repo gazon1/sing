@@ -1,0 +1,83 @@
+package com.singularity.todo.core.backup
+
+import com.singularity.todo.core.auth.SupabaseClientProvider
+import com.singularity.todo.core.error.TransportException
+import com.singularity.todo.core.transport.SupabaseTransportFailure
+import io.github.jan.supabase.storage.storage
+
+/**
+ * The bucket, over Supabase Storage.
+ *
+ * ## Why this file is a vendor seam
+ *
+ * The SDK is what knows the bucket's REST shape, the upsert header and the way a
+ * storage error is parsed. Everything above it — [BackupBucket] and
+ * [RemoteBackupService] — is a project interface, and the feature code talks to
+ * those. This file is one of the places where the vendor's types appear, and it is
+ * declared as such in `VendorSdkConfinementTest`.
+ *
+ * ## Why the session is the identity
+ *
+ * The upload is made through the client the app already authenticated, so the SDK
+ * attaches the signed-in user's token to the request. A hand-built request would
+ * have to carry an access token around and set an `Authorization` header by hand,
+ * and the day the token expires the request would arrive as a stranger — which for
+ * a bucket with row-level security means the upload is refused.
+ *
+ * That is not hypothetical: the client this asks for has to be the *same* client the
+ * sign-in ran against, or the session is in an instance nobody else can reach.
+ * [SupabaseClientProvider] is where that is guaranteed.
+ *
+ * ## Why the failure is translated here
+ *
+ * A vendor exception carries the vendor's own shape, and the code above cannot read
+ * it: the difference between "your session was refused" and "the policy refused
+ * this write" has to survive the trip up, or the crash reporter groups two defects
+ * under one key. The translation happens at the seam, where the vendor's types are
+ * still in sight.
+ */
+class SupabaseBackupBucket(private val clientProvider: SupabaseClientProvider) : BackupBucket {
+
+    override suspend fun upload(path: String, bytes: ByteArray) {
+        translating("the archive could not be uploaded") {
+            val client = requireClient()
+            client.storage.from(BUCKET_ID).upload(path, bytes) { upsert = true }
+        }
+    }
+
+    override suspend fun download(path: String): ByteArray = translating("the archive could not be downloaded") {
+        val client = requireClient()
+        client.storage.from(BUCKET_ID).downloadAuthenticated(path)
+    }
+
+    override suspend fun list(prefix: String): List<String> = translating("the archives could not be listed") {
+        val client = requireClient()
+        client.storage.from(BUCKET_ID).list(prefix).map { it.name }
+    }
+
+    /**
+     * The vendor's failure, in the project's words.
+     *
+     * Everything that is not a project failure is the vendor's, and the vendor's
+     * exceptions are what carry the status code the classification needs.
+     */
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun <T> translating(what: String, block: suspend () -> T): T = try {
+        block()
+    } catch (error: TransportException) {
+        throw error
+    } catch (error: RemoteBackupException) {
+        throw error
+    } catch (error: Throwable) {
+        throw SupabaseTransportFailure.toTransportException(error, what)
+    }
+
+    private suspend fun requireClient() = clientProvider.client() ?: throw RemoteBackupException(
+        "No cloud storage is configured. Add a Supabase project in the Account settings first.",
+    )
+
+    companion object {
+        /** The bucket the archives go into. It has to exist in the project. */
+        const val BUCKET_ID = "backups"
+    }
+}

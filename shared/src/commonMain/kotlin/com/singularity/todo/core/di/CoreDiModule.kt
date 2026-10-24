@@ -21,11 +21,13 @@ import com.singularity.todo.core.auth.SupabaseClientProvider
 import com.singularity.todo.core.auth.SupabaseConfigResolver
 import com.singularity.todo.core.backup.BackupExporter
 import com.singularity.todo.core.backup.BackupImporter
+import com.singularity.todo.core.backup.BackupBucket
 import com.singularity.todo.core.backup.BackupRepository
 import com.singularity.todo.core.backup.BackupRepositoryImpl
 import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.RemoteBackupService
-import com.singularity.todo.core.backup.SupabaseStorageRemoteBackupService
+import com.singularity.todo.core.backup.RemoteBackupServiceImpl
+import com.singularity.todo.core.backup.SupabaseBackupBucket
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.draft.DataStoreDraftStore
 import com.singularity.todo.core.draft.DraftStore
@@ -335,7 +337,12 @@ fun coreModule(): org.koin.core.module.Module =
         // "Backup pushed" and nothing was pushed. The real one fails honestly
         // when there is no project configured, which is the answer the user
         // needs.
-        single<RemoteBackupService> { SupabaseStorageRemoteBackupService(get(), get()) }
+        //
+        // The bucket's own calls are behind a port, so the service that decides
+        // where an archive goes and what a failure means can be tested without a
+        // network.
+        single<BackupBucket> { SupabaseBackupBucket(get()) }
+        single<RemoteBackupService> { RemoteBackupServiceImpl(get(), get()) }
 
         // ─── IDs / Clock ────────────────────────────────────────────────────
 
