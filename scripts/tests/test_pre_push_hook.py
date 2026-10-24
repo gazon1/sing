@@ -58,6 +58,10 @@ HOOK = REPO_ROOT / '.githooks' / 'pre-push'
 #: script, and the script computes the modules from the graph.
 VERDICT_SCRIPT = REPO_ROOT / 'scripts' / 'pre-push-verdict.py'
 CHANGED_MODULES = REPO_ROOT / 'scripts' / 'changed-modules.py'
+# The runner the hook calls for the gate suite's own tests. The fixture tree
+# carries it, because the hook calls it by name: a fixture that does not carry
+# the file the hook runs proves nothing about the hook.
+GATE_TEST_RUNNER = REPO_ROOT / 'scripts' / 'run-gate-tests.py'
 
 # The marker detekt would report on. The stand-in Gradle wrapper looks for it
 # in the Kotlin files of the tree it is run in.
@@ -213,6 +217,10 @@ class PrePushHookTest(unittest.TestCase):
         # verdict is what these tests are about.
         self._write('scripts/pre-push-verdict.py', VERDICT_SCRIPT.read_text(encoding='utf-8'))
         self._write('scripts/changed-modules.py', CHANGED_MODULES.read_text(encoding='utf-8'))
+        # The gate suite's own runner is called by the hook by name, so the
+        # fixture tree carries it — the same way it carries the scripts the
+        # hook reads.
+        self._write('scripts/run-gate-tests.py', GATE_TEST_RUNNER.read_text(encoding='utf-8'))
 
     def _commit_source(self, content: str, message: str) -> None:
         self._write('shared/src/main/kotlin/Example.kt', content)
