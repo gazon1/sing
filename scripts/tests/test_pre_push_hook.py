@@ -496,6 +496,53 @@ class PrePushHookTest(unittest.TestCase):
         self.assertIn('--repo example/the-fork', asked)
         self.assertNotIn('--repo example/upstream', asked)
 
+    def test_the_verdict_is_about_the_url_the_push_reaches(self):
+        """A push to a url asks about that url, not about `origin`.
+
+        `git push <url>` names no remote at all: git hands the url over as the
+        remote name, and the configuration has no entry for a url. The
+        repository the push reaches is the url.
+
+        The url is a `file://` one whose path holds `github.com`, so the push
+        reaches a local repository and the test asks nothing of the network —
+        and the hook reads the repository out of the url the way it reads it
+        out of a remote's configuration.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._write('scripts/ci-verdict.py', CI_VERDICT_SCRIPT.read_text(encoding='utf-8'))
+        self._commit_source(CLEAN_SOURCE, 'a clean file')
+        bin_dir = self.tmp / 'bin'
+        bin_dir.mkdir()
+        gh = bin_dir / 'gh'
+        gh.write_text(FAKE_GH, encoding='utf-8')
+        gh.chmod(0o755)
+        _git('remote', 'add', 'origin', str(self.remote), cwd=self.repo)
+        _git('remote', 'set-url', 'origin', 'git@github.com:example/upstream.git', cwd=self.repo)
+        _git('remote', 'set-url', '--push', 'origin', str(self.remote), cwd=self.repo)
+        # The repository the push reaches, at a path that says GitHub.
+        reached = self.tmp / 'github.com' / 'example' / 'the-fork.git'
+        reached.parent.mkdir(parents=True)
+        _git('init', '-q', '--bare', str(reached), cwd=self.tmp)
+        gh_log = self.tmp / 'gh.log'
+        env = _clean_git_env()
+        env['PATH'] = f'{bin_dir}{os.pathsep}{env.get("PATH", "")}'
+        env['FAKE_GH_LOG'] = str(gh_log)
+
+        result = subprocess.run(
+            ['git', 'push', f'file://{reached}', 'main'],
+            cwd=self.repo,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+        output = result.stdout + result.stderr
+        self.assertEqual(0, result.returncode, output)
+        asked = gh_log.read_text(encoding='utf-8') if gh_log.exists() else ''
+        self.assertIn('--repo example/the-fork', asked)
+        self.assertNotIn('--repo example/upstream', asked)
+
     def test_the_verdict_is_about_the_repository_the_push_reaches(self):
         """The push url is the repository that receives the push.
 

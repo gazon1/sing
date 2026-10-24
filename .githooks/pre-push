@@ -865,12 +865,24 @@ else
     ci_verdict_push_url="$(git config --get-all "remote.${ci_verdict_remote}.pushurl" 2>/dev/null | sed -n 1p || true)"
     ci_verdict_fetch_url="$(git config --get-all "remote.${ci_verdict_remote}.url" 2>/dev/null | sed -n 1p || true)"
     if [ -z "$ci_verdict_push_url" ] && [ -z "$ci_verdict_fetch_url" ]; then
-        # A remote git named that the configuration does not describe: the
-        # answer comes from `origin`, which is where most pushes go, and the
-        # line below says which remote it asked about.
-        ci_verdict_remote="origin"
-        ci_verdict_push_url="$(git config --get-all remote.origin.pushurl 2>/dev/null | sed -n 1p || true)"
-        ci_verdict_fetch_url="$(git config --get-all remote.origin.url 2>/dev/null | sed -n 1p || true)"
+        case "$ci_verdict_remote" in
+            *://*|*@*:*)
+                # A push to a url rather than to a named remote: git hands the
+                # url over as the remote name too, and the configuration has
+                # no entry for a url. The url is the repository the push
+                # reaches, so it is the candidate — and it is the *expanded*
+                # url, which is the one the push really goes to.
+                ci_verdict_fetch_url="$ci_verdict_remote"
+                ;;
+            *)
+                # A remote git named that the configuration does not describe:
+                # the answer comes from `origin`, which is where most pushes
+                # go, and the line below says which remote it asked about.
+                ci_verdict_remote="origin"
+                ci_verdict_push_url="$(git config --get-all remote.origin.pushurl 2>/dev/null | sed -n 1p || true)"
+                ci_verdict_fetch_url="$(git config --get-all remote.origin.url 2>/dev/null | sed -n 1p || true)"
+                ;;
+        esac
     fi
     for candidate in "$ci_verdict_push_url" "$ci_verdict_fetch_url"; do
         case "$candidate" in
@@ -895,7 +907,10 @@ else
             esac
             ci_verdict_seen="$ci_verdict_seen|$sha|"
             ci_verdict_line="$(python3 "$REPO_ROOT/scripts/ci-verdict.py" "$sha" ${ci_verdict_args[@]+"${ci_verdict_args[@]}"} 2>&1 || true)"
-            echo "   $ci_verdict_line"
+            # The remote is named in the line: a reader who pushed to a fork
+            # must be able to see that the answer is about the fork, and not
+            # about the repository the clone came from.
+            echo "   [$ci_verdict_remote] $ci_verdict_line"
         done
     fi
 fi

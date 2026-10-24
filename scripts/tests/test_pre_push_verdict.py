@@ -30,29 +30,27 @@ import unittest.mock
 
 import importlib.util
 
+#: The loader the script uses, imported the way the script imports it — the
+#: loader is one file for the whole repository, and a test that wrote its own
+#: would be the second copy of the way to reach the answer.
+SCRIPTS = pathlib.Path(__file__).resolve().parent.parent
+if str(SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS))
+
+import gitenv_loader  # noqa: E402
+
 #: The canonical answer, and the file it comes from.
 GITENV_PATH = pathlib.Path(__file__).resolve().parent.parent / 'src' / 'sgate' / 'gatekit' / 'gitenv.py'
-GITENV_MODULE_NAME = 'sgate_gatekit_gitenv'
+GITENV_MODULE_NAME = gitenv_loader.GITENV_MODULE_NAME
 
-
-def load_gitenv():
-    """The canonical module, loaded the way the script loads it.
-
-    The script registers the module under a name of its own, so the script and
-    this test hold the *same* module object — the identity check below is
-    therefore a statement about the script, not about the cache. The file the
-    module came from is checked separately, so the cache cannot vouch for
-    itself.
-    """
-    module = sys.modules.get(GITENV_MODULE_NAME)
-    if module is not None:
-        return module
-    spec = importlib.util.spec_from_file_location(GITENV_MODULE_NAME, GITENV_PATH)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[GITENV_MODULE_NAME] = module
-    spec.loader.exec_module(module)
-    return module
-
+#: The canonical module, loaded the way the script loads it.
+#:
+#: The script registers the module under a name of its own, so the script and
+#: this test hold the *same* module object — the identity check below is
+#: therefore a statement about the script, not about the cache. The file the
+#: module came from is checked separately, so the cache cannot vouch for
+#: itself.
+load_gitenv = gitenv_loader.load_gitenv
 
 gitenv = load_gitenv()
 _clean_git_env = gitenv.tree_env
