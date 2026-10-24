@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.notes
 
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.search.Searchable
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.DocType
 import com.singularity.todo.core.sync.Hlc
@@ -118,7 +119,17 @@ data class Note(
     // ─── Sync fields ───────────────────────────────────────────────────────────
     val serverVersion: Long = 0,
     val hlc: Hlc? = null,
-) : SyncableEntity {
+) : SyncableEntity,
+    Searchable {
+
+    /**
+     * The surfaces a note is searched by (F3): its title.
+     *
+     * A note has one searchable surface, and the note says so — so no caller
+     * has to remember it, and no caller can remember it wrong.
+     */
+    override val searchableSurfaces: List<String?>
+        get() = listOf(title)
     val isLeaf: Boolean get() = !isFolder
     val isDeleted: Boolean get() = deletedAt != null
     val isArchived: Boolean get() = archivedAt != null

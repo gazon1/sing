@@ -2,6 +2,7 @@ package com.singularity.todo.core.database
 
 import androidx.room3.Dao
 import androidx.room3.Query
+import com.singularity.todo.core.search.SearchLimits
 import com.singularity.todo.core.search.TextMatchQuery
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -79,10 +80,10 @@ interface FtsDao {
           AND n.archived_at IS NULL
           AND n.deleted_at IS NULL
         ORDER BY n.updated_at DESC
-        LIMIT 20
+        LIMIT :limit
         """,
     )
-    fun watchNotesByMatch(userId: String, match: String): Flow<List<NoteMatchRow>>
+    fun watchNotesByMatch(userId: String, match: String, limit: Int): Flow<List<NoteMatchRow>>
 
     /**
      * The projects whose name match the index.
@@ -169,7 +170,7 @@ interface FtsDao {
      */
     fun watchNotes(userId: String, query: TextMatchQuery): Flow<List<NoteMatchRow>> =
         FtsMatchQuery.expression(query)
-            ?.let { match -> watchNotesByMatch(userId, match) }
+            ?.let { match -> watchNotesByMatch(userId, match, SearchLimits.NOTES) }
             ?: flowOf(emptyList())
 
     /**

@@ -12,6 +12,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -298,6 +299,71 @@ class FtsMatcherAgreementTest {
                 ),
             )
         }
+    }
+
+    /**
+     * The contains mode loses nothing the index found.
+     *
+     * The corpus above compares the *word* rule with the index — the strict
+     * rule, and the rule the index answers. The contains mode is the other
+     * rule: the term matches wherever it occurs. It is the weaker rule, so
+     * everything the index finds, it has to find as well — and that is worth
+     * asserting against the real index rather than against the rule alone,
+     * because the two rules fold the diacritics differently when nobody
+     * watches: "cafe" found "café latte" in the index and not in the matcher,
+     * and a search that lost a record because of a fold nobody tested is a
+     * record that is simply gone.
+     *
+     * The contains mode answers more than the index — "port" finds "airport"
+     * — and that is the escape hatch working, not a disagreement. So the
+     * property is one-sided: the index's records are a subset of the contains
+     * mode's.
+     *
+     * The property holds for the single words, and the phrases are left out
+     * on purpose: a phrase is a question about tokens that stand next to
+     * each other, while the contains mode asks whether the phrase occurs
+     * *in a row* in the text. "snake_case identifier" holds the tokens
+     * "snake" and "case" next to each other, and it does not hold the words
+     * "snake case" in a row — two different questions, and the corpus says
+     * so rather than pretending they are one.
+     */
+    @Test
+    fun `the contains mode loses nothing the index found`() = runTest {
+        seed()
+
+        for (term in singleWordTerms) {
+            val byIndex = indexIds(term)
+            val byContains = texts
+                .filter { (text, _) -> TextMatch.contains(text, term) }
+                .map { it.second }
+
+            val lost = byIndex - byContains.toSet()
+            assertTrue(
+                lost.isEmpty(),
+                "the index returns $lost for the term \"$term\" and the contains mode does not. " +
+                    "The contains mode is the weaker rule — it matches wherever the term occurs — " +
+                    "so a record the index finds and it does not is a record the search loses.",
+            )
+        }
+    }
+
+    /**
+     * The contains mode folds the diacritics the way the index folds them.
+     *
+     * The corpus folds the diacritics per character, the way `unicode61`
+     * does; the contains mode folds the same way, or a search in the
+     * contains mode would answer about a different text than the index does.
+     */
+    @Test
+    fun `the contains mode folds the diacritics the way the index folds them`() {
+        assertTrue(TextMatch.contains("café latte", "cafe"))
+        assertTrue(TextMatch.contains("Café Latte", "CAFE"))
+        assertFalse(TextMatch.contains("café latte", "caffe"))
+        assertTrue(
+            TextMatch.contains("İstanbul plan", "istanbul"),
+            "the index folds İ into i, and so does the contains mode — one character in, one out",
+        )
+        assertFalse(TextMatch.contains("straße name", "strasse"))
     }
 
     private suspend fun indexIds(term: String): List<String> =

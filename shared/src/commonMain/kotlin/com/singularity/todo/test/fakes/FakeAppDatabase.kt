@@ -470,7 +470,7 @@ private class FakeFtsDao(
     override fun watchTasksByMatch(userId: String, match: String): Flow<List<TaskMatchRow>> =
         noExpression("watchTasksByMatch")
 
-    override fun watchNotesByMatch(userId: String, match: String): Flow<List<NoteMatchRow>> =
+    override fun watchNotesByMatch(userId: String, match: String, limit: Int): Flow<List<NoteMatchRow>> =
         noExpression("watchNotesByMatch")
 
     override fun watchProjectsByMatch(userId: String, match: String): Flow<List<ProjectMatchRow>> =

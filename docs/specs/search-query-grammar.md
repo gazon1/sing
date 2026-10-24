@@ -429,12 +429,19 @@ the grammar the owners implement.
 | The form of the question | `core/search/TextMatch.kt` → `TextMatchQuery` | terms and the connective |
 | The matcher — does this text match? | `core/search/TextMatch.kt` → `TextMatch` | word (F2a) / contains |
 | The mode — Word or Contains | `core/search/SearchMode.kt` | the surface that runs the search (F8) |
-| The surface of a task | `feature/tasks/domain/TaskDomain.kt` → `searchableText` | the task's own title and description (F3) |
+| The surfaces of a record | `core/search/Searchable.kt` — each model names its own | a task by its title and description, a note by its title, a project and a tag by their name (F3) |
+| The ceiling of an answer | `core/search/SearchLimits.kt` | the search — the index's query and the in-memory branch read the same number |
 | The callers of the index | `feature/search/SearchUseCase.kt`, `feature/notes/data/NotesRepositoryImpl.kt`, `feature/search/data/InternalLinkRepositoryImpl.kt`, `feature/tasks/data/TaskRepositoryImpl.kt` | they ask the rule for the question |
 | The surfaces that state the mode | `feature/notes/presentation/viewmodel/NotesListViewModel.kt` (word), `feature/notes/presentation/viewmodel/NoteEditor.kt` (word), `feature/tasks/domain/model/Task.kt` → `TaskFilter.Search` (word — the filter carries the mode, and the app does not build the filter today), `feature/projects/presentation/viewmodel/ProjectsViewModel.kt` (contains), `feature/projects/presentation/screen/ProjectDetailBody.kt` (contains) | each states the mode it searches in (F8) |
 
 Three consequences, each of them a rule rather than a habit:
 
+- **A record says what it is searched by.** A caller does not choose the
+  text: it hands the record to the matcher, and the record answers with its
+  own surfaces (F3). The map was written at every call site, and the call
+  sites disagreed — one branch of one search read the title while another
+  read the title and the description, and the difference between them was a
+  record lost without a word.
 - **A caller of the index does not write the question.** It asks the rule:
   `FreeTextRule.singleTerm(text).indexQuery()`. A hand-written question is a
   decision about what the index can answer, taken away from the rule that knows

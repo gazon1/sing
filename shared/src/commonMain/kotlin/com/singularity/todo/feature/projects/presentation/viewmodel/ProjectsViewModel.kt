@@ -109,7 +109,7 @@ class ProjectsViewModel(
                         val filtered = if (query.text.isBlank()) {
                             domainRows
                         } else {
-                            domainRows.filter { PROJECT_LIST_SEARCH_MODE.matches(it.project.name, query.text) }
+                            domainRows.filter { PROJECT_LIST_SEARCH_MODE.matches(it.project, query.text) }
                         }
                         val sorted = when (sort) {
                             ProjectSortOrder.Name -> filtered.sortedBy { it.project.name }

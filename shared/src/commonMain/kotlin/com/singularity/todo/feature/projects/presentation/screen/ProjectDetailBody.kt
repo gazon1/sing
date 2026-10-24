@@ -52,7 +52,6 @@ import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.feature.projects.presentation.components.ProjectDetailActions
 import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsNavigator
-import com.singularity.todo.feature.tasks.domain.TaskDomain
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.components.TaskCard
@@ -290,7 +289,7 @@ private fun AddExistingTaskPopup(
             if (query.isBlank()) {
                 tasks.take(10)
             } else {
-                tasks.filter { TaskDomain.matches(TASK_PICKER_SEARCH_MODE, it, query) }.take(10)
+                tasks.filter { TASK_PICKER_SEARCH_MODE.matches(it, query) }.take(10)
             }
         }
     }

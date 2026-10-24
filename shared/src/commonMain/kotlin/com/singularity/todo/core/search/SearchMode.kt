@@ -79,6 +79,19 @@ enum class SearchMode {
     }
 
     /**
+     * True when [term] matches [record] under this mode's rule.
+     *
+     * The record says which of its surfaces it is searched by (F3), and the
+     * mode says how a surface is matched — so a caller asks one question
+     * instead of two, and cannot answer it about the wrong text.
+     *
+     * @param record the record to match.
+     * @param term the term to look for.
+     */
+    fun matches(record: Searchable, term: String): Boolean =
+        matchesAny(record.searchableSurfaces, term)
+
+    /**
      * True when [term] matches any of [texts] under this mode's rule.
      *
      * A record has several searchable surfaces (F3), and a match on any of
