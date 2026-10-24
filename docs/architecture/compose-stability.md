@@ -111,19 +111,35 @@ directory is git-ignored — nothing in CI may depend on it.
 ## The known debt
 
 `ComposeCollectionExemptions.kt` lists the composables that still take a raw
-collection, with the parameter each one carries. It is a register of debt, not
-an allowance: the detekt rule `NoUnstableCollectionParam` skips exactly those
-composables and reports every other one, so a new raw collection parameter is
-a finding and an old one is named.
+collection, and under each of them the parameters that still carry one. It is a
+register of debt, not an allowance, and the detekt rule
+`NoUnstableCollectionParam` reads it in both directions:
+
+- a raw collection parameter the register does **not** name is a finding, even
+  when the composable itself is a known site — the exemption is keyed by the
+  parameter, not by the composable;
+- a registered parameter that no overload of the composable declares any more
+  is **stale**, and so is one whose type the code no longer declares. The debt
+  was paid, or changed shape, and the register says otherwise.
+
+A composable that was deleted altogether leaves its entry behind, and no rule
+can see it. The gate `scripts/check-compose-stability-config.py` closes that
+gap: it resolves every registered site to a declaration in the sources and
+fails when there is none.
 
 Converting one means: the parameter becomes `ImmutableList` / `ImmutableSet` /
 `ImmutableMap`, the value is built at the boundary with `toImmutableList()` /
 `toImmutableSet()`, and the entry is deleted from the register.
 
-Two rules guard the contract:
+Three rules guard the contract:
 
 - `NoUnstableCollectionParam` — no raw collection parameter of a `@Composable`.
 - `NoMutableCollectionCast` — no `as MutableList` / `as MutableSet` /
   `as MutableMap`. The compiler compares a stable value by `equals`, so a
   collection mutated after such a cast keeps comparing equal to its old
   contents, and the screen goes stale without an error.
+- `NoFalseImmutable` — no `@Immutable` on a class that declares a `var` or a
+  raw collection. The annotation is a promise the compiler cannot check, and a
+  broken promise shows up as a screen that is one recomposition out of date.
+  `@Stable` is deliberately not covered: a `@Stable` holder of observable
+  state (`private var by mutableStateOf(...)`) is the ordinary pattern.
