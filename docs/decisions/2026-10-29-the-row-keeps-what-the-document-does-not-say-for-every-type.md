@@ -5,6 +5,12 @@ status: accepted
 tags: [sync, database, mapping]
 ---
 
+> **Superseded in part (2026-10-29):** the project is covered by this rule since
+> [2026-10-29-the-project-is-read-against-the-row.md](2026-10-29-the-project-is-read-against-the-row.md) —
+> the project is read against the row that is already here as well, and its
+> inheritance is a claim of its own that travels with the write. The rest of this
+> decision — the merge, the parts, the profile boundary — stands.
+
 ## Context
 
 The row keeps what the document does not say — and that was true of the task
@@ -35,7 +41,9 @@ predates a field sends no key for it.
 
 The rule is about a document and a row, and not about a task. Every type that
 is synced but the project meets the row the same way, so every type that is
-synced but the project reads the document the same way.
+synced but the project reads the document the same way. The project joined them
+after this decision was written: it is read against the row as well, and the
+inheritance it carries is a claim of its own — see the banner.
 
 ## Decision
 
@@ -46,7 +54,8 @@ synced but the project reads the document the same way.
    leave the merge behind, because the names come from the model.
 
 2. **Every type that is synced but the project is read against the row that is
-   already here.**
+   already here** — and the project since, with the inheritance as a claim of
+   its own (see the banner).
    The writer has one path, and the path is per type only in what it reads and
    in how it decodes. A note, a tag, a tag group and a time entry are read
    against the row that is already here, exactly as a task is.
@@ -100,8 +109,9 @@ takes the owner for the same reason the other repositories scope theirs.
 ## Consequences
 
 - The path that applies a document reads the local row before it writes it, for
-  every type but the project. That is one extra read per applied document, and
-  it is the price of knowing what the device already said.
+  every type but the project — the project since, with the inheritance as a
+  claim of its own (see the banner). That is one extra read per applied
+  document, and it is the price of knowing what the device already said.
 - Nothing changes for a device that sends the whole document: every key is
   there, and the merge returns the document. The behaviour changes only where
   the document is silent — which is where the deletion was.
@@ -121,7 +131,9 @@ takes the owner for the same reason the other repositories scope theirs.
   and the write path for it is a separate question: the project is written
   through `replaceInheritedTagGroups`, and a merge that spoke about the
   inheritance would have to change that write. That is its own change, and this
-  decision does not pretend to cover it.
+  decision does not pretend to cover it. The change is
+  [2026-10-29-the-project-is-read-against-the-row](2026-10-29-the-project-is-read-against-the-row.md):
+  the write carries the claim, and the project is read against the row.
 
 ## Links
 

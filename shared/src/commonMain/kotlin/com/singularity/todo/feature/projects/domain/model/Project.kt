@@ -7,6 +7,7 @@ import com.singularity.todo.core.sync.DocType
 import com.singularity.todo.core.sync.Hlc
 import com.singularity.todo.core.sync.SyncableEntity
 import com.singularity.todo.feature.tags.domain.model.TagGroupId
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.serializer
@@ -67,6 +68,7 @@ data class Project(
      * When non-empty, all tags inside those groups are visible to tasks belonging to this project.
      * Resolved at runtime by [com.singularity.todo.feature.tags.domain.usecase.EffectiveTagsResolver].
      */
+    @SerialName(INHERITED_TAG_GROUP_IDS_WIRE_NAME)
     val inheritedTagGroupIds: Set<TagGroupId> = emptySet(),
     // ─── Sync fields ───────────────────────────────────────────────────────────
     val serverVersion: Long = 0,
@@ -96,7 +98,21 @@ data class Project(
     }
 }
 
-/** Domain projection of [Project] with task counts, used by [com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsViewModel] UI state. */
+/**
+ * The wire name of [Project.inheritedTagGroupIds].
+ *
+ * The reader that checks whether a document carries the inheritance looks for
+ * this name, and the annotation that writes it says the same name. One fact,
+ * one place: a rename cannot leave the check behind.
+ *
+ * The field is a part of the document rather than a field of the row — it lives
+ * in a cross-reference table — so the name says where it belongs: it is what
+ * the document carries, not what the row holds.
+ */
+const val INHERITED_TAG_GROUP_IDS_WIRE_NAME = "inheritedTagGroupIds"
+
+/**
+ * Domain projection of [Project] with task counts, used by [com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsViewModel] UI state. */
 data class ProjectWithCounts(val project: Project, val totalCount: Int, val completedCount: Int)
 
 data class CreateProjectInput(
