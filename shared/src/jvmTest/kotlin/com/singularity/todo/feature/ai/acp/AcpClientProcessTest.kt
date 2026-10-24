@@ -157,14 +157,25 @@ class AcpClientProcessTest {
 
         // The notification really was sent while the turn was running — otherwise the
         // assertion above would be a statement about a notification nobody received.
+        // The agent's own record has the order in it: the prompt arrives, the
+        // notification is sent, and only then does the turn end. A notification sent
+        // after the answer would be handed to the notification handler that does
+        // nothing, and the test would pass green while covering nothing.
         val transcript = agent.transcript.readText()
+        // The first "session/prompt" in the record is the request the agent received —
+        // the answer that carries the same word comes later in the record.
         val promptAt = transcript.indexOf("session/prompt")
         val commandsAt = transcript.indexOf("available_commands_update")
+        val answeredAt = transcript.indexOf("ANSWERED: session/prompt")
         assertTrue(promptAt >= 0, "the agent received the prompt")
         assertTrue(
             commandsAt > promptAt,
             "the commands notification was sent after the prompt was received — " +
                 "the agent's own record says so",
+        )
+        assertTrue(
+            answeredAt > commandsAt,
+            "and before the turn was answered — so it arrived while the turn was running",
         )
         client.close()
     }

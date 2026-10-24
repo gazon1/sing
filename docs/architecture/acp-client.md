@@ -315,8 +315,8 @@ suite covers what the bridge sends rather than what we taught the fake to send.
 after the session it answered — its available commands come on a timer — so a
 transcript read the moment the connect returned would be a snapshot of a race. The
 probe reads the bridge's stream for thirty seconds after the connect, and the promise
-is the simple one: every frame the bridge wrote in the window, and that reached the
-client, is in the transcript. A short drain follows the window, so that a frame the
+is the simple one: every frame the bridge wrote in the window, and that the
+protocol's reader had taken by the time the drain ended, is in the transcript. A short drain follows the window, so that a frame the
 bridge wrote in its last milliseconds is not cut off by the boundary. The
 window is a length of time and not a heuristic — an earlier version waited for the
 bridge to go quiet, and a quiet period cuts off a bridge that announces on a longer
