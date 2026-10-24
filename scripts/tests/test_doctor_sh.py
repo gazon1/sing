@@ -46,6 +46,7 @@ import unittest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 SCRIPT = REPO_ROOT / 'scripts' / 'doctor.sh'
+SETUP_WORKTREE = REPO_ROOT / 'scripts' / 'setup-worktree.sh'
 HELPER = REPO_ROOT / 'config' / 'git-layout.sh'
 DECLARATION = REPO_ROOT / 'config' / 'checkout-invariants.json'
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -391,6 +392,27 @@ class GitLayoutHelperTest(unittest.TestCase):
         )
 
     # ── the properties ──────────────────────────────────────────────────────
+
+    def test_both_scripts_take_their_layout_from_this_helper(self):
+        """Two resolvers means two answers, and the two can differ.
+
+        `doctor.sh` and `setup-worktree.sh` each used to resolve the git dir,
+        the common dir and the two config files on their own. The helper
+        answers once; a script that resolves the layout itself is a second
+        answer waiting to differ from the first.
+        """
+        for script in (SCRIPT, SETUP_WORKTREE):
+            text = pathlib.Path(script).read_text(encoding='utf-8')
+            self.assertIn(
+                'git-layout.sh',
+                text,
+                f'{pathlib.Path(script).name} does not take its layout from the helper',
+            )
+            self.assertRegex(
+                text,
+                r'(?m)^\s*\.\s+"?\$\{?helper',
+                f'{pathlib.Path(script).name} does not source the helper',
+            )
 
     def test_the_answer_does_not_depend_on_the_directory_it_was_sourced_from(self):
         """A subdirectory is another directory, but it is the same checkout."""

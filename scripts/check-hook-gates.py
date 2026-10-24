@@ -107,6 +107,22 @@ def declared_hook_scripts() -> tuple[set[str], set[str]]:
     return fixed, rules
 
 
+def command_lines(ci_path: pathlib.Path) -> list[str]:
+    """The command lines of a CI file — the lines that are not comments.
+
+    A comment is prose about a module, not a list of the modules CI judges,
+    and prose is not a command: a file that only MENTIONS the graph has not
+    asked it for anything.
+    """
+    if not ci_path.is_file():
+        return []
+    return [
+        line.strip()
+        for line in ci_path.read_text(encoding='utf-8').splitlines()
+        if line.strip() and not line.strip().startswith('#')
+    ]
+
+
 def ci_detekt_modules(ci_path: pathlib.Path) -> set[str]:
     """The detekt modules a CI file NAMES in a command.
 
@@ -117,14 +133,9 @@ def ci_detekt_modules(ci_path: pathlib.Path) -> set[str]:
     a module that only a paragraph mentions, and how a gate that compares two
     lists ends up comparing a list with a paragraph.
     """
-    if not ci_path.is_file():
-        return set()
     modules: set[str] = set()
-    for line in ci_path.read_text(encoding='utf-8').splitlines():
-        stripped = line.strip()
-        if stripped.startswith('#'):
-            continue
-        modules.update(CI_DETEKT_RE.findall(stripped))
+    for line in command_lines(ci_path):
+        modules.update(CI_DETEKT_RE.findall(line))
     return modules
 
 
@@ -290,11 +301,14 @@ def collect_errors(
 
     # And the list has to actually be asked for. A CI job that judged nothing
     # would be green, and nothing else in the repository would say so.
+    #
+    # The question is asked of the COMMANDS: a comment that mentions
+    # `--detekt-tasks` is a sentence about the graph, not a command that
+    # asks it, and a file that only talks about the graph judges nothing.
     for source, path in (('the CI workflow', ci_path), ('the CI auto-fix script', ci_script)):
         if not path.is_file():
             continue
-        text = path.read_text(encoding='utf-8')
-        if '--detekt-tasks' not in text:
+        if not any('--detekt-tasks' in line for line in command_lines(path)):
             errors.append(
                 f'{source} does not ask the module graph for the detekt modules '
                 f'(`changed-modules.py --detekt-tasks`) — without it the list of modules to '

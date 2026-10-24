@@ -159,6 +159,22 @@ SHELL_MARKED = """\
 git config user.email "bot@example.com"
 """
 
+SHELL_CONTINUED = """\
+#!/usr/bin/env bash
+git config \\
+  core.bare false
+"""
+
+SHELL_SUBSTITUTION = """\
+#!/usr/bin/env bash
+value="$(git config core.bare false)"
+"""
+
+SHELL_GLOBAL = """\
+#!/usr/bin/env bash
+git config --global user.name "someone"
+"""
+
 
 class GitEnvironmentRuleTest(unittest.TestCase):
     """The rule, on trees built for it."""
@@ -301,6 +317,36 @@ class SharedConfigWriteRuleTest(unittest.TestCase):
         self._write('writes.sh', SHELL_PLAIN)
         violations = self._violations()
         self.assertEqual(1, len(violations), violations)
+
+    def test_a_write_split_across_two_lines_is_a_write(self):
+        """A command continued with a backslash is ONE command.
+
+        The reader that split the text first saw `git config \\` — a command
+        with no key and no value — and the key on the next line, which names
+        nothing. The write was real, and the rule missed it.
+        """
+        self._write('writes.sh', SHELL_CONTINUED)
+        violations = self._violations()
+        self.assertEqual(1, len(violations), violations)
+        self.assertIn('core.bare', violations[0])
+
+    def test_a_write_inside_a_command_substitution_is_a_write(self):
+        """`$(git config key value)` writes as much as `git config key value`."""
+        self._write('writes.sh', SHELL_SUBSTITUTION)
+        violations = self._violations()
+        self.assertEqual(1, len(violations), violations)
+        self.assertIn('core.bare', violations[0])
+
+    def test_a_write_to_the_users_own_config_is_not_a_shared_write(self):
+        """`--global` writes `~/.gitconfig` and `--system` the system's.
+
+        Neither is the shared config of this clone, so neither is what this
+        rule is about — and reporting them with the explanation "every
+        worktree of this repository reads it" would be reporting the wrong
+        file with the wrong reason.
+        """
+        self._write('writes.sh', SHELL_GLOBAL)
+        self.assertEqual([], self._violations())
 
     def test_the_gate_fails_on_a_shared_config_write(self):
         """The violation reaches the gate's own report, not only the scanner."""

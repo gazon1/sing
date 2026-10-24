@@ -301,6 +301,26 @@ class HookGatesTest(unittest.TestCase):
         )
         self.assertEqual([], self._errors())
 
+    def test_a_prose_mention_of_the_graph_is_not_a_question(self):
+        """A comment that mentions `--detekt-tasks` has not asked the graph.
+
+        The question is asked of the COMMANDS. A file that only talks about
+        the graph — in a paragraph, in a note — judges nothing, and a gate
+        that accepted the prose would let the command go missing unnoticed.
+        """
+        self.ci_path.write_text(
+            'run: |\n'
+            '  # The list used to be written out; now it comes from\n'
+            '  # `python3 scripts/changed-modules.py --detekt-tasks`.\n'
+            '  ./gradlew "${DETEKT_TASKS[@]}"\n',
+            encoding='utf-8',
+        )
+        errors = self._errors()
+        self.assertTrue(
+            [err for err in errors if 'does not ask the module graph' in err],
+            errors,
+        )
+
     def test_a_module_the_graph_knows_and_ci_names_is_not_that_error(self):
         """CI names it, so only the missing record entry is an error."""
         errors, _ = mod.collect_errors(

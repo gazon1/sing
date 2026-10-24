@@ -6,6 +6,18 @@ status: accepted
 
 # ADR: `core.hooksPath` — absolute path only, machine-specific by design
 
+> **Superseded in part (2026-10-23):** the decision below is about the value in the
+> **shared** config, and it still holds there. It no longer holds for the **per-worktree**
+> config, which is where the value lives now: `extensions.worktreeConfig` splits the two,
+> and each worktree writes `core.hooksPath = .githooks` — the RELATIVE path — into its own
+> `config.worktree`. A relative path is resolved by Git against the top level of the work
+> tree, so in every worktree of this clone it names that worktree's own tracked
+> `.githooks`, and it survives the machine moving: no absolute path can.
+> See [2026-10-23-the-bare-flag-lives-in-the-worktree-config.md](2026-10-23-the-bare-flag-lives-in-the-worktree-config.md).
+>
+> The premise that made a relative path fail — the hooks living in ONE checkout, so a
+> worktree had none — is gone: `.githooks/` is tracked, so every worktree has it.
+
 ## Context
 
 Git's `core.hooksPath` config accepts only absolute paths. Relative paths are silently

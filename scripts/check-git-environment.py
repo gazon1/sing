@@ -60,9 +60,12 @@ shared config ON PURPOSE and says so in the code. Silence is not a decision,
 so the opt-out has to be visible:
 
   - a marker comment on the command (or in the comment block right above it):
-    ``# git-config-shared: <why>``;
-  - an entry in ``SHARED_CONFIG_WRITES`` below, naming the script and the key
-    it writes, with the reason.
+    ``# git-config-shared: <why>``.
+
+There is exactly one escape, and it lives next to the write it excuses. The
+rule used to have a second one — a registry of "scripts that write the shared
+config on purpose" kept in this file. That list is somebody else's writes in
+a file those writers do not touch, so it drifts from the scripts it describes.
 
 Reads are not writes. ``--get``, ``--get-all``, ``--get-regexp``,
 ``--get-urlmatch``, ``--list``/``-l`` and the removal forms (``--unset``,
@@ -181,6 +184,12 @@ CONFIG_OPTIONS_WITH_VALUE = frozenset({
 #: `--file <path>` writes exactly that file, `--worktree` writes this
 #: worktree's own config. Both keep the write out of the shared config.
 CONFIG_SAFE_FLAGS = frozenset({'--file', '-f', '--worktree'})
+
+#: The `git config` options that write a file OUTSIDE this repository: the
+#: user's own `~/.gitconfig` and the system's. They are not writes to the
+#: shared config of this clone — a rule that reported them would be reporting
+#: the wrong file with the wrong explanation.
+CONFIG_OTHER_SCOPE_FLAGS = frozenset({'--global', '--system'})
 
 #: The marker that says a shared-config write is on purpose. Greppable, and
 #: it lives in the script that does the write, next to the write.
@@ -455,13 +464,39 @@ def _shell_command_text(part: str) -> str:
     return text
 
 
+def _logical_lines(source: str) -> list[tuple[int, str]]:
+    """The source's logical lines: a line a backslash continues is one line.
+
+    A command written across ``\\`` lines is one command, and a reader that
+    splits the text first sees two halves of it — ``git config \\`` names no
+    key and no value, and the key sits on the next line. The number is the
+    line the command STARTS on, so a report points at the place a reader has
+    to change.
+    """
+    out: list[tuple[int, str]] = []
+    pending = ''
+    start = 0
+    for number, line in enumerate(source.splitlines(), start=1):
+        stripped = line.rstrip()
+        if not pending:
+            start = number
+        if stripped.endswith('\\'):
+            pending += stripped[:-1] + ' '
+            continue
+        out.append((start, pending + stripped))
+        pending = ''
+    if pending:
+        out.append((start, pending.rstrip()))
+    return out
+
+
 def _shell_sites(path: pathlib.Path, source: str) -> list[Site]:
     """Every git command a shell script runs, and the directory it runs in."""
     sites = []
     tree = ''
     tree_is_root = False
     root_derived: set[str] = set()
-    for number, line in enumerate(source.splitlines(), start=1):
+    for number, line in _logical_lines(source):
         stripped = line.strip()
         if stripped.startswith('#'):
             continue
@@ -499,7 +534,12 @@ def _shell_sites(path: pathlib.Path, source: str) -> list[Site]:
                     substitution.group(1),
                     tree,
                     tree_is_root,
-                    tuple(substitution.group(2).split()),
+                    # The words of the command inside the substitution: the
+                    # subcommand first, exactly as a command written out in
+                    # full spells it. Without the subcommand the second rule
+                    # could not tell `$(git config key value)` from a command
+                    # that does not write anything.
+                    (substitution.group(1),) + tuple(substitution.group(2).split()),
                 )
             )
     return sites
@@ -643,6 +683,11 @@ def _config_write(words: tuple[str, ...]) -> tuple[bool, str, bool]:
         index += 1
     if flags & CONFIG_NON_WRITE_FLAGS:
         return False, '', False
+    if flags & CONFIG_OTHER_SCOPE_FLAGS:
+        # `--global` and `--system` write the user's own config and the
+        # system's — not the shared config of this clone, which is what this
+        # rule is about.
+        return False, '', False
     if len(positionals) < 2:
         return False, '', False
     return True, positionals[0], bool(flags & CONFIG_SAFE_FLAGS)
@@ -750,7 +795,7 @@ def cli(ctx: click.Context, quiet: bool, root: str | None) -> None:
         click.echo(
             '  fix with — write the value with `git config --file <path>` or '
             '`git config --worktree`, or say that the shared write is on purpose (a '
-            f'`# {SHARED_CONFIG_MARKER}:` comment, or an entry in SHARED_CONFIG_WRITES)'
+            f'`# {SHARED_CONFIG_MARKER}:` comment next to the write)'
         )
 
     if violations:
