@@ -67,9 +67,9 @@ as well as where it is used.
   it makes for them, and the register of debt still matches the repository.
   An entry may name a **class** or an **interface** — the compiler honours an
   interface entry, and the promise it makes is about the *instances* of that
-  interface: an instance may be any of the implementations, so the gate checks
-  them too, and holds them to the same promise. An `object` is stable without
-  the contract, and a `typealias` resolves to no class: both are findings,
+  type: an instance may be any of the types below it, so the gate checks those
+  too, and holds them to the same promise. An `object` is stable without the
+  contract, and a `typealias` resolves to no class: both are findings,
   because both say less than they appear to.
 
 ## The rule that decides everything
@@ -99,6 +99,20 @@ for a month of calendar entries. So:
    The gate will tell you if the name does not resolve, and it will tell you
    if the type you named does not keep the promise: a `var` or a mutable
    collection in a contract type is a finding.
+
+   "The compiler would judge it unstable" has an exact reading, and the
+   stability report is where to read it. The compiler prints a parameter in one
+   of three ways:
+
+   - `stable` — the compiler knows the type is stable;
+   - `unstable` — the compiler knows it is not;
+   - no marker at all — the compiler cannot judge it at compile time. That is
+     either a runtime judgement (a type of this project: the contract promotes
+     exactly those) or a type whose body the compiler cannot see (a library
+     type: the contract does not cover those, and there is nothing to add).
+
+   A parameter the report prints with the `stable` marker needs no entry at
+   all.
 2. **Is the parameter a collection?** Declare it `ImmutableList` /
    `ImmutableSet` / `ImmutableMap` and build it at the boundary with
    `toImmutableList()` / `toImmutableSet()`. The detekt rule
