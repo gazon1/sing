@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""check-git-environment.py — a git command that reads a tree must not inherit GIT_DIR.
+"""check-git-environment.py — a git command that reads a tree must not inherit GIT_DIR,
+and a git config write must name the file it writes.
 
 Why this exists
 ---------------
@@ -33,6 +34,44 @@ verdict is a fact about the *contents* of a tree, and treats every other
 subcommand as a write — a command this gate has never heard of is assumed to
 write, because a rule that guesses "read" about an unknown command cries wolf
 on the first command that turns out to be something else.
+
+``git config`` is not a tree read for the first rule. The second rule below is
+about WHERE its write lands.
+
+The second rule — a ``git config`` write must name its destination
+------------------------------------------------------------------
+A plain ``git config <key> <value>`` always lands in the **SHARED** config —
+the ``config`` file of the common directory — no matter which worktree ran it.
+This repository is one clone with ~20 worktrees sharing one common ``.git``,
+so one such write changes the config of every one of them, and the damage
+shows up somewhere else: a ``core.bare = false`` that un-bares the repository
+for everybody (ADR
+``docs/decisions/2026-10-23-the-bare-flag-lives-in-the-worktree-config.md``),
+a lost ``core.hooksPath`` that leaves every worktree running no hooks at all.
+
+So a script that writes a config value writes it into a file of its own
+choosing:
+
+  - ``git config --file <path> <key> <value>`` — exactly that file;
+  - ``git config --worktree <key> <value>`` — this worktree's own config.
+
+A write that carries NEITHER is a violation, unless the script writes the
+shared config ON PURPOSE and says so in the code. Silence is not a decision,
+so the opt-out has to be visible:
+
+  - a marker comment on the command (or in the comment block right above it):
+    ``# git-config-shared: <why>``.
+
+There is exactly one escape, and it lives next to the write it excuses. The
+rule used to have a second one — a registry of "scripts that write the shared
+config on purpose" kept in this file. That list is somebody else's writes in
+a file those writers do not touch, so it drifts from the scripts it describes.
+
+Reads are not writes. ``--get``, ``--get-all``, ``--get-regexp``,
+``--get-urlmatch``, ``--list``/``-l`` and the removal forms (``--unset``,
+``--remove-section``, ``--rename-section``) do not SET a value, and this rule
+is about the setting of one. (The removal forms do write the shared config
+too; they are out of this rule's scope, not out of git's.)
 
 How the tree is decided — and what the rule cannot see
 ------------------------------------------------------
@@ -69,8 +108,11 @@ Usage:
     python3 scripts/check-git-environment.py --root PATH # another tree
 
 Exit codes:
-    0 — every script that reads a tree in another tree neutralises the variables
-    1 — a script reads a tree in another tree and inherits the variables
+    0 — every script that reads a tree in another tree neutralises the variables,
+        and every script that writes a git config value writes it into a file of
+        its own choosing
+    1 — a script reads a tree in another tree and inherits the variables, or a
+        script writes the shared git config without saying that it means to
 """
 
 from __future__ import annotations
@@ -123,6 +165,36 @@ ROOT_NAMES = frozenset({
     'root', 'root_dir', 'rootdir', 'repo', 'repo_dir', 'repo_root',
 })
 
+#: The `git config` forms that do not SET a value: they read it, or they
+#: remove it. This rule is about the setting of a value, so these are not
+#: writes here — `git config --get key` stays exactly as it was.
+CONFIG_NON_WRITE_FLAGS = frozenset({
+    '--get', '--get-all', '--get-color', '--get-colorbool', '--get-regexp',
+    '--get-urlmatch', '--list', '-l',
+    '--unset', '--unset-all', '--remove-section', '--rename-section',
+})
+
+#: The `git config` options that take a value: the value is not a positional.
+CONFIG_OPTIONS_WITH_VALUE = frozenset({
+    '--blob', '--default', '--file', '-f', '--get-color', '--get-urlmatch',
+    '--type',
+})
+
+#: The `git config` options that send the write to a file the caller names:
+#: `--file <path>` writes exactly that file, `--worktree` writes this
+#: worktree's own config. Both keep the write out of the shared config.
+CONFIG_SAFE_FLAGS = frozenset({'--file', '-f', '--worktree'})
+
+#: The `git config` options that write a file OUTSIDE this repository: the
+#: user's own `~/.gitconfig` and the system's. They are not writes to the
+#: shared config of this clone — a rule that reported them would be reporting
+#: the wrong file with the wrong explanation.
+CONFIG_OTHER_SCOPE_FLAGS = frozenset({'--global', '--system'})
+
+#: The marker that says a shared-config write is on purpose. Greppable, and
+#: it lives in the script that does the write, next to the write.
+SHARED_CONFIG_MARKER = 'git-config-shared'
+
 #: The subprocess entry points that run a command.
 SUBPROCESS_FUNCS = frozenset({'run', 'Popen', 'check_output', 'check_call'})
 
@@ -138,7 +210,9 @@ GIT_TREE_OPTIONS = ('-C', '--git-dir', '--work-tree')
 SHELL_CD = re.compile(r'^\s*cd\s+(.+?)\s*$')
 
 #: A git command inside a command substitution: `repo_root="$(git rev-parse …)"`.
-SHELL_SUBSTITUTION = re.compile(r'\$\(\s*git\s+([a-z][a-z0-9-]*)')
+#: The second group is the rest of the command, so that the second rule can
+#: read what the command does (`$(git config --get key)` is a read).
+SHELL_SUBSTITUTION = re.compile(r'\$\(\s*git\s+([a-z][a-z0-9-]*)((?:\s+[^)]*)?)')
 
 #: An assignment in a shell script.
 SHELL_ASSIGN = re.compile(r'^\s*([A-Za-z_][A-Za-z0-9_]*)=(.*)$')
@@ -162,6 +236,8 @@ class Site:
         subcommand: str,
         tree: str,
         tree_is_root: bool = False,
+        words: tuple[str, ...] = (),
+        end_lineno: int = 0,
     ) -> None:
         self.path = path
         self.lineno = lineno
@@ -171,6 +247,11 @@ class Site:
         self.tree = tree
         #: Whether the tree is this checkout's own root.
         self.tree_is_root = tree_is_root
+        #: The arguments of the git command, after `git`. The second rule
+        #: reads them: whether the command writes, and where it writes.
+        self.words = words
+        #: The last line the command occupies — a Python call may span lines.
+        self.end_lineno = end_lineno or lineno
 
     @property
     def is_read(self) -> bool:
@@ -344,6 +425,8 @@ def _site_of_call(
         subcommand,
         pointed,
         _is_root_expression(pointed, parameters),
+        tuple(tail),
+        node.end_lineno or node.lineno,
     )
 
 
@@ -381,13 +464,39 @@ def _shell_command_text(part: str) -> str:
     return text
 
 
+def _logical_lines(source: str) -> list[tuple[int, str]]:
+    """The source's logical lines: a line a backslash continues is one line.
+
+    A command written across ``\\`` lines is one command, and a reader that
+    splits the text first sees two halves of it — ``git config \\`` names no
+    key and no value, and the key sits on the next line. The number is the
+    line the command STARTS on, so a report points at the place a reader has
+    to change.
+    """
+    out: list[tuple[int, str]] = []
+    pending = ''
+    start = 0
+    for number, line in enumerate(source.splitlines(), start=1):
+        stripped = line.rstrip()
+        if not pending:
+            start = number
+        if stripped.endswith('\\'):
+            pending += stripped[:-1] + ' '
+            continue
+        out.append((start, pending + stripped))
+        pending = ''
+    if pending:
+        out.append((start, pending.rstrip()))
+    return out
+
+
 def _shell_sites(path: pathlib.Path, source: str) -> list[Site]:
     """Every git command a shell script runs, and the directory it runs in."""
     sites = []
     tree = ''
     tree_is_root = False
     root_derived: set[str] = set()
-    for number, line in enumerate(source.splitlines(), start=1):
+    for number, line in _logical_lines(source):
         stripped = line.strip()
         if stripped.startswith('#'):
             continue
@@ -415,10 +524,24 @@ def _shell_sites(path: pathlib.Path, source: str) -> list[Site]:
             subcommand = words[1] if len(words) > 1 else ''
             if not subcommand:
                 continue
-            sites.append(Site(path, number, subcommand, tree, tree_is_root))
+            sites.append(Site(path, number, subcommand, tree, tree_is_root, tuple(words[1:])))
         substitution = SHELL_SUBSTITUTION.search(line)
         if substitution:
-            sites.append(Site(path, number, substitution.group(1), tree, tree_is_root))
+            sites.append(
+                Site(
+                    path,
+                    number,
+                    substitution.group(1),
+                    tree,
+                    tree_is_root,
+                    # The words of the command inside the substitution: the
+                    # subcommand first, exactly as a command written out in
+                    # full spells it. Without the subcommand the second rule
+                    # could not tell `$(git config key value)` from a command
+                    # that does not write anything.
+                    (substitution.group(1),) + tuple(substitution.group(2).split()),
+                )
+            )
     return sites
 
 
@@ -492,7 +615,14 @@ def _neutralizes(path: pathlib.Path, source: str) -> bool:
 
 
 def scan(root: pathlib.Path) -> tuple[list[str], list[Site]]:
-    """The violations, and the sites the rule is about."""
+    """The violations of both rules, and the sites the first rule is about."""
+    violations, sensitive = scan_tree_reads(root)
+    config_violations, _config_sites = scan_config_writes(root)
+    return violations + config_violations, sensitive
+
+
+def scan_tree_reads(root: pathlib.Path) -> tuple[list[str], list[Site]]:
+    """The violations of the first rule, and the sites it is about."""
     violations: list[str] = []
     sensitive: list[Site] = []
     for path in _script_files(root):
@@ -519,6 +649,99 @@ def scan(root: pathlib.Path) -> tuple[list[str], list[Site]]:
     return violations, sensitive
 
 
+def _config_write(words: tuple[str, ...]) -> tuple[bool, str, bool]:
+    """Whether a git command writes a config value, which key, and whether it is safe.
+
+    A write SETS a value: the command carries a key AND a value. The forms
+    that only read (``--get``, ``--list``) and the forms that remove
+    (``--unset``, ``--remove-section``, ``--rename-section``) set nothing, so
+    they are not writes here — ``git config --get key`` stays exactly as it
+    was before this rule existed.
+
+    A write is safe when it names its destination: ``--file <path>`` (exactly
+    that file) or ``--worktree`` (this worktree's own config).
+    """
+    if 'config' not in words:
+        return False, '', False
+    args = words[words.index('config') + 1:]
+    flags: set[str] = set()
+    positionals: list[str] = []
+    index = 0
+    while index < len(args):
+        word = args[index]
+        if word.startswith('#'):
+            break  # the rest of the line is a comment, not an argument
+        if word.startswith('-'):
+            name = word.split('=', 1)[0]
+            flags.add(name)
+            if '=' not in word and name in CONFIG_OPTIONS_WITH_VALUE:
+                index += 2  # the option takes the next word as its value
+                continue
+            index += 1
+            continue
+        positionals.append(word)
+        index += 1
+    if flags & CONFIG_NON_WRITE_FLAGS:
+        return False, '', False
+    if flags & CONFIG_OTHER_SCOPE_FLAGS:
+        # `--global` and `--system` write the user's own config and the
+        # system's — not the shared config of this clone, which is what this
+        # rule is about.
+        return False, '', False
+    if len(positionals) < 2:
+        return False, '', False
+    return True, positionals[0], bool(flags & CONFIG_SAFE_FLAGS)
+
+
+def _marked_shared_write(lines: list[str], first: int, last: int) -> bool:
+    """Whether the command says, in code, that it writes the shared config on purpose.
+
+    The marker may sit on the command itself or in the comment block right
+    above it: a decision somebody wrote down, next to the write it decides.
+    """
+    for number in range(first, last + 1):
+        if SHARED_CONFIG_MARKER in lines[number - 1]:
+            return True
+    number = first - 1
+    while number >= 1 and lines[number - 1].strip().startswith('#'):
+        if SHARED_CONFIG_MARKER in lines[number - 1]:
+            return True
+        number -= 1
+    return False
+
+
+def scan_config_writes(root: pathlib.Path) -> tuple[list[str], list[Site]]:
+    """The shared-config writes the second rule is about, and the sites they are."""
+    violations: list[str] = []
+    sites: list[Site] = []
+    for path in _script_files(root):
+        source = path.read_text(encoding='utf-8', errors='replace')
+        lines = source.splitlines()
+        if path.suffix == '.sh':
+            file_sites = _shell_sites(path, source)
+        else:
+            file_sites = _python_sites(path, source)
+        relative = path.relative_to(root).as_posix()
+        for site in file_sites:
+            writes, key, safe = _config_write(site.words)
+            if not writes:
+                continue
+            sites.append(site)
+            if safe:
+                continue
+            if _marked_shared_write(lines, site.lineno, site.end_lineno):
+                continue
+            violations.append(
+                f'{relative}:{site.lineno}: `git config {key} <value>` writes the SHARED git '
+                f'config — a plain `git config` always lands in the common directory\'s '
+                f'`config`, which every worktree of this repository reads, so one write '
+                f'changes all of them; write it with `--file <path>` or `--worktree`, or '
+                f'say that the shared write is on purpose (a `# {SHARED_CONFIG_MARKER}:` '
+                f'comment on the command or right above it)'
+            )
+    return violations, sites
+
+
 #: The fewest sites the rule must find. A rule that finds nothing has proved
 #: nothing, and a passing gate that checked nothing is the failure this
 #: repository keeps paying for.
@@ -534,9 +757,12 @@ MIN_SITES = 1
 )
 @click.pass_context
 def cli(ctx: click.Context, quiet: bool, root: str | None) -> None:
-    """Fail when a script reads a tree in another tree without neutralising GIT_*."""
+    """Fail when a script reads a tree in another tree without neutralising GIT_*,
+    or when a script writes the shared git config without saying that it means to."""
     tree = pathlib.Path(root).resolve() if root else ROOT
-    violations, sensitive = scan(tree)
+    tree_violations, sensitive = scan_tree_reads(tree)
+    config_violations, config_sites = scan_config_writes(tree)
+    violations = tree_violations + config_violations
 
     for violation in violations:
         click.echo(f'ERROR: {violation}')
@@ -548,7 +774,7 @@ def cli(ctx: click.Context, quiet: bool, root: str | None) -> None:
         )
         raise ctx.exit(VALIDATION_FAILURE)
 
-    if violations:
+    if tree_violations:
         click.echo('')
         click.echo(
             'check-git-environment: FAIL — a git command reads a tree that is not its own '
@@ -558,6 +784,21 @@ def cli(ctx: click.Context, quiet: bool, root: str | None) -> None:
             '  fix with — build the environment for the command, as '
             'scripts/pre-push-verdict.py does in tree_env()'
         )
+
+    if config_violations:
+        click.echo('')
+        click.echo(
+            'check-git-environment: FAIL — a `git config` write without `--file` or '
+            '`--worktree` lands in the SHARED config, which every worktree of this '
+            'repository reads'
+        )
+        click.echo(
+            '  fix with — write the value with `git config --file <path>` or '
+            '`git config --worktree`, or say that the shared write is on purpose (a '
+            f'`# {SHARED_CONFIG_MARKER}:` comment next to the write)'
+        )
+
+    if violations:
         raise ctx.exit(VALIDATION_FAILURE)
 
     if not quiet:
@@ -565,6 +806,10 @@ def cli(ctx: click.Context, quiet: bool, root: str | None) -> None:
             f'check-git-environment: OK — {len(sensitive)} git command(s) read a tree that '
             f'is not their own checkout\'s root, and every script that runs one neutralises '
             f'GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE and GIT_COMMON_DIR'
+        )
+        click.echo(
+            f'  and {len(config_sites)} git config write(s) land in a file of their own '
+            f'choosing — `--file`, `--worktree`, or a shared write that says so'
         )
     raise ctx.exit(CLEAN)
 

@@ -1069,6 +1069,104 @@ class PartITest(unittest.TestCase):
                          'release.yml is packaging, not verification')
 
 
+class PartIDerivedDetektListTest(unittest.TestCase):
+    """CI asks the module graph for the detekt list instead of spelling it out.
+
+    A workflow that runs `changed-modules.py --detekt-tasks` and hands the
+    result to Gradle never mentions a task name, so the parity check would
+    call every detekt task "named only by the local surface" — a divergence
+    the workflow does not have. The check therefore asks the same graph, and
+    the tests below pin that the derivation is conditional: it credits CI
+    only for the list CI really asks for.
+    """
+
+    def setUp(self) -> None:
+        # A synthetic repo is not judged by the real repository's declared
+        # asymmetries: the `covered` rows would demand that a fixture name
+        # `:shared:jvmTest` locally, which is a fact about the fixture, not
+        # about the derivation under test.
+        self._table = dict(gw.GRADLE_TASK_PARITY)
+        gw.GRADLE_TASK_PARITY.clear()
+        self.addCleanup(self._restore_table)
+
+    def _restore_table(self) -> None:
+        gw.GRADLE_TASK_PARITY.clear()
+        gw.GRADLE_TASK_PARITY.update(self._table)
+
+    def _surfaces(self, check_sh: str, ci_yml: str, graph_modules: list[str]) -> None:
+        tmp = pathlib.Path(self.enterContext(_tmpdir()))
+        (tmp / '.github' / 'workflows').mkdir(parents=True)
+        (tmp / 'scripts').mkdir(parents=True)
+        (tmp / 'check.sh').write_text(check_sh, encoding='utf-8')
+        (tmp / '.github' / 'workflows' / 'ci.yml').write_text(ci_yml, encoding='utf-8')
+        (tmp / 'scripts' / 'changed-modules.py').write_text(
+            'class ModuleChecks(dict):\n'
+            '    def detekt_modules(self):\n'
+            f'        return {graph_modules!r}\n'
+            '\n'
+            'TASKS = ModuleChecks()\n',
+            encoding='utf-8',
+        )
+        original_root = gw.ROOT
+        gw.ROOT = tmp
+        self.addCleanup(setattr, gw, 'ROOT', original_root)
+
+    def test_the_real_workflow_reaches_the_detekt_tasks_through_the_graph(self):
+        workflow = gw.ROOT / '.github' / 'workflows' / 'ci.yml'
+        text = gw._strip_comments(workflow.read_text(encoding='utf-8'))
+        tasks = gw.ci_reached_detekt_tasks(text)
+        self.assertIn(':shared:detekt', tasks)
+        self.assertIn(':detekt-rules:detekt', tasks)
+
+    def test_a_workflow_that_asks_for_nothing_credits_ci_with_nothing(self):
+        self.assertEqual(gw.ci_reached_detekt_tasks('./gradlew :shared:detekt'), set())
+
+    def test_a_detekt_task_ci_asks_for_is_not_a_divergence(self):
+        self._surfaces(
+            './gw :shared:detekt --quiet\n',
+            'jobs:\n  t:\n    steps:\n      - run: |\n'
+            '          mapfile -t DETEKT_TASKS < <(python3 scripts/changed-modules.py '
+            '--detekt-tasks)\n'
+            '          ./gradlew "${DETEKT_TASKS[@]}"\n',
+            ['shared'],
+        )
+        self.assertEqual(gw.check_gradle_task_parity(), [],
+                         'CI judges the task by asking the graph; the local surface '
+                         'names it; there is no divergence')
+
+    def test_a_detekt_task_ci_asks_for_and_nobody_names_locally_is_reported(self):
+        self._surfaces(
+            './gw :shared:detekt --quiet\n',
+            'jobs:\n  t:\n    steps:\n      - run: |\n'
+            '          mapfile -t DETEKT_TASKS < <(python3 scripts/changed-modules.py '
+            '--detekt-tasks)\n'
+            '          ./gradlew "${DETEKT_TASKS[@]}"\n',
+            ['shared', 'adr-core'],
+        )
+        errors = gw.check_gradle_task_parity()
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn(':adr-core:detekt', errors[0],
+                      'a module CI judges and the local loop never runs is the '
+                      'hole this gate exists for')
+
+    def test_the_derivation_does_not_apply_when_the_graph_is_absent(self):
+        tmp = pathlib.Path(self.enterContext(_tmpdir()))
+        (tmp / '.github' / 'workflows').mkdir(parents=True)
+        (tmp / 'check.sh').write_text('./gw :shared:detekt --quiet\n', encoding='utf-8')
+        (tmp / '.github' / 'workflows' / 'ci.yml').write_text(
+            'jobs:\n  t:\n    steps:\n      - run: |\n'
+            '          mapfile -t DETEKT_TASKS < <(python3 scripts/changed-modules.py '
+            '--detekt-tasks)\n'
+            '          ./gradlew "${DETEKT_TASKS[@]}"\n',
+            encoding='utf-8',
+        )
+        original_root = gw.ROOT
+        gw.ROOT = tmp
+        self.addCleanup(setattr, gw, 'ROOT', original_root)
+        errors = gw.check_gradle_task_parity()
+        self.assertTrue(any(':shared:detekt' in e for e in errors), errors)
+
+
 class PartHResolutionTest(unittest.TestCase):
     """The `sgate <name>` fallback (#682).
 

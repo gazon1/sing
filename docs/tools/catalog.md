@@ -79,5 +79,6 @@ The package the gate scripts import. The list is read from the files: a module t
 | `sgate.gates` | gate registry loader. |
 | `sgate.log` | loguru logger configured for sgate. |
 | `sgate.models` | typed JSON payloads for gate results. |
+| `sgate.module_graph` | The module graph — ``scripts/changed-modules.py`` — loaded by path. |
 | `sgate.output` | structured output for gates. |
 | `sgate.repo` | repo-root resolution and path constants. |

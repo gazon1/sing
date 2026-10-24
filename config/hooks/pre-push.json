@@ -20,7 +20,7 @@
       ":core-base:detekt",
       ":detekt-rules:detekt"
     ],
-    "partiality": "The hook judges the modules the change can affect. CI judges the modules its own list names — and that list is hand-written, not read from the build, so a module the graph knows and the list does not name is judged by the hook and by nobody else. A violation in a module the change does not reach is CI's to find — so the local verdict is partial, and it says so instead of reading as full.",
+    "partiality": "The hook judges the modules the change can affect. CI judges every module the build declares that has a detekt verdict — the list is read from the build (`changed-modules.py --detekt-tasks`), not written out by hand, so a module added to the build is judged by CI on the next run. A violation in a module the change does not reach is CI's to find — so the local verdict is partial, and it says so instead of reading as full.",
 
     "judged_by_ci_outside_the_module_graph": {
       ":pro:detekt": "the source-available pro catalogue — a separate build that only exists with -PwithPro, so the module graph does not know it and the hook does not judge it. CI runs it in the pro job."

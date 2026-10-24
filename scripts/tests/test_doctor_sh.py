@@ -36,6 +36,7 @@ global git config point inside the temporary directory — so a test that writes
 a config value writes it into the fixture and nowhere else.
 """
 
+import os
 import pathlib
 import shutil
 import subprocess
@@ -45,10 +46,25 @@ import unittest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 SCRIPT = REPO_ROOT / 'scripts' / 'doctor.sh'
+SETUP_WORKTREE = REPO_ROOT / 'scripts' / 'setup-worktree.sh'
+HELPER = REPO_ROOT / 'config' / 'git-layout.sh'
 DECLARATION = REPO_ROOT / 'config' / 'checkout-invariants.json'
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 from git_sandbox import assert_own_repository, git as _git, sandbox_env  # noqa: E402
+
+#: The snippet that sources the helper and prints what it resolved. It is the
+#: helper's own contract: the variables it sets, one per line.
+RESOLVE = r'''
+set -u
+. "$1"
+for name in GIT_LAYOUT_ROOT GIT_LAYOUT_GIT_DIR GIT_LAYOUT_COMMON_DIR \
+            GIT_LAYOUT_SHARED_CONFIG GIT_LAYOUT_WORKTREE_CONFIG \
+            GIT_LAYOUT_MAIN_ROOT GIT_LAYOUT_ROOT_IS_GIT_DIR; do
+    printf '%s=%s\n' "$name" "${!name}"
+done
+printf 'GIT_LAYOUT_CANONICAL_ROOTS=%s\n' "${GIT_LAYOUT_CANONICAL_ROOTS[*]}"
+'''
 
 
 class DoctorShTest(unittest.TestCase):
@@ -114,12 +130,19 @@ class DoctorShTest(unittest.TestCase):
         return env
 
     def _install(self) -> pathlib.Path:
-        """Put the doctor into the fixture, the way a checkout carries it."""
+        """Put the doctor into the fixture, the way a checkout carries it.
+
+        The layout helper comes with it: the doctor reads the layout of a
+        checkout from config/git-layout.sh, and a checkout that does not carry
+        the helper cannot be judged.
+        """
         scripts = self.repo / 'scripts'
         scripts.mkdir(exist_ok=True)
         target = scripts / 'doctor.sh'
         target.write_text(SCRIPT.read_text(encoding='utf-8'), encoding='utf-8')
         target.chmod(0o755)
+        helper = self.repo / 'config' / 'git-layout.sh'
+        helper.write_text(HELPER.read_text(encoding='utf-8'), encoding='utf-8')
         return target
 
     def _run(self, *args: str, cwd: pathlib.Path | None = None) -> subprocess.CompletedProcess:
@@ -270,6 +293,222 @@ class DoctorShTest(unittest.TestCase):
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         self.assertIn('every invariant holds', result.stdout)
 
+    def test_the_fix_writes_both_values_into_the_worktree_config_only(self):
+        """One repair, one destination: this worktree's own config.
+
+        The shared config belongs to every worktree of the clone at once, so a
+        repair written there is a repair applied to twenty checkouts, none of
+        which asked for it.
+        """
+        _git('config', 'extensions.worktreeConfig', 'true', cwd=self.repo, env=self._env())
+        _git('config', 'core.bare', 'true', cwd=self.repo, env=self._env())
+
+        result = self._run('--fix')
+
+        self.assertEqual(1, result.returncode, result.stdout + result.stderr)
+        shared = self._shared_config().read_text(encoding='utf-8')
+        self.assertNotIn('hooksPath', shared, f'the repair reached the shared config: {shared}')
+        self.assertEqual(
+            'true',
+            self._config_get(self._shared_config(), 'core.bare'),
+            'the shared config\'s bare flag was overwritten',
+        )
+        self.assertEqual(
+            'false',
+            self._config_get(self._worktree_config(), 'core.bare'),
+        )
+        self.assertEqual(
+            '.githooks',
+            self._config_get(self._worktree_config(), 'core.hooksPath'),
+        )
+
+
+class GitLayoutHelperTest(unittest.TestCase):
+    """The layout helper: one resolution, shared by both scripts.
+
+    The helper resolves the layout of the checkout the caller stands in
+    WITHOUT Git, because a checkout that Git already considers bare answers no
+    questions, and it resolves the same way from the root of a checkout and
+    from any subdirectory of it.
+
+    Three properties are held here, each on a throwaway layout in a temporary
+    directory — no real repository is read, written or judged:
+
+      - the answer does not depend on the directory the helper was sourced
+        from;
+      - a layout the helper does not understand is refused with a message and
+        a non-zero exit, never guessed;
+      - a repository Git considers bare resolves — and the resolution does not
+        call Git at all.
+    """
+
+    def setUp(self) -> None:
+        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='git-layout-'))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+        self.home = self.tmp / 'home'
+        self.home.mkdir()
+
+        self.repo = self.tmp / 'repo'
+        self.repo.mkdir()
+        _git('init', '-q', '-b', 'main', cwd=self.repo, env=self._env())
+
+        self.subdir = self.repo / 'nested' / 'deeper'
+        self.subdir.mkdir(parents=True)
+
+        # A repository Git considers bare, and a worktree linked to it.
+        self.bare = self.tmp / 'bare.git'
+        self.bare.mkdir()
+        _git('init', '-q', '--bare', cwd=self.bare, env=self._env())
+        self.linked = self.tmp / 'linked'
+        _git(
+            'worktree', 'add', '-q', '-b', 'b1', str(self.linked),
+            cwd=self.bare, env=self._env(),
+        )
+
+    def _env(self) -> dict[str, str]:
+        env = sandbox_env(self.tmp)
+        env['HOME'] = str(self.home)
+        env['XDG_CONFIG_HOME'] = str(self.home / '.config')
+        env['GIT_CONFIG_GLOBAL'] = str(self.home / '.gitconfig')
+        env['GIT_CONFIG_NOSYSTEM'] = '1'
+        return env
+
+    def _resolve(self, cwd: pathlib.Path, env: dict[str, str] | None = None):
+        """Source the helper in `cwd` and return what it resolved."""
+        return subprocess.run(
+            ['bash', '-c', RESOLVE, 'bash', str(HELPER)],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            env=env or self._env(),
+        )
+
+    def _resolved(self, cwd: pathlib.Path) -> dict[str, str]:
+        result = self._resolve(cwd)
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        return dict(
+            line.split('=', 1) for line in result.stdout.splitlines() if '=' in line
+        )
+
+    # ── the properties ──────────────────────────────────────────────────────
+
+    def test_both_scripts_take_their_layout_from_this_helper(self):
+        """Two resolvers means two answers, and the two can differ.
+
+        `doctor.sh` and `setup-worktree.sh` each used to resolve the git dir,
+        the common dir and the two config files on their own. The helper
+        answers once; a script that resolves the layout itself is a second
+        answer waiting to differ from the first.
+        """
+        for script in (SCRIPT, SETUP_WORKTREE):
+            text = pathlib.Path(script).read_text(encoding='utf-8')
+            self.assertIn(
+                'git-layout.sh',
+                text,
+                f'{pathlib.Path(script).name} does not take its layout from the helper',
+            )
+            self.assertRegex(
+                text,
+                r'(?m)^\s*\.\s+"?\$\{?helper',
+                f'{pathlib.Path(script).name} does not source the helper',
+            )
+
+    def test_the_answer_does_not_depend_on_the_directory_it_was_sourced_from(self):
+        """A subdirectory is another directory, but it is the same checkout."""
+        from_root = self._resolved(self.repo)
+        from_subdir = self._resolved(self.subdir)
+
+        self.assertEqual(from_root, from_subdir)
+        self.assertEqual(str(self.repo.resolve()), from_root['GIT_LAYOUT_ROOT'])
+        self.assertEqual(
+            str((self.repo / '.git').resolve()),
+            from_root['GIT_LAYOUT_GIT_DIR'],
+        )
+        self.assertEqual(
+            str((self.repo / '.git' / 'config').resolve()),
+            from_root['GIT_LAYOUT_SHARED_CONFIG'],
+        )
+        self.assertEqual(
+            str((self.repo / '.git' / 'config.worktree').resolve()),
+            from_root['GIT_LAYOUT_WORKTREE_CONFIG'],
+        )
+
+    def test_a_layout_it_does_not_understand_is_refused(self):
+        """A silent wrong answer is worse than a refusal."""
+        outside = self.tmp / 'outside'
+        outside.mkdir()
+        for parent in [outside, *outside.parents]:
+            if (parent / '.git').exists():
+                self.skipTest('an ancestor of the fixture is a checkout itself')
+
+        result = self._resolve(outside)
+
+        self.assertNotEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertIn('.git', result.stderr)
+
+    def test_a_repository_git_considers_bare_resolves(self):
+        """The case that makes the "without Git" approach necessary.
+
+        `git rev-parse --show-toplevel` refuses in a bare repository, so a
+        resolution that asks Git has no answer exactly where one is needed.
+        """
+        resolved = self._resolved(self.linked)
+
+        self.assertEqual(str(self.linked.resolve()), resolved['GIT_LAYOUT_ROOT'])
+        self.assertEqual(
+            str((self.bare / 'worktrees' / 'linked').resolve()),
+            resolved['GIT_LAYOUT_GIT_DIR'],
+        )
+        self.assertEqual(str(self.bare.resolve()), resolved['GIT_LAYOUT_COMMON_DIR'])
+        self.assertEqual(
+            str((self.bare / 'config').resolve()),
+            resolved['GIT_LAYOUT_SHARED_CONFIG'],
+        )
+        self.assertEqual(
+            str((self.bare / 'worktrees' / 'linked' / 'config.worktree').resolve()),
+            resolved['GIT_LAYOUT_WORKTREE_CONFIG'],
+        )
+        self.assertEqual('false', resolved['GIT_LAYOUT_ROOT_IS_GIT_DIR'])
+
+    def test_the_bare_repository_itself_resolves_to_its_own_git_dir(self):
+        """The bare repository has no `.git` of its own: it IS the git dir."""
+        resolved = self._resolved(self.bare)
+
+        self.assertEqual(str(self.bare.resolve()), resolved['GIT_LAYOUT_ROOT'])
+        self.assertEqual(str(self.bare.resolve()), resolved['GIT_LAYOUT_GIT_DIR'])
+        self.assertEqual(str(self.bare.resolve()), resolved['GIT_LAYOUT_COMMON_DIR'])
+        self.assertEqual('true', resolved['GIT_LAYOUT_ROOT_IS_GIT_DIR'])
+
+    def test_the_resolution_does_not_call_git(self):
+        """The helper reads the FILES. A git on the PATH is never asked.
+
+        The stub below records every call; the resolution of a bare
+        repository — the case where `git rev-parse` refuses — must not
+        produce a single record.
+        """
+        marker = self.tmp / 'git-was-called'
+        stub_dir = self.tmp / 'bin'
+        stub_dir.mkdir()
+        stub = stub_dir / 'git'
+        stub.write_text(
+            '#!/usr/bin/env bash\n'
+            f'echo "$*" >> "{marker}"\n'
+            'exit 1\n',
+            encoding='utf-8',
+        )
+        stub.chmod(0o755)
+        env = self._env()
+        env['PATH'] = f'{stub_dir}{os.pathsep}{env["PATH"]}'
+
+        result = self._resolve(self.bare, env=env)
+
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertFalse(
+            marker.exists(),
+            'the resolution asked git: ' + (marker.read_text(encoding='utf-8') if marker.exists() else ''),
+        )
+
 
 class DoctorShBareRepositoryTest(unittest.TestCase):
     """The bare repository ITSELF: it is not a worktree, and must stay bare.
@@ -318,21 +557,27 @@ class DoctorShBareRepositoryTest(unittest.TestCase):
         )
         return result.stdout.strip()
 
-    def _env(self) -> dict[str, str]:
-        env = sandbox_env(self.tmp)
-        env['HOME'] = str(self.home)
-        env['XDG_CONFIG_HOME'] = str(self.home / '.config')
-        env['GIT_CONFIG_GLOBAL'] = str(self.home / '.gitconfig')
-        env['GIT_CONFIG_NOSYSTEM'] = '1'
-        return env
-
     def _install(self) -> pathlib.Path:
         scripts = self.bare / 'scripts'
         scripts.mkdir(exist_ok=True)
         target = scripts / 'doctor.sh'
         target.write_text(SCRIPT.read_text(encoding='utf-8'), encoding='utf-8')
         target.chmod(0o755)
+        # A bare repository's `config` is a FILE, not a directory: there is no
+        # config/ to carry the layout helper in. It sits next to the script
+        # instead, and GIT_LAYOUT_HELPER says so.
+        helper = scripts / 'git-layout.sh'
+        helper.write_text(HELPER.read_text(encoding='utf-8'), encoding='utf-8')
         return target
+
+    def _env(self) -> dict[str, str]:
+        env = sandbox_env(self.tmp)
+        env['HOME'] = str(self.home)
+        env['XDG_CONFIG_HOME'] = str(self.home / '.config')
+        env['GIT_CONFIG_GLOBAL'] = str(self.home / '.gitconfig')
+        env['GIT_CONFIG_NOSYSTEM'] = '1'
+        env['GIT_LAYOUT_HELPER'] = str(self.bare / 'scripts' / 'git-layout.sh')
+        return env
 
     def _run(self, *args: str) -> subprocess.CompletedProcess:
         return subprocess.run(

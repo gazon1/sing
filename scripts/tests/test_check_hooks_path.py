@@ -21,6 +21,11 @@ The assertions plant each of those wrong values on a temporary git repository
 and require the correct value to pass. The repository is temporary and the
 global git configuration is neutralised for the duration, so the result does not
 depend on the machine the test runs on.
+
+The gate's ADVICE is asserted as well: it must name `scripts/doctor.sh --fix`,
+which writes this worktree's own `config.worktree`, and must not tell the
+reader to run a plain `git config core.hooksPath` — a plain `git config` writes
+the SHARED config, which every worktree of this clone shares.
 """
 
 import contextlib
@@ -111,7 +116,14 @@ class UnsetTest(HooksRepoTest):
         code, output = self.run_gate()
         self.assertEqual(0, code, output)
         self.assertIn("core.hooksPath is unset", output)
-        self.assertIn("git config core.hooksPath .githooks", output)
+        self.assertIn("scripts/doctor.sh --fix", output)
+
+    def test_the_unset_advice_does_not_ask_for_a_plain_git_config(self):
+        """A plain `git config` would write the SHARED config, which every
+        worktree of this clone shares — the advice must not ask for it."""
+        code, output = self.run_gate()
+        self.assertEqual(0, code, output)
+        self.assertNotIn("git config core.hooksPath", output)
 
     def test_the_quiet_mode_prints_nothing(self):
         code, output = self.run_gate("--quiet")
@@ -198,6 +210,38 @@ class UntrackedHooksTest(HooksRepoTest):
         self.set_hooks_path(".githooks")
         code, output = self.run_gate()
         self.assertEqual(0, code, output)
+
+
+class RepairAdviceTest(HooksRepoTest):
+    """The advice names the repair that does not damage the other worktrees.
+
+    A plain `git config core.hooksPath ...` always lands in the shared config
+    (the common directory's `config`), and every worktree of this clone shares
+    it — so the advice must point at `scripts/doctor.sh --fix`, which writes
+    this worktree's own `config.worktree` instead.
+    """
+
+    def test_the_failure_advice_names_the_doctor(self):
+        self.make_hooks_dir()
+        self.set_hooks_path("/somewhere/else/.githooks")
+        code, output = self.run_gate()
+        self.assertEqual(1, code, output)
+        self.assertIn("scripts/doctor.sh --fix", output)
+
+    def test_the_failure_advice_does_not_ask_for_a_plain_git_config(self):
+        self.make_hooks_dir()
+        self.set_hooks_path("/somewhere/else/.githooks")
+        code, output = self.run_gate()
+        self.assertEqual(1, code, output)
+        self.assertNotIn("git config core.hooksPath", output)
+
+    def test_the_failure_advice_says_why(self):
+        """The reader is told what the damage would be, in one clause."""
+        self.make_hooks_dir()
+        self.set_hooks_path("/somewhere/else/.githooks")
+        code, output = self.run_gate()
+        self.assertEqual(1, code, output)
+        self.assertIn("shared config", output)
 
 
 class RealRepositoryTest(unittest.TestCase):

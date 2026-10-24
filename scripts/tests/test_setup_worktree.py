@@ -33,6 +33,7 @@ import unittest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 SCRIPT = REPO_ROOT / 'scripts' / 'setup-worktree.sh'
+HELPER = REPO_ROOT / 'config' / 'git-layout.sh'
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 from git_sandbox import assert_own_repository, git as _git, sandbox_env  # noqa: E402
@@ -58,6 +59,11 @@ class SetupWorktreeTest(unittest.TestCase):
         target = scripts / 'setup-worktree.sh'
         target.write_text(SCRIPT.read_text(encoding='utf-8'), encoding='utf-8')
         target.chmod(0o755)
+        # The layout helper travels with the script: it is where the checkout
+        # keeps what both scripts read.
+        helper = self.repo / 'config' / 'git-layout.sh'
+        helper.parent.mkdir(exist_ok=True)
+        helper.write_text(HELPER.read_text(encoding='utf-8'), encoding='utf-8')
         self.script = target
         assert_own_repository(self, self.repo, self._env())
 
@@ -170,6 +176,9 @@ class SetupWorktreeBareRepoTest(unittest.TestCase):
         target = scripts / 'setup-worktree.sh'
         target.write_text(SCRIPT.read_text(encoding='utf-8'), encoding='utf-8')
         target.chmod(0o755)
+        helper = worktree / 'config' / 'git-layout.sh'
+        helper.parent.mkdir(exist_ok=True)
+        helper.write_text(HELPER.read_text(encoding='utf-8'), encoding='utf-8')
         return target
 
     def _run(self, worktree: pathlib.Path) -> subprocess.CompletedProcess:
@@ -331,6 +340,9 @@ class SetupWorktreeBareMainEntryTest(unittest.TestCase):
         target = scripts / 'setup-worktree.sh'
         target.write_text(SCRIPT.read_text(encoding='utf-8'), encoding='utf-8')
         target.chmod(0o755)
+        helper = root / 'config' / 'git-layout.sh'
+        helper.parent.mkdir(exist_ok=True)
+        helper.write_text(HELPER.read_text(encoding='utf-8'), encoding='utf-8')
 
     def _run(self) -> subprocess.CompletedProcess:
         return subprocess.run(

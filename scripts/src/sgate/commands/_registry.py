@@ -1141,18 +1141,28 @@ GATE_CONTROLS: dict[str, Control] = {
     ),
     # checkout-invariants: the checkout has to be able to commit, to run its
     # hooks and to keep the SSH connection alive through a long hook. The
-    # probe changes the declared hooks path, so the live checkout no longer
-    # matches the promise it is held to.
+    # probe changes the declaration, so the live checkout no longer matches
+    # the promise it is held to.
+    #
+    # It changes BOTH invariants that the declaration states, because the
+    # hooks check is deliberately skipped in CI (a CI checkout has no hooks
+    # installed) — a probe that broke only the hooks path proved the gate can
+    # fail in a developer's checkout and in no CI runner at all. It used to
+    # pass in CI only because ANOTHER control had left `core.hooksPath` set in
+    # the shared config: a control that proved the gate can fail thanks to a
+    # side effect of a different control is a control that proves nothing.
+    # The `bare` invariant is checked everywhere, so the probe breaks that one
+    # too and stands on its own.
     'checkout-invariants': Control(
         kind='sabotage',
         proves='scripts/check-checkout-invariants.py',
         argv=('{python}', 'scripts/check-checkout-invariants.py'),
         path='config/checkout-invariants.json',
         edit=Edit(
-            kind='replace',
-            old='"hooks_path": ".githooks"',
-            new='"hooks_path": ".hooks"',
-            count=1,
+            kind='regex',
+            pattern='"bare": false,\n  "hooks_path": "\\.githooks"',
+            repl='"bare": true,\n  "hooks_path": ".hooks"',
+            flags='MULTILINE',
         ),
         why=(
             'a bare checkout refuses every command, a lost hooks path runs no hooks at '
