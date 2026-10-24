@@ -209,8 +209,8 @@ class PreCommitHookTest(unittest.TestCase):
             'a change that touches no module must not pay for a module compile',
         )
 
-    def test_a_commit_compiles_the_modules_the_change_reaches(self):
-        """The compile is the modules the change can break, and no others.
+    def test_a_commit_compiles_the_modules_the_change_touches(self):
+        """The compile is the modules the change touches, and no others.
 
         A change in `:desktopApp` compiles `:desktopApp` — not `:shared`, which
         it does not compile against. The hardcoded pair compiled `:shared` for

@@ -144,10 +144,15 @@ compile nobody can trust a week later.
   a module the graph does not name a compile task for is reported and the
   commit stops. A module that is not compiled locally says why, in
   `NOT_COMPILED_LOCALLY`.
-- The paths are read out of git, and git hides three things: a rename names
-  only one of its two paths, a non-ASCII path is quoted, and an untracked
-  directory is collapsed into one path. All three are asked for explicitly, so
-  a change cannot be silently unowned.
+- The paths are read out of git in the `-z` format, and git hides three things
+  without it: a rename names only one of its two paths, a path with a space, a
+  quote or a backslash is written in quotes, and an untracked directory is
+  collapsed into one path. A quoted path starts with a quote character, so no
+  module claims it — and the commit would pass without compiling anything.
+- A base that cannot be measured against is an error, not an empty plan: the ref
+  has to resolve **and** to have a merge base with `HEAD`. A base that resolves
+  but shares no history with the branch makes the three-dot diff fail, and the
+  committed part of the change would silently fall out of the plan.
 
 The price, from the measurements above: a commit that touches no module pays
 **0 s** of compile instead of 1038 s; a commit in `:detekt-rules` pays 46 s;

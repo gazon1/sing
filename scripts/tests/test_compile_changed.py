@@ -47,7 +47,7 @@ mod = _load('compile_changed', REPO_ROOT / 'scripts' / 'compile-changed.py')
 
 
 class CompilePlanTest(unittest.TestCase):
-    """Which modules a change reaches."""
+    """Which modules a change touches."""
 
     def plan(self, *paths: str) -> tuple[list[str], list[str], list[str], list[str]]:
         return mod.plan(graph, list(paths))
@@ -171,6 +171,34 @@ class TheGraphCannotFallBehindTest(unittest.TestCase):
         self.assertEqual([], tasks)
         self.assertEqual(1, len(errors), 'the module the graph forgot is an error')
         self.assertIn('shared', errors[0])
+
+    def test_a_broken_graph_stops_the_gate(self):
+        """The last line of defence: the plan error stops the commit.
+
+        `plan()` returning the error is only half of it — `main()` has to
+        turn that error into a non-zero exit, or the gate would print
+        "nothing to compile" and let the commit through.
+        """
+        broken = types.SimpleNamespace(
+            BUILD_AREAS=graph.BUILD_AREAS,
+            GATE_AREAS=graph.GATE_AREAS,
+            PATH_MODULES=graph.PATH_MODULES,
+            COMPILE_TASKS={
+                module: tasks for module, tasks in graph.COMPILE_TASKS.items()
+                if module != 'shared'
+            },
+            NOT_COMPILED_LOCALLY=graph.NOT_COMPILED_LOCALLY,
+            base_usable=lambda base: True,
+            changed_paths=lambda base: ['shared/src/commonMain/kotlin/A.kt'],
+        )
+        original = mod.load_module_graph
+        mod.load_module_graph = lambda: broken
+        try:
+            code = mod.main(['--list'])
+        finally:
+            mod.load_module_graph = original
+
+        self.assertEqual(mod.PLAN_FAILED, code)
 
     def test_a_module_that_is_not_compiled_locally_says_why(self):
         """An empty compile list needs a reason, or the skip is silent."""

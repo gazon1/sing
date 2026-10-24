@@ -20,8 +20,8 @@
 #      compiles nothing.
 #
 # What is checked: the tree that is about to be committed.
-# What is not: the modules the change does not reach. CI compiles every
-# module; this compiles the ones the change can break.
+# What is not: the modules the change does not touch. CI compiles every
+# module; this compiles the ones the change is made of.
 #
 # Use `git commit --no-verify` to skip when needed — and know that you are
 # then the check that did not run.

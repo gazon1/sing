@@ -259,17 +259,18 @@ def run_compile(tasks: list[str]) -> subprocess.CompletedProcess:
 
 
 def base_exists(base: str) -> bool:
-    """Whether the ref the change is measured against resolves.
+    """Whether the change can be measured against the base at all.
 
-    A base that does not resolve is a silent loss: the committed part of the
-    change is then not counted at all, and the plan looks like a plan for the
-    whole change while covering only what is in the working tree.
+    The check lives in the module graph, because the graph's own command has
+    to make the same one: a base that does not resolve, or that has no merge
+    base with `HEAD`, silently drops the committed part of the change from
+    every plan.
     """
-    result = subprocess.run(
-        ['git', 'rev-parse', '--verify', '--quiet', f'{base}^{{commit}}'],
-        cwd=ROOT, capture_output=True, text=True, check=False,
-    )
-    return result.returncode == 0
+    try:
+        graph = load_module_graph()
+    except (OSError, RuntimeError):
+        return False
+    return bool(graph.base_usable(base))
 
 
 def main(argv: list[str]) -> int:
@@ -299,14 +300,16 @@ def main(argv: list[str]) -> int:
 
     if not base_exists(args.base):
         print(
-            f'compile-changed: the base {args.base!r} does not resolve — the committed '
-            f'part of the change cannot be counted. Fetch it, or pass another base.',
+            f'compile-changed: the base {args.base!r} cannot be measured against — it '
+            f'does not resolve, or it has no merge base with HEAD. The committed part '
+            f'of the change cannot be counted. Fetch it, or pass another base.',
             file=sys.stderr,
         )
         return PLAN_FAILED
 
     paths = graph.changed_paths(args.base)
     modules, tasks, reasons, errors = plan(graph, paths)
+    touched = list(modules)
     modules, tasks, skipped = without_sdk(graph, modules, tasks, android_sdk_present())
     reasons.extend(skipped)
 
@@ -328,7 +331,16 @@ def main(argv: list[str]) -> int:
         return PLAN_FAILED
 
     if not tasks:
-        print('compile-changed: nothing to compile — the change touches no module.')
+        if touched:
+            # The change DID touch a module — there was just nothing to
+            # compile here. Saying "the change touches no module" would be a
+            # false statement about the change.
+            print(
+                f'compile-changed: nothing to compile — the change touches '
+                f'{", ".join(touched)}, and there is nothing to compile here.',
+            )
+        else:
+            print('compile-changed: nothing to compile — the change touches no module.')
         for reason in reasons:
             print(f'  {reason}')
         return CLEAN

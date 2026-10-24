@@ -70,8 +70,13 @@ FINDING = re.compile(
 ANSI = re.compile(r'\x1b\[[0-9;]*m')
 
 
-def git(*args: str) -> tuple[int, list[str]]:
-    """Run git in the repository root and return (exit code, output lines)."""
+def git_paths(*args: str) -> tuple[int, list[str]]:
+    """Run git for a list of paths and return (exit code, the paths).
+
+    The `-z` format is the one that does not quote: git writes a path with a
+    space, a quote or a backslash in quotes, and a quoted path does not name a
+    file — the lint would silently not look at the file that was just written.
+    """
     process = subprocess.run(
         ['git', *args],
         cwd=ROOT,
@@ -79,7 +84,7 @@ def git(*args: str) -> tuple[int, list[str]]:
         text=True,
         check=False,
     )
-    return process.returncode, [line for line in process.stdout.splitlines() if line.strip()]
+    return process.returncode, [part for part in process.stdout.split('\0') if part]
 
 
 def changed_paths(base: str) -> list[str]:
@@ -93,7 +98,7 @@ def changed_paths(base: str) -> list[str]:
 
     # The commits on this branch, measured against the merge base with the base
     # branch. `A...B` is the three-dot form: the diff starts at the merge base.
-    code, committed = git('diff', '--name-only', f'{base}...HEAD')
+    code, committed = git_paths('diff', '--name-only', '-z', f'{base}...HEAD')
     if code == 0:
         paths.extend(committed)
     else:
@@ -104,14 +109,14 @@ def changed_paths(base: str) -> list[str]:
         )
 
     # The working tree: staged and unstaged changes to tracked files.
-    code, tracked = git('diff', '--name-only', 'HEAD')
+    code, tracked = git_paths('diff', '--name-only', '-z', 'HEAD')
     if code == 0:
         paths.extend(tracked)
 
     # The working tree: files that are not tracked yet. `git status` would
     # report a new directory as one entry, which would hide the Kotlin files
     # inside it; `ls-files` reports them one by one.
-    code, untracked = git('ls-files', '--others', '--exclude-standard')
+    code, untracked = git_paths('ls-files', '--others', '--exclude-standard', '-z')
     if code == 0:
         paths.extend(untracked)
 

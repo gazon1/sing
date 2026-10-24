@@ -388,6 +388,133 @@ class TheGraphIsCompleteTest(unittest.TestCase):
         self.assertEqual([], orphans, f'these modules are compiled but own no path: {orphans}')
 
 
+class TheLintStepSeesTheSamePathsTest(unittest.TestCase):
+    """The lint step reads the paths of the change too, and it reads them raw.
+
+    Git quotes a path with a space, a quote or a backslash, and a quoted path
+    does not name a file — so the lint would not look at the file that was
+    just written.
+    """
+
+    def setUp(self):
+        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='lint-changed-'))
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+        self._git('init', '-q')
+        self._git('config', 'user.email', 'test@example.com')
+        self._git('config', 'user.name', 'Test')
+        self._git('commit', '--allow-empty', '-m', 'base', '-q')
+        (self.tmp / 'shared').mkdir()
+        (self.tmp / 'shared' / 'My File.kt').write_text('val a = 1\n', encoding='utf-8')
+
+    def _git(self, *args: str) -> None:
+        subprocess.run(
+            ['git', *args], cwd=self.tmp, check=True, capture_output=True, text=True,
+        )
+
+    def test_a_kotlin_file_with_a_space_is_listed(self):
+        """The file that was just written is the file the lint looks at."""
+        lint = _load_lint()
+        original_root = lint.ROOT
+        lint.ROOT = self.tmp
+        self.addCleanup(self._restore_root, lint, original_root)
+
+        paths = lint.changed_paths('origin/main')
+
+        self.assertIn('shared/My File.kt', paths)
+
+    @staticmethod
+    def _restore_root(lint, original_root) -> None:
+        lint.ROOT = original_root
+
+
+def _load_lint():
+    """`scripts/lint-changed.py`, loaded the way the hook loads it."""
+    path = pathlib.Path(__file__).resolve().parent.parent / 'lint-changed.py'
+    spec = importlib.util.spec_from_file_location('lint_changed', path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules['lint_changed'] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+class TheBaseIsUsableTest(unittest.TestCase):
+    """A base that cannot be measured against is a failure, not an empty plan."""
+
+    def test_a_base_that_does_not_resolve_is_not_usable(self):
+        self.assertFalse(changed.base_usable('origin/there-is-no-such-remote'))
+        self.assertTrue(changed.base_usable('HEAD'))
+
+    def test_the_command_stops_when_the_base_cannot_be_used(self):
+        """The command that reads the graph makes the same check.
+
+        A plan that covers only the working tree while looking like a plan for
+        the whole change is the silent loss the check exists to prevent.
+        """
+        code = changed.main(['--base', 'origin/there-is-no-such-remote'])
+
+        self.assertEqual(2, code)
+
+    def test_a_base_without_a_merge_base_is_not_usable(self):
+        """Unrelated histories: the three-dot diff fails, and the error is quiet.
+
+        The ref resolves, so a check that only looks at the ref says yes — and
+        the committed part of the change is not counted.
+        """
+        tmp = pathlib.Path(tempfile.mkdtemp(prefix='changed-modules-'))
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+
+        def git(*args: str) -> None:
+            subprocess.run(
+                ['git', *args], cwd=tmp, check=True, capture_output=True, text=True,
+            )
+
+        git('init', '-q')
+        git('config', 'user.email', 'test@example.com')
+        git('config', 'user.name', 'Test')
+        git('commit', '--allow-empty', '-m', 'base', '-q')
+        # A history of its own: it shares no commit with this one.
+        orphan = tmp / 'orphan'
+        orphan.mkdir()
+        subprocess.run(
+            ['git', 'init', '-q'], cwd=orphan, check=True, capture_output=True,
+        )
+        subprocess.run(
+            ['git', '-c', 'user.email=t@e.com', '-c', 'user.name=T',
+             'commit', '--allow-empty', '-m', 'orphan', '-q'],
+            cwd=orphan, check=True, capture_output=True,
+        )
+        sha = subprocess.run(
+            ['git', 'rev-parse', 'HEAD'], cwd=orphan, check=True,
+            capture_output=True, text=True,
+        ).stdout.strip()
+        subprocess.run(
+            ['git', 'fetch', '-q', '--no-tags', str(orphan),
+             f'{sha}:refs/remotes/origin/other'],
+            cwd=tmp, check=True, capture_output=True, text=True,
+        )
+
+        original_root = changed.ROOT
+        self._original_root = original_root
+        changed.ROOT = tmp
+        self.addCleanup(self._restore_root)
+
+        # The ref resolves ...
+        self.assertEqual(
+            0,
+            subprocess.run(
+                ['git', 'rev-parse', '--verify', '--quiet', 'origin/other^{commit}'],
+                cwd=tmp, capture_output=True, text=True, check=False,
+            ).returncode,
+            'the ref itself resolves',
+        )
+        # ... but the change cannot be measured against it.
+        self.assertFalse(changed.base_usable('origin/other'))
+
+    def _restore_root(self) -> None:
+        changed.ROOT = self._original_root
+
+
 class ThePathsComeOutOfGitTest(unittest.TestCase):
     """The paths are read out of git, and git has two ways to hide them.
 
@@ -468,6 +595,43 @@ class ThePathsComeOutOfGitTest(unittest.TestCase):
         paths = changed.changed_paths('origin/main')
 
         self.assertIn('shared/Ünïcode.kt', paths)
+
+    def test_a_path_with_a_space_is_not_quoted(self):
+        """Git quotes a path with a space whatever `quotePath` says.
+
+        A quoted path starts with a quote character, so no module claims it
+        and the change is silently unowned — the commit passes without
+        compiling anything.
+        """
+        (self.tmp / 'shared').mkdir()
+        (self.tmp / 'shared' / 'My File.kt').write_text('val a = 1\n', encoding='utf-8')
+
+        paths = changed.changed_paths('origin/main')
+
+        self.assertIn('shared/My File.kt', paths)
+
+    def test_a_path_with_a_space_is_owned_by_its_module(self):
+        """The path that is read is the path the module graph can match."""
+        (self.tmp / 'shared').mkdir()
+        (self.tmp / 'shared' / 'My File.kt').write_text('val a = 1\n', encoding='utf-8')
+
+        paths = changed.changed_paths('origin/main')
+        owner = next(
+            (module for prefix, module in changed.PATH_MODULES.items()
+             if any(path.startswith(prefix) for path in paths)),
+            None,
+        )
+
+        self.assertEqual('shared', owner)
+
+    def test_a_path_with_an_arrow_in_it_is_a_path(self):
+        """`->` is a separator in the old format and a character in a name."""
+        (self.tmp / 'shared').mkdir()
+        (self.tmp / 'shared' / 'a -> b.kt').write_text('val a = 1\n', encoding='utf-8')
+
+        paths = changed.changed_paths('origin/main')
+
+        self.assertIn('shared/a -> b.kt', paths)
 
     def test_a_non_ascii_path_is_owned_by_its_module(self):
         """The path that is read is the path the module graph can match."""

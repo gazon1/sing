@@ -549,6 +549,62 @@ def consistency_errors(
     return errors
 
 
+def base_usable(base: str) -> bool:
+    """Whether the change can be measured against the base at all.
+
+    Two ways it cannot: the ref does not resolve, or it resolves and has no
+    merge base with `HEAD` — the histories are unrelated. Both are silent
+    losses: the three-dot diff fails, the committed part of the change is not
+    counted, and the plan looks like a plan for the whole change while
+    covering only the working tree.
+
+    A base that cannot be measured against is a failure, not an empty plan.
+    """
+    resolved = subprocess.run(
+        ['git', 'rev-parse', '--verify', '--quiet', f'{base}^{{commit}}'],
+        cwd=ROOT, capture_output=True, text=True, check=False,
+    )
+    if resolved.returncode != 0:
+        return False
+    merge_base = subprocess.run(
+        ['git', 'merge-base', base, 'HEAD'],
+        cwd=ROOT, capture_output=True, text=True, check=False,
+    )
+    return merge_base.returncode == 0
+
+
+def porcelain_paths(output: str) -> list[str]:
+    """The paths of a `git status --porcelain -z` output.
+
+    The `-z` format is the one that does not quote. Git quotes a path that
+    holds a space, a quote or a backslash — always, whatever `quotePath` says
+    — and a quoted path starts with a quote character, so no module claims it
+    and the change is silently unowned. With `-z` the paths are written as they
+    are and the records are separated by NUL.
+
+    A rename is two records: the new path, and the original path right after
+    it. Both are changes — the module that gained the file and the module that
+    lost it.
+    """
+    records = [record for record in output.split('\0') if record]
+    paths: list[str] = []
+    index = 0
+    while index < len(records):
+        record = records[index]
+        index += 1
+        if len(record) < 4:
+            continue
+        code, path = record[:2], record[3:]
+        if 'R' in code or 'C' in code:
+            # The original path of the move is the next record.
+            if index < len(records):
+                paths.append(records[index])
+                index += 1
+        if path:
+            paths.append(path)
+    return paths
+
+
 def changed_paths(base: str) -> list[str]:
     """The paths this change touches: committed and uncommitted alike.
 
@@ -565,10 +621,12 @@ def changed_paths(base: str) -> list[str]:
       asked for renames as renames turned off (`--no-renames`), which makes git
       report a move as what it is to the module graph — a deletion in one
       place and an addition in another.
-    * **A path with a non-ASCII character is quoted by git** unless it is
-      asked not to (`core.quotePath=false`). The quoted path starts with a
-      quote character, so no module claims it, and the change is silently
-      unowned.
+    * **Git quotes a path it considers unusual.** A path with a space, a quote
+      or a backslash is written in quotes, and the quoted path starts with a
+      quote character — so no module claims it, and the change is silently
+      unowned. A path with a non-ASCII character is quoted too, unless it is
+      asked not to (`core.quotePath=false`). The status and the diff are read
+      in the `-z` format, where nothing is quoted at all.
     * **An untracked directory is one path.** Git collapses a directory that is
       untracked as a whole into the directory name, so a new file inside it
       never appears by name. The status is asked for the untracked files one by
@@ -576,29 +634,19 @@ def changed_paths(base: str) -> list[str]:
     """
     paths: list[str] = []
     committed = subprocess.run(
-        ['git', '-c', 'core.quotePath=false', 'diff', '--name-only', '--no-renames',
-         f'{base}...HEAD'],
+        ['git', '-c', 'core.quotePath=false', 'diff', '--name-only', '-z',
+         '--no-renames', f'{base}...HEAD'],
         cwd=ROOT, capture_output=True, text=True, check=False,
     )
     if committed.returncode == 0:
-        paths.extend(line.strip() for line in committed.stdout.splitlines() if line.strip())
+        paths.extend(part for part in committed.stdout.split('\0') if part)
     working = subprocess.run(
-        ['git', '-c', 'core.quotePath=false', 'status', '--porcelain',
+        ['git', '-c', 'core.quotePath=false', 'status', '--porcelain', '-z',
          '--untracked-files=all'],
         cwd=ROOT, capture_output=True, text=True, check=False,
     )
     if working.returncode == 0:
-        for line in working.stdout.splitlines():
-            name = line[3:].strip()
-            if ' -> ' in name:
-                # A rename: the old path and the new one are both changes, and
-                # the module that LOST the file is a module that changed.
-                old, new = (part.strip() for part in name.split(' -> ', 1))
-                if old:
-                    paths.append(old)
-                name = new
-            if name:
-                paths.append(name)
+        paths.extend(porcelain_paths(working.stdout))
     seen: set[str] = set()
     ordered: list[str] = []
     for path in paths:
@@ -703,6 +751,15 @@ def main(argv: list[str]) -> int:
             print(f'error: {error}', file=sys.stderr)
         print(
             'the module graph and the build disagree — no plan can be trusted',
+            file=sys.stderr,
+        )
+        return 2
+
+    if not base_usable(args.base):
+        print(
+            f'changed-modules: the base {args.base!r} cannot be measured against — it '
+            f'does not resolve, or it has no merge base with HEAD. The committed part '
+            f'of the change would not be counted.',
             file=sys.stderr,
         )
         return 2
