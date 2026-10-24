@@ -110,8 +110,8 @@ takes the owner for the same reason the other repositories scope theirs.
 
 - The path that applies a document reads the local row before it writes it, for
   every type but the project — the project since, with the inheritance as a
-  claim of its own. That is one extra read per applied document, and it is the
-  price of knowing what the device already said.
+  claim of its own (see the banner). That is one extra read per applied
+  document, and it is the price of knowing what the device already said.
 - Nothing changes for a device that sends the whole document: every key is
   there, and the merge returns the document. The behaviour changes only where
   the document is silent — which is where the deletion was.
