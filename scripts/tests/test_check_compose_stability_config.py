@@ -94,7 +94,24 @@ def build_tree(
 
 class ComposeStabilityConfigTest(unittest.TestCase):
 
-    def run_gate(self, root: pathlib.Path, conf: pathlib.Path, register: pathlib.Path | None = None) -> int:
+    def run_gate(
+        self,
+        root: pathlib.Path,
+        conf: pathlib.Path,
+        register: pathlib.Path | None = None,
+        baseline: str | None = None,
+    ) -> int:
+        register_path = register if register is not None else root / "no-register.kt"
+        baseline_path = root / "debt-baseline.conf"
+        if baseline is None:
+            # The recorded size follows the fixture, so that the ratchet is
+            # only a finding when the test says it is one.
+            debt = gate.read_register(register_path)
+            baseline = (
+                f"sites = {len(debt)}\n"
+                f"parameters = {sum(len(p) for p in debt.values())}\n"
+            )
+        write(baseline_path, baseline)
         argv = [
             "--conf",
             str(conf),
@@ -106,7 +123,9 @@ class ComposeStabilityConfigTest(unittest.TestCase):
             # tree, so the fixture run points at a path that holds no sites —
             # unless the test is about the register itself.
             "--register",
-            str(register if register is not None else root / "no-register.kt"),
+            str(register_path),
+            "--debt-baseline",
+            str(baseline_path),
         ]
         return gate.run(gate.cli.main, argv)
 
@@ -431,6 +450,127 @@ class ComposeStabilityConfigTest(unittest.TestCase):
                 ')\n',
             )
             self.assertEqual(self.run_gate(root, conf, register), 0)
+
+    def test_a_contract_type_that_declares_a_var_fails(self):
+        """The contract says the type never changes; a `var` says otherwise.
+
+        The compiler believes the contract: it compares every instance of the
+        type by `equals` and skips the recomposition. A `var` means there is a
+        second version of the value, and the comparison is of the wrong one.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            conf = build_tree(root, f"{PACKAGE}.Task\n")
+            write(
+                root / "shared" / "src" / "commonMain" / "kotlin" / "com" / "singularity"
+                / "todo" / "feature" / "tasks" / "domain" / "model" / "Task.kt",
+                f"package {PACKAGE}\n\ndata class Task(var id: String)\n",
+            )
+            self.assertEqual(self.run_gate(root, conf), 1)
+
+    def test_a_contract_type_that_holds_a_mutable_collection_fails(self):
+        """A collection that can change breaks the promise the contract makes.
+
+        The compiler compares the instance by `equals`, and `equals` of a
+        collection that changed is a lie about "the same content": the screen
+        keeps showing the old contents.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            conf = build_tree(root, f"{PACKAGE}.Task\n")
+            write(
+                root / "shared" / "src" / "commonMain" / "kotlin" / "com" / "singularity"
+                / "todo" / "feature" / "tasks" / "domain" / "model" / "Task.kt",
+                f"package {PACKAGE}\n\ndata class Task(val tags: MutableList<String>)\n",
+            )
+            self.assertEqual(self.run_gate(root, conf), 1)
+
+    def test_a_contract_type_that_holds_a_read_only_collection_passes(self):
+        """A read-only collection is what the contract relies on.
+
+        `Task` holds a `List<TagId>` on purpose: the promise there is that the
+        list is rebuilt on every read and never mutated afterwards. That the
+        list is never mutated is not a thing this check can see — but the
+        mutable spellings are, and those it rejects.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            conf = build_tree(root, f"{PACKAGE}.Task\n")
+            write(
+                root / "shared" / "src" / "commonMain" / "kotlin" / "com" / "singularity"
+                / "todo" / "feature" / "tasks" / "domain" / "model" / "Task.kt",
+                f"package {PACKAGE}\n\ndata class Task(val tags: List<String>)\n",
+            )
+            self.assertEqual(self.run_gate(root, conf), 0)
+
+    def test_the_register_growing_past_the_recorded_size_fails(self):
+        """The debt may not grow without somebody deciding to raise the bar."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            conf = build_tree(root, f"{PACKAGE}.Task\n")
+            sources = (
+                root / "shared" / "src" / "commonMain" / "kotlin" / "com" / "singularity"
+                / "todo" / "feature" / "tasks" / "presentation"
+            )
+            write(
+                sources / "Dialog.kt",
+                "package com.singularity.todo.feature.tasks.presentation\n\n"
+                "fun Dialog(blockerTitles: List<String>) {}\n",
+            )
+            register = root / "register.kt"
+            write(
+                register,
+                'val KNOWN = mapOf(\n'
+                '    "com.singularity.todo.feature.tasks.presentation.Dialog" to\n'
+                '        mapOf("blockerTitles" to "List<String>"),\n'
+                ')\n',
+            )
+            self.assertEqual(
+                self.run_gate(root, conf, register, baseline="sites = 0\nparameters = 0\n"),
+                1,
+            )
+
+    def test_the_register_shrinking_below_the_recorded_size_fails(self):
+        """The debt was paid — the recorded size has to say so.
+
+        A recorded size that stays above the real one is a number nobody
+        reads: the next person who reads it believes the debt is bigger than
+        it is.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            conf = build_tree(root, f"{PACKAGE}.Task\n")
+            sources = (
+                root / "shared" / "src" / "commonMain" / "kotlin" / "com" / "singularity"
+                / "todo" / "feature" / "tasks" / "presentation"
+            )
+            write(
+                sources / "Dialog.kt",
+                "package com.singularity.todo.feature.tasks.presentation\n\n"
+                "fun Dialog(blockerTitles: List<String>) {}\n",
+            )
+            register = root / "register.kt"
+            write(
+                register,
+                'val KNOWN = mapOf(\n'
+                '    "com.singularity.todo.feature.tasks.presentation.Dialog" to\n'
+                '        mapOf("blockerTitles" to "List<String>"),\n'
+                ')\n',
+            )
+            self.assertEqual(
+                self.run_gate(root, conf, register, baseline="sites = 5\nparameters = 9\n"),
+                1,
+            )
+
+    def test_the_recorded_size_matches_the_committed_register(self):
+        """The positive control: the committed numbers are the committed ones."""
+        debt = gate.read_register(gate.DEBT_REGISTER)
+        baseline = gate.read_debt_baseline(gate.DEBT_BASELINE)
+        self.assertEqual(
+            gate.check_debt_size(debt, baseline),
+            [],
+            "the recorded size of the register of debt does not match the register",
+        )
 
     def test_a_source_with_a_header_before_its_package_is_read(self):
         """The package a file declares is the package line, wherever the line sits.

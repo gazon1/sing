@@ -97,6 +97,37 @@ _DECLARATION = re.compile(
 _TYPEALIAS = re.compile(r"^typealias\s+([A-Za-z_]\w*)", re.M)
 _IMPORT = re.compile(r"^import\s+([\w.]+)", re.M)
 
+#: A class declaration, with the position where its header ends. The property
+#: check needs the constructor and the body, not only the name.
+_CLASS = re.compile(
+    r"^[ \t]*(?:@\w+(?:\([^)]*\))?[ \t]*\n?[ \t]*)*"
+    r"(?:public |internal |private |protected |abstract |sealed |open |data |value |"
+    r"enum |annotation |expect |actual |inline )*"
+    r"class[ \t]+([A-Za-z_]\w*)",
+    re.M,
+)
+
+#: A property declaration: `val` or `var`, and its name. The type is read
+#: separately, because a type may be generic, inferred, or followed by an
+#: accessor — a pattern that one regex cannot tell apart.
+_PROPERTY = re.compile(
+    r"^\s*(?:@\w+(?:\([^)]*\))?\s+)*"
+    r"(?:private |public |internal |protected )?(val|var)[ \t]+([A-Za-z_]\w*)",
+)
+
+#: The collection types that can change after they are built. A contract type
+#: that holds one of these breaks the promise the contract makes: the compiler
+#: compares the instance by `equals`, and `equals` of a collection that changed
+#: is a lie about "the same content".
+_MUTABLE_COLLECTIONS = (
+    "MutableList",
+    "MutableSet",
+    "MutableMap",
+    "ArrayList",
+    "HashSet",
+    "HashMap",
+)
+
 #: A fully-qualified name: dot-separated Java identifiers. The last segment may
 #: be a wildcard — `*` for one package level, `**` for the level and everything
 #: under it.
@@ -107,6 +138,10 @@ DEBT_REGISTER = (
     ROOT / "detekt-rules" / "src" / "main" / "kotlin" / "com" / "singularity" / "todo"
     / "detekt" / "ComposeCollectionExemptions.kt"
 )
+
+#: The recorded size of the register of debt — the ratchet. It may go down,
+#: and it may not go up without somebody deciding to raise it.
+DEBT_BASELINE = ROOT / "config" / "compose" / "stability_debt_baseline.conf"
 
 #: The modules whose sources may declare a registered composable.
 #:
@@ -178,6 +213,288 @@ def imported_types(sources: list[pathlib.Path]) -> set[str]:
         for match in _IMPORT.finditer(text):
             imports.add(match.group(1))
     return imports
+
+
+def _body_start(text: str, position: int) -> int | None:
+    """The index of the brace that opens a class body, or None when there is none.
+
+    The brace is looked for at bracket depth zero, so a `{` inside a default
+    value or a lambda in the header does not pass for the body.
+    """
+    stack: list[str] = []
+    for index in range(position, len(text)):
+        char = text[index]
+        if _opens(char, text, index):
+            if char == "{" and not stack:
+                return index
+            stack.append(_closer_of(char))
+        elif _closes(char) and stack and stack[-1] == char:
+            stack.pop()
+    return None
+
+
+def _class_parts(text: str, after_name: int) -> tuple[str, str, tuple[int, int] | None]:
+    """The constructor parameters, the body, and the range of the body.
+
+    The header is walked rather than pattern-matched: a class may declare a
+    secondary constructor, a supertype, or both, and the body is the first
+    brace at depth zero after all of that.
+    """
+    position = after_name
+    constructor = ""
+    while position < len(text) and text[position].isspace():
+        position += 1
+    if text[position:position + 11] == "constructor":
+        position += 11
+        while position < len(text) and text[position].isspace():
+            position += 1
+    if position < len(text) and text[position] == "(":
+        close = _matching_paren(text, position)
+        if close is None:
+            return "", "", None
+        constructor = text[position + 1:close]
+        position = close + 1
+    while position < len(text) and text[position].isspace():
+        position += 1
+    if position < len(text) and text[position] == ":":
+        # The supertype list, up to the body.
+        start = _body_start(text, position)
+        if start is None:
+            return constructor, "", None
+        position = start
+    body_start = _body_start(text, position)
+    if body_start is None:
+        return constructor, "", None
+    body_end = _matching_paren(text, body_start)
+    if body_end is None:
+        return constructor, "", None
+    return constructor, text[body_start + 1:body_end], (body_start, body_end)
+
+
+def _top_level_statements(body: str) -> list[str]:
+    """The statements of a class body that are not inside a nested block.
+
+    A property declared in a function body is not a property of the class, and
+    a property of a nested class belongs to that class.
+    """
+    statements: list[str] = []
+    buffer: list[str] = []
+    depth = 0
+    for line in body.splitlines():
+        buffer.append(line)
+        depth += line.count("{") - line.count("}")
+        if depth <= 0:
+            depth = 0
+            statements.append("\n".join(buffer))
+            buffer = []
+    if buffer:
+        statements.append("\n".join(buffer))
+    return statements
+
+
+def _declared_type(text: str) -> str | None:
+    """The type a property declares, or None when the source infers it.
+
+    An inferred type cannot be read from the text — and an inferred type is
+    not necessarily a collection, so nothing may be concluded from it.
+    """
+    if ":" not in text:
+        return None
+    rest = text.split(":", 1)[1]
+    depth = 0
+    end = len(rest)
+    index = 0
+    while index < len(rest):
+        char = rest[index]
+        if char in "<([":
+            depth += 1
+        elif char in ">)]":
+            depth -= 1
+        elif depth == 0 and (
+            char == "="
+            or rest.startswith(" get", index)
+            or rest.startswith(" set", index)
+            or rest.startswith(" by", index)
+        ):
+            end = index
+            break
+        index += 1
+    declared = rest[:end].strip().rstrip(",").strip()
+    return declared or None
+
+
+def _parse_property(text: str) -> tuple[str, str, str | None] | None:
+    """The property a declaration declares: kind, name and declared type."""
+    match = _PROPERTY.match(text)
+    if match is None:
+        return None
+    kind, name = match.group(1), match.group(2)
+    return kind, name, _declared_type(text[match.end():])
+
+
+def _properties_of(constructor: str, body: str) -> list[tuple[str, str, str | None]]:
+    """The properties a class declares: kind, name and declared type.
+
+    The constructor parameters that carry `val` or `var` are properties of the
+    class, and so are the ones declared in its body.
+    """
+    properties: list[tuple[str, str, str | None]] = []
+    for part in _split_parameters(constructor):
+        parsed = _parse_property(part)
+        if parsed is not None:
+            properties.append(parsed)
+    for statement in _top_level_statements(body):
+        parsed = _parse_property(statement)
+        if parsed is not None:
+            properties.append(parsed)
+    return properties
+
+
+def declared_classes(
+    sources: list[pathlib.Path],
+) -> dict[str, list[tuple[str, str, str | None]]]:
+    """Every class the sources declare, by its fully-qualified name.
+
+    The name is the one the Compose compiler prints: the enclosing classes
+    come first and the class itself last. A nested class therefore reads as
+    `Outer.Nested`, and two classes of the same name in different packages
+    stay apart — which is what makes the check below able to say anything
+    about a *particular* type.
+    """
+    classes: dict[str, list[tuple[str, str, str | None]]] = {}
+    for path in sources:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        package = _package_of(text)
+        found: list[tuple[str, int, tuple[int, int] | None, str, str]] = []
+        for match in _CLASS.finditer(text):
+            name = match.group(1)
+            constructor, body, body_range = _class_parts(text, match.end())
+            found.append((name, match.start(), body_range, constructor, body))
+        for index, (name, position, body_range, constructor, body) in enumerate(found):
+            qualified = f"{package}.{name}" if package else name
+            # A class declared inside another class's body is nested: its name
+            # carries the enclosing class, the way the compiler prints it.
+            for other_name, other_position, other_range, _, _ in found:
+                if other_range is None or other_position >= position:
+                    continue
+                if other_range[0] <= position <= other_range[1]:
+                    qualified = f"{qualified}.{other_name}"
+                    break
+            classes.setdefault(qualified, _properties_of(constructor, body))
+    return classes
+
+
+def _is_mutable_collection(type_text: str) -> bool:
+    """True when the declared type is a collection that can change."""
+    text = type_text.strip().rstrip("?").strip()
+    name = text.split("<", 1)[0].strip().split(".")[-1]
+    return name in _MUTABLE_COLLECTIONS
+
+
+def check_contract_honesty(
+    entries: list[tuple[int, str]],
+    classes: dict[str, list[tuple[str, str, str | None]]],
+) -> list[str]:
+    """The findings for the types the contract names.
+
+    The contract is a promise the compiler cannot check: it says the type is
+    stable, and the compiler compares every instance of it by `equals`. A type
+    that declares a `var` breaks that promise — the value has a second
+    version, and `equals` compares the wrong one. A type that holds a
+    mutable collection breaks it too: the collection can change after
+    construction, and `equals` of a collection that changed is a lie about
+    "the same content".
+
+    A read-only collection is allowed, and the contract relies on it: `Task`
+    holds a `List<TagId>`, and the promise there is that the list is rebuilt
+    on every read and never mutated afterwards. That the list is never
+    mutated is not a thing this check can see — it needs to know every write,
+    and the compiler does not tell it. The mutable spellings are what it can
+    see, and those it rejects.
+    """
+    findings: list[str] = []
+    for number, entry in entries:
+        if not entry.startswith(PROJECT_NAMESPACE) or "*" in entry:
+            continue
+        properties = classes.get(entry)
+        if properties is None:
+            # The entry check reports a name that resolves to nothing.
+            continue
+        for kind, name, type_text in properties:
+            if kind == "var":
+                findings.append(
+                    f"{number}: {entry} declares a mutable property '{name}' — the "
+                    "contract tells the compiler the type is stable, and the compiler "
+                    "compares it by equals: a var means there is a second version of "
+                    "the value, and the comparison is of the wrong one",
+                )
+            elif type_text and _is_mutable_collection(type_text):
+                findings.append(
+                    f"{number}: {entry} holds '{name}: {type_text.strip()}', and that "
+                    "collection can change after the instance is built — the contract "
+                    "tells the compiler the type is stable, and the compiler compares "
+                    "it by equals, so a collection that changed compares equal to its "
+                    "old contents",
+                )
+    return findings
+
+
+def read_debt_baseline(path: pathlib.Path) -> dict[str, int]:
+    """The recorded size of the register of debt."""
+    baseline: dict[str, int] = {}
+    if not path.is_file():
+        return baseline
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        text = line.split("#", 1)[0].strip()
+        if not text or "=" not in text:
+            continue
+        key, value = text.split("=", 1)
+        key = key.strip()
+        try:
+            baseline[key] = int(value.strip())
+        except ValueError:
+            continue
+    return baseline
+
+
+def check_debt_size(
+    debt: dict[str, dict[str, str]],
+    baseline: dict[str, int],
+) -> list[str]:
+    """The findings for the size of the register of debt.
+
+    The register is a ratchet: it may shrink, and every shrink has to be
+    recorded, but it may not grow without someone deciding to raise the bar.
+    The recorded size and the real size must agree — otherwise the number in
+    the file is a number nobody reads.
+    """
+    findings: list[str] = []
+    measured = {
+        "sites": len(debt),
+        "parameters": sum(len(parameters) for parameters in debt.values()),
+    }
+    for key, actual in measured.items():
+        recorded = baseline.get(key)
+        if recorded is None:
+            findings.append(
+                f"the register of debt records no '{key}' — the size of the debt is "
+                "the number everyone quotes, and it must be written down",
+            )
+            continue
+        if actual == recorded:
+            continue
+        if actual > recorded:
+            findings.append(
+                f"the register of debt grew: {key} is {actual}, and the recorded size "
+                f"is {recorded} — the debt may not grow; convert a parameter instead, "
+                "or record the new size and say why in the commit",
+            )
+        else:
+            findings.append(
+                f"the register of debt shrank: {key} is {actual}, and the recorded size "
+                f"is {recorded} — the debt was paid; lower the recorded size to {actual}",
+            )
+    return findings
 
 
 def check_entries(
@@ -534,6 +851,13 @@ def check_register_parameters(
     show_default=True,
     help="the register of debt whose sites must still exist",
 )
+@click.option(
+    "--debt-baseline",
+    type=click.Path(path_type=pathlib.Path),
+    default=DEBT_BASELINE,
+    show_default=True,
+    help="the recorded size of the register of debt",
+)
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -541,6 +865,7 @@ def cli(
     source_root: pathlib.Path,
     root: pathlib.Path,
     register: pathlib.Path,
+    debt_baseline: pathlib.Path,
 ) -> None:
     """Check that the Compose stability contract names real types and is wired."""
     if not conf.is_file():
@@ -557,6 +882,7 @@ def cli(
 
     sources = kotlin_sources(source_root)
     findings = check_entries(entries, declared_types(sources), imported_types(sources))
+    findings += check_contract_honesty(entries, declared_classes(sources))
     findings += check_wiring(root)
 
     debt = read_register(register)
@@ -565,6 +891,7 @@ def cli(
         roots = source_roots(root)
         findings += check_register_sites(sites, roots)
         findings += check_register_parameters(sites, debt, roots)
+    findings += check_debt_size(debt, read_debt_baseline(debt_baseline))
 
     for finding in findings:
         click.echo(f"[compose-stability] {finding}")
