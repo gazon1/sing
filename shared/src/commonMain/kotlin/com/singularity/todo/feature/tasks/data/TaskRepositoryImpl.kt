@@ -803,6 +803,13 @@ class TaskRepositoryImpl(
             val removed = existingTagIds - newTagIds
             val added = newTagIds - existingTagIds
 
+            // Nothing changed: the tags the row carries are the tags the caller
+            // asked for. Nothing is written and nothing is pushed — a write that
+            // changes nothing is not a claim, and a claim about a set that did
+            // not move says nothing new. Removing a tag the task does not carry
+            // lands here.
+            if (removed.isEmpty() && added.isEmpty()) return@write
+
             // Apply cross-ref changes
             existingTagStrings.forEach { tagId -> taskDao.removeTagRefForUser(taskId.value, tagId, uid) }
             newTagIds.forEach { tagId -> taskDao.upsertTagCrossRefForUser(taskId.value, tagId.value, uid) }

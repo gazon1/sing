@@ -37,9 +37,9 @@ import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
  * in. The series is repaired there: the row whose tags changed says what the
  * work is tagged with, and the other members follow it.
  *
- * The mapping stays because the rule is unchanged and it is read by the
- * domain, not only by the slots: a field that is a shared field of a series is
- * a shared field of a series, whatever path writes it.
+ * The mapping stays because the rule is unchanged, and it is what states it:
+ * a field that is a shared field of a series is a shared field of a series,
+ * whatever path writes it.
  *
  * @see TaskSharedField
  */

@@ -24,6 +24,7 @@ import java.nio.file.Files
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
@@ -68,10 +69,9 @@ import kotlin.test.assertTrue
  * Every test here runs against a real database and a real write transaction
  * (`RoomUnitOfWork`), because half of the rule is about *when* the claim is
  * read: the read happens inside the transaction that wrote it, so it sees the
- * write rather than the state before it. A fake unit of work would make that
- * half untestable — the read would still see the write, but for the wrong
- * reason, and a regression that moved the read outside the transaction would
- * pass.
+ * write rather than the state before it. A fake unit of work cannot show
+ * that half at all — the write would already be applied, whatever the read
+ * did.
  */
 @Tag("slow")
 @Tag("slow:data")
@@ -214,9 +214,9 @@ class TaskPushClaimTest {
         sync.enqueuedEntities.clear()
 
         // The write and the read are one transaction: the tag is written and
-        // the claim is read back before the transaction commits. If the read
-        // happened outside the transaction — or before the write — the pushed
-        // task would carry the tags the row had before, which here is none.
+        // the claim is read back before the transaction commits. A read taken
+        // *before* the write would carry the tags the row had before, which
+        // here is none — and the test would fail.
         repo.setTags(TaskId("t1"), listOf(TagId("tag-1"))).getOrThrow()
         advanceUntilIdle()
 
@@ -243,6 +243,30 @@ class TaskPushClaimTest {
             listOf(TagId("tag-2")),
             pushedTask().tags,
             "the pushed task carries the tags the write left",
+        )
+    }
+
+    @Test
+    fun `removing a tag the task does not carry changes nothing and claims nothing`() = runTest {
+        val repo = repo()
+        repo.create(task("t1", tags = listOf(TagId("tag-1")))).getOrThrow()
+        advanceUntilIdle()
+        sync.enqueuedEntities.clear()
+
+        // A write that changes nothing is not a claim. Removing a tag the task
+        // does not carry leaves the tags the same, so there is nothing to say
+        // and nothing to push — the screen may ask, but the wire is not told.
+        repo.setTags(TaskId("t1"), listOf(TagId("tag-1"))).getOrThrow()
+        advanceUntilIdle()
+
+        assertTrue(
+            sync.enqueuedEntities.isEmpty(),
+            "a write that changed nothing pushed nothing",
+        )
+        assertEquals(
+            listOf(TagId("tag-1")),
+            repo.getTagIds(TaskId("t1")).first(),
+            "the tags the row carries are the tags it had",
         )
     }
 
