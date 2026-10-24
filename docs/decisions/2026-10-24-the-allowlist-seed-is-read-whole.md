@@ -51,10 +51,11 @@ also has a `profile` type, which the client's contract does not describe.
 The vocabulary is not a question about the protocol: the client's own
 `DocType` enum already carries the server's words — `TagGroup("tag_group")`,
 `TimeEntry("time_entry")` — and the generator lower-cases the enum's *name*
-instead of using the enum's value. That is a choice of the generator, and it
-has a one-line fix. It is not fixed here because a bug-fix commit that
-regenerates the seed should not also change what the seed says about types
-it did not have to touch.
+instead of using the enum's `key`. That is a choice of the generator, and the
+fix is small and local: the names of the types live in a map in the generator,
+and the server's words are one line away. It is not fixed here because a
+bug-fix commit that regenerates the seed should not also change what the seed
+says about types it did not have to touch.
 
 **The seed says more than the server accepts.** `id` (every type), `seriesId`
 (task) and `closedAt` (project) are in the client's contract and in the
@@ -77,16 +78,16 @@ The generator reads a list by counting parentheses, on a source in which the
 comments and the string literals are blanked out. A parenthesis in a comment
 is not a parenthesis of the code, and the count must not see it.
 
-The two facts above are recorded, not fixed. The vocabulary is a choice of the
-generator — one line of it — and it is left open because a commit that
-regenerates the seed should not also change what the seed says about the types
-it did not have to touch. The `profile` type is a fact about the protocol: the
-server has it and the client's contract does not describe it, and only a change
-of the protocol can say what a profile is.
+The facts above are recorded, not fixed. The vocabulary is a choice of the
+generator — a small one, and a local one — and it is left open because a
+commit that regenerates the seed should not also change what the seed says
+about the types it did not have to touch. The `profile` type is a fact about the protocol: the
+server has it and the client's contract does not describe it, and only a
+change of the protocol can say what a profile is.
 
 Nothing applies the generated seed automatically: the file has no timestamp,
 the migration runner does not see it, and the gate that compares it with the
-generator is its only reader.
+generator is its only reader, apart from the gate's own test.
 
 ## Rationale
 
