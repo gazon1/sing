@@ -646,6 +646,86 @@ class ComposeStabilityConfigTest(unittest.TestCase):
             )
             self.assertEqual(self.run_gate(root, conf), 0)
 
+    def test_a_qualified_supertype_of_another_package_is_not_ours(self):
+        """A supertype written in full is that exact type.
+
+        `com.other.pkg.Thing` is not the `Thing` of our package, even when our
+        package declares one with the same simple name — and the class that
+        carries it does not carry our promise.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            conf = build_tree(root, f"{PACKAGE}.Repo\n")
+            write(
+                root / "shared" / "src" / "commonMain" / "kotlin" / "com" / "singularity"
+                / "todo" / "feature" / "tasks" / "domain" / "model" / "Task.kt",
+                f"package {PACKAGE}\n\ninterface Repo\n",
+            )
+            write(
+                root / "shared" / "src" / "commonMain" / "kotlin" / "com" / "singularity"
+                / "todo" / "core" / "other" / "Other.kt",
+                "package com.singularity.todo.core.other\n\n"
+                "interface Repo\n\n"
+                "class OtherRepo : com.singularity.todo.core.other.Repo {\n"
+                "    var mutable: String = \"\"\n"
+                "}\n",
+            )
+            self.assertEqual(self.run_gate(root, conf), 0)
+
+    def test_an_explicit_import_shadows_the_package_of_the_file(self):
+        """An explicit import wins over a declaration of the same package.
+
+        That is how Kotlin resolves it: an explicit import has a higher
+        priority than a declaration of the file's own package. The gate that
+        resolved it the other way round would hold a foreign class to our
+        promise.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            conf = build_tree(root, f"{PACKAGE}.Repo\n")
+            write(
+                root / "shared" / "src" / "commonMain" / "kotlin" / "com" / "singularity"
+                / "todo" / "feature" / "tasks" / "domain" / "model" / "Task.kt",
+                f"package {PACKAGE}\n\ninterface Repo\n",
+            )
+            write(
+                root / "shared" / "src" / "commonMain" / "kotlin" / "com" / "singularity"
+                / "todo" / "core" / "other" / "Other.kt",
+                f"import {PACKAGE}.Repo\n\n"
+                "package com.singularity.todo.core.other\n\n"
+                "class OtherRepo : Repo {\n"
+                "    var mutable: String = \"\"\n"
+                "}\n",
+            )
+            self.assertEqual(self.run_gate(root, conf), 1)
+
+    def test_a_nested_type_is_found_through_an_import(self):
+        """A nested type is written `Outer.Nested`, and `Outer` may be imported.
+
+        The name of the nested type is not in the imports — the name of its
+        outer type is. Cutting the name to its last segment loses that.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            conf = build_tree(root, f"{PACKAGE}.Outer.Leaf\n")
+            write(
+                root / "shared" / "src" / "commonMain" / "kotlin" / "com" / "singularity"
+                / "todo" / "feature" / "tasks" / "domain" / "model" / "Task.kt",
+                f"package {PACKAGE}\n\ninterface Outer {{\n"
+                "    interface Leaf\n"
+                "}\n",
+            )
+            write(
+                root / "shared" / "src" / "commonMain" / "kotlin" / "com" / "singularity"
+                / "todo" / "core" / "other" / "Other.kt",
+                f"import {PACKAGE}.Outer\n\n"
+                "package com.singularity.todo.core.other\n\n"
+                "class OtherLeaf : Outer.Leaf {\n"
+                "    var mutable: String = \"\"\n"
+                "}\n",
+            )
+            self.assertEqual(self.run_gate(root, conf), 1)
+
     def test_a_namesake_in_another_package_is_not_an_implementation(self):
         """A simple name says nothing about which one it is.
 
@@ -760,6 +840,31 @@ class ComposeStabilityConfigTest(unittest.TestCase):
                 self.run_gate(root, conf, register=root / "no-such-register.kt"),
                 1,
             )
+
+    def test_an_entry_covers_the_subclass_below_it(self):
+        """The promise of a class covers the classes below it.
+
+        The compiler matches the entry against the supertypes of a class, so an
+        entry for a sealed class reaches its subclasses — and an instance of
+        the sealed class may be one of them. A `var` in a subclass breaks the
+        promise the contract makes for the class.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            conf = build_tree(root, f"{PACKAGE}.Node\n")
+            write(
+                root / "shared" / "src" / "commonMain" / "kotlin" / "com" / "singularity"
+                / "todo" / "feature" / "tasks" / "domain" / "model" / "Task.kt",
+                f"package {PACKAGE}\n\n"
+                "sealed class Node {\n"
+                "    abstract val id: String\n"
+                "}\n\n"
+                "class Leaf : Node() {\n"
+                "    override val id: String = \"\"\n"
+                "    var mutable: String = \"\"\n"
+                "}\n",
+            )
+            self.assertEqual(self.run_gate(root, conf), 1)
 
     def test_an_entry_that_names_an_interface_passes(self):
         """An interface is something the compiler can use.

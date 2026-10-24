@@ -27,9 +27,9 @@ So this gate checks seven things:
   4. the file is actually wired into the modules that compile composables;
   5. every type the contract names **from this project's namespace** keeps the
      promise it makes for it — no `var`, no collection that can change after
-     construction. For an interface the promise covers the implementations too,
-     because an instance of the interface may be one of them. A library type
-     is not checked: its declarations are not in these sources;
+     construction. The promise covers the types below it too, because an
+     instance of a contracted type may be one of them. A library type is not
+     checked: its declarations are not in these sources;
   6. every site the register of debt names is still declared in the sources;
   7. every parameter the register of debt names is still declared by some
      declaration of that site, and the register has not grown past the size
@@ -109,7 +109,7 @@ PROJECT_NAMESPACE = "com.singularity.todo."
 #: start of the file.
 _PACKAGE = re.compile(r"^package\s+([\w.]+)", re.M)
 _TYPEALIAS = re.compile(r"^[ \t]*typealias\s+([A-Za-z_]\w*)", re.M)
-_IMPORT = re.compile(r"^import\s+([\w.]+)", re.M)
+_IMPORT = re.compile(r"^import\s+([\w.]+(?:\.\*)?)", re.M)
 
 #: A declaration with the kind of thing it declares, and where it starts.
 #:
@@ -515,8 +515,11 @@ def _class_parts(
 def _supertype_names(text: str) -> list[str]:
     """The names of the supertypes a declaration lists.
 
-    The names are simple ones — the last segment — because that is how a
-    declaration writes them, and the enclosing package says which one it is.
+    The names are the ones as they are written, dots and all: a supertype
+    written `com.other.pkg.Thing` is that exact type, and a supertype written
+    `Outer.Nested` is a nested type of `Outer` — and which `Outer` it is
+    depends on the imports of the file. Cutting the name down to its last
+    segment would throw both away, and the resolution would guess.
     """
     names: list[str] = []
     for part in _split_parameters(text):
@@ -527,7 +530,7 @@ def _supertype_names(text: str) -> list[str]:
         name = name.split("(", 1)[0].strip()
         if not name:
             continue
-        names.append(name.split(".")[-1].strip())
+        names.append(name)
     return names
 
 
@@ -707,9 +710,11 @@ def check_contract_honesty(
     and the compiler does not tell it. The mutable spellings are what it can
     see, and those it rejects.
 
-    An interface is a promise about its implementations too: the compiler
-    applies the entry to the classes that carry the interface, so a `var` in
-    an implementation breaks the promise the contract makes for the interface.
+    An entry is a promise about the instances of the type it names, and an
+    instance may be of any type below it: the compiler matches the entry
+    against the supertypes of a class as well, so the subclasses of a
+    contracted class and the implementations of a contracted interface are
+    covered by the promise too. A `var` in one of them breaks it.
     """
     findings: list[str] = []
     ancestors = _ancestors(declarations)
@@ -726,13 +731,15 @@ def check_contract_honesty(
                 # not a class the compiler can match: the entry check reports
                 # both, and there is no promise of ours to keep here.
                 continue
-            targets = [qualified]
-            if declaration.kind == "interface":
-                targets += _implementations_of(qualified, declarations, ancestors)
+            targets = [qualified] + _implementations_of(
+                qualified,
+                declarations,
+                ancestors,
+            )
             for target in targets:
                 reached = "" if target == qualified else (
                     f" — {qualified} is the type the contract vouches for, and this "
-                    f"declaration is one of its implementations, so an instance of it may "
+                    f"declaration is one of the types below it, so an instance of it may "
                     f"be compared by equals"
                 )
                 for kind, name, type_text, initializer in declarations[target].properties:
@@ -771,27 +778,51 @@ def check_contract_honesty(
 def _ancestors(declarations: dict[str, Declaration]) -> dict[str, set[str]]:
     """For every declaration, the declarations it carries as supertypes.
 
-    A supertype is written by its simple name, so the name is resolved against
-    the declarations of the same package — the package says which one it is —
-    and against the ones the file imports. A name that is neither belongs to
-    nothing the gate can see, and an unresolved supertype is no implementation
-    at all: a namesake in another package is not the interface.
-    """
-    by_simple: dict[str, list[str]] = {}
-    for fqn in declarations:
-        by_simple.setdefault(fqn.split(".")[-1], []).append(fqn)
+    A supertype is written the way Kotlin resolves it, and the gate has to
+    resolve it the same way:
 
-    def resolve(owner: str, name: str) -> str | None:
-        candidates = by_simple.get(name, [])
-        if not candidates:
-            return None
+      1. a name written in full is that exact type;
+      2. an explicit import shadows a declaration of the same package, so the
+         import is looked at first — `import q.Thing` wins over a `Thing` of
+         the file's own package;
+      3. otherwise the name is relative to the package of the file, which is
+         where a declaration of the same package lives — including a nested
+         type written `Outer.Nested`;
+      4. and last the wildcard import, which Kotlin ranks below the package
+         of the file.
+
+    A name that resolves to nothing belongs to nothing the gate can see: a
+    namesake in another package that nobody imported is not our type, and
+    treating it as one would turn an unrelated class into an implementation.
+    """
+    def resolve(owner: str, path: str) -> str | None:
+        if path in declarations:
+            # The name is written in full.
+            return path
+        first, _, rest = path.partition(".")
+        suffix = f".{rest}" if rest else ""
+        # An explicit import shadows a declaration of the same package.
+        for imported in sorted(declarations[owner].imports):
+            if imported.endswith(".*"):
+                continue
+            if imported == first or imported.endswith(f".{first}"):
+                candidate = imported + suffix
+                if candidate in declarations:
+                    return candidate
+        # Then the package of the file — including a nested type written
+        # `Outer.Nested`.
         package = declarations[owner].package
-        for candidate in candidates:
-            if declarations[candidate].package == package:
+        if package:
+            candidate = f"{package}.{path}"
+            if candidate in declarations:
                 return candidate
-        imported = declarations[owner].imports
-        for candidate in candidates:
-            if candidate in imported:
+        # And last the wildcard import, which Kotlin ranks below the package
+        # of the file.
+        for imported in sorted(declarations[owner].imports):
+            if not imported.endswith(".*"):
+                continue
+            candidate = imported[:-1] + path
+            if candidate in declarations:
                 return candidate
         return None
 
@@ -804,8 +835,8 @@ def _ancestors(declarations: dict[str, Declaration]) -> dict[str, set[str]]:
             # A cycle in the sources; the names it carries are enough.
             return set()
         result: set[str] = set()
-        for name in declarations[fqn].supertypes:
-            parent = resolve(fqn, name)
+        for path in declarations[fqn].supertypes:
+            parent = resolve(fqn, path)
             if parent is None:
                 continue
             result.add(parent)
