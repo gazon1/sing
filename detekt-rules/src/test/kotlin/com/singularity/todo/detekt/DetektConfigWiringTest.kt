@@ -154,6 +154,7 @@ class DetektConfigWiringTest {
             NoViewModelScopeInProductionProvider(),
             NoUnstableCollectionParamProvider(),
             NoMutableCollectionCastProvider(),
+            NoFalseImmutableProvider(),
             PassThroughUseCaseProvider(),
             UserScopedRepositoryRulesProvider(),
         )
