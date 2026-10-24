@@ -24,6 +24,17 @@ import kotlinx.serialization.json.jsonPrimitive
  * answer. So this program speaks the protocol over standard input and output, and the
  * test starts it the way it starts any other agent.
  *
+ * ## Where its shapes come from
+ *
+ * From a real bridge. `@agentclientprotocol/claude-agent-acp` 0.95.0 was run against
+ * this application's own client — `scripts/acp-bridge-probe.sh` — and what it sent was
+ * written down: five permission modes, three configuration options, an authentication
+ * status announced as a notification, and the available commands announced as another
+ * one. This fake sends the same things, because a fake that answers a different
+ * session than the bridge does proves nothing about the bridge — and the client's
+ * tolerance of a notification it has no answer for is worth nothing if no notification
+ * ever arrives.
+ *
  * ## The modes
  *
  * - `good` — a complete conversation: it initializes, opens a session, answers a
@@ -82,13 +93,32 @@ private fun handle(line: String, mode: String, json: Json, transcript: java.io.F
                     """{"protocolVersion":$version,"agentCapabilities":{},"authMethods":[],""" +
                         """"agentInfo":{"name":"fake-agent","version":"1.0"}}""",
                 )
+                // The real bridge announces its authentication state right after the
+                // handshake — as a notification: a method with no id, and one this
+                // application has no answer for. The client has to survive it, and a
+                // fake that never sends it cannot say that it does.
+                notify(AUTH_STATUS_METHOD, """{"authStatus":{"kind":"none","label":"Not logged in"}}""")
             }
         }
 
         // The session answer carries the modes and the models, because the client
         // requires them: a response without them is not a response the client can
         // read, and the request it belongs to never completes.
-        "session/new" -> respond(id, SESSION_RESPONSE)
+        //
+        // The modes are the real bridge's five, and the configuration options are the
+        // real bridge's three — a session setting this application does not show. They
+        // are here because the bridge sends them: a fake that answers a different
+        // session than the bridge does proves nothing about the bridge.
+        "session/new" -> {
+            respond(id, SESSION_RESPONSE)
+            // And the bridge announces its commands right after the session is open.
+            notify(
+                "session/update",
+                """{"sessionId":"$SESSION_ID","update":{"sessionUpdate":"available_commands_update",""" +
+                    """"availableCommands":[{"name":"adaptive","description":"Instructions to make or""" +
+                    """ update an app's UI so that it adapts to different devices"}]}}""",
+            )
+        }
 
         // The goodbye is answered, as a real agent answers it. A request that is
         // received and never answered is the one failure the client cannot defend
@@ -99,6 +129,7 @@ private fun handle(line: String, mode: String, json: Json, transcript: java.io.F
         "session/prompt" -> {
             if (mode == MODE_CRASH) return false
             notify(
+                "session/update",
                 """{"sessionId":"$SESSION_ID","update":{"sessionUpdate":"agent_message_chunk",""" +
                     """"content":{"type":"text","text":"hello from the fake agent"},"messageId":"m1"}}""",
             )
@@ -118,8 +149,15 @@ private fun respond(id: JsonElement?, result: String) {
     System.out.flush()
 }
 
-private fun notify(params: String) {
-    println("""{"jsonrpc":"2.0","method":"session/update","params":$params}""")
+/**
+ * A notification: a method with no id, and no answer expected.
+ *
+ * The real bridge sends two of them — its authentication state and its commands —
+ * and neither is a request this application made. The client has to read them and
+ * carry on, and the fake sends them so that the tests say so.
+ */
+private fun notify(method: String, params: String) {
+    println("""{"jsonrpc":"2.0","method":"$method","params":$params}""")
     System.out.flush()
 }
 
@@ -131,17 +169,35 @@ private const val MODE_MUTE_CLOSE = "mute-close"
 
 private const val SESSION_ID = "session-1"
 
+/** The method the real bridge announces its authentication state with. */
+private const val AUTH_STATUS_METHOD = "_auth/status_update"
+
 /**
  * The answer to "session/new".
  *
  * The modes and the models are not decoration: the client requires both, and a
  * response that leaves them out is not a response it can read — so the request it
  * belongs to never completes, and the client waits for an answer that was sent.
+ *
+ * The five modes and the three configuration options are the real bridge's, taken
+ * from the transcript of `scripts/acp-bridge-probe.sh` against
+ * `@agentclientprotocol/claude-agent-acp` 0.95.0. They are session settings this
+ * application does not show, and the fake sends them because the bridge sends them:
+ * a fake that answers a different session than the bridge does proves nothing about
+ * the bridge.
  */
 private const val SESSION_RESPONSE =
     """{"sessionId":"$SESSION_ID",""" +
-        """"modes":{"currentModeId":"default","availableModes":[{"id":"default","name":"Default"}]},""" +
-        """"models":{"currentModelId":"fake-model","availableModels":[{"modelId":"fake-model","name":"Fake model"}]}}"""
+        """"modes":{"currentModeId":"default","availableModes":[""" +
+        """{"id":"default","name":"Manual","description":"Always ask before making changes"},""" +
+        """{"id":"acceptEdits","name":"Accept edits","description":"Automatically accept all file edits"},""" +
+        """{"id":"plan","name":"Plan","description":"Create a plan before making changes"},""" +
+        """{"id":"auto","name":"Auto","description":"Claude handles permission decisions"},""" +
+        """{"id":"bypassPermissions","name":"Bypass permissions","description":"Accepts all permissions"}]},""" +
+        """"models":{"currentModelId":"fake-model",""" +
+        """"availableModels":[{"modelId":"fake-model","name":"Fake model"}]},""" +
+        """"configOptions":[{"id":"mode","name":"Mode","description":"Session permission mode",""" +
+        """"category":"mode","type":"select","currentValue":"default","options":[]}]}"""
 
 /**
  * The answer to "session/prompt".

@@ -1,4 +1,5 @@
 import java.util.Properties
+import java.time.Duration as JavaDuration
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 import org.gradle.api.tasks.PathSensitivity
@@ -1198,6 +1199,42 @@ val exportToolSurface = tasks.register<JavaExec>("exportToolSurface") {
     doFirst {
         target.asFile.parentFile.mkdirs()
     }
+}
+
+// acpBridgeProbe — the application's ACP client, against a real bridge.
+//
+// The tests talk to a fake agent: ours, taught to answer what our client expects.
+// That proves the client and the fake agree with each other, and says nothing about
+// whether they agree with the protocol — which is written by somebody else. This task
+// runs the same client against a real bridge and prints what came back.
+//
+// It is a task and not a test because it needs a real `npx`, a real network and a
+// real bridge: a test that cannot run is a skipped test, and this repository does not
+// allow skipped tests. `scripts/acp-bridge-probe.sh` is the way in.
+//
+// The task does not fail the build on a failed probe: the probe's verdict is its exit
+// code, and the script is what reports it. A task that failed the build would make
+// every build on this machine depend on whether the network was up.
+// The bridge the probe drives when nobody says otherwise: the Claude one, because
+// it is the bridge this repository registered first.
+val acpBridgeDefault = "npx -y @agentclientprotocol/claude-agent-acp"
+
+val acpBridgeProbe = tasks.register<JavaExec>("acpBridgeProbe") {
+    description = "Drives the ACP client against a real agent bridge and prints what came back"
+    group = "verification"
+    val jvmClasses = layout.buildDirectory.dir("classes/kotlin/jvm/main")
+    mainClass.set("com.singularity.todo.feature.ai.acp.AcpBridgeProbeKt")
+    classpath(files(jvmClasses), configurations.named("jvmRuntimeClasspath"))
+    // The bridge's command line comes from a property, because the daemon's
+    // environment is not the shell's: an exported variable would not reach the
+    // forked JVM.
+    val bridge = providers.gradleProperty("acpBridge").getOrElse(acpBridgeDefault)
+    args(listOf(rootProject.layout.projectDirectory.asFile.absolutePath) + bridge.split(" "))
+    inputs.files(jvmClasses)
+    dependsOn("compileKotlinJvm")
+    // The bridge may be an `npx` invocation downloading its package on first use,
+    // and that download is not the handshake.
+    timeout.set(JavaDuration.ofMinutes(10))
 }
 
 // verifyToolSurface — the committed catalogue is what the code exports, checked
