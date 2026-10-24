@@ -156,20 +156,26 @@ verdict) and once with it (the measurement). That is the price of a floor
 that is enforced where it is computed, and it is paid where the measurement
 is wanted rather than everywhere.
 
-**Both false names are renamed, and the measurements follow.** The suite job's
-step was called `Gradle (tests + coverage + detekt)` and the job
+**Both false names are renamed, and the measurements are re-recorded.** The
+suite job's step was called `Gradle (tests + coverage + detekt)` and the job
 `JVM tests, detekt, coverage`, and neither ran coverage or detekt any more.
 Both are renamed — the step to `Gradle (tests)`, the job to `JVM tests` — and
 the step's rename was safe because the registry control that anchored at it
 had already moved to the coverage job with the job graph (see the anchors
 paragraph below), and `scripts/check-waiver-references.py` requires an anchor
-to resolve to a step name, not to a name the workflow used to carry. The JOB
-name was the one that could not move on its own: it is a key in the published
-measurements (`config/docs/gate-benchmarks.json`), and renaming it there
-would invalidate them. So the measurements are re-recorded against the new
-name, from the first trunk run that carries it — the price of the loop is
-written down again, and the page that publishes it names the jobs that
-exist.
+to resolve to a step name, not to a name the workflow used to carry.
+
+The JOB name was the one that could not move on its own, and the reason was
+not the one the first draft of this paragraph gave. Nothing compares the
+recorded job names with the workflow's: `sgate gate-costs` renders the
+recorded map, and `check-published-measurements.py` compares the baseline
+with the published page. So renaming the job invalidated nothing — the
+published page simply kept naming a job that no longer exists. The
+measurements are re-recorded anyway, because the point of the page is the
+price of the loop as it is now, and a price that names the old jobs is a
+price of the old loop. Until that re-record lands, the published page still
+prints the old job name and its old duration; the page is the record, and
+the record is one change behind.
 
 **The custom rules keep their own instrumentation.** `:detekt-rules` applies
 the Kover plugin itself, so its tests are instrumented whatever the settings
@@ -204,29 +210,37 @@ passes while proving nothing.
 keeps a number out of the contract; the number is measured on the first real
 pull request with this change and recorded in `docs/testing/gate-costs.md`.
 
-That first real pull request was #1053, and its run says what the change
-bought. The jobs, as the runner wrote them down:
+That first real pull request was #1053, and its run (40076129625) says what
+the change bought. The names are the runner's own — the rename came later, so
+the run calls the suite job what it was called then:
 
-| job | wall time |
+| job (as the runner named it) | wall time |
 |---|---|
-| Affected tests (the fast signal) | 30 s |
+| Affected tests | 30 s |
 | CI gate | 4 s |
 | changes | 9 s |
 | Agent review | 20 s |
 | Android (free) | 1 min 20 s |
 | Android (pro) | 1 min 59 s |
-| ADR gate | 1 min 30 s |
+| adr-gate | 1 min 30 s |
 | detekt | 5 min 03 s |
 | Gate tooling | 5 min 33 s |
-| instrumented | 5 min 35 s |
 | Static gates | 7 min 35 s |
-| JVM tests (the suite, no agent) | 14 min 22 s |
+| JVM tests, detekt, coverage | 14 min 22 s |
 | Coverage | skipped — an ordinary pull request measures nothing |
 
-The fast signal answers in **30 seconds**, where the suite that is the verdict
-takes 14 minutes. That is the whole point of the change, and it is now a
-number rather than a hope: a pull request learns what it broke in half a
-minute, and the measurement it does not need is not on its path at all.
+Two rows of that table are about the ASK, not the answer, and the difference
+matters. The "Affected tests" job took 30 seconds, but in this run its
+selection was EMPTY — the change touched only workflow and documentation
+files, so the map named no test class and the step that runs them was
+skipped. Thirty seconds is what asking costs when there is nothing to run;
+what a run with a selection costs is not measured yet, and saying otherwise
+would publish a number that answers a different question. The suite job is
+the verdict, and at 14 minutes it is the long pole of the pull-request path.
+
+The device tier is not in this table: the `instrumented` job (5 min 35 s)
+belongs to the `android-device-tests` workflow (run 40076129662), not to this
+one.
 
 **The `cost` of the local recipe changed.** `just tests::impact` now runs the
 fast population and reaches the private Gradle home through `./gw`. The same

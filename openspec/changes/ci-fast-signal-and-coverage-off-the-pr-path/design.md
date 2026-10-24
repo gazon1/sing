@@ -153,6 +153,10 @@ change cannot claim the saving without it.
   breaks the anchor. The design therefore keeps the name and re-points the anchors
   whose steps moved — a false name in a step that is the anchor of a waiver is
   cheaper than a dangling anchor, but it is a debt, and it is recorded as such.
+  **Paid later.** The re-pointing moved that anchor to the coverage job, and once
+  it had moved the name was free: the follow-up change renamed the step to
+  `Gradle (tests)` and the job to `JVM tests`. The debt is recorded here because
+  the plan did not pay it, not because it cannot be paid.
 - `GRADLE_TASK_PARITY` has two entries that go stale: `:shared:jvmTest` and
   `:desktopApp:test` are `covered` today, which means "CI reaches it without writing
   the task name" (`scripts/check-gate-wiring.py:2333-2337`). After the change CI
@@ -292,6 +296,8 @@ nothing, and it is the only thing a waiver has instead of a date
 The suite job's own Gradle step keeps its name, so
 `ci.yml#Gradle (tests + coverage + detekt)` still resolves; the other three
 anchors move with the `Coverage floors` block.
+(And when the anchors have moved, the suite step's name is free: the
+follow-up change renamed it to `Gradle (tests)`, and the job to `JVM tests`.)
 
 ### 7. The floors
 
