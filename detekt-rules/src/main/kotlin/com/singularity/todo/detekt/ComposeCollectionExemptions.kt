@@ -30,9 +30,10 @@ package com.singularity.todo.detekt
  * ./gw :shared:compileKotlinJvm -PcomposeStabilityReport=true
  * ```
  *
- * The list was measured on 2026-10-23, after the stability contract and the
+ * The list was measured on 2026-10-24, after the stability contract and the
  * conversion of the hot states. The values are the parameters each entry
- * still carries.
+ * still carries — every parameter, not the first one: an entry that names
+ * only some of its raw parameters would let the others through unnoticed.
  *
  * @see NoUnstableCollectionParamRule
  * @see 2026-10-22-compose-stability-contract
@@ -63,16 +64,16 @@ internal object ComposeCollectionExemptions {
         "com.singularity.todo.feature.calendar.presentation.components.calendar.HourRow" to
             "dates: List<LocalDate>; tasksByDate: Map<LocalDate, List<CalendarTaskUi>>",
         "com.singularity.todo.feature.calendar.presentation.components.calendar.MonthGridPage" to
-            "tasksByDate: Map<LocalDate, List<CalendarTaskUi>> " +
+            "tasksByDate: Map<LocalDate, List<CalendarTaskUi>>; " +
             "selectedDates: Set<LocalDate>?",
         "com.singularity.todo.feature.calendar_sync.presentation.CalendarAppPicker" to
             "availableApps: List<CalendarAppInfo>",
         "com.singularity.todo.feature.checklist.components.ChecklistEditorSheet" to "items: List<ChecklistItem>",
         "com.singularity.todo.feature.notes.presentation.screen.BacklinksSheet" to "backlinks: List<Note>",
         "com.singularity.todo.feature.notes.presentation.screen.NoteEditorScreenContent" to
-            "pendingProposals: List<AiProposal>?",
+            "pendingProposals: List<AiProposal>?; proposalFailures: Map<ProposalItemId, String>",
         "com.singularity.todo.feature.notes.presentation.screen.NoteList" to
-            "allNotes: List<Note>; pinned: List<Note>; unpinned: List<Note> " +
+            "allNotes: List<Note>; pinned: List<Note>; unpinned: List<Note>; " +
             "templates: List<Note>; dailyNotes: List<Note>; selectedIds: Set<NoteId>",
         "com.singularity.todo.feature.pomodoro.PomodoroContentPreview" to "tasks: List<Task>?",
         "com.singularity.todo.feature.pomodoro.TaskChipRow" to "tasks: List<Task>",
@@ -85,14 +86,14 @@ internal object ComposeCollectionExemptions {
         "com.singularity.todo.feature.projects.presentation.components.ParentPickerSheet" to
             "options: List<ParentOption>",
         "com.singularity.todo.feature.projects.presentation.components.ProjectDetailSheetsHost" to
-            "parentOptions: List<ParentOption>; tagGroups: List<TagGroupOption> " +
+            "parentOptions: List<ParentOption>; tagGroups: List<TagGroupOption>; " +
             "inheritedTagGroupIds: Set<TagGroupId>",
         "com.singularity.todo.feature.projects.presentation.screen.AddExistingTaskPopup" to "tasks: List<Task>",
         "com.singularity.todo.feature.projects.presentation.screen.ProjectBodySection" to "availableTasks: List<Task>",
         "com.singularity.todo.feature.projects.presentation.screen.ProjectDetailQuickAddInput" to
             "availableTasks: List<Task>",
         "com.singularity.todo.feature.proposals.presentation.components.ProposalCardsSection" to
-            "proposals: List<AiProposal>",
+            "proposals: List<AiProposal>; failures: Map<ProposalItemId, String>",
         "com.singularity.todo.feature.search.SimpleResultCard" to "matchRanges: List<TextMatchRange>?",
         "com.singularity.todo.feature.search.presentation.PriorityChips" to "selected: Set<TaskPriority>",
         "com.singularity.todo.feature.search.presentation.SavedSearchesRow" to "savedSearches: List<SavedSearch>",
@@ -115,15 +116,32 @@ internal object ComposeCollectionExemptions {
         "com.singularity.todo.feature.tasks.presentation.components.detail.LogbookLoadedCard" to
             "entries: List<LogbookEntry>",
         "com.singularity.todo.feature.tasks.presentation.components.detail.TaskDetailProposalSection" to
-            "proposals: List<AiProposal>",
+            "proposals: List<AiProposal>; failures: Map<ProposalItemId, String>",
         "com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContent" to
-            "dueDates: List<LocalDate>?; tags: List<TagId>?; blockedBy: Set<TaskId>? " +
+            "dueDates: List<LocalDate>?; tags: List<TagId>?; blockedBy: Set<TaskId>?; " +
             "availableTasks: List<Task>?; menuItems: List<TaskEditorMenuItem>",
         "com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorDueDateRow" to
             "dueDates: List<LocalDate>?",
         "com.singularity.todo.feature.tasks.presentation.components.detail.WeekdayEditor" to "selected: Set<Int>",
         "com.singularity.todo.feature.tasks.presentation.components.list.TaskFilterChips" to
             "counts: Map<TaskStatus, Int>?",
+        // The sites below arrived on `main` after the register was measured. The
+        // rule found them the first time it actually ran: it had been mute,
+        // because every finding it produced was marked as suppressed.
+        "com.singularity.todo.core.ui.onboarding.rememberSpotlightTour" to
+            "steps: List<SpotlightStep>",
+        "com.singularity.todo.core.ui.text.highlightedText" to
+            "ranges: List<TextMatchRange>",
+        "com.singularity.todo.feature.ai.chat.AgentActivitySection" to
+            "plan: List<AgentPlanStep>; calls: List<AgentToolCall>",
+        "com.singularity.todo.feature.ai.ui.AgentPlanCard" to
+            "steps: List<AgentPlanStep>",
+        "com.singularity.todo.feature.nav.toDecoratedEntries.Nav3State" to
+            "entryDecorators: List<NavEntryDecorator<NavKey>>",
+        "com.singularity.todo.feature.proposals.presentation.components.ProposalCard" to
+            "failures: Map<ProposalItemId, String>",
+        "com.singularity.todo.core.ui.textfields.ObservedField.TextFieldStateBridgeUiTest" to
+            "edits: MutableList<String>",
     )
 
     /** True when the composable is one of the known sites. */
