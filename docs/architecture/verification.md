@@ -41,7 +41,9 @@
   на уровень глубже. Хук ставит `GATE_SUITE_INSIDE_HOOK=1`, и тест хука себя
   пропускает; в CI маркера нет, и тест выполняется. Имя упавшего теста хук
   печатает сам: вывод сьюта раньше уходил в `/dev/null`, и красный пуш говорил
-  только «the gate suite's own tests do not pass».
+  только «the gate suite's own tests do not pass». Лог сьюта хук копирует в
+  `build/diagnostics/pre-push-gate-suite-<n>.log`: временный каталог хука
+  удаляется на выходе, и напечатанный путь должен пережить пуш.
 - **`just lint-changed`** — detekt только по изменённым файлам (секунды); он же в
   pre-commit. Полный модульный detekt — `just lint`.
 - **Сломанный build-скрипт — `./gw help`, а не компиляция**: Gradle читает build-скрипт

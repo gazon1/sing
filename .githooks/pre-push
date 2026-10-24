@@ -248,6 +248,20 @@ report_failed_tests() {
     fi
 }
 
+# The suite's log, kept past the push.
+#
+# The temp root is removed when the hook exits, so a path printed inside it is
+# a path that is gone by the time the reader reads the line. The log is copied
+# into the checkout's `build/diagnostics/` — where this repository keeps what
+# a run leaves behind — and the copy is what the message names.
+keep_suite_log() {
+    local source="$1" kept="$2"
+    [ -f "$source" ] || return 0
+    mkdir -p "$(dirname "$kept")" 2>/dev/null || return 0
+    cp "$source" "$kept" 2>/dev/null || return 0
+    echo "   the whole log is at $kept"
+}
+
 # ── Structural gates (seconds, no Gradle) ────────────────────────────────
 #
 # Both gates run against the TREE THAT IS BEING PUSHED. The gate scripts are
@@ -443,6 +457,7 @@ for i in "${!PUSH_REFS[@]}"; do
     # printed: a step that says "FAILED" without saying which test failed
     # costs the reader the whole push.
     suite_log="$TMP_ROOT/gate-suite-$i.log"
+    suite_log_kept="$REPO_ROOT/build/diagnostics/pre-push-gate-suite-$i.log"
     if [ ! -d "$tree/scripts/tests" ]; then
         echo "   gate suite tests: SKIPPED (the pushed tree does not have them)"
     elif [ ! -f "$tree/scripts/run-gate-tests.py" ]; then
@@ -458,6 +473,7 @@ for i in "${!PUSH_REFS[@]}"; do
             echo "   gate suite tests: FAILED"
             GATES_FAILED=1
             report_failed_tests "$suite_log"
+            keep_suite_log "$suite_log" "$suite_log_kept"
         fi
     elif (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR \
         GATE_SUITE_INSIDE_HOOK=1 \
@@ -470,7 +486,7 @@ for i in "${!PUSH_REFS[@]}"; do
         report_failed_tests "$suite_log"
         echo ""
         echo "pre-push FAILED — the gate suite's own tests do not pass in the tree of $local_ref."
-        echo "The failing tests are named above; the whole log is at $suite_log."
+        keep_suite_log "$suite_log" "$suite_log_kept"
     fi
 
     # ── The promise files ─────────────────────────────────────────────────

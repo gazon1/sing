@@ -1000,17 +1000,22 @@ class InsideHookTest(unittest.TestCase):
 
     def test_the_hook_test_class_is_skipped_inside_a_hook(self):
         result = subprocess.run(
-            [sys.executable, '-m', 'unittest', 'scripts.tests.test_pre_push_hook'],
+            [sys.executable, '-m', 'unittest', '-v', 'scripts.tests.test_pre_push_hook'],
             cwd=REPO_ROOT,
             capture_output=True,
             text=True,
             env={**os.environ, INSIDE_HOOK_ENV: '1'},
         )
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        # The reason, and not the word "skipped": the class that holds this
+        # test is skipped too, and its own skip would satisfy a weaker
+        # assertion. The reason named here belongs to the class that drives
+        # the hook — the one whose absence of a skip is the recursion.
         self.assertIn(
-            'skipped',
+            'the suite is running inside a hook, and this test drives one',
             result.stdout + result.stderr,
-            'the suite ran the hook\'s own test inside a hook:\n' + result.stdout + result.stderr,
+            'the suite ran the hook\'s own test inside a hook:\n'
+            + result.stdout + result.stderr,
         )
 
 
