@@ -83,14 +83,25 @@ the change at once, and the push carries what the database holds.
   member: each read takes the row and the cross-refs of that member alone.
   The bulk archive is the exception and reads the cross-refs once for the
   whole set — a batch there is unbounded in size, and the per-member read
-  would be one round trip per archived task.
+  would be one round trip per archived task. That one pass reads the
+  cross-refs of the whole profile rather than of the set it assembles: it is
+  one read either way, and the set of a bulk archive is not known before the
+  rows are read.
 - The parts of a task on the wire are always the database's. A caller that
   changes the tags changes them through `setTags`, which is the path that
   writes them — the same rule the local write already follows.
+- A create pushes the task as the database holds it, and the database does not
+  hold the edges the caller carried: the create writes the tags and the row,
+  and not the dependencies. So the pushed task waits for nothing, and that is
+  the truth about a task that has just been created — an edge the caller held
+  and never wrote is not an edge the work has.
 - The series' shared tags travel as the database holds them. A batch write
-  that carries the tags of the series writes them first and then pushes what
-  it wrote; a batch built from a task read without them no longer sends an
-  emptiness as a claim.
+  carries the tags of the series and writes them first, and the push then says
+  what it wrote — the emptiness of a read is not a claim, but the emptiness a
+  batch *wrote* is one. A batch built from a task read without the tags
+  therefore takes the tags off the task, and the push says so: the push is
+  honest, and the mistake it reports is the caller's, in the same place the
+  single-row write refuses to make it.
 - The bulk archive pushes the tasks it archived with their tags and their
   edges, instead of pushing rows and calling it a task.
 - The pushed task is the row, so the stamp it carries is the row's stamp.
@@ -101,10 +112,18 @@ the change at once, and the push carries what the database holds.
   the task, which held the parts the read did not load.
 - A test can now see the claim: the outbox's entity is the database's task,
   and a test that reads it says what the server was told.
-- The tag edit on the screen now goes through `setTags`, and that path does one
-  more thing the old path did not: a tag the user removed is recorded as
-  suppressed, so the AI does not propose it again. The suppression is a
-  column of the row, so it travels with the push like any other part.
+- The tag edit on the screen now goes through `setTags`, and that path does two
+  more things the old path did not. A tag the user removed is recorded as
+  suppressed, so the AI does not propose it again; the suppression is a
+  column of the row, so it travels with the push like any other part. And the
+  path repairs the series: the tags are a shared field, so the other members
+  follow the one whose tags were changed, and the repair aligns their shared
+  fields with it. The old path wrote only the one row, and a series whose
+  members disagreed stayed that way.
+- A write that changes nothing claims nothing. `setTags` with the tags the row
+  already carries writes nothing and pushes nothing: a claim about a set that
+  did not move says nothing new, and the screen may ask, but the wire is not
+  told.
 - The bulk delete of a profile reads the cross-refs before it deletes them —
   that is the only way to say what the work had — and pushes the tasks it
   assembled from them. It is the one path that does not read the parts back,

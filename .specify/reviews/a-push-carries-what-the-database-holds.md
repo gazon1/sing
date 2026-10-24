@@ -3,8 +3,8 @@ change: a-push-carries-what-the-database-holds
 verdict: pass
 date: 2026-10-23
 pr: 1043
-reviewed: f6b0f3162e8ff4e9b09bf5c0813d7d2a498215e0
-documents: sha256:f80d8037d4e29ad3a242658e5979da49a4d8c4c1b138d8d36c39a0e2332ff400
+reviewed: 25b21d41a68f33c9763238362c6ef92a723cfee1
+documents: sha256:6a626459e49c454e6c549bec5e802456b60f227041c5efafe82ceb30847d67fe
 ---
 
 ## What was reviewed
@@ -87,7 +87,67 @@ the set it assembles; `setTags` records a removed tag as suppressed, which
 the change did not document; `sharedFieldOf` still maps the tag intents to a
 shared field although the slot no longer routes them through it.
 
+### Round three — the pull request
+
+One blocker and four should-fix, and the blocker was the same one the CI
+found on its own: the ADR had no frontmatter block, so `singularity-adr
+validate` failed and the branch could not go green. The substance was found
+to be right — every task push now carries the database's task, the direction
+of the dependencies agrees with `toTask` and `withExtras`, the read happens
+inside the transaction that wrote it, and the tag edit goes through the path
+that owns the tags. What was open:
+
+1. **Blocker — the ADR had no frontmatter.** It was written in the older
+   shape (`**Date:**` and a `Status` section), and the corpus reads a
+   `---` block. The CI job said so before the review did.
+
+2. **Should-fix — the verdict overstated the transaction test.** It said a
+   read taken *outside* the transaction leaves the pushed task without the
+   tag. That is false: a read taken after the commit would see the tag too.
+   The test pins that the claim sees the write, not where the read happens.
+
+3. **Should-fix — the verdict said the domain reads `sharedFieldOf`.** It
+   does not: the function is internal to the presentation layer and has
+   three readers, all of them slots. The rule it states is real; the reader
+   of it was named wrongly.
+
+4. **Should-fix — the ADR's sentence about a batch was wrong.** It said a
+   batch built from a read without the tags "no longer sends an emptiness as
+   a claim". The batch *writes* the tags it was given before it pushes, so a
+   batch built from such a read takes the tags off the task and the push
+   says so — an emptiness, but one the batch wrote. The push is honest
+   either way; the sentence was not.
+
+Nits: the verdict claimed the ADR says the profile id is read once, and the
+ADR says no such thing; the tag edit now repairs the series, which was not
+documented; removing a tag the task does not carry rewrote every cross-ref
+and re-pushed; `freshTasks` reads the cross-refs of the whole profile; a
+create pushes a task without the edges the caller carried.
+
 ## What was done about it
+
+- The ADR carries a frontmatter block now — `title`, `date`, `status`,
+  `tags` — and `scripts/check_adr_status.py` is green on it.
+- The verdict no longer claims that a read outside the transaction fails the
+  test. It says what the test pins: the claim sees the write.
+- `sharedFieldOf`'s KDoc no longer says the domain reads it, and the
+  verdict does not either. The mapping stays — it is what states the rule.
+- The ADR's batch sentence now says what the batch does: it writes the tags
+  it was given and then pushes what it wrote.
+- The ADR says what a create pushes: the task as the database holds it,
+  which waits for nothing, because the create writes the tags and the row
+  and not the dependencies.
+- The ADR says what the tag edit does besides writing the tags: a removed
+  tag is recorded as suppressed, and the edit repairs the series.
+- The ADR says what the bulk archive's single pass reads: the cross-refs of
+  the whole profile, not only of the set it assembles.
+- `setTags` writes nothing and pushes nothing when the tags the row carries
+  are the tags the caller asked for — removing a tag the task does not carry
+  is a no-op, and a no-op is not a claim.
+- The spec's scenario is named for what it pins — *the claim is the task the
+  write left* — and the requirement says where the read happens.
+
+### The fix itself
 
 - The tag edit on the screen goes through `core.taskRepo.setTags(…)`. The
   path that owns the cross-ref table the tags live in is the path that writes
@@ -99,9 +159,10 @@ shared field although the slot no longer routes them through it.
   once for the whole set rather than once per task.
 - The test class runs against a real database and a real write transaction
   (`RoomUnitOfWork`), and the transaction test was rewritten so that the tag
-  it asserts on is the tag the same transaction wrote. A read taken before
-  that write, or outside that transaction, leaves the pushed task without the
-  tag and the test fails.
+  it asserts on is the tag the same transaction wrote. A read taken *before*
+  that write leaves the pushed task without the tag and the test fails — the
+  test pins that the claim sees the write, not where the read happens: a read
+  taken after the commit would see the tag too.
 - The test was checked against a reverted fix: with `update()` and
   `updateAll()` pushing the caller's copy again, three of the six tests fail
   — the tags of an edit, the dependencies of an edit and the dependencies of
@@ -109,13 +170,10 @@ shared field although the slot no longer routes them through it.
 - The ADR no longer promises a re-stamp of `updatedAt`: it says the stamp
   does not change and that what changes is that the push no longer carries
   the caller's copy.
-- The ADR now says what the tag edit does besides writing the tags — a tag
-  the user removed is recorded as suppressed — and says that the profile id
-  is read once.
 - The ADR says what a batch costs: a read per member, and the bulk archive
   as the exception.
-- `sharedFieldOf` keeps the mapping — the rule is unchanged and the domain
-  reads it — and its KDoc now says where the tags are written and why.
+- `sharedFieldOf` keeps the mapping — the rule is unchanged and the mapping
+  documents it — and its KDoc now says where the tags are written and why.
 
 ## Links
 

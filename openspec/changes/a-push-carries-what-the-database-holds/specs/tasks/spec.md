@@ -4,7 +4,9 @@
 
 When the system pushes a task to the server, it SHALL push the task as the
 database holds it — the row, the tags and the blocking edges — and SHALL NOT
-push a part it did not read as the truth about the work.
+push a part it did not read as the truth about the work. The task the
+database holds is read back after the write, within the transaction that
+wrote it, so the claim and the write are one unit of work.
 
 **Rationale:** on the wire an empty collection is a claim. A document whose
 `tags` is empty says "the work has no tags", and the receiver removes them; a
@@ -39,7 +41,7 @@ next pull. The write that pushes has to push what the database holds.
 - **WHEN** the completed tasks are archived in bulk
 - **THEN** the pushed task carries the tag
 
-#### Scenario: The claim is read inside the transaction
+#### Scenario: The claim is the task the write left
 
 - **GIVEN** a task that carries a tag
 - **WHEN** the task is written
