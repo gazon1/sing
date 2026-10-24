@@ -19,6 +19,8 @@ SCRIPT = pathlib.Path(__file__).resolve().parent.parent / 'check-gradle-test-pop
 #: The gate now imports its parser from here; a fixture that forgot it would fail
 #: loudly rather than silently testing a different code path.
 PARSER = pathlib.Path(__file__).resolve().parent.parent / 'src' / 'workflow_gradle.py'
+#: The whole `scripts/src` tree — the gate's parser and the `sgate` package.
+SRC = pathlib.Path(__file__).resolve().parent.parent / 'src'
 #: The populations file — the definition the gate reads the populations and their
 #: properties from. A fake repo without it is a fake repo the gate cannot judge.
 POPULATIONS = SCRIPT.parent.parent / 'config' / 'test-populations.properties'
@@ -281,7 +283,13 @@ def run_gate(files: dict[str, str]) -> tuple[int, str]:
             path.write_text(content)
         proc = subprocess.run(
             [sys.executable, str(script_dest), '--verbose'],
-            capture_output=True, text=True, cwd=root, env={'PATH': '/usr/bin:/bin'},
+            capture_output=True, text=True, cwd=root,
+            # The gate resolves `sgate` against its own checkout, and the
+            # checkout under test is this one: the fake tree holds the gate
+            # and the workflow, and the package comes from here. A fixture
+            # that copied no package at all gave the gate a tree it could not
+            # import from, and the gate died before it read the workflow.
+            env={'PATH': '/usr/bin:/bin', 'PYTHONPATH': str(SRC)},
         )
         return proc.returncode, proc.stdout + proc.stderr
 

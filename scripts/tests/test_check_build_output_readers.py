@@ -22,6 +22,8 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / 'check-build-output-readers.py'
 #: The gate imports its parser from here.
 PARSER = ROOT / 'src' / 'workflow_gradle.py'
+#: The whole `scripts/src` tree — the gate's parser and the `sgate` package.
+SRC = ROOT / 'src'
 
 # The shape that failed silently on 2026-10-16: the flake reader sits after three
 # Gradle invocations that can each re-run the shared test task.
@@ -177,7 +179,13 @@ def run_gate(files: dict[str, str]) -> tuple[int, str]:
             path.write_text(content)
         proc = subprocess.run(
             [sys.executable, str(scripts / SCRIPT.name), '--verbose'],
-            capture_output=True, text=True, cwd=root, env={'PATH': '/usr/bin:/bin'},
+            capture_output=True, text=True, cwd=root,
+            # The gate resolves `sgate` against its own checkout, and the
+            # checkout under test is this one: the fake tree holds the gate
+            # and the workflow, and the package comes from here. A fixture
+            # that copied no package at all gave the gate a tree it could not
+            # import from, and the gate died before it read the workflow.
+            env={'PATH': '/usr/bin:/bin', 'PYTHONPATH': str(SRC)},
         )
         return proc.returncode, proc.stdout + proc.stderr
 

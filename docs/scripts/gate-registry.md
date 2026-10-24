@@ -23,6 +23,7 @@ its helper tools — and the gates are described here, once.
 | the memory budget is one record | blocking | `scripts/check-memory-budget.py` | check-memory-budget.py — every test task runs with the heap the record holds. | — | — |
 | gradle invocations keep one test population | blocking | `scripts/check-gradle-test-population.py` | check-gradle-test-population.py — one test population per job, or the gate is... | — | — |
 | published measurements match the record | blocking | `scripts/check-published-measurements.py` | check-published-measurements.py — a published coverage number matches the mea... | — | — |
+| the recorded CI jobs are still jobs | blocking | `scripts/check-recorded-ci-jobs.py` | check-recorded-ci-jobs.py — the recorded CI run still names jobs the workflow... | — | — |
 | waiver references resolve | blocking | `scripts/check-waiver-references.py` | check-waiver-references.py — a waiver whose premise is prose is a waiver that... | — | — |
 | test-task external inputs declared | blocking | `scripts/check-test-task-inputs.py` | check-test-task-inputs.py — a test task that reads a tree must declare it as ... | — | — |
 | declared dependencies are used | blocking | `scripts/check-dependency-usage.py` | Dependency-usage gate: a declared dependency that nothing imports (#205). | — | — |
