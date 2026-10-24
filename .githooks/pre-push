@@ -401,16 +401,28 @@ for i in "${!PUSH_REFS[@]}"; do
     # outside a hook too, and this line is the belt to their braces.
     if [ ! -d "$tree/scripts/tests" ]; then
         echo "   gate suite tests: SKIPPED (the pushed tree does not have them)"
+    elif [ ! -f "$tree/scripts/run-gate-tests.py" ]; then
+        # A tree that predates the runner has no runner. The plain `unittest`
+        # runs the same tests — and a push of an old branch is not blocked by
+        # a file that branch does not have.
+        if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR \
+            PYTHONPATH="$tree/scripts/src" \
+            python3 -m unittest discover -s scripts/tests >/dev/null 2>&1); then
+            echo "   gate suite tests: OK (the tree has no runner — plain unittest)"
+        else
+            echo "   gate suite tests: FAILED"
+            GATES_FAILED=1
+        fi
     elif (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR \
         PYTHONPATH="$tree/scripts/src" \
-        python3 -m unittest discover -s scripts/tests >/dev/null 2>&1); then
+        python3 "$tree/scripts/run-gate-tests.py" >/dev/null 2>&1); then
         echo "   gate suite tests: OK"
     else
         echo "   gate suite tests: FAILED"
         GATES_FAILED=1
         echo ""
         echo "pre-push FAILED — the gate suite's own tests do not pass in the tree of $local_ref."
-        echo "Run python3 -m unittest discover -s scripts/tests to see where, or push with --no-verify."
+        echo "Run python3 scripts/run-gate-tests.py to see where, or push with --no-verify."
     fi
 
     # ── The promise files ─────────────────────────────────────────────────

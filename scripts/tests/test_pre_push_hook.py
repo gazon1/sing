@@ -58,6 +58,10 @@ HOOK = REPO_ROOT / '.githooks' / 'pre-push'
 #: script, and the script computes the modules from the graph.
 VERDICT_SCRIPT = REPO_ROOT / 'scripts' / 'pre-push-verdict.py'
 CHANGED_MODULES = REPO_ROOT / 'scripts' / 'changed-modules.py'
+# The runner the hook calls for the gate suite's own tests. The fixture tree
+# carries it, because the hook calls it by name: a fixture that does not carry
+# the file the hook runs proves nothing about the hook.
+GATE_TEST_RUNNER = REPO_ROOT / 'scripts' / 'run-gate-tests.py'
 
 # The marker detekt would report on. The stand-in Gradle wrapper looks for it
 # in the Kotlin files of the tree it is run in.
@@ -192,7 +196,7 @@ class PrePushHookTest(unittest.TestCase):
         self._write('.githooks/pre-push', HOOK.read_text(encoding='utf-8'), executable=True)
         _git('config', 'core.hooksPath', '.githooks', cwd=self.repo)
 
-    def _install_stubs(self) -> None:
+    def _install_stubs(self, *, with_runner: bool = True) -> None:
         """The scripts the hook calls, and a Gradle wrapper that reports findings.
 
         The list of scripts comes from the registry — the same declaration the
@@ -206,6 +210,10 @@ class PrePushHookTest(unittest.TestCase):
         # GRADLE_USER_HOME — so the stand-in is installed under that name too.
         self._write('gw', FAKE_GRADLEW, executable=True)
         for script in PRE_PUSH_SCRIPTS:
+            if not with_runner and script == 'scripts/run-gate-tests.py':
+                # A tree that predates the runner has no runner at all — not
+                # even a stub of one.
+                continue
             self._write(script, PASSING_PYTHON_GATE)
         # The verdict and the module graph it reads are part of the repository:
         # the hook calls the script, and the script computes the modules to
@@ -213,6 +221,12 @@ class PrePushHookTest(unittest.TestCase):
         # verdict is what these tests are about.
         self._write('scripts/pre-push-verdict.py', VERDICT_SCRIPT.read_text(encoding='utf-8'))
         self._write('scripts/changed-modules.py', CHANGED_MODULES.read_text(encoding='utf-8'))
+        # The gate suite's own runner is called by the hook by name, so the
+        # fixture tree carries it — the same way it carries the scripts the
+        # hook reads. A tree that predates the runner has none, and the hook
+        # falls back to the plain `unittest` for it.
+        if with_runner:
+            self._write('scripts/run-gate-tests.py', GATE_TEST_RUNNER.read_text(encoding='utf-8'))
 
     def _commit_source(self, content: str, message: str) -> None:
         self._write('shared/src/main/kotlin/Example.kt', content)
@@ -292,6 +306,25 @@ class PrePushHookTest(unittest.TestCase):
 
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         self.assertIn('=== Pre-push OK ===', result.stdout + result.stderr)
+
+    def test_a_tree_without_the_runner_still_runs_the_suite(self):
+        # A branch that predates the runner has no runner, and a push of an
+        # old branch is not blocked by a file that branch does not have.
+        self._install_hook()
+        self._install_stubs(with_runner=False)
+        self._write(
+            'scripts/tests/test_generated.py',
+            'import unittest\n\n\nclass GeneratedTest(unittest.TestCase):\n'
+            '    def test_it_passes(self):\n        self.assertTrue(True)\n',
+        )
+        self._commit_source(CLEAN_SOURCE, 'a clean file')
+
+        result = self._push()
+
+        output = result.stdout + result.stderr
+        self.assertEqual(0, result.returncode, output)
+        self.assertIn('gate suite tests: OK', output)
+        self.assertIn('the tree has no runner', output)
 
     def test_a_violation_in_the_pushed_tree_fails_the_push(self):
         self._install_hook()

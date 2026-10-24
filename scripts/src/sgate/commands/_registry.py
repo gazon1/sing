@@ -110,6 +110,10 @@ PRE_PUSH_SCRIPTS: tuple[str, ...] = (
     # finds. scripts/check-hook-gates.py is what found it.
     "scripts/check-maestro-flow-catalogue.py",
     "scripts/check-test-tags-catalog.py",
+    # The runner of the gate suite's own tests. It is not a gate — it judges
+    # nothing about the tree — but the hook runs it, and a script the hook
+    # runs and no record names is a script nobody knows about.
+    "scripts/run-gate-tests.py",
 ) + tuple(f"scripts/{rule}.py" for rule in PRE_PUSH_TREE_RULES)
 
 COMMAND_MODULES: dict[str, str] = {
@@ -1559,7 +1563,7 @@ GATE_EXEMPTIONS: dict[str, Control] = {
     'scripts/check-pro-licence-boundary.py': Control(kind='exempt', proves='scripts/check-pro-licence-boundary.py', tracked_by='scripts/tests/test_check_pro_licence_boundary.py', reason='Apache-2.0 / pro licence boundary check; runs locally before publication commits, not as a CI gate; the sabotage control is the direction check itself'),
     'scripts/check-rebase-compiles.py': Control(kind='exempt', proves='scripts/check-rebase-compiles.py', tracked_by='.github/workflows/ci.yml#Post-rebase DI compile', reason='GATE_PARITY: needs a Gradle compile run with rebased DI files, so lives in the CI tests job after the rebase step and is not in the static-gates.sh registry; sabotage control is the rebase step'),
     'scripts/build-version-catalog-gate.py': Control(kind='exempt', proves='scripts/build-version-catalog-gate.py', tracked_by='scripts/tests/test_sgate_gates.py', reason='auto-generator: the gate proves version catalog is clean by checking for undeclared literals; the sabotage is removing the generated catalog file and asserting the gate fails — but the generator is the gate, so `test_version_catalog_gate_self_repairs` is the real control'),
-    'scripts/tests': Control(kind='exempt', proves='scripts/tests', tracked_by='scripts/tests/test_sgate_gates.py', reason='meta-gate: `python3 -m unittest discover` is the gate; corrupting a test file would be the sabotage, but the unittest runner is the proving mechanism and its own test suite (scripts/tests/test_sgate_gates.py) is what makes it trustworthy'),
+    'scripts/tests': Control(kind='exempt', proves='scripts/tests', tracked_by='scripts/tests/test_sgate_gates.py', reason='meta-gate: `scripts/run-gate-tests.py` is the gate; corrupting a test file would be the sabotage, but the runner is the proving mechanism and its own test suite (scripts/tests/test_sgate_gates.py) is what makes it trustworthy'),
     'scripts/check-gate-liveness.py': Control(
         kind='exempt',
         proves='scripts/tests/test_check_gate_liveness.py',
