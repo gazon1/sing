@@ -79,11 +79,18 @@ internal class SyncDocumentWriter(
     /**
      * Decodes [document] as [type] and upserts it.
      *
-     * The document's own `user_id` and ids are used as they are. Nothing here reads
-     * the signed-in account, because the caller decides which account a document
-     * belongs to: on the pull path that is the scope the event was accepted for, and on
-     * the lost-race path it is the row's own shadow. Overwriting either from the
-     * session would be a second answer to a question the document already answers.
+     * The document's own `userId` and ids are used as they are. The owner of the
+     * document is never overwritten from the session, because the caller decides
+     * which account a document belongs to: on the pull path that is the scope the
+     * event was accepted for, and on the lost-race path it is the row's own
+     * shadow. Overwriting it from the session would be a second answer to a
+     * question the document already answers.
+     *
+     * The signed-in account *is* read, and for one thing only: to decide
+     * whether the row that is already here may be read into the document. The
+     * row is read to keep the fields the document is silent about, and the row
+     * of this profile is the only row this device may speak about — see
+     * [belongsToThisProfile].
      */
     suspend fun upsert(type: DocType, document: JsonObject) {
         when (type) {

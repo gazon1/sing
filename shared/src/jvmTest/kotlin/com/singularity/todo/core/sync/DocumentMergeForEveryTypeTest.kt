@@ -60,9 +60,13 @@ import org.junit.jupiter.api.Tag
  * ## What these tests are and are not
  *
  * The tests that carry a missing key are the defect tests: without the merge
- * they fail, because the default is written over the row. The tests about the
- * row of another profile are *guards*: they pass before the merge as well, and
- * they are here to say that the merge did not open the door the fix closed.
+ * they fail, because the default is written over the row.
+ *
+ * The test about the row of another profile is a control for the *boundary*,
+ * not for the merge: it holds a row of this profile under the id the foreign
+ * document names, and it fails when the check that says "this document is of
+ * another profile" is taken out. It passes with the merge reverted, because
+ * the merge is not what keeps a profile's data out of another profile's row.
  */
 @Tag("fast")
 class DocumentMergeForEveryTypeTest {
@@ -280,10 +284,13 @@ class DocumentMergeForEveryTypeTest {
 
     @Test
     fun `a note document of another profile is not filled from this profile's row`() = runTest {
-        // Two profiles of one account can hold a note with the same id. The
-        // row this profile holds must not fill the row of the other profile.
+        // Two profiles of one account can hold a note with the same id, and this
+        // device holds *this* profile's row under that id. The foreign document
+        // carries no body at all, and the row of this profile says "the body":
+        // filling the foreign document from this profile's row would write this
+        // profile's data into another profile's row.
         val repo = FakeNotesRepository()
-        repo.add(note(id = "n1", userId = UserId("bob"), body = "bob's body"))
+        repo.add(note(id = "n1", body = "the body"))
 
         fakeSyncDocumentWriter(notes = repo).upsert(
             DocType.Note,
