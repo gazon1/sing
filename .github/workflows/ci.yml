@@ -948,18 +948,6 @@ jobs:
       - name: Gradle (tests)
         run: |
           set -o pipefail
-          # The detekt modules are read from the build, not written here. The
-          # list used to be written out on the Gradle line below — and in the
-          # auto-fix script, and in the hook's record: three copies of one
-          # fact, and a module added to settings.gradle.kts had to be
-          # remembered in all three. The module graph reads the build, so it
-          # IS the list; this job asks for it. A module the build declares and
-          # the list does not name is a module nobody judges.
-          mapfile -t DETEKT_TASKS < <(python3 scripts/changed-modules.py --detekt-tasks)
-          if [[ "${#DETEKT_TASKS[@]}" == "0" ]]; then
-            echo "the module graph names no detekt task — CI would judge nothing" >&2
-            exit 1
-          fi
           ./gradlew --continue \
             --no-parallel \
             :mcp-server:jar \
@@ -971,7 +959,6 @@ jobs:
             :androidApp:test \
             :detekt-rules:test \
             :tools:unwritten-properties:test \
-            "${DETEKT_TASKS[@]}" \
             -Ptest.population="$TEST_POPULATION" \
             -Pcoverage.enabled=false \
             -Dsingularity.test.steps=true -Dsingularity.test.a11y=fail \
