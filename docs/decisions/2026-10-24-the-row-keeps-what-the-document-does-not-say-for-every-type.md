@@ -34,8 +34,8 @@ predates a field sends no key for it.
 ## Idea
 
 The rule is about a document and a row, and not about a task. Every type that
-is synced meets the row the same way, so every type that is synced reads the
-document the same way.
+is synced but the project meets the row the same way, so every type that is
+synced but the project reads the document the same way.
 
 ## Decision
 
@@ -45,7 +45,8 @@ document the same way.
    nothing, the row keeps saying what it says. A rename of a wire field cannot
    leave the merge behind, because the names come from the model.
 
-2. **Every type that is synced is read against the row that is already here.**
+2. **Every type that is synced but the project is read against the row that is
+   already here.**
    The writer has one path, and the path is per type only in what it reads and
    in how it decodes. A note, a tag, a tag group and a time entry are read
    against the row that is already here, exactly as a task is.
@@ -99,8 +100,8 @@ takes the owner for the same reason the other repositories scope theirs.
 ## Consequences
 
 - The path that applies a document reads the local row before it writes it, for
-  every type. That is one extra read per applied document, and it is the price
-  of knowing what the device already said.
+  every type but the project. That is one extra read per applied document, and
+  it is the price of knowing what the device already said.
 - Nothing changes for a device that sends the whole document: every key is
   there, and the merge returns the document. The behaviour changes only where
   the document is silent — which is where the deletion was.

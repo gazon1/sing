@@ -37,7 +37,8 @@ one path for the task and five that decoded the document on its own.
   the model writes — the same names the document uses — and the two are
   compared key by key. The document wins wherever it speaks; where it says
   nothing, the row keeps saying what it says.
-- Every type that is synced is read against the row that is already here. The
+- Every type that is synced but the project is read against the row that is
+  already here. The
   writer's path is per type only in what it reads and in how it decodes.
 - The parts that live outside the row stay the caller's business: which keys
   are parts is per-type knowledge, and the merge does not know about them.
