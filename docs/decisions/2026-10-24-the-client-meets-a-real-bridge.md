@@ -49,6 +49,13 @@ its exit code.
 standard output, and a second reader would race it for a line. So the probe tees the
 bytes as they pass: one reader, one copy.
 
+**The transcript is read when the bridge goes quiet.** The bridge keeps talking after
+the session it answered: its available commands come on a timer, and its
+authentication state comes when its own probe resolves. A transcript read the moment
+the connect returned would miss both — and those are the very frames this probe is
+for. So the probe waits for the bridge to stop talking, and the frames are written down
+when it has.
+
 **The fake learns.** What the bridge sends that the fake did not becomes something the
 fake sends, and a test covers it. A finding that lives only in the transcript of one run
 decays; the next bridge that announces something new is exactly the case the probe was
@@ -68,47 +75,75 @@ network would be a build that fails in a tunnel.
 **The fake sends the bridge's shapes.** The authentication status notification
 (`_auth/status_update`, right after the handshake), the available-commands notification
 (`session/update` with `available_commands_update`, right after the session is open),
-five permission modes and three configuration options in the answer to `session/new`.
-The fake keeps the models the client requires, so it answers a superset of the bridge's
-session — a client that reads both is the client that reads the bridge.
+five permission modes, and three configuration options — a mode, a model and an effort
+level — in the answer to `session/new`. The fake keeps the models the client requires,
+so it answers a superset of the bridge's session — a client that reads both is the
+client that reads the bridge. The *values* are the fake's own: the bridge's list of
+models is whatever the machine it runs on is configured for, and a machine's
+configuration is not the repository's business. The shape is what the client has to
+read.
 
 **The client's reading of a notification is specified.** A notification that answers no
 request the application made is read and produces nothing: the conversation continues,
 and the reader's screen shows nothing it did not justify. That is `REQ-ACPL-004`, and a
 test in `AcpClientProcessTest` says so.
 
-## What was found
+**The bridge's own frames are written down.** The transcript is committed with the
+change, so that the claims about what the bridge sends can be checked by a reader
+without a network and without running anything. Two things in it are the machine's
+rather than the bridge's — the models the agent is configured for, and the commands
+the machine happens to have installed — and they are redacted, with the redactions
+stated in the file. The shape of every frame is complete, and the shape is the point.
+
+## Rationale
 
 The handshake completed against `@agentclientprotocol/claude-agent-acp` 0.95.0 on the
 first run, protocol version 1, and the client named the agent correctly. The difference
-was in what the bridge sends around the handshake — the two notifications, the five
+was in what the bridge sends *around* the handshake — the two notifications, the five
 modes, the three configuration options — and none of it broke the client.
 
 That is the finding, and it is worth stating plainly: **the client was already
 compatible, and nothing in the suite had said so.** The compatibility was luck until
 the probe ran.
 
-## What was not established
+The reasons for the shape of the change follow from what a test can and cannot do here.
+A test cannot reach the network, so the pass is a program. A program has no second
+reader of the protocol's stream, so the transcript is a copy taken underneath it. A
+bridge that talks after the session it answered would have its announcements cut off
+by a snapshot taken too early, so the snapshot waits for the quiet. And a finding that
+lives in one run's transcript decays, so the fake learns it and the suite covers it.
 
-**The prompt half.** A prompt needs the agent behind the bridge to be installed and
-signed in; the bridge says so itself when it is not (`"authStatus":{"kind":"none","label":
-"Not logged in"}`). The tool-call half needs the same credentials, plus a tool server,
-plus a database holding the profile the tool server insists on. So the probe covers the
-protocol's own layers and says plainly that the rest was not exercised.
+## Consequences
 
-**That every bridge agrees with this one.** One bridge was run. The Codex bridge was
-registered in the same breath and has not been driven yet; the probe takes its command
-line, so the second run is one argument away — but it has not been run, and this ADR
-does not claim it would pass.
+**The suite now covers a bridge's shapes.** The fake sends the bridge's notifications
+and the bridge's session answer, and a test says the client survives a notification it
+has no answer for. A bridge that announces something new is no longer a surprise to
+the client's *test* — only to its author.
+
+**The probe is a tool, not a gate.** It is not run by the build and it is not a test,
+so nothing fails when the network is down. What it gives is a verdict a person asks
+for, and a transcript that can be compared with the fake's shapes.
+
+**The prompt half is still unverified.** A prompt needs the agent behind the bridge to
+be installed and signed in; on a machine without credentials the bridge says so itself
+(`"authStatus":{"kind":"none","label":"Not logged in"}`). The tool-call half needs the
+same credentials, plus a tool server, plus a database holding the profile the tool
+server insists on. That half is issue #1091, and this decision does not claim it.
+
+**One bridge was run.** The Codex bridge is registered in the same breath and has not
+been driven; the probe takes its command line, so the second run is one argument away —
+but it has not been run, and this ADR does not claim it would pass.
 
 ## Links
 
 - `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpBridgeProbe.kt` —
   the probe.
 - `scripts/acp-bridge-probe.sh` — the way in.
+- `openspec/changes/the-client-meets-a-real-bridge/bridge-transcript.txt` — the bridge's
+  own frames.
 - `shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/acp/FakeAcpAgent.kt` — the
   fake, and what it learned.
 - `shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/acp/AcpClientProcessTest.kt`
   — the test that says the client survives a notification it has no answer for.
 - `docs/architecture/acp-client.md` — how to run the probe.
-- Issue #993 — the gap this change closes.
+- Issue #993 — the gap this change closes. Issue #1091 — the half that is left.

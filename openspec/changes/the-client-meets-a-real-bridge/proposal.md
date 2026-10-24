@@ -37,16 +37,29 @@ version 1.
 
 The difference was in what the bridge sends *around* the handshake:
 
-| What | The bridge sends | The fake sent |
+| What | The bridge sends | The fake sent, before this change |
 |---|---|---|
 | Authentication state | `_auth/status_update`, a notification, right after the handshake | nothing |
 | Available commands | `session/update` with `available_commands_update`, right after the session is open | nothing |
 | Permission modes | five: `default`, `acceptEdits`, `plan`, `auto`, `bypassPermissions` | one: `default` |
-| Configuration options | three: mode, model, effort | nothing |
+| Configuration options | three — a mode, a model and an effort level | nothing |
 
 None of it broke the client, and that is the point: it would have broken on a bridge
 that announced something the protocol library of the day did not model. The client now
 has a test that says it survives a notification it has no answer for.
+
+The fake sends the same shapes now — the bridge's modes, the bridge's three
+configuration options and both notifications. The *values* are the fake's own: the
+bridge's list of models is whatever the machine it runs on is configured for, and a
+machine's configuration is not the repository's business. The shape is what the client
+has to read.
+
+The bridge's own frames are written down with the change
+(`bridge-transcript.txt`), so that the claims about them can be checked by a reader
+without a network. Two things in them are the machine's rather than the bridge's — the
+list of models the agent is configured for, and the catalogue of commands the machine
+happens to have installed — and both are redacted, with the redactions stated in the
+file itself. The shape of every frame is complete.
 
 ## What this change does not do
 
