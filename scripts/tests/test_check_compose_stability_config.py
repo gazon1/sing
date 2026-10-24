@@ -62,13 +62,15 @@ def build_tree(
     says whether it actually hands it to the compiler. They are separate
     failures and the gate reports them separately.
     """
+    # The sources live under the path of their package, as the repository lays
+    # them out: the gate resolves a registered site by its package.
     sources = root / "shared" / "src" / "commonMain" / "kotlin"
     write(
-        sources / "feature" / "tasks" / "domain" / "model" / "Task.kt",
+        sources / "com" / "singularity" / "todo" / "feature" / "tasks" / "domain" / "model" / "Task.kt",
         f"package {PACKAGE}\n\ndata class Task(val id: String)\n",
     )
     write(
-        sources / "feature" / "notes" / "Note.kt",
+        sources / "com" / "singularity" / "todo" / "feature" / "notes" / "Note.kt",
         "package com.singularity.todo.feature.notes\n\nimport kotlinx.datetime.LocalDate\n"
         "\ndata class Note(val at: LocalDate)\n",
     )
@@ -217,7 +219,10 @@ class ComposeStabilityConfigTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             conf = build_tree(root, f"{PACKAGE}.Task\n")
-            sources = root / "shared" / "src" / "commonMain" / "kotlin" / "feature" / "nav"
+            sources = (
+                root / "shared" / "src" / "commonMain" / "kotlin" / "com" / "singularity"
+                / "todo" / "feature" / "nav"
+            )
             write(
                 sources / "Nav3State.kt",
                 "package com.singularity.todo.feature.nav\n\n"
@@ -241,6 +246,102 @@ class ComposeStabilityConfigTest(unittest.TestCase):
         self.assertGreater(len(sites), 0, "the register names no site at all")
         findings = gate.check_register_sites(sites, gate.source_roots(gate.ROOT))
         self.assertEqual(findings, [], f"the committed register names sites that are gone: {findings}")
+
+    def test_a_site_deleted_while_another_package_has_the_same_name_fails(self):
+        """A name that still exists elsewhere must not stand in for the site.
+
+        `ListPickerSheet` is declared in two packages in this repository. A
+        check that looked for the name anywhere in the tree would pass a tree
+        where the registered one was deleted — and the gate exists for exactly
+        that deletion.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            conf = build_tree(root, f"{PACKAGE}.Task\n")
+            other = root / "shared" / "src" / "commonMain" / "kotlin" / "com" / "singularity" / "todo" / "core" / "ui"
+            write(
+                other / "PickerDsl.kt",
+                "package com.singularity.todo.core.ui\n\n"
+                "fun <T> ListPickerSheet(items: List<T>) {}\n",
+            )
+            register = root / "register.kt"
+            write(
+                register,
+                'val KNOWN = mapOf(\n'
+                '    "com.singularity.todo.core.ui.sheet.ListPickerSheet" to\n'
+                '        mapOf("items" to "List<T>"),\n'
+                ')\n',
+            )
+            self.assertEqual(self.run_gate(root, conf, register), 1)
+
+    def test_a_registered_parameter_that_was_removed_fails(self):
+        """The register must not name a parameter the code no longer declares.
+
+        The rule cannot answer this one: a parameter that is gone has no
+        declared type to compare, and a composable may have overloads. The gate
+        reads the whole repository, so it can.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            conf = build_tree(root, f"{PACKAGE}.Task\n")
+            sources = (
+                root / "shared" / "src" / "commonMain" / "kotlin" / "com" / "singularity"
+                / "todo" / "feature" / "tasks" / "presentation"
+            )
+            write(
+                sources / "Dialog.kt",
+                "package com.singularity.todo.feature.tasks.presentation\n\n"
+                "fun Dialog(blockerTitles: List<String>) {}\n",
+            )
+            register = root / "register.kt"
+            write(
+                register,
+                'val KNOWN = mapOf(\n'
+                '    "com.singularity.todo.feature.tasks.presentation.Dialog" to\n'
+                '        mapOf("titles" to "List<String>"),\n'
+                ')\n',
+            )
+            self.assertEqual(self.run_gate(root, conf, register), 1)
+
+    def test_a_registered_parameter_that_still_exists_passes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            conf = build_tree(root, f"{PACKAGE}.Task\n")
+            sources = (
+                root / "shared" / "src" / "commonMain" / "kotlin" / "com" / "singularity"
+                / "todo" / "feature" / "tasks" / "presentation"
+            )
+            write(
+                sources / "Dialog.kt",
+                "package com.singularity.todo.feature.tasks.presentation\n\n"
+                "fun Dialog(blockerTitles: List<String>) {}\n",
+            )
+            register = root / "register.kt"
+            write(
+                register,
+                'val KNOWN = mapOf(\n'
+                '    "com.singularity.todo.feature.tasks.presentation.Dialog" to\n'
+                '        mapOf("blockerTitles" to "List<String>"),\n'
+                ')\n',
+            )
+            self.assertEqual(self.run_gate(root, conf, register), 0)
+
+    def test_a_qualified_name_quoted_in_the_register_prose_is_not_a_site(self):
+        """The register's own documentation must not become a registered site."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            conf = build_tree(root, f"{PACKAGE}.Task\n")
+            register = root / "register.kt"
+            write(
+                register,
+                '// The compiler prints "com.singularity.todo.feature.tasks.presentation.Dialog"\n'
+                '// in its report, and the register is keyed by that name.\n'
+                'val KNOWN = mapOf(\n'
+                f'    "{PACKAGE}.Task" to\n'
+                '        mapOf("titles" to "List<String>"),\n'
+                ')\n',
+            )
+            self.assertEqual(self.run_gate(root, conf, register), 0)
 
 
 if __name__ == "__main__":

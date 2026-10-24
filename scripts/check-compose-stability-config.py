@@ -104,16 +104,18 @@ DEBT_REGISTER = (
 #: The modules whose sources may declare a registered composable.
 REGISTER_MODULES = ("shared", "desktopApp", "androidApp")
 
-#: A qualified name in the register — the keys of the exemption map.
-_REGISTER_SITE = re.compile(r'"(com\.singularity\.[\w.]+)"')
+#: The body of the register's map — the places a site may be named. The map
+#: runs to the end of the file: the entries are read one by one, and a body
+#: that stopped at the first closing parenthesis would depend on how the map
+#: happens to be indented.
+_REGISTER_BLOCK = re.compile(r"val KNOWN[^=]*=\s*mapOf\((?P<body>.*)", re.DOTALL)
 
-#: How a source declares a name. Three shapes, because the register names
-#: classes, functions and properties alike. A function may carry a type
-#: parameter list and a receiver — `fun <T> Nav3State.toDecoratedEntries(`.
+#: How a source declares a name. A composable is a function; the class it is
+#: nested in is a class. A function may carry a type parameter list and a
+#: receiver — `fun <T> Nav3State.toDecoratedEntries(`.
 _DECLARATION_SHAPES = (
     r"\b(?:class|object|interface)\s+{name}\b",
     r"\bfun\s+(?:<[^>]*>\s*)?(?:[\w.]+\.)?{name}\s*\(",
-    r"\b(?:val|var)\s+(?:[\w.]+\.)?{name}\b",
 )
 
 
@@ -217,17 +219,77 @@ def check_wiring(root: pathlib.Path) -> list[str]:
     return findings
 
 
+def read_register(register: pathlib.Path) -> dict[str, dict[str, str]]:
+    """The register of debt: a qualified name, and the parameters it names.
+
+    The register is a Kotlin source file, so it is read as one: the map's body
+    is located, and each entry is a qualified name and the `mapOf` of its
+    parameters. Reading the whole file instead would pick up the qualified
+    names quoted in the register's own prose.
+    """
+    if not register.is_file():
+        return {}
+    text = register.read_text(encoding="utf-8", errors="replace")
+    block = _REGISTER_BLOCK.search(text)
+    if block is None:
+        return {}
+    body = block.group("body")
+    result: dict[str, dict[str, str]] = {}
+    for entry in re.finditer(r'"(?P<fqn>com\.singularity\.[\w.]+)"\s*to\s*mapOf\(', body):
+        fqn = entry.group("fqn")
+        open_paren = entry.end() - 1
+        close = _matching_paren(body, open_paren)
+        if close is None:
+            continue
+        parameters: dict[str, str] = {}
+        for pair in re.finditer(r'"(?P<name>[^"]+)"\s*to\s*"(?P<type>[^"]*)"', body[open_paren + 1:close]):
+            parameters[pair.group("name")] = pair.group("type")
+        result[fqn] = parameters
+    return result
+
+
+def _matching_paren(text: str, open_paren: int) -> int | None:
+    """The index of the parenthesis that closes the one at `open_paren`."""
+    stack: list[str] = []
+    for index in range(open_paren, len(text)):
+        char = text[index]
+        if _opens(char, text, index):
+            stack.append(_closer_of(char))
+        elif _closes(char):
+            if stack and stack[-1] == char:
+                stack.pop()
+                if not stack:
+                    return index
+    return None
+
+
+def _opens(char: str, text: str, index: int) -> bool:
+    """True when the character opens a bracket.
+
+    A `<` opens a generic argument list only after an identifier — `List<…>` —
+    and never after a `-`, which is what makes `-> Unit` a function type and
+    not a closing bracket.
+    """
+    if char in "([{":
+        return True
+    if char == "<":
+        previous = text[index - 1] if index else ""
+        return previous.isalnum() or previous == "_"
+    return False
+
+
+def _closes(char: str) -> bool:
+    return char in ")]}>"
+
+
+def _closer_of(char: str) -> str:
+    """The bracket that closes the one `char` opens."""
+    return {"(": ")", "[": "]", "{": "}", "<": ">"}[char]
+
+
 def read_register_sites(register: pathlib.Path) -> list[str]:
     """The qualified names the register of debt names, in the order it names them."""
-    if not register.is_file():
-        return []
-    text = register.read_text(encoding="utf-8", errors="replace")
-    sites: list[str] = []
-    for match in _REGISTER_SITE.finditer(text):
-        site = match.group(1)
-        if site not in sites:
-            sites.append(site)
-    return sites
+    return list(read_register(register))
 
 
 def source_roots(root: pathlib.Path) -> list[pathlib.Path]:
@@ -249,18 +311,18 @@ def _declares(text: str, name: str) -> bool:
     )
 
 
-def site_exists(site: str, roots: list[pathlib.Path]) -> bool:
-    """True when some source declares the composable the register names.
+def declaring_files(site: str, roots: list[pathlib.Path]) -> list[pathlib.Path]:
+    """The files that declare the composable the register names.
 
     The qualified name does not say where the package ends and the
     declarations begin, so every split is tried: the longest package first,
     because a package that does not exist as a directory cannot hold the
     declaration.
 
-    A source root that does not lay its files out by package path cannot be
-    searched by path, so the name is looked for in the whole root as well —
-    a gate that reports sixty false positives because a module moved its
-    sources is a gate that gets switched off.
+    The search stays inside the package. A name that also exists in another
+    package — and in this repository several do — must not stand in for the
+    declaration that was deleted, or the gate would pass a tree where the
+    registered composable is gone.
     """
     parts = site.split(".")
     for split in range(len(parts) - 1, 0, -1):
@@ -271,25 +333,82 @@ def site_exists(site: str, roots: list[pathlib.Path]) -> bool:
             directory = root / relative
             if not directory.is_dir():
                 continue
-            texts = [
-                path.read_text(encoding="utf-8", errors="replace")
+            texts = {
+                path: path.read_text(encoding="utf-8", errors="replace")
                 for path in directory.rglob("*.kt")
+            }
+            # The file must declare the function and the classes it is nested
+            # in — the names of one site belong to one declaration.
+            matched = [
+                path
+                for path, text in texts.items()
+                if _declares(text, names[-1])
+                and all(_declares(text, name) for name in names[:-1])
             ]
-            if texts and all(any(_declares(text, name) for text in texts) for name in names):
-                return True
-    return _declared_anywhere(site.split(".")[-1], roots)
+            if matched:
+                return matched
+    return []
 
 
-def _declared_anywhere(name: str, roots: list[pathlib.Path]) -> bool:
-    """True when some source anywhere declares a name of that spelling."""
-    escaped = re.escape(name)
-    patterns = [shape.format(name=escaped) for shape in _DECLARATION_SHAPES]
-    for root in roots:
-        for path in root.rglob("*.kt"):
-            text = path.read_text(encoding="utf-8", errors="replace")
-            if any(re.search(pattern, text) for pattern in patterns):
-                return True
-    return False
+def site_exists(site: str, roots: list[pathlib.Path]) -> bool:
+    """True when some source declares the composable the register names."""
+    return bool(declaring_files(site, roots))
+
+
+def declared_parameters(site: str, roots: list[pathlib.Path]) -> set[str]:
+    """The names of the parameters the composable declares.
+
+    Every overload of the composable counts: `Nav3State.toDecoratedEntries` is
+    declared twice, and the register may describe either of them.
+    """
+    names: set[str] = set()
+    function_name = site.split(".")[-1]
+    for path in declaring_files(site, roots):
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for match in re.finditer(
+            rf"\bfun\s+(?:<[^>]*>\s*)?(?:[\w.]+\.)?{re.escape(function_name)}\s*\(",
+            text,
+        ):
+            names |= _parameter_names(text, match.end() - 1)
+    return names
+
+
+def _parameter_names(text: str, open_paren: int) -> set[str]:
+    """The parameter names of the parameter list that starts at `open_paren`."""
+    end = _matching_paren(text, open_paren)
+    if end is None:
+        return set()
+    body = text[open_paren + 1:end]
+    names: set[str] = set()
+    for part in _split_parameters(body):
+        head = part.split("=", 1)[0].strip()
+        name = head.split(":", 1)[0].strip()
+        if re.fullmatch(r"[A-Za-z_]\w*", name):
+            names.add(name)
+    return names
+
+
+def _split_parameters(body: str) -> list[str]:
+    """The parameters of a parameter list, split on the commas between them.
+
+    A comma inside a generic argument list or a function type belongs to the
+    type, not to the parameter list.
+    """
+    parts: list[str] = []
+    current: list[str] = []
+    stack: list[str] = []
+    for index, char in enumerate(body):
+        if _opens(char, body, index):
+            stack.append(_closer_of(char))
+        elif _closes(char) and stack and stack[-1] == char:
+            stack.pop()
+        if char == "," and not stack:
+            parts.append("".join(current))
+            current = []
+            continue
+        current.append(char)
+    parts.append("".join(current))
+    return parts
 
 
 def check_register_sites(sites: list[str], roots: list[pathlib.Path]) -> list[str]:
@@ -302,6 +421,38 @@ def check_register_sites(sites: list[str], roots: list[pathlib.Path]) -> list[st
             f"the register of debt names '{site}', and no source declares it — "
             "the entry accounts for a composable that no longer exists; delete it",
         )
+    return findings
+
+
+def check_register_parameters(
+    sites: list[str],
+    register: dict[str, dict[str, str]],
+    roots: list[pathlib.Path],
+) -> list[str]:
+    """The findings for the parameters the register names.
+
+    The rule compares the code that is there with the register, but it cannot
+    see a parameter that was removed: a parameter that is gone has no declared
+    type to compare, and a composable may have overloads, so "this parameter is
+    missing here" is not the same as "this parameter is gone". The gate reads
+    the whole repository, so it can answer the question the rule cannot.
+    """
+    findings: list[str] = []
+    for site in sites:
+        parameters = register.get(site) or {}
+        if not parameters:
+            continue
+        declared = declared_parameters(site, roots)
+        if not declared:
+            continue
+        for name in parameters:
+            if name in declared:
+                continue
+            findings.append(
+                f"the register of debt names a parameter '{name}' of {site}, and no "
+                "declaration of it has such a parameter — the debt it names has been "
+                "paid; delete the entry",
+            )
     return findings
 
 
@@ -359,9 +510,12 @@ def cli(
     findings = check_entries(entries, declared_types(sources), imported_types(sources))
     findings += check_wiring(root)
 
-    sites = read_register_sites(register)
+    debt = read_register(register)
+    sites = list(debt)
     if sites:
-        findings += check_register_sites(sites, source_roots(root))
+        roots = source_roots(root)
+        findings += check_register_sites(sites, roots)
+        findings += check_register_parameters(sites, debt, roots)
 
     for finding in findings:
         click.echo(f"[compose-stability] {finding}")
