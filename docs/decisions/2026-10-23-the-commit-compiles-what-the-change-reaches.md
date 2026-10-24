@@ -134,12 +134,14 @@ The narrowing is not only a price argument, though it is that too. The old
 pair was redundant in one direction: `:desktopApp` depends on `:shared`, so
 compiling `:desktopApp` compiles `:shared` as well — the pair paid twice for
 the same Kotlin. The closure of the graph, for a change in `:shared`, names
-four modules: `:shared`, `:androidApp`, `:desktopApp` and `:mcp-server`.
-Measured on the same host and the same day, that is 645 s + 393 s + 443 s =
-**1481 s** without the Android SDK, and 1978 s with it
-(`:androidApp:compileDebugKotlin` 497 s) — against the 1038 s of the fixed
-pair, for a set that is larger and no more honest. The set that answers the
-commit gate's question is the set of modules the change touched.
+four modules: `:shared`, `:androidApp`, `:desktopApp` and `:mcp-server`. That
+set is a subset of the widest set of the table above, so compiled in one
+invocation it costs no more than **842 s** — against the 645 s of `:shared`
+alone, the module the change actually touches, and against the 1038 s the
+fixed pair cost in two invocations. So the closure is not cheaper than the
+touched set: it is bigger, and the commit hook has no business compiling a
+module the change did not touch. The set that answers the commit gate's
+question is the set of modules the change touched.
 
 The plan is printed before the compile: which modules, which tasks, and why
 each one is in the set. A compile that runs without saying what it covers is a
