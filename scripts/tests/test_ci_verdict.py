@@ -22,6 +22,7 @@ import importlib.util
 import pathlib
 import sys
 import unittest
+import unittest.mock
 
 MODULE_PATH = pathlib.Path(__file__).resolve().parent.parent / 'ci-verdict.py'
 spec = importlib.util.spec_from_file_location('ci_verdict', MODULE_PATH)
@@ -101,6 +102,36 @@ class ExitCodeTest(unittest.TestCase):
 
     def test_the_codes_are_the_documented_ones(self) -> None:
         self.assertEqual((mod.CLEAN, mod.NOT_SUCCESS, mod.NO_RUN, mod.IO_ERROR), (0, 1, 2, 3))
+
+
+class DeadlineTest(unittest.TestCase):
+    """The call to `gh` has a deadline, and the deadline is visible.
+
+    The pre-push hook asks for the verdict in the middle of a push: a push
+    must not wait for the network, and it must not need a program it cannot
+    count on having — which is why the deadline is here and not a `timeout`
+    call in the caller.
+    """
+
+    def test_the_call_to_gh_carries_the_deadline(self) -> None:
+        seen: dict = {}
+
+        def fake_run(args, **kwargs):
+            seen.update(kwargs)
+            return unittest.mock.Mock(returncode=0, stdout='[]', stderr='')
+
+        with unittest.mock.patch.object(mod.subprocess, 'run', fake_run):
+            mod._gh(['run', 'list'], 'owner/repo')
+        self.assertEqual(mod.GH_TIMEOUT_SECONDS, seen.get('timeout'))
+
+    def test_a_call_that_does_not_answer_says_so(self) -> None:
+        def fake_run(args, **kwargs):
+            raise mod.subprocess.TimeoutExpired(cmd='gh', timeout=mod.GH_TIMEOUT_SECONDS)
+
+        with unittest.mock.patch.object(mod.subprocess, 'run', fake_run):
+            with self.assertRaises(RuntimeError) as caught:
+                mod._gh(['run', 'list'], 'owner/repo')
+        self.assertIn('did not answer', str(caught.exception))
 
 
 class ResolveCommitTest(unittest.TestCase):
