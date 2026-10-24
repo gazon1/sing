@@ -232,6 +232,15 @@ minute, and the measurement it does not need is not on its path at all.
 fast population and reaches the private Gradle home through `./gw`. The same
 tool should not answer two different questions locally and in CI.
 
+**The local loop learned the tiers.** `check.sh` still answers every question
+at once — that is what a push wants. But a change that is still finding out
+whether it compiles wants one question at a time, and the CI now answers four
+of them separately. So there is a `just ci::` module with one recipe per
+tier (`ci::quick`, `ci::tests`, `ci::detekt`, `ci::coverage`), each naming the
+workflow step it mirrors. A local run and a CI run of the same tier answer the
+same question, and a recipe that drifts from its job is visible in the diff
+where the job changed.
+
 # Alternatives considered
 
 **Dropping the coverage task from the invocation and keeping everything
