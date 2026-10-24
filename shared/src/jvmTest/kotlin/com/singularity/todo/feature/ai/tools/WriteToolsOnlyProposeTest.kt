@@ -170,14 +170,19 @@ class WriteToolsOnlyProposeTest {
     // ─── The declaration against the behaviour ───────────────────────────────────
 
     @Test
-    fun `every tool that writes is declared, and every declared exception writes`() {
+    fun `every tool that writes is declared, and every declared exception is either visible or named`() {
         val declared = McpToolCatalog.catalog.associateBy { it.toolClass.simpleName }
         val findings = mutableListOf<String>()
 
         for ((className, writes) in scan) {
             val entry = declared[className]
             if (entry == null) {
-                findings += "$className writes (${writes.all.joinToString()}) and the catalogue does not declare it"
+                // A class the scan read and found nothing in is a reader; it has no
+                // business in the findings. A class that writes and that the
+                // catalogue does not declare is a change the user never saw.
+                if (writes.all.isNotEmpty()) {
+                    findings += "$className writes (${writes.all.joinToString()}) and the catalogue does not declare it"
+                }
                 continue
             }
             if (entry.writeBehavior != WriteBehavior.DIRECT_WRITE_EXCEPTION && writes.all.isNotEmpty()) {
@@ -191,12 +196,28 @@ class WriteToolsOnlyProposeTest {
             if (entry.writeBehavior != WriteBehavior.DIRECT_WRITE_EXCEPTION || className == null) continue
             val writes = scan[className]
             if (writes == null) {
-                findings += "${entry.name} is declared a direct-write exception, and its class is not among the tools"
-            } else if (writes.all.isEmpty() && entry.name !in UNVERIFIABLE_EXCEPTIONS) {
-                findings += "${entry.name} is declared a direct-write exception and this scan sees no write in it. " +
-                    "Either it no longer writes — a stale exception is a promise nobody keeps — or it writes " +
-                    "through a port this scan cannot see, and then it belongs in the named set of exceptions " +
-                    "the scan cannot verify."
+                findings += "${entry.name} is declared a direct-write exception, and its class " +
+                    "($className) is not among the sources this scan reads. An exception nobody " +
+                    "can check is not an exception, it is a hole."
+            } else if (writes.all.isEmpty()) {
+                // The scan sees no write in this class at all — not on the user's own
+                // data, and not through any other port. The declaration claims a
+                // write, and there is none: a stale exception is a promise nobody
+                // keeps. A write through a port the scan cannot recognise belongs to
+                // the branch below, where the name is what argues for it.
+                findings += "${entry.name} is declared a direct-write exception, and this scan sees " +
+                    "no write in it at all. Either it no longer writes — a stale exception is a " +
+                    "promise nobody keeps — or it writes through a port this scan cannot recognise, " +
+                    "and then the write has to be made visible to the scan."
+            } else if (writes.userData.isEmpty() && entry.name !in UNVERIFIABLE_EXCEPTIONS) {
+                // The scan sees the write and cannot say whose data it touched: the
+                // second net catches a write through any port, and only the first
+                // recognises the user's own data. This is the case the named set is
+                // for — the name is the argument, and an unnamed one is a finding.
+                findings += "${entry.name} is declared a direct-write exception, and this scan cannot " +
+                    "say whose data it wrote. A write the check cannot place on the user's own data " +
+                    "has to be a named one: put ${entry.name} in the named set of exceptions the scan " +
+                    "cannot verify."
             }
         }
 
@@ -220,10 +241,10 @@ class WriteToolsOnlyProposeTest {
         assertEquals(
             UNVERIFIABLE_EXCEPTIONS,
             unreachable,
-            "the exceptions the scan cannot verify changed. The scan recognises a write on a " +
-                "repository of the user's own data; anything else is invisible to it, and an " +
-                "invisible write has to be a named one. Update the list only after reading why " +
-                "the tool writes the way it does.",
+            "the exceptions the scan cannot verify changed. The scan places a write on the user's " +
+                "own data only when it sees it on a repository of that data; a write it cannot " +
+                "place has to be a named one. Update the list only after reading why the tool " +
+                "writes the way it does.",
         )
     }
 
@@ -260,6 +281,15 @@ class WriteToolsOnlyProposeTest {
      * write through any port at all, and exists so that a write the first net
      * cannot see is still *seen*: an undeclared write is a finding whichever port
      * it goes through.
+     *
+     * The two nets answer different questions, and the difference matters. The
+     * second one says whether a write happened *at all* — and that is what says
+     * whether a declared exception still writes. The first one says whether the
+     * write is *on the user's own data* — and that is what decides whether a
+     * declared exception is one the scan can verify. A direct-write exception the
+     * second net can see but the first cannot is exactly the case the named set
+     * exists for: the write is real, and the scan cannot tell whose data it
+     * touched.
      */
     private val scan: Map<String, Writes> by lazy { scanSources() }
 
@@ -272,6 +302,12 @@ class WriteToolsOnlyProposeTest {
                 val owner = current
                 if (declaration != null) {
                     current = declaration.groupValues[1]
+                    // Every tool class is recorded, not only the ones that write. A
+                    // class the scan saw and found nothing in is a different thing
+                    // from a class the scan never saw, and the check has to be able
+                    // to tell them apart: the first is an exception the scan cannot
+                    // verify, the second is an exception whose class is not here.
+                    found.putIfAbsent(current, Writes())
                 } else if (owner != null) {
                     val userData = repositoryWrite.findAll(line)
                         .filter { it.groupValues[1].lowercase() !in PROPOSAL_RECEIVERS }
@@ -297,7 +333,13 @@ class WriteToolsOnlyProposeTest {
 
     /** The write calls one tool class makes. */
     private data class Writes(
-        /** Calls on a repository of the user's own data. */
+        /**
+         * Calls on a repository of the user's own data.
+         *
+         * This is the net that decides whether a declared exception is one the
+         * scan can verify: a write it can see here is a write the scan can check
+         * the declaration against.
+         */
         val userData: List<String> = emptyList(),
         /** Calls that look like a write through any port. */
         val other: List<String> = emptyList(),
@@ -374,11 +416,17 @@ class WriteToolsOnlyProposeTest {
         /**
          * The exceptions the scan cannot verify.
          *
-         * The scan recognises a write on a repository of the user's own data. The
-         * ADR tools write a decision file through a storage port, and that write is
-         * not the user's data — it is a decision the user asked for by name. The
-         * scan cannot see it, so the exception is named here rather than verified:
-         * a write nobody checked has to be a write everybody can see.
+         * The scan places a write on the user's own data only when it sees the
+         * write on a repository of that data. The ADR tools write a decision file
+         * through a storage port, and that write is not the user's data — it is a
+         * decision the user asked for by name. The scan can see that something was
+         * written and cannot say whose it is, so the exception is named here rather
+         * than verified: a write nobody checked has to be a write everybody can see.
+         *
+         * A name here is a claim that somebody has to argue for. It exempts the
+         * exception from the branch that would fail it; it does not silence a
+         * finding — an exception the scan cannot verify and that nobody has named
+         * is a finding.
          */
         val UNVERIFIABLE_EXCEPTIONS = setOf("write_adr", "update_adr")
 

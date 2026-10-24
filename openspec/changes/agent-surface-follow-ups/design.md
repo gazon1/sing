@@ -37,16 +37,18 @@ But a test that only scans the sources cannot see a declaration that is wrong. T
 recognises a write on a repository of the user's own data; it does not recognise a write
 through any other port, and it never compares what it saw with what the catalogue says.
 
-So the check is now two-sided:
+So the check is now two-sided, and it reads the scan's two nets separately:
 
 - a tool the scan sees writing, that the catalogue does not call an exception, is a finding;
-- a tool the catalogue calls an exception, that the scan does not see writing, is **named**
-  in the output — and the naming is what keeps the check from failing on what it cannot
-  see: a check that fails on what it cannot see teaches its readers to ignore it. The named
-  ones are exempt from the write check; an exception the scan cannot see and that nobody has
-  named is still a finding, because the name is a claim somebody has to argue for. The ADR
-  tools write a decision file through a storage port the scan does not recognise, and an
-  unchecked write should be a visible one.
+- a tool the catalogue calls an exception, that the scan sees no writing in at all, is a
+  finding too — a stale exception is a promise nobody keeps;
+- an exception whose write the scan sees but cannot place on the user's own data is
+  **named** in the output — and the naming is what keeps the check from failing on what
+  it cannot see: a check that fails on what it cannot see teaches its readers to ignore
+  it. The named ones are exempt from that branch; an exception the scan cannot verify and
+  that nobody has named is still a finding, because the name is a claim somebody has to
+  argue for. The ADR tools write a decision file through a storage port the scan does not
+  recognise, and an unchecked write should be a visible one.
 
 This found a real drift: `create_tag` was declared a direct-write exception, and the tool
 had been converted to the proposal path without the declaration following. The declaration

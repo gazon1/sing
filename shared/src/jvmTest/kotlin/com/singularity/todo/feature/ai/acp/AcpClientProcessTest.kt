@@ -362,6 +362,12 @@ class AcpClientProcessTest {
             "the connect noticed that the conversation was over: $failure",
         )
         assertEquals(
+            "The conversation ended before the agent answered.",
+            failure?.message,
+            "the connect failed because the conversation was already over, and not because the " +
+                "agent went quiet — the other branch of this failure says something else",
+        )
+        assertEquals(
             "closed",
             stateOf(client),
             "the client is closed, not half-updated",

@@ -77,13 +77,19 @@ rather than in a test, because the catalogue is what everything else reads.
 
 The comparison with the tools' behaviour is two-sided, and it names what it cannot see. A
 tool the scan sees writing, that the catalogue does not call an exception, is a finding. A
-tool the catalogue calls an exception, that the scan does not see writing, is *named* among
-the exceptions the scan could not verify — and the naming is what keeps the check honest:
+tool the catalogue calls an exception, that the scan sees no writing in at all, is a
+finding too: a stale exception is a promise nobody keeps.
+
+What the scan cannot see is *whose* data a write touched. It casts two nets — one that
+recognises a write on a repository of the user's own data, and a wider one that catches a
+write through any port — and only the first can place a write on the user's data. An
+exception whose write the wider net sees and the first cannot is therefore *named* among
+the exceptions the check could not verify, and the naming is what keeps the check honest:
 a check that fails on what it cannot see teaches its readers to ignore it, so the named
-ones are exempt from the write check rather than failed by it. The name is a claim that
-somebody has to argue for, not a way to silence a finding: an exception that the scan
-cannot see and that nobody has named is a finding, because then the check is failing on
-what it cannot see for no reason.
+ones are exempt from that branch rather than failed by it. The name is a claim that
+somebody has to argue for, not a way to silence a finding: an exception the check cannot
+verify and that nobody has named is a finding, because then the check is failing on what
+it cannot see for no reason.
 An unchecked write has to be a visible one.
 
 The round trip — propose, unchanged, confirm writes, decline changes nothing — is now

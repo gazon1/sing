@@ -183,7 +183,8 @@ class ToolWriteContractTest {
             DeleteTaskTool(proposals, currentUser, clock).execute(DeleteTaskInput(taskId = task.id.value)),
         )
         assertTrue(output.proposalCreated, "the tool reported a proposal: ${output.error}")
-        assertNotNull(tasks.tasks.value[task.id.value], "the task is still there")
+        val stillThere = assertNotNull(tasks.tasks.value[task.id.value], "the task is still there")
+        assertFalse(stillThere.isTrashed, "the task is not archived")
 
         val result = apply.reject(singleItemId(output.proposalId), user, reason = "keep it")
         assertTrue(result.isSuccess, "the refusal succeeded: ${result.exceptionOrNull()?.message}")

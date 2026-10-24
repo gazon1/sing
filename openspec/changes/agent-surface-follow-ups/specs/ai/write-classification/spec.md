@@ -143,15 +143,30 @@ what turns "the tool proposes" into something the build knows.
 ### Requirement: REQ-WCLS-013
 
 The check **SHALL** name the declared exceptions it could not verify, so that a write the
-check cannot see is a visible one rather than a silent gap.
+check cannot see is a visible one rather than a silent gap. A named exception **SHALL NOT**
+be failed by the branch that fails the exceptions it cannot verify.
 
 **Rationale:** the check reads sources, and a source scan cannot see every port. A claim of
-coverage that is not checked is worse than no claim, because it is believed.
+coverage that is not checked is worse than no claim, because it is believed. And a check
+that fails on what it cannot see teaches its readers to ignore it, and a reader who
+ignores it stops reading.
 
 #### Scenario: A write is outside the check's reach
 - A tool declares that it writes directly
-- The check does not see the write
+- The check cannot place the write on the user's own data
 - The check names the tool among the exceptions it could not verify
+
+#### Scenario: A named exception is not failed by what the check cannot see
+- A tool declares that it writes directly
+- The check cannot place the write on the user's own data
+- The tool is named among the exceptions the check could not verify
+- The check does not fail it
+
+#### Scenario: An unnamed exception is not left in silence
+- A tool declares that it writes directly
+- The check cannot place the write on the user's own data
+- The tool is not named among the exceptions the check could not verify
+- The check fails, naming the tool
 
 ---
 
