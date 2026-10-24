@@ -18,6 +18,12 @@ import com.singularity.todo.feature.proposals.domain.usecase.EditProposalItemUse
 import com.singularity.todo.feature.proposals.presentation.ProposalDecisionStyles
 import com.singularity.todo.feature.proposals.presentation.ProposalDecisions
 import com.singularity.todo.feature.proposals.presentation.ProposalErrorSink
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.coroutines.launch
 
 /**
@@ -29,8 +35,8 @@ import kotlinx.coroutines.launch
  *   it.
  */
 data class NoteProposalsUiState(
-    val proposals: List<AiProposal> = emptyList(),
-    val failures: Map<ProposalItemId, String> = emptyMap(),
+    val proposals: ImmutableList<AiProposal> = persistentListOf(),
+    val failures: ImmutableMap<ProposalItemId, String> = persistentMapOf(),
 )
 
 /** What the user did about a proposed change. */
@@ -117,7 +123,7 @@ class NoteProposalsViewModel(
      */
     private val failureWatch = vmScope.launch {
         decisions.failures.collect { reasons ->
-            updateState { state -> state.copy(failures = reasons) }
+            updateState { state -> state.copy(failures = reasons.toImmutableMap()) }
         }
     }
 
@@ -134,7 +140,7 @@ class NoteProposalsViewModel(
                 // The failures are kept: a reason the user has not read yet is still a
                 // reason, and a new list of proposals must not wipe it.
                 updateState { state ->
-                    state.copy(proposals = list.filter { it.isWaiting })
+                    state.copy(proposals = list.filter { it.isWaiting }.toImmutableList())
                 }
             }
     }

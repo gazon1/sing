@@ -28,6 +28,7 @@ import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUi
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.collections.immutable.toImmutableSet
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskAiSlot
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskBacklinksCollector
@@ -296,8 +297,11 @@ class TaskDetailCoordinator(
                     sink.value = TaskDetailExtras.Ready(
                         timeSlotState = timeState,
                         firstRun = resolveFirstRun(childrenState, task),
-                        proposals = proposals,
-                        proposalFailures = failures,
+                        // Built here, once per emission: the screen hands them to
+                        // composables as they are, and the compiler compares them by
+                        // their contents.
+                        proposals = proposals.toImmutableList(),
+                        proposalFailures = failures.toImmutableMap(),
                     )
                 }
             }

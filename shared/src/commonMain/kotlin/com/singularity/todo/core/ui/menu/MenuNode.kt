@@ -1,6 +1,7 @@
 package com.singularity.todo.core.ui.menu
 
 import androidx.compose.ui.graphics.vector.ImageVector
+import kotlinx.collections.immutable.ImmutableList
 
 /**
  * A node in a desktop menu — either an action, a sub-menu, or a divider.
@@ -27,7 +28,7 @@ sealed class MenuNode {
         val label: String,
         val icon: ImageVector? = null,
         override val enabled: Boolean = true,
-        val children: List<MenuNode>,
+        val children: ImmutableList<MenuNode>,
     ) : MenuNode()
 
     /** Menu separator. The id is fixed so callers don't need to supply one. */

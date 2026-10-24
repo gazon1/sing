@@ -79,6 +79,8 @@ import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoordinator
 import com.singularity.todo.feature.timetracking.presentation.components.TimeEntryEditorSheet
 import com.singularity.todo.feature.timetracking.presentation.components.TimeTrackingSection
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
 
 @Suppress("LongMethod", "CyclomaticComplexMethod", "FunctionSignature")
 @Composable
@@ -318,11 +320,11 @@ fun TaskDetailContent(
                                         )
                                     }
                                     val proposals = when (val ex = extras) {
-                                        is TaskDetailExtras.Unresolved -> emptyList()
+                                        is TaskDetailExtras.Unresolved -> persistentListOf()
                                         is TaskDetailExtras.Ready -> ex.proposals
                                     }
                                     val proposalFailures = when (val ex = extras) {
-                                        is TaskDetailExtras.Unresolved -> emptyMap()
+                                        is TaskDetailExtras.Unresolved -> persistentMapOf()
                                         is TaskDetailExtras.Ready -> ex.proposalFailures
                                     }
                                     if (proposals.isNotEmpty()) {

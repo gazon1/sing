@@ -6,6 +6,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runDesktopComposeUiTest
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 
@@ -61,7 +62,7 @@ class ContextMenuTest {
             ContextMenuHost(
                 openState = ContextMenuOpenState(DpOffset(0.dp, 0.dp)),
                 onDismiss = {},
-                entries = emptyList(),
+                entries = persistentListOf(),
             )
         }
     }

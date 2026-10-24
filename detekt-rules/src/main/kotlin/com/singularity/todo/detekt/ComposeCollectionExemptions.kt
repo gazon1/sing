@@ -31,7 +31,8 @@ package com.singularity.todo.detekt
  * ```
  *
  * The list was measured on 2026-10-24, after the stability contract and the
- * conversion of the hot states.
+ * conversion of the hot states; and again after the menu, the proposals and the
+ * logbook took their collections from the persistent kind.
  *
  * ## The key is the parameter, not the composable
  *
@@ -86,12 +87,6 @@ internal object ComposeCollectionExemptions {
                 "items" to "List<MultiSelectItem<T>>",
                 "selectedKeys" to "Set<T>",
             ),
-        "com.singularity.todo.core.ui.menu.ComposeTopMenuBar" to
-            mapOf("entries" to "List<MenuNode>"),
-        "com.singularity.todo.core.ui.menu.ContextMenuHost" to
-            mapOf("entries" to "List<MenuNode>"),
-        "com.singularity.todo.core.ui.menu.MenuPanel" to
-            mapOf("entries" to "List<MenuNode>"),
         "com.singularity.todo.feature.agenda.presentation.components.ReorderableSectionList" to
             mapOf("sections" to "List<Section>"),
         "com.singularity.todo.feature.agenda.presentation.screen.AgendaList" to
@@ -118,11 +113,6 @@ internal object ComposeCollectionExemptions {
             mapOf("items" to "List<ChecklistItem>"),
         "com.singularity.todo.feature.notes.presentation.screen.BacklinksSheet" to
             mapOf("backlinks" to "List<Note>"),
-        "com.singularity.todo.feature.notes.presentation.screen.NoteEditorScreenContent" to
-            mapOf(
-                "pendingProposals" to "List<AiProposal>",
-                "proposalFailures" to "Map<ProposalItemId, String>",
-            ),
         "com.singularity.todo.feature.notes.presentation.screen.NoteList" to
             mapOf(
                 "allNotes" to "List<Note>",
@@ -161,11 +151,6 @@ internal object ComposeCollectionExemptions {
             mapOf("availableTasks" to "List<Task>"),
         "com.singularity.todo.feature.projects.presentation.screen.ProjectDetailQuickAddInput" to
             mapOf("availableTasks" to "List<Task>"),
-        "com.singularity.todo.feature.proposals.presentation.components.ProposalCardsSection" to
-            mapOf(
-                "proposals" to "List<AiProposal>",
-                "failures" to "Map<ProposalItemId, String>",
-            ),
         "com.singularity.todo.feature.search.SimpleResultCard" to
             mapOf("matchRanges" to "List<TextMatchRange>"),
         "com.singularity.todo.feature.search.presentation.PriorityChips" to
@@ -201,13 +186,6 @@ internal object ComposeCollectionExemptions {
                 "linkedNotes" to "List<Note>",
                 "linkedTasks" to "List<Task>",
             ),
-        "com.singularity.todo.feature.tasks.presentation.components.detail.LogbookLoadedCard" to
-            mapOf("entries" to "List<LogbookEntry>"),
-        "com.singularity.todo.feature.tasks.presentation.components.detail.TaskDetailProposalSection" to
-            mapOf(
-                "proposals" to "List<AiProposal>",
-                "failures" to "Map<ProposalItemId, String>",
-            ),
         "com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContent" to
             mapOf(
                 "dueDates" to "List<LocalDate>",
@@ -235,8 +213,6 @@ internal object ComposeCollectionExemptions {
             mapOf("steps" to "List<AgentPlanStep>"),
         "com.singularity.todo.feature.nav.Nav3State.toDecoratedEntries" to
             mapOf("entryDecorators" to "List<NavEntryDecorator<NavKey>>"),
-        "com.singularity.todo.feature.proposals.presentation.components.ProposalCard" to
-            mapOf("failures" to "Map<ProposalItemId, String>"),
         "com.singularity.todo.core.ui.textfields.TextFieldStateBridgeUiTest.ObservedField" to
             mapOf("edits" to "MutableList<String>"),
     )

@@ -24,6 +24,7 @@ import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.core.ui.components.TaggedSnackbarHost
 import com.singularity.todo.feature.proposals.presentation.components.ProposalCardsSection
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -96,7 +97,7 @@ fun ProposalsScreen(modifier: Modifier = Modifier) {
                 }
                 items(state.proposals, key = { it.id.value }) { proposal ->
                     ProposalCardsSection(
-                        proposals = listOf(proposal),
+                        proposals = persistentListOf(proposal),
                         onConfirm = { viewModel.onIntent(ProposalsIntent.Confirm(it)) },
                         onReject = { itemId, reason ->
                             viewModel.onIntent(ProposalsIntent.Reject(itemId, reason))

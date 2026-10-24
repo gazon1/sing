@@ -118,6 +118,12 @@ for a month of calendar entries. So:
    `toImmutableList()` / `toImmutableSet()`. The detekt rule
    `NoUnstableCollectionParam` rejects a raw `List` / `Set` / `Map` /
    `Collection` parameter of a `@Composable`.
+
+   The boundary is the **state that holds the value**, not the call of the
+   composable. A collection rebuilt in the call is rebuilt on every
+   recomposition — the promise of stability has to start where the value
+   changes, not where it is handed over. So the screen state holds the
+   persistent collection, and the composable receives it as it is.
 3. **Is the parameter a screen state?** Pass it as `State` and read it with
    `collectAsStateWithLifecycle`; the composable that receives the value
    should be a leaf, so that the leaf is what skips.
@@ -172,7 +178,9 @@ cannot drift away from the register it describes.
 Converting one means: the parameter becomes `ImmutableList` / `ImmutableSet` /
 `ImmutableMap`, the value is built at the boundary with `toImmutableList()` /
 `toImmutableSet()`, the entry is deleted from the register, and the recorded
-size goes down by one.
+size goes down by one. The boundary is the state that holds the value: a
+collection rebuilt in the call of the composable is rebuilt on every
+recomposition, and the promise of stability never starts.
 
 Three rules guard the contract:
 

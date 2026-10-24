@@ -1,6 +1,8 @@
 package com.singularity.todo.core.ui.menu
 
 import androidx.compose.ui.graphics.vector.ImageVector
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 
 /**
  * DSL builder for a flat list of [MenuNode]s.
@@ -67,7 +69,7 @@ class MenuNodesBuilder {
             enabled = enabled,
             // A copy: the caller keeps its list, and the node keeps a list
             // that never changes after this. The contract vouches for that.
-            children = children.toList(),
+            children = children.toImmutableList(),
         )
     }
 
@@ -89,15 +91,15 @@ class MenuNodesBuilder {
     }
 
     /** Returns an immutable snapshot of the menu built so far. */
-    internal fun build(): List<MenuNode> = items.toList()
+    internal fun build(): ImmutableList<MenuNode> = items.toImmutableList()
 }
 
 /**
- * Entry point for the menu DSL. Call this from feature code to build a
- * `List<MenuNode>`.
+ * Entry point for the menu DSL. Call this from feature code to build the
+ * menu.
  *
  * @param block the DSL lambda — calls [MenuNodesBuilder.item],
  *              [MenuNodesBuilder.divider], and [MenuNodesBuilder.subMenu]
  */
-fun buildMenuNodes(block: MenuNodesBuilder.() -> Unit): List<MenuNode> = MenuNodesBuilder().apply(block)
+fun buildMenuNodes(block: MenuNodesBuilder.() -> Unit): ImmutableList<MenuNode> = MenuNodesBuilder().apply(block)
     .build()

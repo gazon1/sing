@@ -3,6 +3,10 @@ package com.singularity.todo.feature.tasks.presentation.state
 import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.timetracking.domain.model.TaskTimeSlotState
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
 
 /**
  * Partition that combines time tracking, first-run state, and AI proposals into
@@ -20,12 +24,15 @@ sealed interface TaskDetailExtras {
      *   failed, by the change it belongs to. The reason sits next to the change rather
      *   than in one message about a batch: a user who cannot see *which* change failed
      *   cannot act on it.
+     *
+     * The collections are persistent: the screen hands them to composables as they
+     * are, and the compiler is then free to compare them by their contents.
      */
     data class Ready(
         val timeSlotState: TaskTimeSlotState,
         val firstRun: FirstRun,
-        val proposals: List<AiProposal> = emptyList(),
-        val proposalFailures: Map<ProposalItemId, String> = emptyMap(),
+        val proposals: ImmutableList<AiProposal> = persistentListOf(),
+        val proposalFailures: ImmutableMap<ProposalItemId, String> = persistentMapOf(),
     ) : TaskDetailExtras
 }
 

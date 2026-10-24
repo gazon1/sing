@@ -14,6 +14,10 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalTargetKind
 import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.proposals.presentation.components.ProposalCardsSection
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  * Pending AI proposals for a task, as a stack of cards.
@@ -32,13 +36,13 @@ import com.singularity.todo.feature.proposals.presentation.components.ProposalCa
  */
 @Composable
 fun TaskDetailProposalSection(
-    proposals: List<AiProposal>,
+    proposals: ImmutableList<AiProposal>,
     onConfirm: (ProposalItemId) -> Unit,
     onReject: (ProposalItemId, String?) -> Unit,
     onConfirmAll: (ProposalId) -> Unit,
     onDismiss: (ProposalId) -> Unit,
     onEdit: ((ProposalItemId, String) -> Unit)? = null,
-    failures: Map<ProposalItemId, String> = emptyMap(),
+    failures: ImmutableMap<ProposalItemId, String> = persistentMapOf(),
 ) {
     ProposalCardsSection(
         proposals = proposals,
@@ -58,7 +62,7 @@ fun TaskDetailProposalSection(
 private fun TaskDetailProposalSectionPreview() = PreviewThemed(darkTheme = false) {
     val proposalId = ProposalId.fromString("prop_1")
     TaskDetailProposalSection(
-        proposals = listOf(
+        proposals = persistentListOf(
             AiProposal(
                 id = proposalId,
                 targetKind = ProposalTargetKind.Task,

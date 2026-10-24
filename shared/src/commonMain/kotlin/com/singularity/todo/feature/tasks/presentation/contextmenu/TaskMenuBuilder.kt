@@ -4,6 +4,7 @@ import com.singularity.todo.core.ui.menu.MenuNode
 import com.singularity.todo.core.ui.menu.buildMenuNodes
 import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
+import kotlinx.collections.immutable.ImmutableList
 
 /**
  * Builds the 28-item context menu for a single task.
@@ -33,7 +34,11 @@ import com.singularity.todo.feature.tasks.presentation.model.TaskUi
  * `Print` and `Share` are the exception: they are platform actions, not domain ones, and
  * no use case is the right answer for either.
  */
-fun buildTaskContextMenu(taskUi: TaskUi, hasAiContext: Boolean, actions: TaskMenuActions): List<MenuNode> =
+fun buildTaskContextMenu(
+    taskUi: TaskUi,
+    hasAiContext: Boolean,
+    actions: TaskMenuActions,
+): ImmutableList<MenuNode> =
     buildMenuNodes {
         // ── 1. Pin / Unpin ──────────────────────────────────────────────────────
         item(

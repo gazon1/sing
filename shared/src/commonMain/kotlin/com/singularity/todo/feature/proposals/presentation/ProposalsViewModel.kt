@@ -15,6 +15,12 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
 import com.singularity.todo.feature.proposals.domain.usecase.EditProposalItemUseCase
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -28,8 +34,8 @@ import kotlinx.coroutines.launch
  */
 data class ProposalsUiState(
     val isLoading: Boolean = true,
-    val proposals: List<AiProposal> = emptyList(),
-    val failures: Map<ProposalItemId, String> = emptyMap(),
+    val proposals: ImmutableList<AiProposal> = persistentListOf(),
+    val failures: ImmutableMap<ProposalItemId, String> = persistentMapOf(),
 )
 
 /** What the user did on the proposals screen. */
@@ -120,7 +126,7 @@ class ProposalsViewModel(
      */
     private val failureWatch = vmScope.launch {
         decisions.failures.collect { reasons ->
-            updateState { state -> state.copy(failures = reasons) }
+            updateState { state -> state.copy(failures = reasons.toImmutableMap()) }
         }
     }
 
@@ -139,7 +145,7 @@ class ProposalsViewModel(
         proposals.watchWaitingProposals()
             .collect { list ->
                 updateState { state ->
-                    state.copy(isLoading = false, proposals = list)
+                    state.copy(isLoading = false, proposals = list.toImmutableList())
                 }
             }
     }
