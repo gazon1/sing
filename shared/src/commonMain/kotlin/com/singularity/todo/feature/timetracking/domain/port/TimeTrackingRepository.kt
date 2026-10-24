@@ -28,6 +28,19 @@ interface TimeTrackingRepository {
     suspend fun getOpenEntry(userId: UserId): TimeEntry?
 
     /**
+     * Reads one entry back by its id.
+     *
+     * Scoped to [userId]: an entry of another profile is not this device's
+     * entry to read, and reading it would let a document be filled with
+     * another profile's values.
+     *
+     * The sync apply path needs it — the row that is already here is what a
+     * document is read against, so that the fields the document is silent
+     * about keep the values the row already had.
+     */
+    suspend fun get(entryId: TimeEntryId, userId: UserId): TimeEntry?
+
+    /**
      * Start a new time entry for [taskId].
      *
      * Fails if [userId] already has an open entry.

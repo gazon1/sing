@@ -34,6 +34,9 @@ class TimeTrackingRepositoryImpl(
 
     override suspend fun getOpenEntry(userId: UserId): TimeEntry? = dao.getOpenEntry(userId.value)?.toDomain()
 
+    override suspend fun get(entryId: TimeEntryId, userId: UserId): TimeEntry? =
+        dao.getByIdForUser(entryId.value, userId.value)?.toDomain()
+
     override suspend fun startEntry(
         taskId: TaskId,
         userId: UserId,

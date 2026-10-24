@@ -30,6 +30,9 @@ interface TimeEntryDao {
     @Query("SELECT * FROM time_entries WHERE user_id = :userId AND ended_at IS NULL AND deleted_at IS NULL LIMIT 1")
     suspend fun getOpenEntry(userId: String): TimeEntryEntity?
 
+    @Query("SELECT * FROM time_entries WHERE id = :id AND user_id = :userId LIMIT 1")
+    suspend fun getByIdForUser(id: String, userId: String): TimeEntryEntity?
+
     @Query(
         """
         SELECT * FROM time_entries

@@ -34,6 +34,7 @@ import com.singularity.todo.core.sync.SyncRunner
 import com.singularity.todo.core.sync.SyncScopeProvider
 import com.singularity.todo.core.sync.SyncStateRepository
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
@@ -348,6 +349,7 @@ private fun Scope.syncDocumentWriter(): SyncDocumentWriter =
         tagRepo = get<TagsRepository>(),
         tagGroupRepo = get<TagGroupRepository>(),
         timeTrackingRepo = get<TimeTrackingRepository>(),
+        currentUser = get<ProfileAwareCurrentUser>(),
     )
 
 private fun Scope.seedPlanner(): SeedPlanner =

@@ -2363,6 +2363,9 @@ private class FakeTimeEntryDao(private val store: MutableStateFlow<Map<String, T
     override suspend fun getOpenEntry(userId: String): TimeEntryEntity? =
         store.value.values.find { it.userId == userId && it.endedAt == null && it.deletedAt == null }
 
+    override suspend fun getByIdForUser(id: String, userId: String): TimeEntryEntity? =
+        store.value[id]?.takeIf { it.userId == userId }
+
     override fun watchForUserInRange(userId: String, startMs: Long, endMs: Long): Flow<List<TimeEntryEntity>> =
         store.map { map ->
             map.values.filter {
