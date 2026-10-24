@@ -73,9 +73,9 @@ ROOT: pathlib.Path = pathlib.Path(__file__).resolve().parent.parent
 # The one answer to "which git variables must a command inside a tree not
 # inherit". It lives in `scripts/src/sgate/gatekit/gitenv.py` because the
 # gates, the hook and the tests all need it, and a second copy of the list in
-# this file is a list that goes stale: the hook drops three of the four names
-# while this script dropped four, and nobody noticed because both were right
-# about the tree they ran in. ADR
+# this file is a list that goes stale: the hook and this script dropped
+# different sets of the names for a while, and nobody noticed because both
+# were right about the tree they ran in. ADR
 # `docs/decisions/2026-10-23-a-test-fixture-must-not-reach-the-developers-repository.md`.
 #
 # It is loaded *by path*, the way `scripts/changed-modules.py` is loaded below,
@@ -83,28 +83,20 @@ ROOT: pathlib.Path = pathlib.Path(__file__).resolve().parent.parent
 # `click` and `loguru` when it is imported, and the hook runs this script with
 # the ambient `python3`, which is not guaranteed to have either. A verdict that
 # dies on an import is a push that fails for a reason that has nothing to do
-# with the verdict.
-GITENV_MODULE_NAME = "sgate_gatekit_gitenv"
+# with the verdict. `scripts/gitenv_loader.py` is that way of loading, and it
+# is shared with the other scripts that cannot reach the package either — the
+# loading is one answer too.
+#
+# The loader lives beside this script, so the directory has to be on the path
+# before it can be imported. The hook runs the script by its path, which puts
+# the directory there on its own; a test that loads the script by path does
+# not, and the line below is what makes both work.
+_SCRIPTS_DIR = str(pathlib.Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
 
+from gitenv_loader import load_gitenv  # noqa: E402
 
-def load_gitenv():
-    """The canonical git environment, loaded from its file.
-
-    The module is cached under a name of its own, so that the script and the
-    test that checks the script uses *this* answer are holding the same
-    function object and not two copies of the same file.
-    """
-    path = ROOT / "scripts" / "src" / "sgate" / "gatekit" / "gitenv.py"
-    module = sys.modules.get(GITENV_MODULE_NAME)
-    if module is not None:
-        return module
-    spec = importlib.util.spec_from_file_location(GITENV_MODULE_NAME, path)
-    if spec is None or spec.loader is None:
-        raise VerdictUnavailable(f"could not load the git environment from {path}")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[GITENV_MODULE_NAME] = module
-    spec.loader.exec_module(module)
-    return module
 
 #: The paths that can change a detekt verdict:
 #:   - the Kotlin sources detekt analyses;
