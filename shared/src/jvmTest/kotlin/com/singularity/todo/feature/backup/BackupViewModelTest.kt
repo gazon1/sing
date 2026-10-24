@@ -267,7 +267,10 @@ class BackupViewModelTest {
 
         assertEquals(1, vm.stateFlow.value.remoteBackups.size)
         assertEquals("b1.zip", vm.stateFlow.value.remoteBackups.first().name)
-        assertTrue(vm.stateFlow.value.remoteBackupsLoaded, "the cloud was asked, and the answer was empty")
+        assertTrue(
+            vm.stateFlow.value.remoteBackupsLoaded,
+            "the cloud was asked, and the answer has to be marked as an answer",
+        )
     }
 
     /** A restore from the cloud asks the repository for that archive. */
