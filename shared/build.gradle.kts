@@ -1216,10 +1216,12 @@ val exportToolSurface = tasks.register<JavaExec>("exportToolSurface") {
 // code, and the script is what reports it. A task that failed the build would make
 // every build on this machine depend on whether the network was up.
 //
-// The default bridge lives in the probe itself, so that there is one place that knows
-// it and not two that have to agree. The task passes nothing when nobody said which
-// bridge to drive, and the probe falls back to the Claude one — the bridge this
-// repository registered first.
+// The default bridge lives in the probe, so that the task and the probe cannot
+// disagree about it. The script carries the same default, because a script has to
+// know what it is about to drive before it hands it over — the two copies are the
+// same string, and the script is the one a reader meets first.
+// The task passes nothing when nobody said which bridge to drive, and the probe
+// falls back to the Claude one — the bridge this repository registered first.
 val acpBridgeProbe = tasks.register<JavaExec>("acpBridgeProbe") {
     description = "Drives the ACP client against a real agent bridge and prints what came back"
     group = "verification"

@@ -15,20 +15,21 @@ Two things are redacted, and both of them are the machine's rather than the brid
     one with the wrong shape;
   * the available commands are the machine's own catalogue — what the agent behind the
     bridge happens to have installed — and not a property of the protocol. The
-    notification, its `sessionUpdate` kind and two of its commands are here; the rest
-    are not.
+    notification, its `sessionUpdate` kind and two of its commands are here, with a
+    placeholder standing in for the sixty-seven that are not.
 
 Neither redaction touches what the client has to read: the shape of the frames is the
 whole point of this file, and the shape is complete.
 
 What the frames show, and what the fake now sends:
 
-  * the handshake's answer carries five permission modes and three configuration
+  * the session's answer carries five permission modes and three configuration
     options — a mode, a model and an effort level;
-  * the authentication state comes as a notification, right after the handshake;
-  * the available commands come as another notification, right after the session is
-    open — later than the session answer, which is why the probe reads the transcript
-    when the bridge goes quiet.
+  * the authentication state comes as a notification, during the handshake and before
+    the session answer;
+  * the available commands come as another notification, after the session is open —
+    later than the session answer, which is why the probe reads the transcript over a
+    window instead of at the moment the connect returns.
 
 {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1,"agentCapabilities":{"_meta":{"claudeCode":{"promptQueueing":true},"authStatus":{}},"promptCapabilities":{"image":true,"embeddedContext":true},"mcpCapabilities":{"http":true,"sse":true},"auth":{"logout":{}},"providers":{},"loadSession":true,"sessionCapabilities":{"additionalDirectories":{},"close":{},"delete":{},"fork":{},"list":{},"resume":{},"systemPrompt":{"mode":{"override":{}}}}},"agentInfo":{"name":"@agentclientprotocol/claude-agent-acp","title":"Claude Agent","version":"0.95.0"},"authMethods":[],"_meta":{"steering":{"supported":true}}}}
 {"jsonrpc":"2.0","method":"_auth/status_update","params":{"authStatus":{"kind":"none","label":"Not logged in"}}}

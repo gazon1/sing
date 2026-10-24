@@ -20,8 +20,8 @@ every build instead of by a run somebody remembers to do.
 ## The change in behaviour
 
 - **The client survives a notification it has no answer for.** The real bridge announces
-  its authentication state right after the handshake, and its available commands right
-  after the session is open. Both are notifications — a method with no id, answering no
+  its authentication state during the handshake, before the session answer, and its
+  available commands after the session is open. Both are notifications — a method with no id, answering no
   request this application made. The client reads them, produces no activity for them,
   and carries on. The fake sends both, and a test says so.
 
@@ -35,21 +35,24 @@ The handshake completed against the real bridge on the first run, and the client
 reading of the answer was right: `@agentclientprotocol/claude-agent-acp` 0.95.0, protocol
 version 1.
 
-The difference was in what the bridge sends *around* the handshake:
+The difference was in what the bridge sends besides the initialize answer — and after
+the session is open:
 
 | What | The bridge sends | The fake sent, before this change |
 |---|---|---|
-| Authentication state | `_auth/status_update`, a notification, right after the handshake | nothing |
-| Available commands | `session/update` with `available_commands_update`, right after the session is open | nothing |
+| Authentication state | `_auth/status_update`, a notification, during the handshake and before the session answer | nothing |
+| Available commands | `session/update` with `available_commands_update`, after the session is open | nothing |
 | Permission modes | five: `default`, `acceptEdits`, `plan`, `auto`, `bypassPermissions` | one: `default` |
-| Configuration options | three — a mode, a model and an effort level | one — a mode, with no choices |
+| Configuration options | three — a mode, a model and an effort level | nothing |
 
-None of it broke the client, and that is the point: it would have broken on a bridge
-that announced something the protocol library of the day did not model. The client now
-has a test that says it survives a notification it has no answer for.
+None of it broke the client, and that is the point: the client reads what it does not
+know and produces nothing for it — a rule that had never been asked to hold against
+something that was not ours. The client now has a test that says it survives a
+notification it has no answer for.
 
 The fake sends the same shapes now — the bridge's modes, the bridge's three
-configuration options and both notifications. The *values* are the fake's own: the
+configuration options and both notifications — plus one field the bridge leaves out, the
+models. The *values* are the fake's own: the
 bridge's list of models is whatever the machine it runs on is configured for, and a
 machine's configuration is not the repository's business. The shape is what the client
 has to read.

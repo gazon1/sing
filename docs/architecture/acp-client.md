@@ -291,30 +291,40 @@ client completed the handshake on the first run.
 
 **What it does not cover.** The prompt half, and the tool call behind it: those need
 the agent behind the bridge to be installed and signed in, and a bridge on a machine
-without credentials says so itself (`"authStatus":{"kind":"none"}`). The tool server
-half needs a profile and a database on top of that.
+without credentials says so itself
+(`"authStatus":{"kind":"none","label":"Not logged in"}`). The tool server half needs a
+profile and a database on top of that.
+
+**What is the verdict.** The script's exit code, not the build's. The Gradle task does
+not fail the build on a probe that did not connect — a build that depended on the
+network would be a build that fails in a tunnel — so `:shared:acpBridgeProbe` on its own
+reports `BUILD SUCCESSFUL` whatever the bridge did, and the script reads the verdict out
+of the probe's output. Run the script when you want an answer.
 
 **What it found.** The bridge announces two notifications our fake never sent — its
-authentication state right after the handshake, and its available commands right after
+authentication state during the handshake, before the session answer, and its available commands right after
 the session is open — and it answers `session/new` with five permission modes and
 three configuration options where the fake answered with one mode and no options. The
 client survived all of it. The fake now sends the same shapes, so the suite covers
 what the bridge sends rather than what we taught the fake to send.
 
-**When the transcript is read.** When the bridge goes quiet. The bridge keeps talking
+**When the transcript is read.** When the window is over. The bridge keeps talking
 after the session it answered — its available commands come on a timer — so a
 transcript read the moment the connect returned would be a snapshot of a race. The
-probe waits for the quiet (two seconds, measured on the clock), and not before ten
-seconds have passed, so that a timer longer than the quiet period cannot put the frame
-after the snapshot every time. Thirty seconds is where the promise ends. The
-authentication notification is a different case: the bridge sends it when its own probe
-resolves — in the recorded run, during the handshake, before the session answer — so it
-was in the transcript already when the connect returned. The bridge's own frames are
-committed with the change
+probe reads the bridge's stream for thirty seconds after the connect, and the promise
+is the simple one: every frame the bridge wrote in the window is in the transcript. The
+window is a length of time and not a heuristic — an earlier version waited for the
+bridge to go quiet, and a quiet period cuts off a bridge that announces on a longer
+timer, every time, not sometimes. The authentication notification is a different case:
+the bridge sends it when its own probe resolves — in the recorded run, during the
+handshake, before the session answer — so it was in the transcript already when the
+connect returned. The bridge's own frames are committed with the change
 (`openspec/changes/the-client-meets-a-real-bridge/bridge-transcript.txt`), so the
 claims about them can be checked without a network. The list of models the machine is
 configured for, and the catalogue of commands it happens to have installed, are
-redacted there — they are the machine's, not the bridge's — and the file says which.
+redacted there — they are the machine's, not the bridge's — and the file says which. The
+window is the same whether the handshake completed or not: a failed run's transcript is
+evidence too.
 
 ## The known limitation: the agent's own token cost is not surfaced
 The protocol carries usage: `SessionUpdate.UsageUpdate` arrives as a session update, and

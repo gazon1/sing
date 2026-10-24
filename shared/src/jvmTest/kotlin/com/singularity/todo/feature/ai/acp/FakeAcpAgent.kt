@@ -101,9 +101,8 @@ private fun handle(line: String, mode: String, json: Json, transcript: java.io.F
             }
         }
 
-        // The session answer carries the modes and the models, because the client
-        // requires them: a response without them is not a response the client can
-        // read, and the request it belongs to never completes.
+        // The session answer carries the modes and the models, because the bridge
+        // sends the modes and the protocol has a place for the models.
         //
         // The modes are the real bridge's five, and the configuration options are the
         // real bridge's three — a session setting this application does not show. They
@@ -185,9 +184,12 @@ private const val AUTH_STATUS_METHOD = "_auth/status_update"
 /**
  * The answer to "session/new".
  *
- * The modes and the models are not decoration: the client requires both, and a
- * response that leaves them out is not a response it can read — so the request it
- * belongs to never completes, and the client waits for an answer that was sent.
+ * The modes and the models are here because the bridge sends the modes and the
+ * protocol has a place for the models. Neither is read by this application's client,
+ * and the library's own model gives both a default, so an answer without them is an
+ * answer the client can read. They are here because a fake that answers a different
+ * session than the bridge does proves nothing about the bridge — not because the
+ * client would fail without them.
  *
  * The five modes are the real bridge's, taken from the transcript of
  * `scripts/acp-bridge-probe.sh` against `@agentclientprotocol/claude-agent-acp`

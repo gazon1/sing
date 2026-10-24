@@ -53,38 +53,39 @@ bridge's behaviour has to be compared with the fake's.
 
 ## When the transcript is read
 
-When the bridge goes quiet — and not before a minimum has passed.
+When the window is over.
 
 The bridge keeps talking after the session it answered: its available commands come on
 a timer. A transcript read the moment the connect returned would be a snapshot of a
 race: the frame this change is about would be in it sometimes, and the change would be
 built on a frame that was not always there.
 
+So the probe reads the bridge's stream for thirty seconds after the connect, and
+writes the transcript down when the window is over. The promise is the simple one:
+**every frame the bridge wrote in the window is in the transcript**, and a frame that
+comes later is a frame the records do not claim.
+
+The window is a length of time and not a heuristic. An earlier version waited for the
+bridge to *go quiet* — and a quiet period ends the read as soon as the bridge stops
+talking, so a bridge that announces on a timer longer than the quiet period has its
+announcement cut off, every time, not sometimes. A fixed window has no such edge: it
+either holds the frame or it does not, and a reader can tell which by looking at the
+clock.
+
 The two notifications are not in the same place. The authentication status is sent when
 the bridge's own authentication probe resolves — in the recorded run that was during the
 handshake, before the session answer, so it was already in the transcript when the
 connect returned. The available commands come after the session is open, and *that* is
 the frame a connect-time snapshot can miss. Saying that the transcript "would miss both"
-would be wrong, and the transcript says which is which.
-
-So the probe waits for the bridge to stop talking — a quiet period of two seconds,
-measured on the clock rather than on the frames, so that a bridge that says nothing at
-all does not make the probe wait — and reads the transcript when the quiet has lasted
-long enough, or when the limit of thirty seconds runs out.
-
-A quiet period alone is not a guarantee, though: the commands come on a timer, and a
-timer longer than the quiet period would put the frame after the snapshot — every time,
-not sometimes. So the probe waits at least ten seconds after the connect before it may
-accept the quiet, and the thirty-second limit is where the promise ends: a bridge that
-announces something later than that is outside what this probe can promise, and the
-records say so rather than the probe pretending otherwise.
+would be wrong, and the records say which is which.
 
 ## What the fake learns
 
 The fake is taught the bridge's shapes: the two notifications, the five modes and the
-three configuration options. The fake keeps the models the client requires, so it
-answers a superset of the bridge's session — a client that reads both is the client
-that reads the bridge.
+three configuration options. The fake's session answer has the same shape as the
+bridge's, with the fake's own values — and one field more: the models, which the
+bridge leaves out and the fake keeps. A client that reads both is the client that
+reads the bridge.
 
 The values are the fake's own. The bridge's list of models is whatever the machine it
 runs on is configured for, and a machine's configuration is not the repository's
