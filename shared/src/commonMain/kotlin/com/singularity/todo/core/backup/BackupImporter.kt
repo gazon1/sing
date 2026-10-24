@@ -26,6 +26,20 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.jsonObject
 import kotlin.time.Clock
 
+/**
+ * Reads an archive back.
+ *
+ * The repository's half of the contract with the importer, and the reason the importer
+ * can be faked in a test: the repository's decisions — where the archive lands, what
+ * happens to it when the import fails — are worth more than the importer's twenty-odd
+ * database dependencies are.
+ */
+interface ArchiveImporter {
+
+    /** Restores the archive at [options]'s source path. */
+    suspend fun import(options: ImportOptions): Result<RestoreResult>
+}
+
 class BackupImporter(
     private val log: Logger,
     private val taskDao: TaskDao,
@@ -47,10 +61,10 @@ class BackupImporter(
     private val codec: BackupCodec,
     private val clock: Clock,
     private val createFileSource: FileSourceFactory,
-) {
+) : ArchiveImporter {
     private val json = StableJson
 
-    suspend fun import(options: ImportOptions): Result<RestoreResult> =
+    override suspend fun import(options: ImportOptions): Result<RestoreResult> =
         runCatchingCancellable {
             val now = clock.now().toEpochMilliseconds()
 

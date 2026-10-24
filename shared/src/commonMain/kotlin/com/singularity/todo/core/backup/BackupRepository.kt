@@ -81,8 +81,8 @@ interface BackupRepository {
 }
 
 class BackupRepositoryImpl(
-    private val exporter: BackupExporter,
-    private val importer: BackupImporter,
+    private val exporter: ArchiveExporter,
+    private val importer: ArchiveImporter,
     private val remoteService: RemoteBackupService,
     private val fs: FileSystem,
     private val backupDir: String,

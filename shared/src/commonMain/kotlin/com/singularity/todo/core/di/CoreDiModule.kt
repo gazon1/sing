@@ -19,6 +19,8 @@ import com.singularity.todo.core.auth.SupabaseAuthGateway
 import com.singularity.todo.core.auth.SupabaseAuthRepository
 import com.singularity.todo.core.auth.SupabaseClientProvider
 import com.singularity.todo.core.auth.SupabaseConfigResolver
+import com.singularity.todo.core.backup.ArchiveExporter
+import com.singularity.todo.core.backup.ArchiveImporter
 import com.singularity.todo.core.backup.BackupExporter
 import com.singularity.todo.core.backup.BackupImporter
 import com.singularity.todo.core.backup.BackupBucket
@@ -374,8 +376,11 @@ fun coreModule(): org.koin.core.module.Module =
 
         // ─── Backup ─────────────────────────────────────────────────────────
 
+        // The repository talks to the archive through the two ports, not to the
+        // concrete classes: the ports are what a test can replace.
         singleOf(::BackupExporter)
-        single {
+        single<ArchiveExporter> { get<BackupExporter>() }
+        single<ArchiveImporter> {
             BackupImporter(
                 Logger.withTag("BackupImporter"),
                 get(), // taskDao

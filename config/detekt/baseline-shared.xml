@@ -5,7 +5,7 @@
   </ManuallySuppressedIssues>
   <CurrentIssues>
     <ID>ComplexCondition:QueryTokenizer.kt:QueryTokenizer$pos &lt; input.length &amp;&amp; !input[pos].isWhitespace() &amp;&amp; input[pos] != '(' &amp;&amp; input[pos] != ')'</ID>
-    <ID>CyclomaticComplexMethod:BackupImporter.kt:BackupImporter$suspend fun import: Result&lt;RestoreResult&gt;</ID>
+    <ID>CyclomaticComplexMethod:BackupImporter.kt:BackupImporter$override suspend fun import: Result&lt;RestoreResult&gt;</ID>
     <ID>CyclomaticComplexMethod:CalendarSyncWorker.kt:CalendarSyncWorker$override suspend fun doWork: Result</ID>
     <ID>CyclomaticComplexMethod:EditorToolbar.kt:internal fun RichTextState.apply: RichTextState</ID>
     <ID>CyclomaticComplexMethod:EditorToolbar.kt:internal fun RichTextState.isActive: Boolean</ID>
@@ -64,8 +64,8 @@
     <ID>LongMethod:AiToolsModule.jvm.kt:actual fun aiToolsModule: Module</ID>
     <ID>LongMethod:AndroidNavEntries.kt:@Composable fun createAppEntryProvider: (AppDestination) -&gt; NavEntry&lt;AppDestination&gt;</ID>
     <ID>LongMethod:AttachmentsSheet.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun AttachmentsSheet</ID>
-    <ID>LongMethod:BackupExporter.kt:BackupExporter$suspend fun export: Result&lt;BackupResult&gt;</ID>
-    <ID>LongMethod:BackupImporter.kt:BackupImporter$suspend fun import: Result&lt;RestoreResult&gt;</ID>
+    <ID>LongMethod:BackupExporter.kt:BackupExporter$override suspend fun export: Result&lt;BackupResult&gt;</ID>
+    <ID>LongMethod:BackupImporter.kt:BackupImporter$override suspend fun import: Result&lt;RestoreResult&gt;</ID>
     <ID>LongMethod:BackupScreen.kt:@Composable private fun BackupScreenContentPreview</ID>
     <ID>LongMethod:BackupScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun BackupScreen</ID>
     <ID>LongMethod:CalendarSyncWorker.kt:CalendarSyncWorker$override suspend fun doWork: Result</ID>
