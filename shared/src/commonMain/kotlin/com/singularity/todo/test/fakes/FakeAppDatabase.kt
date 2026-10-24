@@ -43,6 +43,7 @@ import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskMatchRow
 import com.singularity.todo.core.database.TaskReminderEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
+import com.singularity.todo.core.search.SearchLimits
 import com.singularity.todo.core.search.TextMatchQuery
 import com.singularity.todo.core.sync.RemoteConfigDao
 import com.singularity.todo.core.sync.RemoteConfigEntity
@@ -426,7 +427,7 @@ private class FakeFtsDao(
         map.values.filter { n ->
             n.userId == userId && n.archivedAt == null && n.deletedAt == null &&
                 matchesTextMatch(query, n.title)
-        }.sortedByDescending { it.updatedAt }.take(20)
+        }.sortedByDescending { it.updatedAt }.take(SearchLimits.NOTES)
             .map { entity -> NoteMatchRow(entity, offsets = null) }
     }
 

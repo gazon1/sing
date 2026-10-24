@@ -20,8 +20,9 @@ that was a different question; and the notes repository and the projects list
 each carried a list of their own fields. Every one of those lists was a
 statement about the same map, written in a place where the next reader had to
 find it to know whether it was right — and the review of one PR found the
-word branch of the task autocomplete reading the title while the index it
-asked held the title and the description.
+contains branch of the task autocomplete filtering by the title alone, while
+the word branch asked the index, and the index holds the title and the
+description.
 
 The ceiling of an answer had the same shape: the index's note query carried
 `LIMIT 20`, and the in-memory branch carried `NOTES_LIMIT = 20`, and the two
@@ -54,9 +55,9 @@ call.**
 ## Consequences
 
 - The rule of the mode is one rule for every kind of record, and now it is
-  *asked* one way: `mode.matches(record, term)`. `TextMatch.matchesAny` and
-  the per-feature lists of fields are still there for the cases that are
-  about text and not about a record.
+  *asked* one way: `mode.matches(record, term)`. `TextMatch.matchesAny` is
+  still there for the cases that are about text and not about a record — the
+  ranking, which asks about one surface on purpose.
 - A new kind of record states its own surfaces once, in the model, instead of
   in every repository that searches for it.
 - The corpus grew a second rule. `FtsMatcherAgreementTest` compared the word
