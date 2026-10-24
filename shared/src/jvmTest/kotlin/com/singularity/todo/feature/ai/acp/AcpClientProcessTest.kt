@@ -3,7 +3,9 @@ package com.singularity.todo.feature.ai.acp
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.process.ProcessTree
 import com.singularity.todo.core.process.Subprocess
+import com.singularity.todo.test.helpers.awaitState
 import java.io.File
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -196,6 +198,7 @@ class AcpClientProcessTest {
         // so the wait is a real two seconds and not a virtual one.
         withContext(Dispatchers.IO) { client.close() }
 
+        awaitExit(agent.process.process)
         assertTrue(
             !agent.process.process.isAlive,
             "the agent's process is gone even though it never answered the goodbye",
@@ -258,6 +261,7 @@ class AcpClientProcessTest {
             stateOf(client),
             "the client is closed, not half-updated",
         )
+        awaitExit(agent.process.process)
         assertTrue(
             !agent.process.process.isAlive,
             "the agent's process is gone: $ended",
@@ -372,6 +376,60 @@ class AcpClientProcessTest {
             stateOf(client),
             "the client is closed, not half-updated",
         )
+        awaitExit(agent.process.process)
+        assertTrue(
+            !agent.process.process.isAlive,
+            "the agent's process is gone",
+        )
+    }
+
+    /**
+     * The terminate that lands during a close.
+     *
+     * A terminate is the one transition that cannot wait: the screen is going away
+     * and there is nowhere left to wait in. So it *tries* the lock rather than
+     * taking it, and a terminate that lands while a close holds the lock has to end
+     * the conversation anyway — and leave the client in one state, not half of one.
+     *
+     * The close here is the slow one. The agent answers everything but the goodbye,
+     * so the close holds the lock while it waits for an answer that is not coming,
+     * and that window is where the terminate lands.
+     */
+    @Test
+    fun `a terminate that lands during a close ends the conversation`() = runTest {
+        val agent = startAgent(MODE_MUTE_CLOSE)
+
+        val client = AcpClient(
+            scope = this,
+            process = agent.process,
+            tree = agent.tree,
+            operations = AcpClientSessionOperations { PermissionDecision.Declined },
+            toolServer = null,
+            closeTimeout = 30.seconds,
+        )
+        withContext(Dispatchers.IO) { client.connect() }
+        assertEquals("connected", stateOf(client), "the agent answered the handshake")
+
+        // The close runs on the IO dispatcher: the goodbye it waits for is answered
+        // by a real process, and a real process answers on a real clock.
+        val close = async(Dispatchers.IO) { client.close() }
+
+        // The agent has received the goodbye and is not answering it, so the close
+        // is holding the lock — which is the state the terminate has to cope with.
+        awaitState { agent.transcript.readText().contains("session/close") }
+
+        // The terminate cannot take the lock — the close has it — and it does not
+        // wait for it either. It ends the conversation anyway: the tree and the
+        // pipes go, the goodbye fails, and the close's teardown finishes the job.
+        client.terminate()
+        close.await()
+
+        assertEquals(
+            "closed",
+            stateOf(client),
+            "the client is closed, not half-updated",
+        )
+        awaitExit(agent.process.process)
         assertTrue(
             !agent.process.process.isAlive,
             "the agent's process is gone",
@@ -400,6 +458,19 @@ class AcpClientProcessTest {
         },
     )
 
+    /**
+     * Waits for the agent's process to be gone.
+     *
+     * The tree's grace period is measured on the test's virtual clock, and the
+     * operating system's reaping of a killed process is not: a process that has
+     * been killed has to die in real time, and a machine under load takes longer
+     * at it. So the test waits for the exit and then asks, rather than asking
+     * straight away and hoping the machine was idle.
+     */
+    private fun awaitExit(process: java.lang.Process) {
+        runCatching { process.onExit().get(EXIT_TIMEOUT_SECONDS, TimeUnit.SECONDS) }
+    }
+
     private class RunningAgent(
         val process: com.singularity.todo.core.process.DuplexProcess,
         val tree: ProcessTree,
@@ -425,6 +496,9 @@ class AcpClientProcessTest {
 
     private companion object {
         const val FAKE_AGENT_CLASS = "com.singularity.todo.feature.ai.acp.FakeAcpAgentKt"
+
+        /** How long a real process is given to die before the test gives up on it. */
+        const val EXIT_TIMEOUT_SECONDS = 10L
 
         const val MODE_GOOD = "good"
         const val MODE_BAD_VERSION = "bad-version"

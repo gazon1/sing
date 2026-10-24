@@ -153,7 +153,7 @@ class WriteToolsOnlyProposeTest {
                 val text = Files.readString(file)
                 repositoryWrite.findAll(text).forEach { match ->
                     val receiver = match.groupValues[1]
-                    if (receiver.lowercase() !in PROPOSAL_RECEIVERS) {
+                    if (!receiver.isProposal()) {
                         offences += "${file.fileName}: $receiver.${match.groupValues[2]}"
                     }
                 }
@@ -174,7 +174,7 @@ class WriteToolsOnlyProposeTest {
         val declared = McpToolCatalog.catalog.associateBy { it.toolClass.simpleName }
         val findings = mutableListOf<String>()
 
-        for ((className, writes) in scan) {
+        for ((className, writes) in scan.classes) {
             val entry = declared[className]
             if (entry == null) {
                 // A class the scan read and found nothing in is a reader; it has no
@@ -191,10 +191,16 @@ class WriteToolsOnlyProposeTest {
             }
         }
 
+        for (call in scan.outside) {
+            findings += "$call writes, and it belongs to no tool. A write that sits above every " +
+                "class is a write the scan cannot attribute, and a write it cannot attribute is " +
+                "a write nobody checked."
+        }
+
         for (entry in McpToolCatalog.catalog) {
             val className = entry.toolClass.simpleName
             if (entry.writeBehavior != WriteBehavior.DIRECT_WRITE_EXCEPTION || className == null) continue
-            val writes = scan[className]
+            val writes = scan.classes[className]
             if (writes == null) {
                 findings += "${entry.name} is declared a direct-write exception, and its class " +
                     "($className) is not among the sources this scan reads. An exception nobody " +
@@ -233,7 +239,7 @@ class WriteToolsOnlyProposeTest {
             .filter { it.writeBehavior == WriteBehavior.DIRECT_WRITE_EXCEPTION }
             .filter { entry ->
                 val className = entry.toolClass.simpleName ?: return@filter false
-                scan[className]?.userData.isNullOrEmpty()
+                scan.classes[className]?.userData.isNullOrEmpty()
             }
             .map { it.name }
             .toSet()
@@ -270,7 +276,10 @@ class WriteToolsOnlyProposeTest {
     // ─── The scan ───────────────────────────────────────────────────────────────
 
     /**
-     * The write calls each tool class makes, by the class they sit in.
+     * What the scan saw.
+     *
+     * The write calls each tool class makes, by the class they sit in, and the
+     * calls that belong to no class at all.
      *
      * The owner of a call is the class declared above it. One file holds several
      * tools — `AdrTools.kt` holds the readers and the writers side by side — so
@@ -278,9 +287,9 @@ class WriteToolsOnlyProposeTest {
      *
      * Two nets are cast. The first recognises a write on a repository of the
      * user's own data — the write the promise is about. The second recognises a
-     * write through any port at all, and exists so that a write the first net
-     * cannot see is still *seen*: an undeclared write is a finding whichever port
-     * it goes through.
+     * write whose method is named like a write, whatever port it goes through,
+     * and exists so that a write the first net cannot see is still *seen*: an
+     * undeclared write is a finding whichever port it goes through.
      *
      * The two nets answer different questions, and the difference matters. The
      * second one says whether a write happened *at all* — and that is what says
@@ -290,11 +299,29 @@ class WriteToolsOnlyProposeTest {
      * second net can see but the first cannot is exactly the case the named set
      * exists for: the write is real, and the scan cannot tell whose data it
      * touched.
+     *
+     * ## What the scan cannot see
+     *
+     * Both nets are name-based, and the check says so rather than claiming more:
+     * the narrow one recognises a repository by the receiver's name, the wide one
+     * recognises a write by the method's name, and a write whose method is called
+     * something neither list holds is invisible to them. A write in a helper that
+     * sits above no tool class is invisible in the same way — which is why a write
+     * that belongs to no class is a finding of its own rather than a gap.
      */
-    private val scan: Map<String, Writes> by lazy { scanSources() }
+    private val scan: Scan by lazy { scanSources() }
 
-    private fun scanSources(): Map<String, Writes> {
+    /**
+     * What one scan of the tool sources found.
+     *
+     * @param classes the write calls each tool class makes, by the class they sit in.
+     * @param outside the write calls that belong to no class at all.
+     */
+    private data class Scan(val classes: Map<String, Writes>, val outside: List<String>)
+
+    private fun scanSources(): Scan {
         val found = mutableMapOf<String, Writes>()
+        val outside = mutableListOf<String>()
         for (path in toolFiles()) {
             var current: String? = null
             for (line in Files.readAllLines(path)) {
@@ -308,27 +335,36 @@ class WriteToolsOnlyProposeTest {
                     // to tell them apart: the first is an exception the scan cannot
                     // verify, the second is an exception whose class is not here.
                     found.putIfAbsent(current, Writes())
-                } else if (owner != null) {
+                } else {
                     val userData = repositoryWrite.findAll(line)
-                        .filter { it.groupValues[1].lowercase() !in PROPOSAL_RECEIVERS }
+                        .filter { !it.groupValues[1].isProposal() }
                         .map { it.groupValues[1] + "." + it.groupValues[2] }
                         .toList()
                     val other = anyWrite.findAll(line)
-                        .filter { it.groupValues[1].lowercase() !in PROPOSAL_RECEIVERS }
+                        .filter { !it.groupValues[1].isProposal() }
                         .map { it.groupValues[1] + "." + it.groupValues[2] }
                         .filterNot { it in userData }
                         .toList()
                     if (userData.isNotEmpty() || other.isNotEmpty()) {
-                        val existing = found[owner] ?: Writes()
-                        found[owner] = Writes(
-                            userData = (existing.userData + userData).distinct().sorted(),
-                            other = (existing.other + other).distinct().sorted(),
-                        )
+                        if (owner == null) {
+                            // The call belongs to no tool: it sits in a helper above
+                            // every class, or in a class the scan does not know. A
+                            // write that belongs to no tool is a finding of its own —
+                            // the scan cannot attribute it, and a write it cannot
+                            // attribute is a write nobody checked.
+                            outside += (userData + other).distinct().sorted()
+                        } else {
+                            val existing = found[owner] ?: Writes()
+                            found[owner] = Writes(
+                                userData = (existing.userData + userData).distinct().sorted(),
+                                other = (existing.other + other).distinct().sorted(),
+                            )
+                        }
                     }
                 }
             }
         }
-        return found
+        return Scan(classes = found, outside = outside.distinct().sorted())
     }
 
     /** The write calls one tool class makes. */
@@ -399,15 +435,21 @@ class WriteToolsOnlyProposeTest {
         /**
          * A call on a repository. The receiver is captured so the proposal
          * repository can be told apart from the user's own data.
+         *
+         * The receiver is recognised by its name — `taskRepository`, `notesRepo`
+         * and the rest — because that is all a source scan has to go on. The verbs
+         * are the ones a write goes by.
          */
-        val repositoryWrite = Regex("""\b(\w*[Rr]epository)\.(create|update|delete|upsert|save)\(""")
+        val repositoryWrite = Regex("""\b(\w*[Rr]epo(?:sitory)?)\.(create|update|delete|upsert|save)\(""")
 
         /**
          * A call that looks like a write, on any receiver.
          *
          * The net is wider than [repositoryWrite] on purpose: a write the user's
          * data lives behind is still a write, and an undeclared one has to be a
-         * finding whichever port it goes through.
+         * finding whichever port it goes through. It is wider by *method*, not by
+         * port: a method whose name is not among these verbs is invisible to it,
+         * and the check says so rather than claiming more.
          */
         val anyWrite = Regex(
             """\b(\w+)\.(create|update|delete|upsert|save|write|writeAdr|updateAdr|insert|put)\(""",
@@ -430,9 +472,6 @@ class WriteToolsOnlyProposeTest {
          */
         val UNVERIFIABLE_EXCEPTIONS = setOf("write_adr", "update_adr")
 
-        /** The proposal repository, by the names it is given in the tools. */
-        val PROPOSAL_RECEIVERS = setOf("proposals", "proposalrepository")
-
         /**
          * Where the tools live.
          *
@@ -449,4 +488,14 @@ class WriteToolsOnlyProposeTest {
             error("the tools directory was not found above ${Path.of("").toAbsolutePath()}")
         }
     }
+
+    /**
+     * Whether a receiver holds the proposals rather than the user's own data.
+     *
+     * Saving a proposal is how a tool proposes, not how it writes, so the
+     * proposal repository is the one receiver the nets ignore. It is told apart
+     * by its name — `proposals`, `proposalRepository`, `proposalRepo` — and by
+     * nothing else: a source scan has no other way to know what a receiver holds.
+     */
+    private fun String.isProposal(): Boolean = lowercase().startsWith("proposal")
 }
