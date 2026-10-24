@@ -59,6 +59,35 @@ class SubTestTest(unittest.TestCase):
                 self.assertNotEqual(case, 2, "the third case is the one that fails")
 """
 
+SUB_TEST_WITH_MESSAGE = """
+import unittest
+
+
+class SubTestWithMessageTest(unittest.TestCase):
+    def test_the_cases(self):
+        for case in range(3):
+            with self.subTest("case %s" % case, case=case):
+                self.assertNotEqual(case, 2, "the third case is the one that fails")
+"""
+
+TWO_CLASSES_ONE_BROKEN = """
+import unittest
+
+
+class BrokenClassTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        raise RuntimeError("the class could not be set up")
+
+    def test_never_runs(self):
+        self.assertTrue(True)
+
+
+class OtherTest(unittest.TestCase):
+    def test_it_passes(self):
+        self.assertTrue(True)
+"""
+
 CLASS_ERROR = """
 import unittest
 
@@ -151,6 +180,20 @@ class ReportTest(unittest.TestCase):
             (tests / "test_broken.py").write_text(NOT_IMPORTABLE, encoding="utf-8")
             self.assertEqual(1, run(tests, root / "junit.xml"))
 
+    def test_a_module_that_does_not_import_is_counted_once(self):
+        # One broken module is one broken module: `unittest` already turns it
+        # into a failed test, and the runner must not add a second one.
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            tests = root / "tests"
+            tests.mkdir()
+            (tests / "test_broken.py").write_text(NOT_IMPORTABLE, encoding="utf-8")
+            report = root / "junit.xml"
+            self.assertEqual(1, run(tests, report))
+            document = ET.parse(report).getroot()
+            self.assertEqual("1", document.get("errors"))
+            self.assertEqual("0", document.get("failures"))
+
     def test_a_module_that_does_not_import_still_leaves_a_report(self):
         # The report is the reason the job publishes an artifact, and the case
         # where the report is missing is exactly the case where somebody needs
@@ -204,6 +247,33 @@ class OutcomeTest(unittest.TestCase):
         self.assertIn("the class could not be set up", errors[0].get("message"))
         self.assertEqual("1", document.get("errors"))
         self.assertEqual("0", document.get("failures"))
+
+    def test_a_class_error_is_written_once_and_into_its_own_suite(self):
+        # One broken class among several: the error belongs to the suite of
+        # that class, and it is counted once — an error written into every
+        # suite would be counted as many times as there are suites.
+        document = self._run(TWO_CLASSES_ONE_BROKEN)
+        self.assertEqual("1", document.get("errors"))
+        self.assertEqual("0", document.get("failures"))
+        self.assertEqual("2", document.get("tests"))
+        errors = document.findall(".//error")
+        self.assertEqual(1, len(errors))
+        cases = document.findall(".//testcase")
+        self.assertEqual(2, len(cases))
+        broken = [case for case in cases if case.get("name") == "setUpClass"]
+        self.assertEqual(1, len(broken))
+        self.assertTrue(broken[0].get("classname").endswith("BrokenClassTest"))
+
+    def test_a_sub_test_with_a_message_is_a_failure_of_its_test(self):
+        # The identifier of a sub-test carries the test's id, then the
+        # message, then the parameters.
+        document = self._run(SUB_TEST_WITH_MESSAGE)
+        self.assertEqual("1", document.get("failures"))
+        cases = document.findall(".//testcase")
+        self.assertEqual(1, len(cases))
+        failures = cases[0].findall("failure")
+        self.assertEqual(1, len(failures))
+        self.assertIn("the third case is the one that fails", failures[0].get("message"))
 
     def test_a_skipped_test_is_skipped_in_the_report(self):
         document = self._run(SKIPPED)

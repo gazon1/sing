@@ -93,24 +93,6 @@ class RecordingResult(unittest.TextTestResult):
         self.durations[test.id()] = 0.0 if started is None else time.monotonic() - started
 
 
-class LoadErrorTest(unittest.TestCase):
-    """A test module that could not be imported, carried as a failing test.
-
-    `unittest` does the same thing: a module that does not import becomes a
-    failed test in the suite, and the rest of the suite still runs. The
-    report says so as well — the report is the reason the job publishes an
-    artifact, and the case where the report is missing is exactly the case
-    where somebody needs it.
-    """
-
-    def __init__(self, error: str) -> None:
-        super().__init__()
-        self._error = error
-
-    def runTest(self) -> None:
-        raise AssertionError(self._error)
-
-
 def _classname(test: unittest.TestCase) -> str:
     """The class a test belongs to, as a fully qualified name."""
     cls = type(test)
@@ -121,11 +103,15 @@ def _classname(test: unittest.TestCase) -> str:
 def _belongs_to(outcome_id: str, test_id: str) -> bool:
     """Whether an outcome belongs to a test.
 
-    A sub-test's outcome carries the test's id and the parameters of the sub
-    case — `test_x.B.test_sub (i=1)` — and it belongs to the test it came
-    from.
+    A sub-test's outcome carries the test's id, then its message and then its
+    parameters — `test_x.B.test_sub [the case] (i=1)` — and it belongs to the
+    test it came from.
     """
-    return outcome_id == test_id or outcome_id.startswith(test_id + " (")
+    return (
+        outcome_id == test_id
+        or outcome_id.startswith(test_id + " (")
+        or outcome_id.startswith(test_id + " [")
+    )
 
 
 def _message_of(traceback_text: str) -> str:
@@ -149,19 +135,34 @@ def _outcomes(
     return outcomes
 
 
-def _class_errors(result: RecordingResult) -> list[tuple[str, str, str]]:
+def _class_errors(result: RecordingResult) -> dict[str, list[tuple[str, str]]]:
     """The errors that belong to a class or a module, not to a test.
 
     `setUpClass` fails before any test of the class runs, so there is no
     `<testcase>` to hang the error on — the report carries it as a testcase
     of its own, named after the class it belongs to.
+
+    The errors are grouped by the class they belong to, and each one is
+    written once: an error written into every suite would be counted as many
+    times as there are suites, and a counter that says "that many problems"
+    has to say it once.
     """
-    errors: list[tuple[str, str, str]] = []
+    errors: dict[str, list[tuple[str, str]]] = {}
     for outcome, text in result.errors:
         match = CLASS_ERROR.match(outcome.id())
         if match is not None:
-            errors.append((match.group("target"), match.group(1), text))
+            errors.setdefault(match.group("target"), []).append((match.group(1), text))
     return errors
+
+
+def _same_class(target: str, classname: str) -> bool:
+    """Whether a class error belongs to the suite of this class.
+
+    `unittest` names the class of a `setUpClass` failure by its id —
+    `tests.test_x.A` — and the suite is named by the module and the class
+    name. The two are compared by the tail, which is the class itself.
+    """
+    return target.rsplit(".", 1)[-1] == classname.rsplit(".", 1)[-1]
 
 
 def _skipped(result: RecordingResult) -> dict[str, str]:
@@ -187,6 +188,7 @@ def write_report(
     @param elapsed how long the run took.
     """
     skipped = _skipped(result)
+    class_errors = _class_errors(result)
     document = ET.Element("testsuites", {"name": "gate scripts' own tests", "time": f"{elapsed:.3f}"})
     counts = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
 
@@ -218,16 +220,19 @@ def write_report(
                 ET.SubElement(case, "skipped", {"message": str(skipped[test.id()])[:200]})
                 suite_counts["skipped"] += 1
 
-        for target, name, text in _class_errors(result):
-            case = ET.SubElement(
-                suite,
-                "testcase",
-                {"classname": target, "name": name, "time": "0.000"},
-            )
-            element = ET.SubElement(case, "error", {"message": _message_of(text)[:200]})
-            element.text = text
-            suite_counts["tests"] += 1
-            suite_counts["errors"] += 1
+        for target, errors in class_errors.items():
+            if not _same_class(target, classname):
+                continue
+            for name, text in errors:
+                case = ET.SubElement(
+                    suite,
+                    "testcase",
+                    {"classname": target, "name": name, "time": "0.000"},
+                )
+                element = ET.SubElement(case, "error", {"message": _message_of(text)[:200]})
+                element.text = text
+                suite_counts["tests"] += 1
+                suite_counts["errors"] += 1
 
         for key, value in suite_counts.items():
             suite.set(key, str(value))
@@ -264,10 +269,12 @@ def run(tests_dir: pathlib.Path, junit_xml: pathlib.Path | None) -> int:
     suite = loader.discover(start_dir=str(tests_dir), top_level_dir=str(tests_dir))
 
     # A module that does not import becomes a failed test, the way `unittest`
-    # does it — and the rest of the suite still runs.
-    load_errors = [error for error in loader.errors]
-    for error in load_errors:
-        suite.addTest(LoadErrorTest(error))
+    # does it: the loader leaves the error in `loader.errors` and the suite
+    # holds a failed test for it. The runner does not add its own — one
+    # broken module is one broken module, and a defect counted twice is a
+    # counter that lies.
+    for error in loader.errors:
+        print(f"run-gate-tests: a test module could not be imported:\n{error}", file=sys.stderr)
 
     # The tests are collected before the run: `unittest` reuses the suite for
     # the results, and a suite that was run holds the failures and `None` for

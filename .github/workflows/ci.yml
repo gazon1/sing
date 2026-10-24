@@ -261,7 +261,7 @@ jobs:
       # artifact: the rule this repository already wrote down for the Kotlin
       # tests is that the cause of a failed test is in the artifact and not in
       # the step log — and a step log that says "FAILED (failures=1)" among
-      # 2383 assertions says nothing about which one.
+      # thousands of assertions says nothing about which one.
       - name: Gate scripts' own unit tests
         run: >-
           python3 scripts/run-gate-tests.py
