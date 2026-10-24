@@ -26,6 +26,22 @@ sealed interface BackupIntent : MviIntent {
     data class Push(val id: BackupId) : BackupIntent
 
     /**
+     * Reads the archives that live in the cloud.
+     *
+     * Push without a way back is half a feature: the person who uploaded an archive
+     * has no way to fetch it again, and the app never says why.
+     */
+    data object LoadRemoteBackups : BackupIntent
+
+    /**
+     * Restores an archive that lives in the cloud.
+     *
+     * The archive is downloaded and imported in one step — the download lands in the
+     * app's own backup directory, which the repository owns.
+     */
+    data class RestoreFromCloud(val remoteRef: String) : BackupIntent
+
+    /**
      * Hand a stored backup to the platform, so the user can keep it outside the app.
      *
      * A backup in the app's own storage is a backup the user cannot get at: it dies

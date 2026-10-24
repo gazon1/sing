@@ -60,6 +60,24 @@ interface BackupRepository {
         remoteRef: String,
         destPath: String,
     ): Result<Unit>
+
+    /**
+     * The archives that live in the cloud, for this profile.
+     *
+     * Push without a way back is half a feature: the person who uploaded an archive
+     * has no way to fetch it again, and the app never says why.
+     */
+    suspend fun listRemote(): Result<List<RemoteBackup>>
+
+    /**
+     * Restores an archive that lives in the cloud.
+     *
+     * The archive is downloaded into the backup directory and then imported. The
+     * repository owns that directory — a caller that named the destination could aim
+     * the download anywhere — and the two steps belong together: an archive that was
+     * downloaded and not imported is a file nobody asked for.
+     */
+    suspend fun restoreFromCloud(remoteRef: String): Result<RestoreResult>
 }
 
 class BackupRepositoryImpl(
@@ -136,6 +154,30 @@ class BackupRepositoryImpl(
         remoteRef: String,
         destPath: String,
     ): Result<Unit> = remoteService.download(remoteRef, destPath, currentUser.scopedUserId.value)
+
+    override suspend fun listRemote(): Result<List<RemoteBackup>> =
+        runCatchingCancellable {
+            remoteService.list(currentUser.scopedUserId.value).getOrThrow().map { ref ->
+                RemoteBackup(ref = ref, name = ref.substringAfterLast('/'))
+            }
+        }
+
+    override suspend fun restoreFromCloud(remoteRef: String): Result<RestoreResult> =
+        runCatchingCancellable {
+            // The name comes from the ref, and only the name: a ref that carried a
+            // path would be rejected by `resolveBackupDestination`, and a ref the
+            // bucket made up is not a name the repository should follow.
+            val fileName = remoteRef.substringAfterLast('/')
+            fs.ensureDir(backupDir)
+            val destPath = resolveBackupDestination(backupDir, fileName)
+            remoteService.download(remoteRef, destPath, currentUser.scopedUserId.value).getOrThrow()
+            importer.import(
+                ImportOptions(
+                    sourcePath = destPath,
+                    targetUserId = currentUser.scopedUserId.value,
+                ),
+            ).getOrThrow()
+        }
 }
 
 /**

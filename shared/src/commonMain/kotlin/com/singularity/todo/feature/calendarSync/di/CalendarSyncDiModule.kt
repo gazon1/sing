@@ -117,6 +117,7 @@ fun calendarSyncModule(): Module = module {
             clientIdResolver = get(),
             secureStorage = get<SecureStorage>(),
             redeemer = get(),
+            revoker = get(),
             credentialStore = get(),
         )
     }

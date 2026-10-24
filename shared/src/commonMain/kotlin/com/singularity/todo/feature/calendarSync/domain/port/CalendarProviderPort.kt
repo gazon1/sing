@@ -15,6 +15,17 @@ import com.singularity.todo.feature.calendarSync.domain.model.CalendarSyncEvent
 interface CalendarProviderPort {
 
     /**
+     * Whether this port can do its job on this platform.
+     *
+     * False means every call below is answered with "not available here", and the
+     * screen has to say so instead of offering a control that does nothing. The
+     * same reason [com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider.isSupported]
+     * exists: an empty list is an artifact of the platform, not a fact about the
+     * user's calendar.
+     */
+    val isSupported: Boolean get() = true
+
+    /**
      * Queries the available calendars visible to this app.
      * Returns a map of calendar ID (String) → display name.
      */

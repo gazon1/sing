@@ -959,6 +959,15 @@ object TestTags {
     const val BACKUP_EXPORT_SETTINGS = "backup_export_settings"
     const val BACKUP_IMPORT_SETTINGS = "backup_import_settings"
 
+    /** The button that asks the cloud for its archives. */
+    const val BACKUP_LOAD_REMOTE_BUTTON = "backup_load_remote_button"
+
+    /** The prefix of the "Restore" button of one archive in the cloud. */
+    const val BACKUP_RESTORE_FROM_CLOUD_PREFIX = "backup_restore_from_cloud_"
+
+    /** The restore button of the archive with this [ref]. */
+    fun backupRestoreFromCloud(ref: String) = "$BACKUP_RESTORE_FROM_CLOUD_PREFIX${slug(ref)}"
+
     // ─── Profile ────────────────────────────────────────────────────────────
     const val PROFILE_CREATE_BUTTON = "profile_create_button"
     const val PROFILE_CREATE_NAME_INPUT = "profile_create_name_input"

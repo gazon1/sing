@@ -134,7 +134,10 @@ fun CalendarSyncSettingsScreen(modifier: Modifier = Modifier) {
         } else {
             SystemCalendarPanel(
                 state = state,
-                isSupported = permissionRequester.isSupported,
+                // The port is the authority on whether the system calendar can be
+                // reached here; the permission requester answers a different
+                // question — whether this device may ask for the permission.
+                isSupported = state.deviceSyncSupported,
                 hasPermissions = permissionRequester.hasPermissions,
                 onRequestPermission = { permissionRequester.requestPermissions() },
                 onIntent = viewModel::onIntent,
@@ -467,6 +470,18 @@ private fun GoogleAccountSection(state: CalendarSyncUiState, onIntent: (Calendar
             state.googleSignInError?.let { reason ->
                 SelectableText(
                     text = "Could not connect your Google account: $reason",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
+            // The disconnect's own failure. It belongs here for the same reason the
+            // sign-in's does: this is the only section rendered while the account is
+            // not connected, and a failure written into the calendar-picker error
+            // would never be seen.
+            state.googleDisconnectError?.let { reason ->
+                SelectableText(
+                    text = reason,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(bottom = 8.dp),

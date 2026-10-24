@@ -8,5 +8,8 @@ import com.singularity.todo.feature.calendarSync.domain.port.CalendarAppQueries
  * Returns an empty list on JVM.
  */
 class JvmCalendarAppQueries : CalendarAppQueries {
+
+    /** The desktop has no system calendar this app may write to. */
+    override val isSupported: Boolean = false
     override suspend fun listInstalled(): List<CalendarAppInfo> = emptyList()
 }

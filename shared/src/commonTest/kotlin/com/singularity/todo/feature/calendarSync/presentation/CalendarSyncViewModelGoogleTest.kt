@@ -7,6 +7,7 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.feature.calendarSync.auth.GoogleAuthorizer
 import com.singularity.todo.feature.calendarSync.auth.GoogleCredentialStore
 import com.singularity.todo.feature.calendarSync.auth.GoogleCredentials
 import com.singularity.todo.feature.calendarSync.domain.model.CalendarAppInfo
@@ -42,9 +43,11 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * The Google half of the calendar-sync screen, and the three answers a pass can give.
@@ -194,7 +197,7 @@ class CalendarSyncViewModelGoogleTest {
     /**
      * Builds a VM whose Google half is fully connected, so the only thing under test is what
      * the Sync Now button does. [pass] throws to model a failing pass; [selectedCalendarId]
-     * and [hasCredential] move the coordinator between its three outcomes.
+     * and [store] move the coordinator between its three outcomes.
      *
      * The returned store is shared with the coordinator, so a test can revoke the grant
      * mid-session — the only way to reach the "grant revoked" decline through the UI.
@@ -203,13 +206,13 @@ class CalendarSyncViewModelGoogleTest {
         pass: GoogleSyncPass,
         scope: CoroutineScope,
         selectedCalendarId: String? = "primary",
-        hasCredential: Boolean = true,
+        store: FakeCredentialStore = FakeCredentialStore(true),
         importWindow: ImportWindow = ImportWindow.DEFAULT,
+        googleAuthorization: GoogleAuthorizer = FakeGoogleAuthorizer(),
     ): Triple<CalendarSyncViewModel, AutoCloseableCoroutineScope, FakeCredentialStore> {
         val vmScope = testScope(scope)
         // One store, shared: the ViewModel and the coordinator must see the same grant, or
         // the test is asserting two fakes rather than one scenario.
-        val store = FakeCredentialStore(hasCredential)
         val coordinator = GoogleSyncCoordinator(
             engineProvider = { pass },
             googleSettings = settings(selectedCalendarId),
@@ -236,7 +239,7 @@ class CalendarSyncViewModelGoogleTest {
             eventSource = { emptyEventSource() },
             googleSync = coordinator,
             importWindow = importWindow,
-            googleAuthorization = FakeGoogleAuthorizer(),
+            googleAuthorization = googleAuthorization,
             crashReporter = NoOpCrashReportingPort(),
             scope = vmScope,
         )
@@ -387,6 +390,124 @@ class CalendarSyncViewModelGoogleTest {
                 ImportWindow.DEFAULT,
                 vm.stateFlow.value.importWindow,
                 "this test is only meaningful while the two differ",
+            )
+        } finally {
+            vmScope.close()
+        }
+    }
+
+    /**
+     * An authorizer that records the order of a disconnect.
+     *
+     * The revoke has to happen *before* the device forgets the credential: a device that
+     * has already cleared its own copy cannot cancel what it handed out, and the server
+     * would keep renewing a grant the person believes they ended.
+     */
+    private class RecordingAuthorizer(
+        private val store: GoogleCredentialStore,
+        private val delegate: GoogleAuthorizer = FakeGoogleAuthorizer(),
+    ) : GoogleAuthorizer by delegate {
+
+        /** The user id the revoke was asked for, or null when it never ran. */
+        var revokedFor: String? = null
+            private set
+
+        /** Whether the credential was still on the device when the revoke ran. */
+        var credentialWasPresentAtRevoke: Boolean? = null
+            private set
+
+        override suspend fun revoke(userId: String): Result<Unit> {
+            revokedFor = userId
+            credentialWasPresentAtRevoke = store.load(userId) != null
+            return Result.success(Unit)
+        }
+    }
+
+    /**
+     * The disconnect has to reach the grant, not only this device.
+     *
+     * The button used to clear the local credential and the selected calendar, and stop
+     * there: the row in `google_calendar_grants` stayed, and the refresh token on the
+     * server kept being renewed. The person had disconnected, and the server still held a
+     * live grant they could neither see nor cancel.
+     */
+    @Test
+    fun `the disconnect revokes the grant`() = runTest {
+        val authorizer = RecordingAuthorizer(FakeCredentialStore(true))
+        val (vm, vmScope, _) = viewModel(
+            pass = GoogleSyncPass { GoogleSyncEngine.PassResult() },
+            scope = this,
+            googleAuthorization = authorizer,
+        )
+        try {
+            ready(vm)
+            vm.onIntent(CalendarSyncIntent.SetGoogleConnected(false))
+            awaitState { authorizer.revokedFor != null }
+
+            assertEquals("user-1", authorizer.revokedFor, "the revoke must name the profile it cancels")
+            assertFalse(
+                vm.stateFlow.value.googleConnected,
+                "the account is disconnected on the device whatever the server said",
+            )
+        } finally {
+            vmScope.close()
+        }
+    }
+
+    /** The revoke runs first: afterwards there is nothing left to cancel. */
+    @Test
+    fun `the grant is revoked before the device forgets it`() = runTest {
+        val store = FakeCredentialStore(true)
+        val authorizer = RecordingAuthorizer(store)
+        val (vm, vmScope, _) = viewModel(
+            pass = GoogleSyncPass { GoogleSyncEngine.PassResult() },
+            scope = this,
+            store = store,
+            googleAuthorization = authorizer,
+        )
+        try {
+            ready(vm)
+            vm.onIntent(CalendarSyncIntent.SetGoogleConnected(false))
+            awaitState { authorizer.revokedFor != null }
+
+            assertEquals(
+                true,
+                authorizer.credentialWasPresentAtRevoke,
+                "the device must still hold the credential while it asks for the revoke",
+            )
+        } finally {
+            vmScope.close()
+        }
+    }
+
+    /**
+     * A revoke that fails is said out loud.
+     *
+     * The device is disconnected either way — the person asked for that, and the local
+     * credential is gone. What failed is the server's half, and the user is the only one
+     * who can cancel it. Silently dropping that would leave a live grant nobody knows
+     * about.
+     */
+    @Test
+    fun `a revoke that fails is reported and the device is still disconnected`() = runTest {
+        val authorizer = FakeGoogleAuthorizer().apply {
+            revokeFailure = IllegalStateException("the server said no")
+        }
+        val (vm, vmScope, _) = viewModel(
+            pass = GoogleSyncPass { GoogleSyncEngine.PassResult() },
+            scope = this,
+            googleAuthorization = authorizer,
+        )
+        try {
+            ready(vm)
+            vm.onIntent(CalendarSyncIntent.SetGoogleConnected(false))
+            awaitState { vm.stateFlow.value.googleDisconnectError != null }
+
+            assertFalse(vm.stateFlow.value.googleConnected)
+            val error = vm.stateFlow.value.googleDisconnectError
+            assertTrue(
+                error != null && error.contains("the server said no"),
+                "the screen must say why the grant was not revoked: $error",
             )
         } finally {
             vmScope.close()

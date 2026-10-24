@@ -50,8 +50,10 @@ import com.singularity.todo.feature.calendarSync.data.AndroidCalendarProvider
 import com.singularity.todo.feature.calendarSync.data.CalendarSyncSettingsRepositoryImpl
 import com.singularity.todo.feature.calendarSync.auth.GoogleAccessTokenProvider
 import com.singularity.todo.feature.calendarSync.auth.GoogleGrantRedeemer
+import com.singularity.todo.feature.calendarSync.auth.GoogleGrantRevoker
 import com.singularity.todo.feature.calendarSync.auth.SupabaseGoogleAccessTokenProvider
 import com.singularity.todo.feature.calendarSync.auth.SupabaseGoogleGrantRedeemer
+import com.singularity.todo.feature.calendarSync.auth.SupabaseGoogleGrantRevoker
 import com.singularity.todo.feature.calendarSync.domain.port.CalendarProviderPort
 import com.singularity.todo.feature.calendarSync.domain.port.CalendarSyncRepository
 import com.singularity.todo.feature.calendarSync.sync.GoogleSyncCoordinator
@@ -391,6 +393,11 @@ actual fun platformModule(): Module = module {
     // of the same two ports. The gateway itself is common: the function is deployed
     // once and every platform talks to it the same way.
     single<GoogleGrantRedeemer> { SupabaseGoogleGrantRedeemer(gateway = get()) }
+
+    // The revoke goes the same way as the redemption: the credential is on the
+    // server, so it is cancelled there — the row is deleted and the token is
+    // revoked at Google in one request.
+    single<GoogleGrantRevoker> { SupabaseGoogleGrantRevoker(gateway = get()) }
 
     single<GoogleAccessTokenProvider> {
         SupabaseGoogleAccessTokenProvider(gateway = get(), credentialStore = get())

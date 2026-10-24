@@ -13,6 +13,9 @@ import java.net.URI
  */
 class JvmOAuthBrowser : OAuthBrowser {
 
+    override fun isAvailable(): Boolean =
+        Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)
+
     override suspend fun open(url: String): Boolean = runCatchingCancellable {
         if (!Desktop.isDesktopSupported()) {
             false
