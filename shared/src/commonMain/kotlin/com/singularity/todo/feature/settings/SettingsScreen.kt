@@ -299,6 +299,8 @@ private fun BackupScreenWrapper(onBack: () -> Unit) {
         onSelectSettingsFile = pickSettings,
         onShareSettingsJson = { json -> sharePort.shareText("Singularity settings", json) },
         onImportSettings = { json -> backupVm.onIntent(BackupIntent.ImportSettingsSnapshot(json)) },
+        onLoadRemoteBackups = { backupVm.onIntent(BackupIntent.LoadRemoteBackups) },
+        onRestoreFromCloud = { ref -> backupVm.onIntent(BackupIntent.RestoreFromCloud(ref)) },
     )
 }
 

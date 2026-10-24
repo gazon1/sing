@@ -10,6 +10,7 @@ import com.singularity.todo.core.backup.BackupMetadata
 import com.singularity.todo.core.backup.BackupResult
 import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.EntityCounts
+import com.singularity.todo.core.backup.RemoteBackup
 import com.singularity.todo.core.backup.RestoreResult
 import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.files.FileSource
@@ -30,7 +31,9 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
@@ -240,6 +243,72 @@ class BackupViewModelTest {
         testScheduler.runCurrent()
 
         assertEquals(BackupId("b1"), repo.lastPushedId)
+    }
+
+    // ─── cloud backups ────────────────────────────────────────────────────────
+
+    /**
+     * The other half of the push: the archives in the cloud have to be listable.
+     *
+     * Push without a way back is half a feature. The person who uploaded an archive
+     * could never fetch it again, and nothing anywhere said why.
+     */
+    @Test
+    fun `the cloud archives reach the screen`() = runTest {
+        val repo = FakeBackupRepository()
+        repo.listRemoteResult = Result.success(listOf(RemoteBackup("user-1/b1.zip", "b1.zip")))
+        val vm = createVm(repo, fakeAuth(), backgroundScope)
+        advanceUntilIdle()
+        testScheduler.runCurrent()
+
+        vm.onIntent(BackupIntent.LoadRemoteBackups)
+        advanceUntilIdle()
+        testScheduler.runCurrent()
+
+        assertEquals(1, vm.stateFlow.value.remoteBackups.size)
+        assertEquals("b1.zip", vm.stateFlow.value.remoteBackups.first().name)
+        assertTrue(vm.stateFlow.value.remoteBackupsLoaded, "the cloud was asked, and the answer was empty")
+    }
+
+    /** A restore from the cloud asks the repository for that archive. */
+    @Test
+    fun `a restore from the cloud reaches the repository`() = runTest {
+        val repo = FakeBackupRepository()
+        repo.restoreFromCloudResult = Result.success(RestoreResult(testManifest, testEntityCounts, 0, emptyList()))
+        val vm = createVm(repo, fakeAuth(), backgroundScope)
+        advanceUntilIdle()
+        testScheduler.runCurrent()
+
+        vm.onIntent(BackupIntent.RestoreFromCloud("user-1/b1.zip"))
+        advanceUntilIdle()
+        testScheduler.runCurrent()
+
+        assertEquals("user-1/b1.zip", repo.lastRestoredRemoteRef)
+    }
+
+    /**
+     * A cloud that cannot be read is said out loud.
+     *
+     * The screen would otherwise show an empty list, which reads as "there is nothing
+     * in the cloud" — a different answer from "the cloud could not be reached".
+     */
+    @Test
+    fun `a cloud that cannot be read reports the failure`() = runTest {
+        val repo = FakeBackupRepository()
+        repo.listRemoteResult = Result.failure(IllegalStateException("the bucket is gone"))
+        val vm = createVm(repo, fakeAuth(), backgroundScope)
+        advanceUntilIdle()
+        testScheduler.runCurrent()
+
+        vm.onIntent(BackupIntent.LoadRemoteBackups)
+        advanceUntilIdle()
+        testScheduler.runCurrent()
+
+        assertTrue(
+            vm.stateFlow.value.remoteBackups.isEmpty(),
+            "a failed read must not leave a list that looks like an answer",
+        )
+        assertFalse(vm.stateFlow.value.isWorking, "the screen must stop working after the failure")
     }
 
     // ─── settings import from a picked file ──────────────────────────────────

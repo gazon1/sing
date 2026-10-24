@@ -32,6 +32,7 @@ import com.singularity.todo.core.backup.BackupRepository
 import com.singularity.todo.core.backup.BackupResult
 import com.singularity.todo.core.backup.ExportOptions
 import com.singularity.todo.core.backup.ImportOptions
+import com.singularity.todo.core.backup.RemoteBackup
 import com.singularity.todo.core.backup.RestoreResult
 import com.singularity.todo.core.database.ProjectEntity
 import com.singularity.todo.core.database.ProjectWithCountRow
@@ -360,11 +361,21 @@ class FakeBackupRepository : BackupRepository {
     var lastPushedId: BackupId? = null
         private set
 
+    /** The archive the last cloud restore was asked for, or null when it never ran. */
+    var lastRestoredRemoteRef: String? = null
+        private set
+
     // ─── Configurable results (set in tests) ─────────────────────────────────
     var exportResult: Result<BackupResult> = Result.failure(NotImplementedError("export not configured"))
     var importResult: Result<RestoreResult> = Result.failure(NotImplementedError("import not configured"))
     var deleteResult: Result<Unit> = Result.success(Unit)
     var pushResult: Result<String> = Result.success("https://remote/backup.zip")
+
+    /** The archives the cloud holds, as the fake reports them. */
+    var remoteBackups: List<RemoteBackup> = emptyList()
+    var listRemoteResult: Result<List<RemoteBackup>> = Result.success(emptyList())
+    var restoreFromCloudResult: Result<RestoreResult> =
+        Result.failure(NotImplementedError("restoreFromCloud not configured"))
 
     fun addBackup(backup: BackupMetadata) {
         backupsStore.value += backup
@@ -399,6 +410,13 @@ class FakeBackupRepository : BackupRepository {
     }
 
     override suspend fun pull(remoteRef: String, destPath: String): Result<Unit> = Result.failure(NotImplementedError())
+
+    override suspend fun listRemote(): Result<List<RemoteBackup>> = listRemoteResult
+
+    override suspend fun restoreFromCloud(remoteRef: String): Result<RestoreResult> {
+        lastRestoredRemoteRef = remoteRef
+        return restoreFromCloudResult
+    }
 
     override suspend fun createBackup(): Result<BackupResult> = exportResult
 }

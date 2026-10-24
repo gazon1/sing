@@ -5,6 +5,7 @@ import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.backup.BackupMetadata
 import com.singularity.todo.core.backup.BackupRepository
 import com.singularity.todo.core.backup.DefaultBackupFileNamer
+import com.singularity.todo.core.backup.RemoteBackup
 import com.singularity.todo.core.backup.exportOptions
 import com.singularity.todo.core.backup.importOptions
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
@@ -26,6 +27,16 @@ data class BackupUiState(
     val isWorking: Boolean = false,
     val backups: List<BackupMetadata> = emptyList(),
     val lastBackup: BackupSummary? = null,
+    /**
+     * The archives that live in the cloud, once they have been asked for.
+     *
+     * Empty means "not looked yet", not "there are none": the two are different
+     * answers, and a screen that cannot tell them shows an empty list where the
+     * answer is "the cloud was never asked".
+     */
+    val remoteBackups: List<RemoteBackup> = emptyList(),
+    /** Whether the cloud has been asked for its archives at least once. */
+    val remoteBackupsLoaded: Boolean = false,
 )
 
 data class BackupSummary(val destPath: String, val byteSize: Long, val entityCount: Int)
@@ -82,6 +93,8 @@ class BackupViewModel(
             is BackupIntent.Restore -> vmScope.launch { runRestore(intent.sourcePath) }
             is BackupIntent.Delete -> vmScope.launch { runDelete(intent.id) }
             is BackupIntent.Push -> vmScope.launch { runPush(intent.id) }
+            BackupIntent.LoadRemoteBackups -> vmScope.launch { runLoadRemoteBackups() }
+            is BackupIntent.RestoreFromCloud -> vmScope.launch { runRestoreFromCloud(intent.remoteRef) }
             is BackupIntent.SaveToFile -> vmScope.launch { runSaveToFile(intent.id) }
             BackupIntent.ExportSettingsSnapshot -> vmScope.launch { runExportSettingsSnapshot() }
             is BackupIntent.ImportSettingsSnapshot -> vmScope.launch { runImportSettingsSnapshot(intent.json) }
@@ -234,6 +247,52 @@ class BackupViewModel(
             .onSuccess {
                 updateState { it.copy(isWorking = false) }
                 tryEmit(BackupUiEvent.ShowSnackbar("Backup pushed"))
+            }
+    }
+
+    /**
+     * Reads the archives that live in the cloud.
+     *
+     * The other half of the push: without it, an archive that was uploaded can never
+     * be fetched, and the person who uploaded it has no way to know that.
+     */
+    private suspend fun runLoadRemoteBackups() {
+        updateState { it.copy(isWorking = true) }
+        repository.listRemote()
+            .onFailure { e ->
+                updateState { it.copy(isWorking = false) }
+                crashReporter.report(e, (e as? AppError)?.code ?: BACKUP_PUSH_FAILED)
+                emit(Error(e.message ?: "Could not read the cloud backups"))
+            }
+            .onSuccess { backups ->
+                updateState {
+                    it.copy(
+                        isWorking = false,
+                        remoteBackups = backups,
+                        remoteBackupsLoaded = true,
+                    )
+                }
+            }
+    }
+
+    /**
+     * Restores an archive that lives in the cloud.
+     *
+     * The download and the import are one step: the archive lands in the app's own
+     * backup directory and is imported from there, so a person who pressed the button
+     * either gets their data back or gets an answer.
+     */
+    private suspend fun runRestoreFromCloud(remoteRef: String) {
+        updateState { it.copy(isWorking = true) }
+        repository.restoreFromCloud(remoteRef)
+            .onFailure { e ->
+                updateState { it.copy(isWorking = false) }
+                crashReporter.report(e, (e as? AppError)?.code ?: BACKUP_RESTORE_FAILED)
+                emit(Error(e.message ?: "Restore from the cloud failed"))
+            }
+            .onSuccess {
+                updateState { it.copy(isWorking = false) }
+                tryEmit(BackupUiEvent.ShowSnackbar("Restore complete"))
             }
     }
 

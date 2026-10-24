@@ -97,6 +97,15 @@ fun BackupScreen(
      * [jsonContent] is the raw content of the selected JSON file.
      */
     onImportSettings: (jsonContent: String) -> Unit,
+    /** Called when the user wants to see the archives that live in the cloud. */
+    onLoadRemoteBackups: () -> Unit,
+    /**
+     * Called when the user picks an archive in the cloud.
+     *
+     * [remoteRef] is the archive's path in the bucket — the repository downloads it
+     * into the app's own backup directory and imports it from there.
+     */
+    onRestoreFromCloud: (remoteRef: String) -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     var pendingSettingsJson by remember { mutableStateOf<String?>(null) }
@@ -261,6 +270,59 @@ fun BackupScreen(
                             onSaveToFile = { onSaveToFile(backup.id) },
                             onDelete = { onDelete(backup.id) },
                         )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // The other half of the push. A backup that was uploaded and can never be
+            // fetched is a feature that stops at the button: the person has no way back
+            // to their own archive, and nothing on the screen says why.
+            Text(
+                "Cloud backups",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+
+            if (!state.remoteBackupsLoaded) {
+                OutlinedButton(
+                    onClick = onLoadRemoteBackups,
+                    modifier = Modifier.testTag(TestTags.BACKUP_LOAD_REMOTE_BUTTON),
+                    enabled = !state.isWorking,
+                ) {
+                    Text("Load cloud backups")
+                }
+            } else if (state.remoteBackups.isEmpty()) {
+                Text(
+                    "No archives in the cloud",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    state.remoteBackups.forEach { remote ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            SelectableText(
+                                text = remote.name,
+                                style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f),
+                            )
+                            OutlinedButton(
+                                onClick = { onRestoreFromCloud(remote.ref) },
+                                modifier = Modifier.testTag(
+                                    TestTags.backupRestoreFromCloud(remote.ref),
+                                ),
+                                enabled = !state.isWorking,
+                            ) {
+                                Text("Restore")
+                            }
+                        }
                     }
                 }
             }
