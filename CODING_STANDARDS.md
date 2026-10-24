@@ -349,23 +349,29 @@ a sentence elsewhere became false. That is the review's work.
 ## A rule that replaces a rule names what it replaced
 
 The search had a rule: *a record that carries the word in its title is a
-better answer than one that carries it in its body.* The rule was replaced by
-a predicate — `SearchMode.matches(record, term)` — and the replacement was
-correct in itself. It also took the ranking with it: the new predicate
-answered "does this record match the query", and the ranking had asked a
-different question — "does its *title* match". The behaviour was gone, and no
-test failed, because the test that covered it was answered by the new
-predicate instead of the old rule.
+better answer than one that carries it in its body.* A branch replaced it with
+a predicate - `SearchMode.matches(record, term)`, which asks about the
+record's whole surface list. The replacement was correct in itself, and it
+took the ranking with it: the ranking asks about *one* surface, and the new
+predicate asks about all of them.
 
-So a change that replaces a rule says two things:
+Nothing failed. The corpus case for the ranking supplies its own predicate, so
+it passes whatever the use case asks, and nothing asserted the order through
+the use case. **The review caught it before the merge** (PR #1047, round one):
+the ranking asks the rule about the title alone now -
+`mode.matches(record.record.title, term)`, inside `titleMatchesFirst`.
 
-- **Which behaviour the old rule produced, and what produces it now.** The
-  diff names it in words, not in the shape of the new code: "the title
-  question is now asked of the title alone" is a claim a reviewer can check;
-  "the ranking moved into `titleMatchesFirst`" is a description of the diff.
+The lesson is not about that rule. It is about what a change that replaces a
+rule owes its reader:
+
+- **Which behaviour the old rule produced, and what produces it now.** In
+  words, not in the shape of the new code: "the title question is now asked of
+  the title alone" is a claim a reviewer can check against the tree; "the
+  ranking moved into `titleMatchesFirst`" is a description of the diff.
 - **The corpus carries a case that fails if the behaviour comes back
-  missing.** A replacement whose corpus cannot tell the difference between
-  the old behaviour and the new one has not proved that it kept anything.
+  missing.** A replacement whose corpus cannot tell the difference between the
+  old behaviour and the new one has not proved that it kept anything - and a
+  corpus that brings its own predicate proves nothing about the wiring.
 
 A replacement without both is a deletion that reads as a refactoring. This is
 the review's work: no gate can tell that a behaviour went missing, because a
@@ -382,11 +388,10 @@ re-deriving them.
 | A document writes only the parts it carries; a part it does not carry is not written | `TaskDocumentPartsTest`, `TaskDocumentWriteTest`, review |
 | A push carries what the database holds; the emptiness of a read is not a claim | `TaskPushClaimTest`, `TaskDaoArchiveRepositoryImplTest`, review |
 | Every test class carries `@Tag` (`fast`, or `slow` when it crosses a process boundary) | `TestTagCoverageTest` |
-| No `delay()` in tests — virtual time and `awaitState` | detekt `NoRealDelayInTestRule` + review |
+| No `delay()` in tests — virtual time and `awaitState` | detekt `NoRealDelayInTest` (a delay over 500 ms), `docs/architecture/tests.md`, review |
 | ViewModels take an injected `AutoCloseableCoroutineScope`; never `viewModelScope` | detekt + review |
 | No pass-through use cases | `PassThroughUseCase` detekt rule |
-| No `stateIn` in a ViewModel | detekt `NoStateInRule` + review |
-| A rule that replaces a rule names the behaviour it replaced and the corpus that proves it | review |
+| No `stateIn` in a ViewModel | detekt `NoStateIn`, `docs/architecture/tests.md`, review |
 | No `runBlocking` in production code | detekt + review |
 | `catch (CancellationException)` before a general `catch` | detekt |
 | A swallowed exception keeps its cause | detekt `SwallowedException` |
