@@ -96,6 +96,54 @@ class AcpClientProcessTest {
         client.close()
     }
 
+    /**
+     * A notification the application has no answer for does not stop the conversation.
+     *
+     * The real bridge announces its authentication state right after the handshake, and
+     * its commands right after the session is open. Both are notifications: a method
+     * with no id, answering no request this application made, and neither one is
+     * something the reader needs to see. The client has to read them and carry on —
+     * a client that treated an unknown notification as a failure would never get past
+     * the handshake with a real bridge, and it would never show the reader anything.
+     *
+     * The fake sends both, because the bridge sends both: the shapes come from the
+     * transcript of `scripts/acp-bridge-probe.sh`, run against
+     * `@agentclientprotocol/claude-agent-acp`.
+     */
+    @Test
+    fun `a notification the application has no answer for does not stop the conversation`() = runTest {
+        val agent = startAgent(MODE_GOOD)
+
+        val client = AcpClient(
+            scope = this,
+            process = agent.process,
+            tree = agent.tree,
+            operations = AcpClientSessionOperations { PermissionDecision.Declined },
+            toolServer = null,
+        )
+
+        val info = withContext(Dispatchers.IO) { client.connect() }
+        assertEquals("fake-agent", info.name, "the handshake completed, notification and all")
+
+        val events = client.prompt("hello").toList()
+
+        // The notifications are session settings, not something the agent did: they
+        // must not put a card on the reader's screen.
+        val activity = events.filterIsInstance<AcpTurnEvent.Activity>()
+        val texts = activity.mapNotNull { (it.event as? com.singularity.todo.core.llm.AgentEvent.TextDelta)?.text }
+        assertEquals(
+            listOf("hello from the fake agent"),
+            texts,
+            "the only thing the reader was told is what the agent said",
+        )
+        assertEquals(
+            1,
+            events.filterIsInstance<AcpTurnEvent.Finished>().size,
+            "and the turn still ended",
+        )
+        client.close()
+    }
+
     @Test
     fun `an agent that is not installed is reported with its command`() {
         val profile = AcpAgentProfile(

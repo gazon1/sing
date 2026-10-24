@@ -261,8 +261,47 @@ that rule, and no test could see it, because the tests spoke to it in-process ra
 than over a pipe. The packaged build is what showed it: a real agent connected to the
 packaged server and got its tools, but only after the channel was clean.
 
-## The known limitation: the agent's own token cost is not surfaced
+## The check against a real bridge
 
+The tests drive `FakeAcpAgent` — a program in this repository that speaks the protocol
+over a pipe. It is ours, and it was written to answer what our client expects, so the
+suite says that the client and the fake agree with each other. It says nothing about
+whether they agree with the protocol, because the protocol is written by somebody else.
+
+**The probe puts the two side by side.**
+
+```bash
+scripts/acp-bridge-probe.sh                                   # the Claude bridge
+scripts/acp-bridge-probe.sh npx -y @agentclientprotocol/codex-acp
+```
+
+It starts the bridge, drives **this application's own client** against it, and prints
+what came back: the verdict, the agent's name and version, the methods the bridge used
+and every frame verbatim. The exit code is the answer — zero when the handshake
+completed, one when it did not.
+
+It is a script and not a test because it needs a real `npx`, a real network and a real
+bridge; a test that cannot run is a skipped test, and this repository does not allow
+those. It is a program (`AcpBridgeProbe`) with a Gradle task
+(`:shared:acpBridgeProbe`) beside it, the same shape as `exportToolSurface`.
+
+**What it covers.** The handshake and the session — the protocol's own layers, and the
+ones this application owns. Against `@agentclientprotocol/claude-agent-acp` 0.95.0 the
+client completed the handshake on the first run.
+
+**What it does not cover.** The prompt half, and the tool call behind it: those need
+the agent behind the bridge to be installed and signed in, and a bridge on a machine
+without credentials says so itself (`"authStatus":{"kind":"none"}`). The tool server
+half needs a profile and a database on top of that.
+
+**What it found.** The bridge announces two notifications our fake never sent — its
+authentication state right after the handshake, and its available commands right after
+the session is open — and it answers `session/new` with five permission modes and
+three configuration options where the fake answered with one mode and no options. The
+client survived all of it. The fake now sends the same shapes, so the suite covers
+what the bridge sends rather than what we taught the fake to send.
+
+## The known limitation: the agent's own token cost is not surfaced
 The protocol carries usage: `SessionUpdate.UsageUpdate` arrives as a session update, and
 `PromptResponse.usage` carries `Usage` (input, output, and total tokens) at the end of
 a turn. **The application displays neither.**
@@ -287,6 +326,7 @@ its own provider, and this application does not see that bill.
 | `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpAgentProfile.kt` | The agent registry: what to launch, shown before it runs |
 | `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpAgentLauncher.kt` | Starting a real process and building the session around it |
 | `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpAgentSession.kt` | The interface the screen talks to, so the protocol stays behind one door |
+| `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpBridgeProbe.kt` | The probe: this client, against a real bridge, and what the bridge said |
 | `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/external/AcpExternalAgentViewModel.kt` | The state, the intents, and the screen's own logic |
 | `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/external/AcpAgentConversation.kt` | The conversation: the agent's process, the session on top of it, and the process tree that ends both |
 | `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/external/AcpTurnRunner.kt` | A turn: its clock, and the rules about when it may write to the screen |
@@ -305,5 +345,7 @@ its own provider, and this application does not see that bill.
   how it is started.
 - ADR `2026-10-23-acp-client-and-agent-activity.md` — why the client role, why one
   server, and what the trust contours are.
+- ADR `2026-10-24-the-client-meets-a-real-bridge.md` — why the client is checked
+  against a real bridge by a script, and what the bridge sent that the fake did not.
 - `specs/014-acp-client-agent-activity/contracts/tool-server-cli.md` — the argument
   contract the agent's tool server is started with.
