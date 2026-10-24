@@ -53,19 +53,31 @@ bridge's behaviour has to be compared with the fake's.
 
 ## When the transcript is read
 
-When the bridge goes quiet.
+When the bridge goes quiet — and not before a minimum has passed.
 
-The bridge keeps talking after the session it answered: the available commands come on
-a timer, and the authentication state comes when its own probe resolves — which may be
-seconds later, and may never come. A transcript read the moment the connect returned
-would be a snapshot of a race: it would contain the notifications sometimes, and the
-change would be built on a frame that was not always there.
+The bridge keeps talking after the session it answered: its available commands come on
+a timer. A transcript read the moment the connect returned would be a snapshot of a
+race: the frame this change is about would be in it sometimes, and the change would be
+built on a frame that was not always there.
 
-So the probe waits for the bridge to stop talking — a quiet period, measured on the
-clock rather than on the frames, so that a bridge that says nothing at all does not
-make the probe wait — and reads the transcript when the quiet has lasted long enough,
-or when the limit runs out. The frames that arrive in that window are the ones the
-change is about, and they are now in the transcript every time.
+The two notifications are not in the same place. The authentication status is sent when
+the bridge's own authentication probe resolves — in the recorded run that was during the
+handshake, before the session answer, so it was already in the transcript when the
+connect returned. The available commands come after the session is open, and *that* is
+the frame a connect-time snapshot can miss. Saying that the transcript "would miss both"
+would be wrong, and the transcript says which is which.
+
+So the probe waits for the bridge to stop talking — a quiet period of two seconds,
+measured on the clock rather than on the frames, so that a bridge that says nothing at
+all does not make the probe wait — and reads the transcript when the quiet has lasted
+long enough, or when the limit of thirty seconds runs out.
+
+A quiet period alone is not a guarantee, though: the commands come on a timer, and a
+timer longer than the quiet period would put the frame after the snapshot — every time,
+not sometimes. So the probe waits at least ten seconds after the connect before it may
+accept the quiet, and the thirty-second limit is where the promise ends: a bridge that
+announces something later than that is outside what this probe can promise, and the
+records say so rather than the probe pretending otherwise.
 
 ## What the fake learns
 

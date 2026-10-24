@@ -1215,10 +1215,11 @@ val exportToolSurface = tasks.register<JavaExec>("exportToolSurface") {
 // The task does not fail the build on a failed probe: the probe's verdict is its exit
 // code, and the script is what reports it. A task that failed the build would make
 // every build on this machine depend on whether the network was up.
-// The bridge the probe drives when nobody says otherwise: the Claude one, because
-// it is the bridge this repository registered first.
-val acpBridgeDefault = "npx -y @agentclientprotocol/claude-agent-acp"
-
+//
+// The default bridge lives in the probe itself, so that there is one place that knows
+// it and not two that have to agree. The task passes nothing when nobody said which
+// bridge to drive, and the probe falls back to the Claude one — the bridge this
+// repository registered first.
 val acpBridgeProbe = tasks.register<JavaExec>("acpBridgeProbe") {
     description = "Drives the ACP client against a real agent bridge and prints what came back"
     group = "verification"
@@ -1232,7 +1233,7 @@ val acpBridgeProbe = tasks.register<JavaExec>("acpBridgeProbe") {
     val bridge = if (commandFile != null) {
         rootProject.file(commandFile).readLines().filter { it.isNotBlank() }
     } else {
-        acpBridgeDefault.split(" ")
+        emptyList()
     }
     args(listOf(rootProject.layout.projectDirectory.asFile.absolutePath) + bridge)
     inputs.files(jvmClasses)
@@ -1240,6 +1241,9 @@ val acpBridgeProbe = tasks.register<JavaExec>("acpBridgeProbe") {
     // The bridge may be an `npx` invocation downloading its package on first use,
     // and that download is not the handshake.
     timeout.set(JavaDuration.ofMinutes(10))
+    // The probe's own verdict is its exit code, and the script reads the verdict out
+    // of the output — so a probe that did not connect is a report, not a failed build.
+    isIgnoreExitValue = true
 }
 
 // verifyToolSurface — the committed catalogue is what the code exports, checked

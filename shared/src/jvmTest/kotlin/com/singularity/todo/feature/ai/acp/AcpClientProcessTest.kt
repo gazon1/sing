@@ -100,15 +100,22 @@ class AcpClientProcessTest {
      * A notification the application has no answer for does not stop the conversation.
      *
      * The real bridge announces its authentication state right after the handshake, and
-     * its commands right after the session is open. Both are notifications: a method
-     * with no id, answering no request this application made, and neither one is
-     * something the reader needs to see. The client has to read them and carry on —
-     * a client that treated an unknown notification as a failure would never get past
-     * the handshake with a real bridge, and it would never show the reader anything.
+     * its commands after the session is open. Both are notifications: a method with no
+     * id, answering no request this application made, and neither one is something the
+     * reader needs to see. The client has to read them and carry on — a client that
+     * treated an unknown notification as a failure would never get past the handshake
+     * with a real bridge, and it would never show the reader anything.
      *
      * The fake sends both, because the bridge sends both: the shapes come from the
      * transcript of `scripts/acp-bridge-probe.sh`, run against
      * `@agentclientprotocol/claude-agent-acp`.
+     *
+     * The commands notification is sent *during* the turn, which is the window in which
+     * a session update could become something the reader sees. A notification sent
+     * before the turn would be dropped by the protocol library before it ever reached
+     * the client's adapter, and a test over it would prove nothing about the half that
+     * matters. The agent writes down what it sent, so this test can show that the
+     * notification really was sent while the turn was running.
      */
     @Test
     fun `a notification the application has no answer for does not stop the conversation`() = runTest {
@@ -128,18 +135,36 @@ class AcpClientProcessTest {
         val events = client.prompt("hello").toList()
 
         // The notifications are session settings, not something the agent did: they
-        // must not put a card on the reader's screen.
+        // must not put a card on the reader's screen. The count is what says that —
+        // an activity the reader did not get a text from would still be an activity,
+        // and a test that only looked at the texts would not see it.
         val activity = events.filterIsInstance<AcpTurnEvent.Activity>()
-        val texts = activity.mapNotNull { (it.event as? com.singularity.todo.core.llm.AgentEvent.TextDelta)?.text }
         assertEquals(
-            listOf("hello from the fake agent"),
-            texts,
+            1,
+            activity.size,
             "the only thing the reader was told is what the agent said",
+        )
+        assertEquals(
+            "hello from the fake agent",
+            (activity.single().event as? com.singularity.todo.core.llm.AgentEvent.TextDelta)?.text,
+            "and that is the agent's answer",
         )
         assertEquals(
             1,
             events.filterIsInstance<AcpTurnEvent.Finished>().size,
             "and the turn still ended",
+        )
+
+        // The notification really was sent while the turn was running — otherwise the
+        // assertion above would be a statement about a notification nobody received.
+        val transcript = agent.transcript.readText()
+        val promptAt = transcript.indexOf("session/prompt")
+        val commandsAt = transcript.indexOf("available_commands_update")
+        assertTrue(promptAt >= 0, "the agent received the prompt")
+        assertTrue(
+            commandsAt > promptAt,
+            "the commands notification was sent after the prompt was received — " +
+                "the agent's own record says so",
         )
         client.close()
     }
