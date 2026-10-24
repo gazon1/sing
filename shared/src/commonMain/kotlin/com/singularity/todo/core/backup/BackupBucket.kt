@@ -35,6 +35,21 @@ interface BackupBucket {
     /** The bytes stored at [path]. */
     suspend fun download(path: String): ByteArray
 
-    /** The paths of the objects under [prefix]. */
-    suspend fun list(prefix: String): List<String>
+    /** The objects under [prefix]. */
+    suspend fun list(prefix: String): List<BucketObject>
 }
+
+/**
+ * One object in the bucket, as the backup feature sees it.
+ *
+ * The bucket knows more about an object than its path — when it was written and how
+ * large it is — and a list that carries only the path throws that away. The person
+ * choosing an archive to restore wants to know which one it is and how big it is;
+ * a bare name answers neither.
+ *
+ * @param path the object's path in the bucket — the reference a download takes.
+ * @param updatedAtEpochMillis when the object was last written, or null when the
+ *   bucket does not say.
+ * @param sizeBytes how large the object is, or null when the bucket does not say.
+ */
+data class BucketObject(val path: String, val updatedAtEpochMillis: Long?, val sizeBytes: Long?)

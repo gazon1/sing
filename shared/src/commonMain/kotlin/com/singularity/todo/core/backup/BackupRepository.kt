@@ -157,26 +157,41 @@ class BackupRepositoryImpl(
 
     override suspend fun listRemote(): Result<List<RemoteBackup>> =
         runCatchingCancellable {
-            remoteService.list(currentUser.scopedUserId.value).getOrThrow().map { ref ->
-                RemoteBackup(ref = ref, name = ref.substringAfterLast('/'))
+            remoteService.list(currentUser.scopedUserId.value).getOrThrow().map { stored ->
+                RemoteBackup(
+                    ref = stored.path,
+                    name = stored.path.substringAfterLast('/'),
+                    updatedAtEpochMillis = stored.updatedAtEpochMillis,
+                    sizeBytes = stored.sizeBytes,
+                )
             }
         }
 
+    @Suppress("TooGenericExceptionCaught")
     override suspend fun restoreFromCloud(remoteRef: String): Result<RestoreResult> =
         runCatchingCancellable {
-            // The name comes from the ref, and only the name: a ref that carried a
-            // path would be rejected by `resolveBackupDestination`, and a ref the
-            // bucket made up is not a name the repository should follow.
+            // The name comes from the ref, and only the name: a ref is reduced to its
+            // last segment, so the download cannot aim outside the backup directory
+            // and cannot write a file under a name the bucket made up.
             val fileName = remoteRef.substringAfterLast('/')
             fs.ensureDir(backupDir)
             val destPath = resolveBackupDestination(backupDir, fileName)
             remoteService.download(remoteRef, destPath, currentUser.scopedUserId.value).getOrThrow()
-            importer.import(
-                ImportOptions(
-                    sourcePath = destPath,
-                    targetUserId = currentUser.scopedUserId.value,
-                ),
-            ).getOrThrow()
+            try {
+                importer.import(
+                    ImportOptions(
+                        sourcePath = destPath,
+                        targetUserId = currentUser.scopedUserId.value,
+                    ),
+                ).getOrThrow()
+            } catch (error: Exception) {
+                // The archive was fetched and could not be read: a file nobody asked
+                // for, and it would sit in the list of the backups this person can
+                // restore from as if it were one of theirs. It goes away with the
+                // failure that brought it.
+                runCatchingCancellable { fs.delete(destPath) }
+                throw error
+            }
         }
 }
 

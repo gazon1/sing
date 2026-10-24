@@ -46,6 +46,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.backup.BackupId
 import com.singularity.todo.core.backup.BackupMetadata
+import com.singularity.todo.core.backup.RemoteBackup
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.TaggedSnackbarHost
 import com.singularity.todo.core.ui.components.ButtonSpinner
@@ -109,6 +110,13 @@ fun BackupScreen(
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     var pendingSettingsJson by remember { mutableStateOf<String?>(null) }
+
+    // The archive the person is about to restore from the cloud, and the question
+    // that has to be asked before it is fetched: the import overwrites the rows it
+    // finds, so an archive from last month can undo this afternoon's work without
+    // ever asking. The local restore asks the same question, and the answer has to
+    // be the same one.
+    var pendingCloudRestore by remember { mutableStateOf<RemoteBackup?>(null) }
 
     // The screen owns the single collection of the event bus. The bus is a
     // channel, and a channel has one consumer: a second collector on `events`
@@ -306,15 +314,33 @@ fun BackupScreen(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            SelectableText(
-                                text = remote.name,
-                                style = MaterialTheme.typography.bodyMedium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f),
-                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                SelectableText(
+                                    text = remote.name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                // The bucket knows when the archive was written and how
+                                // big it is, and a list of bare names makes the person
+                                // guess which archive they are looking at.
+                                remote.updatedAtEpochMillis?.let { written ->
+                                    Text(
+                                        text = formatDate(written),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                remote.sizeBytes?.let { size ->
+                                    Text(
+                                        text = formatFileSize(size),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
                             OutlinedButton(
-                                onClick = { onRestoreFromCloud(remote.ref) },
+                                onClick = { pendingCloudRestore = remote },
                                 modifier = Modifier.testTag(
                                     TestTags.backupRestoreFromCloud(remote.ref),
                                 ),
@@ -327,6 +353,20 @@ fun BackupScreen(
                 }
             }
         }
+    }
+
+    pendingCloudRestore?.let { remote ->
+        BackupConfirmDialog(
+            title = "Restore from cloud",
+            text = "Restore will overwrite current data with the archive " +
+                "${remote.name}. Are you sure?",
+            confirmLabel = "Restore",
+            onConfirm = {
+                pendingCloudRestore = null
+                onRestoreFromCloud(remote.ref)
+            },
+            onDismiss = { pendingCloudRestore = null },
+        )
     }
 }
 

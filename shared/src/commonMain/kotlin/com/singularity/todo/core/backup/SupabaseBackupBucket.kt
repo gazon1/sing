@@ -4,6 +4,7 @@ import com.singularity.todo.core.auth.SupabaseClientProvider
 import com.singularity.todo.core.error.TransportException
 import com.singularity.todo.core.transport.SupabaseTransportFailure
 import io.github.jan.supabase.storage.storage
+import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * The bucket, over Supabase Storage.
@@ -50,9 +51,19 @@ class SupabaseBackupBucket(private val clientProvider: SupabaseClientProvider) :
         client.storage.from(BUCKET_ID).downloadAuthenticated(path)
     }
 
-    override suspend fun list(prefix: String): List<String> = translating("the archives could not be listed") {
+    override suspend fun list(prefix: String): List<BucketObject> = translating("the archives could not be listed") {
         val client = requireClient()
-        client.storage.from(BUCKET_ID).list(prefix).map { it.name }
+        client.storage.from(BUCKET_ID).list(prefix).map { file ->
+            BucketObject(
+                path = file.name,
+                updatedAtEpochMillis = file.updatedAt?.toEpochMilliseconds(),
+                // The size lives in the object's metadata rather than in a field of its
+                // own, and the vendor hands the metadata over as raw JSON — so the read
+                // of it is this file's business, and a bucket that does not report a
+                // size reports none rather than a wrong one.
+                sizeBytes = file.metadata?.get(SIZE_KEY)?.jsonPrimitive?.content?.toLongOrNull(),
+            )
+        }
     }
 
     /**
@@ -79,5 +90,8 @@ class SupabaseBackupBucket(private val clientProvider: SupabaseClientProvider) :
     companion object {
         /** The bucket the archives go into. It has to exist in the project. */
         const val BUCKET_ID = "backups"
+
+        /** The metadata key the bucket reports an object's size under. */
+        private const val SIZE_KEY = "size"
     }
 }

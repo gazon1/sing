@@ -64,7 +64,7 @@ class RemoteBackupServiceImplTest {
             return downloadBytes
         }
 
-        override suspend fun list(prefix: String): List<String> {
+        override suspend fun list(prefix: String): List<BucketObject> {
             failure?.let { throw it }
             listedPrefix = prefix
             return emptyList()
@@ -225,7 +225,14 @@ class RemoteBackupServiceImplTest {
         )
     }
 
-    /** Nothing is uploaded when the archive cannot be read. */
+    /**
+     * An archive that cannot be read is not uploaded, and it is not reported as an
+     * upload failure either.
+     *
+     * The archive never started its way to the bucket, so "could not be uploaded"
+     * names a cause that was never in play and buries the one that was. The code
+     * says what happened — a local read, not a refused write.
+     */
     @Test
     fun `an archive that cannot be read is not uploaded`() = runTest {
         val bucket = FakeBucket()
@@ -235,5 +242,12 @@ class RemoteBackupServiceImplTest {
         assertTrue(result.isFailure, "a missing archive must not report success")
         assertTrue(bucket.uploads.isEmpty(), "nothing must have been uploaded")
         assertNull(result.getOrNull())
+        val error = result.exceptionOrNull()
+        assertIs<AppError>(error, "the failure must be an app error: $error")
+        assertEquals(
+            "backup.archive_unreadable",
+            error.code,
+            "a local read that failed is not an upload that was refused",
+        )
     }
 }

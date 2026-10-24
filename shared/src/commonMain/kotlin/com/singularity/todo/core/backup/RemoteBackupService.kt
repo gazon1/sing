@@ -30,11 +30,19 @@ interface RemoteBackupService {
      */
     suspend fun upload(localPath: String, userId: UserId): Result<String>
 
-    /** Downloads [remoteRef] to [destPath]. */
+    /**
+     * Downloads [remoteRef] to [destPath].
+     *
+     * The reference is not checked against the user's own prefix here: the bucket's
+     * policy is what keeps one account's archive out of another's reach, and a check
+     * on top of it would be a second opinion about what the policy allows. The
+     * references this is called with come from [list], which asks for the user's own
+     * prefix — so the path is the user's by the time it gets here.
+     */
     suspend fun download(remoteRef: String, destPath: String, userId: UserId): Result<Unit>
 
     /** The remote objects that belong to [userId]. */
-    suspend fun list(userId: UserId): Result<List<String>>
+    suspend fun list(userId: UserId): Result<List<BucketObject>>
 }
 
 /** The remote half could not do its job, with a reason a user can act on. */
@@ -75,7 +83,7 @@ class RemoteBackupServiceImpl(private val bucket: BackupBucket, private val fs: 
 
     override suspend fun upload(localPath: String, userId: UserId): Result<String> =
         runCatchingCancellable {
-            val bytes = fs.readBytes(localPath)
+            val bytes = readArchive(localPath)
             val remotePath = remotePath(userId, localPath)
             bucket.upload(remotePath, bytes)
             remotePath
@@ -94,11 +102,30 @@ class RemoteBackupServiceImpl(private val bucket: BackupBucket, private val fs: 
         throw classified(error, "the archive could not be downloaded")
     }
 
-    override suspend fun list(userId: UserId): Result<List<String>> = runCatchingCancellable {
+    override suspend fun list(userId: UserId): Result<List<BucketObject>> = runCatchingCancellable {
         bucket.list("${userId.value}/")
     }.recoverCatching { error ->
         throw classified(error, "the archives could not be listed")
     }
+
+    /**
+     * The archive's own bytes, read from the device.
+     *
+     * A failure here is local, and not a transport failure: the archive never
+     * started its way to the bucket, so reporting it as "could not be uploaded"
+     * names a cause that was never in play and buries the one that was — an
+     * archive that is not on the disk any more is a different defect from a
+     * bucket that refused the write, and the person reading the message has to be
+     * able to tell them apart.
+     */
+    private suspend fun readArchive(localPath: String): ByteArray =
+        runCatchingCancellable { fs.readBytes(localPath) }.getOrElse { error ->
+            throw AppError.Persistence(
+                message = "The archive at $localPath could not be read: ${error.message}",
+                code = ARCHIVE_UNREADABLE_CODE,
+                cause = error,
+            )
+        }
 
     /**
      * The failure as the project reports it.
@@ -137,5 +164,8 @@ class RemoteBackupServiceImpl(private val bucket: BackupBucket, private val fs: 
     companion object {
         /** The code for the class that means "something else went wrong". */
         const val REJECTED_CODE = "backup.push_failed"
+
+        /** The code for the class that means "the archive was not readable on this device". */
+        const val ARCHIVE_UNREADABLE_CODE = "backup.archive_unreadable"
     }
 }
