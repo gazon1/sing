@@ -31,7 +31,9 @@ one-sided: a recorded job that the workflow no longer declares is a finding.
 A matrix job is expanded before the comparison. `Android (${{ matrix.variant }})`
 declares one job and the runner shows two — `Android (free)` and
 `Android (pro)` — and the record holds the two the runner showed. A comparison
-that does not expand the matrix would call both of them unknown.
+that does not expand the matrix would call both of them unknown. An `exclude`
+takes a leg away: the runner never shows it, so the gate does not declare it
+either.
 
 What the rule does NOT see
 ---------------------------
@@ -45,6 +47,12 @@ What the rule does NOT see
   on the paths the push touched, so "the workflow's trunk jobs" is not a fixed
   set. The record holds the jobs of ONE push, and this gate says they still
   exist.
+- **A job whose display name the gate cannot compute.** A name that holds an
+  expression other than a matrix reference (`Nightly ${{ github.event.schedule }}`)
+  is resolved by the runner and recorded resolved, and the gate cannot compute
+  it. It does not compare the two — a healthy tree would read as stale — and it
+  does not guess: while such a job is in the workflow, no recorded name can be
+  proven gone, and the gate says which job stopped it from proving that.
 
 Usage:
     python3 scripts/check-recorded-ci-jobs.py            # report
@@ -96,6 +104,9 @@ WORKFLOW_FILE = '.github/workflows/ci.yml'
 #: A matrix reference in a job's display name: `${{ matrix.variant }}`.
 _MATRIX_REF = re.compile(r'\$\{\{\s*matrix\.([A-Za-z0-9_-]+)\s*\}\}')
 
+#: Any expression at all: what is left in a name the gate could not resolve.
+_ANY_EXPR = re.compile(r'\$\{\{.*?\}\}')
+
 CLEAN = 0
 VALIDATION_FAILURE = 1
 IO_ERROR = 2
@@ -107,17 +118,28 @@ def recorded_jobs(text: str) -> list[str]:
     The record is `config/docs/gate-benchmarks.json`; the CI block holds the
     jobs of one run and what each took. A baseline that carries no CI block has
     recorded no CI run, and there is nothing to check.
+
+    A block that is there and malformed is a different thing: the record says
+    it holds CI jobs and does not hold jobs the gate can read. That is a
+    configuration error, not an empty record — a gate that reads a broken
+    record as "nothing to check" is green for the wrong reason.
     """
     try:
         data = json.loads(text)
     except json.JSONDecodeError as error:
         raise ValueError(f'the record is not readable JSON: {error}') from error
+    if not isinstance(data, dict):
+        raise ValueError('the record is not a mapping')
+    if 'ci' not in data:
+        return []
     ci = data.get('ci')
     if not isinstance(ci, dict):
+        raise ValueError('the record carries a CI block that is not a mapping')
+    if 'jobs' not in ci:
         return []
     jobs = ci.get('jobs')
     if not isinstance(jobs, dict):
-        return []
+        raise ValueError('the record carries a CI block whose jobs are not a mapping')
     return sorted(str(name) for name in jobs)
 
 
@@ -128,13 +150,17 @@ def _legs(matrix: object) -> list[dict[str, object]]:
     this repository's `android` job carry the whole leg (`variant`, `flags`,
     `tasks`). Both shapes are read: the axes give the combinations, and every
     `include` entry is a leg of its own.
+
+    `exclude` takes legs away: the runner never shows an excluded leg, so a
+    gate that declares it would accept a record of a job the workflow does not
+    run any more — the exact false negative the gate exists to prevent.
     """
     if not isinstance(matrix, dict):
         return [{}]
     axes = {
         key: value
         for key, value in matrix.items()
-        if key != 'include' and isinstance(value, list)
+        if key not in ('include', 'exclude') and isinstance(value, list)
     }
     legs: list[dict[str, object]] = []
     if axes:
@@ -146,15 +172,40 @@ def _legs(matrix: object) -> list[dict[str, object]]:
         for entry in include:
             if isinstance(entry, dict):
                 legs.append(dict(entry))
+    exclude = matrix.get('exclude')
+    if isinstance(exclude, list):
+        legs = [
+            leg
+            for leg in legs
+            if not any(_excluded(leg, entry) for entry in exclude)
+        ]
     return legs or [{}]
 
 
-def _expand(template: str, matrix: object) -> list[str]:
+def _excluded(leg: dict[str, object], entry: object) -> bool:
+    """Whether an `exclude` entry takes this leg away.
+
+    An exclude entry names the axis values it removes: it matches a leg when
+    every key it names is in the leg and carries the same value.
+    """
+    if not isinstance(entry, dict) or not entry:
+        return False
+    return all(key in leg and leg[key] == value for key, value in entry.items())
+
+
+def _expand(template: str, matrix: object) -> tuple[list[str], bool]:
     """The display names one job produces, one per matrix leg.
 
     A leg whose placeholders do not all resolve produces no name: the runner
     would not show `Android (${{ matrix.variant }})` either, and a name the
     runner never prints is not a name the record can hold.
+
+    A name that still holds an expression the gate cannot resolve is a name
+    the gate cannot compute — the runner resolves it, the record holds the
+    resolved text, and comparing the two would report a healthy tree as
+    stale. The second value of the pair says so: the job exists, but its
+    display name is unknown, and an unknown name cannot prove that a recorded
+    job is gone.
     """
     names: list[str] = []
     for leg in _legs(matrix):
@@ -164,15 +215,22 @@ def _expand(template: str, matrix: object) -> list[str]:
         if missing:
             continue
         name = _MATRIX_REF.sub(lambda match: str(leg[match.group(1)]), template)
+        if _ANY_EXPR.search(name):
+            return names, True
         names.append(name)
-    return names
+    return names, False
 
 
-def declared_jobs(text: str) -> set[str]:
-    """Every job name the workflow declares.
+def declared_jobs(text: str) -> tuple[set[str], list[str]]:
+    """Every job name the workflow declares, and the jobs it cannot name.
 
     A job's display name is its `name:`, or its own key when it declares none —
     the runner shows the key in that case (`changes`, `adr-gate`).
+
+    The second value holds the keys of the jobs whose display name the gate
+    cannot compute (a name that holds an expression other than a matrix
+    reference). Their names are unknown, so the gate cannot prove that a
+    recorded job is gone while one of them is in the workflow.
     """
     try:
         document = yaml.safe_load(text)
@@ -184,18 +242,30 @@ def declared_jobs(text: str) -> set[str]:
     if not isinstance(jobs, dict):
         raise ValueError('the workflow declares no jobs')
     names: set[str] = set()
+    opaque: list[str] = []
     for key, job in jobs.items():
         if not isinstance(job, dict):
             continue
         template = str(job.get('name') or key)
         strategy = job.get('strategy')
         matrix = strategy.get('matrix') if isinstance(strategy, dict) else None
-        names.update(_expand(template, matrix))
-    return names
+        expanded, unresolved = _expand(template, matrix)
+        names.update(expanded)
+        if unresolved:
+            opaque.append(str(key))
+    return names, opaque
 
 
-def findings(recorded: list[str], declared: set[str]) -> list[str]:
-    """The recorded jobs the workflow no longer declares."""
+def findings(recorded: list[str], declared: set[str], opaque: list[str]) -> list[str]:
+    """The recorded jobs the workflow no longer declares.
+
+    A workflow that declares a job whose display name the gate cannot compute
+    makes every recorded name ambiguous: the record may hold that job's
+    resolved name. The gate reports nothing then — it cannot prove anything —
+    and says so instead of guessing.
+    """
+    if opaque:
+        return []
     return [name for name in recorded if name not in declared]
 
 
@@ -218,7 +288,7 @@ def cli(ctx: click.Context, quiet: bool, root: str | None) -> None:
 
     try:
         recorded = recorded_jobs(record_path.read_text(encoding='utf-8'))
-        declared = declared_jobs(workflow_path.read_text(encoding='utf-8'))
+        declared, opaque = declared_jobs(workflow_path.read_text(encoding='utf-8'))
     except (OSError, ValueError) as error:
         click.echo(f'ERROR: {error}')
         raise ctx.exit(IO_ERROR) from error
@@ -231,7 +301,15 @@ def cli(ctx: click.Context, quiet: bool, root: str | None) -> None:
             )
         raise ctx.exit(CLEAN)
 
-    missing = findings(recorded, declared)
+    missing = findings(recorded, declared, opaque)
+
+    if opaque and not quiet:
+        click.echo(
+            f'check-recorded-ci-jobs: the workflow declares '
+            f'{len(opaque)} job(s) whose display name the gate cannot compute '
+            f'({", ".join(opaque)}) — no recorded job can be proven gone while one '
+            f'of them is in the workflow'
+        )
 
     for name in missing:
         click.echo(
@@ -243,7 +321,7 @@ def cli(ctx: click.Context, quiet: bool, root: str | None) -> None:
         click.echo('')
         click.echo(
             "check-recorded-ci-jobs: the record is stale when the workflow's jobs "
-            'change, and nothing else says so. A job renamed, added or removed turns '
+            'change, and nothing else says so. A job renamed or removed turns '
             'the published price into a price of a loop that no longer exists.'
         )
         click.echo(

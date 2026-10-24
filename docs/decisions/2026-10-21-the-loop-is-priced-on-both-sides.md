@@ -109,10 +109,20 @@ graph is declared in the build files.
   run, so equality would be red forever. And it is a proxy for what the
   criterion says — it sees a rename, not an edit that keeps every name and
   changes what a job does. What it does not see at all is a job **added** to
-  the trunk path: the set of jobs a trunk push runs depends on the paths the
-  push touched, so "the workflow's trunk jobs" is not a fixed set. A matrix job
-  is expanded before the comparison — the runner shows `Android (free)` and
-  `Android (pro)` where the workflow declares one job.
+  the workflow: a job the record does not name is indistinguishable from a job
+  the run did not run, and the set of jobs a trunk push runs depends on the
+  paths the push touched, so "the workflow's trunk jobs" is not a fixed set. A
+  matrix job is expanded before the comparison — the runner shows
+  `Android (free)` and `Android (pro)` where the workflow declares one job, and
+  an `exclude` takes a leg away from both sides.
+- **A job whose display name the gate cannot compute silences it, and says so.**
+  A name that holds an expression other than a matrix reference
+  (`Nightly ${{ github.event.schedule }}`) is resolved by the runner and
+  recorded resolved; the gate cannot compute it. Comparing the two would report
+  a healthy tree as stale, so the gate does not compare them — and it does not
+  guess either: while such a job is in the workflow, no recorded name can be
+  proven gone, and the gate names the job that stopped it. A gate that stops
+  proving and says why is not a gate that goes quiet.
 - The local loop is measurably cheaper: the JSON-contract gate runs concurrently, and
   one duplicated control is gone.
 - A control written twice fails a test, in the registry and in the control lists.

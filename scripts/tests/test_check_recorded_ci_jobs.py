@@ -26,7 +26,9 @@ particular repository is a gate whose behaviour nobody knows when the tree
 changes shape.
 """
 
+import contextlib
 import importlib.util
+import io
 import json
 import pathlib
 import sys
@@ -80,6 +82,41 @@ jobs:
 """
 
 
+WORKFLOW_WITH_EXCLUDE = """\
+name: CI
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  android:
+    name: Android (${{ matrix.variant }})
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        variant: [free, pro, tablet]
+        exclude:
+          - variant: tablet
+    steps:
+      - run: echo android
+"""
+
+WORKFLOW_WITH_EXPRESSION = """\
+name: CI
+
+on:
+  schedule: []
+
+jobs:
+  nightly:
+    name: Nightly ${{ github.event.schedule }}
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo nightly
+"""
+
+
 def _record(jobs: dict[str, int] | None) -> str:
     """A baseline holding a CI record with the given jobs."""
     data: dict[str, object] = {'schemaVersion': 1, 'environment': {}}
@@ -120,7 +157,10 @@ class RecordedJobsTest(unittest.TestCase):
         raised exception. A harness that waits for a `SystemExit` sees a clean
         tree for a gate that errored.
         """
-        return mod.cli.main(args=['--root', str(self.root)], standalone_mode=False)
+        self.output = io.StringIO()
+        with contextlib.redirect_stdout(self.output):
+            code = mod.cli.main(args=['--root', str(self.root)], standalone_mode=False)
+        return code
 
 
 class TheRuleTest(RecordedJobsTest):
@@ -253,6 +293,64 @@ class TheUnreadableTreeTest(RecordedJobsTest):
         self.assertEqual(code, mod.IO_ERROR)
 
 
+class TheExcludedLegTest(RecordedJobsTest):
+    """An `exclude` takes a leg away, and the runner never shows it."""
+
+    def test_a_recorded_excluded_leg_is_a_finding(self) -> None:
+        self.workflow.write_text(WORKFLOW_WITH_EXCLUDE, encoding='utf-8')
+        self._write({'Android (tablet)': 129_000})
+
+        code = self._run()
+
+        self.assertEqual(code, mod.VALIDATION_FAILURE)
+
+    def test_a_recorded_leg_the_matrix_keeps_is_clean(self) -> None:
+        self.workflow.write_text(WORKFLOW_WITH_EXCLUDE, encoding='utf-8')
+        self._write({'Android (free)': 129_000, 'Android (pro)': 220_000})
+
+        code = self._run()
+
+        self.assertEqual(code, mod.CLEAN)
+
+
+class TheUncomputableNameTest(RecordedJobsTest):
+    """A name the gate cannot compute cannot prove that a recorded job is gone."""
+
+    def test_an_uncomputable_name_does_not_report_a_healthy_tree_as_stale(self) -> None:
+        self.workflow.write_text(WORKFLOW_WITH_EXPRESSION, encoding='utf-8')
+        self._write({'Nightly 2026-10-24': 60_000})
+
+        code = self._run()
+
+        self.assertEqual(code, mod.CLEAN)
+
+    def test_the_gate_says_which_job_stopped_it_from_proving_that(self) -> None:
+        self.workflow.write_text(WORKFLOW_WITH_EXPRESSION, encoding='utf-8')
+        self._write({'Nightly 2026-10-24': 60_000})
+
+        self._run()
+
+        self.assertIn('nightly', self.output.getvalue())
+
+
+class TheMalformedRecordTest(RecordedJobsTest):
+    """A record that says it holds CI jobs and does not is a configuration error."""
+
+    def test_a_ci_block_that_is_not_a_mapping_is_an_error(self) -> None:
+        self.record.write_text('{"ci": "not a mapping"}', encoding='utf-8')
+
+        code = self._run()
+
+        self.assertEqual(code, mod.IO_ERROR)
+
+    def test_a_jobs_block_that_is_not_a_mapping_is_an_error(self) -> None:
+        self.record.write_text('{"ci": {"jobs": ["a", "b"]}}', encoding='utf-8')
+
+        code = self._run()
+
+        self.assertEqual(code, mod.IO_ERROR)
+
+
 class TheReadingTest(unittest.TestCase):
     """The two readers, on their own."""
 
@@ -265,18 +363,40 @@ class TheReadingTest(unittest.TestCase):
         self.assertEqual(mod.recorded_jobs('{"schemaVersion": 1}'), [])
 
     def test_the_declared_jobs_include_the_key_of_a_nameless_job(self) -> None:
-        names = mod.declared_jobs(WORKFLOW)
+        names, opaque = mod.declared_jobs(WORKFLOW)
 
         self.assertIn('changes', names)
         self.assertIn('Static gates', names)
         self.assertIn('CI gate', names)
+        self.assertEqual(opaque, [])
 
     def test_the_declared_jobs_expand_the_matrix(self) -> None:
-        names = mod.declared_jobs(WORKFLOW)
+        names, _ = mod.declared_jobs(WORKFLOW)
 
         self.assertIn('Android (free)', names)
         self.assertIn('Android (pro)', names)
         self.assertNotIn('Android (${{ matrix.variant }})', names)
+
+    def test_an_excluded_matrix_leg_is_not_declared(self) -> None:
+        """The runner never shows an excluded leg, so the gate must not declare it."""
+        names, _ = mod.declared_jobs(WORKFLOW_WITH_EXCLUDE)
+
+        self.assertIn('Android (free)', names)
+        self.assertNotIn('Android (tablet)', names)
+
+    def test_a_name_the_gate_cannot_compute_is_reported_as_opaque(self) -> None:
+        names, opaque = mod.declared_jobs(WORKFLOW_WITH_EXPRESSION)
+
+        self.assertEqual(opaque, ['nightly'])
+        self.assertNotIn('Nightly ${{ github.event.schedule }}', names)
+
+    def test_a_malformed_ci_block_is_an_error(self) -> None:
+        with self.assertRaises(ValueError):
+            mod.recorded_jobs('{"ci": "not a mapping"}')
+
+    def test_a_malformed_jobs_block_is_an_error(self) -> None:
+        with self.assertRaises(ValueError):
+            mod.recorded_jobs('{"ci": {"jobs": ["a", "b"]}}')
 
 
 if __name__ == '__main__':
