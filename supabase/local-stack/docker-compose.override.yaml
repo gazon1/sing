@@ -1,0 +1,19 @@
+# Two fixes over the upstream compose, both found by running the stack:
+#
+# 1. The pinned `minio/mc` tag no longer exists on Docker Hub (the repository was
+#    removed there), so the bucket initializer runs the minio server image, which
+#    bundles the very same `mc` binary.
+# 2. `GLOBAL_S3_REGION` is not set. Without it the storage backend fails every
+#    object deletion with "Region is missing" — which is what an upload with
+#    `upsert` does before it writes the new version.
+services:
+  minio-createbucket:
+    image: ghcr.io/coollabsio/minio:2025-10-15T17-29-55Z
+  storage:
+    environment:
+      # The storage backend reads its region from SERVER_REGION / REGION and
+      # falls back to "not-specified", which the S3 backend then rejects with
+      # "Region is missing" — on every object deletion, which is what an upload
+      # with `upsert` does before it writes the new version.
+      SERVER_REGION: us-east-1
+      REGION: us-east-1

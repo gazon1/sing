@@ -132,6 +132,11 @@ KOIN-W003 (graph unverifiable). Используй list composition:
 загрузка хоста (`./sg host-load`), вердикт CI, причина упавшего теста в артефакте,
 вердикт ревью. Иди туда перед запуском гейтов.
 
+**Живой стек — `docs/architecture/local-stack.md`:** рецепт подъёма Supabase
+локально, применения миграций этого репозитория (`supabase/migrations/`) и
+проверки их результата. Нужен там, где правка живёт на сервере: политики RLS
+бакета `backups` и таблица `google_calendar_grants`.
+
 
 **Реестр гейтов — единственный список.** `scripts/ci/static-gates.sh` и
 `docs/scripts/gate-registry.md` генерируются из него, руками их не правь. Новый
