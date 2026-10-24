@@ -135,6 +135,34 @@ jobs:
       - run: echo tests
 """
 
+WORKFLOW_WITH_BRACKETED_NAME = """\
+name: CI
+
+on:
+  schedule: []
+
+jobs:
+  coverage:
+    name: Coverage [full] ${{ github.sha }}
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo coverage
+"""
+
+WORKFLOW_WITH_EXPRESSION_ONLY = """\
+name: CI
+
+on:
+  schedule: []
+
+jobs:
+  nightly:
+    name: ${{ github.sha }}
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo nightly
+"""
+
 WORKFLOW_WITH_INCLUDE_AND_EXCLUDE = """\
 name: CI
 
@@ -400,6 +428,38 @@ class TheUncomputableNameTest(RecordedJobsTest):
         self.assertEqual(code, mod.VALIDATION_FAILURE)
 
 
+class TheBracketedNameTest(RecordedJobsTest):
+    """A name with brackets is a name, not a glob."""
+
+    def test_a_recorded_name_that_matches_the_bracketed_pattern_is_not_a_finding(self) -> None:
+        self.workflow.write_text(WORKFLOW_WITH_BRACKETED_NAME, encoding='utf-8')
+        self._write({'Coverage [full] abc123': 60_000})
+
+        code = self._run()
+
+        self.assertEqual(code, mod.CLEAN)
+
+
+class TheExpressionOnlyNameTest(RecordedJobsTest):
+    """A name that is nothing but an expression identifies no job at all."""
+
+    def test_it_is_a_configuration_error(self) -> None:
+        self.workflow.write_text(WORKFLOW_WITH_EXPRESSION_ONLY, encoding='utf-8')
+        self._write({'Coverage [full] abc123': 60_000})
+
+        code = self._run()
+
+        self.assertEqual(code, mod.IO_ERROR)
+
+    def test_it_says_which_job_the_gate_could_not_read(self) -> None:
+        self.workflow.write_text(WORKFLOW_WITH_EXPRESSION_ONLY, encoding='utf-8')
+        self._write({'Coverage [full] abc123': 60_000})
+
+        self._run()
+
+        self.assertIn('no literal text', self.output.getvalue())
+
+
 class TheMalformedRecordTest(RecordedJobsTest):
     """A record that says it holds CI jobs and does not is a configuration error."""
 
@@ -430,32 +490,47 @@ class TheReadingTest(unittest.TestCase):
         self.assertEqual(mod.recorded_jobs('{"schemaVersion": 1}'), [])
 
     def test_the_declared_jobs_include_the_key_of_a_nameless_job(self) -> None:
-        names, patterns = mod.declared_jobs(WORKFLOW)
+        declared = mod.declared_jobs(WORKFLOW)
 
-        self.assertIn('changes', names)
-        self.assertIn('Static gates', names)
-        self.assertIn('CI gate', names)
-        self.assertEqual(patterns, [])
+        self.assertIn('changes', declared.names)
+        self.assertIn('Static gates', declared.names)
+        self.assertIn('CI gate', declared.names)
+        self.assertEqual(declared.patterns, [])
 
     def test_the_declared_jobs_expand_the_matrix(self) -> None:
-        names, _ = mod.declared_jobs(WORKFLOW)
+        declared = mod.declared_jobs(WORKFLOW)
 
-        self.assertIn('Android (free)', names)
-        self.assertIn('Android (pro)', names)
-        self.assertNotIn('Android (${{ matrix.variant }})', names)
+        self.assertIn('Android (free)', declared.names)
+        self.assertIn('Android (pro)', declared.names)
+        self.assertNotIn('Android (${{ matrix.variant }})', declared.names)
 
     def test_an_excluded_matrix_leg_is_not_declared(self) -> None:
         """The runner never shows an excluded leg, so the gate must not declare it."""
-        names, _ = mod.declared_jobs(WORKFLOW_WITH_EXCLUDE)
+        declared = mod.declared_jobs(WORKFLOW_WITH_EXCLUDE)
 
-        self.assertIn('Android (free)', names)
-        self.assertNotIn('Android (tablet)', names)
+        self.assertIn('Android (free)', declared.names)
+        self.assertNotIn('Android (tablet)', declared.names)
 
     def test_a_name_the_gate_cannot_compute_becomes_a_pattern(self) -> None:
-        names, patterns = mod.declared_jobs(WORKFLOW_WITH_EXPRESSION)
+        declared = mod.declared_jobs(WORKFLOW_WITH_EXPRESSION)
 
-        self.assertEqual(patterns, ['Nightly *'])
-        self.assertNotIn('Nightly ${{ github.event.schedule }}', names)
+        self.assertEqual([pattern.text for pattern in declared.patterns],
+                         ['Nightly ${{ github.event.schedule }}'])
+        self.assertNotIn('Nightly ${{ github.event.schedule }}', declared.names)
+
+    def test_a_bracketed_name_is_a_pattern_and_not_a_character_class(self) -> None:
+        """`Coverage [full] ${{ github.sha }}` must match `Coverage [full] abc123`."""
+        declared = mod.declared_jobs(WORKFLOW_WITH_BRACKETED_NAME)
+
+        pattern = declared.patterns[0]
+        self.assertTrue(pattern.matches('Coverage [full] abc123'))
+        self.assertFalse(pattern.matches('Coverage full abc123'))
+
+    def test_a_name_that_is_only_an_expression_cannot_be_narrowed(self) -> None:
+        declared = mod.declared_jobs(WORKFLOW_WITH_EXPRESSION_ONLY)
+
+        pattern = declared.patterns[0]
+        self.assertFalse(pattern.narrowable)
 
     def test_a_malformed_ci_block_is_an_error(self) -> None:
         with self.assertRaises(ValueError):

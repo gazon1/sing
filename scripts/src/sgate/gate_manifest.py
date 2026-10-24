@@ -199,7 +199,9 @@ does not name is indistinguishable from a job the run did not run, and the set o
 jobs a trunk push runs depends on the paths the push touched. A job whose display
 name the gate cannot compute (a name holding an expression other than a matrix
 reference) makes only the recorded names that match its pattern unproven; the gate
-prints them rather than going quiet. The limit is written down in the gate's own
+prints them rather than going quiet. A name that is nothing but an expression
+identifies no job at all — the gate exits with a configuration error instead of
+calling everything unproven. The limit is written down in the gate's own
 docstring.""",
     ),
     "the memory budget is one record": Placement(

@@ -285,7 +285,9 @@ gate blocking "published measurements match the record" python3 scripts/check-pu
 # jobs a trunk push runs depends on the paths the push touched. A job whose display
 # name the gate cannot compute (a name holding an expression other than a matrix
 # reference) makes only the recorded names that match its pattern unproven; the gate
-# prints them rather than going quiet. The limit is written down in the gate's own
+# prints them rather than going quiet. A name that is nothing but an expression
+# identifies no job at all — the gate exits with a configuration error instead of
+# calling everything unproven. The limit is written down in the gate's own
 # docstring.
 gate blocking "the recorded CI jobs are still jobs" python3 scripts/check-recorded-ci-jobs.py
 # The heap of a test fork was a literal string in five build scripts, and the

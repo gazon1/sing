@@ -122,11 +122,18 @@ graph is declared in the build files.
   reference (`Nightly ${{ github.event.schedule }}`) is resolved by the runner
   and recorded resolved; the gate cannot compute it. Comparing the two would
   report a healthy tree as stale, so the gate does not compare them. The name
-  becomes a pattern instead (`Nightly *`), and only a recorded name that
-  matches it is left unproven — one uncomputable job must not silence the rest
-  of the gate. The gate prints the names it could not prove, whatever
-  `--quiet` says: a gate that stops proving and says why is not a gate that
-  goes quiet.
+  becomes a pattern instead — the literal parts escaped, the expression a
+  wildcard — and only a recorded name that matches it is left unproven: one
+  uncomputable job must not silence the rest of the gate. The gate prints the
+  names it could not prove and the pattern that matched, whatever `--quiet`
+  says: a gate that stops proving and says why is not a gate that goes quiet.
+- **A job whose display name is nothing but an expression is a tree the gate
+  cannot read.** `name: ${{ github.sha }}` has no literal text, so every
+  recorded name would match it and a pattern that matches everything
+  identifies nothing. The gate cannot prove that any recorded job is gone
+  while such a job is in the workflow, and it does not call that a pass: the
+  gate exits with a configuration error and names the job. A soft reading that
+  reports green is worse than a red one that says what it cannot do.
 - The local loop is measurably cheaper: the JSON-contract gate runs concurrently, and
   one duplicated control is gone.
 - A control written twice fails a test, in the registry and in the control lists.
