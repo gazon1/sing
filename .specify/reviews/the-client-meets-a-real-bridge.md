@@ -3,7 +3,7 @@ change: the-client-meets-a-real-bridge
 verdict: pass
 date: 2026-10-24
 pr: 1099
-reviewed: 589273a7dadbf01b1127c29f418718f46d810220
+reviewed: e1f353be05079a0f4e51ffddc41be8ba205511c6
 documents: sha256:5cda382b3cf9c9e4759e964e1101472268bf89b6eb6d91700a31f18e282206f6
 ---
 
@@ -25,10 +25,15 @@ The change that puts the application's ACP client against a bridge that is not o
   bridge's own frames.
 
 The review was a separate agent's, given the diff and the records rather than the
-session that wrote them. It ran five times. The first four rounds found blocking
+session that wrote them. It ran six times. The first four rounds found blocking
 findings; every one of them was in the change's *words* rather than in the client's
 behaviour. The fifth round found the change sound — no blocking findings — and left
-three observations, which are closed too.
+three observations, which are closed too. The sixth round checked those three closures
+themselves: that the strengthened assertion really fails when the notification is sent
+after the answer, that the wording landed everywhere, and that the promise says what
+the code guarantees. It found no blocking finding, and it confirmed that the closures
+broke nothing else — the gates, the exit-code chain and the transcript's own
+consistency all held.
 
 ## What was found, and what was done about it
 
@@ -137,7 +142,7 @@ now.
 round-4 fixes were real in the code, every claim it could check against the
 transcript, the fake, the protocol library's own jar and the exit-code chain held, and
 the records were truthful about what the code does. It left three observations, and
-they are closed too:
+they are closed too — the sixth round checked the closures and found them correct:
 
 - one code comment still said "right after the session is open", which round 4 had
   removed from the two places it knew about;
