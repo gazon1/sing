@@ -3,8 +3,8 @@ change: agent-surface-follow-ups
 verdict: fail
 date: 2026-10-23
 pr: https://github.com/gazon1/sing/pull/1041
-reviewed: 3b0d2a43f6359dad4f0a3f000aa16c306c46e33a
-documents: sha256:73f63b44ba80218cef4a4eb18c74f011aa1ecd949e19f6b1ac3363ef124a12a6
+reviewed: cb8b31df91bcfe10a25a9a4c3b6da7460175a34c
+documents: sha256:f626c76038791874df4f3fd5b9c09df4aa241adb1314ea149a687653427adbdd
 ---
 
 ## What was reviewed
@@ -70,6 +70,17 @@ the two nets answer different questions: the wide one says whether a write
 happened at all, and the narrow one says whether the write is on the user's own
 data. An exception the scan sees writing but cannot place is the case the named
 set exists for, and the name is what decides it.
+
+**The sixth round found three records that the change made false and left
+standing.** The decision behind the external agent still said the direct-write
+exceptions were three — `create_tag` was one of them, and this change
+reclassified it — so that decision carries a "superseded in part" note now. The
+records said two tools were driven through the round trip; one was, because the
+deletion's confirmation half is what this change added. And the live
+architecture document still presented `create_tag` as idempotent, which the
+catalogue denies. The old detekt decision still said `:mcp-server` is on a
+reduced configuration, and the spec-kit draft of the earlier change still
+counted three exceptions with a rationale this change reversed.
 
 **The fifth round found that the fourth round's fix had gone the wrong way.**
 The fourth round took a review at its word and wrote into the architecture
