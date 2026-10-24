@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 # no-sgate: this check does not go through `sgate.commands.base.run` — it asks
 # GitHub about a pull request, not the tree it sits in, so it has no gate to
-# declare.
+# declare. It does read the vocabulary of a verdict from `sgate.gatekit`, which
+# is this checkout's, so that the two gates that read verdicts cannot drift
+# apart on how a verdict is written.
 """check-agent-review.py — a pull request carries the review of a separate agent.
 
 What went wrong
@@ -48,6 +50,41 @@ What counts as a review
   is a verdict; `**Verdict:** pass | fail` is the format written down in the
   template, and it decides nothing.
 
+The second place a verdict is written down
+----------------------------------------
+`main` carries a second mechanism: `scripts/check-review-verdicts.py` wants a
+verdict **file** for every change under `openspec/changes/` — the record of
+what the review said about the change's contract.
+
+The two verdicts have different scopes, and a gate that said they had to be
+equal would demand a state this repository does not have:
+
+- the **comment** is the pull request's verdict, and it is transient on
+  purpose: the newest review decides whether the pull request is red today,
+  and a later `pass` clears an earlier `fail`;
+- the **file** is the change's verdict, and it is a permanent record: a
+  `fail` there is legal and stays, because "the review found something" is
+  the interesting case and the file is where that is written down.
+
+So this check does not compare the two verdicts. It asks the question they
+*do* share — **what was reviewed** — because the file points at a pull
+request, and a pointer that does not point at anything is a finding:
+
+- a verdict file that names **this** pull request has to be about a change
+  **this** pull request carries;
+- a change whose **contract** this pull request moves has to carry a verdict
+  that names **this** pull request — a contract that moves is re-issued, not
+  re-read, and the re-issue names the pull request where the contract moved.
+
+The second half is what the check is for. `scripts/check-review-verdicts.py`
+catches a contract that moved and nobody re-issued the verdict; this one
+catches a verdict that was re-issued for the wrong pull request, and a
+verdict that points at a pull request that carries no such change.
+
+The format of a verdict file — its frontmatter, the two verdicts it may
+carry, the pull request it names — lives in `sgate.gatekit.verdicts`, and
+both gates read it from there.
+
 What this check does not do
 ---------------------------
 It does not decide whether the review was good, and it does not judge the
@@ -59,6 +96,8 @@ request, with a verdict.
 Usage:
     python3 scripts/ci/check-agent-review.py --pr <number>
     python3 scripts/ci/check-agent-review.py --comments-file comments.json
+    python3 scripts/ci/check-agent-review.py --pr <number> --reviews-dir <dir>
+    python3 scripts/ci/check-agent-review.py --pr <number> --files-file files.json
 
 Exit codes:
     0 — the pull request carries an agent review whose verdict is `pass`
@@ -75,8 +114,24 @@ import sys
 
 import click
 
+ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
+
+# The vocabulary of a verdict is this checkout's — the gate reads it from the
+# tree it sits in, and not from whatever `sgate` happens to be installed.
+sys.path.insert(0, str(ROOT / "scripts" / "src"))
+
+from sgate.gatekit.verdicts import (  # noqa: E402
+    changed_slugs,
+    moved_contracts,
+    pull_request_of,
+    verdict_files,
+)
+
 CLEAN = 0
 VALIDATION_FAILURE = 1
+
+#: Where the verdict files live: one per change, under `.specify/reviews`.
+DEFAULT_REVIEWS_DIR = ROOT / ".specify" / "reviews"
 
 #: The marker an agent's review comment opens with.
 MARKER = "<!-- agent-review -->"
@@ -123,7 +178,7 @@ def opens_with_the_marker(body: str) -> bool:
     return False
 
 
-def verdict_of(body: str) -> str | None:
+def stated_verdict(body: str) -> str | None:
     """The verdict an agent's review comment states, or `None`.
 
     A comment that states two different verdicts decides nothing: a review
@@ -165,7 +220,7 @@ def review_of(comments: list[dict]) -> tuple[str, str]:
             f"(`{MARKER}`) — the review has to be written down on the pull request"
         )
     newest = marked[-1]
-    verdict = verdict_of(newest.get("body") or "")
+    verdict = stated_verdict(newest.get("body") or "")
     if verdict is None:
         # The newest review decides — and a review that decides nothing is not
         # an older review's pass. A comment that says `pass` and `fail` in the
@@ -209,6 +264,96 @@ def comments_of(pull_request: int) -> list[dict]:
     return payload if isinstance(payload, list) else []
 
 
+def files_of(pull_request: int) -> list[str]:
+    """The paths a pull request touches, as GitHub has them.
+
+    @param pull_request the number of the pull request.
+    """
+    result = subprocess.run(
+        [
+            "gh", "api",
+            f"repos/{{owner}}/{{repo}}/pulls/{pull_request}/files",
+            "--paginate",
+            "--jq", ".[] | .filename",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise ReviewNotFound(
+            f"the files of #{pull_request} could not be read: {result.stderr.strip()}"
+        )
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+
+def paths_of(files_file: pathlib.Path) -> list[str]:
+    """The paths a pull request touches, read from a JSON file.
+
+    The file holds a list of paths, or a list of the objects GitHub returns —
+    `{"filename": "..."}` — because both are the same list in two shapes.
+
+    @param files_file the file to read.
+    """
+    try:
+        payload = json.loads(files_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ReviewNotFound(f"the files of the pull request are not readable: {exc}") from exc
+    if not isinstance(payload, list):
+        raise ReviewNotFound("the files of the pull request are not a list of paths")
+    paths: list[str] = []
+    for entry in payload:
+        if isinstance(entry, str):
+            paths.append(entry)
+        elif isinstance(entry, dict) and isinstance(entry.get("filename"), str):
+            paths.append(entry["filename"])
+    return paths
+
+
+def pointer_findings(
+    pull_request: int,
+    reviews_dir: pathlib.Path,
+    changed_paths: list[str],
+) -> list[str]:
+    """Where the verdict files and the pull request disagree about the pointer.
+
+    A verdict file names the pull request whose review it records, and the
+    pull request says which changes it carries. Two things have to hold:
+
+    - a file that names this pull request is about a change this pull request
+      carries — a pointer that points at a pull request carrying no such
+      change points at nothing;
+    - a change whose contract this pull request moves carries a verdict that
+      names this pull request — a contract that moves is re-issued, not
+      re-read, and the re-issue names the pull request where it moved.
+
+    @param pull_request the number of the pull request.
+    @param reviews_dir where the verdict files live.
+    @param changed_paths the paths the pull request touches.
+    """
+    findings: list[str] = []
+    carried = changed_slugs(changed_paths)
+    moved = moved_contracts(changed_paths)
+    for path, fields in verdict_files(reviews_dir):
+        slug = path.stem
+        named = pull_request_of(fields)
+        if named == pull_request and slug not in carried:
+            findings.append(
+                f"{path.name} names this pull request ({pull_request}) and reviews {slug!r}, "
+                f"which this pull request does not carry — a verdict file points at the pull "
+                f"request whose review it records, and this one points at a pull request that "
+                f"carries no such change"
+            )
+        if slug in moved and named != pull_request:
+            stated = f"pull request {named}" if named is not None else "no pull request"
+            findings.append(
+                f"the contract of {slug!r} moved in this pull request and {path.name} names "
+                f"{stated} — a contract that moves is re-issued, and the re-issue names the "
+                f"pull request where the contract moved"
+            )
+    return findings
+
+
 @click.command()
 @click.option("--pr", "pull_request", type=int, help="The pull request to check.")
 @click.option(
@@ -216,9 +361,27 @@ def comments_of(pull_request: int) -> list[dict]:
     type=pathlib.Path,
     help="Read the comments from this JSON file instead of from GitHub.",
 )
+@click.option(
+    "--files-file",
+    type=pathlib.Path,
+    help="Read the changed paths from this JSON file instead of from GitHub.",
+)
+@click.option(
+    "--reviews-dir",
+    type=pathlib.Path,
+    default=DEFAULT_REVIEWS_DIR,
+    help="Where the verdict files live (the repository's .specify/reviews by default).",
+)
 @click.option("--check", is_flag=True, help="Dry-run: report without a non-zero exit.")
 @click.option("--json", "as_json", is_flag=True, help="Report as JSON.")
-def cli(pull_request: int | None, comments_file: pathlib.Path | None, check: bool, as_json: bool) -> None:
+def cli(
+    pull_request: int | None,
+    comments_file: pathlib.Path | None,
+    files_file: pathlib.Path | None,
+    reviews_dir: pathlib.Path,
+    check: bool,
+    as_json: bool,
+) -> None:
     """The pull request carries the review of an agent that did not write it."""
     if pull_request is None and comments_file is None:
         click.echo("check-agent-review: ERROR — one of --pr or --comments-file is required", err=True)
@@ -242,6 +405,27 @@ def cli(pull_request: int | None, comments_file: pathlib.Path | None, check: boo
                 "and the review is written down on the pull request — as a comment "
                 f"that opens with `{MARKER}` and states a verdict."
             )
+        if check:
+            raise SystemExit(CLEAN)
+        raise SystemExit(VALIDATION_FAILURE)
+
+    findings: list[str] = []
+    if pull_request is not None:
+        try:
+            changed_paths = (
+                paths_of(files_file) if files_file is not None else files_of(pull_request)
+            )
+        except ReviewNotFound as exc:
+            findings.append(str(exc))
+        else:
+            findings.extend(pointer_findings(pull_request, reviews_dir, changed_paths))
+
+    if findings:
+        message = "; ".join(findings)
+        if as_json:
+            click.echo(json.dumps({"ok": False, "reason": message}))
+        else:
+            click.echo(f"check-agent-review: FAILED — {message}")
         if check:
             raise SystemExit(CLEAN)
         raise SystemExit(VALIDATION_FAILURE)

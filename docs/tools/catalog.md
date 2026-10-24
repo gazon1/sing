@@ -73,6 +73,7 @@ The package the gate scripts import. The list is read from the files: a module t
 | `sgate.gatekit.rules` | sgate.gates.rules — a document-against-the-code rule that is data. |
 | `sgate.gatekit.scenarios` | the semantics of a migration, as data. |
 | `sgate.gatekit.tables` | a document table checked against the code. |
+| `sgate.gatekit.verdicts` | The verdict of a review, and the vocabulary the verdicts are written in. |
 | `sgate.gates` | gate registry loader. |
 | `sgate.log` | loguru logger configured for sgate. |
 | `sgate.models` | typed JSON payloads for gate results. |

@@ -849,6 +849,40 @@ def _setup_agent_review(root: Path) -> None:
     (root / "comments.json").write_text(json.dumps(comments), encoding="utf-8")
 
 
+def _setup_agent_review_pointer(root: Path) -> None:
+    """A verdict file that points at a pull request carrying no such change.
+
+    The pull request carries a real review — a marked comment with a verdict —
+    and a verdict file that names this pull request while reviewing a change
+    the pull request does not carry. The pointer points at nothing, and a
+    check that lets it through is a check that reads a registry without
+    reading what the registry is about.
+    """
+    comments = [
+        {
+            "body": "<!-- agent-review -->\n## Agent review\n\n**Verdict:** pass\n",
+            "html_url": "https://example.com/comment-1",
+        },
+    ]
+    (root / "comments.json").write_text(json.dumps(comments), encoding="utf-8")
+    (root / "files.json").write_text(
+        json.dumps(["scripts/ci/check-agent-review.py"]), encoding="utf-8"
+    )
+    reviews = root / "reviews"
+    reviews.mkdir()
+    (reviews / "the-change.md").write_text(
+        "---\n"
+        "change: the-change\n"
+        "verdict: pass\n"
+        "date: 2026-10-23\n"
+        "pr: 1040\n"
+        "reviewed: " + "a" * 40 + "\n"
+        "documents: sha256:" + "b" * 64 + "\n"
+        "---\n\n## What was reviewed\n\nThe change.\n",
+        encoding="utf-8",
+    )
+
+
 def _setup_flaky_tests(root: Path) -> None:
     """One test failing now that passed in the previous run."""
     suite = ('<testsuite name="{n}" tests="1" failures="{f}">'
@@ -1026,6 +1060,28 @@ FIXTURE_GATES = [
             "a pull request that carries no review is a pull request nobody looked at, and "
             "nothing in the tree, in the pull request or in the workflow could tell it from "
             "one that was reviewed — the rule was a sentence, and a sentence cannot fail"
+        ),
+        needs_clean_run=False,
+    ),
+    FixtureGate(
+        name="agent-review-pointer",
+        cmd=[
+            sys.executable,
+            "scripts/ci/check-agent-review.py",
+            "--comments-file",
+            "{tmp}/comments.json",
+            "--files-file",
+            "{tmp}/files.json",
+            "--pr",
+            "1040",
+            "--reviews-dir",
+            "{tmp}/reviews",
+        ],
+        setup=_setup_agent_review_pointer,
+        why=(
+            "a verdict file names the pull request whose review it records, and a pointer "
+            "that names a pull request carrying no such change points at nothing — the "
+            "registry reads as if the change were reviewed there, and it was not"
         ),
         needs_clean_run=False,
     ),

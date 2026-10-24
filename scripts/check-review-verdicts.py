@@ -34,6 +34,12 @@ archive — carries a verdict in `.specify/reviews/<slug>.md`:
 A `fail` is allowed, and is the interesting case: it says the review
 found something. What is not allowed is a verdict nobody wrote.
 
+The format of the file — its frontmatter, the two verdicts it may carry, the
+pull request it names — lives in `sgate.gatekit.verdicts`, and the pull
+request gate reads it from there too: two gates that read verdicts and two
+implementations of what a verdict is would drift apart, and the drift would
+be invisible until a verdict was read the wrong way.
+
 What a verdict is about
 -----------------------
 A verdict file that exists says a review happened. It does not say the
@@ -96,57 +102,43 @@ from __future__ import annotations
 import hashlib
 import pathlib
 import re
+import sys
 
 import click
-from sgate.commands.base import run
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+# The vocabulary of a verdict is this checkout's — the gate reads it from the
+# tree it sits in, and not from whatever `sgate` happens to be installed.
+sys.path.insert(0, str(ROOT / "scripts" / "src"))
+
+from sgate.commands.base import run  # noqa: E402
+from sgate.gatekit.verdicts import (  # noqa: E402
+    VERDICTS,
+    baseline_slugs,
+    contract_documents,
+    parse_frontmatter,
+    pull_request_of,
+    slug_of,
+    verdict_of,
+)
 
 CLEAN = 0
 VALIDATION_FAILURE = 1
 NO_SUCH_CHANGE = 2
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent
 CHANGES_DIR = ROOT / 'openspec/changes'
 REVIEWS_DIR = ROOT / '.specify/reviews'
 BASELINE = ROOT / 'config/docs/review-verdicts-baseline.txt'
 
-#: The verdicts a review may carry.
-VERDICTS = frozenset({'pass', 'fail'})
-
 #: A date, as the verdict file states it.
 DATE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
-
-#: A date prefix on a change directory — the convention for a new change.
-DATE_PREFIX = re.compile(r'^\d{4}-\d{2}-\d{2}-')
 
 #: The commit a verdict says it was made against.
 REVIEWED_COMMIT = re.compile(r'^[0-9a-f]{40}$')
 
 #: The digest of the documents a verdict says it was made against.
 DOCUMENTS_DIGEST = re.compile(r'^sha256:[0-9a-f]{64}$')
-
-
-def contract_documents(change_dir: pathlib.Path) -> list[pathlib.Path]:
-    """The contract of a change: its proposal and its spec deltas.
-
-    The proposal and the spec deltas are what the change requires. `tasks.md`
-    is not: it is a checklist that moves while the work is done, and ticking a
-    box is not a change of what the change requires. A digest over the whole
-    directory would therefore change every time the work moved, and a verdict
-    that has to be rewritten every time the work moves is a verdict nobody
-    keeps.
-
-    A change may carry other documents at its root - a `design.md`, for
-    instance - and they are outside the digest: the contract is what the
-    change requires of the code, and the spec delta is where that is written.
-    """
-    documents: list[pathlib.Path] = []
-    proposal = change_dir / 'proposal.md'
-    if proposal.is_file():
-        documents.append(proposal)
-    specs = change_dir / 'specs'
-    if specs.is_dir():
-        documents.extend(path for path in specs.rglob('*.md') if path.is_file())
-    return sorted(documents)
 
 
 def documents_digest(change_dir: pathlib.Path) -> str:
@@ -223,7 +215,7 @@ def active_changes(changes_dir: pathlib.Path) -> list[str]:
     for entry in sorted(changes_dir.iterdir()):
         if not entry.is_dir() or entry.name == 'archive':
             continue
-        slugs.append(DATE_PREFIX.sub('', entry.name))
+        slugs.append(slug_of(entry.name))
     return slugs
 
 
@@ -234,7 +226,7 @@ def change_directories(changes_dir: pathlib.Path) -> dict[str, pathlib.Path]:
     directories: dict[str, pathlib.Path] = {}
     for entry in sorted(changes_dir.iterdir()):
         if entry.is_dir() and entry.name != 'archive':
-            directories[DATE_PREFIX.sub('', entry.name)] = entry
+            directories[slug_of(entry.name)] = entry
     return directories
 
 
@@ -249,7 +241,7 @@ def archived_changes(changes_dir: pathlib.Path) -> list[str]:
     if not archive.is_dir():
         return []
     return sorted(
-        DATE_PREFIX.sub('', entry.name)
+        slug_of(entry.name)
         for entry in archive.iterdir()
         if entry.is_dir()
     )
@@ -295,32 +287,6 @@ def _same_scaffold(written: list[str], template: list[str]) -> bool:
     return True
 
 
-def read_baseline(path: pathlib.Path) -> set[str]:
-    """The slugs the baseline accepts."""
-    if not path.is_file():
-        return set()
-    return {
-        line.strip()
-        for line in path.read_text(encoding='utf-8', errors='replace').splitlines()
-        if line.strip() and not line.startswith('#')
-    }
-
-
-def parse_frontmatter(text: str) -> dict[str, str]:
-    """The frontmatter of a verdict file, as a mapping."""
-    if not text.startswith('---'):
-        return {}
-    end = text.find('\n---', 3)
-    if end == -1:
-        return {}
-    fields: dict[str, str] = {}
-    for line in text[3:end].splitlines():
-        pair = re.match(r'^([A-Za-z_][\w-]*):\s*(.*)$', line)
-        if pair:
-            fields[pair.group(1)] = pair.group(2).strip().strip('"\'')
-    return fields
-
-
 def body_of(text: str) -> str:
     """The text after the frontmatter."""
     end = text.find('\n---', 3)
@@ -344,15 +310,18 @@ def review_problems(
         problems.append(
             f'{slug}.md reviews {fields.get("change")!r} — the file is named after the change'
         )
-    if fields.get('verdict') not in VERDICTS:
+    if verdict_of(fields) is None:
         problems.append(
             f'{slug}.md states verdict {fields.get("verdict")!r} — it is one of '
             f'{", ".join(sorted(VERDICTS))}'
         )
     if not DATE.match(fields.get('date', '')):
         problems.append(f'{slug}.md states date {fields.get("date")!r} — it is YYYY-MM-DD')
-    if not fields.get('pr'):
-        problems.append(f'{slug}.md names no pull request')
+    if pull_request_of(fields) is None:
+        problems.append(
+            f'{slug}.md names no pull request — the field names the pull request whose '
+            f'review this verdict records, as a number or as a URL'
+        )
 
     reviewed = fields.get('reviewed', '')
     if not REVIEWED_COMMIT.match(reviewed):
@@ -466,7 +435,7 @@ def cli(
     changes_dir = tree / 'openspec' / 'changes'
     reviews_dir = tree / '.specify' / 'reviews'
     baseline_path = tree / 'config/docs/review-verdicts-baseline.txt'
-    accepted = read_baseline(baseline_path)
+    accepted = baseline_slugs(baseline_path)
 
     if digest_slug:
         directories = change_directories(changes_dir)

@@ -1306,6 +1306,30 @@ GATE_CONTROLS: dict[str, Control] = {
         needs_clean_run=False,
         tracked_by='.github/workflows/ci.yml#The review the agent left on the pull request',
     ),
+    'agent-review-pointer': Control(
+        kind='fixture',
+        proves='scripts/ci/check-agent-review.py',
+        argv=(
+            '{python}',
+            'scripts/ci/check-agent-review.py',
+            '--comments-file',
+            '{tmp}/comments.json',
+            '--files-file',
+            '{tmp}/files.json',
+            '--pr',
+            '1040',
+            '--reviews-dir',
+            '{tmp}/reviews',
+        ),
+        fixture='setup_agent_review_pointer',
+        why=(
+            "a verdict file names the pull request whose review it records, and a pointer "
+            "that names a pull request carrying no such change points at nothing — the "
+            "registry reads as if the change were reviewed there, and it was not"
+        ),
+        needs_clean_run=False,
+        tracked_by='.github/workflows/ci.yml#The review the agent left on the pull request',
+    ),
     'maestro-results': Control(kind='fixture', proves='scripts/ci/check-maestro-results.py', argv=('{python}', 'scripts/ci/check-maestro-results.py', '--scope', 'full', '--results-dir', '{tmp}/results', '--catalogue', '{tmp}/catalogue.txt', '--floor', '{tmp}/floor.txt', '--debt', '{tmp}/debt.yaml', '--environment', '{tmp}/results/environment.json'), fixture='setup_maestro_results', why="a Maestro run that failed a flow the floor does not allow, and a flow the run produced no report for — the two ways a run quietly stops being the run the repository promised. The input is a run on an emulator, so it cannot exist in a clean checkout: the control synthesises it", needs_clean_run=False),
     'gate-tooling-origin': Control(kind='fixture', proves='scripts/check-gate-tooling-origin.py', argv=('{python}', '{tmp}/foreign/check-gate-tooling-origin.py'), fixture='setup_gate_tooling_origin', why="the gate CLI is installed editable, so the venv on PATH decides which checkout's scripts/src/sgate the gate CLI is — and a foreign CLI reads a foreign registry and reports about a foreign tree. The run looks green and says nothing about the tree in front of it. The input is the interpreter's import path, not a committed file, so the control synthesises it: a copy of the gate standing next to a package named sgate, which the copy must answer FOREIGN about", needs_clean_run=False),
     'test-runs': Control(kind='sabotage', proves='scripts/check-test-runs.py', argv=('{python}', 'scripts/check-test-runs.py', '--require', 'shared:jvmTest,desktopApp:test', '--max-age', '86400'), path='config/docs/test-runs-baseline.txt', edit=Edit(kind='regex', pattern='^(shared:jvmTest )\\d+( \\d+)$', repl='\\g<1>99999\\g<2>', flags='MULTILINE'), why='a test source set that ran fewer tests than its recorded floor means coverage was lost', needs_clean_run=False, until='2026-12-31', tracked_by='.github/workflows/ci.yml#Executed test counts'),
