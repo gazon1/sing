@@ -19,6 +19,10 @@ import kotlinx.coroutines.flow.asStateFlow
  * The two ways are now one: the store keeps the reasons in a flow, and a surface
  * that draws them in its own state mirrors that flow. The store owns the
  * reasons; a surface shows them.
+ *
+ * The store belongs to [ProposalDecisions] — the one thing the three surfaces
+ * have in common. A surface does not hand a store in and does not keep one of
+ * its own: it reads the reasons the decisions hold.
  */
 class ProposalFailureStore {
 

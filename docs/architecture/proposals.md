@@ -78,31 +78,52 @@ carries the reason it cannot be applied:
   down. The raw blob is kept, so a row this build cannot read is written back
   unchanged — the next build that *can* read it finds the same change.
 
-A change the user cannot see is a change nobody decided about.
+A change the user cannot see is a change nobody decided about. And a change the
+user sees as *something else* is a change nobody proposed.
+
+The reader knows which format it holds before it reads it: the flat shape packs
+everything into text, and the sealed shape carries the model's own shape — a
+nested object for a value, an array for a list. A blob with a structure is a
+sealed blob; a blob without is a flat one. The sealed reader is strict: a key
+this build does not know is a key a newer build wrote, and a blob read without
+it is a change read as something it is not — so the reader refuses it, and the
+refusal is a change that stays on the card with the reason.
 
 The protection is both mechanical and structural:
 `shared/src/jvmTest/.../feature/proposals/data/ProposalMapperTest.kt` round-trips
 every kind and every value, checks the samples against the **sealed
-serializer's** list of variants, and reads the flat shape the builds before this
-one wrote.
+serializer's** list of variants, reads the flat shape the builds before this
+one wrote, and refuses a blob that carries a field this build does not know.
 
 Adding a kind therefore means: the kind itself (one file) and a sample in the
 test (one file). Both are compiler- or test-caught, and there is no third file
 to forget.
 
+### What a change is about, and who checks it
+
+Every kind declares what it is about — a task, a note, a project, a tag, or
+something that comes into being — and the declaration carries the kind with it,
+so a kind cannot claim a group it does not belong to. The planner has one
+function per group, and each of them switches over its group exhaustively.
+
+So adding a kind means: the kind itself, its target, and the group that
+handles it. The compiler says so if one of the three is missing — a change
+that was routed by a forgotten predicate used to fail at runtime, on a user's
+device, as a change applied to the wrong thing.
+
 ### The flat shape, and when it goes
 
-The rows in the wild carry the flat shape, so the reader still reads it: the
-sealed format is tried first, the flat one second. A flat blob cannot be read
-as a sealed one by accident — every sealed variant carries a payload the flat
-format does not have, and a flat blob has a string where the sealed one has
-that structure.
+The rows in the wild carry the flat shape, so the reader still reads it — and
+only the flat reader reads it: the two formats are told apart by their shape,
+not by trying one and falling back to the other.
 
 The flat reader goes when the oldest build in the user's hands is one that
 writes the sealed format — that is, after the release that ships this change
 has been out long enough for the previous release to fall out of support. The
-removal is a follow-up: delete `decodeFlat` and the packing helpers, and the
-flat-format test with them.
+removal is a follow-up, and it is a **checklist**: the ADR
+`docs/decisions/2026-10-23-the-flat-reader-goes-when-the-old-release-goes.md`
+names the functions to delete, in the order to delete them, and the test that
+goes last.
 
 The price, stated plainly: a change written by this build and read by a build
 that only knows the flat format does not read there. The old build shows it as

@@ -109,28 +109,24 @@ class SharedHarnessConventionsTest {
 
     /**
      * Files that use `AutoCloseableCoroutineScope` inside `runTest` (or `testVm` factory)
-     * instead of fully delegating to `runVmTest { }`, and the reason each exemption exists.
+     * instead of fully delegating to the harness, and the reason each exemption exists.
      *
      * Reasons are mandatory — an exemption without a reason is a maintenance trap.
      *
-     * `AgendaViewModelTest` needs direct access to the raw VM for `backgroundScope.launch`
-     * event collection. `TestVmContext` does not expose the raw VM, so the hand-rolled
-     * pattern is required until that gap is closed.
+     * The map is empty. The two files that were in it — the agenda's own tests —
+     * said they could not use the harness because `TestVmContext` did not expose the
+     * raw VM, and that is not true any more: it exposes both the VM and the
+     * background scope. The real reason those tests hand-rolled a scope was the
+     * agenda's clock flow, which never ends — and that is exactly what
+     * `VmScope.Background` is for. So the tests say what kind of ViewModel they are
+     * testing, and the harness builds the scope that kind needs.
      *
      * See ADR `docs/decisions/2026-10-27-vm-test-scope-exemption.md`.
      *
      * Two-way check: validated against actual source in the
      * `exempted VM test files actually contain hand-rolled scope` test.
      */
-    private val EXEMPT_VM_TEST: Map<String, String> = mapOf(
-        "AgendaViewModelTest.kt" to
-            "Uses backgroundScope.launch { vm.events.collect } for event-listening tests; " +
-            "TestVmContext does not expose raw VM or backgroundScope for event collection",
-        "AgendaBulkCloseTest.kt" to
-            "The agenda collects a clock flow that never ends, so its virtual clock cannot be " +
-            "advanced to idle and the VM's scope cannot be the test scope — the same reason as " +
-            "AgendaViewModelTest, for the same screen",
-    )
+    private val EXEMPT_VM_TEST: Map<String, String> = mapOf()
 
     /**
      * Matches hand-rolled AutoCloseableCoroutineScope in runTest:

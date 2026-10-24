@@ -7,6 +7,7 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.usecase.ApplyProposalItemUseCase
 import com.singularity.todo.feature.proposals.domain.usecase.EditProposalItemUseCase
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * The five operations every proposal surface performs.
@@ -22,10 +23,11 @@ import com.singularity.todo.feature.proposals.domain.usecase.EditProposalItemUse
  *
  * ## What it does not know
  *
- * It does not know which surface it serves. The surface hands it three things:
- * the [ProposalFailureStore] that keeps the reasons next to the changes, the
+ * It does not know which surface it serves. The surface hands it two things: the
  * [ProposalErrorSink] that tells the user about a failure, and the
- * [ProposalDecisionStyle] that says how this surface words it.
+ * [ProposalDecisionStyle] that says how this surface words it. The reasons a
+ * change failed are its own — one store, whatever the surface — and a surface
+ * shows them by reading [failures].
  *
  * ## The rules it keeps
  *
@@ -40,7 +42,6 @@ import com.singularity.todo.feature.proposals.domain.usecase.EditProposalItemUse
  * @param editProposalItem Changes the value of one change. Null when the surface
  *   cannot change a value.
  * @param style How this surface words a decision.
- * @param failures Where the reason a change failed lives.
  * @param errors Where a failure goes.
  * @param userId The user the decisions are made for.
  * @param withdrawProposal Withdraws a proposal, and its waiting changes go with
@@ -52,11 +53,28 @@ class ProposalDecisions(
     private val applyProposalItem: ApplyProposalItemUseCase?,
     private val editProposalItem: EditProposalItemUseCase?,
     private val style: ProposalDecisionStyle,
-    private val failures: ProposalFailureStore,
     private val errors: ProposalErrorSink,
     private val userId: () -> UserId,
     private val withdrawProposal: (suspend (ProposalId, UserId) -> Result<Unit>)? = null,
 ) {
+
+    /**
+     * Where the reason a change failed lives.
+     *
+     * The store is the decisions' own: three surfaces used to keep the reasons
+     * three different ways, and a reason kept inside a surface's own state was
+     * lost on every rebuild. Now one store keeps them, and a surface shows what
+     * the store says.
+     */
+    private val failureStore = ProposalFailureStore()
+
+    /**
+     * The reasons, as the surface's state shows them.
+     *
+     * A surface that draws a change draws the reason next to it, and the reason
+     * is read from here — one place, one set of reasons, whatever the surface.
+     */
+    val failures: StateFlow<Map<ProposalItemId, String>> = failureStore.state
 
     /**
      * Applies one change.
@@ -150,12 +168,12 @@ class ProposalDecisions(
 
     /** Keeps the reason a change failed next to the change it belongs to. */
     fun recordFailure(itemId: ProposalItemId, message: String) {
-        failures.record(itemId, message)
+        failureStore.record(itemId, message)
     }
 
     /** Forgets the reason a change failed, once the change worked. */
     fun clearFailure(itemId: ProposalItemId) {
-        failures.clear(itemId)
+        failureStore.clear(itemId)
     }
 
     /**

@@ -43,12 +43,23 @@ import kotlin.time.Clock
  * @property isGone Whether the row is not there. Asked only after a take-back
  *   failed, to tell "the row was never created" from "the row stayed".
  */
-private class ProposedRow<out Id>(
-    val id: Id,
+private class ProposedRow(
+    val id: ProposedRowId,
     val write: suspend () -> Unit,
     val takeBack: (suspend () -> Result<*>)?,
     val isGone: (suspend () -> Boolean)?,
 )
+
+/**
+ * The identity of a row this proposal wrote.
+ *
+ * The rows are of different kinds — a task, a tag, a note, a checklist item — and
+ * their identities are of different types. Kept as plain [Any], two rows of
+ * different kinds could pass for one row, and a missing identity was
+ * representable at all. So the identity comes in a wrapper of its own: a set of
+ * them holds the identity of a row, and nothing else.
+ */
+private data class ProposedRowId(val value: Any)
 
 /**
  * Executes a validated [ProposalPlan].
@@ -97,7 +108,7 @@ class ProposalDispatch(
      * three rows says so here, and the take-back of those three rows is the same
      * code for all of them.
      */
-    private suspend fun rowsOf(plan: ProposalPlan, userId: UserId): List<ProposedRow<*>> = when (plan) {
+    private suspend fun rowsOf(plan: ProposalPlan, userId: UserId): List<ProposedRow> = when (plan) {
         is ProposalPlan.AddTags -> tagRow(plan.taskId) { taskId ->
             val current = tasks.getTagIds(taskId).first().toSet()
             tasks.setTags(taskId, (current + plan.tagIds).toList(), TagEditActor.AiProposal).getOrThrow()
@@ -178,8 +189,8 @@ class ProposalDispatch(
      * retry of it needs no undo — and a take-back that wrote the previous state
      * back would overwrite whatever the user did in the meantime.
      */
-    private fun writeRow(id: Any, write: suspend () -> Unit): List<ProposedRow<*>> = listOf(
-        ProposedRow(id = id, write = write, takeBack = null, isGone = null),
+    private fun writeRow(id: Any, write: suspend () -> Unit): List<ProposedRow> = listOf(
+        ProposedRow(id = ProposedRowId(id), write = write, takeBack = null, isGone = null),
     )
 
     /**
@@ -193,8 +204,8 @@ class ProposalDispatch(
         write: suspend () -> Unit,
         takeBack: suspend () -> Result<*>,
         isGone: suspend () -> Boolean,
-    ): List<ProposedRow<*>> = listOf(
-        ProposedRow(id = id, write = write, takeBack = takeBack, isGone = isGone),
+    ): List<ProposedRow> = listOf(
+        ProposedRow(id = ProposedRowId(id), write = write, takeBack = takeBack, isGone = isGone),
     )
 
     /**
@@ -203,8 +214,8 @@ class ProposalDispatch(
      * A removal has no take-back: the thing is gone, and putting it back is a
      * decision the user has not made.
      */
-    private fun deleteRow(id: Any, write: suspend () -> Unit): List<ProposedRow<*>> = listOf(
-        ProposedRow(id = id, write = write, takeBack = null, isGone = null),
+    private fun deleteRow(id: Any, write: suspend () -> Unit): List<ProposedRow> = listOf(
+        ProposedRow(id = ProposedRowId(id), write = write, takeBack = null, isGone = null),
     )
 
     /**
@@ -213,9 +224,9 @@ class ProposalDispatch(
      * The write sets a set of tags, so a retry of it sets the same set: there is
      * nothing to take back. The id is the task's — the row this write touches.
      */
-    private fun tagRow(taskId: TaskId, write: suspend (TaskId) -> Unit): List<ProposedRow<*>> = listOf(
+    private fun tagRow(taskId: TaskId, write: suspend (TaskId) -> Unit): List<ProposedRow> = listOf(
         ProposedRow(
-            id = taskId,
+            id = ProposedRowId(taskId),
             write = { write(taskId) },
             takeBack = null,
             isGone = null,
@@ -230,10 +241,10 @@ class ProposalDispatch(
      * back to waiting when the write fails. So the rows this call wrote are taken back
      * when a later row fails.
      */
-    private fun checklistRows(plan: ProposalPlan.AddChecklistItems): List<ProposedRow<*>> = plan.texts.map { text ->
+    private fun checklistRows(plan: ProposalPlan.AddChecklistItems): List<ProposedRow> = plan.texts.map { text ->
         val id = ChecklistItemId.generate()
         ProposedRow(
-            id = id,
+            id = ProposedRowId(id),
             write = { checklist.addItem(plan.taskId.value, text, id).getOrThrow() },
             takeBack = { checklist.delete(id) },
             isGone = { checklist.watchByTask(plan.taskId.value).first().none { it.id == id } },
@@ -251,11 +262,11 @@ class ProposalDispatch(
         titles: List<String>,
         parentTaskId: TaskId?,
         userId: UserId,
-    ): List<ProposedRow<*>> = titles.map { title ->
+    ): List<ProposedRow> = titles.map { title ->
         val id = TaskId.generate()
         val now = clock.now()
         ProposedRow(
-            id = id,
+            id = ProposedRowId(id),
             write = {
                 tasks.create(
                     Task(
@@ -277,11 +288,11 @@ class ProposalDispatch(
     }
 
     /** The time entries a proposal asked for. All of them, or none — see [checklistRows]. */
-    private fun timeEntryRows(plan: ProposalPlan.AddTimeEntries, userId: UserId): List<ProposedRow<*>> =
+    private fun timeEntryRows(plan: ProposalPlan.AddTimeEntries, userId: UserId): List<ProposedRow> =
         plan.entries.map { entry ->
             val id = TimeEntryId.generate()
             ProposedRow(
-                id = id,
+                id = ProposedRowId(id),
                 write = {
                     timeTracking.createManualEntry(
                         taskId = plan.taskId,
@@ -311,13 +322,13 @@ class ProposalDispatch(
      * So the rows that were written are taken back on both paths, and the
      * take-back runs where a cancellation cannot stop it.
      */
-    private suspend fun writeAllOrNone(rows: List<ProposedRow<*>>) {
-        val written = mutableListOf<ProposedRow<*>>()
+    private suspend fun writeAllOrNone(rows: List<ProposedRow>) {
+        val written = mutableListOf<ProposedRow>()
         // The rows that are gone. A row that was taken back successfully is not
         // taken back a second time: the second attempt would fail on a row that
         // is already gone, and that failure would be reported as a row that
         // stayed — a row the user would be told about that is not there.
-        val takenBack = mutableSetOf<Any?>()
+        val takenBack = mutableSetOf<ProposedRowId>()
         var settled = false
         try {
             val result = runCatchingCancellable {
@@ -362,8 +373,8 @@ class ProposalDispatch(
      * the caller — and it is named if it stayed.
      */
     private suspend fun takeBackAll(
-        written: List<ProposedRow<*>>,
-        takenBack: MutableSet<Any?>,
+        written: List<ProposedRow>,
+        takenBack: MutableSet<ProposedRowId>,
     ): List<Result<*>> {
         val results = mutableListOf<Result<*>>()
         for (row in written) {
@@ -382,7 +393,7 @@ class ProposalDispatch(
      * created is not there, which is what the take-back wanted. So the row is
      * asked about once: if it is gone, the take-back has done its work.
      */
-    private suspend fun takeBackSafely(row: ProposedRow<*>): Result<*> {
+    private suspend fun takeBackSafely(row: ProposedRow): Result<*> {
         val takeBack = row.takeBack ?: return Result.success(Unit)
         val result = takeBack()
         if (result.isSuccess) return result

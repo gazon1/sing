@@ -93,25 +93,6 @@ class ProposalsViewModel(
     ) {
 
     /**
-     * The reasons the last attempt failed, by change.
-     *
-     * The store owns them; this screen's state shows them. The state is rebuilt
-     * from the proposals the screen was given, and a reason kept inside that
-     * state alone was lost on every rebuild — so the reasons live in the store,
-     * and the state mirrors them.
-     */
-    private val failureStore = ProposalFailureStore()
-
-    /**
-     * The reasons, mirrored into the state the screen draws from.
-     */
-    private val failureWatch = vmScope.launch {
-        failureStore.state.collect { reasons ->
-            updateState { state -> state.copy(failures = reasons) }
-        }
-    }
-
-    /**
      * The five operations, in one place.
      *
      * The review screen, the note editor and the task detail all answer a
@@ -123,7 +104,6 @@ class ProposalsViewModel(
         applyProposalItem = applyProposalItem,
         editProposalItem = editProposalItem,
         style = ProposalDecisionStyles.reviewScreen,
-        failures = failureStore,
         errors = ProposalErrorSink { label, _, error ->
             // The ViewModel's own error path: it reports the failure to the crash
             // reporter and shows it as a one-shot event. The failure is rethrown
@@ -132,6 +112,19 @@ class ProposalsViewModel(
         },
         userId = { currentUser.scopedUserId.value },
     )
+
+    /**
+     * The reasons, mirrored into the state the screen draws from.
+     *
+     * The decisions keep the reasons — one store, whatever the surface — and this
+     * screen shows them. A reason kept inside the screen's own state alone was
+     * lost on every rebuild.
+     */
+    private val failureWatch = vmScope.launch {
+        decisions.failures.collect { reasons ->
+            updateState { state -> state.copy(failures = reasons) }
+        }
+    }
 
     /**
      * The collector of what is waiting.

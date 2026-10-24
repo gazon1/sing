@@ -1,8 +1,9 @@
 ---
 title: "VM test scope exemption: SavedAgendaViewModelTest and SavedAgendaListViewModelTest"
 date: 2026-10-27
-status: accepted
 tags: [testing, viewmodel, coroutines]
+superseded-by: 2026-10-23-the-test-names-the-kind-of-viewmodel
+status: superseded
 ---
 
 # VM test scope exemption: `SavedAgendaViewModelTest` and `SavedAgendaListViewModelTest`

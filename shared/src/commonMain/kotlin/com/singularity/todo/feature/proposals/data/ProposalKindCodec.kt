@@ -17,6 +17,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
@@ -34,8 +35,21 @@ internal object ProposalPayloadSep {
     const val FIELD = "\u001D"
 }
 
-/** JSON codec used for the `kind_json` column. */
-private val payloadJson = Json { ignoreUnknownKeys = true }
+/**
+ * The JSON the payload is written and read with.
+ *
+ * **Strict on purpose.** A key this build does not know is a key a newer build
+ * wrote, and a blob read without that key is a change read as something it is not:
+ * the reader would fill in a default and the user would be shown a change that
+ * nobody proposed. So the reader refuses such a blob, and the refusal is
+ * [ProposalItemKind.Unknown] — the change stays on the card with the reason it
+ * cannot be read.
+ *
+ * The flat format is read by hand, field by field, so it needs no serializer and
+ * loses nothing by that: a key the old writer did not know is a key the old reader
+ * ignores, which is what the old format always did.
+ */
+private val payloadJson = Json.Default
 
 /**
  * Decodes the `kind_json` blob back into a [ProposalItemKind].
@@ -47,33 +61,60 @@ private val payloadJson = Json { ignoreUnknownKeys = true }
  * returns a kind, and the kind it returns for a blob it cannot read is
  * [ProposalItemKind.Unknown], which the card shows with its reason.
  *
+ * ## The format is told by the shape
+ *
+ * The two formats are not read one after the other until one of them works. The
+ * sealed format carries a structure where the flat one carries text — a nested
+ * object for a value, an array for a list, a nested object for a created thing —
+ * and the flat format, which only ever wrote text, has no structure at all. So a
+ * blob that carries a structure is a sealed blob, and a blob that does not is a
+ * flat one (or the one shape both formats share: the deletions and the unknown
+ * kind, which mean the same thing either way).
+ *
+ * Reading them one after the other was how a sealed blob ended up read as a flat
+ * one: a sealed blob this build cannot decode fell through to the flat reader,
+ * which read it as a change with an empty field — a change that says something
+ * entirely different from what it is.
+ *
  * @param raw the stored blob, exactly as it was found. It is kept inside the
  *   [ProposalItemKind.Unknown] so the row can be written back unchanged.
  */
 internal fun decodeKind(raw: String): ProposalItemKind {
     val obj = runCatching { payloadJson.parseToJsonElement(raw) as JsonObject }.getOrNull()
-        ?: return ProposalItemKind.Unknown(raw)
-    // The sealed format first: it is the one this build writes.
-    //
-    // A flat blob cannot be read as a sealed one by accident: every sealed
-    // variant carries a payload the flat format does not have — a nested object
-    // for a value, an array for a list, a nested object for a created thing — and
-    // a flat blob has a string where the sealed one has that structure. So the
-    // flat blob either fails to decode as sealed, or it decodes to the very same
-    // value (the deletions and the unknown kind, whose two shapes are one).
-    decodeSealed(obj)?.let { return it }
-    // The flat format: what the builds before this one wrote. It stays readable
-    // until the oldest supported build is this one — see the ADR.
-    return decodeFlat(obj, raw) ?: ProposalItemKind.Unknown(raw)
+        ?: return ProposalItemKind.Unknown(raw, NOT_A_BLOB_REASON)
+    return if (obj.carriesStructure()) {
+        // The sealed format: the one this build writes. A blob that does not decode
+        // is a blob a newer build wrote — it stays, with the reason.
+        decodeSealed(obj) ?: ProposalItemKind.Unknown(raw)
+    } else {
+        // The flat format: what the builds before this one wrote. It stays readable
+        // until the oldest supported build is this one — see the ADR.
+        decodeFlat(obj, raw) ?: ProposalItemKind.Unknown(raw)
+    }
 }
+
+/**
+ * Whether the blob carries a structure — a nested object or an array.
+ *
+ * The flat format packs a list into one text column and keeps every value as text,
+ * so a flat blob has no structure. The sealed format carries the model's own
+ * shape, and the model has objects and lists in it.
+ */
+private fun JsonObject.carriesStructure(): Boolean =
+    values.any { it is JsonObject || it is JsonArray }
+
+/** The reason a blob that is not an object at all carries. */
+private const val NOT_A_BLOB_REASON =
+    "This change is not stored in a form this version can read."
 
 /**
  * The blob read as the sealed format — or null when it is not one.
  *
  * The sealed format is the model's own shape: a discriminator and the payload
  * the variant actually has. A field that is renamed or dropped in the model is a
- * field the sealed reader refuses to guess at, and a blob it refuses is a blob
- * the flat reader gets a chance at, and then [ProposalItemKind.Unknown].
+ * field the sealed reader refuses to guess at — and a blob it refuses is a blob
+ * this build cannot read, which is a change that stays on the card with the
+ * reason, not a blob that is read some other way.
  */
 private fun decodeSealed(obj: JsonObject): ProposalItemKind? =
     runCatching { payloadJson.decodeFromJsonElement(ProposalItemKind.serializer(), obj) }.getOrNull()
@@ -102,7 +143,14 @@ private fun decodeFlat(obj: JsonObject, raw: String): ProposalItemKind? =
  */
 private fun decodeUnknownKind(obj: JsonObject, raw: String): ProposalItemKind? =
     if (obj.stringOrNull("type") == "Unknown") {
-        ProposalItemKind.Unknown(obj.stringOrNull("raw") ?: raw)
+        // The reason is read when it is there. The flat format never had one — the
+        // reason belongs to the reader, and the reader names it — but the sealed
+        // format writes the change as it is, and a change that carries a reason
+        // reads back with the same reason.
+        ProposalItemKind.Unknown(
+            raw = obj.stringOrNull("raw") ?: raw,
+            reason = obj.stringOrNull("reason") ?: ProposalItemKind.UNREADABLE_REASON,
+        )
     } else {
         null
     }

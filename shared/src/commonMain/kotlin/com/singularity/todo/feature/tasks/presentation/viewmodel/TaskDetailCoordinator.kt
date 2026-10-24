@@ -11,7 +11,6 @@ import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.featureSlot.combineStates
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
-import com.singularity.todo.feature.proposals.presentation.ProposalFailureStore
 import com.singularity.todo.feature.proposals.presentation.ProposalDecisionStyles
 import com.singularity.todo.feature.proposals.presentation.ProposalDecisions
 import com.singularity.todo.feature.proposals.presentation.ProposalErrorSink
@@ -240,15 +239,6 @@ class TaskDetailCoordinator(
     }
 
     /**
-     * Why the last attempt to apply or to change a change failed, by the change.
-     *
-     * The reason lives here, next to the change it belongs to, and not only in the
-     * error notification: a notification says that something went wrong, and the user
-     * still cannot tell which of the changes it was.
-     */
-    private val proposalFailureStore = ProposalFailureStore()
-
-    /**
      * The five operations every proposal surface performs.
      *
      * The review screen and the note editor answer a proposal the same way this
@@ -263,7 +253,6 @@ class TaskDetailCoordinator(
         applyProposalItem = deps.collaboration.applyProposal,
         editProposalItem = deps.collaboration.editProposal,
         style = ProposalDecisionStyles.taskDetail,
-        failures = proposalFailureStore,
         errors = ProposalErrorSink { label, message, error ->
             // The failure is shown and it is reported: a failure the user can see
             // is not the one the crash reporter gets to hear about, and one it
@@ -296,7 +285,7 @@ class TaskDetailCoordinator(
                     children.state,
                     taskFlow,
                     proposalsCollector?.state ?: flowOf(emptyList<AiProposal>()),
-                    proposalFailureStore.state,
+                    proposalDecisions.failures,
                 ) { timeState, childrenState, task, proposals, failures ->
                     Triple(timeState, childrenState, task) to (proposals to failures)
                 }.collect { (triple, proposalsAndFailures) ->
