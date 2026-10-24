@@ -1384,8 +1384,14 @@ jobs:
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
+      # `-Pcoverage.enabled=false`: this job is on the pull-request path, and
+      # the pull-request path carries no instrumented suite. The pro leg runs
+      # `:pro:testDebugUnitTest`, and without the opt-out the Kover agent
+      # attaches to it — the cost of a measurement nobody asked for, paid on
+      # the path that is supposed to answer in minutes. The coverage job is
+      # where the measurement belongs.
       - name: Compile / lint / test
-        run: ./gradlew --continue ${{ matrix.flags }} ${{ matrix.tasks }}
+        run: ./gradlew --continue ${{ matrix.flags }} ${{ matrix.tasks }} -Pcoverage.enabled=false
         env:
           # AppTracer tokens — only meaningful for pro, ignored (plugin disabled) for free.
           TRACER_APP_TOKEN: ${{ secrets.TRACER_APP_TOKEN }}

@@ -24,6 +24,7 @@ asserts a synthetic workflow proves that the parser reads what it claims to
 read, and nothing about the workflow this repository runs.
 """
 
+import json
 import pathlib
 import re
 import sys
@@ -40,6 +41,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 WORKFLOW = ROOT / ".github/workflows/ci.yml"
 SETTINGS = ROOT / "settings.gradle.kts"
 POPULATIONS = ROOT / "config/test-populations.properties"
+PRE_PUSH = ROOT / "config/hooks/pre-push.json"
 
 #: The APP's coverage tasks — the ROOT ones. The module's own
 #: `:detekt-rules:koverVerify` is NOT one of them: the custom rules apply the
@@ -120,6 +122,73 @@ def _declared_populations() -> dict[str, list[str]]:
     return declared
 
 
+def _is_pr_path(job: dict) -> bool:
+    """True when the job's condition admits an ordinary pull-request event.
+
+    R1 defines the pull-request path by the job's `if:`: a job that runs only
+    on a push to the trunk, only on the schedule, or only on a pull request
+    carrying the `run-full-tests` label is not on it.
+
+    The condition is read as text, and the question is what it REQUIRES:
+    `needs.changes.outputs.shared == 'true'` admits a pull request — the
+    changed-path outputs are computed for pull requests too — while
+    `github.event_name == 'schedule'` admits only the schedule.
+    """
+    condition = str(job.get("if", "") or "")
+    if not condition.strip():
+        return True
+    if "github.event_name == 'schedule'" in condition:
+        return False
+    if "run-full-tests" in condition:
+        return False
+    if "refs/heads/main" in condition and "needs.changes.outputs" not in condition:
+        return False
+    return True
+
+
+def _matrix_legs(job: dict) -> list[dict]:
+    """The matrix entries of a job — one per leg it runs."""
+    matrix = (job.get("strategy") or {}).get("matrix") or {}
+    return list(matrix.get("include") or [])
+
+
+def _effective_runs(job: dict) -> list[str]:
+    """The run texts of a job, one per matrix leg.
+
+    A matrix leg is a real invocation: `${{ matrix.tasks }}` names the tasks
+    that leg runs, and a reader that cannot see them cannot say what the job
+    runs. So the expression is replaced with the leg's own value — a task
+    hidden behind a matrix is still a task the job runs.
+    """
+    legs = _matrix_legs(job)
+    texts: list[str] = []
+    for step in job.get("steps", []) or []:
+        if not isinstance(step, dict):
+            continue
+        run = step.get("run")
+        if not isinstance(run, str):
+            continue
+        if not legs:
+            texts.append(run)
+            continue
+        for leg in legs:
+            texts.append(_substitute_matrix(run, leg))
+    return texts
+
+
+def _substitute_matrix(text: str, leg: dict) -> str:
+    """The run text of one matrix leg."""
+    for key, value in leg.items():
+        text = text.replace("${{ matrix.%s }}" % key, str(value))
+    return text
+
+
+def _detekt_modules() -> set[str]:
+    """The modules the record says CI judges."""
+    record = json.loads(PRE_PUSH.read_text(encoding="utf-8"))
+    return set(record["detekt"]["judged_by_ci"])
+
+
 class PrPathHasNoCoverage(unittest.TestCase):
     """The pull-request path carries no coverage measurement it does not enforce."""
 
@@ -168,6 +237,46 @@ class PrPathHasNoCoverage(unittest.TestCase):
 
         # The coverage job opts IN, explicitly.
         self.assertIn("-Pcoverage.enabled=true", _job_text(jobs["coverage"]))
+
+    def test_every_pr_path_test_invocation_opts_out_of_the_coverage_agent(self):
+        """Every pull-request job that runs a test task asks for no agent.
+
+        The job that broke the rule was the one a reader of the run text could
+        not see: the android job's pro leg names `:pro:testDebugUnitTest`
+        behind `${{ matrix.tasks }}`, which is one opaque token to a parser.
+        So the legs are expanded here — a task hidden behind a matrix is still
+        a task the job runs — and every test-capable invocation on the path
+        is checked.
+
+        The rules' own floor is the exception, and it is deliberate: the
+        custom rules apply the Kover plugin themselves, and their floor is
+        enforced on the pull-request path.
+
+        The affected-test job runs the map's commands, so its invocation is
+        assembled at run time and no reader of the workflow can see it; the
+        assertion above reads its opt-out from the job's own text.
+        """
+        checked: list[str] = []
+        for name, job in _jobs().items():
+            if not _is_pr_path(job):
+                continue
+            for text in _effective_runs(job):
+                for invocation in wg.iter_invocations(text, name):
+                    if not invocation.test_capable:
+                        continue
+                    if RULES_FLOOR_TASK in invocation.tasks:
+                        continue
+                    checked.append(f"{name} ({invocation.location})")
+                    self.assertIn(
+                        "-Pcoverage.enabled=false",
+                        text,
+                        f"the pull-request job {name!r} runs a test task without "
+                        f"asking for no coverage agent ({invocation.location})",
+                    )
+        self.assertTrue(
+            checked,
+            "no pull-request job runs a test task — the assertion proves nothing",
+        )
 
     def test_no_pr_path_job_names_a_coverage_task(self):
         """Only the coverage job names an app coverage task.
@@ -276,14 +385,34 @@ class DetektIsJudgedOnce(unittest.TestCase):
         reads the second one.
 
         The count is over the invocations, not over the text: a comment that
-        mentions a detekt task is not a verdict.
+        mentions a detekt task is not a verdict. And the matrix legs are
+        expanded — the android job's pro leg names a detekt task behind
+        `${{ matrix.tasks }}`, which is one opaque token to a reader of the
+        run text, and a task a reader cannot see is a task nobody counts.
+
+        The count is over the modules the record names
+        (`config/hooks/pre-push.json`), and the one task outside that record
+        is named here: the pro catalogue is a separate build the module graph
+        does not know, so the record lists it apart, and the `detekt` job does
+        not judge it. Naming the exception is what keeps it an exception.
         """
-        judging = set()
+        modules = _detekt_modules()
+        judging: set[str] = set()
+        elsewhere: set[tuple[str, str]] = set()
         for name, job in _jobs().items():
-            for invocation in wg.iter_invocations(_job_text(job), name):
-                if any(task.endswith(":detekt") for task in invocation.tasks):
-                    judging.add(name)
+            if not _is_pr_path(job):
+                continue
+            for text in _effective_runs(job):
+                for invocation in wg.iter_invocations(text, name):
+                    for task in invocation.tasks:
+                        if not task.endswith(":detekt"):
+                            continue
+                        if task in modules:
+                            judging.add(name)
+                        else:
+                            elsewhere.add((name, task))
         self.assertEqual({"detekt"}, judging)
+        self.assertEqual({("android", ":pro:detekt")}, elsewhere)
 
         # And the job that judges it corrects first and judges second, so the
         # verdict measures an already-corrected tree.
