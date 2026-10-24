@@ -23,6 +23,14 @@
 # What is not: the modules the change does not touch. CI compiles every
 # module; this compiles the ones the change is made of.
 #
+# The tree that is about to be committed is the INDEX, and the hook makes the
+# working tree carry it while the check runs: the unstaged changes are put
+# aside by `scripts/staged-tree.py` and put back afterwards. Without that, a
+# commit on a branch with one commit per idea is refused for the next idea's
+# breakage — files the commit does not contain. The pre-push hook checks the
+# tree being pushed the same way; a commit cannot afford a throwaway worktree,
+# because a worktree's build directory is cold.
+#
 # Use `git commit --no-verify` to skip when needed — and know that you are
 # then the check that did not run.
 
@@ -59,6 +67,54 @@ cd "$ROOT"
 # about it, and a change that did not touch those modules was blocked by
 # somebody else's breakage in them. The compile follows the change now — see
 # ADR 2026-10-23-the-commit-compiles-what-the-change-reaches.md.
+
+echo "=== Pre-commit: holding the working tree at the index ==="
+# What is checked is the tree the commit carries — the index — and not the
+# working tree. On a branch with one commit per idea the working tree usually
+# holds the next idea as well, and a compile that saw the next idea refused
+# this commit for a reason that belonged to another change: the commit was
+# blocked on files it does not contain, and the person committing had to work
+# out which half broke it.
+#
+# The unstaged work is put aside while the check runs, and put back after it.
+# The pre-push hook has the same shape — it checks the tree being pushed — but
+# it can afford a throwaway worktree, because a push is rare. A commit is not
+# rare, and a worktree has its own build directory: a compile there starts
+# cold, and the price of every commit would be a full build. So the working
+# tree is held in place instead — same directory, same warm cache, same speed.
+#
+# The restore runs on every exit path, including a failure and an interrupt.
+# The held bytes are somebody's uncommitted work, and a hook that keeps them is
+# a hook that loses them.
+PLAN_DIR="$(mktemp -d "${TMPDIR:-/tmp}/pre-commit-staged-XXXXXX")"
+PLAN="$PLAN_DIR/plan.json"
+# The helper is copied OUT of the tree before the tree is held. The helper
+# itself may be an untracked file — the first commit that adds it is exactly
+# that — and a held tree has no helper in it to restore the tree with. A
+# restore that cannot run is a restore that does not happen, so the copy
+# lives where the hold cannot reach it.
+cp scripts/staged-tree.py "$PLAN_DIR/staged-tree.py"
+
+restore_held_tree() {
+    local rc=$?
+    if [ -f "$PLAN" ]; then
+        echo "=== Pre-commit: restoring the working tree ==="
+        python3 "$PLAN_DIR/staged-tree.py" restore --root "$ROOT" --plan "$PLAN" || {
+            echo "" >&2
+            echo "pre-commit: the held work could not be put back automatically." >&2
+            echo "It is at ${PLAN}/d — the files are there, and the plan beside" >&2
+            echo "them says which is which. Nothing is lost." >&2
+        }
+    fi
+    rm -rf "$PLAN_DIR"
+    exit $rc
+}
+trap restore_held_tree EXIT
+
+python3 "$PLAN_DIR/staged-tree.py" hold --root "$ROOT" --plan "$PLAN" || {
+    echo "pre-commit: the working tree could not be held at the index" >&2
+    exit 1
+}
 
 echo "=== Pre-commit: linting the changed files ==="
 python3 scripts/lint-changed.py || {
