@@ -31,6 +31,10 @@ Measured, not assumed:
 Usage:
     python3 scripts/check-hooks-path.py            # report
     python3 scripts/check-hooks-path.py --quiet
+
+The repair this gate names is `scripts/doctor.sh --fix`, never a plain
+`git config core.hooksPath`: a plain `git config` writes the shared config,
+which every worktree of this clone shares.
 """
 
 from __future__ import annotations
@@ -61,6 +65,23 @@ VALIDATION_FAILURE = 1
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 EXPECTED = '.githooks'
 
+# The repair this gate recommends.
+#
+# A plain `git config core.hooksPath .githooks` always lands in the SHARED
+# config — the common directory's `config` — from any worktree of this clone.
+# The worktrees here share that one file, so the "repair" would change the
+# behaviour of every one of them: a repair applied to twenty checkouts, none of
+# which asked for it (ADR
+# `docs/decisions/2026-10-23-the-bare-flag-lives-in-the-worktree-config.md`).
+#
+# `scripts/doctor.sh --fix` writes THIS worktree's own `config.worktree` with
+# `git config --file`, and the value it installs is the DECLARED relative one
+# (`.githooks`), read from `config/checkout-invariants.json` — the same
+# declaration this gate expects.
+REPAIR = 'scripts/doctor.sh --fix'
+REPAIR_WHY = ('a plain `git config` writes the shared config, '
+              'which every worktree of this clone shares')
+
 
 def config(key: str) -> str | None:
     proc = subprocess.run(
@@ -80,11 +101,12 @@ def cli(ctx: click.Context, quiet: bool) -> None:
 
     if hooks_path is None:
         # Not an error: git defaults to .git/hooks, and the repository ships
-        # .githooks/ deliberately (installed per-clone, documented in CONTRIBUTING).
+        # .githooks/ deliberately. The advice names the repair that writes
+        # this worktree's own config, never a plain `git config` — see REPAIR.
         if not quiet:
             click.echo('check-hooks-path: core.hooksPath is unset — git will use .git/hooks; '
                        f'the tracked hooks in {EXPECTED}/ are inactive until you run')
-            click.echo('  git config core.hooksPath ' + EXPECTED)
+            click.echo(f'  {REPAIR}  ({REPAIR_WHY})')
         raise ctx.exit(CLEAN)
 
     if pathlib.PurePath(hooks_path).is_absolute():
@@ -124,7 +146,7 @@ def cli(ctx: click.Context, quiet: bool) -> None:
         click.echo(f'ERROR: {err}')
     if errors:
         click.echo('')
-        click.echo(f'check-hooks-path: fix with — git config core.hooksPath {EXPECTED}')
+        click.echo(f'check-hooks-path: fix with — {REPAIR}  ({REPAIR_WHY})')
         raise ctx.exit(VALIDATION_FAILURE)
 
     if not quiet:

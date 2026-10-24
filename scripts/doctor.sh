@@ -72,9 +72,9 @@
 # `--file` writes exactly the file it is given: no repository is resolved, the
 # destination is this script's decision rather than Git's, and the shared
 # config cannot be written by accident. `scripts/setup-worktree.sh` uses the
-# same mechanism for the same reason, and this script resolves the git dir,
-# the common dir and the per-worktree config file the same way — WITHOUT Git,
-# because a worktree that Git already considers bare answers no questions.
+# same mechanism for the same reason, and both scripts resolve the git dir,
+# the common dir and the per-worktree config file the same way — through
+# config/git-layout.sh, WITHOUT Git: a bare worktree answers no questions.
 #
 # The bare repository ITSELF is never un-bared: a `core.bare = false` in the
 # main entry of a bare repository turns that repository into a non-bare one,
@@ -120,37 +120,31 @@ script_root="$(cd "$script_dir/.." && pwd)"
 
 # ── Where this checkout is ──────────────────────────────────────────────────
 #
-# Resolved from the CURRENT DIRECTORY upwards, so that the answer does not
-# depend on where the doctor was started from: the same checkout started from
-# its root and from a subdirectory is one checkout, and must be judged and
-# repaired identically.
+# The layout is resolved by config/git-layout.sh — the same helper
+# scripts/setup-worktree.sh uses, so the two cannot drift apart. It resolves
+# WITHOUT Git, because a checkout that Git already considers bare refuses to
+# answer questions, and it resolves the same way from the root of a checkout
+# and from any subdirectory of it: the answer does not depend on where the
+# doctor was started from.
 #
-# Git answers first — it is the one that knows where the work tree is — and
-# the filesystem answers when Git cannot: a checkout that Git already
-# considers bare refuses `--show-toplevel`, and the answer to "where am I" is
-# then the directory that holds the `.git` of this checkout.
-repo_root=""
-if top="$(git rev-parse --show-toplevel 2>/dev/null)" && [[ -n "$top" ]]; then
-    repo_root="$(cd "$top" 2>/dev/null && pwd)" || repo_root="$top"
+# The doctor reports the refusal itself: the helper says on stderr what it
+# did not understand, and the doctor prints it as the broken invariant it is.
+#
+# The helper normally sits next to this script, in the checkout it lives in
+# (config/git-layout.sh). GIT_LAYOUT_HELPER names it when the checkout does
+# not carry it — a checkout whose `config` is a FILE (the bare repository's
+# own main entry), for instance.
+helper="${GIT_LAYOUT_HELPER:-$script_root/config/git-layout.sh}"
+if [[ ! -f "$helper" ]]; then
+    echo "checkout doctor: the layout helper is missing: $helper" >&2
+    exit 1
 fi
-if [[ -z "$repo_root" ]]; then
-    probe="$PWD"
-    while :; do
-        if [[ -e "$probe/.git" ]]; then
-            repo_root="$(cd "$probe" && pwd)"
-            break
-        fi
-        [[ "$probe" == "/" ]] && break
-        probe="$(dirname "$probe")"
-    done
-fi
-if [[ -z "$repo_root" ]]; then
-    # A bare repository has no `.git` of its own: it IS the git dir.
-    bare_git_dir="$(git rev-parse --absolute-git-dir 2>/dev/null || true)"
-    [[ -n "$bare_git_dir" ]] && repo_root="$bare_git_dir"
-fi
+GIT_LAYOUT_DEFER=1
+# shellcheck source=../config/git-layout.sh
+. "$helper"
+unset GIT_LAYOUT_DEFER
 
-if [[ -z "$repo_root" ]]; then
+if ! git_layout_resolve; then
     echo "=== checkout doctor: $PWD ==="
     echo ""
     report bad "repository" "no git repository here — the doctor judges a checkout"
@@ -159,37 +153,12 @@ if [[ -z "$repo_root" ]]; then
     exit 1
 fi
 
-# ── The git dir, the common dir and this worktree's own config ─────────────
-#
-# The same resolution scripts/setup-worktree.sh performs, and for the same
-# reason: a linked worktree's `.git` is a FILE that names its git dir, the
-# main worktree's `.git` IS that git dir, and the common dir — where the
-# shared config and every linked worktree's own directory live — is named by
-# the `commondir` file inside a linked worktree's git dir.
-#
-# The shared config is READ here and never written.
-git_dir=""
-if [[ -f "$repo_root/.git" ]]; then
-    gitdir_line="$(sed -n 's/^gitdir: //p' "$repo_root/.git")"
-    if [[ -n "$gitdir_line" ]]; then
-        [[ "$gitdir_line" != /* ]] && gitdir_line="$repo_root/$gitdir_line"
-        git_dir="$(cd "$gitdir_line" 2>/dev/null && pwd)" || git_dir="$gitdir_line"
-    fi
-elif [[ -d "$repo_root/.git" ]]; then
-    git_dir="$(cd "$repo_root/.git" && pwd)"
-fi
-[[ -z "$git_dir" ]] && git_dir="$repo_root"
-
-common_dir="$git_dir"
-if [[ -f "$git_dir/commondir" ]]; then
-    relative_common="$(tr -d '[:space:]' < "$git_dir/commondir")"
-    common_dir="$(cd "$git_dir/$relative_common" 2>/dev/null && pwd)" \
-        || common_dir="$git_dir/$relative_common"
-fi
-
-shared_config="$common_dir/config"
-worktree_config="$git_dir/config.worktree"
-main_root="$(cd "$(dirname "$common_dir")" && pwd)"
+repo_root="$GIT_LAYOUT_ROOT"
+git_dir="$GIT_LAYOUT_GIT_DIR"
+common_dir="$GIT_LAYOUT_COMMON_DIR"
+shared_config="$GIT_LAYOUT_SHARED_CONFIG"
+worktree_config="$GIT_LAYOUT_WORKTREE_CONFIG"
+main_root="$GIT_LAYOUT_MAIN_ROOT"
 
 # Everything below runs in the checkout itself, so that no answer depends on
 # the directory the doctor was started from.
@@ -315,10 +284,12 @@ fi
 # and no `.git` inside it), while an ordinary checkout that somebody broke has
 # a `.git` directory inside it. That is the difference between "this is a bare
 # repository, leave its flag alone" and "this is a checkout whose core.bare
-# was corrupted, and it is repairable".
+# was corrupted, and it is repairable". The helper resolved which of the two
+# this is: GIT_LAYOUT_ROOT_IS_GIT_DIR is true for the bare repository itself.
 shared_bare="$(git config --file "$shared_config" --get core.bare 2>/dev/null || true)"
 is_bare_main_entry=false
-if [[ "$git_dir" == "$common_dir" && "$shared_bare" == "true" && ! -d "$repo_root/.git" ]]; then
+if [[ "$git_dir" == "$common_dir" && "$shared_bare" == "true" \
+      && "$GIT_LAYOUT_ROOT_IS_GIT_DIR" == "true" ]]; then
     is_bare_main_entry=true
 fi
 

@@ -121,15 +121,71 @@ def _age_directory(days: int) -> Control:
 
     return control
 
+def _git_dir_of(repo: Path) -> Path:
+    """The git dir of a checkout, resolved WITHOUT git.
+
+    `git rev-parse --absolute-git-dir` would answer the question, but it is a
+    git command that names a tree, and the gate that watches those commands
+    reads a `cwd=` argument as "this command works on that tree" — a tree it
+    cannot verify is this checkout. The `.git` file or directory says the same
+    thing without asking git anything.
+    """
+    dot_git = repo / ".git"
+    if dot_git.is_dir():
+        return dot_git
+    if dot_git.is_file():
+        text = dot_git.read_text(encoding="utf-8").strip()
+        if text.startswith("gitdir:"):
+            target = Path(text.split(":", 1)[1].strip())
+            return target if target.is_absolute() else (repo / target)
+    return dot_git
+
+
+def _hooks_path_state_file(repo: Path) -> Path:
+    """Where the hooks-path sabotage keeps the config value it replaced."""
+    return _git_dir_of(repo) / "sgate-sabotage" / "hooks-path-previous-value"
+
+
 def _hooks_path_sabotage(p: Path) -> None:
     """Set `core.hooksPath` and untrack the hooks; content alone cannot undo it."""
     repo = p.parent.parent
+    previous = subprocess.run(
+        ["git", "config", "--get", "core.hooksPath"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    state = _hooks_path_state_file(repo)
+    state.parent.mkdir(parents=True, exist_ok=True)
+    state.write_text(previous, encoding="utf-8")
+    # git-config-shared: the control has to reproduce the defect in the config
+    # Git actually reads, and that is the shared config of this clone. The value
+    # is put back by `_hooks_path_restore`: a control that leaves the shared
+    # config changed is a control that damages the machine it ran on.
     subprocess.run(["git", "config", "core.hooksPath", ".githooks"], cwd=repo, check=True)
     subprocess.run(["git", "rm", "-r", "--cached", "-q", ".githooks"], cwd=repo, check=True)
 
 def _hooks_path_restore(p: Path) -> None:
-    """Put the hooks back in the index — see `ScriptGate.sabotage_restore`."""
-    subprocess.run(["git", "add", "--", ".githooks"], cwd=p.parent.parent, check=True)
+    """Put the hooks back in the index — and the config value back where it was."""
+    repo = p.parent.parent
+    subprocess.run(["git", "add", "--", ".githooks"], cwd=repo, check=True)
+    state = _hooks_path_state_file(repo)
+    if not state.is_file():
+        return
+    previous = state.read_text(encoding="utf-8")
+    state.unlink()
+    if previous:
+        # git-config-shared: the value goes back into the same shared config the
+        # sabotage took it from — not into a per-worktree config that would
+        # shadow it and leave the shared one changed.
+        subprocess.run(["git", "config", "core.hooksPath", previous], cwd=repo, check=True)
+    else:
+        # Nothing was configured before, so nothing must be configured after.
+        subprocess.run(
+            ["git", "config", "--unset", "core.hooksPath"],
+            cwd=repo,
+            check=False,
+        )
 
 def _strip_suppression_reason(p: Path) -> None:
     """suppression-intent: remove the comment justification under `@file:Suppress`."""
@@ -372,8 +428,8 @@ SCRIPT_GATES = [
         # is unset, so the gate takes its "unset → advisory, exit 0" branch and
         # passes no matter what — the control would prove nothing (and did, on
         # the first CI run that reached it, 2026-10-11). Setting it to .githooks
-        # is what a correctly configured machine already has; the restore leaves
-        # it there, which is the value the gate itself recommends.
+        # is what a correctly configured machine already has; the restore puts
+        # the previous value back, so the clone is left exactly as it was found.
         # Content restore alone cannot undo this one — see `sabotage_restore`.
         sabotage_restore=_hooks_path_restore,
         why=(
