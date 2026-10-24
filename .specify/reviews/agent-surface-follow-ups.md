@@ -3,8 +3,8 @@ change: agent-surface-follow-ups
 verdict: fail
 date: 2026-10-23
 pr: https://github.com/gazon1/sing/pull/1041
-reviewed: f563ec7a057b1bbb8b0767201bd427afbc4e7b3d
-documents: sha256:b15d70ffcd268e52a4273ceea8fc549c6016be11d35900cd9ef71c7863dd6394
+reviewed: 3b0d2a43f6359dad4f0a3f000aa16c306c46e33a
+documents: sha256:73f63b44ba80218cef4a4eb18c74f011aa1ecd949e19f6b1ac3363ef124a12a6
 ---
 
 ## What was reviewed
@@ -69,6 +69,17 @@ the two nets answer different questions: the wide one says whether a write
 happened at all, and the narrow one says whether the write is on the user's own
 data. An exception the scan sees writing but cannot place is the case the named
 set exists for, and the name is what decides it.
+
+**The fifth round found that the fourth round's fix had gone the wrong way.**
+The fourth round took a review at its word and wrote into the architecture
+document that the tool server's refusals *had* changed — because the old code
+"said nothing" before it exited. The old code wrote a JSON-RPC error before
+every `exitProcess`, and the client sees the same error frame, with the same
+code and the same exit code, as it did before. The behaviour did not change;
+the shape did. The same round found the records counting the start-up's steps
+wrongly, the design naming a type that does not exist, the scan's records
+contradicting themselves about what the scan cannot see, a requirement that
+claimed a coverage it does not have, and a skill table that had rotted.
 
 **The fourth round found that the records and the code disagreed, and that the
 verdict itself had gone stale.** The requirement, the decision record and the
