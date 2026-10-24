@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.calendarSync.auth
 
-import com.singularity.todo.core.auth.SecureStorage
 import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
@@ -20,6 +19,16 @@ import com.singularity.todo.core.error.runCatchingCancellable
  * in the caller matters: clear first, and the credential is gone for good — the
  * device can no longer cancel what it handed out.
  *
+ * ## Why no client id is needed
+ *
+ * Google's revoke endpoint takes the token alone — it is a public-client operation,
+ * and the endpoint answers without a client id or a secret. So the revoke does not
+ * depend on the client id being configured, which matters exactly when the person
+ * presses "Disconnect": a client id that was removed earlier, or never set on this
+ * device, must not leave the refresh token alive at Google. The exchange and the
+ * refresh do need one, and they say so when it is missing; the revoke does not, and
+ * it does not ask for one it would not use.
+ *
  * ## Why a missing token is not a failure
  *
  * An account that was never connected has nothing to revoke, and it is
@@ -28,18 +37,12 @@ import com.singularity.todo.core.error.runCatchingCancellable
  */
 class LocalGoogleGrantRevoker(
     private val credentialStore: GoogleCredentialStore,
-    private val clientIdResolver: GoogleClientIdResolver,
-    private val secureStorage: SecureStorage,
-    private val tokenClientFactory: (String) -> GoogleTokenExchange,
+    private val tokenClientFactory: () -> GoogleTokenExchange,
 ) : GoogleGrantRevoker {
 
     override suspend fun revoke(userId: String): Result<Unit> = runCatchingCancellable {
         val stored = credentialStore.load(userId) ?: return@runCatchingCancellable
         val refreshToken = stored.refreshToken ?: return@runCatchingCancellable
-        val clientId = clientIdResolver.resolve(secureStorage)?.clientId
-            ?: throw GoogleAuthorizationException(
-                "The Google client id is not configured, so the token cannot be revoked at Google",
-            )
-        tokenClientFactory(clientId).revoke(refreshToken)
+        tokenClientFactory().revoke(refreshToken)
     }
 }

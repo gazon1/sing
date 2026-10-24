@@ -71,9 +71,30 @@ interface GoogleTokenExchange {
  * The authorization code arrives on a `localhost` redirect that KMPAuth's Desktop listener
  * receives. This client redeems it, with the same client id the sign-in used, so the
  * exchange needs no second registration and no PKCE verifier beyond what was sent.
+ *
+ * ## Why the client id may be absent
+ *
+ * The exchange and the refresh need the client id; the revoke does not — Google's revoke
+ * endpoint is a public-client operation that takes the token alone. A client built without
+ * one can therefore still cancel a grant, which matters at the moment the grant is
+ * cancelled: a person who removed the client id before pressing "Disconnect" must still
+ * be able to revoke what the app gave them.
  */
-class GoogleTokenClient(private val httpClient: HttpClient = createHttpClient(), private val clientId: String) :
-    GoogleTokenExchange {
+class GoogleTokenClient(
+    private val httpClient: HttpClient = createHttpClient(),
+    private val clientId: String? = null,
+) : GoogleTokenExchange {
+
+    /**
+     * The client id, for the calls that need one.
+     *
+     * @throws GoogleAuthorizationException when no client id is configured. The exchange
+     *   and the refresh cannot be performed without it, and saying so is better than
+     *   sending an empty one and reporting Google's own answer to it.
+     */
+    private fun requiredClientId(): String = clientId ?: throw GoogleAuthorizationException(
+        "The Google client id is not configured, so the token cannot be requested",
+    )
 
     /**
      * Redeems an authorization [code] for a durable credential.
@@ -89,7 +110,7 @@ class GoogleTokenClient(private val httpClient: HttpClient = createHttpClient(),
         codeVerifier: String?,
     ): GoogleCredentials {
         val params = ParametersBuilder().apply {
-            append("client_id", clientId)
+            append("client_id", requiredClientId())
             append("code", code)
             append("grant_type", "authorization_code")
             append("redirect_uri", redirectUri)
@@ -118,7 +139,7 @@ class GoogleTokenClient(private val httpClient: HttpClient = createHttpClient(),
      */
     override suspend fun refresh(refreshToken: String): GoogleCredentials {
         val params = ParametersBuilder().apply {
-            append("client_id", clientId)
+            append("client_id", requiredClientId())
             append("refresh_token", refreshToken)
             append("grant_type", "refresh_token")
         }.build()

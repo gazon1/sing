@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.calendarSync.auth
 
-import com.singularity.todo.core.auth.SecureStorage
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -24,20 +23,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class LocalGoogleGrantRevokerTest {
-
-    private class MapSecureStorage : SecureStorage {
-        private val values = mutableMapOf<String, String>()
-
-        override suspend fun read(key: String): String? = values[key]
-
-        override suspend fun write(key: String, value: String) {
-            values[key] = value
-        }
-
-        override suspend fun delete(key: String) {
-            values.remove(key)
-        }
-    }
 
     private class FakeCredentialStore(initial: GoogleCredentials? = null) : GoogleCredentialStore {
         var stored: GoogleCredentials? = initial
@@ -77,17 +62,20 @@ class LocalGoogleGrantRevokerTest {
     private fun revoker(
         store: GoogleCredentialStore,
         exchange: GoogleTokenExchange,
-        clientId: String? = "the-client-id",
     ) = LocalGoogleGrantRevoker(
         credentialStore = store,
-        clientIdResolver = GoogleClientIdResolver(
-            buildTime = { clientId?.let { BuildTimeGoogleClientConfig(it) } },
-        ),
-        secureStorage = MapSecureStorage(),
         tokenClientFactory = { exchange },
     )
 
-    /** The token on the device is cancelled at Google. */
+    /**
+     * The token on the device is cancelled at Google.
+     *
+     * The revoke carries no client id, and that is the point: Google's revoke
+     * endpoint takes the token alone, so a person who removed the client id — or
+     * never set one on this device — and then pressed "Disconnect" still cancels
+     * the grant. A revoke that quietly needed a setting it does not use would leave
+     * a live refresh token behind.
+     */
     @Test
     fun `the stored refresh token is revoked at Google`() = runTest {
         val store = FakeCredentialStore(GoogleCredentials("access", "the-refresh", Long.MAX_VALUE))
@@ -142,22 +130,5 @@ class LocalGoogleGrantRevokerTest {
 
         assertTrue(result.isFailure, "a refused revoke must not look like a success")
         assertNotNull(result.exceptionOrNull())
-    }
-
-    /**
-     * Without a client id the token cannot be presented, and that has to be said.
-     *
-     * The credential is still on the device and still alive at Google; a silent success
-     * would be a lie about a grant that nobody cancelled.
-     */
-    @Test
-    fun `a missing client id is reported instead of quietly skipping the revoke`() = runTest {
-        val store = FakeCredentialStore(GoogleCredentials("access", "the-refresh", Long.MAX_VALUE))
-        val exchange = FakeTokenExchange()
-
-        val result = revoker(store, exchange, clientId = null).revoke("user-1")
-
-        assertTrue(result.isFailure, "a grant that was not revoked must not look revoked")
-        assertNull(exchange.revokedWith)
     }
 }

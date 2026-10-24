@@ -355,12 +355,14 @@ actual fun platformModule(): Module = module {
     // The revoke stays on the device: the refresh token is in the desktop's own
     // keystore and Google's revoke endpoint needs no client secret, so there is
     // nothing for a server to do here.
+    //
+    // The client is built without a client id on purpose: the revoke endpoint takes
+    // the token alone, and a person who removed the client id before pressing
+    // "Disconnect" must still be able to revoke what the app gave them.
     single<GoogleGrantRevoker> {
         LocalGoogleGrantRevoker(
             credentialStore = get(),
-            clientIdResolver = get(),
-            secureStorage = get(),
-            tokenClientFactory = { clientId -> GoogleTokenClient(httpClient = get(), clientId = clientId) },
+            tokenClientFactory = { GoogleTokenClient(httpClient = get()) },
         )
     }
 }
