@@ -112,7 +112,7 @@ all three:
 `2026-09-26-adr-supersede-process` is the corpus's own rule: the replaced decision
 carries `status: superseded` and `superseded-by:`, and the replacing one carries
 `supersedes:`. Reading only the third edge means reading one side of a rule that has
-two sides. 19 of the 814 decisions carry the reverse edge, and 8 of them are named
+two sides. 20 of the 814 decisions carry the reverse edge, and 8 of them are named
 by no `supersedes:` at all — those 8 were shown in the index as if they were still in
 force, and were in no status group at all.
 
@@ -130,7 +130,7 @@ carries 787 of the 814, and the Status section names the other 27.
 ## Rationale
 
 The cost of a decision in the index is now a record rather than a row. A record costs
-~137 characters (measured on the corpus of 814 decisions); a row cost a line. The index
+~135 characters (measured on the corpus of 814 decisions); a row cost a line. The index
 section grew from 72 lines at 400 decisions to 152 at 814 — **0.193 lines per
 decision**. The pre-fold file cost **2.75** lines per decision; the folded file costs
 0.287 over the whole corpus and 0.18 over the last 50 decisions.
@@ -223,9 +223,9 @@ drift apart; a test holds them together.
 
 ## Consequences
 
-- `DIGEST-full.md` is 265 lines instead of 2235, and the budget is a line above the
+- `DIGEST-full.md` is 264 lines instead of 2235, and the budget is a line above the
   history rather than a countdown.
-- The orientation layer is 95 lines against its own constant ceiling of 120, and its
+- The orientation layer is 99 lines against its own constant ceiling of 120, and its
   size does not depend on the corpus: the renderer takes the decisions it draws from as
   an argument, so the property can be measured on an artificial corpus instead of
   assumed.
