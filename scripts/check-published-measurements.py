@@ -120,11 +120,16 @@ POPULATION_FILE = "config/test-populations.properties"
 #: configuration, and a file on it that is missing is a finding: a check that
 #: switches itself off when its input is gone is a check that reports success
 #: forever.
+#:
+#: An archived change still publishes its measurements — the document that
+#: states them is read wherever it now lives. A change that moves out of
+#: `openspec/changes/` moves this path with it, and the next archive says so
+#: here rather than leaving the gate quietly reading nothing.
 PUBLISHERS = (
     "build.gradle.kts",
     "docs/decisions/2026-10-22-the-app-coverage-floor-lives-in-the-settings.md",
     "docs/decisions/2026-10-23-a-population-is-a-name.md",
-    "openspec/changes/ci-fast-only-pr-full-on-schedule/tasks.md",
+    "openspec/changes/archive/2026-10-24-ci-fast-only-pr-full-on-schedule/tasks.md",
     "scripts/kover-markdown-table.py",
     "scripts/tests/test_kover_markdown_table.py",
     "settings.gradle.kts",
