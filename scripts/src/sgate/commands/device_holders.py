@@ -60,10 +60,17 @@ from sgate.commands.base import CLEAN, CONFIG_ERROR, register
 ADB_TIMEOUT_SECONDS = 10
 
 def _lock_dir() -> pathlib.Path:
-    """Where the device locks live."""
+    """Where the device locks live.
+
+    The directory is read from the environment **now**, not from the constant
+    the emulator package captured when it was imported: the lock itself
+    resolves its directory at access time, and a report that read a different
+    directory than the lock writes to would say every device is free while a
+    device is held.
+    """
     from emulator.maestro._lock import LOCK_DIR
 
-    return pathlib.Path(LOCK_DIR)
+    return pathlib.Path(os.environ.get("MAESTRO_LOCK_DIR", str(LOCK_DIR)))
 
 
 def _lock_names() -> tuple[str, str]:
@@ -112,7 +119,11 @@ def _command_line(pid: int) -> str:
         raw = pathlib.Path(f"/proc/{pid}/cmdline").read_bytes()
     except OSError:
         return ""
-    return " ".join(part for part in raw.decode("utf-8", "replace").split("\0") if part)
+    parts = [part for part in raw.decode("utf-8", "replace").split("\0") if part]
+    # The program and the script, and nothing else: the arguments of another
+    # session's command line can carry tokens, and the report lands in a
+    # terminal's scrollback and in logs.
+    return " ".join(parts[:2])
 
 
 def _locks(lock_dir: pathlib.Path) -> list[dict[str, object]]:
@@ -157,8 +168,8 @@ def _locks(lock_dir: pathlib.Path) -> list[dict[str, object]]:
     return found
 
 
-def _connected_devices() -> list[dict[str, str]]:
-    """The devices `adb` sees, and their state.
+def _connected_devices() -> list[dict[str, str]] | None:
+    """The devices `adb` sees, and their state — or None when adb could not answer.
 
     `adb devices` is asked with a timeout: a wedged adb server must not hang
     the command forever. The header is skipped by what it says rather than by
@@ -174,7 +185,9 @@ def _connected_devices() -> list[dict[str, str]]:
             timeout=ADB_TIMEOUT_SECONDS,
         )
     except (OSError, subprocess.TimeoutExpired):
-        return []
+        # adb could not be asked. That is not the same as "no device is
+        # attached", and the report says which one it is.
+        return None
     devices: list[dict[str, str]] = []
     for line in result.stdout.splitlines():
         parts = line.split()
@@ -185,7 +198,10 @@ def _connected_devices() -> list[dict[str, str]]:
     return devices
 
 
-def _report(locks: list[dict[str, object]], devices: list[dict[str, str]]) -> str:
+def _report(
+    locks: list[dict[str, object]],
+    devices: list[dict[str, str]] | None,
+) -> str:
     """The report, as text."""
     held = {str(entry["serial"]) for entry in locks if entry["held"]}
     stale = {str(entry["serial"]) for entry in locks if not entry["held"]}
@@ -208,21 +224,26 @@ def _report(locks: list[dict[str, object]], devices: list[dict[str, str]]) -> st
     else:
         lines.append("locks: none — no device is claimed")
 
-    if devices:
-        lines.append("")
-        lines.append("connected devices (adb):")
-        for device in devices:
-            serial = device["serial"]
-            if serial in held:
-                state = "HELD by another run"
-            elif serial in stale:
-                state = "free (a stale lock names it)"
-            else:
-                state = "free"
-            lines.append(f"  {serial:<24} {device['state']:<10} {state}")
-    else:
-        lines.append("")
-        lines.append("connected devices (adb): none seen")
+    lines.append("")
+    if devices is None:
+        lines.append(
+            "connected devices (adb): adb did not answer — this is not the same as "
+            "'no device is attached'"
+        )
+        return "\n".join(lines)
+    if not devices:
+        lines.append("connected devices (adb): none attached")
+        return "\n".join(lines)
+    lines.append("connected devices (adb):")
+    for device in devices:
+        serial = device["serial"]
+        if serial in held:
+            state = "HELD by another run"
+        elif serial in stale:
+            state = "free (a stale lock names it)"
+        else:
+            state = "free"
+        lines.append(f"  {serial:<24} {device['state']:<10} {state}")
     return "\n".join(lines)
 
 
@@ -248,23 +269,29 @@ def device_holders(emit_json: bool, serial: str | None) -> None:
     if serial is not None:
         devices = [device for device in devices if device["serial"] == serial]
 
-    if emit_json:
-        click.echo(
-            _json.dumps(
-                {"lockDir": str(lock_dir), "locks": locks, "devices": devices},
-                ensure_ascii=False,
-            )
-        )
-    else:
-        click.echo(_report(locks, devices))
-
+    unknown: str | None = None
     if serial is not None:
         known = any(entry["serial"] == serial for entry in locks) or any(
-            device["serial"] == serial for device in devices
+            device["serial"] == serial for device in (devices or [])
         )
-        if not known and not emit_json:
+        if not known:
+            unknown = serial
+
+    if emit_json:
+        payload: dict[str, object] = {
+            "lockDir": str(lock_dir),
+            "locks": locks,
+            "devices": devices,
+            "adbAnswered": devices is not None,
+        }
+        if unknown is not None:
+            payload["unknown"] = unknown
+        click.echo(_json.dumps(payload, ensure_ascii=False))
+    else:
+        click.echo(_report(locks, devices))
+        if unknown is not None:
             click.echo(
-                f"no such device: {serial} — it is neither locked nor connected"
+                f"no such device: {unknown} — it is neither locked nor connected"
             )
     if serial is not None and any(entry["held"] for entry in locks):
         raise SystemExit(1)

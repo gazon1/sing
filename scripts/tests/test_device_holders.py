@@ -215,6 +215,63 @@ class TheCommandRunsTest(unittest.TestCase):
         after = {p.name: p.read_bytes() for p in self.tmp.iterdir()}
         self.assertEqual(before, after)
 
+    def test_the_command_leaves_a_stale_lock_alone(self):
+        # A stale lock is the one a command that "cleans up" would remove,
+        # and removing it is taking the device's claim away from whoever
+        # wrote it. The command takes nothing — stale or not.
+        path = DeviceLock('emulator-5554', lock_dir=self.tmp).path
+        path.write_text(f'{_dead_pid()}\n', encoding='utf-8')
+        before = {p.name: p.read_bytes() for p in self.tmp.iterdir()}
+        self._run('--serial', 'emulator-5554')
+        after = {p.name: p.read_bytes() for p in self.tmp.iterdir()}
+        self.assertEqual(before, after)
+
+    def test_an_unreadable_lock_directory_is_an_error_not_an_empty_report(self):
+        # "No device is claimed" and "I could not read the directory" are
+        # different facts, and only one of them is a device being free.
+        unreadable = self.tmp / 'unreadable'
+        unreadable.mkdir()
+        unreadable.chmod(0o000)
+        self.addCleanup(unreadable.chmod, 0o755)
+        result = subprocess.run(
+            [sys.executable, '-m', 'sgate', 'device-holders'],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            env={
+                **os.environ,
+                'PYTHONPATH': str(ROOT / 'scripts' / 'src'),
+                'MAESTRO_LOCK_DIR': str(unreadable),
+            },
+            check=False,
+        )
+        self.assertEqual(3, result.returncode, result.stdout + result.stderr)
+        self.assertNotIn('no device is claimed', result.stdout)
+
+    def test_adb_that_cannot_be_asked_is_not_an_empty_device_list(self):
+        # `adb` missing from PATH is "adb did not answer", not "no device is
+        # attached" — and the report says which one it is.
+        result = subprocess.run(
+            [sys.executable, '-m', 'sgate', 'device-holders'],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            env={
+                **os.environ,
+                'PATH': '/nonexistent',
+                'PYTHONPATH': str(ROOT / 'scripts' / 'src'),
+                'MAESTRO_LOCK_DIR': str(self.tmp),
+            },
+            check=False,
+        )
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertIn('adb did not answer', result.stdout)
+
+    def test_an_unknown_serial_says_so_in_json_too(self):
+        result = self._run('--serial', 'nope-1234', '--json')
+        payload = json.loads(result.stdout)
+        self.assertEqual('nope-1234', payload['unknown'])
+
 
 if __name__ == '__main__':
     unittest.main()
