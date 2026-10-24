@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
@@ -367,7 +368,7 @@ class AcpClientProcessTest {
         )
         assertEquals(
             "The conversation ended before the agent answered.",
-            failure?.message,
+            failure.message,
             "the connect failed because the conversation was already over, and not because the " +
                 "agent went quiet — the other branch of this failure says something else",
         )
@@ -436,16 +437,75 @@ class AcpClientProcessTest {
         )
     }
 
+    /**
+     * The connect that gave up leaves nothing behind.
+     *
+     * The client's promise is that a connection which did not happen leaves nothing
+     * behind: no session, no transport, no protocol, no client. The client says so
+     * in the comment on [AcpClient.connect], and a promise that nothing can see is a
+     * promise nothing can break — a client that kept the transport it built and
+     * dropped only the session would be half a connection, and every other
+     * assertion in this file would still be green.
+     *
+     * So the client has one field the tests can read, and this test reads it.
+     */
+    @Test
+    fun `a connect that gave up leaves nothing behind`() = runTest {
+        val agent = startAgent(MODE_SILENT)
+
+        val client = AcpClient(
+            scope = this,
+            process = agent.process,
+            tree = agent.tree,
+            operations = AcpClientSessionOperations { PermissionDecision.Declined },
+            toolServer = null,
+            connectTimeout = 2.seconds,
+        )
+
+        // The connect runs on the IO dispatcher: the agent is a real process and
+        // it never answers, so the deadline is a real one. On the test's own
+        // dispatcher the agent's blocking read would hold the thread the timeout
+        // has to run on.
+        assertFailsWith<Exception> { withContext(Dispatchers.IO) { client.connect() } }
+
+        assertFalse(
+            client.holdsConnection,
+            "the connection that did not happen left nothing behind — no transport, no " +
+                "protocol, no session",
+        )
+        assertEquals(
+            "closed",
+            stateOf(client),
+            "and the client is not connected either",
+        )
+
+        // The teardown still works, and the caller is the one who ends the agent:
+        // the client does not own the process, so the process is still there and
+        // has to be closed by the hand that started it.
+        withContext(Dispatchers.IO) { client.close() }
+        awaitExit(agent.process.process)
+        assertTrue(
+            !agent.process.process.isAlive,
+            "the agent's process is gone once the caller has closed it",
+        )
+    }
+
     // ── Fixtures ───────────────────────────────────────────────────────────────
 
     /**
      * The client's state, as a caller can see it.
      *
-     * The client does not publish its fields, so its state is read the way a caller
-     * reads it: by asking for a turn. A connected client hands back a flow; a closed
-     * one says it is not connected. Anything else — a flow that fails when it is
-     * collected, an exception from nowhere — is the half-updated state the client's
-     * lifecycle guard exists to prevent.
+     * The client publishes no state of its own, so its state is read the way a
+     * caller reads it: by asking for a turn. A connected client hands back a flow; a
+     * closed one says it is not connected. Anything else is the half-updated state
+     * the client's lifecycle guard exists to prevent.
+     *
+     * What this cannot see is a session bound to a closed transport: asking for a
+     * turn hands back a flow either way, and the flow fails when it is collected.
+     * The lock is what keeps that state unreachable, and the assertions below bite
+     * on the part a caller can see — a client that is neither connected nor closed
+     * is a failure. The rest of it — a transport the client kept when its connect
+     * gave up — is what [AcpClient.holdsConnection] is for.
      */
     private fun stateOf(client: AcpClient): String = runCatching { client.prompt("probe") }.fold(
         onSuccess = { "connected" },

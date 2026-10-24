@@ -255,6 +255,24 @@ class WriteToolsOnlyProposeTest {
     }
 
     @Test
+    fun `every proposal-gated tool is driven through the round trip`() {
+        val proposalGated = McpToolCatalog.catalog
+            .filter { it.writeBehavior == WriteBehavior.PROPOSAL_WRITE }
+            .mapNotNull { it.toolClass.simpleName }
+            .toSet()
+        val driven = contractTestTools()
+
+        assertEquals(
+            proposalGated,
+            driven,
+            "the round trip and the catalogue disagree about which tools have one. A " +
+                "proposal-gated tool with no contract test would ship with no contract, and every " +
+                "test would stay green — the check has to be about the whole set, not about the " +
+                "tools each file happens to drive.",
+        )
+    }
+
+    @Test
     fun `the catalogue's classification is well formed`() {
         for (entry in McpToolCatalog.catalog) {
             if (entry.writeBehavior == WriteBehavior.DIRECT_WRITE_EXCEPTION) {
@@ -318,6 +336,29 @@ class WriteToolsOnlyProposeTest {
      * @param outside the write calls that belong to no class at all.
      */
     private data class Scan(val classes: Map<String, Writes>, val outside: List<String>)
+
+    /**
+     * The tools the round-trip contract tests drive.
+     *
+     * Each contract test names the tools it drives in its imports, so the set of
+     * tools those files name is the set that has a round trip. It has to be the
+     * set the catalogue calls proposal-gated: the contract tests each assert the
+     * classification of the tools *they* drive, and nothing else ties those
+     * files to the catalogue — so without this, a fourteenth proposal-gated tool
+     * would ship with no contract and every test would stay green.
+     */
+    private fun contractTestTools(): Set<String> {
+        val found = mutableSetOf<String>()
+        Files.list(contractTestDir).use { stream ->
+            stream.filter { it.fileName.toString().endsWith("ContractTest.kt") }.forEach { file ->
+                Files.readAllLines(file).forEach { line ->
+                    val imported = toolImport.find(line)
+                    if (imported != null) found += imported.groupValues[1]
+                }
+            }
+        }
+        return found
+    }
 
     private fun scanSources(): Scan {
         val found = mutableMapOf<String, Writes>()
@@ -488,6 +529,26 @@ class WriteToolsOnlyProposeTest {
             }
             error("the tools directory was not found above ${Path.of("").toAbsolutePath()}")
         }
+
+        /**
+         * Where the round-trip contract tests live.
+         *
+         * The same walk-up as [toolsDir], in the common test source set: the
+         * contract tests are shared between the platforms, and this test runs on
+         * the JVM.
+         */
+        val contractTestDir: Path = run {
+            var dir: Path? = Path.of("").toAbsolutePath()
+            while (dir != null) {
+                val candidate = dir.resolve("src/commonTest/kotlin/com/singularity/todo/feature/ai")
+                if (Files.isDirectory(candidate)) return@run candidate
+                dir = dir.parent
+            }
+            error("the common test directory was not found above ${Path.of("").toAbsolutePath()}")
+        }
+
+        /** An import of a tool class — how a contract test names the tool it drives. */
+        val toolImport = Regex("""^import com\.singularity\.todo\.feature\.ai\.tools\.(\w+Tool)$""")
     }
 
     /**

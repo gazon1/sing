@@ -146,7 +146,7 @@ the `@Tag` lines and the class header, and the gate reads the *contiguous*
 annotation block. An untagged class is one that no CI population ever selects,
 so the finding was real: the test would have stopped running.
 
-**The full detekt configuration surfaced twenty findings in the new code**, all
+**The full detekt configuration surfaced eleven findings in the new code**, all
 fixed rather than baselined: four class signatures that fit on one line, two
 loops with more than one jump, a generic catch, a missing trailing comma, a
 blank line between `when` conditions, a blank line before a closing brace, and

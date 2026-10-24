@@ -159,6 +159,28 @@ class AcpClient(
     private var transport: StdioTransport? = null
 
     /**
+     * Whether the client still holds anything of a connection.
+     *
+     * Internal, and for the tests only: the fields are private, and a promise that
+     * nothing can see is a promise nothing can break. The promise is the one
+     * [connect] makes — a connection which did not happen leaves nothing behind —
+     * and "nothing" means all four of the fields the connection is made of: the
+     * transport, the protocol, the client and the session.
+     *
+     * A client that held a transport with no session on it would be half a
+     * connection, and half a connection is the state [lifecycle] exists to prevent.
+     * The session is the only one of the four a caller can see — asking for a turn
+     * answers "connected" or "not connected" — so without this the other three
+     * could be left behind and every lifecycle test would still be green.
+     *
+     * It reads the fields without the lock, which is safe for what it is for: a
+     * test asks it after the transition it is about has finished, and that
+     * transition's writes are already visible to it.
+     */
+    internal val holdsConnection: Boolean
+        get() = transport != null || protocol != null || client != null || session != null
+
+    /**
      * Whether the conversation has been asked to end.
      *
      * Set by [close] before it waits for the lock, and read by [connect] once it has

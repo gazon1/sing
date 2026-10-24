@@ -192,6 +192,11 @@ class ToolWriteContractTest {
         val survivor = tasks.tasks.value[task.id.value]
         assertNotNull(survivor, "the task survived the refusal")
         assertFalse(survivor.isTrashed, "the task was not archived")
+        assertEquals(
+            ProposalItemStatus.Rejected,
+            proposals.getItem(singleItemId(output.proposalId))?.status,
+            "the change was refused, not left pending",
+        )
     }
 
     /**
