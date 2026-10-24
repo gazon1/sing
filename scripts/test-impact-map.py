@@ -42,6 +42,12 @@ change that breaks nothing:
 * a selection that is empty is reported on stdout, where the caller reads it;
 * a population that is not declared is an error.
 
+The command names the TASK that runs the class, and the task belongs to the
+SOURCE SET: `shared` carries `commonTest`, `jvmTest` and `androidHostTest`,
+and each of them has its own task. A class of `androidHostTest` does not
+exist under `:shared:jvmTest` — the filter that names it selects nothing
+there, and a run that ran nothing reports green.
+
 Usage:
     python3 scripts/test-impact-map.py                  # the test classes, one per line
     python3 scripts/test-impact-map.py --explain        # the same, with the reasons
@@ -101,11 +107,20 @@ GATE_AREAS: tuple[str, ...] = (
     'openspec/',
 )
 
-#: The gradle task that runs a test class of each module.
-TEST_TASKS: dict[str, str] = {
-    'shared': ':shared:jvmTest',
-    'desktopApp': ':desktopApp:test',
-    'mcp-server': ':mcp-server:test',
+#: The gradle task that runs the test classes of each SOURCE SET.
+#:
+#: The task belongs to the source set and not to the module: `shared` carries
+#: `commonTest`, `jvmTest` and `androidHostTest`, and each of them has its own
+#: task. A class of `androidHostTest` does not exist under `:shared:jvmTest` —
+#: the filter that names it selects nothing there, and Gradle fails a test task
+#: that ran no test. The class was named, the run was green, and the class
+#: never ran.
+SOURCE_SET_TASKS: dict[str, str] = {
+    'shared/src/commonTest': ':shared:jvmTest',
+    'shared/src/jvmTest': ':shared:jvmTest',
+    'shared/src/androidHostTest': ':shared:testAndroidHostTest',
+    'desktopApp/src/jvmTest': ':desktopApp:test',
+    'mcp-server/src/test': ':mcp-server:test',
 }
 
 #: The file that names the populations and the tags each one selects. The same
@@ -149,7 +164,7 @@ PACKAGE_DECLARATION = re.compile(r'^\s*package\s+([\w.]+)', re.MULTILINE)
 
 
 class TestClass:
-    """One test class: its name, its file, its module, its scope, its body.
+    """One test class: its name, its file, its module, its task, its scope, its body.
 
     The file's whole source is carried too, because the class-level `@Tag`
     sits ABOVE the declaration — a body that starts at the declaration cannot
@@ -161,6 +176,7 @@ class TestClass:
         qualified_name: str,
         path: pathlib.Path,
         module: str,
+        task: str,
         scope: str,
         body: str,
         source: str = '',
@@ -168,6 +184,7 @@ class TestClass:
         self.qualified_name = qualified_name
         self.path = path
         self.module = module
+        self.task = task
         self.scope = scope
         self.body = body
         self.source = source
@@ -335,7 +352,7 @@ def _class_blocks(text: str) -> list[tuple[str, str]]:
 
 
 def test_classes() -> list[TestClass]:
-    """Every test class of the repository, with its module and its scope."""
+    """Every test class of the repository, with its module, its task and its scope."""
     found: list[TestClass] = []
     for source_dir, module in TEST_SOURCE_DIRS.items():
         root = ROOT / source_dir
@@ -350,7 +367,17 @@ def test_classes() -> list[TestClass]:
                 if 'Test' not in name and not TEST_MEMBER.search(body):
                     continue
                 qualified = f'{package}.{name}' if package else name
-                found.append(TestClass(qualified, path, module, scope, body, text))
+                found.append(
+                    TestClass(
+                        qualified,
+                        path,
+                        module,
+                        SOURCE_SET_TASKS[source_dir],
+                        scope,
+                        body,
+                        text,
+                    )
+                )
     return found
 
 
@@ -459,26 +486,28 @@ def gradle_commands(
     population: str,
     gradle: str = GRADLE,
 ) -> list[list[str]]:
-    """The gradle commands that run the mapped classes — one per module.
+    """The gradle commands that run the mapped classes — one per task.
 
-    One command per module, because `--tests` is a filter of the whole
-    invocation: a filter that names a class of another module leaves that
-    module's task with nothing to run, and Gradle fails a test task that ran
-    no test.
+    One command per task, because `--tests` is a filter of the whole
+    invocation: a filter that names a class of another task leaves that
+    task's run with nothing to run, and Gradle fails a test task that ran no
+    test. The grouping is by TASK and not by module: one module carries
+    several source sets, and each of them has its own task — a class of
+    `androidHostTest` does not exist under `:shared:jvmTest`.
 
     The command names the POPULATION, not a tag list. A tag list is a second
     spelling of a thing the repository already declares in one place, and the
     two spellings drift: the map used to answer a different question than the
     one asked, selecting the fast and slow half together.
     """
-    by_module: dict[str, list[str]] = {}
+    by_task: dict[str, list[str]] = {}
     for test in tests:
-        by_module.setdefault(test.module, []).append(test.qualified_name)
+        by_task.setdefault(test.task, []).append(test.qualified_name)
 
     commands: list[list[str]] = []
-    for module in sorted(by_module):
-        command = [gradle, TEST_TASKS[module], f'-Ptest.population={population}']
-        for name in sorted(by_module[module]):
+    for task in sorted(by_task):
+        command = [gradle, task, f'-Ptest.population={population}']
+        for name in sorted(by_task[task]):
             command += ['--tests', name]
         commands.append(command)
     return commands

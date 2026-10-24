@@ -17,6 +17,10 @@ So the properties asserted here are about the narrow direction:
 * the command the map prints names a POPULATION, not a tag list, because a
   population is declared in one place and a tag list is a second spelling of
   it that drifts;
+* the command names the TASK that runs the class, and the task belongs to the
+  source set: a class of `androidHostTest` does not exist under
+  `:shared:jvmTest`, so naming the JVM task for it runs nothing and reports
+  green;
 * a class the chosen population does not select is dropped from the command and
   named in the report — a filter that names it runs nothing and reports green;
 * a base reference that does not resolve is an error, not an empty selection:
@@ -52,17 +56,23 @@ def test_class(
     body: str = '',
     module: str = 'shared',
     source: str = '',
+    task: str = ':shared:jvmTest',
 ) -> impact.TestClass:
     """A test class that lives in the tree — the map reads its scope and its body.
 
     `source` is the file's whole text. The class-level `@Tag` sits ABOVE the
     declaration, so a body that starts at the declaration cannot see it — and
     the population intersection asks exactly that question.
+
+    `task` is the Gradle task that runs the class. It is a parameter and not a
+    constant because the task belongs to the SOURCE SET: `shared` carries
+    `commonTest`, `jvmTest` and `androidHostTest`, and each has its own task.
     """
     return impact.TestClass(
         qualified_name=qualified_name,
         path=impact.ROOT / 'shared/src/commonTest/kotlin' / f'{qualified_name.replace(".", "/")}.kt',
         module=module,
+        task=task,
         scope=scope,
         body=body,
         source=source,
@@ -182,6 +192,91 @@ class MapTest(unittest.TestCase):
             self.assertTrue(any(reason.startswith(name) for reason in reasons))
 
 
+class SourceSetTaskTest(unittest.TestCase):
+    """The task that runs a class belongs to its SOURCE SET."""
+
+    def test_every_test_source_set_names_a_task(self):
+        """No source set is without a task.
+
+        A source set without a task is a source set whose classes are named in
+        a command that cannot run them.
+        """
+        for source_dir in impact.TEST_SOURCE_DIRS:
+            self.assertIn(source_dir, impact.SOURCE_SET_TASKS)
+
+    def test_the_android_host_source_set_has_its_own_task(self):
+        """The android host classes do not run under the JVM task.
+
+        `shared` carries three test source sets, and each of them has its own
+        task. A class of `androidHostTest` does not exist under
+        `:shared:jvmTest` — the filter that names it selects nothing there,
+        Gradle fails a test task that ran no test, and the class never ran.
+        """
+        self.assertEqual(
+            ':shared:testAndroidHostTest',
+            impact.SOURCE_SET_TASKS['shared/src/androidHostTest'],
+        )
+
+    def test_the_task_the_map_names_is_the_task_the_build_declares(self):
+        """The map and the build cannot disagree about the task's name.
+
+        A map that names a task the build does not have runs nothing: Gradle
+        fails an unknown task, and the failure says nothing about the change.
+        """
+        build = (impact.ROOT / 'shared/build.gradle.kts').read_text(encoding='utf-8')
+        task = impact.SOURCE_SET_TASKS['shared/src/androidHostTest']
+        self.assertIn(task.rsplit(':', 1)[-1], build)
+
+    def test_an_android_host_class_is_run_by_the_android_host_task(self):
+        """The command of an android host class names the task that runs it."""
+        host = test_class(
+            'com.singularity.todo.core.observability.AndroidRecordRetentionTest',
+            'core.observability',
+            task=':shared:testAndroidHostTest',
+        )
+        commands = impact.gradle_commands([host], 'fast')
+        self.assertEqual(1, len(commands))
+        self.assertIn(':shared:testAndroidHostTest', commands[0])
+        self.assertNotIn(':shared:jvmTest', commands[0])
+
+    def test_two_source_sets_of_one_module_get_two_commands(self):
+        """One command per task — a filter is a filter of the whole invocation.
+
+        A `--tests` filter that names a class of another task leaves that
+        task's run with nothing to run, and Gradle fails such a task.
+        """
+        tests = [
+            test_class('com.singularity.todo.feature.tasks.TaskTest', 'feature.tasks'),
+            test_class(
+                'com.singularity.todo.core.observability.AndroidRecordRetentionTest',
+                'core.observability',
+                task=':shared:testAndroidHostTest',
+            ),
+        ]
+        commands = impact.gradle_commands(tests, 'fast')
+        self.assertEqual(2, len(commands))
+        self.assertEqual(
+            [':shared:jvmTest', ':shared:testAndroidHostTest'],
+            sorted(command[1] for command in commands),
+        )
+
+    def test_the_android_host_classes_of_this_tree_carry_their_task(self):
+        """The map is exercised against the repository's own tree.
+
+        A promise about a tree nobody looked at is a promise about a tree that
+        does not exist.
+        """
+        host_root = impact.ROOT / 'shared/src/androidHostTest'
+        classes = [
+            test
+            for test in impact.test_classes()
+            if test.path.is_relative_to(host_root)
+        ]
+        self.assertTrue(classes, 'the repository has no android host test class')
+        for test in classes:
+            self.assertEqual(':shared:testAndroidHostTest', test.task)
+
+
 class CommandTest(unittest.TestCase):
     """The commands the map prints."""
 
@@ -280,21 +375,24 @@ class CommandTest(unittest.TestCase):
     def test_no_tests_means_no_command(self):
         self.assertEqual([], impact.gradle_commands([], 'fast'))
 
-    def test_each_module_gets_its_own_command(self):
+    def test_each_task_gets_its_own_command(self):
         tests = [
             test_class('com.singularity.todo.feature.tasks.TaskTest', 'feature.tasks'),
-            test_class('com.singularity.todo.flows.DesktopTest', 'flows', module='desktopApp'),
+            test_class(
+                'com.singularity.todo.flows.DesktopTest',
+                'flows',
+                module='desktopApp',
+                task=':desktopApp:test',
+            ),
         ]
         commands = impact.gradle_commands(tests, 'fast')
         self.assertEqual(2, len(commands))
-        # A `--tests` filter that names a class of another module leaves that
-        # module's task with nothing to run, and Gradle fails such a task.
-        self.assertTrue(all(
-            all(name in command for name in (
-                test.qualified_name for test in tests if test.module == command[-1]
-            ))
-            for command in commands
-        ))
+        # A `--tests` filter that names a class of another task leaves that
+        # task's run with nothing to run, and Gradle fails such a task.
+        for test in tests:
+            carrying = [command for command in commands if command[1] == test.task]
+            self.assertEqual(1, len(carrying))
+            self.assertIn(test.qualified_name, carrying[0])
 
 
 if __name__ == '__main__':
