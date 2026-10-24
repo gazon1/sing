@@ -53,8 +53,11 @@ bytes as they pass: one reader, one copy.
 the session it answered: its available commands come on a timer. A transcript read the
 moment the connect returned would miss that frame — and it is one of the frames this
 probe is for. So the probe reads the bridge's stream for thirty seconds after the
-connect, and the promise is the simple one: every frame the bridge wrote in the window
-is in the transcript, and a frame that comes later is a frame the records do not claim.
+connect, and the promise is the simple one: every frame the bridge wrote in the window,
+and that reached the client, is in the transcript — and a frame that comes later is a
+frame the records do not claim. A short drain follows the window, because a frame the
+bridge wrote in its last milliseconds may not have been read yet, and the copy happens
+when the protocol's reader takes the bytes.
 
 The window is a length of time and not a heuristic. An earlier version waited for the
 bridge to go quiet, and a quiet period ends the read as soon as the bridge stops
@@ -98,9 +101,10 @@ business. The shape is what the client has to read.
 
 The available-commands notification is sent by the fake *during* the turn, where the
 bridge sends it after the session is open. The moment is the fake's own, and it
-is chosen: a notification sent before the turn is dropped by the protocol library
-before the client's adapter ever sees it, and a test over it would say nothing about
-the window in which a session update could become something the reader sees.
+is chosen: a notification sent before the turn is handed to this application's own
+notification handler, which deliberately does nothing, and never reaches the client's
+adapter — so a test over it would say nothing about the window in which a session
+update could become something the reader sees.
 
 **The client's reading of a notification is specified.** A notification that answers no
 request the application made is read and produces nothing: the conversation continues,

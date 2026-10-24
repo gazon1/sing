@@ -13,8 +13,10 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 
 /** The method of a JSON-RPC frame, with its quotes. */
 private val METHOD = Regex("\"method\"\\s*:\\s*\"([^\"]+)\"")
@@ -23,12 +25,29 @@ private val METHOD = Regex("\"method\"\\s*:\\s*\"([^\"]+)\"")
 private val BRIDGE_TIMEOUT: Duration = 3.minutes
 
 /**
+ * The methods the bridge used, and how often each came.
+ *
+ * A notification the client has never seen is the thing this probe is for, and a
+ * method is the first thing a reader wants to know about a frame. The counts come out
+ * of the frames the report prints, so that the report cannot disagree with itself.
+ */
+private fun methodsOf(frames: List<String>): List<Pair<String, Int>> {
+    val counts = LinkedHashMap<String, Int>()
+    for (frame in frames) {
+        val method = METHOD.find(frame)?.groupValues?.get(1) ?: continue
+        counts[method] = (counts[method] ?: 0) + 1
+    }
+    return counts.toList()
+}
+
+/**
  * How long the probe reads the bridge's stream after the connect.
  *
  * The bridge keeps talking after the session it answered, and what it says then is
  * what the probe is for. A window, and not a moment, is what makes the promise
- * checkable: **every frame the bridge wrote in the window is in the transcript**, and
- * a frame that comes later is a frame the records do not claim.
+ * checkable: **every frame the bridge wrote in the window, and that reached the
+ * client, is in the transcript**, and a frame that comes later is a frame the records
+ * do not claim.
  *
  * The window is a plain length of time and not a heuristic. A quiet period would
  * end the read as soon as the bridge stopped talking — and a bridge that announces
@@ -37,6 +56,15 @@ private val BRIDGE_TIMEOUT: Duration = 3.minutes
  * it does not, and the reader can tell which by looking at the clock.
  */
 private val TRANSCRIPT_WINDOW: Duration = 30.seconds
+
+/** How long the stream may be quiet before the drain is over. */
+private val DRAIN_QUIET: Duration = 300.milliseconds
+
+/** How long the drain waits at most, whatever the bridge does. */
+private val DRAIN_LIMIT: Duration = 3.seconds
+
+/** How often the drain looks at the transcript. */
+private val DRAIN_POLL: Duration = 50.milliseconds
 
 /**
  * The application's client, against a real agent bridge.
@@ -153,9 +181,19 @@ object AcpBridgeProbe {
                 // run that was during the handshake, before the session answer — so it
                 // was in the transcript already when the connect returned.
                 delay(TRANSCRIPT_WINDOW)
+                // The window closes at a moment, and a frame the bridge wrote in its
+                // last milliseconds may not have been read yet. The drain waits for
+                // the bytes to stop moving, so that the frames which reached the
+                // client are all in the transcript and not some of them.
+                transcript.drain()
+                // One snapshot of the buffer, and the counts come out of it: two
+                // snapshots of a buffer that is still moving can disagree with each
+                // other, and a report that disagrees with itself is worse than no
+                // report.
+                val frames = transcript.frames()
                 verdict.copy(
-                    methods = transcript.methods(),
-                    transcript = transcript.frames(),
+                    methods = methodsOf(frames),
+                    transcript = frames,
                 )
             } finally {
                 client.close()
@@ -180,6 +218,7 @@ object AcpBridgeProbe {
      */
     private class Transcript {
         private val buffer = ByteArrayOutputStream()
+        private var copied = 0
 
         fun tee(source: InputStream): InputStream = object : FilterInputStream(source) {
             override fun read(bytes: ByteArray, offset: Int, length: Int): Int {
@@ -200,6 +239,7 @@ object AcpBridgeProbe {
             private fun copy(bytes: ByteArray, offset: Int, length: Int) {
                 synchronized(buffer) {
                     buffer.write(bytes, offset, length)
+                    copied++
                 }
             }
         }
@@ -209,19 +249,34 @@ object AcpBridgeProbe {
         }
 
         /**
-         * The methods the bridge used, and how often each came.
+         * Waits for the bytes to stop moving.
          *
-         * A notification the client has never seen is the thing this probe is for,
-         * and a method is the first thing a reader wants to know about a frame.
+         * The window closes at a moment, and a frame the bridge wrote in its last
+         * milliseconds may not have been read yet — the protocol's reader and the copy
+         * under it are two steps, and the copy happens when the reader takes the
+         * bytes. A short drain waits for the stream to go quiet, so that the frames
+         * which reached the client are all in the transcript.
+         *
+         * The drain is bounded, because a bridge that never stops talking would
+         * otherwise keep the probe waiting for ever.
          */
-        fun methods(): List<Pair<String, Int>> {
-            val counts = LinkedHashMap<String, Int>()
-            for (frame in frames()) {
-                val method = METHOD.find(frame)?.groupValues?.get(1) ?: continue
-                counts[method] = (counts[method] ?: 0) + 1
+        suspend fun drain() {
+            val started = TimeSource.Monotonic.markNow()
+            var seen = copied()
+            var quietSince = TimeSource.Monotonic.markNow()
+            while (started.elapsedNow() < DRAIN_LIMIT) {
+                delay(DRAIN_POLL)
+                val now = copied()
+                if (now != seen) {
+                    seen = now
+                    quietSince = TimeSource.Monotonic.markNow()
+                } else if (quietSince.elapsedNow() >= DRAIN_QUIET) {
+                    return
+                }
             }
-            return counts.toList()
         }
+
+        private fun copied(): Int = synchronized(buffer) { copied }
     }
 }
 

@@ -10,7 +10,9 @@
 
 The client **SHALL** be drivable against a real agent bridge by a script that a person
 runs, and the script's exit code **SHALL** be the verdict: zero when the handshake
-completed, one when it did not.
+completed, one when it did not. A build that failed before the probe ran is not a
+verdict about the bridge: the script **SHALL** say that the probe did not run and exit
+with the build's own code.
 
 **Rationale:** the suite drives a fake agent that this repository wrote, so it proves
 the client and the fake agree with each other. The protocol is written by somebody
@@ -27,6 +29,11 @@ network and a real bridge — none of which a test may depend on.
 - The script starts the bridge and drives the client against it
 - The handshake does not complete
 - The script exits one, and prints why
+
+#### Scenario: The build fails before the probe runs
+- The script starts the build that runs the probe
+- The build fails, and no probe ran
+- The script says the probe did not run, and exits with the build's own code
 
 ---
 
