@@ -2,7 +2,7 @@
 change: the-proposal-reads-strictly
 verdict: pass
 date: 2026-10-24
-pr: pending
+pr: 1046
 reviewed: 9f89a1b92e325418ebede2aaecb8644a1bddd831
 documents: sha256:f7571cb7605e9e3d275323e88c26ddc763c1cb22499008e05d98f77bd2a6c7fa
 ---
