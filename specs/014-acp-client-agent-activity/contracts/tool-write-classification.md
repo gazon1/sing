@@ -38,9 +38,15 @@ data class ToolEntry(
 
 | Behaviour | Count | Tools | Why |
 |---|---|---|---|
-| `PROPOSAL_WRITE` | 13 | create/update/delete task, create/update/delete note, create/update/delete project, delete tag, task decomposition, task-proposal writing | These change what the user owns, so the user confirms them. |
-| `DIRECT_WRITE_EXCEPTION` | 3 | create tag · write decision record · update decision record | A tag is not user content — a proposal for one is noise. Decision records write decision files under the project's decisions directory, not user data. |
-| `READ_ONLY` | 27 | the remaining reads and analyses | Nothing changes. |
+| `PROPOSAL_WRITE` | 13 | create/update/delete task, create/update/delete note, create/update/delete project, create/delete tag, task decomposition, task-proposal writing | These change what the user owns, so the user confirms them. |
+| `DIRECT_WRITE_EXCEPTION` | 2 | write decision record · update decision record | Decision records write decision files under the project's decisions directory, not user data. |
+| `READ_ONLY` | 28 | the remaining reads and analyses | Nothing changes. |
+
+`create_tag` used to be the third exception — "a tag is not user content — a proposal for
+one is noise". That was the stale half of a drift: the tool had been proposing for a
+while, and the declaration had not caught up. A tag is user content after all, so it is
+classified as a proposal-gated tool like every other change to what the user owns. See
+`docs/decisions/2026-10-23-the-agent-surface-says-what-it-does.md`.
 
 Both exception reasons are recorded in the registry and in the ADR, so the exception list is auditable without reading tool code (FR-050).
 
@@ -61,7 +67,7 @@ This classification is about **our** writes, and only about our writes:
 |---|---|---|
 | External agent permission requests | the agent's own tools (bash, file writes) | the confirmation sheet in the app |
 | Proposal pipeline | our writes to the user's data | the existing proposal confirmation |
-| Direct-write exception | three named tools | the registry reason, verified by test |
+| Direct-write exception | two named tools | the registry reason, verified by test |
 
 An agent's permission request never gates our writes — those go to the agent over the tool server and come back as proposals. And our permission sheet never gates the agent's own tools. The two are separate mechanisms and must not be presented to the user as one.
 
@@ -71,5 +77,5 @@ An agent's permission request never gates our writes — those go to the agent o
 |---|---|
 | Classify in the test rather than the registry | A test can check consistency, but a tool author has nothing to fill in; the registry is where the choice is made. |
 | Default `writeBehavior` to `READ_ONLY` | Turns "forgot to classify" into "silently allowed to write". |
-| Route the two exceptions through proposals too | A proposal for a tag rename is noise the user learns to dismiss; a proposal for writing a decision record interrupts a flow that never touched user data. Both would train the user to approve reflexively, which is worse than the exception. |
+| Route the two exceptions through proposals too | A proposal for writing a decision record interrupts a flow that never touched user data; both would train the user to approve reflexively, which is worse than the exception. A tag used to be the third exception, on the grounds that "a proposal for one is noise the user learns to dismiss" — and that reasoning was wrong: a tag is user content, and the tool proposes like every other change to what the user owns. |
 | Derive the behaviour from the existing annotations | The existing hints describe the MCP-visible shape; the question here is "what happens to the user's data", which is a different statement. |

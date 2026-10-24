@@ -6,6 +6,18 @@ status-was: open
 tags: [ai, acp, mcp, process, safety, contracts]
 ---
 
+> **Superseded in part (2026-10-23):** "the direct-write exceptions are three named
+> tools" is now two. `create_tag` had been declared a direct writer while the tool had
+> been proposing for a while — the declaration was the stale half of a real drift — and
+> it is now classified as a proposal-gated tool, like every other tool that changes what
+> the user owns. A tag is user content after all: it is a thing the user has, and a
+> proposal for one is what every other change to the user's data goes through.
+> The exceptions are `write_adr` and `update_adr`, which write a decision file under the
+> project's decisions directory, not user data.
+> See [2026-10-23-the-agent-surface-says-what-it-does.md](2026-10-23-the-agent-surface-says-what-it-does.md).
+> The rest of this decision — the client role, the trust contours, the proposal pipeline
+> as the gate — still holds.
+
 # External agent in the app: the client role, and the tool access it is given
 
 ## Context

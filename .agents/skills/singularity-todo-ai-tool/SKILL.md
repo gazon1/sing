@@ -267,7 +267,7 @@ After adding all write tools, the complete tool list will be:
 | `CreateNoteTool` | title, bodyMarkdown, color?, folder? | Converts markdown→html via MarkdownHtmlPort |
 | `ArchiveNoteTool` | noteId | archive, destructiveHint=true |
 | `PinNoteTool` | noteId, pinned: Boolean | setPinned |
-| `CreateTagTool` | name, color? | Creates via TagsRepository |
+| `CreateTagTool` | name, color? | Proposes a tag through the proposal pipeline |
 | `AssignTagTool` | taskId, tagId | setTags |
 | `DecomposeAndCreateTool` | taskId | DecomposeTaskUseCase + ChecklistRepository.createBatch |
 | `CompleteChecklistItemTool` | itemId, completed: Boolean | upsert checklist item |

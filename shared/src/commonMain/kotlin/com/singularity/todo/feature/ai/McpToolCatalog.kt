@@ -326,11 +326,13 @@ object McpToolCatalog {
         // ── Tags ─────────────────────────────────────────────────────────────
         ToolEntry(
             name = "create_tag",
-            writeBehavior = WriteBehavior.DIRECT_WRITE_EXCEPTION,
-            exceptionReason = "A tag is not user content — a proposal for one is noise the user learns to dismiss.",
+            writeBehavior = WriteBehavior.PROPOSAL_WRITE,
             toolClass = CreateTagTool::class,
             domain = "tags",
-            annotations = ToolAnnotations(idempotentHint = true),
+            // The tool proposes: two calls with the same name are two proposals,
+            // each naming the tag it would create, and nothing enforces that a tag
+            // name is unique. It is not idempotent any more.
+            annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "delete_tag",
@@ -501,7 +503,40 @@ object McpToolCatalog {
             domain = "ai",
             annotations = ToolAnnotations(),
         ),
-    )
+    ).also { checkClassification(it) }
+
+    /**
+     * The classification has to be well-formed before anything reads it.
+     *
+     * The rule is the one this object's own documentation states: a direct write
+     * carries the reason it sits outside the proposal pipeline, and nothing else
+     * carries a reason. It was written down and not checked, and the first thing
+     * the absence bought was a tool that had been converted to the proposal path
+     * while the catalogue still called it a direct writer — the declaration was
+     * the stale half, and nothing noticed.
+     *
+     * The check is here rather than in a test because the catalogue is what every
+     * other thing reads: a malformed entry is a promise that cannot be read, and
+     * it should fail at the moment the catalogue is loaded rather than in a
+     * report somebody has to remember to open.
+     */
+    private fun checkClassification(entries: List<ToolEntry>) {
+        for (entry in entries) {
+            val reason = entry.exceptionReason
+            if (entry.writeBehavior == WriteBehavior.DIRECT_WRITE_EXCEPTION) {
+                check(!reason.isNullOrBlank()) {
+                    "${entry.name} writes directly and says nothing about why it sits outside the " +
+                        "proposal pipeline. An exception without a reason is not an exception, it is " +
+                        "a hole."
+                }
+            } else {
+                check(reason.isNullOrBlank()) {
+                    "${entry.name} is ${entry.writeBehavior} and still carries an exception reason. " +
+                        "A reason that does not apply is a reason nobody will read."
+                }
+            }
+        }
+    }
 
     /**
      * All tool names registered in this catalog.

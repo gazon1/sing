@@ -69,6 +69,14 @@ Thumbs.db
 **/build/
 **/out/
 
+# The OpenSpec spec tree is a source tree, not a build output. A capability
+# under an area named `build` is a document the repository keeps, and the rule
+# above drops it silently: the file is on disk, `git status` says the tree is
+# clean, and the change it belongs to ships without a spec delta. The exception
+# is narrow — only the spec directories, not the build directories themselves.
+!openspec/changes/**/specs/build/
+!openspec/changes/**/specs/build/**
+
 # Desktop packaging
 *.deb
 *.rpm

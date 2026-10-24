@@ -173,11 +173,17 @@ Added to every agent-facing tool entry — 43 of them.
 
 | Behaviour | Count | Tools |
 |---|---|---|
-| `PROPOSAL_WRITE` | 13 | task/note/project create-update-delete, tag delete, task decomposition, task-proposal writing |
-| `DIRECT_WRITE_EXCEPTION` | 3 | tag creation (a tag is not user content — a proposal would be noise), decision-record write and update (they write decision files, not user data) |
-| `READ_ONLY` | 27 | the remaining reads and analyses |
+| `PROPOSAL_WRITE` | 13 | task/note/project create-update-delete, tag create-delete, task decomposition, task-proposal writing |
+| `DIRECT_WRITE_EXCEPTION` | 2 | decision-record write and update (they write decision files, not user data) |
+| `READ_ONLY` | 28 | the remaining reads and analyses |
 
-**Invariant**: no third path exists. A write either goes through the proposal pipeline or is one of the three named exceptions with a stated reason (FR-049).
+`create_tag` was the third exception — tag creation, on the grounds that "a tag is not
+user content — a proposal would be noise". The tool had been proposing for a while, and
+the declaration had not caught up; it is now a proposal-gated tool like every other
+change to what the user owns. See
+`docs/decisions/2026-10-23-the-agent-surface-says-what-it-does.md`.
+
+**Invariant**: no third path exists. A write either goes through the proposal pipeline or is one of the two named exceptions with a stated reason (FR-049).
 
 ---
 

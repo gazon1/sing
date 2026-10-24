@@ -105,62 +105,52 @@ package com.singularity.todo.mcp
 fun main(args: Array<String>): Unit = runToolServer(args)
 ```
 
-`runToolServer(args)` is the whole of the server's startup, in
-`shared/src/jvmMain/kotlin/com/singularity/todo/mcp/ToolServerMain.kt`:
+`runToolServer(args)` is the entry point, and it does five things: it points the log at
+standard error, it takes the protocol channel, it reads the arguments, it starts the
+server, and it serves. The start-up itself lives in
+`shared/src/jvmMain/kotlin/com/singularity/todo/mcp/ToolServerStartup.kt`, and it returns
+what it decided — a server to serve, or a refusal with the code and the message the
+client should see:
 
 ```kotlin
 fun runToolServer(args: Array<String>): Unit = runBlocking {
+    installStderrLogging()
+    val protocolOut = ProtocolStdout.reserve()
     val selection = parseProfileSelection(args)
 
-    // Both arguments at once is a request that says two different things, and neither of
-    // them can be obeyed. Failing here is the honest answer; picking one would silently
-    // serve a profile the caller did not ask for.
-    if (selection is ProfileSelection.Ambiguous) {
-        log.e { "Both --profile and --profile-id were given; refusing to guess which profile to use." }
-        writeJsonRpcError(
-            code = -32002,
-            message = "Conflicting profile arguments: pass either --profile or --profile-id, not both.",
-        )
-        exitProcess(EXIT_USAGE)
-    }
-
-    val fixedProfileId: String? = (selection as? ProfileSelection.FixedId)?.id
-    val legacyLabel: String? = (selection as? ProfileSelection.LegacyLabel)?.name
-
-    if (legacyLabel != null) {
-        log.w {
-            "--profile is deprecated and will be removed; use --profile-id with a profile id. " +
-                "The label still works, and still means what it always meant."
+    when (val startup = startToolServer(selection)) {
+        is ToolServerStartup.Refused -> {
+            writeJsonRpcError(protocolOut, code = startup.code, message = startup.message)
+            exitProcess(startup.exitCode)
         }
-    }
 
-    if (!bootstrapKoin(fixedProfileId)) exitProcess(EXIT_STARTUP)
-    val dependencies = ServerDependencies.fromKoin()
-    if (!verifyDatabase(dependencies)) exitProcess(EXIT_STARTUP)
-    // A profile that does not exist is not a profile the server may serve: the tools
-    // would write under an id nobody owns, and the user would find their tasks
-    // missing rather than told. Never a fallback.
-    if (fixedProfileId != null && !profileExists(dependencies, fixedProfileId)) {
-        log.e { "No profile with id $fixedProfileId" }
-        writeJsonRpcError(code = -32002, message = "No profile with that id exists.")
-        exitProcess(EXIT_USAGE)
+        is ToolServerStartup.Ready -> serve(startup.server, startup.sessionContext, protocolOut)
     }
-    bootstrapProfiles(dependencies, legacyLabel)
-
-    // … build the server, install the shutdown hook, serve over stdio …
-    val session = server.createSession(transport)
-    val done = Job()
-    session.onClose { done.complete() }
-    done.join()
 }
 ```
+
+The refusal is a **value**, not an `exitProcess` call buried in the middle of a sequence.
+That is the point of the split: "what does the server do when it cannot start?" used to
+be answerable only by reading the whole entry point, and now it is a type with two cases.
+
+The start-up it replaced ran twelve steps in one function — reserve the protocol, parse
+the arguments, refuse an ambiguous request, warn about a deprecated argument, build the
+graph, resolve the dependencies, verify the database, refuse a profile that does not
+exist, bootstrap the profiles, read the configuration, build the server, serve. The
+order, the log lines, the JSON-RPC codes and the exit codes are all exactly what they
+were; only the shape changed. A refusal is now a value the start-up returns and the
+entry point writes, rather than an `exitProcess` call buried in a sequence — and the
+client sees the same error frame either way, because the old code wrote that frame
+before it exited.
 
 **Critical details:**
 - **`session.onClose + Job.join()` is mandatory.** The SDK does not block on its own — this is the canonical pattern from the upstream `samples/weather-stdio-server/.../McpWeatherServer.kt:55-62`. See ADR `2026-09-07-mcp-stdio-blocking-lifecycle` for the full rationale and regression test.
 - `installShutdownHook(server)` — backstop for SIGTERM; normal EOF exits flow through `session.onClose → done.complete() → done.join() returns → JVM exits cleanly`.
 - `runBlocking` at top level is **acceptable** here — this is a CLI main, not a hot path. Same reasoning as `koinBridge` (see ADR `2026-09-05-koin-suspend-bridge`).
 - `System.in` / `System.out` — stdio transport. **Never** `println` for logs (corrupts the JSON-RPC stream). Use `System.err` or kermit Logger. The server logs through kermit for the same reason: stdout is reserved for JSON-RPC frames.
-- **The reservation is enforced, not merely advised.** `ProtocolStdout.reserve()` takes standard output for the protocol and points `System.out` at standard error before anything else runs, so a stray `println` — the application's own log line, or a third-party library's start-up banner — lands on standard error instead of the protocol channel. The MCP specification says a stdio server *must not* write anything to standard output that is not a valid MCP message, and a client that takes that literally stops at the first line it cannot parse. See `shared/src/jvmMain/kotlin/com/singularity/todo/mcp/ProtocolStdout.kt`.
+- **The reservation is enforced, not merely advised.** `ProtocolStdout.reserve()` takes standard output for the protocol and points `System.out` at standard error before the first frame is written, so a stray `println` — the application's own log line, or a third-party library's start-up banner — lands on standard error instead of the protocol channel. The MCP specification says a stdio server *must not* write anything to standard output that is not a valid MCP message, and a client that takes that literally stops at the first line it cannot parse. See `shared/src/jvmMain/kotlin/com/singularity/todo/mcp/ProtocolStdout.kt`.
+- **The protocol's output is a value, not a side effect.** `ProtocolStdout` owns the stream and is passed to everything that writes the protocol — the transport and the early JSON-RPC error responses. A writer that holds it cannot write anywhere else; a writer that does not hold it cannot reach the protocol. The type *is* the contract; the redirect is only the defence against a third-party library that prints to standard output without asking.
+- **The logger is pointed at standard error by its own configuration.** The server installs `StderrLogWriter` before it reserves the channel, so the application's own log lines do not depend on the redirect. A defence that the thing you control leans on is not a defence — see `shared/src/jvmMain/kotlin/com/singularity/todo/core/log/StderrLogWriter.kt`.
 
 ## The profile argument
 
@@ -612,7 +602,7 @@ package com.singularity.todo.mcp
 data class ToolAnnotations(
     val readOnlyHint: Boolean = false,      // get_task, list_tasks, search_tasks
     val destructiveHint: Boolean = false,    // delete_task (a proposal, not a delete)
-    val idempotentHint: Boolean = false,    // create_tag (same input = same tag)
+    val idempotentHint: Boolean = false,    // no tool carries it: every call proposes something new
     val openWorldHint: Boolean = false,     // write_adr (creates a file)
 )
 ```
@@ -660,6 +650,25 @@ parsed with what the compiler saw. The three facts line up: the code declares th
 surface, the export is that surface written down, the gate's parser is that surface read
 back out of the sources. A parser that misreads a class breaks the last link, and the
 gate says so.
+
+### The export carries how each tool writes
+
+The export also carries each tool's **write behaviour** — `READ_ONLY`,
+`PROPOSAL_WRITE`, or `DIRECT_WRITE_EXCEPTION` — and, for a direct writer, the reason it
+sits outside the proposal pipeline.
+
+That makes the classification readable from outside the compiler: a document, an agent,
+or a check can open one file and see how every tool writes, without reading the
+catalogue's source. The catalogue is where the declaration is *made*; the export is
+where it is *published*.
+
+The export's own version is bumped when the shape changes. The surface *contract*
+version is not: the contract is what an agent reads over the wire, and a new field in
+the export is not a change to it.
+
+The catalogue refuses to load when the declaration is malformed — a direct writer
+without a reason, or a reason on a tool that is not a direct writer. The check is in the
+catalogue rather than in a test, because the catalogue is what everything else reads.
 
 ## Pagination
 

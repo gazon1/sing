@@ -1,10 +1,12 @@
 package com.singularity.todo.mcp
 
+import io.ktor.utils.io.ByteWriteChannel
+import io.ktor.utils.io.streams.asByteWriteChannel
 import java.io.OutputStream
 import java.io.PrintStream
 
 /**
- * The protocol channel, and everything that is not the protocol.
+ * The protocol's standard output — the one stream a protocol message may be written to.
  *
  * ## Why the process's standard output is reserved
  *
@@ -22,48 +24,80 @@ import java.io.PrintStream
  * is left without the tool access the application promised it, and nothing on the
  * screen says why.
  *
- * ## What is reserved, and what is not
+ * ## The contract, made explicit
  *
- * [reserve] hands back the real standard output and points `System.out` at standard
- * error. From that moment on, everything anybody prints in this process — this
- * application's logger, a library's start-up banner, a stray `println` — lands on
- * standard error, where the protocol does not live and where a client does not
- * look. The caller keeps the returned stream and writes the protocol to it.
+ * "Standard output is the protocol channel" used to be a fact about a global:
+ * [reserve] moved `System.out` aside, and every caller that wanted to write the
+ * protocol had to know that a stream had been kept somewhere.
+ *
+ * Now it is a value. This type owns the protocol's stream, and it is passed to
+ * everything that writes the protocol. A writer that holds it cannot write
+ * anywhere else, and a writer that does not hold it cannot reach the protocol.
+ * The type is the contract; the stream it holds is what the contract is about.
+ *
+ * ## What it does about the rest of the process
+ *
+ * Taking the channel also points `System.out` at standard error, so a print that
+ * nobody asked for — a library's banner, a `println` left in a dependency — cannot
+ * reach a client that parses standard output strictly.
+ *
+ * That redirect is a **defence**, not the contract. The application's own log is
+ * pointed at standard error by its own configuration
+ * (`StderrLogWriter`, installed by the server's start-up), so the one thing this
+ * repository controls does not depend on a global side effect. A defence that
+ * everything leans on is not a defence.
  *
  * The redirection is deliberately a *separate* stream rather than
  * `System.setOut(System.err)`: sharing the object would mean that closing one
  * closes the other, and the transport closes the output it was handed.
  */
-internal object ProtocolStdout {
+internal class ProtocolStdout private constructor(private val stream: PrintStream) {
 
     /**
-     * Takes standard output for the protocol and moves everything else to standard error.
+     * The protocol's stream.
      *
-     * @return the process's real standard output — the only stream the protocol may be
-     *   written to.
+     * For the transport and for the early error responses — the two places that
+     * write a protocol message before or outside the protocol loop.
      */
-    fun reserve(): PrintStream {
-        val protocol = System.out
-        System.setOut(stderrStream())
-        return protocol
+    fun asPrintStream(): PrintStream = stream
+
+    /**
+     * The protocol's stream as a write channel, which is what the MCP transport
+     * writes its frames to.
+     */
+    fun asByteWriteChannel(): ByteWriteChannel = stream.asByteWriteChannel()
+
+    companion object {
+
+        /**
+         * Takes standard output for the protocol and moves everything else to standard error.
+         *
+         * @return the protocol's channel — the only stream a protocol message may be
+         *   written to.
+         */
+        fun reserve(): ProtocolStdout {
+            val protocol = System.out
+            System.setOut(stderrStream())
+            return ProtocolStdout(protocol)
+        }
+
+        /** A distinct stream that forwards to standard error. */
+        private fun stderrStream(): PrintStream =
+            PrintStream(
+                object : OutputStream() {
+                    override fun write(b: Int) {
+                        System.err.write(b)
+                    }
+
+                    override fun write(b: ByteArray, off: Int, len: Int) {
+                        System.err.write(b, off, len)
+                    }
+
+                    override fun flush() {
+                        System.err.flush()
+                    }
+                },
+                true,
+            )
     }
-
-    /** A distinct stream that forwards to standard error. */
-    private fun stderrStream(): PrintStream =
-        PrintStream(
-            object : OutputStream() {
-                override fun write(b: Int) {
-                    System.err.write(b)
-                }
-
-                override fun write(b: ByteArray, off: Int, len: Int) {
-                    System.err.write(b, off, len)
-                }
-
-                override fun flush() {
-                    System.err.flush()
-                }
-            },
-            true,
-        )
 }

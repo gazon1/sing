@@ -36,16 +36,27 @@ import kotlin.test.fail
  *   2. `initialize` roundtrip — serverInfo name matches.
  *   3. `tools/list` returns at least one registered tool.
  */
+// Every test here drives a real server process over a pipe, and the calls that do
+// the driving are blocking by nature: the answer comes when the server answers. The
+// alternative — a scope that is launched and never awaited — would assert nothing.
+//
+// The note is above the annotations rather than between them: the tag-coverage gate
+// reads the *contiguous* annotation block above the class header, so a comment in
+// the middle of the block hides the tag from it — and an untagged class is one that
+// no CI population ever selects.
 @Tag("slow")
 @Tag("slow:data")
+@Suppress("NoRunBlocking") // the test drives a real process over a pipe; the calls block by nature
 class McpServerEndToEndTest {
 
     // Absolute path: workingDir for this test suite is build/allure-results (set in
     // mcp-server/build.gradle.kts), so a relative path would resolve to
     // build/allure-results/build/libs/mcp-server.jar which does not exist.
     // The absolute path is passed as a system property from the Gradle build file.
-    private val jar = File(System.getProperty("mcp-server.jar.path")
-        ?: error("mcp-server.jar.path system property not set — run :mcp-server:jar first"))
+    private val jar = File(
+        System.getProperty("mcp-server.jar.path")
+            ?: error("mcp-server.jar.path system property not set — run :mcp-server:jar first"),
+    )
 
     /**
      * Spawns the fat JAR against an ISOLATED `-Duser.home` temp directory.

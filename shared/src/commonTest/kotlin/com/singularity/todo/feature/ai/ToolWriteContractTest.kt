@@ -56,7 +56,7 @@ import kotlin.test.assertTrue
  * So this test drives the whole round trip and asserts on the state of the
  * user's data after each step — not on the tool's own report of what it did.
  *
- * ## The two representatives
+ * ## The creation and the deletion
  *
  * - [CreateTaskTool] — a creation: the thing does not exist until the user says yes.
  * - [DeleteTaskTool] — a destructive change: the thing must still be there when
@@ -183,7 +183,8 @@ class ToolWriteContractTest {
             DeleteTaskTool(proposals, currentUser, clock).execute(DeleteTaskInput(taskId = task.id.value)),
         )
         assertTrue(output.proposalCreated, "the tool reported a proposal: ${output.error}")
-        assertNotNull(tasks.tasks.value[task.id.value], "the task is still there")
+        val stillThere = assertNotNull(tasks.tasks.value[task.id.value], "the task is still there")
+        assertFalse(stillThere.isTrashed, "the task is not archived")
 
         val result = apply.reject(singleItemId(output.proposalId), user, reason = "keep it")
         assertTrue(result.isSuccess, "the refusal succeeded: ${result.exceptionOrNull()?.message}")
@@ -191,6 +192,45 @@ class ToolWriteContractTest {
         val survivor = tasks.tasks.value[task.id.value]
         assertNotNull(survivor, "the task survived the refusal")
         assertFalse(survivor.isTrashed, "the task was not archived")
+        assertEquals(
+            ProposalItemStatus.Rejected,
+            proposals.getItem(singleItemId(output.proposalId))?.status,
+            "the change was refused, not left pending",
+        )
+    }
+
+    /**
+     * The other half of the deletion's round trip.
+     *
+     * The refusal half says the task stays; this half says it goes — and it is
+     * the half that can be wrong on its own. The tool proposes a change to a
+     * *kind* of thing; if the proposal carried the wrong kind, or the wrong
+     * target, then confirming it would do nothing at all, and every test that
+     * only looks at the refusal would stay green. A deletion that does not
+     * happen is a task the user asked to lose and still has.
+     */
+    @Test
+    fun `confirming a deletion proposal archives the task`() = runTest {
+        val task = Task(
+            id = TaskId.generate(),
+            title = "Buy groceries",
+            description = null,
+            priority = TaskPriority.None,
+            kind = TaskKind.Task,
+            createdAt = clock.now(),
+            updatedAt = clock.now(),
+            userId = user,
+        )
+        tasks.seed(task)
+
+        val output = decodeDelete(
+            DeleteTaskTool(proposals, currentUser, clock).execute(DeleteTaskInput(taskId = task.id.value)),
+        )
+        val result = apply.confirm(singleItemId(output.proposalId), user)
+        assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
+
+        val archived = assertNotNull(tasks.tasks.value[task.id.value], "the task row is still readable")
+        assertTrue(archived.isTrashed, "the confirmed deletion archived the task")
     }
 
     // ── Fixtures ────────────────────────────────────────────────────────────────

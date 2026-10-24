@@ -89,8 +89,23 @@ dependencies {
     // Allure test reporting — generates JSON results for CI integration
     testImplementation(libs.allure.kotlin.junit5)
 
-    // detektPlugins(libs.detekt.formatting) — removed: mcp-server uses detekt-minimal.yml
-    // which does not include ktlint config. Formatting is handled by shared + desktopApp.
+}
+
+// ---------------------------------------------------------------------------
+// detekt — the same configuration as every other module
+// ---------------------------------------------------------------------------
+//
+// This module was on `detekt-minimal.yml` because it used to be a launcher that
+// held no logic of its own. It does not any more — it is a thin launcher over the
+// server in `:shared`, with one end-to-end test beside it — and a module on a
+// reduced configuration is a module whose rules are a choice nobody made: the
+// project's own rules, the ones written for this repository, did not reach it.
+//
+// So it is on the root configuration and on `:detekt-rules`, like every other
+// module. Whatever that finds is fixed rather than baselined.
+dependencies {
+    detektPlugins(libs.detekt.formatting)   // wires ktlint into detekt so detektFormat fixes both
+    detektPlugins(project(":detekt-rules"))  // PassThroughUseCaseRule — flags thin wrappers in *UseCase.kt
 }
 
 // ── The memory budget ───────────────────────────────────────────────────────
@@ -197,13 +212,11 @@ tasks.withType<AbstractArchiveTask>().configureEach {
 // verdict nobody derived. It reports 0 findings, so enforcing it costs nothing
 // today and starts costing something the moment it finds anything.
 //
-// Deliberately still on detekt-minimal.yml rather than the full detekt.yml:
-// this module does not apply the :detekt-rules plugin, so the custom rule sets
-// are not on its classpath. Bringing it onto the full config is a decision, not
-// a mechanical fix, and is not taken here. What is taken here is that the
-// rules that *do* apply can now stop a build.
+// The root configuration and the project's own rules, like every other module.
+// The reduced configuration this module used to carry was a launcher module's
+// exemption, and the module is not that any more.
 detekt {
-    config.setFrom(rootProject.file("config/detekt/detekt-minimal.yml"))
+    config.setFrom(rootProject.file("config/detekt/detekt.yml"))
     buildUponDefaultConfig = true
     ignoreFailures = false   // enforcing — a baseline covers accepted debt when there is one
     source.setFrom(
