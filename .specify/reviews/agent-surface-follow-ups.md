@@ -1,10 +1,10 @@
 ---
 change: agent-surface-follow-ups
-verdict: pass
+verdict: fail
 date: 2026-10-23
 pr: https://github.com/gazon1/sing/pull/1041
-reviewed: 966f1740bf1a6e36707a8e1b52f7f8f1cf272851
-documents: sha256:8ceab0ab6e40ce5dccd6e049d415c127b9407ac00038efc754f3036f3c26d1fb
+reviewed: f563ec7a057b1bbb8b0767201bd427afbc4e7b3d
+documents: sha256:b15d70ffcd268e52a4273ceea8fc549c6016be11d35900cd9ef71c7863dd6394
 ---
 
 ## What was reviewed
@@ -16,6 +16,9 @@ that answers it.
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/ai/McpToolCatalog.kt`
   and `shared/src/jvmMain/kotlin/com/singularity/todo/mcp/ToolSurfaceExport.kt`
   — the classification and its publication (1.1)
+- `shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/tools/WriteToolsOnlyProposeTest.kt`
+  and the five `*ProposalWriteContractTest.kt` files — the check against the
+  tools' behaviour, and the round trip (1.1)
 - `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpClient.kt`
   — the client's lifecycle (1.3)
 - `shared/src/jvmMain/kotlin/com/singularity/todo/mcp/ProtocolStdout.kt` and
@@ -32,7 +35,58 @@ was split between that session and three workers, and every worker's output
 was read and checked against the item it was given rather than taken on
 trust.
 
-## What was found, and what was done about it
+## The review of this change, and what it found
+
+The change was reviewed by a separate agent, in rounds, each one given the diff
+and the change's own records. The first four rounds failed, and each failure
+was a real defect rather than a matter of taste.
+
+**The first round found that the change's central claim was not delivered.**
+`create_tag` had been reclassified as proposal-gated, and no test drove it
+through the round trip — the claim the change makes for all thirteen
+proposal-gated tools. It also found that a `connect()` that gave up kept the
+transport it had built, against the client's own promise that a connection
+which did not happen leaves nothing behind, and that the decision record and
+the check disagreed about the exceptions the check cannot see.
+
+**The second round found the same class of gap one tool over.** `delete_task`
+was driven through the round trip except for the confirmation half — the half
+that is load-bearing, because a proposal that carried the wrong kind of change
+would do nothing at all on confirmation while every test stayed green. It also
+found `create_tag` published as idempotent although it is not, the design still
+describing the check as it had been, and the path where a close lands before a
+connect with no test of its own.
+
+**The third round found that the named exceptions were never exempt.** The
+scan recorded only the classes that wrote, so an exception whose write the
+scan could not see was not in the scan at all: it took the "its class is not
+among the tools" branch and was failed, and the clause that was supposed to
+exempt the named ones could never be true. The check was green by an accident
+of a method name — the ADR tools' writes happened to match the wide net's verb
+list — while the decision record said the named ones are exempt from the write
+check rather than failed by it. The scan now records every class it reads, and
+the two nets answer different questions: the wide one says whether a write
+happened at all, and the narrow one says whether the write is on the user's own
+data. An exception the scan sees writing but cannot place is the case the named
+set exists for, and the name is what decides it.
+
+**The fourth round found that the records and the code disagreed, and that the
+verdict itself had gone stale.** The requirement, the decision record and the
+architecture document all said that `connect()`, `close()` and `terminate()`
+take a lock; the code says that `terminate()` *tries* it, on purpose, because it
+cannot suspend and because it exists to end a conversation that is not ending.
+Three records said the scan "cannot see" the ADR tools' writes where the code
+says it cannot *place* them — a distinction that decides whether a name alone
+can exempt a write. The architecture document said the tool server's behaviour
+did not change, and its refusals did. The ratchet script's help named a module
+that no longer uses the configuration it named. The scan's own documentation
+claimed a reach the two name-based nets do not have, and a write in a helper
+that sits above no tool class was invisible to it. The requirement's
+"a terminate lands during a close" scenario had no test, and `terminate()` was
+exercised by none. And this file itself had gone stale: it spoke for a contract
+that had moved since it was written, which the repository's own gate says.
+
+## What was found before the review, and what was done about it
 
 **The catalogue was stale, and the review had already guessed it.** `create_tag`
 was declared a direct writer while the tool had been proposing for a while —
@@ -72,10 +126,17 @@ a mangled line in one of the contract tests.
   `acp-client-data-safety` change, so this delta modifies requirements that are
   not in `openspec/specs/` yet: `acp-client-data-safety` archives first, this
   one after. The delta validates, and the archive would refuse it until then.
-- The two exceptions the two-sided check cannot verify — `write_adr` and
-  `update_adr` — are named in the test rather than failed, because they write
-  through a storage port the repository scan cannot see. A gate that cannot see
-  the write would be a gate that lies.
+- The two exceptions the check cannot verify — `write_adr` and `update_adr` —
+  are named in the test rather than failed, because the scan cannot place their
+  write on the user's own data: it is a decision file, not the user's tasks. A
+  gate that cannot see the write would be a gate that lies. The name is a claim
+  somebody has to argue for: an exception the check cannot verify and that
+  nobody has named is a finding.
+- The scan's reach is name-based, and the test says so. A write whose method is
+  called something neither net holds is invisible to the check; a write through
+  a port whose name is not a repository's is invisible to the narrow net. A
+  write that belongs to no class is a finding of its own, so the gap is
+  reported rather than hidden.
 
 ## How the fixes were checked
 
