@@ -329,7 +329,10 @@ object McpToolCatalog {
             writeBehavior = WriteBehavior.PROPOSAL_WRITE,
             toolClass = CreateTagTool::class,
             domain = "tags",
-            annotations = ToolAnnotations(idempotentHint = true),
+            // The tool proposes: two calls with the same name are two proposals,
+            // each naming the tag it would create, and nothing enforces that a tag
+            // name is unique. It is not idempotent any more.
+            annotations = ToolAnnotations(),
         ),
         ToolEntry(
             name = "delete_tag",

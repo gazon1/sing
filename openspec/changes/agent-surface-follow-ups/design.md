@@ -41,9 +41,12 @@ So the check is now two-sided:
 
 - a tool the scan sees writing, that the catalogue does not call an exception, is a finding;
 - a tool the catalogue calls an exception, that the scan does not see writing, is **named**
-  in the output — not a finding, because the scan cannot see every port, but not silence
-  either. The ADR tools write a decision file through a storage port the scan does not
-  recognise, and an unchecked write should be a visible one.
+  in the output — and the naming is what keeps the check from failing on what it cannot
+  see: a check that fails on what it cannot see teaches its readers to ignore it. The named
+  ones are exempt from the write check; an exception the scan cannot see and that nobody has
+  named is still a finding, because the name is a claim somebody has to argue for. The ADR
+  tools write a decision file through a storage port the scan does not recognise, and an
+  unchecked write should be a visible one.
 
 This found a real drift: `create_tag` was declared a direct-write exception, and the tool
 had been converted to the proposal path without the declaration following. The declaration

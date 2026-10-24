@@ -193,6 +193,40 @@ class ToolWriteContractTest {
         assertFalse(survivor.isTrashed, "the task was not archived")
     }
 
+    /**
+     * The other half of the deletion's round trip.
+     *
+     * The refusal half says the task stays; this half says it goes — and it is
+     * the half that can be wrong on its own. The tool proposes a change to a
+     * *kind* of thing; if the proposal carried the wrong kind, or the wrong
+     * target, then confirming it would do nothing at all, and every test that
+     * only looks at the refusal would stay green. A deletion that does not
+     * happen is a task the user asked to lose and still has.
+     */
+    @Test
+    fun `confirming a deletion proposal archives the task`() = runTest {
+        val task = Task(
+            id = TaskId.generate(),
+            title = "Buy groceries",
+            description = null,
+            priority = TaskPriority.None,
+            kind = TaskKind.Task,
+            createdAt = clock.now(),
+            updatedAt = clock.now(),
+            userId = user,
+        )
+        tasks.seed(task)
+
+        val output = decodeDelete(
+            DeleteTaskTool(proposals, currentUser, clock).execute(DeleteTaskInput(taskId = task.id.value)),
+        )
+        val result = apply.confirm(singleItemId(output.proposalId), user)
+        assertTrue(result.isSuccess, "the confirmation succeeded: ${result.exceptionOrNull()?.message}")
+
+        val archived = assertNotNull(tasks.tasks.value[task.id.value], "the task row is still readable")
+        assertTrue(archived.isTrashed, "the confirmed deletion archived the task")
+    }
+
     // ── Fixtures ────────────────────────────────────────────────────────────────
 
     private fun decodeCreate(raw: String): CreateTaskOutput = Json.decodeFromString(CreateTaskOutput.serializer(), raw)

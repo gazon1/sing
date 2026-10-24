@@ -322,6 +322,56 @@ class AcpClientProcessTest {
         )
     }
 
+    /**
+     * The close that lands *before* the connect, rather than during it.
+     *
+     * This is the other order the two transitions can take, and it reaches a
+     * different line: the connect finds the conversation already over before it
+     * has a handshake to cut short, so it gives up as soon as it has built its
+     * transport.
+     *
+     * What it has to leave behind is nothing. The client promises that a
+     * connection which did not happen leaves nothing behind — no transport with
+     * a reader still running on it, no protocol, no client — and the transport
+     * this connect builds is the thing that has to be given back.
+     */
+    @Test
+    fun `a close that lands before the connect leaves the client closed`() = runTest {
+        val agent = startAgent(MODE_SILENT)
+
+        val client = AcpClient(
+            scope = this,
+            process = agent.process,
+            tree = agent.tree,
+            operations = AcpClientSessionOperations { PermissionDecision.Declined },
+            toolServer = null,
+            connectTimeout = 2.seconds,
+        )
+
+        // The close comes first, and it finishes: there is no conversation left to
+        // close afterwards, so the connect below is the connect of a client that
+        // has already been closed.
+        //
+        // On the IO dispatcher, like the other close: closing the agent's process
+        // waits for it to go, and that is blocking work.
+        withContext(Dispatchers.IO) { client.close() }
+
+        val failure = runCatching { client.connect() }.exceptionOrNull()
+        assertTrue(
+            failure is AgentUnavailable,
+            "the connect noticed that the conversation was over: $failure",
+        )
+        assertEquals(
+            "closed",
+            stateOf(client),
+            "the client is closed, not half-updated",
+        )
+        assertTrue(
+            !agent.process.process.isAlive,
+            "the agent's process is gone",
+        )
+    }
+
     // ── Fixtures ───────────────────────────────────────────────────────────────
 
     /**

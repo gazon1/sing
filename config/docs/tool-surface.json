@@ -53,7 +53,7 @@
             "description": "Proposes a new tag. The tag is not created yet — the user sees it and decides. Say that it has been proposed, not that it has been created. colorHex is #RRGGBB or #AARRGGBB.",
             "readOnly": false,
             "destructive": false,
-            "idempotent": true,
+            "idempotent": false,
             "writeBehavior": "PROPOSAL_WRITE",
             "exceptionReason": null
         },
