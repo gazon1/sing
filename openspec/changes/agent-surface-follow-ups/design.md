@@ -66,9 +66,11 @@ was the stale half.
 
 ### The contract for every proposal-gated tool
 
-The two representatives — a creation and a deletion — are driven through the whole round
-trip: the call proposes, the user's data is unchanged, the confirmation writes, and the
-refusal changes nothing. The other eleven proposal-gated tools had no such test.
+One tool — a creation — was driven through the whole round trip: the call proposes, the
+user's data is unchanged, the confirmation writes, and the refusal changes nothing. The
+deletion had half of one: a refused deletion left the task in place, and nothing said
+that a confirmed one archives it. The other eleven proposal-gated tools had no such
+test.
 
 The round trip is the half that matters. A tool that proposes and then writes anyway, or
 that deletes the row it proposed to delete, passes every test that only looks at the
@@ -147,8 +149,8 @@ the arguments, refuse an ambiguous request, warn about a deprecated one, build t
 resolve the dependencies, verify the database, refuse a profile that does not exist,
 bootstrap the profiles, read the configuration, build the server, serve.
 
-The split moves the start-up into a class that owns the steps and returns either a server to
-serve or the reason it cannot start. The entry point becomes: parse the arguments, start
-the server, serve.
+The split moves the start-up out of the entry point: the steps are functions of their own,
+and what they came to is a value — either a server to serve or the reason it cannot
+start. The entry point becomes: read the arguments, start the server, serve.
 
 Neither split changes what the code does. They change where a reader has to look.

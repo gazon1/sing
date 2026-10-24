@@ -105,8 +105,9 @@ package com.singularity.todo.mcp
 fun main(args: Array<String>): Unit = runToolServer(args)
 ```
 
-`runToolServer(args)` is the entry point, and it does three things: it takes the
-protocol channel, it starts the server, and it serves. The start-up itself lives in
+`runToolServer(args)` is the entry point, and it does five things: it points the log at
+standard error, it takes the protocol channel, it reads the arguments, it starts the
+server, and it serves. The start-up itself lives in
 `shared/src/jvmMain/kotlin/com/singularity/todo/mcp/ToolServerStartup.kt`, and it returns
 what it decided — a server to serve, or a refusal with the code and the message the
 client should see:
@@ -601,7 +602,7 @@ package com.singularity.todo.mcp
 data class ToolAnnotations(
     val readOnlyHint: Boolean = false,      // get_task, list_tasks, search_tasks
     val destructiveHint: Boolean = false,    // delete_task (a proposal, not a delete)
-    val idempotentHint: Boolean = false,    // create_tag (same input = same tag)
+    val idempotentHint: Boolean = false,    // no tool carries it: every call proposes something new
     val openWorldHint: Boolean = false,     // write_adr (creates a file)
 )
 ```

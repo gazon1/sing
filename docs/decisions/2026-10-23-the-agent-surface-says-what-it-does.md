@@ -28,12 +28,14 @@ the tools to the proposal path — without updating the catalogue. So `create_ta
 declared a direct writer while the tool had been proposing for a while. The declaration
 was the stale half, and nothing noticed.
 
-The behavioural side had the same shape: two of the thirteen tools that proposed were
+The behavioural side had the same shape: one of the thirteen tools that proposed was
 driven through the whole round trip — propose, the data unchanged, confirm writes, decline
 changes nothing. The catalogue called twelve of them proposal-gated; the thirteenth was
-`create_tag`, whose declaration had not caught up with the tool. The other eleven had no
-such test. A tool that proposes and then writes anyway passes every test that only looks
-at the confirmation path.
+`create_tag`, whose declaration had not caught up with the tool. The other twelve had no
+such test, and the deletion had half of one: it proved that a refused deletion leaves
+the task in place, and nothing said that a confirmed one archives it. A tool that
+proposes and then writes anyway passes every test that only looks at the confirmation
+path.
 
 **The client's lifecycle was unsynchronised.** `AcpClient` holds four mutable fields — the
 transport, the protocol, the client and the session. `connect()` sets them, `close()`
@@ -100,7 +102,7 @@ finding of its own rather than a gap. The reach is what it is, and a gate that c
 more than it can see is the thing this change is against.
 
 The round trip — propose, unchanged, confirm writes, decline changes nothing — is now
-every proposal-gated tool's contract, not two tools' contract.
+every proposal-gated tool's contract, not one tool's contract.
 
 **The client's transitions are mutually exclusive, except the one that cannot wait.**
 

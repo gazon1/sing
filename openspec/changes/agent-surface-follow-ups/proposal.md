@@ -15,7 +15,7 @@ only because they share a branch, a change record and a review.
 
 | Item | What it is | Why it matters |
 |---|---|---|
-| **1.1** | The write classification is published in the exported tool surface, enforced in the catalogue, checked against the tools' behaviour, and every proposal-gated tool gets the contract the two representatives have today. | "All writes ask first" is the promise the whole agent surface makes. Today it is held by a list and two tests. |
+| **1.1** | The write classification is published in the exported tool surface, enforced in the catalogue, checked against the tools' behaviour, and every proposal-gated tool gets the contract one tool has today. | "All writes ask first" is the promise the whole agent surface makes. Today it is held by a list and one tool's worth of tests. |
 | **1.3** | The ACP client's four mutable fields are guarded by a lifecycle lock, and there is a test for closing during a turn. | A `close()` racing a `connect()` could leave a live session bound to a closed transport. No reachable path does that today — it is latent, not live. |
 | **1.4** | "The protocol owns standard output" becomes an explicit contract: a type that owns the stream, passed to whoever writes the protocol, and the logger explicitly on standard error. | The contract currently rests on a `System.setOut` side effect nobody can see at the call site. |
 | **2.2** | `:mcp-server` is judged by the same detekt configuration as every other module, with the project's own rules. | A module on a reduced configuration is a module whose rules are a choice nobody made. |

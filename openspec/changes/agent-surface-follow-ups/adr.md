@@ -13,7 +13,7 @@ corpus in `docs/decisions/` is not numbered.
 
 | Sequence | Slug | Title | Status | Notes |
 |----------|------|-------|--------|-------|
-| — | acp-client-and-agent-activity | External agent in the app (ACP client) and agent activity visibility | accepted | The decision behind the external agent; this change finishes the five items that decision's change left behind |
+| — | acp-client-and-agent-activity | External agent in the app (ACP client) and agent activity visibility | accepted | The decision behind the external agent; this change finishes the five items that decision's change left behind, and amends it in part — `create_tag` was one of its three direct-write exceptions, and it is a proposal-gated tool now |
 
 ## Decisions That Did Not Meet the Bar
 

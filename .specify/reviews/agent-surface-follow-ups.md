@@ -17,7 +17,8 @@ that answers it.
   and `shared/src/jvmMain/kotlin/com/singularity/todo/mcp/ToolSurfaceExport.kt`
   — the classification and its publication (1.1)
 - `shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/tools/WriteToolsOnlyProposeTest.kt`
-  and the five `*ProposalWriteContractTest.kt` files — the check against the
+  and the four `*ProposalWriteContractTest.kt` files in
+  `shared/src/commonTest/kotlin/com/singularity/todo/feature/ai/` — the check against the
   tools' behaviour, and the round trip (1.1)
 - `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpClient.kt`
   — the client's lifecycle (1.3)

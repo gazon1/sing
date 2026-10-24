@@ -38,9 +38,15 @@ data class ToolEntry(
 
 | Behaviour | Count | Tools | Why |
 |---|---|---|---|
-| `PROPOSAL_WRITE` | 13 | create/update/delete task, create/update/delete note, create/update/delete project, delete tag, task decomposition, task-proposal writing | These change what the user owns, so the user confirms them. |
-| `DIRECT_WRITE_EXCEPTION` | 3 | create tag · write decision record · update decision record | A tag is not user content — a proposal for one is noise. Decision records write decision files under the project's decisions directory, not user data. |
-| `READ_ONLY` | 27 | the remaining reads and analyses | Nothing changes. |
+| `PROPOSAL_WRITE` | 13 | create/update/delete task, create/update/delete note, create/update/delete project, create/delete tag, task decomposition, task-proposal writing | These change what the user owns, so the user confirms them. |
+| `DIRECT_WRITE_EXCEPTION` | 2 | write decision record · update decision record | Decision records write decision files under the project's decisions directory, not user data. |
+| `READ_ONLY` | 28 | the remaining reads and analyses | Nothing changes. |
+
+`create_tag` used to be the third exception — "a tag is not user content — a proposal for
+one is noise". That was the stale half of a drift: the tool had been proposing for a
+while, and the declaration had not caught up. A tag is user content after all, so it is
+classified as a proposal-gated tool like every other change to what the user owns. See
+`docs/decisions/2026-10-23-the-agent-surface-says-what-it-does.md`.
 
 Both exception reasons are recorded in the registry and in the ADR, so the exception list is auditable without reading tool code (FR-050).
 

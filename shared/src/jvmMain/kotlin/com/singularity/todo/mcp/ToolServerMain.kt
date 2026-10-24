@@ -54,10 +54,11 @@ import kotlin.system.exitProcess
  *
  * ## What this function is, and what it is not
  *
- * Three things, and nothing else: it reads the arguments, it starts the server, and it
- * serves. The start-up itself lives in [startToolServer] and comes back as a
- * [ToolServerStartup] — a server that is ready, or a refusal that carries the code the
- * client is told and the code the process leaves with.
+ * Five things, and nothing else: it points the log at standard error, it takes the
+ * protocol channel, it reads the arguments, it starts the server, and it serves. The
+ * start-up itself lives in [startToolServer] and comes back as a [ToolServerStartup] — a
+ * server that is ready, or a refusal that carries the code the client is told and the
+ * code the process leaves with.
  *
  * The refusals used to be `exitProcess` calls in the middle of the start-up, so that
  * "what does the server do when it cannot start?" could only be answered by reading
