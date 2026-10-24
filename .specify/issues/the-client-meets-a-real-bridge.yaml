@@ -1,0 +1,36 @@
+# spec-kit issue record — hand-written at change creation.
+# The registry gate fails on a change with no record, so this file is created
+# in the same step as the change itself.
+---
+version: '1.0'
+type: openspec-change
+slug: the-client-meets-a-real-bridge
+date: '2026-10-24'
+title: the-client-meets-a-real-bridge
+status: accepted
+change_type: active
+speckit_imported: false
+adr_refs:
+- sequence: '20261024'
+  slug: the-client-meets-a-real-bridge
+  title: The client meets a real bridge
+  status: accepted
+  notes: The client is driven against a real bridge by a script; the fake is taught what the bridge sends, and the client's reading of a notification it has no answer for is specified.
+- sequence: '20261023'
+  slug: acp-client-and-agent-activity
+  title: External agent in the app (ACP client) and agent activity visibility
+  status: accepted
+  notes: The decision behind the external agent; this change checks the client that decision built against an agent that is not ours.
+tags:
+- acp
+- external-agent
+- protocol
+- verification
+documents:
+  proposal: openspec/changes/the-client-meets-a-real-bridge/proposal.md
+  design: openspec/changes/the-client-meets-a-real-bridge/design.md
+  adr: openspec/changes/the-client-meets-a-real-bridge/adr.md
+  tasks: openspec/changes/the-client-meets-a-real-bridge/tasks.md
+specs_dir: openspec/changes/the-client-meets-a-real-bridge/specs
+is_stub: false
+openspec_path: openspec/changes/the-client-meets-a-real-bridge

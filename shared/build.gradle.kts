@@ -1,4 +1,5 @@
 import java.util.Properties
+import java.time.Duration as JavaDuration
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 import org.gradle.api.tasks.PathSensitivity
@@ -1198,6 +1199,53 @@ val exportToolSurface = tasks.register<JavaExec>("exportToolSurface") {
     doFirst {
         target.asFile.parentFile.mkdirs()
     }
+}
+
+// acpBridgeProbe — the application's ACP client, against a real bridge.
+//
+// The tests talk to a fake agent: ours, taught to answer what our client expects.
+// That proves the client and the fake agree with each other, and says nothing about
+// whether they agree with the protocol — which is written by somebody else. This task
+// runs the same client against a real bridge and prints what came back.
+//
+// It is a task and not a test because it needs a real `npx`, a real network and a
+// real bridge: a test that cannot run is a skipped test, and this repository does not
+// allow skipped tests. `scripts/acp-bridge-probe.sh` is the way in.
+//
+// The task does not fail the build on a failed probe: the probe's verdict is its exit
+// code, and the script is what reports it. A task that failed the build would make
+// every build on this machine depend on whether the network was up.
+//
+// The default bridge lives in the probe, so that the task and the probe cannot
+// disagree about it. The script carries the same default, because a script has to
+// know what it is about to drive before it hands it over — the two copies are the
+// same string, and the script is the one a reader meets first.
+// The task passes nothing when nobody said which bridge to drive, and the probe
+// falls back to the Claude one — the bridge this repository registered first.
+val acpBridgeProbe = tasks.register<JavaExec>("acpBridgeProbe") {
+    description = "Drives the ACP client against a real agent bridge and prints what came back"
+    group = "verification"
+    val jvmClasses = layout.buildDirectory.dir("classes/kotlin/jvm/main")
+    mainClass.set("com.singularity.todo.feature.ai.acp.AcpBridgeProbeKt")
+    classpath(files(jvmClasses), configurations.named("jvmRuntimeClasspath"))
+    // The bridge's command line travels in a file, one argument per line: a command
+    // line that travels as a string comes back as a string, and a path with a space
+    // in it does not survive being split on spaces.
+    val commandFile = providers.gradleProperty("acpBridgeFile").orNull
+    val bridge = if (commandFile != null) {
+        rootProject.file(commandFile).readLines().filter { it.isNotBlank() }
+    } else {
+        emptyList()
+    }
+    args(listOf(rootProject.layout.projectDirectory.asFile.absolutePath) + bridge)
+    inputs.files(jvmClasses)
+    dependsOn("compileKotlinJvm")
+    // The bridge may be an `npx` invocation downloading its package on first use,
+    // and that download is not the handshake.
+    timeout.set(JavaDuration.ofMinutes(10))
+    // The probe's own verdict is its exit code, and the script reads the verdict out
+    // of the output — so a probe that did not connect is a report, not a failed build.
+    isIgnoreExitValue = true
 }
 
 // verifyToolSurface — the committed catalogue is what the code exports, checked
