@@ -37,6 +37,7 @@ import unittest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 SCRIPT = REPO_ROOT / 'scripts' / 'setup-worktree.sh'
+HELPER = REPO_ROOT / 'config' / 'git-layout.sh'
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 from git_sandbox import git as _git, sandbox_env  # noqa: E402
@@ -75,7 +76,7 @@ class SetupWorktreeShTest(unittest.TestCase):
         return sandbox_env(self.tmp)
 
     def _install(self, root: pathlib.Path) -> None:
-        """Copy the script and a Gradle-home stub into the worktree."""
+        """Copy the script, the layout helper and a Gradle-home stub in."""
         scripts = root / 'scripts'
         scripts.mkdir(exist_ok=True)
         stub = scripts / 'setup-gradle-home.sh'
@@ -84,6 +85,11 @@ class SetupWorktreeShTest(unittest.TestCase):
         target = scripts / 'setup-worktree.sh'
         target.write_text(SCRIPT.read_text(encoding='utf-8'), encoding='utf-8')
         target.chmod(0o755)
+        # The layout helper travels with the script: it is where the checkout
+        # keeps what both scripts read.
+        helper = root / 'config' / 'git-layout.sh'
+        helper.parent.mkdir(exist_ok=True)
+        helper.write_text(HELPER.read_text(encoding='utf-8'), encoding='utf-8')
 
     def _run(self, **extra_env: str) -> subprocess.CompletedProcess:
         env = self._env()
@@ -217,6 +223,9 @@ class SetupWorktreeSeparateGitDirTest(unittest.TestCase):
         target = scripts / 'setup-worktree.sh'
         target.write_text(SCRIPT.read_text(encoding='utf-8'), encoding='utf-8')
         target.chmod(0o755)
+        helper = root / 'config' / 'git-layout.sh'
+        helper.parent.mkdir(exist_ok=True)
+        helper.write_text(HELPER.read_text(encoding='utf-8'), encoding='utf-8')
 
     def _run(self) -> subprocess.CompletedProcess:
         return subprocess.run(
@@ -240,6 +249,124 @@ class SetupWorktreeSeparateGitDirTest(unittest.TestCase):
             + result.stdout + result.stderr,
         )
         self.assertEqual(CANONICAL_ENV, copied.read_text(encoding='utf-8'))
+
+
+class SetupWorktreeBareRepositoryTest(unittest.TestCase):
+    """The bare repository ITSELF: the repository, not a worktree of it.
+
+    A `core.bare = false` written into the main entry of a bare repository
+    turns that repository into a non-bare one — and nothing else in the tree
+    would notice. The script must leave the bare flag alone there, and repair
+    the worktrees of it all the same.
+
+    The layout is the one that makes the resolution WITHOUT git necessary:
+    the bare repository has no `.git` of its own, so the checkout the script
+    stands in IS the git dir.
+    """
+
+    def setUp(self) -> None:
+        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='setup-worktree-bare-'))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+        self.home = self.tmp / 'home'
+        self.home.mkdir()
+
+        self.bare = self.tmp / 'bare.git'
+        self.bare.mkdir()
+        _git('init', '-q', '--bare', cwd=self.bare, env=self._env())
+
+        self.linked = self.tmp / 'linked'
+        _git(
+            'worktree', 'add', '-q', '-b', 'b1', str(self.linked),
+            cwd=self.bare, env=self._env(),
+        )
+        self._install(self.bare)
+
+    def _env(self) -> dict[str, str]:
+        env = sandbox_env(self.tmp)
+        env['HOME'] = str(self.home)
+        # A bare repository's `config` is a FILE, not a directory: there is no
+        # config/ to carry the layout helper in. It sits next to the script
+        # instead, and GIT_LAYOUT_HELPER says so.
+        env['GIT_LAYOUT_HELPER'] = str(self.bare / 'scripts' / 'git-layout.sh')
+        return env
+
+    def _install(self, root: pathlib.Path) -> None:
+        scripts = root / 'scripts'
+        scripts.mkdir(exist_ok=True)
+        stub = scripts / 'setup-gradle-home.sh'
+        stub.write_text(STUB_GRADLE_HOME, encoding='utf-8')
+        stub.chmod(0o755)
+        target = scripts / 'setup-worktree.sh'
+        target.write_text(SCRIPT.read_text(encoding='utf-8'), encoding='utf-8')
+        target.chmod(0o755)
+        helper = scripts / 'git-layout.sh'
+        helper.write_text(HELPER.read_text(encoding='utf-8'), encoding='utf-8')
+
+    def _run(self) -> subprocess.CompletedProcess:
+        env = self._env()
+        # A venv that is already there: the script must not reach the network.
+        venv = self.tmp / 'venv'
+        (venv / 'bin').mkdir(parents=True)
+        python = venv / 'bin' / 'python'
+        python.write_text('#!/bin/sh\n', encoding='utf-8')
+        python.chmod(0o755)
+        env['SINGULARITY_TOOLS_VENV'] = str(venv)
+        return subprocess.run(
+            ['bash', str(self.bare / 'scripts' / 'setup-worktree.sh')],
+            cwd=self.bare,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+    def _config_get(self, config_file: pathlib.Path, key: str) -> str:
+        result = subprocess.run(
+            ['git', 'config', '--file', str(config_file), '--get', key],
+            env=self._env(),
+            capture_output=True, text=True,
+        )
+        return result.stdout.strip()
+
+    # ── the properties ──────────────────────────────────────────────────────
+
+    def test_the_bare_repository_itself_is_not_un_bared(self):
+        """The bare flag of the repository itself is left alone."""
+        result = self._run()
+
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertEqual(
+            'true',
+            self._config_get(self.bare / 'config', 'core.bare'),
+            'the bare repository was un-bared',
+        )
+        self.assertNotEqual(
+            'false',
+            self._config_get(self.bare / 'config.worktree', 'core.bare'),
+            "the bare repository's main entry was given a core.bare = false",
+        )
+        self.assertIn('bare repository itself', result.stdout)
+
+    def test_the_linked_worktree_is_repaired_all_the_same(self):
+        """The worktrees of the repository still get their bare flag."""
+        result = self._run()
+
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertEqual(
+            'false',
+            self._config_get(
+                self.bare / 'worktrees' / 'linked' / 'config.worktree', 'core.bare',
+            ),
+        )
+
+    def test_the_script_refuses_to_run_without_the_layout_helper(self):
+        """The helper is where the layout lives; without it there is no answer."""
+        (self.bare / 'scripts' / 'git-layout.sh').unlink()
+
+        result = self._run()
+
+        self.assertNotEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertIn('layout helper is missing', result.stderr)
 
 
 if __name__ == '__main__':

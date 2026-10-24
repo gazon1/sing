@@ -90,34 +90,40 @@ die() {
 
 # ── Where this worktree's config lives ──────────────────────────────────────
 #
-# Resolved without Git, on purpose: the worktree this script repairs may be one
-# that Git already considers bare, and a bare worktree answers no questions.
+# The layout is resolved by config/git-layout.sh — the same helper
+# scripts/doctor.sh uses, so the two cannot drift apart. It resolves WITHOUT
+# Git, on purpose: the worktree this script repairs may be one that Git
+# already considers bare, and a bare worktree answers no questions.
 #
-# A linked worktree's `.git` is a FILE that names its git dir; the main
-# worktree's `.git` is that git dir itself. The common dir — where the shared
-# config and every linked worktree's own directory live — is named by the
-# `commondir` file inside a linked worktree's git dir.
+# The helper also refuses what it does not understand — loudly, with a
+# message on stderr — instead of guessing: a linked worktree's `.git` is a
+# FILE that names its git dir, the main worktree's `.git` is that git dir
+# itself, and the common dir is named by the `commondir` file inside a linked
+# worktree's git dir.
 #
-# The readability of `.git` is checked here, because the tools that read it
-# report the permission failure in their own words — `sed: can't read ...:
-# Permission denied` — and the operator is left guessing which of the many
-# permissions in a repository is the one that is wrong.
-if [[ -e "$root/.git" && ! -r "$root/.git" ]]; then
-    die "$root/.git is not readable — check its permissions and run this again"
+# The helper normally sits in the checkout this script lives in
+# (config/git-layout.sh). GIT_LAYOUT_HELPER names it when the checkout does
+# not carry it — a checkout whose `config` is a FILE (the bare repository's
+# own main entry), for instance.
+helper="${GIT_LAYOUT_HELPER:-$root/config/git-layout.sh}"
+if [[ ! -f "$helper" ]]; then
+    die "the layout helper is missing: $helper"
 fi
-if [[ -f "$root/.git" ]]; then
-    gitdir_line="$(sed -n 's/^gitdir: //p' "$root/.git")"
-    [[ -n "$gitdir_line" ]] || die "$root/.git does not name a git directory"
-    if [[ "$gitdir_line" != /* ]]; then
-        gitdir_line="$root/$gitdir_line"
-    fi
-    [[ -d "$gitdir_line" ]] || die "$root/.git names a git dir that does not exist: $gitdir_line"
-    git_dir="$(cd "$gitdir_line" && pwd)"
-elif [[ -d "$root/.git" ]]; then
-    git_dir="$(cd "$root/.git" && pwd)"
-else
+# shellcheck source=../config/git-layout.sh
+. "$helper"
+
+# The helper resolves the checkout that CONTAINS the current directory, and
+# this script is about ITS OWN checkout — the one the script lives in. A
+# checkout found further up is another repository, and repairing that one
+# would be a repair nobody asked for.
+if [[ "$GIT_LAYOUT_ROOT" != "$root" ]]; then
     die "no .git here — run this inside a git worktree"
 fi
+
+git_dir="$GIT_LAYOUT_GIT_DIR"
+common_dir="$GIT_LAYOUT_COMMON_DIR"
+shared_config="$GIT_LAYOUT_SHARED_CONFIG"
+worktree_config="$GIT_LAYOUT_WORKTREE_CONFIG"
 
 # A shared `core.worktree` makes every worktree of this repository resolve its
 # files somewhere else — and it fails silently: `git status` reports files that
@@ -128,22 +134,16 @@ fi
 # checked here.
 #
 # The value belongs to the worktree it names, and a worktree names itself.
-shared_worktree="$(git config --get core.worktree || true)"
+shared_worktree="$(git config --file "$shared_config" --get core.worktree || true)"
 if [[ -n "$shared_worktree" && "$shared_worktree" != "$root" ]]; then
-    git config --unset core.worktree
+    # git-config-shared: the value lives IN the shared config, and the shared
+    # config is where it does the damage — every worktree of this repository
+    # reads it. Naming the file says so out loud; a plain `git config --unset`
+    # would write wherever Git resolved the read, which is not the same place.
+    git config --file "$shared_config" --unset core.worktree
     echo "removed a shared core.worktree that pointed at $shared_worktree"
     echo "  (it made every other worktree of this repository read someone else's files)"
 fi
-
-common_dir="$git_dir"
-if [[ -f "$git_dir/commondir" ]]; then
-    relative_common="$(tr -d '[:space:]' < "$git_dir/commondir")"
-    [[ -d "$git_dir/$relative_common" ]] || die "the common dir named by $git_dir/commondir does not exist"
-    common_dir="$(cd "$git_dir/$relative_common" && pwd)"
-fi
-
-shared_config="$common_dir/config"
-worktree_config="$git_dir/config.worktree"
 
 # ── Write the per-worktree config by file ───────────────────────────────────
 #
@@ -201,6 +201,9 @@ done
 # already in place, it stays inert: every worktree reads `core.bare = false`
 # from its own config, which is what it said before the switch.
 if [[ "$(git config --file "$shared_config" --get extensions.worktreeConfig || true)" != "true" ]]; then
+    # git-config-shared: the extension is a repo-wide switch — it belongs in the
+    # shared config of the whole repository, and the ADR that describes it says
+    # so: docs/decisions/2026-10-23-the-bare-flag-lives-in-the-worktree-config.md
     git config extensions.worktreeConfig true
     echo "enabled extensions.worktreeConfig (repo-wide; every worktree kept core.bare = false)"
 fi
@@ -260,22 +263,9 @@ fi
 # The canonical root is not always the parent of the common dir: the common
 # dir is the shared .git, and it sits INSIDE the canonical checkout
 # (…/checkout/.git), BESIDE it (…/checkout.git — a separate git dir), or, for
-# the bare repository's own main entry, in it. Every layout is tried, in that
-# order, and the first one that holds a .env is the source. The list is
-# resolved without Git, for the reason the rest of this script is: a worktree
-# Git considers bare answers no questions.
-canonical_roots=()
-common_base="$(basename "$common_dir")"
-common_parent="$(cd "$(dirname "$common_dir")" && pwd)"
-canonical_roots+=("$common_parent")
-if [[ "$common_base" == *.git && "$common_base" != ".git" ]]; then
-    canonical_roots+=("${common_parent}/${common_base%.git}")
-fi
-if [[ "$git_dir" == "$common_dir" ]]; then
-    # This is the repository's own main entry, so this worktree IS the
-    # canonical checkout.
-    canonical_roots+=("$root")
-fi
+# the bare repository's own main entry, in it. The helper resolved the
+# candidates in that order, and the first one that holds a .env is the source.
+canonical_roots=("${GIT_LAYOUT_CANONICAL_ROOTS[@]}")
 
 env_source=""
 for candidate in "${canonical_roots[@]}"; do

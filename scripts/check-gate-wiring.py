@@ -2324,6 +2324,29 @@ _GRADLE_TASK = re.compile(r"(?<![A-Za-z0-9_.-])(:[a-zA-Z][\w-]*:[a-zA-Z][\w-]*)"
 #: The one workflow whose Gradle tasks are packaging steps rather than checks.
 _NON_VERIFICATION_WORKFLOW = "release.yml"
 
+#: The command a CI surface runs to ask the module graph which detekt tasks to
+#: judge. A workflow that asks for the list instead of spelling it out never
+#: mentions a task name, so a parity check that reads only the YAML would call
+#: every detekt task "named only by the local surface" — a divergence the
+#: workflow does not have.
+CI_DETEKT_LIST_COMMAND = "changed-modules.py --detekt-tasks"
+
+
+def ci_reached_detekt_tasks(workflow_text: str) -> set[str]:
+    """The detekt tasks a CI surface reaches by asking the module graph.
+
+    The workflow runs ``changed-modules.py --detekt-tasks`` and hands the result
+    to Gradle, so the task names never appear in the YAML. The parity check
+    therefore asks the same graph CI asks — but counts the tasks only when the
+    workflow really asks, because a derivation that credits CI with coverage
+    the workflow does not perform is the defect this check exists to catch.
+    """
+    if CI_DETEKT_LIST_COMMAND not in workflow_text:
+        return set()
+    from sgate.module_graph import detekt_tasks
+
+    return detekt_tasks(ROOT)
+
 
 def named_gradle_tasks(path: Path) -> set[str]:
     """Gradle tasks named anywhere in one surface, comments stripped."""
@@ -2350,6 +2373,11 @@ def check_gradle_task_parity() -> list[str]:
         if workflow.name == _NON_VERIFICATION_WORKFLOW:
             continue
         ci |= named_gradle_tasks(workflow)
+        try:
+            workflow_text = _strip_comments(workflow.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError):
+            workflow_text = ""
+        ci |= ci_reached_detekt_tasks(workflow_text)
     local = named_gradle_tasks(ROOT / "check.sh")
 
     # `covered` rows are checked even when absent from both surfaces. Otherwise a

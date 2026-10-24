@@ -189,6 +189,28 @@ def _detekt_modules() -> set[str]:
     return set(record["detekt"]["judged_by_ci"])
 
 
+def _graph_detekt_tasks() -> set[str]:
+    """The detekt tasks the module graph reports — the list CI judges.
+
+    The workflow does not spell these names out: it asks the graph for them
+    (`changed-modules.py --detekt-tasks`) and hands the list to Gradle. A
+    count over the text would therefore see no detekt task at all, and the
+    job that judges detekt would look like a job that judges nothing.
+    """
+    from sgate.module_graph import detekt_tasks
+
+    return detekt_tasks(ROOT)
+
+
+def _derived_detekt_tasks(text: str) -> set[str]:
+    """The detekt tasks a run judges because it asked the graph for them."""
+    if "changed-modules.py --detekt-tasks" not in text:
+        return set()
+    if "DETEKT_TASKS" not in text:
+        return set()
+    return _graph_detekt_tasks()
+
+
 class PrPathHasNoCoverage(unittest.TestCase):
     """The pull-request path carries no coverage measurement it does not enforce."""
 
@@ -395,6 +417,10 @@ class DetektIsJudgedOnce(unittest.TestCase):
         is named here: the pro catalogue is a separate build the module graph
         does not know, so the record lists it apart, and the `detekt` job does
         not judge it. Naming the exception is what keeps it an exception.
+
+        A job that judges detekt by ASKING the module graph for the list
+        counts too — the task names are not in the workflow, and a list
+        written out by hand is exactly what this repository stopped writing.
         """
         modules = _detekt_modules()
         judging: set[str] = set()
@@ -403,8 +429,9 @@ class DetektIsJudgedOnce(unittest.TestCase):
             if not _is_pr_path(job):
                 continue
             for text in _effective_runs(job):
+                derived = _derived_detekt_tasks(text)
                 for invocation in wg.iter_invocations(text, name):
-                    for task in invocation.tasks:
+                    for task in set(invocation.tasks) | derived:
                         if not task.endswith(":detekt"):
                             continue
                         if task in modules:

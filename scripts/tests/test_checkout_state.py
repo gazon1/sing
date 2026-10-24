@@ -1,0 +1,206 @@
+"""Tests for `sgate checkout-state` — what the checkout is carrying.
+
+The premise: a checkout on a machine with several clones is shared state. It
+can be carrying commits that `origin/main` does not have — another session's
+work, or a fixture nobody meant to push — and nothing in the tree says so.
+The agent finds out at the worst moment: when it commits, and the commit
+carries somebody else's work with it.
+
+That happened on 2026-10-24: the canonical checkout carried 22 commits that
+`origin/main` did not have, and its `AGENTS.md` was over the injection
+budget, so the harness truncated the instructions and the agent read a file
+that ended in the middle of a sentence.
+
+These tests hold the command to its own claims:
+
+  - it answers about the checkout the caller stands in, not the checkout the
+    installed `sgate` belongs to;
+  - a base that is many commits behind is reported as stale, and a branch that
+    is only one commit behind is not;
+  - a branch that is only ahead is not diverged: that is a feature branch;
+  - the instructions are measured against the budget the harness gives them.
+"""
+
+import importlib.util
+import pathlib
+import subprocess
+import sys
+import tempfile
+import unittest
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
+
+# This checkout's package root, before the module under test is loaded: the
+# module imports `sgate.gatekit.budget`, and without this line the import
+# resolves to whatever `sgate` is installed on the machine — which is how a
+# test ends up asserting another checkout's number (the hazard this command
+# exists to report).
+sys.path.insert(0, str(ROOT / 'scripts' / 'src'))
+
+MODULE_PATH = ROOT / 'scripts' / 'src' / 'sgate' / 'commands' / 'checkout_state.py'
+spec = importlib.util.spec_from_file_location('checkout_state', MODULE_PATH)
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+
+
+def _git(*args: str, cwd: pathlib.Path) -> str:
+    """One git command in a fixture repository."""
+    result = subprocess.run(
+        ['git', *args],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        check=True,
+        env=mod.tree_env(),
+    )
+    return result.stdout.strip()
+
+
+class CheckoutStateTest(unittest.TestCase):
+    """The report, on repositories built for it."""
+
+    def setUp(self) -> None:
+        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix='checkout-state-'))
+        self.addCleanup(self._remove)
+        _git('init', '--quiet', '-b', 'main', cwd=self.tmp)
+        _git('config', 'user.email', 'state@example.com', cwd=self.tmp)
+        _git('config', 'user.name', 'State', cwd=self.tmp)
+
+    def _remove(self) -> None:
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _commit(self, name: str) -> None:
+        (self.tmp / 'file.txt').write_text(name, encoding='utf-8')
+        _git('add', '-A', cwd=self.tmp)
+        _git('commit', '--quiet', '-m', name, cwd=self.tmp)
+
+    def _upstream(self, name: str = 'origin/main') -> None:
+        """A ref that stands for the upstream branch."""
+        _git('update-ref', name, 'HEAD', cwd=self.tmp)
+
+    def test_a_fresh_checkout_reports_its_root_and_branch(self):
+        self._commit('first')
+        state = mod._state(self.tmp)
+        self.assertEqual(str(self.tmp), state['root'])
+        self.assertEqual('main', state['branch'])
+
+    def test_a_checkout_with_no_upstream_says_so(self):
+        self._commit('first')
+        state = mod._state(self.tmp)
+        self.assertFalse(state['upstreamKnown'])
+
+    def test_a_branch_that_is_only_ahead_is_not_diverged(self):
+        self._commit('first')
+        self._upstream()
+        self._commit('second')
+        state = mod._state(self.tmp)
+        self.assertEqual(1, state['ahead'])
+        self.assertEqual(0, state['behind'])
+        report = mod._report(state)
+        self.assertNotIn('DIVERGED', report)
+
+    def test_a_branch_that_is_behind_by_one_is_not_stale(self):
+        # The ordinary state of a branch: `main` moved one commit since the
+        # branch was made. The command must not call that a problem.
+        self._commit('first')
+        self._upstream()
+        self._commit('second')
+        _git('update-ref', 'origin/main', 'HEAD', cwd=self.tmp)
+        _git('reset', '--hard', '--quiet', 'HEAD~1', cwd=self.tmp)
+        _git('commit', '--quiet', '--allow-empty', '-m', 'a commit upstream does not have', cwd=self.tmp)
+        state = mod._state(self.tmp)
+        self.assertTrue(state['ahead'])
+        self.assertEqual(1, state['behind'])
+        report = mod._report(state)
+        self.assertNotIn('STALE BASE', report)
+
+    def test_a_base_that_is_many_commits_behind_is_stale(self):
+        # The tree the reader looks at is not the tree the work will be based
+        # on: the base is stale, and the command says so.
+        self._commit('first')
+        for i in range(mod.STALE_BASE_COMMITS + 1):
+            _git('commit', '--quiet', '--allow-empty', '-m', f'upstream {i}', cwd=self.tmp)
+        _git('update-ref', 'origin/main', 'HEAD', cwd=self.tmp)
+        _git('reset', '--hard', '--quiet', 'HEAD~%d' % (mod.STALE_BASE_COMMITS + 1), cwd=self.tmp)
+        state = mod._state(self.tmp)
+        self.assertGreaterEqual(state['behind'], mod.STALE_BASE_COMMITS)
+        self.assertIn('STALE BASE', mod._report(state))
+
+    def test_the_carried_commits_are_asked_for_rather_than_accused(self):
+        self._commit('first')
+        self._upstream()
+        self._commit('second')
+        report = mod._report(mod._state(self.tmp))
+        self.assertIn('are they yours?', report)
+
+    def test_the_carried_commits_are_named(self):
+        self._commit('first')
+        self._upstream()
+        self._commit('second')
+        state = mod._state(self.tmp)
+        carried = state['carrying']
+        self.assertEqual(1, len(carried), carried)
+        self.assertEqual('second', carried[0]['subject'])
+
+    def test_a_missing_upstream_leaves_the_comparison_unknown(self):
+        # `git diff --quiet` exits 1 when the files differ and 128 when the ref
+        # is not there. "Unknown" is not "equal".
+        (self.tmp / 'AGENTS.md').write_text('x' * 10, encoding='utf-8')
+        state = mod._state(self.tmp)
+        self.assertFalse(state['upstreamKnown'])
+        self.assertIsNone(state['instructions']['differs'])
+        self.assertIn('unknown', mod._report(state))
+
+    def test_the_carried_list_says_how_many_it_did_not_print(self):
+        self._commit('first')
+        self._upstream()
+        for i in range(mod.MAX_LISTED + 5):
+            _git('commit', '--quiet', '--allow-empty', '-m', f'commit {i}', cwd=self.tmp)
+        report = mod._report(mod._state(self.tmp))
+        self.assertIn('and 5 more', report)
+
+    def test_the_upstream_ref_carries_the_date_it_was_counted_against(self):
+        self._commit('first')
+        self._upstream()
+        state = mod._state(self.tmp)
+        self.assertTrue(state['upstreamDate'])
+        self.assertIn('only as fresh as that ref', mod._report(state))
+
+    def test_the_instructions_are_measured_against_the_budget(self):
+        (self.tmp / 'AGENTS.md').write_text('x' * 10, encoding='utf-8')
+        state = mod._state(self.tmp)
+        instructions = state['instructions']
+        self.assertEqual(10, instructions['bytes'])
+        self.assertEqual(mod.PROJECT_INSTRUCTIONS_BUDGET, instructions['budget'])
+        self.assertTrue(instructions['fits'])
+
+    def test_instructions_over_the_budget_are_reported_as_not_fitting(self):
+        (self.tmp / 'AGENTS.md').write_text(
+            'x' * (mod.PROJECT_INSTRUCTIONS_BUDGET + 1), encoding='utf-8'
+        )
+        state = mod._state(self.tmp)
+        instructions = state['instructions']
+        self.assertFalse(instructions['fits'])
+        self.assertIn('DOES NOT FIT', mod._report(state))
+
+
+class TheCommandRunsTest(unittest.TestCase):
+    """The command itself runs, and answers about the checkout it stands in."""
+
+    def test_the_command_reports_the_caller_checkout(self):
+        result = subprocess.run(
+            [sys.executable, '-m', 'sgate', 'checkout-state', '--json'],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            env={**mod.tree_env(), 'PYTHONPATH': str(ROOT / 'scripts' / 'src')},
+            check=False,
+        )
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertIn('"root"', result.stdout)
+        self.assertIn(str(ROOT), result.stdout)
+
+
+if __name__ == '__main__':
+    unittest.main()

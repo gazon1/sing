@@ -26,13 +26,27 @@ echo "detekt-auto-fix: branch = $BRANCH_NAME"
 #     Using a single Gradle invocation (all modules at once) is faster than
 #     looping, and the --auto-correct flag is idempotent — re-runs are no-ops
 #     on already-clean files.
+#
+#     The LIST of modules is read from the build, not written here. It used to
+#     be written here — eight module names on one line — and in the CI
+#     workflow, and in the hook's record: three copies of one fact, and a
+#     module added to settings.gradle.kts had to be remembered in three
+#     places. The graph reads the build, so it is the list; this script asks
+#     for it. A module the build declares and this list does not name is a
+#     module nobody judges, and the gate that keeps the record and the code
+#     together is what says so.
 # -----------------------------------------------------------------------
 echo "::group::Running detekt --auto-correct"
 # Using || true so a zero-finding run (clean tree) still exits 0.
 # The separate `git diff` check after this script is what drives the CI verdict.
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+mapfile -t DETEKT_TASKS < <(python3 "$ROOT/scripts/changed-modules.py" --detekt-tasks)
+if [[ "${#DETEKT_TASKS[@]}" == "0" ]]; then
+    echo "detekt-auto-fix: the module graph names no detekt task — nothing to judge" >&2
+    exit 1
+fi
 ./gradlew \
-  :shared:detekt :desktopApp:detekt :androidApp:detekt :mcp-server:detekt \
-  :adr-cli:detekt :adr-core:detekt :core-base:detekt :detekt-rules:detekt \
+  "${DETEKT_TASKS[@]}" \
   --auto-correct \
   --no-build-cache \
   --console=plain \
@@ -49,7 +63,12 @@ fi
 
 echo "detekt-auto-fix: changes detected — committing and pushing."
 
+# git-config-shared: the CI clone has one checkout and no worktree to damage;
+# the identity is the bot identity the commit needs, and the shared config of
+# a throwaway runner clone is where it belongs.
 git config user.email "github-actions[bot]@users.noreply.github.com"
+# git-config-shared: same clone, same reason — one marker per write, because a
+# marker is only read where it sits.
 git config user.name  "github-actions[bot]"
 
 # Amend the commit we're about to make with a conventional footer so it can

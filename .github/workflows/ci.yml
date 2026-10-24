@@ -612,9 +612,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # The verdict: the eight modules CI judges, as ONE invocation, because
+      # The verdict: the modules CI judges, as ONE invocation, because
       # this one does not correct anything — `--auto-correct` is what only
       # reaches the last task of an invocation, and there is none here.
+      #
+      # The LIST is read from the build, not written here: the module graph
+      # knows which modules have a detekt verdict, and a list written out by
+      # hand goes stale silently — a module the build declares and the list
+      # does not name is a module nobody judges.
       #
       # `:pro:detekt` is NOT here on purpose: `:pro` is only included under
       # -PwithPro=true (settings.gradle.kts:120-126), so it belongs to the matrix
@@ -626,9 +631,14 @@ jobs:
       - name: Gradle (detekt)
         run: |
           set -o pipefail
+          mapfile -t DETEKT_TASKS < <(python3 scripts/changed-modules.py --detekt-tasks)
+          if [[ "${#DETEKT_TASKS[@]}" == "0" ]]; then
+            echo "the module graph names no detekt task — CI would judge nothing" >&2
+            exit 1
+          fi
           ./gradlew --continue \
             --no-parallel \
-            :shared:detekt :desktopApp:detekt :androidApp:detekt :mcp-server:detekt :adr-cli:detekt :adr-core:detekt :core-base:detekt :detekt-rules:detekt \
+            "${DETEKT_TASKS[@]}" \
             -Pcoverage.enabled=false \
             2>&1 | tee build.log
 

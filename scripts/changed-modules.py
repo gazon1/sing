@@ -744,6 +744,13 @@ def main(argv: list[str]) -> int:
                         help='What the change is measured against.')
     parser.add_argument('--explain', action='store_true',
                         help='Print why each task is in the plan.')
+    parser.add_argument('--detekt-tasks', action='store_true',
+                        help=(
+                            'Print the detekt tasks of every module the build declares, '
+                            'one per line, and nothing else. This is the list CI judges '
+                            'and the list the local verdict judges: it is read from the '
+                            'build, so it cannot be a list somebody wrote out by hand.'
+                        ))
     args = parser.parse_args(argv)
 
     errors = consistency_errors()
@@ -755,6 +762,16 @@ def main(argv: list[str]) -> int:
             file=sys.stderr,
         )
         return 2
+
+    if args.detekt_tasks:
+        # The list of modules with a detekt verdict, and nothing else on stdout:
+        # the caller puts it into a Gradle invocation, and a message mixed into
+        # that list would be a task the build does not have. It is asked for
+        # before the base is checked: the list is a property of the build, not
+        # of a diff, and a CI runner with no usable base still has modules.
+        for module in TASKS.detekt_modules():
+            print(f':{module}:detekt')
+        return 0
 
     if not base_usable(args.base):
         print(

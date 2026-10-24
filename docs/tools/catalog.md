@@ -42,6 +42,7 @@ The package the gate scripts import. The list is read from the files: a module t
 | `sgate.commands.adr_status_policy` | shim for: ADR status policy. |
 | `sgate.commands.base` | base class and registration helpers for all gate Click commands. |
 | `sgate.commands.build_output_readers` | native Click for: build-output readers precede the invocations that rewrite them. |
+| `sgate.commands.checkout_state` | what is the checkout I am standing in carrying? |
 | `sgate.commands.conventions` | shim for check-script-conventions.py. |
 | `sgate.commands.decisions_digest_within_budget` | custom gate: DIGEST.md within budget. |
 | `sgate.commands.device_holders` | who holds a device right now? |
@@ -64,6 +65,7 @@ The package the gate scripts import. The list is read from the files: a module t
 | `sgate.gate_manifest` | one table of placements for every gate. |
 | `sgate.gate_reachability` | which gate scripts a surface can actually reach. |
 | `sgate.gatekit` | sgate.gates — the pieces every gate is built from. |
+| `sgate.gatekit.budget` | the budget the project instructions have to fit in. |
 | `sgate.gatekit.cli` | sgate.gates.cli — the shape every gate command has. |
 | `sgate.gatekit.findings` | sgate.gates.findings — what a gate found, and how sure it is. |
 | `sgate.gatekit.gitenv` | The environment a git command runs in when its caller is a hook. |
@@ -79,5 +81,6 @@ The package the gate scripts import. The list is read from the files: a module t
 | `sgate.gates` | gate registry loader. |
 | `sgate.log` | loguru logger configured for sgate. |
 | `sgate.models` | typed JSON payloads for gate results. |
+| `sgate.module_graph` | The module graph — ``scripts/changed-modules.py`` — loaded by path. |
 | `sgate.output` | structured output for gates. |
 | `sgate.repo` | repo-root resolution and path constants. |

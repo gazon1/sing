@@ -133,6 +133,7 @@ COMMAND_MODULES: dict[str, str] = {
     "settings_read_by_a_feature": "gate",
     "test_task_external_inputs_declared": "gate",
     "gate_costs": "gate",
+    "checkout_state": "utility",
     "device_holders": "utility",
     "host_load": "utility",
     "info": "utility",
@@ -1128,10 +1129,16 @@ GATE_CONTROLS: dict[str, Control] = {
         path='AGENTS.md',
         edit=Edit(
             kind='append',
-            # 120 lines: the file sits at 218 and the limit is 300, so a shorter
-            # append lands under the ceiling and the gate correctly passes —
-            # a control that proves nothing.
-            new='\n' + '\n'.join(f'filler line {i}' for i in range(120)) + '\n',
+            # 120 lines: the file sits well under the 300-line limit, so a
+            # shorter append lands under the ceiling and the gate correctly
+            # passes — a control that proves nothing. The long line takes the
+            # same append over the byte budget as well, so the gate fails
+            # whichever ceiling it enforces. One control, one gate: the byte
+            # ceiling on its own is proved by the unit test
+            # (scripts/tests/test_check_agents_size.py), which fails when the
+            # byte branch is removed.
+            new='\n' + '\n'.join(f'filler line {i}' for i in range(120)) + '\n'
+            + 'budget probe. ' * 2000 + '\n',
         ),
         why=(
             'the cheat sheet is read in one go by every session, so a file that grows '
@@ -1141,18 +1148,28 @@ GATE_CONTROLS: dict[str, Control] = {
     ),
     # checkout-invariants: the checkout has to be able to commit, to run its
     # hooks and to keep the SSH connection alive through a long hook. The
-    # probe changes the declared hooks path, so the live checkout no longer
-    # matches the promise it is held to.
+    # probe changes the declaration, so the live checkout no longer matches
+    # the promise it is held to.
+    #
+    # It changes BOTH invariants that the declaration states, because the
+    # hooks check is deliberately skipped in CI (a CI checkout has no hooks
+    # installed) — a probe that broke only the hooks path proved the gate can
+    # fail in a developer's checkout and in no CI runner at all. It used to
+    # pass in CI only because ANOTHER control had left `core.hooksPath` set in
+    # the shared config: a control that proved the gate can fail thanks to a
+    # side effect of a different control is a control that proves nothing.
+    # The `bare` invariant is checked everywhere, so the probe breaks that one
+    # too and stands on its own.
     'checkout-invariants': Control(
         kind='sabotage',
         proves='scripts/check-checkout-invariants.py',
         argv=('{python}', 'scripts/check-checkout-invariants.py'),
         path='config/checkout-invariants.json',
         edit=Edit(
-            kind='replace',
-            old='"hooks_path": ".githooks"',
-            new='"hooks_path": ".hooks"',
-            count=1,
+            kind='regex',
+            pattern='"bare": false,\n  "hooks_path": "\\.githooks"',
+            repl='"bare": true,\n  "hooks_path": ".hooks"',
+            flags='MULTILINE',
         ),
         why=(
             'a bare checkout refuses every command, a lost hooks path runs no hooks at '

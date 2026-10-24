@@ -724,3 +724,61 @@ class ThePathsComeOutOfGitTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class DetektTasksTest(unittest.TestCase):
+    """The list of detekt modules CI judges, and where it comes from.
+
+    The list used to be written out by hand in the CI workflow, in the
+    auto-fix script and in the hook's record — three copies of one fact, and a
+    module added to the build had to be remembered in all three. The list is
+    read from the build now, and this pins what that list contains.
+    """
+
+    def test_the_list_is_the_modules_that_have_a_detekt_verdict(self):
+        import io
+        import contextlib
+
+        buffer = io.StringIO()
+        with contextlib.redirect_stdout(buffer):
+            tasks = changed.main(['--detekt-tasks'])
+        self.assertEqual(0, tasks)
+
+    def test_it_names_a_detekt_task_per_module_that_has_one(self):
+        import io
+        import contextlib
+
+        buffer = io.StringIO()
+        with contextlib.redirect_stdout(buffer):
+            changed.main(['--detekt-tasks'])
+        printed = [line for line in buffer.getvalue().splitlines() if line]
+
+        expected = [f':{module}:detekt' for module in changed.TASKS.detekt_modules()]
+        self.assertEqual(sorted(expected), sorted(printed))
+
+    def test_a_module_without_a_detekt_task_is_not_in_it(self):
+        """`:tools:unwritten-properties` has no detekt task of its own.
+
+        Its verdict is its test suite. A list that named a detekt task for it
+        would be a task the build does not have, and CI would fail on it.
+        """
+        import io
+        import contextlib
+
+        buffer = io.StringIO()
+        with contextlib.redirect_stdout(buffer):
+            changed.main(['--detekt-tasks'])
+        printed = buffer.getvalue()
+
+        self.assertNotIn('unwritten-properties', printed)
+
+    def test_nothing_but_the_tasks_reaches_stdout(self):
+        """The caller puts this list into a Gradle invocation."""
+        import io
+        import contextlib
+
+        buffer = io.StringIO()
+        with contextlib.redirect_stdout(buffer):
+            changed.main(['--detekt-tasks'])
+        for line in buffer.getvalue().splitlines():
+            self.assertRegex(line, r'^:[\w-]+:detekt$')
