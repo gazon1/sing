@@ -3,8 +3,8 @@ change: agent-surface-follow-ups
 verdict: fail
 date: 2026-10-23
 pr: https://github.com/gazon1/sing/pull/1041
-reviewed: cb8b31df91bcfe10a25a9a4c3b6da7460175a34c
-documents: sha256:f626c76038791874df4f3fd5b9c09df4aa241adb1314ea149a687653427adbdd
+reviewed: b00a2a94822283c432ff0ef994d8348d126e9e21
+documents: sha256:8f23ab31dca253d0646e8392dcc80e33b67128712ebf115718a7a8e6b574f7b1
 ---
 
 ## What was reviewed
@@ -70,6 +70,17 @@ the two nets answer different questions: the wide one says whether a write
 happened at all, and the narrow one says whether the write is on the user's own
 data. An exception the scan sees writing but cannot place is the case the named
 set exists for, and the name is what decides it.
+
+**The seventh round found the count fixed in one place and left in three.** The
+sixth round corrected the classification tables in the spec-kit draft of the
+earlier change, and left the trust-contour table twenty lines below and the
+rejected-alternatives rationale that led with the reversed tag case. It also
+found a requirement that named one exception where there are two modules
+without a detekt task, two bullets of the architecture document that
+contradicted each other about the order of the first two lines of the entry
+point, a design whose post-split entry point was a subset of the entry point's
+own list, and two other live changes still counting three exceptions with the
+reversed rationale.
 
 **The sixth round found three records that the change made false and left
 standing.** The decision behind the external agent still said the direct-write
