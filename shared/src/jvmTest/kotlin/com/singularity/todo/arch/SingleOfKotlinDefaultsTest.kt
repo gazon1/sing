@@ -24,12 +24,11 @@ import kotlin.test.fail
  *
  * ## Allowlisting
  *
- * Four targets have no-arg constructors verified safe by hand and cannot be parsed
+ * Three targets have no-arg constructors verified safe by hand and cannot be parsed
  * correctly by the naive constructor-scan here:
  *
  * - `SavedAgendaSeedStore` — no-arg constructor
  * - `StubAttachmentUploadService` — no-arg constructor
- * - `StubRemoteBackupService` — no-arg constructor
  * - The `factoryOf(::Impl)` match inside a comment at `AiToolsModule.android.kt:92`
  *
  * These are kept in [ALLOWLIST] and must be re-verified if their constructors change.
@@ -71,8 +70,6 @@ class SingleOfKotlinDefaultsTest {
             "SavedAgendaSeedStore",
             // StubAttachmentUploadService — no-arg constructor, verified safe 2026-10-16
             "StubAttachmentUploadService",
-            // StubRemoteBackupService — no-arg constructor, verified safe 2026-10-16
-            "StubRemoteBackupService",
             // factoryOf(::Impl) inside a comment — not a real call site
             "Impl",
         )

@@ -214,11 +214,14 @@ actual fun platformModule(): Module = module {
     // injection throws inside composition and Compose retries every frame.
     single<CrashReportingPort> { JvmCrashReportingPort() }
 
-    single<String> { userHome + "/.singularity-todo/backups" }
+    single<String>(BackupDirQualifier) { userHome + "/.singularity-todo/backups" }
 
-    single<String> { userHome + "/.singularity-todo/logs" }
+    single<String>(LogDirQualifier) { userHome + "/.singularity-todo/logs" }
 
-    single { LogBundleExporter(get(), get(), get()) }
+    // The same folder the desktop's file revealer opens.
+    single<String>(AttachmentDirQualifier) { userHome + "/.singularity-todo/attachments" }
+
+    single { LogBundleExporter(get(LogDirQualifier), get(), get()) }
 
     // ─── Pomodoro Timer ─────────────────────────────────────────────────
 

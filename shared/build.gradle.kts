@@ -304,6 +304,10 @@ kotlin {
             implementation(libs.auth.kt)
             implementation(libs.postgrest.kt)
             implementation(libs.functions.kt)
+            // The remote half of the backup feature: the archive goes into a
+            // Supabase Storage bucket. Without it the "push to cloud" button can
+            // only pretend.
+            implementation(libs.storage.kt)
         }
 
         androidMain.dependencies {

@@ -11,6 +11,7 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
+import com.singularity.todo.core.files.FileSharePort
 import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.settings.SettingsImporter
@@ -53,6 +54,7 @@ class BackupViewModel(
     private val settingsExporter: com.singularity.todo.core.settings.SettingsExporter,
     private val settingsImporter: SettingsImporter,
     private val fileSourceFactory: FileSourceFactory,
+    private val fileSharePort: FileSharePort,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<BackupUiState, BackupIntent, BackupUiEvent>(
@@ -79,6 +81,7 @@ class BackupViewModel(
             is BackupIntent.Restore -> vmScope.launch { runRestore(intent.sourcePath) }
             is BackupIntent.Delete -> vmScope.launch { runDelete(intent.id) }
             is BackupIntent.Push -> vmScope.launch { runPush(intent.id) }
+            is BackupIntent.SaveToFile -> vmScope.launch { runSaveToFile(intent.id) }
             BackupIntent.ExportSettingsSnapshot -> vmScope.launch { runExportSettingsSnapshot() }
             is BackupIntent.ImportSettingsSnapshot -> vmScope.launch { runImportSettingsSnapshot(intent.json) }
             is BackupIntent.ImportSettingsFrom -> vmScope.launch { runImportSettingsFrom(intent.sourcePath) }
@@ -86,12 +89,15 @@ class BackupViewModel(
     }
 
     private suspend fun runCreateBackup() {
-        val destPath = backupFileNamer.nextBackupName(clock.now().toEpochMilliseconds())
+        // A file name, not a path: the repository owns the backup directory and
+        // joins the two. Passing a path here would aim the archive outside that
+        // directory — on Android that is the read-only root.
+        val fileName = backupFileNamer.nextBackupName(clock.now().toEpochMilliseconds())
         updateState { it.copy(isWorking = true) }
         repository.export(
             exportOptions {
                 userId = effectiveUserId
-                this.destPath = destPath
+                this.destPath = fileName
                 includeAttachments = true
             },
         )
@@ -225,6 +231,27 @@ class BackupViewModel(
             }
     }
 
+    /**
+     * Hands the archive to the platform's share sheet.
+     *
+     * The file stays where it is — the share sheet copies it wherever the user
+     * chooses — so this is a copy-out, not a move. A user who shares a backup to
+     * "Files" and then deletes it from the app keeps the copy they made.
+     */
+    private suspend fun runSaveToFile(backupId: com.singularity.todo.core.backup.BackupId) {
+        val backup = currentState.backups.find { it.id == backupId }
+        if (backup == null) {
+            emit(Error("That backup is no longer there"))
+            return
+        }
+        val shared = fileSharePort.shareFile(backup.path, BACKUP_MIME_TYPE)
+        if (shared) {
+            tryEmit(BackupUiEvent.ShowSnackbar("Backup handed over"))
+        } else {
+            emit(Error("No app on this device can take the backup"))
+        }
+    }
+
     private companion object {
         // Machine-shaped grouping keys — these leave the device. The settings-decode
         // outcomes (SchemaTooOld, ParseError) are deliberately absent: they are the user
@@ -232,6 +259,9 @@ class BackupViewModel(
         // message rather than a defect.
         const val BACKUP_EXPORT_FAILED = "backup.export_failed"
         const val BACKUP_RESTORE_FAILED = "backup.restore_failed"
+
+        /** The MIME type a backup archive is handed over with. */
+        const val BACKUP_MIME_TYPE = "application/zip"
         const val BACKUP_DELETE_FAILED = "backup.delete_failed"
         const val BACKUP_PUSH_FAILED = "backup.push_failed"
         const val SETTINGS_EXPORT_FAILED = "backup.settings_export_failed"

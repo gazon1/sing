@@ -14,6 +14,9 @@ import kotlinx.coroutines.CoroutineScope
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.backup.BackupCodec
 import com.singularity.todo.core.config.RemoteConfigPort
+import com.singularity.todo.core.di.AttachmentDirQualifier
+import com.singularity.todo.core.di.BackupDirQualifier
+import com.singularity.todo.core.di.LogDirQualifier
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.files.FileOpener
 import com.singularity.todo.core.files.FileRevealer
@@ -172,7 +175,14 @@ fun testPlatformModule(): Module = module {
     single<FileSourceFactory> { InertFileSourceFactory() }
     single<SharePort> { InertSharePort() }
     single<BackupCodec> { UnusedBackupCodec() }
-    single<String> { tempRoot().resolve("backups").absolutePath }
+    // The directories, qualified the way the production platform modules qualify
+    // them. An unqualified `String` in the graph is a trap: Koin resolves a `String`
+    // parameter *by type*, so a directory that belongs to something else gets used
+    // for it without a word. That is how the attachments ended up in the log
+    // directory.
+    single<String>(BackupDirQualifier) { tempRoot().resolve("backups").absolutePath }
+    single<String>(LogDirQualifier) { tempRoot().resolve("logs").absolutePath }
+    single<String>(AttachmentDirQualifier) { tempRoot().resolve("attachments").absolutePath }
 
     // ─── Settings screen (SettingsViewModel) ────────────────────────────────
     //
@@ -193,7 +203,7 @@ fun testPlatformModule(): Module = module {
     // rather than `FakeLogBundleExporter`: its constructor only reads a directory path, and
     // exercising the real ZIP writer here is what would catch a change to it. The fake
     // remains available for tests that want an inert one.
-    single { LogBundleExporter(tempRoot().resolve("logs").absolutePath, get(), get()) }
+    single { LogBundleExporter(get(LogDirQualifier), get(), get()) }
 
     // Inert rather than `JvmFileSharePort`, for the same reason as `InertSharePort` above:
     // the real one hands a file to the host desktop's file manager. The log-export row on

@@ -266,11 +266,15 @@ actual fun platformModule(): Module = module {
     // and not a concrete type — the override has to be substitutable.
     single<CrashReportingPort> { FileCrashReportingPort(get()) }
 
-    single<String> { get<Context>().filesDir.absolutePath + "/backups" }
+    single<String>(BackupDirQualifier) { get<Context>().filesDir.absolutePath + "/backups" }
 
-    single<String> { get<Context>().filesDir.absolutePath + "/logs" }
+    single<String>(LogDirQualifier) { get<Context>().filesDir.absolutePath + "/logs" }
 
-    single { LogBundleExporter(get(), get(), get()) }
+    // The attachments live next to the other app data, in the folder the
+    // FileProvider publishes as `attachments/`.
+    single<String>(AttachmentDirQualifier) { get<Context>().filesDir.absolutePath + "/attachments" }
+
+    single { LogBundleExporter(get(LogDirQualifier), get(), get()) }
 
     // ─── Notifications ─────────────────────────────────────────────────
 

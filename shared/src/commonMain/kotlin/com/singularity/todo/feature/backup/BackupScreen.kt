@@ -16,6 +16,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -39,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -53,8 +55,9 @@ import com.singularity.todo.core.ui.formatFileSize
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.core.ui.text.SelectableText
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.datetime.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,6 +72,13 @@ fun BackupScreen(
     onRestore: (sourcePath: String) -> Unit,
     onDelete: (BackupId) -> Unit,
     onPush: (BackupId) -> Unit,
+    /**
+     * Called when the user wants a copy of the backup outside the app.
+     *
+     * The platform shell hands the archive to the system share sheet, which is
+     * where "Save to Files" and every cloud-storage app live.
+     */
+    onSaveToFile: (BackupId) -> Unit,
     /** Called when user wants to export settings as a JSON snapshot for sharing. */
     onExportSettings: () -> Unit,
     /**
@@ -91,6 +101,15 @@ fun BackupScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var pendingSettingsJson by remember { mutableStateOf<String?>(null) }
 
+    // The screen owns the single collection of the event bus. The bus is a
+    // channel, and a channel has one consumer: a second collector on `events`
+    // takes its share of the events away from this one. That is how every
+    // error used to land in a collector that dropped it — the export failed and
+    // the screen said nothing. The mapped notifications travel to the host over
+    // a channel of their own, so the host is the only consumer of those.
+    val notificationChannel = remember { Channel<Notification>(Channel.BUFFERED) }
+    val notificationFlow = remember(notificationChannel) { notificationChannel.receiveAsFlow() }
+
     // Collect SettingsSnapshotExported events and show a snackbar with share action.
     LaunchedEffect(events) {
         events.collect { event ->
@@ -111,17 +130,13 @@ fun BackupScreen(
                 is BackupUiEvent.ShowSnackbar ->
                     snackbarHostState.showSnackbar(event.message)
 
-                is BackupUiEvent.Error -> { /* handled by NotificationHost */ }
+                is BackupUiEvent.Error ->
+                    notificationChannel.send(Notification.Error(event.message))
             }
         }
     }
 
-    NotificationHost(
-        events = events.filterIsInstance<BackupUiEvent.Error>(),
-        mapper = { event ->
-            Notification.Error(event.message)
-        },
-    )
+    NotificationHost(events = notificationFlow)
 
     Scaffold(
         topBar = {
@@ -243,6 +258,7 @@ fun BackupScreen(
                             backup = backup,
                             onRestore = { onRestore(backup.path) },
                             onPush = { onPush(backup.id) },
+                            onSaveToFile = { onSaveToFile(backup.id) },
                             onDelete = { onDelete(backup.id) },
                         )
                     }
@@ -257,6 +273,7 @@ fun BackupListItem(
     backup: BackupMetadata,
     onRestore: () -> Unit,
     onPush: () -> Unit,
+    onSaveToFile: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -295,6 +312,9 @@ fun BackupListItem(
             IconButton(onClick = onPush) {
                 Icon(Icons.Default.CloudUpload, "Push to cloud", tint = MaterialTheme.colorScheme.primary)
             }
+            IconButton(onClick = onSaveToFile) {
+                Icon(Icons.Default.SaveAlt, "Save to file", tint = MaterialTheme.colorScheme.primary)
+            }
             IconButton(onClick = { showDeleteConfirm = true }) {
                 Icon(Icons.Default.Delete, "Delete", tint = MaterialTheme.colorScheme.error)
             }
@@ -302,46 +322,64 @@ fun BackupListItem(
     }
 
     if (showRestoreConfirm) {
-        AlertDialog(
-            onDismissRequest = { showRestoreConfirm = false },
-            title = { Text("Restore backup") },
-            text = { Text("Restore will overwrite current data. Are you sure?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showRestoreConfirm = false
-                    onRestore()
-                }) {
-                    Text("Restore")
-                }
+        BackupConfirmDialog(
+            title = "Restore backup",
+            text = "Restore will overwrite current data. Are you sure?",
+            confirmLabel = "Restore",
+            onConfirm = {
+                showRestoreConfirm = false
+                onRestore()
             },
-            dismissButton = {
-                TextButton(onClick = { showRestoreConfirm = false }) {
-                    Text("Cancel")
-                }
-            },
+            onDismiss = { showRestoreConfirm = false },
         )
     }
 
     if (showDeleteConfirm) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Delete backup") },
-            text = { Text("This backup will be permanently deleted. This action cannot be undone.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showDeleteConfirm = false
-                    onDelete()
-                }) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
-                }
+        BackupConfirmDialog(
+            title = "Delete backup",
+            text = "This backup will be permanently deleted. This action cannot be undone.",
+            confirmLabel = "Delete",
+            confirmColor = MaterialTheme.colorScheme.error,
+            onConfirm = {
+                showDeleteConfirm = false
+                onDelete()
             },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text("Cancel")
-                }
-            },
+            onDismiss = { showDeleteConfirm = false },
         )
     }
+}
+
+/**
+ * The "are you sure" dialog both destructive actions ask with.
+ *
+ * One dialog, not two: the two actions differ in wording and in the colour of the
+ * button that carries them out, and nothing else. Two copies of the same dialog
+ * are two places for the dismiss behaviour to drift apart.
+ */
+@Composable
+private fun BackupConfirmDialog(
+    title: String,
+    text: String,
+    confirmLabel: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+    confirmColor: Color = MaterialTheme.colorScheme.primary,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(text) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(confirmLabel, color = confirmColor)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
+    )
 }
 
 private fun formatDate(epochMillis: Long): String = formatBackupDate(epochMillis, TimeZone.currentSystemDefault())
@@ -439,6 +477,7 @@ private fun BackupScreenContentPreview(state: BackupUiState) {
                             backup = backup,
                             onRestore = noopClick,
                             onPush = noopClick,
+                            onSaveToFile = noopClick,
                             onDelete = noopClick,
                         )
                     }

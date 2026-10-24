@@ -256,6 +256,7 @@ androidx-lifecycle-viewmodel-navigation3 = { module = "org.jetbrains.androidx.li
 # Supabase
 auth-kt = { module = "io.github.jan-tennert.supabase:auth-kt", version.ref = "supabase" }
 functions-kt = { module = "io.github.jan-tennert.supabase:functions-kt", version.ref = "supabase" }
+storage-kt = { module = "io.github.jan-tennert.supabase:storage-kt", version.ref = "supabase" }
 
 # Utils
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }

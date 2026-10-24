@@ -87,6 +87,33 @@ class TestPlatformModuleParityTest {
         )
     }
 
+    /**
+     * Every directory the production platform module binds must also be bound by the
+     * test platform module, **under the same qualifier**.
+     *
+     * The port check above cannot see this. It compares simple type names, so three
+     * qualified `String` definitions collapse into one "String" — and the exclusion
+     * for `String` then removes it. That exclusion is how the test module kept a
+     * single unqualified `String` while production had none, and Koin resolves a
+     * `String` parameter *by type*: the graph asked for a directory that belonged
+     * to something else, and got one without a word.
+     *
+     * Comparing by qualifier is what makes the difference visible: a directory that
+     * production names `attachment_dir` has to be named `attachment_dir` here too.
+     */
+    @Test
+    fun `production directory bindings all exist in the test platform module`() {
+        val production = directoryBindings(listOf(platformModule()))
+        val test = directoryBindings(listOf(testPlatformModule()))
+        val missing = production - test
+        assertTrue(
+            missing.isEmpty(),
+            "testPlatformModule is missing directory bindings that platformModule binds: $missing\n" +
+                "A directory is a `String`, and Koin resolves a `String` parameter by type. " +
+                "A missing one makes the graph ask for whatever `String` happens to be there.",
+        )
+    }
+
     @OptIn(KoinInternalApi::class)
     private fun daoTypes(moduleList: List<Module>): Set<String> =
         definedTypes(moduleList).filterTo(mutableSetOf()) { it.endsWith("Dao") }
@@ -101,6 +128,25 @@ class TestPlatformModuleParityTest {
         try {
             return app.koin.instanceRegistry.instances.values
                 .mapNotNull { it.beanDefinition.primaryType.simpleName }
+                .toMutableSet()
+        } finally {
+            app.close()
+        }
+    }
+
+    /**
+     * The `String` definitions, named by their qualifier.
+     *
+     * A qualifier is what tells two directories apart; without it in the name, three
+     * of them are one entry, and the comparison cannot see which one is missing.
+     */
+    @OptIn(KoinInternalApi::class)
+    private fun directoryBindings(moduleList: List<Module>): Set<String> {
+        val app = koinApplication { modules(moduleList) }
+        try {
+            return app.koin.instanceRegistry.instances.values
+                .filter { it.beanDefinition.primaryType.simpleName == "String" }
+                .map { "String[${it.beanDefinition.qualifier?.value ?: "unqualified"}]" }
                 .toMutableSet()
         } finally {
             app.close()

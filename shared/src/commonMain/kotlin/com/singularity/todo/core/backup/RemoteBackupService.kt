@@ -3,15 +3,33 @@ package com.singularity.todo.core.backup
 import com.singularity.todo.core.ids.UserId
 
 /**
- * Stub implementation of remote backup storage — no-op.
- * Real Supabase Storage integration comes in Phase 12.
+ * The remote half of the backup feature: where an archive goes when the user
+ * pushes it to the cloud, and where it comes back from.
+ *
+ * ## Why this is an interface
+ *
+ * The app has to answer "can this device push a backup anywhere?" before the
+ * user presses the button, and the answer is different on a device with a
+ * Supabase project and on one without. A port lets the repository ask that
+ * question and lets a test answer it without a network.
+ *
+ * The implementation that talks to Supabase Storage lives in
+ * [SupabaseStorageRemoteBackupService]; nothing here knows the vendor exists.
  */
-class StubRemoteBackupService {
-    suspend fun upload(localPath: String, userId: UserId): Result<String> =
-        Result.success(localPath) // Return local path as pseudo-remote URL
+interface RemoteBackupService {
+    /**
+     * Uploads the archive at [localPath].
+     *
+     * @return a reference to the uploaded object, which [download] can use.
+     */
+    suspend fun upload(localPath: String, userId: UserId): Result<String>
 
-    suspend fun download(remoteRef: String, destPath: String, userId: UserId): Result<Unit> =
-        Result.success(Unit) // Stub: remoteRef is local path
+    /** Downloads [remoteRef] to [destPath]. */
+    suspend fun download(remoteRef: String, destPath: String, userId: UserId): Result<Unit>
 
-    suspend fun list(userId: UserId): Result<List<String>> = Result.success(emptyList())
+    /** The remote objects that belong to [userId]. */
+    suspend fun list(userId: UserId): Result<List<String>>
 }
+
+/** The remote half could not do its job, with a reason a user can act on. */
+class RemoteBackupException(message: String) : Exception(message)

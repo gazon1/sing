@@ -4,6 +4,7 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.storage.Storage
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -99,5 +100,7 @@ open class SupabaseClientProvider(private val resolver: SupabaseConfigResolver, 
     private fun build(config: SupabaseConfig): SupabaseClient = createSupabaseClient(config.url, config.anonKey) {
         install(Auth)
         install(Postgrest)
+        // The backup feature's remote half: the archive goes into a Storage bucket.
+        install(Storage)
     }
 }
