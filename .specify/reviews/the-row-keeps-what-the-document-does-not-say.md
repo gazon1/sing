@@ -1,7 +1,7 @@
 ---
 change: the-row-keeps-what-the-document-does-not-say
 verdict: pass
-date: 2026-10-24
+date: 2026-10-29
 pr: 1048
 reviewed: a7dd2f393b74db18ea6c346d3be50128b052958a
 documents: sha256:aeeb5e88e1a9571c768951079b836ba1cadefe8970ba625e8acd0ee04c5ce770

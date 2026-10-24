@@ -191,7 +191,7 @@ all, and that emptiness is a reading artefact, not a claim.
   pull carries
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/sync/DocumentMerge.kt`
   — the merge, generalised to every type by
-  `2026-10-24-the-row-keeps-what-the-document-does-not-say-for-every-type`
+  `2026-10-29-the-row-keeps-what-the-document-does-not-say-for-every-type`
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncDocumentWriter.kt`
   — `taskDocument`, where the document meets the row
 - `shared/src/jvmTest/kotlin/com/singularity/todo/core/sync/DocumentMergeTest.kt`

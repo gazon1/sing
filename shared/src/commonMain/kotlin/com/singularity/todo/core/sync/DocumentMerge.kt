@@ -26,7 +26,7 @@ import kotlinx.serialization.json.JsonObject
  *   it, or `null` when there is none.
  *
  * See `docs/decisions/2026-10-23-the-row-keeps-what-the-document-does-not-say.md`
- * and `docs/decisions/2026-10-24-the-row-keeps-what-the-document-does-not-say-for-every-type.md`.
+ * and `docs/decisions/2026-10-29-the-row-keeps-what-the-document-does-not-say-for-every-type.md`.
  */
 internal fun mergeWithLocalRow(document: JsonObject, localRow: JsonObject?): JsonObject {
     if (localRow == null) return document

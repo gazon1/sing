@@ -1,7 +1,7 @@
 ---
 change: the-row-keeps-what-the-document-does-not-say-for-every-type
 verdict: pass
-date: 2026-10-24
+date: 2026-10-29
 pr: 1099
 reviewed: a7dd2f393b74db18ea6c346d3be50128b052958a
 documents: sha256:26fca3187d96f55998748dd0e634f901eaecddeef02726fc0e819ab365e22910
@@ -112,4 +112,4 @@ The profile boundary has its own control: with `belongsToThisProfile` taken
 out of `mergedRow`, the cross-profile test fails and it is the only one that
 does.
 
-See ADR `2026-10-24-the-row-keeps-what-the-document-does-not-say-for-every-type`.
+See ADR `2026-10-29-the-row-keeps-what-the-document-does-not-say-for-every-type`.

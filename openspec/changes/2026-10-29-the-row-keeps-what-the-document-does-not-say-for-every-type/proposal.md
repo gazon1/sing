@@ -1,6 +1,6 @@
 # the-row-keeps-what-the-document-does-not-say-for-every-type
 
-**Status:** proposed · **Issues:** [#1026](https://github.com/gazon1/sing/issues/1026) · **ADRs:** `2026-10-24-the-row-keeps-what-the-document-does-not-say-for-every-type`
+**Status:** proposed · **Issues:** [#1026](https://github.com/gazon1/sing/issues/1026) · **ADRs:** `2026-10-29-the-row-keeps-what-the-document-does-not-say-for-every-type`
 
 ## What
 
@@ -63,7 +63,7 @@ one path for the task and five that decoded the document on its own.
 
 ## Links
 
-- ADR `2026-10-24-the-row-keeps-what-the-document-does-not-say-for-every-type`
+- ADR `2026-10-29-the-row-keeps-what-the-document-does-not-say-for-every-type`
 - ADR `2026-10-23-the-row-keeps-what-the-document-does-not-say` — the rule,
   and the task it was written for
 - ADR `2026-10-23-a-document-says-only-what-it-carries` — the parts that live

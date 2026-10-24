@@ -1,6 +1,6 @@
 ---
 title: "The row keeps what the document does not say, for every type"
-date: 2026-10-24
+date: 2026-10-29
 status: accepted
 tags: [sync, database, mapping]
 ---

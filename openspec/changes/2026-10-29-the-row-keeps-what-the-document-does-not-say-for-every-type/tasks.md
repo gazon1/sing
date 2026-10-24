@@ -47,7 +47,7 @@
 
 ## 5. The documents say what was decided
 
-- [x] 5.1 ADR `2026-10-24-the-row-keeps-what-the-document-does-not-say-for-every-type`.
+- [x] 5.1 ADR `2026-10-29-the-row-keeps-what-the-document-does-not-say-for-every-type`.
 - [x] 5.2 The proposal and the spec of this change.
 - [x] 5.3 The links of the sibling decision are updated: the merge and its test
       were renamed when the merge was generalised.
