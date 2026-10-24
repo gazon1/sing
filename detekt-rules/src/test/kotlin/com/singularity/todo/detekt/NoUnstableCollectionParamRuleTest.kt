@@ -78,6 +78,59 @@ class NoUnstableCollectionParamRuleTest {
     }
 
     @Test
+    fun `a composable taking a mutable or concrete collection is flagged`() {
+        // The rule promises to report a *raw collection*, not only the `List`
+        // and the `Map`. A set that names only those two leaves the mutable
+        // spellings — and `Array` — as a way to walk around it.
+        val code = """
+            package com.singularity.todo.feature.tasks
+
+            import androidx.compose.runtime.Composable
+
+            @Composable
+            fun TaskRow(items: MutableList<String>) {
+            }
+
+            @Composable
+            fun TaskRow2(items: MutableSet<String>) {
+            }
+
+            @Composable
+            fun TaskRow3(items: MutableMap<String, Int>) {
+            }
+
+            @Composable
+            fun TaskRow4(items: Collection<String>) {
+            }
+
+            @Composable
+            fun TaskRow5(items: Array<String>) {
+            }
+        """
+        val found = findings(code)
+        assertEquals(5, found.size)
+    }
+
+    @Test
+    fun `the stdlib collection spelled with its package is flagged`() {
+        // `kotlin.collections.List` is the same collection as `List`, and a rule
+        // that missed the spelling would be a rule a developer could walk
+        // around by writing the type out.
+        val code = """
+            package com.singularity.todo.feature.tasks
+
+            import androidx.compose.runtime.Composable
+
+            @Composable
+            fun TaskRow(tags: kotlin.collections.List<String>) {
+            }
+        """
+        val found = findings(code)
+        assertEquals(1, found.size)
+        assertTrue(found[0].message.contains("List"))
+    }
+
+    @Test
     fun `a composable taking a persistent collection is not flagged`() {
         val code = """
             package com.singularity.todo.feature.tasks

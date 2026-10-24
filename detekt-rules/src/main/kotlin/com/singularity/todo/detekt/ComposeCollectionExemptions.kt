@@ -46,8 +46,15 @@ package com.singularity.todo.detekt
  * between "this site is known" and "this site is known, and this is the
  * parameter that is known". Keying by the parameter makes the second
  * question answerable, and it makes the register checkable: a parameter that
- * was renamed, removed or retyped leaves an entry that names something the
- * code no longer has, and [NoUnstableCollectionParamRule] reports it as stale.
+ * was retyped leaves an entry that names a type the code no longer declares,
+ * and [NoUnstableCollectionParamRule] reports it as stale.
+ *
+ * A parameter that was **renamed** or **removed** is a different case, and the
+ * rule does not see it: a parameter that is gone has no declared type to
+ * compare, and a composable may have overloads, so "this parameter is missing
+ * here" is not the same as "this parameter is gone". The gate
+ * (`scripts/check-compose-stability-config.py`) reads the sources of the whole
+ * repository and answers that question there.
  *
  * @see NoUnstableCollectionParamRule
  * @see 2026-10-22-compose-stability-contract
@@ -244,11 +251,4 @@ internal object ComposeCollectionExemptions {
      */
     fun parametersOf(qualifiedName: String): Map<String, String> =
         KNOWN[qualifiedName] ?: emptyMap()
-
-    /**
-     * The type the register records for [parameter] of [qualifiedName], or null
-     * when the register names no such parameter.
-     */
-    fun recordedType(qualifiedName: String, parameter: String): String? =
-        KNOWN[qualifiedName]?.get(parameter)
 }

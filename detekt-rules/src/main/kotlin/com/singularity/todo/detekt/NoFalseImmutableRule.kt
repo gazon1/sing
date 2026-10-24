@@ -48,6 +48,10 @@ import org.jetbrains.kotlin.psi.KtProperty
  * inferred. Those are known limits, not oversights: resolving them needs
  * semantic analysis this rule does not have.
  *
+ * The collection types it knows are the ones in [RawCollectionTypes] — the
+ * same set the collection-parameter rule uses, so the two rules cannot end up
+ * disagreeing about what a raw collection is.
+ *
  * The rule also cannot see a promise broken **through** a contained type: a
  * class marked `@Immutable` whose property is another class that holds a raw
  * collection breaks the promise just as surely, and the rule cannot know it
@@ -177,7 +181,7 @@ class NoFalseImmutableRule(config: Config) : Rule(config, "", null) {
         val qualifier = name.substringBeforeLast('.', "")
         if (qualifier.isNotEmpty() && qualifier != "kotlin.collections") return null
         val simple = name.substringAfterLast('.')
-        return if (simple in RAW_COLLECTIONS) simple else null
+        return if (simple in RawCollectionTypes.NAMES) simple else null
     }
 
     /** A property the class declares, and what it declares it as. */
@@ -185,17 +189,6 @@ class NoFalseImmutableRule(config: Config) : Rule(config, "", null) {
 
     private companion object {
         const val IMMUTABLE = "Immutable"
-
-        /** The raw collection types an `@Immutable` class must not carry. */
-        val RAW_COLLECTIONS = setOf(
-            "List",
-            "MutableList",
-            "Set",
-            "MutableSet",
-            "Map",
-            "MutableMap",
-            "Collection",
-        )
     }
 }
 

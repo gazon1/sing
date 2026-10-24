@@ -195,6 +195,67 @@ class NoFalseImmutableRuleTest {
     }
 
     @Test
+    fun `an immutable class with a var in the primary constructor is flagged`() {
+        // The `var` of a constructor parameter is a property of the class, and
+        // a rule that reads only the class body would call this class fieldless.
+        val code = """
+            package com.singularity.todo.feature.tasks
+
+            import androidx.compose.runtime.Immutable
+
+            @Immutable
+            class TaskBadge(var count: Int)
+        """
+        val found = findings(code)
+        assertEquals(1, found.size)
+        assertTrue(
+            found[0].message.contains("count"),
+            "the finding should name the property, got: ${found[0].message}",
+        )
+    }
+
+    @Test
+    fun `an immutable class with a nullable raw collection is flagged`() {
+        // Nullability does not make a collection stable: the field still holds
+        // a list, and the list can still change.
+        val code = """
+            package com.singularity.todo.feature.tasks
+
+            import androidx.compose.runtime.Immutable
+
+            @Immutable
+            class TaskBadge {
+                val tags: List<String>? = null
+            }
+        """
+        val found = findings(code)
+        assertEquals(1, found.size)
+        assertTrue(found[0].message.contains("List"))
+    }
+
+    @Test
+    fun `an immutable class with a mutable or concrete collection is flagged`() {
+        // The rule promises to report a *raw collection*, not only the `List`.
+        // The mutable spellings — and `Array` — are the same promise broken in
+        // other words.
+        val code = """
+            package com.singularity.todo.feature.tasks
+
+            import androidx.compose.runtime.Immutable
+
+            @Immutable
+            class TaskBadge {
+                val items: MutableList<String> = mutableListOf()
+                val picked: MutableSet<String> = mutableSetOf()
+                val counts: MutableMap<String, Int> = mutableMapOf()
+                val wide: Collection<String> = emptyList()
+                val buffer: Array<String> = emptyArray()
+            }
+        """
+        assertEquals(5, findings(code).size)
+    }
+
+    @Test
     fun `the stdlib collection spelled with its package is flagged`() {
         // `kotlin.collections.List` is the same collection as `List`, and a rule
         // that missed the spelling would be a rule a developer could walk

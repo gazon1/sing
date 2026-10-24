@@ -76,6 +76,10 @@ import org.jetbrains.kotlin.psi.KtUserType
  * is a known limit, not an oversight — resolving typealiases needs semantic
  * analysis, which this rule does not have.
  *
+ * The collection types it knows are the ones in [RawCollectionTypes] — the
+ * same set the `@Immutable` rule uses, so the two rules cannot end up
+ * disagreeing about what a raw collection is.
+ *
  * The qualified name carries the classes a function is nested in, but not the
  * receiver of a top-level **extension** function: `fun Foo.Bar()` is named
  * `…package.Bar` here. There is no such composable in the repository today, and
@@ -210,7 +214,7 @@ class NoUnstableCollectionParamRule(config: Config) : Rule(config, "", null) {
         val qualifier = userType.qualifier?.text
         if (qualifier != null && qualifier != "kotlin.collections") return null
         val name = userType.referencedName
-        return if (name in RAW_COLLECTIONS) name else null
+        return if (name in RawCollectionTypes.NAMES) name else null
     }
 
     /** The declared type of the parameter, as the source spells it. */
@@ -218,24 +222,6 @@ class NoUnstableCollectionParamRule(config: Config) : Rule(config, "", null) {
 
     private companion object {
         const val COMPOSABLE = "Composable"
-
-        /**
-         * The raw collection types a composable parameter must not use.
-         *
-         * `Collection` is here because it is the same problem: an interface the
-         * compiler cannot reason about. `Iterable` is deliberately absent — it is
-         * rarer as a composable parameter, and a rule that reports rarely is a rule
-         * people turn off.
-         */
-        val RAW_COLLECTIONS = setOf(
-            "List",
-            "MutableList",
-            "Set",
-            "MutableSet",
-            "Map",
-            "MutableMap",
-            "Collection",
-        )
 
         /** Whitespace, which the source may wrap a long type across. */
         val WHITESPACE = Regex("\\s+")
