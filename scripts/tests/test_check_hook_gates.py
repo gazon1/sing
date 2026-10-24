@@ -34,6 +34,41 @@ GRAPH_MODULES = {
     'desktopApp', 'androidApp', 'mcp-server', 'detekt-rules',
 }
 
+
+class FakeChecks(dict):
+    """The module graph's checks, with the same two views it has.
+
+    ``scripts/changed-modules.py``'s `ModuleChecks` has two: every module it
+    knows, and the modules that have a detekt verdict. The gate needs both, so
+    the fixture has to carry both.
+    """
+
+    def __iter__(self):
+        return iter(self.detekt_modules())
+
+    def detekt_modules(self) -> list[str]:
+        return sorted(
+            name for name, checks in dict.items(self)
+            if any(check.endswith(':detekt') for check in checks)
+        )
+
+    def all_modules(self) -> list[str]:
+        return sorted(dict.keys(self))
+
+
+class FakeGraph:
+    """The module graph, as the gate sees it."""
+
+    def __init__(self, modules: set[str], detekt: set[str] | None = None) -> None:
+        detekt = modules if detekt is None else detekt
+        self.TASKS = FakeChecks(
+            {name: [f':{name}:detekt'] for name in modules}
+            | {name: [f':{name}:test'] for name in modules - detekt}
+        )
+
+
+GRAPH = FakeGraph(GRAPH_MODULES)
+
 DECLARED = {
     'scripts/build-version-catalog-gate.py',
     'scripts/check-ui-wait-budgets.py',
@@ -49,9 +84,11 @@ class HookGatesTest(unittest.TestCase):
         self.registry_path = self.tmp / 'pre-push.json'
         self.hook_path = self.tmp / 'pre-push'
         self.ci_path = self.tmp / 'ci.yml'
+        self.ci_script_path = self.tmp / 'detekt-auto-fix.sh'
         self.registry_path.write_text(json.dumps(self._registry()), encoding='utf-8')
         self.hook_path.write_text(self._hook(), encoding='utf-8')
         self.ci_path.write_text(self._ci(), encoding='utf-8')
+        self.ci_script_path.write_text(self._ci_script(), encoding='utf-8')
 
     @staticmethod
     def _registry() -> dict:
@@ -79,17 +116,34 @@ class HookGatesTest(unittest.TestCase):
 
     @staticmethod
     def _ci() -> str:
-        tasks = ' '.join(f':{module}:detekt' for module in sorted(GRAPH_MODULES))
-        return f'run: ./gradlew {tasks}\n'
+        # CI asks the module graph for the list. A workflow that wrote the
+        # list out by hand is drift, and the gate says so.
+        return (
+            'run: |\n'
+            '  mapfile -t DETEKT_TASKS < <(python3 scripts/changed-modules.py --detekt-tasks)\n'
+            '  ./gradlew "${DETEKT_TASKS[@]}"\n'
+        )
 
-    def _errors(self) -> list[str]:
+    @staticmethod
+    def _ci_script() -> str:
+        # The auto-fix script judges the same modules, so it asks the graph
+        # too. A list written out here is a second copy of a fact the build
+        # already states.
+        return (
+            '#!/bin/bash\n'
+            'mapfile -t DETEKT_TASKS < <(python3 scripts/changed-modules.py --detekt-tasks)\n'
+            './gradlew "${DETEKT_TASKS[@]}" --auto-correct\n'
+        )
+
+    def _errors(self, graph=None, ci_path=None, ci_script=None) -> list[str]:
         errors, _ = mod.collect_errors(
             self.registry_path,
             self.hook_path,
-            self.ci_path,
-            GRAPH_MODULES,
+            self.ci_path if ci_path is None else ci_path,
+            GRAPH if graph is None else graph,
             DECLARED,
             TREE_RULES,
+            self.ci_script_path if ci_script is None else ci_script,
         )
         return errors
 
@@ -103,13 +157,17 @@ class HookGatesTest(unittest.TestCase):
         errors = self._errors()
         self.assertTrue(any('mcp-server' in err for err in errors), errors)
 
-    def test_a_module_the_record_claims_the_ci_judges_but_it_does_not_is_an_error(self):
-        tasks = ' '.join(
-            f':{module}:detekt' for module in sorted(GRAPH_MODULES - {'androidApp'})
-        )
-        self.ci_path.write_text(f'run: ./gradlew {tasks}\n', encoding='utf-8')
+    def test_a_module_the_record_claims_the_ci_judges_but_the_build_does_not_is_an_error(self):
+        """CI judges what the build declares; the record may not claim more.
+
+        The list CI judges is read from the build, so a module the record
+        names and the build does not declare is a claim nobody produces.
+        """
+        registry = self._registry()
+        registry['detekt']['judged_by_ci'].append(':ghostModule:detekt')
+        self.registry_path.write_text(json.dumps(registry), encoding='utf-8')
         errors = self._errors()
-        self.assertTrue(any('androidApp' in err for err in errors), errors)
+        self.assertTrue(any('ghostModule' in err for err in errors), errors)
 
     def test_a_script_the_hook_runs_and_the_declaration_does_not_name_is_an_error(self):
         self.hook_path.write_text(
@@ -123,9 +181,10 @@ class HookGatesTest(unittest.TestCase):
             self.registry_path,
             self.hook_path,
             self.ci_path,
-            GRAPH_MODULES,
+            GRAPH,
             DECLARED | {'scripts/check-navigation-doc-sync.py'},
             TREE_RULES,
+            self.ci_script_path,
         )
         self.assertTrue(
             any('check-navigation-doc-sync.py' in err for err in errors), errors,
@@ -159,8 +218,14 @@ class HookGatesTest(unittest.TestCase):
         registry = self._registry()
         registry['detekt']['judged_by_ci_outside_the_module_graph'] = {':pro:detekt': 'the pro build'}
         self.registry_path.write_text(json.dumps(registry), encoding='utf-8')
-        tasks = ' '.join(f':{module}:detekt' for module in sorted(GRAPH_MODULES))
-        self.ci_path.write_text(f'run: ./gradlew {tasks} :pro:detekt\n', encoding='utf-8')
+        # The pro build is not in the graph — it only exists behind a flag —
+        # so the workflow names it, and the record says so.
+        self.ci_path.write_text(
+            'run: |\n'
+            '  mapfile -t DETEKT_TASKS < <(python3 scripts/changed-modules.py --detekt-tasks)\n'
+            '  ./gradlew "${DETEKT_TASKS[@]}" -PwithPro=true :pro:detekt\n',
+            encoding='utf-8',
+        )
         self.assertEqual([], self._errors())
 
     def test_a_module_the_graph_knows_and_neither_ci_nor_the_record_names_is_an_error(self):
@@ -175,14 +240,66 @@ class HookGatesTest(unittest.TestCase):
             self.registry_path,
             self.hook_path,
             self.ci_path,
-            GRAPH_MODULES | {'aNewModule'},
+            FakeGraph(GRAPH_MODULES | {'aNewModule'}),
             DECLARED,
             TREE_RULES,
+            self.ci_script_path,
         )
         self.assertTrue(
             any('aNewModule' in err for err in errors),
             errors,
         )
+
+    def test_a_hand_written_detekt_list_in_the_workflow_is_an_error(self):
+        """A list written out by hand is a second copy of a fact the build states.
+
+        The list CI judges is read from the build. A workflow that writes the
+        module names out itself is a list that goes stale silently — and the
+        gate that was supposed to catch it was reading that very list.
+        """
+        self.ci_path.write_text(
+            'run: ./gradlew :shared:detekt :desktopApp:detekt\n', encoding='utf-8',
+        )
+        errors = self._errors()
+        self.assertTrue(
+            [err for err in errors if 'names :shared:detekt itself' in err],
+            errors,
+        )
+
+    def test_a_hand_written_detekt_list_in_the_auto_fix_script_is_an_error(self):
+        self.ci_script_path.write_text(
+            '#!/bin/bash\n./gradlew :shared:detekt --auto-correct\n', encoding='utf-8',
+        )
+        errors = self._errors()
+        self.assertTrue(
+            [err for err in errors if 'auto-fix script names :shared:detekt itself' in err],
+            errors,
+        )
+
+    def test_a_ci_surface_that_does_not_ask_the_graph_is_an_error(self):
+        """A job that judged nothing would be green, and nothing else would say so."""
+        self.ci_path.write_text('run: ./gradlew koverReport\n', encoding='utf-8')
+        self.ci_script_path.write_text('#!/bin/bash\n./gradlew koverReport\n', encoding='utf-8')
+        errors = self._errors()
+        self.assertTrue(
+            [err for err in errors if 'does not ask the module graph' in err],
+            errors,
+        )
+
+    def test_a_prose_mention_of_a_detekt_module_is_not_a_list(self):
+        """A comment that mentions a module in passing is not a list of modules.
+
+        The gate used to read the workflow with a plain regex, so a paragraph
+        about a past measurement counted as a module CI judges.
+        """
+        self.ci_path.write_text(
+            'run: |\n'
+            '  # Measured on a pristine checkout: `:shared:detekt` fails with\n'
+            '  mapfile -t DETEKT_TASKS < <(python3 scripts/changed-modules.py --detekt-tasks)\n'
+            '  ./gradlew "${DETEKT_TASKS[@]}"\n',
+            encoding='utf-8',
+        )
+        self.assertEqual([], self._errors())
 
     def test_a_module_the_graph_knows_and_ci_names_is_not_that_error(self):
         """CI names it, so only the missing record entry is an error."""
@@ -190,9 +307,10 @@ class HookGatesTest(unittest.TestCase):
             self.registry_path,
             self.hook_path,
             self.ci_path,
-            GRAPH_MODULES | {'mcp-server'},
+            FakeGraph(GRAPH_MODULES | {'mcp-server'}),
             DECLARED,
             TREE_RULES,
+            self.ci_script_path,
         )
         self.assertFalse(
             [err for err in errors if 'mcp-server' in err and 'nobody else certifies' in err],

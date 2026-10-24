@@ -60,6 +60,11 @@ REGISTRY = ROOT / 'config' / 'hooks' / 'pre-push.json'
 HOOK = ROOT / '.githooks' / 'pre-push'
 CI_WORKFLOW = ROOT / '.github' / 'workflows' / 'ci.yml'
 
+#: The script CI runs to correct the tree. It judges the same modules the
+#: workflow judges, so it is a second place where the list of modules could be
+#: written out by hand.
+CI_DETEKT_SCRIPT = ROOT / 'scripts' / 'ci' / 'detekt-auto-fix.sh'
+
 #: A script the hook runs: `python3 "$REPO_ROOT/scripts/<path>"` or
 #: `python3 "$tree/scripts/<path>"` — the hook runs some gates against the
 #: repository and some against the tree that is being pushed.
@@ -78,18 +83,14 @@ def load_module_graph():
     The graph is the single source of truth for which modules exist; loading
     it here is what makes "the record and the graph agree" a fact rather than
     a second hand-written list.
-    """
-    path = ROOT / 'scripts' / 'changed-modules.py'
-    if not path.is_file():
-        return None
-    import importlib.util
 
-    spec = importlib.util.spec_from_file_location('changed_modules', path)
-    if spec is None or spec.loader is None:
-        return None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    The loader itself lives in ``sgate.module_graph``: another gate (the
+    Gradle-task parity check) needs the same answer, and two loaders of the
+    same file are two places where the answer can differ.
+    """
+    from sgate.module_graph import load_module_graph as _load
+
+    return _load(ROOT)
 
 
 def declared_hook_scripts() -> tuple[set[str], set[str]]:
@@ -107,24 +108,44 @@ def declared_hook_scripts() -> tuple[set[str], set[str]]:
 
 
 def ci_detekt_modules(ci_path: pathlib.Path) -> set[str]:
-    """The detekt modules the CI workflow judges."""
+    """The detekt modules a CI file NAMES in a command.
+
+    Only the lines that are commands count. A comment that mentions
+    `:shared:detekt` in passing — a paragraph about a past measurement, a
+    sentence about the auto-correct flag — is prose about a module, not a list
+    of the modules CI judges. Reading both is how a workflow ends up "judging"
+    a module that only a paragraph mentions, and how a gate that compares two
+    lists ends up comparing a list with a paragraph.
+    """
     if not ci_path.is_file():
         return set()
-    return set(CI_DETEKT_RE.findall(ci_path.read_text(encoding='utf-8')))
+    modules: set[str] = set()
+    for line in ci_path.read_text(encoding='utf-8').splitlines():
+        stripped = line.strip()
+        if stripped.startswith('#'):
+            continue
+        modules.update(CI_DETEKT_RE.findall(stripped))
+    return modules
 
 
 def collect_errors(
     registry_path: pathlib.Path,
     hook_path: pathlib.Path,
     ci_path: pathlib.Path,
-    graph_modules: set[str] | None = None,
+    graph: object | None = None,
     declared: set[str] | None = None,
     tree_rules: set[str] | None = None,
+    ci_script_path: pathlib.Path | None = None,
 ) -> tuple[list[str], dict]:
     """The disagreements between the record, the hook and the CI.
 
     Returns the errors and the facts the report prints — so a caller can
     assert on either without re-reading the files.
+
+    ``graph`` is the module graph itself (scripts/changed-modules.py), not a
+    set of names: the gate needs two views of it — every module it knows, and
+    the modules that have a detekt verdict — and a set of names could carry
+    only one of them.
     """
     errors: list[str] = []
 
@@ -175,39 +196,72 @@ def collect_errors(
     outside_modules = {task.split(':')[1] for task in outside} if isinstance(outside, dict) else set()
     recorded_modules = {task.split(':')[1] for task in recorded}
 
+    # The modules CI judges are the modules the BUILD declares and that have a
+    # detekt verdict: CI asks the module graph for the list (the workflow and
+    # `scripts/ci/detekt-auto-fix.sh` both run `changed-modules.py
+    # --detekt-tasks`), so the list is read from the build and cannot be a list
+    # somebody wrote out by hand.
+    graph_modules: set[str] = set()
+    graph_detekt_modules: set[str] = set()
+    if graph is not None:
+        graph_modules = set(graph.TASKS)
+        graph_detekt_modules = set(graph.TASKS.detekt_modules())
+
+    # What the CI files NAME. Read from the lines that are commands, not from
+    # the prose: a comment that mentions `:shared:detekt` in passing is a
+    # sentence about a module, not a list of the modules CI judges. Reading
+    # both is how a workflow ends up "judging" a module that only a paragraph
+    # mentions.
     ci_modules = ci_detekt_modules(ci_path)
-    if recorded and ci_modules:
-        expected = recorded_modules | outside_modules
-        for module in sorted(ci_modules - expected):
+    ci_script = CI_DETEKT_SCRIPT if ci_script_path is None else ci_script_path
+    ci_script_modules = ci_detekt_modules(ci_script)
+
+    if recorded and graph_detekt_modules:
+        # The record and the build must name the same modules. CI judges what
+        # the graph says, so the record is a claim about CI — and a claim that
+        # is checked against the build rather than against another hand-written
+        # list.
+        for module in sorted(graph_detekt_modules - recorded_modules):
             errors.append(
-                f'CI judges :{module}:detekt, and the record does not list it — '
-                f'the record says what only CI judges, so a module CI judges must be in it',
+                f'CI judges :{module}:detekt — it is in the module graph — and the record '
+                f'does not list it; the record says what only CI judges, so a module CI judges '
+                f'must be in it',
             )
-        for module in sorted(expected - ci_modules):
+        for module in sorted(recorded_modules - graph_detekt_modules):
             errors.append(
-                f'the record says CI judges :{module}:detekt, and the CI workflow does not — '
-                f'the record overstates what CI does',
+                f'the record says CI judges :{module}:detekt, and the module graph has no such '
+                f'module — the record overstates what CI does',
             )
 
-    if graph_modules is not None and recorded:
+    # The modules CI judges OUTSIDE the graph — the pro build, which only
+    # exists behind a flag — are named by the workflow, and the record has to
+    # name them too.
+    for module in sorted(outside_modules):
+        if module not in ci_modules:
+            errors.append(
+                f'the record says CI judges :{module}:detekt outside the module graph, and the '
+                f'CI workflow does not name it — the record claims a verdict nobody produces',
+            )
+
+    if graph_modules and recorded:
         for module in sorted(recorded_modules - set(graph_modules)):
             errors.append(
                 f'the record lists :{module}:detekt, and the module graph has no such module — '
                 f'the record names a module that does not exist',
             )
         # The other direction. The record ⊆ the graph was checked above; this
-        # is the graph ⊆ CI's list. A module the graph knows, that CI's
-        # hand-written list does not name, is judged by the hook and by nobody
-        # else — a module the local verdict certifies and CI never sees. That
-        # asymmetry was silent: nothing went red when a module was added to
+        # is the graph ⊆ the record. A module the graph knows, that the record
+        # does not name, is judged by the hook and by nobody else — a module
+        # the local verdict certifies and CI never sees. That asymmetry was
+        # silent: nothing went red when a module was added to
         # settings.gradle.kts and forgotten in the CI workflow.
         #
         # A module with no detekt task of its own is not in this set: its
         # verdict is its test suite, and the record's `test_verdicts` section
         # says so.
         for module in sorted(set(graph_modules) - recorded_modules - outside_modules):
-            if module in ci_modules:
-                # CI names it, but the record does not list it — reported above.
+            if module in graph_detekt_modules:
+                # CI judges it — reported above, against the record.
                 continue
             errors.append(
                 f'the module graph knows :{module}, and neither CI nor the record names it — '
@@ -221,6 +275,32 @@ def collect_errors(
             'the hook names a detekt module itself — the set of modules to judge is computed '
             'from the module graph, and a list written into the hook goes stale silently',
         )
+
+    # The same rule for CI: a hand-written list of detekt modules in a
+    # workflow or in the auto-fix script is a second copy of a fact the build
+    # already states. The pro module is the exception the record declares: it
+    # is not in the graph, so it has to be named by hand.
+    for source, modules in (('the CI workflow', ci_modules), ('the CI auto-fix script', ci_script_modules)):
+        for module in sorted(modules - outside_modules):
+            errors.append(
+                f'{source} names :{module}:detekt itself — the list of modules to judge is read '
+                f'from the build (`changed-modules.py --detekt-tasks`), and a list written out '
+                f'by hand goes stale silently',
+            )
+
+    # And the list has to actually be asked for. A CI job that judged nothing
+    # would be green, and nothing else in the repository would say so.
+    for source, path in (('the CI workflow', ci_path), ('the CI auto-fix script', ci_script)):
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding='utf-8')
+        if '--detekt-tasks' not in text:
+            errors.append(
+                f'{source} does not ask the module graph for the detekt modules '
+                f'(`changed-modules.py --detekt-tasks`) — without it the list of modules to '
+                f'judge is a list somebody wrote out, and a job that judged nothing would be '
+                f'green',
+            )
 
     partiality = detekt.get('partiality', '')
     if not partiality or 'CI' not in partiality:
@@ -244,10 +324,9 @@ def collect_errors(
 def cli(ctx: click.Context, check: bool, emit_json: bool) -> None:
     """Check that the hook, the CI and the record of both still agree."""
     graph = load_module_graph()
-    graph_modules = set(graph.TASKS) if graph is not None else None
     declared, tree_rules = declared_hook_scripts()
     errors, facts = collect_errors(
-        REGISTRY, HOOK, CI_WORKFLOW, graph_modules, declared, tree_rules,
+        REGISTRY, HOOK, CI_WORKFLOW, graph, declared, tree_rules,
     )
 
     if emit_json:
