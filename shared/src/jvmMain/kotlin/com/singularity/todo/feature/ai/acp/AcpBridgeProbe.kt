@@ -136,7 +136,7 @@ object AcpBridgeProbe {
         // taken *underneath* the protocol's reader, not a second reader of the stream:
         // two readers would race each other for a line, and the loser would be the
         // protocol.
-        val child = runCatchingCancellable {
+        val spawn = runCatchingCancellable {
             Subprocess.spawnDuplex(
                 argv = command,
                 workingDirectory = File(workingDirectory),
@@ -145,12 +145,19 @@ object AcpBridgeProbe {
                 // refused to start" are different support questions.
                 stderrSink = { line -> System.err.println(line) },
             ).process
-        }.getOrElse { failure ->
+        }
+        // Explicit rather than `getOrElse { return … }`: a non-local return inside an
+        // inline lambda infers its result type from the constraint, and that is not
+        // worth depending on in the one place that decides whether a bridge that
+        // cannot start is a report or a crash.
+        val child = spawn.getOrNull()
+        if (child == null) {
+            val failure = spawn.exceptionOrNull()
             return Report(
                 connected = false,
                 agentName = "",
                 agentVersion = "",
-                failure = failure.message ?: failure::class.simpleName.orEmpty(),
+                failure = failure?.message ?: failure?.javaClass?.simpleName.orEmpty(),
                 methods = emptyList(),
                 transcript = emptyList(),
             )
