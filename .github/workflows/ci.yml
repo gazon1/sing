@@ -708,7 +708,7 @@ jobs:
           done < selection.txt
 
   tests:
-    name: JVM tests, detekt, coverage
+    name: JVM tests
     runs-on: ubuntu-24.04
     # 75 minutes, and the number is measured: the instrumented coverage run —
     # the one the Kover agent multiplies — takes 37 min 25 s for the fast
@@ -899,9 +899,8 @@ jobs:
       # shell is `bash -e` with no pipefail, so this step had been reporting success
       # for every Gradle failure it contained: tests, detekt, koverReport, all of them.
       # Measured on 2026-10-16 on a pristine origin/main: `:shared:detekt` fails with
-      # 109 findings, and the "JVM tests, detekt, coverage" job on that same commit is
-      # green. The 109 findings were invisible because nothing that read them could
-      # fail.
+      # 109 findings, and the suite job on that same commit is green. The 109 findings
+      # were invisible because nothing that read them could fail.
       #
       # `check-test-runs.py --gradle-log build.log` did not catch it either: it reads
       # the log to exempt UP-TO-DATE tasks from its freshness floor, and a failed task
@@ -925,15 +924,16 @@ jobs:
       # and the floor would move. They are tooling, like `:detekt-rules`, which
       # the settings file skips for the same reason.
 
-      # The name is now a lie: the step runs neither coverage nor detekt any
-      # more. It is FREE to rename: the registry's anchors moved to the
-      # coverage job with the job graph — `workflow-exit-status` anchors at
-      # `.github/workflows/ci.yml#Gradle (coverage)` now — and
-      # `scripts/check-waiver-references.py` requires an anchor to resolve to
-      # a STEP NAME, not to a name this file used to carry. The JOB name
-      # (`JVM tests, detekt, coverage`) is the one that stays: it is a key in
-      # `config/docs/gate-benchmarks.json`. The debt is recorded in the ADR.
-      - name: Gradle (tests + coverage + detekt)
+      # The name says what the step runs: the suite, and nothing else. It ran
+      # neither coverage nor detekt any more, and the name said both — a name
+      # that lies is a name a reader has to check.
+      #
+      # The rename is safe because the registry's anchors moved to the coverage
+      # job with the job graph: `workflow-exit-status` anchors at
+      # `.github/workflows/ci.yml#Gradle (coverage)` now, and
+      # `scripts/check-waiver-references.py` requires an anchor to resolve to a
+      # STEP NAME — not to a name this file used to carry.
+      - name: Gradle (tests)
         run: |
           set -o pipefail
           ./gradlew --continue \

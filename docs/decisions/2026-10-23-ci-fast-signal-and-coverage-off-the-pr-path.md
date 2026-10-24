@@ -156,19 +156,20 @@ verdict) and once with it (the measurement). That is the price of a floor
 that is enforced where it is computed, and it is paid where the measurement
 is wanted rather than everywhere.
 
-**One name in the workflow is now false and stays; the other is free to
-change.** The suite job's step is still called
-`Gradle (tests + coverage + detekt)` and the job is still called
-`JVM tests, detekt, coverage`, and neither runs coverage or detekt any
-more. The STEP name is free to rename: the registry control that anchored at
-it moved to the coverage job with the job graph (see the anchors paragraph
-below), and `scripts/check-waiver-references.py` requires an anchor to
-resolve to a step name — not to a name the workflow used to carry. The JOB
-name stays, because it is a key in the published measurements
-(`config/docs/gate-benchmarks.json`), and renaming it there would
-invalidate them. A false name that resolves is cheaper than a dangling
-anchor; the debt is recorded here rather than hidden in a rename that would
-invalidate the measurements.
+**Both false names are renamed, and the measurements follow.** The suite job's
+step was called `Gradle (tests + coverage + detekt)` and the job
+`JVM tests, detekt, coverage`, and neither ran coverage or detekt any more.
+Both are renamed — the step to `Gradle (tests)`, the job to `JVM tests` — and
+the step's rename was safe because the registry control that anchored at it
+had already moved to the coverage job with the job graph (see the anchors
+paragraph below), and `scripts/check-waiver-references.py` requires an anchor
+to resolve to a step name, not to a name the workflow used to carry. The JOB
+name was the one that could not move on its own: it is a key in the published
+measurements (`config/docs/gate-benchmarks.json`), and renaming it there
+would invalidate them. So the measurements are re-recorded against the new
+name, from the first trunk run that carries it — the price of the loop is
+written down again, and the page that publishes it names the jobs that
+exist.
 
 **The custom rules keep their own instrumentation.** `:detekt-rules` applies
 the Kover plugin itself, so its tests are instrumented whatever the settings
@@ -202,6 +203,30 @@ passes while proving nothing.
 **The pull request's cost is measured, not promised.** The budget decision
 keeps a number out of the contract; the number is measured on the first real
 pull request with this change and recorded in `docs/testing/gate-costs.md`.
+
+That first real pull request was #1053, and its run says what the change
+bought. The jobs, as the runner wrote them down:
+
+| job | wall time |
+|---|---|
+| Affected tests (the fast signal) | 30 s |
+| CI gate | 4 s |
+| changes | 9 s |
+| Agent review | 20 s |
+| Android (free) | 1 min 20 s |
+| Android (pro) | 1 min 59 s |
+| ADR gate | 1 min 30 s |
+| detekt | 5 min 03 s |
+| Gate tooling | 5 min 33 s |
+| instrumented | 5 min 35 s |
+| Static gates | 7 min 35 s |
+| JVM tests (the suite, no agent) | 14 min 22 s |
+| Coverage | skipped — an ordinary pull request measures nothing |
+
+The fast signal answers in **30 seconds**, where the suite that is the verdict
+takes 14 minutes. That is the whole point of the change, and it is now a
+number rather than a hope: a pull request learns what it broke in half a
+minute, and the measurement it does not need is not on its path at all.
 
 **The `cost` of the local recipe changed.** `just tests::impact` now runs the
 fast population and reaches the private Gradle home through `./gw`. The same
