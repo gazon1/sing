@@ -252,9 +252,10 @@ def _excluded(leg: dict[str, object], entry: object) -> bool:
 def _expand(template: str, matrix: object) -> tuple[list[str], list[Pattern]]:
     """The display names one job produces, and the patterns of the ones it cannot.
 
-    A leg whose placeholders do not all resolve produces no name: the record
-    holds what the runner showed, and a name the runner cannot show is not a
-    name the record can hold.
+    A leg whose placeholders do not all resolve produces no name, and the
+    record holds only names the runner showed — so such a name is not
+    compared, and a recorded name that looks like it is reported as a job the
+    workflow does not declare.
 
     A name that still holds an expression the gate cannot resolve is a name
     the gate cannot compute — the runner resolves it, the record holds the

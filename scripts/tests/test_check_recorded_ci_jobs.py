@@ -135,6 +135,26 @@ jobs:
       - run: echo tests
 """
 
+WORKFLOW_WITH_ALL_LEGS_EXCLUDED = """\
+name: CI
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  android:
+    name: Android (${{ matrix.variant }})
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        variant: [free]
+        exclude:
+          - variant: free
+    steps:
+      - run: echo android
+"""
+
 WORKFLOW_WITH_BRACKETED_NAME = """\
 name: CI
 
@@ -373,6 +393,15 @@ class TheExcludedLegTest(RecordedJobsTest):
 
         self.assertEqual(code, mod.VALIDATION_FAILURE)
 
+    def test_a_matrix_with_no_surviving_leg_declares_no_name(self) -> None:
+        """Every axis combination excluded means the runner runs no leg of the job."""
+        self.workflow.write_text(WORKFLOW_WITH_ALL_LEGS_EXCLUDED, encoding='utf-8')
+        self._write({'Android (free)': 129_000})
+
+        code = self._run()
+
+        self.assertEqual(code, mod.VALIDATION_FAILURE)
+
     def test_a_recorded_leg_the_matrix_keeps_is_clean(self) -> None:
         self.workflow.write_text(WORKFLOW_WITH_EXCLUDE, encoding='utf-8')
         self._write({'Android (free)': 129_000, 'Android (pro)': 220_000})
@@ -409,6 +438,15 @@ class TheUncomputableNameTest(RecordedJobsTest):
         self._run()
 
         self.assertIn('Nightly 2026-10-24', self.output.getvalue())
+
+    def test_the_notice_names_the_pattern_that_matched(self) -> None:
+        """The reader has to know WHICH job is in the way, not only that one is."""
+        self.workflow.write_text(WORKFLOW_WITH_EXPRESSION, encoding='utf-8')
+        self._write({'Nightly 2026-10-24': 60_000})
+
+        self._run()
+
+        self.assertIn('Nightly ${{ github.event.schedule }}', self.output.getvalue())
 
     def test_an_uncomputable_name_does_not_silence_the_rest_of_the_gate(self) -> None:
         """One job the gate cannot compute must not stop it from proving another one gone."""
@@ -458,6 +496,7 @@ class TheExpressionOnlyNameTest(RecordedJobsTest):
         self._run()
 
         self.assertIn('no literal text', self.output.getvalue())
+        self.assertIn('${{ github.sha }}', self.output.getvalue())
 
 
 class TheMalformedRecordTest(RecordedJobsTest):
