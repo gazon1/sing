@@ -36,6 +36,28 @@ import org.jetbrains.kotlin.psi.KtUserType
  * `equals` compares structure rather than identity, so an unchanged list compares
  * equal and the composable is skipped.
  *
+ * ## The exemption is keyed by the parameter
+ *
+ * The register of debt ([ComposeCollectionExemptions]) names a composable and,
+ * under it, the raw collection parameters that composable still declares. The
+ * exemption is therefore checked against the *parameter*, not against the
+ * composable: a raw collection parameter that the register does not name is a
+ * finding even when the composable itself is a known site.
+ *
+ * The same comparison runs in the other direction, and it is what makes the
+ * register trustworthy: a registered parameter that no overload of the composable
+ * declares any more is **stale** — the debt it names has been paid, or has
+ * changed shape, and the register says otherwise.
+ *
+ * The stale check runs after the file has been visited, because a composable can
+ * have **overloads**: `Nav3State.toDecoratedEntries` is declared twice, and only
+ * one of the two takes the raw collection. A check that looked at one overload
+ * would report the other one's parameters as missing.
+ *
+ * A composable that was deleted altogether leaves its entry behind, and no rule
+ * can see it — the rule visits the code that exists. That case belongs to the
+ * gate (`scripts/check-compose-stability-config.py`), which reads the sources.
+ *
  * ## Scope
  *
  * Only `@Composable` functions are checked. A repository method or a ViewModel
@@ -53,13 +75,58 @@ import org.jetbrains.kotlin.psi.KtUserType
  */
 class NoUnstableCollectionParamRule(config: Config) : Rule(config, "", null) {
 
+    /**
+     * The composables of the file being visited, by qualified name.
+     *
+     * A qualified name is not unique: a composable may have overloads, and they
+     * share the name. The register describes one of them, so the parameters of
+     * all of them are collected before the stale check runs.
+     */
+    private val sitesInFile = mutableMapOf<String, Site>()
+
+    override fun preVisit(root: KtFile) {
+        super.preVisit(root)
+        sitesInFile.clear()
+    }
+
+    override fun postVisit(root: KtFile) {
+        super.postVisit(root)
+        reportStaleParameters()
+    }
+
     override fun visitNamedFunction(function: KtNamedFunction) {
         super.visitNamedFunction(function)
         if (!function.isComposable()) return
-        if (ComposeCollectionExemptions.isKnown(function.qualifiedName())) return
+
+        val qualifiedName = function.qualifiedName()
+        val registered = ComposeCollectionExemptions.parametersOf(qualifiedName)
+        val site = sitesInFile.getOrPut(qualifiedName) { Site(function) }
 
         function.valueParameters.forEach { parameter ->
-            val collection = parameter.declaredCollectionType() ?: return@forEach
+            val name = parameter.name ?: return@forEach
+            site.parameters.putIfAbsent(name, parameter.declaredTypeText())
+            reportUnregisteredRawParameter(qualifiedName, registered, parameter)
+        }
+    }
+
+    /**
+     * A raw collection parameter must be named by the register.
+     *
+     * A parameter that is not in the register is the finding this rule was written
+     * for: the composable may be a known site, but *this* parameter is not one the
+     * register accounts for.
+     */
+    private fun reportUnregisteredRawParameter(
+        qualifiedName: String,
+        registered: Map<String, String>,
+        parameter: KtParameter,
+    ) {
+        val collection = parameter.declaredCollectionType() ?: return
+        val name = parameter.name ?: return
+        val recorded = registered[name]
+        val actual = parameter.declaredTypeText()
+
+        if (recorded == null) {
             report(
                 Finding(
                     entity = Entity.from(parameter),
@@ -68,11 +135,54 @@ class NoUnstableCollectionParamRule(config: Config) : Rule(config, "", null) {
                         "not skippable. Pass a persistent collection " +
                         "(ImmutableList / ImmutableSet / ImmutableMap) and build it with " +
                         "toImmutableList() / toImmutableSet() at the boundary, or wrap a local " +
-                        "list in remember { }.",
+                        "list in remember { }. If this site is a known debt, name the " +
+                        "parameter in ComposeCollectionExemptions.",
                     references = emptyList(),
                     suppressReasons = emptyList(),
                 ),
             )
+            return
+        }
+
+        if (actual == null || sameType(recorded, actual)) return
+        report(
+            Finding(
+                entity = Entity.from(parameter),
+                message = "the register of debt records '$name' of $qualifiedName as " +
+                    "'$recorded', and the parameter declares '$actual'. The entry no longer " +
+                    "describes the code — update it, or delete it if the parameter is no " +
+                    "longer a raw collection.",
+                references = emptyList(),
+                suppressReasons = emptyList(),
+            ),
+        )
+    }
+
+    /**
+     * Every parameter the register names must still be declared by some overload
+     * of the composable.
+     *
+     * This is the half of the contract that keeps the register honest. A register
+     * that only grows is a register that stops describing anything: the entry
+     * says "this composable takes a raw `List` here", and the code says the
+     * parameter is gone. The debt was paid and the register still counts it.
+     */
+    private fun reportStaleParameters() {
+        sitesInFile.forEach { (qualifiedName, site) ->
+            val registered = ComposeCollectionExemptions.parametersOf(qualifiedName)
+            registered.forEach { (name, _) ->
+                if (site.parameters.containsKey(name)) return@forEach
+                report(
+                    Finding(
+                        entity = Entity.from(site.function),
+                        message = "the register of debt names a parameter this composable does " +
+                            "not declare: '$name' of $qualifiedName. The debt it names has been " +
+                            "paid — delete the entry.",
+                        references = emptyList(),
+                        suppressReasons = emptyList(),
+                    ),
+                )
+            }
         }
     }
 
@@ -80,21 +190,21 @@ class NoUnstableCollectionParamRule(config: Config) : Rule(config, "", null) {
      * The composable's qualified name: its package, plus the declarations it
      * is nested in, plus its own name.
      *
-     * The exemption register is keyed by the same name the Compose compiler
-     * prints in its stability report, so a site can be matched between the two
-     * without a translation table.
+     * The order is the one the Compose compiler prints in its stability report —
+     * the outermost class first, the function last — so a name can be copied
+     * from the report into the exemption register without a translation table.
      */
     private fun KtNamedFunction.qualifiedName(): String {
         val parts = mutableListOf<String>()
-        var current: PsiElement? = this
+        var current: PsiElement? = parent
         while (current != null && current !is KtFile) {
             if (current is KtClassOrObject) {
                 parts.add(current.name ?: "")
             }
             current = current.parent
         }
-        parts.add(name ?: "")
         parts.reverse()
+        parts.add(name ?: "")
         val packageName = containingKtFile.packageFqName.asString()
         val joined = parts.joinToString(".")
         return if (packageName.isEmpty()) joined else "$packageName.$joined"
@@ -130,6 +240,14 @@ class NoUnstableCollectionParamRule(config: Config) : Rule(config, "", null) {
         return if (name in RAW_COLLECTIONS) name else null
     }
 
+    /** The declared type of the parameter, as the source spells it. */
+    private fun KtParameter.declaredTypeText(): String? = typeReference?.text
+
+    /**
+     * A composable of the file being visited, and the parameters it declares.
+     */
+    private class Site(val function: KtNamedFunction, val parameters: MutableMap<String, String?> = mutableMapOf())
+
     private companion object {
         const val COMPOSABLE = "Composable"
 
@@ -150,6 +268,29 @@ class NoUnstableCollectionParamRule(config: Config) : Rule(config, "", null) {
             "MutableMap",
             "Collection",
         )
+
+        /** Whitespace, which the source may wrap a long type across. */
+        val WHITESPACE = Regex("\\s+")
+
+        /**
+         * A qualified path, so that `androidx.navigation3.runtime.NavEntryDecorator`
+         * and `NavEntryDecorator` compare as the same type.
+         */
+        val QUALIFIED_PATH = Regex("([A-Za-z_][A-Za-z0-9_]*\\.)+([A-Za-z_][A-Za-z0-9_]*)")
+
+        /**
+         * True when two spellings of a type are the same type.
+         *
+         * The comparison ignores whitespace and package qualifiers, and nothing
+         * else: `List<String>` and `List<String?>` are different types, and the
+         * register that called them the same would be wrong about the code.
+         */
+        fun sameType(recorded: String, declared: String): Boolean =
+            recorded.normalizedType() == declared.normalizedType()
+
+        /** The type text without whitespace and without package qualifiers. */
+        fun String.normalizedType(): String =
+            replace(WHITESPACE, "").replace(QUALIFIED_PATH, "$2")
     }
 }
 

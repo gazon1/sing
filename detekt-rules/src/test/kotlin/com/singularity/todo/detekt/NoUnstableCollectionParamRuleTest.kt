@@ -18,6 +18,12 @@ import kotlin.test.assertTrue
  * that the three cases that must stay quiet (a persistent collection, a
  * non-composable function, a stable parameter) are not.
  *
+ * The exemption is keyed by the *parameter*, so the register has two directions
+ * to be wrong in, and both are pinned here: a raw parameter the register does
+ * not name is a finding even at a known site, and a registered parameter the
+ * composable no longer declares (or declares with another type) is a stale
+ * entry — the debt it accounts for is gone, and the register still counts it.
+ *
  * The fixture is compiled through the **Path** overload of
  * `compileContentForTest`, not the `(content, packageName)` one: the string
  * overload wraps the content in a `KtScript`, so `KtFile.declarations` is
@@ -220,5 +226,106 @@ class NoUnstableCollectionParamRuleTest {
             }
         """
         assertEquals(1, findings(code).size)
+    }
+
+    @Test
+    fun `a raw parameter a known site does not name is flagged`() {
+        // The exemption is keyed by the parameter, not by the composable: a raw
+        // collection parameter added to a known site is a finding, because the
+        // register does not account for it.
+        val code = """
+            package com.singularity.todo.core.ui.components
+
+            import androidx.compose.runtime.Composable
+
+            @Composable
+            fun BlockedCompletionDialog(blockerTitles: List<String>, alsoBlocked: List<String>) {
+            }
+        """
+        val found = findings(code)
+        assertEquals(1, found.size)
+        assertTrue(found[0].message.contains("alsoBlocked") || found[0].message.contains("raw"))
+    }
+
+    @Test
+    fun `a registered parameter the composable no longer declares is stale`() {
+        // The register names `blockerTitles`. The composable does not declare
+        // it any more: the debt was paid, and the register still counts it.
+        val code = """
+            package com.singularity.todo.core.ui.components
+
+            import androidx.compose.runtime.Composable
+
+            @Composable
+            fun BlockedCompletionDialog() {
+            }
+        """
+        val found = findings(code)
+        assertEquals(1, found.size)
+        assertTrue(
+            found[0].message.contains("blockerTitles"),
+            "the finding should name the stale parameter, got: ${found[0].message}",
+        )
+    }
+
+    @Test
+    fun `a registered parameter declared with another type is stale`() {
+        val code = """
+            package com.singularity.todo.core.ui.components
+
+            import androidx.compose.runtime.Composable
+
+            @Composable
+            fun BlockedCompletionDialog(blockerTitles: Set<String>) {
+            }
+        """
+        val found = findings(code)
+        assertEquals(1, found.size)
+        assertTrue(
+            found[0].message.contains("Set<String>"),
+            "the finding should name the type the code declares, got: ${found[0].message}",
+        )
+    }
+
+    @Test
+    fun `a nested composable is named the way the compiler names it`() {
+        // The Compose compiler prints the classes a function is nested in first
+        // and the function last: `…feature.nav.Nav3State.toDecoratedEntries`.
+        // The register is keyed by that name, so a rule that computed it the
+        // other way round would not find the entry — and would report a site
+        // the register accounts for.
+        val code = """
+            package com.singularity.todo.feature.nav
+
+            import androidx.compose.runtime.Composable
+
+            class Nav3State {
+                @Composable
+                fun toDecoratedEntries(entryDecorators: List<NavEntryDecorator<NavKey>>) {
+                }
+            }
+        """
+        assertEquals(0, findings(code).size)
+    }
+
+    @Test
+    fun `a registered type spelled with a package qualifier is the same type`() {
+        // The source spells the element type fully qualified; the register
+        // spells it short. They are the same type, and a rule that compared the
+        // text would call a living entry stale.
+        val code = """
+            package com.singularity.todo.feature.nav
+
+            import androidx.compose.runtime.Composable
+
+            class Nav3State {
+                @Composable
+                fun toDecoratedEntries(
+                    entryDecorators: List<androidx.navigation3.runtime.NavEntryDecorator<NavKey>>,
+                ) {
+                }
+            }
+        """
+        assertEquals(0, findings(code).size)
     }
 }

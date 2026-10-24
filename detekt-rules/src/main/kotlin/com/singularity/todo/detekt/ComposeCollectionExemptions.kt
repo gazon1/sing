@@ -31,9 +31,23 @@ package com.singularity.todo.detekt
  * ```
  *
  * The list was measured on 2026-10-24, after the stability contract and the
- * conversion of the hot states. The values are the parameters each entry
- * still carries — every parameter, not the first one: an entry that names
- * only some of its raw parameters would let the others through unnoticed.
+ * conversion of the hot states.
+ *
+ * ## The key is the parameter, not the composable
+ *
+ * An entry names a composable and, under it, **every** raw collection
+ * parameter that composable still declares, with the type each one declares.
+ * The key is therefore the pair (parameter, type) under a qualified name —
+ * not the qualified name alone.
+ *
+ * The difference is not cosmetic. A key that names only the composable exempts
+ * the whole function: a *new* raw collection parameter added to a known
+ * composable is then invisible, and the register cannot tell the difference
+ * between "this site is known" and "this site is known, and this is the
+ * parameter that is known". Keying by the parameter makes the second
+ * question answerable, and it makes the register checkable: a parameter that
+ * was renamed, removed or retyped leaves an entry that names something the
+ * code no longer has, and [NoUnstableCollectionParamRule] reports it as stale.
  *
  * @see NoUnstableCollectionParamRule
  * @see 2026-10-22-compose-stability-contract
@@ -41,109 +55,200 @@ package com.singularity.todo.detekt
 internal object ComposeCollectionExemptions {
 
     /**
-     * The known sites: a composable's qualified name, and the raw collection
-     * parameters it still declares.
+     * The known sites: a composable's qualified name, and under it the raw
+     * collection parameters it still declares, with the type of each.
+     *
+     * The qualified name is the one the Compose compiler prints in its
+     * stability report — the classes a function is nested in come first, the
+     * function last — so a name can be copied from the report into this
+     * register without a translation table.
      */
-    val KNOWN: Map<String, String> = mapOf(
-        "com.singularity.todo.core.ui.components.BlockedBulkCompletionDialog" to "blockedTaskTitles: List<String>",
-        "com.singularity.todo.core.ui.components.BlockedCompletionDialog" to "blockerTitles: List<String>",
-        "com.singularity.todo.core.ui.components.sheet.ListPickerSheet" to "items: List<ListPickerItem<T>>",
-        "com.singularity.todo.core.ui.components.sheet.MonthGrid" to "selected: Set<LocalDate>",
-        "com.singularity.todo.core.ui.components.sheet.MultiDatePickerSheet" to "initialDates: Set<LocalDate>",
+    val KNOWN: Map<String, Map<String, String>> = mapOf(
+        "com.singularity.todo.core.ui.components.BlockedBulkCompletionDialog" to
+            mapOf("blockedTaskTitles" to "List<String>"),
+        "com.singularity.todo.core.ui.components.BlockedCompletionDialog" to
+            mapOf("blockerTitles" to "List<String>"),
+        "com.singularity.todo.core.ui.components.sheet.ListPickerSheet" to
+            mapOf("items" to "List<ListPickerItem<T>>"),
+        "com.singularity.todo.core.ui.components.sheet.MonthGrid" to
+            mapOf("selected" to "Set<LocalDate>"),
+        "com.singularity.todo.core.ui.components.sheet.MultiDatePickerSheet" to
+            mapOf("initialDates" to "Set<LocalDate>"),
         "com.singularity.todo.core.ui.components.sheet.MultiSelectSheet" to
-            "items: List<MultiSelectItem<T>>; selectedKeys: Set<T>",
-        "com.singularity.todo.core.ui.menu.ComposeTopMenuBar" to "entries: List<MenuNode>",
-        "com.singularity.todo.core.ui.menu.ContextMenuHost" to "entries: List<MenuNode>",
-        "com.singularity.todo.core.ui.menu.MenuPanel" to "entries: List<MenuNode>",
+            mapOf(
+                "items" to "List<MultiSelectItem<T>>",
+                "selectedKeys" to "Set<T>",
+            ),
+        "com.singularity.todo.core.ui.menu.ComposeTopMenuBar" to
+            mapOf("entries" to "List<MenuNode>"),
+        "com.singularity.todo.core.ui.menu.ContextMenuHost" to
+            mapOf("entries" to "List<MenuNode>"),
+        "com.singularity.todo.core.ui.menu.MenuPanel" to
+            mapOf("entries" to "List<MenuNode>"),
         "com.singularity.todo.feature.agenda.presentation.components.ReorderableSectionList" to
-            "sections: List<Section>",
-        "com.singularity.todo.feature.agenda.presentation.screen.AgendaList" to "sections: List<RenderedSection>",
-        "com.singularity.todo.feature.ai.chat.ChatMessagesList" to "messages: List<ChatMessage>",
-        "com.singularity.todo.feature.attachments.components.AttachmentsSheet" to "attachments: List<Attachment>",
-        "com.singularity.todo.feature.attachments.viewer.ViewerMessage" to "actions: List<ViewerAction>",
+            mapOf("sections" to "List<Section>"),
+        "com.singularity.todo.feature.agenda.presentation.screen.AgendaList" to
+            mapOf("sections" to "List<RenderedSection>"),
+        "com.singularity.todo.feature.ai.chat.ChatMessagesList" to
+            mapOf("messages" to "List<ChatMessage>"),
+        "com.singularity.todo.feature.attachments.components.AttachmentsSheet" to
+            mapOf("attachments" to "List<Attachment>"),
+        "com.singularity.todo.feature.attachments.viewer.ViewerMessage" to
+            mapOf("actions" to "List<ViewerAction>"),
         "com.singularity.todo.feature.calendar.presentation.components.calendar.HourRow" to
-            "dates: List<LocalDate>; tasksByDate: Map<LocalDate, List<CalendarTaskUi>>",
+            mapOf(
+                "dates" to "List<LocalDate>",
+                "tasksByDate" to "Map<LocalDate, List<CalendarTaskUi>>",
+            ),
         "com.singularity.todo.feature.calendar.presentation.components.calendar.MonthGridPage" to
-            "tasksByDate: Map<LocalDate, List<CalendarTaskUi>>; " +
-            "selectedDates: Set<LocalDate>?",
+            mapOf(
+                "tasksByDate" to "Map<LocalDate, List<CalendarTaskUi>>",
+                "selectedDates" to "Set<LocalDate>",
+            ),
         "com.singularity.todo.feature.calendar_sync.presentation.CalendarAppPicker" to
-            "availableApps: List<CalendarAppInfo>",
-        "com.singularity.todo.feature.checklist.components.ChecklistEditorSheet" to "items: List<ChecklistItem>",
-        "com.singularity.todo.feature.notes.presentation.screen.BacklinksSheet" to "backlinks: List<Note>",
+            mapOf("availableApps" to "List<CalendarAppInfo>"),
+        "com.singularity.todo.feature.checklist.components.ChecklistEditorSheet" to
+            mapOf("items" to "List<ChecklistItem>"),
+        "com.singularity.todo.feature.notes.presentation.screen.BacklinksSheet" to
+            mapOf("backlinks" to "List<Note>"),
         "com.singularity.todo.feature.notes.presentation.screen.NoteEditorScreenContent" to
-            "pendingProposals: List<AiProposal>?; proposalFailures: Map<ProposalItemId, String>",
+            mapOf(
+                "pendingProposals" to "List<AiProposal>",
+                "proposalFailures" to "Map<ProposalItemId, String>",
+            ),
         "com.singularity.todo.feature.notes.presentation.screen.NoteList" to
-            "allNotes: List<Note>; pinned: List<Note>; unpinned: List<Note>; " +
-            "templates: List<Note>; dailyNotes: List<Note>; selectedIds: Set<NoteId>",
-        "com.singularity.todo.feature.pomodoro.PomodoroContentPreview" to "tasks: List<Task>?",
-        "com.singularity.todo.feature.pomodoro.TaskChipRow" to "tasks: List<Task>",
-        "com.singularity.todo.feature.profile.ProfileListContent" to "profiles: List<Profile>",
-        "com.singularity.todo.feature.projects.presentation.components.ChildProjectsSheet" to "children: List<Project>",
+            mapOf(
+                "allNotes" to "List<Note>",
+                "pinned" to "List<Note>",
+                "unpinned" to "List<Note>",
+                "templates" to "List<Note>",
+                "dailyNotes" to "List<Note>",
+                "selectedIds" to "Set<NoteId>",
+            ),
+        "com.singularity.todo.feature.pomodoro.PomodoroContentPreview" to
+            mapOf("tasks" to "List<Task>"),
+        "com.singularity.todo.feature.pomodoro.TaskChipRow" to
+            mapOf("tasks" to "List<Task>"),
+        "com.singularity.todo.feature.profile.ProfileListContent" to
+            mapOf("profiles" to "List<Profile>"),
+        "com.singularity.todo.feature.projects.presentation.components.ChildProjectsSheet" to
+            mapOf("children" to "List<Project>"),
         "com.singularity.todo.feature.projects.presentation.components.ConfirmBlockedCloseDialog" to
-            "blockedTaskTitles: List<String>",
+            mapOf("blockedTaskTitles" to "List<String>"),
         "com.singularity.todo.feature.projects.presentation.components.InheritedTagGroupsSheet" to
-            "options: List<TagGroupOption>; currentIds: Set<TagGroupId>",
+            mapOf(
+                "options" to "List<TagGroupOption>",
+                "currentIds" to "Set<TagGroupId>",
+            ),
         "com.singularity.todo.feature.projects.presentation.components.ParentPickerSheet" to
-            "options: List<ParentOption>",
+            mapOf("options" to "List<ParentOption>"),
         "com.singularity.todo.feature.projects.presentation.components.ProjectDetailSheetsHost" to
-            "parentOptions: List<ParentOption>; tagGroups: List<TagGroupOption>; " +
-            "inheritedTagGroupIds: Set<TagGroupId>",
-        "com.singularity.todo.feature.projects.presentation.screen.AddExistingTaskPopup" to "tasks: List<Task>",
-        "com.singularity.todo.feature.projects.presentation.screen.ProjectBodySection" to "availableTasks: List<Task>",
+            mapOf(
+                "parentOptions" to "List<ParentOption>",
+                "tagGroups" to "List<TagGroupOption>",
+                "inheritedTagGroupIds" to "Set<TagGroupId>",
+            ),
+        "com.singularity.todo.feature.projects.presentation.screen.AddExistingTaskPopup" to
+            mapOf("tasks" to "List<Task>"),
+        "com.singularity.todo.feature.projects.presentation.screen.ProjectBodySection" to
+            mapOf("availableTasks" to "List<Task>"),
         "com.singularity.todo.feature.projects.presentation.screen.ProjectDetailQuickAddInput" to
-            "availableTasks: List<Task>",
+            mapOf("availableTasks" to "List<Task>"),
         "com.singularity.todo.feature.proposals.presentation.components.ProposalCardsSection" to
-            "proposals: List<AiProposal>; failures: Map<ProposalItemId, String>",
-        "com.singularity.todo.feature.search.SimpleResultCard" to "matchRanges: List<TextMatchRange>?",
-        "com.singularity.todo.feature.search.presentation.PriorityChips" to "selected: Set<TaskPriority>",
-        "com.singularity.todo.feature.search.presentation.SavedSearchesRow" to "savedSearches: List<SavedSearch>",
-        "com.singularity.todo.feature.search.presentation.StateChips" to "selected: Set<TaskStatus>?",
+            mapOf(
+                "proposals" to "List<AiProposal>",
+                "failures" to "Map<ProposalItemId, String>",
+            ),
+        "com.singularity.todo.feature.search.SimpleResultCard" to
+            mapOf("matchRanges" to "List<TextMatchRange>"),
+        "com.singularity.todo.feature.search.presentation.PriorityChips" to
+            mapOf("selected" to "Set<TaskPriority>"),
+        "com.singularity.todo.feature.search.presentation.SavedSearchesRow" to
+            mapOf("savedSearches" to "List<SavedSearch>"),
+        "com.singularity.todo.feature.search.presentation.StateChips" to
+            mapOf("selected" to "Set<TaskStatus>?"),
         "com.singularity.todo.feature.settings.SettingsContent" to
-            "previewOverrides: Map<SettingsTab, Function2<Composer, Int, Unit>>?",
-        "com.singularity.todo.feature.statistics.InsightsStackedBarChart" to "buckets: List<DayInsightsBucket>",
-        "com.singularity.todo.feature.statistics.ProjectBreakdown" to "projectBuckets: List<ProjectInsightsBucket>",
-        "com.singularity.todo.feature.statistics.TasksBarChart" to "buckets: List<DayBucket>",
-        "com.singularity.todo.feature.tags.TagList" to "tags: List<Tag>",
-        "com.singularity.todo.feature.tags.components.TagsPickerSheet" to "selectedIds: List<TagId>",
-        "com.singularity.todo.feature.tags.presentation.screen.TagGroupList" to "groups: List<TagGroup>",
+            mapOf("previewOverrides" to "Map<SettingsTab, @Composable () -> Unit>"),
+        "com.singularity.todo.feature.statistics.InsightsStackedBarChart" to
+            mapOf("buckets" to "List<DayInsightsBucket>"),
+        "com.singularity.todo.feature.statistics.ProjectBreakdown" to
+            mapOf("projectBuckets" to "List<ProjectInsightsBucket>"),
+        "com.singularity.todo.feature.statistics.TasksBarChart" to
+            mapOf("buckets" to "List<DayBucket>"),
+        "com.singularity.todo.feature.tags.TagList" to
+            mapOf("tags" to "List<Tag>"),
+        "com.singularity.todo.feature.tags.components.TagsPickerSheet" to
+            mapOf("selectedIds" to "List<TagId>"),
+        "com.singularity.todo.feature.tags.presentation.screen.TagGroupList" to
+            mapOf("groups" to "List<TagGroup>"),
         "com.singularity.todo.feature.tasks.presentation.components.DefaultTaskCardBody" to
-            "matchRanges: List<TextMatchRange>?",
-        "com.singularity.todo.feature.tasks.presentation.components.TaskCard" to "matchRanges: List<TextMatchRange>?",
-        "com.singularity.todo.feature.tasks.presentation.components.TaskText" to "matchRanges: List<TextMatchRange>?",
-        "com.singularity.todo.feature.tasks.presentation.components.detail.BacklinkSection" to "items: List<String>",
+            mapOf("matchRanges" to "List<TextMatchRange>"),
+        "com.singularity.todo.feature.tasks.presentation.components.TaskCard" to
+            mapOf("matchRanges" to "List<TextMatchRange>"),
+        "com.singularity.todo.feature.tasks.presentation.components.TaskText" to
+            mapOf("matchRanges" to "List<TextMatchRange>"),
+        "com.singularity.todo.feature.tasks.presentation.components.detail.BacklinkSection" to
+            mapOf("items" to "List<String>"),
         "com.singularity.todo.feature.tasks.presentation.components.detail.LinkedBacklinksCard" to
-            "linkedNotes: List<Note>; linkedTasks: List<Task>",
+            mapOf(
+                "linkedNotes" to "List<Note>",
+                "linkedTasks" to "List<Task>",
+            ),
         "com.singularity.todo.feature.tasks.presentation.components.detail.LogbookLoadedCard" to
-            "entries: List<LogbookEntry>",
+            mapOf("entries" to "List<LogbookEntry>"),
         "com.singularity.todo.feature.tasks.presentation.components.detail.TaskDetailProposalSection" to
-            "proposals: List<AiProposal>; failures: Map<ProposalItemId, String>",
+            mapOf(
+                "proposals" to "List<AiProposal>",
+                "failures" to "Map<ProposalItemId, String>",
+            ),
         "com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContent" to
-            "dueDates: List<LocalDate>?; tags: List<TagId>?; blockedBy: Set<TaskId>?; " +
-            "availableTasks: List<Task>?; menuItems: List<TaskEditorMenuItem>",
+            mapOf(
+                "dueDates" to "List<LocalDate>",
+                "tags" to "List<TagId>",
+                "blockedBy" to "Set<TaskId>",
+                "availableTasks" to "List<Task>",
+                "menuItems" to "List<TaskEditorMenuItem>",
+            ),
         "com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorDueDateRow" to
-            "dueDates: List<LocalDate>?",
-        "com.singularity.todo.feature.tasks.presentation.components.detail.WeekdayEditor" to "selected: Set<Int>",
+            mapOf("dueDates" to "List<LocalDate>"),
+        "com.singularity.todo.feature.tasks.presentation.components.detail.WeekdayEditor" to
+            mapOf("selected" to "Set<Int>"),
         "com.singularity.todo.feature.tasks.presentation.components.list.TaskFilterChips" to
-            "counts: Map<TaskStatus, Int>?",
-        // The sites below arrived on `main` after the register was measured. The
-        // rule found them the first time it actually ran: it had been mute,
-        // because every finding it produced was marked as suppressed.
+            mapOf("counts" to "Map<TaskStatus, Int>"),
         "com.singularity.todo.core.ui.onboarding.rememberSpotlightTour" to
-            "steps: List<SpotlightStep>",
+            mapOf("steps" to "List<SpotlightStep>"),
         "com.singularity.todo.core.ui.text.highlightedText" to
-            "ranges: List<TextMatchRange>",
+            mapOf("ranges" to "List<TextMatchRange>"),
         "com.singularity.todo.feature.ai.chat.AgentActivitySection" to
-            "plan: List<AgentPlanStep>; calls: List<AgentToolCall>",
+            mapOf(
+                "plan" to "List<AgentPlanStep>",
+                "calls" to "List<AgentToolCall>",
+            ),
         "com.singularity.todo.feature.ai.ui.AgentPlanCard" to
-            "steps: List<AgentPlanStep>",
-        "com.singularity.todo.feature.nav.toDecoratedEntries.Nav3State" to
-            "entryDecorators: List<NavEntryDecorator<NavKey>>",
+            mapOf("steps" to "List<AgentPlanStep>"),
+        "com.singularity.todo.feature.nav.Nav3State.toDecoratedEntries" to
+            mapOf("entryDecorators" to "List<NavEntryDecorator<NavKey>>"),
         "com.singularity.todo.feature.proposals.presentation.components.ProposalCard" to
-            "failures: Map<ProposalItemId, String>",
-        "com.singularity.todo.core.ui.textfields.ObservedField.TextFieldStateBridgeUiTest" to
-            "edits: MutableList<String>",
+            mapOf("failures" to "Map<ProposalItemId, String>"),
+        "com.singularity.todo.core.ui.textfields.TextFieldStateBridgeUiTest.ObservedField" to
+            mapOf("edits" to "MutableList<String>"),
     )
 
-    /** True when the composable is one of the known sites. */
-    fun isKnown(qualifiedName: String): Boolean = KNOWN.containsKey(qualifiedName)
+    /**
+     * The raw collection parameters [qualifiedName] is known to carry, and the
+     * type the register records for each.
+     *
+     * Empty when the composable is not a known site — which says nothing about
+     * its parameters: a composable that is not in the register has no exempted
+     * parameter at all.
+     */
+    fun parametersOf(qualifiedName: String): Map<String, String> =
+        KNOWN[qualifiedName] ?: emptyMap()
+
+    /**
+     * The type the register records for [parameter] of [qualifiedName], or null
+     * when the register names no such parameter.
+     */
+    fun recordedType(qualifiedName: String, parameter: String): String? =
+        KNOWN[qualifiedName]?.get(parameter)
 }
