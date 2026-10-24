@@ -59,6 +59,16 @@ data class CalendarSyncUiState(
     /** Whether a Google account is connected for this profile. */
     val googleConnected: Boolean = false,
     /**
+     * Whether the system calendar can be reached on this platform.
+     *
+     * The desktop has no calendar this app may write to, and the ports it gets there
+     * are no-ops — so the screen has to say "needs Android" instead of offering a
+     * switch that does nothing. The ports are the authority: each of them knows what
+     * it can do, and the panel needs all three — the one that writes, the one that
+     * stores the preference, and the one that lists the apps to write into.
+     */
+    val deviceSyncSupported: Boolean = true,
+    /**
      * The OAuth client id the Google sign-in will use, or null when none is configured.
      *
      * Shown so the user can see *which* project the app talks to. A client id is not a
@@ -359,7 +369,15 @@ class CalendarSyncViewModel(
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<CalendarSyncUiState, CalendarSyncIntent, Nothing>(
-        initialState = CalendarSyncUiState(importWindow = importWindow),
+        initialState = CalendarSyncUiState(
+            importWindow = importWindow,
+            // The panel needs three seams, and it is offered only when all three can
+            // do their job here. Each port answers for itself, so the answer does not
+            // depend on which one the screen happened to ask first.
+            deviceSyncSupported = calendarProvider.isSupported &&
+                syncRepo.isSupported &&
+                appQueries.isSupported,
+        ),
         crashReporter = crashReporter,
         scope = scope,
     ) {
@@ -712,15 +730,22 @@ class CalendarSyncViewModel(
             updateState { it.copy(isLoading = true) }
 
             // Load calendar apps and calendars in parallel
-            val apps = try {
-                appQueries.listInstalled()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                // Swallowed into an empty list, so the picker silently shows no apps and the
-                // only trace was a warn line nothing reads.
-                Logger.w(e) { "Failed to list installed calendar apps" }
-                crashReporter.report(e, LIST_APPS_FAILED)
+            val apps = if (appQueries.isSupported) {
+                try {
+                    appQueries.listInstalled()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // Swallowed into an empty list, so the picker silently shows no apps and the
+                    // only trace was a warn line nothing reads.
+                    Logger.w(e) { "Failed to list installed calendar apps" }
+                    crashReporter.report(e, LIST_APPS_FAILED)
+                    emptyList()
+                }
+            } else {
+                // The port says it cannot do its job here. Asking anyway would answer
+                // "you have no calendar apps" — an artifact of the platform, not a fact
+                // about the user.
                 emptyList()
             }
             val calendarsResult = calendarProvider.getAvailableCalendars()

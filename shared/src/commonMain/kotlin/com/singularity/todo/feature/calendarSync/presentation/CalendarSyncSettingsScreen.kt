@@ -134,7 +134,10 @@ fun CalendarSyncSettingsScreen(modifier: Modifier = Modifier) {
         } else {
             SystemCalendarPanel(
                 state = state,
-                isSupported = permissionRequester.isSupported,
+                // The port is the authority on whether the system calendar can be
+                // reached here; the permission requester answers a different
+                // question — whether this device may ask for the permission.
+                isSupported = state.deviceSyncSupported,
                 hasPermissions = permissionRequester.hasPermissions,
                 onRequestPermission = { permissionRequester.requestPermissions() },
                 onIntent = viewModel::onIntent,
