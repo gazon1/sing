@@ -36,6 +36,34 @@ import org.jetbrains.kotlin.psi.KtUserType
  * `equals` compares structure rather than identity, so an unchanged list compares
  * equal and the composable is skipped.
  *
+ * ## The exemption is keyed by the parameter
+ *
+ * The register of debt ([ComposeCollectionExemptions]) names a composable and,
+ * under it, the raw collection parameters that composable still declares. The
+ * exemption is therefore checked against the *parameter*, not against the
+ * composable: a raw collection parameter that the register does not name is a
+ * finding even when the composable itself is a known site.
+ *
+ * The same comparison runs in the other direction, and it is what makes the
+ * register trustworthy: a registered parameter whose type the code no longer
+ * declares is **stale** — the debt it names has been paid, or has changed
+ * shape, and the register says otherwise.
+ *
+ * Two things the rule deliberately does **not** do, because it cannot see
+ * them:
+ *
+ * - it does not notice a registered parameter that was **removed**. A parameter
+ *   that is gone has no declared type to compare, and a composable may have
+ *   **overloads** — `Nav3State.toDecoratedEntries` is declared twice — so
+ *   "this parameter is missing here" is not the same as "this parameter is
+ *   gone". The gate (`scripts/check-compose-stability-config.py`) reads the
+ *   sources of the whole repository and answers that question there;
+ * - it does not notice a composable that was **deleted**. The rule visits the
+ *   code that exists. The gate closes that gap too.
+ *
+ * So the division is: the rule compares the code that is there with the
+ * register, and the gate compares the register with the repository.
+ *
  * ## Scope
  *
  * Only `@Composable` functions are checked. A repository method or a ViewModel
@@ -48,6 +76,16 @@ import org.jetbrains.kotlin.psi.KtUserType
  * is a known limit, not an oversight — resolving typealiases needs semantic
  * analysis, which this rule does not have.
  *
+ * The collection types it knows are the ones in [RawCollectionTypes] — the
+ * same set the `@Immutable` rule uses, so the two rules cannot end up
+ * disagreeing about what a raw collection is.
+ *
+ * The qualified name carries the classes a function is nested in, but not the
+ * receiver of a top-level **extension** function: `fun Foo.Bar()` is named
+ * `…package.Bar` here. There is no such composable in the repository today, and
+ * the register cannot name one until the name the compiler prints is known for
+ * sure.
+ *
  * @see NoMutableCollectionCastRule — the other half of the stability contract.
  * @see 2026-10-22-compose-stability-contract
  */
@@ -56,45 +94,94 @@ class NoUnstableCollectionParamRule(config: Config) : Rule(config, "", null) {
     override fun visitNamedFunction(function: KtNamedFunction) {
         super.visitNamedFunction(function)
         if (!function.isComposable()) return
-        if (ComposeCollectionExemptions.isKnown(function.qualifiedName())) return
+
+        val qualifiedName = function.qualifiedName()
+        val registered = ComposeCollectionExemptions.parametersOf(qualifiedName)
 
         function.valueParameters.forEach { parameter ->
-            val collection = parameter.declaredCollectionType() ?: return@forEach
-            report(
-                Finding(
-                    entity = Entity.from(parameter),
-                    message = "@Composable function takes a raw '$collection' parameter. " +
-                        "The Compose compiler cannot treat it as stable, so the composable is " +
-                        "not skippable. Pass a persistent collection " +
-                        "(ImmutableList / ImmutableSet / ImmutableMap) and build it with " +
-                        "toImmutableList() / toImmutableSet() at the boundary, or wrap a local " +
-                        "list in remember { }.",
-                    references = emptyList(),
-                    suppressReasons = emptyList(),
-                ),
-            )
+            val name = parameter.name ?: return@forEach
+            val recorded = registered[name]
+            if (recorded != null) {
+                reportTypeMismatch(qualifiedName, recorded, parameter)
+                return@forEach
+            }
+            reportUnregisteredRawParameter(parameter)
         }
+    }
+
+    /**
+     * A registered parameter must still declare the type the register recorded.
+     *
+     * The comparison runs for every registered parameter, raw or not: a parameter
+     * that became persistent is exactly how the register shrinks, and a check
+     * that only looked at the raw ones would never notice that the debt was
+     * paid.
+     */
+    private fun reportTypeMismatch(
+        qualifiedName: String,
+        recorded: String,
+        parameter: KtParameter,
+    ) {
+        val actual = parameter.declaredTypeText() ?: return
+        if (sameType(recorded, actual)) return
+        val name = parameter.name ?: return
+        report(
+            Finding(
+                entity = Entity.from(parameter),
+                message = "the register of debt records '$name' of $qualifiedName as " +
+                    "'$recorded', and the parameter declares '$actual'. The entry no longer " +
+                    "describes the code — update it, or delete it if the parameter is no " +
+                    "longer a raw collection.",
+                references = emptyList(),
+                suppressReasons = emptyList(),
+            ),
+        )
+    }
+
+    /**
+     * A raw collection parameter must be named by the register.
+     *
+     * A parameter that is not in the register is the finding this rule was written
+     * for: the composable may be a known site, but *this* parameter is not one the
+     * register accounts for.
+     */
+    private fun reportUnregisteredRawParameter(parameter: KtParameter) {
+        val collection = parameter.declaredCollectionType() ?: return
+        report(
+            Finding(
+                entity = Entity.from(parameter),
+                message = "@Composable function takes a raw '$collection' parameter. " +
+                    "The Compose compiler cannot treat it as stable, so the composable is " +
+                    "not skippable. Pass a persistent collection " +
+                    "(ImmutableList / ImmutableSet / ImmutableMap) and build it with " +
+                    "toImmutableList() / toImmutableSet() at the boundary, or wrap a local " +
+                    "list in remember { }. If this site is a known debt, name the " +
+                    "parameter in ComposeCollectionExemptions.",
+                references = emptyList(),
+                suppressReasons = emptyList(),
+            ),
+        )
     }
 
     /**
      * The composable's qualified name: its package, plus the declarations it
      * is nested in, plus its own name.
      *
-     * The exemption register is keyed by the same name the Compose compiler
-     * prints in its stability report, so a site can be matched between the two
-     * without a translation table.
+     * The order is the one the Compose compiler prints in its stability report —
+     * the outermost class first, the function last — so a name can be copied
+     * from the report into the exemption register without a translation table.
      */
     private fun KtNamedFunction.qualifiedName(): String {
         val parts = mutableListOf<String>()
-        var current: PsiElement? = this
+        var current: PsiElement? = parent
         while (current != null && current !is KtFile) {
             if (current is KtClassOrObject) {
                 parts.add(current.name ?: "")
             }
             current = current.parent
         }
-        parts.add(name ?: "")
         parts.reverse()
+        parts.add(name ?: "")
         val packageName = containingKtFile.packageFqName.asString()
         val joined = parts.joinToString(".")
         return if (packageName.isEmpty()) joined else "$packageName.$joined"
@@ -127,29 +214,37 @@ class NoUnstableCollectionParamRule(config: Config) : Rule(config, "", null) {
         val qualifier = userType.qualifier?.text
         if (qualifier != null && qualifier != "kotlin.collections") return null
         val name = userType.referencedName
-        return if (name in RAW_COLLECTIONS) name else null
+        return if (name in RawCollectionTypes.NAMES) name else null
     }
+
+    /** The declared type of the parameter, as the source spells it. */
+    private fun KtParameter.declaredTypeText(): String? = typeReference?.text
 
     private companion object {
         const val COMPOSABLE = "Composable"
 
+        /** Whitespace, which the source may wrap a long type across. */
+        val WHITESPACE = Regex("\\s+")
+
         /**
-         * The raw collection types a composable parameter must not use.
-         *
-         * `Collection` is here because it is the same problem: an interface the
-         * compiler cannot reason about. `Iterable` is deliberately absent — it is
-         * rarer as a composable parameter, and a rule that reports rarely is a rule
-         * people turn off.
+         * A qualified path, so that `androidx.navigation3.runtime.NavEntryDecorator`
+         * and `NavEntryDecorator` compare as the same type.
          */
-        val RAW_COLLECTIONS = setOf(
-            "List",
-            "MutableList",
-            "Set",
-            "MutableSet",
-            "Map",
-            "MutableMap",
-            "Collection",
-        )
+        val QUALIFIED_PATH = Regex("([A-Za-z_][A-Za-z0-9_]*\\.)+([A-Za-z_][A-Za-z0-9_]*)")
+
+        /**
+         * True when two spellings of a type are the same type.
+         *
+         * The comparison ignores whitespace and package qualifiers, and nothing
+         * else: `List<String>` and `List<String?>` are different types, and the
+         * register that called them the same would be wrong about the code.
+         */
+        fun sameType(recorded: String, declared: String): Boolean =
+            recorded.normalizedType() == declared.normalizedType()
+
+        /** The type text without whitespace and without package qualifiers. */
+        fun String.normalizedType(): String =
+            replace(WHITESPACE, "").replace(QUALIFIED_PATH, "$2")
     }
 }
 

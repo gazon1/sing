@@ -111,19 +111,44 @@ directory is git-ignored — nothing in CI may depend on it.
 ## The known debt
 
 `ComposeCollectionExemptions.kt` lists the composables that still take a raw
-collection, with the parameter each one carries. It is a register of debt, not
-an allowance: the detekt rule `NoUnstableCollectionParam` skips exactly those
-composables and reports every other one, so a new raw collection parameter is
-a finding and an old one is named.
+collection, and under each of them the parameters that still carry one. It is a
+register of debt, not an allowance, and it is read from both sides:
+
+- the detekt rule `NoUnstableCollectionParam` compares the code that is there
+  with the register: a raw collection parameter the register does **not** name
+  is a finding, even when the composable itself is a known site, and a
+  registered parameter whose declared type no longer matches the register is a
+  finding too — that is what happens when a debt is paid;
+- the gate `scripts/check-compose-stability-config.py` compares the register
+  with the repository: a registered site that no source declares any more is a
+  finding, and so is a registered parameter that no declaration of that site
+  has.
+
+Neither can do the other's job. The rule sees exact types and exact
+parameters; the gate sees the whole tree, including the overloads that live in
+different files and the composables that were deleted.
 
 Converting one means: the parameter becomes `ImmutableList` / `ImmutableSet` /
 `ImmutableMap`, the value is built at the boundary with `toImmutableList()` /
 `toImmutableSet()`, and the entry is deleted from the register.
 
-Two rules guard the contract:
+Three rules guard the contract:
 
 - `NoUnstableCollectionParam` — no raw collection parameter of a `@Composable`.
 - `NoMutableCollectionCast` — no `as MutableList` / `as MutableSet` /
   `as MutableMap`. The compiler compares a stable value by `equals`, so a
   collection mutated after such a cast keeps comparing equal to its old
   contents, and the screen goes stale without an error.
+- `NoFalseImmutable` — no `@Immutable` on a class that declares a `var` or a
+  raw collection. The annotation is a promise the compiler cannot check, and a
+  broken promise shows up as a screen that is one recomposition out of date.
+  `@Stable` is deliberately not covered: a `@Stable` holder of observable
+  state (`private var by mutableStateOf(...)`) is the ordinary pattern.
+
+The two rules that ask "is this a raw collection?" share one list of names
+(`RawCollectionTypes`), so they cannot end up disagreeing about it. It covers
+the interfaces (`List`, `Set`, `Map`, `Collection`), the mutable spellings
+(`MutableList`, `MutableSet`, `MutableMap`, `ArrayList`, `HashSet`, `HashMap`)
+and `Array`. `Iterable` and `Sequence` are deliberately out: they are rare as
+a parameter of a composable, and a rule that fires rarely is a rule people
+turn off.

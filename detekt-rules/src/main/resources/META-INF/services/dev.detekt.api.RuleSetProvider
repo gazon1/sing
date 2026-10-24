@@ -25,3 +25,4 @@ com.singularity.todo.detekt.NoTextFieldStateInViewModelProvider
 com.singularity.todo.detekt.NoDroppedUiStatePropertyProvider
 com.singularity.todo.detekt.NoUnstableCollectionParamProvider
 com.singularity.todo.detekt.NoMutableCollectionCastProvider
+com.singularity.todo.detekt.NoFalseImmutableProvider

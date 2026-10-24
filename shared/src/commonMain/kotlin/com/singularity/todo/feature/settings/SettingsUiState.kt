@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.settings
 
-import androidx.compose.runtime.Immutable
 import com.singularity.todo.core.settings.EphemeralState
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.settings.SettingsSection
@@ -32,8 +31,25 @@ typealias SettingsIntent = SettingsIntent
  * ## Architecture note
  * [Content] holds typed contributor sections plus ephemeral (non-persisted) state.
  * Error state is a top-level field because it is not a contributor section.
+ *
+ * ## Why there is no `@Immutable` here
+ *
+ * The promise is broken through a contained type: [Content] carries
+ * `EphemeralState.Ai`, whose `models` is a raw `List<String>`, and
+ * `EphemeralState.Agenda`, whose `savedViews` is a raw list of saved views.
+ * `@Immutable` says the instance never changes, and the compiler believes the
+ * promise without looking at the fields.
+ *
+ * What the annotation bought was a *deep* comparison: a stable parameter is
+ * compared by `equals`, and `equals` over this state walks every model name
+ * and every saved view. A screen state is the other way round — cheap to
+ * re-run, expensive to compare — and that is the trade the stability contract
+ * makes everywhere else. The state is honestly unstable instead.
+ *
+ * Making the promise true instead means persistent collections inside
+ * `EphemeralState`, and that is the same debt the register of raw collection
+ * parameters names. Until that sweep, the annotation stays off.
  */
-@Immutable
 sealed interface SettingsUiState {
     data class Content(
         // ── Typed contributor sections ─────────────────────────────────────────
