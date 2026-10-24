@@ -88,12 +88,19 @@ The screen-sized states lost their `@Immutable`: an annotation that has to be
 *true* is not a decoration, it is a promise about a type, and it was making the
 compiler compare whole screens by `equals`.
 
-### The value classes from the standard libraries are in the contract too
+### The date and time classes from the standard libraries are in the contract too
 
-`LocalDate`, `LocalTime` and `Instant` are `@JvmInline value class`es over a
-`Long`. They are immutable by construction and their `equals` is two integer
-comparisons — but the compiler cannot see through a value class at compile time
-and marks such a parameter *unstable*.
+`LocalDate`, `LocalTime` and `Instant` are not value classes. They are
+ordinary final classes: `kotlinx.datetime.LocalDate` and `LocalTime` wrap
+`java.time.LocalDate` and `java.time.LocalTime`, and `kotlin.time.Instant`
+wraps a `Long` of seconds plus an `Int` of nanoseconds. Checked with `javap`
+against the jars rather than assumed.
+
+They are immutable by construction and their `equals` is two field
+comparisons — but the compiler infers stability from what it can see of a
+type, and a class from another module that carries no stability marker of its
+own is runtime-unstable to it. So a parameter of such a type is compared by
+identity.
 
 The measurement named them as the single largest group of unstable parameters,
 and listing them is the cheapest change in the whole contract: three lines, no
@@ -451,16 +458,15 @@ of the debt and the decision together.
 ### The identifiers did not need an entry, and the measurement says so
 
 `TaskId`, `NoteId`, `TagId`, `TagGroupId` and `ProposalItemId` are
-`@JvmInline value class`es over a `String` — the same shape as `LocalDate` and
-`LocalTime`, and the same question: the compiler cannot see through a value
-class, so a parameter of such a type is compared by identity. Two identifiers
-that name the same thing are then two different things as far as the compiler
-is concerned, and the row that holds one recomposes when the caller hands it
-an equal identifier.
+`@JvmInline value class`es over a `String`. A value class is inlined into its
+use, so the compiler sees through it to the type underneath — here a `String`,
+which is stable. That is the same shape as a `LocalDate` parameter only
+superficially: `LocalDate` is not a value class at all, it is a final class
+from another module, and the compiler cannot see inside it.
 
-The plan was to list them — five lines, the cheapest change in the whole
-contract — and to unblock the ten raw collection parameters whose element is
-an identifier.
+The plan was to list the identifiers — five lines, the cheapest change in the
+whole contract — and to unblock the ten raw collection parameters whose
+element is an identifier.
 
 **The measurement said no.** The report was taken twice, with the five lines
 and without them: **1535 stable, 372 runtime-unstable and 4 unstable across
@@ -480,8 +486,10 @@ changed — which is worth knowing, because the plan said otherwise and the
 plan was what would have been carried out.
 
 What the compiler sees through and what it does not is not something to guess
-at: the identifiers are seen through, the date and time classes were not. The
-report is what settles it, and it settles it per type.
+at: the identifiers are seen through, the date and time classes were not, and
+the two differ in kind rather than in degree — a value class inlines, a final
+class from another module does not. The report is what settles it, and it
+settles it per type.
 
 ## Rationale
 
@@ -491,8 +499,8 @@ across 712 composables. After the contract and the conversion of the hot
 states, it reported **1522 stable, 322 runtime-unstable and 3 unstable**.
 
 The 56 parameters that vanished from the unstable class were the date and time
-value classes; the 27 that vanished from the runtime class were the eleven
-types the contract names besides the value classes — `Task` (7), `Note` (7),
+classes; the 27 that vanished from the runtime class were the eleven
+types the contract names besides them — `Task` (7), `Note` (7),
 `Project` (3), `Tag` (2), `Attachment` (2) and one each of `Reminder`,
 `ChecklistItem`, `CalendarTaskUi`, `TaskDraft`, `ProjectWithCounts` and
 `SectionPrefill`. The domain models in list rows — the thing the whole

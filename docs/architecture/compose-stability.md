@@ -25,9 +25,17 @@ with `Composer.changedInstance`, and a *runtime* one with a branch that
 picks between the two at runtime.
 
 An interface is a type the compiler cannot reason about: `List`, `Set`, `Map`
-and `Collection` are always runtime-unstable. So is a value class
-(`kotlinx.datetime.LocalDate`, `kotlin.time.Instant`) — the compiler cannot see
-through the wrapper.
+and `Collection` are always runtime-unstable. So is a class the compiler
+cannot see the body of — `kotlinx.datetime.LocalDate`, `kotlin.time.Instant`
+and every other final class that arrives from another module without a
+stability marker of its own. These are not value classes: `LocalDate` wraps a
+`java.time.LocalDate`, `Instant` wraps a `Long` and an `Int`.
+
+A value class is different: it is inlined into its use, so the compiler sees
+through it to the type underneath. The identifiers of this project —
+`TaskId`, `NoteId` — are value classes over a `String`, and the compiler sees
+the `String`, which is stable. They needed no entry in the contract, and the
+measurement says so.
 
 A **data class with only `val` properties** is stable, provided its property
 types are stable too. `Task` is not: it holds a `List<TagId>` and a
