@@ -256,8 +256,25 @@ jobs:
 
       # The gate scripts' own unit tests: the regression tests for the wiring
       # gate, the liveness probe and the controls. 1187 assertions.
+      #
+      # The runner writes a JUnit XML report, and the report is uploaded as an
+      # artifact: the rule this repository already wrote down for the Kotlin
+      # tests is that the cause of a failed test is in the artifact and not in
+      # the step log — and a step log that says "FAILED (failures=1)" among
+      # 2383 assertions says nothing about which one.
       - name: Gate scripts' own unit tests
-        run: python3 -m unittest discover -s scripts/tests
+        run: >-
+          python3 scripts/run-gate-tests.py
+          --junit-xml build/diagnostics/gate-tests/junit.xml
+
+      - name: Upload gate test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: gate-junit-results
+          path: build/diagnostics/gate-tests/*.xml
+          if-no-files-found: error
+          retention-days: 7
 
       # "Gates are alive" — the probe that runs every registered gate once and
       # reports the ones that die. It is the second full pass over the gate

@@ -172,6 +172,13 @@ An agent reviewing its own diff inherits the assumptions the diff was built on. 
 change over a few hundred lines, dispatch a fresh sub-agent with only the diff and the
 ADR — it sees what you cannot unsee. Give it the diff, not the session history.
 
+**The reviewer reads; it does not build.** Say so in the brief: "do not run Gradle". A
+reviewer that starts a build competes with your own build for the machine's Gradle
+slots, and on a loaded host a review that waits for a build answers about the build
+instead of about the change — in one session two of three reviewers sat on a slot for
+forty minutes and said nothing about the diff. Reading the diff, the git history and
+the Python gates is the reviewer's job; the build is yours and CI's.
+
 ### The review is a comment on the pull request
 
 The review is written down **on the pull request**, as a comment that **opens** with the
