@@ -58,11 +58,11 @@ synced but the project reads the document the same way.
    per-type knowledge, and the per-type knowledge is the caller's.
 
 4. **The row that is read is this profile's row.** A document of another
-   profile is not read against anything: two profiles of one account can hold a
-   row with the same id, and the row of this profile must not fill the row of
-   the other one. The read is scoped to the profile twice over — the writer
-   checks the document's owner, and the repository scopes its read — and the two
-   together say the same thing.
+   profile is not read against anything: a row is keyed by its id alone, so a
+   foreign document that names an id this device holds lands on this profile's
+   row, and the row of this profile must not fill it. The read is scoped to the
+   profile twice over — the writer checks the document's owner, and the
+   repository scopes its read — and the two together say the same thing.
 
 5. **A claim is still a claim.** A document that carries `bodyMarkdown: null`
    says the note has no body, and it wins. Only the *absence* of the key is an

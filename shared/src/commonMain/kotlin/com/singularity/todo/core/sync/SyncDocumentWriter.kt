@@ -86,11 +86,11 @@ internal class SyncDocumentWriter(
      * shadow. Overwriting it from the session would be a second answer to a
      * question the document already answers.
      *
-     * The signed-in account *is* read, and for one thing only: to decide
-     * whether the row that is already here may be read into the document. The
-     * row is read to keep the fields the document is silent about, and the row
-     * of this profile is the only row this device may speak about — see
-     * [belongsToThisProfile].
+     * The profile this device is signed in to *is* read, and for one thing
+     * only: to decide whether the row that is already here may be read into
+     * the document. The row is read to keep the fields the document is silent
+     * about, and the row of this profile is the only row this device may
+     * speak about — see [belongsToThisProfile].
      */
     suspend fun upsert(type: DocType, document: JsonObject) {
         when (type) {
@@ -213,9 +213,9 @@ internal class SyncDocumentWriter(
      *
      * The row that is read is this profile's row, and the document is read
      * against a row only when it belongs to this profile. A document of another
-     * profile is not read against anything: two profiles of one account can hold
-     * a row with the same id, and the row of this profile must not fill the row
-     * of the other one.
+     * profile is not read against anything: a row is keyed by its id alone, so
+     * a foreign document that names an id this device holds lands on this
+     * profile's row, and the row of this profile must not fill it.
      *
      * @param document the document that arrived — it wins wherever it speaks.
      * @param read how to read the row the document is about, by its id.

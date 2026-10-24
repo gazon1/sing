@@ -284,11 +284,12 @@ class DocumentMergeForEveryTypeTest {
 
     @Test
     fun `a note document of another profile is not filled from this profile's row`() = runTest {
-        // Two profiles of one account can hold a note with the same id, and this
-        // device holds *this* profile's row under that id. The foreign document
-        // carries no body at all, and the row of this profile says "the body":
-        // filling the foreign document from this profile's row would write this
-        // profile's data into another profile's row.
+        // A document of another profile can name a row this device already
+        // holds: the row is keyed by the id alone, so the foreign document
+        // lands on this profile's row. The foreign document carries no body at
+        // all, and the row says "the body": filling the foreign document from
+        // this profile's row would write this profile's data into a document
+        // that says the note has no body.
         val repo = FakeNotesRepository()
         repo.add(note(id = "n1", body = "the body"))
 
