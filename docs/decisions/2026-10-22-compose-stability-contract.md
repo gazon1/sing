@@ -203,7 +203,15 @@ the report forces the compilation to re-run instead of trusting the inputs.
   reads is not a contract; neither failure has an error message attached to it
   anywhere else in the build. The same gate reads the register of debt against
   the repository: a registered site that no source declares, and a registered
-  parameter that no declaration of that site has.
+  parameter that no declaration of that site has. And it checks the contract
+  itself against the declarations it names: a type the contract vouches for
+  must not declare a `var`, and must not hold a collection that can change
+  after construction. The contract is a promise the compiler cannot check, so
+  something has to check it — the same way `@Immutable` needed a rule.
+- `config/compose/stability_debt_baseline.conf`: the recorded size of the
+  register of debt. The gate fails when the register and the record disagree
+  in either direction, so the number everyone quotes cannot drift away from
+  the register it describes.
 
 ### The remaining raw collection parameters are named, not hidden
 
@@ -402,6 +410,78 @@ well as the interfaces; `Iterable` and `Sequence` are deliberately out, because
 they are rare as a parameter of a composable and a rule that fires rarely is a
 rule people turn off. Their absence is a statement about how often the rule
 reports, not about whether they are stable: they are not.
+
+### The contract is checked against the declarations it vouches for
+
+The rule above protects `@Immutable` — a promise written in the code. The
+contract is the same promise written in a file, and it was the one nobody
+checked. The compiler reads a name from that file and believes it: every
+instance of the type is compared by `equals` and may be skipped. A type that
+declares a `var` has a second version of its value, and `equals` compares the
+wrong one; a type that holds a `MutableList` has a collection that can change
+after construction, and `equals` of a collection that changed is a lie about
+"the same content".
+
+The gate now reads the declaration of every type the contract names and
+rejects those two. What it cannot see is the rest of the promise: the
+contract also says that the collections a type holds are rebuilt on every read
+and never mutated afterwards, and *that* is a statement about every write in
+the program — a question about data flow, not about declarations. A read-only
+`List` is allowed, because `Task` holds a `List<TagId>` on purpose; the
+mutable spellings are what a declaration can show, and those are rejected.
+
+### The register of debt is a ratchet
+
+The register names the composables that still take a raw collection, and under
+each of them the parameters that still carry one. The number of those
+parameters is the debt: it is the number every conversation about this work
+quotes, and a number nobody writes down is a number nobody reads.
+
+So the size is written down — in `config/compose/stability_debt_baseline.conf`
+— and the gate compares it with the register. It fails when they disagree in
+**either** direction: when the register grew, because the debt may not grow
+without somebody deciding to raise the bar; and when the register shrank,
+because a recorded size that stays above the real one is a number the next
+reader believes and that is wrong.
+
+Raising the bar is allowed. It is a decision somebody has to make on purpose,
+in the same commit that moves the debt, and the diff then shows the movement
+of the debt and the decision together.
+
+### The identifiers did not need an entry, and the measurement says so
+
+`TaskId`, `NoteId`, `TagId`, `TagGroupId` and `ProposalItemId` are
+`@JvmInline value class`es over a `String` — the same shape as `LocalDate` and
+`LocalTime`, and the same question: the compiler cannot see through a value
+class, so a parameter of such a type is compared by identity. Two identifiers
+that name the same thing are then two different things as far as the compiler
+is concerned, and the row that holds one recomposes when the caller hands it
+an equal identifier.
+
+The plan was to list them — five lines, the cheapest change in the whole
+contract — and to unblock the ten raw collection parameters whose element is
+an identifier.
+
+**The measurement said no.** The report was taken twice, with the five lines
+and without them: **1535 stable, 372 runtime-unstable and 4 unstable across
+728 composables**, both times. The identifiers are already stable, and adding
+them to the contract changed nothing.
+
+They are stable because the compiler *does* see through these value classes:
+`TaskId` wraps a `String`, and a `String` is stable, so the verdict the
+compiler records for `TaskId` is a stable one — and a recorded verdict is
+honoured for a type argument, exactly as the contract entry would have been.
+`ProjectWithCounts` needed an entry for the opposite reason: the compiler
+judged it *unstable* and stuck to that.
+
+So the five lines were not added. The ten parameters whose element is an
+identifier unlock by the conversion itself, with nothing in the contract
+changed — which is worth knowing, because the plan said otherwise and the
+plan was what would have been carried out.
+
+What the compiler sees through and what it does not is not something to guess
+at: the identifiers are seen through, the date and time classes were not. The
+report is what settles it, and it settles it per type.
 
 ## Rationale
 

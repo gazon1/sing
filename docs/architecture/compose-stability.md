@@ -49,10 +49,14 @@ as well as where it is used.
 - `config/compose/stability_config.conf` — the types the compiler is told are
   stable. Read by `shared` and `desktopApp` through
   `composeCompiler.stabilityConfigurationFiles`.
+- `config/compose/stability_debt_baseline.conf` — the recorded size of the
+  register of debt. The gate fails when the register and the record disagree,
+  in either direction.
 - `docs/decisions/2026-10-22-compose-stability-contract.md` — why it is a file,
   and what was measured.
 - `scripts/check-compose-stability-config.py` — the gate: the contract names
-  types that exist, and the modules read it.
+  types that exist, the modules read it, the types it names keep the promise
+  it makes for them, and the register of debt still matches the repository.
 
 ## The rule that decides everything
 
@@ -75,9 +79,12 @@ for a month of calendar entries. So:
 ## Writing a new composable
 
 1. **Is the parameter a domain model?** It should be in the stability contract
-   if it is a `val`-only data class that is rebuilt on every read. Add it to
-   `config/compose/stability_config.conf` — the gate will tell you if the name
-   does not resolve.
+   if it is a `val`-only data class that is rebuilt on every read **and the
+   compiler would judge it unstable** — the contract promotes an unstable type
+   to stable, and a type the compiler already judges stable needs no entry.
+   The gate will tell you if the name does not resolve, and it will tell you
+   if the type you named does not keep the promise: a `var` or a mutable
+   collection in a contract type is a finding.
 2. **Is the parameter a collection?** Declare it `ImmutableList` /
    `ImmutableSet` / `ImmutableMap` and build it at the boundary with
    `toImmutableList()` / `toImmutableSet()`. The detekt rule
@@ -128,9 +135,16 @@ Neither can do the other's job. The rule sees exact types and exact
 parameters; the gate sees the whole tree, including the overloads that live in
 different files and the composables that were deleted.
 
+The **size** of the register is written down too, in
+`config/compose/stability_debt_baseline.conf`, and the gate compares it with
+the register: the debt may not grow without somebody deciding to raise the
+bar, and a shrink has to be recorded. The number everyone quotes therefore
+cannot drift away from the register it describes.
+
 Converting one means: the parameter becomes `ImmutableList` / `ImmutableSet` /
 `ImmutableMap`, the value is built at the boundary with `toImmutableList()` /
-`toImmutableSet()`, and the entry is deleted from the register.
+`toImmutableSet()`, the entry is deleted from the register, and the recorded
+size goes down by one.
 
 Three rules guard the contract:
 
