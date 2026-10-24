@@ -74,7 +74,9 @@ the boundary is stated where the rule lives rather than left unsaid.
   absences, and the limitation this change closes
 - ADR `2026-10-23-a-task-document-is-written-whole` — why the row is written
   whole
-- `shared/src/commonMain/kotlin/com/singularity/todo/core/sync/TaskDocumentMerge.kt`
+- `shared/src/commonMain/kotlin/com/singularity/todo/core/sync/DocumentMerge.kt`
+  — named `TaskDocumentMerge.kt` when this change was made, and renamed when
+    the merge was generalised to every type
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncDocumentWriter.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/model/TaskDocument.kt`
   — the task and the claims it makes about its own row

@@ -31,7 +31,9 @@
 
 ## 4. The tests hold it
 
-- [x] 4.1 `TaskDocumentMergeTest`: a document that carries no series id, no
+- [x] 4.1 `DocumentMergeTest` (named `TaskDocumentMergeTest` when this change
+      was made, and renamed when the merge was generalised to every type): a
+      document that carries no series id, no
       recurrence and no estimate leaves the row's values alone; a document
       that says the task stands alone takes it out of the series; the document
       wins where it speaks; a document about an unknown task is the task; the
