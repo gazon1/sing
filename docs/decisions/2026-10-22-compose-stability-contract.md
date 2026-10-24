@@ -339,6 +339,20 @@ estimated. That is the next piece of work, and it is recorded rather than
 hidden: the register names every parameter of every site, so the debt is
 visible and every new raw collection parameter is a finding.
 
+Those numbers are a measurement of a tree that keeps moving, so they are
+dated rather than eternal. Re-measured on 2026-10-25, after this decision's
+own second half (the false `@Immutable` removed, the register keyed by the
+parameter), the same report reads **1542 stable, 365 runtime-unstable and 4
+unstable** across 728 composables. Most of the movement is other people's
+composables; one parameter is ours — `CurrentProjectContent` lost its false
+`@Immutable` and moved from the stable class into the runtime one, which is
+exactly what that annotation was hiding.
+
+The 82 raw collection parameters did **not** move: the fresh report counts the
+runtime class by type and finds the same 62 `List`, 11 `Set`, 8 `Map` and one
+`MutableList` — which is the register, counted from the report rather than
+estimated.
+
 Two things the measurement taught that no amount of reading the source would
 have:
 
