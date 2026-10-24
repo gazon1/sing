@@ -1,0 +1,13 @@
+schema: spec-driven
+# This change alters an observable capability contract: `test-execution-integrity`.
+# The coverage floor's enforcement locus moves, the two populations' floors become
+# ordered, and a job that runs a subset gains a verdict of its own. The delta is in
+# `specs/test-execution-integrity/spec.md`.
+#
+# The delta is written against the state AFTER `ci-fast-only-pr-full-on-schedule`
+# is archived: that change modifies the same requirement (`REQ-3`) and adds
+# `REQ-24`, and this change's new requirement takes `REQ-25`. Archiving this
+# change first would let the other change's `REQ-3` replace the enforcement-locus
+# clause.
+#
+# Invariant: this marker and a specs/ directory are mutually exclusive.

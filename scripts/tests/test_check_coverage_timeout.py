@@ -22,6 +22,7 @@ So the cases that matter are the ones a clean tree never shows:
 """
 
 import importlib.util
+import math
 import pathlib
 import sys
 import tempfile
@@ -97,6 +98,40 @@ class CoverageTimeoutTest(unittest.TestCase):
 
     def test_a_tree_that_satisfies_the_rule_has_no_findings(self) -> None:
         self.assertEqual(self.findings(), [])
+
+    def test_the_coverage_job_declares_the_timeout_of_the_larger_population(self) -> None:
+        """The coverage job's timeout is the LARGER population's, recomputed.
+
+        The number is not a constant somebody chose: it is the published
+        measurement of the more expensive population, doubled, because a
+        timeout has to cover the runner as well as the run. A timeout that is
+        too tight truncates a slow run and reports a failure about the clock.
+
+        This reads the repository's own files, because the claim is about them:
+        a synthetic workflow would prove that the reader computes a number, not
+        that the workflow declares it.
+        """
+        repo = pathlib.Path(__file__).resolve().parent.parent.parent
+        workflow = (repo / '.github/workflows/ci.yml').read_text(encoding='utf-8')
+        costs = (repo / 'config/docs/coverage-cost.properties').read_text(encoding='utf-8')
+
+        measurements: dict[str, str] = {}
+        for line in costs.splitlines():
+            line = line.strip()
+            if not line or line.startswith('#') or '=' not in line:
+                continue
+            name, _, value = line.partition('=')
+            measurements[name.strip()] = value.strip()
+
+        measured = max(int(measurements['fast.ms']), int(measurements['full.ms']))
+        required = math.ceil(measured * 2 / 60000)
+
+        job = mod._coverage_job(workflow)
+        self.assertEqual('coverage', job.job_id)
+        self.assertEqual(required, job.timeout_minutes)
+
+        # And the gate agrees with the arithmetic on the real tree.
+        self.assertEqual([], mod.check(repo))
 
     def test_the_timeout_of_the_coverage_job_is_the_one_checked(self) -> None:
         """The first `timeout-minutes` in the file is not the one that matters.

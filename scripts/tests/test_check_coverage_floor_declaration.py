@@ -73,16 +73,16 @@ spec.loader.exec_module(mod)
 
 SETTINGS = """\
 val FULL_INSTRUCTION_COVERAGE_FLOOR = 27
-val FULL_BRANCH_COVERAGE_FLOOR = 20
-val FULL_LINE_COVERAGE_FLOOR = 27
+val FULL_BRANCH_COVERAGE_FLOOR = 23
+val FULL_LINE_COVERAGE_FLOOR = 31
 val FAST_INSTRUCTION_COVERAGE_FLOOR = 27
 val FAST_BRANCH_COVERAGE_FLOOR = 23
 val FAST_LINE_COVERAGE_FLOOR = 31
 val DETEKT_RULE_BRANCH_FLOOR = 60
 
 require(FULL_INSTRUCTION_COVERAGE_FLOOR >= 27) { }
-require(FULL_BRANCH_COVERAGE_FLOOR >= 20) { }
-require(FULL_LINE_COVERAGE_FLOOR >= 27) { }
+require(FULL_BRANCH_COVERAGE_FLOOR >= 23) { }
+require(FULL_LINE_COVERAGE_FLOOR >= 31) { }
 require(FAST_INSTRUCTION_COVERAGE_FLOOR >= 27) { }
 require(FAST_BRANCH_COVERAGE_FLOOR >= 23) { }
 require(FAST_LINE_COVERAGE_FLOOR >= 31) { }
@@ -187,6 +187,47 @@ class CoverageFloorDeclarationTest(unittest.TestCase):
 
     def test_a_clean_tree_has_no_findings(self) -> None:
         self.assertEqual(self.findings(), [])
+
+    def test_the_wider_populations_floor_is_not_below_the_narrower_one(self) -> None:
+        """The full population's floor is not below the fast population's.
+
+        A floor taken from a wider run is unreachable by a narrower one, and
+        the two floors are compared by whoever reads them: a reader who sees
+        the full population held to LESS than the fast one concludes that the
+        full population is held to a weaker standard — the opposite of what a
+        wider population means.
+
+        The comparison is per counter. The three counters are measured
+        independently, so an instruction floor that clears and a branch floor
+        that does not is not "the floor".
+        """
+        self.assertEqual(self.findings(), [])
+
+        for counter, current, lowered in (
+            ('BRANCH', '23', '22'),
+            ('LINE', '31', '30'),
+            ('INSTRUCTION', '27', '26'),
+        ):
+            with self.subTest(counter=counter):
+                declaration = f'val FULL_{counter}_COVERAGE_FLOOR = {current}'
+                self.write(
+                    'settings.gradle.kts',
+                    SETTINGS.replace(
+                        declaration, f'val FULL_{counter}_COVERAGE_FLOOR = {lowered}'
+                    ),
+                )
+                findings = self.findings()
+                self.assertTrue(
+                    any(
+                        'wider population' in f and counter.lower() in f
+                        for f in findings
+                    ),
+                    f'expected the {counter.lower()} floor to be reported: {findings}',
+                )
+                # The clean tree is clean again — the finding is about the
+                # ordering, not about the tree being broken.
+                self.write('settings.gradle.kts', SETTINGS)
+                self.assertEqual(self.findings(), [])
 
     def test_a_verify_block_in_the_root_build_script_is_a_finding(self) -> None:
         self.write(

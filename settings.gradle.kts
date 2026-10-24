@@ -71,19 +71,44 @@ plugins {
 // block only takes filters and verification rules — there is no `total { }` there, and
 // asking for one fails script compilation with "Unresolved reference".
 //
-// `enableCoverage()` is mandatory and is NOT implied by the block below.
-// `KoverSettingsExtensionImpl.coverageIsEnabled` is `convention(false)`, and nothing in
-// the settings DSL flips it: `KoverSettingsGradlePlugin` reads it in `beforeProject` and
-// returns early when false, so the root tasks are simply never registered. Symptom of
-// forgetting it: the build succeeds, every test task runs with the Kover agent attached,
-// per-project `bin-reports/*.ic` appear, and `:koverXmlReport` does not exist — the
-// subproject plugins were doing all the instrumenting. Confirmed against the 0.9.9
-// sources, not inferred.
+// `enableCoverage()` is what attaches the Kover agent to every `Test` task, and
+// it is a property of the CONFIGURATION, not of the task graph. Measured
+// 2026-10-23: an invocation that names no coverage task at all
+// (`./gw :shared:jvmTest --tests '…CapabilityFlagTest' --info`) still runs the
+// test JVM with `-javaagent:…/build/kover/kover-jvm-agent-0.9.9.jar` on its
+// command line, and `--dry-run` lists `:koverAgentSearch`. So a job that drops
+// `koverReport` from its invocation moves the REPORT and leaves the COST.
+//
+// The switch is therefore a Gradle property, so that one job can opt out of
+// the instrumentation while another job opts in:
+//
+//   -Pcoverage.enabled=false   the agent is not attached, and the root coverage
+//                              tasks are not registered — so a path that does
+//                              not measure coverage cannot name a coverage task
+//   -Pcoverage.enabled=true    today's behaviour, and the default
+//
+// The default is ON, because the local rehearsal is the one that measures the
+// floors: a local run that silently stopped instrumenting would report a
+// coverage number against nothing.
+//
+// `KoverSettingsExtensionImpl.coverageIsEnabled` is `convention(false)`, and
+// nothing in the settings DSL flips it: `KoverSettingsGradlePlugin` reads it
+// in `beforeProject` and returns early when false, so the root tasks are
+// simply never registered. Confirmed against the 0.9.9 sources, not inferred.
 //
 // The `includedClasses` filter is the same one the per-project blocks used, and for the
 // same reason (ADR 2026-09-25-test-jvm-heap-default): the IntelliJ coverage runtime
 // keeps one ClassData entry per loaded class, and the Koog classpath alone contributes
 // 3000+ of them.
+//
+// ── The switch itself ─────────────────────────────────────────────────────────
+val coverageProperty = providers.gradleProperty("coverage.enabled").getOrElse("true").trim().lowercase()
+require(coverageProperty == "true" || coverageProperty == "false") {
+    "the property 'coverage.enabled' is '$coverageProperty', and it is a boolean — pass " +
+        "'-Pcoverage.enabled=true' or '-Pcoverage.enabled=false'. A value nobody reads " +
+        "is a value nobody checks."
+}
+val coverageEnabled = coverageProperty == "true"
 // ── The population the run measures ─────────────────────────────────────────
 //
 // A coverage floor describes a MEASUREMENT, and the measurement depends on the
@@ -134,28 +159,31 @@ val measuredFullPopulation = selectedTags.any { it == "slow" }
 // FULL population — the floor this repository carried before the split, measured
 // 2026-10-15: 27.6 instruction / 20.7 branch / 27.4 line.
 //
-// The floor stays at those numbers, deliberately, and the next paragraph says why
-// that is a weaker claim than the label above used to make: a later full run
-// (2026-10-22, `-Ptest.tags=fast,slow`) measured 55.88 / 40.44 / 57.23 — roughly
-// twice as much — and the 2026-10-15 figures are almost exactly what the FAST
-// population measured on 2026-10-22 (27.73 / 23.23 / 31.26), which says the
-// 2026-10-15 "full" measurement was not a full-population measurement.
+// That measurement was not a full-population measurement, and the file says so
+// rather than leaving the number to be read as one: the 2026-10-15 figures are
+// almost exactly what the FAST population measured on 2026-10-22
+// (27.73 / 23.23 / 31.26), while a real full run (2026-10-22,
+// `-Ptest.tags=fast,slow`) measured 55.88 / 40.44 / 57.23 — roughly twice as
+// much.
 //
-// So this floor is a floor the fast population's own measurement justifies,
-// applied to the full population as well: a number both populations meet, rather
-// than a number measured on this one. It is deliberately not the strictest
-// reading of the requirement — a floor rewritten only from a measurement of its
-// own population — and that gap is stated here rather than hidden in a label.
+// So the full population's floor is the FAST population's, and the ordering is
+// deliberate: the WIDER population's floor shall not be below the narrower
+// one's. A floor taken from a wider run is unreachable by a narrower one, and
+// the two floors are compared by whoever reads them — a reader who sees the
+// full population held to LESS than the fast one concludes that the full
+// population is held to a weaker standard, which is the opposite of what a
+// wider population means.
 //
-// Raising the floor to the newer numbers is a POLICY decision, not a measurement:
-// the floor is the minimum acceptable coverage, and the nightly would then fail on
-// a fraction of a percentage point of drift. This change makes the floor real —
-// before it, the rule was never evaluated at all (see the ADR of 2026-10-22) — and
-// a conservative floor that is enforced beats a strict one that is a promise. The
-// question of tightening it is recorded in that ADR as an open decision.
+// Raising the floor to the FULL measurement (55.88 / 40.44 / 57.23) is a
+// POLICY decision, not a measurement: the floor is the minimum acceptable
+// coverage, and the nightly would then fail on a fraction of a percentage
+// point of drift. This change makes the floor real — before it, the rule was
+// never evaluated at all (see the ADR of 2026-10-22) — and a conservative
+// floor that is enforced beats a strict one that is a promise. The question
+// of tightening it is recorded in that ADR as an open decision.
 val FULL_INSTRUCTION_COVERAGE_FLOOR = 27
-val FULL_BRANCH_COVERAGE_FLOOR = 20
-val FULL_LINE_COVERAGE_FLOOR = 27
+val FULL_BRANCH_COVERAGE_FLOOR = 23
+val FULL_LINE_COVERAGE_FLOOR = 31
 
 // FAST population — the floors were recorded from the 2026-10-22 measurement
 // (27.73 instruction / 23.23 branch / 31.26 line) and re-measured on 2026-10-23
@@ -183,11 +211,11 @@ val FAST_LINE_COVERAGE_FLOOR = 31
 require(FULL_INSTRUCTION_COVERAGE_FLOOR >= 27) {
     "app instruction coverage floor must not drop below 27% — measured 27.6% on 2026-10-15"
 }
-require(FULL_BRANCH_COVERAGE_FLOOR >= 20) {
-    "app branch coverage floor must not drop below 20% — measured 20.7% on 2026-10-15"
+require(FULL_BRANCH_COVERAGE_FLOOR >= 23) {
+    "app branch coverage floor must not drop below 23% — measured 23.23% on 2026-10-22"
 }
-require(FULL_LINE_COVERAGE_FLOOR >= 27) {
-    "app line coverage floor must not drop below 27% — measured 27.4% on 2026-10-15"
+require(FULL_LINE_COVERAGE_FLOOR >= 31) {
+    "app line coverage floor must not drop below 31% — measured 31.26% on 2026-10-22"
 }
 require(FAST_INSTRUCTION_COVERAGE_FLOOR >= 27) {
     "app fast-population instruction coverage floor must not drop below 27% — " +
@@ -266,7 +294,14 @@ val appLineCoverageFloor =
     if (measuredFullPopulation) FULL_LINE_COVERAGE_FLOOR else FAST_LINE_COVERAGE_FLOOR
 
 kover {
-    enableCoverage()
+    // The switch, not a constant: the pull-request path runs the suite
+    // without the agent, and the coverage job runs it with one. With the agent
+    // off, the root `koverReport` / `koverHtmlReport` / `koverVerify` tasks are
+    // not registered — which is the point: a path that does not measure
+    // coverage cannot name a coverage task.
+    if (coverageEnabled) {
+        enableCoverage()
+    }
     // Build tooling, not application code. `detekt-rules` is the custom-rule
     // module; its rules are exercised by 56 tests, but no CI job and no check.sh
     // step runs them, and 4 of those tests fail on this branch for reasons that

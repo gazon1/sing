@@ -17,11 +17,91 @@ gate that passes.
 """
 from __future__ import annotations
 
+import pathlib
 import re
 import unittest
 
 from sgate.commands._registry import GATE_CONTROLS, GATES
 from sgate.controls import Control, Edit
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
+
+
+def _step_containing(text: str, needle: str) -> str | None:
+    """The name of the step whose text holds the FIRST occurrence of *needle*.
+
+    The first occurrence is the one that matters: the registry declares
+    `count=1`, and `_replace` replaces the first match — so a control lands
+    where its literal appears FIRST, not where its author meant it to.
+
+    The needle often IS the step's header (`- name: …` plus its `run:` line),
+    so the step is the one whose header starts at or before the occurrence —
+    not the one before it.
+    """
+    index = text.find(needle)
+    if index < 0:
+        return None
+    headers = [
+        (match.start(), match.group(1))
+        for match in re.finditer(r"^\s*- name: (.+?)\s*$", text, re.MULTILINE)
+        if match.start() <= index
+    ]
+    return headers[-1][1] if headers else None
+
+
+def _job_blocks(text: str) -> dict[str, tuple[int, int]]:
+    """The job blocks of a workflow: job id -> (first line, last line).
+
+    The jobs are the blocks at indent 2 under `jobs:`. A job-level attribute
+    — a `timeout-minutes:` above the steps — belongs to a job and to no step,
+    and this is what says which job that is.
+    """
+    lines = text.splitlines()
+    blocks: dict[str, tuple[int, int]] = {}
+    current: str | None = None
+    start = 0
+    inside = False
+    for number, line in enumerate(lines, start=1):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        indent = len(line) - len(line.lstrip())
+        if not inside:
+            if indent == 0 and stripped == "jobs:":
+                inside = True
+            continue
+        if indent == 2:
+            match = re.match(r"^([A-Za-z0-9_.\-]+):", stripped)
+            if match:
+                if current is not None:
+                    blocks[current] = (start, number - 1)
+                current = match.group(1)
+                start = number
+    if current is not None:
+        blocks[current] = (start, len(lines))
+    return blocks
+
+
+def _steps_line(lines: list[str], start: int, end: int) -> int | None:
+    """The line of a job block's `steps:` key."""
+    for number in range(start, min(end, len(lines)) + 1):
+        if lines[number - 1].strip() == "steps:":
+            return number
+    return None
+
+
+def _step_names(text: str, job_id: str) -> list[str]:
+    """The names of the steps of a job, in the order the workflow declares them."""
+    lines = text.splitlines()
+    block = _job_blocks(text).get(job_id)
+    if block is None:
+        return []
+    start, end = block
+    return [
+        match.group(1)
+        for number in range(start, min(end, len(lines)) + 1)
+        if (match := re.match(r"^      - name: (.+?)\s*$", lines[number - 1]))
+    ]
 
 
 class TestRegistryImports(unittest.TestCase):
@@ -109,6 +189,90 @@ class TestTheControlThatMustBeAbleToFail(unittest.TestCase):
             self.assertIsNotNone(
                 control.edit.repl,
                 f"control {name!r} declares a regex edit with no replacement",
+            )
+
+    def test_every_control_still_hits_the_line_it_claims_to_prove(self):
+        """Every control's sabotage lands in the step its anchor names.
+
+        A control has two halves: the literal text it replaces, and the
+        `tracked_by` anchor that says which step the control is about. The
+        text resolves by the FIRST occurrence — the registry declares
+        `count=1` — and the anchor resolves by step name.
+
+        When the workflow's job graph moves, the two halves can come to point
+        at different steps: the control then lands in one step while claiming
+        another, and it passes while proving nothing. Green and vacuous is the
+        worst state a control can be in.
+        """
+        for name, control in GATE_CONTROLS.items():
+            anchor = control.tracked_by
+            if not anchor or "#" not in anchor:
+                continue
+            path, _, step_name = anchor.partition("#")
+            target = ROOT / path
+            if target.suffix not in (".yml", ".yaml"):
+                continue
+
+            text = target.read_text(encoding="utf-8")
+            self.assertIn(
+                f"- name: {step_name}",
+                text,
+                f"the control {name!r} anchors at a step that is not in {path}",
+            )
+
+            edit = control.edit
+            if edit is None or edit.kind != "replace":
+                continue
+            if control.path != path:
+                # The control edits another file; its anchor says which STEP
+                # proves the gate, and the step has to exist — nothing more to
+                # compare.
+                continue
+
+            landed = _step_containing(text, edit.old)
+            self.assertIsNotNone(
+                landed,
+                f"the control {name!r} replaces text that is no longer in {path}",
+            )
+            if landed == step_name:
+                continue
+
+            # The landed step is not the anchored one. Either the sabotage
+            # landed in ANOTHER step — the defect this test exists for — or it
+            # landed in a job-level attribute, which belongs to a job and to no
+            # step: the coverage job's `timeout-minutes:` sits above its
+            # steps. In the second case the anchor names a step OF THAT JOB,
+            # and the job is what the control is about.
+            index = text.find(edit.old)
+            line = text.count("\n", 0, index) + 1
+            lines = text.splitlines()
+            blocks = _job_blocks(text)
+            job_id = next(
+                (
+                    job
+                    for job, (start, end) in blocks.items()
+                    if start <= line <= end
+                ),
+                None,
+            )
+            self.assertIsNotNone(
+                job_id,
+                f"the control {name!r} edits a line that is in no job of {path}",
+            )
+            steps_line = _steps_line(lines, *blocks[job_id])
+            if steps_line is not None and line < steps_line:
+                self.assertIn(
+                    step_name,
+                    _step_names(text, job_id),
+                    f"the control {name!r} lands in the job {job_id!r} and claims "
+                    f"to prove {step_name!r}, which is a step of another job",
+                )
+                continue
+            self.assertEqual(
+                step_name,
+                landed,
+                f"the control {name!r} lands in the step {landed!r} and claims "
+                f"to prove {step_name!r}",
             )
 
 
