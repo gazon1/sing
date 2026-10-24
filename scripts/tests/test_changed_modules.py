@@ -483,6 +483,13 @@ class TheGraphRefusesToPlanWhenItDisagreesWithTheBuild(unittest.TestCase):
     itself is left real here: the disagreement is produced by the graph the
     command reads, not by a stubbed check — a stubbed check would pass even if
     the check had been turned into a no-op.
+
+    The base is `HEAD`, not the default one. The default base is
+    `origin/main`, and a CI checkout is a detached, depth-1 commit with no
+    such ref — there the base cannot be measured against, the command returns
+    2 for THAT reason, and the test would pass whatever the check does. With
+    `HEAD` the base always resolves, so the only way to code 2 is the
+    disagreement the test stages.
     """
 
     def test_the_command_stops_when_the_graph_and_the_build_disagree(self):
@@ -496,7 +503,7 @@ class TheGraphRefusesToPlanWhenItDisagreesWithTheBuild(unittest.TestCase):
         changed.MODULES = {**original, 'ghost': ghost}
         self.addCleanup(self._restore_modules, original)
 
-        code = changed.main([])
+        code = changed.main(['--base', 'HEAD'])
 
         self.assertEqual(2, code)
 
