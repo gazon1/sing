@@ -143,9 +143,7 @@ already here — the document wins wherever it speaks, and the row keeps what th
 document does not speak about — but nothing on that path is compared version by
 version; the per-field HLC merge that could produce a lost field lives on the
 push side. So "a field lost to a newer one" cannot occur on this path at
-all. `PullStep.Done.conflicted` and the `conflicts` field on `PullSummary` are
-therefore structurally unreachable, and `SyncEnginePullTest` only reaches them by
-registering a handler that returns `Conflict` directly.
+all.
 
 (The sentence above once said that the pull path "applies a remote document
 wholesale and performs no field-level merge". That was true when it was written
@@ -155,9 +153,14 @@ never affected, because a comparison of versions is what the conclusion is
 about.)
 
 A counter that cannot become non-zero is the same kind of lie the pull summary
-used to tell, so removing the arm and the field is the honest end state. It is not
-done here because `PullSummary` is a public type read outside `core/sync`, so
-deleting a field is a contract change that wants its own decision.
+used to tell, so removing the arm and the field is the honest end state — and that
+end state was reached the next day, by `7582a27f` ("a conflict count that could
+only ever be zero is not a measurement"). `ApplyOutcome` has three arms today,
+`PullSummary` carries no conflict count, and `PullStep.Done` is a `data object`;
+`SyncEnginePullTest` no longer reaches a `Conflict`, and cannot — the arm does not
+exist. The removal was left to its own commit because `PullSummary` is a public
+type read outside `core/sync`, so deleting a field is a contract change that wants
+its own decision, and that decision was taken there.
 
 ## Links
 

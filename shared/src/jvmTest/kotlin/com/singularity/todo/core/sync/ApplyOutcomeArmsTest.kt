@@ -147,7 +147,7 @@ class ApplyOutcomeArmsTest {
             "conflicts" in summaryProperties,
             "PullSummary.conflicts is back, and it can only ever be zero. A field that " +
                 "reports a number the engine cannot produce reads as a measurement and " +
-                "stops anyone looking for the merge that would make it move.",
+                "stops anyone looking for the version-aware merge that would make it move.",
         )
         assertEquals(
             listOf("applied", "dropped", "received"),
