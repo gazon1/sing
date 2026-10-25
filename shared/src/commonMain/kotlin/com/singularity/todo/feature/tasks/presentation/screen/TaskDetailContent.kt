@@ -27,7 +27,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -83,6 +82,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
+import androidx.compose.runtime.getValue
 
 @Suppress("LongMethod", "CyclomaticComplexMethod", "FunctionSignature")
 @Composable
@@ -211,7 +211,7 @@ fun TaskDetailContent(
                             startDate = null,
                             startTime = null,
                             project = ui.project?.id,
-                            tags = ui.tags.map { it.id }.toImmutableList(),
+                            tags = remember(ui.tags) { ui.tags.map { it.id }.toImmutableList() },
                             recurrence = ui.task.recurrence,
                             isPinned = ui.task.isPinned,
                             estimateMinutes = ui.task.estimateMinutes,
@@ -494,7 +494,7 @@ fun TaskDetailContent(
                     if (pendingBlockedClose != null) {
                         BlockedCompletionDialog(
                             taskTitle = pendingBlockedClose.taskTitle,
-                            blockerTitles = pendingBlockedClose.blockerTitles.toImmutableList(),
+                            blockerTitles = pendingBlockedClose.blockerTitles,
                             onConfirm = {
                                 coordinator.onIntent(
                                     TaskDetailIntent.Domain.ConfirmBlockedClose(pendingBlockedClose.taskId),

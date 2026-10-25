@@ -1,4 +1,5 @@
 package com.singularity.todo.feature.tasks.domain.model
+import kotlinx.collections.immutable.ImmutableList
 
 /**
  * A pending confirmation: part of a bulk close has unfinished prerequisites, and
@@ -25,5 +26,5 @@ package com.singularity.todo.feature.tasks.domain.model
 data class BlockedBulkCloseRequest(
     val taskIds: List<TaskId>,
     val blockedTaskIds: List<TaskId>,
-    val blockedTaskTitles: List<String>,
+    val blockedTaskTitles: ImmutableList<String>,
 )

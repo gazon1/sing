@@ -1,4 +1,5 @@
 package com.singularity.todo.feature.tasks.domain.model
+import kotlinx.collections.immutable.ImmutableList
 
 /**
  * A pending confirmation: this task has unfinished prerequisites, and the user
@@ -22,4 +23,4 @@ package com.singularity.todo.feature.tasks.domain.model
  * @property taskTitle the task's title, for the dialog's wording.
  * @property blockerTitles the titles of the prerequisites that are still open.
  */
-data class BlockedCloseRequest(val taskId: TaskId, val taskTitle: String, val blockerTitles: List<String>)
+data class BlockedCloseRequest(val taskId: TaskId, val taskTitle: String, val blockerTitles: ImmutableList<String>)

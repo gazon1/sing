@@ -22,7 +22,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -58,6 +57,7 @@ import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaLis
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Instant
+import androidx.compose.runtime.getValue
 
 /**
  * Root composable for the saved agenda views list screen.
@@ -286,15 +286,17 @@ private fun ProfilePickerSheet(
     ListPickerSheet(
         title = "Copy to profile",
         testTag = TestTags.SAVED_AGENDA_COPY_TO_PROFILE_SHEET,
-        items = profiles.map { profile ->
-            ListPickerItem(
-                key = profile.id,
-                label = profile.name,
-                subtitle = if (profile.isDefault) "Default" else null,
-                leading = { Text(profile.emoji, style = MaterialTheme.typography.titleLarge) },
-                testTag = TestTags.profileItem(profile.name),
-            )
-        }.toImmutableList(),
+        items = remember(profiles) {
+            profiles.map { profile ->
+                ListPickerItem(
+                    key = profile.id,
+                    label = profile.name,
+                    subtitle = if (profile.isDefault) "Default" else null,
+                    leading = { Text(profile.emoji, style = MaterialTheme.typography.titleLarge) },
+                    testTag = TestTags.profileItem(profile.name),
+                )
+            }.toImmutableList()
+        },
         onItemSelected = onPick,
         onDismiss = onDismiss,
     )

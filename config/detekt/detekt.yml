@@ -776,3 +776,14 @@ no-mutable-collection-cast:
 no-false-immutable:
   NoFalseImmutable:
     active: true
+
+# Added 2026-10-25. The type-level rule above asks what a composable's
+# parameter is *declared* as; this one asks where the value came from. A
+# collection materialised in the composable's own body is rebuilt on every
+# recomposition of that composable, so the promise of stability never starts.
+#
+# The collection belongs to the state that owns it — or to a remember { } block
+# — and the composable hands that instance over unchanged.
+no-collection-materialization-in-composable:
+  NoCollectionMaterializationInComposable:
+    active: true

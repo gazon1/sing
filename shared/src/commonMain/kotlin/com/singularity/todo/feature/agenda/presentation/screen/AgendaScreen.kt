@@ -8,7 +8,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -16,7 +15,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.collections.immutable.persistentSetOf
-import kotlinx.collections.immutable.toImmutableList
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.BlockedBulkCompletionDialog
@@ -41,6 +39,7 @@ import com.singularity.todo.feature.tasks.presentation.model.TaskUi
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
+import androidx.compose.runtime.getValue
 
 /**
  * Root composable for the Agenda screen.
@@ -179,7 +178,7 @@ fun AgendaScreen(
 private fun BlockedBulkCloseDialog(state: AgendaUiState, vm: AgendaViewModel) {
     val request = (state as? AgendaUiState.Loaded)?.pendingBlockedBulkClose ?: return
     BlockedBulkCompletionDialog(
-        blockedTaskTitles = request.blockedTaskTitles.toImmutableList(),
+        blockedTaskTitles = request.blockedTaskTitles,
         totalCount = request.taskIds.size,
         onConfirm = { vm.onIntent(AgendaIntent.ConfirmBlockedBulkClose) },
         onDismiss = { vm.onIntent(AgendaIntent.DismissBlockedBulkClose) },
@@ -262,7 +261,7 @@ private fun BlockedCloseDialog(state: AgendaUiState, vm: AgendaViewModel) {
     val request = (state as? AgendaUiState.Loaded)?.pendingBlockedClose ?: return
     BlockedCompletionDialog(
         taskTitle = request.taskTitle,
-        blockerTitles = request.blockerTitles.toImmutableList(),
+        blockerTitles = request.blockerTitles,
         onConfirm = { vm.onIntent(AgendaIntent.ConfirmBlockedClose(request.taskId)) },
         onDismiss = { vm.onIntent(AgendaIntent.DismissBlockedClose) },
     )

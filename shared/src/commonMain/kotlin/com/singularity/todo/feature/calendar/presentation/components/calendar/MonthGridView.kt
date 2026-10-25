@@ -22,7 +22,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,10 +43,11 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
-import kotlinx.collections.immutable.toImmutableList
 import com.singularity.todo.feature.calendar.presentation.state.CalendarIntent
 import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
 import kotlinx.datetime.LocalDate
+import androidx.compose.runtime.remember
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  * Swipeable month grid. Hosts a [HorizontalPager] of [MonthGridPage]s, one per
@@ -184,7 +184,7 @@ private fun MonthGridPage(
                         isToday = date == today,
                         isSelected = date == selectedDate,
                         isDateSelected = date in selectedDates,
-                        tasks = tasksByDate[date].orEmpty().toImmutableList(),
+                        tasks = tasksByDate[date] ?: persistentListOf(),
                         onClick = { onDayClick(date) },
                         onTaskClick = onTaskClick,
                         onEmptyCellLongPress = onEmptyCellLongPress,

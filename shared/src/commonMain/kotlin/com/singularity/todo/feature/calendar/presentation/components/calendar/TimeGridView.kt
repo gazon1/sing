@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,6 +37,8 @@ import kotlinx.collections.immutable.toImmutableList
 import com.singularity.todo.feature.calendar.presentation.theme.CalendarPalette
 import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
 import kotlinx.datetime.LocalDate
+import androidx.compose.runtime.remember
+import kotlinx.collections.immutable.persistentListOf
 
 private val HOUR_ROW_HEIGHT = 64.dp
 private val TIME_COLUMN_WIDTH = 56.dp
@@ -74,6 +75,13 @@ fun TimeGridView(
             }
         }
 
+        // The all-day tasks of every day, derived once per map: the strip
+        // renders one cell per day, and filtering the day's tasks inside the
+        // cell rebuilt the list for every day on every recomposition.
+        val allDayTasksByDate = remember(tasksByDate) {
+            tasksByDate.mapValues { (_, tasks) -> tasks.filter { it.isAllDay }.toImmutableList() }
+        }
+
         // All-day strip
         Row(modifier = Modifier.fillMaxWidth()) {
             Spacer(
@@ -83,7 +91,7 @@ fun TimeGridView(
             )
             dates.forEach { date ->
                 AllDayCell(
-                    tasks = tasksByDate[date].orEmpty().filter { it.isAllDay }.toImmutableList(),
+                    tasks = allDayTasksByDate[date] ?: persistentListOf(),
                     selectedTaskId = selectedTaskId,
                     onTaskClick = onTaskClick,
                     palette = palette,

@@ -375,7 +375,7 @@ class AgendaViewModel(
                     BlockedCloseRequest(
                         taskId = task.id,
                         taskTitle = task.title,
-                        blockerTitles = blockers.map { it.title },
+                        blockerTitles = blockers.map { it.title }.toImmutableList(),
                     ),
                 )
             }
@@ -550,7 +550,7 @@ class AgendaViewModel(
                             blockedTaskIds = blocked,
                             blockedTaskTitles = blocked.mapNotNull { id ->
                                 latestTasks.value.firstOrNull { it.id == id }?.title
-                            },
+                            }.toImmutableList(),
                         ),
                     )
                 } else {
