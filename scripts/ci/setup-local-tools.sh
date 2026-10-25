@@ -26,25 +26,24 @@
 #
 # Usage:
 #   bash scripts/ci/setup-local-tools.sh
-#   export PATH="$HOME/.venvs/singularity-todo/bin:$PATH"
+#   export PATH="$HOME/.venvs/singularity-todo-$(basename "$PWD")/bin:$PATH"
 #
 # The venv location can be overridden with SINGULARITY_TOOLS_VENV.
 #
 # A venv belongs to the checkout it was installed from. The gate CLI is an
 # editable install of scripts/src/, so it resolves to the tree it was installed
 # from — a venv made in one worktree measures that worktree, and every gate run
-# through it reports about a tree that is not in front of you. Two checkouts, two
-# venvs:
-#
-#   SINGULARITY_TOOLS_VENV="$HOME/.venvs/singularity-todo-$(basename "$PWD")" \
-#       bash scripts/ci/setup-local-tools.sh
-#
-# Re-running the script over an existing venv recreates it and repoints it at
-# this checkout; the script says so first when the venv serves another one.
+# through it reports about a tree that is not in front of you. So the venv is
+# named after the checkout by default, and the script refuses to take over a
+# venv that serves another one.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-VENV="${SINGULARITY_TOOLS_VENV:-$HOME/.venvs/singularity-todo}"
+# The venv is named after the checkout, so two checkouts never share one. The
+# name is computed here and printed literally in the messages below: the reader
+# pastes those commands into their own shell, where ROOT does not exist.
+VENV_NAME="singularity-todo-$(basename "$ROOT")"
+VENV="${SINGULARITY_TOOLS_VENV:-$HOME/.venvs/$VENV_NAME}"
 
 # The version pins live in one file, shared with the CI install path, so a local
 # run and a CI run of the same gate install the same versions. The pins are not
@@ -76,21 +75,64 @@ if [ -d "$VENV" ]; then
     # An existing venv may belong to another checkout. The gate CLI is an
     # editable install of scripts/src/, so it resolves to the tree it was
     # installed from: recreating the venv here repoints that other checkout's
-    # gates at this one. Say so before doing it — and say what to do instead.
-    existing_origin="$("$VENV/bin/python" -c 'import pathlib, sgate; print(pathlib.Path(sgate.__file__).resolve().parent)' 2>/dev/null || true)"
+    # gates at this one. That is how one checkout takes another's tooling
+    # over — silently, because the result is a green run about the wrong tree.
+    #
+    # So the venv is not taken over by default. The script says what to do
+    # instead and stops: a venv asked for by name is the caller's decision (it
+    # is taken over, with a warning), a venv found by the default is not.
+    # The origin is read with find_spec, not with `import sgate`: importing
+    # needs the venv's dependencies, and a venv whose dependencies are missing
+    # would then look unclaimed and be taken over — which is the very thing
+    # this check is here to prevent.
+    existing_origin="$("$VENV/bin/python" -c 'import importlib.util, pathlib; spec = importlib.util.find_spec("sgate"); print(pathlib.Path(spec.origin).resolve().parent if spec and spec.origin else "")' 2>/dev/null || true)"
     if [ -n "$existing_origin" ] && [ "${existing_origin#"$ROOT/scripts/src"}" = "$existing_origin" ]; then
-        cat >&2 <<MSG
+        # The name this checkout would own. It is the default path — unless the
+        # caller asked for that very path by name, in which case a different
+        # name is needed for this checkout's own venv.
+        own_name="$VENV_NAME"
+        if [ "$VENV" = "$HOME/.venvs/$VENV_NAME" ]; then
+            own_name="$VENV_NAME-2"
+        fi
+        if [ -n "${SINGULARITY_TOOLS_VENV:-}" ]; then
+            cat >&2 <<MSG
 
-The venv at $VENV already serves another checkout:
+The venv at $VENV serves another checkout:
     $existing_origin
 
-Recreating it here repoints that checkout's gates at this one. If that checkout
-is still in use, give this one a venv of its own instead:
+It was named explicitly, so it is taken over — and from now on that checkout's
+gates measure this one. If that checkout is still in use, give this checkout a
+venv of its own:
 
-    SINGULARITY_TOOLS_VENV="$HOME/.venvs/singularity-todo-$(basename "$ROOT")" \\
+    SINGULARITY_TOOLS_VENV="$HOME/.venvs/$own_name" \\
         bash scripts/ci/setup-local-tools.sh
+    export PATH="$HOME/.venvs/$own_name/bin:\$PATH"
 
 MSG
+        else
+            cat >&2 <<MSG
+
+The venv at $VENV serves another checkout:
+    $existing_origin
+
+Taking it over would repoint that checkout's gates at this one, and a gate run
+about the wrong tree is a green run that says nothing. So the script stops.
+
+Give this checkout a venv under another name:
+
+    SINGULARITY_TOOLS_VENV="$HOME/.venvs/$own_name" \\
+        bash scripts/ci/setup-local-tools.sh
+    export PATH="$HOME/.venvs/$own_name/bin:\$PATH"
+
+or remove that install — this checkout has nothing in it — and let the
+installer make the venv whose name belongs to this checkout:
+
+    rm -rf "$VENV"
+    bash scripts/ci/setup-local-tools.sh
+
+MSG
+            exit 1
+        fi
     fi
     uv venv --clear "$VENV"
 else

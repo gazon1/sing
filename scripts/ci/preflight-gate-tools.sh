@@ -17,6 +17,10 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# The installer names the venv after the checkout. The name is printed literally
+# below: the reader pastes those commands into their own shell, where neither
+# ROOT nor the checkout's path is defined.
+VENV_NAME="singularity-todo-$(basename "$ROOT")"
 
 missing=0
 
@@ -140,15 +144,12 @@ if [ "$missing" -gt 0 ]; then
 $missing tool(s) the gate suite needs are missing. Install them with:
 
     bash scripts/ci/setup-local-tools.sh
-    export PATH="\$HOME/.venvs/singularity-todo/bin:\$PATH"
+    export PATH="\$HOME/.venvs/$VENV_NAME/bin:\$PATH"
 
 A venv belongs to the checkout it was installed from: the gate CLI is an
 editable install of scripts/src/, so a venv made in another worktree measures
-that other checkout. Give each checkout its own venv:
-
-    SINGULARITY_TOOLS_VENV="\$HOME/.venvs/singularity-todo-\$(basename "\$PWD")" \\
-        bash scripts/ci/setup-local-tools.sh
-    export PATH="\$HOME/.venvs/singularity-todo-\$(basename "\$PWD")/bin:\$PATH"
+that other checkout. The installer therefore names the venv after the checkout
+and refuses to take over a venv that serves another one.
 
 (uv is the installer; see https://docs.astral.sh/uv/getting-started/installation/ if
 uv itself is not on PATH. The venv location can be overridden with
@@ -167,7 +168,7 @@ one over it — the venv holds an editable install, so it points at the checkout
 was installed from:
 
     bash scripts/ci/setup-local-tools.sh
-    export PATH="\$HOME/.venvs/singularity-todo/bin:\$PATH"
+    export PATH="\$HOME/.venvs/$VENV_NAME/bin:\$PATH"
 
 The sgate command "whereami" prints the checkout the running sgate belongs to.
 MSG

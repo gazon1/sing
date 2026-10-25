@@ -86,12 +86,12 @@ shape CI uses:
 
 ```bash
 bash scripts/ci/setup-local-tools.sh                      # uv venv + the pinned tools
-export PATH="$HOME/.venvs/singularity-todo/bin:$PATH"     # the venv's bin is the fix
+export PATH="$HOME/.venvs/singularity-todo-$(basename "$PWD")/bin:$PATH"   # the venv's bin
 bash scripts/ci/preflight-gate-tools.sh                   # what is still missing
 ```
 
-`scripts/ci/setup-local-tools.sh` creates `$HOME/.venvs/singularity-todo` (override with
-`SINGULARITY_TOOLS_VENV`), installs the local `scripts/src` package **editable**
+`scripts/ci/setup-local-tools.sh` creates `$HOME/.venvs/singularity-todo-$(basename "$PWD")`
+(one venv per checkout — override with `SINGULARITY_TOOLS_VENV`), installs the local `scripts/src` package **editable**
 plus `junitparser` into it, and installs the pinned `lychee-bin==0.24.2`,
 `yamllint==1.38.0`, `shellcheck-py==0.11.0.1` and the `actionlint` v1.7.7
 release binary.

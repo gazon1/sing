@@ -42,7 +42,7 @@ calling it its own. Install it once per clone:
 
 ```bash
 bash scripts/ci/setup-local-tools.sh          # uv venv + editable install of scripts/src
-export PATH="$HOME/.venvs/singularity-todo/bin:$PATH"
+export PATH="$HOME/.venvs/singularity-todo-$(basename "$PWD")/bin:$PATH"
 sgate whereami                                 # the path must match this clone
 ```
 

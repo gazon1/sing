@@ -105,10 +105,14 @@ checkout it is (the `sgate` line; `FOREIGN` — not yours). Own venv per
 checkout:
 
 ```bash
-SINGULARITY_TOOLS_VENV="$HOME/.venvs/singularity-todo-$(basename "$PWD")" \
-    bash scripts/ci/setup-local-tools.sh
+bash scripts/ci/setup-local-tools.sh
 export PATH="$HOME/.venvs/singularity-todo-$(basename "$PWD")/bin:$PATH"
 ```
+
+The installer names the venv after the checkout, so each checkout gets its own.
+It refuses to take over a venv that serves another checkout — the refusal
+names the two ways out. `SINGULARITY_TOOLS_VENV` still chooses the path, but
+naming a venv by hand is a takeover, not a request for a new one.
 
 `xvfb-run` is not installed everywhere: `:desktopApp:test` runs headless, and
 `:desktopApp:run` is a GUI and needs an X server (`xvfb-run -a ./gw

@@ -305,6 +305,9 @@ fi
 # it, and without that variable the venv is named after the worktree. The
 # variable used to be forwarded to the installer and ignored here — so the
 # documented knob had no effect on the one thing it was documented to choose.
+# The installer now decides by itself (its default is that same per-checkout
+# path), which is also what lets it refuse a venv that serves another
+# checkout instead of taking it over.
 if [[ -n "${SINGULARITY_TOOLS_VENV:-}" ]]; then
     venv="$SINGULARITY_TOOLS_VENV"
 else
@@ -314,12 +317,18 @@ if [[ -x "$venv/bin/python" ]]; then
     echo "Python venv  -> $venv (already there)"
 else
     echo "Python venv  -> $venv"
-    if SINGULARITY_TOOLS_VENV="$venv" bash "$root/scripts/ci/setup-local-tools.sh" >/dev/null 2>&1; then
+    # The installer is not told the path: its own default is the per-checkout
+    # path above, and passing that path explicitly would turn the installer's
+    # refusal to take over a venv that serves another checkout into a takeover.
+    # A caller who set SINGULARITY_TOOLS_VENV keeps it — it is inherited.
+    # The installer's own words are kept: a refusal (the venv there serves
+    # another checkout) and a missing tool are different problems, and this
+    # script must not report them as one.
+    if install_output="$(bash "$root/scripts/ci/setup-local-tools.sh" 2>&1)"; then
         echo "                ready: export PATH=\"$venv/bin:\$PATH\""
     else
-        echo "                could not be created — the gate suite's tools are missing here." >&2
-        echo "                Fix it with:" >&2
-        echo "                  SINGULARITY_TOOLS_VENV=\"$venv\" bash scripts/ci/setup-local-tools.sh" >&2
+        echo "                could not be created — the installer says why:" >&2
+        echo "$install_output" >&2
     fi
 fi
 
