@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.pomodoro
 
 import com.singularity.todo.feature.tasks.domain.model.Task
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -31,6 +32,13 @@ fun interface PomodoroTaskListProvider {
      */
     val isSupported: Boolean get() = true
 
-    /** Returns the current inbox task list as a state flow. */
-    fun tasks(): StateFlow<List<Task>>
+    /**
+     * Returns the current inbox task list as a state flow.
+     *
+     * The list is [ImmutableList]: the screen compares the focus-task row by content,
+     * and a persistent collection is what makes that comparison honest. The seam is the
+     * boundary — the provider is where the list is built, so the list is persistent from
+     * there on.
+     */
+    fun tasks(): StateFlow<ImmutableList<Task>>
 }

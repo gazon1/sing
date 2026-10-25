@@ -72,16 +72,6 @@ internal object ComposeCollectionExemptions {
      * register without a translation table.
      */
     val KNOWN: Map<String, Map<String, String>> = mapOf(
-        "com.singularity.todo.feature.calendarSync.presentation.CalendarAppPicker" to
-            mapOf("availableApps" to "List<CalendarAppInfo>"),
-        "com.singularity.todo.feature.checklist.components.ChecklistEditorSheet" to
-            mapOf("items" to "List<ChecklistItem>"),
-        "com.singularity.todo.feature.pomodoro.PomodoroContentPreview" to
-            mapOf("tasks" to "List<Task>"),
-        "com.singularity.todo.feature.pomodoro.TaskChipRow" to
-            mapOf("tasks" to "List<Task>"),
-        "com.singularity.todo.feature.profile.ProfileListContent" to
-            mapOf("profiles" to "List<Profile>"),
         "com.singularity.todo.feature.search.presentation.PriorityChips" to
             mapOf("selected" to "Set<TaskPriority>"),
         "com.singularity.todo.feature.search.presentation.SavedSearchesRow" to

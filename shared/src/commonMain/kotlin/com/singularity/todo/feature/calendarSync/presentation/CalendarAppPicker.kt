@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.calendarSync.domain.model.CalendarAppInfo
+import kotlinx.collections.immutable.ImmutableList
 
 /**
  * Calendar app picker — lets the user choose which calendar app to sync to.
@@ -30,7 +31,7 @@ import com.singularity.todo.feature.calendarSync.domain.model.CalendarAppInfo
 @Composable
 fun CalendarAppPicker(
     selectedAppPackage: String?,
-    availableApps: List<CalendarAppInfo>,
+    availableApps: ImmutableList<CalendarAppInfo>,
     onSelectApp: (String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {

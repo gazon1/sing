@@ -1,6 +1,8 @@
 package com.singularity.todo.feature.pomodoro
 
 import com.singularity.todo.feature.tasks.domain.model.Task
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -15,5 +17,5 @@ import kotlinx.coroutines.flow.StateFlow
 class JvmPomodoroTaskListProvider : PomodoroTaskListProvider {
     override val isSupported: Boolean = false
 
-    override fun tasks(): StateFlow<List<Task>> = MutableStateFlow(emptyList())
+    override fun tasks(): StateFlow<ImmutableList<Task>> = MutableStateFlow(persistentListOf())
 }
