@@ -37,7 +37,10 @@
 #   3. core.sshCommand, when set, carries the keepalive;
 #   4. the remote is configured;
 #   5. the Gradle wrapper is private per worktree (./gw), so one worktree's
-#      `./gradlew --stop` cannot kill another's daemons.
+#      `./gradlew --stop` cannot kill another's daemons;
+#   6. the gate tooling serves this checkout — the gate CLI is an editable
+#      install of scripts/src/, so an install that serves another checkout
+#      measures that tree and reports the verdict as this one's.
 #
 # Exit code: 0 when every invariant holds, 1 when at least one does not.
 # `--fix` repairs the two that are safe to repair (bare, hooksPath) and only
@@ -87,7 +90,7 @@ fix=0
 for arg in "$@"; do
     case "$arg" in
         --fix) fix=1 ;;
-        -h|--help) sed -n '2,83p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,86p' "$0"; exit 0 ;;
         *) echo "unknown argument: $arg" >&2; exit 2 ;;
     esac
 done
@@ -244,6 +247,15 @@ resolve_against_root() {
     fi
 }
 
+resolved_path() {
+    # The physical path of a path: symlinks resolved.
+    #
+    # Two answers to "where is this checkout?" that differ by a symlink are
+    # the same checkout, and a comparison that says otherwise reports a
+    # difference that is not there.
+    readlink -f "$1" 2>/dev/null || printf '%s' "$1"
+}
+
 write_worktree_config() {
     # write_worktree_config <key> <value> — into THIS worktree's own config.
     # `--file` writes exactly the file it is given: no repository is resolved,
@@ -365,7 +377,59 @@ else
     report bad "private Gradle home" "$repo_root/gw is missing or not executable"
 fi
 
-# ── 6. the agent's Bash goes through rtk ─────────────────────────────────────
+# ── 6. the gate tooling serves this checkout ────────────────────────────────
+#
+# The gate suite is an editable install of this repository's `scripts/src`, so
+# the install belongs to whichever checkout ran the installer LAST. A gate run
+# through a foreign install measures THAT tree: every finding it produces is
+# about a repository nobody is working on, and the verdict is reported as this
+# checkout's. The symptom names neither the cause nor the checkout — that is
+# why the question needs an instrument.
+#
+# The answer is asked of the tooling, not guessed from the PATH: `sgate
+# whereami` prints the checkout the running package belongs to, and the
+# package knows where its own files are and nothing else.
+#
+# The tooling asked is the one NAMED AFTER this checkout — the installer
+# names the venv after the checkout for exactly this reason, and refuses to
+# take over a venv that serves another one. The name is not the checkout,
+# though: two checkouts of the same repository can share a directory name
+# (this machine has two "jellyfish"), and then the venv named after one of
+# them serves the other. That is the case this invariant exists to catch, and
+# it is invisible until the tooling is asked.
+#
+# Nothing here is repaired by `--fix`. Taking the tooling over from another
+# checkout is a decision about somebody else's environment — the installer
+# refuses it for the same reason — and a doctor that took it over would
+# change what another checkout's gates measure.
+#
+# The `sgate` on PATH is reported, but not judged: it is the shell's business,
+# and a checkout is not broken because a different shell points elsewhere. The
+# preflight (`scripts/ci/preflight-gate-tools.sh`) is what fails on a foreign
+# install; the doctor says whose tooling this checkout has.
+gate_venv="${SINGULARITY_TOOLS_VENV:-$HOME/.venvs/singularity-todo-$(basename "$repo_root")}"
+gate_sgate="$gate_venv/bin/sgate"
+if [[ ! -x "$gate_sgate" ]]; then
+    report bad "gate tooling" "this checkout has no gate tooling of its own ($gate_venv) — install it with 'bash scripts/ci/setup-local-tools.sh' and put $gate_venv/bin on PATH"
+else
+    gate_root="$("$gate_sgate" whereami 2>/dev/null || true)"
+    if [[ -z "$gate_root" ]]; then
+        report bad "gate tooling" "$gate_sgate cannot say which checkout it serves — the answer is not guessable from the outside"
+    elif [[ "$(resolved_path "$gate_root")" != "$(resolved_path "$repo_root")" ]]; then
+        report bad "gate tooling" "$gate_sgate serves $gate_root, not this checkout — a gate run through it measures that tree"
+    else
+        report ok "gate tooling" "$gate_sgate — serves this checkout"
+    fi
+fi
+
+sgate_on_path="$(command -v sgate 2>/dev/null || true)"
+if [[ -z "$sgate_on_path" ]]; then
+    info "sgate on PATH" "not on PATH — the gates run through ./sg, which binds this checkout's own package"
+else
+    info "sgate on PATH" "$sgate_on_path"
+fi
+
+# ── 7. the agent's Bash goes through rtk ─────────────────────────────────────
 # Not an invariant of the repository but of the machine: the runtime rewrites
 # an agent's Bash call into its rtk equivalent before it runs, so the compact
 # output is what reaches the context. The hook lives in the runtime's plugin

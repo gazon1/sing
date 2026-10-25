@@ -77,6 +77,15 @@ class DoctorShTest(unittest.TestCase):
         self.home = self.tmp / 'home'
         self.home.mkdir()
 
+        # The gate tooling of THIS checkout: a venv named after it, whose
+        # `sgate` answers `whereami` with this checkout's own path. The doctor
+        # asks the tooling whose service is in question, and a checkout without
+        # tooling of its own is a broken checkout — the same shape as a
+        # checkout without its Gradle wrapper.
+        self.venv = self.home / '.venvs' / 'singularity-todo-repo'
+        self.venv_bin = self.venv / 'bin'
+        self.venv_bin.mkdir(parents=True)
+
         self.repo = self.tmp / 'repo'
         self.repo.mkdir()
         _git('init', '-q', '-b', 'main', cwd=self.repo, env=self._env())
@@ -103,6 +112,13 @@ class DoctorShTest(unittest.TestCase):
         # A remote, so that the checkout is healthy in every other respect.
         _git('remote', 'add', 'origin', str(self.tmp / 'remote.git'), cwd=self.repo, env=self._env())
 
+        # The gate tooling of THIS checkout: a venv named after it, whose
+        # `sgate` answers `whereami` with this checkout's own path. The doctor
+        # asks the tooling whose service is in question, and a checkout without
+        # tooling of its own is a broken checkout — the same shape as a
+        # checkout without its Gradle wrapper.
+        self._write_sgate(self.repo)
+
         # A subdirectory: the doctor must judge the same checkout from there.
         self.subdir = self.repo / 'nested' / 'deeper'
         self.subdir.mkdir(parents=True)
@@ -111,6 +127,16 @@ class DoctorShTest(unittest.TestCase):
         assert_own_repository(self, self.repo, self._env())
 
     # ── the fixture ─────────────────────────────────────────────────────────
+
+    def _write_sgate(self, checkout: pathlib.Path) -> None:
+        """A `sgate` that answers `whereami` with the checkout it serves."""
+        sgate = self.venv_bin / 'sgate'
+        sgate.write_text(
+            '#!/usr/bin/env bash\n'
+            f'printf "%s\\n" "{checkout}"\n',
+            encoding='utf-8',
+        )
+        sgate.chmod(0o755)
 
     def _env(self) -> dict[str, str]:
         """The fixture's own environment: git cannot reach past its own tree.
@@ -127,6 +153,10 @@ class DoctorShTest(unittest.TestCase):
         env['XDG_CONFIG_HOME'] = str(self.home / '.config')
         env['GIT_CONFIG_GLOBAL'] = str(self.home / '.gitconfig')
         env['GIT_CONFIG_NOSYSTEM'] = '1'
+        # The venv of THIS checkout, named: the doctor asks the tooling whose
+        # service is in question, and the ambient environment must not decide
+        # which tooling that is.
+        env['SINGULARITY_TOOLS_VENV'] = str(self.venv)
         return env
 
     def _install(self) -> pathlib.Path:
@@ -186,6 +216,15 @@ class DoctorShTest(unittest.TestCase):
             line for line in stdout.splitlines()
             if line.startswith('  OK ') or line.startswith('  BROKEN ')
         ]
+
+    def _make_healthy(self) -> None:
+        """The configuration a checkout that holds every invariant carries."""
+        _git('config', 'extensions.worktreeConfig', 'true', cwd=self.repo, env=self._env())
+        _git('config', 'core.hooksPath', '.githooks', cwd=self.repo, env=self._env())
+        _git(
+            'config', 'core.sshCommand', 'ssh -o ServerAliveInterval=30',
+            cwd=self.repo, env=self._env(),
+        )
 
     # ── the properties ──────────────────────────────────────────────────────
 
@@ -281,17 +320,70 @@ class DoctorShTest(unittest.TestCase):
 
     def test_a_healthy_checkout_passes(self):
         """The doctor has to be able to say that everything holds."""
-        _git('config', 'extensions.worktreeConfig', 'true', cwd=self.repo, env=self._env())
-        _git('config', 'core.hooksPath', '.githooks', cwd=self.repo, env=self._env())
-        _git(
-            'config', 'core.sshCommand', 'ssh -o ServerAliveInterval=30',
-            cwd=self.repo, env=self._env(),
-        )
+        self._make_healthy()
 
         result = self._run()
 
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         self.assertIn('every invariant holds', result.stdout)
+
+    def test_a_checkout_whose_tooling_serves_another_checkout_is_broken(self):
+        """The gate CLI is an editable install: it serves ONE checkout.
+
+        A gate run through another checkout's install measures that tree, and
+        every finding it produces is about code nobody is working on. The
+        symptom names neither the cause nor the checkout, which is why the
+        doctor has to ask the tooling.
+        """
+        self._write_sgate(self.tmp / 'some-other-checkout')
+
+        result = self._run()
+
+        self.assertEqual(1, result.returncode, result.stdout + result.stderr)
+        broken = [line for line in self._verdict(result.stdout) if 'gate tooling' in line]
+        self.assertEqual(1, len(broken), result.stdout)
+        self.assertTrue(broken[0].startswith('  BROKEN '), broken[0])
+        self.assertIn(str(self.tmp / 'some-other-checkout'), broken[0])
+
+    def test_a_checkout_without_its_own_tooling_is_broken(self):
+        """A checkout that cannot run its own gates is not sound.
+
+        The venv is named after the checkout, and the doctor says which name it
+        looked for — a name nobody knows is a name nobody puts on PATH.
+        """
+        shutil.rmtree(self.venv)
+
+        result = self._run()
+
+        self.assertEqual(1, result.returncode, result.stdout + result.stderr)
+        broken = [line for line in self._verdict(result.stdout) if 'gate tooling' in line]
+        self.assertEqual(1, len(broken), result.stdout)
+        self.assertTrue(broken[0].startswith('  BROKEN '), broken[0])
+        self.assertIn('setup-local-tools.sh', broken[0])
+
+    def test_the_tooling_of_this_checkout_is_found_by_its_own_name(self):
+        """Without an override, the venv is the one named after the checkout.
+
+        Two checkouts of the same repository can share a directory name — this
+        machine has two "jellyfish" — and the name is then not the checkout.
+        The doctor asks the venv of THIS checkout and compares the answer.
+        """
+        self._make_healthy()
+        env = self._env()
+        del env['SINGULARITY_TOOLS_VENV']
+
+        result = subprocess.run(
+            ['bash', str(self.script)],
+            cwd=self.repo,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        ok = [line for line in self._verdict(result.stdout) if 'gate tooling' in line]
+        self.assertEqual(1, len(ok), result.stdout)
+        self.assertTrue(ok[0].startswith('  OK '), ok[0])
 
     def test_the_fix_writes_both_values_into_the_worktree_config_only(self):
         """One repair, one destination: this worktree's own config.

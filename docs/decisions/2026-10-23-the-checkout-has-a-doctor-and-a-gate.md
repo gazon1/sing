@@ -33,10 +33,14 @@ broken file.
 - **The checkout has a doctor.** `scripts/doctor.sh` answers "is this checkout
   sound?" in one call: not bare, the hooks path is there and holds an
   executable pre-push, the ssh command carries the keepalive, the remote is
-  configured, the Gradle home is private per worktree. `--fix` repairs what is
+  configured, the Gradle home is private per worktree, and the gate tooling
+  serves this checkout. `--fix` repairs what is
   safe to repair (bare, hooks path) and touches nothing else: a configured
   ssh command may carry a different binary, a port or an identity, and
-  overwriting it would break the push in a way nobody would read as this.
+  overwriting it would break the push in a way nobody would read as this. The
+  gate tooling is not repaired either, for the same kind of reason: taking it
+  over from another checkout is a decision about somebody else's environment,
+  and the installer refuses it too.
 - **The checkout has a gate.** `scripts/check-checkout-invariants.py` holds the
   checkout to a written promise — `config/checkout-invariants.json` — and the
   doctor reads the same file. A gate and a doctor that disagree are two
