@@ -1,7 +1,9 @@
 # core/database-safety Specification
 
 ## Purpose
-TBD - created by archiving change acp-client-data-safety. Update Purpose after archive.
+
+What the start-up probe may delete, what it does when it cannot be certain that a
+file is not the application's database, and what a failed start-up leaves behind.
 
 ## Requirements
 

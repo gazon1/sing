@@ -12,14 +12,21 @@ So an entry under **Not covered** is not debt to pay down on its own. It means: 
 first change that touches this module should add the spec as part of that change.
 
 Nested spec paths are supported — ids are `area/capability`, so a spec at
-`specs/<area>/<capability>/spec.md` has the id `<area>/<capability>`. Every spec
-in the tree is currently flat, so every id below has no `/`. Renaming a spec to
-nest it changes its id, and every reference to the old id breaks with it.
+`specs/<area>/<capability>/spec.md` has the id `<area>/<capability>`. Some ids
+below carry an area and some do not. Renaming a spec to nest it changes its id,
+and every reference to the old id breaks with it.
 
 ## Covered
 
 | Spec id | Source of truth | Notes |
 |---|---|---|
+| `acp/client-lifecycle` | the archived `agent-surface-follow-ups` change (2026-10-25) | The ACP client's lifecycle: the connect and close transitions, which exclude each other, the terminate transition, which does not wait for that exclusion, and what a turn in flight may read while any of them happens. |
+| `ai/tool-registry` | the archived `the-chat-can-call-tools` change (2026-10-22) | The tools an assistant may be offered, and what it is told when a tool fails, does not exist, or keeps being asked for. |
+| `ai/write-classification` | the archived `acp-client-data-safety` and `agent-surface-follow-ups` changes (2026-10-25) | How every tool an agent can call declares the one write behaviour it has, and how that declaration is checked against what the tool does before it is proposed to a user. |
+| `build/detekt-coverage` | the archived `agent-surface-follow-ups` change (2026-10-25) | That every Gradle module holding Kotlin source is judged by the repository's detekt configuration and by the project's own rules, and that a class carrying more than one concern is split. |
+| `core/database-safety` | the archived `acp-client-data-safety` change (2026-10-25) | What the start-up probe may delete, what it does when it cannot be certain that a file is not the application's database, and what a failed start-up leaves behind. |
+| `mcp/protocol-output` | the archived `agent-surface-follow-ups` change (2026-10-25) | That the protocol channel has one owner — the value that holds the stream — and that everything which is not the protocol stays off it. |
+| `mcp/write-tool-surface` | the archived `acp-client-data-safety` change (2026-10-25) | The tool server's profile argument and its refusals: which profile it works with, what an unknown one earns, and what the client is told when it cannot start. |
 | `nav3-desktop-jvm-entry-dispatch` | `docs/decisions/2026-09-16-nav3-desktop-in-memory-no-savedstate.md` | Entry-dispatch contract shared by the Android and JVM shells. |
 | `navigation-open-policy` | the archived `navigation-open-policy` change (2026-10-04) | Every screen open resolved through one policy. |
 | `test-execution-integrity` | `docs/decisions/2026-10-04-test-execution-integrity.md` | The "tests ran" floors, and why a green pass/fail is not a baseline. REQ-19..REQ-23 came from the archived `android-test-hardening` change (2026-10-20) and are stated here because the code ships with them: the floor ratchets in both directions, the device tier answers on every pull request and never blocks a merge, a wait's budget belongs to the element's kind, a flow's fixtures belong to that flow, and a declared class that produced no report fails the build. |
@@ -51,11 +58,9 @@ Author one **when a change touches that module** — not before.
 | `feature/projects` | `projects/project-closing` | `2026-09-08-projects-ux-rework`; the open `blocked-completion-guard` change (2026-10-21) authors `projects/project-closing` — closing a project, and the cascade to its open tasks; the open `close-rule-consolidation` change (2026-10-22) makes the cascade land as a whole and opens a closed project when one of its tasks comes back to work; the open `a-closed-project-is-reachable` change (2026-10-23) keeps a closed project reachable and gives it a way back |
 | `feature/notes` | `notes/note-links` | `2026-10-02-note-entity-dual-task-linkage`, `2026-09-07-notes-internal-links-backlinks`, `2026-09-09-notes-outgoing-links-extraction` |
 | `feature/calendar` | `calendar/entry-navigation` | — |
-| `feature/ai` | `ai/tool-registry` | `2026-09-07-write-tools-in-koog-registry`, `2026-09-26-writer-reviewer-pattern` |
 | `feature/pomodoro` | `pomodoro/timer-model` | `2026-09-22-pomodoro-hybrid-timer` |
 | `feature/attachments` | `attachments/storage-and-linking` | — |
 | `feature/tags` | — | the `search` capability (2026-10-21) covers the *finding* of a tag by name; managing the tags themselves is still uncovered |
-| `:mcp-server` tool surface | `mcp/write-tool-surface` | the open `agent-toolbox-surface` change (2026-10-20) — it ships the discovery, search and observability contract; the write-tool surface itself is still uncovered |
 
 ## Backfill candidates (audited separately)
 

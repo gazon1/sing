@@ -1,7 +1,9 @@
 # mcp/protocol-output Specification
 
 ## Purpose
-TBD - created by archiving change agent-surface-follow-ups. Update Purpose after archive.
+
+That the protocol channel has one owner — the value that holds the stream — and that
+everything which is not the protocol stays off it.
 
 ## Requirements
 

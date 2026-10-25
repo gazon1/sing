@@ -77,6 +77,13 @@ Thumbs.db
 !openspec/changes/**/specs/build/
 !openspec/changes/**/specs/build/**
 
+# The published tree is the same tree: a capability that was archived lands in
+# `openspec/specs/<area>/`, and `build` is one of the areas. Without this the
+# published spec is on disk and in no commit, and the archive that produced it
+# says the capability exists.
+!openspec/specs/build/
+!openspec/specs/build/**
+
 # Desktop packaging
 *.deb
 *.rpm

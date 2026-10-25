@@ -1,7 +1,10 @@
 # acp/client-lifecycle Specification
 
 ## Purpose
-TBD - created by archiving change agent-surface-follow-ups. Update Purpose after archive.
+
+The client's lifecycle: the connect and close transitions, which exclude each other,
+the terminate transition, which does not wait for that exclusion, and what a turn in
+flight may read while any of them happens.
 
 ## Requirements
 

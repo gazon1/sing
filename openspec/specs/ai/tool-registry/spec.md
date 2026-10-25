@@ -1,7 +1,10 @@
 # ai/tool-registry Specification
 
 ## Purpose
-TBD - created by archiving change 2026-10-22-the-chat-can-call-tools. Update Purpose after archive.
+
+The tools an assistant may be offered, and what the assistant is told when a tool
+fails, does not exist, or keeps being asked for — and how that answer reaches the
+reader while it is being produced.
 
 ## Requirements
 
