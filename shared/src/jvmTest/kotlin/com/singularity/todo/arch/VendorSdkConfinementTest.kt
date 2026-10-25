@@ -24,7 +24,7 @@ import kotlin.test.assertTrue
  * exactly a few places: to own a client (`SupabaseClientProvider`), to speak auth
  * (`SupabaseAuthGateway`), to keep the session (`SecureSessionManager`), to speak
  * PostgREST (`PostgrestSyncRpc`), to speak Storage
- * (`SupabaseStorageRemoteBackupService`), to call an Edge Function
+ * (`SupabaseBackupBucket`), to call an Edge Function
  * (`SupabaseGoogleTokenGateway`) and to tell its failures apart
  * (`SupabaseTransportFailure`). Everything else the SDKs offer — the session flow,
  * the plugin surface, the user model — is reached through a project interface, so

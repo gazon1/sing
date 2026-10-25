@@ -214,6 +214,9 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
     }.onFailure { e ->
         if (e !is CancellationException) {
             log.w(e) { "Auth token refresh failed" }
+        }
+    }
+
     /**
      * The live session, read from the credential store.
      *

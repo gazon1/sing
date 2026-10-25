@@ -213,7 +213,7 @@ class CapabilityFlagTest {
             "GoogleConsent.jvm.isSupported" to
                 "The desktop is the platform Google exempts from the loopback block, and " +
                 "the consent needs only a browser and a local socket, which a desktop " +
-                "machine has. A missing browser fails at the call, not as 'unsupported'.
+                "machine has. A missing browser fails at the call, not as 'unsupported'.",
         )
     }
 }
