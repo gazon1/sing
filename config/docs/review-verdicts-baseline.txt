@@ -44,6 +44,7 @@ sync-phase-contracts
 tasks-tokens-follow-the-theme
 text-selection-and-links
 the-orphan-bindings-are-bound-but-never-injected
+the-refresh-is-one-run
 the-review-is-a-place-you-can-go
 theme-mode-offers-system-light-and-dark
 unwired-detector-test-double-exemption
