@@ -197,6 +197,27 @@ class BackupRepositoryRemoteTest {
     }
 
     /**
+     * The password does not survive the call — not even when the call failed early.
+     *
+     * The archive was not there to be encrypted, so the service never saw the
+     * password; the repository is the one that has to wipe it. A secret that
+     * survives a failed push is a secret that waits for the next attempt.
+     */
+    @Test
+    fun `the password is wiped even when the archive is not there`() = runTest {
+        val secret = "correct horse".toCharArray()
+
+        val result = repository(MapFileSystem(), FakeRemoteBackupService(), RecordingImporter())
+            .push(BackupId("b-1"), secret)
+
+        assertTrue(result.isFailure, "there is no archive to push: $result")
+        assertTrue(
+            secret.all { it == '\u0000' },
+            "the password must not survive the call: ${secret.concatToString()}",
+        )
+    }
+
+    /**
      * A download that fails is reported, and nothing is imported.
      *
      * The import of a file that was never fetched would fail with a different

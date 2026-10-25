@@ -56,6 +56,10 @@ The **name** of the object is not encrypted. A bucket listing shows the file nam
 timestamp, and it always will — the name is what the list is sorted by and what the download
 addresses. What is protected is the content: the archive's rows, notes and attachments.
 
+The **size** is not encrypted either, and it cannot be: the bucket reports how much it stores.
+A listing therefore tells an operator how big the archive is — a rough answer to "how much is
+in there", and nothing about what.
+
 ## Rationale
 
 **The device is the only place the key can be.** Any scheme where the server can decrypt has the
@@ -83,6 +87,10 @@ open at all. Covering the header is what makes the container honest about what i
 array that carries it is wiped when the call that consumed it returns, so a failed upload does
 not leave the secret lying in memory for the next attempt. The price — a person who has to try
 again types it again — is smaller than the price of a stored key.
+
+What the runtime keeps is the field's own text, for as long as the field lives, and the immutable
+copy Compose makes of it. A secret in memory cannot be made to vanish on demand — it can only
+stop being reachable — and what this decision promises is the second thing.
 
 **A wrong password is named.** The GCM tag does not match, and that is what the app says: "the
 password does not open the archive". The alternative — a generic "the download failed" — sends

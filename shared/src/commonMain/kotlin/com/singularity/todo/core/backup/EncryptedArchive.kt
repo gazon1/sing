@@ -55,24 +55,32 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
      * @throws BackupError.MissingPassword when the password is empty.
      */
     fun seal(plain: ByteArray, password: CharArray): ByteArray {
-        if (password.isEmpty()) throw BackupError.MissingPassword()
+        requirePassword(password)
         val salt = crypto.randomBytes(SALT_BYTES)
         val nonce = crypto.randomBytes(NONCE_BYTES)
         val header = header(salt, nonce)
         val key = crypto.deriveKey(password, salt)
-        return header + crypto.seal(key, nonce, plain, header)
+        return try {
+            header + crypto.seal(key, nonce, plain, header)
+        } finally {
+            // The derived key is the archive's key in the only form it ever takes.
+            // It is not the password — the password is wiped by whoever owns it —
+            // but this one is ours, and ours is what we clean up after ourselves.
+            key.fill(0)
+        }
     }
 
     /**
      * The archive inside [container].
      *
      * @throws BackupError.NotEncrypted when the bytes are not an encrypted archive.
-     * @throws BackupError.UnsupportedArchiveVersion when the container is newer than
-     *   this build.
+     * @throws BackupError.UnsupportedArchiveVersion when the container's version is
+     *   not the one this build reads.
      * @throws BackupError.WrongPassword when the password does not open it.
      */
     @Suppress("TooGenericExceptionCaught")
     fun open(container: ByteArray, password: CharArray): ByteArray {
+        requirePassword(password)
         val header = readHeader(container)
         val parts = readHeaderParts(header)
         val key = crypto.deriveKey(password, parts.salt)
@@ -82,7 +90,23 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
             throw error
         } catch (error: Exception) {
             throw BackupError.WrongPassword(error)
+        } finally {
+            key.fill(0)
         }
+    }
+
+    /**
+     * A password is not optional.
+     *
+     * An empty password would derive a key from nothing, and an archive sealed
+     * with it would be readable by anyone who has the bucket. Both directions
+     * refuse it by name, rather than the opening one failing with a wrong
+     * password it never had.
+     *
+     * @throws BackupError.MissingPassword when the password is empty.
+     */
+    private fun requirePassword(password: CharArray) {
+        if (password.isEmpty()) throw BackupError.MissingPassword()
     }
 
     /**
@@ -98,13 +122,13 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
      * The header's salt, nonce and version.
      *
      * @throws BackupError.NotEncrypted when the bytes do not say what they are.
-     * @throws BackupError.UnsupportedArchiveVersion when the container is newer than
-     *   this build.
+     * @throws BackupError.UnsupportedArchiveVersion when the container's version is
+     *   not the one this build reads.
      */
     private fun readHeaderParts(header: ByteArray): Header {
         if (header.copyOfRange(0, MAGIC.length).decodeToString() != MAGIC) throw BackupError.NotEncrypted()
         val version = header[MAGIC.length].toInt() and 0xFF
-        if (version != VERSION) throw BackupError.UnsupportedArchiveVersion(version)
+        if (version != VERSION) throw BackupError.UnsupportedArchiveVersion(version, VERSION)
         return Header(
             salt = header.copyOfRange(MAGIC.length + 1, MAGIC.length + 1 + SALT_BYTES),
             nonce = header.copyOfRange(MAGIC.length + 1 + SALT_BYTES, HEADER_BYTES),

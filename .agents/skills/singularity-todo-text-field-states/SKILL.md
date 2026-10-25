@@ -287,7 +287,6 @@ Paths are relative to `shared/src/commonMain/kotlin/com/singularity/todo/`.
 | `feature/auth/LoginScreen.kt` | local | the email and password fields |
 | `feature/auth/presentation/AttachAccountScreen.kt` | local | the email field |
 | `feature/auth/presentation/MagicLinkConfirmScreen.kt` | local | the code field |
-| `feature/auth/presentation/MagicLinkConfirmScreen.kt` | local | the code field |
 | `feature/backup/BackupScreen.kt` | local | the archive's password |
 | `feature/calendarSync/presentation/CalendarSyncSettingsScreen.kt` | bridged | the Google client id |
 | `feature/checklist/components/ChecklistEditorSheet.kt` | local | the item's text |

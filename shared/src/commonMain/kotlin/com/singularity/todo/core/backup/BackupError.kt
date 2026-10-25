@@ -38,8 +38,16 @@ sealed class BackupError(message: String, cause: Throwable? = null) : Exception(
      */
     class WrongPassword(cause: Throwable? = null) : BackupError("The password does not open the archive", cause)
 
-    /** The container's version is newer than this build understands. */
-    class UnsupportedArchiveVersion(val version: Int) : BackupError("archive version $version > current")
+    /**
+     * The container's version is not the one this build reads.
+     *
+     * The message says what the build reads and what the container carries, and not
+     * which of the two is bigger: a version from the past is just as unreadable as
+     * one from the future, and "0 > current" is a sentence that is only true half of
+     * the time.
+     */
+    class UnsupportedArchiveVersion(val version: Int, val currentVersion: Int) :
+        BackupError("The archive's version is $version, and this build reads $currentVersion")
 
     /**
      * The archive cannot be encrypted without a password.

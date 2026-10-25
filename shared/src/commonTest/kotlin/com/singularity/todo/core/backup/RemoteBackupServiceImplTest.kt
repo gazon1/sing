@@ -198,6 +198,28 @@ class RemoteBackupServiceImplTest {
     }
 
     /**
+     * The password does not survive the call.
+     *
+     * The secret is wiped by the service that consumed it, so a failed upload does
+     * not leave it lying in memory for the next attempt — and a person who has to
+     * try again types it again.
+     */
+    @Test
+    fun `the password is wiped before the call returns`() = runTest {
+        val bucket = FakeBucket()
+        val files = MapFileSystem()
+        files.writeBytes("/backups/archive.zip", "the-archive".encodeToByteArray())
+        val secret = password()
+
+        service(bucket, files).upload("/backups/archive.zip", UserId("user-1"), secret)
+
+        assertTrue(
+            secret.all { it == '\u0000' },
+            "the password must not survive the call: ${secret.concatToString()}",
+        )
+    }
+
+    /**
      * A wrong password writes nothing.
      *
      * The file that lands on the device has to be the archive; a failed opening

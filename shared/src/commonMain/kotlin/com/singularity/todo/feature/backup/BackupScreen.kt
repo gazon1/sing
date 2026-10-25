@@ -531,6 +531,12 @@ private fun BackupConfirmDialog(
  * which wipes it. It is not written to the state, not to the settings and not to
  * the keychain — a forgotten password means a lost archive, and that is the honest
  * price of a key the server never has.
+ *
+ * What the runtime keeps is the field's own text, for as long as the field lives,
+ * and the immutable copy Compose makes of it. A secret in memory cannot be made to
+ * vanish on demand — it can only stop being reachable — and what this feature
+ * promises is the second thing: the password is not *kept*, and the copy that
+ * travels is wiped.
  */
 @Composable
 private fun BackupPasswordDialog(
