@@ -2135,6 +2135,81 @@ class RowLiteralSpellingTest(AllowlistTreeTest):
         self.assertEqual(1, code, output)
         self.assertIn("task.ghost'Field", output)
 
+    def test_a_bit_string_spelling_of_the_table_name_is_reported(self):
+        """A bit string spells bytes, and the bytes spell the name.
+
+        The pieces of a name are folded into the name they spell, and a bit
+        string spells BYTES — so `'sync_field_' || B'0110…'` spells the
+        table's name, and the write the file spells is the write the reader
+        sees. The write cannot run — the database does not accept a string
+        where a table's name stands — and the file spells the name all the
+        same.
+        """
+        code, output = self._rows(
+            "insert into 'sync_field_' || B'01100001011011000110110001101111"
+            "0111011101101100011010010111001101110100' "
+            "(entity_type, field, writable) values ('task', 'ghostField', true);\n"
+        )
+        self.assertEqual(1, code, output)
+        self.assertIn("written as a string", output)
+
+    def test_a_hex_string_spelling_of_the_table_name_is_reported(self):
+        """A hex string spells bytes as well, and the bytes spell the name."""
+        code, output = self._rows(
+            "insert into 'sync_field_' || X'616C6C6F776C697374' "
+            "(entity_type, field, writable) values ('task', 'ghostField', true);\n"
+        )
+        self.assertEqual(1, code, output)
+        self.assertIn("written as a string", output)
+
+    def test_a_call_that_builds_the_name_in_hex_is_reported(self):
+        """`concat('sync_field_', X'616C…')` builds the name all the same."""
+        code, output = self._rows(
+            "insert into concat('sync_field_', X'616C6C6F776C697374') "
+            "(entity_type, field, writable) values ('task', 'ghostField', true);\n"
+        )
+        self.assertEqual(1, code, output)
+        self.assertIn("written as a string", output)
+
+    def test_the_value_of_a_row_is_the_value_the_pieces_hold(self):
+        """A row holds a value, and a bit string holds bits.
+
+        The folding answers what NAME a run of pieces spells; a row holds a
+        VALUE, and the value a bit string holds is the bits — the text the
+        database stores. A reader that read the bytes of a row's value would
+        read a value the server never holds.
+        """
+        code, output = self._rows(
+            "insert into sync_field_allowlist (entity_type, field, writable) values\n"
+            "    ('task', 'ghost' || B'01100001011011000110110001101111', true);\n"
+        )
+        self.assertEqual(1, code, output)
+        self.assertIn("task.ghost01100001011011000110110001101111", output)
+        self.assertNotIn("task.ghostallo", output)
+
+    def test_a_unicode_prefix_that_is_part_of_a_name_is_not_a_prefix(self):
+        """`abcu&'…'` is a name and a string, not a U& string.
+
+        PostgreSQL reads `abcu` as an identifier and the `&` as an operator,
+        so the string is a plain one and its escapes are not decoded:
+        `u&'sync\\005Ffield_allowlist'` is the table's name, and
+        `abcu&'sync\\005Ffield_allowlist'` is not.
+        """
+        code, output = self._rows(
+            "insert into abcu&'sync\\005Ffield_allowlist' "
+            "(entity_type, field, writable) values ('task', 'ghostField', true);\n"
+        )
+        self.assertEqual(0, code, output)
+
+    def test_a_unicode_string_is_read_through_its_prefix(self):
+        """`u&'…'` is the same spelling, and PostgreSQL decodes its escapes."""
+        code, output = self._rows(
+            "insert into u&'sync\\005Ffield_allowlist' "
+            "(entity_type, field, writable) values ('task', 'ghostField', true);\n"
+        )
+        self.assertEqual(1, code, output)
+        self.assertIn("written as a string", output)
+
 
 class TableItselfTest(AllowlistTreeTest):
     """Statements that make the table, rather than write rows into it."""

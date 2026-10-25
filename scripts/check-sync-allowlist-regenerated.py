@@ -59,6 +59,15 @@ run time, and the reader cannot rule out that the write reaches the field
 table. A piece on its own is not the name — `'field'` is a word, and a file
 may hold it without meaning the table.
 
+A name and a value are read differently, because the server stores them
+differently. A bit string and a hex string hold BITS — the text a text column
+stores — and they spell BYTES as well, and a file that writes the table's
+name in hex writes those bytes. So the pieces of a name are folded into the
+name they SPELL: `'sync_field_' || B'0110…'` spells the table's name, and the
+write the file spells is the write the reader sees. And the value of a row
+is the value the pieces HOLD: the reader reads it as the bits, and not as the
+bytes the same literal spells.
+
 ## What the reader does not read, it says
 
 The reader is not a SQL parser, and it does not pretend to be one. Everything
@@ -564,6 +573,11 @@ def _prefix_of(text: str, start: int) -> str:
     prefix of their own — PostgreSQL reads a prefix there as an error.
     """
     if start >= 2 and text[start - 2 : start].lower() == "u&":
+        if start >= 3 and (text[start - 3].isalnum() or text[start - 3] == "_"):
+            # `abcu&'…'` is a name and a string: PostgreSQL reads `abcu` as an
+            # identifier and the `&` as an operator, so the string is a plain
+            # one and its escapes are not decoded.
+            return ""
         return "U&"
     if start < 1:
         return ""
@@ -1227,7 +1241,7 @@ def _name_usage(scope: str, scope_raw: str) -> bool:
         span = _span_at(spans, match.start())
         before = scope[: match.start()].rstrip()
         if span is not None and span[0] in ("string", "dollar"):
-            literal = _piece_text(scope, span)
+            literal = _spelled_text(scope, span)
             if literal is None or literal.lower() not in _NAMES_OF_OUR_TABLE:
                 # The name is inside a text that holds more than the name —
                 # unless the raw scope holds it as a piece of its own, which
@@ -1339,8 +1353,22 @@ def _fold_literals(text: str) -> str:
     ways a name is assembled: pieces put together with `||`, and pieces handed
     to a call — `format('%s%s', 'sync_field_', 'allowlist')`, `concat('sync_',
     'field_allowlist')`. Both are folded into the name they spell.
+
+    The name a piece spells is the SPELLING of the piece: a bit string and a
+    hex string spell bytes, and a file that writes the table's name in hex
+    writes those bytes.
     """
     return _fold_literals_and_limit(text)[0]
+
+
+def _fold_values(text: str) -> str:
+    """The text with values assembled from pieces folded into the values they hold.
+
+    A value is not a name: the value a bit string or a hex string holds is
+    the BITS it holds — the text the database stores — and the value of a
+    run of pieces is the run of their values.
+    """
+    return _fold_calls(_fold_concatenations(text, spelling=False), spelling=False)[0]
 
 
 def _fold_literals_and_limit(text: str) -> tuple[str, bool]:
@@ -1350,15 +1378,17 @@ def _fold_literals_and_limit(text: str) -> tuple[str, bool]:
     not finish folding is a statement it did not finish reading. The caller
     says so rather than passes over it.
     """
-    folded, gave_up = _fold_calls(_fold_concatenations(text))
+    folded, gave_up = _fold_calls(_fold_concatenations(text, spelling=True), spelling=True)
     return folded, gave_up
 
 
 #: What may stand between two pieces of a concatenation: a cast, and the
 #: `||` that joins them. A prefix belongs to the piece that follows it, and
-#: a cast to the piece that precedes it, and neither breaks the chain.
+#: a cast to the piece that precedes it, and neither breaks the chain. Every
+#: prefix the reader reads is a prefix it folds: a piece in any spelling is a
+#: piece of the name.
 _BETWEEN_PIECES = re.compile(
-    r"\s*(?:::\s*[A-Za-z_][A-Za-z_0-9_]*(?:\s*\[\s*\])?)?\s*\|\|\s*(?:[Ee]|U&|B)?\s*"
+    r"\s*(?:::\s*[A-Za-z_][A-Za-z_0-9_]*(?:\s*\[\s*\])?)?\s*\|\|\s*(?:[Ee]|U&|[BbXxNn])?\s*"
 )
 
 
@@ -1372,9 +1402,25 @@ def _piece_text(text: str, span: tuple[str, int, int, str]) -> str | None:
 
     A constant that continues across a newline is one constant, and its
     parts are put together the way PostgreSQL puts them together.
+
+    This is the VALUE the piece holds: a bit string and a hex string hold
+    bits, and the bits are the text the database stores.
     """
     readings = _constant_readings(text, span)
     return readings[0] if readings else None
+
+
+def _spelled_text(text: str, span: tuple[str, int, int, str]) -> str | None:
+    """The NAME a literal spells, or None when it spells none.
+
+    A bit string and a hex string hold bits — the text the database stores
+    — and they spell bytes as well: a file that writes the table's name in
+    hex writes those bytes. Where the reader asks what name a literal
+    spells, the spelling is the answer; where it asks what value a literal
+    holds, the bits are.
+    """
+    readings = _constant_readings(text, span)
+    return readings[-1] if readings else None
 
 
 def _constant_value(prefix: str, parts: list[str]) -> str | None:
@@ -1442,8 +1488,15 @@ def _constant_readings(text: str, span: tuple[str, int, int, str]) -> list[str]:
     return out
 
 
-def _fold_concatenations(text: str) -> str:
-    """The text with runs of concatenated literals folded into one literal."""
+def _fold_concatenations(text: str, spelling: bool) -> str:
+    """The text with runs of concatenated literals folded into one literal.
+
+    A run of literals joined with `||` is one text, and the reader folds it
+    into the one text it is. Which text that is depends on what the reader
+    asks for: the NAME the pieces spell — a bit string and a hex string
+    spell bytes — or the VALUE they hold — a bit string and a hex string
+    hold bits, the text the database stores.
+    """
     spans = [span for span in _spans(text) if span[0] in ("string", "dollar")]
     if not spans:
         return text
@@ -1455,7 +1508,9 @@ def _fold_concatenations(text: str) -> str:
         pieces: list[str] = []
         following = index
         while following < len(spans):
-            piece = _piece_text(text, spans[following])
+            piece = _spelled_text(text, spans[following]) if spelling else _piece_text(
+                text, spans[following]
+            )
             if piece is None:
                 break
             pieces.append(piece)
@@ -1512,26 +1567,29 @@ def _is_a_variable(argument: str) -> bool:
 _FOLD_ROUNDS = 64
 
 
-def _fold_calls(text: str) -> tuple[str, bool]:
+def _fold_calls(text: str, spelling: bool = True) -> tuple[str, bool]:
     """The text with calls whose arguments are all literals folded into one literal.
 
     A call whose arguments are not all literals is left alone: the reader
     cannot know what such a call spells, and a name it made up would be a
     name it could not vouch for.
 
+    The arguments are read as the text they spell — the name a piece spells
+    when the reader folds a name, the value it holds when it folds a value.
+
     The second value says whether the reader gave up: a statement with more
     nested calls than the reader folds is a statement the reader did not
     finish reading, and the caller says so rather than passes over it.
     """
     for _ in range(_FOLD_ROUNDS):
-        folded = _fold_one_call(text)
+        folded = _fold_one_call(text, spelling)
         if folded is None:
             return text, False
         text = folded
     return text, True
 
 
-def _fold_one_call(text: str) -> str | None:
+def _fold_one_call(text: str, spelling: bool) -> str | None:
     """The text with one folding call replaced by the literal it builds."""
     mask = _mask(text, _spans(text))
     for match in re.finditer(
@@ -1544,14 +1602,14 @@ def _fold_one_call(text: str) -> str | None:
         args = _split_top_level(
             text[open_index + 1 : close], mask[open_index + 1 : close]
         )
-        built = _build_call(match.group(1).lower(), args)
+        built = _build_call(match.group(1).lower(), args, spelling)
         if built is None:
             continue
         return text[: match.start()] + "'" + built.replace("'", "''") + "'" + text[close + 1 :]
     return None
 
 
-def _build_call(name: str, args: list[str]) -> str | None:
+def _build_call(name: str, args: list[str], spelling: bool = True) -> str | None:
     """The text a folding call builds, or None when it does not build one.
 
     Every argument has to be a literal: a call with an argument the reader
@@ -1559,7 +1617,7 @@ def _build_call(name: str, args: list[str]) -> str | None:
     """
     values: list[str] = []
     for arg in args:
-        value = _literal_text(arg)
+        value = _literal_text(arg, spelling)
         if value is None:
             return None
         values.append(value)
@@ -1574,12 +1632,15 @@ def _build_call(name: str, args: list[str]) -> str | None:
     return _apply_format(values[0], values[1:])
 
 
-def _literal_text(raw: str) -> str | None:
+def _literal_text(raw: str, spelling: bool = True) -> str | None:
     """The text a literal holds, or None when it is not one.
 
     Any spelling counts: `'…'`, `E'…'`, `U&'…'`, `B'…'`, `X'…'`,
     `N'…'` and `$$…$$`. A call whose argument is written in a spelling the
     reader cannot read builds a name the reader cannot know.
+
+    The literal is read as the text it spells — the name it spells when the
+    reader folds a name, the value it holds when it folds a value.
     """
     text = raw.strip()
     spans = _spans(text)
@@ -1593,6 +1654,8 @@ def _literal_text(raw: str) -> str | None:
     # `X'…'`, `N'…'` — and the prefix is part of the spelling, so it is read.
     if text[:start].strip().lower() not in ("", "e", "u&", "b", "x", "n"):
         return None
+    if spelling:
+        return _spelled_text(text, span)
     return _piece_text(text, span)
 
 
@@ -2096,8 +2159,10 @@ def _interpret(item: str) -> tuple[str, object] | None:
     text = _drop_comments(item, _spans(item)).strip()
     # A value written as a concatenation of literals is the value it spells:
     # `'task' || ''` is `task`, and reading it as anything else is a row the
-    # reader cannot make sense of for no reason.
-    text = _fold_literals(text)
+    # reader cannot make sense of for no reason. The value is the value the
+    # pieces HOLD — a bit string or a hex string holds bits, and the bits are
+    # the text the database stores.
+    text = _fold_values(text)
     mask = _mask(text, _spans(text))
 
     # A value in parentheses is the value it holds. The mask and the text are
@@ -2280,7 +2345,7 @@ class _Reader:
                         outer_scope_raw=statement_scope_raw,
                     )
                 else:
-                    piece = _piece_text(
+                    piece = _spelled_text(
                         folded, (kind, inner_start, inner_end, content)
                     )
                     if piece is None:
@@ -2314,6 +2379,7 @@ class _Reader:
                 statement_scope,
                 statement_scope_raw,
                 inner_reads,
+                raw_statement,
             )
 
     def _handed_to_a_call(
@@ -2447,6 +2513,7 @@ class _Reader:
         body_scope: str = "",
         body_scope_raw: str = "",
         inner_reads: int = 0,
+        as_written: str = "",
     ) -> None:
         statement = masked
         # The comments are not part of what a statement does: a comment that
@@ -2522,10 +2589,19 @@ class _Reader:
         # A body the reader read is a statement it handled: the rows are in
         # the table, whether the body is a dollar-quoted block or a string.
         handled = body_rows > 0
-        for match in _INSERT.finditer(statement):
+        # The rows are read from the statement AS IT IS WRITTEN, not from the
+        # text the reader folded: the folding answers what NAME a run of
+        # pieces spells, and a row holds a VALUE — the bits a bit string
+        # holds, the text the database stores. The reader folds the value of
+        # a row on its own, where it reads it.
+        rows_text = as_written if as_written else text
+        rows_masked = _mask(rows_text, _spans(rows_text))
+        for match in _INSERT.finditer(rows_masked):
             if not _is_our_table(_table_key(match.group("table"))):
                 continue
-            handled = self._insert(text, masked, match.end(), len(text), origin) or handled
+            handled = self._insert(
+                rows_text, rows_masked, match.end(), len(rows_text), origin
+            ) or handled
 
         # A write verb whose target is written as a string cannot run: the
         # database does not accept a string where a table's name stands. The
