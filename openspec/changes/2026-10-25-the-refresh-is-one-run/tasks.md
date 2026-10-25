@@ -101,4 +101,5 @@
       are run and their outcome recorded — V-01 to V-07 passed; V-08, the two-device
       check, was not run: there is no emulator or device on this host
 - [x] The full test population passes on the shared and the desktop modules
-- [ ] The linters and the gate suite pass
+- [x] The linters pass, and the local full test populations pass; the gate suite
+      was stopped on the author's instruction and is not claimed as run

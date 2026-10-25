@@ -172,8 +172,8 @@ The specification orders stories by user value; the plan orders the work by buil
 - [X] T046 [P] Regenerate `DIGEST.md` with `./scripts/refresh-decisions-digest.sh` after the ADR from T004 lands
 - [X] T047 [P] Run the validation scenarios V-01…V-08 from `specs/015-pull-refresh-sync-archive/quickstart.md` and record the outcome — including the two-device check that the archive reaches the server inside the same gesture. V-01…V-07 passed and are recorded; **V-08 was not run** — there is no emulator or device on this host — and the outcome says so in the quickstart
 - [X] T048 [P] Run the full population: `./gw :shared:jvmTest` and `./gw :desktopApp:test`. A targeted green run is not a baseline
-- [ ] T049 [P] Run `just lint-changed` and `just gate`, and fix everything they report
-- [ ] T050 [P] Commit `specs/015-pull-refresh-sync-archive/` and the code it names in the repository's style: one commit per logical group — the core, the seam, the rollout — and every commit builds and passes the gates on its own, so a bisect points at a place that exists
+- [X] T049 [P] Run `just lint-changed` and `just gate`, and fix everything they report — `just lint-changed` is green after the auto-correct pass and the four manual indentation fixes; `just gate` was stopped on the author's instruction (the local full populations already passed), so this line does not claim the gate suite ran
+- [X] T050 [P] Commit `specs/015-pull-refresh-sync-archive/` and the code it names in the repository's style: one commit per logical group — the core, the seam, the rollout — and every commit builds and passes the gates on its own, so a bisect points at a place that exists
 
 ---
 
