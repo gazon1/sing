@@ -156,10 +156,11 @@ collection, and under each of them the parameters that still carry one. It is a
 register of debt, not an allowance, and it is read from both sides:
 
 - the detekt rule `NoUnstableCollectionParam` compares the code that is there
-  with the register: a raw collection parameter the register does **not** name
-  is a finding, even when the composable itself is a known site, and a
-  registered parameter whose declared type no longer matches the register is a
-  finding too — that is what happens when a debt is paid;
+  with the register — and the register is handed to the rule as a parameter
+  rather than read from a global: a raw collection parameter the register does
+  **not** name is a finding, even when the composable itself is a known site,
+  and a registered parameter whose declared type no longer matches the register
+  is a finding too — that is what happens when a debt is paid;
 - the gate `scripts/check-compose-stability-config.py` compares the register
   with the repository: a registered site that no source declares any more is a
   finding, and so is a registered parameter that no declaration of that site
@@ -185,7 +186,7 @@ recomposition, and the promise of stability never starts.
 **The debt is paid.** As of 2026-10-26 the register is empty: every
 `@Composable` in the repository takes its collections from the persistent kind,
 and the value is built at the boundary. The register stays as an empty map,
-because the rule reads it — an empty register is what makes a *new* raw
+because the rule is given it — an empty register is what makes a *new* raw
 collection parameter a finding, and the recorded size is `0`, which the gate
 compares with a register that holds nothing. The debt was paid in waves, each
 one with its own measurement of the compiler's report: the menu, the proposals
