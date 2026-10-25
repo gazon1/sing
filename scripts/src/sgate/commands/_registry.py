@@ -109,6 +109,14 @@ from sgate.gatekit.pre_push import (  # noqa: F401
 #: anything else is a gate the registry does not know about.
 PRE_PUSH_DECLARATION = "scripts/src/sgate/gatekit/pre_push.py"
 
+#: The file that drops the git environment a hook exports.
+#:
+#: It is not a gate either: it is where the list of the names is read from,
+#: and the hook calls it instead of writing the names down a fifth time. The
+#: gate that compares the hook with the registry allows this path for the same
+#: reason it allows the declaration's.
+PRE_PUSH_ENVIRONMENT = "scripts/git-env.sh"
+
 #: Every script the pre-push hook runs.
 #:
 #: The hook skips a rule the pushed tree does not have, so the list is what the

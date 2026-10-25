@@ -51,7 +51,10 @@ _added = _scripts_src not in sys.path
 if _added:
     sys.path.insert(0, _scripts_src)
 
-from sgate.commands._registry import PRE_PUSH_DECLARATION  # noqa: E402
+from sgate.commands._registry import (  # noqa: E402
+    PRE_PUSH_DECLARATION,
+    PRE_PUSH_ENVIRONMENT,
+)
 from sgate.commands.base import run  # noqa: E402
 
 CLEAN = 0
@@ -155,6 +158,7 @@ def collect_errors(
     ci_script_path: pathlib.Path | None = None,
     machinery: set[str] | None = None,
     declaration: str = '',
+    environment: str = '',
 ) -> tuple[list[str], dict]:
     """The disagreements between the record, the hook and the CI.
 
@@ -205,8 +209,10 @@ def collect_errors(
     allowed = set(machinery or ()) | ({delegate} if delegate else set())
     # The declaration the gates come from is not a gate: the hook has to know
     # where it is. It is declared in the registry, so a path that does not
-    # match the declaration is drift like any other.
+    # match the declaration is drift like any other. The same goes for the
+    # file that drops the git environment the hook inherits.
     allowed.add(declaration or '')
+    allowed.add(environment or '')
     for script in sorted(hook_scripts - allowed):
         errors.append(
             f'the hook names {script} itself — the gates the hook runs are declared in the '
@@ -366,7 +372,7 @@ def cli(ctx: click.Context, check: bool, emit_json: bool) -> None:
     declared, tree_rules, machinery = declared_hook_scripts()
     errors, facts = collect_errors(
         REGISTRY, HOOK, CI_WORKFLOW, graph, declared, tree_rules, None,
-        machinery, PRE_PUSH_DECLARATION,
+        machinery, PRE_PUSH_DECLARATION, PRE_PUSH_ENVIRONMENT,
     )
 
     if emit_json:
