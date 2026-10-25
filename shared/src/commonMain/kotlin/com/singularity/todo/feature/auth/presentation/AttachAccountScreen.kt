@@ -54,7 +54,6 @@ import com.singularity.todo.feature.auth.rememberLoginFormState
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.LocalAppNavigator
-import com.singularity.todo.feature.settings.presentation.nav.LocalSettingsNavigator
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
@@ -74,7 +73,16 @@ fun AttachAccountScreen(
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     val localData by viewModel.localData.collectAsStateWithLifecycle()
     val navigator = LocalAppNavigator.current
-    val settingsNavigator = LocalSettingsNavigator.current
+    // The settings graph's own navigator is *not* read here, and reading it was
+    // a crash: this screen is opened by leaving the settings graph
+    // (`openAttachAccount` → `onExitGraph`), so the graph's CompositionLocal is
+    // gone by the time this screen is composed, and the local's default is an
+    // `error(...)`. The screen is reachable only for an anonymous session, so
+    // the crash was invisible to every signed-in user.
+    //
+    // The app's back stack still holds the settings graph underneath — the
+    // attach screen is pushed onto it, not swapped for it — so the app-level
+    // back is the way out of this screen.
     val form = rememberLoginFormState()
     // The credentials live in the fields, not in the form state: the form keeps only the
     // choice about the offline data.
@@ -111,7 +119,7 @@ fun AttachAccountScreen(
                 title = { Text("Attach Account") },
                 navigationIcon = {
                     IconButton(
-                        onClick = { settingsNavigator.back() },
+                        onClick = { navigator.goBack() },
                         modifier = Modifier.testTag(TestTags.AUTH_ATTACH_BACK_BUTTON),
                     ) {
                         Icon(

@@ -314,6 +314,17 @@ kotlin {
             // chooser and the platform's failure modes; the token exchange is this
             // project's, because the library has no refresh token.
             implementation(libs.kmpauth.google)
+
+            // The Supabase credential model. The library's backend supplies the
+            // sign-up, sign-in and sign-out calls; the operations it cannot
+            // express (a magic link that must not create an account, the
+            // magic-link exchange, and a refresh that must be able to say
+            // "rejected") stay as direct calls into the SDK.
+            //
+            // The library is published against auth-kt 3.7.0 while this project
+            // pins 3.8.0; Gradle resolves the higher one, so the binding between
+            // the two is checked by the seam's own tests.
+            implementation(libs.kmpauth.supabase)
         }
 
         androidMain.dependencies {

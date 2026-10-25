@@ -50,9 +50,12 @@ commands:
     pattern: "setprop [A-Za-z0-9._-]+ [A-Za-z0-9._-]*"
     why: >
       A property set is how a flow tells the debug build to behave differently
-      for one flow — the auth stub reads `debug.stub_auth.*` at runtime. Neither
-      the name nor the value may hold a shell metacharacter, so the command
-      cannot be the first half of a longer one.
+      for one flow. The auth stub is driven by a flag file rather than a
+      property — the app process is not allowed to read one — so no flow sets
+      a property today; the shape stays because this file lists what the
+      bridge may run, not what the flows happen to run. Neither the name nor
+      the value may hold a shell metacharacter, so the command cannot be the
+      first half of a longer one.
 
   - id: getprop
     pattern: "getprop [A-Za-z0-9._-]+"

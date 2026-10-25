@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.map
  * ## Why this still exists
  *
  * Two reasons, and only two. It holds a token written by an older build, which
- * [SecureSessionStore] moves into the keychain once and then erases — and it
+ * [SecureSessionManager] moves into the keychain once and then erases — and it
  * holds the device id, which is not a secret and should not be in a keychain.
  *
  * ## Why writing tokens here is no longer a path

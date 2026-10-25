@@ -28,7 +28,7 @@ import kotlin.test.assertTrue
  * ## What is allowed
  *
  * - `get() = <expression>` — computed, always fine. This is the shape the fix took.
- * - A constant, listed in [SANCTIONED_CONSTANTS] with a reason. Two entries today.
+ * - A constant, listed in [SANCTIONED_CONSTANTS] with a reason. Three entries today.
  *
  * The reason is not decoration. It is the thing a reader needs and cannot infer: a bare `= false`
  * on a JVM-only provider is obviously correct, and the same literal on an Android alarm scheduler
@@ -73,7 +73,12 @@ class CapabilityFlagTest {
         // missing — which would have been a failing gate whose message was wrong, and
         // therefore worse than no gate.
         val missing = SANCTIONED_CONSTANTS.keys.filterNot { entry ->
-            val (file, flag) = entry.split('.', limit = 2).let { it[0] to it[1] }
+            // The split is on the **last** dot, not the first: a file whose name
+            // carries a dot of its own — `GoogleConsent.jvm.kt` — would otherwise be
+            // read as the file `GoogleConsent` and the flag `jvm.isSupported`, and
+            // every such entry would report itself missing.
+            val file = entry.substringBeforeLast('.')
+            val flag = entry.substringAfterLast('.')
             productionRoots().any { root ->
                 root.walkTopDown().any { source ->
                     source.name == "$file.kt" &&
@@ -177,6 +182,11 @@ class CapabilityFlagTest {
          * system calendar at all, and each of these classes is the JVM's answer to a port
          * only Android implements. They hold no state and nothing about them can change
          * while the app runs, so `false` is the complete answer rather than a stale one.
+         *
+         * `GoogleConsent.jvm`: the desktop is the one platform Google exempts from the
+         * loopback block, and the consent it runs needs only a browser and a local socket
+         * — a desktop machine has both. What can fail is the user's browser, and that
+         * fails loudly at the call, not silently as "unsupported".
          */
         val SANCTIONED_CONSTANTS: Map<String, String> = mapOf(
             "AlarmManagerReminderScheduler.isSupported" to
@@ -200,6 +210,10 @@ class CapabilityFlagTest {
                 "The scheduler enqueues background work, and the desktop has no " +
                 "background work to enqueue into; the class does nothing, so false is " +
                 "the complete answer.",
+            "GoogleConsent.jvm.isSupported" to
+                "The desktop is the platform Google exempts from the loopback block, and " +
+                "the consent needs only a browser and a local socket, which a desktop " +
+                "machine has. A missing browser fails at the call, not as 'unsupported'.",
         )
     }
 }

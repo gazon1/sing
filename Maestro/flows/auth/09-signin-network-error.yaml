@@ -8,11 +8,19 @@
 #
 # Airplane mode is set with Maestro's own `setAirplaneMode` command; see
 # 08-signup-network-error.yaml for why the earlier `exec` form was wrong.
+#
+# ## Why this flow is not in the `auth` suite
+#
+# The E2E build replaces the auth repository with a stub, and a stub has no
+# network to lose: the failure this flow is about cannot happen there. The
+# flow therefore carries the `auth-live` tag instead of `auth` — the tag says
+# which suite a flow belongs to, and the `auth` suite is the one the E2E build
+# can run. `auth-live` is run by hand, against a build with the real provider
+# (`manual` says the same thing).
 appId: com.singularity.todo
 name: auth-signin-network-error
 tags:
-  - regression
-  - auth
+  - auth-live
   - AUTH-FAIL-02
   - manual
 ---
@@ -46,12 +54,12 @@ tags:
     timeout: 5000
 
 # Enter credentials and submit while in airplane mode.
-- inputText:
+- tapOn:
     id: auth_email_input
-    text: "networkfail@example.com"
-- inputText:
+- inputText: "networkfail@example.com"
+- tapOn:
     id: auth_password_input
-    text: "ValidPassword123!"
+- inputText: "ValidPassword123!"
 
 - tapOn:
     id: auth_sign_in_button

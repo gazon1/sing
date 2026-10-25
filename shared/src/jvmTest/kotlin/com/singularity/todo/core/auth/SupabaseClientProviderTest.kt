@@ -109,10 +109,38 @@ class SupabaseClientProviderTest {
         assertNull(provider.client(), "an unconfigured app has no client to hand out")
     }
 
-    private fun provider(storage: MapSecureStorage) = SupabaseClientProvider(
-        resolver = SupabaseConfigResolver(idGenerator = FixedIdGenerator(), buildTime = { null }),
-        store = storage,
+    @Test
+    fun `the session manager the client carries is the store the application holds`() = runTest {
+        val storage = MapSecureStorage()
+        val manager = sessionManager(storage)
+        val provider = provider(storage, manager)
+        storage.write(SupabaseConfigResolver.KEY_URL, CONFIG.url)
+        storage.write(SupabaseConfigResolver.KEY_ANON_KEY, CONFIG.anonKey)
+
+        val client = assertNotNull(provider.client())
+
+        assertSame(
+            manager,
+            client.auth.sessionManager,
+            "the session lives in the store the application holds; a client that carries " +
+                "another one is a session the application cannot read, and cannot sign out",
+        )
+
+        provider.forget()
+    }
+
+    private fun sessionManager(storage: MapSecureStorage) = SecureSessionManager(
+        log = testLogger(),
+        secure = storage,
+        legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
     )
+
+    private fun provider(storage: MapSecureStorage, sessionStore: SecureSessionManager = sessionManager(storage)) =
+        SupabaseClientProvider(
+            resolver = SupabaseConfigResolver(idGenerator = FixedIdGenerator(), buildTime = { null }),
+            store = storage,
+            sessionStore = sessionStore,
+        )
 
     /**
      * A provider whose configuration was written straight into the store.

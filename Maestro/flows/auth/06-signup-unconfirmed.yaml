@@ -6,10 +6,10 @@
 #   3. The outcome is NOT presented as a failure.
 #
 # The stubbed auth repository in the test APK is configured to return
-# Session.SignedOut after sign-up when the system property
-# `debug.stub_auth.unconfirmed_signup` is set. The property is set before the
-# flow and cleared after it, so the flow does not depend on somebody having
-# set it by hand and no other flow inherits it.
+# Session.SignedOut after sign-up when its `unconfirmed_signup` flag is set.
+# The flag is a file in the app's own data directory, written through
+# `run-as` before the flow and removed after it, so the flow does not depend
+# on somebody having set it by hand and no other flow inherits it.
 #
 # preconditions: the app is signed out.
 # steps:
@@ -27,15 +27,15 @@ appId: com.singularity.todo
 name: auth-signup-unconfirmed
 onFlowStart:
   - runScript:
-      file: ../../helpers/scripts/setprop.js
+      file: ../../helpers/scripts/set-stub-flag.js
       env:
-        PROP: debug.stub_auth.unconfirmed_signup
+        FLAG: unconfirmed_signup
         VALUE: "true"
 onFlowComplete:
   - runScript:
-      file: ../../helpers/scripts/setprop.js
+      file: ../../helpers/scripts/set-stub-flag.js
       env:
-        PROP: debug.stub_auth.unconfirmed_signup
+        FLAG: unconfirmed_signup
         VALUE: "false"
 tags:
   - regression
@@ -55,12 +55,12 @@ tags:
 # The stub, with debug.stub_auth.unconfirmed_signup=true, leaves the session
 # signed out after this call — simulating a Supabase sign-up with email
 # confirmation required.
-- inputText:
+- tapOn:
     id: auth_email_input
-    text: "newuser@example.com"
-- inputText:
+- inputText: "newuser@example.com"
+- tapOn:
     id: auth_password_input
-    text: "ValidPassword123!"
+- inputText: "ValidPassword123!"
 - tapOn:
     id: auth_sign_in_button
 

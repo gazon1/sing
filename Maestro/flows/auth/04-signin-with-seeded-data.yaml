@@ -61,12 +61,12 @@ tags:
 
 # Now sign in: the app is signed out and the credential form is used.
 - runFlow: ../../helpers/session-signedout.yaml
-- inputText:
+- tapOn:
     id: auth_email_input
-    text: "seed-user@example.com"
-- inputText:
+- inputText: "seed-user@example.com"
+- tapOn:
     id: auth_password_input
-    text: "SeedPassword123!"
+- inputText: "SeedPassword123!"
 - tapOn:
     id: auth_sign_in_button
 
