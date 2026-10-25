@@ -3,7 +3,7 @@ change: a-repeating-task-is-a-series-of-occurrences
 verdict: pass
 date: 2026-10-25
 pr: https://github.com/gazon1/sing/pull/1167
-reviewed: cb59a198563e79d9bc9ea79f342f8f15e2e4747d
+reviewed: d54a2e571f2792704db9dd505277e45e943c2889
 documents: sha256:fca411a5f28990448c1d36d8f196ec6560494a7a5f9c0cfdc5649ae9dd1ff373
 ---
 
@@ -26,7 +26,7 @@ The review was a second agent's, given the artefacts, the code they cite and the
 decision record — not the session that wrote them. It ran in **seven rounds**, and each
 round's findings were closed before the next one began.
 
-`reviewed:` is the commit the review was made against — the tree the reviewers read.
+`reviewed:` is the commit that carries the whole contract — the tree the reviewers read.
 The contract has not moved since; the digest below is the one the gate recomputes.
 
 ## What was found, and what was done about it
