@@ -10,6 +10,11 @@ package com.singularity.todo.core.backup
  * [updatedAtEpochMillis] and [sizeBytes] are what the bucket knows about the object
  * and the path alone does not say. A list of names is a list the person has to
  * guess from; these are the two answers that tell one archive from another.
+ *
+ * Both are nullable, and null means *the bucket did not say* — not zero, and not the
+ * epoch. The screen leaves the line out when it is missing, because a date of
+ * 1970 or a size of "0 B" is a fact the bucket never stated, and a person who
+ * reads one of them believes it.
  */
 data class RemoteBackup(
     val ref: String,
