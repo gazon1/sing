@@ -29,6 +29,16 @@ requirement the first one *adds*: the write classification exists as a requireme
 only because the first change wrote it. A delta that modifies a requirement cannot be
 applied before the requirement exists, so the archive order is not a matter of taste.
 
+And the first change turned out to have a link further back. It carried a requirement
+about the registry's entries — each entry carrying the tool's write behaviour — under
+the id `REQ-TOOLREG-001`, and that id was already taken: the change that introduced
+the registry uses it for a different requirement, about the conversation offering the
+tools. Two requirements, one id, in two capabilities — and the archive refuses to
+apply a modified requirement to a capability that does not exist yet. So the
+requirement is now its own requirement, `REQ-WCLS-005`, in the capability the
+classification lives in, and the change that introduced the registry is archived
+first.
+
 ## Idea
 
 Close what is left, say in the records what actually happened, and archive in the
@@ -51,7 +61,14 @@ changes were filed in.
 
 3. **The archive order follows the delta dependency.** The change that adds a
    requirement is archived before the change that modifies it, whichever was filed
-   first.
+   first — and the chain is followed as far as it goes, which for these two changes
+   was one link further: the change that introduced the tool registry, whose work
+   was done and whose capability two other changes modify.
+
+4. **A requirement that collided with another id became its own requirement.** The
+   registry's entries carrying the write behaviour is `REQ-WCLS-005`, in the
+   capability the classification lives in. The id it collided with keeps the
+   requirement it was written for.
 
 ## Rationale
 
@@ -88,10 +105,11 @@ not a preference — it is the only order in which both archives can happen.
 
 ## Links
 
-- Change `openspec/changes/archive/acp-client-data-safety/` — the change this
-  decision archives first
-- Change `openspec/changes/archive/agent-surface-follow-ups/` — the change that
-  closed the finding, and that modifies the requirement the first one adds
+- Change `acp-client-data-safety` — the change this decision archives first
+- Change `agent-surface-follow-ups` — the change that closed the finding, and that
+  modifies the requirement the first one adds
+- ADR `2026-10-22-the-chat-can-call-tools` — the change that introduced the tool
+  registry, and the one the first change's requirement modifies
 - Verdict `.specify/reviews/acp-client-data-safety.md` — the review that found the
   finding, and the re-issue that closes it
 - Verdict `.specify/reviews/agent-surface-follow-ups.md` — the review of the closing

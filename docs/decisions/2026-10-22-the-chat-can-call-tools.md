@@ -145,4 +145,4 @@ themselves; all of them are now stated in the spec and covered by a test.
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/ai/RecordingTool.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/ai/KoogAgentService.kt`
 - `shared/src/jvmTest/kotlin/com/singularity/todo/core/ai/ToolCallLoopTest.kt`
-- `openspec/changes/2026-10-22-the-chat-can-call-tools/`
+- `openspec/changes/archive/2026-10-22-the-chat-can-call-tools/proposal.md`

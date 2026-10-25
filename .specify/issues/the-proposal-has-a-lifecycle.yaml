@@ -30,6 +30,23 @@ adr_refs:
   title: The invariant is a test, not a file
   status: accepted
   notes: The file registry and its gate are gone; the invariant is a test that reads the behaviour and the source
+- sequence: '5'
+  slug: a-cancelled-write-takes-back-what-it-wrote
+  title: A cancelled write takes back what it wrote
+  status: accepted
+  notes: The compensation lives in a `finally` under `NonCancellable`, so it runs on the cancellation and on the failure;
+    the rows that could not be taken back are reported to the crash reporter
+- sequence: '6'
+  slug: a-value-that-does-not-read-keeps-the-change
+  title: A value that does not read keeps the change
+  status: accepted
+  notes: The unreadable value is a variant of the dictionary that carries the reason; the plan refuses it before the claim,
+    so the change is neither decided nor lost
+- sequence: '7'
+  slug: the-difference-between-two-surfaces-is-a-value
+  title: The difference between two surfaces is a value, not a branch
+  status: accepted
+  notes: One coordinator for the five operations; the wording, the failure store and the error sink are handed to it as values
 tags:
 - ai
 - write-path

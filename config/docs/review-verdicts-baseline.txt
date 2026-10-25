@@ -53,7 +53,6 @@ tasks-tokens-follow-the-theme
 text-field-state-migration
 text-selection-and-links
 the-backup-keeps-the-verb
-the-chat-can-call-tools
 the-contract-is-published-once
 the-count-travels-with-the-value
 the-editor-and-the-rewrite-from-outside

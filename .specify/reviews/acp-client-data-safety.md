@@ -4,7 +4,7 @@ verdict: pass
 date: 2026-10-25
 pr: https://github.com/gazon1/sing/pull/1028
 reviewed: f9c5f5eaa70b0e69ca79b4f7177af2fb85b62b07
-documents: sha256:f176542a71479d4a1cd88e8245ac27e8d35d19c516ec7258a5fecd41bbb1d94f
+documents: sha256:e35f288d483c6e92e8d62dfc102016e983a65a06d8e6357a2756b2527001ed6c
 ---
 
 ## What was reviewed
