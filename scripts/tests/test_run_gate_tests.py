@@ -23,6 +23,9 @@ import xml.etree.ElementTree as ET
 
 _ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 RUNNER = _ROOT / "scripts" / "run-gate-tests.py"
+#: The origin report the runner prints when it refuses. A tree that carries
+#: the runner has to carry this too — the runner runs it as a subprocess.
+ORIGIN_CHECKER = _ROOT / "scripts" / "check-gate-tooling-origin.py"
 
 _spec = importlib.util.spec_from_file_location("run_gate_tests", RUNNER)
 _runner = importlib.util.module_from_spec(_spec)
@@ -375,8 +378,8 @@ class OutcomeTest(unittest.TestCase):
         self.assertEqual("1", document.get("tests"))
 
 
-class ForeignGateToolingTest(unittest.TestCase):
-    """The suite refuses to measure a tree the gate CLI does not serve.
+class GateToolingBindingTest(unittest.TestCase):
+    """The suite measures THIS checkout, whatever the environment holds.
 
     ## What went wrong
 
@@ -386,10 +389,10 @@ class ForeignGateToolingTest(unittest.TestCase):
     failure was about code this checkout does not contain. The number said
     nothing and the diagnostics pointed in every direction at once.
 
-    The runner now refuses before the suite starts and says which checkout the
-    tooling serves. These tests run the runner in a subprocess, because the
-    question is about the interpreter's import path and a module already
-    imported in this process cannot answer it.
+    The runner now binds the package to the checkout it sits in before the
+    suite starts: the foreign install is reported, not obeyed. These tests run
+    the runner in a subprocess, because the question is about the interpreter's
+    import path and a module already imported in this process cannot answer it.
     """
 
     def _run(self, pythonpath: str) -> subprocess.CompletedProcess:
@@ -407,30 +410,73 @@ class ForeignGateToolingTest(unittest.TestCase):
                 check=False,
             )
 
-    def test_a_foreign_sgate_is_refused_with_the_checkout_it_serves(self):
+    def test_a_foreign_sgate_does_not_become_the_measurement(self):
+        """The foreign package is in reach — and the run measures this tree.
+
+        The refusal that used to be here was the wrong answer: it left the
+        developer with no measurement at all, and the cure (a per-checkout
+        install) is a chore. Binding the package is the answer the rest of the
+        gate suite already gives: `sgate run-all` pins `PYTHONPATH` for its
+        subprocesses, `sg` pins `sys.path`.
+        """
         with tempfile.TemporaryDirectory() as tmp:
             package = pathlib.Path(tmp) / "sgate"
             package.mkdir()
             (package / "__init__.py").write_text("", encoding="utf-8")
             result = self._run(tmp)
 
-        self.assertEqual(2, result.returncode, result.stdout + result.stderr)
-        self.assertIn("FOREIGN", result.stdout)
-        self.assertIn("the suite was not run", result.stderr)
+        self.assertNotEqual(2, result.returncode, result.stdout + result.stderr)
+        self.assertNotIn("the suite was not run", result.stderr)
+        self.assertIn("the environment's sgate serves", result.stderr)
+        self.assertIn("this run measured", result.stderr)
 
-    def test_a_foreign_namespace_package_is_refused_too(self):
+    def test_a_foreign_namespace_package_does_not_become_the_measurement(self):
         """A package directory without an `__init__.py` is still a package.
 
         It is a *namespace* package: the finder has no origin to report, only
         the place it found the package in. That place is the answer to the
-        question the runner asks, and a foreign one has to be refused exactly
-        like a foreign regular package.
+        question the runner asks, and a foreign one is named like a foreign
+        regular package.
         """
         with tempfile.TemporaryDirectory() as tmp:
             package = pathlib.Path(tmp) / "sgate"
             package.mkdir()
             # No `__init__.py`: the package is a namespace package.
             result = self._run(tmp)
+
+        self.assertNotEqual(2, result.returncode, result.stdout + result.stderr)
+        self.assertNotIn("the suite was not run", result.stderr)
+        self.assertIn("the environment's sgate serves", result.stderr)
+
+    def test_a_tree_without_its_own_package_is_refused(self):
+        """What is left to refuse: this checkout has no package to measure.
+
+        The suite would measure whatever else answers `import sgate` — and a
+        run that measures the wrong tree is not a red run, it is no run at all.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            tree = pathlib.Path(tmp)
+            (tree / "scripts").mkdir()
+            runner = tree / "scripts" / "run-gate-tests.py"
+            runner.write_text(RUNNER.read_text(encoding="utf-8"), encoding="utf-8")
+            # The origin report is run as a subprocess by the runner, so the
+            # tree has to carry it — or the refusal would crash instead of
+            # refusing.
+            (tree / "scripts" / "check-gate-tooling-origin.py").write_text(
+                ORIGIN_CHECKER.read_text(encoding="utf-8"), encoding="utf-8"
+            )
+            tests_dir = tree / "tests"
+            tests_dir.mkdir()
+            env = dict(os.environ)
+            env["PYTHONPATH"] = str(tree / "scripts" / "src")
+            result = subprocess.run(
+                [sys.executable, str(runner), "--tests-dir", str(tests_dir)],
+                capture_output=True,
+                text=True,
+                env=env,
+                cwd=str(tree),
+                check=False,
+            )
 
         self.assertEqual(2, result.returncode, result.stdout + result.stderr)
         self.assertIn("the suite was not run", result.stderr)
@@ -469,6 +515,37 @@ class ForeignGateToolingTest(unittest.TestCase):
         result = self._run(str(_ROOT / "scripts" / "src"))
         self.assertNotEqual(2, result.returncode, result.stdout + result.stderr)
         self.assertNotIn("the suite was not run", result.stderr)
+
+    def test_the_run_names_the_tree_it_measured(self):
+        """A run says which tree it measured.
+
+        A green run that says nothing about the tree is how a gate run
+        certifies a checkout nobody is working on.
+        """
+        result = self._run(str(_ROOT / "scripts" / "src"))
+
+        self.assertIn("measured", result.stderr)
+        self.assertIn(str(_ROOT / "scripts" / "src" / "sgate"), result.stderr)
+
+    def test_a_child_process_inherits_the_binding(self):
+        """The binding reaches the children the suite spawns.
+
+        A subprocess resolves the package by itself, and by "itself" means "by
+        whatever is installed" — so the binding is exported to `PYTHONPATH` as
+        well as put on `sys.path`.
+        """
+        original_path = list(sys.path)
+        original_meta = list(sys.meta_path)
+        original_pythonpath = os.environ.get("PYTHONPATH", "")
+        try:
+            source = _runner.pin_local_package(_ROOT)
+            inherited = os.environ.get("PYTHONPATH", "").split(os.pathsep)[0]
+        finally:
+            sys.path[:] = original_path
+            sys.meta_path[:] = original_meta
+            os.environ["PYTHONPATH"] = original_pythonpath
+
+        self.assertEqual(str(source), inherited)
 
 
 if __name__ == "__main__":

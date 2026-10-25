@@ -38,6 +38,24 @@ end of the run: the report is written anyway, because the report is the reason
 the job publishes an artifact, and the case where the report is missing is
 exactly the case where somebody needs it.
 
+What this script binds, and what it does not
+--------------------------------------------
+The gate CLI is an *editable* install of `scripts/src/`, so whichever checkout
+was installed last decides what `import sgate` finds — on this machine, for a
+whole afternoon, that was another clone, and every finding the gates produced
+was about a repository nobody was working on.
+
+This runner therefore binds the package to the checkout it sits in before the
+suite starts: the editable finders are dropped and this checkout's `scripts/src`
+goes first on the import path. A foreign `sgate` in the environment is then
+reported, not obeyed — the run measures this checkout either way. The same move
+`sg` makes, and the same one `sgate run-all` makes for its gate subprocesses
+(ADR `docs/decisions/2026-10-21-one-owner-of-stdout.md`).
+
+What stays a refusal: this checkout's own package cannot be imported. Then the
+suite would measure *something* that is not this tree, and a run that measures
+the wrong tree is not a red run — it is no run at all.
+
 Usage:
     python3 scripts/run-gate-tests.py
     python3 scripts/run-gate-tests.py --junit-xml build/diagnostics/gate-tests/junit.xml
@@ -45,7 +63,7 @@ Usage:
 Exit codes:
     0 — every test passed
     1 — a test failed, or a test module could not be imported
-    2 — the run was refused: the importable `sgate` serves another checkout
+    2 — the run was refused: this checkout's package could not be imported
     5 — no test ran
 """
 
@@ -53,6 +71,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import os
 import pathlib
 import re
 import subprocess
@@ -359,7 +378,50 @@ def gate_tooling_origin() -> pathlib.Path | None:
     return pathlib.Path(locations[0]).resolve()
 
 
-def refuse_foreign_gate_tooling() -> bool:
+def _is_editable_finder(finder: object) -> bool:
+    """Whether a meta-path finder came from an editable install.
+
+    The editable install of `scripts/src/` registers a finder that maps `sgate`
+    to the checkout that was installed last. Setuptools *appends* it to
+    `sys.meta_path`, so a `sys.path` entry wins while it is there — but the
+    append is a property of the setuptools version that installed it, and the
+    answer to "which `sgate` is this?" must not depend on that. The finder is
+    dropped and the path is put first by hand. This is the move `sg` makes.
+    """
+    name = getattr(finder, "__module__", "") or ""
+    if "editable" in name.lower():
+        return True
+    return "editable" in type(finder).__module__.lower()
+
+
+def pin_local_package(root: pathlib.Path) -> pathlib.Path:
+    """Bind `import sgate` to the checkout this runner sits in.
+
+    Three moves, in this order:
+
+    1. the editable finders go — they map the package to whichever checkout
+       was installed last;
+    2. this checkout's `scripts/src` goes first on `sys.path` — so the package
+       that answers `import sgate` is the one on disk here;
+    3. the same path goes first in `PYTHONPATH` — so the *children* this suite
+       spawns inherit the binding. Without the third move a subprocess
+       resolves the package by itself, and by "itself" means "by whatever is
+       installed".
+
+    @param root the repository root.
+    @return the directory the package is bound to.
+    """
+    source = (root / "scripts" / "src").resolve()
+    sys.meta_path = [finder for finder in sys.meta_path if not _is_editable_finder(finder)]
+    if str(source) not in sys.path:
+        sys.path.insert(0, str(source))
+    existing = [part for part in os.environ.get("PYTHONPATH", "").split(os.pathsep) if part]
+    if str(source) not in existing:
+        os.environ["PYTHONPATH"] = os.pathsep.join([str(source), *existing])
+    return source
+
+
+def refuse_unmeasurable_tooling(original_env: dict[str, str]) -> bool:
     """Whether the run has to be refused, and the reason in the gate's words.
 
     ## What went wrong
@@ -376,13 +438,20 @@ def refuse_foreign_gate_tooling() -> bool:
 
     ## What this does
 
-    The refusal happens **before** the suite runs, and it names the checkout the
-    tooling serves and the checkout it should serve. The message is the one
-    `scripts/check-gate-tooling-origin.py` prints, run as a subprocess: two
-    places that name the same problem have to say the same thing about it.
+    The package is bound to this checkout before the suite starts, so a foreign
+    install in the environment no longer decides what is measured. What is left
+    to refuse is the case where *this* checkout's own package cannot be
+    imported: then the suite would measure whatever else answers `import sgate`,
+    and a run that measures the wrong tree is not a red run — it is no run at
+    all.
 
-    A missing `sgate` is refused too, with the preflight's fix — a suite whose
-    every module fails to import is the same absence of a measurement.
+    The message is the one `scripts/check-gate-tooling-origin.py` prints, run
+    as a subprocess **with the environment as it was**: two places that name the
+    same problem have to say the same thing about it, and the origin of the
+    *environment* is not the origin of the package this run measures.
+
+    @param original_env the environment as it was before the binding.
+    @return whether the run was refused.
     """
     origin = gate_tooling_origin()
     local = (ROOT / "scripts" / "src" / "sgate").resolve()
@@ -395,6 +464,7 @@ def refuse_foreign_gate_tooling() -> bool:
         capture_output=True,
         text=True,
         check=False,
+        env=original_env,
     )
     sys.stdout.write(report.stdout)
     # The origin check writes to stdout and this runner's own lines go to
@@ -405,9 +475,9 @@ def refuse_foreign_gate_tooling() -> bool:
     sys.stderr.write(report.stderr)
     print("", file=sys.stderr)
     print("run-gate-tests: the suite was not run.", file=sys.stderr)
-    print("run-gate-tests: it would have measured the tree the gate CLI serves —", file=sys.stderr)
-    print("run-gate-tests: not this one. The failures it reports would have been", file=sys.stderr)
-    print("run-gate-tests: about a checkout that is not in front of you.", file=sys.stderr)
+    print("run-gate-tests: it would have measured a package that is not this", file=sys.stderr)
+    print("run-gate-tests: checkout's own — and a package that is not this", file=sys.stderr)
+    print("run-gate-tests: checkout's own is another checkout's code.", file=sys.stderr)
     return True
 
 
@@ -504,8 +574,25 @@ def main() -> int:
         help="Write the JUnit XML report to this path.",
     )
     args = parser.parse_args()
-    if refuse_foreign_gate_tooling():
+
+    # The environment as it was, before this runner binds anything: the origin
+    # report asks about the environment, and a report run under the binding
+    # would answer about the binding instead.
+    original_env = dict(os.environ)
+    served_by_environment = gate_tooling_origin()
+    pin_local_package(ROOT)
+
+    if refuse_unmeasurable_tooling(original_env):
         return REFUSED
+
+    local = (ROOT / "scripts" / "src" / "sgate").resolve()
+    if served_by_environment is not None and served_by_environment != local:
+        print(
+            f"run-gate-tests: the environment's sgate serves {served_by_environment}; "
+            f"this run measured {local}.",
+            file=sys.stderr,
+        )
+    print(f"run-gate-tests: measured {local}", file=sys.stderr)
     return run(args.tests_dir, args.junit_xml)
 
 
