@@ -49,7 +49,11 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT / 'scripts' / 'src'))
 
 from sgate.commands._registry import PRE_PUSH_SCRIPTS  # noqa: E402
-from sgate.gatekit.gitenv import INHERITED_FROM_HOOK, tree_env as _clean_git_env  # noqa: E402
+from sgate.gatekit.gitenv import (  # noqa: E402
+    INHERITED_FROM_HOOK,
+    SHELL_HELPER,
+    tree_env as _clean_git_env,
+)
 
 HOOK = REPO_ROOT / '.githooks' / 'pre-push'
 
@@ -73,6 +77,14 @@ CI_VERDICT_SCRIPT = REPO_ROOT / 'scripts' / 'ci-verdict.py'
 #: not inherit". The verdict script loads it by path, the way the checkout
 #: carries it.
 GITENV_SCRIPT = REPO_ROOT / 'scripts' / 'src' / 'sgate' / 'gatekit' / 'gitenv.py'
+#: The helper that drops the git environment a hook exports. The hook
+#: sources it; the fixture tree carries it, the same way it carries the
+#: answer the helper reads.
+GIT_ENV_HELPER = REPO_ROOT / 'scripts' / 'git-env.sh'
+#: The declaration of the gates the hook runs. The hook reads it by path, so
+#: the fixture tree carries it — the same way it carries the answer the
+#: verdict script takes.
+PRE_PUSH_DECLARATION = REPO_ROOT / 'scripts' / 'src' / 'sgate' / 'gatekit' / 'pre_push.py'
 
 #: The one way to reach that answer when the package is out of reach. The
 #: verdict script imports it, and the fixture tree has to carry it for the
@@ -248,6 +260,65 @@ def _git(*args: str, cwd: pathlib.Path) -> subprocess.CompletedProcess:
     inside_hook,
     'the suite is running inside a hook, and this test drives one',
 )
+class PrePushDeclarationTest(unittest.TestCase):
+    """The declaration, read by path — the way the hook reads it."""
+
+    @staticmethod
+    def _declaration():
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            'pre_push_declaration', PRE_PUSH_DECLARATION,
+        )
+        module = importlib.util.module_from_spec(spec)
+        # The declaration holds a dataclass, and a dataclass looks its own
+        # module up in `sys.modules` — a module that is not registered there
+        # has no `__dict__` to look into.
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        return module
+
+    def test_the_tree_rules_are_skipped_when_the_gate_cli_cannot_run(self):
+        """A machine without click is not stopped by a rule it cannot execute.
+
+        The base hook skipped the tree rules when click was not installed, and
+        CI runs them either way. A rule that cannot run must not become a
+        reason a push cannot happen — so the rule is skipped, and the hook
+        says that it was skipped.
+        """
+        declaration = self._declaration()
+        tree_rules = [
+            step for step in declaration.PRE_PUSH_STEPS
+            if step.label.endswith('gate') and step.when.startswith('if-script')
+        ]
+        self.assertTrue(tree_rules, 'the declaration has no tree rules')
+        for step in tree_rules:
+            self.assertIn('if-import:click', step.when, step.label)
+
+    def test_every_step_answers_for_itself_and_nothing_else(self):
+        """The declaration knows which gates it expects an answer for."""
+        declaration = self._declaration()
+        labels = declaration.pre_push_step_labels()
+        self.assertEqual(len(labels), len(set(labels)), 'two steps answer under one label')
+        self.assertEqual(
+            list(labels),
+            [step.label for step in declaration.PRE_PUSH_STEPS],
+        )
+
+    def test_a_gate_the_hook_never_answered_for_is_named(self):
+        """The answer the hook gives is the answer the declaration expects.
+
+        A hook that answered for eleven of twelve gates has a gap, and the
+        gap has to name the gate that is missing — otherwise the reader has
+        to count.
+        """
+        declaration = self._declaration()
+        labels = declaration.pre_push_step_labels()
+        missing = declaration.undecided_labels(','.join(labels[:-1]))
+        self.assertEqual((labels[-1],), missing)
+        self.assertEqual((), declaration.undecided_labels(','.join(labels)))
+
+
 class PrePushHookTest(unittest.TestCase):
     """The hook, driven through a real push."""
 
@@ -317,6 +388,15 @@ class PrePushHookTest(unittest.TestCase):
         # runs the script from the checkout, and the checkout carries the file
         # the script loads. A checkout without it is not a checkout.
         self._write('scripts/src/sgate/gatekit/gitenv.py', GITENV_SCRIPT.read_text(encoding='utf-8'))
+        # The helper that drops the git environment, and the file it reads
+        # the names from: the hook sources it, so the fixture carries it.
+        self._write('scripts/git-env.sh', GIT_ENV_HELPER.read_text(encoding='utf-8'))
+        # The declaration of the gates the hook runs: the hook reads it by
+        # path, in a tree that carries nothing else of the gate package.
+        self._write(
+            'scripts/src/sgate/gatekit/pre_push.py',
+            PRE_PUSH_DECLARATION.read_text(encoding='utf-8'),
+        )
         # And the way the script reaches that answer: the loader that reads
         # the file by path, because the package that also holds it cannot be
         # imported by the ambient interpreter the hook runs.
@@ -403,6 +483,32 @@ class PrePushHookTest(unittest.TestCase):
 
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         self.assertIn('=== Pre-push OK ===', result.stdout + result.stderr)
+
+    def test_a_hook_that_answers_for_no_gate_fails_the_push(self):
+        """A hook that ran no gate and said OK checked a tree it never looked at.
+
+        The gates come from the table, so the hook runs them by label, and a
+        loop that skips them all looks exactly like a hook that read the
+        table and did nothing with it. The declaration knows how many gates
+        there are, so the hook tells it which ones it answered for — and a
+        hook that answered for none fails the push.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._commit_source(CLEAN_SOURCE, 'a clean file')
+        hook = self.repo / '.githooks' / 'pre-push'
+        hook.write_text(
+            hook.read_text(encoding='utf-8').replace(
+                '            [ -n "$step_label" ] || continue\n',
+                '            [ -n "$step_label" ] || continue\n            continue\n',
+            ),
+            encoding='utf-8',
+        )
+
+        result = self._push()
+
+        self.assertNotEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertIn('did not answer for every gate', result.stdout + result.stderr)
 
     def test_the_suite_runs_inside_a_hook(self):
         # The gate-suite step of the hook runs the suite in the tree being
@@ -976,17 +1082,64 @@ class HookGitEnvironmentTest(unittest.TestCase):
     pushed.
     """
 
-    def test_every_step_drops_every_name_the_canonical_answer_names(self):
+    def test_the_hook_drops_the_environment_through_the_sanctioned_helper(self):
+        """One place drops the environment, and it is the helper.
+
+        The hook used to write the four names down five times, and a copy of a
+        list is a list that can drift: a step that dropped three of the four
+        names breaks in a way nobody sees — the tree is read through the wrong
+        index, and the command reports about a tree nobody pushed.
+        """
         source = HOOK.read_text(encoding='utf-8')
-        steps = [line for line in source.splitlines() if 'env -u GIT_DIR' in line]
-        self.assertTrue(steps, 'the hook no longer drops the git environment at all')
-        for line in steps:
-            for name in INHERITED_FROM_HOOK:
-                self.assertIn(
-                    f'-u {name}',
-                    line,
-                    f'the hook drops the git environment incompletely: {line.strip()}',
-                )
+        self.assertIn(
+            SHELL_HELPER,
+            source,
+            'the hook does not call the sanctioned helper — the environment is '
+            'dropped somewhere else, and nobody can see where',
+        )
+        self.assertNotIn(
+            'env -u GIT_DIR',
+            source,
+            'the hook writes the names down itself; the list lives in one place',
+        )
+
+    def test_the_helper_reads_the_names_from_the_canonical_answer(self):
+        """The helper carries no copy of the list.
+
+        The canon is `sgate.gatekit.gitenv`, and the shell cannot import it —
+        so the helper reads the answer from it and the file carries nothing.
+        A second copy of the list is a list that can drift, and the drift is
+        invisible until a step breaks on a tree that was fine.
+        """
+        helper = GIT_ENV_HELPER.read_text(encoding='utf-8')
+        for name in INHERITED_FROM_HOOK:
+            self.assertNotIn(
+                name,
+                helper,
+                f'the helper carries its own copy of {name}; the list lives in '
+                f'sgate.gatekit.gitenv',
+            )
+        self.assertIn(
+            'gitenv.py --shell-unset-args',
+            helper,
+            'the helper does not read the names from the canon',
+        )
+
+    def test_the_helper_drops_every_name_the_canonical_answer_names(self):
+        """What the helper drops is what the canon names — checked by running it."""
+        result = subprocess.run(
+            ['bash', '-c', f'. "{GIT_ENV_HELPER}" && echo "$GATEKIT_GIT_UNSET_ARGS"'],
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        args = result.stdout.split()
+        dropped = [args[i + 1] for i, arg in enumerate(args[:-1]) if arg == '-u']
+        self.assertEqual(
+            sorted(dropped),
+            sorted(INHERITED_FROM_HOOK),
+            f'the helper does not drop exactly the names the canon names: {result.stdout.strip()}',
+        )
 
 
 @unittest.skipIf(

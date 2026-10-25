@@ -42,6 +42,7 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 MODULE_PATH = ROOT / 'scripts' / 'check-git-environment.py'
+HELPER_FILE = (ROOT / 'scripts' / 'git-env.sh').read_text(encoding='utf-8')
 spec = importlib.util.spec_from_file_location('check_git_environment', MODULE_PATH)
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
@@ -175,6 +176,60 @@ SHELL_GLOBAL = """\
 git config --global user.name "someone"
 """
 
+# A shell script that drops the environment through the sanctioned helper. The
+# helper is in scripts/git-env.sh, and the script sources it.
+SHELL_VIA_HELPER = """\
+#!/usr/bin/env bash
+. "$(dirname "$0")/git-env.sh"
+cd "$1"
+without_hook_git_env git ls-files
+"""
+
+# The same script without the helper being available to it: the call is there,
+# and nothing answers it.
+SHELL_CALLS_A_MISSING_HELPER = """\
+#!/usr/bin/env bash
+cd "$1"
+without_hook_git_env git ls-files
+"""
+
+# The helper, defined in the script itself.
+SHELL_WITH_ITS_OWN_HELPER = """\
+#!/usr/bin/env bash
+without_hook_git_env() {
+    env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR "$@"
+}
+cd "$1"
+without_hook_git_env git ls-files
+"""
+
+# A script that drops one of the four names.
+SHELL_DROPS_ONE_NAME = """\
+#!/usr/bin/env bash
+cd "$1"
+env -u GIT_DIR git ls-files
+"""
+
+# A script that defines a helper which removes nothing at all.
+SHELL_WITH_AN_EMPTY_HELPER = """\
+#!/usr/bin/env bash
+without_hook_git_env() {
+    env "$@"
+}
+cd "$1"
+without_hook_git_env git ls-files
+"""
+
+# A script that defines a helper which removes one of the four names.
+SHELL_WITH_A_PARTIAL_HELPER = """\
+#!/usr/bin/env bash
+without_hook_git_env() {
+    env -u GIT_DIR "$@"
+}
+cd "$1"
+without_hook_git_env git ls-files
+"""
+
 
 class GitEnvironmentRuleTest(unittest.TestCase):
     """The rule, on trees built for it."""
@@ -211,6 +266,65 @@ class GitEnvironmentRuleTest(unittest.TestCase):
         self._write('reads.py', COMPLIANT)
         violations, _sensitive = mod.scan(self.tmp)
         self.assertEqual([], violations)
+
+    def test_a_shell_script_that_uses_the_sanctioned_helper_is_not_a_violation(self):
+        """The helper is where the answer lives, and it carries no copy of it.
+
+        The helper reads the names from the canon at run time, so the script
+        that calls it writes nothing down — and the old form, which recognised
+        the names spelled out, does not match it.
+        """
+        self._write('reads.sh', SHELL_VIA_HELPER)
+        self._write('git-env.sh', HELPER_FILE)
+        violations, sensitive = mod.scan(self.tmp)
+        self.assertEqual([], violations)
+        self.assertTrue(sensitive, 'the site is still a site — it just controls its environment')
+
+    def test_a_shell_script_that_defines_the_helper_itself_is_not_a_violation(self):
+        self._write('reads.sh', SHELL_WITH_ITS_OWN_HELPER)
+        violations, _sensitive = mod.scan(self.tmp)
+        self.assertEqual([], violations)
+
+    def test_a_shell_script_that_calls_a_helper_nobody_defined_is_a_violation(self):
+        """A call of a helper that is not there controls nothing.
+
+        The gate that believes it does is worse than a gate that says nothing:
+        the script reads the wrong tree and the gate says the tree is fine.
+        """
+        self._write('reads.sh', SHELL_CALLS_A_MISSING_HELPER)
+        violations, _sensitive = mod.scan(self.tmp)
+        self.assertEqual(1, len(violations), violations)
+        self.assertIn('reads.sh', violations[0])
+
+    def test_a_helper_that_removes_nothing_is_a_violation(self):
+        """A helper that removes nothing controls nothing.
+
+        The gate believes that a call of the sanctioned helper drops the four
+        names. A helper whose body does not drop them is a name and nothing
+        more, and the script reads the tree the hook inherited.
+        """
+        self._write('reads.sh', SHELL_WITH_AN_EMPTY_HELPER)
+        violations, _sensitive = mod.scan(self.tmp)
+        self.assertEqual(1, len(violations), violations)
+        self.assertIn('reads.sh', violations[0])
+
+    def test_a_helper_that_removes_one_name_is_a_violation(self):
+        """Three of the four names are not the four names."""
+        self._write('reads.sh', SHELL_WITH_A_PARTIAL_HELPER)
+        violations, _sensitive = mod.scan(self.tmp)
+        self.assertEqual(1, len(violations), violations)
+        self.assertIn('reads.sh', violations[0])
+
+    def test_a_shell_script_that_drops_one_of_the_names_is_a_violation(self):
+        """Three of the four names are not the four names.
+
+        The tree is read through the index that was left behind, and the
+        command reports about a tree nobody pushed.
+        """
+        self._write('reads.sh', SHELL_DROPS_ONE_NAME)
+        violations, _sensitive = mod.scan(self.tmp)
+        self.assertEqual(1, len(violations), violations)
+        self.assertIn('reads.sh', violations[0])
 
     def test_a_script_that_reads_its_own_checkout_is_not_a_violation(self):
         self._write('own.py', OWN_TREE)
