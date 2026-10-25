@@ -343,6 +343,11 @@ def _string_targets(text: str) -> list[str]:
     string's unicode escapes are decoded, and a dollar-quoted string holds its
     words as they are. A reader that compared the spelling would compare a
     name the database never sees.
+
+    A hex string is read in both of its readings: the bits it holds, which is
+    what the database stores, and the bytes it spells, which is what a file
+    that writes the name in hex writes. So `insert into X'73796e63…'` is the
+    write into this table that it spells.
     """
     targets: list[str] = []
     for span in _spans(text):
@@ -353,9 +358,13 @@ def _string_targets(text: str) -> list[str]:
         before = _without_literal_prefix(before)
         if _WRITE_VERB_BEFORE.search(before) is None:
             continue
-        decoded = _literal_body(text, span)
-        if decoded:
-            targets.append(decoded)
+        readings = _constant_readings(text, span)
+        if not readings:
+            decoded = _literal_body(text, span)
+            if decoded:
+                targets.append(decoded)
+            continue
+        targets.extend(readings)
     return targets
 
 
@@ -554,7 +563,7 @@ def _prefix_of(text: str, start: int) -> str:
     newline governs the whole constant, and the parts that follow carry no
     prefix of their own — PostgreSQL reads a prefix there as an error.
     """
-    if start >= 2 and text[start - 2 : start] == "U&":
+    if start >= 2 and text[start - 2 : start].lower() == "u&":
         return "U&"
     if start < 1:
         return ""
@@ -650,14 +659,29 @@ def _mask(text: str, spans: list[tuple[str, int, int, str]]) -> str:
     return "".join(chars)
 
 
+#: The mark a comment leaves behind when the reader drops it: a
+#: non-breaking space. The mark is whitespace for everything the reader
+#: reads — a comment after a value does not change the value — and it is NOT
+#: whitespace to the scanner of a constant, so a comment that stands between
+#: the parts of a constant keeps the parts apart: PostgreSQL reads a block
+#: comment there as an error, and the reader must not join what the server
+#: will not.
+_COMMENT_MARK = "\u00a0"
+
+
 def _drop_comments(text: str, spans: list[tuple[str, int, int, str]]) -> str:
-    """`text` without its comments."""
+    """`text` without its comments.
+
+    Every comment leaves a mark behind — see `_COMMENT_MARK` — and the
+    newlines it held are kept, so that dropping it does not move a line.
+    """
     parts: list[str] = []
     cursor = 0
     for kind, start, end, _ in spans:
         if kind != "comment":
             continue
         parts.append(text[cursor:start])
+        parts.append(_COMMENT_MARK + "\n" * text[start:end].count("\n"))
         cursor = end
     parts.append(text[cursor:])
     return "".join(parts)
@@ -1227,15 +1251,17 @@ def _literals_of(text: str) -> list[str]:
     A dollar-quoted body is opaque to a scan of the text around it: the
     literals inside it are literals of the file all the same, and a name may
     be held in one of them.
+
+    A literal is read in every reading it has: a hex string holds the bits the
+    database stores and spells the bytes a name is written in, and both are
+    texts the file holds.
     """
     out: list[str] = []
     for span in _spans(text):
         if span[0] not in ("string", "dollar"):
             continue
-        literal = _piece_text(text, span)
-        if literal is None:
-            continue
-        out.append(literal)
+        for literal in _constant_readings(text, span):
+            out.append(literal)
         if span[0] == "dollar":
             body = _dollar_body(text[span[1] : span[2]])
             if body:
@@ -1347,13 +1373,8 @@ def _piece_text(text: str, span: tuple[str, int, int, str]) -> str | None:
     A constant that continues across a newline is one constant, and its
     parts are put together the way PostgreSQL puts them together.
     """
-    kind, start, _end, content = span
-    if kind == "dollar":
-        body = _dollar_body(content)
-        return body if body is not None else None
-    prefix = _prefix_of(text, start)
-    _end, parts = _constant_parts(content, 0, prefix == "E")
-    return _constant_value(prefix, parts)
+    readings = _constant_readings(text, span)
+    return readings[0] if readings else None
 
 
 def _constant_value(prefix: str, parts: list[str]) -> str | None:
@@ -1364,19 +1385,61 @@ def _constant_value(prefix: str, parts: list[str]) -> str | None:
     every part is read on its own — a doubled quote is a quote inside its
     part, and never a quote across the boundary between two parts.
 
-    A bit string and a hex string spell bits, not text: eight bits make a
-    byte, and a spelling of bits that is not a whole number of bytes spells
-    no byte at all. The reader does not invent one.
+    A bit string and a hex string hold BITS, and PostgreSQL stores them in a
+    text column as those bits: `B'01000001'` is `01000001` there, and not
+    the letter A. The bits are the text the server reads.
     """
     if prefix == "B":
-        return _decode_bit_string("".join(parts))
+        return _bit_digits("".join(parts))
     if prefix == "X":
-        return _decode_hex_string("".join(parts))
+        return _hex_bits("".join(parts))
     if prefix == "E":
         return "".join(_decode_escapes(part) for part in parts)
     if prefix == "U&":
         return "".join(_decode_unicode_escapes(part) for part in parts)
     return "".join(part.replace("''", "'") for part in parts)
+
+
+def _constant_bytes(prefix: str, parts: list[str]) -> str | None:
+    """The bytes a bit or hex constant spells, or None when it spells none.
+
+    A hex string spells four bits with every digit, and eight bits make a
+    byte — so a hex string of an odd number of digits spells no whole byte,
+    and the reader does not invent one.
+    """
+    if prefix == "B":
+        bits = _bit_digits("".join(parts))
+    elif prefix == "X":
+        bits = _hex_bits("".join(parts))
+    else:
+        return None
+    return _bits_to_bytes(bits) if bits is not None else None
+
+
+def _constant_readings(text: str, span: tuple[str, int, int, str]) -> list[str]:
+    """The texts a literal holds — the text the server reads, and the name it
+    spells.
+
+    A bit string and a hex string hold bits, and the first reading is those
+    bits: that is what PostgreSQL stores in a text column. A hex string spells
+    BYTES as well, and a file that writes a name in hex writes those bytes —
+    so the bytes are a second reading of the same constant, and a name
+    spelled in hex is a name the reader sees.
+    """
+    kind, start, _end, content = span
+    if kind == "dollar":
+        body = _dollar_body(content)
+        return [] if body is None else [body]
+    prefix = _prefix_of(text, start)
+    _end, parts = _constant_parts(content, 0, prefix == "E")
+    value = _constant_value(prefix, parts)
+    if value is None:
+        return []
+    out = [value]
+    spelled = _constant_bytes(prefix, parts)
+    if spelled is not None and spelled != value:
+        out.append(spelled)
+    return out
 
 
 def _fold_concatenations(text: str) -> str:
@@ -1906,32 +1969,38 @@ def _decode_unicode_escapes(text: str) -> str:
     return "".join(out)
 
 
-def _decode_bit_string(text: str) -> str | None:
-    """The bytes a `B'...'` bit string holds, or None when it does not.
+def _bit_digits(text: str) -> str | None:
+    """The bits a `B'...'` bit string holds, or None when it does not.
 
-    PostgreSQL reads a bit string as bits, eight of which make a byte, and
-    the bytes are what the string spells. A bit string whose length is not
-    a whole number of bytes spells no byte at all, and the reader does not
-    invent one.
+    PostgreSQL reads a bit string as bits, and it stores it in a text column
+    as those bits: `B'01000001'` is `01000001` there, and not the letter A.
     """
-    if any(char not in "01" for char in text) or len(text) % 8:
+    if any(char not in "01" for char in text):
+        return None
+    return text
+
+
+def _hex_bits(text: str) -> str | None:
+    """The bits a `X'...'` hex string holds, or None when it does not.
+
+    A hex string spells four bits with every digit, and PostgreSQL stores it
+    in a text column as those bits: `X'41'` is `01000001` there.
+    """
+    if any(char not in "0123456789abcdefABCDEF" for char in text):
+        return None
+    return "".join(f"{int(digit, 16):04b}" for digit in text)
+
+
+def _bits_to_bytes(bits: str) -> str | None:
+    """The bytes a run of bits spells, or None when it spells no whole byte.
+
+    Eight bits make a byte, and a run of bits whose length is not a whole
+    number of bytes spells no byte at all: the reader does not invent one.
+    """
+    if len(bits) % 8:
         return None
     return "".join(
-        chr(int(text[index : index + 8], 2)) for index in range(0, len(text), 8)
-    )
-
-
-def _decode_hex_string(text: str) -> str | None:
-    """The bytes a `X'...'` hex string holds, or None when it does not.
-
-    A hex string spells four bits with every digit, and eight bits make a
-    byte — so a hex string of an odd number of digits spells no whole byte,
-    and the reader does not invent one.
-    """
-    if len(text) % 2 or any(char not in "0123456789abcdefABCDEF" for char in text):
-        return None
-    return "".join(
-        chr(int(text[index : index + 2], 16)) for index in range(0, len(text), 2)
+        chr(int(bits[index : index + 8], 2)) for index in range(0, len(bits), 8)
     )
 
 

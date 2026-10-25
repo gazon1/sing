@@ -1990,6 +1990,45 @@ class RowLiteralSpellingTest(AllowlistTreeTest):
         self.assertEqual(1, code, output)
         self.assertIn("task.a''b", output)
 
+    def test_a_line_comment_between_the_parts_keeps_the_constant_one(self):
+        """A line comment may stand between the parts of a constant.
+
+        PostgreSQL reads the two parts as one constant, and the comment is
+        not part of it — so the name is the one name the two spell.
+        """
+        code, output = self._rows(
+            "insert into sync_field_allowlist (entity_type, field, writable) values\n"
+            "    ('task', 'ghost' -- a comment\n    'Field', true);\n"
+        )
+        self.assertEqual(1, code, output)
+        self.assertIn("task.ghostField", output)
+
+    def test_a_block_comment_between_the_parts_keeps_them_apart(self):
+        """A block comment may not: PostgreSQL reads that as an error.
+
+        The two parts are two constants then, and the row holds a value the
+        server never holds — so the reader says it cannot read the row.
+        """
+        code, output = self._rows(
+            "insert into sync_field_allowlist (entity_type, field, writable) values\n"
+            "    ('task', 'ti' /* a comment */\n    'tle', true);\n"
+        )
+        self.assertEqual(1, code, output)
+        self.assertIn("cannot read", output)
+
+    def test_a_concatenation_with_a_comment_is_folded(self):
+        """A comment between two pieces does not stop the folding.
+
+        `'ghost' /* a comment */ || 'Field'` is one name, and the reader
+        reads it as the name it spells.
+        """
+        code, output = self._rows(
+            "insert into sync_field_allowlist (entity_type, field, writable) values\n"
+            "    ('task', 'ghost' /* a comment */ || 'Field', true);\n"
+        )
+        self.assertEqual(1, code, output)
+        self.assertIn("task.ghostField", output)
+
     def test_a_continued_table_name_is_reported(self):
         """`'sync_field_'` and the next line `'allowlist'` is one name.
 
@@ -2017,13 +2056,30 @@ class RowLiteralSpellingTest(AllowlistTreeTest):
         self.assertIn("written as a string", output)
 
     def test_a_hex_string_is_read(self):
-        """`X'...'` holds the bytes its hex digits spell."""
+        """`X'...'` holds bits, and PostgreSQL stores those bits as they are.
+
+        A hex string spells four bits with every digit, and a text column
+        holds the bits — `X'67686F737446'` is the forty-eight bits, and not
+        the six bytes. A reader that read the bytes would read a name the
+        server never holds.
+        """
         code, output = self._rows(
             "insert into sync_field_allowlist (entity_type, field, writable) values\n"
             "    ('task', X'67686F737446', true);\n"
         )
         self.assertEqual(1, code, output)
-        self.assertIn("task.ghostF", output)
+        self.assertIn(
+            "task.011001110110100001101111011100110111010001000110", output
+        )
+
+    def test_a_hex_string_of_no_whole_byte_is_read(self):
+        """`X'4'` is four bits, and four bits are a text of their own."""
+        code, output = self._rows(
+            "insert into sync_field_allowlist (entity_type, field, writable) values\n"
+            "    ('task', X'4', true);\n"
+        )
+        self.assertEqual(1, code, output)
+        self.assertIn("task.0100", output)
 
     def test_an_e_string_is_read(self):
         """`E'...'` is a string, and a legal row must not block the gate."""
@@ -2043,14 +2099,32 @@ class RowLiteralSpellingTest(AllowlistTreeTest):
         self.assertEqual(1, code, output)
         self.assertIn("task.ghostField", output)
 
+    def test_a_unicode_string_in_lower_case_is_read(self):
+        """`u&'...'` is the same spelling, and PostgreSQL reads it."""
+        code, output = self._rows(
+            "insert into sync_field_allowlist (entity_type, field, writable) values\n"
+            "    ('task', u&'ghostField', true);\n"
+        )
+        self.assertEqual(1, code, output)
+        self.assertIn("task.ghostField", output)
+
     def test_a_bit_string_is_read(self):
-        """`B'01000001'` is the byte `A`, and the reader knows it."""
+        """`B'01000001'` is eight bits, and a text column holds those bits."""
         code, output = self._rows(
             "insert into sync_field_allowlist (entity_type, field, writable) values\n"
             "    ('task', B'01000001', true);\n"
         )
         self.assertEqual(1, code, output)
-        self.assertIn("task.A", output)
+        self.assertIn("task.01000001", output)
+
+    def test_a_bit_string_of_no_whole_byte_is_read(self):
+        """`B'101'` is three bits, and three bits are a text of their own."""
+        code, output = self._rows(
+            "insert into sync_field_allowlist (entity_type, field, writable) values\n"
+            "    ('task', B'101', true);\n"
+        )
+        self.assertEqual(1, code, output)
+        self.assertIn("task.101", output)
 
     def test_an_e_string_that_escapes_a_quote_is_read(self):
         """The scanner has to know the prefix, or the string ends too early."""
