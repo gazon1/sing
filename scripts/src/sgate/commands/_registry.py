@@ -1016,6 +1016,18 @@ _REGISTERED: tuple[GateSpec, ...] = (
             cmd_type=CmdType.PYTHON3,
             script=Path("scripts/check-compose-stability-config.py"),
         ),
+        GateSpec(
+            name="screen state collections",
+            # Blocking: a screen state that holds a raw collection breaks the
+            # promise the state makes about its own contents, and the sibling
+            # rule cannot see it — the rule reads the *parameter* of a
+            # composable, not what the state holds. Nothing else in the build
+            # would say so, and the symptom is a screen that recomposes or
+            # goes stale with no error attached to it.
+            mode=GateMode.BLOCKING,
+            cmd_type=CmdType.PYTHON3,
+            script=Path("scripts/check-screen-state-collections.py"),
+        ),
 )
 
 
@@ -1247,6 +1259,24 @@ GATE_CONTROLS: dict[str, Control] = {
             'no other gate in the repository would ever notice. The probe appends '
             'exactly such a name — a class the project does not have — and the gate must '
             'say so.'
+        ),
+    ),
+    'screen-state-collections': Control(
+        kind='sabotage',
+        proves='scripts/check-screen-state-collections.py',
+        argv=('{python}', 'scripts/check-screen-state-collections.py'),
+        path='config/compose/screen_state_collection_debt.conf',
+        edit=Edit(
+            kind='append',
+            new='\ncom.singularity.todo.feature.tasks.ThatDoesNotExist.gone : List<Nothing>\n',
+        ),
+        why=(
+            'a register entry that names a debt the code no longer has is a record '
+            'of a debt that was paid — and the size it records is the ratchet. If '
+            'the gate read such an entry as fine, the register would grow stale '
+            'silently and the number everybody quotes would drift away from the '
+            'register it describes. The probe appends exactly such an entry — a '
+            'state the project does not have — and the gate must say so.'
         ),
     ),
     'workflow-env-context': Control(kind='sabotage', proves='scripts/check-workflow-env-context.py', argv=('{python}', 'scripts/check-workflow-env-context.py'), path='.github/workflows/e2e.yml', edit=Edit(kind='replace', old="  EMULATOR_GPU_MODE: ${{ vars.EMULATOR_GPU_MODE || 'off' }}", new="  EMULATOR_GPU_MODE_TYPO: ${{ vars.EMULATOR_GPU_MODE || 'off' }}", count=1), why='renaming the definition while the reference keeps the old name is the smallest possible version of the failure this gate exists for: the `env` context does not hold the runner\'s environment, so `${{ env.X }}` for an undefined X expands to the empty string and the path silently becomes a path to nothing. That is how the Maestro shards spent a release cycle failing with "emulator binary not found in PATH" while the cache carried an empty directory'),

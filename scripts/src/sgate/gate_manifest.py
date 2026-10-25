@@ -872,6 +872,25 @@ run the compiler and does not read the compiler's stability report: that
 report is a build artifact, and a gate that depends on build output is the
 fragility this repository already has a gate for.""",
     ),
+    "screen state collections": Placement(
+        kind=PlacementKind.STATIC,
+        command='python3 scripts/check-screen-state-collections.py',
+        note="""
+The screen states — `config/compose/screen_state_collection_debt.conf` — name
+the states that still hold a raw collection.
+
+The sibling rule reads the *parameter* of a composable and cannot see inside
+the state: a screen that receives `ArchiveUiState` passes the rule while the
+state itself carries `List<Task>`. The promise a state makes about its own
+contents is then unenforceable, and the value is built on the wrong side of the
+boundary — the state that owns the value must hold the persistent kind.
+
+The file is a register of debt, and it records its own size: the debt may not
+grow without somebody deciding to raise the bar, and a shrink has to be
+recorded. The gate reads the register from both sides — a raw collection the
+register does not name is a new debt, and a registered entry the code no
+longer has is a debt that was paid and whose record did not move with it.""",
+    ),
     # ── Cluster members ─────────────────────────────────────────────────────────
     # They run because their cluster runs them: one gate line, one CI row, one
     # subject. The wrapper runs each member and reports every failure.

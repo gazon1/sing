@@ -217,3 +217,45 @@ the interfaces (`List`, `Set`, `Map`, `Collection`), the mutable spellings
 and `Array`. `Iterable` and `Sequence` are deliberately out: they are rare as
 a parameter of a composable, and a rule that fires rarely is a rule people
 turn off.
+
+## The state holds the persistent kind
+
+The three rules above look at the **parameter** of a composable, or at the
+**type** the contract names. None of them looks at what a *state* holds — and
+that is where the promise a screen makes about its own contents can break.
+
+A screen that receives `ArchiveUiState` passes `NoUnstableCollectionParam`:
+the parameter is a state, not a collection. But the state itself carries
+`List<Task>`, and a state that holds a raw collection cannot promise that the
+instance it holds will not change. The value was also built on the wrong side
+of the boundary — the screen that renders it is where the collection was
+assembled, instead of the state that owns it.
+
+So there is a fourth rule, and it is a gate rather than a detekt rule:
+
+- `scripts/check-screen-state-collections.py` — a screen state does not hold a
+  raw collection.
+
+A **screen state** is a state type of a feature: a declaration whose name ends
+with `UiState` or `State` (`AgendaUiState`, `TaskChildrenState`), or a member
+of such a hierarchy (`ArchiveUiState.Content`). The states of the core —
+`SyncState`, `EphemeralState` — are the state of a repository and of a
+settings bundle, not of a screen that renders them, and they are out of scope.
+
+It is a gate and not a detekt rule because deciding that a declaration is a
+screen state needs the whole tree: a state is not visited by any rule, it is a
+*type* — a parameter of a composable, or a member of a sealed hierarchy.
+
+`config/compose/screen_state_collection_debt.conf` is the register of the
+states that still hold a raw collection, one entry per property, and it
+records its own size — the ratchet. The debt may not grow without somebody
+deciding to raise the bar, and a shrink has to be recorded, in the same commit
+as the change to the register. The gate reads the register from both sides: a
+raw collection the register does not name is a new debt, and a registered
+entry the code no longer has is a debt that was paid whose record did not move
+with it.
+
+The debt is **27 properties** in ten feature areas, as of 2026-10-27. The
+waves that pay it are separate pull requests, one area at a time, each with
+its own measurement and its own lowering of the recorded size. See
+`docs/decisions/2026-10-27-a-screen-state-does-not-hold-a-raw-collection.md`.
