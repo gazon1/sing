@@ -159,12 +159,12 @@ private fun MonthGridPage(
     pageAnchor: LocalDate,
     today: LocalDate,
     selectedDate: LocalDate,
-    tasksByDate: Map<LocalDate, List<CalendarTaskUi>>,
+    tasksByDate: ImmutableMap<LocalDate, ImmutableList<CalendarTaskUi>>,
     onDayClick: (LocalDate) -> Unit,
     onTaskClick: (CalendarTaskUi) -> Unit,
     onEmptyCellLongPress: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
-    selectedDates: Set<LocalDate> = emptySet(),
+    selectedDates: ImmutableSet<LocalDate> = persistentSetOf(),
     onDayLongPress: (LocalDate) -> Unit = {},
 ) {
     val palette = LocalCalendarPalette.current

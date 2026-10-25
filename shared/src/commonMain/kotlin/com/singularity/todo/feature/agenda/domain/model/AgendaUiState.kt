@@ -35,7 +35,7 @@ import kotlinx.datetime.LocalDate
 sealed interface AgendaUiState {
     data object Loading : AgendaUiState
     data class Loaded(
-        val sections: List<RenderedSection>,
+        val sections: ImmutableList<RenderedSection>,
         val today: LocalDate,
         val greeting: String = "",
         val isSelectionMode: Boolean = false,

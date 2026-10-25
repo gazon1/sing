@@ -57,6 +57,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.components.list.SwipeableTaskRow
 import com.singularity.todo.feature.tasks.presentation.components.list.TaskRowFlat
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
@@ -307,7 +308,7 @@ fun AgendaContent(
 
 @Composable
 private fun AgendaList(
-    sections: List<RenderedSection>,
+    sections: ImmutableList<RenderedSection>,
     today: LocalDate,
     isSelectionMode: Boolean,
     selectedTaskIds: ImmutableSet<TaskId>,
@@ -479,7 +480,7 @@ private fun AgendaContentErrorPreview() = PreviewThemed(darkTheme = false, useSu
 private fun AgendaContentEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
     AgendaContent(
         state = AgendaUiState.Loaded(
-            sections = emptyList(),
+            sections = persistentListOf(),
             today = PreviewSamples.today,
         ),
         title = "Agenda",
@@ -527,7 +528,7 @@ private fun AgendaContentLoadedPreview() = PreviewThemed(darkTheme = false, useS
 
     AgendaContent(
         state = AgendaUiState.Loaded(
-            sections = listOf(
+            sections = persistentListOf(
                 RenderedSection(
                     id = "overdue",
                     name = "Overdue",
@@ -579,7 +580,7 @@ private fun AgendaContentSelectionModePreview() = PreviewThemed(darkTheme = fals
 
     AgendaContent(
         state = AgendaUiState.Loaded(
-            sections = listOf(
+            sections = persistentListOf(
                 RenderedSection(
                     id = "today",
                     name = "Today",
@@ -606,7 +607,7 @@ private fun AgendaContentDarkPreview() = PreviewThemed(darkTheme = true, useSurf
 
     AgendaContent(
         state = AgendaUiState.Loaded(
-            sections = listOf(
+            sections = persistentListOf(
                 RenderedSection(
                     id = "today",
                     name = "Today",

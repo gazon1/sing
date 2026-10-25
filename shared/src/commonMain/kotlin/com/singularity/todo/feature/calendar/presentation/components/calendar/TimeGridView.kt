@@ -193,8 +193,8 @@ private fun AllDayCell(
 @Composable
 private fun HourRow(
     hour: Int,
-    dates: List<LocalDate>,
-    tasksByDate: Map<LocalDate, List<CalendarTaskUi>>,
+    dates: ImmutableList<LocalDate>,
+    tasksByDate: ImmutableMap<LocalDate, ImmutableList<CalendarTaskUi>>,
     selectedTaskId: String?,
     onTaskClick: (CalendarTaskUi) -> Unit,
     palette: CalendarPalette,
