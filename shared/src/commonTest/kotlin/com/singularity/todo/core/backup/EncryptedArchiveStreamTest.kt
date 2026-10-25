@@ -2,6 +2,7 @@ package com.singularity.todo.core.backup
 
 import com.singularity.todo.core.files.ByteArraySink
 import com.singularity.todo.core.files.ByteArraySource
+import com.singularity.todo.core.files.ByteSource
 import com.singularity.todo.core.security.FakeArchiveCrypto
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -92,6 +93,49 @@ class EncryptedArchiveStreamTest {
     fun `the streaming path refuses an empty password`() {
         assertFailsWith<BackupError.MissingPassword> {
             archive.seal(ByteArraySource("the-archive-bytes".encodeToByteArray()), ByteArraySink(), CharArray(0))
+        }
+    }
+
+    /**
+     * A source that breaks is not a wrong password.
+     *
+     * The header is served and then the disk falls over — the shape of a file that
+     * cannot be read to the end. The person who is told "wrong password" will
+     * retype it, and it was never the password.
+     */
+    @Test
+    fun `a source that breaks is not reported as a wrong password`() {
+        val sealed = ByteArraySink()
+        archive.seal(ByteArraySource("the-archive-bytes".encodeToByteArray()), sealed, password)
+
+        val error = assertFailsWith<BackupError.Unreadable> {
+            archive.open(brokenAfterHeader(sealed.bytes()), ByteArraySink(), password)
+        }
+        assertTrue(
+            error.message?.contains("read") == true,
+            "the message must name the reading, not the password: ${error.message}",
+        )
+    }
+
+    /**
+     * A source that serves the header and then fails.
+     *
+     * The header is read before the cipher is asked for anything, so the failure
+     * has to happen after it — otherwise this would be a container that is too
+     * short, which is a different sentence entirely.
+     */
+    private fun brokenAfterHeader(container: ByteArray): ByteSource {
+        var served = false
+        return object : ByteSource {
+            override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+                if (served) throw IllegalStateException("the disk fell over")
+                served = true
+                val count = minOf(length, container.size)
+                container.copyInto(buffer, offset, 0, count)
+                return count
+            }
+
+            override fun close() = Unit
         }
     }
 }

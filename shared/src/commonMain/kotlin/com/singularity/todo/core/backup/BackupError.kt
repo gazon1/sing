@@ -51,6 +51,15 @@ sealed class BackupError(message: String, cause: Throwable? = null) : Exception(
         BackupError("The archive's version is $version, and this build reads $currentVersion")
 
     /**
+     * The archive could not be read at all.
+     *
+     * Not a wrong password: the bytes never made it to the cipher. A file that is
+     * not there, a disk that is full, a device that fell over mid-read. The person
+     * can act on this one — the archive is damaged, not their password.
+     */
+    class Unreadable(cause: Throwable? = null) : BackupError("The archive could not be read", cause)
+
+    /**
      * The archive cannot be encrypted without a password.
      *
      * An archive without a password is the archive this feature exists to stop

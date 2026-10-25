@@ -62,7 +62,10 @@ internal object SupabaseTransportFailure {
      */
     fun facts(error: Throwable): TransportFacts = TransportFacts(
         statusCode = (error as? RestException)?.statusCode,
-        serverCode = (error as? PostgrestRestException)?.code,
+        // PostgREST has its own code and the rest of the SDK carries the server's
+        // own error string — the same fallback the exception path uses, because a
+        // storage or auth failure that loses its code is a failure nobody can act on.
+        serverCode = (error as? PostgrestRestException)?.code ?: (error as? RestException)?.error,
         detail = (error as? RestException)?.description ?: error.message,
     )
 

@@ -78,3 +78,20 @@ interface ArchiveCrypto {
      */
     fun open(source: ByteSource, sink: ByteSink, key: ByteArray, nonce: ByteArray, aad: ByteArray)
 }
+
+/**
+ * The cipher says the tag does not match.
+ *
+ * The platforms say it in their own types — `AEADBadTagException` on the JVM and on
+ * Android — and `commonMain` may not name those. So the port translates it into a
+ * failure of the project's own vocabulary, and the layer above can tell the two
+ * things apart that used to arrive as one:
+ *
+ * - the password does not open the archive (this one);
+ * - the archive could not be read at all — no space on the disk, a file that is not
+ *   there, a device that fell over mid-read.
+ *
+ * Reporting the second as "wrong password" sends a person to retype a password that
+ * was never the problem.
+ */
+class ArchiveTagMismatchException(cause: Throwable? = null) : Exception(cause)

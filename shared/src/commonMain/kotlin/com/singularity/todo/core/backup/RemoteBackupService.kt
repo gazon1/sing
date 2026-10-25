@@ -5,9 +5,11 @@ import com.singularity.todo.core.error.TransportException
 import com.singularity.todo.core.error.TransportFailure
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.error.transportError
+import com.singularity.todo.core.files.ByteSink
 import com.singularity.todo.core.files.ByteSource
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.ids.UserId
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 
@@ -184,7 +186,7 @@ class RemoteBackupServiceImpl(
                         sink.close()
                     }
                     val source = fs.openRead(sealed)
-                    val target = fs.openWrite(plain)
+                    val target = openTarget(source, plain)
                     try {
                         archive.open(source, target, password)
                     } finally {
@@ -214,13 +216,35 @@ class RemoteBackupServiceImpl(
      */
     private suspend fun sealInto(localPath: String, sealedPath: String, password: CharArray) {
         val source = openArchive(localPath)
-        val sink = fs.openWrite(sealedPath)
+        val sink = openTarget(source, sealedPath)
         try {
             archive.seal(source, sink, password)
         } finally {
             sink.close()
             source.close()
         }
+    }
+
+    /**
+     * The file to write into, opened for [source].
+     *
+     * The source is opened first, so opening the sink can fail — and a source that
+     * was opened and never closed is a file nobody can delete. So the sink opens
+     * with the source in hand, and the source is closed if it does not.
+     */
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun openTarget(source: ByteSource, path: String): ByteSink {
+        val target = try {
+            fs.openWrite(path)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Throwable) {
+            // The sink did not open, so there is nothing to hand back — and a source
+            // that was opened and never closed is a file nobody can delete.
+            source.close()
+            throw error
+        }
+        return target
     }
 
     /**
@@ -259,7 +283,7 @@ class RemoteBackupServiceImpl(
     /** One file copied over another, in pieces. */
     private suspend fun copy(fromPath: String, toPath: String) {
         val source = fs.openRead(fromPath)
-        val sink = fs.openWrite(toPath)
+        val sink = openTarget(source, toPath)
         try {
             val buffer = ByteArray(COPY_CHUNK_BYTES)
             while (true) {

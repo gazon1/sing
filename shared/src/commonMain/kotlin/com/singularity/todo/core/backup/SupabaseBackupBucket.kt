@@ -11,6 +11,7 @@ import io.ktor.utils.io.ByteChannel
 import io.ktor.utils.io.close
 import io.ktor.utils.io.readAvailable
 import io.ktor.utils.io.writeFully
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.jsonPrimitive
@@ -140,6 +141,11 @@ class SupabaseBackupBucket(private val clientProvider: SupabaseClientProvider) :
     @Suppress("TooGenericExceptionCaught")
     private suspend fun <T> translating(what: String, block: suspend () -> T): T = try {
         block()
+    } catch (error: CancellationException) {
+        // The push was cancelled — by the person, or by the screen that went away.
+        // That is not a failure of the bucket, and it must not be reported as one:
+        // "the archive could not be uploaded" is a sentence about the archive.
+        throw error
     } catch (error: TransportException) {
         throw error
     } catch (error: RemoteBackupException) {

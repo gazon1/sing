@@ -3,6 +3,7 @@ package com.singularity.todo.core.security
 import com.singularity.todo.core.files.ByteSink
 import com.singularity.todo.core.files.ByteSource
 import java.security.SecureRandom
+import javax.crypto.AEADBadTagException
 import javax.crypto.Cipher
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.GCMParameterSpec
@@ -63,7 +64,13 @@ class AndroidArchiveCrypto : ArchiveCrypto {
             GCMParameterSpec(ArchiveCryptoParams.TAG_BITS, nonce),
         )
         cipher.updateAAD(aad)
-        return cipher.doFinal(ciphertext)
+        return try {
+            cipher.doFinal(ciphertext)
+        } catch (error: AEADBadTagException) {
+            // The tag does not match: the password is wrong, or the bytes were
+            // tampered with. The project's own failure says which word to use.
+            throw ArchiveTagMismatchException(error)
+        }
     }
 
     override fun seal(source: ByteSource, sink: ByteSink, key: ByteArray, nonce: ByteArray, aad: ByteArray) {
@@ -88,7 +95,11 @@ class AndroidArchiveCrypto : ArchiveCrypto {
         }
         // The tag is checked here, at the end — which is why the sink may already
         // hold bytes when the password was wrong.
-        write(sink, cipher.doFinal())
+        try {
+            write(sink, cipher.doFinal())
+        } catch (error: AEADBadTagException) {
+            throw ArchiveTagMismatchException(error)
+        }
     }
 
     private fun encrypting(key: ByteArray, nonce: ByteArray, aad: ByteArray): Cipher =

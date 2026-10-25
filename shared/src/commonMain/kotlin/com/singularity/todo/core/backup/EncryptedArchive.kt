@@ -7,6 +7,7 @@ import com.singularity.todo.core.files.ByteSource
 import com.singularity.todo.core.files.readExactly
 import com.singularity.todo.core.security.ArchiveCrypto
 import com.singularity.todo.core.security.ArchiveCryptoParams
+import com.singularity.todo.core.security.ArchiveTagMismatchException
 
 /**
  * The encrypted archive: what sits in the bucket, and what comes back out of it.
@@ -102,7 +103,7 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
      *   not the one this build reads.
      * @throws BackupError.WrongPassword when the password does not open it.
      */
-    @Suppress("TooGenericExceptionCaught")
+    @Suppress("TooGenericExceptionCaught", "ThrowsCount")
     fun open(container: ByteArray, password: CharArray): ByteArray {
         requirePassword(password)
         val source = ByteArraySource(container)
@@ -115,8 +116,14 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
             sink.bytes()
         } catch (error: BackupError) {
             throw error
-        } catch (error: Exception) {
+        } catch (error: ArchiveTagMismatchException) {
+            // The cipher says the tag does not match: the password is wrong.
             throw BackupError.WrongPassword(error)
+        } catch (error: Exception) {
+            // Anything else is not about the password: the bytes could not be read
+            // at all. Saying "wrong password" here sends the person to retype a
+            // password that was never the problem.
+            throw BackupError.Unreadable(error)
         } finally {
             key.fill(0)
         }
@@ -136,7 +143,7 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
      *   not the one this build reads.
      * @throws BackupError.WrongPassword when the password does not open it.
      */
-    @Suppress("TooGenericExceptionCaught")
+    @Suppress("TooGenericExceptionCaught", "ThrowsCount")
     fun open(source: ByteSource, sink: ByteSink, password: CharArray) {
         requirePassword(password)
         val header = readHeader(source)
@@ -146,8 +153,14 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
             crypto.open(source, sink, key, parts.nonce, header)
         } catch (error: BackupError) {
             throw error
-        } catch (error: Exception) {
+        } catch (error: ArchiveTagMismatchException) {
+            // The cipher says the tag does not match: the password is wrong.
             throw BackupError.WrongPassword(error)
+        } catch (error: Exception) {
+            // Anything else is not about the password: the bytes could not be read
+            // at all. Saying "wrong password" here sends the person to retype a
+            // password that was never the problem.
+            throw BackupError.Unreadable(error)
         } finally {
             key.fill(0)
         }

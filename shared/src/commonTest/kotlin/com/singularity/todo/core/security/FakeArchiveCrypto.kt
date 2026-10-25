@@ -59,7 +59,7 @@ internal class FakeArchiveCrypto : ArchiveCrypto {
         if (ciphertext.size < TAG_BYTES) throw IllegalStateException("the ciphertext is too short to be sealed")
         val body = ciphertext.copyOfRange(0, ciphertext.size - TAG_BYTES)
         val tag = ciphertext.copyOfRange(ciphertext.size - TAG_BYTES, ciphertext.size)
-        if (!tag.contentEquals(tag(key, nonce, aad))) throw IllegalStateException("the tag does not match")
+        if (!tag.contentEquals(tag(key, nonce, aad))) throw ArchiveTagMismatchException()
         return xor(body, key)
     }
 
