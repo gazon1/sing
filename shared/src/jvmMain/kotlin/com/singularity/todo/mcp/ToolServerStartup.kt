@@ -197,6 +197,31 @@ private fun resolveServerDependencies(fixedProfileId: String?): ServerDependenci
 }
 
 /**
+ * The refusal a profile id nobody owns earns, or null when the id may be served.
+ *
+ * A profile that does not exist is not a profile the server may serve: the tools
+ * would write under an id nobody owns, and the user would find their tasks missing
+ * rather than told. Never a fallback.
+ *
+ * The decision is a value rather than an exit, so that it can be checked without a
+ * process, a database and a container — and the lookup is a parameter, so that the
+ * check does not have to be the one that opens the database.
+ */
+internal suspend fun refusalForUnknownProfile(
+    fixedProfileId: String?,
+    profileExists: suspend (String) -> Boolean,
+): ToolServerStartup.Refused? =
+    if (fixedProfileId != null && !profileExists(fixedProfileId)) {
+        ToolServerStartup.Refused(
+            code = -32002,
+            message = "No profile with that id exists.",
+            exitCode = EXIT_USAGE,
+        )
+    } else {
+        null
+    }
+
+/**
  * Checks the two things that decide whether this server may serve at all: the
  * database opens, and the profile the caller named exists.
  *
@@ -214,16 +239,10 @@ private suspend fun verifyTheServerMayServe(
             exitCode = EXIT_STARTUP,
         )
     }
-    // A profile that does not exist is not a profile the server may serve: the tools
-    // would write under an id nobody owns, and the user would find their tasks
-    // missing rather than told. Never a fallback.
-    if (fixedProfileId != null && !profileExists(dependencies, fixedProfileId)) {
+    val refusal = refusalForUnknownProfile(fixedProfileId) { id -> profileExists(dependencies, id) }
+    if (refusal != null) {
         log.e { "No profile with id $fixedProfileId" }
-        return ToolServerStartup.Refused(
-            code = -32002,
-            message = "No profile with that id exists.",
-            exitCode = EXIT_USAGE,
-        )
+        return refusal
     }
     return null
 }
@@ -313,6 +332,25 @@ private suspend fun verifyDatabase(dependencies: ServerDependencies): Boolean = 
 }
 
 /**
+ * The profile the legacy label activates, or null when the label activates none.
+ *
+ * The label is a name whose value only one label ever had. `ai-agent` — and its
+ * spelling `agent` — activates the "AI Agent" profile; `default` and `personal`
+ * leave the stored one alone; every other label is ignored, exactly as it was
+ * before this change, because a manifest in the wild passes it and a silently
+ * reinterpreted label serves the wrong profile.
+ *
+ * The mapping is a value rather than a branch inside the bootstrap, so that the
+ * legacy meaning can be checked without a database, a container and a process.
+ */
+internal fun profileNameToActivate(legacyLabel: String?): String? = when (legacyLabel?.lowercase()) {
+    "ai-agent", "agent" -> "AI Agent"
+
+    // "default", "personal", and every label nobody knows: the stored profile stays.
+    else -> null
+}
+
+/**
  * Seeds default profiles (Personal + AI Agent) and switches the active profile
  * to one matching the host's `--profile=NAME` argument, when reasonable.
  *
@@ -333,11 +371,7 @@ private suspend fun verifyDatabase(dependencies: ServerDependencies): Boolean = 
 private suspend fun bootstrapProfiles(dependencies: ServerDependencies, profileCliArg: String?) {
     try {
         val bootstrapper: ProfileBootstrapper = dependencies.profileBootstrapper
-        val activateName = when (profileCliArg?.lowercase()) {
-            "ai-agent", "agent" -> "AI Agent"
-            "default", "personal", null -> null
-            else -> null
-        }
+        val activateName = profileNameToActivate(profileCliArg)
 
         // The un-scoped local userId, read from the session BEFORE the switch.
         //
