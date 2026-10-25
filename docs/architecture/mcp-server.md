@@ -36,6 +36,26 @@ shared/src/jvmMain/kotlin/com/singularity/todo/mcp/          ← the server
     errors/, schema/         the error model and the schema builders
 ```
 
+The start-up is in the same package, one file per concern:
+
+```
+shared/src/jvmMain/kotlin/com/singularity/todo/mcp/
+    ToolServerStartup.kt        what the start-up decided — Ready or Refused
+    ToolServerStartupOrder.kt   the steps, in the order they run
+    ToolServerStartupStep.kt    what a step is
+    ToolServerStartupContext.kt what the steps share
+    ToolServerStartupLog.kt     the one logger the start-up uses
+    ToolConfiguration.kt        the flags that decide the exposed toolbox
+    SessionContextHolder.kt     who is connected, and in which session
+```
+
+and the ten steps of the start-up, one file each:
+`RefuseAnAmbiguousRequest.kt`, `WarnAboutADeprecatedArgument.kt`,
+`BuildTheGraph.kt`, `ResolveTheDependencies.kt`, `VerifyTheDatabase.kt`,
+`RefuseAnUnknownProfile.kt`, `BootstrapTheProfiles.kt`,
+`ReadTheConfiguration.kt`, `BuildTheServer.kt` and
+`InstallTheShutdownHook.kt`.
+
 The reason is the delivery mechanism, described below: the desktop application hands an
 external agent its tool access by running **the same server** in the application's own
 `--mcp-server` mode, and two servers would be two toolsets that drift.
@@ -142,6 +162,14 @@ were; only the shape changed. A refusal is now a value the start-up returns and 
 entry point writes, rather than an `exitProcess` call buried in a sequence — and the
 client sees the same error frame either way, because the old code wrote that frame
 before it exited.
+
+**The order is written down now, not implied by the sequence of statements.**
+`ToolServerStartupOrder` holds the ten steps of the start-up as a list, each step is a
+type in a file of its own, and the runner walks the list — so the order can be read,
+and pinned by a test, without reading a single body. The entry point's own steps —
+reserve the channel, parse the arguments — and its last one, serve, are not the
+start-up's, so they are not in that list. See ADR
+`2026-10-25-the-start-up-steps-are-types`.
 
 **Critical details:**
 - **`session.onClose + Job.join()` is mandatory.** The SDK does not block on its own — this is the canonical pattern from the upstream `samples/weather-stdio-server/.../McpWeatherServer.kt:55-62`. See ADR `2026-09-07-mcp-stdio-blocking-lifecycle` for the full rationale and regression test.
