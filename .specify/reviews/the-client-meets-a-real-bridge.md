@@ -173,6 +173,27 @@ they are closed too — the sixth round checked the closures and found them corr
   "every frame the protocol's reader had taken by the time the drain ended". The
   records now say what the code guarantees.
 
+**Round 7 — the spawn fix and the handle it asks for.** The seventh round looked at
+the two commits the CI's finding produced: the move of the spawn into `core/process`, and
+the handle the probe asks for afterwards. It found no blocking finding, and five
+observations that change nothing:
+
+- the reason a report carries is the exception's message, and the exception's class name
+  when it has none. The only way for it to be empty is a failure that is not a failure,
+  which cannot happen: a spawn that succeeded holds a process, and a spawn that failed
+  holds the failure;
+- the child's diagnostics are now drained line by line and printed, rather than written
+  straight to the parent's standard error. They still arrive, and they are no longer
+  strictly ordered against the standard output;
+- the commit message of the spawn fix says the probe "wraps the child's output in a tee
+  afterwards", and the tee itself is older than that commit. The message describes the
+  arrangement the commit leaves, which is the arrangement it leaves;
+- the probe's `run` is seventy of the eighty lines the linter allows. A third change in
+  that function would approach the limit;
+- and the claim that the fix was "checked by the gate that found it, by the ACP tests, by
+  detekt, and by the probe against the real bridge" cannot be read out of the tree — it
+  is a claim about what was run, and what was run is not in the tree.
+
 ## How the fixes were checked
 
 - The probe was run against the real bridge — `@agentclientprotocol/claude-agent-acp`
