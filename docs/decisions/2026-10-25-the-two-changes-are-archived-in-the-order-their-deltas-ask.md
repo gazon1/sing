@@ -74,14 +74,15 @@ not a preference — it is the only order in which both archives can happen.
 
 ## Consequences
 
-- The two changes are archived, and the specifications they wrote are published.
+- This change archives the two changes, and the specifications they wrote are published.
 - The data-safety change's verdict is re-issued as a `pass`, and the file says which
   change closed the finding and which commit the closing work landed in.
 - Four scenarios that the data-safety change's own spec deltas named had no test that
   would fail if the code broke. They have one now — and that work is part of this
   change, not part of the archive.
-- The archive moves the change directories and republishes the issue records, so the
-  records under `.specify/issues/` point at the archived paths.
+- The archive moves the change directories. The issue records keep the path the change
+  had when it was filed: an archived change is filed away, and the record of it is the
+  record of what it was (ADR `2026-10-22-a-change-is-registered-or-it-is-not-a-change`).
 - A change that another change finishes is not archived alone: the archive says which
   change finished it, so the two records can be read together.
 

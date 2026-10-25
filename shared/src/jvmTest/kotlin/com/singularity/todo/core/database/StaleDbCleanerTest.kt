@@ -153,6 +153,17 @@ class StaleDbCleanerTest {
             assertFalse(deleted, "A database another process is holding is not proof of anything")
             assertContentEquals(before, bytesOf(path), "And not a byte of it changed")
 
+            // The startup records what it saw, and what it saw was a database it could
+            // not read. The wording of the driver's complaint is the driver's, so the
+            // assertion is about the two words it uses for a busy database.
+            val outcome = probe(path)
+            assertIs<ProbeOutcome.Uncertain>(outcome, "The probe was uncertain")
+            assertTrue(
+                outcome.reason.contains("lock", ignoreCase = true) ||
+                    outcome.reason.contains("busy", ignoreCase = true),
+                "And it recorded that the database was busy: ${outcome.reason}",
+            )
+
             connection.execSQL("COMMIT")
         }
 

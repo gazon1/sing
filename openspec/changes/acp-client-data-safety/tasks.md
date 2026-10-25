@@ -34,7 +34,7 @@ Module prefixes: `shared/`, `desktopApp/`.
 
 ## 5. Verification
 
-- [x] Run the probe tests, the argument tests, the error tests and the classification checks. `./gw :shared:jvmTest -Ptest.population=full` — the plain command leaves the probe test out, because it is tagged `slow`.
+- [x] Run the probe tests, the argument tests, the error tests and the classification checks. `./gw :shared:jvmTest :desktopApp:test -Ptest.population=full` — the plain command leaves the probe test out, because it is tagged `slow`, and the classification checks live in the desktop app's own test task.
 - [x] Run the linter over the changed modules. `./gw :shared:detekt :desktopApp:detekt :mcp-server:detekt :androidApp:detekt`
 
 ## 6. What the review left open, and what closed it
