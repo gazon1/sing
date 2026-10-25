@@ -3,8 +3,16 @@
 from __future__ import annotations
 
 import re
+import sys
 import unittest
 from pathlib import Path
+
+
+# This script must resolve `sgate` against *this* checkout: an editable
+# install of a sibling worktree is a different tree under the same name.
+_SCRIPTS_SRC = str(Path(__file__).resolve().parent.parent / "src")
+if _SCRIPTS_SRC not in sys.path:
+    sys.path.insert(0, _SCRIPTS_SRC)
 
 import sgate.gates
 

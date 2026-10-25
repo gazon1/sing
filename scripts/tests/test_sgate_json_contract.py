@@ -19,10 +19,18 @@ import contextlib
 import io
 import json
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
+
+
+# This script must resolve `sgate` against *this* checkout: an editable
+# install of a sibling worktree is a different tree under the same name.
+_SCRIPTS_SRC = str(Path(__file__).resolve().parent.parent / "src")
+if _SCRIPTS_SRC not in sys.path:
+    sys.path.insert(0, _SCRIPTS_SRC)
 
 import sgate.repo
 from sgate.commands import base

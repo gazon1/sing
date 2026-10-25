@@ -15,7 +15,15 @@ tests pin what the rendering must satisfy:
 """
 
 import pathlib
+import sys
 import unittest
+
+
+# This script must resolve `sgate` against *this* checkout: an editable
+# install of a sibling worktree is a different tree under the same name.
+_SCRIPTS_SRC = str(pathlib.Path(__file__).resolve().parent.parent / "src")
+if _SCRIPTS_SRC not in sys.path:
+    sys.path.insert(0, _SCRIPTS_SRC)
 
 from sgate.commands._registry import GATES
 from sgate.commands.render_static_gates import BEGIN_MARKER, END_MARKER
