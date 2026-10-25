@@ -29,6 +29,9 @@ import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import kotlinx.coroutines.launch
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.datetime.Instant
 
@@ -53,7 +56,7 @@ data class CalendarSyncUiState(
     val isLoading: Boolean = false,
     val hasPermission: Boolean = false,
     /** List of installed calendar apps for the picker. */
-    val availableApps: List<CalendarAppInfo> = emptyList(),
+    val availableApps: ImmutableList<CalendarAppInfo> = persistentListOf(),
     /** Currently selected calendar app package (null = system default). */
     val selectedAppPackage: String? = null,
     /** Whether a Google account is connected for this profile. */
@@ -472,7 +475,7 @@ class CalendarSyncViewModel(
             it.copy(
                 provider = provider,
                 availableCalendars = emptyMap(),
-                availableApps = emptyList(),
+                availableApps = persistentListOf(),
                 googleCalendars = emptyList(),
                 googleError = null,
             )
@@ -759,7 +762,7 @@ class CalendarSyncViewModel(
                     updateState {
                         it.copy(
                             availableCalendars = calendars,
-                            availableApps = apps,
+                            availableApps = apps.toImmutableList(),
                             isLoading = false,
                         )
                     }
@@ -777,7 +780,7 @@ class CalendarSyncViewModel(
                     // already covers the permission case with a dialog to fix it.
                     updateState {
                         it.copy(
-                            availableApps = apps,
+                            availableApps = apps.toImmutableList(),
                             isLoading = false,
                         )
                     }

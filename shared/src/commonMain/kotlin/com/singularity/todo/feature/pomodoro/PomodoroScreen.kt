@@ -44,6 +44,8 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlin.time.Instant
 
 @Composable
@@ -128,7 +130,7 @@ private fun phaseColorOf(phase: PomodoroPhase): Color = when (phase) {
 
 @Composable
 private fun TaskChipRow(
-    tasks: List<com.singularity.todo.feature.tasks.domain.model.Task>,
+    tasks: ImmutableList<com.singularity.todo.feature.tasks.domain.model.Task>,
     selectedTaskId: String?,
     isSupported: Boolean,
     onTaskSelected: (String) -> Unit,
@@ -283,7 +285,7 @@ private fun PomodoroControls(
 @Composable
 private fun PomodoroContentPreview(
     pomodoroState: PomodoroState,
-    tasks: List<com.singularity.todo.feature.tasks.domain.model.Task> = emptyList(),
+    tasks: ImmutableList<com.singularity.todo.feature.tasks.domain.model.Task> = persistentListOf(),
 ) {
     val phaseColor = phaseColorOf(pomodoroState.phase)
     val defaultConfig = PomodoroConfig()
@@ -362,7 +364,7 @@ private fun PomodoroScreenWorkPreview() = PreviewThemed(darkTheme = false, useSu
             isRunning = true,
             taskId = "t1",
         ),
-        tasks = listOf(
+        tasks = persistentListOf(
             com.singularity.todo.feature.tasks.domain.model.Task(
                 id = TaskId("t1"),
                 title = "Write documentation",
@@ -391,6 +393,6 @@ private fun PomodoroScreenBreakPreview() = PreviewThemed(darkTheme = false, useS
             completedCycles = 1,
             isRunning = false,
         ),
-        tasks = emptyList(),
+        tasks = persistentListOf(),
     )
 }

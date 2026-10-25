@@ -58,6 +58,7 @@ import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewProfileRepository
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.theme.ProfileIdentityColors
+import kotlinx.collections.immutable.ImmutableList
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -132,7 +133,7 @@ private fun ProfileSwitcherContent(
 
 @Composable
 private fun ProfileListContent(
-    profiles: List<Profile>,
+    profiles: ImmutableList<Profile>,
     activeProfileId: ProfileId,
     modifier: Modifier = Modifier,
     onSelect: (ProfileId) -> Unit,

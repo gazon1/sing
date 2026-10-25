@@ -38,12 +38,14 @@ import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChecklistEditorSheet(
     taskId: TaskId?,
-    items: List<ChecklistItem>,
+    items: ImmutableList<ChecklistItem>,
     onAdd: (String) -> Unit,
     onToggle: (ChecklistItemId) -> Unit,
     onDelete: (ChecklistItemId) -> Unit,
@@ -167,7 +169,7 @@ private fun ChecklistItemRow(
 private fun ChecklistEditorSheetEmptyPreview() = PreviewThemed(darkTheme = false) {
     ChecklistEditorSheet(
         taskId = TaskId("t1"),
-        items = emptyList(),
+        items = persistentListOf(),
         onAdd = { },
         onToggle = { },
         onDelete = { },
@@ -180,7 +182,7 @@ private fun ChecklistEditorSheetEmptyPreview() = PreviewThemed(darkTheme = false
 private fun ChecklistEditorSheetWithItemsPreview() = PreviewThemed(darkTheme = false) {
     ChecklistEditorSheet(
         taskId = TaskId("t1"),
-        items = listOf(
+        items = persistentListOf(
             ChecklistItem(
                 id = ChecklistItemId.fromString("cli_1"),
                 taskId = "t1",

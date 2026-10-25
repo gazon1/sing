@@ -3,6 +3,9 @@ package com.singularity.todo.feature.pomodoro
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,13 +23,13 @@ import kotlinx.coroutines.launch
  */
 class AndroidPomodoroTaskListProvider(private val taskRepository: TaskRepository, private val scope: CoroutineScope) :
     PomodoroTaskListProvider {
-    private val _tasks = MutableStateFlow<List<Task>>(emptyList())
-    override fun tasks(): StateFlow<List<Task>> = _tasks
+    private val _tasks = MutableStateFlow<ImmutableList<Task>>(persistentListOf())
+    override fun tasks(): StateFlow<ImmutableList<Task>> = _tasks
 
     init {
         scope.launch {
             taskRepository.observeByFilter(TaskFilter.Inbox)
-                .collect { _tasks.value = it }
+                .collect { _tasks.value = it.toImmutableList() }
         }
     }
 }

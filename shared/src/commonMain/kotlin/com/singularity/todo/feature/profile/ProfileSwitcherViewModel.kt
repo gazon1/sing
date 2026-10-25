@@ -9,11 +9,14 @@ import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.profile.domain.port.ProfileRepository
 import kotlin.time.Clock
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 data class ProfileSwitcherUiState(
-    val profiles: List<Profile> = emptyList(),
+    val profiles: ImmutableList<Profile> = persistentListOf(),
     val activeProfileId: ProfileId = ProfileId.default,
     val isLoading: Boolean = true,
     /** Non-null when the last mutation failed. */
@@ -54,7 +57,7 @@ class ProfileSwitcherViewModel(
                 _errorMessage,
             ) { profiles, activeId, errorMsg ->
                 ProfileSwitcherUiState(
-                    profiles = profiles,
+                    profiles = profiles.toImmutableList(),
                     activeProfileId = activeId,
                     isLoading = false,
                     errorMessage = errorMsg,

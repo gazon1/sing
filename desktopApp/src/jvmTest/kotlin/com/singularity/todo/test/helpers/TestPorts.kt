@@ -26,6 +26,8 @@ import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlin.time.Duration
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -177,7 +179,7 @@ class InertReminderScheduler : ReminderScheduler {
 
 /** Empty focus-task list; the flow suite seeds tasks through the database instead. */
 class EmptyPomodoroTaskListProvider : PomodoroTaskListProvider {
-    override fun tasks(): StateFlow<List<Task>> = MutableStateFlow(emptyList())
+    override fun tasks(): StateFlow<ImmutableList<Task>> = MutableStateFlow(persistentListOf())
 }
 
 /**
