@@ -47,7 +47,14 @@ private class JvmGoogleConsent(
     private val scope: CoroutineScope,
 ) : GoogleConsent {
 
-    override val isSupported: Boolean = true
+    /**
+     * Whether this machine can do the consent at all.
+     *
+     * A desktop without a browser — a headless machine, a container — cannot open
+     * Google's consent page, and the "Connect" button has to say so before the user
+     * presses it. The browser knows; this used to promise `true` and fail later.
+     */
+    override val isSupported: Boolean get() = browser.isAvailable()
 
     override fun authorize(
         clientId: String,

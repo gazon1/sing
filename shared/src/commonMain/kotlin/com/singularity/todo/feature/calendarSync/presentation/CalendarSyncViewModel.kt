@@ -59,6 +59,16 @@ data class CalendarSyncUiState(
     /** Whether a Google account is connected for this profile. */
     val googleConnected: Boolean = false,
     /**
+     * Whether the system calendar can be reached on this platform.
+     *
+     * The desktop has no calendar this app may write to, and the ports it gets there
+     * are no-ops — so the screen has to say "needs Android" instead of offering a
+     * switch that does nothing. The ports are the authority: each of them knows what
+     * it can do, and the panel needs all three — the one that writes, the one that
+     * stores the preference, and the one that lists the apps to write into.
+     */
+    val deviceSyncSupported: Boolean = true,
+    /**
      * The OAuth client id the Google sign-in will use, or null when none is configured.
      *
      * Shown so the user can see *which* project the app talks to. A client id is not a
@@ -119,6 +129,19 @@ data class CalendarSyncUiState(
      * at all until the account is connected. The failure would then be invisible.
      */
     val googleSignInError: String? = null,
+    /**
+     * Why the credential was not revoked, if it was not.
+     *
+     * "Disconnect" clears the credential on this device and asks the server to cancel the
+     * grant. The two can come apart: the device forgets the token, and the server keeps
+     * renewing it. The person is then disconnected *here* while a live grant sits on a
+     * server they cannot see — which is the promise the button did not keep.
+     *
+     * It belongs to the account section, like [googleSignInError]: that is the only
+     * section rendered while the account is not connected, and this failure only ever
+     * happens on the way to disconnected.
+     */
+    val googleDisconnectError: String? = null,
     /**
      * Whether a Google sync pass is running right now.
      *
@@ -346,7 +369,19 @@ class CalendarSyncViewModel(
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<CalendarSyncUiState, CalendarSyncIntent, Nothing>(
-        initialState = CalendarSyncUiState(importWindow = importWindow),
+        initialState = CalendarSyncUiState(
+            importWindow = importWindow,
+            // The panel needs four seams, and it is offered only when all four can
+            // do their job here. Each port answers for itself, so the answer does not
+            // depend on which one the screen happened to ask first: the provider that
+            // talks to the calendar, the repository that stores the preference, the
+            // queries that list the apps to write into, and the scheduler that runs
+            // the sync afterwards.
+            deviceSyncSupported = calendarProvider.isSupported &&
+                syncRepo.isSupported &&
+                appQueries.isSupported &&
+                scheduler.isSupported,
+        ),
         crashReporter = crashReporter,
         scope = scope,
     ) {
@@ -457,6 +492,12 @@ class CalendarSyncViewModel(
     private fun setGoogleConnected(connected: Boolean) {
         vmScope.launch {
             if (!connected) {
+                // The credential has to stop working, not only be forgotten here. The
+                // refresh token lives on the server — or in the device's keystore on the
+                // desktop — and it keeps working until somebody cancels it. The revoke
+                // goes *first*: a device that has already cleared its own copy cannot
+                // cancel what it handed out.
+                val revoked = googleAuthorization.revoke(currentUser.current.value)
                 credentialStore.clear(currentUser.current.value)
                 googleSettings.setSelectedCalendarId(null)
                 updateState {
@@ -466,11 +507,24 @@ class CalendarSyncViewModel(
                         googleCalendars = emptyList(),
                         selectedGoogleCalendarId = null,
                         googleError = null,
+                        // The device is disconnected either way — the person asked for
+                        // that, and the local credential is gone. What failed is the
+                        // server's half, and the user is the only one who can cancel it.
+                        googleDisconnectError = revoked.exceptionOrNull()?.let { error ->
+                            "The account was disconnected on this device, but the grant was not " +
+                                "revoked: ${error.message ?: error::class.simpleName}"
+                        },
                     )
                 }
                 return@launch
             }
-            updateState { it.copy(googleConnected = true, googleError = null) }
+            updateState {
+                it.copy(
+                    googleConnected = true,
+                    googleError = null,
+                    googleDisconnectError = null,
+                )
+            }
             refreshGoogleConnection()
         }
     }
@@ -680,15 +734,22 @@ class CalendarSyncViewModel(
             updateState { it.copy(isLoading = true) }
 
             // Load calendar apps and calendars in parallel
-            val apps = try {
-                appQueries.listInstalled()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                // Swallowed into an empty list, so the picker silently shows no apps and the
-                // only trace was a warn line nothing reads.
-                Logger.w(e) { "Failed to list installed calendar apps" }
-                crashReporter.report(e, LIST_APPS_FAILED)
+            val apps = if (appQueries.isSupported) {
+                try {
+                    appQueries.listInstalled()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // Swallowed into an empty list, so the picker silently shows no apps and the
+                    // only trace was a warn line nothing reads.
+                    Logger.w(e) { "Failed to list installed calendar apps" }
+                    crashReporter.report(e, LIST_APPS_FAILED)
+                    emptyList()
+                }
+            } else {
+                // The port says it cannot do its job here. Asking anyway would answer
+                // "you have no calendar apps" — an artifact of the platform, not a fact
+                // about the user.
                 emptyList()
             }
             val calendarsResult = calendarProvider.getAvailableCalendars()
@@ -705,11 +766,12 @@ class CalendarSyncViewModel(
                 }
                 .onFailure {
                     // Nothing is set to "unsupported" here, and deliberately: the platform
-                    // gate is `CalendarPermissionRequester.isSupported`, which the screen
-                    // reads and which knows the answer without making a call. Deciding it
-                    // from a call result means a transient failure — a revoked permission,
-                    // a sick content provider — reads as "this device cannot", and the one
-                    // panel that would have told the user apart is the one that goes dark.
+                    // gate is the conjunction of the seams' own `isSupported` flags,
+                    // which the screen reads and which know the answer without making a
+                    // call. Deciding it from a call result means a transient failure —
+                    // a revoked permission, a sick content provider — reads as "this
+                    // device cannot", and the one panel that would have told the user
+                    // apart is the one that goes dark.
                     //
                     // A failed read is not a capability verdict, and `hasPermissions`
                     // already covers the permission case with a dialog to fix it.

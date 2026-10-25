@@ -56,7 +56,25 @@ class SupabaseGoogleTokenGateway(
         body.readCredentials()
     }
 
+    override suspend fun revoke(): Result<Unit> = runCatchingCancellable {
+        val response = invoke(buildJsonObject { put("action", "revoke") })
+        // 404 is the server saying it holds no grant for this account: nothing to
+        // revoke, and the account is disconnected either way. It is not a failure.
+        if (response.status == HttpStatusCode.NotFound) return@runCatchingCancellable
+        if (response.status != HttpStatusCode.OK) {
+            throw GoogleAuthorizationException(
+                "The server refused to revoke the Google grant (HTTP ${response.status.value})",
+            )
+        }
+    }
+
     private suspend fun call(payload: JsonObject): JsonObject {
+        val response = invoke(payload)
+        val text: String = response.bodyAsText()
+        return json.parseToJsonElement(text).jsonObject
+    }
+
+    private suspend fun invoke(payload: JsonObject): HttpResponse {
         val client = clients.client() ?: throw GoogleAuthorizationException(
             "No cloud server is configured. Add your Supabase project in the Account settings first.",
         )
@@ -64,17 +82,10 @@ class SupabaseGoogleTokenGateway(
         // necessarily set up with a JSON content negotiator, and a body that cannot be
         // serialized fails at the *request*, where the message says nothing about which
         // of the two halves is wrong.
-        val response: HttpResponse = client.functions.invoke(FUNCTION_NAME) {
+        return client.functions.invoke(FUNCTION_NAME) {
             contentType(ContentType.Application.Json)
             setBody(json.encodeToString(JsonObject.serializer(), payload))
         }
-        if (response.status != HttpStatusCode.OK) {
-            throw GoogleAuthorizationException(
-                "The server refused the Google grant (HTTP ${response.status.value})",
-            )
-        }
-        val text: String = response.bodyAsText()
-        return json.parseToJsonElement(text).jsonObject
     }
 
     private fun JsonObject.readCredentials(): GoogleCredentials = readGoogleCredentials()

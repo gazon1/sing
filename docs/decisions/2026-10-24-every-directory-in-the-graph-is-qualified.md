@@ -3,7 +3,7 @@ title: "Every directory in the graph is qualified: Koin resolves a String by typ
 date: 2026-10-24
 status: accepted
 slug: every-directory-in-the-graph-is-qualified
-supersedes: backup-directory-via-koin-string
+supersedes: 2026-09-07-backup-directory-via-koin-string
 ---
 
 # Every directory in the graph is qualified: Koin resolves a String by type

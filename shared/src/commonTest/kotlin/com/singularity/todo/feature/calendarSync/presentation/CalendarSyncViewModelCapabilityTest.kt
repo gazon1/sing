@@ -33,22 +33,37 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 /**
  * What the system-calendar panel is allowed to claim, and what it is not.
  *
  * This file previously pinned the opposite: that a provider failure flips a
  * capability flag on the UI state. That flag was written in one place and read in
- * none — the screen takes its platform gate from `CalendarPermissionRequester.isSupported`,
- * which knows the answer without making a call, and takes the permission case from
- * `hasPermissions`, which can offer the dialog that fixes it. The state field, its
- * KDoc and three assertions survived a design that had already replaced them, and
- * they documented a signal that never reached a user.
+ * none — the screen takes its platform gate from the platform, not from a call, and
+ * takes the permission case from `hasPermissions`, which can offer the dialog that
+ * fixes it. The state field, its KDoc and three assertions survived a design that
+ * had already replaced them, and they documented a signal that never reached a user.
  *
  * So the assertion is now the narrower and more durable one: a provider failure is
  * not a capability verdict. A revoked permission or a sick content provider is a
  * transient read failure, and a control that disables itself on one is worse than
  * one that retries. The gate belongs where the platform is known.
+ *
+ * ## Where the gate comes from now
+ *
+ * The platform gate is the conjunction of the four seams' own `isSupported` flags
+ * — the provider that talks to the system calendar, the repository that stores the
+ * preference, the queries that list the apps to write into, and the scheduler that
+ * runs the sync afterwards. Each port is the authority on what *it* can do, and the
+ * panel needs all four; on the desktop all four say no. The gate used to be
+ * `CalendarPermissionRequester.isSupported`, which answered the same question about
+ * a different thing: whether this device may *ask* for the calendar permission.
+ * The two agree on every platform the app ships on, but only one of them is about
+ * the capability the panel is offering, and the no-op ports now say so themselves
+ * instead of answering every call with "not available". The permission requester's
+ * flag is gone rather than left unread: a capability flag with no reader is a
+ * promise nobody keeps.
  *
  * ## What is still open
  *
@@ -63,8 +78,8 @@ import kotlin.test.assertFalse
 @Tag("fast")
 class CalendarSyncViewModelCapabilityTest {
 
-    private class FakeSyncRepo(private val enabled: Boolean = false) : CalendarSyncRepository {
-        override fun observeEnabled(): Flow<Boolean> = flowOf(enabled)
+    private class FakeSyncRepo(override val isSupported: Boolean = true) : CalendarSyncRepository {
+        override fun observeEnabled(): Flow<Boolean> = flowOf(false)
         override suspend fun setEnabled(enabled: Boolean) = Unit
         override fun observeTargetCalendarId(): Flow<String?> = flowOf(null)
         override suspend fun setTargetCalendarId(calendarId: String) = Unit
@@ -77,7 +92,7 @@ class CalendarSyncViewModelCapabilityTest {
     }
 
     /** Mirrors `NoopCalendarProvider`: every call reports the platform cannot do this. */
-    private object UnsupportedProvider : CalendarProviderPort {
+    private class UnsupportedProvider(override val isSupported: Boolean = true) : CalendarProviderPort {
         override suspend fun getAvailableCalendars(): Result<Map<String, String>> =
             Result.failure(UnsupportedOperationException("Calendar sync is not available on this platform"))
 
@@ -94,7 +109,7 @@ class CalendarSyncViewModelCapabilityTest {
             Result.success(emptyMap())
     }
 
-    private object WorkingProvider : CalendarProviderPort {
+    private class WorkingProvider(override val isSupported: Boolean = true) : CalendarProviderPort {
         override suspend fun getAvailableCalendars(): Result<Map<String, String>> =
             Result.success(mapOf("work" to "Work"))
 
@@ -110,12 +125,12 @@ class CalendarSyncViewModelCapabilityTest {
             Result.success(emptyMap())
     }
 
-    private object FakeScheduler : CalendarSyncWorkScheduler {
+    private class FakeScheduler(override val isSupported: Boolean = true) : CalendarSyncWorkScheduler {
         override fun enqueueSync() = Unit
         override fun cancelSync() = Unit
     }
 
-    private object FakeAppQueries : CalendarAppQueries {
+    private class FakeAppQueries(override val isSupported: Boolean = true) : CalendarAppQueries {
         override suspend fun listInstalled(): List<CalendarAppInfo> = emptyList()
     }
 
@@ -165,15 +180,18 @@ class CalendarSyncViewModelCapabilityTest {
     private fun viewModel(
         provider: CalendarProviderPort,
         scope: kotlinx.coroutines.CoroutineScope,
+        supported: Boolean = true,
+        schedulerSupported: Boolean = true,
     ): Pair<CalendarSyncViewModel, AutoCloseableCoroutineScope> {
         val vmScope = testScope(scope)
+        val scheduler = FakeScheduler(schedulerSupported)
         return CalendarSyncViewModel(
-            syncRepo = FakeSyncRepo(),
+            syncRepo = FakeSyncRepo(isSupported = supported),
             calendarProvider = provider,
-            scheduler = FakeScheduler,
-            appQueries = FakeAppQueries,
+            scheduler = scheduler,
+            appQueries = FakeAppQueries(supported),
             orchestrator = CalendarSyncOrchestrator(
-                scheduler = FakeScheduler,
+                scheduler = scheduler,
                 scope = scope,
                 dirtyHashProvider = DirtyHashProvider(FakeTaskRepository(), FakeSyncRepo()),
                 crashReporter = NoOpCrashReportingPort(),
@@ -215,7 +233,7 @@ class CalendarSyncViewModelCapabilityTest {
      */
     @Test
     fun `a failing provider settles the load instead of claiming the platform is unsupported`() = runTest {
-        val (vm, vmScope) = viewModel(UnsupportedProvider, this)
+        val (vm, vmScope) = viewModel(UnsupportedProvider(), this)
         try {
             vm.onIntent(CalendarSyncIntent.LoadCalendars)
             // Await the outcome, not isLoading: it starts false, so a predicate on it
@@ -232,9 +250,69 @@ class CalendarSyncViewModelCapabilityTest {
         }
     }
 
+    /**
+     * The panel's gate is the conjunction of the four seams' flags.
+     *
+     * The provider alone is not enough: the panel also stores a preference, offers
+     * a picker and schedules the sync, so a platform where any one of the four
+     * cannot do its job must not be offered the panel. The desktop is exactly that
+     * platform — all four no-ops answer "no" — and the screen has to say so
+     * instead of showing a switch that does nothing.
+     */
+    @Test
+    fun `the panel's gate is the conjunction of the four seams`() = runTest {
+        val (supported, supportedScope) = viewModel(WorkingProvider(), this)
+        try {
+            assertTrue(
+                supported.stateFlow.value.deviceSyncSupported,
+                "a platform where all four seams can work must be offered the panel",
+            )
+        } finally {
+            supportedScope.close()
+        }
+
+        val (unsupported, unsupportedScope) = viewModel(
+            provider = UnsupportedProvider(isSupported = false),
+            scope = this,
+            supported = false,
+        )
+        try {
+            assertFalse(
+                unsupported.stateFlow.value.deviceSyncSupported,
+                "a platform where the seams cannot work must not be offered the panel",
+            )
+        } finally {
+            unsupportedScope.close()
+        }
+    }
+
+    /**
+     * A scheduler that cannot schedule closes the gate as well.
+     *
+     * The scheduler is the fourth seam: the panel offers a sync that runs later, so
+     * a platform that cannot schedule that run cannot deliver what the panel
+     * promises. Its flag is read for the same reason the other three are.
+     */
+    @Test
+    fun `a scheduler that cannot schedule closes the gate`() = runTest {
+        val (vm, vmScope) = viewModel(
+            provider = WorkingProvider(),
+            scope = this,
+            schedulerSupported = false,
+        )
+        try {
+            assertFalse(
+                vm.stateFlow.value.deviceSyncSupported,
+                "a platform that cannot schedule the sync must not be offered the panel",
+            )
+        } finally {
+            vmScope.close()
+        }
+    }
+
     @Test
     fun `a working provider leaves the calendars on the state`() = runTest {
-        val (vm, vmScope) = viewModel(WorkingProvider, this)
+        val (vm, vmScope) = viewModel(WorkingProvider(), this)
         try {
             vm.onIntent(CalendarSyncIntent.LoadCalendars)
             // Same reason: wait for the calendars to land, not for a flag that is

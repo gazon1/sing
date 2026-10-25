@@ -24,6 +24,8 @@ class OAuthConsentFlowTest {
     private class FakeBrowser(private val canOpen: Boolean = true) : OAuthBrowser {
         var openedUrl: String? = null
 
+        override fun isAvailable(): Boolean = canOpen
+
         override suspend fun open(url: String): Boolean {
             openedUrl = url
             return canOpen

@@ -9,6 +9,9 @@ import com.singularity.todo.feature.calendarSync.domain.port.CalendarProviderPor
  */
 class NoopCalendarProvider : CalendarProviderPort {
 
+    /** The desktop has no system calendar this app may write to. */
+    override val isSupported: Boolean = false
+
     override suspend fun getAvailableCalendars(): Result<Map<String, String>> =
         Result.failure(UnsupportedOperationException("Calendar sync is not available on this platform"))
 

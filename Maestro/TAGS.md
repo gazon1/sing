@@ -269,7 +269,9 @@ non-alphanumeric characters with `_`.
 | `BACKUP_CREATE_BUTTON` | `backup_create_button` | |
 | `BACKUP_EXPORT_SETTINGS` | `backup_export_settings` | |
 | `BACKUP_IMPORT_SETTINGS` | `backup_import_settings` | |
+| `BACKUP_LOAD_REMOTE_BUTTON` | `backup_load_remote_button` | |
 | `BACKUP_RESTORE_BUTTON` | `backup_restore_button` | |
+| `BACKUP_RESTORE_FROM_CLOUD_PREFIX` | `backup_restore_from_cloud_` | |
 | `BACKUP_TOP_BAR_BACK` | `backup_top_bar_back` | |
 
 ### Profile

@@ -9,6 +9,17 @@ package com.singularity.todo.feature.calendarSync.work
 interface CalendarSyncWorkScheduler {
 
     /**
+     * Whether this port can do its job on this platform.
+     *
+     * False means every call below is answered with "not available here", and the
+     * screen has to say so instead of offering a control that does nothing. The
+     * same reason [com.singularity.todo.feature.pomodoro.PomodoroTaskListProvider.isSupported]
+     * exists: an empty list is an artifact of the platform, not a fact about the
+     * user's calendar.
+     */
+    val isSupported: Boolean get() = true
+
+    /**
      * Enqueues a one-shot calendar sync job.
      * Uses `ExistingWorkPolicy.KEEP` — calling this while a job is already running
      * is idempotent; the running job completes naturally.

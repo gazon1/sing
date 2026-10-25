@@ -23,7 +23,7 @@ import kotlin.test.assertTrue
  * The boundary is drawn at **six files**, because the SDK is needed in exactly
  * six places: to own a client (`SupabaseClientProvider`), to speak auth
  * (`SupabaseAuthGateway`), to speak PostgREST (`PostgrestSyncRpc`), to speak
- * Storage (`SupabaseStorageRemoteBackupService`), to call an Edge Function
+ * Storage (`SupabaseBackupBucket`), to call an Edge Function
  * (`SupabaseGoogleTokenGateway`) and to tell its failures apart
  * (`SupabaseTransportFailure`). Everything else the SDK offers — the session
  * flow, the plugin surface, the user model — is reached through a project
@@ -33,11 +33,12 @@ import kotlin.test.assertTrue
  *
  * A seam is a file, not a package and not a class: one vendor-touching class per
  * file, named after the vendor role it plays. A file that holds both a project
- * interface and the vendor implementation of it (the way the backup port and its
- * Storage implementation started out) puts the vendor's types in a file that
- * other code reads for the interface alone, and the boundary stops being
- * readable. Splitting the file keeps the import list of every other file free of
- * the vendor, which is the thing this gate is for.
+ * interface and the vendor implementation of it puts the vendor's types in a file
+ * that other code reads for the interface alone, and the boundary stops being
+ * readable. The backup port and its Storage implementation started out that way
+ * and were split apart (`BackupBucket` from `SupabaseBackupBucket`), which keeps
+ * the import list of every other file free of the vendor, and is the thing this
+ * gate is for.
  *
  * ## Why this is a scan
  *
@@ -137,7 +138,7 @@ class VendorSdkConfinementTest {
             "auth/SupabaseClientProvider.kt",
             "auth/SupabaseAuthGateway.kt",
             "sync/PostgrestSyncRpc.kt",
-            "backup/SupabaseStorageRemoteBackupService.kt",
+            "backup/SupabaseBackupBucket.kt",
             "calendarSync/auth/SupabaseGoogleTokenGateway.kt",
             "transport/SupabaseTransportFailure.kt",
         )

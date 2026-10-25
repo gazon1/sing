@@ -20,6 +20,20 @@ import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.feature.timetracking.data.TimeEntryDao
 import kotlin.time.Clock
 
+/**
+ * Writes an archive.
+ *
+ * The repository's half of the contract with the exporter: it asks for an archive at a
+ * path and gets a result. The port exists so the repository can be tested without the
+ * exporter's twenty-odd database dependencies — a repository that cannot be tested is a
+ * repository whose decisions nobody checks.
+ */
+interface ArchiveExporter {
+
+    /** Writes the archive described by [options]. */
+    suspend fun export(options: ExportOptions): Result<BackupResult>
+}
+
 class BackupExporter(
     private val taskDao: TaskDao,
     private val noteDao: NoteDao,
@@ -39,10 +53,10 @@ class BackupExporter(
     private val codec: BackupCodec,
     private val clock: Clock,
     private val fs: FileSystem,
-) {
+) : ArchiveExporter {
     private val json = StableJson
 
-    suspend fun export(options: ExportOptions): Result<BackupResult> =
+    override suspend fun export(options: ExportOptions): Result<BackupResult> =
         runCatchingCancellable {
             val now = clock.now().toEpochMilliseconds()
 

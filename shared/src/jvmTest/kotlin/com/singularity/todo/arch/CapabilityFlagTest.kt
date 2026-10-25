@@ -171,15 +171,35 @@ class CapabilityFlagTest {
          * `JvmPomodoroTaskListProvider`: the JVM has no implementation to report on. The
          * port exists for the Android side; a constant `false` is the honest answer rather
          * than a missing one, and it is what lets the caller fall back instead of crash.
+         *
+         * The four calendar no-ops (`NoopCalendarProvider`, `NoopCalendarSyncRepositoryImpl`,
+         * `NoopCalendarSyncWorkScheduler`, `JvmCalendarAppQueries`): the desktop has no
+         * system calendar at all, and each of these classes is the JVM's answer to a port
+         * only Android implements. They hold no state and nothing about them can change
+         * while the app runs, so `false` is the complete answer rather than a stale one.
          */
         val SANCTIONED_CONSTANTS: Map<String, String> = mapOf(
             "AlarmManagerReminderScheduler.isSupported" to
                 "AlarmManager is always present on Android and setAlarmClock needs no " +
                 "permission; unlike setExactAndAllowWhileIdle there is no " +
                 "SCHEDULE_EXACT_ALARM gate to observe.",
+            "JvmCalendarAppQueries.isSupported" to
+                "There is no JVM implementation of the port: the desktop has no calendar " +
+                "apps to list, so false is the complete answer and cannot become stale.",
             "JvmPomodoroTaskListProvider.isSupported" to
                 "There is no JVM implementation of the port, so false is the complete " +
                 "answer and cannot become stale.",
+            "NoopCalendarProvider.isSupported" to
+                "The desktop has no system calendar this app may write to, and the class " +
+                "holds nothing whose support could change while the app runs.",
+            "NoopCalendarSyncRepositoryImpl.isSupported" to
+                "The class is the JVM's answer to a port only Android implements, and it " +
+                "holds no state: the desktop has nowhere to keep a sync preference, so " +
+                "false is the complete answer.",
+            "NoopCalendarSyncWorkScheduler.isSupported" to
+                "The scheduler enqueues background work, and the desktop has no " +
+                "background work to enqueue into; the class does nothing, so false is " +
+                "the complete answer.",
         )
     }
 }

@@ -3,7 +3,7 @@ title: "Google OAuth: KMPAuth for the sign-in, the server holds the refresh toke
 date: 2026-10-24
 status: accepted
 slug: google-oauth-kmpauth-signin-server-side-refresh
-supersedes: google-oauth-hybrid-kmpauth-plus-own-token-exchange
+supersedes: 2026-10-05-google-oauth-hybrid-kmpauth-plus-own-token-exchange
 ---
 
 # Google OAuth: KMPAuth for the sign-in, the server holds the refresh token

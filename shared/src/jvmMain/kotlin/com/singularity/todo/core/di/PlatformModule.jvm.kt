@@ -50,9 +50,11 @@ import com.singularity.todo.feature.calendarSync.data.JvmCalendarAppQueries
 import com.singularity.todo.feature.calendarSync.data.NoopCalendarProvider
 import com.singularity.todo.feature.calendarSync.auth.GoogleAccessTokenProvider
 import com.singularity.todo.feature.calendarSync.auth.GoogleGrantRedeemer
+import com.singularity.todo.feature.calendarSync.auth.GoogleGrantRevoker
 import com.singularity.todo.feature.calendarSync.auth.GoogleTokenClient
 import com.singularity.todo.feature.calendarSync.auth.LocalGoogleAccessTokenProvider
 import com.singularity.todo.feature.calendarSync.auth.LocalGoogleGrantRedeemer
+import com.singularity.todo.feature.calendarSync.auth.LocalGoogleGrantRevoker
 import com.singularity.todo.feature.calendarSync.data.NoopCalendarSyncRepositoryImpl
 import com.singularity.todo.feature.calendarSync.domain.port.CalendarProviderPort
 import com.singularity.todo.feature.calendarSync.domain.port.CalendarSyncRepository
@@ -347,6 +349,20 @@ actual fun platformModule(): Module = module {
             clientIdResolver = get(),
             secureStorage = get(),
             tokenClientFactory = { clientId -> GoogleTokenClient(httpClient = get(), clientId = clientId) },
+        )
+    }
+
+    // The revoke stays on the device: the refresh token is in the desktop's own
+    // keystore and Google's revoke endpoint needs no client secret, so there is
+    // nothing for a server to do here.
+    //
+    // The client is built without a client id on purpose: the revoke endpoint takes
+    // the token alone, and a person who removed the client id before pressing
+    // "Disconnect" must still be able to revoke what the app gave them.
+    single<GoogleGrantRevoker> {
+        LocalGoogleGrantRevoker(
+            credentialStore = get(),
+            tokenClientFactory = { GoogleTokenClient(httpClient = get()) },
         )
     }
 }

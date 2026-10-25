@@ -130,11 +130,20 @@ fun CalendarSyncSettingsScreen(modifier: Modifier = Modifier) {
         )
 
         if (state.provider == Google) {
-            GoogleCalendarPanel(state = state, onIntent = viewModel::onIntent)
+            GoogleCalendarPanel(
+                state = state,
+                onIntent = viewModel::onIntent,
+                // The consent is the platform's own answer to whether a grant can be
+                // asked for here, and the button that starts it reads it.
+                consentSupported = googleConsent.isSupported,
+            )
         } else {
             SystemCalendarPanel(
                 state = state,
-                isSupported = permissionRequester.isSupported,
+                // The port is the authority on whether the system calendar can be
+                // reached here; the permission requester answers a different
+                // question — whether this device may ask for the permission.
+                isSupported = state.deviceSyncSupported,
                 hasPermissions = permissionRequester.hasPermissions,
                 onRequestPermission = { permissionRequester.requestPermissions() },
                 onIntent = viewModel::onIntent,
@@ -370,14 +379,18 @@ private fun systemStatusText(status: CalendarSyncStatus): String = when (status)
  * unable to renew, connected with no calendar chosen, connected and waiting on the list.
  */
 @Composable
-private fun GoogleCalendarPanel(state: CalendarSyncUiState, onIntent: (CalendarSyncIntent) -> Unit) {
+private fun GoogleCalendarPanel(
+    state: CalendarSyncUiState,
+    onIntent: (CalendarSyncIntent) -> Unit,
+    consentSupported: Boolean,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         // The client id comes first because the sign-in needs it: a user who presses
         // "Connect" without one gets an error from Google's own page, which names
         // neither the setting nor where it belongs.
         GoogleClientIdSection(state = state, onIntent = onIntent)
 
-        GoogleAccountSection(state = state, onIntent = onIntent)
+        GoogleAccountSection(state = state, onIntent = onIntent, consentSupported = consentSupported)
 
         if (state.googleConnected) {
             GoogleCalendarPickerSection(state = state, onIntent = onIntent)
@@ -449,9 +462,17 @@ private fun GoogleClientIdSection(state: CalendarSyncUiState, onIntent: (Calenda
  *
  * The two states are one section because they are one account: a user looking for how to
  * reconnect should not have to first work out that the screen considers them connected.
+ *
+ * @param consentSupported whether this platform can ask for a Google grant at all. The
+ *   answer belongs to the platform's consent, and the button reads it: a "Connect"
+ *   that cannot work is disabled with a reason, not left to fail after the press.
  */
 @Composable
-private fun GoogleAccountSection(state: CalendarSyncUiState, onIntent: (CalendarSyncIntent) -> Unit) {
+private fun GoogleAccountSection(
+    state: CalendarSyncUiState,
+    onIntent: (CalendarSyncIntent) -> Unit,
+    consentSupported: Boolean,
+) {
     SettingsSection(title = "Google Account") {
         if (!state.googleConnected) {
             Text(
@@ -472,6 +493,18 @@ private fun GoogleAccountSection(state: CalendarSyncUiState, onIntent: (Calendar
                     modifier = Modifier.padding(bottom = 8.dp),
                 )
             }
+            // The disconnect's own failure. It belongs here for the same reason the
+            // sign-in's does: this is the only section rendered while the account is
+            // not connected, and a failure written into the calendar-picker error
+            // would never be seen.
+            state.googleDisconnectError?.let { reason ->
+                SelectableText(
+                    text = reason,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
             // Without a client id there is nothing to connect *to*. The button says so
             // rather than sending the user to Google's own error page, which names
             // neither the setting nor where it belongs.
@@ -484,9 +517,21 @@ private fun GoogleAccountSection(state: CalendarSyncUiState, onIntent: (Calendar
                     modifier = Modifier.padding(bottom = 8.dp),
                 )
             }
+            // The platform's own answer to "can this device ask Google for permission
+            // at all". A desktop with no browser and a phone with no Play Services
+            // cannot, and the button says so before the press rather than after it.
+            if (!consentSupported) {
+                Text(
+                    text = "This device cannot run the Google sign-in, so an account cannot be " +
+                        "connected here.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
             Button(
                 onClick = { onIntent(ConnectGoogle) },
-                enabled = !state.googleAuthorizing && hasClientId,
+                enabled = !state.googleAuthorizing && hasClientId && consentSupported,
                 modifier = Modifier.testTag(TestTags.CalendarSync.GOOGLE_CONNECT_BUTTON),
             ) {
                 // The sign-in happens in the browser or in Google's own sheet, so the

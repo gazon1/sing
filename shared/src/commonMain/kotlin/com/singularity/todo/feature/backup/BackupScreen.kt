@@ -46,6 +46,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.backup.BackupId
 import com.singularity.todo.core.backup.BackupMetadata
+import com.singularity.todo.core.backup.RemoteBackup
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.TaggedSnackbarHost
 import com.singularity.todo.core.ui.components.ButtonSpinner
@@ -97,9 +98,25 @@ fun BackupScreen(
      * [jsonContent] is the raw content of the selected JSON file.
      */
     onImportSettings: (jsonContent: String) -> Unit,
+    /** Called when the user wants to see the archives that live in the cloud. */
+    onLoadRemoteBackups: () -> Unit,
+    /**
+     * Called when the user picks an archive in the cloud.
+     *
+     * [remoteRef] is the archive's path in the bucket — the repository downloads it
+     * into the app's own backup directory and imports it from there.
+     */
+    onRestoreFromCloud: (remoteRef: String) -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     var pendingSettingsJson by remember { mutableStateOf<String?>(null) }
+
+    // The archive the person is about to restore from the cloud, and the question
+    // that has to be asked before it is fetched: the import overwrites the rows it
+    // finds, so an archive from last month can undo this afternoon's work without
+    // ever asking. The local restore asks the same question, and the answer has to
+    // be the same one.
+    var pendingCloudRestore by remember { mutableStateOf<RemoteBackup?>(null) }
 
     // The screen owns the single collection of the event bus. The bus is a
     // channel, and a channel has one consumer: a second collector on `events`
@@ -264,7 +281,92 @@ fun BackupScreen(
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // The other half of the push. A backup that was uploaded and can never be
+            // fetched is a feature that stops at the button: the person has no way back
+            // to their own archive, and nothing on the screen says why.
+            Text(
+                "Cloud backups",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+
+            if (!state.remoteBackupsLoaded) {
+                OutlinedButton(
+                    onClick = onLoadRemoteBackups,
+                    modifier = Modifier.testTag(TestTags.BACKUP_LOAD_REMOTE_BUTTON),
+                    enabled = !state.isWorking,
+                ) {
+                    Text("Load cloud backups")
+                }
+            } else if (state.remoteBackups.isEmpty()) {
+                Text(
+                    "No archives in the cloud",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    state.remoteBackups.forEach { remote ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                SelectableText(
+                                    text = remote.name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                // The bucket knows when the archive was written and how
+                                // big it is, and a list of bare names makes the person
+                                // guess which archive they are looking at.
+                                remote.updatedAtEpochMillis?.let { written ->
+                                    Text(
+                                        text = formatDate(written),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                remote.sizeBytes?.let { size ->
+                                    Text(
+                                        text = formatFileSize(size),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                            OutlinedButton(
+                                onClick = { pendingCloudRestore = remote },
+                                modifier = Modifier.testTag(
+                                    TestTags.backupRestoreFromCloud(remote.ref),
+                                ),
+                                enabled = !state.isWorking,
+                            ) {
+                                Text("Restore")
+                            }
+                        }
+                    }
+                }
+            }
         }
+    }
+
+    pendingCloudRestore?.let { remote ->
+        BackupConfirmDialog(
+            title = "Restore from cloud",
+            text = "Restore will overwrite current data with the archive " +
+                "${remote.name}. Are you sure?",
+            confirmLabel = "Restore",
+            onConfirm = {
+                pendingCloudRestore = null
+                onRestoreFromCloud(remote.ref)
+            },
+            onDismiss = { pendingCloudRestore = null },
+        )
     }
 }
 

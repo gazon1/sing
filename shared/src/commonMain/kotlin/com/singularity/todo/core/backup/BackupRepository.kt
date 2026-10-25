@@ -60,11 +60,29 @@ interface BackupRepository {
         remoteRef: String,
         destPath: String,
     ): Result<Unit>
+
+    /**
+     * The archives that live in the cloud, for this profile.
+     *
+     * Push without a way back is half a feature: the person who uploaded an archive
+     * has no way to fetch it again, and the app never says why.
+     */
+    suspend fun listRemote(): Result<List<RemoteBackup>>
+
+    /**
+     * Restores an archive that lives in the cloud.
+     *
+     * The archive is downloaded into the backup directory and then imported. The
+     * repository owns that directory — a caller that named the destination could aim
+     * the download anywhere — and the two steps belong together: an archive that was
+     * downloaded and not imported is a file nobody asked for.
+     */
+    suspend fun restoreFromCloud(remoteRef: String): Result<RestoreResult>
 }
 
 class BackupRepositoryImpl(
-    private val exporter: BackupExporter,
-    private val importer: BackupImporter,
+    private val exporter: ArchiveExporter,
+    private val importer: ArchiveImporter,
     private val remoteService: RemoteBackupService,
     private val fs: FileSystem,
     private val backupDir: String,
@@ -136,6 +154,45 @@ class BackupRepositoryImpl(
         remoteRef: String,
         destPath: String,
     ): Result<Unit> = remoteService.download(remoteRef, destPath, currentUser.scopedUserId.value)
+
+    override suspend fun listRemote(): Result<List<RemoteBackup>> =
+        runCatchingCancellable {
+            remoteService.list(currentUser.scopedUserId.value).getOrThrow().map { stored ->
+                RemoteBackup(
+                    ref = stored.path,
+                    name = stored.path.substringAfterLast('/'),
+                    updatedAtEpochMillis = stored.updatedAtEpochMillis,
+                    sizeBytes = stored.sizeBytes,
+                )
+            }
+        }
+
+    @Suppress("TooGenericExceptionCaught")
+    override suspend fun restoreFromCloud(remoteRef: String): Result<RestoreResult> =
+        runCatchingCancellable {
+            // The name comes from the ref, and only the name: a ref is reduced to its
+            // last segment, so the download cannot aim outside the backup directory
+            // and cannot write a file under a name the bucket made up.
+            val fileName = remoteRef.substringAfterLast('/')
+            fs.ensureDir(backupDir)
+            val destPath = resolveBackupDestination(backupDir, fileName)
+            remoteService.download(remoteRef, destPath, currentUser.scopedUserId.value).getOrThrow()
+            try {
+                importer.import(
+                    ImportOptions(
+                        sourcePath = destPath,
+                        targetUserId = currentUser.scopedUserId.value,
+                    ),
+                ).getOrThrow()
+            } catch (error: Exception) {
+                // The archive was fetched and could not be read: a file nobody asked
+                // for, and it would sit in the list of the backups this person can
+                // restore from as if it were one of theirs. It goes away with the
+                // failure that brought it.
+                runCatchingCancellable { fs.delete(destPath) }
+                throw error
+            }
+        }
 }
 
 /**

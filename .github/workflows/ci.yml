@@ -371,6 +371,14 @@ jobs:
       - name: Set up gate tooling
         uses: ./.github/actions/setup-python-tools
 
+      # Deno, for the same reason the static job installs it: the liveness
+      # probe below runs EVERY registered gate once, and the Edge Function's own
+      # tests are one of them. A gate the probe cannot run is reported as
+      # unrunnable, and the probe fails on it — a gate that needs a tool the
+      # probing job does not have is a gate that never runs anywhere.
+      - name: Set up Deno
+        run: npm install -g deno@2.9.5
+
       # The gate scripts' own unit tests: the regression tests for the wiring
       # gate, the liveness probe and the controls.
       #

@@ -3,7 +3,6 @@ title: "The commit is checked on its own tree, and the working tree is held whil
 date: 2026-10-24
 status: accepted
 slug: the-commit-is-checked-on-its-own-tree
-supersedes: null
 ---
 
 # The commit is checked on its own tree, and the working tree is held while it is

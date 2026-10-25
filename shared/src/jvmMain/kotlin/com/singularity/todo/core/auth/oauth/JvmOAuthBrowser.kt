@@ -13,6 +13,18 @@ import java.net.URI
  */
 class JvmOAuthBrowser : OAuthBrowser {
 
+    /**
+     * Whether this machine has a browser to open.
+     *
+     * The answer is computed and it is guarded: `Desktop.getDesktop()` throws on a
+     * machine with no display, and a question that throws is not an answer. A
+     * headless host says no here, and the caller disables the button rather than
+     * failing after the user pressed it.
+     */
+    override fun isAvailable(): Boolean = runCatchingCancellable {
+        Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)
+    }.getOrDefault(false)
+
     override suspend fun open(url: String): Boolean = runCatchingCancellable {
         if (!Desktop.isDesktopSupported()) {
             false

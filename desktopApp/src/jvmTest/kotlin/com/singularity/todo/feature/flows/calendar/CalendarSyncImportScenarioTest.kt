@@ -14,6 +14,7 @@ import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.clickContentDescriptionScrolled
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.openDrawer
+import com.singularity.todo.test.helpers.scrollToTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
@@ -77,7 +78,12 @@ class CalendarSyncImportScenarioTest {
             clickTag(TestTags.settingsTab("Calendar"))
             clickTag(TestTags.CalendarSync.providerSegment("Google Calendar"))
 
+            // The panel scrolls: the client-id section sits above the import switch,
+            // and the switch is below the fold of the 1024x768 test window. The
+            // sibling scenarios scroll to what they look for, and so does this one.
+            scrollToTag(TestTags.CalendarSync.GOOGLE_IMPORT_SWITCH)
             assertTagDisplayed(TestTags.CalendarSync.GOOGLE_IMPORT_SWITCH)
+            scrollToTag(TestTags.CalendarSync.GOOGLE_IMPORT_WINDOW)
             assertTagDisplayed(TestTags.CalendarSync.GOOGLE_IMPORT_WINDOW)
             assertTextDisplayed("Imports events from the past 7 days to 14 days.")
         }

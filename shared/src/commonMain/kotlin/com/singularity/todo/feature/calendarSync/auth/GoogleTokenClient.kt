@@ -38,6 +38,14 @@ interface GoogleTokenExchange {
      * stays valid — which is why the caller must carry it over.
      */
     suspend fun refresh(refreshToken: String): GoogleCredentials
+
+    /**
+     * Revokes [refreshToken] at Google, so that it stops working.
+     *
+     * This is the half of "disconnect" that forgetting the credential on this device
+     * cannot do: the token still works wherever else it was handed out.
+     */
+    suspend fun revoke(refreshToken: String)
 }
 
 /**
@@ -63,9 +71,30 @@ interface GoogleTokenExchange {
  * The authorization code arrives on a `localhost` redirect that KMPAuth's Desktop listener
  * receives. This client redeems it, with the same client id the sign-in used, so the
  * exchange needs no second registration and no PKCE verifier beyond what was sent.
+ *
+ * ## Why the client id may be absent
+ *
+ * The exchange and the refresh need the client id; the revoke does not — Google's revoke
+ * endpoint is a public-client operation that takes the token alone. A client built without
+ * one can therefore still cancel a grant, which matters at the moment the grant is
+ * cancelled: a person who removed the client id before pressing "Disconnect" must still
+ * be able to revoke what the app gave them.
  */
-class GoogleTokenClient(private val httpClient: HttpClient = createHttpClient(), private val clientId: String) :
-    GoogleTokenExchange {
+class GoogleTokenClient(
+    private val httpClient: HttpClient = createHttpClient(),
+    private val clientId: String? = null,
+) : GoogleTokenExchange {
+
+    /**
+     * The client id, for the calls that need one.
+     *
+     * @throws GoogleAuthorizationException when no client id is configured. The exchange
+     *   and the refresh cannot be performed without it, and saying so is better than
+     *   sending an empty one and reporting Google's own answer to it.
+     */
+    private fun requiredClientId(): String = clientId ?: throw GoogleAuthorizationException(
+        "The Google client id is not configured, so the token cannot be requested",
+    )
 
     /**
      * Redeems an authorization [code] for a durable credential.
@@ -81,7 +110,7 @@ class GoogleTokenClient(private val httpClient: HttpClient = createHttpClient(),
         codeVerifier: String?,
     ): GoogleCredentials {
         val params = ParametersBuilder().apply {
-            append("client_id", clientId)
+            append("client_id", requiredClientId())
             append("code", code)
             append("grant_type", "authorization_code")
             append("redirect_uri", redirectUri)
@@ -110,13 +139,38 @@ class GoogleTokenClient(private val httpClient: HttpClient = createHttpClient(),
      */
     override suspend fun refresh(refreshToken: String): GoogleCredentials {
         val params = ParametersBuilder().apply {
-            append("client_id", clientId)
+            append("client_id", requiredClientId())
             append("refresh_token", refreshToken)
             append("grant_type", "refresh_token")
         }.build()
         // Carry the existing token forward: this response has none, and dropping it would
         // mean the *next* refresh has nothing to present.
         return performTokenRequest(params).copy(refreshToken = refreshToken)
+    }
+
+    /**
+     * Revokes [refreshToken] at Google, so that it stops working.
+     *
+     * Forgetting a token on this device is not the same as revoking it: the token still
+     * works, and whoever holds it can keep using it. Google's revoke endpoint needs no
+     * client secret — it is a public client operation — so the desktop can cancel its
+     * own credential without asking the server that never had it.
+     *
+     * Google answers 200 for a token it does not know as well: revoking something that
+     * is already dead is a success, not a failure.
+     */
+    override suspend fun revoke(refreshToken: String) {
+        val response = httpClient.submitForm(
+            url = REVOKE_ENDPOINT,
+            formParameters = ParametersBuilder().apply {
+                append("token", refreshToken)
+            }.build(),
+        )
+        if (response.status != HttpStatusCode.OK) {
+            throw GoogleAuthorizationException(
+                "Google refused to revoke the token (HTTP ${response.status.value})",
+            )
+        }
     }
 
     private suspend fun performTokenRequest(params: Parameters): GoogleCredentials {
@@ -180,5 +234,8 @@ class GoogleTokenClient(private val httpClient: HttpClient = createHttpClient(),
     companion object {
         /** Google's OAuth 2.0 token endpoint. */
         const val TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
+
+        /** Google's token revocation endpoint. */
+        const val REVOKE_ENDPOINT = "https://oauth2.googleapis.com/revoke"
     }
 }
