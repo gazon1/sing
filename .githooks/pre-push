@@ -59,14 +59,14 @@
 # not say otherwise.
 #
 # Every step of this hook that runs in the tree being pushed therefore starts
-# with `env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR`,
-# and the script it calls — `scripts/pre-push-verdict.py` — runs its own git
-# commands through the same answer: `tree_env()` from
-# `scripts/src/sgate/gatekit/gitenv.py`, which is where the list of the names
-# lives, so the hook, the gates and the tests cannot disagree about it. A
-# command added inside that tree has to do the same: the contract is not
-# enforced, it is written down, and the next command that forgets it breaks
-# silently, on a tree that was fine.
+# with `without_hook_git_env` — the helper in `scripts/git-env.sh`, which reads
+# the names from `scripts/src/sgate/gatekit/gitenv.py`, where the list of them
+# lives, so the hook, the gates and the tests cannot disagree about it. The
+# script the hook calls — `scripts/pre-push-verdict.py` — runs its own git
+# commands through the same answer: `tree_env()` from that module. A command
+# added inside that tree has to do the same: the contract is not enforced, it
+# is written down, and the next command that forgets it breaks silently, on a
+# tree that was fine.
 #
 # The gates this hook runs are declared once, in
 # `scripts/src/sgate/gatekit/pre_push.py`, and read from there: the hook names
@@ -86,6 +86,34 @@ cd "$REPO_ROOT"
 
 CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 ZERO_SHA="0000000000000000000000000000000000000000"
+
+# The git environment a hook exports, dropped once.
+#
+# The helper lives in scripts/git-env.sh, and it reads the list of names from
+# the module that owns them — scripts/src/sgate/gatekit/gitenv.py — so the
+# hook, the gates and the tests cannot disagree about it. The helper carries no
+# copy of the list.
+#
+# A push that cannot read the answer does not push. Every step below runs
+# inside the tree being pushed, and a step that inherits the environment of the
+# worktree the push was made from reads the wrong tree — a `git config` in a
+# test's temporary repository writes into the repository the hook runs in, and
+# this checkout is shared by ~20 worktrees.
+if [ ! -f "$REPO_ROOT/scripts/git-env.sh" ]; then
+    echo ""
+    echo "pre-push FAILED — scripts/git-env.sh is missing, and every step below runs in"
+    echo "the tree being pushed with the git environment this hook inherited."
+    exit 1
+fi
+# shellcheck source=scripts/git-env.sh
+. "$REPO_ROOT/scripts/git-env.sh"
+if [ -z "${GATEKIT_GIT_UNSET_ARGS:-}" ]; then
+    echo ""
+    echo "pre-push FAILED — the list of git variables a hook exports could not be read"
+    echo "from scripts/src/sgate/gatekit/gitenv.py, and every step below runs in the tree being pushed."
+    echo "Run: python3 scripts/src/sgate/gatekit/gitenv.py --shell-unset-args"
+    exit 1
+fi
 
 # Git passes the remote it pushes to as the first argument, and that remote's
 # url as the second. The remote is named `origin` by convention and by most
@@ -487,7 +515,7 @@ for i in "${!PUSH_REFS[@]}"; do
                 # the gate CLI writes a DEBUG line per loaded module, and a
                 # hook that people read while they are trying to push should
                 # not bury the finding in it.
-                if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR \
+                if (cd "$tree" && without_hook_git_env \
                     ${step_env[@]+"${step_env[@]}"} python3 "$step_path" ${step_argv[@]+"${step_argv[@]}"}) \
                     >"$PROMISE_OUT" 2>&1; then
                     echo "   $step_label: OK"
@@ -500,7 +528,7 @@ for i in "${!PUSH_REFS[@]}"; do
                     echo "$step_hint"
                 fi
             else
-                if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR \
+                if (cd "$tree" && without_hook_git_env \
                     ${step_env[@]+"${step_env[@]}"} python3 "$step_path" ${step_argv[@]+"${step_argv[@]}"}); then
                     echo "   $step_label: OK"
                 else
@@ -567,7 +595,7 @@ EOF
         # A tree that predates the runner has no runner. The plain `unittest`
         # runs the same tests — and a push of an old branch is not blocked by
         # a file that branch does not have.
-        if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR \
+        if (cd "$tree" && without_hook_git_env \
             GATE_SUITE_INSIDE_HOOK=1 \
             PYTHONPATH="$tree/scripts/src" \
             python3 -m unittest discover -s scripts/tests >"$suite_log" 2>&1); then
@@ -581,7 +609,7 @@ EOF
             echo ""
             echo "pre-push FAILED — the gate suite's own tests do not pass in the tree of $local_ref."
         fi
-    elif (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR \
+    elif (cd "$tree" && without_hook_git_env \
         GATE_SUITE_INSIDE_HOOK=1 \
         PYTHONPATH="$tree/scripts/src" \
         python3 "$tree/scripts/run-gate-tests.py" >"$suite_log" 2>&1); then

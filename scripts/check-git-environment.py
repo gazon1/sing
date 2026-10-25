@@ -134,7 +134,7 @@ if _scripts_src not in sys.path:
     sys.path.insert(0, _scripts_src)
 
 from sgate.commands.base import run  # noqa: E402
-from sgate.gatekit.gitenv import INHERITED_FROM_HOOK  # noqa: E402
+from sgate.gatekit.gitenv import INHERITED_FROM_HOOK, SHELL_HELPER  # noqa: E402
 
 CLEAN = 0
 VALIDATION_FAILURE = 1
@@ -450,6 +450,12 @@ def _shell_command_text(part: str) -> str:
             if text.startswith(prefix + ' '):
                 text = text[len(prefix) + 1:].lstrip()
                 changed = True
+        if text.startswith(SHELL_HELPER + ' '):
+            # The sanctioned helper runs the command it is given without the
+            # environment a hook exports — the command behind it is the one
+            # the script runs.
+            text = text[len(SHELL_HELPER) + 1:].lstrip()
+            changed = True
         if text.startswith('env '):
             rest = text[4:].lstrip()
             while rest.startswith('-'):
@@ -602,9 +608,53 @@ def _is_variable_slot(node: ast.expr) -> bool:
     return isinstance(key, ast.Constant) and key.value in GIT_VARS
 
 
+#: The file that holds the shell helper. A script that sources it gets the
+#: helper, and the helper gets the names from the canon at run time.
+SHELL_HELPER_FILE = "git-env.sh"
+
+#: The helper's definition — `without_hook_git_env() {`.
+SHELL_HELPER_DEFINITION = re.compile(rf"^\s*{re.escape(SHELL_HELPER)}\s*\(\)\s*\{{", re.M)
+
+#: The helper's file being sourced — `. scripts/git-env.sh`.
+SHELL_HELPER_SOURCED = re.compile(rf"^\s*\.\s+[^\n]*{re.escape(SHELL_HELPER_FILE)}", re.M)
+
+#: A call of the helper — `without_hook_git_env python3 …`.
+SHELL_HELPER_CALLED = re.compile(rf"\b{re.escape(SHELL_HELPER)}\b")
+
+
+def _shell_line_removes(line: str, name: str) -> bool:
+    """Whether this line takes `name` out of the environment."""
+    escaped = re.escape(name)
+    if re.search(rf"\benv\b[^;\n]*?(?<![\w-])-u\s+{escaped}\b", line):
+        return True
+    if re.search(rf"\bunset\b[^;\n]*\b{escaped}\b", line):
+        return True
+    if re.search(rf"(?:^|\s){escaped}=(?:\"\"|\'\'|\s|$)", line):
+        return True
+    return False
+
+
 def _shell_neutralizes(source: str) -> bool:
-    """Whether a shell script removes the git variables from the environment."""
-    return bool(SHELL_UNSET.search(source))
+    """Whether a shell script removes the git variables from the environment.
+
+    There are two forms. The old one writes the names down — `env -u GIT_DIR
+    …`, `unset GIT_DIR`, `GIT_DIR=` — and it has to write down ALL of them: a
+    script that drops one of the four still reads the tree through the index
+    that was left behind, and the command reports about a tree nobody pushed.
+    The new one calls the helper that reads them from the canon — so a script
+    that calls it carries no copy of the names and the old form does not match.
+
+    The helper has to be available to the script that calls it: either the
+    script defines it, or it sources the file that holds it. A script that
+    calls a helper nobody defined controls nothing, and a gate that believes
+    it does is worse than a gate that says nothing.
+    """
+    for _number, line in _logical_lines(source):
+        if all(_shell_line_removes(line, name) for name in INHERITED_FROM_HOOK):
+            return True
+    if not SHELL_HELPER_CALLED.search(source):
+        return False
+    return bool(SHELL_HELPER_DEFINITION.search(source) or SHELL_HELPER_SOURCED.search(source))
 
 
 def _neutralizes(path: pathlib.Path, source: str) -> bool:

@@ -65,6 +65,10 @@ EXTRA_TOOLS = [
         "Registers a gate in every place it has to be, in one command.",
     ),
     (
+        "scripts/git-env.sh",
+        "Runs a command without the git environment a hook exports; the names are read from the canon.",
+    ),
+    (
         "scripts/detekt-summary.py",
         "Prints the detekt findings by rule and by place, instead of XML per finding.",
     ),

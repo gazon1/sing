@@ -49,7 +49,11 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT / 'scripts' / 'src'))
 
 from sgate.commands._registry import PRE_PUSH_SCRIPTS  # noqa: E402
-from sgate.gatekit.gitenv import INHERITED_FROM_HOOK, tree_env as _clean_git_env  # noqa: E402
+from sgate.gatekit.gitenv import (  # noqa: E402
+    INHERITED_FROM_HOOK,
+    SHELL_HELPER,
+    tree_env as _clean_git_env,
+)
 
 HOOK = REPO_ROOT / '.githooks' / 'pre-push'
 
@@ -73,6 +77,10 @@ CI_VERDICT_SCRIPT = REPO_ROOT / 'scripts' / 'ci-verdict.py'
 #: not inherit". The verdict script loads it by path, the way the checkout
 #: carries it.
 GITENV_SCRIPT = REPO_ROOT / 'scripts' / 'src' / 'sgate' / 'gatekit' / 'gitenv.py'
+#: The helper that drops the git environment a hook exports. The hook
+#: sources it; the fixture tree carries it, the same way it carries the
+#: answer the helper reads.
+GIT_ENV_HELPER = REPO_ROOT / 'scripts' / 'git-env.sh'
 #: The declaration of the gates the hook runs. The hook reads it by path, so
 #: the fixture tree carries it — the same way it carries the answer the
 #: verdict script takes.
@@ -321,6 +329,9 @@ class PrePushHookTest(unittest.TestCase):
         # runs the script from the checkout, and the checkout carries the file
         # the script loads. A checkout without it is not a checkout.
         self._write('scripts/src/sgate/gatekit/gitenv.py', GITENV_SCRIPT.read_text(encoding='utf-8'))
+        # The helper that drops the git environment, and the file it reads
+        # the names from: the hook sources it, so the fixture carries it.
+        self._write('scripts/git-env.sh', GIT_ENV_HELPER.read_text(encoding='utf-8'))
         # The declaration of the gates the hook runs: the hook reads it by
         # path, in a tree that carries nothing else of the gate package.
         self._write(
@@ -986,17 +997,64 @@ class HookGitEnvironmentTest(unittest.TestCase):
     pushed.
     """
 
-    def test_every_step_drops_every_name_the_canonical_answer_names(self):
+    def test_the_hook_drops_the_environment_through_the_sanctioned_helper(self):
+        """One place drops the environment, and it is the helper.
+
+        The hook used to write the four names down five times, and a copy of a
+        list is a list that can drift: a step that dropped three of the four
+        names breaks in a way nobody sees — the tree is read through the wrong
+        index, and the command reports about a tree nobody pushed.
+        """
         source = HOOK.read_text(encoding='utf-8')
-        steps = [line for line in source.splitlines() if 'env -u GIT_DIR' in line]
-        self.assertTrue(steps, 'the hook no longer drops the git environment at all')
-        for line in steps:
-            for name in INHERITED_FROM_HOOK:
-                self.assertIn(
-                    f'-u {name}',
-                    line,
-                    f'the hook drops the git environment incompletely: {line.strip()}',
-                )
+        self.assertIn(
+            SHELL_HELPER,
+            source,
+            'the hook does not call the sanctioned helper — the environment is '
+            'dropped somewhere else, and nobody can see where',
+        )
+        self.assertNotIn(
+            'env -u GIT_DIR',
+            source,
+            'the hook writes the names down itself; the list lives in one place',
+        )
+
+    def test_the_helper_reads_the_names_from_the_canonical_answer(self):
+        """The helper carries no copy of the list.
+
+        The canon is `sgate.gatekit.gitenv`, and the shell cannot import it —
+        so the helper reads the answer from it and the file carries nothing.
+        A second copy of the list is a list that can drift, and the drift is
+        invisible until a step breaks on a tree that was fine.
+        """
+        helper = GIT_ENV_HELPER.read_text(encoding='utf-8')
+        for name in INHERITED_FROM_HOOK:
+            self.assertNotIn(
+                name,
+                helper,
+                f'the helper carries its own copy of {name}; the list lives in '
+                f'sgate.gatekit.gitenv',
+            )
+        self.assertIn(
+            'gitenv.py --shell-unset-args',
+            helper,
+            'the helper does not read the names from the canon',
+        )
+
+    def test_the_helper_drops_every_name_the_canonical_answer_names(self):
+        """What the helper drops is what the canon names — checked by running it."""
+        result = subprocess.run(
+            ['bash', '-c', f'. "{GIT_ENV_HELPER}" && echo "$GATEKIT_GIT_UNSET_ARGS"'],
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        args = result.stdout.split()
+        dropped = [args[i + 1] for i, arg in enumerate(args[:-1]) if arg == '-u']
+        self.assertEqual(
+            sorted(dropped),
+            sorted(INHERITED_FROM_HOOK),
+            f'the helper does not drop exactly the names the canon names: {result.stdout.strip()}',
+        )
 
 
 @unittest.skipIf(
