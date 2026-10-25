@@ -8,8 +8,10 @@ What this gate enforces (2026-10-20, audited):
   R2.4: A gate script locates the repository itself, never through the
         installed package (R2.4-R2.6, added 2026-10-22)
   R2.5: A script that imports the package puts this checkout's package root on
-        `sys.path` before the import — every script: gate, CI helper, test
-        (widened from the gate scripts alone, 2026-10-25)
+        `sys.path` before the import — every script in the repository, except
+        the installed distribution itself (widened from the gate scripts alone
+        on 2026-10-25, and from three named directories to the whole
+        repository the same day)
   R2.7: A gate script routes its exit code through the shared runner,
         `sgate.commands.base.run` — or declares, in a comment, why it cannot
         (added 2026-10-23)
@@ -282,7 +284,7 @@ def _imported_sgate_modules(statement: ast.stmt) -> list[str]:
     return modules
 
 
-def check_package_resolution(scripts_dir: Path) -> list[str]:
+def check_package_resolution(repo_root: Path) -> list[str]:
     """R2.4, R2.5, R2.6 — how a script resolves the package it imports.
 
     R2.4: a script takes the repository root — and any path into the
@@ -311,11 +313,7 @@ def check_package_resolution(scripts_dir: Path) -> list[str]:
     is the very thing they cannot do.
     """
     errors: list[str] = []
-    paths = (
-        sorted(scripts_dir.glob("check-*.py"))
-        + sorted((scripts_dir / "ci").glob("*.py"))
-        + sorted((scripts_dir / "tests").glob("*.py"))
-    )
+    paths = _python_files_outside_the_package(repo_root)
     for path in paths:
         source = path.read_text(encoding="utf-8", errors="replace")
         try:
@@ -331,6 +329,41 @@ def check_package_resolution(scripts_dir: Path) -> list[str]:
         errors.extend(_check_bootstrap_order(path, tree, source))
         errors.extend(_check_bootstrap_target(path, tree, source))
     return errors
+
+
+#: The installed distribution. Its modules import each other by absolute name
+#: — that is what makes them the package — so the rule about resolving the
+#: package from the environment does not apply to them: they ARE the package.
+INSTALLED_PACKAGE = Path("scripts") / "src"
+
+#: Directories that hold no source and are expensive to walk.
+SKIPPED_DIRECTORIES = frozenset(
+    {".git", ".gradle", ".idea", ".venv", "__pycache__", "build", "node_modules", "venv"}
+)
+
+
+def _python_files_outside_the_package(repo_root: Path) -> list[Path]:
+    """Every Python file of the repository except the installed distribution.
+
+    The rule is about scripts that *reach for* the package. Where a script
+    happens to live is not what makes it a script — `scripts/lint/` and
+    `infra/` hold scripts too, and a rule that covered three named directories
+    would leave the next one outside it, silently, until it imported the
+    package and measured another checkout.
+    """
+    package_root = repo_root / INSTALLED_PACKAGE
+    files: list[Path] = []
+    for directory, subdirectories, names in os.walk(repo_root):
+        here = Path(directory)
+        subdirectories[:] = [
+            name
+            for name in subdirectories
+            if name not in SKIPPED_DIRECTORIES and (here / name) != package_root
+        ]
+        for name in names:
+            if name.endswith(".py"):
+                files.append(here / name)
+    return sorted(files)
 
 
 def _check_bootstrap_target(path: Path, tree: ast.Module, source: str) -> list[str]:
@@ -535,7 +568,7 @@ def cli(ctx: click.Context, check: bool, emit_json: bool) -> None:
     all_errors.extend(check_cli_framework(scripts_dir))
     all_errors.extend(check_naming_and_structure(scripts_dir))
     all_errors.extend(check_json_flag(scripts_dir))
-    all_errors.extend(check_package_resolution(scripts_dir))
+    all_errors.extend(check_package_resolution(ROOT))
     all_errors.extend(check_sgate_runner(scripts_dir))
 
     if emit_json:

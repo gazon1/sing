@@ -267,9 +267,13 @@ class PackageResolutionRules(unittest.TestCase):
         errors = self.errors()
         self.assertTrue(any("R2.5" in error for error in errors), errors)
 
-    def test_the_real_scripts_directory_has_no_violation(self):
-        """The repository obeys the rules it declares."""
-        self.assertEqual(check_package_resolution(SCRIPTS), [])
+    def test_the_real_repository_has_no_violation(self):
+        """The repository obeys the rules it declares.
+
+        The scope is the whole repository, so this is the check that the
+        scripts outside `scripts/` — `infra/`, `scripts/lint/` — obey it too.
+        """
+        self.assertEqual(check_package_resolution(_ROOT), [])
 
 
 class TheBindingRuleIsOneRule(unittest.TestCase):
@@ -285,6 +289,12 @@ class TheBindingRuleIsOneRule(unittest.TestCase):
     So the rule is one rule: every script that imports the package binds it
     to its own tree. The scripts that have to run *without* the package say
     so, in a comment, and are exempt.
+
+    And the rule's subject is the script, not its directory: the scope used to
+    name three directories, so a script in the next one imported the package by
+    whatever the environment held and nothing said so. The scope is now every
+    Python file of the repository except the installed distribution — whose
+    modules import each other by absolute name, because they ARE the package.
     """
 
     def setUp(self):
@@ -347,6 +357,26 @@ class TheBindingRuleIsOneRule(unittest.TestCase):
 
     def test_a_script_that_does_not_import_the_package_is_clean(self):
         self.write("check-x.py", "import click\n")
+        self.assertEqual(self.errors(), [])
+
+    def test_a_script_outside_the_named_directories_is_covered_too(self):
+        """Where a script lives does not decide whether it is a script.
+
+        The scope used to name three directories. A script in the next one
+        imported the package by whatever the environment held, and nothing said
+        so — the rule was satisfied by a directory name, not by the script.
+        """
+        self.write("infra/check-x.py", "from sgate.gates import load_gates\n")
+        errors = self.errors()
+        self.assertTrue(any("R2.5" in error for error in errors), errors)
+
+    def test_the_installed_package_is_not_covered(self):
+        """The package's own modules import each other by absolute name.
+
+        They ARE the package: asking them to bind the package to the checkout
+        would be asking the package to find itself.
+        """
+        self.write("scripts/src/sgate/gates.py", "from sgate.commands.base import run\n")
         self.assertEqual(self.errors(), [])
 
 
