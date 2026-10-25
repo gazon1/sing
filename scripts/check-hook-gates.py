@@ -13,8 +13,9 @@ bug; what is a bug is a difference nobody wrote down. So the difference is
 written down — in `config/hooks/pre-push.json` — and this gate checks that the
 code still matches the record, in both directions:
 
-  - the scripts the hook calls are the ones the registry declares
-    (`PRE_PUSH_SCRIPTS` and the tree rules) plus the verdict delegate;
+  - the hook names no gate: the gates it runs are declared in the registry
+    (`PRE_PUSH_STEPS`) and the hook reads them from there, so the only
+    scripts it may name are the machinery and the verdict delegate;
   - the hook calls the delegate;
   - the hook does not name a detekt module itself — the set is computed, so a
     list written into the hook is drift waiting to happen;
@@ -50,6 +51,7 @@ _added = _scripts_src not in sys.path
 if _added:
     sys.path.insert(0, _scripts_src)
 
+from sgate.commands._registry import PRE_PUSH_DECLARATION  # noqa: E402
 from sgate.commands.base import run  # noqa: E402
 
 CLEAN = 0
@@ -93,18 +95,22 @@ def load_module_graph():
     return _load(ROOT)
 
 
-def declared_hook_scripts() -> tuple[set[str], set[str]]:
-    """The scripts the registry declares the hook runs, and the tree rules.
+def declared_hook_scripts() -> tuple[set[str], set[str], set[str]]:
+    """The scripts the registry declares the hook runs, the tree rules, the machinery.
 
     The declaration lives in the sgate registry, because the hook and the test
     fixture that drives it already read it from there. This gate reads it too,
     so the three — hook, fixture, record — cannot drift apart.
     """
-    from sgate.commands._registry import PRE_PUSH_SCRIPTS, PRE_PUSH_TREE_RULES
+    from sgate.commands._registry import (
+        PRE_PUSH_MACHINERY,
+        PRE_PUSH_SCRIPTS,
+        PRE_PUSH_TREE_RULES,
+    )
 
     fixed = set(PRE_PUSH_SCRIPTS) - {f'scripts/{rule}.py' for rule in PRE_PUSH_TREE_RULES}
     rules = {f'scripts/{rule}.py' for rule in PRE_PUSH_TREE_RULES}
-    return fixed, rules
+    return fixed, rules, set(PRE_PUSH_MACHINERY)
 
 
 def command_lines(ci_path: pathlib.Path) -> list[str]:
@@ -147,6 +153,8 @@ def collect_errors(
     declared: set[str] | None = None,
     tree_rules: set[str] | None = None,
     ci_script_path: pathlib.Path | None = None,
+    machinery: set[str] | None = None,
+    declaration: str = '',
 ) -> tuple[list[str], dict]:
     """The disagreements between the record, the hook and the CI.
 
@@ -184,19 +192,36 @@ def collect_errors(
     if tree_rules is None:
         tree_rules = set()
 
-    # The hook and the declaration must agree, in both directions.
-    for script in sorted(declared - tree_rules):
-        if script not in hook_scripts:
-            errors.append(
-                f'the registry declares that the hook runs {script}, and the hook does not '
-                f'call it — either the hook lost the gate or the declaration is stale',
-            )
-    for script in sorted(hook_scripts - declared - tree_rules):
-        if script != delegate:
-            errors.append(
-                f'the hook runs {script}, and the registry does not declare it — '
-                f'a gate that is in the code but in no record is a gate nobody knows about',
-            )
+    # The hook does not name a gate.
+    #
+    # The gates it runs are declared in the registry, and the hook reads them
+    # from there: a script written into the hook is a gate the registry does
+    # not know about, and the fixture that drives the hook stubs the
+    # registry's list — so the hook would run a gate nobody stubbed, and the
+    # failure would be about the stub rather than about the gate.
+    #
+    # What the hook may name is the machinery — the scripts it calls with
+    # logic of their own — and the delegate that decides the detekt verdict.
+    allowed = set(machinery or ()) | ({delegate} if delegate else set())
+    # The declaration the gates come from is not a gate: the hook has to know
+    # where it is. It is declared in the registry, so a path that does not
+    # match the declaration is drift like any other.
+    allowed.add(declaration or '')
+    for script in sorted(hook_scripts - allowed):
+        errors.append(
+            f'the hook names {script} itself — the gates the hook runs are declared in the '
+            f'registry, and a script written into the hook is a gate the registry does not '
+            f'know about',
+        )
+
+    # And the hook has to read them from there. A hook that ran no gate and
+    # said OK turned "not checked" into "checked and green".
+    if declaration and declaration not in hook_text:
+        errors.append(
+            'the hook does not read the gates from the registry — the list of gates it runs '
+            'has to come from the one declaration, or a gate added to the registry is a gate '
+            'nobody runs',
+        )
 
     if delegate and delegate not in hook_scripts:
         errors.append(f'the hook does not delegate the detekt decision to {delegate}')
@@ -338,9 +363,10 @@ def collect_errors(
 def cli(ctx: click.Context, check: bool, emit_json: bool) -> None:
     """Check that the hook, the CI and the record of both still agree."""
     graph = load_module_graph()
-    declared, tree_rules = declared_hook_scripts()
+    declared, tree_rules, machinery = declared_hook_scripts()
     errors, facts = collect_errors(
-        REGISTRY, HOOK, CI_WORKFLOW, graph, declared, tree_rules,
+        REGISTRY, HOOK, CI_WORKFLOW, graph, declared, tree_rules, None,
+        machinery, PRE_PUSH_DECLARATION,
     )
 
     if emit_json:

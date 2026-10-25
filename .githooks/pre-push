@@ -68,6 +68,13 @@
 # enforced, it is written down, and the next command that forgets it breaks
 # silently, on a tree that was fine.
 #
+# The gates this hook runs are declared once, in
+# `scripts/src/sgate/gatekit/pre_push.py`, and read from there: the hook names
+# no gate, so a gate added to the declaration is a gate the hook runs and a
+# gate the fixture that drives this hook stubs. A declaration that cannot be
+# read fails the push — a hook that ran no gate and said OK would turn "not
+# checked" into "checked and green".
+#
 # Runs on ALL branches (both main checkout and worktrees).
 # Use `git push --no-verify` to skip this hook when needed (e.g., WIP commits).
 # To disable entirely: git config --unset core.hooksPath
@@ -313,6 +320,59 @@ for i in "${!PUSH_REFS[@]}"; do
         tree="$REPO_ROOT"
     fi
 
+    # ── The promise files ─────────────────────────────────────────────────
+    #
+    # Some files in this repository promise something about the code next to
+    # them, and each promise has been broken at least once — always in CI,
+    # always hours later, always on somebody else's tree:
+    #
+    #   Maestro/TAGS.md                — the catalogue of the ids a flow may
+    #                                     address, generated from TestTags.kt
+    #   config/docs/maestro-flows.txt  — the catalogue of the flows themselves
+    #   .specify/issues/*.yaml         — the registry of every openspec change
+    #
+    # A checker for each of them exists and costs seconds. What was missing was
+    # the moment: the promise is kept when the file next to it changes, not
+    # when CI eventually notices.
+    #
+    # So the check runs here, against the tree that is being pushed, and only
+    # when that tree actually touches the file that carries the promise — a
+    # push that touches nothing relevant pays nothing.
+    #
+    # The checkers are run FROM the pushed tree (`$tree/scripts/...`), because
+    # each derives its repository root from its own file location: the copy in
+    # the tree is the copy that knows about the tree.
+    #
+    # The checks themselves are declared in the registry, like every other
+    # gate; what is here is what the push touched, which is what decides
+    # whether a check runs at all.
+    if [ -n "$remote_sha" ] && [ "$remote_sha" != "$ZERO_SHA" ]; then
+        PROMISE_RANGE=("$remote_sha..$local_sha")
+    else
+        PROMISE_RANGE=("$local_sha" --not --remotes)
+    fi
+    # The files the pushed commits touch. `git log --name-only` rather than
+    # `git diff`: the range is the pushed commits, and a file that a commit
+    # touched is a file this push carries.
+    PROMISE_TOUCHED="$(git log --name-only --pretty=format: "${PROMISE_RANGE[@]}" 2>/dev/null || true)"
+
+    # promise_touched <path> — did this push touch that path?
+    #
+    # `grep -c` and not `grep -q`: `-q` closes the pipe on the first hit, the
+    # writer takes SIGPIPE, and with `pipefail` the pipeline reports 141 —
+    # which is a broken pipe, not an answer.
+    promise_touched() {
+        printf '%s\n' "$PROMISE_TOUCHED" | grep -c "^$1" >/dev/null
+    }
+
+    # The output of a promise check, kept for the failure message.
+    #
+    # The checkers import the gate CLI, whose logger writes a DEBUG line per
+    # loaded module — noise that would bury the finding in a hook that people
+    # read when they are trying to push. The output is captured instead of
+    # streamed, and shown (without the DEBUG lines) only when the check fails.
+    PROMISE_OUT="$(mktemp "${TMPDIR:-/tmp}/pre-push-promise-XXXXXX")"
+
     # Every gate below runs with the exported GIT_* variables removed.
     #
     # Git exports GIT_DIR (and GIT_WORK_TREE, GIT_INDEX_FILE) to a hook, and a
@@ -326,101 +386,136 @@ for i in "${!PUSH_REFS[@]}"; do
     # GIT_OBJECT_DIRECTORY and GIT_QUARANTINE_PATH are deliberately NOT
     # removed: they hold the objects of the commits being pushed, and the
     # verdict below has to see them.
-    if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR python3 "$REPO_ROOT/scripts/build-version-catalog-gate.py" --quiet .); then
-        echo "   version-catalog gate: OK"
-    else
-        echo "   version-catalog gate: FAILED"
+
+    # ── The gates ──────────────────────────────────────────────────────────
+    #
+    # The steps come from the registry, so the hook does not name a script: a
+    # gate added to the registry is a gate the hook runs, and a gate removed
+    # from the registry is a gate the hook does not run.
+    #
+    # The hook used to carry a block per gate — the script, its arguments, the
+    # condition under which it runs, and the message it prints when it fails
+    # — and every one of those blocks was a second copy of the declaration the
+    # test fixture reads. The blocks are the registry's now.
+    #
+    # The table is read once, before the loop, and a table that cannot be read
+    # fails the push: a hook that ran no gate and said OK turned "not checked"
+    # into "checked and green".
+    #
+    # The declaration is read by path, not imported: the tree being pushed
+    # carries the file, and a tree that carries it does not carry the rest of
+    # the gate package. The path is part of the declaration, and the gate
+    # that compares the hook with the registry checks that the two agree.
+    PRE_PUSH_STEPS_TABLE="$(cd "$REPO_ROOT" && \
+        python3 "$REPO_ROOT/scripts/src/sgate/gatekit/pre_push.py" --table 2>/dev/null || echo '')"
+    if [ -z "$PRE_PUSH_STEPS_TABLE" ]; then
+        echo "   gates: FAILED (the registry did not yield the list of gates)"
         GATES_FAILED=1
         echo ""
-        echo "pre-push FAILED — hardcoded version literal in the tree of $local_ref."
-        echo "Add it to gradle/libs.versions.toml and reference it via libs.*, or push with --no-verify."
-    fi
-
-    if [ ! -d "$tree/Maestro/flows" ]; then
-        echo "   maestro selector gate: SKIPPED (this tree has no Maestro/flows)"
-    elif (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR python3 "$REPO_ROOT/scripts/ci/validate-maestro-selectors.py" Maestro/flows); then
-        echo "   maestro selector gate: OK"
+        echo "pre-push FAILED — the list of gates the hook runs could not be read from the registry."
+        echo "Run python3 scripts/check-hook-gates.py to see whether the registry is readable, or push with --no-verify."
     else
-        echo "   maestro selector gate: FAILED"
-        GATES_FAILED=1
-        echo ""
-        echo "pre-push FAILED — unknown id: selector in a Maestro flow in the tree of $local_ref."
-        echo "Add it to TestTags.kt or DYNAMIC_EXPANSIONS / ALLOWLIST, or push with --no-verify."
-    fi
+        while IFS='|' read -r step_label step_script step_args step_script_from \
+            step_pythonpath_from step_when step_show_output step_message step_hint; do
+            [ -n "$step_label" ] || continue
 
-    # The wait budgets: the instrumented suite and the Maestro flows wait for
-    # the same screen and cannot share a constant. The gate is what keeps the
-    # two copies of the number in step — and it is the gate that would have
-    # caught the 8-second shell budget that kept `android-device-tests` red.
-    #
-    # It is skipped rather than failed when its dependencies are missing: a
-    # gate that cannot run must not become a reason a push cannot happen, and
-    # CI runs it either way.
-    if ! python3 -c "import click" >/dev/null 2>&1; then
-        echo "   ui wait budgets gate: SKIPPED (click is not installed)"
-    elif (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR PYTHONPATH="$REPO_ROOT/scripts/src" \
-        python3 "$REPO_ROOT/scripts/check-ui-wait-budgets.py" --root "$tree"); then
-        echo "   ui wait budgets gate: OK"
-    else
-        echo "   ui wait budgets gate: FAILED"
-        GATES_FAILED=1
-        echo ""
-        echo "pre-push FAILED — the UI wait budgets disagree in the tree of $local_ref."
-        echo "Run python3 scripts/check-ui-wait-budgets.py to see where, or push with --no-verify."
-    fi
+            # Which copy of the script runs, and which copy of the gate CLI is
+            # on its path. A gate that reads a tree runs the copy that knows
+            # about the tree.
+            if [ "$step_script_from" = "repo" ]; then
+                step_path="$REPO_ROOT/$step_script"
+            else
+                step_path="$tree/$step_script"
+            fi
+            step_env=()
+            case "$step_pythonpath_from" in
+                repo) step_env+=("PYTHONPATH=$REPO_ROOT/scripts/src") ;;
+                tree) step_env+=("PYTHONPATH=$tree/scripts/src") ;;
+            esac
 
-    # The three rules that are cheap, that CI enforces, and that a contributor
-    # would otherwise only meet as a red CI run: the pointers AGENTS.md names,
-    # the registry entry of every change, and the review verdict of every
-    # change.
-    #
-    # They run against the pushed tree, not the worktree, for the same reason
-    # the gates above do: a rule that reads a different tree than the one
-    # being pushed checks the wrong thing.
-    #
-    # The rule that runs is the one **in the pushed tree** — the same copy CI
-    # would run, because CI runs the tree's own registry. Running today's
-    # script against an older tree applies rules that did not exist when that
-    # tree was written: a branch cut before this change would be blocked for
-    # violations CI would never report on it. A tree that does not have the
-    # rule does not have the rule, so the check is skipped and says so.
-    #
-    # Each rule costs well under a second — measured: the pointers gate 0.1 s,
-    # the registry gate 1.1 s, the verdict gate 0.2 s — so the local loop
-    # carries the same rules CI does, at a price nobody notices. The suite as a
-    # whole is not in this hook on purpose: it is a minute and a half, and it
-    # is where the incremental temptation lives. What is here is the part that
-    # is cheap and that a broken tree would otherwise carry to CI.
-    #
-    # Skipped rather than failed when click is not installed, like the wait
-    # budgets above: a gate that cannot run must not become a reason a push
-    # cannot happen, and CI runs it either way.
-    if ! python3 -c "import click" >/dev/null 2>&1; then
-        echo "   tree rules gate: SKIPPED (click is not installed)"
-    else
-        # The rules come from the registry, so the hook and the test that
-        # drives it cannot drift: a rule added to one and not the other was a
-        # failing test, found by the full run rather than by the edit.
-        TREE_RULES="$(cd "$REPO_ROOT" && PYTHONPATH="$REPO_ROOT/scripts/src" python3 -c \
-            "from sgate.commands._registry import PRE_PUSH_TREE_RULES; print(' '.join(PRE_PUSH_TREE_RULES))" \
-            2>/dev/null || echo '')"
-        for rule in $TREE_RULES; do
-            if [ ! -f "$tree/scripts/$rule.py" ]; then
-                echo "   $rule gate: SKIPPED (the pushed tree does not have this rule)"
+            # When the step runs at all.
+            step_note=""
+            case "$step_when" in
+                always) ;;
+                if-dir:*)
+                    if [ ! -d "$tree/${step_when#if-dir:}" ]; then
+                        step_note="this tree has no ${step_when#if-dir:}"
+                    fi
+                    ;;
+                if-import:*)
+                    if ! python3 -c "import ${step_when#if-import:}" >/dev/null 2>&1; then
+                        step_note="${step_when#if-import:} is not installed"
+                    fi
+                    ;;
+                if-script)
+                    if [ ! -f "$step_path" ]; then
+                        step_note="the pushed tree does not have this rule"
+                    fi
+                    ;;
+                if-touched:*)
+                    step_touched=0
+                    IFS=',' read -r -a step_patterns <<< "${step_when#if-touched:}"
+                    for step_pattern in "${step_patterns[@]}"; do
+                        if promise_touched "$step_pattern"; then
+                            step_touched=1
+                            break
+                        fi
+                    done
+                    if [ "$step_touched" = "0" ]; then
+                        continue
+                    fi
+                    ;;
+            esac
+            if [ -n "$step_note" ]; then
+                echo "   $step_label: SKIPPED ($step_note)"
                 continue
             fi
-            if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR PYTHONPATH="$REPO_ROOT/scripts/src" \
-                python3 "$tree/scripts/$rule.py" --quiet); then
-                echo "   $rule gate: OK"
+
+            # The arguments, and the message the hook prints when the gate
+            # fails.
+            step_argv=()
+            for step_arg in $step_args; do
+                step_argv+=("${step_arg//@TREE@/$tree}")
+            done
+            step_message="${step_message//@REF@/$local_ref}"
+            step_message="${step_message//@TREE@/$tree}"
+            step_hint="${step_hint//@REF@/$local_ref}"
+            step_hint="${step_hint//@TREE@/$tree}"
+
+            if [ "$step_show_output" = "yes" ]; then
+                # The output is captured and shown only when the gate fails:
+                # the gate CLI writes a DEBUG line per loaded module, and a
+                # hook that people read while they are trying to push should
+                # not bury the finding in it.
+                if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR \
+                    ${step_env[@]+"${step_env[@]}"} python3 "$step_path" ${step_argv[@]+"${step_argv[@]}"}) \
+                    >"$PROMISE_OUT" 2>&1; then
+                    echo "   $step_label: OK"
+                else
+                    echo "   $step_label: FAILED"
+                    GATES_FAILED=1
+                    echo ""
+                    echo "$step_message"
+                    sed '/DEBUG/d' "$PROMISE_OUT" | sed 's/^/   /'
+                    echo "$step_hint"
+                fi
             else
-                echo "   $rule gate: FAILED"
-                GATES_FAILED=1
-                echo ""
-                echo "pre-push FAILED — $rule found something in the tree of $local_ref."
-                echo "Run python3 scripts/$rule.py to see where, or push with --no-verify."
+                if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR \
+                    ${step_env[@]+"${step_env[@]}"} python3 "$step_path" ${step_argv[@]+"${step_argv[@]}"}); then
+                    echo "   $step_label: OK"
+                else
+                    echo "   $step_label: FAILED"
+                    GATES_FAILED=1
+                    echo ""
+                    echo "$step_message"
+                    echo "$step_hint"
+                fi
             fi
-        done
+        done <<EOF
+$PRE_PUSH_STEPS_TABLE
+EOF
     fi
+    rm -f "$PROMISE_OUT"
 
     # ── The gate suite's own tests ───────────────────────────────────────
     #
@@ -501,132 +596,7 @@ for i in "${!PUSH_REFS[@]}"; do
         keep_suite_log "$suite_log" "$suite_log_kept"
     fi
 
-    # ── The promise files ─────────────────────────────────────────────────
-    #
-    # Some files in this repository promise something about the code next to
-    # them, and each promise has been broken at least once — always in CI,
-    # always hours later, always on somebody else's tree:
-    #
-    #   Maestro/TAGS.md                — the catalogue of the ids a flow may
-    #                                     address, generated from TestTags.kt
-    #   config/docs/maestro-flows.txt  — the catalogue of the flows themselves
-    #   .specify/issues/*.yaml         — the registry of every openspec change
-    #
-    # A checker for each of them exists and costs seconds. What was missing was
-    # the moment: the promise is kept when the file next to it changes, not
-    # when CI eventually notices.
-    #
-    # So the check runs here, against the tree that is being pushed, and only
-    # when that tree actually touches the file that carries the promise — a
-    # push that touches nothing relevant pays nothing.
-    #
-    # The checkers are run FROM the pushed tree (`$tree/scripts/...`), because
-    # each derives its repository root from its own file location: the copy in
-    # the tree is the copy that knows about the tree.
-    if [ -n "$remote_sha" ] && [ "$remote_sha" != "$ZERO_SHA" ]; then
-        PROMISE_RANGE=("$remote_sha..$local_sha")
-    else
-        PROMISE_RANGE=("$local_sha" --not --remotes)
-    fi
-    # The files the pushed commits touch. `git log --name-only` rather than
-    # `git diff`: the range is the pushed commits, and a file that a commit
-    # touched is a file this push carries.
-    PROMISE_TOUCHED="$(git log --name-only --pretty=format: "${PROMISE_RANGE[@]}" 2>/dev/null || true)"
 
-    # promise_touched <path> — did this push touch that path?
-    #
-    # `grep -c` and not `grep -q`: `-q` closes the pipe on the first hit, the
-    # writer takes SIGPIPE, and with `pipefail` the pipeline reports 141 —
-    # which is a broken pipe, not an answer.
-    promise_touched() {
-        printf '%s\n' "$PROMISE_TOUCHED" | grep -c "^$1" >/dev/null
-    }
-
-    # The output of a promise check, kept for the failure message.
-    #
-    # The checkers import the gate CLI, whose logger writes a DEBUG line per
-    # loaded module — noise that would bury the finding in a hook that people
-    # read when they are trying to push. The output is captured instead of
-    # streamed, and shown (without the DEBUG lines) only when the check fails.
-    PROMISE_OUT="$(mktemp "${TMPDIR:-/tmp}/pre-push-promise-XXXXXX")"
-
-    if promise_touched "shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TestTags.kt$"; then
-        if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR PYTHONPATH="$tree/scripts/src" \
-            python3 "$tree/scripts/check-test-tags-catalog.py" --check --quiet) \
-            >"$PROMISE_OUT" 2>&1; then
-            echo "   tag catalogue gate: OK"
-        else
-            echo "   tag catalogue gate: FAILED"
-            GATES_FAILED=1
-            echo ""
-            echo "pre-push FAILED — Maestro/TAGS.md does not match TestTags.kt in the tree of $local_ref."
-            sed '/DEBUG/d' "$PROMISE_OUT" | sed 's/^/   /'
-            echo "Regenerate it: ./gradlew :shared:jvmTest -PupdateGoldens=true, or push with --no-verify."
-        fi
-    fi
-
-    if promise_touched "Maestro/flows/" || promise_touched "config/docs/maestro-flows.txt$"; then
-        if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR PYTHONPATH="$tree/scripts/src" \
-            python3 "$tree/scripts/check-maestro-flow-catalogue.py") \
-            >"$PROMISE_OUT" 2>&1; then
-            echo "   maestro flow catalogue gate: OK"
-        else
-            echo "   maestro flow catalogue gate: FAILED"
-            GATES_FAILED=1
-            echo ""
-            echo "pre-push FAILED — the Maestro flow catalogue does not match the flows in the tree of $local_ref."
-            sed '/DEBUG/d' "$PROMISE_OUT" | sed 's/^/   /'
-            echo "Add the new flow to config/docs/maestro-flows.txt, or push with --no-verify."
-        fi
-    fi
-
-    if promise_touched "openspec/changes/"; then
-        if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR PYTHONPATH="$tree/scripts/src" \
-            python3 "$tree/scripts/check-issue-registry.py" --quiet) \
-            >"$PROMISE_OUT" 2>&1; then
-            echo "   issue registry gate: OK"
-        else
-            echo "   issue registry gate: FAILED"
-            GATES_FAILED=1
-            echo ""
-            echo "pre-push FAILED — an openspec change in the tree of $local_ref has no record in .specify/issues/."
-            sed '/DEBUG/d' "$PROMISE_OUT" | sed 's/^/   /'
-            echo "Record it with: python3 scripts/openspec-import-all.py --replace, or push with --no-verify."
-        fi
-    fi
-
-    rm -f "$PROMISE_OUT"
-    # Two places where a commit can make a claim false and nothing says so.
-    #
-    # The DI fixture table says what to hand a Koin definition that takes its
-    # arguments at runtime, and the navigation doc says what opens what. Both
-    # are read by something else — a graph that is built, an agent that follows
-    # a pointer — and both drifted on 2026-10-22 while the suite that would
-    # have caught them was an hour away.
-    #
-    # They are text gates, so they cost seconds. The check is against the tree
-    # being pushed, like every other gate here.
-    if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR PYTHONPATH="$tree/scripts/src" \
-        python3 "$tree/scripts/check-di-fixture-sync.py" --root "$tree" --check); then
-        echo "   DI fixture gate: OK"
-    else
-        echo "   DI fixture gate: FAILED"
-        GATES_FAILED=1
-        echo ""
-        echo "pre-push FAILED — a Koin definition and the DI fixture table disagree in the tree of $local_ref."
-        echo "Run python3 scripts/check-di-fixture-sync.py to see where, or push with --no-verify."
-    fi
-
-    if (cd "$tree" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR PYTHONPATH="$tree/scripts/src" \
-        python3 "$tree/scripts/check-navigation-doc-sync.py" --root "$tree" --check); then
-        echo "   navigation doc gate: OK"
-    else
-        echo "   navigation doc gate: FAILED"
-        GATES_FAILED=1
-        echo ""
-        echo "pre-push FAILED — the navigation doc claims something the code does not do in the tree of $local_ref."
-        echo "Run python3 scripts/check-navigation-doc-sync.py to see where, or push with --no-verify."
-    fi
 done
 
 if [ "$GATES_FAILED" = "1" ]; then

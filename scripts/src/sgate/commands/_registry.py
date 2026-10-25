@@ -79,18 +79,35 @@ class CmdType(StrEnum):
 #: ``scripts/check-adr-module-boundary.py``, deleted on 2026-10-15 when the
 #: owner retired that gate. Both are gone — a command that cannot pass is not
 #: a gate, it is a way to run a stack trace.
-#: The tree rules the pre-push hook runs against the tree being pushed.
+#: What the pre-push hook runs, declared once.
 #:
-#: The hook carried the list in its own loop, and the test that drives the hook
-#: carried a second list — the scripts it stubs. A gate added to the hook and
-#: not to the fixture was a failing test, and the failure was found by the full
-#: run rather than by the edit that caused it. One declaration now serves both
-#: sides: the hook reads the rules, the test reads the scripts.
-PRE_PUSH_TREE_RULES: tuple[str, ...] = (
-    "check-agents-pointers",
-    "check-issue-registry",
-    "check-review-verdicts",
+#: The declaration lives in ``sgate.gatekit.pre_push`` rather than here,
+#: because the hook reads it by path, in a tree that carries nothing else of
+#: the package, and a module that needed its neighbours could not be read
+#: there. This module re-exports it, so every reader that already imported
+#: ``PRE_PUSH_SCRIPTS`` from here keeps reading it from here.
+#:
+#: The hook carried the list of gates in its own code, and the test that
+#: drives the hook carried a second list — the scripts it stubs. A gate added
+#: to the hook and not to the fixture was a failing test, and the failure was
+#: found by the full run rather than by the edit that caused it. One
+#: declaration now serves all three sides: the hook reads the steps, the test
+#: reads the scripts, and the registry derives the list.
+from sgate.gatekit.pre_push import (  # noqa: F401
+    PRE_PUSH_MACHINERY,
+    PRE_PUSH_STEPS,
+    PRE_PUSH_TREE_RULES,
+    PrePushStep,
+    pre_push_step_table,
 )
+
+#: The file the declaration lives in.
+#:
+#: The hook runs it by path, so the path is part of the declaration: the gate
+#: that compares the hook with the registry has to know which script the hook
+#: is allowed to name — the declaration is not a gate, and a hook that names
+#: anything else is a gate the registry does not know about.
+PRE_PUSH_DECLARATION = "scripts/src/sgate/gatekit/pre_push.py"
 
 #: Every script the pre-push hook runs.
 #:
@@ -98,29 +115,16 @@ PRE_PUSH_TREE_RULES: tuple[str, ...] = (
 #: hook *may* run; the tree decides what it does. The test stubs all of them,
 #: because a hook that calls a script nobody stubbed fails for a reason that
 #: has nothing to do with what the test is about.
-PRE_PUSH_SCRIPTS: tuple[str, ...] = (
-    "scripts/build-version-catalog-gate.py",
-    "scripts/check-ui-wait-budgets.py",
-    "scripts/ci/validate-maestro-selectors.py",
-    "scripts/check-di-fixture-sync.py",
-    "scripts/check-navigation-doc-sync.py",
-    # The hook calls these two as well, and the declaration did not name them:
-    # a script the hook runs and the declaration does not list is a gate the
-    # test fixture does not stub — a failing test that only the full run
-    # finds. scripts/check-hook-gates.py is what found it.
-    "scripts/check-maestro-flow-catalogue.py",
-    "scripts/check-test-tags-catalog.py",
-    # The runner of the gate suite's own tests. It is not a gate — it judges
-    # nothing about the tree — but the hook runs it, and a script the hook
-    # runs and no record names is a script nobody knows about.
-    "scripts/run-gate-tests.py",
-
-    # The hook asks the CI verdict about the commit it is pushing. It is not
-    # a gate — it decides nothing and blocks nothing — but the hook runs it,
-    # and a script the hook runs and the record does not name is a script
-    # nobody knows runs.
-    "scripts/ci-verdict.py",
-) + tuple(f"scripts/{rule}.py" for rule in PRE_PUSH_TREE_RULES)
+#:
+#: The list is derived from the steps and the machinery, so it cannot name a
+#: script the hook does not run: a gate that is added to the table is a gate
+#: the hook runs, and a gate that is removed from the table is a gate that is
+#: not run.
+PRE_PUSH_SCRIPTS: tuple[str, ...] = tuple(
+    dict.fromkeys(
+        tuple(step.script for step in PRE_PUSH_STEPS) + PRE_PUSH_MACHINERY
+    )
+)
 
 COMMAND_MODULES: dict[str, str] = {
     "adr_references_are_valid": "gate",

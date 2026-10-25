@@ -73,6 +73,10 @@ CI_VERDICT_SCRIPT = REPO_ROOT / 'scripts' / 'ci-verdict.py'
 #: not inherit". The verdict script loads it by path, the way the checkout
 #: carries it.
 GITENV_SCRIPT = REPO_ROOT / 'scripts' / 'src' / 'sgate' / 'gatekit' / 'gitenv.py'
+#: The declaration of the gates the hook runs. The hook reads it by path, so
+#: the fixture tree carries it — the same way it carries the answer the
+#: verdict script takes.
+PRE_PUSH_DECLARATION = REPO_ROOT / 'scripts' / 'src' / 'sgate' / 'gatekit' / 'pre_push.py'
 
 #: The one way to reach that answer when the package is out of reach. The
 #: verdict script imports it, and the fixture tree has to carry it for the
@@ -317,6 +321,12 @@ class PrePushHookTest(unittest.TestCase):
         # runs the script from the checkout, and the checkout carries the file
         # the script loads. A checkout without it is not a checkout.
         self._write('scripts/src/sgate/gatekit/gitenv.py', GITENV_SCRIPT.read_text(encoding='utf-8'))
+        # The declaration of the gates the hook runs: the hook reads it by
+        # path, in a tree that carries nothing else of the gate package.
+        self._write(
+            'scripts/src/sgate/gatekit/pre_push.py',
+            PRE_PUSH_DECLARATION.read_text(encoding='utf-8'),
+        )
         # And the way the script reaches that answer: the loader that reads
         # the file by path, because the package that also holds it cannot be
         # imported by the ambient interpreter the hook runs.

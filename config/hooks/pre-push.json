@@ -3,9 +3,9 @@
 
   "hook_scripts": {
     "declared_in": "scripts/src/sgate/commands/_registry.py",
-    "declaration": "PRE_PUSH_SCRIPTS and PRE_PUSH_TREE_RULES",
+    "declaration": "PRE_PUSH_STEPS in scripts/src/sgate/gatekit/pre_push.py, and PRE_PUSH_SCRIPTS derived from it in scripts/src/sgate/commands/_registry.py",
     "verdict_delegate": "scripts/pre-push-verdict.py",
-    "why": "one declaration serves the hook, the test fixture that drives it and this record — a gate added to the hook and to neither was a failing test only the full run found"
+    "why": "one declaration serves the hook, the test fixture that drives it and this record — the hook reads the gates it runs instead of naming them, so a gate added to the declaration is a gate the hook runs, and a gate written into the hook is a gate nobody declared"
   },
 
   "detekt": {
