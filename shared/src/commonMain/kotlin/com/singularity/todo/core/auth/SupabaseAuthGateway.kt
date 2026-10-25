@@ -1,20 +1,29 @@
 package com.singularity.todo.core.auth
 
 import co.touchlab.kermit.Logger
+import com.mmk.kmpauth.core.auth.AuthCredential
+import com.mmk.kmpauth.supabase.SupabaseAuthBackend
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.runCatchingCancellable
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.OtpType
+import io.github.jan.supabase.auth.OtpVerifyResult
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.exception.AuthErrorCode
 import io.github.jan.supabase.auth.exception.AuthRestException
+import io.github.jan.supabase.auth.exception.NoSessionFoundException
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.providers.builtin.OTP
+import io.github.jan.supabase.auth.status.SessionSource
+import io.github.jan.supabase.auth.status.SessionStatus
+import io.github.jan.supabase.exceptions.HttpRequestException
 import io.github.jan.supabase.exceptions.RestException
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 
 /**
- * [AuthGateway] over the Supabase auth plugin.
+ * [AuthGateway] over Supabase, with KMPAuth's credential model in front of it.
  *
  * **A vendor seam.** The third and last of them, alongside
  * `SupabaseClientProvider` and `PostgrestSyncRpc`.
@@ -26,6 +35,25 @@ import kotlinx.coroutines.CancellationException
  * the rules — what "no session" means, and what a failed refresh does to the
  * session — live in [AuthFailure], where they can be read and checked without the
  * SDK.
+ *
+ * ## What comes from KMPAuth and what comes from the SDK
+ *
+ * KMPAuth's Supabase backend supplies the credential model: sign-up, sign-in,
+ * sign-out and the live user. Four operations are still direct SDK calls, each
+ * because KMPAuth's version of it cannot express what this application needs:
+ *
+ * - **the magic link.** KMPAuth's `sendSignInLinkToEmail` does not say that the
+ *   account must not be created, and a magic link to an unknown address would
+ *   create a ghost account.
+ * - **the magic-link exchange.** KMPAuth's `signInWithEmailLink` parses a
+ *   `token_hash` or a PKCE `code`; this application's link carries a plain token
+ *   (`feature/auth/AuthLinkSpec.kt`).
+ * - **the password change.** KMPAuth has no password change — its `reauthenticate`
+ *   is a fresh sign-in.
+ * - **the refresh.** KMPAuth's `currentUserIdToken` returns an access token and
+ *   cannot say "the provider rejected this refresh token", which is the one answer
+ *   the repository needs to tell "expired" from "unrecoverable".
+ *
  *
  * ## Why every call reads the session back instead of trusting the return value
  *
@@ -49,27 +77,43 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
      * is the honest shape, and it is why this class takes the provider rather than
      * the plugin.
      */
-    private suspend fun auth(): Auth = clients.client()?.auth ?: throw AuthFailure.notConfigured()
+    private suspend fun auth(): Auth = clients.auth() ?: throw AuthFailure.notConfigured()
+
+    /**
+     * KMPAuth's backend over the one client.
+     *
+     * Built per call rather than held: the client is rebuilt when the configured
+     * project changes, and a backend that held an old client would sign the user
+     * into the project they just left.
+     */
+    private suspend fun backend(): SupabaseAuthBackend {
+        val client = clients.client()
+            ?: throw AppError.Validation(
+                "No Supabase project is configured, so there is nothing to sign in to.",
+                code = "auth.not_configured",
+            )
+        return SupabaseAuthBackend(supabaseClient = client)
+    }
 
     override suspend fun signUp(email: String, password: String): Result<RemoteSession> = call("sign up") {
-        val auth = auth()
-        auth.signUpWith(Email) {
-            this.email = email
-            this.password = password
-        }
-        // Sign-up with email confirmation enabled leaves no session. That is the
-        // server's policy, not a failure, and the caller is told so rather than
-        // being handed a session that does not exist.
-        auth.currentSessionOrNull()?.toRemote()
+        val user = backend().signUp(email, password).getOrThrow()
+        val session = auth().currentSessionOrNull()
+        session?.toRemote() ?: RemoteSession(
+            userId = user.uid,
+            // A blank address is how the repository is told that the account exists
+            // but there is no session to use yet: a sign-up that needs the address
+            // confirmed leaves the device signed out, and the screen has to say
+            // "check your mail" rather than "that failed".
+            email = "",
+            accessToken = "",
+            refreshToken = "",
+            isAnonymous = false,
+        )
     }
 
     override suspend fun signIn(email: String, password: String): Result<RemoteSession> = call("sign in") {
-        val auth = auth()
-        auth.signInWith(Email) {
-            this.email = email
-            this.password = password
-        }
-        auth.currentSessionOrNull()?.toRemote()
+        backend().signIn(AuthCredential.EmailPassword(email = email, password = password)).getOrThrow()
+        auth().currentSessionOrNull()?.toRemote()
     }
 
     override suspend fun updatePassword(newPassword: String): Result<Unit> = call("update password") {
@@ -98,10 +142,9 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
             // Exchange the token from the magic link URL for a session.
             val result = auth.verifyEmailOtp(OtpType.Email.MAGIC_LINK, email, token)
             when (result) {
-                is io.github.jan.supabase.auth.OtpVerifyResult.Authenticated -> result.session.toRemote()
+                is OtpVerifyResult.Authenticated -> result.session.toRemote()
 
-                is io.github.jan.supabase.auth.OtpVerifyResult.VerifiedNoSession ->
-                    throw AuthFailure.verifiedWithoutSession()
+                is OtpVerifyResult.VerifiedNoSession -> throw AuthFailure.verifiedWithoutSession()
             }
         }.onFailure { e ->
             if (e !is CancellationException) {
@@ -110,11 +153,30 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
         }
 
     override suspend fun signOut(): Result<Unit> = call("sign out") {
-        // Signing out with no configured project still succeeds locally: the
-        // repository clears its own credentials regardless, and failing here
-        // would only stop it from doing so.
-        clients.client()?.auth?.signOut()
-        Unit
+        val client = clients.client()
+        if (client == null) {
+            // Signing out with no configured project still succeeds locally: there is
+            // no provider to ask, and there is nothing to end at one either.
+            Unit
+        } else {
+            try {
+                backend().signOut()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: HttpRequestException) {
+                // The provider could not be reached. The session on *this* device must
+                // still end: refusing to sign out locally because a request failed
+                // would mean the user cannot sign out on a plane.
+                //
+                // A refusal from the provider — a status it chose — is not caught here:
+                // the plugin clears the session it holds before it lets that through,
+                // so the local end has already happened by the time the exception
+                // reaches this catch.
+                runCatchingCancellable { client.auth.clearSession() }
+                    .onFailure { log.w(it) { "Could not clear the local session after a failed sign out" } }
+                throw e
+            }
+        }
     }
 
     /**
@@ -152,6 +214,67 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
     }.onFailure { e ->
         if (e !is CancellationException) {
             log.w(e) { "Auth token refresh failed" }
+    /**
+     * The live session, read from the credential store.
+     *
+     * ## Why the store is asked directly
+     *
+     * The plugin can load the session itself, and that is what it does when it is
+     * built. It is not built here: the plugin is configured not to load at all, so
+     * that the load — and the migration it triggers — happens inside the restore's
+     * bound instead of inside whoever happened to ask for the client first.
+     *
+     * The plugin's own load path reports every failure as "no session". That is
+     * right for it and wrong here: a keychain that cannot be read is not a
+     * signed-out user, and the difference is the difference between the user being
+     * sent to the login screen and the user being told what went wrong.
+     *
+     * ## Why the session is handed to the plugin afterwards
+     *
+     * The plugin's own requests are made as whoever it believes is signed in, and it
+     * believes that only once it has been told. A plugin that has never heard of the
+     * session sends the anon key — which for the backup feature means a row-level
+     * security policy refusing an upload the user is entitled to make.
+     */
+    override suspend fun currentSession(): RemoteSession? {
+        val auth = auth()
+        val session = try {
+            auth.sessionManager?.loadSession()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: NoSessionFoundException) {
+            // The store holds no session. That is an answer, not a failure — and it is
+            // the only failure this catch treats as one: a keychain that cannot be
+            // read throws something else and travels on, so the caller learns that
+            // the session could not be read rather than that there is none.
+            log.d(e) { "The credential store holds no session" }
+            null
+        } ?: return null
+        auth.importSession(session, autoRefresh = false, source = SessionSource.Storage)
+        return session.toRemoteOrNull()
+    }
+
+    /**
+     * The provider's session, as it changes.
+     *
+     * The plugin's own status is the answer: it is the one thing that knows what the
+     * provider holds and where that session came from — a sign-in, a refresh, or the
+     * store the seam handed it.
+     *
+     * The plugin is resolved when the flow is collected, and the observation stays with
+     * the plugin it started on. A project change replaces the client, and a session
+     * belongs to the client that holds it: a session observed across a project change
+     * would be a session of the project the user left.
+     */
+    override fun sessionChanges(): Flow<RemoteSession?> = flow {
+        val plugin = clients.auth()
+        if (plugin == null) {
+            log.d { "No Supabase project is configured, so there is no session to observe" }
+            return@flow
+        }
+        plugin.sessionStatus.collect { status ->
+            val session = (status as? SessionStatus.Authenticated)?.session
+            emit(session?.toRemoteOrNull())
         }
     }
 
@@ -199,13 +322,30 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
      * email and still be anonymous, and treating it as claimed would make the app
      * skip the sign-up path for a user who has not actually created an account.
      */
-    private fun io.github.jan.supabase.auth.user.UserSession.toRemote() = RemoteSession(
-        userId = user!!.id,
-        email = user?.email,
-        accessToken = accessToken,
-        refreshToken = refreshToken,
-        isAnonymous = user?.isAnonymous ?: false,
-    )
+    private fun io.github.jan.supabase.auth.user.UserSession.toRemote(): RemoteSession = toRemoteOrNull()
+        ?: throw AppError.Unauthorized(
+            "The identity provider returned a session with no owner",
+            code = "auth.no_session",
+        )
+
+    /**
+     * The session, or null when it has no owner.
+     *
+     * A record without an owner is a state this application has devices in — a
+     * token that was migrated out of plain-text preferences, where no owner id was
+     * ever stored. It is not a session: there is nobody for it to be, and publishing
+     * one would file the user's rows under an owner that does not exist.
+     */
+    private fun io.github.jan.supabase.auth.user.UserSession.toRemoteOrNull(): RemoteSession? {
+        val owner = user ?: return null
+        return RemoteSession(
+            userId = owner.id,
+            email = owner.email,
+            accessToken = accessToken,
+            refreshToken = refreshToken,
+            isAnonymous = owner.isAnonymous ?: false,
+        )
+    }
 
     private companion object {
         /** The codes GoTrue answers with when it will not accept the refresh token. */

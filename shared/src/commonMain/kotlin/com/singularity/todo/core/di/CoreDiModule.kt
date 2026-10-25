@@ -13,7 +13,7 @@ import com.singularity.todo.core.auth.AuthGateway
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.auth.DataStoreSessionStore
-import com.singularity.todo.core.auth.SecureSessionStore
+import com.singularity.todo.core.auth.SecureSessionManager
 import com.singularity.todo.core.auth.SecureStorage
 import com.singularity.todo.core.auth.SupabaseAuthGateway
 import com.singularity.todo.core.auth.SupabaseAuthRepository
@@ -194,7 +194,7 @@ fun coreModule(): org.koin.core.module.Module =
         // ─── Session / Auth ─────────────────────────────────────────────────
 
         // The plain-text store is kept only for the device id and for a token a
-        // pre-upgrade build left behind, which SecureSessionStore moves into the
+        // pre-upgrade build left behind, which SecureSessionManager moves into the
         // keychain once and then erases. It has no token-writing API any more.
         // PlaintextTokenIsolationTest fails if one ever reappears.
         single { DataStoreSessionStore(get(), get()) }
@@ -203,9 +203,12 @@ fun coreModule(): org.koin.core.module.Module =
         // must not depend on the token-bearing auth seam at all
         // (DeviceIdProvider is the whole contract it needs).
         single<DeviceIdProvider> { get<DataStoreSessionStore>() }
+        // The credential store. The provider plugin is built with it, so the SDK's
+        // session and the application's session are one session in one place: the
+        // keychain, and not a second copy in the SDK's own settings store.
         single {
-            SecureSessionStore(
-                log = Logger.withTag("SecureSessionStore"),
+            SecureSessionManager(
+                log = Logger.withTag("SecureSessionManager"),
                 secure = get<SecureStorage>(),
                 legacy = get(),
             )
@@ -217,7 +220,13 @@ fun coreModule(): org.koin.core.module.Module =
         // install has none.
         single { SupabaseConfigResolver(idGenerator = get()) }
         single<SecureStorage> { SecureStorageAdapter(get()) }
-        single { SupabaseClientProvider(resolver = get(), store = get<SecureStorage>()) }
+        single {
+            SupabaseClientProvider(
+                resolver = get(),
+                store = get<SecureStorage>(),
+                sessionStore = get(),
+            )
+        }
 
         single<AuthGateway> {
             SupabaseAuthGateway(
@@ -238,7 +247,6 @@ fun coreModule(): org.koin.core.module.Module =
             SupabaseAuthRepository(
                 log = Logger.withTag("AuthRepository"),
                 gateway = get(),
-                sessionStore = get(),
                 localOwnerStore = get(),
                 scope = get(),
             )

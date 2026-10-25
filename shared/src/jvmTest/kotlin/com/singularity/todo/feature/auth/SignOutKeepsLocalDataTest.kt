@@ -3,10 +3,8 @@ package com.singularity.todo.feature.auth
 import com.singularity.todo.core.auth.AuthGateway
 import com.singularity.todo.core.auth.DataStoreSessionStore
 import com.singularity.todo.core.auth.FixedIdGenerator
-import com.singularity.todo.core.auth.MapSecureStorage
 import com.singularity.todo.core.auth.RemoteSession
 import com.singularity.todo.core.auth.Session
-import com.singularity.todo.core.auth.SecureSessionStore
 import com.singularity.todo.core.auth.SupabaseAuthRepository
 import com.singularity.todo.core.auth.newPreferencesStore
 import com.singularity.todo.core.auth.testLogger
@@ -15,6 +13,8 @@ import com.singularity.todo.core.database.NoteEntity
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.test.fakes.FakeAppDatabase
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -57,11 +57,6 @@ class SignOutKeepsLocalDataTest {
     private fun TestScope.repository(gateway: AuthGateway) = SupabaseAuthRepository(
         log = testLogger(),
         gateway = gateway,
-        sessionStore = SecureSessionStore(
-            log = testLogger(),
-            secure = MapSecureStorage(),
-            legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
-        ),
         localOwnerStore = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
         scope = AutoCloseableCoroutineScope(coroutineContext),
     )
@@ -116,5 +111,10 @@ class SignOutKeepsLocalDataTest {
             Result.failure(AppError.Network("offline"))
 
         override suspend fun signOut(): Result<Unit> = Result.failure(AppError.Network("offline"))
+
+        override suspend fun currentSession(): RemoteSession? = null
+
+        /** A device with no connectivity never changes the session. */
+        override fun sessionChanges(): Flow<RemoteSession?> = emptyFlow()
     }
 }

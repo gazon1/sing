@@ -3,10 +3,15 @@
 package com.singularity.todo.feature.auth
 
 import com.singularity.todo.core.auth.AuthRepository
+import com.singularity.todo.core.auth.DataStoreSessionStore
+import com.singularity.todo.core.auth.FixedIdGenerator
+import com.singularity.todo.core.auth.SecureSessionManager
 import com.singularity.todo.core.auth.SecureStorage
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.auth.SupabaseClientProvider
 import com.singularity.todo.core.auth.SupabaseConfigResolver
+import com.singularity.todo.core.auth.newPreferencesStore
+import com.singularity.todo.core.auth.testLogger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.UserId
@@ -91,6 +96,11 @@ class AuthRestoreFailureUiTest {
         clients = SupabaseClientProvider(
             resolver = SupabaseConfigResolver(idGenerator = FixedIds),
             store = EmptyStorage(),
+            sessionStore = SecureSessionManager(
+                log = testLogger(),
+                secure = EmptyStorage(),
+                legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
+            ),
         ),
         // `backgroundScope`, not the test scope. `AuthViewModel.init` starts collectors
         // that never finish — the session, the server config, the restore-failure event —

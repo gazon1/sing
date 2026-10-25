@@ -65,7 +65,7 @@ Author one **when a change touches that module** — not before.
 |---|---|---|
 | `core/log-export` | `core/log-export` | `add-log-export` change (3/28 tasks) |
 | `core/sync-state` | `core/sync-state` | `2026-09-23-sync-state-model`, `2026-09-23-sync-pull-handlers-and-ui`, `2026-09-23-sync-scheduling-abstraction` |
-| `core/security`, `core/auth` | `core/auth-token-storage` | `2026-09-05-secret-storage-split` |
+| `core/security`, `core/auth` | — (the candidate `core/auth-token-storage` was **not** taken) | `2026-09-05-secret-storage-split`; `2026-10-25-auth-adapter-replaced-by-kmpauth` — the observable token-storage contract already has an owner: `REQ-UA-002`, `REQ-UA-012` and `REQ-UA-013` of the `user-authentication` capability, with `REQ-UA-023` added by that change. A second capability would restate the same behaviour under a new name and give it two owners and two places to update |
 | `core/di` | `core/di-module-aggregation` | `2026-09-27-di-module-aggregator-narrative` |
 | `core/ui` (MVI) | `core/ui-mvi` | `2026-09-27-draft-mvi-single-state-source` |
 | `core/platform` (time) | `core/time-semantics` | `2026-09-27-remove-platform-clock-object`, `2026-10-01-startdate-vs-duedate-semantics` |

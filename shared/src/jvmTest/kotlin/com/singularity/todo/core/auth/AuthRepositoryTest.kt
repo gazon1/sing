@@ -4,9 +4,13 @@ package com.singularity.todo.core.auth
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.test.helpers.awaitState
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -14,6 +18,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -33,21 +38,29 @@ import kotlin.test.assertTrue
 @Tag("fast")
 class AuthRepositoryTest {
 
-    private val gateway = ScriptedGateway()
     private val secure = MapSecureStorage()
     private val preferences = newPreferencesStore()
 
     private val legacy = DataStoreSessionStore(preferences, FixedIdGenerator("dev"))
-    private val store = SecureSessionStore(
+
+    /**
+     * The credential store, and the provider that owns it.
+     *
+     * The store is behind the provider now: the plugin saves and loads the session
+     * through it, and the repository never reaches into it. The fake provider below
+     * does the same, so these tests are about a world in which the session is really
+     * persisted.
+     */
+    private val store = SecureSessionManager(
         log = testLogger(),
         secure = secure,
         legacy = legacy,
     )
+    private val gateway = ScriptedGateway(store)
 
     private fun TestScope.repository() = SupabaseAuthRepository(
         log = testLogger(),
         gateway = gateway,
-        sessionStore = store,
         localOwnerStore = legacy,
         scope = AutoCloseableCoroutineScope(coroutineContext),
     )
@@ -75,9 +88,10 @@ class AuthRepositoryTest {
         val session = assertIs<Session.SignedIn>(repository.currentSession.value)
         assertEquals(UserId.fromString("owner-1"), session.userId)
         assertEquals("a@b.c", session.email)
-        assertEquals("access-1", secure.values[SecureSessionStore.KEY_ACCESS])
-        assertEquals("refresh-1", secure.values[SecureSessionStore.KEY_REFRESH])
-        assertEquals("owner-1", secure.values[SecureSessionStore.KEY_USER_ID])
+        val stored = assertNotNull(store.currentSession(), "the provider keeps the session it issued")
+        assertEquals("access-1", stored.accessToken)
+        assertEquals("refresh-1", stored.refreshToken)
+        assertEquals(UserId.fromString("owner-1"), stored.userId)
     }
 
     @Test
@@ -122,7 +136,7 @@ class AuthRepositoryTest {
             session.userId.value.startsWith(DataStoreSessionStore.LOCAL_OWNER_PREFIX),
             "a local owner is namespaced so it can never collide with a provider id, was ${session.userId.value}",
         )
-        assertNull(secure.values[SecureSessionStore.KEY_ACCESS])
+        assertNull(store.currentSession(), "a local session leaves no credential behind")
     }
 
     @Test
@@ -222,7 +236,7 @@ class AuthRepositoryTest {
         assertTrue(repository.signUp("a@b.c", "password123").isSuccess)
         assertEquals(Session.SignedOut, repository.currentSession.value)
         assertNull(
-            secure.values[SecureSessionStore.KEY_ACCESS],
+            store.currentSession(),
             "there is no token to persist until the address is confirmed",
         )
     }
@@ -290,9 +304,7 @@ class AuthRepositoryTest {
         repository.signOut()
 
         assertEquals(Session.SignedOut, repository.currentSession.value)
-        assertNull(secure.values[SecureSessionStore.KEY_ACCESS])
-        assertNull(secure.values[SecureSessionStore.KEY_REFRESH])
-        assertNull(secure.values[SecureSessionStore.KEY_USER_ID])
+        assertNull(store.currentSession(), "the credentials are gone even though the server was unreachable")
     }
 
     @Test
@@ -333,7 +345,7 @@ class AuthRepositoryTest {
         awaitState { repository.currentSession.value !is Session.Loading }
 
         assertEquals(Session.SignedOut, repository.currentSession.value)
-        assertNull(store.currentAccessToken(), "a token the server refused is not worth keeping")
+        assertNull(store.currentSession()?.accessToken, "a token the server refused is not worth keeping")
     }
 
     @Test
@@ -352,7 +364,7 @@ class AuthRepositoryTest {
             assertIs<Session.SignedIn>(restored.currentSession.value).userId,
             "an unreachable server says nothing about whether the token is valid",
         )
-        assertEquals("access-1", store.currentAccessToken())
+        assertEquals("access-1", store.currentSession()?.accessToken)
     }
 
     @Test
@@ -364,8 +376,64 @@ class AuthRepositoryTest {
         val repository = repositoryWithStoredSession()
         awaitState { repository.currentSession.value !is Session.Loading }
 
-        assertEquals("access-2", store.currentAccessToken())
+        assertEquals("access-2", store.currentSession()?.accessToken)
         assertEquals("access-2", assertIs<Session.SignedIn>(repository.currentSession.value).accessToken)
+    }
+
+    // ── the session the provider replaces ─────────────────────────────────────
+
+    @Test
+    fun `a session the provider replaces is published with the same identity`() = runTest {
+        gateway.signInResult = Result.success(signedIn())
+        val repository = repository()
+        awaitState { repository.currentSession.value !is Session.Loading }
+        repository.signIn("a@b.c", "password123")
+
+        // The provider rotated the tokens behind the application's back.
+        gateway.publishSession(
+            RemoteSession("owner-1", "a@b.c", "access-2", "refresh-2", isAnonymous = false),
+        )
+
+        awaitState {
+            val current = repository.currentSession.value
+            current is Session.SignedIn && current.accessToken == "access-2"
+        }
+        val session = assertIs<Session.SignedIn>(repository.currentSession.value)
+        assertEquals("access-2", session.accessToken, "the tokens the provider holds are the ones the app hands out")
+        assertEquals(UserId.fromString("owner-1"), session.userId, "the identity does not change")
+    }
+
+    @Test
+    fun `a session the provider reports for another account is not published`() = runTest {
+        gateway.signInResult = Result.success(signedIn())
+        val repository = repository()
+        awaitState { repository.currentSession.value !is Session.Loading }
+        repository.signIn("a@b.c", "password123")
+
+        gateway.publishSession(
+            RemoteSession("owner-2", "other@b.c", "access-other", "refresh-other", isAnonymous = false),
+        )
+        advanceUntilIdle()
+
+        val session = assertIs<Session.SignedIn>(repository.currentSession.value)
+        assertEquals("access-1", session.accessToken, "another account's session is not this device's to publish")
+        assertEquals(UserId.fromString("owner-1"), session.userId)
+    }
+
+    @Test
+    fun `a provider that holds no session does not sign the user out`() = runTest {
+        gateway.signInResult = Result.success(signedIn())
+        val repository = repository()
+        awaitState { repository.currentSession.value !is Session.Loading }
+        repository.signIn("a@b.c", "password123")
+
+        gateway.publishSession(signedIn())
+        advanceUntilIdle()
+        gateway.publishSession(null)
+        advanceUntilIdle()
+
+        assertIs<Session.SignedIn>(repository.currentSession.value)
+        assertEquals("access-1", assertIs<Session.SignedIn>(repository.currentSession.value).accessToken)
     }
 
     @Test
@@ -399,10 +467,12 @@ class AuthRepositoryTest {
     fun `a secure store that never answers still leaves the loading session`() = runTest {
         val hanging = HangingSecureStorage()
         val frozen = DataStoreSessionStore(hangingPreferencesStore(), FixedIdGenerator("dev"))
+        val gateway = ScriptedGateway(
+            SecureSessionManager(log = testLogger(), secure = hanging, legacy = frozen),
+        )
         val repository = SupabaseAuthRepository(
             log = testLogger(),
             gateway = gateway,
-            sessionStore = SecureSessionStore(log = testLogger(), secure = hanging, legacy = frozen),
             localOwnerStore = frozen,
             scope = AutoCloseableCoroutineScope(coroutineContext),
         )
@@ -421,14 +491,16 @@ class AuthRepositoryTest {
         // The uninstall/reinstall case: Auto Backup brings the ciphertext back, the
         // Android Keystore key that decrypts it does not exist, and the first read
         // raises a security failure for the rest of the install's life.
-        val repository = SupabaseAuthRepository(
-            log = testLogger(),
-            gateway = gateway,
-            sessionStore = SecureSessionStore(
+        val gateway = ScriptedGateway(
+            SecureSessionManager(
                 log = testLogger(),
                 secure = ThrowingSecureStorage { SecurityException("no such key") },
                 legacy = legacy,
             ),
+        )
+        val repository = SupabaseAuthRepository(
+            log = testLogger(),
+            gateway = gateway,
             localOwnerStore = legacy,
             scope = AutoCloseableCoroutineScope(coroutineContext),
         )
@@ -447,7 +519,6 @@ class AuthRepositoryTest {
         val repository = SupabaseAuthRepository(
             log = testLogger(),
             gateway = gateway,
-            sessionStore = store,
             localOwnerStore = frozen,
             scope = AutoCloseableCoroutineScope(coroutineContext),
         )
@@ -469,7 +540,6 @@ class AuthRepositoryTest {
         val repository = SupabaseAuthRepository(
             log = testLogger(),
             gateway = gateway,
-            sessionStore = store,
             localOwnerStore = broken,
             scope = AutoCloseableCoroutineScope(coroutineContext),
         )
@@ -490,16 +560,17 @@ class AuthRepositoryTest {
         // so proving that the next launch starts clean needs an instrumented test,
         // not a JVM one. What is provable here is the half that is: the failure
         // stops at the result boundary instead of leaving the repository.
-        val store = SecureSessionStore(
-            log = testLogger(),
-            secure = ThrowingSecureStorage { SecurityException("no such key") },
-            legacy = legacy,
+        val gateway = ScriptedGateway(
+            SecureSessionManager(
+                log = testLogger(),
+                secure = ThrowingSecureStorage { SecurityException("no such key") },
+                legacy = legacy,
+            ),
         )
         gateway.signInResult = Result.success(signedIn())
         val repository = SupabaseAuthRepository(
             log = testLogger(),
             gateway = gateway,
-            sessionStore = store,
             localOwnerStore = legacy,
             scope = AutoCloseableCoroutineScope(coroutineContext),
         )
@@ -621,196 +692,6 @@ class AuthRepositoryTest {
         assertEquals(0, gateway.signInCalls)
     }
 
-    // ── REQ-UA-011 — a store failure is a failure, not an exception ─────────
-
-    @Test
-    fun `a store that cannot take the session makes sign-in a failure, not a throw`() = runTest {
-        // The case the test plan found. Writing the session was the last statement of
-        // a success handler, and a handler that throws is not caught by the result it
-        // is attached to — so this escaped the repository entirely and, one layer up,
-        // crashed the view model's scope with nothing on screen.
-        val secure = MapSecureStorage(failWriteNumber = 1)
-        val repository = SupabaseAuthRepository(
-            log = testLogger(),
-            gateway = gateway,
-            sessionStore = SecureSessionStore(
-                log = testLogger(),
-                secure = secure,
-                legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
-            ),
-            localOwnerStore = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
-            scope = AutoCloseableCoroutineScope(coroutineContext),
-        )
-        awaitState { repository.currentSession.value !is Session.Loading }
-        gateway.signInResult = Result.success(signedIn())
-
-        val result = repository.signIn("a@b.c", "password123")
-
-        assertTrue(result.isFailure, "a sign-in that could not be stored did not happen")
-        assertEquals(SecureSessionStore.STORAGE_FAILED, assertIs<AppError>(result.exceptionOrNull()).code)
-    }
-
-    @Test
-    fun `a store that cannot take the session makes sign-up a failure, not a throw`() = runTest {
-        val secure = MapSecureStorage(failWriteNumber = 2)
-        val repository = SupabaseAuthRepository(
-            log = testLogger(),
-            gateway = gateway,
-            sessionStore = SecureSessionStore(
-                log = testLogger(),
-                secure = secure,
-                legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
-            ),
-            localOwnerStore = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
-            scope = AutoCloseableCoroutineScope(coroutineContext),
-        )
-        awaitState { repository.currentSession.value !is Session.Loading }
-        gateway.signUpResult = Result.success(signedIn())
-
-        val result = repository.signUp("a@b.c", "password123")
-
-        assertTrue(result.isFailure)
-        assertEquals(SecureSessionStore.STORAGE_FAILED, assertIs<AppError>(result.exceptionOrNull()).code)
-    }
-
-    @Test
-    fun `the session the device could not store is ended at the provider`() = runTest {
-        // Otherwise the provider keeps a live session for an account the user believes
-        // failed, and nothing revokes it: the refresh token never reached the device,
-        // so no later request carries it.
-        val secure = MapSecureStorage(failWriteNumber = 1)
-        val repository = SupabaseAuthRepository(
-            log = testLogger(),
-            gateway = gateway,
-            sessionStore = SecureSessionStore(
-                log = testLogger(),
-                secure = secure,
-                legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
-            ),
-            localOwnerStore = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
-            scope = AutoCloseableCoroutineScope(coroutineContext),
-        )
-        awaitState { repository.currentSession.value !is Session.Loading }
-        gateway.signInResult = Result.success(signedIn())
-
-        repository.signIn("a@b.c", "password123")
-
-        assertEquals(1, gateway.signOutCalls, "the orphaned session is still alive at the provider")
-    }
-
-    @Test
-    fun `a store failure does not end a session the device never had one for`() = runTest {
-        // Guards the guard: the compensating sign-out is for a session that was issued
-        // and lost, not a blanket "sign out whenever something failed".
-        val repository = repository()
-        awaitState { repository.currentSession.value !is Session.Loading }
-        gateway.signInResult = Result.failure(AppError.Unauthorized("no such account"))
-
-        repository.signIn("a@b.c", "password123")
-
-        assertEquals(0, gateway.signOutCalls)
-    }
-
-    @Test
-    fun `the store failure message does not blame the credentials`() = runTest {
-        val secure = MapSecureStorage(failWriteNumber = 1)
-        val repository = SupabaseAuthRepository(
-            log = testLogger(),
-            gateway = gateway,
-            sessionStore = SecureSessionStore(
-                log = testLogger(),
-                secure = secure,
-                legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
-            ),
-            localOwnerStore = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
-            scope = AutoCloseableCoroutineScope(coroutineContext),
-        )
-        awaitState { repository.currentSession.value !is Session.Loading }
-        gateway.signUpResult = Result.success(signedIn())
-
-        val message = assertIs<AppError>(repository.signUp("a@b.c", "password123").exceptionOrNull()).message
-        val lower = message.orEmpty().lowercase()
-
-        assertFalse(
-            lower.contains("password") && lower.contains("wrong"),
-            "the password was accepted; a user told otherwise will retype it: $message",
-        )
-        assertFalse(lower.contains("invalid credential"), message)
-    }
-
-    @Test
-    fun `the store failure message says the attempt got as far as the provider`() = runTest {
-        // For a sign-up the account now exists, and a blind retry answers "that address
-        // is already registered" — so the user has to know the account is real.
-        val secure = MapSecureStorage(failWriteNumber = 1)
-        val repository = SupabaseAuthRepository(
-            log = testLogger(),
-            gateway = gateway,
-            sessionStore = SecureSessionStore(
-                log = testLogger(),
-                secure = secure,
-                legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
-            ),
-            localOwnerStore = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
-            scope = AutoCloseableCoroutineScope(coroutineContext),
-        )
-        awaitState { repository.currentSession.value !is Session.Loading }
-        gateway.signUpResult = Result.success(signedIn())
-
-        val message = assertIs<AppError>(repository.signUp("a@b.c", "password123").exceptionOrNull())
-            .message.orEmpty()
-
-        assertTrue(
-            message.contains("account", ignoreCase = true),
-            "the account exists even though the session could not be stored: $message",
-        )
-    }
-
-    @Test
-    fun `the pending flag is cleared after a store failure`() = runTest {
-        val secure = MapSecureStorage(failWriteNumber = 1)
-        val repository = SupabaseAuthRepository(
-            log = testLogger(),
-            gateway = gateway,
-            sessionStore = SecureSessionStore(
-                log = testLogger(),
-                secure = secure,
-                legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
-            ),
-            localOwnerStore = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
-            scope = AutoCloseableCoroutineScope(coroutineContext),
-        )
-        awaitState { repository.currentSession.value !is Session.Loading }
-        gateway.signInResult = Result.success(signedIn())
-
-        repository.signIn("a@b.c", "password123")
-
-        assertFalse(repository.isLoading.value, "a spinner that never stops is how a user files this as a hang")
-    }
-
-    @Test
-    fun `a store failure leaves the device signed out rather than half signed in`() = runTest {
-        val secure = MapSecureStorage(failWriteNumber = 3)
-        val repository = SupabaseAuthRepository(
-            log = testLogger(),
-            gateway = gateway,
-            sessionStore = SecureSessionStore(
-                log = testLogger(),
-                secure = secure,
-                legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
-            ),
-            localOwnerStore = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
-            scope = AutoCloseableCoroutineScope(coroutineContext),
-        )
-        awaitState { repository.currentSession.value !is Session.Loading }
-        gateway.signInResult = Result.success(signedIn())
-
-        repository.signIn("a@b.c", "password123")
-
-        assertIs<Session.SignedOut>(repository.currentSession.value)
-        assertNull(secure.values[SecureSessionStore.KEY_ACCESS])
-    }
-
     // ── Magic link ────────────────────────────────────────────────────────────
 
     @Test
@@ -869,8 +750,17 @@ class AuthRepositoryTest {
         RemoteSession("owner-1", email, "access-1", "refresh-1", isAnonymous = false)
 }
 
-/** A gateway whose every answer is set by the test. */
-private class ScriptedGateway : AuthGateway {
+/**
+ * A gateway whose every answer is set by the test.
+ *
+ * ## Why it holds the credential store
+ *
+ * The provider owns the session now: the plugin saves and loads it through the app's
+ * credential store, and the repository never reaches into the store. A fake that did
+ * not keep the session would be a fake in a world where signing in never persists
+ * anything — and the tests below are about what the device keeps.
+ */
+internal class ScriptedGateway(private val store: SecureSessionManager) : AuthGateway {
     var signInResult: Result<RemoteSession> = Result.failure(AppError.Unauthorized("not scripted"))
     var signUpResult: Result<RemoteSession> = signInResult
     var signOutResult: Result<Unit> = Result.success(Unit)
@@ -894,21 +784,81 @@ private class ScriptedGateway : AuthGateway {
     override suspend fun signUp(email: String, password: String): Result<RemoteSession> {
         signUpResultCalls++
         lastSignUpEmail = email
-        return signUpResult
+        val result = signUpResult
+        if (result.isFailure) return result
+        return save(result.getOrThrow())
     }
 
     override suspend fun signIn(email: String, password: String): Result<RemoteSession> {
         signInCalls++
         lastSignInEmail = email
-        return signInResult
+        val result = signInResult
+        if (result.isFailure) return result
+        return save(result.getOrThrow())
     }
 
     override suspend fun signOut(): Result<Unit> {
         signOutCalls++
+        // The plugin clears the session it holds, in the app's credential store,
+        // whether or not the server agreed to end it there.
+        runCatchingCancellable { store.deleteSession() }
         return signOutResult
     }
 
-    override suspend fun refresh(accessToken: String, refreshToken: String): Result<RemoteSession?> = refreshResult
+    override suspend fun refresh(accessToken: String, refreshToken: String): Result<RemoteSession?> {
+        val result = refreshResult
+        if (result.isFailure || result.getOrNull() == null) return result
+        return persist(result)
+    }
+
+    /**
+     * A refresh that was rejected leaves nothing behind either: the provider has
+     * said the token is dead, and the session it belonged to is over.
+     */
+    private suspend fun persist(result: Result<RemoteSession?>): Result<RemoteSession?> {
+        if (result.isFailure) return result
+        val session = result.getOrNull() ?: return result
+        return save(session)
+    }
+
+    override suspend fun currentSession(): RemoteSession? {
+        val session = store.currentSession() ?: return null
+        return RemoteSession(
+            userId = session.userId.value,
+            email = session.email,
+            accessToken = session.accessToken,
+            refreshToken = session.refreshToken,
+            isAnonymous = false,
+        )
+    }
+
+    /**
+     * Saves the session the provider issued, the way the plugin does.
+     *
+     * A store that cannot take it turns the attempt into a failure — and the failure
+     * has to reach the repository as a result, not as an exception: a handler that
+     * throws is not caught by the result it is attached to.
+     *
+     * A session with no address is the shape a sign-up that needs its address
+     * confirmed comes back in, and there is no session behind it to keep: the
+     * provider issued no session, so nothing is written.
+     */
+    private suspend fun save(session: RemoteSession): Result<RemoteSession> {
+        if (session.email.isNullOrBlank() && !session.isAnonymous) {
+            return Result.success(session)
+        }
+        return runCatchingCancellable {
+            store.save(
+                Session.SignedIn(
+                    userId = UserId.fromString(session.userId),
+                    email = session.email.orEmpty(),
+                    accessToken = session.accessToken,
+                    refreshToken = session.refreshToken,
+                ),
+            )
+            session
+        }
+    }
 
     override suspend fun updatePassword(newPassword: String): Result<Unit> = Result.success(Unit)
 
@@ -922,6 +872,21 @@ private class ScriptedGateway : AuthGateway {
         verifyMagicLinkCalls++
         return verifyMagicLinkResult
     }
+
+    private val sessionChanges = MutableStateFlow<RemoteSession?>(null)
+
+    /**
+     * The provider's own answer about the session, as it changes.
+     *
+     * A test that needs the provider to replace a session behind the repository's
+     * back says so here — that is the only way the repository learns about a session
+     * it did not ask for.
+     */
+    fun publishSession(remote: RemoteSession?) {
+        sessionChanges.value = remote
+    }
+
+    override fun sessionChanges(): Flow<RemoteSession?> = sessionChanges
 }
 
 /**

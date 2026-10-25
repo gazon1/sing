@@ -3,11 +3,16 @@
 package com.singularity.todo.feature.auth
 
 import com.singularity.todo.core.auth.AuthRepository
+import com.singularity.todo.core.auth.DataStoreSessionStore
+import com.singularity.todo.core.auth.FixedIdGenerator
+import com.singularity.todo.core.auth.SecureSessionManager
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.auth.SupabaseClientProvider
 import com.singularity.todo.core.auth.SupabaseConfigResolver
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.auth.SecureStorage
+import com.singularity.todo.core.auth.newPreferencesStore
+import com.singularity.todo.core.auth.testLogger
 import com.singularity.todo.feature.auth.LocalDataDisposition
 import com.singularity.todo.feature.auth.LocalDataSummary
 import com.singularity.todo.feature.auth.ReassignCounts
@@ -88,6 +93,11 @@ class AuthViewModelTest {
         val provider = SupabaseClientProvider(
             resolver = SupabaseConfigResolver(idGenerator = FixedIds()),
             store = storage,
+            sessionStore = SecureSessionManager(
+                log = testLogger(),
+                secure = storage,
+                legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
+            ),
         )
         val repository = object : AuthRepository {
             override val currentSession = sessions.asStateFlow()
@@ -236,7 +246,15 @@ class AuthViewModelTest {
 
     @Test
     fun `a seed that fails does not prevent the sign-in`() = runTest {
-        val provider = SupabaseClientProvider(SupabaseConfigResolver(FixedIds()), storage)
+        val provider = SupabaseClientProvider(
+            SupabaseConfigResolver(FixedIds()),
+            storage,
+            SecureSessionManager(
+                log = testLogger(),
+                secure = storage,
+                legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
+            ),
+        )
         val repository = object : AuthRepository {
             override val currentSession = sessions.asStateFlow()
             override val isLoading = MutableStateFlow(false)

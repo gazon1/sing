@@ -1,0 +1,17 @@
+schema: spec-driven
+goal: >
+  Let the application hear about a session the identity provider replaced behind its
+  back, so that the tokens it publishes are the tokens the provider holds — and so that
+  the transition the previous change's model promised, and its second reading recorded
+  as a divergence, exists in the code rather than only in the model.
+
+affected_areas: [shared]
+
+# This change adds to an observable capability contract: `user-authentication`.
+# REQ-UA-024 says what the application publishes when the provider replaces the
+# session it holds. The delta is in `specs/user-authentication/spec.md`.
+#
+# The decision it carries is recorded in
+# `docs/decisions/2026-10-25-the-provider-publishes-its-session.md`: the port grows by
+# one method, the seam reads the provider's own status, and the repository republishes
+# under the guard the previous change's model already named.
