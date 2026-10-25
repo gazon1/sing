@@ -1,0 +1,27 @@
+# spec-kit issue record — hand-written.
+#
+# Not imported from an OpenSpec change: the importer rebuilds the records it
+# owns from scratch (`scripts/openspec-import-all.py` writes each file
+# wholesale), so this record is written by hand.
+---
+version: '1.0'
+type: openspec-change
+slug: the-wire-list-is-the-model-minus-the-exceptions
+date: '2026-10-24'
+title: 'The wire''s field list is the model''s own list'
+status: accepted
+change_type: active
+speckit_imported: false
+adr_refs:
+- 2026-10-25-the-wire-list-is-the-model-minus-the-exceptions
+tags:
+- sync
+- contract
+- tooling
+documents:
+  proposal: openspec/changes/the-wire-list-is-the-model-minus-the-exceptions/proposal.md
+  design: openspec/changes/the-wire-list-is-the-model-minus-the-exceptions/design.md
+  tasks: openspec/changes/the-wire-list-is-the-model-minus-the-exceptions/tasks.md
+specs_dir: openspec/changes/the-wire-list-is-the-model-minus-the-exceptions/specs
+is_stub: false
+openspec_path: openspec/changes/the-wire-list-is-the-model-minus-the-exceptions

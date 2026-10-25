@@ -302,6 +302,121 @@ part of one — is what the reviewer reads for.
 
 ---
 
+## The wire's field list is the model's own list
+
+The names a document may carry are the model's own names. A list of them
+written out beside the model is a copy, and a copy is kept in step by somebody's
+memory: a field added to a model is forgotten in the list, and the field is
+sent and dropped by the server, and nobody says so.
+
+So the list is derived — from the model's serial descriptor, which is what the
+encoder writes from — and what is written by hand is the *exception*: the four
+fields the server owns.
+
+A reviewing agent watches for:
+
+- A hand-written list of field names next to a model. The names are the model's
+  own, and the only place a name belongs is the subtraction.
+- A subtraction of a name the model does not have. That is a typo, and it does not
+  subtract anything: the field stays in the list, the server is told it may write
+  it, and the model's own bookkeeping becomes writable by the server.
+- A list that is compared with the model by parsing the model's source. A parser
+  that misreads a model reads less, and the check passes on a tree it did not
+  really read — that is how three field names went missing from the server's
+  seed while the gate that checked it stayed green.
+- A server's field table that names a field outside the derived server list.
+  That name is a field the server may write and nothing ever writes, and it
+  reads like a rule.
+- A check that reads only the first statement of a migration, or only one
+  migration. The table is everything every migration holds for it, and a check
+  that reads less of the tree than it says passes on a tree it did not really
+  read — the same defect, one layer down.
+- A reader that drops a row it cannot read. Every spelling SQL allows is a
+  spelling the reader has to know, and a spelling it does not know is a row it
+  must NOT lose: a dropped row is a field nobody sends, which is the direction
+  that matters. Read the row the way the statement writes it — map the values
+  onto the columns the statement names — and REPORT what you cannot read.
+- A reader that ignores a statement it does not model — an update, a delete, a
+  truncate, a merge, an upsert that renames a row, a copy into the table, a
+  drop of the table or of its schema, a table made out of a query, an ALTER
+  of the column's default. Those change what the server may write, and a gate
+  that passes over them says nothing about the table it did not read. The
+  list is not a guess: PostgreSQL writes rows into an existing table in six
+  ways, and the reader reads the inserts and reports the other five.
+- A reader that looks only at the statement and not at what it carries. An
+  insert written as text inside a string — dynamic SQL, run by the migration
+  when it applies — is a row the file holds, and the reader reads the string
+  to find it. And the converse: a string in a value position is a value, and
+  a reader that reads it as code reports a row the database never holds.
+- A reader that reads a block of text as a value because of how the literal is
+  spelled, or because of what stands between the keyword and the code.
+  `execute E'…'`, `do E'…'` and `prepare x as E'…'` are statements the migration
+  runs, exactly as their plain-quoted twins are: the `E` belongs to the
+  literal, not to the text around it — and the escapes it holds are decoded, so
+  a row written by an E-string is a row the reader reads.
+  `do [language plpgsql] $$ … $$` is a body, too: the language clause stands
+  between the keyword and the code, and the code runs.
+- A reader that cannot place a write and passes over it. A write whose target
+  the reader cannot tell — the table's name held in a variable, or assembled
+  from pieces — is a write the gate cannot rule out, and it is reported
+  whenever the table's name is in play: in the scope the write is in, or held
+  in the file as a literal the file hands around. A scope that SPELLS a write
+  into the table is a scope where the name is in play — the text of that write
+  may be carried into a variable and run later — and a scope that only READS
+  the table spells no write and stays quiet. The same holds at the level of the
+  file: a file that holds the TEXT of a write into the table is a file where
+  the table's name is in play. A call may run what it is handed, so a call
+  handed a name — a variable the reader cannot follow — in a scope that holds
+  such a text is reported too. A body is a scope of its own AND
+  a scope inside another: a nested body sees the scope it is nested in, so a
+  write text the enclosing body holds is a write text the nested body may run.
+  What the reader takes for a
+  read is a read OUT of the table, because a read of the table cannot spell
+  its own name. The one case the reader does not see is a name the write
+  takes from the DATABASE at run time — out of a row, a setting, a function's
+  return — the limit of static reading itself, since a reader that reads SQL
+  cannot see a name that is not in it, and the name the write uses is data,
+  not text.
+- A reader that knows only one spelling of "a name assembled from pieces". A
+  name spelled out of pieces is the name it spells, in every spelling of a
+  literal — `'…'`, `E'…'`, `U&'…'`, `B'…'` and `$$…$$`, with a cast between two
+  pieces or without one — and a name spelled out of a piece the reader cannot
+  fold is a write into a PIECE of the name. That write is reported wherever
+  the scope holds what the piece may be completed with, because the text the
+  migration runs is assembled at run time. A piece on its own is not the name:
+  `'field'` is a word, and a file may hold it without meaning the table.
+- A reader that follows the table only by its own name, and misses the doors.
+  A VIEW over the table is a second door into it — PostgreSQL writes through
+  an automatically updatable view — a CHILD of the table is a third — PostgreSQL
+  returns the rows of a child when the parent is queried, so a row written
+  into the child is a row the server's own lookup finds — and a string that
+  spells a write into the table and is handed to a CALL may be run by that
+  call. All three are reported.
+  What is NOT reported is a string that is stored: a column holds words, and
+  `values ('insert into …')` puts a word in a column. Nor is a view
+  PostgreSQL does not update — over an aggregate, or over a join: it is no
+  door, and it is another table's business. Nor is a table shaped like the
+  field table — `create table … (like sync_field_allowlist)`: it copies the
+  shape of a table and not its rows.
+- A migration that writes the server's field table through a computed
+  identifier. The field table is a contract, not data: it is written by a
+  list of names, and a name the file does not spell is a name no reader of
+  that file can report. The gate cannot catch it — the rule is what catches
+  it, and the rule is the review.
+- A row of a type neither the client nor the server is known to have. The
+  server looks a type up by name, so such a row is a row the server never
+  reads — and a type one spelling away from the client's is a row that was
+  meant for the client and missed.
+
+The mechanical part: `SyncContractIsTheSourceOfTruthTest` says the wire carries
+exactly the derived list and that every subtracted name is a name the model has;
+`SyncFieldAllowlistExportTest` says the committed export is what the models
+declare; the gate `sync allowlist seed matches contract` says the seed is
+current and that the server's table names no field outside the derived server
+list.
+
+---
+
 ## The spec and the code say the same thing
 
 A spec that describes a behaviour the code does not have is worse than no
@@ -390,6 +505,7 @@ re-deriving them.
 | Fakes, not mocks; mocks only for outgoing calls | `AGENTS.md`, review |
 | A document writes only the parts it carries; a part it does not carry is not written | `TaskDocumentPartsTest`, `TaskDocumentWriteTest`, `ProjectDocumentWriteTest`, review |
 | A push carries what the database holds; the emptiness of a read is not a claim | `TaskPushClaimTest`, `TaskDaoArchiveRepositoryImplTest`, review |
+| The wire's field list is the model's own list; only the exceptions are written | `SyncContractIsTheSourceOfTruthTest`, `SyncFieldAllowlistExportTest`, `scripts/check-sync-allowlist-regenerated.py` |
 | Every test class carries `@Tag` (`fast`, or `slow` when it crosses a process boundary) | `TestTagCoverageTest` |
 | No `delay()` in tests — virtual time and `awaitState` | detekt `NoRealDelayInTest` (a delay over 500 ms) + review |
 | ViewModels take an injected `AutoCloseableCoroutineScope`; never `viewModelScope` | detekt + review |
