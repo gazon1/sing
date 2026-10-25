@@ -62,6 +62,19 @@ The tech debt refactor is organized into **3 epics × 10 PRs**. All work happens
 **Priority:** High, **HIGH RISK**
 - `SettingsViewModel` (~340 lines) → 5 sub-VMs in `feature/settings/`
 - `ProjectDetailViewModel` (~340 lines) → 5 sub-VMs in `feature/projects/detail/`
+- `AcpExternalAgentViewModel` (~425 lines) → sub-VMs in `feature/ai/external/`
+  — the class carries four concerns: the ACP session lifecycle (`connect` /
+  `disconnect` / `closeSession`), the turn lifecycle (`send` / `cancel`), the
+  permission sheet's decision flow (`answerPermission`), and the mapping of the
+  agent's events onto the activity stream (`applyActivity`). The three lifecycles
+  already live in `AcpAgentConversation`, `AcpTurnRunner` and `AcpPermissionBroker`;
+  what is still in the class is the activity mapping and the permission decision
+  flow. Added by issue #994, so the split happens here and not twice.
+
+**Not this epic:** the tool server's start-up. It is a process entry point, not a
+ViewModel, so the VM-split does not cover it, and its order was written down under
+its own ADR (`2026-10-25-the-start-up-steps-are-types`). Issue #994 asked where that
+work is owned — this is the answer.
 
 **Skills:** `singularity-todo-testable-vm`, `singularity-todo-vm-migration-playbook`, `singularity-todo-feature-scaffold`
 
