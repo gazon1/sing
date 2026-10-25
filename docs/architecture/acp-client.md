@@ -154,8 +154,9 @@ previous one to finish before it starts, because two prompts on one session are 
 conversations and the protocol says nothing sensible about the second one.
 
 **The close.** The process tree belongs to whoever started the conversation, and that is
-the screen's ViewModel — `AcpExternalAgentViewModel` holds the `AcpAgentSession`, which
-holds the tree, and registers a closeable that calls `session?.terminate()`. The
+the screen's ViewModel — `AcpExternalAgentViewModel` holds the `AcpAgentConversation`,
+which holds the `AcpAgentSession` and the tree, and registers a closeable that calls
+`conversation.terminate()`. The
 closeable runs *instead of* the scope, not through it: the scope is closed first, so a
 coroutine launched there would never run. The protocol's own "close the session" call is
 attempted and never relied upon — it is unstable and available only when the agent
