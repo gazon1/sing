@@ -378,47 +378,33 @@ def gate_tooling_origin() -> pathlib.Path | None:
     return pathlib.Path(locations[0]).resolve()
 
 
-def _is_editable_finder(finder: object) -> bool:
-    """Whether a meta-path finder came from an editable install.
+def _load_binding():
+    """The binding module, loaded by path.
 
-    The editable install of `scripts/src/` registers a finder that maps `sgate`
-    to the checkout that was installed last. Setuptools *appends* it to
-    `sys.meta_path`, so a `sys.path` entry wins while it is there — but the
-    append is a property of the setuptools version that installed it, and the
-    answer to "which `sgate` is this?" must not depend on that. The finder is
-    dropped and the path is put first by hand. This is the move `sg` makes.
+    It cannot be imported: the runner has to work when the package is missing
+    — that is the case it refuses — and it cannot live inside the package,
+    because the package is what may be missing. It sits next to the runner,
+    and `./sg` reaches it the same way.
     """
-    name = getattr(finder, "__module__", "") or ""
-    if "editable" in name.lower():
-        return True
-    return "editable" in type(finder).__module__.lower()
+    path = pathlib.Path(__file__).resolve().parent / "package-binding.py"
+    spec = importlib.util.spec_from_file_location("package_binding", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def pin_local_package(root: pathlib.Path) -> pathlib.Path:
     """Bind `import sgate` to the checkout this runner sits in.
 
-    Three moves, in this order:
-
-    1. the editable finders go — they map the package to whichever checkout
-       was installed last;
-    2. this checkout's `scripts/src` goes first on `sys.path` — so the package
-       that answers `import sgate` is the one on disk here;
-    3. the same path goes first in `PYTHONPATH` — so the *children* this suite
-       spawns inherit the binding. Without the third move a subprocess
-       resolves the package by itself, and by "itself" means "by whatever is
-       installed".
+    The moves are in `scripts/package-binding.py`, which both entry points use:
+    the editable finders go, this checkout's `scripts/src` goes first on
+    `sys.path`, and the same path goes first in `PYTHONPATH` so the children
+    this suite spawns inherit the binding.
 
     @param root the repository root.
     @return the directory the package is bound to.
     """
-    source = (root / "scripts" / "src").resolve()
-    sys.meta_path = [finder for finder in sys.meta_path if not _is_editable_finder(finder)]
-    if str(source) not in sys.path:
-        sys.path.insert(0, str(source))
-    existing = [part for part in os.environ.get("PYTHONPATH", "").split(os.pathsep) if part]
-    if str(source) not in existing:
-        os.environ["PYTHONPATH"] = os.pathsep.join([str(source), *existing])
-    return source
+    return _load_binding().bind_local_package(root)
 
 
 def refuse_unmeasurable_tooling(original_env: dict[str, str]) -> bool:

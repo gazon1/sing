@@ -62,6 +62,7 @@ CHANGED_MODULES = REPO_ROOT / 'scripts' / 'changed-modules.py'
 # carries it, because the hook calls it by name: a fixture that does not carry
 # the file the hook runs proves nothing about the hook.
 GATE_TEST_RUNNER = REPO_ROOT / 'scripts' / 'run-gate-tests.py'
+PACKAGE_BINDING = REPO_ROOT / 'scripts' / 'package-binding.py'
 
 #: The tool that prints the CI verdict. The hook calls it before the push
 #: goes out, so the verdict is a line in the output of the push and not a
@@ -306,6 +307,11 @@ class PrePushHookTest(unittest.TestCase):
         # falls back to the plain `unittest` for it.
         if with_runner:
             self._write('scripts/run-gate-tests.py', GATE_TEST_RUNNER.read_text(encoding='utf-8'))
+            # The runner binds the package through a module it loads BY PATH:
+            # it cannot import that module, because the package it repairs may
+            # be the thing that is missing. A tree without the module has a
+            # runner that cannot bind anything.
+            self._write('scripts/package-binding.py', PACKAGE_BINDING.read_text(encoding='utf-8'))
 
         # The answer the verdict script takes is in the checkout too: the hook
         # runs the script from the checkout, and the checkout carries the file

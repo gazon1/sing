@@ -26,6 +26,7 @@ RUNNER = _ROOT / "scripts" / "run-gate-tests.py"
 #: The origin report the runner prints when it refuses. A tree that carries
 #: the runner has to carry this too — the runner runs it as a subprocess.
 ORIGIN_CHECKER = _ROOT / "scripts" / "check-gate-tooling-origin.py"
+BINDING = _ROOT / "scripts" / "package-binding.py"
 
 _spec = importlib.util.spec_from_file_location("run_gate_tests", RUNNER)
 _runner = importlib.util.module_from_spec(_spec)
@@ -459,6 +460,11 @@ class GateToolingBindingTest(unittest.TestCase):
             (tree / "scripts").mkdir()
             runner = tree / "scripts" / "run-gate-tests.py"
             runner.write_text(RUNNER.read_text(encoding="utf-8"), encoding="utf-8")
+            # The binding module travels with the runner: it is loaded by path,
+            # and a runner without it cannot bind anything.
+            (tree / "scripts" / "package-binding.py").write_text(
+                BINDING.read_text(encoding="utf-8"), encoding="utf-8"
+            )
             # The origin report is run as a subprocess by the runner, so the
             # tree has to carry it — or the refusal would crash instead of
             # refusing.
@@ -494,6 +500,11 @@ class GateToolingBindingTest(unittest.TestCase):
             (tree / "scripts" / "src" / "sgate").mkdir(parents=True)
             runner = tree / "scripts" / "run-gate-tests.py"
             runner.write_text(RUNNER.read_text(encoding="utf-8"), encoding="utf-8")
+            # The binding module travels with the runner: it is loaded by path,
+            # and a runner without it cannot bind anything.
+            (tree / "scripts" / "package-binding.py").write_text(
+                BINDING.read_text(encoding="utf-8"), encoding="utf-8"
+            )
             tests_dir = tree / "tests"
             tests_dir.mkdir()
             env = dict(os.environ)

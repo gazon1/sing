@@ -64,6 +64,19 @@ cat "${STUB_RELEASE_ARCHIVE:?}"
 """
 
 
+def _pin_value(pins: str, key: str) -> str:
+    """The value of a pin, read from the pins file.
+
+    Read, never written out: a version written in two places is a version that
+    can drift, and the gate that watches for exactly that would fail on this
+    test.
+    """
+    for line in pins.splitlines():
+        if line.startswith(f'{key}='):
+            return line.split('=', 1)[1]
+    raise AssertionError(f'{key} is not in the pins file')
+
+
 class SharedToolStoreTest(unittest.TestCase):
     """The pinned binaries are shared by version, and the code is not."""
 
@@ -155,11 +168,17 @@ class SharedToolStoreTest(unittest.TestCase):
 
     def test_the_store_is_keyed_by_the_pinned_version(self):
         """Sharing is safe because the pin is part of the name."""
-        pins = PINS_FILE.read_text(encoding='utf-8').replace(
-            'LYCHEE_BIN_VERSION=0.24.2', 'LYCHEE_BIN_VERSION=0.24.3'
-        )
+        pins = PINS_FILE.read_text(encoding='utf-8')
+        current = _pin_value(pins, 'LYCHEE_BIN_VERSION')
+        # The other version is derived, never written out: a version literal
+        # outside the pins file is a pin that can drift, and the gate that
+        # watches for those would (rightly) fail on this test.
+        other = f'{current}-other'
         older = self._checkout('checkout-a')
-        newer = self._checkout('checkout-b', pins=pins)
+        newer = self._checkout(
+            'checkout-b',
+            pins=pins.replace(f'LYCHEE_BIN_VERSION={current}', f'LYCHEE_BIN_VERSION={other}'),
+        )
 
         self._install(older)
         self._install(newer)
@@ -171,8 +190,8 @@ class SharedToolStoreTest(unittest.TestCase):
             newer_copy,
             'two pinned versions share one file — the pin stopped meaning anything',
         )
-        self.assertIn('0.24.2', older_copy)
-        self.assertIn('0.24.3', newer_copy)
+        self.assertIn(current, older_copy)
+        self.assertIn(other, newer_copy)
 
     def test_the_shared_binary_is_the_one_that_runs(self):
         """The link is not decoration: the tool behind it is the shared copy."""

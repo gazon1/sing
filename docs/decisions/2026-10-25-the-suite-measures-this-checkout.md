@@ -117,6 +117,27 @@ caller's decision and is still taken over, with a warning. `scripts/setup-worktr
 no longer hands the path to the installer, so the refusal is reachable there too,
 and the installer's own message reaches the caller instead of being swallowed.
 
+**The venv holds libraries; the checkout holds code.** The pinned binaries
+(`lychee`, `shellcheck`, `actionlint`) are the same bytes in every checkout, so
+they live in one shared store, keyed by version
+(`~/.venvs/_tools/<tool>-<version>/bin/<tool>`), and each venv's copy is a
+symlink into it: one copy per version on the machine instead of one per
+checkout — `lychee` alone is 303 MB, and thirty checkouts were 8.9 GB of
+identical bytes. The split is the one the private Gradle home already makes
+(ADR `2026-10-04-gradle-daemon-isolation`): what is read-mostly is shared,
+what belongs to a checkout stays private. The checkout's own code — the
+editable install of `scripts/src/` — is the private half, and it is the half
+that must never be shared.
+
+**The two entry points share one module.** `./sg` and `scripts/run-gate-tests.py`
+each bind the package before anything else runs, and they used to bind it in two
+spellings: the same finder-scrubbing logic written out twice, in two files
+that had to agree. It now lives in `scripts/package-binding.py`, which both
+load **by path**. It cannot be imported: the runner has to work when the
+package is missing — that is the case it refuses — and `./sg` has to work when
+the package is broken, so the thing that repairs the package cannot live
+inside it.
+
 ## Rationale
 
 - **A pin is a measurement; a refusal is an absence.** Refusing to run because
@@ -169,8 +190,10 @@ and the installer's own message reaches the caller instead of being swallowed.
 - ADR `2026-10-21-one-owner-of-stdout.md` — the same rule for the stdout
   channel: one owner, and the document says what it is about.
 - `scripts/run-gate-tests.py` — `pin_local_package`, `refuse_unmeasurable_tooling`.
+- `scripts/package-binding.py` — the binding both entry points use.
 - `scripts/check-script-conventions.py` — rule R2.5, the binding rule.
-- `scripts/ci/setup-local-tools.sh` — the per-checkout venv and the refusal.
+- `scripts/ci/setup-local-tools.sh` — the per-checkout venv, the shared store of
+  pinned binaries, and the refusal.
 - `scripts/check-gate-tooling-origin.py` — the origin question, asked without
   importing the package.
 - `scripts/tests/test_run_gate_tests.py`,
