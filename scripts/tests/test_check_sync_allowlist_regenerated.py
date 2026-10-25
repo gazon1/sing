@@ -1929,6 +1929,102 @@ class RowLiteralSpellingTest(AllowlistTreeTest):
         code, output = self.run_gate()
         return code, output
 
+    def test_a_string_continued_across_a_newline_is_one_name(self):
+        """PostgreSQL continues a string constant across a newline.
+
+        The whitespace between the parts is dropped, so `'ti'` on the next
+        line `'tle'` is `title` — and the reader that keeps the two apart
+        reads a name the database never stores, and rejects an honest
+        migration.
+        """
+        code, output = self._rows(
+            "insert into sync_field_allowlist (entity_type, field, writable) values\n"
+            "    ('task', 'ti'\n    'tle', true);\n"
+        )
+        self.assertEqual(0, code, output)
+
+    def test_a_continued_string_is_reported_under_the_name_it_holds(self):
+        code, output = self._rows(
+            "insert into sync_field_allowlist (entity_type, field, writable) values\n"
+            "    ('task', 'ghost'\n    'Field', true);\n"
+        )
+        self.assertEqual(1, code, output)
+        self.assertIn("task.ghostField", output)
+
+    def test_an_e_string_continued_across_a_newline_is_one_name(self):
+        """The prefix of the first part governs the whole constant.
+
+        `E'ghost'` and the next line `'Field'` is one E-string, and it holds
+        `ghostField`.
+        """
+        code, output = self._rows(
+            "insert into sync_field_allowlist (entity_type, field, writable) values\n"
+            "    ('task', E'ghost'\n    'Field', true);\n"
+        )
+        self.assertEqual(1, code, output)
+        self.assertIn("task.ghostField", output)
+
+    def test_a_newline_inside_one_pair_of_quotes_is_kept(self):
+        """A newline inside the quotes is another thing: PostgreSQL keeps it.
+
+        `'ti` and a newline and `tle'` is one constant of six characters,
+        and the name it holds is not a name any model has.
+        """
+        code, output = self._rows(
+            "insert into sync_field_allowlist (entity_type, field, writable) values\n"
+            "    ('task', 'ti\ntle', true);\n"
+        )
+        self.assertEqual(1, code, output)
+        self.assertIn("task.ti\ntle", output)
+
+    def test_a_doubled_quote_belongs_to_its_own_part(self):
+        """`''` is a quote inside its part, and never across two parts.
+
+        PostgreSQL reads the two parts as two strings, and each part's quote
+        is its own — so the name holds two quotes and not one.
+        """
+        code, output = self._rows(
+            "insert into sync_field_allowlist (entity_type, field, writable) values\n"
+            "    ('task', 'a'''\n    '''b', true);\n"
+        )
+        self.assertEqual(1, code, output)
+        self.assertIn("task.a''b", output)
+
+    def test_a_continued_table_name_is_reported(self):
+        """`'sync_field_'` and the next line `'allowlist'` is one name.
+
+        The write cannot run — the database does not accept a string where a
+        table's name stands — and the file spells the name all the same.
+        """
+        code, output = self._rows(
+            "insert into 'sync_field_'\n    'allowlist' "
+            "(entity_type, field, writable) values ('task', 'ghostField', true);\n"
+        )
+        self.assertEqual(1, code, output)
+        self.assertIn("written as a string", output)
+
+    def test_a_hex_spelling_of_the_table_name_is_reported(self):
+        """`X'...'` spells the name in hex, and the reader reads it.
+
+        A hex string spells four bits with every digit, and the bytes it
+        spells are the name — so the write names the table all the same.
+        """
+        code, output = self._rows(
+            "insert into X'73796e635f6669656c645f616c6c6f776c697374' "
+            "(entity_type, field, writable) values ('task', 'ghostField', true);\n"
+        )
+        self.assertEqual(1, code, output)
+        self.assertIn("written as a string", output)
+
+    def test_a_hex_string_is_read(self):
+        """`X'...'` holds the bytes its hex digits spell."""
+        code, output = self._rows(
+            "insert into sync_field_allowlist (entity_type, field, writable) values\n"
+            "    ('task', X'67686F737446', true);\n"
+        )
+        self.assertEqual(1, code, output)
+        self.assertIn("task.ghostF", output)
+
     def test_an_e_string_is_read(self):
         """`E'...'` is a string, and a legal row must not block the gate."""
         code, output = self._rows(

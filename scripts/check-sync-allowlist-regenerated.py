@@ -72,9 +72,9 @@ it cannot interpret is REPORTED, never passed over:
   conflict, a copy into the table, which writes rows without naming them, a
   drop of the table or of its schema, a table made out of a query, and an
   ALTER that changes the column's default;
-* a write the reader cannot place — its target cannot be told, because the
-  table's name is held in a variable or spelled through a call — in a scope
-  where the table's name is in play. That is where the dynamic SQL of a
+* a write the reader cannot place — its target is not a name the reader can
+  read: a placeholder, an expression, a name spelled through a call — in a
+  scope where the table's name is in play. That is where the dynamic SQL of a
   migration lands, written as text and run when the migration applies. A
   statement a migration runs through `execute` is a write of that kind
   whatever its text says: what it runs is text, and the text may name any
@@ -119,6 +119,13 @@ is used as a name in the same scope: a name that is read (`select ... from
 sync_field_allowlist`) says nothing about where a write points, and a name
 that is carried — in a variable, or in pieces — says it might.
 
+A write whose target IS a name is a write into the table that name stands
+for, and the reader tells the names apart by the name alone. It cannot tell
+a variable from a table: `insert into v_table` is a write into a table named
+`v_table` and not a write into the field table. What a variable holds is
+data the reader cannot follow, and a migration that writes the field table
+through a variable is refused in review, not here. See `CODING_STANDARDS.md`.
+
 The statement the reader reads is the statement the migration RUNS, with its
 values in place. A mask would blank every value, and an assignment whose
 value is blanked — `using errcode = '42501'` — would look like an expression
@@ -138,8 +145,10 @@ identifier is refused in review. See `CODING_STANDARDS.md`.
 
 A name the reader CAN see is a different case, and it is reported: carried in
 a variable, read into one, assembled from pieces, or held in the file as a
-literal the file hands around, it is a name in play and a write whose target
-it is cannot be passed over. So is the TEXT of a write into the table, held
+literal the file hands around, it is a name in play. A write whose target
+the reader cannot tell is reported beside it, because such a write may point
+at the name — and a write whose target IS the name is a row the reader reads.
+So is the TEXT of a write into the table, held
 as a literal anywhere in the file: a write the migration runs may be written
 as text and carried in a variable, in a row, in the return of a function, and
 a statement that runs something the reader cannot see may be running that
@@ -365,7 +374,7 @@ def _literal_body(text: str, span: tuple[str, int, int, str]) -> str:
     if kind == "dollar":
         body = _dollar_body(content)
         return body if body is not None else ""
-    return content[1:-1].replace("''", "'")
+    return _string_body(content)
 
 #: The names the table goes by in text: bare, and qualified with the schema
 #: the migrations put it in.
@@ -479,6 +488,90 @@ def derived_lists(path: str) -> dict[str, set[str]]:
 # --------------------------------------------------------------------------
 
 
+#: The whitespace that may stand between the parts of one constant, and the
+#: line comments that may stand there too. PostgreSQL reads two constants as
+#: ONE only when the whitespace between them holds a newline.
+_GAP = re.compile(r"(?:[ \t\r\n\f\v]|--[^\n]*)*")
+
+
+def _constant_parts(text: str, start: int, escaped: bool) -> tuple[int, list[str]]:
+    """The end of the constant that starts at `start`, and the raw bodies of
+    its parts.
+
+    PostgreSQL continues a string constant across a newline: two constants
+    that are only separated by whitespace with a newline in it are ONE
+    constant, and the whitespace between them is dropped — `'ti'` on the
+    next line `'tle'` is `title`, and its length is five. The bodies come
+    back separately, because the value of the constant is their
+    concatenation and not the text between them.
+
+    A newline INSIDE one pair of quotes is another thing: PostgreSQL keeps
+    it, and the body holds it.
+
+    A part that carries a prefix of its own is not a continuation:
+    PostgreSQL reads that as an error, so the constant ends where the
+    prefix stands.
+    """
+    size = len(text)
+    bodies: list[str] = []
+    index = start
+    while True:
+        end = index + 1
+        closed = False
+        while end < size:
+            if escaped and text[end] == "\\" and end + 1 < size:
+                end += 2
+                continue
+            if text[end] == "'":
+                if end + 1 < size and text[end + 1] == "'":
+                    end += 2
+                    continue
+                end += 1
+                closed = True
+                break
+            end += 1
+        bodies.append(text[index + 1 : end - 1] if closed else text[index + 1 : end])
+        if not closed:
+            return end, bodies
+        # The whitespace that follows a constant may hold the start of the
+        # next one — but only when it holds a newline, because only then
+        # does PostgreSQL read the two as one constant.
+        gap = _GAP.match(text, end)
+        width = gap.end() - end
+        if "\n" not in gap.group(0) or not text.startswith("'", end + width):
+            return end, bodies
+        index = end + width
+
+
+def _prefix_of(text: str, start: int) -> str:
+    """The prefix the constant at `start` carries: `E`, `U&`, `B`, `X`, `N` or
+    none.
+
+    The prefix stands right before the opening quote, and it stands alone:
+    `abcE'x'` is a name and a string, not an E-string.
+
+    The prefix of the FIRST part of a constant that continues across a
+    newline governs the whole constant, and the parts that follow carry no
+    prefix of their own — PostgreSQL reads a prefix there as an error.
+    """
+    if start >= 2 and text[start - 2 : start] == "U&":
+        return "U&"
+    if start < 1:
+        return ""
+    char = text[start - 1]
+    if char not in "EeBbXxNn":
+        return ""
+    if start >= 2 and (text[start - 2].isalnum() or text[start - 2] == "_"):
+        return ""
+    if char in "Ee":
+        return "E"
+    if char in "Bb":
+        return "B"
+    if char in "Xx":
+        return "X"
+    return "N"
+
+
 def _spans(text: str) -> list[tuple[str, int, int, str]]:
     """The protected spans of `text`: literals, dollar quotes and comments.
 
@@ -494,23 +587,11 @@ def _spans(text: str) -> list[tuple[str, int, int, str]]:
             # An E-string escapes its quotes with a backslash (`E'it\'s'`), so the
             # scanner has to know the prefix: without it the string ends at the
             # escaped quote and the rest of the file is read as SQL.
-            escaped = (
-                index > 0
-                and text[index - 1] in "Ee"
-                and (index < 2 or not (text[index - 2].isalnum() or text[index - 2] == "_"))
-            )
-            end = index + 1
-            while end < size:
-                if escaped and text[end] == "\\" and end + 1 < size:
-                    end += 2
-                    continue
-                if text[end] == "'":
-                    if end + 1 < size and text[end + 1] == "'":
-                        end += 2
-                        continue
-                    end += 1
-                    break
-                end += 1
+            escaped = _prefix_of(text, index) == "E"
+            end, _parts = _constant_parts(text, index, escaped)
+            # The span covers the text as it is written — the gap between the
+            # parts is inside it, and the mask blanks it — and the content is
+            # the text of the constant as the file wrote it.
             spans.append(("string", index, end, text[index:end]))
             index = end
         elif char == '"':
@@ -1122,7 +1203,7 @@ def _name_usage(scope: str, scope_raw: str) -> bool:
         span = _span_at(spans, match.start())
         before = scope[: match.start()].rstrip()
         if span is not None and span[0] in ("string", "dollar"):
-            literal = _literal_content(scope[span[1] : span[2]])
+            literal = _piece_text(scope, span)
             if literal is None or literal.lower() not in _NAMES_OF_OUR_TABLE:
                 # The name is inside a text that holds more than the name —
                 # unless the raw scope holds it as a piece of its own, which
@@ -1151,7 +1232,7 @@ def _literals_of(text: str) -> list[str]:
     for span in _spans(text):
         if span[0] not in ("string", "dollar"):
             continue
-        literal = _literal_content(text[span[1] : span[2]])
+        literal = _piece_text(text, span)
         if literal is None:
             continue
         out.append(literal)
@@ -1224,16 +1305,6 @@ def _span_at(
     return None
 
 
-def _literal_content(raw: str) -> str | None:
-    """The text a literal holds, or None when it is not one."""
-    if len(raw) >= 2 and raw.startswith("'") and raw.endswith("'"):
-        return raw[1:-1].replace("''", "'")
-    body = _dollar_body(raw)
-    if body:
-        return body
-    return None
-
-
 def _fold_literals(text: str) -> str:
     """The text with names assembled from pieces folded into the names they spell.
 
@@ -1268,35 +1339,44 @@ _BETWEEN_PIECES = re.compile(
 def _piece_text(text: str, span: tuple[str, int, int, str]) -> str | None:
     """The text a literal piece holds, or None when it is not a literal.
 
-    A piece is a literal in any of PostgreSQL's spellings: `\'…\'`,
-    `E\'…\'`, `U&\'…\'`, `B\'…\'` and `$$…$$`. The reader reads them all,
-    because a name spelled in a spelling the reader cannot read is a name
-    the reader cannot place.
+    A piece is a literal in any of PostgreSQL's spellings: `'…'`,
+    `E'…'`, `U&'…'`, `B'…'`, `X'…'`, `N'…'` and `$$…$$`. The reader reads
+    them all, because a name spelled in a spelling the reader cannot read
+    is a name the reader cannot place.
+
+    A constant that continues across a newline is one constant, and its
+    parts are put together the way PostgreSQL puts them together.
     """
-    kind, start, end, content = span
+    kind, start, _end, content = span
     if kind == "dollar":
         body = _dollar_body(content)
         return body if body is not None else None
-    prefix = ""
-    cursor = start
-    while cursor > 0 and text[cursor - 1] in "Ee":
-        prefix = "E"
-        cursor -= 1
-        break
-    if cursor >= 2 and text[cursor - 2 : cursor] == "U&":
-        prefix = "U&"
-        cursor -= 2
-    elif cursor >= 1 and text[cursor - 1] == "B":
-        prefix = "B"
-        cursor -= 1
-    body = content[1:-1].replace("''", "'")
-    if prefix == "E":
-        return _decode_escapes(body)
-    if prefix == "U&":
-        return _decode_unicode_escapes(body)
+    prefix = _prefix_of(text, start)
+    _end, parts = _constant_parts(content, 0, prefix == "E")
+    return _constant_value(prefix, parts)
+
+
+def _constant_value(prefix: str, parts: list[str]) -> str | None:
+    """The text the constant holds, or None when the reader cannot read it.
+
+    The parts of a constant that continues across a newline are joined the
+    way PostgreSQL joins them: the whitespace between them is dropped, and
+    every part is read on its own — a doubled quote is a quote inside its
+    part, and never a quote across the boundary between two parts.
+
+    A bit string and a hex string spell bits, not text: eight bits make a
+    byte, and a spelling of bits that is not a whole number of bytes spells
+    no byte at all. The reader does not invent one.
+    """
     if prefix == "B":
-        return _decode_bit_string(body)
-    return body
+        return _decode_bit_string("".join(parts))
+    if prefix == "X":
+        return _decode_hex_string("".join(parts))
+    if prefix == "E":
+        return "".join(_decode_escapes(part) for part in parts)
+    if prefix == "U&":
+        return "".join(_decode_unicode_escapes(part) for part in parts)
+    return "".join(part.replace("''", "'") for part in parts)
 
 
 def _fold_concatenations(text: str) -> str:
@@ -1434,13 +1514,21 @@ def _build_call(name: str, args: list[str]) -> str | None:
 def _literal_text(raw: str) -> str | None:
     """The text a literal holds, or None when it is not one.
 
-    Any spelling counts: `\'…\'`, `E\'…\'`, `U&\'…\'`, `B\'…\'` and
-    `$$…$$`. A call whose argument is written in a spelling the reader cannot
-    read builds a name the reader cannot know.
+    Any spelling counts: `'…'`, `E'…'`, `U&'…'`, `B'…'`, `X'…'`,
+    `N'…'` and `$$…$$`. A call whose argument is written in a spelling the
+    reader cannot read builds a name the reader cannot know.
     """
     text = raw.strip()
-    span = _span_at(_spans(text), 0)
-    if span is None:
+    spans = _spans(text)
+    if not spans:
+        return None
+    span = spans[0]
+    kind, start, _end, _content = span
+    if kind not in ("string", "dollar"):
+        return None
+    # Only a prefix may stand before the literal — `E'…'`, `U&'…'`, `B'…'`,
+    # `X'…'`, `N'…'` — and the prefix is part of the spelling, so it is read.
+    if text[:start].strip().lower() not in ("", "e", "u&", "b", "x", "n"):
         return None
     return _piece_text(text, span)
 
@@ -1666,9 +1754,16 @@ def _dollar_body(content: str) -> str:
 
 
 def _string_body(content: str) -> str:
-    """The text a string literal holds."""
+    """The text a string literal holds, read as text.
+
+    A literal the reader cannot read is read as text all the same: the
+    bodies of its parts are put together the way PostgreSQL puts them
+    together, and a reader that reads less than it can sees less than there
+    is.
+    """
     if len(content) >= 2 and content.startswith("'") and content.endswith("'"):
-        return content[1:-1].replace("''", "'")
+        _end, parts = _constant_parts(content, 0, False)
+        return "".join(part.replace("''", "'") for part in parts)
     return content
 
 
@@ -1686,6 +1781,12 @@ def _opens_a_block(body: str) -> bool:
 
 
 #: The escapes an E-string knows, and what they spell.
+#:
+#: These are the escapes of the PostgreSQL the deployment runs — version 15,
+#: which is what `supabase/postgres:15.8.1.085` is. `\v` is not among them:
+#: the vertical tab arrived with PostgreSQL 17, and in 15 `E'\v'` holds the
+#: letter `v`. The reader follows the server it reads for: a name read the
+#: way a newer server would read it is a name the deployed server never sees.
 _ESCAPES = {
     "b": "\b",
     "f": "\f",
@@ -1703,12 +1804,22 @@ def _decode_escapes(text: str) -> str:
 
     PostgreSQL's E-strings spell the escapes of a language: `\\n` is a line
     feed, `\\'` is a quote, `\\x41` is a byte, `\\101` an octal byte.
+
+    A doubled quote is a quote as well — `E'a''b'` holds `a'b` — and it is
+    read in the same walk as the escapes, because the two must not be told
+    apart by accident: a doubled quote in front of a backslash is a quote
+    and an escape, and not an escape of a quote.
     """
     out: list[str] = []
     index = 0
-    while index < len(text):
+    size = len(text)
+    while index < size:
         char = text[index]
-        if char != "\\" or index + 1 >= len(text):
+        if char == "'" and index + 1 < size and text[index + 1] == "'":
+            out.append("'")
+            index += 2
+            continue
+        if char != "\\" or index + 1 >= size:
             out.append(char)
             index += 1
             continue
@@ -1720,7 +1831,7 @@ def _decode_escapes(text: str) -> str:
         if nxt == "x":
             digits = ""
             cursor = index + 2
-            while cursor < len(text) and len(digits) < 2 and text[cursor] in "0123456789abcdefABCDEF":
+            while cursor < size and len(digits) < 2 and text[cursor] in "0123456789abcdefABCDEF":
                 digits += text[cursor]
                 cursor += 1
             if digits:
@@ -1730,7 +1841,7 @@ def _decode_escapes(text: str) -> str:
         if nxt in "01234567":
             digits = ""
             cursor = index + 1
-            while cursor < len(text) and len(digits) < 3 and text[cursor] in "01234567":
+            while cursor < size and len(digits) < 3 and text[cursor] in "01234567":
                 digits += text[cursor]
                 cursor += 1
             out.append(chr(int(digits, 8)))
@@ -1756,12 +1867,22 @@ def _decode_escapes(text: str) -> str:
 
 
 def _decode_unicode_escapes(text: str) -> str:
-    """The text a `U&'...'` string holds: `\\0041` is the letter A."""
+    """The text a `U&'...'` string holds: `\\0041` is the letter A.
+
+    A doubled quote is a quote here as well, and it is read in the same walk
+    as the unicode escapes, because the two must not be told apart by
+    accident.
+    """
     out: list[str] = []
     index = 0
-    while index < len(text):
+    size = len(text)
+    while index < size:
         char = text[index]
-        if char != "\\" or index + 1 >= len(text):
+        if char == "'" and index + 1 < size and text[index + 1] == "'":
+            out.append("'")
+            index += 2
+            continue
+        if char != "\\" or index + 1 >= size:
             out.append(char)
             index += 1
             continue
@@ -1789,13 +1910,28 @@ def _decode_bit_string(text: str) -> str | None:
     """The bytes a `B'...'` bit string holds, or None when it does not.
 
     PostgreSQL reads a bit string as bits, eight of which make a byte, and
-    the bytes are what the string spells.
+    the bytes are what the string spells. A bit string whose length is not
+    a whole number of bytes spells no byte at all, and the reader does not
+    invent one.
     """
-    if any(char not in "01" for char in text):
+    if any(char not in "01" for char in text) or len(text) % 8:
         return None
-    padded = text + "0" * (-len(text) % 8)
     return "".join(
-        chr(int(padded[index : index + 8], 2)) for index in range(0, len(padded), 8)
+        chr(int(text[index : index + 8], 2)) for index in range(0, len(text), 8)
+    )
+
+
+def _decode_hex_string(text: str) -> str | None:
+    """The bytes a `X'...'` hex string holds, or None when it does not.
+
+    A hex string spells four bits with every digit, and eight bits make a
+    byte — so a hex string of an odd number of digits spells no whole byte,
+    and the reader does not invent one.
+    """
+    if len(text) % 2 or any(char not in "0123456789abcdefABCDEF" for char in text):
+        return None
+    return "".join(
+        chr(int(text[index : index + 2], 16)) for index in range(0, len(text), 2)
     )
 
 
@@ -1809,22 +1945,25 @@ def _literal(raw: str) -> tuple[str, object] | None:
     prefixes; the reader knows them all, because a flag it cannot read is a
     row it cannot vouch for.
 
-    The strings come in four spellings — `'...'`, `E'...'`, `U&'...'` and
-    `B'...'` — and the reader reads them all, because a legal row the reader
-    cannot read is a legal row that blocks the gate.
+    The strings come in six spellings — `'...'`, `E'...'`, `U&'...'`,
+    `B'...'`, `X'...'` and `N'...'` — and the reader reads them all, because a
+    legal row the reader cannot read is a legal row that blocks the gate. A
+    constant that continues across a newline is one constant, and the reader
+    reads it as one: PostgreSQL drops the whitespace between the parts.
     """
     text = raw.strip()
-    if len(text) >= 2 and text.startswith("'") and text.endswith("'"):
-        return "string", text[1:-1].replace("''", "'")
-    if re.match(r"^[Ee]'.*'$", text, re.DOTALL):
-        return "string", _decode_escapes(text[2:-1].replace("''", "'"))
-    if re.match(r"^U&'.*'$", text, re.DOTALL):
-        return "string", _decode_unicode_escapes(text[3:-1].replace("''", "'"))
-    if re.match(r"^[Bb]'.*'$", text, re.DOTALL):
-        bits = _decode_bit_string(text[2:-1])
-        if bits is None:
+    spans = _spans(text)
+    span = spans[0] if spans else None
+    if (
+        span is not None
+        and span[0] == "string"
+        and span[2] == len(text)
+        and text[: span[1]].lower() in ("", "e", "u&", "b", "n", "x")
+    ):
+        value = _piece_text(text, span)
+        if value is None:
             return None
-        return "string", bits
+        return "string", value
     tag = re.match(r"\$([A-Za-z_][A-Za-z_0-9]*)?\$", text)
     if tag is not None and text.endswith(tag.group(0)) and len(text) >= 2 * len(tag.group(0)):
         return "string", text[len(tag.group(0)) : -len(tag.group(0))]
@@ -2076,17 +2215,17 @@ class _Reader:
                         folded, (kind, inner_start, inner_end, content)
                     )
                     if piece is None:
-                        # A literal the reader cannot read: a `B'…'` that is
-                        # not a bit string, so the migration does not apply.
-                        # The text is read as text all the same — a reader
-                        # that reads less than it can sees less than there
-                        # is — and the literal is reported, because the
+                        # A literal the reader cannot read: a `B'…'` that
+                        # spells no whole byte, so the migration does not
+                        # apply. The text is read as text all the same — a
+                        # reader that reads less than it can sees less than
+                        # there is — and the literal is reported, because the
                         # migration that holds it does not run.
                         self._problem(
                             origin,
                             "unreadable",
-                            "a literal the reader cannot read — a `B'…'` that is not a "
-                            "bit string — so the migration does not apply",
+                            "a literal the reader cannot read — a `B'…'` that spells "
+                            "no whole byte — so the migration does not apply",
                         )
                         piece = _string_body(content)
                     self.read(
