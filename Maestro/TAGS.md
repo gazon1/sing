@@ -420,6 +420,7 @@ use the expanded string directly).
 | `pomodoroTaskChip("Buy milk")` | `"Buy milk"` | `pomodoro_task_chip_buy_milk` | Pomodoro focus-task chips |
 | `Dialog.title("discard")` | `"discard"` | `dialog_title_discard` | Dialog title |
 | `taskAction("Archive")` | `"Archive"` | `task_action_archive` | Long-press action rows |
+| `backupRestoreFromCloud("singularity_backup_1.zip")` | `"singularity_backup_1.zip"` | `backup_restore_from_cloud_singularity_backup_1_zip` | The Restore button of one archive in the cloud |
 | `profileItem("Personal")` | `"Personal"` | `profile_item_personal` | Profile list items |
 | `acpAgentChip("gemini-cli")` | `"gemini-cli"` | `acp_agent_chip_gemini_cli` | The chip that selects one agent of the registry |
 | `genUi("whatsnew")` | `"whatsnew"` | `genui_whatsnew` | GenUI surfaces |

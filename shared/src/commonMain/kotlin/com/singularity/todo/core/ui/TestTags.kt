@@ -966,7 +966,7 @@ object TestTags {
     const val BACKUP_RESTORE_FROM_CLOUD_PREFIX = "backup_restore_from_cloud_"
 
     /** The restore button of the archive with this [ref]. */
-    fun backupRestoreFromCloud(ref: String) = "$BACKUP_RESTORE_FROM_CLOUD_PREFIX${slug(ref)}"
+    fun backupRestoreFromCloud(ref: String) = "${BACKUP_RESTORE_FROM_CLOUD_PREFIX}${slug(ref)}"
 
     // ─── Profile ────────────────────────────────────────────────────────────
     const val PROFILE_CREATE_BUTTON = "profile_create_button"
