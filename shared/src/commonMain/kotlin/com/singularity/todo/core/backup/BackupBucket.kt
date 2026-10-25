@@ -1,5 +1,8 @@
 package com.singularity.todo.core.backup
 
+import com.singularity.todo.core.files.ByteSink
+import com.singularity.todo.core.files.ByteSource
+
 /**
  * The bucket the archives live in, as the backup feature sees it.
  *
@@ -21,19 +24,36 @@ package com.singularity.todo.core.backup
  * The port takes a path and nothing else: no user id, no bucket name. The prefix is
  * the service's decision, and a port that computed it would make the decision
  * invisible — and untestable.
+ *
+ * ## Why the bytes travel in pieces
+ *
+ * An archive is the whole account, and the whole account does not fit in a phone's
+ * memory twice over: read into memory, encrypted into memory, uploaded from memory.
+ * The upload therefore takes a source and the size it will have, and the download
+ * writes into a sink — so the bucket never holds the archive, and neither does the
+ * caller.
  */
 interface BackupBucket {
 
     /**
-     * Puts [bytes] at [path], replacing what was there.
+     * Puts what [source] yields at [path], replacing what was there.
      *
      * The replacement is the point: a push of the same archive twice must leave one
      * archive, not two.
+     *
+     * @param sizeBytes how many bytes the source will yield. The bucket needs it
+     *   before the first byte arrives — it is what the request is lengthened with,
+     *   and a wrong number is a truncated upload.
      */
-    suspend fun upload(path: String, bytes: ByteArray)
+    suspend fun upload(path: String, source: ByteSource, sizeBytes: Long)
 
-    /** The bytes stored at [path]. */
-    suspend fun download(path: String): ByteArray
+    /**
+     * Writes what is stored at [path] into [sink].
+     *
+     * The sink is closed by the caller, not here: the bucket does not own the file
+     * the archive lands in.
+     */
+    suspend fun download(path: String, sink: ByteSink)
 
     /** The objects under [prefix]. */
     suspend fun list(prefix: String): List<BucketObject>

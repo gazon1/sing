@@ -1,5 +1,7 @@
 package com.singularity.todo.core.security
 
+import com.singularity.todo.core.files.ByteSink
+import com.singularity.todo.core.files.ByteSource
 import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.SecretKeyFactory
@@ -57,5 +59,59 @@ class JvmArchiveCrypto : ArchiveCrypto {
         )
         cipher.updateAAD(aad)
         return cipher.doFinal(ciphertext)
+    }
+
+    override fun seal(source: ByteSource, sink: ByteSink, key: ByteArray, nonce: ByteArray, aad: ByteArray) {
+        val cipher = encrypting(key, nonce, aad)
+        val buffer = ByteArray(CHUNK_BYTES)
+        while (true) {
+            val read = source.read(buffer, 0, buffer.size)
+            if (read < 0) break
+            write(sink, cipher.update(buffer, 0, read))
+        }
+        // The tag can only be computed now, when the source has ended.
+        write(sink, cipher.doFinal())
+    }
+
+    override fun open(source: ByteSource, sink: ByteSink, key: ByteArray, nonce: ByteArray, aad: ByteArray) {
+        val cipher = decrypting(key, nonce, aad)
+        val buffer = ByteArray(CHUNK_BYTES)
+        while (true) {
+            val read = source.read(buffer, 0, buffer.size)
+            if (read < 0) break
+            write(sink, cipher.update(buffer, 0, read))
+        }
+        // The tag is checked here, at the end — which is why the sink may already
+        // hold bytes when the password was wrong.
+        write(sink, cipher.doFinal())
+    }
+
+    private fun encrypting(key: ByteArray, nonce: ByteArray, aad: ByteArray): Cipher =
+        Cipher.getInstance(ArchiveCryptoParams.TRANSFORM).apply {
+            init(
+                Cipher.ENCRYPT_MODE,
+                SecretKeySpec(key, "AES"),
+                GCMParameterSpec(ArchiveCryptoParams.TAG_BITS, nonce),
+            )
+            updateAAD(aad)
+        }
+
+    private fun decrypting(key: ByteArray, nonce: ByteArray, aad: ByteArray): Cipher =
+        Cipher.getInstance(ArchiveCryptoParams.TRANSFORM).apply {
+            init(
+                Cipher.DECRYPT_MODE,
+                SecretKeySpec(key, "AES"),
+                GCMParameterSpec(ArchiveCryptoParams.TAG_BITS, nonce),
+            )
+            updateAAD(aad)
+        }
+
+    private fun write(sink: ByteSink, bytes: ByteArray) {
+        if (bytes.isNotEmpty()) sink.write(bytes, 0, bytes.size)
+    }
+
+    private companion object {
+        /** How much of the archive is held in memory at a time. */
+        const val CHUNK_BYTES = 64 * 1024
     }
 }

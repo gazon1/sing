@@ -27,7 +27,8 @@ sealed class BackupError(message: String, cause: Throwable? = null) : Exception(
      * archive at all. Either way the bucket holds something this build cannot open,
      * and saying "not encrypted" is more useful than a checksum mismatch.
      */
-    class NotEncrypted : BackupError("The archive in the cloud is not encrypted")
+    class NotEncrypted(cause: Throwable? = null) :
+        BackupError("The archive in the cloud is not encrypted", cause)
 
     /**
      * The password does not open the archive.

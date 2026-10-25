@@ -1,5 +1,8 @@
 package com.singularity.todo.core.security
 
+import com.singularity.todo.core.files.ByteSink
+import com.singularity.todo.core.files.ByteSource
+
 /**
  * The cryptography the encrypted backup archive needs, as the platform provides it.
  *
@@ -50,4 +53,28 @@ interface ArchiveCrypto {
      * which is what a wrong password looks like from here.
      */
     fun open(key: ByteArray, nonce: ByteArray, ciphertext: ByteArray, aad: ByteArray): ByteArray
+
+    /**
+     * Encrypts everything [source] yields into [sink], in pieces.
+     *
+     * The whole-archive variant above reads the archive into memory before it
+     * encrypts it, which means the account is in the app's memory twice over.
+     * This one never holds more than a chunk of it, which is what a phone can
+     * afford.
+     *
+     * [sink] receives the ciphertext and the tag; the tag is written when the
+     * source ends, because the cipher can only compute it then.
+     */
+    fun seal(source: ByteSource, sink: ByteSink, key: ByteArray, nonce: ByteArray, aad: ByteArray)
+
+    /**
+     * The inverse of the streaming [seal].
+     *
+     * **The sink is written before the tag is checked.** The cipher cannot know
+     * whether the password was right until it has read everything, so what
+     * arrives in the sink may be garbage when the tag does not match. A caller
+     * that cares writes into a temporary file and moves it into place only after
+     * this call returned without throwing.
+     */
+    fun open(source: ByteSource, sink: ByteSink, key: ByteArray, nonce: ByteArray, aad: ByteArray)
 }

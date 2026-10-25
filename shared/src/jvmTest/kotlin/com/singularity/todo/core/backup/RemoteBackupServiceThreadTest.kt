@@ -1,5 +1,7 @@
 package com.singularity.todo.core.backup
 
+import com.singularity.todo.core.files.ByteSink
+import com.singularity.todo.core.files.ByteSource
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.security.JvmArchiveCrypto
 import com.singularity.todo.test.fakes.MapFileSystem
@@ -36,11 +38,15 @@ class RemoteBackupServiceThreadTest {
         var uploadThread: String? = null
             private set
 
-        override suspend fun upload(path: String, bytes: ByteArray) {
+        override suspend fun upload(path: String, source: ByteSource, sizeBytes: Long) {
             uploadThread = Thread.currentThread().name
+            val buffer = ByteArray(1024)
+            while (source.read(buffer, 0, buffer.size) >= 0) {
+                // The bucket reads what it is given, so the upload really travels.
+            }
         }
 
-        override suspend fun download(path: String): ByteArray = ByteArray(0)
+        override suspend fun download(path: String, sink: ByteSink) = Unit
 
         override suspend fun list(prefix: String): List<BucketObject> = emptyList()
     }

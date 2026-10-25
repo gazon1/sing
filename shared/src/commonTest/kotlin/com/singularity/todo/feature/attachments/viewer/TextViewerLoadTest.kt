@@ -1,5 +1,8 @@
 package com.singularity.todo.feature.attachments.viewer
 
+import com.singularity.todo.core.files.ByteArraySource
+import com.singularity.todo.core.files.ByteSink
+import com.singularity.todo.core.files.ByteSource
 import com.singularity.todo.core.files.FileStat
 import com.singularity.todo.core.files.FileSystem
 import kotlinx.coroutines.test.runTest
@@ -43,6 +46,14 @@ class TextViewerLoadTest {
         override suspend fun exists(path: String): Boolean = stat != null
         override suspend fun ensureDir(dir: String) = Unit
         override suspend fun listDir(dir: String): List<String> = emptyList()
+
+        override fun openRead(path: String): ByteSource = ByteArraySource(content)
+
+        override fun openWrite(path: String): ByteSink = object : ByteSink {
+            override fun write(buffer: ByteArray, offset: Int, length: Int) = Unit
+
+            override fun close() = Unit
+        }
     }
 
     private fun statOf(size: Long, isDir: Boolean = false) =

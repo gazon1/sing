@@ -36,4 +36,28 @@ class AndroidFileSystem(private val context: Context) : FileSystem {
             null
         }
     }
+
+    override fun openRead(path: String): ByteSource {
+        val stream = File(path).inputStream()
+        return object : ByteSource {
+            override fun read(buffer: ByteArray, offset: Int, length: Int): Int =
+                stream.read(buffer, offset, length)
+
+            override fun close() = stream.close()
+        }
+    }
+
+    override fun openWrite(path: String): ByteSink {
+        val file = File(path)
+        file.parentFile?.mkdirs()
+        val stream = file.outputStream()
+        return object : ByteSink {
+            override fun write(buffer: ByteArray, offset: Int, length: Int) {
+                stream.write(buffer, offset, length)
+            }
+
+            // Closing is what flushes the last of the archive to the disk.
+            override fun close() = stream.close()
+        }
+    }
 }
