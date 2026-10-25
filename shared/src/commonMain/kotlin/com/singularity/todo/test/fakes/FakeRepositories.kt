@@ -85,6 +85,7 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.profile.domain.port.ProfileRepository
 import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.model.ProjectDocument
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.reminders.ProjectReminder
@@ -1770,7 +1771,20 @@ class FakeProjectsRepository(
         }
     }
 
-    override suspend fun upsert(project: Project): Project {
+    /**
+     * Applies a project document the way production does.
+     *
+     * The claim about the inheritance is what the write follows: a document that
+     * makes no claim leaves the groups the project has, and a document that
+     * claims an empty set takes them away. The fake keeps the inheritance in
+     * the project itself — production keeps it in a cross-reference table — and
+     * the two say the same thing, which is what makes a test written against
+     * the fake a statement about production too.
+     */
+    override suspend fun upsert(document: ProjectDocument): Project {
+        val claim = document.inheritedTagGroupIds
+        val inherited = claim ?: store[document.project.id.value]?.inheritedTagGroupIds.orEmpty()
+        val project = document.project.copy(inheritedTagGroupIds = inherited)
         store.upsert(project)
         return project
     }
@@ -3124,7 +3138,18 @@ class FakeTagGroupRepository(private val currentUser: ProfileAwareCurrentUser = 
     override fun observe(id: TagGroupId): Flow<TagGroup?> =
         currentUser.observeForCurrentUser { _ -> store.state.map { it[id.value] } }
 
-    override suspend fun get(id: TagGroupId): TagGroup? = store[id.value]
+    /**
+     * Scoped to the current user, matching production's `getByIdForUser`.
+     *
+     * The sync apply path reads the row that is already here, and a row of
+     * another profile is not this profile's row: reading it would let a
+     * document be filled with another profile's values. A double that reads
+     * across profiles would hide exactly that.
+     */
+    override suspend fun get(id: TagGroupId): TagGroup? {
+        val uid = currentUser.scopedUserId.value
+        return store[id.value]?.takeIf { it.userId == uid }
+    }
 
     override suspend fun create(input: CreateTagGroupInput): Result<TagGroup> =
         unsupported("create")

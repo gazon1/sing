@@ -18,6 +18,7 @@ import com.singularity.todo.core.sync.Hlc
 import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.model.ProjectDocument
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tags.domain.model.TagGroupId
@@ -105,13 +106,29 @@ class ProjectsRepositoryImpl(
 
     // ── Remote apply (pull handler) ────────────────────────────────────────────
 
-    override suspend fun upsert(project: Project): Project {
-        projectDao.upsert(project.toEntity())
-        // Without this the row lands and the inheritance does not: `inheritedTagGroupIds`
-        // is in the document but has no column on `ProjectEntity`, so the decode result
-        // would be dropped and the device would keep resolving tags from its old set.
-        replaceInheritedTagGroups(inheritedTagGroupDao, project)
-        return project
+    override suspend fun upsert(document: ProjectDocument): Project {
+        projectDao.upsert(document.project.toEntity())
+        // The inheritance is not a column of the row: it lives in a
+        // cross-reference table, and the table is replaced only when the
+        // document makes a claim about it. A document that says nothing about
+        // the inherited groups leaves the groups the project has — the write
+        // that always replaced the table read that silence as "the project
+        // inherits nothing", and the groups went away on this device while the
+        // pull reported success.
+        val claim = document.inheritedTagGroupIds
+        if (claim != null) {
+            replaceInheritedTagGroups(
+                inheritedTagGroupDao,
+                document.project.copy(inheritedTagGroupIds = claim),
+            )
+        }
+        // What the project inherits after the write: the claim if there was one,
+        // and the groups that are still there if there was none.
+        val inherited = claim ?: inheritedTagGroupDao.getByProject(
+            document.project.id.value,
+            document.project.userId.value,
+        ).map(TagGroupId::fromString).toSet()
+        return document.project.copy(inheritedTagGroupIds = inherited)
     }
 
     override suspend fun delete(id: ProjectId): Result<Unit> = runCatchingCancellable {

@@ -415,6 +415,12 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script=Path("scripts/check-published-measurements.py"),
     ),
     GateSpec(
+        name="the recorded CI jobs are still jobs",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/check-recorded-ci-jobs.py"),
+    ),
+    GateSpec(
         name="waiver references resolve",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
@@ -1479,6 +1485,10 @@ GATE_CONTROLS: dict[str, Control] = {
     'published-measurements': Control(kind='sabotage', proves='scripts/check-published-measurements.py', argv=('{python}', 'scripts/check-published-measurements.py'), path='docs/decisions/2026-10-22-the-app-coverage-floor-lives-in-the-settings.md', edit=Edit(kind='replace', old='over 4735 classes and 579,002', new='over 4736 classes and 579,002', count=1), why='a published number is a claim about a measurement, and the claim outlives the measurement it was read from: "2.82M instructions" survived a real measurement because the percentages are a ratio and a ratio is the same at every level of the report. The probe moves the class count of the fast measurement by one, and the gate must name the document, the line and both numbers instead of reading the document as a source of truth'),
     'memory-budget': Control(kind='sabotage', proves='scripts/check-memory-budget.py', argv=('{python}', 'scripts/check-memory-budget.py', '--quiet'), path='shared/build.gradle.kts', edit=Edit(kind='replace', old='maxHeapSize = testTaskHeap', new='maxHeapSize = "3072m"', count=1), why='a heap that nobody checks is a claim made six times over: the measurement behind 1536 MB lived in an ADR that no build read and no gate held, so a module could raise its heap to 3 GB and the measurement would quietly stop describing the build. The probe replaces one module\'s heap read with a literal of twice the size and the gate must name the file, the line and both numbers'),
     'coverage-timeout': Control(kind='sabotage', proves='scripts/check-coverage-timeout.py', argv=('{python}', 'scripts/check-coverage-timeout.py', '--quiet'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='    timeout-minutes: 75', new='    timeout-minutes: 30', count=1), why='a timeout that fires on a healthy instrumented run reports a failure that says nothing about the code: the coverage job is killed at the moment it was about to report, and the report is the thing the job exists for', tracked_by='.github/workflows/ci.yml#Gradle (coverage)'),
+    # The probe renames the suite job. The recorded run still names it `JVM
+    # tests`, and the record is what prices the loop — so the gate must say
+    # that the record now prices a loop that no longer exists.
+    'recorded-ci-jobs': Control(kind='sabotage', proves='scripts/check-recorded-ci-jobs.py', argv=('{python}', 'scripts/check-recorded-ci-jobs.py'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='    name: JVM tests\n', new='    name: JVM tests [renamed]\n', count=1), why='the published price of the CI loop is a record of one run, and the criterion that retires it is the workflow changing its jobs: a job renamed leaves the record pricing a loop that no longer exists, and the page keeps publishing the old structure until somebody re-records it. That is what the false names were', tracked_by='.github/workflows/ci.yml#Gradle (tests)'),
     # The coverage report measures every module that is in it.
     #
     # The list of test tasks that feed the aggregated report is written by

@@ -64,7 +64,7 @@ The index is folded, the same way the orientation layer was folded:
 
 - **Every decision appears exactly once**, in a packed index, as
   `` `slug` — Title #tag1 #tag2 ``. Nothing is capped and nothing is dropped: of the
-  845 decisions the corpus holds today, 787 are in force, 16 open, 11 deferred and 31
+  847 decisions the corpus holds today, 789 are in force, 16 open, 11 deferred and 31
   were replaced — all are named.
 - **The per-tag consequence sections are gone.** Consequences are body text; the file
   carried a second copy of them, once per tag the decision carried. The index now says
@@ -85,13 +85,13 @@ The index is folded, the same way the orientation layer was folded:
   a wall; the fold is the alternative.
 
 `D` was rejected on what the index is for. The corpus directory answers "which files
-exist" — a reader has to open 845 frontmatters to learn which decisions carry a tag.
+exist" — a reader has to open 847 frontmatters to learn which decisions carry a tag.
 The index answers "which decision covers this" in one grep, and that is worth keeping
 in a form that is cheap to read.
 
 ### The title of a decision is the frontmatter's, or the body's heading
 
-30 of the 845 decisions carry no `title:` in their frontmatter — 28 of the first 814,
+30 of the 847 decisions carry no `title:` in their frontmatter — 28 of the first 814,
 the corpus the rates below were measured on. The index promised
 three ways to find a decision — by slug, by title, by tag — and for those 28 the second
 one was empty: the ADR had a title in its own body heading and nowhere else. The
@@ -113,7 +113,7 @@ all three:
 `2026-09-26-adr-supersede-process` is the corpus's own rule: the replaced decision
 carries `status: superseded` and `superseded-by:`, and the replacing one carries
 `supersedes:`. Reading only the third edge means reading one side of a rule that has
-two sides. 23 of the 845 decisions carry the reverse edge, and one of them is named
+two sides. 23 of the 847 decisions carry the reverse edge, and one of them is named
 by no `supersedes:` at all — that one was shown in the index as if it were still in
 force, and was in no status group at all.
 
@@ -126,7 +126,7 @@ them, never in two — and the superseded group wins over open and deferred.
 The counts on that corpus are 16 open, 11 deferred and 31 superseded, and the 31 are
 the 22 that a `supersedes:` edge names together with the 22 that say of themselves
 that they were replaced — 13 are both. The superseded decisions are not listed in the
-index of the decisions in force; the index carries 814 of the 845, and the Status
+index of the decisions in force; the index carries 816 of the 847, and the Status
 section names the other 31.
 
 ## Rationale
@@ -150,7 +150,7 @@ are named in this record, and they are not the same one. The **rates** below are
 on the *prefix* of the first 814 decisions — the corpus as it stood on that day. A prefix
 does not move when the corpus grows, so the rates of the record stay true and the gate
 that checks them keeps checking the same thing. The **counts** — the status groups, the
-size of the two files — are of the corpus as it stands: 845 decisions on 2026-10-25.
+size of the two files — are of the corpus as it stands: 847 decisions on 2026-10-25.
 
 The corpus moved this time because two `supersedes:` edges that named their target
 wrongly now name it rightly, and the digest no longer carries the targets' Consequences:
@@ -189,8 +189,8 @@ the ceiling while the capped sections were still filling up — up to 0.98 lines
 decision over a window of 50 decisions, at N≈80, where the readable head of the
 absolute rules was filling — and the intercept is what covers that ramp. The tightest
 point of the whole series is N=130, where the file comes within one line of the line;
-the margin is 20 lines at N=100, 29 at N=400, 49 at N=700, 61 at N=814 and 64 at
-N=845.
+the margin is 20 lines at N=100, 29 at N=400, 49 at N=700, 61 at N=814 and 65 at
+N=847.
 
 The series is measured at every prefix of it, not at every tenth. A sample taken every
 ten decisions missed the tightest point — N=129 is not a multiple of ten — and reported
@@ -235,7 +235,7 @@ drift apart; a test holds them together.
 
 ## Consequences
 
-- `DIGEST-full.md` is 271 lines instead of 2235 — measured on the corpus of 845
+- `DIGEST-full.md` is 271 lines instead of 2235 — measured on the corpus of 847
   decisions — and the budget is a line above the history rather than a countdown.
 - The orientation layer is 100 lines against its own constant ceiling of 120, and its
   size does not depend on the corpus: the renderer takes the decisions it draws from as

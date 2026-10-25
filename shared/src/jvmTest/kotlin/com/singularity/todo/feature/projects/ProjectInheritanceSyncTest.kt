@@ -9,6 +9,7 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.sync.FakeSyncRepository
 import com.singularity.todo.feature.projects.data.ProjectsRepositoryImpl
 import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.model.ProjectDocument
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tags.data.TagGroupRepositoryImpl
@@ -239,7 +240,7 @@ class ProjectInheritanceSyncTest {
             inheritedTagGroupIds = setOf(TagGroupId.fromString("g1"), TagGroupId.fromString("g9")),
         )
 
-        projects(db, FakeSyncRepository()).upsert(incoming)
+        projects(db, FakeSyncRepository()).upsert(ProjectDocument(incoming, incoming.inheritedTagGroupIds))
 
         assertEquals(
             listOf("g1", "g9"),
@@ -263,7 +264,7 @@ class ProjectInheritanceSyncTest {
             inheritedTagGroupIds = setOf(TagGroupId.fromString("g1")),
         )
 
-        projects(db, FakeSyncRepository()).upsert(incoming)
+        projects(db, FakeSyncRepository()).upsert(ProjectDocument(incoming, incoming.inheritedTagGroupIds))
 
         assertEquals(
             listOf("g1"),

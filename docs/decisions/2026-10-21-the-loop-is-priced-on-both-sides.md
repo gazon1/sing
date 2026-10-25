@@ -102,17 +102,38 @@ graph is declared in the build files.
 - The published page prices both loops: the local one with medians and a machine, the
   CI one as a record of one finished run of the branch, with the run's verdict. The
   record goes stale when the workflow's jobs change, not when the branch moves.
-- **The criterion is written down, not enforced.** Nothing compares the recorded job
-  names with the workflow's: `sgate gate-costs` renders the recorded map and compares
-  the published page with the baseline, and `check-published-measurements.py` reads
-  the coverage record, not the CI one. So a renamed job leaves the record naming a
-  job that no longer exists until somebody re-records it — which is exactly what the
-  false names did, and the page kept them for a change. A gate that compares the
-  recorded names with the workflow's declared names is the follow-up, and it has to
-  be a **containment** check, not an equality one: the record holds the jobs that
-  RAN, and the workflow declares the jobs that CAN run, so equality would be red
-  forever. And the comparison is a proxy for what the criterion says — it sees a
-  rename, not an edit that keeps every name and changes what a job does.
+- **The criterion is enforced — in one direction.** `scripts/check-recorded-ci-jobs.py`
+  compares every job the record names with the jobs the workflow declares, and
+  names the ones that are gone. The comparison is a **containment** check: the
+  record holds the jobs that RAN and the workflow declares the jobs that CAN
+  run, so equality would be red forever. And it is a proxy for what the
+  criterion says — it sees a rename, not an edit that keeps every name and
+  changes what a job does. What it does not see at all is a job **added** to
+  the workflow: a job the record does not name is indistinguishable from a job
+  the run did not run, and the set of jobs a trunk push runs depends on the
+  paths the push touched, so "the workflow's trunk jobs" is not a fixed set. A
+  matrix job is expanded before the comparison — the runner shows
+  `Android (free)` and `Android (pro)` where the workflow declares one job. An
+  `exclude` takes an axis-generated leg away from both sides; it does not take
+  an `include` entry away, because GitHub processes every `exclude` before
+  every `include`.
+- **A job whose display name the gate cannot compute makes only ITS name
+  unproven, and says so.** A name that holds an expression other than a matrix
+  reference (`Nightly ${{ github.event.schedule }}`) is resolved by the runner
+  and recorded resolved; the gate cannot compute it. Comparing the two would
+  report a healthy tree as stale, so the gate does not compare them. The name
+  becomes a pattern instead — the literal parts escaped, the expression a
+  wildcard — and only a recorded name that matches it is left unproven: one
+  uncomputable job must not silence the rest of the gate. The gate prints the
+  names it could not prove and the pattern that matched, whatever `--quiet`
+  says: a gate that stops proving and says why is not a gate that goes quiet.
+- **A job whose display name is nothing but an expression is a tree the gate
+  cannot read.** `name: ${{ github.sha }}` has no literal text, so every
+  recorded name would match it and a pattern that matches everything
+  identifies nothing. The gate cannot prove that any recorded job is gone
+  while such a job is in the workflow, and it does not call that a pass: the
+  gate exits with a configuration error and names the job. A soft reading that
+  reports green is worse than a red one that says what it cannot do.
 - The local loop is measurably cheaper: the JSON-contract gate runs concurrently, and
   one duplicated control is gone.
 - A control written twice fails a test, in the registry and in the control lists.

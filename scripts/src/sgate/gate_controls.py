@@ -365,6 +365,18 @@ SCRIPT_GATES = [
         ),
     ),
     ScriptGate(
+        name="recorded-ci-jobs",
+        cmd=[sys.executable, "scripts/check-recorded-ci-jobs.py"],
+        sabotage_path=".github/workflows/ci.yml",
+        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
+        why=(
+            "the published price of the CI loop is a record of one run, and it goes "
+            "stale when the workflow's jobs change: a job renamed leaves the record "
+            "pricing a loop that no longer exists, and the page keeps publishing the "
+            "old structure until somebody re-records it"
+        ),
+    ),
+    ScriptGate(
         name="issue-registry",
         cmd=[sys.executable, "scripts/check-issue-registry.py", "--quiet"],
         why=(

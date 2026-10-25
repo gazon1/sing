@@ -88,12 +88,19 @@ The screen-sized states lost their `@Immutable`: an annotation that has to be
 *true* is not a decoration, it is a promise about a type, and it was making the
 compiler compare whole screens by `equals`.
 
-### The value classes from the standard libraries are in the contract too
+### The date and time classes from the standard libraries are in the contract too
 
-`LocalDate`, `LocalTime` and `Instant` are `@JvmInline value class`es over a
-`Long`. They are immutable by construction and their `equals` is two integer
-comparisons — but the compiler cannot see through a value class at compile time
-and marks such a parameter *unstable*.
+`LocalDate`, `LocalTime` and `Instant` are not value classes. They are
+ordinary final classes: `kotlinx.datetime.LocalDate` and `LocalTime` wrap
+`java.time.LocalDate` and `java.time.LocalTime`, and `kotlin.time.Instant`
+wraps a `Long` of seconds plus an `Int` of nanoseconds. Checked with `javap`
+against the jars rather than assumed.
+
+They are immutable by construction and their `equals` is two field
+comparisons — but the compiler infers stability from what it can see of a
+type, and a class from another module that carries no stability marker of its
+own is runtime-unstable to it. So a parameter of such a type is compared by
+identity.
 
 The measurement named them as the single largest group of unstable parameters,
 and listing them is the cheapest change in the whole contract: three lines, no
@@ -203,7 +210,15 @@ the report forces the compilation to re-run instead of trusting the inputs.
   reads is not a contract; neither failure has an error message attached to it
   anywhere else in the build. The same gate reads the register of debt against
   the repository: a registered site that no source declares, and a registered
-  parameter that no declaration of that site has.
+  parameter that no declaration of that site has. And it checks the contract
+  itself against the declarations it names: a type the contract vouches for
+  must not declare a `var`, and must not hold a collection that can change
+  after construction. The contract is a promise the compiler cannot check, so
+  something has to check it — the same way `@Immutable` needed a rule.
+- `config/compose/stability_debt_baseline.conf`: the recorded size of the
+  register of debt. The gate fails when the register and the record disagree
+  in either direction, so the number everyone quotes cannot drift away from
+  the register it describes.
 
 ### The remaining raw collection parameters are named, not hidden
 
@@ -403,6 +418,179 @@ they are rare as a parameter of a composable and a rule that fires rarely is a
 rule people turn off. Their absence is a statement about how often the rule
 reports, not about whether they are stable: they are not.
 
+### The contract is checked against the declarations it vouches for
+
+The rule above protects `@Immutable` — a promise written in the code. The
+contract is the same promise written in a file, and it was the one nobody
+checked. The compiler reads a name from that file and believes it: every
+instance of the type is compared by `equals` and may be skipped. A type that
+declares a `var` has a second version of its value, and `equals` compares the
+wrong one; a type that holds a `MutableList` has a collection that can change
+after construction, and `equals` of a collection that changed is a lie about
+"the same content".
+
+The gate now reads the declaration of every type the contract names from this
+project's namespace and rejects those two. What it cannot see is the rest of the
+promise: the contract also says that the collections a type holds are rebuilt on
+every read and never mutated afterwards, and *that* is a statement about every
+write in the program — a question about data flow, not about declarations. A
+read-only `List` is allowed, because `Task` holds a `List<TagId>` on purpose; the
+mutable spellings are what a declaration can show, and those are rejected.
+
+A library type is the one case the check does not reach: its declarations are
+not in these sources. `kotlinx.datetime.LocalDate` and the two others are
+listed on the strength of the library's own immutability, and the gate checks
+only that the codebase imports them.
+
+### The kinds are told apart by what the compiler does with them
+
+An entry in the contract is a name, and the names are not all the same thing.
+The gate used to treat "not a class" as one failure for all of them. That was
+wrong in one direction and imprecise in the other: it refused entries that
+work, and it explained every refusal with a reason that fitted none of them.
+
+Measured on 2026-10-24, by adding an entry, rebuilding and reading the
+compiler's own report:
+
+- **A class** is what the stability file lists. An entry for it is the
+  contract doing its job.
+- **An interface** is honoured. The compiler matches the entry against the
+  supertypes of a class as well, so an entry for `UiNode` made
+  `UiNode.Checkbox` and `UiNode.TextField` stable, and the `$stable` marker
+  appeared in their class files. The promise the contract makes is about the
+  *instances* of the interface: an instance may be any of the implementations,
+  and the compiler compares it by `equals`. So the promise covers the
+  implementations, and the gate checks them: it finds them by their supertypes
+  — a name in the same package, or an imported one — and holds them to the
+  same promise.
+- **An object** the compiler judges stable on its own — an object is a
+  singleton, so there is nothing to compare, and the stability report shows
+  the objects of this repository as `stable class` with no entry for them at
+  all. An entry for one says nothing that was not already said, and it makes
+  the reader believe the object needs vouching for. The gate reports it.
+- **A typealias** is not a class, and the compiler matches class names, so an
+  entry for one resolves to nothing. The gate reports it.
+
+The first two are what the contract is for; the last two are entries that say
+less than they appear to, which is the failure this whole decision is about.
+
+### The leaves are declared, and the cascade starts at the root
+
+A type the compiler cannot judge needs the contract. It cannot judge an
+interface — always runtime-unstable, whatever it holds — and it cannot judge a
+class that holds a plain `List`, because the list can change after
+construction. The contract grew by twelve such types on 2026-10-24, and they
+come in three shapes.
+
+**The roots.** `ProposalItemStatus` and `ProposalItemKind` are sealed
+interfaces, `SpotlightShape` is one too, and `LogbookEntry` is a sealed
+interface over a note or a time tracking row. The compiler judges an interface
+by nothing at all, so every class that holds one is unstable with it. The
+entry reaches the implementations, and the promise of the interface covers them
+— which is what lets the gate hold every implementation of `ProposalItemKind`
+and of `ProposalItemStatus` to the same promise.
+
+**The leaves that hold a plain `List`.** `AiProposal` holds its changes in one;
+`MenuNode.SubMenu` holds its children in one. Both are rebuilt on every read
+and never mutated afterwards — the promise `Task` makes with its
+`List<TagId>`, and the reason `Task` is in the contract. The builder of the
+menu copies the list it is given, so the promise does not depend on the
+caller.
+
+**The parameter types themselves.** `ProposalItem`, `SpotlightStep`,
+`AiTestResult`, `SelectorTemplate`, `ThemeMode` and `LocalDataDisposition` are
+the types of the parameters, and each is a class the compiler judges at
+runtime, an interface, or a sealed class. A root entry is not enough for them:
+the compiler still judges a class that holds an interface at runtime, because
+the interface may carry an implementation it cannot see — so the entry of the
+class itself is what the parameter needs.
+
+Measured on 2026-10-24, on the shared module and the 688 composables its
+report lists: the report of the compiler went from **1561 stable / 346
+runtime-unstable / 3 unstable** to **1587 / 320 / 3**. Twenty-six parameters
+moved from runtime-unstable to known-stable:
+
+- `node: MenuNode` ×2, `node: Action` ×3 and `node: SubMenu` ×3 — the menu of
+  the desktop shell;
+- `proposal: AiProposal` ×1 — a proposed change;
+- `item: ProposalItem` ×2 — a proposed change, one row of it;
+- `entries: ImmutableList<LogbookEntry>` ×1 — the logbook of a task;
+- `step: SpotlightStep` ×2 — a step of the tour;
+- `aiTestResult: AiTestResult` ×2 and `result: AiTestResult` ×1 — the probe of
+  the AI provider settings;
+- `template: SelectorTemplate` ×2 and `pendingTemplate: SelectorTemplate?` ×1
+  — the agenda selector;
+- `themeMode: ThemeMode` ×1, `themeMode: ThemeMode?` ×1 and `selected:
+  ThemeMode` ×1 — the theme;
+- `disposition: LocalDataDisposition?` ×2 and `selected: LocalDataDisposition?`
+  ×1 — what happens to the local data when an account is claimed.
+
+A known-stable parameter is compared by `equals` and nothing else. A
+runtime-unstable one is compared by `equals` only when the runtime value
+happens to be stable, and by identity otherwise — so the report of the
+compiler is the list of the places where that difference still decides
+something.
+
+One honest caveat about the menu: `MenuNode.Action` holds a lambda, and
+`equals` of a data class compares a lambda by identity. Two menus that look
+the same are therefore rarely equal, and the skip the report promises is
+skipped less often than the numbers suggest. The promise still holds — a
+lambda does not change — but it buys less here than elsewhere.
+
+### The register of debt is a ratchet
+
+The register names the composables that still take a raw collection, and under
+each of them the parameters that still carry one. The number of those
+parameters is the debt: it is the number every conversation about this work
+quotes, and a number nobody writes down is a number nobody reads.
+
+So the size is written down — in `config/compose/stability_debt_baseline.conf`
+— and the gate compares it with the register. It fails when they disagree in
+**either** direction: when the register grew, because the debt may not grow
+without somebody deciding to raise the bar; and when the register shrank,
+because a recorded size that stays above the real one is a number the next
+reader believes and that is wrong.
+
+Raising the bar is allowed. It is a decision somebody has to make on purpose,
+in the same commit that moves the debt, and the diff then shows the movement
+of the debt and the decision together.
+
+### The identifiers did not need an entry, and the measurement says so
+
+`TaskId`, `NoteId`, `TagId`, `TagGroupId` and `ProposalItemId` are
+`@JvmInline value class`es over a `String`. A value class is inlined into its
+use, so the compiler sees through it to the type underneath — here a `String`,
+which is stable. That is the same shape as a `LocalDate` parameter only
+superficially: `LocalDate` is not a value class at all, it is a final class
+from another module, and the compiler cannot see inside it.
+
+The plan was to list the identifiers — five lines, the cheapest change in the
+whole contract — and to unblock the ten raw collection parameters whose
+element is an identifier.
+
+**The measurement said no.** The report was taken twice, with the five lines
+and without them: **1535 stable, 372 runtime-unstable and 4 unstable across
+728 composables**, both times. The identifiers are already stable, and adding
+them to the contract changed nothing.
+
+They are stable because the compiler *does* see through these value classes:
+`TaskId` wraps a `String`, and a `String` is stable, so the verdict the
+compiler records for `TaskId` is a stable one — and a recorded verdict is
+honoured for a type argument, exactly as the contract entry would have been.
+`ProjectWithCounts` needed an entry for the opposite reason: the compiler
+judged it *unstable* and stuck to that.
+
+So the five lines were not added. The ten parameters whose element is an
+identifier unlock by the conversion itself, with nothing in the contract
+changed — which is worth knowing, because the plan said otherwise and the
+plan was what would have been carried out.
+
+What the compiler sees through and what it does not is not something to guess
+at: the identifiers are seen through, the date and time classes were not, and
+the two differ in kind rather than in degree — a value class inlines, a final
+class from another module does not. The report is what settles it, and it
+settles it per type.
+
 ## Rationale
 
 The measurement is what settled the design. Before the contract, the compiler
@@ -411,8 +599,8 @@ across 712 composables. After the contract and the conversion of the hot
 states, it reported **1522 stable, 322 runtime-unstable and 3 unstable**.
 
 The 56 parameters that vanished from the unstable class were the date and time
-value classes; the 27 that vanished from the runtime class were the eleven
-types the contract names besides the value classes — `Task` (7), `Note` (7),
+classes; the 27 that vanished from the runtime class were the eleven
+types the contract names besides them — `Task` (7), `Note` (7),
 `Project` (3), `Tag` (2), `Attachment` (2) and one each of `Reminder`,
 `ChecklistItem`, `CalendarTaskUi`, `TaskDraft`, `ProjectWithCounts` and
 `SectionPrefill`. The domain models in list rows — the thing the whole

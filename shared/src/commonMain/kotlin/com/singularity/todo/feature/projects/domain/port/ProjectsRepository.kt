@@ -4,6 +4,7 @@ import com.singularity.todo.core.database.ProjectWithCountRow
 import com.singularity.todo.core.repository.GenericUserScopedRepository
 import com.singularity.todo.core.repository.SoftDeletable
 import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.model.ProjectDocument
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import kotlinx.coroutines.flow.Flow
 
@@ -23,8 +24,18 @@ interface ProjectsRepository :
      * Upserts a project from a remote sync event.
      * Does NOT emit repository-level change events — caller handles observability.
      * Used by pull handlers in [com.singularity.todo.core.sync.SyncBootstrapper].
+     *
+     * The document carries the claim it makes about the inheritance, and the
+     * claim is what the write follows: a document that says nothing about the
+     * inherited tag groups leaves the groups the project has, and a document
+     * that says the project inherits nothing takes them away. The claim is
+     * `null` in the first case and an empty set in the second, and the two are
+     * not the same statement.
+     *
+     * @param document the project and the claim about its inheritance.
+     * @return the project as it stands after the write.
      */
-    suspend fun upsert(project: Project): Project
+    suspend fun upsert(document: ProjectDocument): Project
 
     /**
      * Hard-deletes every project the active profile owns — deleted projects

@@ -177,7 +177,9 @@ price of the loop as it is now, and a price that names the old jobs is a
 price of the old loop. The re-record landed with #1083: the page prices the
 loop of the new job names, from the first trunk run that carries them. What
 makes a record stale is decided in the ADR of 2026-10-21 — the workflow's
-jobs changing, not the branch moving — and nothing enforces it yet.
+jobs changing, not the branch moving — and
+`scripts/check-recorded-ci-jobs.py` enforces it: a recorded job the workflow
+no longer declares is a finding.
 
 **The custom rules keep their own instrumentation.** `:detekt-rules` applies
 the Kover plugin itself, so its tests are instrumented whatever the settings

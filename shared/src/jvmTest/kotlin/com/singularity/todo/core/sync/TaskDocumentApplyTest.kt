@@ -6,6 +6,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeNotesRepository
+import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTagGroupRepository
 import com.singularity.todo.test.fakes.FakeTagsRepository
@@ -64,6 +65,7 @@ class TaskDocumentApplyTest {
         tagRepo = FakeTagsRepository(),
         tagGroupRepo = FakeTagGroupRepository(),
         timeTrackingRepo = FakeTimeTrackingRepository(FakeClock()),
+        currentUser = FakeProfileAwareCurrentUser(),
     )
 
     /** The document a device sends: the whole task, minus the keys it does not know. */

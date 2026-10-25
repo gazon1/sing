@@ -27,6 +27,9 @@ class FakeTimeTrackingRepository(private val clock: Clock) : TimeTrackingReposit
     override suspend fun getOpenEntry(userId: UserId): TimeEntry? =
         entries.value.values.find { it.userId == userId && it.endedAt == null && it.deletedAt == null }
 
+    override suspend fun get(entryId: TimeEntryId, userId: UserId): TimeEntry? =
+        entries.value[entryId.value]?.takeIf { it.userId == userId }
+
     override suspend fun startEntry(
         taskId: TaskId,
         userId: UserId,

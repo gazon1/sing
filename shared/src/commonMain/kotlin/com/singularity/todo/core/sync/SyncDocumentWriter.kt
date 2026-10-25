@@ -5,7 +5,10 @@ import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.projects.domain.model.INHERITED_TAG_GROUP_IDS_WIRE_NAME
 import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.model.ProjectDocument
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tags.Tag
@@ -62,6 +65,7 @@ internal class SyncDocumentWriter(
     private val tagRepo: TagsRepository,
     private val tagGroupRepo: TagGroupRepository,
     private val timeTrackingRepo: TimeTrackingRepository,
+    private val currentUser: ProfileAwareCurrentUser,
 ) {
 
     /** The types this writer can store — the dispatch table, read as data. */
@@ -77,11 +81,18 @@ internal class SyncDocumentWriter(
     /**
      * Decodes [document] as [type] and upserts it.
      *
-     * The document's own `user_id` and ids are used as they are. Nothing here reads
-     * the signed-in account, because the caller decides which account a document
-     * belongs to: on the pull path that is the scope the event was accepted for, and on
-     * the lost-race path it is the row's own shadow. Overwriting either from the
-     * session would be a second answer to a question the document already answers.
+     * The document's own `userId` and ids are used as they are. The owner of the
+     * document is never overwritten from the session, because the caller decides
+     * which account a document belongs to: on the pull path that is the scope the
+     * event was accepted for, and on the lost-race path it is the row's own
+     * shadow. Overwriting it from the session would be a second answer to a
+     * question the document already answers.
+     *
+     * The profile this device is signed in to *is* read, and for one thing
+     * only: to decide whether the row that is already here may be read into
+     * the document. The row is read to keep the fields the document is silent
+     * about, and the row of this profile is the only row this device may
+     * speak about — see [belongsToThisProfile].
      */
     suspend fun upsert(type: DocType, document: JsonObject) {
         when (type) {
@@ -89,21 +100,19 @@ internal class SyncDocumentWriter(
                 taskRepo.upsert(taskDocument(document))
 
             DocType.Note ->
-                noteRepo.upsert(StableJson.decodeFromString(serializer<Note>(), document.toString()))
+                noteRepo.upsert(noteDocument(document))
 
             DocType.Project ->
-                projectRepo.upsert(StableJson.decodeFromString(serializer<Project>(), document.toString()))
+                projectRepo.upsert(projectDocument(document))
 
             DocType.Tag ->
-                tagRepo.upsert(StableJson.decodeFromString(serializer<Tag>(), document.toString()))
+                tagRepo.upsert(tagDocument(document))
 
             DocType.TagGroup ->
-                tagGroupRepo.upsert(StableJson.decodeFromString(serializer<TagGroup>(), document.toString()))
+                tagGroupRepo.upsert(tagGroupDocument(document))
 
             DocType.TimeEntry ->
-                timeTrackingRepo.upsert(
-                    StableJson.decodeFromString(serializer<TimeEntry>(), document.toString()),
-                )
+                timeTrackingRepo.upsert(timeEntryDocument(document))
         }
     }
 
@@ -135,13 +144,17 @@ internal class SyncDocumentWriter(
         // the tags" is gone.
         val carriesTags = document.containsKey(TAGS_WIRE_NAME)
         val carriesDependencies = document.containsKey(BLOCKED_BY_WIRE_NAME)
-        // The document is decoded once, after the merge. The merge leaves the
-        // parts of the document alone, so the claims about the parts are the
-        // merged task's — and a document that omits a field the model cannot
-        // do without is decoded against the row that is already here, which
-        // is what the merge is for.
-        val merged = mergeWithLocalRow(document, localTaskOf(document))
-        val task = StableJson.decodeFromString(serializer<Task>(), merged.toString())
+        // The parts live outside the row — they are cross-reference tables, not
+        // columns — so the row does not speak about them and the merge leaves
+        // those keys to the document alone.
+        val task = mergedRow(
+            document = document,
+            read = { id: String -> taskRepo.get(TaskId.fromString(id)) },
+            toJson = { task: Task ->
+                JsonObject(task.toJson().filterKeys { it !in PARTS_OUTSIDE_THE_ROW })
+            },
+            decode = { merged -> StableJson.decodeFromString(serializer<Task>(), merged.toString()) },
+        )
         return TaskDocument(
             task = task,
             tags = if (carriesTags) task.tags else null,
@@ -150,25 +163,122 @@ internal class SyncDocumentWriter(
     }
 
     /**
-     * The row that is already on this device for the task the document is about,
-     * or `null` when there is none.
+     * The document as a note, read against the row that is already here.
      *
-     * The id is read from the document itself, because the document is what
-     * names the row.
-     *
-     * The row of a task of another profile is not this device's row to read.
-     * The read below is scoped to the profile this device is signed in as, so
-     * a document of another profile would find *this* profile's row whenever
-     * the two profiles hold a task with the same id — and the merge would
-     * fill the foreign row with this profile's values. The owner of the
-     * document is therefore compared with the profile of this device before
-     * the row is read: a document of another profile is written as it says.
+     * The same rule as the task's: the document wins wherever it speaks, and
+     * where it says nothing the note that is already here keeps saying what it
+     * says. A note document from a device that predates a field carries no key
+     * for it, and writing that absence as "no body" would empty the note on this
+     * device — silently, because the note is written whole.
      */
-    private suspend fun localTaskOf(document: JsonObject): Task? {
-        val id = (document["id"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: return null
-        val owner = (document["userId"] as? JsonPrimitive)?.takeIf { it.isString }?.content
-        if (owner != null && owner != taskRepo.currentUserId().value) return null
-        return taskRepo.get(TaskId.fromString(id))
+    private suspend fun noteDocument(document: JsonObject): Note = mergedRow(
+        document = document,
+        read = { id: String -> noteRepo.get(NoteId.fromString(id)) },
+        toJson = { note: Note -> note.toJson() },
+        decode = { merged -> StableJson.decodeFromString(serializer<Note>(), merged.toString()) },
+    )
+
+    /**
+     * The document as a project, read against the row that is already here.
+     *
+     * The same rule as the task's and the note's: the document wins wherever it
+     * speaks, and where it says nothing the project that is already here keeps
+     * saying what it says. A project document from a device that predates a
+     * field carries no key for it, and writing that absence as the model's
+     * default would empty the field on this device — silently, because the
+     * project is written whole.
+     *
+     * The inheritance is not a field of the row: it lives in a cross-reference
+     * table, and the row that is read cannot see it. So the merge leaves the
+     * key alone — the local row makes no claim about the inheritance — and the
+     * claim the document makes about it travels beside the project.
+     */
+    private suspend fun projectDocument(document: JsonObject): ProjectDocument {
+        // The key is read before the decode, because after it the two cases are
+        // the same project: the field the model cannot do without has a default,
+        // and the difference between "inherits nothing" and "says nothing about
+        // the inheritance" is gone.
+        val carriesInheritance = document.containsKey(INHERITED_TAG_GROUP_IDS_WIRE_NAME)
+        val project = mergedRow(
+            document = document,
+            read = { id: String -> projectRepo.get(ProjectId.fromString(id)) },
+            toJson = { project: Project ->
+                JsonObject(project.toJson().filterKeys { it != INHERITED_TAG_GROUP_IDS_WIRE_NAME })
+            },
+            decode = { merged -> StableJson.decodeFromString(serializer<Project>(), merged.toString()) },
+        )
+        return ProjectDocument(
+            project = project,
+            inheritedTagGroupIds = if (carriesInheritance) project.inheritedTagGroupIds else null,
+        )
+    }
+
+    /** The document as a tag, read against the row that is already here. */
+    private suspend fun tagDocument(document: JsonObject): Tag = mergedRow(
+        document = document,
+        read = { id: String -> tagRepo.get(TagId.fromString(id)) },
+        toJson = { tag: Tag -> tag.toJson() },
+        decode = { merged -> StableJson.decodeFromString(serializer<Tag>(), merged.toString()) },
+    )
+
+    /** The document as a tag group, read against the row that is already here. */
+    private suspend fun tagGroupDocument(document: JsonObject): TagGroup = mergedRow(
+        document = document,
+        read = { id: String -> tagGroupRepo.get(TagGroupId.fromString(id)) },
+        toJson = { group: TagGroup -> group.toJson() },
+        decode = { merged -> StableJson.decodeFromString(serializer<TagGroup>(), merged.toString()) },
+    )
+
+    /** The document as a time entry, read against the row that is already here. */
+    private suspend fun timeEntryDocument(document: JsonObject): TimeEntry = mergedRow(
+        document = document,
+        read = { id: String ->
+            timeTrackingRepo.get(TimeEntryId.fromString(id), currentUser.scopedUserId.value)
+        },
+        toJson = { entry: TimeEntry -> entry.toJson() },
+        decode = { merged -> StableJson.decodeFromString(serializer<TimeEntry>(), merged.toString()) },
+    )
+
+    /**
+     * The document as a row of the type it names, read against the row that is
+     * already here.
+     *
+     * The document wins wherever it speaks. Where it says nothing, the row that
+     * is already here keeps saying what it says: a field the document does not
+     * carry is not a claim that the field is empty, and an empty field is a
+     * deletion.
+     *
+     * The row that is read is this profile's row, and the document is read
+     * against a row only when it belongs to this profile. A document of another
+     * profile is not read against anything: a row is keyed by its id alone, so
+     * a foreign document that names an id this device holds lands on this
+     * profile's row, and the row of this profile must not fill it.
+     *
+     * @param document the document that arrived — it wins wherever it speaks.
+     * @param read how to read the row the document is about, by its id.
+     * @param toJson how the row writes itself — the same names the document uses.
+     * @param decode how the merged document becomes a row.
+     */
+    private suspend fun <T> mergedRow(
+        document: JsonObject,
+        read: suspend (String) -> T?,
+        toJson: (T) -> JsonObject,
+        decode: (JsonObject) -> T,
+    ): T {
+        val id = (document["id"] as? JsonPrimitive)?.takeIf { it.isString }?.content
+        val row = if (id != null && belongsToThisProfile(document)) read(id) else null
+        return decode(mergeWithLocalRow(document, row?.let(toJson)))
+    }
+
+    /**
+     * Whether the document belongs to the profile this device is signed in to.
+     *
+     * A document that names no owner is a document that says nothing about it,
+     * and the row is read for it — the read is scoped to this profile anyway.
+     */
+    private suspend fun belongsToThisProfile(document: JsonObject): Boolean {
+        val owner = (document["userId"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: return true
+        return owner == currentUser.scopedUserId.value.value
     }
 
     /**
@@ -191,3 +301,17 @@ internal class SyncDocumentWriter(
         DocType.TimeEntry -> timeTrackingRepo.delete(TimeEntryId.fromString(id))
     }
 }
+
+/**
+ * The keys of the parts of a task document that live outside the row.
+ *
+ * The tags and the blocking edges are not columns of the row — they live in
+ * cross-reference tables, and their claims are their own business. So the
+ * local row does not speak about them here: the merge leaves those keys to the
+ * document alone, and a document that carries no `tags` key is still a
+ * document that carries no `tags` key afterwards.
+ *
+ * The row itself is a different matter — see
+ * `docs/decisions/2026-10-23-the-row-keeps-what-the-document-does-not-say.md`.
+ */
+private val PARTS_OUTSIDE_THE_ROW = setOf(TAGS_WIRE_NAME, BLOCKED_BY_WIRE_NAME)

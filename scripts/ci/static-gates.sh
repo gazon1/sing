@@ -265,6 +265,31 @@ gate blocking "declared dependencies are used" sgate declared_dependencies_are_u
 # fixed list of documents — a number published anywhere else is a claim this gate
 # does not check, and that limit is written down in the gate's own docstring.
 gate blocking "published measurements match the record" python3 scripts/check-published-measurements.py
+# The published page prices the CI loop from one run, and the criterion that
+# retires that record is the workflow's jobs changing. Nothing checked it: the suite job
+# was renamed from `JVM tests, detekt, coverage` to `JVM tests`, and the page kept
+# naming the old job for a whole change — a record of a run does not notice that the
+# workflow moved on.
+#
+# This compares every job the record names with the jobs the workflow declares, and
+# names the ones that are gone. The comparison is one-sided on purpose: the record
+# holds the jobs that RAN and the workflow declares the jobs that CAN run, so equality
+# would be red forever. A matrix job is expanded before the comparison, because the
+# runner shows `Android (free)` and `Android (pro)` where the workflow declares one
+# job; an `exclude` takes an axis-generated leg away from both sides, while an
+# `include` entry is a leg whatever the excludes say.
+#
+# What it does not see: a job renamed and renamed back, an edit that keeps every name
+# and changes what a job does, and a job added to the workflow — a job the record
+# does not name is indistinguishable from a job the run did not run, and the set of
+# jobs a trunk push runs depends on the paths the push touched. A job whose display
+# name the gate cannot compute (a name holding an expression other than a matrix
+# reference) makes only the recorded names that match its pattern unproven; the gate
+# prints them rather than going quiet. A name that is nothing but an expression
+# identifies no job at all — the gate exits with a configuration error instead of
+# calling everything unproven. The limit is written down in the gate's own
+# docstring.
+gate blocking "the recorded CI jobs are still jobs" python3 scripts/check-recorded-ci-jobs.py
 # The heap of a test fork was a literal string in five build scripts, and the
 # heap of the Gradle daemon was a literal string in `gradle.properties`. The
 # measurement behind them lived in an ADR that no build read and no gate held.

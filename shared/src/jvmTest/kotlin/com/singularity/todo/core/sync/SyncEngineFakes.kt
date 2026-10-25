@@ -6,6 +6,7 @@ import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.sync.work.FakeHlcFactory
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
@@ -13,6 +14,7 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeNotesRepository
+import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
 import com.singularity.todo.test.fakes.FakeTagGroupRepository
 import com.singularity.todo.test.fakes.FakeTagsRepository
@@ -453,6 +455,7 @@ internal fun fakeSyncDocumentWriter(
     tags: TagsRepository = FakeTagsRepository(),
     tagGroups: TagGroupRepository = FakeTagGroupRepository(),
     timeTracking: TimeTrackingRepository = FakeTimeTrackingRepository(FakeClock()),
+    currentUser: ProfileAwareCurrentUser = FakeProfileAwareCurrentUser(),
 ): SyncDocumentWriter =
     SyncDocumentWriter(
         taskRepo = tasks,
@@ -461,4 +464,5 @@ internal fun fakeSyncDocumentWriter(
         tagRepo = tags,
         tagGroupRepo = tagGroups,
         timeTrackingRepo = timeTracking,
+        currentUser = currentUser,
     )
