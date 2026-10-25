@@ -394,13 +394,16 @@ A reviewing agent watches for:
   The name a piece spells is the SPELLING of the piece: a bit string and a
   hex string spell bytes, so `'sync_field_' || B'0110…'` spells the table's
   name and the write the file spells is the write the reader sees.
-- A reader that reads a NAME and a VALUE the same way. They are not the same:
-  a bit string and a hex string hold BITS — the text a text column stores —
-  and they spell bytes as well. A name assembled out of pieces is folded into
-  the name the pieces SPELL, and the value of a row is read as the value the
-  pieces HOLD — the bits. A reader that read the bytes of a row's value would
-  read a value the server never holds, and a reader that read the bits of a
-  name would miss a name the file spells.
+- A reader that reads a NAME, a VALUE and a STATEMENT the same way. They are
+  not the same: a bit string and a hex string hold BITS — the text a text
+  column stores — and they spell bytes as well. A name assembled out of pieces
+  is folded into the name the pieces SPELL, the value of a row is read as the
+  value the pieces HOLD — the bits — and the text a statement the migration
+  RUNS is the text the server runs: the bits, so a statement written as a bit
+  string is reported as a migration that does not apply. A reader that read
+  the bytes of a row or of a statement would read a text the server never
+  holds, and a reader that read the bits of a name would miss a name the file
+  spells.
 - A reader that follows the table only by its own name, and misses the doors.
   A VIEW over the table is a second door into it — PostgreSQL writes through
   an automatically updatable view — a CHILD of the table is a third — PostgreSQL

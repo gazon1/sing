@@ -157,8 +157,10 @@ reads it as the description it is.
   `format('%s%s', 'sync_field_', 'allowlist')` alike, in every spelling of a
   literal: `'…'`, `E'…'`, `U&'…'`, `B'…'` and `$$…$$`, with a cast between two
   pieces or without one — because a name nobody can see is a write nobody can
-  place. The folding is applied to a statement BEFORE it is read, so the text
-  the migration runs is the text the pieces spell.
+  place. The folding is applied to a statement BEFORE it is read, and the text
+  it folds a NAME into is the name the pieces spell; the text it folds a
+  VALUE into is the value the pieces hold, and the text the migration runs is
+  the value the pieces hold — the server runs the bits.
 
   **A name the reader cannot fold it reports.** The pieces it cannot fold are
   the pieces where the name goes missing: `'sync_' || v_suffix`, where the
@@ -232,16 +234,21 @@ reads it as the description it is.
   cannot join is a row the reader cannot vouch for, and the reader says so
   rather than reads it as a name.
 
-  **The reader reads a NAME and a VALUE differently, because the server
-  stores them differently.** A name assembled out of pieces is the name the
+  **The reader reads a NAME, a VALUE and a STATEMENT apart, because the
+  server stores them apart.** A name assembled out of pieces is the name the
   pieces spell, and a bit string or a hex string spells BYTES — so
   `'sync_field_' || B'0110…'` spells the table's name, and the write the
   file spells is the write the reader sees. A row holds a value, and the
   value a bit string holds is the bits it holds — the text the server
   stores — so the reader reads the value of a row as the bits and not as the
-  bytes the same literal spells. A reader that read the bytes of a row
-  would read a value the server never holds, and a reader that read the
-  bits of a name would miss a name the file spells.
+  bytes the same literal spells. And the text a statement the migration RUNS
+  is the text the server runs: the bits, and not the bytes. A statement
+  written as a bit string is a migration that does not apply — the server
+  runs the bits, and the bits are not a statement — so the reader says so
+  rather than read a statement out of the bytes the same literal spells. A
+  reader that read the bytes of a row or of a statement would read a text
+  the server never holds, and a reader that read the bits of a name would
+  miss a name the file spells.
 
   And the reader reads the escapes of the version the deployment runs:
   PostgreSQL 15, which is what `supabase/postgres:15.8.1.085` is. `\v` is not

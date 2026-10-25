@@ -276,6 +276,10 @@ the server has not been migrated for yet.
 - **And** a row holds a VALUE, and the value a bit string or a hex string
   holds is the bits it holds — the text the database stores — so the value of
   a row is read as the bits and not as the bytes the same literal spells
+- **And** the text a statement the migration RUNS is the text the server
+  runs — the bits — so a statement written as a bit string is reported as a
+  migration that does not apply, rather than read as a statement out of the
+  bytes the same literal spells
 - **And** a string that HOLDS the words of a write is not reported — the
   verb is inside the string there, and a column holds words
 

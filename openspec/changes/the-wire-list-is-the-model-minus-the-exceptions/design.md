@@ -144,15 +144,19 @@ checks say:
    table. A piece on its own is not the name: `'field'` is a word, and a file
    may hold it without meaning the table.
 
-   A NAME and a VALUE are read differently, because the server stores them
-   differently. A bit string and a hex string hold BITS — the text a text
+   A NAME, a VALUE and a STATEMENT are read apart, because the server stores
+   them apart. A bit string and a hex string hold BITS — the text a text
    column stores — and they spell BYTES as well, and a file that writes the
    table's name in hex writes those bytes. So the pieces of a name are folded
    into the name they SPELL: `'sync_field_' || B'0110…'` spells the table's
-   name, and the write the file spells is the write the reader sees. And the
+   name, and the write the file spells is the write the reader sees. The
    value of a row is the value the pieces HOLD: the reader reads it as the
    bits, and not as the bytes the same literal spells — a reader that read
-   the bytes of a row would read a value the server never holds.
+   the bytes of a row would read a value the server never holds. And the text
+   a statement the migration RUNS is the text the server runs: the bits. A
+   statement written as a bit string is a migration that does not apply — the
+   server runs the bits, and the bits are not a statement — so the reader
+   reports it rather than read a statement out of the bytes.
 
    A body is a scope of its own AND a scope inside another: a nested body
    sees the scope it is nested in, so a write text the enclosing body holds
