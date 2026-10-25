@@ -1,17 +1,43 @@
 package com.singularity.todo.core.sync
 
+import com.singularity.todo.feature.notes.Note
+import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.tags.Tag
+import com.singularity.todo.feature.tags.domain.model.TagGroup
+import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.timetracking.domain.TimeEntry
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.serializer
+
 /**
  * Single declarative source of truth for the sync protocol contract.
  *
  * Everything the sync protocol defines — versions, RPC methods, synchronisable
- * document types, and the field allowlist — is declared here.  All other
- * sync code derives from this object rather than repeating the facts.
+ * document types, and the field lists — is declared here.  All other sync code
+ * derives from this object rather than repeating the facts.
  *
- * The field allowlist (`FIELD_ALLOWLIST`) must agree with the server-side
- * `sync_field_allowlist` table.  A field that appears in a Kotlin entity's
- * `toJson()` output but is not in the allowlist will be accepted by the
- * client, sent to the server, and silently rejected there.  The JVM test
- * `SyncContractIsTheSourceOfTruthTest` catches this drift.
+ * ## The field lists are derived, not written
+ *
+ * The list of names a device may put on the wire is the model's own list: the
+ * element names of the model's serial descriptor, which is what the encoder
+ * writes from.  A list written out by hand beside the model is a copy, and a
+ * copy has to be kept in step by somebody's memory.
+ *
+ * Two lists come out of that derivation, and each means one thing:
+ *
+ * - [WIRE_FIELDS] — the names a device puts on the wire.  Every field of every
+ *   model travels: the device serialises the whole model, so a field that does
+ *   not travel is a field the model does not have.
+ * - [SERVER_FIELDS] — the names the server accepts in a patch, which is the wire's names
+ *   minus the fields the server owns.  This is the one hand-written part of the
+ *   contract, and it is four names long.
+ *
+ * The server's list must agree with the server-side `sync_field_allowlist`
+ * table: a field that is absent from that table cannot be written by any
+ * patch, whatever the client sends.  The JVM test
+ * `SyncContractIsTheSourceOfTruthTest` says that the wire and the wire's list
+ * are the same set, and the gate `sync allowlist seed matches contract`
+ * compares the server's table with the derived list.
  *
  * ## Version history
  *
@@ -33,224 +59,111 @@ object SyncContract {
     /** Every [DocType] this client can sync. */
     val SYNCABLE_DOC_TYPES: Set<DocType> = DocType.entries.toSet()
 
-    // ── Field allowlist ────────────────────────────────────────────────────────
+    // ── The field lists ─────────────────────────────────────────────────────────
     //
-    // Must agree with the server-side `sync_field_allowlist` table.
-    // Each set contains the JSON field names that the server will accept for
-    // that DocType.  A name must appear here *before* it is added to a
-    // Kotlin entity's `toJson()`, otherwise the JVM test will fail.
+    // The names a device puts on the wire are the model's own names.  The
+    // derivation reads the model's serial descriptor — the same descriptor the
+    // encoder writes from — and takes its element names, so a `@SerialName`
+    // comes out as the wire name and a field added to a model is in the list
+    // the moment the model changes.
     //
-    // Naming convention: kotlinx-serialization encodes a Kotlin property named
-    // `fooBar` as JSON key `"fooBar"`.  A `value class` property (e.g.
-    // `val id: TaskId`) is encoded as the underlying String value under the
-    // property name as the key.
-    //
-    // The allowlist is the UNION of:
-    //   (a) fields the server-side sync_field_allowlist table accepts, AND
-    //   (b) client-side sync metadata (serverVersion, hlc, userId) that the
-    //       server stores without enforcing — see SyncableEntity.toJson
-    //
-    // ── DocType.Task ──────────────────────────────────────────────────────────
-    //
-    // Source: feature/tasks/domain/model/Task.kt  (36 fields)
-
-    private val TASK_ALLOWLIST = setOf(
-        // Identity
-        "id",
-        // Core fields
-        "title",
-        "description",
-        "priority",
-        "kind",
-        "completedAt",
-        "someday",
-        "archivedAt",
-        "isPinned",
-        // Relationships
-        "projectId",
-        "parentTaskId",
-        "tags",
-        "dependsOn",
-        "aiSuppressedTagIds",
-        // Dates
-        "dueDate",
-        "dueTime",
-        "startDate",
-        "startTime",
-        "endDate",
-        "endTime",
-        // Extra
-        "accentColor",
-        "emoji",
-        "estimateMinutes",
-        "recurrence",
-        // Series — the id that ties the rows of one piece of work together.
-        // The server must accept it, or a synced task is rejected as a document
-        // with an unknown field.
-        "seriesId",
-        // Metadata
-        "createdAt",
-        "updatedAt",
-        // Sync metadata — client-side fields the server stores but does not
-        // enforce in sync_field_allowlist (serverVersion=0, hlc=null for local)
-        "serverVersion",
-        "hlc",
-        "userId",
-    )
-
-    // ── DocType.Note ─────────────────────────────────────────────────────────
-    //
-    // Source: feature/notes/Ids.kt  Note data class
-
-    private val NOTE_ALLOWLIST = setOf(
-        // Identity
-        "id",
-        // Core fields
-        "userId",
-        "title",
-        "bodyMarkdown",
-        "bodyHtml",
-        "isFolder",
-        "kind",
-        "parentNoteId",
-        "isPinned",
-        "pinnedAt",
-        "color",
-        "sortOrder",
-        "wordCount",
-        "charCount",
-        "outgoingLinks",
-        "taskId",
-        // Metadata
-        "createdAt",
-        "updatedAt",
-        "deletedAt",
-        "archivedAt",
-        // Sync metadata
-        "serverVersion",
-        "hlc",
-    )
-
-    // ── DocType.Project ──────────────────────────────────────────────────────
-    //
-    // Source: feature/projects/domain/model/Project.kt
-
-    private val PROJECT_ALLOWLIST = setOf(
-        // Identity
-        "id",
-        // Core fields
-        "name",
-        "color",
-        "icon",
-        "description",
-        "isDefault",
-        "dueDate",
-        "team",
-        "isDeleted",
-        "parentId",
-        "sortOrder",
-        "idempotencyKey",
-        "externalId",
-        "userId",
-        // Relationships
-        "inheritedTagGroupIds",
-        // Metadata
-        "createdAt",
-        "updatedAt",
-        "deletedAt",
-        // A project whose work is finished. Travels with the project so another
-        // device learns that it is closed instead of showing it as open.
-        "closedAt",
-        // Sync metadata
-        "serverVersion",
-        "hlc",
-    )
-
-    // ── DocType.Tag ──────────────────────────────────────────────────────────
-    //
-    // Source: feature/tags/Ids.kt  Tag data class
-
-    private val TAG_ALLOWLIST = setOf(
-        // Identity
-        "id",
-        // Core fields
-        "name",
-        "color",
-        "groupId",
-        "sortOrder",
-        "deletedAt",
-        "userId",
-        // Sync metadata
-        "createdAt",
-        "updatedAt",
-        "serverVersion",
-        "hlc",
-    )
-
-    // ── DocType.TagGroup ─────────────────────────────────────────────────────
-    //
-    // Source: feature/tags/domain/model/TagGroup.kt
-
-    private val TAG_GROUP_ALLOWLIST = setOf(
-        // Identity
-        "id",
-        // Core fields
-        "name",
-        "color",
-        "deletedAt",
-        "userId",
-        // Metadata
-        "createdAt",
-        "updatedAt",
-        // Sync metadata
-        "serverVersion",
-        "hlc",
-    )
-
-    // ── DocType.TimeEntry ────────────────────────────────────────────────────
-    //
-    // Source: feature/timetracking/domain/TimeEntry.kt
-
-    private val TIME_ENTRY_ALLOWLIST = setOf(
-        // Identity
-        "id",
-        // Core fields
-        "taskId",
-        "userId",
-        "startedAt",
-        "endedAt",
-        "kind",
-        "source",
-        "note",
-        // Metadata
-        "createdAt",
-        "updatedAt",
-        "deletedAt",
-        // Sync metadata
-        "serverVersion",
-        "hlc",
-    )
+    // What is written by hand is the exception, not the list: the four fields
+    // the server owns.
 
     /**
-     * Fields the server will accept for each [DocType].
+     * The fields the server owns, and no document may write.
      *
-     * A [SyncableEntity.toJson] that emits a field name not in this map
-     * will be accepted by the client, sent to the server, and rejected there.
-     * [SyncContractIsTheSourceOfTruthTest] detects this drift at test time.
+     * - `serverVersion` — the server's own counter.  The device's copy is its
+     *   own reading of it, and the server does not take it from a patch.
+     * - `hlc` — the clock.  A patch carries its clock separately, and the
+     *   server orders by that one.
+     * - `userId` — the owner.  It comes from the session, not from the
+     *   document: a device that could write it would be writing down whose
+     *   work this is.
+     * - `id` — the key of the row, not a field of the document.
+     *
+     * The same four for every type: every model here has them, and the server
+     * owns them all the same way.  A name here that a model does not have is a
+     * name the subtraction does not subtract: the field stays in the server's
+     * list, the server is told it may write it, and the model's own
+     * bookkeeping becomes writable — `SyncContractIsTheSourceOfTruthTest` says
+     * so.
+     *
+     * Internal rather than private: the test reads it, because the check that
+     * a subtracted name is a name the model has has to read the subtraction.
      */
-    val FIELD_ALLOWLIST: Map<DocType, Set<String>> = mapOf(
-        DocType.Task to TASK_ALLOWLIST,
-        DocType.Note to NOTE_ALLOWLIST,
-        DocType.Project to PROJECT_ALLOWLIST,
-        DocType.Tag to TAG_ALLOWLIST,
-        DocType.TagGroup to TAG_GROUP_ALLOWLIST,
-        DocType.TimeEntry to TIME_ENTRY_ALLOWLIST,
+    internal val SERVER_OWNED: Set<String> = setOf("serverVersion", "hlc", "userId", "id")
+
+    /**
+     * The model each document type is an instance of.
+     *
+     * The descriptor is the model's own: the same one the encoder writes the
+     * document from, so the names it holds are the names on the wire.
+     */
+    private val MODEL_DESCRIPTORS: Map<DocType, SerialDescriptor> = mapOf(
+        DocType.Task to serializer<Task>().descriptor,
+        DocType.Note to serializer<Note>().descriptor,
+        DocType.Project to serializer<Project>().descriptor,
+        DocType.Tag to serializer<Tag>().descriptor,
+        DocType.TagGroup to serializer<TagGroup>().descriptor,
+        DocType.TimeEntry to serializer<TimeEntry>().descriptor,
     )
 
     /**
-     * Returns the allowlisted field names for [docType], or an empty set if
-     * the type is not a known syncable document type.
+     * The names a device puts on the wire, per document type.
+     *
+     * The model's own names.  Every field of every model travels — the device
+     * serialises the whole model — so a field that does not travel is a field
+     * the model does not have, and there is nothing to subtract here.
+     *
+     * The order is the model's declaration order, which is the order the
+     * encoder writes them in.
      */
-    fun allowlistFor(docType: DocType): Set<String> =
-        FIELD_ALLOWLIST[docType] ?: emptySet()
+    val WIRE_FIELDS: Map<DocType, List<String>> = MODEL_DESCRIPTORS.mapValues { (_, descriptor) ->
+        descriptor.wireNames()
+    }
+
+    /**
+     * The names the server accepts in a patch, per document type.
+     *
+     * The wire's names, minus the fields the server owns.  This is what the
+     * server's `sync_field_allowlist` table holds, and the seed is generated
+     * from it.
+     */
+    val SERVER_FIELDS: Map<DocType, List<String>> = WIRE_FIELDS.mapValues { (_, fields) ->
+        fields - SERVER_OWNED
+    }
+
+    /**
+     * The names a device puts on the wire for [docType], or an empty list if the
+     * type is not a known syncable document type.
+     */
+    fun wireFieldsFor(docType: DocType): List<String> =
+        WIRE_FIELDS[docType] ?: emptyList()
+
+    /**
+     * The names the server accepts in a patch for [docType], or an empty list if the type
+     * is not a known syncable document type.
+     */
+    fun serverFieldsFor(docType: DocType): List<String> =
+        SERVER_FIELDS[docType] ?: emptyList()
+
+    init {
+        // Every document type needs a model, or its list would be missing and
+        // everything the type carries would look like a field nobody sends.
+        require(MODEL_DESCRIPTORS.keys == DocType.entries.toSet()) {
+            "every document type needs a model: " +
+                "the models are ${MODEL_DESCRIPTORS.keys.map { it.key }}, " +
+                "the types are ${DocType.entries.map { it.key }}"
+        }
+    }
 }
+
+/**
+ * The names the descriptor holds, in the order it holds them.
+ *
+ * `getElementName` returns the *serial* name, so a `@SerialName` comes out as
+ * the wire name and not as the Kotlin property's name.
+ */
+private fun SerialDescriptor.wireNames(): List<String> =
+    (0 until elementsCount).map { getElementName(it) }

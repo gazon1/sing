@@ -1164,19 +1164,79 @@ dependencies {
 // that made every Compose flow test in desktopApp invisible to the number.
 
 // ---------------------------------------------------------------------------
-// generateSyncFieldAllowlistSql — generates allowlist seed from SyncContract
+// exportSyncFieldAllowlist — the derived field lists, exported from the models
+// ---------------------------------------------------------------------------
+//
+// The derivation lives in Kotlin, because only the compiler knows what a model's
+// serial descriptor holds. The tools that need the lists are Python, and a gate
+// that runs a compiler is a gate nobody runs. So the lists are exported from the
+// compiled classes, and the export is committed; the seed generator and the gate
+// read that instead of parsing the Kotlin source.
+//
+// This replaces a regular expression that read the Kotlin source and stopped at
+// the first closing parenthesis — inside a comment — and so read a list that was
+// three names short.
+
+val exportSyncFieldAllowlist = tasks.register<JavaExec>("exportSyncFieldAllowlist") {
+    description = "Exports the derived sync field lists to config/docs/sync-field-allowlist.json"
+    group = "sync"
+    val jvmClasses = layout.buildDirectory.dir("classes/kotlin/jvm/main")
+    val target = rootProject.layout.projectDirectory.file("config/docs/sync-field-allowlist.json")
+    mainClass.set("com.singularity.todo.core.sync.SyncFieldAllowlistExportKt")
+    classpath(files(jvmClasses), configurations.named("jvmRuntimeClasspath"))
+    args(target.asFile.absolutePath)
+    inputs.files(jvmClasses)
+    outputs.file(target)
+    dependsOn("compileKotlinJvm")
+    doFirst {
+        target.asFile.parentFile.mkdirs()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// generateSyncFieldAllowlistSql — the seed, generated from the derived lists
 // ---------------------------------------------------------------------------
 
 tasks.register<DefaultTask>("generateSyncFieldAllowlistSql") {
-    description = "Generates sync_field_allowlist INSERT seed SQL from SyncContract.FIELD_ALLOWLIST"
+    description = "Generates the sync_field_allowlist seed SQL from the derived field lists"
     group = "sync"
-    inputs.file(rootProject.file("shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncContract.kt"))
-    outputs.file(rootProject.file("supabase/migrations/sync_field_allowlist_seed.sql"))
+    inputs.file(rootProject.file("config/docs/sync-field-allowlist.json"))
+    outputs.file(rootProject.file("supabase/sync_field_allowlist_seed.sql"))
+    dependsOn("exportSyncFieldAllowlist")
     doLast {
         providers.exec {
             commandLine("python3", rootProject.file("infra/gen_sync_allowlist_sql.py").absolutePath, rootProject.projectDir.absolutePath)
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// verifySyncFieldAllowlist — the committed export is what the code exports
+// ---------------------------------------------------------------------------
+//
+// The export task writes the file, so it cannot also report that the file is
+// wrong: it would have already overwritten it. This check asks the exporter
+// whether the committed file says what the models declare, and the exporter
+// answers by comparing the parsed lists — the same comparison the JVM test
+// (`SyncFieldAllowlistExportTest`) makes, through the same function, so the
+// two cannot drift into calling the same file current and stale.
+//
+// It is cheap on purpose: it compiles the JVM classes and runs one main. The
+// price of the fast answer is that it says "the export is stale" without saying
+// what changed; the export task and the diff say that.
+val verifySyncFieldAllowlist = tasks.register<JavaExec>("verifySyncFieldAllowlist") {
+    description = "Fails when config/docs/sync-field-allowlist.json is not what the code exports"
+    group = "verification"
+    val jvmClasses = layout.buildDirectory.dir("classes/kotlin/jvm/main")
+    val committed = rootProject.layout.projectDirectory.file("config/docs/sync-field-allowlist.json")
+    mainClass.set("com.singularity.todo.core.sync.SyncFieldAllowlistExportKt")
+    classpath(files(jvmClasses), configurations.named("jvmRuntimeClasspath"))
+    args("--check", committed.asFile.absolutePath)
+    inputs.files(jvmClasses)
+    // The committed file is an input, not an output: this task reads it and
+    // compares, and it must not write over what it is checking.
+    inputs.file(committed)
+    dependsOn("compileKotlinJvm")
 }
 
 // ---------------------------------------------------------------------------

@@ -59,7 +59,7 @@ sche... | — | — |
 | coverage matrix current | blocking | `traceability` | coverage matrix current | — | — |
 | coverage holes did not grow | blocking | `scripts/check-traceability-ratchet.py` | check-traceability-ratchet.py — scenario coverage holes may shrink, never grow. | — | — |
 | supabase schema is self-consistent | blocking | `scripts/check-supabase-schema-integrity.py` | check-supabase-schema-integrity.py — the versioned sync schema is self-consis... | — | — |
-| sync allowlist seed matches contract | blocking | `scripts/check-sync-allowlist-regenerated.py` | Gate: fails if supabase/migrations/sync_field_allowlist_seed.sql differs from... | — | — |
+| sync allowlist seed matches contract | blocking | `scripts/check-sync-allowlist-regenerated.py` | Gate: fails if the sync field lists and the server's field table disagree. | — | — |
 | workflow steps keep their exit status | blocking | `scripts/check-workflow-exit-status.py` | check-workflow-exit-status.py — a `run:` block must not swallow its exit status. | — | — |
 | releases describe themselves | blocking | `scripts/check-release-tags.py` | check-release-tags.py — every release must be able to describe itself. | — | — |
 | maestro selectors valid | blocking | `scripts/ci/validate-maestro-selectors.py` | Validates Maestro flow id: selectors against the TestTags.kt catalogue. | — | — |

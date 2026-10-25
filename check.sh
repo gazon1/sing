@@ -138,6 +138,19 @@ timed "shared:verifyToolSurface" ./gw :shared:verifyToolSurface --quiet || {
 }
 echo -e "${GREEN}the tool catalogue is current${NC}"
 
+# The derived field lists are a generated file too, and the seed and the gate
+# read them — so a model field added without re-exporting would leave the seed
+# and the export agreeing with each other and with nothing. This step is the
+# fast half: it asks the exporter whether the committed file says what the
+# models declare — the same question the JVM test asks, through the same
+# function.
+echo -e "${YELLOW}=== [2c/$TOTAL] shared:verifySyncFieldAllowlist ===${NC}"
+timed "shared:verifySyncFieldAllowlist" ./gw :shared:verifySyncFieldAllowlist --quiet || {
+    echo -e "${RED}the committed field lists are not what the models declare${NC}"
+    exit 1
+}
+echo -e "${GREEN}the derived field lists are current${NC}"
+
 echo -e "${YELLOW}=== [3/$TOTAL] shared:jvmTest ===${NC}"
 timed "shared:jvmTest" ./gw :shared:jvmTest --quiet || {
     echo -e "${RED}shared:jvmTest FAILED${NC}"

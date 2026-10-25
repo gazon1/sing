@@ -503,7 +503,12 @@ SCRIPT_GATES = [
     ScriptGate(
         name="sync-allowlist-regenerated",
         cmd=[sys.executable, "scripts/check-sync-allowlist-regenerated.py"],
-        why="if the committed seed differs from the generator output, the gate catches it — and the seed is the one artifact that cannot be regenerated from within the check",
+        why="the seed is generated from the derived lists, and the derived lists are "
+            "the models' own field names — so a field that gets into the seed and not "
+            "into any model is a name nobody sends, and it reads like a rule. The gate "
+            "also reads the rows the migrations hold for the server's table, so a field "
+            "the server may write that no model has is caught there, and a row the "
+            "reader cannot make sense of is reported rather than passed over",
     ),
     ScriptGate(
         name="provenance",
