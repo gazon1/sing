@@ -2,17 +2,22 @@ package com.singularity.todo.core.database
 
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
+import com.singularity.todo.core.database.contract.ProbeOutcome
 import com.singularity.todo.core.database.contract.deleteDatabaseFiles
+import com.singularity.todo.core.database.contract.probe
 import com.singularity.todo.core.database.contract.wipeIfNotRoomManaged
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
+import java.nio.file.Files
 import kotlin.io.path.readBytes
+import kotlin.io.path.toPath
 import kotlin.io.path.writeBytes
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
@@ -92,6 +97,12 @@ class StaleDbCleanerTest {
 
         assertFalse(deleted, "A file that is not a database is not ours to delete")
         assertContentEquals(content, bytesOf(path), "And its content is untouched")
+
+        // The record for a file that was read and is not a database says so, and says
+        // something different from the record for a file that could not be read.
+        val outcome = probe(path)
+        assertIs<ProbeOutcome.Uncertain>(outcome, "The probe was uncertain")
+        assertEquals("the file does not start with a database header", outcome.reason)
     }
 
     @Test
@@ -121,6 +132,48 @@ class StaleDbCleanerTest {
 
         assertFalse(deleted, "A truncated database is not proof that it is not ours")
         assertEquals(whole.size / 2L, File(path).length(), "And it is not touched")
+    }
+
+    @Test
+    fun `a file the probe cannot read is kept`() {
+        // A path that cannot be read as a file, and that could have been deleted: a
+        // symlink to a directory. `inputStream()` on it fails ("Is a directory"), so the
+        // probe cannot read it — and a symlink is removed by unlinking it, whatever it
+        // points at, so the path was deletable all along. That matters: a path that could
+        // not have been deleted would keep the probe's decision and the file system's
+        // refusal indistinguishable.
+        //
+        // A permissions trick would be the obvious way to make a file unreadable, and it
+        // is the wrong way — a process that runs as root can read a file whose mode says
+        // otherwise, so the test would quietly stop testing anything on exactly the
+        // machines where a mistake hides.
+        val target = File(dbPath() + "-target")
+        target.mkdirs()
+        File(target, "the-users-data").writeBytes("the user's only copy".toByteArray())
+        val path = dbPath()
+        Files.createSymbolicLink(File(path).toPath(), target.toPath())
+
+        val deleted = wipeIfNotRoomManaged(path)
+
+        assertFalse(deleted, "A file the probe could not read is not proof of anything")
+        assertTrue(File(path).exists(), "So it stays")
+        assertContentEquals(
+            "the user's only copy".toByteArray(),
+            File(target, "the-users-data").readBytes(),
+            "And so does what it points at",
+        )
+
+        // The record says what it saw, and what it saw was that it could not read the
+        // file. This is the assertion that fails if the probe goes back to calling every
+        // failure "not a database".
+        val outcome = probe(path)
+        assertIs<ProbeOutcome.Uncertain>(outcome, "The probe was uncertain")
+        assertTrue(
+            outcome.reason.contains("could not be read"),
+            "And it said that it could not read the file: ${outcome.reason}",
+        )
+
+        assertTrue(File(path).delete(), "And the path was deletable all along")
     }
 
     @Test
