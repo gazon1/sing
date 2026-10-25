@@ -68,6 +68,10 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
 
 // ─── Screen entry ──────────────────────────────────────────────────────────────
 
@@ -182,13 +186,13 @@ fun NoteEditorScreenContent(
     onAiAction: ((com.singularity.todo.feature.notes.NoteAiAction) -> Unit)? = null,
     showAiSheet: Boolean = false,
     onDismissAiSheet: () -> Unit = {},
-    pendingProposals: List<AiProposal> = emptyList(),
+    pendingProposals: ImmutableList<AiProposal> = persistentListOf(),
     onConfirmProposal: (ProposalItemId) -> Unit = {},
     onRejectProposal: (ProposalItemId, String?) -> Unit = { _, _ -> },
     onConfirmAllProposals: (ProposalId) -> Unit = {},
     onDismissProposal: (ProposalId) -> Unit = {},
     onEditProposal: ((ProposalItemId, String) -> Unit)? = null,
-    proposalFailures: Map<ProposalItemId, String> = emptyMap(),
+    proposalFailures: ImmutableMap<ProposalItemId, String> = persistentMapOf(),
 ) {
     val linkOverlay = rememberOverlayState<NoteLinkSheet>()
 

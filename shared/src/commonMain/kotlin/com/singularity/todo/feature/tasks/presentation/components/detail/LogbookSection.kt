@@ -126,7 +126,7 @@ private fun LogbookEmptyCard(onAddNote: () -> Unit, modifier: Modifier = Modifie
 
 @Composable
 private fun LogbookLoadedCard(
-    entries: List<LogbookEntry>,
+    entries: ImmutableList<LogbookEntry>,
     onOpenNote: (NoteId) -> Unit,
     onAddNote: () -> Unit,
     now: kotlin.time.Instant,

@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import kotlinx.collections.immutable.ImmutableList
 
 /**
  * Compose-rendered top menu bar.
@@ -47,7 +48,7 @@ import androidx.compose.ui.window.PopupProperties
  * suppress click events on Compose 1.12.
  */
 @Composable
-fun ComposeTopMenuBar(entries: List<MenuNode>, modifier: Modifier = Modifier) {
+fun ComposeTopMenuBar(entries: ImmutableList<MenuNode>, modifier: Modifier = Modifier) {
     var openMenuId by remember { mutableStateOf<String?>(null) }
 
     Surface(

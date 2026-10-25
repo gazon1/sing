@@ -34,6 +34,7 @@ import androidx.compose.ui.window.PopupProperties
 import com.singularity.todo.feature.tasks.presentation.theme.dividerColor
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSemanticColors
 import androidx.compose.material3.MaterialTheme
+import kotlinx.collections.immutable.ImmutableList
 
 /** State that opens a context menu at a given screen offset. */
 data class ContextMenuOpenState(val offset: DpOffset)
@@ -47,7 +48,11 @@ data class ContextMenuOpenState(val offset: DpOffset)
  */
 @Suppress("DEPRECATION")
 @Composable
-fun ContextMenuHost(openState: ContextMenuOpenState?, onDismiss: () -> Unit, entries: List<MenuNode>) {
+fun ContextMenuHost(
+    openState: ContextMenuOpenState?,
+    onDismiss: () -> Unit,
+    entries: ImmutableList<MenuNode>,
+) {
     if (openState == null) return
 
     val density = LocalDensity.current
@@ -70,7 +75,11 @@ fun ContextMenuHost(openState: ContextMenuOpenState?, onDismiss: () -> Unit, ent
 }
 
 @Composable
-private fun MenuPanel(entries: List<MenuNode>, onDismissAll: () -> Unit, modifier: Modifier = Modifier) {
+private fun MenuPanel(
+    entries: ImmutableList<MenuNode>,
+    onDismissAll: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Column(
         modifier = modifier
             .width(220.dp)

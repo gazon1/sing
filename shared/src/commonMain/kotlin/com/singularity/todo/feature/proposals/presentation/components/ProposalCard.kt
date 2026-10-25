@@ -28,6 +28,9 @@ import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.ui.text.LinkifiedText
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.persistentMapOf
 
 /**
  * The changes waiting for a decision, as a stack of cards.
@@ -60,13 +63,13 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalItem
  */
 @Composable
 fun ProposalCardsSection(
-    proposals: List<AiProposal>,
+    proposals: ImmutableList<AiProposal>,
     onConfirm: (ProposalItemId) -> Unit,
     onReject: (ProposalItemId, String?) -> Unit,
     onConfirmAll: (ProposalId) -> Unit,
     onDismiss: (ProposalId) -> Unit,
     onEdit: ((ProposalItemId, String) -> Unit)? = null,
-    failures: Map<ProposalItemId, String> = emptyMap(),
+    failures: ImmutableMap<ProposalItemId, String> = persistentMapOf(),
 ) {
     proposals.forEach { proposal ->
         ProposalCard(
@@ -90,7 +93,7 @@ fun ProposalCard(
     onConfirmAll: () -> Unit,
     onDismiss: () -> Unit,
     onEdit: ((ProposalItemId, String) -> Unit)? = null,
-    failures: Map<ProposalItemId, String> = emptyMap(),
+    failures: ImmutableMap<ProposalItemId, String> = persistentMapOf(),
 ) {
     var rejectingItemId by mutableStateOf<ProposalItemId?>(null)
     var editingItemId by mutableStateOf<ProposalItemId?>(null)

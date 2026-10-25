@@ -88,7 +88,7 @@
     <ID>LongMethod:TaskCreateScreen.kt:@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class) @Composable fun TaskCreateScreen</ID>
     <ID>LongMethod:TaskEditorContent.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable private fun TaskEditorContent</ID>
     <ID>LongMethod:TaskEditorSheetsHost.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun TaskEditorSheetsHost</ID>
-    <ID>LongMethod:TaskMenuBuilder.kt:fun buildTaskContextMenu: List&lt;MenuNode&gt;</ID>
+    <ID>LongMethod:TaskMenuBuilder.kt:fun buildTaskContextMenu: ImmutableList&lt;MenuNode&gt;</ID>
     <ID>LoopWithTooManyJumpStatements:CountdownStateMachine.kt:CountdownStateMachine$while</ID>
     <ID>LoopWithTooManyJumpStatements:EntityMapperCompletenessTest.kt:EntityMapperCompletenessTest$for</ID>
     <ID>MaximumLineLength:AgendaEvaluatorTest.kt:AgendaEvaluatorTest$// discard removes matched tasks</ID>
