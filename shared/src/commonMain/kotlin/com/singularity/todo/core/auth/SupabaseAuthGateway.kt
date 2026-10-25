@@ -143,7 +143,6 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
             val result = auth.verifyEmailOtp(OtpType.Email.MAGIC_LINK, email, token)
             when (result) {
                 is OtpVerifyResult.Authenticated -> result.session.toRemote()
-
                 is OtpVerifyResult.VerifiedNoSession -> throw AuthFailure.verifiedWithoutSession()
             }
         }.onFailure { e ->
