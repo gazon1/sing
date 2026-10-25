@@ -36,7 +36,9 @@ jvm-coroutine-diagnostics
 local-storage-failure-classification
 log-export-surface
 notification-routing-must-be-total
+observe-the-provider-session
 projects-flow-test-flake
+replace-auth-with-kmpauth
 scenario-results-are-authoritative-in-ci
 scope-reporter-agreement
 selector-and-tag-identity
