@@ -46,12 +46,20 @@ from __future__ import annotations
 
 import re
 import subprocess
+import sys
 import zipfile
 from collections import defaultdict
 from pathlib import Path
 
 import click
 from scanners.source_text import strip_comments
+
+# This script must resolve `sgate` against *this* checkout: an editable
+# install of a sibling worktree is a different tree under the same name.
+_SCRIPTS_SRC = str(Path(__file__).resolve().parent / "src")
+if _SCRIPTS_SRC not in sys.path:
+    sys.path.insert(0, _SCRIPTS_SRC)
+
 from sgate.commands.base import run
 from sgate.commands.base import IO_ERROR, VALIDATION_FAILURE
 

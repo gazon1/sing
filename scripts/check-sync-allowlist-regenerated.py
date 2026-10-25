@@ -13,10 +13,18 @@ Run self-test:  python3 scripts/check-sync-allowlist-regenerated.py --self-test
 from __future__ import annotations
 
 import os
+import pathlib
 import subprocess
 import sys
 
 import click
+
+# This script must resolve `sgate` against *this* checkout: an editable
+# install of a sibling worktree is a different tree under the same name.
+_SCRIPTS_SRC = str(pathlib.Path(__file__).resolve().parent / "src")
+if _SCRIPTS_SRC not in sys.path:
+    sys.path.insert(0, _SCRIPTS_SRC)
+
 from sgate.commands.base import run
 
 from sgate.commands.base import CLEAN, VALIDATION_FAILURE
