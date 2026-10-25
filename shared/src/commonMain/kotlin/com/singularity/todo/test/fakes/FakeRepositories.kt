@@ -366,6 +366,20 @@ class FakeBackupRepository : BackupRepository {
     var lastRestoredRemoteRef: String? = null
         private set
 
+    /**
+     * The password the last push was given, as text.
+     *
+     * The fake is a test double, so it may look at the secret; the production code
+     * never does. It is a record of what the ViewModel passed, which is what the
+     * tests ask about.
+     */
+    var lastPushedPassword: String? = null
+        private set
+
+    /** The password the last cloud restore was given, as text. */
+    var lastRestoredPassword: String? = null
+        private set
+
     // ─── Configurable results (set in tests) ─────────────────────────────────
     var exportResult: Result<BackupResult> = Result.failure(NotImplementedError("export not configured"))
     var importResult: Result<RestoreResult> = Result.failure(NotImplementedError("import not configured"))
@@ -387,6 +401,8 @@ class FakeBackupRepository : BackupRepository {
         lastImportOptions = null
         lastDeletedId = null
         lastPushedId = null
+        lastPushedPassword = null
+        lastRestoredPassword = null
     }
 
     override suspend fun export(options: ExportOptions): Result<BackupResult> {
@@ -405,17 +421,23 @@ class FakeBackupRepository : BackupRepository {
         return deleteResult
     }
 
-    override suspend fun push(backupId: BackupId): Result<String> {
+    override suspend fun push(backupId: BackupId, password: CharArray): Result<String> {
         lastPushedId = backupId
+        lastPushedPassword = password.concatToString()
         return pushResult
     }
 
-    override suspend fun pull(remoteRef: String, destPath: String): Result<Unit> = Result.failure(NotImplementedError())
+    override suspend fun pull(
+        remoteRef: String,
+        destPath: String,
+        password: CharArray,
+    ): Result<Unit> = Result.failure(NotImplementedError())
 
     override suspend fun listRemote(): Result<List<RemoteBackup>> = listRemoteResult
 
-    override suspend fun restoreFromCloud(remoteRef: String): Result<RestoreResult> {
+    override suspend fun restoreFromCloud(remoteRef: String, password: CharArray): Result<RestoreResult> {
         lastRestoredRemoteRef = remoteRef
+        lastRestoredPassword = password.concatToString()
         return restoreFromCloudResult
     }
 

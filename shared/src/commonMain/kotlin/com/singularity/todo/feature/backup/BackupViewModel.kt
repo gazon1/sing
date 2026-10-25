@@ -92,9 +92,9 @@ class BackupViewModel(
             BackupIntent.CreateBackup -> vmScope.launch { runCreateBackup() }
             is BackupIntent.Restore -> vmScope.launch { runRestore(intent.sourcePath) }
             is BackupIntent.Delete -> vmScope.launch { runDelete(intent.id) }
-            is BackupIntent.Push -> vmScope.launch { runPush(intent.id) }
+            is BackupIntent.Push -> vmScope.launch { runPush(intent.id, intent.password) }
             BackupIntent.LoadRemoteBackups -> vmScope.launch { runLoadRemoteBackups() }
-            is BackupIntent.RestoreFromCloud -> vmScope.launch { runRestoreFromCloud(intent.remoteRef) }
+            is BackupIntent.RestoreFromCloud -> vmScope.launch { runRestoreFromCloud(intent) }
             is BackupIntent.SaveToFile -> vmScope.launch { runSaveToFile(intent.id) }
             BackupIntent.ExportSettingsSnapshot -> vmScope.launch { runExportSettingsSnapshot() }
             is BackupIntent.ImportSettingsSnapshot -> vmScope.launch { runImportSettingsSnapshot(intent.json) }
@@ -231,9 +231,19 @@ class BackupViewModel(
             }
     }
 
-    private suspend fun runPush(backupId: com.singularity.todo.core.backup.BackupId) {
+    /**
+     * Uploads the archive, sealed under the person's password.
+     *
+     * The password is asked for at the moment of the push and is not kept: not in
+     * the state, not in the settings, not in the keychain. It travels to the
+     * repository and is wiped there, whatever the upload answered.
+     */
+    private suspend fun runPush(
+        backupId: com.singularity.todo.core.backup.BackupId,
+        password: CharArray,
+    ) {
         updateState { it.copy(isWorking = true) }
-        repository.push(backupId)
+        repository.push(backupId, password)
             .onFailure { e ->
                 updateState { it.copy(isWorking = false) }
                 // The error's own code when it has one: a refused session, a
@@ -281,10 +291,14 @@ class BackupViewModel(
      * The download and the import are one step: the archive lands in the app's own
      * backup directory and is imported from there, so a person who pressed the button
      * either gets their data back or gets an answer.
+     *
+     * The archive is sealed in the bucket and is opened here, under the password the
+     * person typed. A wrong password is the answer the app gives — not a broken
+     * archive and not a corrupt download.
      */
-    private suspend fun runRestoreFromCloud(remoteRef: String) {
+    private suspend fun runRestoreFromCloud(intent: BackupIntent.RestoreFromCloud) {
         updateState { it.copy(isWorking = true) }
-        repository.restoreFromCloud(remoteRef)
+        repository.restoreFromCloud(intent.remoteRef, intent.password)
             .onFailure { e ->
                 updateState { it.copy(isWorking = false) }
                 crashReporter.report(e, (e as? AppError)?.code ?: BACKUP_RESTORE_FAILED)

@@ -238,11 +238,16 @@ class BackupViewModelTest {
         advanceUntilIdle()
         testScheduler.runCurrent()
 
-        vm.onIntent(BackupIntent.Push(BackupId("b1")))
+        vm.onIntent(BackupIntent.Push(BackupId("b1"), "correct horse".toCharArray()))
         advanceUntilIdle()
         testScheduler.runCurrent()
 
         assertEquals(BackupId("b1"), repo.lastPushedId)
+        assertEquals(
+            "correct horse",
+            repo.lastPushedPassword,
+            "the password the person typed has to reach the archive — it is the key",
+        )
     }
 
     // ─── cloud backups ────────────────────────────────────────────────────────
@@ -282,11 +287,16 @@ class BackupViewModelTest {
         advanceUntilIdle()
         testScheduler.runCurrent()
 
-        vm.onIntent(BackupIntent.RestoreFromCloud("user-1/b1.zip"))
+        vm.onIntent(BackupIntent.RestoreFromCloud("user-1/b1.zip", "correct horse".toCharArray()))
         advanceUntilIdle()
         testScheduler.runCurrent()
 
         assertEquals("user-1/b1.zip", repo.lastRestoredRemoteRef)
+        assertEquals(
+            "correct horse",
+            repo.lastRestoredPassword,
+            "the password the person typed has to reach the archive — it is the key",
+        )
     }
 
     /**

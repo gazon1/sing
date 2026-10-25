@@ -36,6 +36,8 @@ import com.singularity.todo.core.platform.HostEnvironmentPort
 import com.singularity.todo.core.platform.JvmHostEnvironment
 import com.singularity.todo.core.platform.haptics.Haptic
 import com.singularity.todo.core.platform.haptics.createHaptic
+import com.singularity.todo.core.security.ArchiveCrypto
+import com.singularity.todo.core.security.JvmArchiveCrypto
 import com.singularity.todo.core.security.JvmSecureStorage
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.settings.SettingsDataStoreMigration
@@ -189,6 +191,10 @@ actual fun platformModule(): Module = module {
     // ─── Platform Ports ────────────────────────────────────────────────
 
     single<SecureStoragePort> { JvmSecureStorage() }
+
+    // The cryptography of the encrypted backup archive. The JDK's providers, so the
+    // desktop adds no dependency for it — see `ArchiveCrypto`.
+    single<ArchiveCrypto> { JvmArchiveCrypto() }
 
     // NoOp on JVM — TaskTitleRow / ChecklistItemRow inject Haptic unconditionally,
     // so the definition must exist or task detail composition fails.

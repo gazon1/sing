@@ -13,6 +13,8 @@ import com.singularity.todo.feature.calendarSync.work.GoogleSyncPeriodicTrigger
 import kotlinx.coroutines.CoroutineScope
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.backup.BackupCodec
+import com.singularity.todo.core.security.ArchiveCrypto
+import com.singularity.todo.core.security.JvmArchiveCrypto
 import com.singularity.todo.core.config.RemoteConfigPort
 import com.singularity.todo.core.di.AttachmentDirQualifier
 import com.singularity.todo.core.di.BackupDirQualifier
@@ -180,6 +182,10 @@ fun testPlatformModule(): Module = module {
     single<FileSourceFactory> { InertFileSourceFactory() }
     single<SharePort> { InertSharePort() }
     single<BackupCodec> { UnusedBackupCodec() }
+    // The archive's cryptography. The real one, not a fake: the archive's format is
+    // shared between the platforms, and a test that opened a differently-sealed
+    // archive would be testing a format nobody ships.
+    single<ArchiveCrypto> { JvmArchiveCrypto() }
     // The directories, qualified the way the production platform modules qualify
     // them. An unqualified `String` in the graph is a trap: Koin resolves a `String`
     // parameter *by type*, so a directory that belongs to something else gets used
