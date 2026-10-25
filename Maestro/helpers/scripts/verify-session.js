@@ -13,7 +13,8 @@
 // The two keysets the store keeps for itself are counted apart: they are
 // there whatever the app stores, so counting them would say "the store holds
 // something" about an empty store. What is left over is what the app wrote —
-// a session is four of those.
+// a session is one of those, because the credential store keeps a session in a
+// single value.
 //
 // The commands run on the host through the E2E runner's command bridge: a
 // Maestro script has no shell of its own, and `run-as` has to be reached

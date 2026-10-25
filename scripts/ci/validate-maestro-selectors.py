@@ -8,6 +8,11 @@ navTab("today") → nav_tab_today). An unknown id: is silently ignored by
 Maestro and produces a false green — this script catches those before they
 reach CI.
 
+It also catches the second kind of a false green: a command whose selector is
+*dropped* rather than unknown. Maestro's `inputText` types into the focused
+field, so a selector on it goes nowhere — the text lands in the field above,
+and the flow fails on the app's behaviour instead of on its own mistake.
+
 Usage:
     python scripts/ci/validate-maestro-selectors.py [--warn] [flows-dir]
 
@@ -405,6 +410,53 @@ def collect_ids_from_file(path: Path) -> List[Tuple[str, int, str]]:
     return ids
 
 
+# The keys a Maestro `inputText` command may carry besides `text`. Every one of
+# them is a selector, and every one of them is dropped without a word.
+INPUT_TEXT_SELECTOR_KEYS = ('id', 'idRegex', 'text', 'textRegex', 'label')
+
+
+def collect_input_text_selectors(path: Path) -> List[Tuple[List[str], str]]:
+    """Return the `inputText` commands in a flow that carry a selector.
+
+    Maestro's `inputText` takes the text and types it into the *focused* field.
+    A selector on the command is dropped without a word: the command log of
+    Maestro 2.10 shows `inputTextCommand {text}` where the flow said
+    `{id, text}`. The text therefore lands in whatever had the focus — usually
+    the field above — and the flow fails on the app's behaviour instead of on
+    its own mistake. On 2026-10-25 that is exactly what three auth flows did:
+    the password was typed into the email field, the form stayed invalid, and
+    the assertion that the error text was on the screen failed for a reason
+    that had nothing to do with the app.
+
+    The rule is about the *shape* of the command, not about the id: the id may
+    be perfectly valid and still be ignored. A flow that wants to type into a
+    field taps it first — `tapOn: {id: …}` then `inputText: "…"` — which is
+    the pattern the rest of the tree uses.
+    """
+    found: List[Tuple[List[str], str]] = []
+    try:
+        docs = yaml.safe_load_all(path.read_text(encoding='utf-8'))
+    except Exception:
+        return found
+
+    def walk(node) -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key == 'inputText' and isinstance(value, dict):
+                    selectors = [k for k in INPUT_TEXT_SELECTOR_KEYS if k in value]
+                    if selectors:
+                        found.append((selectors, str(path)))
+                walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    for doc in docs:
+        if doc:
+            walk(doc)
+    return found
+
+
 def _collect_ids_recursive(node, path: Path, line_base: int = 0) -> List[Tuple[str, int, str]]:
     """Walk a YAML node and extract all id: values."""
     results = []
@@ -465,6 +517,16 @@ def main() -> int:
                     location += f":{line_no}"
                 errors.append(f"  {location}: unknown id: {id_val!r}")
 
+        # A selector on `inputText` is ignored by Maestro, so the text goes to
+        # the focused field. The flow still type-checks — the id is a real id —
+        # so nothing else in this gate would say a word.
+        for selectors, location in collect_input_text_selectors(flow_path):
+            errors.append(
+                f"  {location}: inputText carries a selector "
+                f"({', '.join(selectors)}) — Maestro drops it and types into the "
+                "focused field; tap the field first: tapOn: {id: …} then inputText"
+            )
+
     # Warn about DYNAMIC_EXPANSIONS entries that are neither used by any flow nor
     # producible by any generator left in TestTags.kt.
     #
@@ -508,7 +570,7 @@ def main() -> int:
 
     if errors:
         print("::group::Maestro selector validation errors")
-        print(f"Failed: {len(errors)} unknown selector(s) in {flows_checked} flow(s)")
+        print(f"Failed: {len(errors)} selector problem(s) in {flows_checked} flow(s)")
         print()
         for e in errors:
             print(e)

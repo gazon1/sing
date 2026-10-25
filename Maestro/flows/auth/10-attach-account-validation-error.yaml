@@ -62,6 +62,14 @@ tags:
       id: auth_attach_email_input
     timeout: 5000
 
+# The offline data has to be answered before the form can be submitted: the
+# submit button stays disabled until a disposition is picked (REQ-UA-005 —
+# neither outcome is a default). "Keep" is the choice that leaves the local
+# rows where they are. Without it the submit button is disabled for a second
+# reason, and the flow would be testing the wrong guard.
+- tapOn:
+    id: auth_attach_keep_button
+
 # Submit with empty fields — the submit button should be disabled
 # (validation prevents submission when both fields are empty).
 # Verify the button is disabled by checking it is not clickable / visible.
@@ -69,9 +77,12 @@ tags:
     id: auth_attach_email_input
 
 # Enter only email (no password) — button should still be disabled.
-- inputText:
+- tapOn:
     id: auth_attach_email_input
-    text: "user@example.com"
+- inputText: "user@example.com"
+# The keyboard covers the submit button on this screen, so it is hidden after
+# each input — a tap that lands on the keyboard is a tap that does nothing.
+- hideKeyboard
 
 # Password is empty — submit button should remain disabled.
 # We can't directly assert a button is disabled in Maestro, but we can
@@ -88,9 +99,10 @@ tags:
     id: auth_attach_email_input
 
 # Enter a password too short — Supabase requires min 6 chars.
-- inputText:
+- tapOn:
     id: auth_attach_password_input
-    text: "123"
+- inputText: "123"
+- hideKeyboard
 
 # Submit — should fail validation or return a form-error from the app.
 - tapOn:
