@@ -1,6 +1,7 @@
 package com.singularity.todo.core.backup
 
 import com.singularity.todo.core.security.ArchiveCrypto
+import com.singularity.todo.core.security.ArchiveCryptoParams
 
 /**
  * The encrypted archive: what sits in the bucket, and what comes back out of it.
@@ -157,10 +158,10 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
         const val VERSION = 1
 
         /** The salt's length: 16 bytes, as PBKDF2 expects. */
-        const val SALT_BYTES = 16
+        const val SALT_BYTES = ArchiveCryptoParams.SALT_BYTES
 
         /** The GCM nonce's length: 12 bytes, as GCM expects. */
-        const val NONCE_BYTES = 12
+        const val NONCE_BYTES = ArchiveCryptoParams.NONCE_BYTES
 
         /** The length of the header: magic, version, salt and nonce. */
         const val HEADER_BYTES = MAGIC.length + 1 + SALT_BYTES + NONCE_BYTES
