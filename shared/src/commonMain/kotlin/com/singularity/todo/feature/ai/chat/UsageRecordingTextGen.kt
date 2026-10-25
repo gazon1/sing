@@ -6,7 +6,6 @@ import com.singularity.todo.core.observability.ToolUsageEvent
 import com.singularity.todo.feature.ai.TextGenPort
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlin.time.Clock
@@ -68,6 +67,12 @@ class UsageRecordingTextGen(
         val outputBuilder = StringBuilder()
 
         return delegate.streamChat(message, instructions)
+            // One writer, one row per call. `onCompletion` runs on every ending of the
+            // flow — normal completion, failure and cancellation alike — and the cause it
+            // is handed is the failure when there was one. Recording again in `catch` gave
+            // the failure path two rows for the same call, which is the one thing the
+            // ledger must not hold: a correction is a further call and a real expense, but
+            // a second row for the same call is a cost that never happened.
             .onCompletion { cause ->
                 val durationMs = (clock.now() - start).inWholeMilliseconds
                 val output = outputBuilder.toString()
@@ -87,24 +92,6 @@ class UsageRecordingTextGen(
                         timestamp = start,
                     ),
                 )
-            }
-            .catch { e ->
-                // Record the failure event before re-throwing
-                usageRecorder.record(
-                    ToolUsageEvent(
-                        toolName = "chat_stream",
-                        modelId = "chat",
-                        inputTokens = approximateTokens(message),
-                        outputTokens = 0,
-                        totalTokens = approximateTokens(message),
-                        costUsdMicros = null,
-                        durationMs = (clock.now() - start).inWholeMilliseconds,
-                        profileId = currentUser.scopedUserId.value.value,
-                        error = e.message,
-                        timestamp = start,
-                    ),
-                )
-                throw e
             }
             .map { event ->
                 // Only the text counts towards the response the model produced. The activity

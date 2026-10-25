@@ -113,16 +113,22 @@ about how the turn ended.
 
 ### Requirement: REQ-CHTURN-007
 
-The cost of a turn of the built-in chat **SHALL** be recorded once, by the one component
-that records the calls the port makes.
+The cost of the calls a turn of the built-in chat makes **SHALL** be recorded once
+each, by the one component that records the calls the port makes.
 
 **Rationale:** two writers for one fact is a disagreement waiting to happen. A screen is
 part of the answer to the reader's question; it is not a second expense to be counted
-separately.
+separately. A correction is a *further* call, though — a second question to the model is a
+second expense, and a ledger that hid it would understate what the turn cost.
 
 #### Scenario: A turn draws a screen
 - The turn is recorded in the usage ledger
-- The ledger holds one row for that turn
+- The ledger holds one row for the call the turn made, and no second row for that call
+
+#### Scenario: The turn asked for a correction
+- The screen was rejected, and the model was asked again
+- The ledger holds a row for each call the turn made — one per question asked — and no row
+  for the screen itself
 
 ### Requirement: REQ-CHTURN-008
 

@@ -41,7 +41,8 @@ Module prefixes: `shared/`, `desktopApp/`.
 - [X] shared/ Test that a stopped turn is cancelled, keeps the answer so far, and leaves no spinner. `shared/src/commonTest/kotlin/com/singularity/todo/feature/ai/chat/ChatTurnOutcomeTest.kt`
 - [X] shared/ Test that the screen still renders when the answer draws one, and that a rejected screen is corrected. `shared/src/commonTest/kotlin/com/singularity/todo/feature/ai/chat/ChatTurnTest.kt`
 - [X] shared/ Test that the chat asks for a screen — the catalogue reaches the model as that call's instructions. `shared/src/commonTest/kotlin/com/singularity/todo/feature/ai/chat/ChatTurnOutcomeTest.kt`
-- [X] shared/ The turn's cost is written by the one decorator that wraps the port: the screen's own recorder is gone, so there is no second row to write. `shared/src/commonMain/kotlin/com/singularity/todo/feature/genui/transport/`
+- [X] shared/ Test that a provider with no credentials ends the turn as failed, and that the cost of the turn's calls is recorded once each. `shared/src/commonTest/kotlin/com/singularity/todo/feature/ai/chat/ChatTurnCostTest.kt`
+- [X] shared/ The turn's cost is written by the one decorator that wraps the port: the screen's own recorder is gone, so there is no second row to write. `shared/src/commonMain/kotlin/com/singularity/todo/feature/ai/chat/UsageRecordingTextGen.kt`
 
 ## 7. The records
 
