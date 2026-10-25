@@ -2181,11 +2181,50 @@ class RowLiteralSpellingTest(AllowlistTreeTest):
         """
         code, output = self._rows(
             "insert into sync_field_allowlist (entity_type, field, writable) values\n"
+            "    ('task', B'01100001011011000110110001101111', true);\n"
+        )
+        self.assertEqual(1, code, output)
+        self.assertIn("task.01100001011011000110110001101111", output)
+        self.assertNotIn("task.allo", output)
+
+    def test_a_value_joined_with_a_bit_string_is_not_a_value(self):
+        """`||` on a bit string joins bits, and a text is not bits.
+
+        PostgreSQL reads `'ghost' || B'0110…'` as a concatenation of bits and
+        refuses the text that is not bits — so the row holds no value the
+        server stores, and the reader says it cannot read the row.
+        """
+        code, output = self._rows(
+            "insert into sync_field_allowlist (entity_type, field, writable) values\n"
             "    ('task', 'ghost' || B'01100001011011000110110001101111', true);\n"
         )
         self.assertEqual(1, code, output)
-        self.assertIn("task.ghost01100001011011000110110001101111", output)
-        self.assertNotIn("task.ghostallo", output)
+        self.assertIn("cannot read", output)
+
+    def test_a_statement_written_as_a_bit_string_is_reported(self):
+        """The text the migration runs is bits, and the bits are not a statement.
+
+        PostgreSQL runs the bits of a bit string: `execute X'…'` runs the bits
+        the hex string holds, and that is not a statement — so the migration
+        does not apply, and the rows it holds are not rows the server will
+        have. The reader says so rather than reads the bytes the same literal
+        spells.
+        """
+        code, output = self._rows(
+            "do $$ begin execute X'696e7365727420696e746f2073796e635f6669656c64"
+            "5f616c6c6f776c697374'; end $$;\n"
+        )
+        self.assertEqual(1, code, output)
+        self.assertIn("the database runs the bits", output)
+
+    def test_a_statement_written_as_a_bit_string_is_not_a_row(self):
+        """The reader does not read a row out of the bytes a bit string spells."""
+        code, output = self._rows(
+            "do $$ begin execute B'01100001011011000110110001101111'; end $$;\n"
+        )
+        self.assertEqual(1, code, output)
+        self.assertIn("the database runs the bits", output)
+        self.assertNotIn("task.allo", output)
 
     def test_a_unicode_prefix_that_is_part_of_a_name_is_not_a_prefix(self):
         """`abcu&'…'` is a name and a string, not a U& string.
@@ -2209,6 +2248,56 @@ class RowLiteralSpellingTest(AllowlistTreeTest):
         )
         self.assertEqual(1, code, output)
         self.assertIn("written as a string", output)
+
+    def test_an_escaped_backslash_in_a_unicode_string_is_read(self):
+        """`\\\\` is a backslash, and what follows it is not an escape.
+
+        PostgreSQL reads `U&'evil\\\\0046ield'` as `evil\\0046ield`: the
+        doubled backslash is one backslash, and the digits behind it are
+        text. A reader that decoded them would read a value the server does
+        not hold.
+        """
+        code, output = self._rows(
+            "insert into sync_field_allowlist (entity_type, field, writable) values\n"
+            "    ('task', U&'evil\\\\0046ield', true);\n"
+        )
+        self.assertEqual(1, code, output)
+        self.assertIn("task.evil\\0046ield", output)
+
+    def test_an_insert_under_an_alias_is_read(self):
+        """`insert into sync_field_allowlist as s (…)` writes the same rows.
+
+        The alias names the table for the statement and says nothing about
+        the rows — so a reader that stopped at the alias would report a row
+        it could read.
+        """
+        code, output = self._rows(
+            "insert into sync_field_allowlist as s (entity_type, field, writable) "
+            "values ('task', 'title', true);\n"
+        )
+        self.assertEqual(0, code, output)
+
+    def test_a_value_with_two_casts_is_read(self):
+        """`'task'::text::text` is a text, and the reader reads it as one."""
+        code, output = self._rows(
+            "insert into sync_field_allowlist (entity_type, field, writable) values\n"
+            "    ('task'::text::text, 'title'::text, true);\n"
+        )
+        self.assertEqual(0, code, output)
+
+    def test_a_format_that_quotes_its_arguments_is_read(self):
+        """`format('%L', …)` builds a literal of its argument.
+
+        PostgreSQL quotes the argument — `format('… %L', 'task')` builds
+        `'task'` — and a reader that read the bare word would read a text
+        the server never runs.
+        """
+        code, output = self._rows(
+            "execute format('insert into sync_field_allowlist "
+            "(entity_type, field, writable) values (%L, %L, %L)', "
+            "'task', 'title', 'true');\n"
+        )
+        self.assertEqual(0, code, output)
 
 
 class TableItselfTest(AllowlistTreeTest):

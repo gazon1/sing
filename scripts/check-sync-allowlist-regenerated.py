@@ -59,14 +59,17 @@ run time, and the reader cannot rule out that the write reaches the field
 table. A piece on its own is not the name — `'field'` is a word, and a file
 may hold it without meaning the table.
 
-A name and a value are read differently, because the server stores them
-differently. A bit string and a hex string hold BITS — the text a text column
+A name, a value and a statement are read apart, because the server stores
+them apart. A bit string and a hex string hold BITS — the text a text column
 stores — and they spell BYTES as well, and a file that writes the table's
 name in hex writes those bytes. So the pieces of a name are folded into the
 name they SPELL: `'sync_field_' || B'0110…'` spells the table's name, and the
-write the file spells is the write the reader sees. And the value of a row
-is the value the pieces HOLD: the reader reads it as the bits, and not as the
-bytes the same literal spells.
+write the file spells is the write the reader sees. The value of a row is the
+value the pieces HOLD: the reader reads it as the bits, and not as the bytes
+the same literal spells. And the text a statement the migration RUNS is the
+text the server runs: the bits — so a statement written as a bit string is
+reported as a migration that does not apply, rather than read as a statement
+out of the bytes the same literal spells.
 
 ## What the reader does not read, it says
 
@@ -1423,6 +1426,19 @@ def _spelled_text(text: str, span: tuple[str, int, int, str]) -> str | None:
     return readings[-1] if readings else None
 
 
+def _holds_bits(text: str, span: tuple[str, int, int, str]) -> bool:
+    """Whether the literal is written as a bit string or a hex string.
+
+    A bit string and a hex string hold BITS — the text the database stores
+    — and PostgreSQL runs those bits when a statement is written in one: the
+    text `execute X'…'` runs is the bits, and the bits are not a statement.
+    """
+    kind, start, _end, _content = span
+    if kind != "string":
+        return False
+    return _prefix_of(text, start) in ("B", "X")
+
+
 def _constant_value(prefix: str, parts: list[str]) -> str | None:
     """The text the constant holds, or None when the reader cannot read it.
 
@@ -1496,6 +1512,12 @@ def _fold_concatenations(text: str, spelling: bool) -> str:
     asks for: the NAME the pieces spell — a bit string and a hex string
     spell bytes — or the VALUE they hold — a bit string and a hex string
     hold bits, the text the database stores.
+
+    A run that holds a bit string is folded into a bit string when the reader
+    folds a VALUE, because that is what PostgreSQL does with it: `||` on a
+    bit string is a concatenation of bits, and the text it joins has to be
+    bits as well. The reader does not invent the bits of a text that is not
+    bits — it reports the literal it cannot read.
     """
     spans = [span for span in _spans(text) if span[0] in ("string", "dollar")]
     if not spans:
@@ -1506,6 +1528,7 @@ def _fold_concatenations(text: str, spelling: bool) -> str:
     while index < len(spans):
         _kind, start, end, _content = spans[index]
         pieces: list[str] = []
+        bits = False
         following = index
         while following < len(spans):
             piece = _spelled_text(text, spans[following]) if spelling else _piece_text(
@@ -1514,6 +1537,8 @@ def _fold_concatenations(text: str, spelling: bool) -> str:
             if piece is None:
                 break
             pieces.append(piece)
+            if not spelling and _holds_bits(text, spans[following]):
+                bits = True
             end = spans[following][2]
             following += 1
             if following >= len(spans):
@@ -1525,7 +1550,8 @@ def _fold_concatenations(text: str, spelling: bool) -> str:
             out.append(text[cursor:start])
             # The pieces' quotes are escaped again: the folded literal is a
             # literal, and a literal that holds a bare quote ends at it.
-            out.append("'" + "".join(pieces).replace("'", "''") + "'")
+            body = "".join(pieces).replace("'", "''")
+            out.append(("B'" if bits else "'") + body + "'")
             cursor = end
         index = following if len(pieces) > 1 else index + 1
     out.append(text[cursor:])
@@ -1666,6 +1692,10 @@ def _apply_format(template: str, args: list[str]) -> str | None:
     `%1$s`, and `%%` for a percent sign. A placeholder the reader does not
     know, or one with no argument behind it, builds nothing the reader can
     vouch for — and a name the reader cannot see is a write nobody can place.
+
+    `%L` and `%I` QUOTE their argument: PostgreSQL builds a literal of it and
+    an identifier of it, and a reader that read the bare word would read a
+    text the server never runs.
     """
     out: list[str] = []
     index = 0
@@ -1687,7 +1717,8 @@ def _apply_format(template: str, args: list[str]) -> str | None:
             cursor += 1
         if template[cursor : cursor + 1] == "$":
             cursor += 1
-        if template[cursor : cursor + 1] not in ("s", "I", "L"):
+        placeholder = template[cursor : cursor + 1]
+        if placeholder not in ("s", "I", "L"):
             return None
         cursor += 1
         if digits:
@@ -1697,7 +1728,12 @@ def _apply_format(template: str, args: list[str]) -> str | None:
             position += 1
         if number < 0 or number >= len(args):
             return None
-        out.append(args[number])
+        argument = args[number]
+        if placeholder == "L":
+            argument = "'" + argument.replace("'", "''") + "'"
+        elif placeholder == "I":
+            argument = '"' + argument.replace('"', '""') + '"'
+        out.append(argument)
         index = cursor
     return "".join(out)
 
@@ -2013,6 +2049,12 @@ def _decode_unicode_escapes(text: str) -> str:
             index += 1
             continue
         cursor = index + 1
+        if text[cursor : cursor + 1] == "\\":
+            # `\\` is an escaped backslash: the string holds one backslash, and
+            # what follows it is not an escape.
+            out.append("\\")
+            index = cursor + 1
+            continue
         if text[cursor : cursor + 1] == "+":
             digits = text[cursor + 1 : cursor + 7]
             if len(digits) == 6 and all(d in "0123456789abcdefABCDEF" for d in digits):
@@ -2129,7 +2171,12 @@ def _boolean_from_text(word: str) -> bool | None:
 
 
 def _split_cast(raw: str, masked: str) -> tuple[str, str | None]:
-    """The value and the cast that is applied to it."""
+    """The value and the cast that is applied to it.
+
+    The FIRST cast is the one that shapes the value: `'task'::text::text`
+    casts a text to a text, and the reader reads the value as the first cast
+    says. The casts that follow it change nothing the reader can see.
+    """
     depth = 0
     cut = -1
     for index, char in enumerate(masked):
@@ -2144,9 +2191,12 @@ def _split_cast(raw: str, masked: str) -> tuple[str, str | None]:
             and depth == 0
         ):
             cut = index
+            break
     if cut < 0:
         return raw, None
-    return raw[:cut].strip(), raw[cut + 2 :].strip()
+    base = raw[:cut].strip()
+    target = raw[cut + 2 :].split("::")[0].strip()
+    return base, target
 
 
 def _interpret(item: str) -> tuple[str, object] | None:
@@ -2206,6 +2256,52 @@ def _interpret(item: str) -> tuple[str, object] | None:
             return "string", "true" if payload else "false"
         return None
     return None
+
+
+#: The words that may stand where an alias may stand but are not one: they
+#: are the source of the rows an insert takes them from.
+_NOT_AN_ALIAS = frozenset(
+    {
+        "default",
+        "select",
+        "table",
+        "values",
+        "with",
+    }
+)
+
+
+def _skip_alias(text: str, masked: str, index: int, end: int) -> int:
+    """The index past the alias an insert's table may stand under.
+
+    PostgreSQL lets the table of an insert stand under an alias — `insert
+    into sync_field_allowlist as s (…)` — and the alias says nothing about
+    the rows. The reader steps over it; a word that is not an alias (the
+    source of the rows) is left where it is.
+    """
+    cursor = index
+    while cursor < end and masked[cursor].isspace():
+        cursor += 1
+    word = re.match(r"[A-Za-z_][A-Za-z_0-9$]*", text[cursor:end])
+    if word is None:
+        return index
+    name = word.group(0)
+    lowered = name.lower()
+    if lowered == "as":
+        cursor += len(name)
+        while cursor < end and masked[cursor].isspace():
+            cursor += 1
+        alias = re.match(r"[A-Za-z_][A-Za-z_0-9$]*", text[cursor:end])
+        if alias is None:
+            return index
+        cursor += len(alias.group(0))
+    elif lowered in _NOT_AN_ALIAS:
+        return index
+    else:
+        cursor += len(name)
+    while cursor < end and masked[cursor].isspace():
+        cursor += 1
+    return cursor
 
 
 class _Reader:
@@ -2306,9 +2402,18 @@ class _Reader:
             # 'sync_field_allowlist'` — and the reader has to read the text
             # the pieces spell, not the pieces: a row the file holds is a row
             # the file holds however it was written.
+            #
+            # The statement is folded TWICE, and the two folds answer two
+            # questions. The NAME fold answers what name the pieces spell —
+            # that is what the writes in the statement point at. The VALUE
+            # fold answers what text the pieces HOLD, and that is the text
+            # the migration runs: a bit string holds bits, and the database
+            # runs the bits.
             folded, fold_gave_up = _fold_literals_and_limit(raw_statement)
             folded_spans = _spans(folded)
             folded_masked = _mask(folded, folded_spans)
+            valued = _fold_values(raw_statement)
+            valued_spans = _spans(valued)
             if fold_gave_up:
                 # The reader folded the statement as far as it goes and there
                 # is text left it did not read. A name may hide in it, and a
@@ -2319,8 +2424,8 @@ class _Reader:
                     "a name assembled in more steps than the reader folds, so the "
                     "reader did not finish reading the statement",
                 )
-            for kind, inner_start, inner_end, content in folded_spans:
-                position = _text_position(folded[:inner_start])
+            for kind, inner_start, inner_end, content in valued_spans:
+                position = _text_position(valued[:inner_start])
                 if position in ("value", "alias"):
                     continue
                 inner_reads += 1
@@ -2345,9 +2450,22 @@ class _Reader:
                         outer_scope_raw=statement_scope_raw,
                     )
                 else:
-                    piece = _spelled_text(
-                        folded, (kind, inner_start, inner_end, content)
-                    )
+                    span = (kind, inner_start, inner_end, content)
+                    if _holds_bits(valued, span):
+                        # The text the migration runs is written as a bit
+                        # string, and the database runs the bits: the bits are
+                        # not a statement, so the migration does not apply —
+                        # and the rows it holds are not rows the server will
+                        # have. The reader says so rather than reads the bytes
+                        # the same literal spells.
+                        self._problem(
+                            origin,
+                            "unreadable",
+                            "a statement the migration runs is written as a bit "
+                            "string; the database runs the bits, which are not a "
+                            "statement, so the migration does not apply",
+                        )
+                    piece = _piece_text(valued, span)
                     if piece is None:
                         # A literal the reader cannot read: a `B'…'` that
                         # spells no whole byte, so the migration does not
@@ -2703,6 +2821,11 @@ class _Reader:
         index = pos
         while index < end and masked[index].isspace():
             index += 1
+
+        # The table may stand under an alias: `insert into sync_field_allowlist
+        # as s (…)`. The alias names the table for the statement and says
+        # nothing about the rows, so the reader steps over it.
+        index = _skip_alias(text, masked, index, end)
 
         columns: list[str] | None = None
         if index < end and masked[index] == "(":
