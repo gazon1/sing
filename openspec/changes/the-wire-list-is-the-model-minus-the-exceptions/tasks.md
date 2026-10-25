@@ -97,6 +97,13 @@
       another piece of the name, or the name itself — is a write the reader
       cannot rule out, and it is reported. A piece on its own is not the name:
       `'field'` is a word, and a file may hold it without meaning the table.
+- [x] A NAME and a VALUE are read differently, because the server stores them
+      differently. A bit string and a hex string hold BITS — the text a text
+      column stores — and they spell BYTES as well, and a file that writes the
+      table's name in hex writes those bytes. The pieces of a name are folded
+      into the name they SPELL — `'sync_field_' || B'0110…'` spells the table's
+      name — and the value of a row is read as the value the pieces HOLD: the
+      bits.
 - [x] The cases the reader does not see are written down, not left to be
       discovered. A name in the scope the write is in — carried in a variable,
       or read into one — is a name in play, and so is a name the file holds

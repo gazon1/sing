@@ -262,11 +262,20 @@ the server has not been migrated for yet.
   an E-string's escapes are decoded, and a `U&` string's unicode escapes are
   decoded
 - **And** a bit string and a hex string are read as the BITS they hold, for
-  that is what a text column stores — and a hex string is read as the bytes
-  it spells as well, for that is how a name is written in hex
+  that is what a text column stores — and as the BYTES they spell as well, for
+  that is how a name is written in hex and in bits
 - **And** a constant that continues across a newline is one constant, its
   parts joined the way the server joins them — the whitespace between them is
   dropped — so a name spelled in two parts is read as the one name it is
+- **And** a COMMENT between the parts is not whitespace the server drops: a
+  block comment between them is a syntax error, so the reader does not join
+  the parts and reports the row it cannot read
+- **And** a name assembled out of pieces is read as the name the pieces spell,
+  and a bit string or a hex string spells bytes — so `'sync_field_' ||
+  B'0110…'` spells the table's name and is reported as the write it is
+- **And** a row holds a VALUE, and the value a bit string or a hex string
+  holds is the bits it holds — the text the database stores — so the value of
+  a row is read as the bits and not as the bytes the same literal spells
 - **And** a string that HOLDS the words of a write is not reported — the
   verb is inside the string there, and a column holds words
 

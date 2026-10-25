@@ -391,6 +391,16 @@ A reviewing agent watches for:
   the scope holds what the piece may be completed with, because the text the
   migration runs is assembled at run time. A piece on its own is not the name:
   `'field'` is a word, and a file may hold it without meaning the table.
+  The name a piece spells is the SPELLING of the piece: a bit string and a
+  hex string spell bytes, so `'sync_field_' || B'0110…'` spells the table's
+  name and the write the file spells is the write the reader sees.
+- A reader that reads a NAME and a VALUE the same way. They are not the same:
+  a bit string and a hex string hold BITS — the text a text column stores —
+  and they spell bytes as well. A name assembled out of pieces is folded into
+  the name the pieces SPELL, and the value of a row is read as the value the
+  pieces HOLD — the bits. A reader that read the bytes of a row's value would
+  read a value the server never holds, and a reader that read the bits of a
+  name would miss a name the file spells.
 - A reader that follows the table only by its own name, and misses the doors.
   A VIEW over the table is a second door into it — PostgreSQL writes through
   an automatically updatable view — a CHILD of the table is a third — PostgreSQL
@@ -419,9 +429,12 @@ A reviewing agent watches for:
   there, a constant that CONTINUES across a newline is one constant, its
   parts joined the way the server joins them, and a bit string and a hex
   string hold BITS, which is what a text column stores: `X'41'` is
-  `01000001` in the server's table, and not the letter A. A hex string spells
-  bytes as well, and a file that writes the table's name in hex writes those
-  bytes — so the reader reads both.
+  `01000001` in the server's table, and not the letter A. A bit string and a
+  hex string spell bytes as well, and a file that writes the table's name in
+  hex writes those bytes — so the reader reads both. A COMMENT between the
+  parts is not whitespace the server drops: a block comment between them is
+  a syntax error there, so the reader does not join the parts and reports
+  the row it cannot read.
 - A migration that writes the server's field table through a computed
   identifier. The field table is a contract, not data: it is written by a
   list of names, and a name the file does not spell is a name no reader of

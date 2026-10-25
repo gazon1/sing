@@ -206,20 +206,42 @@ reads it as the description it is.
   never sees. A string that HOLDS the words of a write is not reported: the
   verb is inside the string there, and a column holds words.
 
-  **The reader reads the text the deployed server reads.** Three rules of
+  **The reader reads the text the deployed server reads.** Four rules of
   PostgreSQL's lexer are the ones a name can hide behind, and the reader
-  follows all of them. A constant CONTINUES across a newline: two constants
-  separated by whitespace with a newline in it are one constant, and the
+  follows all of them: a constant that continues across a newline, a newline
+  inside one pair of quotes, the bits a bit string and a hex string hold, and
+  the escapes of the version the deployment runs.
+
+  Two constants
+  separated by whitespace with a newline in it are ONE constant, and the
   whitespace is dropped — `'ti'` on the next line `'tle'` is `title` — so a
   name spelled in two parts is one name, and the reader joins the parts the
-  way the server joins them. A newline INSIDE one pair of quotes is another
+  way the server joins them. A newline inside one pair of quotes is another
   thing: the server keeps it, and so does the reader, because a name that
   holds one is a name the server holds too. And a bit string and a hex
   string hold BITS, which is what a text column stores: `X'41'` is
-  `01000001` in the server's table, and not the letter A. A hex string spells
-  bytes as well, and a file that writes the table's name in hex writes those
-  bytes — so the reader reads both, and a name spelled in hex is a name the
-  reader sees.
+  `01000001` in the server's table, and not the letter A. A bit string and a
+  hex string spell bytes as well, and a file that writes the table's name in
+  hex writes those bytes — so the reader reads both, and a name spelled in
+  hex is a name the reader sees.
+
+  A COMMENT between the parts is not whitespace the server drops: a block
+  comment between them is a syntax error there, and a line comment is not —
+  so the reader joins the parts a line comment stands between, and does not
+  join the parts a block comment stands between. A constant the reader
+  cannot join is a row the reader cannot vouch for, and the reader says so
+  rather than reads it as a name.
+
+  **The reader reads a NAME and a VALUE differently, because the server
+  stores them differently.** A name assembled out of pieces is the name the
+  pieces spell, and a bit string or a hex string spells BYTES — so
+  `'sync_field_' || B'0110…'` spells the table's name, and the write the
+  file spells is the write the reader sees. A row holds a value, and the
+  value a bit string holds is the bits it holds — the text the server
+  stores — so the reader reads the value of a row as the bits and not as the
+  bytes the same literal spells. A reader that read the bytes of a row
+  would read a value the server never holds, and a reader that read the
+  bits of a name would miss a name the file spells.
 
   And the reader reads the escapes of the version the deployment runs:
   PostgreSQL 15, which is what `supabase/postgres:15.8.1.085` is. `\v` is not
