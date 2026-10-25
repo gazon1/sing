@@ -20,6 +20,14 @@ description: >-
 # reason: a gate that cannot run looks exactly like a gate that has nothing to
 # report. `Static gates` was red on every run since #635 and said nothing about
 # the 22 gates it never reached.
+#
+# The local install path (scripts/ci/setup-local-tools.sh) gives the same
+# binaries a different SHAPE: on a machine with many checkouts it keeps them in
+# one shared store, keyed by version, and links each venv's copy to it — thirty
+# copies of the same 303 MB lychee is 8.9 GB of identical bytes. A CI runner is
+# thrown away after the job, so there is nothing to share with, and the job
+# installs them into its own venv. What the two paths must agree on is the
+# VERSION, and that is what the shared pins file gives them.
 
 inputs:
   python-version:

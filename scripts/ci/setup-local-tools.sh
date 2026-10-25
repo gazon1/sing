@@ -143,7 +143,50 @@ echo "==> installing the gate suite (the local package, editable) and junitparse
 VIRTUAL_ENV="$VENV" uv pip install --editable "$ROOT/scripts/src" junitparser
 
 echo "==> installing the pinned linters and the link checker"
-VIRTUAL_ENV="$VENV" uv pip install "lychee-bin==$LYCHEE_BIN_VERSION" "yamllint==$YAMLLINT_VERSION" "shellcheck-py==$SHELLCHECK_PY_VERSION"
+VIRTUAL_ENV="$VENV" uv pip install "yamllint==$YAMLLINT_VERSION"
+
+# The pinned binaries are the same bytes in every checkout — same pins, same
+# downloads — and they are the expensive part: lychee alone is 303 MB, and one
+# copy per checkout is 8.9 GB of identical binaries on one machine (measured:
+# thirty venvs, `du -ch ~/.venvs/*/bin/lychee`).
+#
+# So they live in one shared store, keyed by version, and the venv gets a
+# symlink to the shared copy. The split is the one the Gradle home already
+# makes (ADR 2026-10-04-gradle-daemon-isolation): what is read-mostly and
+# identical everywhere is shared, what belongs to a checkout stays private.
+# The checkout's own code — the editable install of scripts/src/ — is the
+# private half, and that is exactly the half that must never be shared.
+TOOLS_ROOT="${SINGULARITY_TOOLS_ROOT:-$HOME/.venvs/_tools}"
+
+# shared_binary <tool> <version> — where the shared copy of a pinned tool is.
+# The binary carries the tool's name: the `lychee-bin` wheel ships a `lychee`
+# binary, the `shellcheck-py` wheel ships a `shellcheck` binary, and the
+# actionlint release ships `actionlint`.
+shared_binary() {
+    printf '%s/%s-%s/bin/%s' "$TOOLS_ROOT" "$1" "$2" "$1"
+}
+
+# ensure_shared_wheel_binary <tool> <version> <requirement>
+#
+# The wheel is the cheapest way to get the binary, and the wheel's binary is
+# what the gates run. It is installed into the store — once per version — and
+# the venv points at it.
+ensure_shared_wheel_binary() {
+    local tool=$1 version=$2 requirement=$3
+    local store shared
+    store="$TOOLS_ROOT/$tool-$version"
+    shared="$(shared_binary "$tool" "$version")"
+    if [ ! -x "$shared" ]; then
+        echo "    $tool $version -> the shared store"
+        uv venv "$store" >/dev/null
+        VIRTUAL_ENV="$store" uv pip install "$requirement" >/dev/null
+    fi
+    ln -sfn "$shared" "$VENV/bin/$tool"
+    echo "    $tool -> $shared"
+}
+
+ensure_shared_wheel_binary lychee "$LYCHEE_BIN_VERSION" "lychee-bin==$LYCHEE_BIN_VERSION"
+ensure_shared_wheel_binary shellcheck "$SHELLCHECK_PY_VERSION" "shellcheck-py==$SHELLCHECK_PY_VERSION"
 
 # actionlint has no Python distribution: CI downloads the pinned release binary.
 # A download failure here is reported and the script continues — the preflight
@@ -154,12 +197,20 @@ VIRTUAL_ENV="$VENV" uv pip install "lychee-bin==$LYCHEE_BIN_VERSION" "yamllint==
 # cannot name different releases.
 echo "==> installing the pinned actionlint"
 ACTIONLINT_ASSET_VERSION="${ACTIONLINT_VERSION#v}"
-if curl -fsSL "https://github.com/rhysd/actionlint/releases/download/$ACTIONLINT_VERSION/actionlint_${ACTIONLINT_ASSET_VERSION}_linux_amd64.tar.gz" \
-    | tar -xz -C "$VENV/bin" actionlint; then
-    echo "    actionlint installed"
-else
-    echo "    actionlint could not be downloaded — the 'GitHub workflows are valid' gate" >&2
-    echo "    will fail until it is on PATH. The preflight will say so." >&2
+ACTIONLINT_SHARED="$(shared_binary actionlint "$ACTIONLINT_VERSION")"
+mkdir -p "$(dirname "$ACTIONLINT_SHARED")"
+if [ ! -x "$ACTIONLINT_SHARED" ]; then
+    if curl -fsSL "https://github.com/rhysd/actionlint/releases/download/$ACTIONLINT_VERSION/actionlint_${ACTIONLINT_ASSET_VERSION}_linux_amd64.tar.gz" \
+        | tar -xz -C "$(dirname "$ACTIONLINT_SHARED")" actionlint; then
+        echo "    actionlint $ACTIONLINT_VERSION -> the shared store"
+    else
+        echo "    actionlint could not be downloaded — the 'GitHub workflows are valid' gate" >&2
+        echo "    will fail until it is on PATH. The preflight will say so." >&2
+    fi
+fi
+if [ -x "$ACTIONLINT_SHARED" ]; then
+    ln -sfn "$ACTIONLINT_SHARED" "$VENV/bin/actionlint"
+    echo "    actionlint -> $ACTIONLINT_SHARED"
 fi
 
 cat <<MSG
@@ -171,6 +222,13 @@ The gate suite is ready. Put the venv on PATH for this shell:
 The gate CLI now serves this checkout:
 
     "$VENV/bin/python" -c 'import pathlib, sgate; print(pathlib.Path(sgate.__file__).resolve().parent)'
+
+The pinned binaries (lychee, shellcheck, actionlint) are shared, by version:
+
+    $TOOLS_ROOT/<tool>-<version>/bin/<tool>
+
+and this venv's copies are symlinks into it. One copy per version on the
+machine, not one per checkout.
 
 Then check what is still missing:
 

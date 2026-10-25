@@ -70,7 +70,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-openspec-workflow` | 160 | OpenSpec spec-driven workflow for this project. |
 | `singularity-todo-preview-with-koin` | 160 | Use when writing @Preview composables in this KMP project and the preview crashes with "KoinApplication has not been started". |
 | `singularity-todo-pure-formatters` | 195 | How to extract user-facing string formatting out of Composables and into pure-Kotlin helpers that can be unit-tested without a Compose runtime. |
-| `singularity-todo-quality-tools` | 509 | Run detekt, ktlint, and kover on the Singularity Todo KMP project. |
+| `singularity-todo-quality-tools` | 513 | Run detekt, ktlint, and kover on the Singularity Todo KMP project. |
 | `singularity-todo-relational-counts` | 216 | How to display aggregate counts (task count per project, note count per tag) in list screens. |
 | `singularity-todo-repository-architecture` | 261 | Canonical repository-architecture invariants in this KMP project. |
 | `singularity-todo-rich-editor` | 352 | Rich-text (WYSIWYG) editor pattern for Kotlin Multiplatform notes using com.mohamedrejeb.richeditor:richeditor-compose 1.2.0. |

@@ -92,9 +92,13 @@ bash scripts/ci/preflight-gate-tools.sh                   # what is still missin
 
 `scripts/ci/setup-local-tools.sh` creates `$HOME/.venvs/singularity-todo-$(basename "$PWD")`
 (one venv per checkout — override with `SINGULARITY_TOOLS_VENV`), installs the local `scripts/src` package **editable**
-plus `junitparser` into it, and installs the pinned `lychee-bin==0.24.2`,
-`yamllint==1.38.0`, `shellcheck-py==0.11.0.1` and the `actionlint` v1.7.7
-release binary.
+plus `junitparser` and `yamllint==1.38.0` into it, and puts the pinned
+`lychee-bin==0.24.2`, `shellcheck-py==0.11.0.1` and the `actionlint` v1.7.7
+release binary in a **shared store**, one copy per version on the machine
+(`~/.venvs/_tools/<tool>-<version>/bin/<tool>`), with the venv's own copies as
+symlinks into it. The binaries are identical in every checkout and expensive
+(`lychee` alone is 303 MB — one copy per checkout was 8.9 GB of the same bytes),
+so they are shared; the checkout's own code is not, and never is.
 
 Two details that are not negotiable:
 
