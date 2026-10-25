@@ -3,7 +3,7 @@ change: acp-client-data-safety
 verdict: pass
 date: 2026-10-25
 pr: https://github.com/gazon1/sing/pull/1028
-reviewed: f9c5f5eaa70b0e69ca79b4f7177af2fb85b62b07
+reviewed: 063343b4f84626f3158db42bda01784bf54f6cec
 documents: sha256:e35f288d483c6e92e8d62dfc102016e983a65a06d8e6357a2756b2527001ed6c
 ---
 
