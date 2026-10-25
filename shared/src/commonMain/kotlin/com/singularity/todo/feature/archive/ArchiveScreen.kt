@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
@@ -75,40 +76,42 @@ fun ArchiveScreen(viewModel: ArchiveViewModel = koinViewModel(), onBack: () -> U
                     androidx.compose.material3.Text("Archive completed tasks (tap to archive all)")
                 }
             }
-            when (val s = state) {
-                ArchiveUiState.Loading -> LoadingIndicator()
+            RefreshableContent {
+                when (val s = state) {
+                    ArchiveUiState.Loading -> LoadingIndicator()
 
-                is ArchiveUiState.Error -> EmptyState(title = "Error", subtitle = s.message)
+                    is ArchiveUiState.Error -> EmptyState(title = "Error", subtitle = s.message)
 
-                is ArchiveUiState.Content -> {
-                    if (s.tasks.isEmpty()) {
-                        EmptyState(
-                            title = "Archive is empty",
-                            subtitle = "Tap the button above to archive completed tasks",
-                            testTag = TestTags.ARCHIVE_EMPTY,
-                        )
-                    } else {
-                        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(s.tasks, key = { it.id.value }) { task ->
-                                TaskCard(
-                                    task = task,
-                                    onClick = {
-                                        navigator.navigate(
-                                            AppDestination.TasksGraph(
-                                                AppDestination.TasksStartRoute.Detail(task.id),
-                                            ),
-                                        )
-                                    },
-                                    actions = TaskCardActions(
-                                        onAiClick = {
+                    is ArchiveUiState.Content -> {
+                        if (s.tasks.isEmpty()) {
+                            EmptyState(
+                                title = "Archive is empty",
+                                subtitle = "Tap the button above to archive completed tasks",
+                                testTag = TestTags.ARCHIVE_EMPTY,
+                            )
+                        } else {
+                            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(s.tasks, key = { it.id.value }) { task ->
+                                    TaskCard(
+                                        task = task,
+                                        onClick = {
                                             navigator.navigate(
                                                 AppDestination.TasksGraph(
                                                     AppDestination.TasksStartRoute.Detail(task.id),
                                                 ),
                                             )
                                         },
-                                    ),
-                                )
+                                        actions = TaskCardActions(
+                                            onAiClick = {
+                                                navigator.navigate(
+                                                    AppDestination.TasksGraph(
+                                                        AppDestination.TasksStartRoute.Detail(task.id),
+                                                    ),
+                                                )
+                                            },
+                                        ),
+                                    )
+                                }
                             }
                         }
                     }

@@ -66,6 +66,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.components.ContentStateMapper
@@ -239,39 +240,41 @@ fun NotesScreenContent(
             }
         },
     ) { padding ->
-        if (state is NotesUiState.Content && state.list.isEmpty) {
-            EmptyState(
-                title = "No notes yet",
-                subtitle = "Create your first note to get started",
-                testTag = TestTags.NOTES_LIST_EMPTY,
-                modifier = Modifier.padding(padding),
-                actions = {
-                    FilledTonalButton(onClick = { onCreateNote("") }) {
-                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.size(6.dp))
-                        Text("Create your first note")
-                    }
-                },
-            )
-        } else {
-            StatefulContent(
-                state = state.toContentState(),
-                emptyTitle = "No notes yet",
-                emptyTestTag = TestTags.NOTES_LIST_EMPTY,
-                modifier = Modifier.padding(padding),
-            ) { _, contentModifier ->
-                NoteList(
-                    pinned = listState?.pinned ?: persistentListOf(),
-                    unpinned = listState?.unpinned ?: persistentListOf(),
-                    templates = listState?.templates ?: persistentListOf(),
-                    dailyNotes = listState?.dailyNotes ?: persistentListOf(),
-                    isSelectionMode = isSelectionMode,
-                    selectedIds = listState?.selectedIds ?: persistentSetOf(),
-                    navigator = navigator,
-                    actions = actions,
-                    currentFilter = state.filter,
-                    modifier = contentModifier,
+        RefreshableContent {
+            if (state is NotesUiState.Content && state.list.isEmpty) {
+                EmptyState(
+                    title = "No notes yet",
+                    subtitle = "Create your first note to get started",
+                    testTag = TestTags.NOTES_LIST_EMPTY,
+                    modifier = Modifier.padding(padding),
+                    actions = {
+                        FilledTonalButton(onClick = { onCreateNote("") }) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.size(6.dp))
+                            Text("Create your first note")
+                        }
+                    },
                 )
+            } else {
+                StatefulContent(
+                    state = state.toContentState(),
+                    emptyTitle = "No notes yet",
+                    emptyTestTag = TestTags.NOTES_LIST_EMPTY,
+                    modifier = Modifier.padding(padding),
+                ) { _, contentModifier ->
+                    NoteList(
+                        pinned = listState?.pinned ?: persistentListOf(),
+                        unpinned = listState?.unpinned ?: persistentListOf(),
+                        templates = listState?.templates ?: persistentListOf(),
+                        dailyNotes = listState?.dailyNotes ?: persistentListOf(),
+                        isSelectionMode = isSelectionMode,
+                        selectedIds = listState?.selectedIds ?: persistentSetOf(),
+                        navigator = navigator,
+                        actions = actions,
+                        currentFilter = state.filter,
+                        modifier = contentModifier,
+                    )
+                }
             }
         }
     }

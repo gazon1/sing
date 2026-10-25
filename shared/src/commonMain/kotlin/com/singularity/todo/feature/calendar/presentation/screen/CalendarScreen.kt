@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
 import com.singularity.todo.feature.calendar.presentation.nav.LocalCalendarNavigator
@@ -43,10 +44,12 @@ fun CalendarScreen(anchorDate: LocalDate, modifier: Modifier = Modifier) {
     }
 
     ProvideCalendarPalette {
-        CalendarContent(
-            state = state,
-            onIntent = vm::onIntent,
-            modifier = modifier,
-        )
+        RefreshableContent {
+            CalendarContent(
+                state = state,
+                onIntent = vm::onIntent,
+                modifier = modifier,
+            )
+        }
     }
 }

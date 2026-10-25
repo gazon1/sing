@@ -33,6 +33,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ConfirmActionDialog
 import com.singularity.todo.core.ui.components.EmptyState
@@ -123,17 +124,19 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
         snackbarHost = { SnackbarHost(snackbarHostState) },
         modifier = modifier,
     ) { paddingValues ->
-        SavedAgendaListContent(
-            state = state,
-            onViewSelected = { viewId -> navigator.openSavedAgendaResults(viewId) },
-            onDelete = { viewId ->
-                pendingDeleteViewId = viewId
-                pendingDeleteViewName = viewNameFor(state, viewId)
-            },
-            onEdit = { viewId -> navigator.openSavedAgendaEdit(viewId) },
-            onCopyToProfile = { viewId -> pendingCopyViewId = viewId },
-            modifier = Modifier.padding(paddingValues),
-        )
+        RefreshableContent {
+            SavedAgendaListContent(
+                state = state,
+                onViewSelected = { viewId -> navigator.openSavedAgendaResults(viewId) },
+                onDelete = { viewId ->
+                    pendingDeleteViewId = viewId
+                    pendingDeleteViewName = viewNameFor(state, viewId)
+                },
+                onEdit = { viewId -> navigator.openSavedAgendaEdit(viewId) },
+                onCopyToProfile = { viewId -> pendingCopyViewId = viewId },
+                modifier = Modifier.padding(paddingValues),
+            )
+        }
     }
 
     DialogsOverlay(

@@ -35,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.onboarding.SpotlightAnchorId
 import com.singularity.todo.core.ui.onboarding.SpotlightAnchorRegistry
 import com.singularity.todo.core.ui.onboarding.spotlightAnchor
@@ -241,34 +242,20 @@ fun AgendaContent(
         },
         modifier = modifier,
     ) { paddingValues ->
-        when (state) {
-            is AgendaUiState.Loading -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator()
+        RefreshableContent {
+            when (state) {
+                is AgendaUiState.Loading -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator()
+                    }
                 }
-            }
 
-            is AgendaUiState.Error -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = state.message,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-            }
-
-            is AgendaUiState.Loaded -> {
-                if (state.sections.isEmpty()) {
+                is AgendaUiState.Error -> {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -276,22 +263,38 @@ fun AgendaContent(
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = "No tasks",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            text = state.message,
+                            color = MaterialTheme.colorScheme.error,
                         )
                     }
-                } else {
-                    AgendaList(
-                        sections = state.sections,
-                        today = state.today,
-                        isSelectionMode = isSelectionMode,
-                        selectedTaskIds = selectedTaskIds,
-                        onIntent = onIntent,
-                        onOpenContextMenu = ::openContextMenu,
-                        listState = listState,
-                        modifier = Modifier.padding(paddingValues),
-                    )
+                }
+
+                is AgendaUiState.Loaded -> {
+                    if (state.sections.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(paddingValues),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = "No tasks",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    } else {
+                        AgendaList(
+                            sections = state.sections,
+                            today = state.today,
+                            isSelectionMode = isSelectionMode,
+                            selectedTaskIds = selectedTaskIds,
+                            onIntent = onIntent,
+                            onOpenContextMenu = ::openContextMenu,
+                            listState = listState,
+                            modifier = Modifier.padding(paddingValues),
+                        )
+                    }
                 }
             }
         }

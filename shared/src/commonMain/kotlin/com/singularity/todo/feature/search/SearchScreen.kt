@@ -39,6 +39,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.text.StaticText
@@ -118,34 +119,36 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
-        Column(modifier = Modifier.padding(padding)) {
-            SearchInputBar(
-                querySource = state.querySource,
-                onQueryChange = { viewModel.onIntent(SearchIntent.OnQueryChange(it)) },
-            )
+        RefreshableContent {
+            Column(modifier = Modifier.padding(padding)) {
+                SearchInputBar(
+                    querySource = state.querySource,
+                    onQueryChange = { viewModel.onIntent(SearchIntent.OnQueryChange(it)) },
+                )
 
-            SearchModeSwitch(
-                mode = state.mode,
-                onModeChange = { viewModel.onIntent(SearchIntent.OnModeChange(it)) },
-            )
+                SearchModeSwitch(
+                    mode = state.mode,
+                    onModeChange = { viewModel.onIntent(SearchIntent.OnModeChange(it)) },
+                )
 
-            if (state.savedSearches.isNotEmpty()) {
-                SavedSearchesRow(
-                    savedSearches = state.savedSearches,
-                    activeSavedSearchId = state.activeSavedSearchId,
-                    onLoadSearch = { id -> viewModel.onIntent(SearchIntent.OnLoadSavedSearch(id)) },
-                    onSaveClick = { showSaveDialog = true },
-                    onRename = { id, newName -> searchToRename = id to newName },
-                    onDelete = { id -> viewModel.onIntent(SearchIntent.OnDeleteSavedSearch(id)) },
+                if (state.savedSearches.isNotEmpty()) {
+                    SavedSearchesRow(
+                        savedSearches = state.savedSearches,
+                        activeSavedSearchId = state.activeSavedSearchId,
+                        onLoadSearch = { id -> viewModel.onIntent(SearchIntent.OnLoadSavedSearch(id)) },
+                        onSaveClick = { showSaveDialog = true },
+                        onRename = { id, newName -> searchToRename = id to newName },
+                        onDelete = { id -> viewModel.onIntent(SearchIntent.OnDeleteSavedSearch(id)) },
+                    )
+                }
+
+                SearchOutcome(
+                    content = searchContent(state.query.text, state.results),
+                    results = state.results,
+                    navigator = navigator,
+                    onPin = { viewModel.onIntent(SearchIntent.OnTogglePin(it)) },
                 )
             }
-
-            SearchOutcome(
-                content = searchContent(state.query.text, state.results),
-                results = state.results,
-                navigator = navigator,
-                onPin = { viewModel.onIntent(SearchIntent.OnTogglePin(it)) },
-            )
         }
     }
 }

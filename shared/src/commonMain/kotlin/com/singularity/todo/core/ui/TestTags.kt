@@ -719,6 +719,26 @@ object TestTags {
         const val SYNC_NOW_ROW = "sync_now_row"
     }
 
+    // ─── Refresh ─────────────────────────────────────────────────────────────
+
+    /**
+     * The pull-to-refresh indicator.
+     *
+     * One tag for every screen that offers the gesture: the indicator is the
+     * same node everywhere, so a flow that pulls one screen down asserts on
+     * the same thing it would assert on for any other.
+     */
+    const val REFRESH_INDICATOR = "refresh_indicator"
+
+    /**
+     * The host that shows the refresh report.
+     *
+     * The tag is on the host rather than on the report's text, because the
+     * text is user-facing copy that changes with the feature and is
+     * translated on this device — a flow that matched the words would rot.
+     */
+    const val REFRESH_NOTIFICATION_HOST = "refresh_notification_host"
+
     // ─── Dialog ──────────────────────────────────────────────────────────────
 
     /**

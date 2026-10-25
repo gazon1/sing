@@ -38,6 +38,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.text.FieldOwnedText
@@ -70,38 +71,40 @@ internal fun SavedAgendaContent(
     onRequestAddSection: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    when (state) {
-        SavedAgendaViewState.Loading -> {
-            LoadingIndicator(modifier = modifier.fillMaxSize())
-        }
+    RefreshableContent {
+        when (state) {
+            SavedAgendaViewState.Loading -> {
+                LoadingIndicator(modifier = modifier.fillMaxSize())
+            }
 
-        SavedAgendaViewState.NotFound -> {
-            Column(
-                modifier = modifier.fillMaxSize()
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                SelectableText(
-                    text = "View not found",
-                    style = MaterialTheme.typography.bodyLarge,
+            SavedAgendaViewState.NotFound -> {
+                Column(
+                    modifier = modifier.fillMaxSize()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    SelectableText(
+                        text = "View not found",
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                }
+            }
+
+            // Results state is handled at the parent SavedAgendaScreen level —
+            // this branch exists only to satisfy exhaustiveness and should never be reached.
+            is SavedAgendaViewState.Results -> {
+                LoadingIndicator(modifier = modifier.fillMaxSize())
+            }
+
+            is SavedAgendaViewState.Editing -> {
+                SavedAgendaEditor(
+                    state = state,
+                    onIntent = onIntent,
+                    onRequestDelete = onRequestDelete,
+                    onRequestAddSection = onRequestAddSection,
+                    modifier = modifier,
                 )
             }
-        }
-
-        // Results state is handled at the parent SavedAgendaScreen level —
-        // this branch exists only to satisfy exhaustiveness and should never be reached.
-        is SavedAgendaViewState.Results -> {
-            LoadingIndicator(modifier = modifier.fillMaxSize())
-        }
-
-        is SavedAgendaViewState.Editing -> {
-            SavedAgendaEditor(
-                state = state,
-                onIntent = onIntent,
-                onRequestDelete = onRequestDelete,
-                onRequestAddSection = onRequestAddSection,
-                modifier = modifier,
-            )
         }
     }
 }
