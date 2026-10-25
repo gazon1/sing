@@ -63,6 +63,10 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import androidx.compose.material3.MaterialTheme
 import kotlin.time.Instant
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 
 /**
  * Unified task editor Composable for both Create and View modes.
@@ -118,7 +122,7 @@ private fun TaskEditorContent(
     onPriorityClear: (() -> Unit)?,
     dueDate: LocalDate?,
     dueTime: LocalTime?,
-    dueDates: List<LocalDate> = emptyList(),
+    dueDates: ImmutableList<LocalDate> = persistentListOf(),
     onDueDateClear: (() -> Unit)?,
     showDueDate: Boolean = true,
     onPriorityClick: (() -> Unit)? = null,
@@ -128,7 +132,7 @@ private fun TaskEditorContent(
     startDateCallbacks: DateRowCallbacks? = null,
     project: ProjectId? = null,
     projectCallbacks: RowCallbacks<ProjectId?>? = null,
-    tags: List<TagId> = emptyList(),
+    tags: ImmutableList<TagId> = persistentListOf(),
     tagsCallbacks: RowCallbacks<List<TagId>>? = null,
     recurrence: RecurrenceSpec? = null,
     recurrenceCallbacks: RowCallbacks<RecurrenceSpec?>? = null,
@@ -136,8 +140,8 @@ private fun TaskEditorContent(
     pinCallbacks: ToggleCallbacks? = null,
     estimateMinutes: Int? = null,
     estimateCallbacks: RowCallbacks<Int?>? = null,
-    blockedBy: Set<TaskId> = emptySet(),
-    availableTasks: List<Task> = emptyList(),
+    blockedBy: ImmutableSet<TaskId> = persistentSetOf(),
+    availableTasks: ImmutableList<Task> = persistentListOf(),
     checklistCount: Int = 0,
     attachmentsCount: Int = 0,
     checklistCallbacks: ChecklistCallbacks? = null,
@@ -145,7 +149,7 @@ private fun TaskEditorContent(
     showAttachmentsRow: Boolean = true,
     extraSections: (@Composable () -> Unit)?,
     bottomBar: (@Composable () -> Unit)?,
-    menuItems: List<TaskEditorMenuItem>,
+    menuItems: ImmutableList<TaskEditorMenuItem>,
     onBack: () -> Unit,
     onAiClick: (() -> Unit)? = null,
     sheets: DialogState<TaskEditorSheet>,
@@ -601,11 +605,11 @@ private fun TaskEditorContentEmptyPreview() = PreviewThemed(darkTheme = false, u
         dueDate = null,
         dueTime = null,
         onDueDateClear = null,
-        blockedBy = emptySet(),
-        availableTasks = emptyList(),
+        blockedBy = persistentSetOf(),
+        availableTasks = persistentListOf(),
         extraSections = null,
         bottomBar = null,
-        menuItems = emptyList(),
+        menuItems = persistentListOf(),
         onBack = {},
         sheets = rememberDialogState(),
     )
@@ -626,11 +630,11 @@ private fun TaskEditorContentFilledPreview() = PreviewThemed(darkTheme = false, 
         dueDate = today,
         dueTime = LocalTime(14, 30),
         onDueDateClear = {},
-        blockedBy = emptySet(),
-        availableTasks = emptyList(),
+        blockedBy = persistentSetOf(),
+        availableTasks = persistentListOf(),
         extraSections = null,
         bottomBar = null,
-        menuItems = listOf(
+        menuItems = persistentListOf(
             TaskEditorMenuItem("Archive", onClick = {}),
             TaskEditorMenuItem("Delete", onClick = {}),
 
@@ -656,11 +660,11 @@ private fun TaskEditorContentDarkPreview() = PreviewThemed(darkTheme = true, use
         dueDate = today,
         dueTime = null,
         onDueDateClear = {},
-        blockedBy = setOf(sampleTask.id),
-        availableTasks = listOf(sampleTask),
+        blockedBy = persistentSetOf(sampleTask.id),
+        availableTasks = persistentListOf(sampleTask),
         extraSections = null,
         bottomBar = null,
-        menuItems = listOf(
+        menuItems = persistentListOf(
             TaskEditorMenuItem("Archive", onClick = {}),
             TaskEditorMenuItem("Delete", onClick = {}),
 

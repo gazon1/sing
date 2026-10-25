@@ -9,6 +9,10 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 
 /**
  * Data model for [TaskEditorContent].
@@ -50,7 +54,7 @@ data class TaskEditorModel(
      * because the row has to *show* that there is more than one, and a single
      * [LocalDate] field cannot say that.
      */
-    val dueDates: List<LocalDate> = emptyList(),
+    val dueDates: ImmutableList<LocalDate> = persistentListOf(),
     /**
      * Whether the date row may open the multi-date picker.
      *
@@ -63,13 +67,13 @@ data class TaskEditorModel(
     val startDate: LocalDate? = null,
     val startTime: LocalTime? = null,
     val project: ProjectId? = null,
-    val tags: List<TagId> = emptyList(),
-    val checklist: List<ChecklistItem> = emptyList(),
-    val attachments: List<Attachment> = emptyList(),
+    val tags: ImmutableList<TagId> = persistentListOf(),
+    val checklist: ImmutableList<ChecklistItem> = persistentListOf(),
+    val attachments: ImmutableList<Attachment> = persistentListOf(),
     val recurrence: RecurrenceSpec? = null,
     val isPinned: Boolean = false,
-    val blockedBy: Set<TaskId> = emptySet(),
-    val availableTasks: List<com.singularity.todo.feature.tasks.domain.model.Task> = emptyList(),
+    val blockedBy: ImmutableSet<TaskId> = persistentSetOf(),
+    val availableTasks: ImmutableList<com.singularity.todo.feature.tasks.domain.model.Task> = persistentListOf(),
     /** Estimated time in minutes. Null means no estimate has been set. */
     val estimateMinutes: Int? = null,
     /** Task creation timestamp in epoch milliseconds — used as default for time entry start. */

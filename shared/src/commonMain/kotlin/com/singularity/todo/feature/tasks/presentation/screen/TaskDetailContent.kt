@@ -81,6 +81,8 @@ import com.singularity.todo.feature.timetracking.presentation.components.TimeEnt
 import com.singularity.todo.feature.timetracking.presentation.components.TimeTrackingSection
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 
 @Suppress("LongMethod", "CyclomaticComplexMethod", "FunctionSignature")
 @Composable
@@ -209,7 +211,7 @@ fun TaskDetailContent(
                             startDate = null,
                             startTime = null,
                             project = ui.project?.id,
-                            tags = ui.tags.map { it.id },
+                            tags = ui.tags.map { it.id }.toImmutableList(),
                             recurrence = ui.task.recurrence,
                             isPinned = ui.task.isPinned,
                             estimateMinutes = ui.task.estimateMinutes,
@@ -512,8 +514,8 @@ fun TaskDetailContent(
 private fun buildDetailMenuItems(
     isTrashed: Boolean,
     onIntent: (TaskDetailIntent.Domain) -> Unit,
-): List<TaskEditorMenuItem> = if (isTrashed) {
-    listOf(
+): ImmutableList<TaskEditorMenuItem> = if (isTrashed) {
+    persistentListOf(
         TaskEditorMenuItem(
             label = "Восстановить",
             onClick = { onIntent(TaskDetailIntent.Domain.Unarchive) },
@@ -521,7 +523,7 @@ private fun buildDetailMenuItems(
         ),
     )
 } else {
-    listOf(
+    persistentListOf(
         TaskEditorMenuItem(
             label = "Архивировать",
             onClick = { onIntent(TaskDetailIntent.Domain.Archive) },
