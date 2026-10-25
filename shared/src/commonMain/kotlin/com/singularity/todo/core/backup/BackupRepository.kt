@@ -61,19 +61,6 @@ interface BackupRepository {
     suspend fun push(backupId: BackupId, password: CharArray): Result<String>
 
     /**
-     * Pulls a backup from remote storage to `destPath`, opening it under [password].
-     *
-     * The password is consumed the way [push] consumes it.
-     *
-     * The caller is responsible for importing it via [import].
-     */
-    suspend fun pull(
-        remoteRef: String,
-        destPath: String,
-        password: CharArray,
-    ): Result<Unit>
-
-    /**
      * The archives that live in the cloud, for this profile.
      *
      * Push without a way back is half a feature: the person who uploaded an archive
@@ -171,17 +158,6 @@ class BackupRepositoryImpl(
             // The secret leaves with the call, whatever the call answered. The
             // service wipes it too — this is the path that never reaches the
             // service, the archive was not there to be encrypted.
-            password.fill('\u0000')
-        }
-
-    override suspend fun pull(
-        remoteRef: String,
-        destPath: String,
-        password: CharArray,
-    ): Result<Unit> =
-        try {
-            remoteService.download(remoteRef, destPath, currentUser.scopedUserId.value, password)
-        } finally {
             password.fill('\u0000')
         }
 

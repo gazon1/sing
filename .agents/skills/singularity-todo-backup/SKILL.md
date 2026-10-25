@@ -166,10 +166,15 @@ interface BackupRepository {
     suspend fun export(options: ExportOptions): Result<BackupResult>
     suspend fun import(options: ImportOptions): Result<RestoreResult>
     suspend fun delete(backupId: BackupId): Result<Unit>
-    suspend fun push(backupId: BackupId): Result<String>  // stub → returns local path
-    suspend fun pull(remoteRef: String, destPath: String): Result<Unit>
+    suspend fun push(backupId: BackupId, password: CharArray): Result<String>
+    suspend fun listRemote(): Result<List<RemoteBackup>>
+    suspend fun restoreFromCloud(remoteRef: String, password: CharArray): Result<RestoreResult>
 }
 ```
+
+There is **no `pull`**: a download that is not imported is a file nobody asked
+for, and the repository owns the backup directory — so `restoreFromCloud` does
+both steps, and a caller cannot aim a download anywhere.
 
 ## Dual Versioning
 
