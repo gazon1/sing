@@ -40,6 +40,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.collections.immutable.toImmutableList
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
@@ -196,7 +197,9 @@ class AgendaViewModel(
                     .onEach { latestTasks.value = it }
                     .map { tasks ->
                         AgendaUiState.Loaded(
-                            sections = AgendaEvaluator.evaluate(tasks, definition, today, deps.clock.now()),
+                            sections = AgendaEvaluator
+                                .evaluate(tasks, definition, today, deps.clock.now())
+                                .toImmutableList(),
                             today = today,
                             greeting = _greeting.value,
                         )

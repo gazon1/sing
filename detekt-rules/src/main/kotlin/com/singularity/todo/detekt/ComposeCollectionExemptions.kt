@@ -72,26 +72,12 @@ internal object ComposeCollectionExemptions {
      * register without a translation table.
      */
     val KNOWN: Map<String, Map<String, String>> = mapOf(
-        "com.singularity.todo.feature.agenda.presentation.components.ReorderableSectionList" to
-            mapOf("sections" to "List<Section>"),
-        "com.singularity.todo.feature.agenda.presentation.screen.AgendaList" to
-            mapOf("sections" to "List<RenderedSection>"),
         "com.singularity.todo.feature.ai.chat.ChatMessagesList" to
             mapOf("messages" to "List<ChatMessage>"),
         "com.singularity.todo.feature.attachments.components.AttachmentsSheet" to
             mapOf("attachments" to "List<Attachment>"),
         "com.singularity.todo.feature.attachments.viewer.ViewerMessage" to
             mapOf("actions" to "List<ViewerAction>"),
-        "com.singularity.todo.feature.calendar.presentation.components.calendar.HourRow" to
-            mapOf(
-                "dates" to "List<LocalDate>",
-                "tasksByDate" to "Map<LocalDate, List<CalendarTaskUi>>",
-            ),
-        "com.singularity.todo.feature.calendar.presentation.components.calendar.MonthGridPage" to
-            mapOf(
-                "tasksByDate" to "Map<LocalDate, List<CalendarTaskUi>>",
-                "selectedDates" to "Set<LocalDate>",
-            ),
         "com.singularity.todo.feature.calendarSync.presentation.CalendarAppPicker" to
             mapOf("availableApps" to "List<CalendarAppInfo>"),
         "com.singularity.todo.feature.checklist.components.ChecklistEditorSheet" to

@@ -34,6 +34,8 @@ import com.singularity.todo.core.ui.components.HandleSide
 import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.selector.typeDescription
 import kotlin.math.roundToInt
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 
 /**
  * A reorderable list of [Section] items.
@@ -60,8 +62,8 @@ import kotlin.math.roundToInt
  */
 @Composable
 fun ReorderableSectionList(
-    sections: List<Section>,
-    onSectionsReordered: (List<Section>) -> Unit,
+    sections: ImmutableList<Section>,
+    onSectionsReordered: (ImmutableList<Section>) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -144,7 +146,7 @@ fun ReorderableSectionList(
                                         val reordered = sections.toMutableList().apply {
                                             add(targetIndex, removeAt(draggingIndex))
                                         }
-                                        onSectionsReordered(reordered)
+                                        onSectionsReordered(reordered.toImmutableList())
                                     }
                                     isDragging = false
                                     draggingIndex = -1
