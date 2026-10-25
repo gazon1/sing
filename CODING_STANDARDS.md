@@ -416,8 +416,12 @@ A reviewing agent watches for:
   is not reported — the verb is inside the string there, and a column holds
   words. The text read is the text the DEPLOYED server reads: PostgreSQL 15,
   which is what `supabase/postgres:15.8.1.085` is — so `\v` is not an escape
-  there, and a constant that CONTINUES across a newline is one constant, its
-  parts joined the way the server joins them.
+  there, a constant that CONTINUES across a newline is one constant, its
+  parts joined the way the server joins them, and a bit string and a hex
+  string hold BITS, which is what a text column stores: `X'41'` is
+  `01000001` in the server's table, and not the letter A. A hex string spells
+  bytes as well, and a file that writes the table's name in hex writes those
+  bytes — so the reader reads both.
 - A migration that writes the server's field table through a computed
   identifier. The field table is a contract, not data: it is written by a
   list of names, and a name the file does not spell is a name no reader of

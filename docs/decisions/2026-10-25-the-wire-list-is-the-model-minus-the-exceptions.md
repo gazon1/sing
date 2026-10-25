@@ -78,7 +78,7 @@ Two lists come out of that derivation, and they mean different things.
 **The wire's list** — the names a device puts on the wire. It is the model's
 own names, and there is nothing to subtract from it: every field of every
 model has a name here, and the device puts every one of them on the wire —
-the three that live outside the row (`tags`, `blockedBy` and
+the three that live outside the row (`tags`, `dependsOn` and
 `inheritedTagGroupIds`) travel as parts of the document rather than as
 columns of it. A field that does not travel is a field the model does not
 have.
@@ -206,22 +206,28 @@ reads it as the description it is.
   never sees. A string that HOLDS the words of a write is not reported: the
   verb is inside the string there, and a column holds words.
 
-  **The reader reads the text the deployed server reads.** Two rules of
+  **The reader reads the text the deployed server reads.** Three rules of
   PostgreSQL's lexer are the ones a name can hide behind, and the reader
-  follows both of them. A constant CONTINUES across a newline: two constants
+  follows all of them. A constant CONTINUES across a newline: two constants
   separated by whitespace with a newline in it are one constant, and the
   whitespace is dropped — `'ti'` on the next line `'tle'` is `title` — so a
   name spelled in two parts is one name, and the reader joins the parts the
   way the server joins them. A newline INSIDE one pair of quotes is another
   thing: the server keeps it, and so does the reader, because a name that
-  holds one is a name the server holds too. And the reader reads the escapes
-  of the version the deployment runs: PostgreSQL 15, which is what
-  `supabase/postgres:15.8.1.085` is. `\v` is not one of its escapes —
-  `E'\v'` holds `v` there, and the vertical tab arrived with PostgreSQL 17 —
-  so a name that hides behind `\v` hides behind a letter, and the reader
-  reads it as the letter. The reader follows the server it reads for, and not
-  a newer one: a name read the way a newer server would read it is a name the
-  deployed server never sees.
+  holds one is a name the server holds too. And a bit string and a hex
+  string hold BITS, which is what a text column stores: `X'41'` is
+  `01000001` in the server's table, and not the letter A. A hex string spells
+  bytes as well, and a file that writes the table's name in hex writes those
+  bytes — so the reader reads both, and a name spelled in hex is a name the
+  reader sees.
+
+  And the reader reads the escapes of the version the deployment runs:
+  PostgreSQL 15, which is what `supabase/postgres:15.8.1.085` is. `\v` is not
+  one of its escapes — `E'\v'` holds `v` there, and the vertical tab arrived
+  with PostgreSQL 17 — so a name that hides behind `\v` hides behind a
+  letter, and the reader reads it as the letter. The reader follows the
+  server it reads for, and not a newer one: a name read the way a newer
+  server would read it is a name the deployed server never sees.
 
   **The list of what it reports is not a guess.** PostgreSQL writes rows into
   an existing table in six ways — insert, update, delete, truncate, merge,

@@ -28,7 +28,7 @@ import kotlinx.serialization.serializer
  * - [WIRE_FIELDS] — the names a device puts on the wire.  Every field of every
  *   model has a name here, and the device puts every one of them on the wire:
  *   the model is put on the wire whole, and the three fields that live outside
- *   the row — `tags`, `blockedBy` and `inheritedTagGroupIds` — travel as parts
+ *   the row — `tags`, `dependsOn` and `inheritedTagGroupIds` — travel as parts
  *   of the document rather than as columns of it.  A field that does not travel
  *   is a field the model does not have.
  * - [SERVER_FIELDS] — the names the server accepts in a patch, which is the wire's names

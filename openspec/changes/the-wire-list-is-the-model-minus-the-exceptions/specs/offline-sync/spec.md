@@ -261,6 +261,9 @@ the server has not been migrated for yet.
 - **And** the text inside the string is read the way the database reads it:
   an E-string's escapes are decoded, and a `U&` string's unicode escapes are
   decoded
+- **And** a bit string and a hex string are read as the BITS they hold, for
+  that is what a text column stores — and a hex string is read as the bytes
+  it spells as well, for that is how a name is written in hex
 - **And** a constant that continues across a newline is one constant, its
   parts joined the way the server joins them — the whitespace between them is
   dropped — so a name spelled in two parts is read as the one name it is
