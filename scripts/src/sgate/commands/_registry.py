@@ -117,6 +117,13 @@ PRE_PUSH_DECLARATION = "scripts/src/sgate/gatekit/pre_push.py"
 #: reason it allows the declaration's.
 PRE_PUSH_ENVIRONMENT = "scripts/git-env.sh"
 
+#: The canon the environment helper reads the list of the names from.
+#:
+#: The helper asks it rather than carrying a copy, and the hook names it in
+#: the message it prints when the answer cannot be read — so it is a path the
+#: hook may name, the way the declaration and the helper are.
+PRE_PUSH_ENVIRONMENT_CANON = "scripts/src/sgate/gatekit/gitenv.py"
+
 #: Every script the pre-push hook runs.
 #:
 #: The hook skips a rule the pushed tree does not have, so the list is what the

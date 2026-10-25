@@ -73,11 +73,18 @@ one.
    tree, and a push that says "the tree is clean" about the wrong tree is
    worse than a push that says nothing.
 
-5. **The gate knows the new form.** A shell script that calls the sanctioned
-   helper controls its environment — and the helper has to be available to it:
-   either the script defines it, or it sources the file that holds it. A
-   script that calls a helper nobody defined controls nothing, and a gate that
-   believes it does is worse than a gate that says nothing.
+5. **The gate knows the new form — and knows that the helper removes the
+   names.** A shell script that calls the sanctioned helper controls its
+   environment — and the helper has to be available to it: either the script
+   defines it, or it sources the file that holds it. A script that calls a
+   helper nobody defined controls nothing, and a gate that believes it does
+   is worse than a gate that says nothing.
+
+   Available is not enough: the helper has to REMOVE the four names. A helper
+   the script defines has to drop all of them in its own body; a helper the
+   script sources has to ask the canon for them, because the canon is the one
+   that names them. A call of a helper that removes nothing is a name and
+   nothing more, and the gate says so.
 
 6. **The old form has to be complete.** The gate now requires that a line
    removes every name the canon names, not one of them. Three of four names
@@ -117,6 +124,15 @@ but at a moment when the reason is not in view — and the gate would have said
 the tree was fine. The gate accepts the call only when the helper is defined
 in the script or in a file the script sources.
 
+**Why the gate reads what the helper does.** The rule is about the
+environment a command inherits, and a helper that removes nothing leaves that
+environment as it was. The gate can read the two forms: a helper the script
+defines has its body in front of the gate, and a helper the script sources
+has to ask the canon for the names — the canon is the one that names them,
+and the helper carries no copy, so asking is the only way it can remove all
+four. A helper that does neither is not the sanctioned helper, whatever it
+is called.
+
 **Why the old form had to become complete.** The gate's claim is that a script
 which reads another tree neutralises the four variables. It checked for one of
 them. A script that dropped `GIT_DIR` alone — the variable that names the
@@ -136,6 +152,9 @@ claim says.
   already removed all four.
 - The gate reads the command behind the helper, so a script that wraps every
   git command in it is still checked — the rule is not bypassed by wrapping.
+- The gate reads what the helper does, so a helper that removes nothing or
+  removes one name is a violation instead of a pass. The rule and the claim
+  are the same rule now.
 - The hook fails the push when the canon cannot be read. On a checkout that
   predates this change there is no push to make — the hook is the checkout's
   — so nothing that used to work stops working.

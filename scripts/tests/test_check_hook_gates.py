@@ -120,6 +120,9 @@ class HookGatesTest(unittest.TestCase):
             'PRE_PUSH_STEPS_TABLE="$(python3 "$REPO_ROOT/'
             + DECLARATION
             + '" --table)"\n'
+            'python3 "$REPO_ROOT/'
+            + DECLARATION
+            + '" --verify-decided "$decided_labels"\n'
             'python3 "$tree/scripts/run-gate-tests.py"\n'
             'python3 "$REPO_ROOT/scripts/ci-verdict.py" "$sha"\n'
             'python3 "$REPO_ROOT/scripts/pre-push-verdict.py" --sha "$sha"\n'
@@ -195,6 +198,47 @@ class HookGatesTest(unittest.TestCase):
         )
         errors = self._errors()
         self.assertTrue(any('check-something-new.py' in err for err in errors), errors)
+
+    def test_a_hook_that_does_not_say_which_gates_it_answered_for_is_an_error(self):
+        """A hook that answers for eleven of twelve gates checked a tree it never looked at.
+
+        The gates come from the table, so the hook runs them by label, and a
+        loop that skips one looks exactly like a loop that does not. The
+        declaration knows how many gates there are, so the hook has to tell
+        it which ones it answered for.
+        """
+        hook = self._hook().replace(
+            f'python3 "$REPO_ROOT/{DECLARATION}" --verify-decided "$decided_labels"', "",
+        )
+        self.hook_path.write_text(hook, encoding='utf-8')
+        errors = self._errors()
+        self.assertTrue(any('which gates it answered for' in err for err in errors), errors)
+
+    def test_a_gate_the_hook_names_relatively_is_an_error(self):
+        """The rule is about what the hook RUNS, in every form it can be written.
+
+        A gate written as a relative path is a gate the hook runs just as much
+        as one written with `$REPO_ROOT` in front of it.
+        """
+        self.hook_path.write_text(
+            self._hook() + 'python3 scripts/check-something-new.py\n', encoding='utf-8',
+        )
+        errors = self._errors()
+        self.assertTrue(any('check-something-new.py' in err for err in errors), errors)
+
+    def test_a_prose_mention_of_a_gate_is_not_a_list(self):
+        """A comment that mentions a gate has not run it.
+
+        The hook's prose names scripts — the helper it sources, the command
+        to run when the declaration cannot be read. Prose is not a command,
+        and reading it as one is how a hook ends up "running" a gate that only
+        a paragraph mentions.
+        """
+        self.hook_path.write_text(
+            self._hook() + '# the rule lives in scripts/check-something-new.py\n', encoding='utf-8',
+        )
+        errors = self._errors()
+        self.assertEqual([], errors)
 
     def test_a_hook_that_does_not_read_the_declaration_is_an_error(self):
         """A hook that ran no gate and said OK is not a hook that passed.

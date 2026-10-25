@@ -443,6 +443,12 @@ for i in "${!PUSH_REFS[@]}"; do
         echo "pre-push FAILED — the list of gates the hook runs could not be read from the registry."
         echo "Run python3 scripts/check-hook-gates.py to see whether the registry is readable, or push with --no-verify."
     else
+        # What the hook has an answer for. A gate that ran and a gate that was
+        # skipped are both answers; a gate the hook never reached is not, and
+        # the declaration says which gates it expected an answer for. A hook
+        # that ran eleven of twelve gates and said OK checked a tree it never
+        # looked at, and the tree is what the push is about.
+        decided_labels=""
         while IFS='|' read -r step_label step_script step_args step_script_from \
             step_pythonpath_from step_when step_show_output step_message step_hint; do
             [ -n "$step_label" ] || continue
@@ -461,41 +467,57 @@ for i in "${!PUSH_REFS[@]}"; do
                 tree) step_env+=("PYTHONPATH=$tree/scripts/src") ;;
             esac
 
-            # When the step runs at all.
+            # When the step runs at all. Several conditions may hold at once,
+            # joined with `;`, and every one of them has to hold: the tree
+            # rules are skipped when the tree does not have the rule AND when
+            # the gate CLI cannot run, so that a machine without click is not
+            # stopped by a rule it cannot execute.
             step_note=""
-            case "$step_when" in
-                always) ;;
-                if-dir:*)
-                    if [ ! -d "$tree/${step_when#if-dir:}" ]; then
-                        step_note="this tree has no ${step_when#if-dir:}"
-                    fi
-                    ;;
-                if-import:*)
-                    if ! python3 -c "import ${step_when#if-import:}" >/dev/null 2>&1; then
-                        step_note="${step_when#if-import:} is not installed"
-                    fi
-                    ;;
-                if-script)
-                    if [ ! -f "$step_path" ]; then
-                        step_note="the pushed tree does not have this rule"
-                    fi
-                    ;;
-                if-touched:*)
-                    step_touched=0
-                    IFS=',' read -r -a step_patterns <<< "${step_when#if-touched:}"
-                    for step_pattern in "${step_patterns[@]}"; do
-                        if promise_touched "$step_pattern"; then
-                            step_touched=1
-                            break
+            step_skip=0
+            IFS=';' read -r -a step_conditions <<< "$step_when"
+            for step_condition in "${step_conditions[@]}"; do
+                case "$step_condition" in
+                    always) ;;
+                    if-dir:*)
+                        if [ ! -d "$tree/${step_condition#if-dir:}" ]; then
+                            step_note="this tree has no ${step_condition#if-dir:}"
                         fi
-                    done
-                    if [ "$step_touched" = "0" ]; then
-                        continue
-                    fi
-                    ;;
-            esac
+                        ;;
+                    if-import:*)
+                        if ! python3 -c "import ${step_condition#if-import:}" >/dev/null 2>&1; then
+                            step_note="${step_condition#if-import:} is not installed"
+                        fi
+                        ;;
+                    if-script)
+                        if [ ! -f "$step_path" ]; then
+                            step_note="the pushed tree does not have this rule"
+                        fi
+                        ;;
+                    if-touched:*)
+                        step_touched=0
+                        IFS=',' read -r -a step_patterns <<< "${step_condition#if-touched:}"
+                        for step_pattern in "${step_patterns[@]}"; do
+                            if promise_touched "$step_pattern"; then
+                                step_touched=1
+                                break
+                            fi
+                        done
+                        if [ "$step_touched" = "0" ]; then
+                            step_skip=1
+                        fi
+                        ;;
+                esac
+                if [ -n "$step_note" ] || [ "$step_skip" = "1" ]; then
+                    break
+                fi
+            done
             if [ -n "$step_note" ]; then
                 echo "   $step_label: SKIPPED ($step_note)"
+            fi
+            if [ -n "$step_note" ] || [ "$step_skip" = "1" ]; then
+                # A gate that was skipped is a gate the hook has an answer
+                # for, and the answer is "not here".
+                decided_labels="${decided_labels}${step_label},"
                 continue
             fi
 
@@ -539,9 +561,27 @@ for i in "${!PUSH_REFS[@]}"; do
                     echo "$step_hint"
                 fi
             fi
+            decided_labels="${decided_labels}${step_label},"
         done <<EOF
 $PRE_PUSH_STEPS_TABLE
 EOF
+
+        # And the declaration checks the answer. The gate that reads the
+        # registry cannot see whether the loop ran every step — the hook runs
+        # the steps by label, and a loop that skips one looks exactly like a
+        # loop that does not. The declaration knows how many gates there are,
+        # so the hook tells it which ones it answered for, and it says whether
+        # that is all of them.
+        if ! decided_out="$(python3 "$REPO_ROOT/scripts/src/sgate/gatekit/pre_push.py" \
+            --verify-decided "$decided_labels" 2>&1)"; then
+            echo "   gates: FAILED (the hook did not answer for every declared gate)"
+            echo "$decided_out"
+            GATES_FAILED=1
+            echo ""
+            echo "pre-push FAILED — the hook did not answer for every gate the registry declares,"
+            echo "so it checked a tree it never looked at."
+            echo "Run python3 scripts/check-hook-gates.py to see whether the registry is readable, or push with --no-verify."
+        fi
     fi
     rm -f "$PROMISE_OUT"
 

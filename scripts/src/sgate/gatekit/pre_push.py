@@ -55,7 +55,11 @@ class PrePushStep:
       when the tree has that directory; ``if-import:<module>`` when that
       module can be imported; ``if-script`` when the pushed tree has the
       script; ``if-touched:<pattern>[,<pattern>...]`` when the push touched
-      one of those paths.
+      one of those paths. Several conditions may be joined with ``;``, and
+      every one of them has to hold — the tree rules are skipped when the
+      tree does not have the rule **and** when the gate CLI cannot run, so
+      that a machine without ``click`` is not stopped by a rule it cannot
+      execute.
     * ``message`` / ``hint`` — what the hook says when the step fails.
       ``@REF@`` stands for the ref being pushed, ``@TREE@`` for its tree.
     """
@@ -113,7 +117,7 @@ def _tree_rule_steps() -> tuple[PrePushStep, ...]:
             args=("--quiet",),
             script_from="tree",
             pythonpath_from="repo",
-            when="if-script",
+            when="if-script;if-import:click",
             message=f"pre-push FAILED — {rule} found something in the tree of @REF@.",
             hint=f"Run python3 scripts/{rule}.py to see where, or push with --no-verify.",
         )
@@ -284,38 +288,6 @@ PRE_PUSH_MACHINERY: tuple[str, ...] = (
 )
 
 
-def pre_push_step_table() -> str:
-    """The steps, one line each, for the hook's loop to read.
-
-    The line is ``|``-separated, and the fields are the ones the hook needs.
-    The hook reads the table instead of carrying a block per gate, so a gate
-    is added here and nowhere else.
-
-    The separator is a character that appears in none of the fields, and the
-    arguments are separated by spaces — an argument with a space in it would
-    be two arguments, so no argument may have one.
-    """
-    lines = []
-    for step in PRE_PUSH_STEPS:
-        lines.append(
-            "|".join(
-                (
-                    step.label,
-                    step.script,
-                    " ".join(step.args),
-                    step.script_from,
-                    step.pythonpath_from,
-                    step.when,
-                    "yes" if step.show_output else "no",
-                    step.message,
-                    step.hint,
-                )
-            )
-        )
-    return "\n".join(lines)
-
-
-
 
 def pre_push_step_table() -> str:
     """The steps, one line each, for the hook's loop to read.
@@ -346,6 +318,34 @@ def pre_push_step_table() -> str:
             )
         )
     return "\n".join(lines)
+
+
+def pre_push_step_labels() -> tuple[str, ...]:
+    """The label of every step, in the order the hook runs them.
+
+    The label is how the hook says what it decided. A step that was run and a
+    step that was skipped are both decisions, and both are named — the hook
+    tells the declaration which gates it had an answer for, and the
+    declaration says which gates it expected an answer for.
+    """
+    return tuple(step.label for step in PRE_PUSH_STEPS)
+
+
+def undecided_labels(decided: str) -> tuple[str, ...]:
+    """The gates the hook did not decide, and the ones it decided twice.
+
+    The hook runs the gates from the table, so a table of twelve gates and a
+    hook that answered for eleven is a hook that did not check one of them.
+    The count alone would not say which one, and a gate that nobody ran is
+    the failure this arrangement exists to prevent: the hook says "OK" about
+    a tree it never looked at.
+    """
+    answered = [label for label in decided.split(',') if label]
+    expected = pre_push_step_labels()
+    missing = tuple(label for label in expected if label not in answered)
+    repeated = tuple(label for label in expected if answered.count(label) > 1)
+    unknown = tuple(label for label in answered if label not in expected)
+    return missing + repeated + unknown
 
 
 if __name__ == '__main__':
@@ -353,6 +353,18 @@ if __name__ == '__main__':
 
     if sys.argv[1:] == ['--table']:
         print(pre_push_step_table())
+    elif sys.argv[1:2] == ['--verify-decided']:
+        labels = sys.argv[2] if len(sys.argv) > 2 else ''
+        undecided = undecided_labels(labels)
+        if undecided:
+            expected = pre_push_step_labels()
+            answered = len(expected) - len([label for label in expected if label not in labels])
+            print(
+                f'the hook answered for {answered} of {len(expected)} declared gates; '
+                f'it did not answer for: {", ".join(undecided)}'
+            )
+            raise SystemExit(1)
+        print('OK')
     else:
-        print('usage: pre_push.py --table', file=sys.stderr)
+        print('usage: pre_push.py --table | --verify-decided <labels>', file=sys.stderr)
         raise SystemExit(2)

@@ -634,7 +634,44 @@ def _shell_line_removes(line: str, name: str) -> bool:
     return False
 
 
-def _shell_neutralizes(source: str) -> bool:
+def _shell_function_body(source: str, definition: re.Match[str]) -> list[str]:
+    """The lines of a shell function, from its opening brace to its end.
+
+    A function in a shell script ends at the line that closes it. The body is
+    what the function does, and a helper whose body removes nothing removes
+    nothing — so the body is what the gate has to read.
+    """
+    body: list[str] = []
+    for line in source[definition.end():].splitlines()[1:]:
+        if line.strip() == '}':
+            break
+        body.append(line)
+    return body
+
+
+def _helper_reads_the_canon(source: str) -> bool:
+    """Whether the helper asks the canon for the names.
+
+    The helper carries no copy of the names — that is the whole point of it —
+    so the only way it can remove all four is by asking the canon that owns
+    them. A helper that does not ask is a helper that removes nothing, and a
+    gate that believes it removes them is a gate that believes a lie.
+    """
+    if '--shell-unset-args' not in source:
+        return False
+    return 'gitenv' in source
+
+
+def _sourced_helper(path: pathlib.Path, source: str) -> pathlib.Path | None:
+    """The file a script sources its helper from, when it names one."""
+    for candidate in (path.parent, ROOT / 'scripts'):
+        helper = candidate / SHELL_HELPER_FILE
+        if helper.is_file():
+            return helper
+    return None
+
+
+def _shell_neutralizes(path: pathlib.Path, source: str) -> bool:
     """Whether a shell script removes the git variables from the environment.
 
     There are two forms. The old one writes the names down — `env -u GIT_DIR
@@ -648,19 +685,38 @@ def _shell_neutralizes(source: str) -> bool:
     script defines it, or it sources the file that holds it. A script that
     calls a helper nobody defined controls nothing, and a gate that believes
     it does is worse than a gate that says nothing.
+
+    And the helper has to REMOVE them. A helper the script defines has to
+    drop all four names in its own body; a helper the script sources has to
+    ask the canon for them, because the canon is the one that names them.
+    Otherwise the call is a name and nothing more.
     """
     for _number, line in _logical_lines(source):
         if all(_shell_line_removes(line, name) for name in INHERITED_FROM_HOOK):
             return True
     if not SHELL_HELPER_CALLED.search(source):
         return False
-    return bool(SHELL_HELPER_DEFINITION.search(source) or SHELL_HELPER_SOURCED.search(source))
+
+    definition = SHELL_HELPER_DEFINITION.search(source)
+    if definition:
+        body = _shell_function_body(source, definition)
+        return all(
+            any(_shell_line_removes(line, name) for line in body)
+            for name in INHERITED_FROM_HOOK
+        )
+
+    if not SHELL_HELPER_SOURCED.search(source):
+        return False
+    helper = _sourced_helper(path, source)
+    if helper is None:
+        return False
+    return _helper_reads_the_canon(helper.read_text(encoding='utf-8', errors='replace'))
 
 
 def _neutralizes(path: pathlib.Path, source: str) -> bool:
     """Whether the script controls the git variables its commands inherit."""
     if path.suffix == '.sh':
-        return _shell_neutralizes(source)
+        return _shell_neutralizes(path, source)
     return _python_neutralizes(source)
 
 

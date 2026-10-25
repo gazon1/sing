@@ -260,6 +260,65 @@ def _git(*args: str, cwd: pathlib.Path) -> subprocess.CompletedProcess:
     inside_hook,
     'the suite is running inside a hook, and this test drives one',
 )
+class PrePushDeclarationTest(unittest.TestCase):
+    """The declaration, read by path — the way the hook reads it."""
+
+    @staticmethod
+    def _declaration():
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            'pre_push_declaration', PRE_PUSH_DECLARATION,
+        )
+        module = importlib.util.module_from_spec(spec)
+        # The declaration holds a dataclass, and a dataclass looks its own
+        # module up in `sys.modules` — a module that is not registered there
+        # has no `__dict__` to look into.
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        return module
+
+    def test_the_tree_rules_are_skipped_when_the_gate_cli_cannot_run(self):
+        """A machine without click is not stopped by a rule it cannot execute.
+
+        The base hook skipped the tree rules when click was not installed, and
+        CI runs them either way. A rule that cannot run must not become a
+        reason a push cannot happen — so the rule is skipped, and the hook
+        says that it was skipped.
+        """
+        declaration = self._declaration()
+        tree_rules = [
+            step for step in declaration.PRE_PUSH_STEPS
+            if step.label.endswith('gate') and step.when.startswith('if-script')
+        ]
+        self.assertTrue(tree_rules, 'the declaration has no tree rules')
+        for step in tree_rules:
+            self.assertIn('if-import:click', step.when, step.label)
+
+    def test_every_step_answers_for_itself_and_nothing_else(self):
+        """The declaration knows which gates it expects an answer for."""
+        declaration = self._declaration()
+        labels = declaration.pre_push_step_labels()
+        self.assertEqual(len(labels), len(set(labels)), 'two steps answer under one label')
+        self.assertEqual(
+            list(labels),
+            [step.label for step in declaration.PRE_PUSH_STEPS],
+        )
+
+    def test_a_gate_the_hook_never_answered_for_is_named(self):
+        """The answer the hook gives is the answer the declaration expects.
+
+        A hook that answered for eleven of twelve gates has a gap, and the
+        gap has to name the gate that is missing — otherwise the reader has
+        to count.
+        """
+        declaration = self._declaration()
+        labels = declaration.pre_push_step_labels()
+        missing = declaration.undecided_labels(','.join(labels[:-1]))
+        self.assertEqual((labels[-1],), missing)
+        self.assertEqual((), declaration.undecided_labels(','.join(labels)))
+
+
 class PrePushHookTest(unittest.TestCase):
     """The hook, driven through a real push."""
 
@@ -424,6 +483,32 @@ class PrePushHookTest(unittest.TestCase):
 
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         self.assertIn('=== Pre-push OK ===', result.stdout + result.stderr)
+
+    def test_a_hook_that_answers_for_no_gate_fails_the_push(self):
+        """A hook that ran no gate and said OK checked a tree it never looked at.
+
+        The gates come from the table, so the hook runs them by label, and a
+        loop that skips them all looks exactly like a hook that read the
+        table and did nothing with it. The declaration knows how many gates
+        there are, so the hook tells it which ones it answered for — and a
+        hook that answered for none fails the push.
+        """
+        self._install_hook()
+        self._install_stubs()
+        self._commit_source(CLEAN_SOURCE, 'a clean file')
+        hook = self.repo / '.githooks' / 'pre-push'
+        hook.write_text(
+            hook.read_text(encoding='utf-8').replace(
+                '            [ -n "$step_label" ] || continue\n',
+                '            [ -n "$step_label" ] || continue\n            continue\n',
+            ),
+            encoding='utf-8',
+        )
+
+        result = self._push()
+
+        self.assertNotEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertIn('did not answer for every gate', result.stdout + result.stderr)
 
     def test_the_suite_runs_inside_a_hook(self):
         # The gate-suite step of the hook runs the suite in the tree being
