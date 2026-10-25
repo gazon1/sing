@@ -94,4 +94,4 @@ on. Store the set. Ask the agenda the same question the section asks.
   — the working-day switches reaching the agenda, which this generalises.
 - `docs/decisions/2026-10-07-dead-settings-gate-must-reach-the-field.md` — the
   gate that found the two unread fields.
-- `openspec/changes/working-days-are-a-set/specs/tasks/spec.md`
+- `openspec/changes/archive/2026-10-20-working-days-are-a-set/specs/tasks/spec.md`

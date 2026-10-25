@@ -118,7 +118,7 @@ that is always rewritten, and rewritten verdicts are verdicts nobody checks.
   The claim behind it was that the change's documents are byte-identical at
   the reviewed commit and in the tree today, and that
   `git diff 1cb18e39 origin/main --
-  openspec/changes/ci-fast-only-pr-full-on-schedule/` is empty. It is not
+  openspec/changes/archive/2026-10-24-ci-fast-only-pr-full-on-schedule/` is empty. It is not
   empty: PR #986 (`745b3afa`) added REQ-25 to the contract spec and rewrote
   the task list — 115 insertions — and the digest of the contract as it
   stands is `93c85260…`, not the `fb500744…` of the contract at the reviewed
@@ -155,7 +155,7 @@ that is always rewritten, and rewritten verdicts are verdicts nobody checks.
 
 ## Links
 
-- `openspec/changes/2026-10-23-the-verdict-names-the-commit` — the change and
+- `openspec/changes/archive/2026-10-23-the-verdict-names-the-commit` — the change and
   the capability `change-review-integrity`
 - `scripts/check-review-verdicts.py`, `scripts/ci-verdict.py`
 - `docs/decisions/2026-10-22-the-rules-that-guard-the-rules.md` — the rule

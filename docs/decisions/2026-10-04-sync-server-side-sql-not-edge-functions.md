@@ -82,6 +82,6 @@ close.
 
 ## Links
 
-- `openspec/changes/supabase-auth-and-sync/design.md`
+- `openspec/changes/archive/2026-10-06-supabase-auth-and-sync/design.md`
 - `docs/decisions/2026-10-04-per-field-lww-conflict-policy.md`
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncApi.kt`

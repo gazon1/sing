@@ -229,7 +229,7 @@ alias instead.
 
 # Links
 
-- `openspec/changes/ci-fast-only-pr-full-on-schedule/` — the requirement
+- `openspec/changes/archive/2026-10-24-ci-fast-only-pr-full-on-schedule/` — the requirement
   changes: REQ-3 gains a population, REQ-23 gains the slow half, REQ-24 is new
 - `docs/decisions/2026-10-22-gradle-memory-budget.md` — the CI runner's memory
   budget, which is why the CI half of this change was not optional

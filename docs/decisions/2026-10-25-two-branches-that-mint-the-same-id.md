@@ -25,14 +25,19 @@ building it. Five branches then wrote the same requirement — the structural ch
 that verifies a rewrite contract from the shape of the code — and four of them
 named it `REQ-TI-REWRITE-1`, which was already the id of a different requirement,
 the sealed kind of a field's source. The fifth was the branch that added it, and
-it had named it `REQ-TI-SHAPE-3`. Two branches wrote the same requirement of the
+it had named it `REQ-TI-SHAPE-3`. Four branches wrote the same requirement of the
 task editor, each with the requirement as it stood when that branch was written:
-seven scenarios, then eight, then nine, then eleven. One branch added a
+seven scenarios, then eight, then ten, then twelve. One branch added a
 requirement about the tool that searches, and gave it the id `REQ-SEARCH-011`,
 which the spec already held for the requirement that a search result shows the
 matched word. One branch added a requirement about the kind of a field's source,
 and gave it the id `REQ-TI-REWRITE-2`, which the spec already held for the
 requirement that the bridge takes no count of replacements.
+
+One change added four requirements to `test-execution-integrity` under the ids
+`REQ-15` to `REQ-18`, and the spec already held those four ids for four
+different requirements. The archive put the arriving block into the spec, and
+the file ended up with two requirements under each of those ids.
 
 One branch did something the archive could not check: it carried a
 `REMOVED Requirements` block for a requirement — `REQ-TI-REWRITE-EXCEPTION` —
@@ -104,6 +109,13 @@ says less than the code does.
    stays in the archived delta, because the archive is the record of what the
    branch said.
 
+7. **A requirement that arrives with an id the spec already holds is renumbered
+   to a free id, in the live spec and in the archived delta alike.** The four
+   requirements that `the-next-layer-of-contracts` added to
+   `test-execution-integrity` became `REQ-27` to `REQ-30`, and the archived
+   delta carries the same names. The rename is recorded here, because a reader
+   of the archive meets the old ids and has to be told what they became.
+
 ## Rationale
 
 **Why the ids were not renumbered.** The obvious repair — give every colliding
@@ -135,10 +147,11 @@ them would have made the spec say both at once and mean neither.
 
 **Why the union of scenarios, and not the last branch's.** The branches were written
 in sequence on a chain, each against the requirement as it stood. The scenario sets
-grew: seven, eight, nine, eleven. The last branch's block is the most complete, and
-it does not mention one scenario the spec holds — the screen that opens a picker from
-an editor's row — because that branch was written against a spec that did not have
-it yet. Dropping it would have deleted a requirement the code already implements.
+grew: seven, eight, ten, twelve. The last branch's block is the most complete, but
+it is not the one that carries every scenario — the *first* branch is the one that
+lacks one the spec holds, the screen that opens a picker from an editor's row, because
+that branch was written against a spec that did not have it yet. The later branches
+carry it. Dropping it would have deleted a requirement the code already implements.
 
 **Why the purpose is written and not generated.** The placeholder is what the tool
 writes when it does not know. The tool does not know what a capability is for, and
@@ -146,6 +159,17 @@ nobody should have guessed it from a requirement list: `agent-toolbox-surface` a
 `gate-tooling` are both obviously about tooling and are about entirely different
 things. The change that created the capability said what it was for, and that is
 what the purpose says.
+
+**Why the arriving requirements were renumbered, and the archive with them.** An id
+is a handle: a later change that writes `MODIFIED Requirements: REQ-17` must have
+exactly one target, or the archive applies it to a requirement nobody meant. A spec
+that holds two requirements under one id has no such target, and nothing sees it —
+the strict validator counts the requirements, not the uniqueness of their ids
+inside a file. The natural ids were taken by different requirements, and those
+requirements keep them, because the spec is what the code is read against. The
+arriving requirements took the next free ids, and the archived delta was renamed
+with them: a delta whose ids name nothing in the live spec is a delta that can
+neither be read against the spec nor replayed.
 
 ## Consequences
 
@@ -166,6 +190,15 @@ what the purpose says.
   refuse again — the refusal is the tool working, and the repair is the work.
 - `MODULE-INDEX.md` lists eighteen capabilities it did not list before, four of which
   were missing before this change and were not created by it.
+- Four requirements of `test-execution-integrity` now answer to `REQ-27` to `REQ-30`.
+  Their titles are unchanged, so a reader who knows the title still finds them; a
+  reader who knows the old id does not, which is why this decision names the rename.
+- One archived delta and the live spec still differ in two words:
+  `background-handler-injection` wrote "a component that starts background work
+  **on its own**", and the live requirement of `crash-reporting` says "a component
+  that starts background work". The live spec was written by a later commit, the
+  wider wording is the stronger obligation, and the archive keeps the branch's own
+  words. Nothing is lost by the difference, and nothing is gained by closing it.
 
 ## Links
 
@@ -175,6 +208,10 @@ what the purpose says.
   and why it is kept honest
 - `openspec/specs/MODULE-INDEX.md` — the index this change updates
 - `openspec/specs/text-input/spec.md` — the capability that was never in git
+- `openspec/specs/test-execution-integrity/spec.md` — the four requirements that
+  were renumbered to `REQ-27` to `REQ-30`
+- `openspec/specs/notes/spec.md` — the requirement that names the two kinds of a
+  field's source
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/text/TextFieldSource.kt` —
   the sealed source the two requirements describe
 - `shared/src/jvmTest/kotlin/com/singularity/todo/arch/TextFieldRewriteContractTest.kt`

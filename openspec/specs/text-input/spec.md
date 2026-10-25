@@ -341,12 +341,6 @@ The rewrite contract of a bridged field site SHALL be checked against the code's
 
 structure.
 
-The sites SHALL be the files that import the bridged helper, the owner's source SHALL
-
-be a property with a type, the counter SHALL be a property with a name, and the
-
-bridge's public parameters SHALL be names.
-
 Where a check cannot be expressed structurally, it SHALL be read from the
 
 **declarations** of the file with the comments stripped, and a preview SHALL be

@@ -134,8 +134,8 @@ A grant with a policy the caller can satisfy by lying about a column is not a po
 
 - `docs/sync-server-integration-test.sql` — the nine-scenario run that found the four
   defects above
-- `openspec/changes/supabase-auth-and-sync/specs/offline-sync/spec.md` (REQ-OS-003, REQ-OS-005, REQ-OS-010)
-- `openspec/changes/supabase-auth-and-sync/specs/user-authentication/spec.md` (REQ-UA-005)
+- `openspec/changes/archive/2026-10-06-supabase-auth-and-sync/specs/offline-sync/spec.md` (REQ-OS-003, REQ-OS-005, REQ-OS-010)
+- `openspec/changes/archive/2026-10-06-supabase-auth-and-sync/specs/user-authentication/spec.md` (REQ-UA-005)
 - `docs/decisions/2026-10-04-per-field-lww-conflict-policy.md`
 - `docs/decisions/2026-10-04-sync-server-side-sql-not-edge-functions.md`
 - `docs/decisions/2026-10-04-patch-as-field-diff-with-logical-clock.md`

@@ -1044,7 +1044,7 @@ second, and reading it as the first is how a broken tool becomes a green build.
 - **Then** the selection is refused, because the two spellings can disagree and only
   one of them is the project's declaration
 
-### Requirement: REQ-15 A version pin lives in one file
+### Requirement: REQ-27 A version pin lives in one file
 
 Each tool version the project pins SHALL live in exactly one file, and every
 consumer of that version SHALL read it from there. A pin written out in two
@@ -1070,7 +1070,7 @@ in place, which is the moment the second copy comes back.
 - **When** the test runs
 - **Then** it fails and names the file that holds the duplicate
 
-### Requirement: REQ-16 The tooling preflight runs where the tooling is used
+### Requirement: REQ-28 The tooling preflight runs where the tooling is used
 
 A preflight that checks the gate tooling is installed SHALL run on every
 surface that installs the tooling and then runs the gate suite — the local loop
@@ -1092,7 +1092,7 @@ not run the full preflight; the reason SHALL be written down where the job is.
 - **Then** the job fails and names the missing tool
 - **And** it fails before the gate suite runs
 
-### Requirement: REQ-17 A waiver points at something that resolves
+### Requirement: REQ-29 A waiver points at something that resolves
 
 Every exemption in the gate registry — a gate allowed to have no positive
 control — and every declared CI/local asymmetry SHALL carry a **reference** to
@@ -1135,7 +1135,7 @@ becomes "breaking this makes it fail".
 - **When** the control's mutation is applied
 - **Then** the gate fails
 
-### Requirement: REQ-18 A test double lives with the other test doubles
+### Requirement: REQ-30 A test double lives with the other test doubles
 
 A test double SHALL live in the package the architecture scans read as "not
 production" — `test/fakes/` — and not in a production package. The scans that

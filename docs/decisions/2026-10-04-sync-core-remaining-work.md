@@ -118,4 +118,4 @@ comments, `runBlocking` only in the deliberately-named startup bridge, and the s
 - `docs/decisions/2026-10-04-commonmain-jvm-api-gate.md` — the `ConflictResolver` entry
 - `docs/decisions/2026-10-04-test-of-a-fake-is-not-a-test.md` — why the coalescing test
   was deleted rather than rewritten
-- `openspec/changes/supabase-auth-and-sync/tasks.md` — phases 2.4, 2.5, 2.7, 2.8
+- `openspec/changes/archive/2026-10-06-supabase-auth-and-sync/tasks.md` — phases 2.4, 2.5, 2.7, 2.8

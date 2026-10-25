@@ -89,7 +89,7 @@ convention. Candidate shapes considered: a mutable `ScreenHierarchy` registry
 
 ## Links
 
-- OpenSpec change: `openspec/changes/navigation-open-policy/`
+- OpenSpec change: `openspec/changes/archive/2026-10-04-navigation-open-policy/`
 - GitHub issue: #28 «Navigation as policy: unified open/close + typed ids»
 - `docs/decisions/2026-09-29-single-sealed-navkey-root.md`
 - `docs/decisions/2026-10-03-nav3-backstack-top-vs-start-dispatch.md`

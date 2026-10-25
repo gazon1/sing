@@ -370,7 +370,7 @@ the value being moved is only a fallback.
 
 ## Links
 
-- `openspec/changes/acp-client-data-safety` — the probe, the profile contract, the write
+- `openspec/changes/archive/2026-10-25-acp-client-data-safety` — the probe, the profile contract, the write
   classification
 - `openspec/changes/agent-activity-visibility` — the activity vocabulary and the cards
 - `openspec/changes/acp-external-agent-desktop` — the client, the process tree, the screen

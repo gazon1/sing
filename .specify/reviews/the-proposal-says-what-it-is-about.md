@@ -14,7 +14,7 @@ was a place a user could feel. The change is on
 `gazon1/feat/the-proposal-says-what-it-is-about`, and the review is of the diff of the
 whole change — the model, the port, the mapper, the DAO, the use cases, the three
 surfaces, the fakes, the gate and the tests — against the contract the change carries
-(`openspec/changes/2026-10-24-the-proposal-says-what-it-is-about/`, REQ-PROP-027…029).
+(`openspec/changes/archive/2026-10-24-the-proposal-says-what-it-is-about/`, REQ-PROP-027…029).
 
 Two independent review rounds were run by a separate agent: the first over the change as
 written, the second over the fixes that came out of it. Every finding of both rounds

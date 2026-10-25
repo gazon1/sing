@@ -9,7 +9,7 @@ documents: sha256:65b9c060b196d965225d468963d5fcbac7a23c09996a08c03118590bdb3a17
 
 ## What was reviewed
 
-The whole change: `openspec/changes/2026-10-23-the-verdict-names-the-commit/`
+The whole change: `openspec/changes/archive/2026-10-23-the-verdict-names-the-commit/`
 — the proposal, the spec delta and the tasks — against the code it describes:
 the gate `scripts/check-review-verdicts.py`, the tool `scripts/ci-verdict.py`,
 the rules in `CODING_STANDARDS.md`, the pointers in `AGENTS.md`, the ADR

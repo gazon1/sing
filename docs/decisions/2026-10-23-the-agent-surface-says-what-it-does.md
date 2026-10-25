@@ -193,7 +193,7 @@ the session. The ViewModel keeps what a screen is about: what the reader sees.
 
 ## Links
 
-- `openspec/changes/agent-surface-follow-ups/` — the change this decision belongs to.
+- `openspec/changes/archive/2026-10-25-agent-surface-follow-ups/` — the change this decision belongs to.
 - `docs/decisions/2026-10-23-acp-client-and-agent-activity.md` — the decision behind the
   external agent, and the reviews whose findings this one finishes.
 - `docs/architecture/acp-client.md`, `docs/architecture/mcp-server.md` — the architecture

@@ -57,13 +57,19 @@ revision and the caret untouched.
 Every bridged field site in the app SHALL have a recorded answer to "who may
 rewrite this field?".
 
-The answers are:
+The answers are the two kinds of a field's source, and there is no third:
 
-- **none** — the value is a one-way projection, and nothing rewrites it;
-- **the value itself** — a rewrite arrives as a new value, and the field
-  replaces its content;
-- **the value and a revision token** — the site carries a counter alongside
-  the value, so the bridge can tell a replacement from a keystroke.
+- **a static source** — the upstream replaces the value only with one the
+  field never produced: it loads the value once, or it clears it. The field's
+  echo guard needs no lifting, because the field cannot have produced the new
+  value;
+- **an owned source** — the upstream owns the value: it may replace it with
+  anything, including a value the field itself produced earlier. The owner
+  counts the replacements and the field reads the count, so that a rewrite is
+  told from a keystroke.
+
+A site that would need a third answer has no shape to build, and the build
+fails instead of the site being wired with the wrong kind.
 
 The registry of sites and the registry of field shapes SHALL live together,
 and the convention test that guards the shape SHALL guard the rewrite answer
@@ -80,10 +86,9 @@ build.
 
 #### Scenario: A site that cannot tell a replacement from a keystroke
 
-- **Given** a bridged field site whose answer is "the value itself"
-- **Then** the registry says so
-- **And** the question of whether that site needs a revision token is recorded
-      as an open one
+- **Given** a bridged field site whose upstream owns the value
+- **Then** the registry says the site's source is an owned one
+- **And** the owner advances the count on every replacement
 
 ### Requirement: REQ-NOTES-LINKS-1
 

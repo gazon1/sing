@@ -21,7 +21,7 @@ The same list once named `src/androidAndroidTest/kotlin`, a directory that does
 not exist — detekt ignored the entry without complaint, so the list looked
 complete while covering a path that was never scanned.
 
-`openspec/changes/androidapp-debug-lint-policy` had already made the decision
+`openspec/changes/archive/2026-10-07-androidapp-debug-lint-policy` had already made the decision
 and left it unimplemented: **lint it, carrying the intentional findings in a
 baseline with a reason each.** Exempting the source set was the cheaper
 alternative and was rejected, because "not linted" and "linted with everything
@@ -98,6 +98,6 @@ that passes by checking nothing.
 
 - `config/detekt/baseline-androidApp.xml` — the four entries, with reasons
 - `shared/src/jvmTest/kotlin/com/singularity/todo/arch/DetektSourceSetsAreAllScannedTest.kt`
-- `openspec/changes/androidapp-debug-lint-policy` — the decision and its task list
+- `openspec/changes/archive/2026-10-07-androidapp-debug-lint-policy` — the decision and its task list
 - `docs/decisions/2026-09-25-test-suite-tag-defaults` — the neighbouring case of
   a rule that is right for production and wrong for a test
