@@ -224,13 +224,22 @@ class PackageResolutionRules(unittest.TestCase):
         errors = self.errors()
         self.assertTrue(any("R2.6" in error for error in errors), errors)
 
-    def test_the_public_api_needs_no_bootstrap(self):
-        """The public API is the same in every checkout — that is the point."""
+    def test_the_public_api_is_bound_too(self):
+        """The public API is the same in every checkout — and it is bound anyway.
+
+        The rule used to excuse the modules that "are the same in every
+        checkout". That exemption left the resolution to the environment, and
+        the environment is where the other checkout came from: with an
+        editable install of a sibling worktree in reach, `from sgate import
+        run` was that worktree's code. Binding the package costs one line and
+        answers the question the script is really asking — whose code is this?
+        """
         self.write(
-            "check-good.py",
+            "check-bad.py",
             "from sgate import run\n",
         )
-        self.assertEqual(self.errors(), [])
+        errors = self.errors()
+        self.assertTrue(any("R2.5" in error for error in errors), errors)
 
     def test_a_bootstrap_of_another_directory_is_not_a_bootstrap(self):
         """`scripts/` is not the package root; the package lives in `scripts/src`."""
@@ -261,6 +270,84 @@ class PackageResolutionRules(unittest.TestCase):
     def test_the_real_scripts_directory_has_no_violation(self):
         """The repository obeys the rules it declares."""
         self.assertEqual(check_package_resolution(SCRIPTS), [])
+
+
+class TheBindingRuleIsOneRule(unittest.TestCase):
+    """R2.5 — one rule for every script, and the exception that is declared.
+
+    The rule was a gate script's rule, and it excused the modules that "are
+    the same in every checkout". The result: 36 gate scripts and 6 test
+    modules resolved the package by whatever the environment held — and with
+    an editable install of a sibling worktree in reach, that was another
+    checkout's code. The suite failed in 72 places about files this tree does
+    not contain.
+
+    So the rule is one rule: every script that imports the package binds it
+    to its own tree. The scripts that have to run *without* the package say
+    so, in a comment, and are exempt.
+    """
+
+    def setUp(self):
+        self.directory = pathlib.Path(tempfile.mkdtemp())
+        (self.directory / "tests").mkdir()
+
+    def write(self, name: str, source: str) -> pathlib.Path:
+        path = self.directory / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(source, encoding="utf-8")
+        return path
+
+    def errors(self) -> list[str]:
+        return check_package_resolution(self.directory)
+
+    def test_a_test_module_that_imports_the_package_needs_the_bootstrap(self):
+        self.write("tests/test_x.py", "from sgate.gates import load_gates\n")
+        errors = self.errors()
+        self.assertTrue(any("R2.5" in error for error in errors), errors)
+
+    def test_a_test_module_with_the_bootstrap_is_clean(self):
+        package = _ROOT / "scripts" / "src"
+        self.write(
+            "tests/test_x.py",
+            "import pathlib\nimport sys\n\n"
+            f"_SRC = pathlib.Path(r'{package}')\n"
+            "if str(_SRC) not in sys.path:\n"
+            "    sys.path.insert(0, str(_SRC))\n\n"
+            "from sgate.gates import load_gates\n",
+        )
+        self.assertEqual(self.errors(), [])
+
+    def test_a_bootstrap_after_the_import_is_a_violation_in_a_test_module(self):
+        self.write(
+            "tests/test_x.py",
+            "from sgate.gates import load_gates\n\n"
+            "import pathlib\nimport sys\n\n"
+            "_SRC = pathlib.Path(__file__).resolve().parent.parent / 'src'\n"
+            "if str(_SRC) not in sys.path:\n"
+            "    sys.path.insert(0, str(_SRC))\n",
+        )
+        errors = self.errors()
+        self.assertTrue(any("R2.6" in error for error in errors), errors)
+
+    def test_an_import_inside_a_function_needs_the_bootstrap_in_that_scope(self):
+        self.write(
+            "tests/test_x.py",
+            "def read():\n    from sgate.gates import load_gates\n",
+        )
+        errors = self.errors()
+        self.assertTrue(any("R2.5" in error for error in errors), errors)
+
+    def test_a_script_that_declares_it_runs_without_the_package_is_exempt(self):
+        self.write(
+            "check-x.py",
+            "# no-sgate: this script has to run when the package is missing.\n"
+            "from sgate.gates import load_gates\n",
+        )
+        self.assertEqual(self.errors(), [])
+
+    def test_a_script_that_does_not_import_the_package_is_clean(self):
+        self.write("check-x.py", "import click\n")
+        self.assertEqual(self.errors(), [])
 
 
 class SgateRunnerRules(unittest.TestCase):

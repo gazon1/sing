@@ -7,6 +7,9 @@ What this gate enforces (2026-10-20, audited):
   R2.1: Gate scripts use Click, not argparse
   R2.4: A gate script locates the repository itself, never through the
         installed package (R2.4-R2.6, added 2026-10-22)
+  R2.5: A script that imports the package puts this checkout's package root on
+        `sys.path` before the import — every script: gate, CI helper, test
+        (widened from the gate scripts alone, 2026-10-25)
   R2.7: A gate script routes its exit code through the shared runner,
         `sgate.commands.base.run` — or declares, in a comment, why it cannot
         (added 2026-10-23)
@@ -172,20 +175,6 @@ def check_json_flag(scripts_dir: Path) -> list[str]:
     return []
 
 
-#: The modules of the `sgate` package that carry facts about *this* checkout:
-#: the manifest of the gates, the registry, the shared vocabulary of a gate.
-#: Read from an installed package, they describe a different tree — a sibling
-#: worktree on the same machine, installed as an editable package under the
-#: same name.
-CHECKOUT_SPECIFIC_MODULES = (
-    "sgate.commands._registry",
-    "sgate.gate_controls",
-    "sgate.gate_manifest",
-    "sgate.gatekit",
-    "sgate.gates",
-    "sgate.repo",
-)
-
 def _is_bootstrap(statement: ast.stmt, source: str) -> bool:
     """Whether a statement puts the package root on `sys.path`.
 
@@ -293,38 +282,49 @@ def _imported_sgate_modules(statement: ast.stmt) -> list[str]:
     return modules
 
 
-def _is_checkout_specific(module: str) -> bool:
-    return any(
-        module == name or module.startswith(name + ".") for name in CHECKOUT_SPECIFIC_MODULES
-    )
-
-
 def check_package_resolution(scripts_dir: Path) -> list[str]:
-    """R2.4, R2.5, R2.6 — how a gate script resolves the package it imports.
+    """R2.4, R2.5, R2.6 — how a script resolves the package it imports.
 
-    R2.4: a gate script takes the repository root — and any path into the
+    R2.4: a script takes the repository root — and any path into the
     repository — from its own location, never from the installed package. A
     gate that reads the installed package's root reads *another checkout's*
     root: on a machine with several clones, the installed `sgate` is whichever
     one was installed last. Such a gate certified a tree nobody was working
     on, and reported success.
 
-    R2.5: a gate script that imports a module carrying this checkout's facts
-    must have this checkout's package root on `sys.path` *before* that import.
+    R2.5: a script that imports the package must have this checkout's package
+    root on `sys.path` *before* that import. One rule for every script — gate,
+    CI helper, test — because the question is the same everywhere: whose copy
+    of the package is this script measuring? The rule used to excuse the
+    modules that "are the same in every checkout", which left 36 gate scripts
+    and 6 test modules resolving the package by whatever the environment held;
+    with a foreign editable install in reach, that was another checkout's code,
+    and the suite failed in 72 places about files this tree does not contain.
 
     R2.6: a bootstrap that comes after the import it was meant to serve is a
     no-op for that import — the name was already bound. The rule is checked
     separately because the mistake is invisible: the script runs, and it runs
     against the wrong tree.
+
+    The scripts that declare `# no-sgate:` are exempt. They have to run when
+    the package is missing or foreign — asking them where the package lives
+    is the very thing they cannot do.
     """
     errors: list[str] = []
-    paths = sorted(scripts_dir.glob("check-*.py")) + sorted((scripts_dir / "ci").glob("*.py"))
+    paths = (
+        sorted(scripts_dir.glob("check-*.py"))
+        + sorted((scripts_dir / "ci").glob("*.py"))
+        + sorted((scripts_dir / "tests").glob("*.py"))
+    )
     for path in paths:
         source = path.read_text(encoding="utf-8", errors="replace")
         try:
             tree = ast.parse(source)
         except SyntaxError as exc:
             errors.append(f"{path.name}: does not parse as Python ({exc.msg}) — cannot check it")
+            continue
+
+        if _declares_no_sgate(source):
             continue
 
         errors.extend(_check_root_from_package(path, tree))
@@ -393,7 +393,7 @@ def _check_bootstrap_order(path: Path, tree: ast.Module, source: str) -> list[st
         for module in _imported_sgate_modules(statement):
             if module_first_import is None:
                 module_first_import = statement.lineno
-            if _is_checkout_specific(module) and module_bootstrap is None:
+            if module_bootstrap is None:
                 errors.append(
                     f"{path.name}:{statement.lineno}: imports `{module}` without this checkout's "
                     "package root on `sys.path` (R2.5)"
@@ -428,7 +428,7 @@ def _check_scoped_imports(
             if _is_bootstrap(statement, source) and bootstrap is None:
                 bootstrap = statement.lineno
             for module in _imported_sgate_modules(statement):
-                if _is_checkout_specific(module) and bootstrap is None and not module_has_bootstrap:
+                if bootstrap is None and not module_has_bootstrap:
                     errors.append(
                         f"{path.name}:{statement.lineno}: imports `{module}` without this "
                         "checkout's package root on `sys.path` (R2.5)"
@@ -444,6 +444,20 @@ def _check_scoped_imports(
 #: run when the package is missing" is a decision, and a decision that is not
 #: written down is a decision the next reader has to reverse-engineer.
 NO_SGATE_MARKER = re.compile(r"^#\s*no-sgate:\s*(?P<reason>.*)$")
+
+
+def _declares_no_sgate(source: str) -> bool:
+    """Whether the script declares that it must run without the package.
+
+    A script that has to run when the package is missing or foreign cannot
+    import it to find out where it lives — that is the state it exists for.
+    Such a script is exempt from the rule about resolving the package, and the
+    marker says so in the open.
+    """
+    return any(
+        NO_SGATE_MARKER.match(comment.strip()) is not None
+        for comment in _comments(source)
+    )
 
 
 def _comments(source: str) -> list[str]:

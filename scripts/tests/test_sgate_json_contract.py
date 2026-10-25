@@ -41,6 +41,11 @@ from sgate.commands.test_task_external_inputs_declared import (
     test_task_external_inputs_declared,
 )
 
+#: The repository this test lives in. The root belongs to the script, not to
+#: the installed package: an installed `sgate` points at whichever checkout
+#: was installed last, and this test has to look at *this* tree's producers.
+_ROOT = Path(__file__).resolve().parent.parent.parent
+
 #: adapter command -> the producer script it runs, relative to the repo root.
 ADAPTERS = {
     "build_output_readers": (
@@ -269,7 +274,7 @@ class TestRealProducersSpeakTheContract(unittest.TestCase):
     def test_each_real_producer_emits_json(self):
         for gate, (command, script_rel) in ADAPTERS.items():
             with self.subTest(gate=gate):
-                producer = Path(sgate.repo.ROOT) / script_rel
+                producer = Path(_ROOT) / script_rel
                 self.assertTrue(producer.exists(), f"{producer} is missing")
                 code, out, _err = invoke(command, "--json")
                 self.assertEqual(code, base.CLEAN, f"{gate} did not pass on a clean tree")
@@ -283,7 +288,7 @@ class TestRealProducersSpeakTheContract(unittest.TestCase):
         """The contract is reachable from the command line, not only in-process."""
         for gate, (_command, script_rel) in ADAPTERS.items():
             with self.subTest(gate=gate):
-                producer = Path(sgate.repo.ROOT) / script_rel
+                producer = Path(_ROOT) / script_rel
                 text = producer.read_text(encoding="utf-8")
                 self.assertIn(
                     "--json",
