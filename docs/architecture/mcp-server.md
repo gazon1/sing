@@ -36,6 +36,26 @@ shared/src/jvmMain/kotlin/com/singularity/todo/mcp/          ← the server
     errors/, schema/         the error model and the schema builders
 ```
 
+The start-up is in the same package, one file per concern:
+
+```
+shared/src/jvmMain/kotlin/com/singularity/todo/mcp/
+    ToolServerStartup.kt        what the start-up decided — Ready or Refused
+    ToolServerStartupOrder.kt   the steps, in the order they run
+    ToolServerStartupStep.kt    what a step is
+    ToolServerStartupContext.kt what the steps share
+    ToolServerStartupLog.kt     the one logger the start-up uses
+    ToolConfiguration.kt        the flags that decide the exposed toolbox
+    SessionContextHolder.kt     who is connected, and in which session
+```
+
+and the ten steps of the start-up, one file each:
+`RefuseAnAmbiguousRequest.kt`, `WarnAboutADeprecatedArgument.kt`,
+`BuildTheGraph.kt`, `ResolveTheDependencies.kt`, `VerifyTheDatabase.kt`,
+`RefuseAnUnknownProfile.kt`, `BootstrapTheProfiles.kt`,
+`ReadTheConfiguration.kt`, `BuildTheServer.kt` and
+`InstallTheShutdownHook.kt`.
+
 The reason is the delivery mechanism, described below: the desktop application hands an
 external agent its tool access by running **the same server** in the application's own
 `--mcp-server` mode, and two servers would be two toolsets that drift.
@@ -108,7 +128,8 @@ fun main(args: Array<String>): Unit = runToolServer(args)
 `runToolServer(args)` is the entry point, and it does five things: it points the log at
 standard error, it takes the protocol channel, it reads the arguments, it starts the
 server, and it serves. The start-up itself lives in
-`shared/src/jvmMain/kotlin/com/singularity/todo/mcp/ToolServerStartup.kt`, and it returns
+`shared/src/jvmMain/kotlin/com/singularity/todo/mcp/ToolServerStartup.kt` — its outcome
+and its runner — with one file per step beside it, and it returns
 what it decided — a server to serve, or a refusal with the code and the message the
 client should see:
 
@@ -143,9 +164,17 @@ entry point writes, rather than an `exitProcess` call buried in a sequence — a
 client sees the same error frame either way, because the old code wrote that frame
 before it exited.
 
+**The order is written down now, not implied by the sequence of statements.**
+`ToolServerStartupOrder` holds the ten steps of the start-up as a list, each step is a
+type in a file of its own, and the runner walks the list — so the order can be read,
+and pinned by a test, without reading a single body. The entry point's own steps —
+reserve the channel, parse the arguments — and its last one, serve, are not the
+start-up's, so they are not in that list. See ADR
+`2026-10-25-the-start-up-steps-are-types`.
+
 **Critical details:**
 - **`session.onClose + Job.join()` is mandatory.** The SDK does not block on its own — this is the canonical pattern from the upstream `samples/weather-stdio-server/.../McpWeatherServer.kt:55-62`. See ADR `2026-09-07-mcp-stdio-blocking-lifecycle` for the full rationale and regression test.
-- `installShutdownHook(server)` — backstop for SIGTERM; normal EOF exits flow through `session.onClose → done.complete() → done.join() returns → JVM exits cleanly`.
+- `InstallTheShutdownHook` — backstop for SIGTERM; normal EOF exits flow through `session.onClose → done.complete() → done.join() returns → JVM exits cleanly`.
 - `runBlocking` at top level is **acceptable** here — this is a CLI main, not a hot path. Same reasoning as `koinBridge` (see ADR `2026-09-05-koin-suspend-bridge`).
 - `System.in` / `System.out` — stdio transport. **Never** `println` for logs (corrupts the JSON-RPC stream). Use `System.err` or kermit Logger. The server logs through kermit for the same reason: stdout is reserved for JSON-RPC frames.
 - **The reservation is enforced, not merely advised.** `ProtocolStdout.reserve()` takes standard output for the protocol and points `System.out` at standard error before the first frame is written, so a stray `println` — the application's own log line, or a third-party library's start-up banner — lands on standard error instead of the protocol channel. The MCP specification says a stdio server *must not* write anything to standard output that is not a valid MCP message, and a client that takes that literally stops at the first line it cannot parse. See `shared/src/jvmMain/kotlin/com/singularity/todo/mcp/ProtocolStdout.kt`.
