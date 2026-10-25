@@ -14,6 +14,10 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.serializer
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 import kotlin.time.Instant
 
 @Serializable
@@ -284,11 +288,11 @@ enum class NoteSortOrder {
  * notes, and they have to survive a state that holds no notes at all.
  */
 data class NotesListState(
-    val pinned: List<Note> = emptyList(),
-    val unpinned: List<Note> = emptyList(),
-    val templates: List<Note> = emptyList(),
-    val dailyNotes: List<Note> = emptyList(),
-    val selectedIds: Set<NoteId> = emptySet(),
+    val pinned: ImmutableList<Note> = persistentListOf(),
+    val unpinned: ImmutableList<Note> = persistentListOf(),
+    val templates: ImmutableList<Note> = persistentListOf(),
+    val dailyNotes: ImmutableList<Note> = persistentListOf(),
+    val selectedIds: ImmutableSet<NoteId> = persistentSetOf(),
     val isSelectionMode: Boolean = false,
 ) {
     val isEmpty: Boolean get() = pinned.isEmpty() && unpinned.isEmpty()

@@ -79,6 +79,8 @@ import com.singularity.todo.feature.notes.presentation.viewmodel.NotePreviewStat
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
@@ -322,7 +324,7 @@ private fun MetaLabel(text: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun BacklinksSheet(backlinks: List<Note>, onNoteSelected: (NoteId) -> Unit, onDismiss: () -> Unit) {
+private fun BacklinksSheet(backlinks: ImmutableList<Note>, onNoteSelected: (NoteId) -> Unit, onDismiss: () -> Unit) {
     val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -480,7 +482,7 @@ private fun NotePreviewLoadedPreview() = NotesPreviewWrapper {
     NotePreviewScreenContent(
         state = NotePreviewState.Loaded(
             note = note,
-            backlinks = emptyList(),
+            backlinks = persistentListOf(),
         ),
         onBack = {},
         onEdit = {},

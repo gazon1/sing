@@ -50,6 +50,7 @@ import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.feature.tags.domain.usecase.CreateTagUseCase
 import com.singularity.todo.feature.tags.domain.usecase.UpdateTagUseCase
+import kotlinx.collections.immutable.ImmutableList
 
 /**
  * Tags list screen.
@@ -149,7 +150,7 @@ private fun TagsUiState.toContentState() = ContentStateMapper.tags(this)
 
 @Composable
 private fun TagList(
-    tags: List<Tag>,
+    tags: ImmutableList<Tag>,
     onDelete: (TagId) -> Unit,
     onRename: (Tag) -> Unit,
     onOpen: (TagId) -> Unit,

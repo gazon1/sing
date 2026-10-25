@@ -96,17 +96,6 @@ internal object ComposeCollectionExemptions {
             mapOf("availableApps" to "List<CalendarAppInfo>"),
         "com.singularity.todo.feature.checklist.components.ChecklistEditorSheet" to
             mapOf("items" to "List<ChecklistItem>"),
-        "com.singularity.todo.feature.notes.presentation.screen.BacklinksSheet" to
-            mapOf("backlinks" to "List<Note>"),
-        "com.singularity.todo.feature.notes.presentation.screen.NoteList" to
-            mapOf(
-                "allNotes" to "List<Note>",
-                "pinned" to "List<Note>",
-                "unpinned" to "List<Note>",
-                "templates" to "List<Note>",
-                "dailyNotes" to "List<Note>",
-                "selectedIds" to "Set<NoteId>",
-            ),
         "com.singularity.todo.feature.pomodoro.PomodoroContentPreview" to
             mapOf("tasks" to "List<Task>"),
         "com.singularity.todo.feature.pomodoro.TaskChipRow" to
@@ -127,12 +116,6 @@ internal object ComposeCollectionExemptions {
             mapOf("projectBuckets" to "List<ProjectInsightsBucket>"),
         "com.singularity.todo.feature.statistics.TasksBarChart" to
             mapOf("buckets" to "List<DayBucket>"),
-        "com.singularity.todo.feature.tags.TagList" to
-            mapOf("tags" to "List<Tag>"),
-        "com.singularity.todo.feature.tags.components.TagsPickerSheet" to
-            mapOf("selectedIds" to "List<TagId>"),
-        "com.singularity.todo.feature.tags.presentation.screen.TagGroupList" to
-            mapOf("groups" to "List<TagGroup>"),
         "com.singularity.todo.core.ui.onboarding.rememberSpotlightTour" to
             mapOf("steps" to "List<SpotlightStep>"),
         "com.singularity.todo.feature.ai.chat.AgentActivitySection" to

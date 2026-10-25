@@ -34,11 +34,17 @@ import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
 import org.koin.compose.koinInject
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Suppress("FunctionSignature")
 @Composable
-fun TagsPickerSheet(selectedIds: List<TagId>, onSelect: (List<TagId>) -> Unit, onDismiss: () -> Unit) {
+fun TagsPickerSheet(
+    selectedIds: ImmutableList<TagId>,
+    onSelect: (ImmutableList<TagId>) -> Unit,
+    onDismiss: () -> Unit,
+) {
     val tagsRepo: TagsRepository = koinInject()
     val allTags by tagsRepo.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
 
@@ -91,7 +97,7 @@ fun TagsPickerSheet(selectedIds: List<TagId>, onSelect: (List<TagId>) -> Unit, o
             }
             Spacer(modifier = Modifier.width(8.dp))
             TextButton(
-                onClick = { onSelect(selected.toList()) },
+                onClick = { onSelect(selected.toImmutableList()) },
             ) {
                 Text("Done")
             }
