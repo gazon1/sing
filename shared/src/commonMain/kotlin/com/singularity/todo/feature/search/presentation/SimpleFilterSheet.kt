@@ -43,6 +43,9 @@ import com.singularity.todo.feature.search.query.SimpleFilter
 import com.singularity.todo.feature.search.query.SortOrder
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableSet
 
 /**
  * A bottom sheet for building a [SimpleFilter] interactively.
@@ -62,12 +65,14 @@ fun SimpleFilterSheet(
     onDismiss: () -> Unit,
     sheetState: SheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden),
 ) {
-    // Local mutable copy — not applied until user taps "Apply"
+    // Local mutable copy — not applied until user taps "Apply".
+    // The sets are persistent: the chips below take them, and a persistent set
+    // is compared by content, so a chip row is not recomposed for nothing.
     var localStates by remember(initialFilter) {
-        mutableStateOf(initialFilter?.states)
+        mutableStateOf(initialFilter?.states?.toImmutableSet())
     }
     var localPriorities by remember(initialFilter) {
-        mutableStateOf(initialFilter?.priorities ?: emptySet())
+        mutableStateOf(initialFilter?.priorities?.toImmutableSet() ?: persistentSetOf())
     }
     var localDue by remember(initialFilter) {
         mutableStateOf(initialFilter?.due ?: SimpleFilter.DueCondition.NONE)
@@ -222,7 +227,10 @@ fun SimpleFilterSheet(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun StateChips(selected: Set<TaskStatus>?, onSelectionChange: (Set<TaskStatus>?) -> Unit) {
+private fun StateChips(
+    selected: ImmutableSet<TaskStatus>?,
+    onSelectionChange: (ImmutableSet<TaskStatus>?) -> Unit,
+) {
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -232,26 +240,26 @@ private fun StateChips(selected: Set<TaskStatus>?, onSelectionChange: (Set<TaskS
             label = { Text("All") },
         )
         FilterChip(
-            selected = selected == setOf(TaskStatus.Active),
+            selected = selected != null && selected.size == 1 && TaskStatus.Active in selected,
             onClick = {
                 onSelectionChange(
-                    when (selected) {
-                        null -> setOf(TaskStatus.Active)
-                        setOf(TaskStatus.Active) -> null
-                        else -> setOf(TaskStatus.Active)
+                    when {
+                        selected == null -> persistentSetOf(TaskStatus.Active)
+                        selected.size == 1 && TaskStatus.Active in selected -> null
+                        else -> persistentSetOf(TaskStatus.Active)
                     },
                 )
             },
             label = { Text("Active") },
         )
         FilterChip(
-            selected = selected == setOf(TaskStatus.Completed),
+            selected = selected != null && selected.size == 1 && TaskStatus.Completed in selected,
             onClick = {
                 onSelectionChange(
-                    when (selected) {
-                        null -> setOf(TaskStatus.Completed)
-                        setOf(TaskStatus.Completed) -> null
-                        else -> setOf(TaskStatus.Completed)
+                    when {
+                        selected == null -> persistentSetOf(TaskStatus.Completed)
+                        selected.size == 1 && TaskStatus.Completed in selected -> null
+                        else -> persistentSetOf(TaskStatus.Completed)
                     },
                 )
             },
@@ -264,7 +272,10 @@ private fun StateChips(selected: Set<TaskStatus>?, onSelectionChange: (Set<TaskS
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PriorityChips(selected: Set<TaskPriority>, onSelectionChange: (Set<TaskPriority>) -> Unit) {
+private fun PriorityChips(
+    selected: ImmutableSet<TaskPriority>,
+    onSelectionChange: (ImmutableSet<TaskPriority>) -> Unit,
+) {
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -274,9 +285,9 @@ private fun PriorityChips(selected: Set<TaskPriority>, onSelectionChange: (Set<T
                 onClick = {
                     onSelectionChange(
                         if (priority in selected) {
-                            selected - priority
+                            selected.filter { it != priority }.toImmutableSet()
                         } else {
-                            selected + priority
+                            (selected + priority).toImmutableSet()
                         },
                     )
                 },

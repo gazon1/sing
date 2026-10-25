@@ -32,6 +32,9 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 
 // ─── UI contracts ─────────────────────────────────────────────────────────────
 
@@ -60,7 +63,7 @@ data class SearchUiState(
     val parsedQuery: Query? = null,
     val activeFilter: SimpleFilter? = null,
     val activeSavedSearchId: SavedSearchId? = null,
-    val savedSearches: List<SavedSearch> = emptyList(),
+    val savedSearches: ImmutableList<SavedSearch> = persistentListOf(),
     val results: SearchResults = SearchResults(emptyList(), emptyList(), emptyList(), emptyList()),
     val isSearching: Boolean = false,
     val mode: SearchMode = SearchMode.Word,
@@ -173,7 +176,7 @@ class SearchViewModel(
         // Observe saved searches
         vmScope.launch {
             savedSearchRepo.observeAll().collect { saved ->
-                updateState { it.copy(savedSearches = saved) }
+                updateState { it.copy(savedSearches = saved.toImmutableList()) }
             }
         }
 

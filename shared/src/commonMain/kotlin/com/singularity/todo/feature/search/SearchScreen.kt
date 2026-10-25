@@ -66,6 +66,7 @@ import kotlin.time.Clock
 import org.koin.compose.viewmodel.koinViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -359,7 +360,7 @@ private fun SavedSearchesRowPreview() = PreviewThemed(darkTheme = false) {
                 createdAt = Clock.System.now(),
                 updatedAt = Clock.System.now(),
             ),
-        ),
+        ).toImmutableList(),
         activeSavedSearchId = null,
         onLoadSearch = {},
         onSaveClick = {},
