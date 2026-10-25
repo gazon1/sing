@@ -9,7 +9,6 @@ import com.singularity.todo.core.files.ByteSink
 import com.singularity.todo.core.files.ByteSource
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.ids.UserId
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 
@@ -232,19 +231,17 @@ class RemoteBackupServiceImpl(
      * was opened and never closed is a file nobody can delete. So the sink opens
      * with the source in hand, and the source is closed if it does not.
      */
-    @Suppress("TooGenericExceptionCaught")
     private suspend fun openTarget(source: ByteSource, path: String): ByteSink {
-        val target = try {
-            fs.openWrite(path)
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Throwable) {
+        var opened = false
+        try {
+            return fs.openWrite(path).also { opened = true }
+        } finally {
             // The sink did not open, so there is nothing to hand back — and a source
-            // that was opened and never closed is a file nobody can delete.
-            source.close()
-            throw error
+            // that was opened and never closed is a file nobody can delete. Nothing
+            // is caught here: the failure — a cancellation above all — keeps its own
+            // type and reaches the caller as itself, and the close happens anyway.
+            if (!opened) source.close()
         }
-        return target
     }
 
     /**
