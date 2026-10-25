@@ -60,6 +60,9 @@ import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.number
 import kotlinx.datetime.plus
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableSet
 
 private val WEEKDAY_NAMES = listOf(
     "Mon" to 1,
@@ -122,8 +125,8 @@ fun RecurrencePickerSheet(
     }
     var selectedWeekdays by remember {
         mutableStateOf(
-            (currentSpec as? Weekly)?.weekdays
-                ?: setOf(anchorDate.dayOfWeek.ordinal + 1),
+            (currentSpec as? Weekly)?.weekdays?.toImmutableSet()
+                ?: persistentSetOf(anchorDate.dayOfWeek.ordinal + 1),
         )
     }
     var monthlyDay by remember {
@@ -566,7 +569,7 @@ private fun IntervalEditor(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun WeekdayEditor(selected: Set<Int>, onChange: (Set<Int>) -> Unit) {
+private fun WeekdayEditor(selected: ImmutableSet<Int>, onChange: (ImmutableSet<Int>) -> Unit) {
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -576,7 +579,7 @@ private fun WeekdayEditor(selected: Set<Int>, onChange: (Set<Int>) -> Unit) {
                 selected = iso in selected,
                 onClick = {
                     onChange(
-                        if (iso in selected) selected - iso else selected + iso,
+                        if (iso in selected) (selected - iso).toImmutableSet() else (selected + iso).toImmutableSet(),
                     )
                 },
                 label = { Text(name) },

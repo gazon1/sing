@@ -26,6 +26,8 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import androidx.compose.material3.MaterialTheme
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  * Renders the due date attribute row in the task editor.
@@ -49,9 +51,9 @@ fun TaskEditorDueDateRow(
     onDueDateClear: (() -> Unit)?,
     modifier: Modifier = Modifier,
     labelTestTag: String? = null,
-    dueDates: List<LocalDate> = emptyList(),
+    dueDates: ImmutableList<LocalDate> = persistentListOf(),
 ) {
-    val dates = dueDates.ifEmpty { listOfNotNull(dueDate) }
+    val dates = dueDates.ifEmpty { dueDate?.let { persistentListOf(it) } ?: persistentListOf() }
     Row(
         modifier = modifier
             .fillMaxWidth()

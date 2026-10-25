@@ -148,27 +148,6 @@ internal object ComposeCollectionExemptions {
             mapOf("selectedIds" to "List<TagId>"),
         "com.singularity.todo.feature.tags.presentation.screen.TagGroupList" to
             mapOf("groups" to "List<TagGroup>"),
-        "com.singularity.todo.feature.tasks.presentation.components.detail.BacklinkSection" to
-            mapOf("items" to "List<String>"),
-        "com.singularity.todo.feature.tasks.presentation.components.detail.LinkedBacklinksCard" to
-            mapOf(
-                "linkedNotes" to "List<Note>",
-                "linkedTasks" to "List<Task>",
-            ),
-        "com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorContent" to
-            mapOf(
-                "dueDates" to "List<LocalDate>",
-                "tags" to "List<TagId>",
-                "blockedBy" to "Set<TaskId>",
-                "availableTasks" to "List<Task>",
-                "menuItems" to "List<TaskEditorMenuItem>",
-            ),
-        "com.singularity.todo.feature.tasks.presentation.components.detail.TaskEditorDueDateRow" to
-            mapOf("dueDates" to "List<LocalDate>"),
-        "com.singularity.todo.feature.tasks.presentation.components.detail.WeekdayEditor" to
-            mapOf("selected" to "Set<Int>"),
-        "com.singularity.todo.feature.tasks.presentation.components.list.TaskFilterChips" to
-            mapOf("counts" to "Map<TaskStatus, Int>"),
         "com.singularity.todo.core.ui.onboarding.rememberSpotlightTour" to
             mapOf("steps" to "List<SpotlightStep>"),
         "com.singularity.todo.feature.ai.chat.AgentActivitySection" to

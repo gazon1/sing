@@ -11,6 +11,8 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  * Base callback bundle for a single-value attribute row (priority, project, tags, recurrence, dependencies).
@@ -141,7 +143,7 @@ data class TaskEditorCallbacks(
     /** Bottom bar content — null means no bottom bar */
     val bottomBar: (@Composable () -> Unit)? = null,
     /** Overflow menu items — empty list = no menu shown */
-    val menuItems: List<TaskEditorMenuItem> = emptyList(),
+    val menuItems: ImmutableList<TaskEditorMenuItem> = persistentListOf(),
     /** AI action button — null means AI button is hidden */
     val onAiClick: (() -> Unit)? = null,
 )

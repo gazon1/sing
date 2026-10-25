@@ -23,6 +23,8 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListShapes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.persistentMapOf
 
 /**
  * Горизонтальные фильтр-чипы: Все / Активные / Выполненные.
@@ -39,7 +41,7 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
 fun TaskFilterChips(
     selected: TaskStatus,
     onSelect: (TaskStatus) -> Unit,
-    counts: Map<TaskStatus, Int> = emptyMap(),
+    counts: ImmutableMap<TaskStatus, Int> = persistentMapOf(),
     modifier: Modifier = Modifier,
 ) {
     val filters = listOf(
@@ -115,7 +117,7 @@ private fun TaskFilterChipsPreview() {
             TaskFilterChips(
                 selected = TaskStatus.All,
                 onSelect = {},
-                counts = mapOf(
+                counts = persistentMapOf(
                     TaskStatus.All to 12,
                     TaskStatus.Active to 7,
                     TaskStatus.Completed to 5,

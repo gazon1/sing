@@ -33,6 +33,9 @@ import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
 import kotlinx.datetime.LocalDate
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlin.time.Clock
 import kotlin.time.Instant
 import org.koin.compose.koinInject
@@ -105,17 +108,20 @@ fun TaskCreateScreen(initialDueDate: LocalDate?, draftKey: String? = null) {
 
     val checklistItems = state.draft.checklist.toChecklistItems()
     val attachmentItems = state.draft.attachments.toAttachments(now)
+    // The *whole* set of dates, primary date first. The row has to be able to say
+    // "12 окт, 17 окт, 3 ноя" — a list without its primary date would name two
+    // of the three.
+    val dueDates = (
+        listOfNotNull((state.draft.dueDate as? DueDateOption.Custom)?.date) +
+            state.draft.extraDueDates
+    ).toImmutableList()
 
     TaskCreateEditorContent(
         model = TaskEditorModel(
             taskId = null,
             priority = state.draft.priority,
             dueDate = (state.draft.dueDate as? DueDateOption.Custom)?.date,
-            // The *whole* set, primary date first. The row has to be able to say
-            // "12 окт, 17 окт, 3 ноя" — a list without its primary date would
-            // name two of the three.
-            dueDates = listOfNotNull((state.draft.dueDate as? DueDateOption.Custom)?.date) +
-                state.draft.extraDueDates,
+            dueDates = dueDates,
             // The create editor is where several dates make sense: the work does
             // not exist yet, so there is nothing to split. Everywhere else a task
             // has one date.
@@ -124,14 +130,14 @@ fun TaskCreateScreen(initialDueDate: LocalDate?, draftKey: String? = null) {
             startDate = (state.draft.startDate as? DueDateOption.Custom)?.date,
             startTime = state.draft.startTime,
             project = state.draft.projectId?.let { ProjectId.fromString(it) },
-            tags = state.draft.tagIds.map { TagId.fromString(it) },
-            checklist = checklistItems,
-            attachments = attachmentItems,
+            tags = state.draft.tagIds.map { TagId.fromString(it) }.toImmutableList(),
+            checklist = checklistItems.toImmutableList(),
+            attachments = attachmentItems.toImmutableList(),
             recurrence = state.draft.recurrence,
             isPinned = state.draft.isPinned,
             estimateMinutes = null,
-            blockedBy = emptySet(),
-            availableTasks = emptyList(),
+            blockedBy = persistentSetOf(),
+            availableTasks = persistentListOf(),
         ),
         onTitleChange = { vm.onIntent(TaskCreateIntent.TitleChanged(it)) },
         onDescriptionChange = { vm.onIntent(TaskCreateIntent.DescriptionChanged(it)) },
@@ -201,7 +207,7 @@ fun TaskCreateScreen(initialDueDate: LocalDate?, draftKey: String? = null) {
                     onSaveClick = { vm.onIntent(TaskCreateIntent.SaveClicked) },
                 )
             },
-            menuItems = emptyList(),
+            menuItems = persistentListOf(),
         ),
         titleSource = state.draft.titleSource,
         descriptionSource = state.draft.descriptionSource,
