@@ -19,9 +19,9 @@ tags:
 - sync
 - database
 documents:
-  proposal: openspec/changes/a-push-carries-what-the-database-holds/proposal.md
-  design: openspec/changes/a-push-carries-what-the-database-holds/design.md
-  tasks: openspec/changes/a-push-carries-what-the-database-holds/tasks.md
-specs_dir: openspec/changes/a-push-carries-what-the-database-holds/specs
+  proposal: openspec/changes/archive/2026-10-25-a-push-carries-what-the-database-holds/proposal.md
+  design: openspec/changes/archive/2026-10-25-a-push-carries-what-the-database-holds/design.md
+  tasks: openspec/changes/archive/2026-10-25-a-push-carries-what-the-database-holds/tasks.md
+specs_dir: openspec/changes/archive/2026-10-25-a-push-carries-what-the-database-holds/specs
 is_stub: false
-openspec_path: openspec/changes/a-push-carries-what-the-database-holds
+openspec_path: openspec/changes/archive/2026-10-25-a-push-carries-what-the-database-holds

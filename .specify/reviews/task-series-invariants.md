@@ -9,7 +9,7 @@ documents: sha256:222d3c66545d2b060f7b27166f855f37021a3a113fb4cf03ad629287e08730
 
 ## What was reviewed
 
-The whole change: `openspec/changes/task-series-invariants/` — the proposal,
+The whole change: `openspec/changes/archive/2026-10-25-task-series-invariants/` — the proposal,
 the design, the tasks and the `tasks` spec — against the code it describes
 and against `docs/decisions/2026-10-22-the-series-says-one-thing-about-the-work.md`.
 

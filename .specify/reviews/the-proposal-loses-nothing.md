@@ -14,7 +14,7 @@ implemented as one change: `gazon1/feat/the-proposal-loses-nothing`.
 
 The review is of the diff of the whole change — the write path, the codec, the
 domain model, the three surfaces and the test harness — against the contract
-the change carries (`openspec/changes/2026-10-23-the-proposal-loses-nothing/`).
+the change carries (`openspec/changes/archive/2026-10-23-the-proposal-loses-nothing/`).
 
 ## What the change closes
 

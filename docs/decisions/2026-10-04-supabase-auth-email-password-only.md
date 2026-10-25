@@ -71,4 +71,4 @@ app. That is a one-line setting and it must be set deliberately, not inherited.
 - `docs/decisions/2026-09-23-oauth-pkce-refresh-helpers.md` — what was built and then
   removed
 - `docs/decisions/deferred-backlog.md` — `core-auth-oauth-is-entirely-unwired`
-- `openspec/changes/supabase-auth-and-sync/` — the change this belongs to
+- `openspec/changes/archive/2026-10-06-supabase-auth-and-sync/` — the change this belongs to

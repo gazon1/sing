@@ -114,7 +114,7 @@ editor made.
 
 ## Links
 
-- `openspec/changes/the-next-layer-of-contracts/`
+- `openspec/changes/archive/2026-10-25-the-next-layer-of-contracts/`
 - `docs/decisions/2026-10-20-the-editor-is-told-when-the-content-was-replaced.md`
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/viewmodel/TaskDetailDraftState.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/presentation/viewmodel/ProjectDetailDraftState.kt`

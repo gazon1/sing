@@ -96,7 +96,7 @@ writer has no stake in the text; the user does.
 
 ## Links
 
-- `openspec/changes/the-editor-and-the-rewrite-from-outside/`
+- `openspec/changes/archive/2026-10-25-the-editor-and-the-rewrite-from-outside/`
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/notes/Ids.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/notes/presentation/viewmodel/NoteRewriteWatcher.kt`
 - `.agents/skills/singularity-todo-text-field-states/SKILL.md` — section 9

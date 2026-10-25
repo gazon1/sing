@@ -101,7 +101,7 @@ ALLOWED_DUPLICATES = {
     "docs/decisions/2026-10-19-doc-links-gate-lychee.md": (
         "ADR: the historical record of the decision to adopt lychee"
     ),
-    "openspec/changes/the-gates-run-on-every-machine/proposal.md": (
+    "openspec/changes/archive/2026-10-25-the-gates-run-on-every-machine/proposal.md": (
         "change proposal: the historical record of the proposal"
     ),
 }

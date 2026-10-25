@@ -332,7 +332,7 @@ timer, every time, not sometimes. The authentication notification is a different
 the bridge sends it when its own probe resolves — in the recorded run, during the
 handshake, before the session answer — so it was in the transcript already when the
 connect returned. The bridge's own frames are committed with the change
-(`openspec/changes/the-client-meets-a-real-bridge/bridge-transcript.txt`), so the
+(`openspec/changes/archive/2026-10-25-the-client-meets-a-real-bridge/bridge-transcript.txt`), so the
 claims about them can be checked without a network. The list of models the machine is
 configured for, and the catalogue of commands it happens to have installed, are
 redacted there — they are the machine's, not the bridge's — and the file says which. The

@@ -10,7 +10,7 @@ superseded_by: 2026-10-05-anonymous-is-local-only-and-signing-in-offers-a-choice
 > to, and `migrateAnonymousTo` no longer exists. Attaching an account is now an
 > ordinary sign-in followed by a **local ownership transfer** (`LocalAccountClaimer`,
 > `OwnerScopedReassigner`), which also gives the user the choice REQ-UA-005 requires.
-> See `openspec/changes/offline-local-session/`. The reasoning below is kept as the
+> See `openspec/changes/archive/2026-10-20-offline-local-session/`. The reasoning below is kept as the
 > record of what was true when it was accepted, and in particular as the reason the
 > ownership transfer had to check what it was moving.
 

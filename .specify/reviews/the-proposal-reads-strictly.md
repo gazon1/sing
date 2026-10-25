@@ -14,7 +14,7 @@ implemented as one change: `gazon1/feat/the-proposal-reads-strictly`.
 
 The review is of the diff of the whole change — the codec, the model, the
 planner, the use case, the three surfaces and the test harness — against the
-contract the change carries (`openspec/changes/2026-10-23-the-proposal-reads-strictly/`).
+contract the change carries (`openspec/changes/archive/2026-10-23-the-proposal-reads-strictly/`).
 
 ## What the change closes
 

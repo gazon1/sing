@@ -20,9 +20,9 @@ tags:
 - database
 - mapping
 documents:
-  proposal: openspec/changes/the-task-document-is-written-whole/proposal.md
-  design: openspec/changes/the-task-document-is-written-whole/design.md
-  tasks: openspec/changes/the-task-document-is-written-whole/tasks.md
-specs_dir: openspec/changes/the-task-document-is-written-whole/specs
+  proposal: openspec/changes/archive/2026-10-25-the-task-document-is-written-whole/proposal.md
+  design: openspec/changes/archive/2026-10-25-the-task-document-is-written-whole/design.md
+  tasks: openspec/changes/archive/2026-10-25-the-task-document-is-written-whole/tasks.md
+specs_dir: openspec/changes/archive/2026-10-25-the-task-document-is-written-whole/specs
 is_stub: false
-openspec_path: openspec/changes/the-task-document-is-written-whole
+openspec_path: openspec/changes/archive/2026-10-25-the-task-document-is-written-whole

@@ -116,7 +116,7 @@ exemption was the reason it stayed that way.
 
 ## Links
 
-- `openspec/changes/the-next-layer-of-contracts/`
+- `openspec/changes/archive/2026-10-25-the-next-layer-of-contracts/`
 - `scripts/src/sgate/controls.py`
 - `scripts/src/sgate/commands/_registry.py`
 - `scripts/check-waiver-references.py`

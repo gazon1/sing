@@ -20,7 +20,7 @@ The change that puts the application's ACP client against a bridge that is not o
   fake, taught the bridge's shapes.
 - `shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/acp/AcpClientProcessTest.kt`
   — the test that says the client survives a notification it has no answer for.
-- `openspec/changes/the-client-meets-a-real-bridge/**` and
+- `openspec/changes/archive/2026-10-25-the-client-meets-a-real-bridge/**` and
   `docs/decisions/2026-10-24-the-client-meets-a-real-bridge.md` — the records, and the
   bridge's own frames.
 

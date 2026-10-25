@@ -129,4 +129,4 @@ a feature about closing tasks.
 - `docs/decisions/2026-10-21-blocked-completion-guard.md` — the guard itself
 - `docs/decisions/2026-10-05-blocking-resolved-per-list-not-per-task.md` — superseded in
   the part that named `TaskComputed.blockedIds` the canonical form
-- `openspec/changes/close-rule-consolidation/` — the observable behaviour, stated
+- `openspec/changes/archive/2026-10-25-close-rule-consolidation/` — the observable behaviour, stated

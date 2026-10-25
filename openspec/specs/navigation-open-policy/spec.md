@@ -174,3 +174,171 @@ and on Desktop.
 - The same current context and target are used
 - The open is requested on Android and on Desktop
 - Both resolve to the same action
+
+### Requirement: REQ-NAV-008
+
+A deep link **SHALL** resolve to exactly one target — a top-level tab and a screen —
+and opening it **SHALL** make that tab active with a back stack of exactly
+`[tab, screen]`.
+
+**Rationale:** a link that opens a screen without naming a tab opens it on
+whatever the app happened to be showing, so "back" returns to an unrelated
+screen. The link is the app's only public surface; it has to say where it goes.
+
+The link is resolved by a registry that answers from an explicit, ordered list of
+the app's links. The order is part of the contract: the first matching link
+wins, because "the best match" is not defined when two templates accept the same
+URI.
+
+**Test coverage:** `DeepLinkRegistryTest` (the link table, the order of the
+checks), `Nav3StateDeepLinkTest` (the stack and the tab), `DeepLinkGraphTest`
+(the registry resolves from the real DI graph).
+
+#### Scenario: A task link opens the task on its tab
+- A link `singularity://task/{taskId}` arrives
+- The task detail is opened on the Agenda tab
+- The Agenda tab's stack holds the tab and the task screen, in that order
+
+#### Scenario: Back from a linked screen returns to the tab's own screen
+- A link opened a task detail on the Agenda tab
+- The user presses Back
+- The Agenda tab's own screen is shown
+
+#### Scenario: A link on another tab switches to it
+- A link names a screen on a tab that is not the active one
+- The named tab becomes active
+- That tab's stack holds the tab and the screen, in that order
+
+#### Scenario: An unknown link changes nothing
+- A link arrives that matches no registered link
+- The app stays where it is
+- No stack is rebuilt
+
+#### Scenario: The first matching link wins
+- Two registered links would accept the same URI
+- The one that comes first in the list is the one that opens
+
+---
+
+### Requirement: REQ-NAV-009
+
+The grammar of a link — its URI template and the reverse parsing of it —
+**SHALL** be declared once, by the feature that owns the link, and **SHALL** be
+read from there by both the producer of the link and the matcher that consumes
+it.
+
+**Rationale:** the task link's format lived in three places at once — the
+producer, a constant nobody read, and a second parser that read the link out of
+free text by hand. A change to one of them left the other two in the old
+format, and the link stopped opening with no error anywhere.
+
+**Test coverage:** `TaskLinkSpecTest` (the round trip, in a description and on
+its own).
+
+#### Scenario: The producer and the matcher agree
+- The calendar sync writes a link from the spec
+- The matcher parses a link with the same spec
+- The identifier that goes in is the identifier that comes out
+
+#### Scenario: There is one parser
+- A link is found inside a free-text description
+- The identifier is read by the spec, not by a second hand-written parser
+
+---
+
+### Requirement: REQ-NAV-010
+
+An entry point that receives a link **SHALL NOT** parse it. It **SHALL** build a
+request from the incoming URI and ask the registry what it opens, and a URI that
+matches nothing **SHALL** leave the app on its current screen without an error.
+
+**Rationale:** the magic-link reader pulled two query parameters out of any
+intent data, without checking the scheme or the host — so a link with the right
+parameters but the wrong authority was a magic link. The grammar belongs to the
+feature; an entry point that parses it is a second grammar.
+
+**Test coverage:** `DeepLinkRegistryTest` (unknown host, other scheme, missing
+argument, extra path segment — no match).
+
+#### Scenario: A link with the wrong authority is not a link
+- An intent carries `?email=` and `?token=` but its authority is not the one the
+  magic link declares
+- Nothing is opened
+
+#### Scenario: A malformed link is not a crash
+- A link arrives that cannot be read as a URI
+- The app opens on its start tab
+- No exception reaches the user
+
+### Requirement: REQ-NAV-011
+
+A nested navigation graph **SHALL** have exactly one implementation, in common code.
+Every difference between the platforms **SHALL** be expressed as a seam — a function
+or a parameter whose two sides differ — and **SHALL NOT** be a second copy of the
+graph.
+
+**Rationale:** two near-identical files look intentional. A difference between them
+reads as a decision, so an accidental difference survives review, survives the next
+change, and is never noticed — the two copies are close enough that comparing them
+was nobody's job.
+
+**Test coverage:** `AppEntryParityTest` (the same destinations on both platforms),
+`NestedEntryViewModelScopeTest` (the decorator is on both platforms).
+
+#### Scenario: A new screen inside a nested graph is registered once
+- A screen is added to a feature's nested graph
+- It is added to that graph's entry provider — one file
+- It opens on both platforms without a second edit
+
+#### Scenario: The platforms cannot drift apart
+- A platform difference is needed
+- It is expressed as a seam
+- The graph itself stays one implementation
+
+---
+
+### Requirement: REQ-NAV-012
+
+Every entry of a nested navigation graph **SHALL** resolve its own ViewModel store.
+Two entries of the same graph **SHALL NOT** share one store.
+
+**Rationale:** a ViewModel resolved through a shared store is keyed by its class
+alone — not by its parameters. Two entries that share a store and ask for the same
+ViewModel class therefore get the *same* instance: the second screen silently
+reuses the first one's state, with the first one's parameters.
+
+**Test coverage:** `NestedEntryViewModelScopeTest`.
+
+#### Scenario: Two screens of one graph keep their own state
+- A graph shows two screens, each with a ViewModel of the same class
+- The second screen resolves its own ViewModel
+- It does not reuse the first one's state or its parameters
+
+#### Scenario: The scope is the same on every platform
+- The graph runs on Android and on Desktop
+- Both scope the ViewModel store per entry
+- Neither platform resolves a ViewModel from the store of whatever is above it
+
+---
+
+### Requirement: REQ-NAV-013
+
+A gesture that opens a surface **SHALL** be a platform's business, expressed as a
+parameter. The set of places where the surface is offered **SHALL** be one decision,
+made in common code, and **SHALL** be the same on every platform.
+
+**Rationale:** a gesture and the policy behind it have different owners. A long
+press and a right click are the platform's; "a blocked task can be pinned and
+completed" is the app's. When the list of places lives in two files side by side, a
+gap in one of them looks deliberate.
+
+**Test coverage:** `AgendaContextMenuParityTest`.
+
+#### Scenario: The same surface is offered everywhere it applies
+- A task can be acted on from any task list
+- Every task list offers the same actions
+- The gesture that opens them differs per platform, and only the gesture does
+
+#### Scenario: A surface that does not apply is not offered
+- A screen lists saved views rather than tasks
+- It offers no task actions

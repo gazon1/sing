@@ -9,7 +9,7 @@ documents: sha256:7b49474de4b25afbcb9eb6fc3c234d2b4e829f798145725a3d62847c8e5c0b
 
 ## What was reviewed
 
-The whole change: `openspec/changes/task-series-presentation/` — the proposal,
+The whole change: `openspec/changes/archive/2026-10-25-task-series-presentation/` — the proposal,
 the design, the tasks and the `tasks` spec — against the code it describes:
 the mark of a series in the calendar and in the day's list, the undo of a
 deleted series, and the statistics that count a series as one work.

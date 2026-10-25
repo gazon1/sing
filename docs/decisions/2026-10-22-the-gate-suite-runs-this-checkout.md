@@ -152,5 +152,5 @@ checks that the registry still imports.
 - `scripts/check-gate-tooling-origin.py` — the question the runner asks first.
 - `docs/tools/README.md` — the tool surface, in prose.
 - `docs/decisions/2026-10-21-one-owner-of-stdout.md` — the hazard this closes.
-- `openspec/changes/the-gates-run-on-every-machine/` — why the package is
+- `openspec/changes/archive/2026-10-25-the-gates-run-on-every-machine/` — why the package is
   installed rather than put on `PYTHONPATH`.

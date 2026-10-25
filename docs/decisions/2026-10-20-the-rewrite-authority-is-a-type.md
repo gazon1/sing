@@ -181,7 +181,7 @@ the direction that loses work. The owner is the only component that can answer i
 
 ## Links
 
-- `openspec/changes/the-source-says-who-may-rewrite-the-field/`
+- `openspec/changes/archive/2026-10-25-the-source-says-who-may-rewrite-the-field/`
 - `docs/decisions/2026-10-20-the-task-and-the-project-learn-of-a-rewrite.md`
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/components/TextFieldSource.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/ui/components/TextFieldStateBridge.kt`

@@ -99,7 +99,7 @@ property of the code.
 
 ## Links
 
-- Spec delta `openspec/changes/acp-client-data-safety/specs/core/database-safety/spec.md`
+- Spec delta `openspec/changes/archive/2026-10-25-acp-client-data-safety/specs/core/database-safety/spec.md`
   — `REQ-DBSAFE-002`, the rule the record is part of
 - `shared/src/jvmMain/kotlin/com/singularity/todo/core/database/contract/StaleDbCleaner.kt`
   — `readHeader` and `probe`

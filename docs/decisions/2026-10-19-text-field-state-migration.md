@@ -253,4 +253,4 @@ with its migration, so a value-based field there is a finding like anywhere else
   — the server-driven renderer, migrated once the bridge supplied the conflict rule
 - `detekt-rules/src/main/kotlin/com/singularity/todo/detekt/NoValueBasedTextFieldRule.kt` —
   the rule that keeps the migration in place
-- `openspec/changes/text-field-state-migration/` — the behavioural spec for the change
+- `openspec/changes/archive/2026-10-25-text-field-state-migration/` — the behavioural spec for the change

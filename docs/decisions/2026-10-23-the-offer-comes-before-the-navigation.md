@@ -98,7 +98,7 @@ work came back, and it did not.
 
 ## Links
 
-- OpenSpec change: `openspec/changes/task-series-presentation` — the undo of a
+- OpenSpec change: `openspec/changes/archive/2026-10-25-task-series-presentation` — the undo of a
   deleted series
 - ADR `2026-09-08-task-restore-undo.md` — the undo contract for a single task
 - ADR `2026-10-09-undoable-delete-contract.md` — the write comes first, the

@@ -208,4 +208,4 @@ a mangled line in one of the contract tests.
 ## Links
 
 - `docs/decisions/2026-10-23-the-agent-surface-says-what-it-does.md`
-- `openspec/changes/agent-surface-follow-ups/`
+- `openspec/changes/archive/2026-10-25-agent-surface-follow-ups/`

@@ -20,9 +20,9 @@ tags:
 - database
 - mapping
 documents:
-  proposal: openspec/changes/the-document-says-only-what-it-carries/proposal.md
-  design: openspec/changes/the-document-says-only-what-it-carries/design.md
-  tasks: openspec/changes/the-document-says-only-what-it-carries/tasks.md
-specs_dir: openspec/changes/the-document-says-only-what-it-carries/specs
+  proposal: openspec/changes/archive/2026-10-25-the-document-says-only-what-it-carries/proposal.md
+  design: openspec/changes/archive/2026-10-25-the-document-says-only-what-it-carries/design.md
+  tasks: openspec/changes/archive/2026-10-25-the-document-says-only-what-it-carries/tasks.md
+specs_dir: openspec/changes/archive/2026-10-25-the-document-says-only-what-it-carries/specs
 is_stub: false
-openspec_path: openspec/changes/the-document-says-only-what-it-carries
+openspec_path: openspec/changes/archive/2026-10-25-the-document-says-only-what-it-carries

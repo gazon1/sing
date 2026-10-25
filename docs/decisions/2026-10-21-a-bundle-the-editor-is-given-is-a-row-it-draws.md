@@ -82,4 +82,4 @@ row exists, or the bundle is not there.
 - `2026-10-21-the-sheet-state-is-not-defaulted` — the state the rows open them through.
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/detail/TaskEditorContent.kt`
   — the rows.
-- `openspec/changes/the-editor-draws-the-rows-it-is-given/` — the change this records.
+- `openspec/changes/archive/2026-10-25-the-editor-draws-the-rows-it-is-given/` — the change this records.

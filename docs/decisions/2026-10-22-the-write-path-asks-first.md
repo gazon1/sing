@@ -141,4 +141,4 @@ application goes through the proposals' own use case, in one place.
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/proposals/domain/logic/ProposalBuilder.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/notes/presentation/viewmodel/NoteProposalsViewModel.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/proposals/presentation/components/ProposalCard.kt`
-- `openspec/changes/2026-10-22-the-write-path-asks-first/`
+- `openspec/changes/archive/2026-10-22-the-write-path-asks-first/`

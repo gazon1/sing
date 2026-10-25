@@ -62,7 +62,7 @@ preference in a year.
   syntactic rule, deferred as disproportionate)
 - `docs/decisions/deferred-backlog-archive.md#bulk-import-port`
 - `docs/decisions/deferred-backlog-archive.md#cross-user-write-rule-measured-and-rejected`
-- `openspec/changes/baseline-write-pipeline` (backup/restore is explicitly
+- `openspec/changes/archive/2026-10-20-baseline-write-pipeline` (backup/restore is explicitly
   out of scope there; this change adds the missing boundary)
 - Issue #82
 

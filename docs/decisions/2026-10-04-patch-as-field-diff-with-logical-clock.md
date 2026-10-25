@@ -113,5 +113,5 @@ clock picks the winner.
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncProtocol.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/database/Migration34To35.kt`
 - `shared/src/jvmTest/kotlin/com/singularity/todo/core/sync/BuildPatchDiffTest.kt`
-- `openspec/changes/supabase-auth-and-sync/specs/offline-sync/spec.md` (REQ-OS-002, REQ-OS-003)
+- `openspec/changes/archive/2026-10-06-supabase-auth-and-sync/specs/offline-sync/spec.md` (REQ-OS-002, REQ-OS-003)
 - `docs/decisions/2026-10-04-per-field-lww-conflict-policy.md`

@@ -62,6 +62,6 @@ Revisit when:
 
 - `#146` — the ratchet wipes the evidence it is about to measure. Same recipe,
   different defect.
-- `openspec/changes/local-gate-repair` — owns the recipe itself.
+- `openspec/changes/archive/2026-10-05-local-gate-repair` — owns the recipe itself.
 - `#458` — `--no-build-cache` in CI is orthogonal but related: both improve what
   the CI measurement actually captures.

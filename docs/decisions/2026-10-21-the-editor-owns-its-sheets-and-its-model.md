@@ -103,4 +103,4 @@ else.
   editor that this change finishes cleaning up.
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/detail/TaskEditorContent.kt`
   — the scaffold that owns the state, the model and the host.
-- `openspec/changes/the-editor-owns-its-sheets-and-its-model/` — the change this records.
+- `openspec/changes/archive/2026-10-25-the-editor-owns-its-sheets-and-its-model/` — the change this records.

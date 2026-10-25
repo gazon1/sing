@@ -108,7 +108,7 @@ comment-only field operations — was written for exactly this.
 
 ## Links
 
-- `openspec/changes/supabase-auth-and-sync/specs/offline-sync/spec.md` — REQ-OS-002,
+- `openspec/changes/archive/2026-10-06-supabase-auth-and-sync/specs/offline-sync/spec.md` — REQ-OS-002,
   REQ-OS-003, REQ-OS-004
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/sync/Hlc.kt`
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncBootstrapper.kt`

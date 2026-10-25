@@ -174,4 +174,4 @@ through the wrong list undoes all of it in a way no reader could detect.
 - `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/domain/logic/TaskCognitiveLoadTest.kt`
 - `shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/tools/TaskReadSurfaceTest.kt`
 - `mcp-server/src/main/kotlin/com/singularity/todo/mcp/ToolRegistrar.kt`
-- `openspec/changes/2026-10-22-the-read-surface/`
+- `openspec/changes/archive/2026-10-22-the-read-surface/`

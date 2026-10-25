@@ -50,6 +50,16 @@ BASELINE = ROOT / 'config' / 'docs' / 'adr-refs-baseline.txt'
 # one letter, so a bare date (2026-10-05) is not treated as a reference.
 TOKEN_RE = re.compile(r'\b(\d{4}-\d{2}-\d{2}-[a-z0-9]+(?:-[a-z0-9]+)+)\b')
 
+#: A path into the openspec corpus.
+#:
+#: The archive's directories carry the date of the change they hold
+#: (`openspec/changes/archive/2026-10-20-<slug>/`), so a path into the corpus
+#: looks like a dated ADR slug and is not one. A citation of a decision is a
+#: slug that stands on its own; a path into a directory of changes is a
+#: pointer to a change, and the gate that checks those is
+#: `check-review-verdicts.py`.
+CHANGE_PATH_RE = re.compile(r'openspec/changes/\S*')
+
 # Files an agent actually reads. Kept explicit so adding a doc source is a decision.
 SCAN_FILES = [
     ROOT / 'AGENTS.md',
@@ -141,6 +151,12 @@ def find_dangling(slugs: set[str]) -> list[str]:
         for line in text.splitlines():
             for match in TOKEN_RE.finditer(line):
                 token = match.group(1)
+                if any(
+                    path.start() <= match.start() and match.end() <= path.end()
+                    for path in CHANGE_PATH_RE.finditer(line)
+                ):
+                    # A directory of changes, not a citation of a decision.
+                    continue
                 # Tolerate an explicit .md suffix and a docs/decisions/ prefix.
                 token = token.removesuffix('.md')
                 if token in slugs:

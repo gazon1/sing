@@ -47,7 +47,7 @@ class, not a missing feature, and the requirement is therefore about the
 ## References
 
 - `docs/decisions/deferred-backlog.md#agenda-views-not-in-backup`
-- `openspec/changes/baseline-write-pipeline` (backup/restore is explicitly
+- `openspec/changes/archive/2026-10-20-baseline-write-pipeline` (backup/restore is explicitly
   out of scope for the write pipeline spec)
 - Issue #77
 

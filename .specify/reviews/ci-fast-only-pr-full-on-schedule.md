@@ -23,7 +23,7 @@ proposal and its spec delta. It is **not** the digest of the contract the
 review saw. The contract moved afterwards: PR #986 (`745b3afa`) added REQ-25
 to `specs/test-execution-integrity/spec.md` and rewrote the task list, so
 `git diff 1cb18e39 origin/main --
-openspec/changes/ci-fast-only-pr-full-on-schedule/` is not empty — it is 115
+openspec/changes/archive/2026-10-24-ci-fast-only-pr-full-on-schedule/` is not empty — it is 115
 insertions. The review below is of PR #978's diff, and it does not judge
 REQ-25; that addition was written and verified in #986, which is where this
 verdict file came from.
@@ -36,7 +36,7 @@ a claim in a diff, and a reviewer sees it.
 The diff of `gazon1/dulse` against `origin/main` for the change
 `ci-fast-only-pr-full-on-schedule`, and the four documents that state what the
 code must do: the change's spec
-(`openspec/changes/ci-fast-only-pr-full-on-schedule/specs/test-execution-integrity/spec.md`)
+(`openspec/changes/archive/2026-10-24-ci-fast-only-pr-full-on-schedule/specs/test-execution-integrity/spec.md`)
 and the ADRs of 2026-10-22 (CI population, Gradle memory budget, the coverage floor
 in the settings).
 

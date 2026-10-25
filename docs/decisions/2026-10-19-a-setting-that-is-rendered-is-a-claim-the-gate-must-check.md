@@ -91,7 +91,7 @@ would be a migration; honouring the screen does not need one.
 - `fix/three-red-gates` (PR #741) — the gate's own half: the exclusion by
   file, the controls that could not fail, and the sync push phase's
   data-loss bug.
-- `openspec/changes/working-day-switches-reach-the-agenda/` — proposal, tasks
+- `openspec/changes/archive/2026-10-20-working-day-switches-reach-the-agenda/` — proposal, tasks
   and the spec delta (`tasks` REQ "A setting that changes the agenda changes
   the agenda").
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/domain/logic/AgendaPresets.kt`

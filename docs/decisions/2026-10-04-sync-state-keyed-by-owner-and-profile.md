@@ -123,4 +123,4 @@ second source of truth for it would be worse than a fresh one.
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/database/Migration33To34.kt`
 - `shared/src/jvmTest/kotlin/com/singularity/todo/core/database/SyncStateMigrationTest.kt`
 - `shared/src/jvmTest/kotlin/com/singularity/todo/core/sync/SyncBootstrapperDispatchTest.kt`
-- `openspec/changes/supabase-auth-and-sync/specs/offline-sync/spec.md` (REQ-OS-009)
+- `openspec/changes/archive/2026-10-06-supabase-auth-and-sync/specs/offline-sync/spec.md` (REQ-OS-009)
