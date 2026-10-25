@@ -72,21 +72,6 @@ internal object ComposeCollectionExemptions {
      * register without a translation table.
      */
     val KNOWN: Map<String, Map<String, String>> = mapOf(
-        "com.singularity.todo.core.ui.components.BlockedBulkCompletionDialog" to
-            mapOf("blockedTaskTitles" to "List<String>"),
-        "com.singularity.todo.core.ui.components.BlockedCompletionDialog" to
-            mapOf("blockerTitles" to "List<String>"),
-        "com.singularity.todo.core.ui.components.sheet.ListPickerSheet" to
-            mapOf("items" to "List<ListPickerItem<T>>"),
-        "com.singularity.todo.core.ui.components.sheet.MonthGrid" to
-            mapOf("selected" to "Set<LocalDate>"),
-        "com.singularity.todo.core.ui.components.sheet.MultiDatePickerSheet" to
-            mapOf("initialDates" to "Set<LocalDate>"),
-        "com.singularity.todo.core.ui.components.sheet.MultiSelectSheet" to
-            mapOf(
-                "items" to "List<MultiSelectItem<T>>",
-                "selectedKeys" to "Set<T>",
-            ),
         "com.singularity.todo.feature.agenda.presentation.components.ReorderableSectionList" to
             mapOf("sections" to "List<Section>"),
         "com.singularity.todo.feature.agenda.presentation.screen.AgendaList" to

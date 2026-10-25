@@ -30,6 +30,8 @@ import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
 import kotlinx.coroutines.flow.map
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
 import org.koin.compose.koinInject
 
 /**
@@ -69,8 +71,8 @@ internal fun SelectorParameterSheet(
                 label = option.label,
                 testTag = TestTags.agendaSelectorOption(option.id),
             )
-        },
-        selectedKeys = selected.toSet(),
+        }.toImmutableList(),
+        selectedKeys = selected.toImmutableSet(),
         onToggle = { id ->
             if (id in selected) selected.remove(id) else selected.add(id)
         },

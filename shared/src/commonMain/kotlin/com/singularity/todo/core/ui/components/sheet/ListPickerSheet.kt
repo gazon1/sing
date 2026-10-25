@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
+import kotlinx.collections.immutable.ImmutableList
 
 /**
  * A single item in a [ListPickerSheet].
@@ -69,7 +70,7 @@ data class ListPickerItem<T>(
 fun <T> ListPickerSheet(
     title: String,
     testTag: String? = null,
-    items: List<ListPickerItem<T>>,
+    items: ImmutableList<ListPickerItem<T>>,
     onItemSelected: (T) -> Unit,
     onDismiss: () -> Unit,
     header: (@Composable ColumnScope.() -> Unit)? = null,

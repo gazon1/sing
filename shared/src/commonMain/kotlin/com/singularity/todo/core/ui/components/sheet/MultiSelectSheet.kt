@@ -23,6 +23,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
 
 /** One row in a [MultiSelectSheet]. */
 data class MultiSelectItem<T>(
@@ -61,8 +63,8 @@ data class MultiSelectItem<T>(
 @Composable
 fun <T> MultiSelectSheet(
     title: String,
-    items: List<MultiSelectItem<T>>,
-    selectedKeys: Set<T>,
+    items: ImmutableList<MultiSelectItem<T>>,
+    selectedKeys: ImmutableSet<T>,
     onToggle: (T) -> Unit,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,

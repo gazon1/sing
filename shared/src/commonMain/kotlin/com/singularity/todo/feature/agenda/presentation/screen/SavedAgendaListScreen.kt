@@ -28,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
+import kotlinx.collections.immutable.toImmutableList
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -293,7 +294,7 @@ private fun ProfilePickerSheet(
                 leading = { Text(profile.emoji, style = MaterialTheme.typography.titleLarge) },
                 testTag = TestTags.profileItem(profile.name),
             )
-        },
+        }.toImmutableList(),
         onItemSelected = onPick,
         onDismiss = onDismiss,
     )

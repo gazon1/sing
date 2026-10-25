@@ -40,6 +40,9 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
 import kotlinx.datetime.number
 import kotlinx.datetime.plus
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableSet
 
 /**
  * A picker that lets the user choose *several* days in one go.
@@ -73,8 +76,8 @@ import kotlinx.datetime.plus
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MultiDatePickerSheet(
-    initialDates: Set<LocalDate>,
-    onConfirm: (Set<LocalDate>) -> Unit,
+    initialDates: ImmutableSet<LocalDate>,
+    onConfirm: (ImmutableSet<LocalDate>) -> Unit,
     onDismiss: () -> Unit,
     today: LocalDate,
     maxDates: Int,
@@ -89,8 +92,8 @@ fun MultiDatePickerSheet(
             modifier = modifier,
             actions = SheetActions(
                 onClear = {
-                    selected = emptySet()
-                    onConfirm(emptySet())
+                    selected = persistentSetOf()
+                    onConfirm(persistentSetOf())
                     onDismiss()
                 },
                 onCancel = onDismiss,
@@ -119,7 +122,7 @@ fun MultiDatePickerSheet(
                 onDayClick = { date ->
                     when {
                         date in selected -> {
-                            selected = selected - date
+                            selected = (selected - date).toImmutableSet()
                             limitReached = false
                         }
 
@@ -129,7 +132,7 @@ fun MultiDatePickerSheet(
                         selected.size >= maxDates -> limitReached = true
 
                         else -> {
-                            selected = selected + date
+                            selected = (selected + date).toImmutableSet()
                             limitReached = false
                         }
                     }
@@ -201,7 +204,7 @@ private fun WeekdayHeaderRow() {
 private fun MonthGrid(
     monthAnchor: LocalDate,
     today: LocalDate,
-    selected: Set<LocalDate>,
+    selected: ImmutableSet<LocalDate>,
     onDayClick: (LocalDate) -> Unit,
 ) {
     val gridDates = remember(monthAnchor) { monthGridDates(monthAnchor) }
