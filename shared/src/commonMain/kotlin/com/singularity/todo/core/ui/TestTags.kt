@@ -974,6 +974,17 @@ object TestTags {
     /** The button that hands the typed password over. */
     const val BACKUP_PASSWORD_CONFIRM = "backup_password_confirm"
 
+    /**
+     * The button that pushes one archive to the cloud.
+     *
+     * It opens the password dialog, and a dialog that nothing can reach is a
+     * dialog nobody tests. The tag is the same for every archive on purpose: the
+     * flow needs *a* push button to open the dialog, not a specific archive —
+     * and a per-archive tag would have to name a file whose name carries the
+     * moment it was made.
+     */
+    const val BACKUP_PUSH_BUTTON = "backup_push"
+
     // ─── Profile ────────────────────────────────────────────────────────────
     const val PROFILE_CREATE_BUTTON = "profile_create_button"
     const val PROFILE_CREATE_NAME_INPUT = "profile_create_name_input"
