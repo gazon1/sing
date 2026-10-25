@@ -94,9 +94,11 @@ says less than the code does.
 
 5. **The index of capabilities is updated in the same change that creates them.**
    `openspec/specs/MODULE-INDEX.md` names every capability that has a spec and
-   every module that does not. Fourteen capabilities were added to it, and three
-   rows that named changes which are now archived were rewritten to name the
-   archived change and the capability it produced.
+   every module that does not. Fourteen capabilities were added to it. Four rows
+   of the table of modules that no capability covers were touched as well: three
+   now name the capability that covers them — two of them also name the archived
+   change that produced that capability — and one was removed, because the module
+   it named is covered now.
 
 6. **A removal that names a requirement nobody added is applied by hand, and the
    removal stays in the archive.** The block that removed `REQ-TI-REWRITE-EXCEPTION`
@@ -115,6 +117,15 @@ says less than the code does.
    `test-execution-integrity` became `REQ-27` to `REQ-30`, and the archived
    delta carries the same names. The rename is recorded here, because a reader
    of the archive meets the old ids and has to be told what they became.
+
+8. **A document that names a vocabulary the code retired is corrected — in the
+   archive too, and in the proposal with it.** The requirement of `notes` that
+   answers "who may rewrite this field?" named three answers: none, the value
+   itself, the value and a revision token. The code has two kinds of source,
+   `StaticText` and `OwnedText`, and this project's own decision says the old
+   vocabulary is gone. The requirement, the delta it was applied from and the
+   proposal that introduced it all named the three, so all three name the two
+   now, and the proposal no longer calls the question an open one.
 
 ## Rationale
 
@@ -171,6 +182,15 @@ arriving requirements took the next free ids, and the archived delta was renamed
 with them: a delta whose ids name nothing in the live spec is a delta that can
 neither be read against the spec nor replayed.
 
+**Why the proposal was corrected as well.** The archive is the record of what the
+branch said about the *behaviour* — which requirement says what, which scenario
+covers it, which shape the code has. A vocabulary the code retired is not that:
+it is a statement about the code, and it stopped being true. A reader who opens
+the archived proposal and finds three answers, while the delta beside it names
+two and the code has two, has been handed a contradiction and no way to tell
+which half to believe. The archive keeps the branch's behaviour; it does not keep
+a description of the code that the code has since outgrown.
+
 ## Consequences
 
 - Eight changes that the archive refused are archived, and the corpus of live
@@ -199,6 +219,9 @@ neither be read against the spec nor replayed.
   that starts background work". The live spec was written by a later commit, the
   wider wording is the stronger obligation, and the archive keeps the branch's own
   words. Nothing is lost by the difference, and nothing is gained by closing it.
+- The proposal, the delta and the live requirement of
+  `the-editor-and-the-rewrite-from-outside` name the same two kinds of source. A
+  reader who opens any one of the three finds the same answer.
 
 ## Links
 

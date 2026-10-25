@@ -14,9 +14,9 @@ replacement or a keystroke.
 A bridged field is a Compose `TextFieldState` fed by a flow. The flow may
 replace the field's content, and it may only do so when the content really
 changed. A replacement and a keystroke arrive the same way — as a new value —
-so a field that needs to tell them apart SHALL carry a revision token
-alongside the value, and the token SHALL move only when content is
-replaced.
+so the source that feeds the field SHALL carry a revision count alongside the
+value, the field SHALL read that count to tell a replacement from a keystroke,
+and the count SHALL move only when content is replaced.
 
 The user's unsaved edits SHALL win over an incoming replacement: a field with
 unsaved edits SHALL NOT be re-seeded, and the replacement SHALL wait for the

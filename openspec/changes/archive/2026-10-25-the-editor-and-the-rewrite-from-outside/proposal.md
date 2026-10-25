@@ -46,18 +46,18 @@ and does not disturb the caret.
 
 The second half of the change is the **rewrite contract**: a registry of every
 bridged field site in the app, and the answer to "who may rewrite this field?"
-for each one. Thirteen sites, three answers:
+for each one. Thirteen sites, two kinds of source:
 
-- **none** — the value is a one-way projection; nothing rewrites it.
-- **the value itself** — a rewrite arrives as a new value, and the field
-  replaces its content. This is the common case, and it is also the case that
-  cannot express "this is a replacement, not a keystroke".
-- **the value and a revision token** — the site carries a counter alongside
-  the value, so the bridge can tell a replacement from a keystroke.
+- **a static source** — the upstream replaces the value only with one the field
+  never produced: it loads the value once, or it clears it.
+- **an owned source** — the upstream owns the value: it may replace it with
+  anything, including a value the field itself produced earlier. The owner
+  counts the replacements and the field reads the count, so that a rewrite is
+  told from a keystroke.
 
-The notes editor is the only site that answers the third way. The sites that
-answer the second way carry the rarer half of the gap, and the registry says
-so in the open rather than leaving it to be discovered.
+The notes editor is the only site whose source is owned. A site that has to
+tell a replacement from a keystroke says so by owning the value, and the
+source it is handed says so too, so the question cannot be left open.
 
 Two smaller things fall out of the same reading:
 
@@ -95,5 +95,5 @@ Two smaller things fall out of the same reading:
 - The rewrite contract is a **registry, not a convention**: the shape registry
   and the rewrite registry live next to each other, and the convention test
   that guards the shape guards the rewrite answer too.
-- The sites that answer "the value itself" are recorded as an open question,
-  not as a silent gap.
+- A site that owns its value carries the count that tells a replacement from a
+  keystroke, and the kind of source it is handed says so at the call site.
