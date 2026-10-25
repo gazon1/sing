@@ -1,11 +1,25 @@
 package com.singularity.todo.core.llm
 
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
+
 /**
  * What an agent has done so far, as the reader sees it.
  *
  * The folded form of a turn's [AgentEvent]s. It is a value, not a live thing: folding the
  * same events always produces the same state, which is what makes the reader's view
  * predictable and what makes the rule testable without a screen.
+ *
+ * ## The collections are persistent
+ *
+ * The activity is a screen state, and the screen reads it by content: the plan that has not
+ * changed is the same plan, and a card that is still running is the same card. The two
+ * collections here are therefore [ImmutableList] — the fold builds them once, and the
+ * screen compares them by content instead of by identity.
+ *
+ * The promise is kept at the boundary: the fold turns the event's plain list into a
+ * persistent one, and nothing downstream rebuilds it.
  */
 data class AgentActivityState(
     /**
@@ -13,9 +27,9 @@ data class AgentActivityState(
      *
      * A call that is still running and the same call finished are one entry, not two.
      */
-    val calls: List<AgentToolCall> = emptyList(),
+    val calls: ImmutableList<AgentToolCall> = persistentListOf(),
     /** The agent's plan, as a snapshot. */
-    val plan: List<AgentPlanStep> = emptyList(),
+    val plan: ImmutableList<AgentPlanStep> = persistentListOf(),
 ) {
 
     /**
@@ -51,13 +65,15 @@ data class AgentActivityState(
             )
             val existing = calls.indexOfFirst { it.id == event.id }
             val updated = if (existing >= 0) {
-                calls.toMutableList().also { it[existing] = call }
+                calls.mapIndexed { index: Int, current: AgentToolCall ->
+                    if (index == existing) call else current
+                }.toImmutableList()
             } else {
-                calls + call
+                (calls + call).toImmutableList()
             }
             copy(calls = updated)
         }
 
-        is AgentEvent.PlanUpdated -> copy(plan = event.steps)
+        is AgentEvent.PlanUpdated -> copy(plan = event.steps.toImmutableList())
     }
 }

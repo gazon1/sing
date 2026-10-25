@@ -16,6 +16,9 @@ import com.singularity.todo.feature.ai.TextGenPort
 import com.singularity.todo.feature.genui.engine.GenuiOutcome
 import com.singularity.todo.feature.genui.engine.GenuiSession
 import com.singularity.todo.feature.genui.surface.SurfaceId
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.serialization.json.JsonElement
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
@@ -51,7 +54,7 @@ class ChatViewModel(
     ) {
 
     data class State(
-        val messages: List<ChatMessage> = emptyList(),
+        val messages: ImmutableList<ChatMessage> = persistentListOf(),
         /**
          * The text of the chat input.
          *
@@ -155,17 +158,17 @@ class ChatViewModel(
                 surfaceError = null,
                 activity = AgentActivityState(),
                 turnOutcome = null,
-                messages = current.messages +
-                    (
-                        if (showUserMessage) {
-                            listOf(
-                                ChatMessage(newId(), ChatRole.User, userText.trim()),
-                            )
-                        } else {
-                            emptyList()
-                        }
-                    ) +
-                    ChatMessage(assistantId, ChatRole.Assistant, ""),
+                messages = (
+                    current.messages +
+                        (
+                            if (showUserMessage) {
+                                listOf(ChatMessage(newId(), ChatRole.User, userText.trim()))
+                            } else {
+                                emptyList()
+                            }
+                        ) +
+                        ChatMessage(assistantId, ChatRole.Assistant, "")
+                ).toImmutableList(),
             )
         }
 
@@ -316,7 +319,7 @@ class ChatViewModel(
                     } else {
                         message.copy(content = text, surfaceId = surfaceId)
                     }
-                },
+                }.toImmutableList(),
             )
         }
     }
