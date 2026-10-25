@@ -9,8 +9,9 @@ package com.singularity.todo.mcp
  *
  * - the shutdown hook, which has to be installed after the server exists, because it
  *   closes it;
- * - the refusals, which have to happen before the container is started, because a
- *   refusal after it leaves a half-started process behind;
+ * - the refusal that can be decided from the arguments alone, which has to happen
+ *   before the container is started, because a refusal after it leaves a half-started
+ *   process behind; the refusal that needs the database cannot be decided any earlier;
  * - the client, which is told one thing and whose process leaves with another — so the
  *   step that refuses is the step that found the reason, and the refusal carries both.
  *

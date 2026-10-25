@@ -16,15 +16,17 @@ The order those steps run in is a contract, and it is a contract with three thin
 
 - the shutdown hook, which closes the server, so it has to be installed after the
   server exists;
-- the refusals, which have to happen before the container is started, because a refusal
-  after it leaves a half-started process behind;
+- the refusal that can be decided from the arguments alone, which has to happen before
+  the container is started, because a refusal after it leaves a half-started process
+  behind; the refusal that needs the database cannot be decided any earlier, and it is
+  said so here rather than claimed as a rule it is not;
 - the client, which is told one thing while the process leaves with another.
 
 But only the sequence of statements knew that order. The twelve steps were written down
 in the architecture notes, and the code's order was a side effect of how the function
 happened to be written — nothing said "the shutdown hook comes last", and nothing said
-"the profile is refused before the container is started". A step that moved up or down
-would have changed what the client is told, and nothing would have said so.
+"the ambiguous request is refused before anything is started". A step that moved up or
+down would have changed what the client is told, and nothing would have said so.
 
 `#994` asked for exactly this: "Give the tool server's start-up an order that is
 written down, and a name for each step".

@@ -15,8 +15,8 @@ import org.koin.core.context.startKoin
  * [com.singularity.todo.feature.profile.ProfileBootstrapper.run] via the `user_id` scope
  * on each DAO query; the `--profile=NAME` argument is a label, not a directory suffix.
  *
- * On failure, logs the cause and returns false: the refusal the client is told is the
- * caller's to make, so that the client and the process are told the same thing.
+ * On failure, logs the cause and refuses with `-32000`: the client is told one
+ * thing, and the process leaves with the code the refusal carries.
  */
 internal object BuildTheGraph : ToolServerStartupStep {
 

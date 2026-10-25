@@ -6,9 +6,9 @@ package com.singularity.todo.mcp
  * ## Why a step is a type
  *
  * The order the steps run in is a contract, and not with the client alone: the shutdown
- * hook has to be installed after the server exists, because it closes it, and a refusal
- * has to happen before the container is started, because a refusal after it leaves a
- * half-started process behind.
+ * hook has to be installed after the server exists, because it closes it, and the
+ * refusal that needs nothing but the arguments has to happen before the container is
+ * started, because a refusal after it leaves a half-started process behind.
  *
  * When the steps were functions in one file, only the sequence of statements knew that
  * order. A step that is a type has a name, and the order is a list of those names, so
