@@ -27,6 +27,7 @@ import com.singularity.todo.feature.tasks.withExtras
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.zip
 import kotlinx.coroutines.flow.map
+import kotlinx.collections.immutable.toImmutableList
 
 /**
  * The full-text index, read through the one port.
@@ -63,28 +64,28 @@ class SearchTextIndexImpl(
             matched.zip(tasks) { rows, enriched ->
                 val ranges = HashMap<String, List<TextMatchRange>>()
                 rows.forEach { row -> ranges[row.task.id] = taskRanges(row) }
-                enriched.map { task -> IndexedRecord(task, ranges[task.id.value] ?: emptyList()) }
+                enriched.map { task -> IndexedRecord(task, (ranges[task.id.value] ?: emptyList()).toImmutableList()) }
             }
         }
 
     override fun observeNotes(query: TextMatchQuery): Flow<List<IndexedRecord<Note>>> =
         currentUser.observeForCurrentUser { uid ->
             ftsDao.watchNotes(uid.value, query).map { rows ->
-                rows.map { row -> IndexedRecord(row.note.toNote(), noteRanges(row)) }
+                rows.map { row -> IndexedRecord(row.note.toNote(), noteRanges(row).toImmutableList()) }
             }
         }
 
     override fun observeProjects(query: TextMatchQuery): Flow<List<IndexedRecord<Project>>> =
         currentUser.observeForCurrentUser { uid ->
             ftsDao.watchProjects(uid.value, query).map { rows ->
-                rows.map { row -> IndexedRecord(row.project.toProject(), projectRanges(row)) }
+                rows.map { row -> IndexedRecord(row.project.toProject(), projectRanges(row).toImmutableList()) }
             }
         }
 
     override fun observeTags(query: TextMatchQuery): Flow<List<IndexedRecord<Tag>>> =
         currentUser.observeForCurrentUser { uid ->
             ftsDao.watchTags(uid.value, query).map { rows ->
-                rows.map { row -> IndexedRecord(row.tag.toTag(), tagRanges(row)) }
+                rows.map { row -> IndexedRecord(row.tag.toTag(), tagRanges(row).toImmutableList()) }
             }
         }
 

@@ -64,6 +64,8 @@ import com.singularity.todo.feature.tasks.presentation.components.TaskCard
 import com.singularity.todo.feature.tasks.presentation.components.TaskCardActions
 import kotlin.time.Clock
 import org.koin.compose.viewmodel.koinViewModel
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -316,7 +318,7 @@ private fun SectionHeader(title: String) {
 private fun SimpleResultCard(
     title: String,
     onClick: () -> Unit,
-    matchRanges: List<TextMatchRange> = emptyList(),
+    matchRanges: ImmutableList<TextMatchRange> = persistentListOf(),
 ) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),

@@ -1,5 +1,8 @@
 package com.singularity.todo.core.search
 
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+
 /**
  * A record the index found, and where in it the word was found.
  *
@@ -21,4 +24,4 @@ package com.singularity.todo.core.search
  *   Empty when the record was not read through the index — a broad scan reads
  *   the rows and has no positions to report.
  */
-data class IndexedRecord<T>(val record: T, val ranges: List<TextMatchRange>)
+data class IndexedRecord<T>(val record: T, val ranges: ImmutableList<TextMatchRange> = persistentListOf())

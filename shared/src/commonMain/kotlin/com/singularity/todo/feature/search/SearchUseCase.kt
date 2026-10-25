@@ -26,6 +26,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 
 /**
  * The answer of a search: the records it found, and where the word was found.
@@ -135,7 +137,7 @@ class SearchUseCase(
         }
         val baseTaskFlow: Flow<List<IndexedRecord<Task>>> = when {
             plan !is TextMatchPlan.Narrowed -> structuredTaskFlow.map { tasks ->
-                tasks.map { task -> IndexedRecord(task, emptyList()) }
+                tasks.map { task -> IndexedRecord(task, persistentListOf()) }
             }
 
             resolved.taskFilter == null -> textIndex.observeTasks(plan.query)
@@ -143,7 +145,7 @@ class SearchUseCase(
             else -> combine(structuredTaskFlow, textIndex.observeTasks(plan.query)) { structured, matched ->
                 val matchedById = matched.associateBy { record -> record.record.id }
                 structured.mapNotNull { task ->
-                    matchedById[task.id]?.let { found -> IndexedRecord(task, found.ranges) }
+                    matchedById[task.id]?.let { found -> IndexedRecord(task, found.ranges.toImmutableList()) }
                 }
             }
         }
@@ -156,7 +158,7 @@ class SearchUseCase(
                 tasks
             }
             val rangesById = records.associate { record -> record.record.id to record.ranges }
-            var result = filtered.map { task -> IndexedRecord(task, rangesById[task.id].orEmpty()) }
+            var result = filtered.map { task -> IndexedRecord(task, rangesById[task.id].orEmpty().toImmutableList()) }
 
             result = sortTasks(result, resolved.sortOrder, resolved.sortDescending)
 
@@ -246,7 +248,7 @@ class SearchUseCase(
                 notes.filter { note -> rule.accepts(plan) { term -> mode.matches(note, term) } }
                     .sortedByDescending { note -> note.updatedAt }
                     .take(SearchLimits.NOTES)
-                    .map { note -> IndexedRecord(note, emptyList()) }
+                    .map { note -> IndexedRecord(note, persistentListOf()) }
             }
         }
     }
@@ -263,7 +265,7 @@ class SearchUseCase(
             is TextMatchPlan.Narrowed -> textIndex.observeProjects(plan.query)
 
             TextMatchPlan.BroadScan -> projectRepo.observeAll().map { projects ->
-                projects.map { project -> IndexedRecord(project, emptyList()) }
+                projects.map { project -> IndexedRecord(project, persistentListOf()) }
             }
         }
         return source.map { projects ->
@@ -285,7 +287,7 @@ class SearchUseCase(
             is TextMatchPlan.Narrowed -> textIndex.observeTags(plan.query)
 
             TextMatchPlan.BroadScan -> tagRepo.observeAll().map { tags ->
-                tags.map { tag -> IndexedRecord(tag, emptyList()) }
+                tags.map { tag -> IndexedRecord(tag, persistentListOf()) }
             }
         }
         return source.map { tags ->

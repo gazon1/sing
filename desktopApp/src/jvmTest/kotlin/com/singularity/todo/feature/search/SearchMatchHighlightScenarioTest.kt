@@ -22,6 +22,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Instant
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  * Desktop automation for scenario `SEARCH-09` — see
@@ -61,7 +62,7 @@ class SearchMatchHighlightScenarioTest {
                 TaskCard(
                     task = task,
                     onClick = {},
-                    matchRanges = listOf(TextMatchRange(SearchColumn.TITLE, 0, 12)),
+                    matchRanges = persistentListOf(TextMatchRange(SearchColumn.TITLE, 0, 12)),
                 )
             }
         }
@@ -82,7 +83,7 @@ class SearchMatchHighlightScenarioTest {
                 TaskCard(
                     task = task,
                     onClick = {},
-                    matchRanges = listOf(TextMatchRange(SearchColumn.DESCRIPTION, 0, 12)),
+                    matchRanges = persistentListOf(TextMatchRange(SearchColumn.DESCRIPTION, 0, 12)),
                 )
             }
         }

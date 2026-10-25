@@ -38,6 +38,8 @@ import com.singularity.todo.core.search.TextMatchRange
 import com.singularity.todo.core.search.inColumn
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  * Card representation of a single task. Stateless — every piece of behavior is
@@ -60,7 +62,7 @@ fun TaskCard(
     onLongClick: () -> Unit = {},
     actions: TaskCardActions = TaskCardActions(),
     modifier: Modifier = Modifier,
-    matchRanges: List<TextMatchRange> = emptyList(),
+    matchRanges: ImmutableList<TextMatchRange> = persistentListOf(),
     body: @Composable RowScope.() -> Unit = { DefaultTaskCardBody(task, actions, matchRanges) },
     trailing: @Composable RowScope.() -> Unit = { DefaultTaskCardTrailing(task, actions) },
 ) {
@@ -97,7 +99,7 @@ fun TaskCard(
 internal fun RowScope.DefaultTaskCardBody(
     task: Task,
     actions: TaskCardActions,
-    matchRanges: List<TextMatchRange> = emptyList(),
+    matchRanges: ImmutableList<TextMatchRange> = persistentListOf(),
 ) {
     actions.onToggle?.let { onToggle ->
         ToggleButton(isCompleted = task.isCompleted, onClick = onToggle, taskTitle = task.title)
@@ -142,7 +144,7 @@ private fun ToggleButton(isCompleted: Boolean, onClick: () -> Unit, taskTitle: S
 private fun TaskText(
     task: Task,
     modifier: Modifier = Modifier,
-    matchRanges: List<TextMatchRange> = emptyList(),
+    matchRanges: ImmutableList<TextMatchRange> = persistentListOf(),
 ) {
     Column(modifier = modifier) {
         Text(

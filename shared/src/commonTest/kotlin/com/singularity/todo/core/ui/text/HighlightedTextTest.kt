@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  * The matched word is drawn over the word.
@@ -26,7 +27,7 @@ class HighlightedTextTest {
     fun `the span covers the matched characters`() {
         val text = "Architecture of the house"
 
-        val drawn = highlightedText(text, listOf(TextMatchRange(SearchColumn.TITLE, 0, 12)), style)
+        val drawn = highlightedText(text, persistentListOf(TextMatchRange(SearchColumn.TITLE, 0, 12)), style)
 
         assertEquals(1, drawn.spanStyles.size)
         assertEquals(0, drawn.spanStyles.first().start)
@@ -40,7 +41,7 @@ class HighlightedTextTest {
         // covers the word and stops at the space.
         val text = "Café au lait"
 
-        val drawn = highlightedText(text, listOf(TextMatchRange(SearchColumn.TITLE, 0, 4)), style)
+        val drawn = highlightedText(text, persistentListOf(TextMatchRange(SearchColumn.TITLE, 0, 4)), style)
 
         assertEquals(1, drawn.spanStyles.size)
         assertEquals(0, drawn.spanStyles.first().start)
@@ -50,7 +51,7 @@ class HighlightedTextTest {
 
     @Test
     fun `no range draws no span`() {
-        val drawn = highlightedText("Architecture", emptyList(), style)
+        val drawn = highlightedText("Architecture", persistentListOf(), style)
 
         assertTrue(drawn.spanStyles.isEmpty())
     }
@@ -59,7 +60,7 @@ class HighlightedTextTest {
     fun `a range that runs past the text is drawn over the text it covers`() {
         // The range comes from the index, and the index does not draw. A range
         // that does not fit the text must not draw a span past the end of it.
-        val drawn = highlightedText("Architecture", listOf(TextMatchRange(SearchColumn.TITLE, 0, 900)), style)
+        val drawn = highlightedText("Architecture", persistentListOf(TextMatchRange(SearchColumn.TITLE, 0, 900)), style)
 
         assertEquals(1, drawn.spanStyles.size)
         assertEquals(0, drawn.spanStyles.first().start)

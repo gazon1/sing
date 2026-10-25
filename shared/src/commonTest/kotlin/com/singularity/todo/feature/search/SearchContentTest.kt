@@ -9,6 +9,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.time.Instant
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  * The three states of the search screen.
@@ -70,7 +71,7 @@ class SearchContentTest {
                         updatedAt = NOW,
                         userId = TestUsers.DEFAULT,
                     ),
-                    ranges = emptyList(),
+                    ranges = persistentListOf(),
                 ),
             ),
             emptyList(),
