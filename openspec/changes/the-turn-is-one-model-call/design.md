@@ -97,7 +97,8 @@ outcome is recorded as cancelled, the partial answer stays, and the spinner stop
 - A test that the screen still renders when the answer draws one, and that a rejected
   screen is corrected — the two behaviours the deleted session used to own.
 - A test that a provider with no credentials ends the turn as failed.
-- A test that the cost of a turn is recorded once.
+- A test that each call a turn makes is recorded once, and that the screen itself is
+  recorded never.
 
 ## The risk this change takes
 

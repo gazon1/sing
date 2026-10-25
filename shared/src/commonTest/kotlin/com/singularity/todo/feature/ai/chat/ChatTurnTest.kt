@@ -80,6 +80,38 @@ class ChatTurnTest {
         assertFalse("{" in said.toString(), "The reader sees words, not a protocol: $said")
     }
 
+    /**
+     * A message spread over several lines reaches the screen, and none of it reaches the
+     * reader.
+     *
+     * A model asked for JSON Lines often pretty-prints instead, and a pretty-printed
+     * message is still one message: its first line opens it and a later line closes it.
+     * Read line by line, the first line is a truncated object the parser must reject — a
+     * rejection the model is then told about for a message it wrote correctly — and the
+     * body's own lines, which open with a quote, would arrive at the reader as prose.
+     *
+     * So the test drives a pretty-printed surface and asserts the two things that must be
+     * true: the screen is drawn (the message was assembled, not rejected, hence one call),
+     * and no fragment of the message reached the reader.
+     */
+    @Test
+    fun aPrettyPrintedMessageIsOneMessageAndTheReaderNeverSeesIt() = runTest {
+        val agent = ScriptedTextGen(fragments(prettyPrintedSurface(), 7))
+        val screen = screen(surface)
+        val said = StringBuilder()
+
+        turn(agent, screen).run("show my tasks").collect { event ->
+            if (event is AgentEvent.TextDelta) said.append(event.text)
+        }
+
+        val printed: String = said.toString()
+        assertFalse("createSurface" in printed, "The reader sees words, not a protocol: $printed")
+        assertFalse("surfaceId" in printed, "Nor the message's own body: $printed")
+        assertTrue(screen.rejections.isEmpty(), screen.readerFeedback())
+        assertEquals(1, agent.requests.size, "A correctly written message is not corrected")
+        assertNotNull(controller.snapshot(surface), "The message was assembled and drawn")
+    }
+
     @Test
     fun aHallucinatedComponentCostsOneExtraCallAndThenSucceeds() = runTest {
         val agent = ScriptedTextGen(answers(badSurface(), validSurface()))
@@ -331,6 +363,25 @@ class ChatTurnTest {
         """{"createSurface":{"surfaceId":"test","rootId":"root","components":[""" +
             """{"id":"root","kind":"column","children":["t1"]},""" +
             """{"id":"t1","kind":"text","value":"Hello"}]}}"""
+
+    /**
+     * The same surface, pretty-printed — one message over several lines.
+     *
+     * A real model asked for JSON Lines pretty-prints anyway, so the framer has to put the
+     * lines back together; a fixture that stayed on one line would never exercise that.
+     */
+    private fun prettyPrintedSurface(): String = """
+        {
+          "createSurface": {
+            "surfaceId": "test",
+            "rootId": "root",
+            "components": [
+              {"id": "root", "kind": "column", "children": ["t1"]},
+              {"id": "t1", "kind": "text", "value": "Hello"}
+            ]
+          }
+        }
+        """.trimIndent()
 
     private fun badSurface(): String =
         """{"createSurface":{"surfaceId":"test","rootId":"chart","components":[""" +

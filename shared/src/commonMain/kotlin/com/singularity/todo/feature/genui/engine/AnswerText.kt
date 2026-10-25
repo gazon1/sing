@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.genui.engine
 
+import com.singularity.todo.feature.genui.core.JsonMessageDepth
 import com.singularity.todo.feature.genui.core.looksLikeFence
 
 /**
@@ -55,6 +56,20 @@ class AnswerText {
     private val held = StringBuilder()
 
     /**
+     * How deep the message being hidden is.
+     *
+     * A message may span several lines: a model asked for JSON Lines often pretty-prints
+     * instead, and a pretty-printed message is still one message. So the reader's text
+     * hides the message until it closes — otherwise the message's own body would arrive as
+     * prose, because a line that starts with a quote does not start with a brace.
+     *
+     * The count is the format's own ([com.singularity.todo.feature.genui.core.JsonMessageDepth]),
+     * shared with the framer that parses the message, so the two cannot disagree about
+     * where a message ends.
+     */
+    private val depth = JsonMessageDepth()
+
+    /**
      * Takes a piece of the model's answer and returns the part the reader may see.
      *
      * The text that is withheld is withheld for good: a message is not shown later, and neither
@@ -84,8 +99,20 @@ class AnswerText {
         when (line) {
             Line.UNDECIDED -> decide(character, shown)
             Line.PROSE -> shown.append(character)
-            Line.MESSAGE -> Unit
+            Line.MESSAGE -> insideMessage(character)
             Line.HELD -> held.append(character)
+        }
+    }
+
+    /**
+     * Swallows a character of the message, and notices when the message closes.
+     *
+     * A message that closes mid-line is followed by whatever came after it, and that is
+     * prose: the reader may see it.
+     */
+    private fun insideMessage(character: Char) {
+        if (depth.accept(character.toString()) <= 0) {
+            line = Line.UNDECIDED
         }
     }
 
@@ -110,6 +137,9 @@ class AnswerText {
             shown.append(character)
         } else {
             held.append(character)
+            if (line == Line.MESSAGE) {
+                depth.accept(character.toString())
+            }
         }
     }
 
@@ -147,7 +177,17 @@ class AnswerText {
 
             Line.PROSE -> shown.append('\n')
 
-            Line.MESSAGE, Line.UNDECIDED -> Unit
+            Line.MESSAGE -> {
+                // The message continues on the next line: it is not closed yet, and the reader
+                // waits for the rest of it.
+                if (depth.current <= 0) {
+                    line = Line.UNDECIDED
+                    held.clear()
+                }
+                return
+            }
+
+            Line.UNDECIDED -> Unit
         }
         line = Line.UNDECIDED
         held.clear()

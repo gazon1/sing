@@ -18,6 +18,61 @@ package com.singularity.todo.feature.genui.core
 fun looksLikeMessage(line: String): Boolean = line.startsWith("{")
 
 /**
+ * How deep a JSON message is, so that a message spread over several lines is still one message.
+ *
+ * ## Why the depth is counted and not the lines
+ *
+ * The format is JSON Lines — one message per line — and a model asked for it often
+ * pretty-prints instead. A pretty-printed message is still one message: its first line
+ * opens it and a later line closes it.
+ *
+ * Reading it line by line would do two wrong things at once. The framer would offer the
+ * parser a truncated object to reject — a rejection the model is then told about, for a
+ * message the model had in fact written correctly. And the answer's text would show the
+ * reader the message's own body as prose, because a line that starts with a quote is not a
+ * line that starts with a brace.
+ *
+ * So the depth is counted, and the count is shared: the framer and the answer's text ask
+ * this file, and cannot disagree about where a message ends.
+ *
+ * ## Why the strings are counted apart
+ *
+ * A brace inside a string is a character, not a structure: `"title": "a } in the title"`
+ * opens and closes nothing. So the counter walks the text the way a JSON reader does — in
+ * a string, a quote ends the string and a backslash escapes the next character; out of
+ * one, a quote opens it.
+ */
+class JsonMessageDepth {
+
+    private var depth: Int = 0
+    private var inString: Boolean = false
+    private var escaped: Boolean = false
+
+    /** The depth the message is at. Zero means the message is closed. */
+    val current: Int get() = depth
+
+    /**
+     * Takes a piece of the message and returns the depth it leaves behind.
+     *
+     * The text may be a whole line or a single character: the answer's text reads the
+     * answer as it arrives, one character at a time.
+     */
+    fun accept(text: String): Int {
+        for (character in text) {
+            when {
+                escaped -> escaped = false
+                inString && character == '\\' -> escaped = true
+                inString && character == '"' -> inString = false
+                !inString && character == '"' -> inString = true
+                !inString && character == '{' -> depth++
+                !inString && character == '}' -> depth--
+            }
+        }
+        return depth
+    }
+}
+
+/**
  * Whether a line is a fence delimiter.
  *
  * A fence is a line of backticks, optionally carrying a language tag.

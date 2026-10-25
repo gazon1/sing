@@ -32,9 +32,11 @@ import kotlinx.coroutines.flow.flow
  *
  * ## What the turn does not decide
  *
- * How the turn ended. That belongs to whoever asked the question: a stream that ends without
- * the completion event did not finish, and only the caller can say whether that was a failure
- * or a cancellation.
+ * How the turn ended. The turn says whether the *answer* completed — and it says so on the
+ * strength of its last attempt, because an answer that was corrected and then cut off is not
+ * a complete answer. Whether that is a failure or a cancellation is the caller's: a stream
+ * that ends without the completion event did not finish, and only the caller can say which
+ * of the two it was.
  */
 internal class ChatTurn(
     /** The model, with the tools it may call. */
@@ -58,9 +60,15 @@ internal class ChatTurn(
         val answer: AnswerText? = if (surface != null) AnswerText() else null
         var request: String = historyBlock() + prompt
         var attempt: Int = 0
+        // Whether the attempt that is running finished. The agent completes a *call*, and a
+        // turn may be several calls: only the last attempt's completion says the turn is
+        // complete. An earlier attempt that completed and was corrected says nothing about
+        // the answer the reader ends up with.
+        var completed: Boolean = false
 
         while (true) {
             surface?.beginAttempt()
+            completed = false
             agent.streamChat(request, instructions = surface?.instructions.orEmpty()).collect { event: AgentEvent ->
                 when (event) {
                     is AgentEvent.TextDelta -> {
@@ -68,6 +76,8 @@ internal class ChatTurn(
                         val shown: String = answer?.accept(event.text) ?: event.text
                         if (shown.isNotEmpty()) emit(AgentEvent.TextDelta(shown))
                     }
+
+                    is AgentEvent.TurnCompleted -> completed = true
 
                     else -> emit(event)
                 }
@@ -79,6 +89,10 @@ internal class ChatTurn(
             attempt++
             request = historyBlock() + prompt + surface!!.correctionRequest()
         }
+
+        // The turn completes once, and it completes on the strength of the last attempt: an
+        // answer that was corrected and then cut off is not a complete answer.
+        if (completed) emit(AgentEvent.TurnCompleted)
 
         val tail: String = answer?.finish().orEmpty()
         if (tail.isNotEmpty()) emit(AgentEvent.TextDelta(tail))

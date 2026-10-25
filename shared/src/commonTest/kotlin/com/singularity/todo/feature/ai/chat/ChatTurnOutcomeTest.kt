@@ -303,6 +303,84 @@ class ChatTurnOutcomeTest {
             "The catalogue reaches the model: ${agent.instructionsSeen}",
         )
     }
+
+    /**
+     * A provider that is not configured ends the turn failed (REQ-CHTURN-006).
+     *
+     * `KoogAgentService.streamChat` emits exactly this when there is no API key: the
+     * screen's own words, and then no completion event at all — the turn did not finish,
+     * it never started. The test asserts the rule the turn relies on rather than
+     * instantiating the service, which is wired to settings, tools and a remote config.
+     */
+    @Test
+    fun aProviderWithNoCredentialsEndsTheTurnFailed() = runTest {
+        val ctx = chat(
+            flowOf(
+                AgentEvent.TextDelta(
+                    "(AI unavailable: API key not configured. Set it in Settings > AI Provider.)",
+                ),
+            ),
+        )
+
+        ctx.ask()
+
+        val outcome = ctx.state.value.turnOutcome
+        assertIs<AgentTurnOutcome.Failed>(outcome, "No completion event is no completion: $outcome")
+        assertTrue(
+            ctx.state.value.messages.last().content.contains("not configured"),
+            "And the screen keeps saying why: ${ctx.state.value.messages.last().content}",
+        )
+    }
+
+    /**
+     * The turn completes only on the strength of its *last* attempt.
+     *
+     * A correction is part of the turn. An answer that was corrected and then cut off is
+     * not a complete answer, so the first attempt's completion must not leak out as the
+     * turn's — the screen would tell the reader the answer is whole when it is not.
+     */
+    @Test
+    fun aTruncatedFinalAttemptFailsTheTurnEvenIfAnEarlierAttemptCompleted() = runTest {
+        val agent = PerCallTextGen(
+            listOf(
+                // Attempt 1: a completion, and a screen the parser rejects — so the turn
+                // is corrected, not finished.
+                flowOf(
+                    AgentEvent.TextDelta(
+                        """{"createSurface":{"surfaceId":"test","rootId":"chart","components":[""" +
+                            """{"id":"chart","kind":"chart","series":[1,2,3]}]}}""" + "\n",
+                    ),
+                    AgentEvent.TurnCompleted,
+                ),
+                // Attempt 2: text only, and the stream dies before the completion arrives.
+                flowOf(AgentEvent.TextDelta("here is a sentence")),
+            ),
+        )
+        val ctx = chatWithScreen(agent)
+
+        ctx.ask()
+
+        val outcome = ctx.state.value.turnOutcome
+        assertIs<AgentTurnOutcome.Failed>(outcome, "The last attempt did not finish: $outcome")
+        assertEquals(2, agent.calls, "The rejection caused exactly one correction")
+    }
+}
+
+/** A text generator that answers a different script on each call. */
+private class PerCallTextGen(private val scripts: List<Flow<AgentEvent>>) : TextGenPort {
+    var calls: Int = 0
+        private set
+
+    override suspend fun generate(prompt: String, systemPrompt: String?, model: String?): Result<String> =
+        Result.success("unused")
+
+    override fun streamChat(message: String, instructions: String): Flow<AgentEvent> {
+        val script = scripts.getOrElse(calls) { flowOf() }
+        calls++
+        return script
+    }
+
+    override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> = Result.success(emptyList())
 }
 
 /** A text generator that emits a scripted [Flow]. */
