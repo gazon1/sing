@@ -210,6 +210,26 @@ cd "$1"
 env -u GIT_DIR git ls-files
 """
 
+# A script that defines a helper which removes nothing at all.
+SHELL_WITH_AN_EMPTY_HELPER = """\
+#!/usr/bin/env bash
+without_hook_git_env() {
+    env "$@"
+}
+cd "$1"
+without_hook_git_env git ls-files
+"""
+
+# A script that defines a helper which removes one of the four names.
+SHELL_WITH_A_PARTIAL_HELPER = """\
+#!/usr/bin/env bash
+without_hook_git_env() {
+    env -u GIT_DIR "$@"
+}
+cd "$1"
+without_hook_git_env git ls-files
+"""
+
 
 class GitEnvironmentRuleTest(unittest.TestCase):
     """The rule, on trees built for it."""
@@ -272,6 +292,25 @@ class GitEnvironmentRuleTest(unittest.TestCase):
         the script reads the wrong tree and the gate says the tree is fine.
         """
         self._write('reads.sh', SHELL_CALLS_A_MISSING_HELPER)
+        violations, _sensitive = mod.scan(self.tmp)
+        self.assertEqual(1, len(violations), violations)
+        self.assertIn('reads.sh', violations[0])
+
+    def test_a_helper_that_removes_nothing_is_a_violation(self):
+        """A helper that removes nothing controls nothing.
+
+        The gate believes that a call of the sanctioned helper drops the four
+        names. A helper whose body does not drop them is a name and nothing
+        more, and the script reads the tree the hook inherited.
+        """
+        self._write('reads.sh', SHELL_WITH_AN_EMPTY_HELPER)
+        violations, _sensitive = mod.scan(self.tmp)
+        self.assertEqual(1, len(violations), violations)
+        self.assertIn('reads.sh', violations[0])
+
+    def test_a_helper_that_removes_one_name_is_a_violation(self):
+        """Three of the four names are not the four names."""
+        self._write('reads.sh', SHELL_WITH_A_PARTIAL_HELPER)
         violations, _sensitive = mod.scan(self.tmp)
         self.assertEqual(1, len(violations), violations)
         self.assertIn('reads.sh', violations[0])

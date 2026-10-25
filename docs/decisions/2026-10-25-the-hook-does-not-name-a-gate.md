@@ -69,9 +69,28 @@ declaration should be the only place a gate is written down.
    declaration — a hook that ran no gate and said OK turned "not checked" into
    "checked and green".
 
-6. **A table that cannot be read fails the push.** The hook reads the
+   The rule it used to enforce is not dropped: it is enforced by the
+   declaration instead of by the gate's reading of the hook's text. The hook
+   tells the declaration which gates it answered for, and the declaration says
+   whether that is all of them. A hook that answered for eleven of twelve
+   gates fails the push, and the message names the gate it did not answer
+   for.
+
+6. **The hook says which gates it answered for, and a gate it skipped is an
+   answer.** A gate that ran and a gate that was skipped are both decisions,
+   and both are named. What is not an answer is a gate the hook never
+   reached: that is the gap the declaration closes.
+
+7. **A table that cannot be read fails the push.** The hook reads the
    declaration before the loop, and an empty table is a failure with a
    message, not a push that runs nothing and passes.
+
+8. **A step may carry several conditions, and all of them have to hold.** The
+   tree rules keep the two skips the base hook had: a tree that does not have
+   the rule does not have the rule, and a machine whose gate CLI cannot run is
+   not stopped by a rule it cannot execute. The second skip was a block of
+   bash around the whole loop, and a loop that reads its steps from a table
+   cannot be wrapped in a block — so the condition belongs to the step.
 
 ## Rationale
 
@@ -103,6 +122,17 @@ had nothing to say. The rule that says something now is the opposite one: the
 hook names no gate, and it reads the declaration. A gate written into the
 hook is now the drift, and the gate says so.
 
+**Why the old rule is not simply dropped.** The old rule was the only thing
+that made "the hook runs the gates the registry declares" true. Without the
+text, the rule has nothing to compare — but the thing it protected does not
+stop being true because the check moved. The hook runs the gates by label,
+and a loop that skips one looks exactly like a loop that does not: the hook
+says "OK" about a tree it never looked at. So the check moves to where the
+knowledge is: the declaration knows how many gates there are, the hook says
+which ones it answered for, and the declaration says whether that is all of
+them. The gate that checks the hook now checks that the hook does this — a
+hook that stopped saying what it answered for is a hook nobody can check.
+
 **Why the prose moved with the code.** The comment that said why the wait
 budgets gate exists, and why the tree rules are in the hook at all, described
 the gates. Moving the gates without the prose would have left a reader with a
@@ -125,6 +155,12 @@ should still exist.
 - The tree rules are steps now, like every other gate. The loop that read
   them separately is gone, and the rules print their own names, which they
   already did.
+- The hook answers for every gate it ran and every gate it skipped, and the
+  declaration checks the answer. A gate that is added to the declaration and
+  never run is a push that fails, and the message says which gate.
+- A machine without the gate CLI installed is not stopped by the tree rules:
+  the skip the base hook had around the whole loop is now a condition on the
+  step, and the reason the base hook had it still holds.
 
 ## Links
 
