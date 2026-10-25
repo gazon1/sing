@@ -86,6 +86,28 @@ Every non-trivial change follows: **proposal → specs → design → adr → ta
 - Bug fixes, test-only, dep updates, doc-only — skip OpenSpec
 - `skip_specs: true` in `.openspec.yaml` when no behavior changes
 
+### IX. The Acceptance Scenario Runs the Production Path
+
+A task closes only when its acceptance scenario runs on the path the application
+actually uses.
+
+- A scenario that drives a fake, a stub or a test-only seam proves that the fake
+  works. The behaviour a reader relies on is the behaviour of the production
+  wiring — the graph that is assembled, the branch that is actually taken.
+- When the production path cannot be exercised, that is a finding about the
+  design, not about the test. A path that no scenario can reach is a path that
+  does not deliver, and the task stays open until it does.
+- The scenario must fail when the production path changes. A check that passes
+  either way is a description of the behaviour, not a check of it.
+- The checkbox states what was proven. A task closed on a fake's evidence says
+  the feature works; a task closed on the production path says it works.
+
+*Added 2026-10-25.* The external-agent feature's convergence pass found a user
+story closed as delivered whose acceptance scenario was reachable only through a
+test double — and the production wiring took a different branch entirely, so the
+behaviour the story promised was never delivered. The rule is the finding turned
+into a principle.
+
 ---
 
 ## Decision Criteria
