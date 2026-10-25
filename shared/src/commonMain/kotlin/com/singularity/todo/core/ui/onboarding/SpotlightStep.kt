@@ -1,5 +1,8 @@
 package com.singularity.todo.core.ui.onboarding
 
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+
 /**
  * One highlightable element of the interface.
  *
@@ -80,7 +83,7 @@ object SpotlightContent {
      * onboarding anywhere else that mentions them. Pointing the tour at something
      * obvious instead would spend the one moment the user is most willing to listen.
      */
-    val STEPS: List<SpotlightStep> = listOf(
+    val STEPS: ImmutableList<SpotlightStep> = persistentListOf(
         SpotlightStep(
             id = "agenda.saved_views.intro",
             title = "Saved views",

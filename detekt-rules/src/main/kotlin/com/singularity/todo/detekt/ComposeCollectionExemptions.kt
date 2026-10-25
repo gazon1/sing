@@ -8,16 +8,25 @@ package com.singularity.todo.detekt
  * compiler compares that parameter by identity and the composable recomposes
  * whenever its parent does.
  *
- * ## Why the list exists at all
+ * ## The register is empty
  *
- * The alternative was to convert all of them now. Each conversion is a
+ * The debt it named is paid. Every `@Composable` in the repository takes its
+ * collections from the persistent kind (`ImmutableList` / `ImmutableSet` /
+ * `ImmutableMap`), and the value is built at the boundary — the state that owns
+ * it — rather than in the place that hands it over. The register stays as an
+ * empty map because the rule reads it: an empty register is what makes every
+ * *new* raw collection parameter a finding, and a rule with nothing to look up
+ * is a rule that refuses everything.
+ *
+ * ## Why it was a register and not a rule from the start
+ *
+ * The alternative was to convert all of them at once. Each conversion is a
  * signature change plus every call site, and each one changes what the
  * compiler compares: a *stable* parameter is compared by `equals`, which over a
  * collection is a deep walk. That is the right trade for a leaf — one task's
- * tags — and the wrong one for a screen that holds a month of entries. The
- * conversions that were worth making are made; the rest are here, named, so
- * that the debt is visible and every *new* raw collection parameter is a
- * finding.
+ * tags — and the wrong one for a screen that holds a month of entries. So the
+ * debt was named first, and paid afterwards, one area at a time, with a
+ * measurement after each payment.
  *
  * ## How it shrinks
  *
@@ -30,9 +39,15 @@ package com.singularity.todo.detekt
  * ./gw :shared:compileKotlinJvm -PcomposeStabilityReport=true
  * ```
  *
- * The list was measured on 2026-10-24, after the stability contract and the
- * conversion of the hot states; and again after the menu, the proposals and the
- * logbook took their collections from the persistent kind.
+ * The register was measured on 2026-10-24, after the stability contract and
+ * the conversion of the hot states; and again after the menu, the proposals and
+ * the logbook took their collections from the persistent kind; and again after
+ * each of the areas that followed — the project screens, the matched ranges,
+ * the task editor and the task filters, the shared sheets and dialogs, the
+ * notes and the tags, the calendar and the agenda, the chat and the
+ * attachments, the calendar sync, the checklist, the pomodoro and the
+ * profiles, the search, the settings and the statistics, and finally the
+ * onboarding tour, the navigation and the test bridge.
  *
  * ## The key is the parameter, not the composable
  *
@@ -70,15 +85,12 @@ internal object ComposeCollectionExemptions {
      * stability report — the classes a function is nested in come first, the
      * function last — so a name can be copied from the report into this
      * register without a translation table.
+     *
+     * The map is empty: the debt is paid. It keeps its shape so that the next
+     * raw collection parameter has somewhere to be written down — and so that
+     * the rule, which reads this map, reports it.
      */
-    val KNOWN: Map<String, Map<String, String>> = mapOf(
-        "com.singularity.todo.core.ui.onboarding.rememberSpotlightTour" to
-            mapOf("steps" to "List<SpotlightStep>"),
-        "com.singularity.todo.feature.nav.Nav3State.toDecoratedEntries" to
-            mapOf("entryDecorators" to "List<NavEntryDecorator<NavKey>>"),
-        "com.singularity.todo.core.ui.textfields.TextFieldStateBridgeUiTest.ObservedField" to
-            mapOf("edits" to "MutableList<String>"),
-    )
+    val KNOWN: Map<String, Map<String, String>> = mapOf()
 
     /**
      * The raw collection parameters [qualifiedName] is known to carry, and the

@@ -273,11 +273,32 @@ class ComposeStabilityConfigTest(unittest.TestCase):
             self.assertEqual(self.run_gate(root, conf, register), 0)
 
     def test_the_committed_register_names_sites_that_exist(self):
-        """The positive control for the register: every committed site is real."""
+        """The positive control for the register: every committed site is real.
+
+        The committed register is empty — the debt it named is paid — and an
+        empty register makes the first half of this control vacuous: a reader
+        that could not read a register at all would pass it. So the control
+        keeps a second half that reads a register that *does* name a site, and
+        the reader has to find it.
+        """
         sites = gate.read_register_sites(gate.DEBT_REGISTER)
-        self.assertGreater(len(sites), 0, "the register names no site at all")
         findings = gate.check_register_sites(sites, gate.source_roots(gate.ROOT))
         self.assertEqual(findings, [], f"the committed register names sites that are gone: {findings}")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            register = pathlib.Path(tmp) / "register.kt"
+            write(
+                register,
+                'val KNOWN = mapOf(\n'
+                f'    "{PACKAGE}.Task" to\n'
+                '        mapOf("titles" to "List<String>"),\n'
+                ')\n',
+            )
+            self.assertEqual(
+                gate.read_register_sites(register),
+                [f"{PACKAGE}.Task"],
+                "the register reader cannot read a register that names a site",
+            )
 
     def test_a_site_deleted_while_another_package_has_the_same_name_fails(self):
         """A name that still exists elsewhere must not stand in for the site.

@@ -13,6 +13,8 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  * State holder for Navigation 3 multi-back-stack navigation.
@@ -137,7 +139,7 @@ class Nav3State internal constructor(
      */
     @Composable
     fun toDecoratedEntries(entryProvider: (AppDestination) -> NavEntry<AppDestination>): List<NavEntry<NavKey>> =
-        toDecoratedEntries(entryProvider, emptyList())
+        toDecoratedEntries(entryProvider, persistentListOf())
 
     /**
      * Converts all active back stacks into a flat list of [NavEntry] objects,
@@ -156,7 +158,7 @@ class Nav3State internal constructor(
     @Composable
     fun toDecoratedEntries(
         entryProvider: (AppDestination) -> NavEntry<AppDestination>,
-        entryDecorators: List<androidx.navigation3.runtime.NavEntryDecorator<NavKey>>,
+        entryDecorators: ImmutableList<androidx.navigation3.runtime.NavEntryDecorator<NavKey>>,
     ): List<NavEntry<NavKey>> {
         val viewModelStoreDecorator = rememberViewModelStoreNavEntryDecorator<NavKey>()
         val decoratedEntries = backStacks.mapValues { (_, stack) ->

@@ -9,6 +9,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.geometry.Rect
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -63,7 +64,7 @@ class SpotlightTourController internal constructor(
  */
 @Composable
 fun rememberSpotlightTour(
-    steps: List<SpotlightStep> = SpotlightContent.STEPS,
+    steps: ImmutableList<SpotlightStep> = SpotlightContent.STEPS,
     contentVersion: Int = SpotlightContent.VERSION,
     registry: SpotlightAnchorRegistry = remember { SpotlightAnchorRegistry() },
     settingsStore: OnboardingSettingsRepository = koinInject(),
