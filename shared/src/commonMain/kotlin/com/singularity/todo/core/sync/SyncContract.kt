@@ -26,8 +26,11 @@ import kotlinx.serialization.serializer
  * Two lists come out of that derivation, and each means one thing:
  *
  * - [WIRE_FIELDS] — the names a device puts on the wire.  Every field of every
- *   model travels: the device serialises the whole model, so a field that does
- *   not travel is a field the model does not have.
+ *   model has a name here, and the device puts every one of them on the wire:
+ *   the model is put on the wire whole, and the three fields that live outside
+ *   the row — `tags`, `blockedBy` and `inheritedTagGroupIds` — travel as parts
+ *   of the document rather than as columns of it.  A field that does not travel
+ *   is a field the model does not have.
  * - [SERVER_FIELDS] — the names the server accepts in a patch, which is the wire's names
  *   minus the fields the server owns.  This is the one hand-written part of the
  *   contract, and it is four names long.
@@ -112,9 +115,12 @@ object SyncContract {
     /**
      * The names a device puts on the wire, per document type.
      *
-     * The model's own names.  Every field of every model travels — the device
-     * serialises the whole model — so a field that does not travel is a field
-     * the model does not have, and there is nothing to subtract here.
+     * The model's own names.  Every field of every model has a name here, and
+     * the device puts every one of them on the wire — the model is put on the
+     * wire whole, and the three fields that live outside the row travel as
+     * parts of the document rather than as columns of it.  So a field that
+     * does not travel is a field the model does not have, and there is nothing
+     * to subtract here.
      *
      * The order is the model's declaration order, which is the order the
      * encoder writes them in.

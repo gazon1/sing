@@ -104,13 +104,25 @@ the server has not been migrated for yet.
 
 #### Scenario: The migration writes a row the reader cannot place
 
-- **Given** a migration that writes into the table through a name the reader
-  can see but cannot hold as a name — the name held in a variable
+- **Given** a migration that writes through a target the reader cannot tell —
+  a placeholder, an expression, a name spelled through a call — in a scope
+  where the table's name is used as a name
 - **When** the migrations are read
 - **Then** the check fails
 - **And** the failure names the file, because a write the reader cannot place
   is a row it cannot rule out — and the table's name, used as a name in the
   same scope, is what makes it a row of this table
+
+#### Scenario: The migration writes through a variable
+
+- **Given** a migration that writes through a name the reader can read — a
+  variable of the migration's own language, `insert into v_table`
+- **When** the migrations are read
+- **Then** the check does not report the write
+- **And** the limit is written down in the change's documents, because the
+  reader cannot tell a variable from a table: a name that is not the field
+  table's name is another table's business — and a migration that writes the
+  field table through a variable is refused in review, not by this check
 
 #### Scenario: The migration runs a write text it carries in a variable
 
@@ -185,14 +197,18 @@ the server has not been migrated for yet.
 
 #### Scenario: The name is in play
 
-- **Given** a migration that writes through a name the reader can see — the
+- **Given** a migration whose scope holds the table's name as a name — the
   name carried in a variable, read into one, or spelled in the scope the
-  write is in — or a name the file holds as a literal of its own, as data
-  the file hands around
+  write is in — or holds it as a literal of its own, as data the file hands
+  around
 - **When** the migrations are read
-- **Then** the check reports it
+- **Then** the check reports a write whose target it cannot tell
 - **And** the failure names the file, because a name in play is a name a
   write may point at
+- **And** a write whose target is a name the reader can read is not reported
+  for that reason alone — the reader cannot tell what a variable holds, and
+  a migration that writes the field table through a variable is refused in
+  review
 
 #### Scenario: The name is read out of the table
 
@@ -245,6 +261,9 @@ the server has not been migrated for yet.
 - **And** the text inside the string is read the way the database reads it:
   an E-string's escapes are decoded, and a `U&` string's unicode escapes are
   decoded
+- **And** a constant that continues across a newline is one constant, its
+  parts joined the way the server joins them — the whitespace between them is
+  dropped — so a name spelled in two parts is read as the one name it is
 - **And** a string that HOLDS the words of a write is not reported — the
   verb is inside the string there, and a column holds words
 

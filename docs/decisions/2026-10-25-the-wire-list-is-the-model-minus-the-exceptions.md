@@ -76,9 +76,12 @@ somebody wrote it down twice.
 Two lists come out of that derivation, and they mean different things.
 
 **The wire's list** — the names a device puts on the wire. It is the model's
-own names, and there is nothing to subtract from it: the device serialises the
-whole model, so every field of every model travels, and a field that does not
-travel is a field the model does not have.
+own names, and there is nothing to subtract from it: every field of every
+model has a name here, and the device puts every one of them on the wire —
+the three that live outside the row (`tags`, `blockedBy` and
+`inheritedTagGroupIds`) travel as parts of the document rather than as
+columns of it. A field that does not travel is a field the model does not
+have.
 
 **The server's list** — the names the server accepts in a patch. It is the wire's list
 minus the fields the server owns: `serverVersion` (the server's own counter),
@@ -203,6 +206,23 @@ reads it as the description it is.
   never sees. A string that HOLDS the words of a write is not reported: the
   verb is inside the string there, and a column holds words.
 
+  **The reader reads the text the deployed server reads.** Two rules of
+  PostgreSQL's lexer are the ones a name can hide behind, and the reader
+  follows both of them. A constant CONTINUES across a newline: two constants
+  separated by whitespace with a newline in it are one constant, and the
+  whitespace is dropped — `'ti'` on the next line `'tle'` is `title` — so a
+  name spelled in two parts is one name, and the reader joins the parts the
+  way the server joins them. A newline INSIDE one pair of quotes is another
+  thing: the server keeps it, and so does the reader, because a name that
+  holds one is a name the server holds too. And the reader reads the escapes
+  of the version the deployment runs: PostgreSQL 15, which is what
+  `supabase/postgres:15.8.1.085` is. `\v` is not one of its escapes —
+  `E'\v'` holds `v` there, and the vertical tab arrived with PostgreSQL 17 —
+  so a name that hides behind `\v` hides behind a letter, and the reader
+  reads it as the letter. The reader follows the server it reads for, and not
+  a newer one: a name read the way a newer server would read it is a name the
+  deployed server never sees.
+
   **The list of what it reports is not a guess.** PostgreSQL writes rows into
   an existing table in six ways — insert, update, delete, truncate, merge,
   copy — and the reader reads the inserts and reports the other five. The
@@ -210,18 +230,27 @@ reads it as the description it is.
   select`, a `select ... into` — and all three are reported, as is a table
   declared with another default for its flag.
 
-  A write the reader cannot place — its target cannot be told, because the
-  table's name is held in a variable or spelled through a call — is reported
-  when the table's name is used as a name in the same scope. A name that is
-  read (`select ... from sync_field_allowlist`) says nothing about where a
-  write points; a name that is carried says it might. A scope that SPELLS a
-  write into the table is a scope where the name is in play: the text of that
-  write may be carried into a variable and run later, and the reader cannot
-  follow it there — so `v_sql := 'insert into sync_field_allowlist …';
+  A write the reader cannot place — its target is not a name the reader can
+  read: a placeholder, an expression, a name spelled through a call — is
+  reported when the table's name is used as a name in the same scope. A name
+  that is read (`select ... from sync_field_allowlist`) says nothing about
+  where a write points; a name that is carried says it might. A scope that
+  SPELLS a write into the table is a scope where the name is in play: the
+  text of that write may be carried into a variable and run later, and the
+  reader cannot follow it there — so `v_sql := 'insert into sync_field_allowlist …';
   execute v_sql;` is reported. A scope that only READS the table spells no
   write and stays quiet, which is the shape the server's own migrations use:
   the text of the check the server runs is held in a variable, and the table is
   only read there.
+
+  A write whose target IS a name is a write into the table that name stands
+  for, and the reader tells the names apart by the name alone. It cannot tell
+  a variable from a table: `insert into v_table` is a write into a table named
+  `v_table` and not a write into the field table, and what a variable holds is
+  data the reader cannot follow. A migration that writes the field table
+  through a variable is therefore not caught by this gate — it is caught by
+  the rule that the field table is a contract, not data, and is refused in
+  review. That limit is a limit of static reading, not a hole in it.
 
   And the same holds at the level of the file. A file that holds the TEXT of a
   write into the table — as a literal, in a row, in the return of a function —
@@ -345,7 +374,9 @@ no longer stop at a parenthesis in a comment.
   difference — the two fields a migration is owed — is named instead of being
   invisible.
 - **The wire's list has nothing subtracted from it, and that is a fact, not an
-  omission.** Every field of every model travels; a field that does not travel
+  omission.** Every field of every model has a name on the wire, and the
+  device puts every one of them there — the three that live outside the row
+  travel as parts of the document; a field that does not travel
   is a field the model does not have. The one subtraction there is — the four
   fields the server owns — is about the server's list, not the wire's.
 - **The server's lag is a deployment matter, and it is now visible.** A field
@@ -368,10 +399,11 @@ no longer stop at a parenthesis in a comment.
   a table the server does not have, and the two would drift in the other
   direction — which is how the three lists came to disagree in the first place.
 - **Subtract a field from the wire's list to say it does not travel.** The
-  device serialises the whole model, so the wire would still carry the field
-  and the equality would fail — the mechanism would have no state in which it
-  is correct. A field that does not travel belongs in a model that does not
-  have it, and then it is not in the list to begin with.
+  device puts the whole model on the wire — the fields that live outside the
+  row travel as parts of the document — so the wire would still carry the
+  field and the equality would fail — the mechanism would have no state in
+  which it is correct. A field that does not travel belongs in a model that
+  does not have it, and then it is not in the list to begin with.
 - **Parse the migrations with a real SQL parser.** A parser knows every
   spelling, so a reader built on one would not have to learn them. The
   repository has no SQL parser and the CI installs no Python packages, so the
@@ -409,10 +441,11 @@ describes the server's table: the names the server accepts in a patch, which
 is what the table holds and what the gate compares the migrations against.
 The client's own bookkeeping did not disappear with it: the projection
 carries both lists — `wire` (106 names, the ones the client sends) and
-`serverWritable` (82 names, the ones the server may write) — and the three
-client-side names, `serverVersion`, `hlc` and `userId`, are in the first
-list and not in the second — and the server's table holds neither of them,
-which is the whole difference between the two lists.
+`serverWritable` (82 names, the ones the server may write) — and the four
+server-owned names, `serverVersion`, `hlc`, `userId` and `id`, are in the
+first list and not in the second — for each of the six types, which is the
+whole difference between the two lists — and the server's table holds none
+of them.
 
 **The vocabulary question is answered.** That decision noted that the two
 files did not share a vocabulary for the entity types — the server writes

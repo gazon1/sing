@@ -51,10 +51,16 @@
       migration when it applies — is a row the file holds: the reader reads the
       string to find it. And the converse: a string in a value position is a
       value, and the reader does not read a row the database never holds.
-- [x] A write the reader cannot place — the table's name held in a variable
-      or assembled from pieces — is reported whenever the table's name is used
+- [x] A write the reader cannot place — a target that is not a name the reader
+      can tell, a placeholder or an expression, or a PIECE of the name the
+      scope may complete — is reported whenever the table's name is used
       as a name in the same scope, which is the body the write is in or the
-      statement itself. A scope that SPELLS a write into the table is a scope
+      statement itself. A write whose target IS a name is a write into the
+      table that name stands for, and the reader cannot tell a variable from a
+      table: `insert into v_table` is a write into a table named `v_table`,
+      and a migration that writes the field table through a variable is
+      refused in review, not by this gate. A scope that SPELLS a write into
+      the table is a scope
       where the name is in play — the text of that write may be carried into a
       variable and run later, and the reader cannot follow it there. A scope
       that only READS the table spells no write, and stays quiet: that is the
@@ -71,8 +77,9 @@
       a write text the enclosing body holds is a write text the nested body
       may run. A name assembled from pieces is
       folded into the name it
-      spells, in every spelling of a literal — `'…'`, `E'…'`, `U&'…'`, `B'…'`
-      and `$$…$$`, with a cast between two pieces or without one — whether the
+      spells, in every spelling of a literal — `'…'`, `E'…'`, `U&'…'`, `B'…'`,
+      `X'…'`, `N'…'` and `$$…$$`, with a cast between two pieces or without
+      one — whether the
       pieces are put together with `||` or handed to `format` or `concat`, and
       a statement a migration runs through `execute` is a write of that kind
       whatever its text says. The spelling of the literal does not change what

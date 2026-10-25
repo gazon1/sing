@@ -357,10 +357,16 @@ A reviewing agent watches for:
   `do [language plpgsql] $$ … $$` is a body, too: the language clause stands
   between the keyword and the code, and the code runs.
 - A reader that cannot place a write and passes over it. A write whose target
-  the reader cannot tell — the table's name held in a variable, or assembled
-  from pieces — is a write the gate cannot rule out, and it is reported
+  the reader cannot tell — a placeholder, an expression, a name spelled
+  through a call — is a write the gate cannot rule out, and it is reported
   whenever the table's name is in play: in the scope the write is in, or held
-  in the file as a literal the file hands around. A scope that SPELLS a write
+  in the file as a literal the file hands around. A write whose target IS a
+  name is a write into the table that name stands for, and the reader tells
+  the names apart by the name alone: it cannot tell a variable from a table,
+  so `insert into v_table` is a write into a table named `v_table` — and what
+  a variable holds is data the reader cannot follow. A migration that writes
+  the field table through a variable is refused in review, not by this gate.
+  A scope that SPELLS a write
   into the table is a scope where the name is in play — the text of that write
   may be carried into a variable and run later — and a scope that only READS
   the table spells no write and stays quiet. The same holds at the level of the
@@ -408,7 +414,10 @@ A reviewing agent watches for:
   `E'sync\_field_allowlist'` holds `sync_field_allowlist`; a `U&` string's
   unicode escapes are decoded too. A string that HOLDS the words of a write
   is not reported — the verb is inside the string there, and a column holds
-  words.
+  words. The text read is the text the DEPLOYED server reads: PostgreSQL 15,
+  which is what `supabase/postgres:15.8.1.085` is — so `\v` is not an escape
+  there, and a constant that CONTINUES across a newline is one constant, its
+  parts joined the way the server joins them.
 - A migration that writes the server's field table through a computed
   identifier. The field table is a contract, not data: it is written by a
   list of names, and a name the file does not spell is a name no reader of

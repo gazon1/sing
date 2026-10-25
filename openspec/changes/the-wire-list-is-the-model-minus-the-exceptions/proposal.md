@@ -39,7 +39,9 @@ like a rule.
   exception — the fields the server owns — and not the whole list.
 - Two lists come out of the derivation, and each means one thing: the names a
   device puts on the wire (the model's own names — every field of every model
-  travels, and a field that does not travel is a field the model does not
+  has a name on the wire, and the device puts every one of them there, the
+  three that live outside the row travelling as parts of the document, so a
+  field that does not travel is a field the model does not
   have), and the names the server accepts in a patch (the wire's names minus the
   fields the server owns: the version, the clock, the owner and the key).
 - The seed file is generated from the derived server list, with the entity

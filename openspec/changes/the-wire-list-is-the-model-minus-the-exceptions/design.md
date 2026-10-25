@@ -46,10 +46,12 @@ wire(docType) = wireNames(model(docType))
 ```
 
 There is nothing subtracted from it, and that is a fact rather than an
-omission: the device serialises the whole model, so every field of every model
-travels, and a field that does not travel is a field the model does not have.
-Subtracting a name from this list would have no state in which it is correct:
-the wire would still carry the field, and the equality below would fail.
+omission: every field of every model has a name on the wire, and the device
+puts every one of them there — the three that live outside the row travel as
+parts of the document — so a field that does not travel is a field the model
+does not have. Subtracting a name from this list would have no state in which
+it is correct: the wire would still carry the field, and the equality below
+would fail.
 
 
 ### The server's list
@@ -173,13 +175,17 @@ checks say:
    select`, a `select ... into` — and all three are reported, as is a table
    declared with another default for its flag.
 
-   A write the reader cannot place — its target cannot be told, because the
-   table's name is held in a variable or spelled through a call — is reported
-   when the table's name is used as a name in the same scope. A name that is
-   read says nothing about where a write points; a name that is carried says
-   it might. The scope is the dollar-quoted body the write is in, or the
-   statement itself. A statement a migration runs through `execute` is a write
-   of that kind whatever its text says.
+   A write the reader cannot place — its target is not a name the reader can
+   read: a placeholder, an expression, a name spelled through a call — is
+   reported when the table's name is used as a name in the same scope. A name
+   that is read says nothing about where a write points; a name that is
+   carried says it might. A write whose target IS a name is a write into the
+   table that name stands for, and the reader cannot tell a variable from a
+   table: `insert into v_table` is a write into a table named `v_table`, and a
+   migration that writes the field table through a variable is refused in
+   review, not by this gate. The scope is the dollar-quoted body the write is
+   in, or the statement itself. A statement a migration runs through `execute`
+   is a write of that kind whatever its text says.
 
    The limit is stated, not implied. The reader sees the SQL the file spells,
    and one case is beyond it: a name the write takes from the DATABASE at run
@@ -194,7 +200,7 @@ checks say:
    reader takes for a read is a read OUT of the table; a name in the scope
    the write is in — carried in a variable, or read into one — is a name in
    play, and so is a name the file holds as a literal of its own; a write
-   whose target it is, is reported.
+   whose target the reader cannot tell, is reported.
 
    What a row is written as is not what it is: an insert written as text inside
    a string — dynamic SQL, run by the migration when it applies — is a row the
