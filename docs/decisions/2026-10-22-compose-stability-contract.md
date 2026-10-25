@@ -272,6 +272,30 @@ Switching the two-sided check on produced **20 findings on the first run**:
 - **1** that was a naming bug, and the more interesting of the two kinds of
   finding.
 
+### The register is an input of the rule, and the rule is tested against a fixture
+
+The debt the register names is paid: the register is empty. The rule kept
+reading it from a global, and the tests kept it that way — the exemption
+branches (a known site, a stale entry, a type spelled with a package
+qualifier) were exercised against the *production* register, which no longer
+names a site. Six tests fell over it: the wave that converted the collections
+to the persistent kind emptied the register, and the tests were left asserting
+against sites that had stopped being sites.
+
+The tests were not wrong to exist. They cover the rule's whole surface, and
+that surface is exactly what the next raw collection parameter will need.
+Deleting them would have left the rule's stale-entry branch — the one that
+catches a register that has stopped describing the code — unproved, and that
+branch is the one that keeps the register honest.
+
+So the register became an **input**: the rule takes it as a constructor
+parameter, the provider hands it `ComposeCollectionExemptions.KNOWN`, and the
+tests give it a register of their own. The rule's behaviour in the build does
+not change — it still compares the code it visits with the register it was
+given — and its branches stay covered whatever the production register holds.
+
+A global that cannot be replaced cannot be tested. That is the whole reason.
+
 ### A composable has overloads, and they share the qualified name
 
 `Nav3State.toDecoratedEntries` is declared twice, and only one of the two takes

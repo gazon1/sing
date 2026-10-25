@@ -49,6 +49,23 @@ import org.jetbrains.kotlin.psi.KtUserType
  * declares is **stale** — the debt it names has been paid, or has changed
  * shape, and the register says otherwise.
  *
+ * ## The register is an input, not a global
+ *
+ * The rule takes the register as a constructor parameter, and the provider
+ * hands it [ComposeCollectionExemptions.KNOWN]. Two reasons, and the second
+ * is the one that matters:
+ *
+ * 1. the rule reads one thing and does one thing — it compares the code it
+ *    visits with the register it was given, and a reader does not have to
+ *    follow a global to know which register that was;
+ * 2. a register that is read from a global cannot be *tested*. The debt is
+ *    paid, so the production register is empty — and an empty register has no
+ *    exemption branch to exercise. The branches (a known site, a stale entry,
+ *    a type spelled with a package qualifier) are the rule's whole surface,
+ *    and a rule whose surface cannot be tested is a rule nobody can say works.
+ *    The tests therefore give the rule a fixture register, and the branches
+ *    stay covered whatever the production register holds.
+ *
  * Two things the rule deliberately does **not** do, because it cannot see
  * them:
  *
@@ -89,14 +106,19 @@ import org.jetbrains.kotlin.psi.KtUserType
  * @see NoMutableCollectionCastRule — the other half of the stability contract.
  * @see 2026-10-22-compose-stability-contract
  */
-class NoUnstableCollectionParamRule(config: Config) : Rule(config, "", null) {
+class NoUnstableCollectionParamRule(config: Config, private val register: Map<String, Map<String, String>>) :
+    Rule(
+        config,
+        "",
+        null,
+    ) {
 
     override fun visitNamedFunction(function: KtNamedFunction) {
         super.visitNamedFunction(function)
         if (!function.isComposable()) return
 
         val qualifiedName = function.qualifiedName()
-        val registered = ComposeCollectionExemptions.parametersOf(qualifiedName)
+        val registered = register[qualifiedName] ?: emptyMap()
 
         function.valueParameters.forEach { parameter ->
             val name = parameter.name ?: return@forEach
@@ -257,7 +279,12 @@ class NoUnstableCollectionParamProvider : RuleSetProvider {
     override fun instance(): RuleSet = RuleSet(
         ruleSetId,
         mapOf<RuleName, (Config) -> Rule>(
-            RuleName("NoUnstableCollectionParam") to { cfg: Config -> NoUnstableCollectionParamRule(cfg) },
+            // The register is wired here, at the seam: the rule compares code
+            // with the register it was given, and this is the one place that
+            // says which register that is.
+            RuleName("NoUnstableCollectionParam") to { cfg: Config ->
+                NoUnstableCollectionParamRule(cfg, ComposeCollectionExemptions.KNOWN)
+            },
         ),
     )
 }

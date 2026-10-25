@@ -14,7 +14,7 @@ package com.singularity.todo.detekt
  * collections from the persistent kind (`ImmutableList` / `ImmutableSet` /
  * `ImmutableMap`), and the value is built at the boundary — the state that owns
  * it — rather than in the place that hands it over. The register stays as an
- * empty map because the rule reads it: an empty register is what makes every
+ * empty map because the rule is given it: an empty register is what makes every
  * *new* raw collection parameter a finding, and a rule with nothing to look up
  * is a rule that refuses everything.
  *
@@ -88,18 +88,13 @@ internal object ComposeCollectionExemptions {
      *
      * The map is empty: the debt is paid. It keeps its shape so that the next
      * raw collection parameter has somewhere to be written down — and so that
-     * the rule, which reads this map, reports it.
+     * the rule, which is given this map, reports it.
+     *
+     * The rule receives this map as a parameter rather than reading it from
+     * here: the rule compares the code it visits with the register it was
+     * given, and a register that is a global cannot be given a fixture. The
+     * branches of the rule — a known site, a stale entry — are exercised in
+     * the tests against a register of the tests' own.
      */
     val KNOWN: Map<String, Map<String, String>> = mapOf()
-
-    /**
-     * The raw collection parameters [qualifiedName] is known to carry, and the
-     * type the register records for each.
-     *
-     * Empty when the composable is not a known site — which says nothing about
-     * its parameters: a composable that is not in the register has no exempted
-     * parameter at all.
-     */
-    fun parametersOf(qualifiedName: String): Map<String, String> =
-        KNOWN[qualifiedName] ?: emptyMap()
 }

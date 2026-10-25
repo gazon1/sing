@@ -30,10 +30,27 @@ import kotlin.test.assertTrue
  * `[KtScript]` and a rule that walks the declarations sees nothing at all. A
  * negative test on such a fixture passes vacuously, because "no findings" is
  * exactly what a mis-compiled fixture produces.
+ *
+ * The register the rule reads is the tests' own, and that is the point: the
+ * production register is empty (the debt is paid), so a rule that read it
+ * globally would have no exemption branch to exercise — and the branches are
+ * the rule's whole surface. The rule therefore takes the register as a
+ * parameter, and the names below are fixtures: `BlockedCompletionDialog` and
+ * `Nav3State.toDecoratedEntries` were sites the register named once, and the
+ * debt they carried is paid. The rule is not asked about them.
  */
 class NoUnstableCollectionParamRuleTest {
 
-    private val rule = NoUnstableCollectionParamRule(TestConfig())
+    private val register = mapOf(
+        "com.singularity.todo.core.ui.components.BlockedCompletionDialog" to mapOf(
+            "blockerTitles" to "List<String>",
+        ),
+        "com.singularity.todo.feature.nav.Nav3State.toDecoratedEntries" to mapOf(
+            "entryDecorators" to "List<NavEntryDecorator<NavKey>>",
+        ),
+    )
+
+    private val rule = NoUnstableCollectionParamRule(TestConfig(), register)
     private val languageSettings = FakeLanguageVersionSettings(ExplicitApiMode.STRICT)
 
     private fun findings(code: String) =
@@ -262,6 +279,30 @@ class NoUnstableCollectionParamRuleTest {
             fun BlockedCompletionDialog(blockerTitles: List<String>) {
             }
         """
+        assertEquals(0, findings(code).size)
+    }
+
+    @Test
+    fun `the register the rule is given decides the verdict`() {
+        // The same code, two registers, two verdicts: the rule reads what it
+        // was given. A rule that read a global would answer the same both
+        // times — and its exemption branches would be untestable while the
+        // debt is paid, which is exactly when the branches are worth having.
+        val code = """
+            package com.singularity.todo.core.ui.components
+
+            import androidx.compose.runtime.Composable
+
+            @Composable
+            fun BlockedCompletionDialog(blockerTitles: List<String>) {
+            }
+        """
+        val withoutRegister = NoUnstableCollectionParamRule(TestConfig(), emptyMap())
+        val found = withoutRegister.visitFile(
+            compileContentForTest(code.trimIndent(), Path.of("Fixture.kt")),
+            languageSettings,
+        )
+        assertEquals(1, found.size)
         assertEquals(0, findings(code).size)
     }
 
