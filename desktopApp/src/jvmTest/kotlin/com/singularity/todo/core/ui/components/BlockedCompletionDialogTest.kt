@@ -10,6 +10,7 @@ import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertTrue
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  * The confirmation shown when a task with unfinished prerequisites is closed.
@@ -27,7 +28,7 @@ class BlockedCompletionDialogTest {
         setContent {
             BlockedCompletionDialog(
                 taskTitle = "Ship the release",
-                blockerTitles = listOf("Write the changelog", "Run the tests"),
+                blockerTitles = persistentListOf("Write the changelog", "Run the tests"),
                 onConfirm = {},
                 onDismiss = {},
             )
@@ -46,7 +47,7 @@ class BlockedCompletionDialogTest {
         setContent {
             BlockedCompletionDialog(
                 taskTitle = "Ship the release",
-                blockerTitles = listOf("Write the changelog"),
+                blockerTitles = persistentListOf("Write the changelog"),
                 onConfirm = {},
                 onDismiss = {},
             )

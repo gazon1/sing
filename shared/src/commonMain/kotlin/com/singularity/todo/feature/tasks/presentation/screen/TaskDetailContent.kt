@@ -494,7 +494,7 @@ fun TaskDetailContent(
                     if (pendingBlockedClose != null) {
                         BlockedCompletionDialog(
                             taskTitle = pendingBlockedClose.taskTitle,
-                            blockerTitles = pendingBlockedClose.blockerTitles,
+                            blockerTitles = pendingBlockedClose.blockerTitles.toImmutableList(),
                             onConfirm = {
                                 coordinator.onIntent(
                                     TaskDetailIntent.Domain.ConfirmBlockedClose(pendingBlockedClose.taskId),

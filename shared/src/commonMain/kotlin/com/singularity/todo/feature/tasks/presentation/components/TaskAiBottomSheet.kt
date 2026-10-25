@@ -9,6 +9,7 @@ import com.singularity.todo.core.ui.components.sheet.ListPickerItem
 import com.singularity.todo.core.ui.components.sheet.ListPickerSheet
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
+import kotlinx.collections.immutable.toImmutableList
 
 /**
  * Modal bottom sheet that lists every AI action available for [task].
@@ -28,7 +29,7 @@ fun TaskAiBottomSheet(task: Task, onAction: (TaskAiAction) -> Unit, onDismiss: (
                 label = action.label(),
                 leading = @Composable { Icon(Icons.Filled.AutoAwesome, contentDescription = null) },
             )
-        },
+        }.toImmutableList(),
         onItemSelected = onAction,
         onDismiss = onDismiss,
     )

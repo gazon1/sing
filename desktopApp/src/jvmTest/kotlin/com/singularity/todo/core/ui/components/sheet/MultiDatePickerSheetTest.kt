@@ -8,6 +8,8 @@ import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import kotlinx.datetime.LocalDate
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -34,10 +36,10 @@ class MultiDatePickerSheetTest {
 
     @Test
     fun `three tapped days are confirmed`() = runIsolatedComposeTest(width = 420, height = 1600) {
-        var confirmed: Set<LocalDate>? = null
+        var confirmed: ImmutableSet<LocalDate>? = null
         setContent {
             MultiDatePickerSheet(
-                initialDates = emptySet(),
+                initialDates = persistentSetOf(),
                 onConfirm = { confirmed = it },
                 onDismiss = {},
                 today = today,
@@ -54,7 +56,7 @@ class MultiDatePickerSheetTest {
         clickTag(TestTags.MultiDatePicker.OK)
 
         assertEquals(
-            setOf(LocalDate(2026, 10, 5), LocalDate(2026, 10, 12), LocalDate(2026, 10, 19)),
+            persistentSetOf(LocalDate(2026, 10, 5), LocalDate(2026, 10, 12), LocalDate(2026, 10, 19)),
             confirmed,
             "the three days the user tapped are the three days the picker hands over",
         )
@@ -64,7 +66,7 @@ class MultiDatePickerSheetTest {
     fun `the days that start out selected are already counted`() = runIsolatedComposeTest(width = 420, height = 1600) {
         setContent {
             MultiDatePickerSheet(
-                initialDates = setOf(LocalDate(2026, 10, 5)),
+                initialDates = persistentSetOf(LocalDate(2026, 10, 5)),
                 onConfirm = {},
                 onDismiss = {},
                 today = today,
@@ -77,10 +79,10 @@ class MultiDatePickerSheetTest {
 
     @Test
     fun `the ceiling refuses one day too many and says so`() = runIsolatedComposeTest(width = 420, height = 1600) {
-        var confirmed: Set<LocalDate>? = null
+        var confirmed: ImmutableSet<LocalDate>? = null
         setContent {
             MultiDatePickerSheet(
-                initialDates = emptySet(),
+                initialDates = persistentSetOf(),
                 onConfirm = { confirmed = it },
                 onDismiss = {},
                 today = today,
@@ -109,10 +111,10 @@ class MultiDatePickerSheetTest {
 
     @Test
     fun `tapping a selected day takes it back out`() = runIsolatedComposeTest(width = 420, height = 1600) {
-        var confirmed: Set<LocalDate>? = null
+        var confirmed: ImmutableSet<LocalDate>? = null
         setContent {
             MultiDatePickerSheet(
-                initialDates = emptySet(),
+                initialDates = persistentSetOf(),
                 onConfirm = { confirmed = it },
                 onDismiss = {},
                 today = today,
@@ -128,6 +130,6 @@ class MultiDatePickerSheetTest {
 
         clickTag(TestTags.MultiDatePicker.OK)
 
-        assertEquals(setOf(LocalDate(2026, 10, 12)), confirmed)
+        assertEquals(persistentSetOf(LocalDate(2026, 10, 12)), confirmed)
     }
 }

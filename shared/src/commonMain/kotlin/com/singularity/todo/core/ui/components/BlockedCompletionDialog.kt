@@ -1,6 +1,7 @@
 package com.singularity.todo.core.ui.components
 
 import androidx.compose.runtime.Composable
+import kotlinx.collections.immutable.ImmutableList
 
 /**
  * The confirmation shown when the user tries to close a task whose prerequisites
@@ -28,7 +29,7 @@ import androidx.compose.runtime.Composable
 @Composable
 fun BlockedCompletionDialog(
     taskTitle: String,
-    blockerTitles: List<String>,
+    blockerTitles: ImmutableList<String>,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) = ConfirmActionDialog(
@@ -81,7 +82,7 @@ fun blockedCompletionText(taskTitle: String, blockerTitles: List<String>): Strin
  */
 @Composable
 fun BlockedBulkCompletionDialog(
-    blockedTaskTitles: List<String>,
+    blockedTaskTitles: ImmutableList<String>,
     totalCount: Int,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,

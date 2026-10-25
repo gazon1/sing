@@ -18,6 +18,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  * Hosts all bottom sheets for [TaskEditorContent].
@@ -51,7 +52,9 @@ fun TaskEditorSheetsHost(
         // goes*, the flag says *what the user is allowed to choose*.
         is TaskEditorSheet.Date -> if (model.multiDateEnabled) {
             MultiDatePickerSheet(
-                initialDates = model.dueDates.ifEmpty { listOfNotNull(model.dueDate) }.toSet(),
+                initialDates = model.dueDates
+                    .ifEmpty { model.dueDate?.let { persistentListOf(it) } ?: persistentListOf() }
+                    .toImmutableSet(),
                 onConfirm = { dates ->
                     callbacks.dueDate.onChangeDates?.invoke(dates)
                     onSheetDismiss()

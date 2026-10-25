@@ -15,6 +15,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableList
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.BlockedBulkCompletionDialog
@@ -177,7 +179,7 @@ fun AgendaScreen(
 private fun BlockedBulkCloseDialog(state: AgendaUiState, vm: AgendaViewModel) {
     val request = (state as? AgendaUiState.Loaded)?.pendingBlockedBulkClose ?: return
     BlockedBulkCompletionDialog(
-        blockedTaskTitles = request.blockedTaskTitles,
+        blockedTaskTitles = request.blockedTaskTitles.toImmutableList(),
         totalCount = request.taskIds.size,
         onConfirm = { vm.onIntent(AgendaIntent.ConfirmBlockedBulkClose) },
         onDismiss = { vm.onIntent(AgendaIntent.DismissBlockedBulkClose) },
@@ -240,7 +242,7 @@ private fun MultiDateTaskPicker(
     onDismiss: () -> Unit,
 ) {
     MultiDatePickerSheet(
-        initialDates = emptySet(),
+        initialDates = persistentSetOf(),
         onConfirm = onConfirm,
         onDismiss = onDismiss,
         today = today,
@@ -260,7 +262,7 @@ private fun BlockedCloseDialog(state: AgendaUiState, vm: AgendaViewModel) {
     val request = (state as? AgendaUiState.Loaded)?.pendingBlockedClose ?: return
     BlockedCompletionDialog(
         taskTitle = request.taskTitle,
-        blockerTitles = request.blockerTitles,
+        blockerTitles = request.blockerTitles.toImmutableList(),
         onConfirm = { vm.onIntent(AgendaIntent.ConfirmBlockedClose(request.taskId)) },
         onDismiss = { vm.onIntent(AgendaIntent.DismissBlockedClose) },
     )

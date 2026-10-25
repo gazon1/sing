@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.runtime.Composable
 import com.singularity.todo.core.ui.components.sheet.ListPickerItem
 import com.singularity.todo.core.ui.components.sheet.ListPickerSheet
+import kotlinx.collections.immutable.toImmutableList
 
 /**
  * DSL marker so that the trailing lambda can only be called from inside [com.singularity.todo.core.ui.components.sheet.ListPickerSheet].
@@ -118,7 +119,7 @@ fun <T> ListPickerSheet(
     val scope = ListPickerScope<T>().apply(block)
     ListPickerSheet(
         title = title,
-        items = scope.items,
+        items = scope.items.toImmutableList(),
         onItemSelected = onItemSelected,
         onDismiss = onDismiss,
         header = scope.headerSlot,
