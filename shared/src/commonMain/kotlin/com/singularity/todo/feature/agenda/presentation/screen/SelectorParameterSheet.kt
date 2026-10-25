@@ -8,7 +8,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,6 +32,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
 import org.koin.compose.koinInject
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 
 /**
  * Second step of "add section": choose the values a [SelectorTemplate] needs.
@@ -62,17 +63,25 @@ internal fun SelectorParameterSheet(
     // the user's choice: any of the tags, or all of them. Engine-only before,
     // so a "tasks with all three tags" view could not be built from the editor.
     val matchAll = remember(template) { mutableStateOf(false) }
+    // The selection is a snapshot list: it changes as the user taps, and the
+    // set of selected keys is derived from it. The derivation is observed, so
+    // the set is rebuilt when the list changes and not on every recomposition.
+    val selectedKeys by remember {
+        derivedStateOf { selected.toImmutableSet() }
+    }
 
     MultiSelectSheet(
         title = template.label,
-        items = options.map { option ->
-            MultiSelectItem(
-                key = option.id,
-                label = option.label,
-                testTag = TestTags.agendaSelectorOption(option.id),
-            )
-        }.toImmutableList(),
-        selectedKeys = selected.toImmutableSet(),
+        items = remember(options) {
+            options.map { option ->
+                MultiSelectItem(
+                    key = option.id,
+                    label = option.label,
+                    testTag = TestTags.agendaSelectorOption(option.id),
+                )
+            }.toImmutableList()
+        },
+        selectedKeys = selectedKeys,
         onToggle = { id ->
             if (id in selected) selected.remove(id) else selected.add(id)
         },

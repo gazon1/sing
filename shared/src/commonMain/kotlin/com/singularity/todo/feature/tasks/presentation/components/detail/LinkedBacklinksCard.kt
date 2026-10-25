@@ -32,6 +32,7 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import androidx.compose.material3.MaterialTheme
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
+import androidx.compose.runtime.remember
 
 /**
  * Shows notes and tasks that link TO this task via `task://<id>` URL scheme.
@@ -49,18 +50,24 @@ fun LinkedBacklinksCard(
     onOpenTask: (TaskId) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val noteTitles = remember(linkedNotes) {
+        linkedNotes.map { it.title.ifBlank { "(untitled)" } }.toImmutableList()
+    }
+    val taskTitles = remember(linkedTasks) {
+        linkedTasks.map { it.title.ifBlank { "(untitled)" } }.toImmutableList()
+    }
     Column(modifier = modifier) {
         if (linkedNotes.isNotEmpty()) {
             BacklinkSection(
                 label = "Linked notes",
-                items = linkedNotes.map { it.title.ifBlank { "(untitled)" } }.toImmutableList(),
+                items = noteTitles,
                 onItemClick = { index -> onOpenNote(linkedNotes[index].id) },
             )
         }
         if (linkedTasks.isNotEmpty()) {
             BacklinkSection(
                 label = "Linked tasks",
-                items = linkedTasks.map { it.title.ifBlank { "(untitled)" } }.toImmutableList(),
+                items = taskTitles,
                 onItemClick = { index -> onOpenTask(linkedTasks[index].id) },
             )
         }

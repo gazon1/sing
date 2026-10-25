@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.collections.immutable.toImmutableList
 
 /**
  * The collections owned by the task: checklist items, subtasks, and attachments.
@@ -142,7 +143,7 @@ class TaskChildrenSlot(
                         BlockedCloseRequest(
                             taskId = subtask.id,
                             taskTitle = subtask.title,
-                            blockerTitles = blockers.map { it.title },
+                            blockerTitles = blockers.map { it.title }.toImmutableList(),
                         ),
                     )
                 }

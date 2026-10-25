@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.collections.immutable.toImmutableList
 
 /**
  * Marking the task complete.
@@ -148,7 +149,7 @@ class TaskCompletionSlot(
             BlockedCloseRequest(
                 taskId = task.id,
                 taskTitle = task.title,
-                blockerTitles = blockers.map { it.title },
+                blockerTitles = blockers.map { it.title }.toImmutableList(),
             ),
         )
     }

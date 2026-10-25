@@ -10,6 +10,7 @@
 | `AppErrorCode` | `AppErrorCodeRule.kt` | `app-error-code` | Flags an `AppError` construction that does not pass an explicit `code`. | `AppErrorCodeRuleTest` | yes |
 | `IntentMethodName` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | Bans an intent handler named anything but `onIntent`, so the MVI entry point has one name. | `RuleFiresSmokeTest (shared)` | yes |
 | `MviViewModelExt` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | Bans a ViewModel managing its own `MutableStateFlow` instead of the base's single state source. | `RuleFiresSmokeTest (shared)` | yes |
+| `NoCollectionMaterializationInComposable` | `NoCollectionMaterializationInComposableRule.kt` | `no-collection-materialization-in-composable` | A `@Composable` must not materialise a collection in its own body. | `NoCollectionMaterializationInComposableRuleTest` | yes |
 | `NoCombineSideEffect` | `NoCombineSideEffectRule.kt` | `no-combine-side-effect` | Bans side effects inside `combine(...) { ... | `NoCombineSideEffectRuleTest` | yes |
 | `NoCoroutineLaunchInInit` | `NoCoroutineLaunchInInit.kt` | `no-init-coroutine-launch` | Bans `scope.launch { ... | `RuleFiresSmokeTest (shared)` | yes |
 | `NoDirectClockSystem` | `NoDirectClockSystemRule.kt` | `no-direct-clock-system` | Bans direct references to `Clock.System` in commonMain production code. | `NoDirectClockSystemRuleTest` | **no** |
@@ -43,6 +44,6 @@
 | `VmCloseable` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | Requires a ViewModel with a `scope` parameter to call `addCloseable(scope)`, or its scope is never cancelled. | `RuleFiresSmokeTest (shared)` | yes |
 | `VmScopePosition` | `MviViewModelRulesProvider.kt` | `mvi-viewmodel` | Bans a `scope` parameter that is not last, so injected dependencies read in declaration order. | `RuleFiresSmokeTest (shared)` | yes |
 
-**35 rules.** Regenerate with `python3 scripts/gen-detekt-rule-table.py`; verify with `--check`.
+**36 rules.** Regenerate with `python3 scripts/gen-detekt-rule-table.py`; verify with `--check`.
 
 <!-- END GENERATED RULE TABLE -->

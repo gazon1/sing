@@ -3,7 +3,6 @@ package com.singularity.todo.feature.tasks.presentation.screen
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -41,6 +40,7 @@ import kotlin.time.Instant
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
+import androidx.compose.runtime.getValue
 
 /**
  * Task create screen for the tasks nested navigation graph.
@@ -111,10 +111,10 @@ fun TaskCreateScreen(initialDueDate: LocalDate?, draftKey: String? = null) {
     // The *whole* set of dates, primary date first. The row has to be able to say
     // "12 окт, 17 окт, 3 ноя" — a list without its primary date would name two
     // of the three.
-    val dueDates = (
-        listOfNotNull((state.draft.dueDate as? DueDateOption.Custom)?.date) +
-            state.draft.extraDueDates
-    ).toImmutableList()
+    val dueDates = remember(state.draft.dueDate, state.draft.extraDueDates) {
+        val primary = listOfNotNull((state.draft.dueDate as? DueDateOption.Custom)?.date)
+        (primary + state.draft.extraDueDates).toImmutableList()
+    }
 
     TaskCreateEditorContent(
         model = TaskEditorModel(
@@ -130,9 +130,9 @@ fun TaskCreateScreen(initialDueDate: LocalDate?, draftKey: String? = null) {
             startDate = (state.draft.startDate as? DueDateOption.Custom)?.date,
             startTime = state.draft.startTime,
             project = state.draft.projectId?.let { ProjectId.fromString(it) },
-            tags = state.draft.tagIds.map { TagId.fromString(it) }.toImmutableList(),
-            checklist = checklistItems.toImmutableList(),
-            attachments = attachmentItems.toImmutableList(),
+            tags = remember(state.draft.tagIds) { state.draft.tagIds.map { TagId.fromString(it) }.toImmutableList() },
+            checklist = remember(checklistItems) { checklistItems.toImmutableList() },
+            attachments = remember(attachmentItems) { attachmentItems.toImmutableList() },
             recurrence = state.draft.recurrence,
             isPinned = state.draft.isPinned,
             estimateMinutes = null,

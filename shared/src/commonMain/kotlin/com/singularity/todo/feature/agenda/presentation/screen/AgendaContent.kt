@@ -29,7 +29,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -66,6 +65,7 @@ import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
+import androidx.compose.runtime.getValue
 
 /**
  * Content composable for the Agenda screen.
@@ -397,23 +397,25 @@ private fun AgendaTaskRow(
     val task = rowItem.task
     val isSelected = task.id in selectedTaskIds
     val isOverdue = TaskComputed.isOverdue(task, today)
-    val taskUi = TaskUi(
-        id = task.id,
-        title = task.title,
-        project = null,
-        dueLabel = formatRussianDueDate(task.dueDate),
-        parentId = task.parentTaskId?.value,
-        indentLevel = if (task.parentTaskId != null) 1 else 0,
-        isRecurring = false,
-        isPinned = task.isPinned,
-        priority = task.priority,
-        isCompleted = task.completedAt != null,
-        isOverdue = isOverdue,
-        isSelected = isSelected,
-        blockedBy = task.blockedBy.toImmutableSet(),
-        isBlocked = rowItem.isBlocked,
-        seriesDates = rowItem.seriesDates,
-    )
+    val taskUi = remember(task, rowItem, isOverdue, isSelected) {
+        TaskUi(
+            id = task.id,
+            title = task.title,
+            project = null,
+            dueLabel = formatRussianDueDate(task.dueDate),
+            parentId = task.parentTaskId?.value,
+            indentLevel = if (task.parentTaskId != null) 1 else 0,
+            isRecurring = false,
+            isPinned = task.isPinned,
+            priority = task.priority,
+            isCompleted = task.completedAt != null,
+            isOverdue = isOverdue,
+            isSelected = isSelected,
+            blockedBy = task.blockedBy.toImmutableSet(),
+            isBlocked = rowItem.isBlocked,
+            seriesDates = rowItem.seriesDates,
+        )
+    }
 
     // Right-click handler — uses onSecondaryClick (expect/actual, jvmMain actual).
     // Passed via secondaryClickModifier so SwipeToDismissBox doesn't intercept the event.

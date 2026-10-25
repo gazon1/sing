@@ -19,6 +19,7 @@ import kotlinx.datetime.toLocalDateTime
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.collections.immutable.persistentListOf
+import androidx.compose.runtime.remember
 
 /**
  * Hosts all bottom sheets for [TaskEditorContent].
@@ -52,9 +53,11 @@ fun TaskEditorSheetsHost(
         // goes*, the flag says *what the user is allowed to choose*.
         is TaskEditorSheet.Date -> if (model.multiDateEnabled) {
             MultiDatePickerSheet(
-                initialDates = model.dueDates
-                    .ifEmpty { model.dueDate?.let { persistentListOf(it) } ?: persistentListOf() }
-                    .toImmutableSet(),
+                initialDates = remember(model.dueDates, model.dueDate) {
+                    model.dueDates
+                        .ifEmpty { model.dueDate?.let { persistentListOf(it) } ?: persistentListOf() }
+                        .toImmutableSet()
+                },
                 onConfirm = { dates ->
                     callbacks.dueDate.onChangeDates?.invoke(dates)
                     onSheetDismiss()
@@ -200,8 +203,8 @@ fun TaskEditorSheetsHost(
 
         // ── Dependencies ────────────────────────────────────────────────────
         is TaskEditorSheet.Dependencies -> DependencyPickerSheet(
-            currentDeps = model.blockedBy.toImmutableSet(),
-            availableTasks = model.availableTasks.toImmutableList(),
+            currentDeps = remember(model.blockedBy) { model.blockedBy.toImmutableSet() },
+            availableTasks = remember(model.availableTasks) { model.availableTasks.toImmutableList() },
             onApply = { newDeps ->
                 callbacks.dependencies?.onChange?.invoke(newDeps)
                 onSheetDismiss()

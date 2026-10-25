@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.runtime.Composable
 import com.singularity.todo.core.ui.components.sheet.ListPickerItem
 import com.singularity.todo.core.ui.components.sheet.ListPickerSheet
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 
 /**
@@ -33,7 +35,7 @@ annotation class ListPickerDsl
 @ListPickerDsl
 class ListPickerScope<T> internal constructor() {
 
-    internal val items: MutableList<ListPickerItem<T>> = mutableListOf()
+    internal var items: ImmutableList<ListPickerItem<T>> = persistentListOf()
 
     internal var headerSlot: (@Composable ColumnScope.() -> Unit)? = null
     internal var footerSlot: (@Composable ColumnScope.() -> Unit)? = null
@@ -73,17 +75,16 @@ class ListPickerScope<T> internal constructor() {
         enabled: Boolean = true,
         testTag: String? = null,
     ) {
-        items.add(
-            ListPickerItem(
-                key = key,
-                label = label,
-                subtitle = subtitle,
-                selected = selected,
-                enabled = enabled,
-                leading = leading,
-                testTag = testTag,
-            ),
+        val item = ListPickerItem(
+            key = key,
+            label = label,
+            subtitle = subtitle,
+            selected = selected,
+            enabled = enabled,
+            leading = leading,
+            testTag = testTag,
         )
+        items = (items + item).toImmutableList()
     }
 
     /**
@@ -119,7 +120,7 @@ fun <T> ListPickerSheet(
     val scope = ListPickerScope<T>().apply(block)
     ListPickerSheet(
         title = title,
-        items = scope.items.toImmutableList(),
+        items = scope.items,
         onItemSelected = onItemSelected,
         onDismiss = onDismiss,
         header = scope.headerSlot,

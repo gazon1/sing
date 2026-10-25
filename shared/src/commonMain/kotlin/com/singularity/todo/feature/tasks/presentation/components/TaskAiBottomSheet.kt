@@ -10,6 +10,7 @@ import com.singularity.todo.core.ui.components.sheet.ListPickerSheet
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.ImmutableList
 
 /**
  * Modal bottom sheet that lists every AI action available for [task].
@@ -23,17 +24,27 @@ import kotlinx.collections.immutable.toImmutableList
 fun TaskAiBottomSheet(task: Task, onAction: (TaskAiAction) -> Unit, onDismiss: () -> Unit) {
     ListPickerSheet(
         title = "AI Actions for: ${task.title}",
-        items = TaskAiAction.entries.map { action ->
-            ListPickerItem(
-                key = action,
-                label = action.label(),
-                leading = @Composable { Icon(Icons.Filled.AutoAwesome, contentDescription = null) },
-            )
-        }.toImmutableList(),
+        items = AI_ACTION_ITEMS,
         onItemSelected = onAction,
         onDismiss = onDismiss,
     )
 }
+
+/**
+ * The rows of the sheet.
+ *
+ * They do not depend on anything: the actions are an enum, and the sheet shows
+ * all of them. The list is therefore built once, here, and not on every
+ * recomposition of the sheet that shows it.
+ */
+private val AI_ACTION_ITEMS: ImmutableList<ListPickerItem<TaskAiAction>> =
+    TaskAiAction.entries.map { action ->
+        ListPickerItem(
+            key = action,
+            label = action.label(),
+            leading = @Composable { Icon(Icons.Filled.AutoAwesome, contentDescription = null) },
+        )
+    }.toImmutableList()
 
 private fun TaskAiAction.label(): String = when (this) {
     TaskAiAction.RefineTitle -> "Refine title"
