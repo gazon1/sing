@@ -35,6 +35,8 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
 
 /**
  * Notes list screen ViewModel.
@@ -177,11 +179,11 @@ class NotesListViewModel(
                     val unpinned = sorted.filter { !it.isPinned }
                     NotesUiState.Content(
                         list = NotesListState(
-                            pinned = pinned,
-                            unpinned = unpinned,
-                            templates = templates,
-                            dailyNotes = dailyNotes,
-                            selectedIds = _selectedIds.value,
+                            pinned = pinned.toImmutableList(),
+                            unpinned = unpinned.toImmutableList(),
+                            templates = templates.toImmutableList(),
+                            dailyNotes = dailyNotes.toImmutableList(),
+                            selectedIds = _selectedIds.value.toImmutableSet(),
                             isSelectionMode = _isSelectionMode.value,
                         ),
                         filter = filter,
@@ -266,7 +268,7 @@ class NotesListViewModel(
             val unpinned = sorted.filter { !it.isPinned }
             setState(
                 current.copy(
-                    list = current.list.copy(pinned = pinned, unpinned = unpinned),
+                    list = current.list.copy(pinned = pinned.toImmutableList(), unpinned = unpinned.toImmutableList()),
                     sortOrder = order,
                 ),
             )
@@ -316,7 +318,7 @@ class NotesListViewModel(
         val content = current as? NotesUiState.Content ?: return@updateState current
         content.copy(
             list = content.list.copy(
-                selectedIds = selected,
+                selectedIds = selected.toImmutableSet(),
                 isSelectionMode = selected.isNotEmpty(),
             ),
         )

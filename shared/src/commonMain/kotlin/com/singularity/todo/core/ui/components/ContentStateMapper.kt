@@ -4,6 +4,8 @@ import com.singularity.todo.core.error.AppError
 import com.singularity.todo.feature.notes.NotesUiState
 import com.singularity.todo.feature.tags.TagsUiState
 import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsUiState
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 
 /**
  * Shared `toContentState()` helpers for sealed UI states that follow the
@@ -26,7 +28,9 @@ import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsUiState
  */
 object ContentStateMapper {
 
-    fun notes(state: NotesUiState): ContentState<List<com.singularity.todo.feature.notes.Note>> = when (state) {
+    fun notes(
+        state: NotesUiState,
+    ): ContentState<ImmutableList<com.singularity.todo.feature.notes.Note>> = when (state) {
         is NotesUiState.Loading -> ContentState.Loading
 
         is NotesUiState.Error ->
@@ -36,12 +40,12 @@ object ContentStateMapper {
             if (state.list.isEmpty) {
                 ContentState.Empty
             } else {
-                ContentState.Ready(state.list.pinned + state.list.unpinned)
+                ContentState.Ready((state.list.pinned + state.list.unpinned).toImmutableList())
             }
         }
     }
 
-    fun tags(state: TagsUiState): ContentState<List<com.singularity.todo.feature.tags.Tag>> = when (state) {
+    fun tags(state: TagsUiState): ContentState<ImmutableList<com.singularity.todo.feature.tags.Tag>> = when (state) {
         is TagsUiState.Loading -> ContentState.Loading
 
         is TagsUiState.Empty -> ContentState.Empty
@@ -49,12 +53,12 @@ object ContentStateMapper {
         is TagsUiState.Error ->
             ContentState.Error(AppError.Unknown(state.message, code = "tags.render.failed"))
 
-        is TagsUiState.Content -> ContentState.Ready(state.tags)
+        is TagsUiState.Content -> ContentState.Ready(state.tags.toImmutableList())
     }
 
     fun tagGroups(
         state: TagGroupsUiState,
-    ): ContentState<List<com.singularity.todo.feature.tags.domain.model.TagGroup>> = when (state) {
+    ): ContentState<ImmutableList<com.singularity.todo.feature.tags.domain.model.TagGroup>> = when (state) {
         is TagGroupsUiState.Loading -> ContentState.Loading
 
         is TagGroupsUiState.Empty -> ContentState.Empty
@@ -62,6 +66,6 @@ object ContentStateMapper {
         is TagGroupsUiState.Error ->
             ContentState.Error(AppError.Unknown(state.message, code = "tags.groups.render_failed"))
 
-        is TagGroupsUiState.Content -> ContentState.Ready(state.groups)
+        is TagGroupsUiState.Content -> ContentState.Ready(state.groups.toImmutableList())
     }
 }

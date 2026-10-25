@@ -94,6 +94,10 @@ import com.singularity.todo.feature.notes.presentation.nav.NotesNavigator
 import com.singularity.todo.feature.notes.presentation.nav.NotesPreviewWrapper
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesListViewModel
 import kotlinx.coroutines.launch
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 import org.koin.compose.viewmodel.koinViewModel
 
 // ─── Screen ─────────────────────────────────────────────────────────────────
@@ -255,15 +259,14 @@ fun NotesScreenContent(
                 emptyTitle = "No notes yet",
                 emptyTestTag = TestTags.NOTES_LIST_EMPTY,
                 modifier = Modifier.padding(padding),
-            ) { allNotes, contentModifier ->
+            ) { _, contentModifier ->
                 NoteList(
-                    allNotes = allNotes,
-                    pinned = listState?.pinned ?: emptyList(),
-                    unpinned = listState?.unpinned ?: emptyList(),
-                    templates = listState?.templates ?: emptyList(),
-                    dailyNotes = listState?.dailyNotes ?: emptyList(),
+                    pinned = listState?.pinned ?: persistentListOf(),
+                    unpinned = listState?.unpinned ?: persistentListOf(),
+                    templates = listState?.templates ?: persistentListOf(),
+                    dailyNotes = listState?.dailyNotes ?: persistentListOf(),
                     isSelectionMode = isSelectionMode,
-                    selectedIds = listState?.selectedIds ?: emptySet(),
+                    selectedIds = listState?.selectedIds ?: persistentSetOf(),
                     navigator = navigator,
                     actions = actions,
                     currentFilter = state.filter,
@@ -412,13 +415,12 @@ private val NoteSortOrder.label: String
 
 @Composable
 private fun NoteList(
-    allNotes: List<Note>,
-    pinned: List<Note>,
-    unpinned: List<Note>,
-    templates: List<Note>,
-    dailyNotes: List<Note>,
+    pinned: ImmutableList<Note>,
+    unpinned: ImmutableList<Note>,
+    templates: ImmutableList<Note>,
+    dailyNotes: ImmutableList<Note>,
     isSelectionMode: Boolean,
-    selectedIds: Set<NoteId>,
+    selectedIds: ImmutableSet<NoteId>,
     navigator: NotesNavigator,
     actions: NotesActions,
     currentFilter: NoteFilter,
@@ -653,10 +655,10 @@ private fun NotesScreenContentPreview() = PreviewThemed(darkTheme = false, useSu
         NotesScreenContent(
             state = NotesUiState.Content(
                 list = NotesListState(
-                    pinned = listOf(
+                    pinned = persistentListOf(
                         PreviewSamples.note("n1", "Pinned Note", "**Pinned** content"),
                     ),
-                    unpinned = listOf(
+                    unpinned = persistentListOf(
                         PreviewSamples.note("n2", "Ideas", "Meeting notes and **brainstorming**"),
                         PreviewSamples.note("n3", "Shopping list"),
                     ),

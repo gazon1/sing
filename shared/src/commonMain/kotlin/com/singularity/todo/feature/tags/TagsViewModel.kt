@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.collections.immutable.toImmutableList
 
 // --- UI State ---
 
@@ -131,7 +132,7 @@ class TagsViewModel(
         scope.launch {
             tagRepo.observeAll()
                 .map { tags ->
-                    if (tags.isEmpty()) TagsUiState.Empty else TagsUiState.Content(tags)
+                    if (tags.isEmpty()) TagsUiState.Empty else TagsUiState.Content(tags.toImmutableList())
                 }
                 .catch { e ->
                     updateState {

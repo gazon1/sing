@@ -37,6 +37,7 @@ import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.tags.domain.model.TagGroup
 import com.singularity.todo.feature.tags.domain.model.TagGroupId
 import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsUiState
+import kotlinx.collections.immutable.ImmutableList
 
 @Composable
 fun TagGroupsScreen(state: TagGroupsUiState, onDelete: (TagGroupId) -> Unit, modifier: Modifier = Modifier) {
@@ -49,10 +50,15 @@ fun TagGroupsScreen(state: TagGroupsUiState, onDelete: (TagGroupId) -> Unit, mod
     }
 }
 
-private fun TagGroupsUiState.toContentState(): ContentState<List<TagGroup>> = ContentStateMapper.tagGroups(this)
+private fun TagGroupsUiState.toContentState():
+    ContentState<ImmutableList<TagGroup>> = ContentStateMapper.tagGroups(this)
 
 @Composable
-private fun TagGroupList(groups: List<TagGroup>, modifier: Modifier = Modifier, onDelete: (TagGroupId) -> Unit) {
+private fun TagGroupList(
+    groups: ImmutableList<TagGroup>,
+    modifier: Modifier = Modifier,
+    onDelete: (TagGroupId) -> Unit,
+) {
     LazyColumn(
         modifier = modifier,
         contentPadding = PaddingValues(16.dp),

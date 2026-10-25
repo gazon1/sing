@@ -16,6 +16,7 @@ import com.singularity.todo.feature.tags.domain.usecase.DeleteTagGroupUseCase
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.collections.immutable.toImmutableList
 
 /**
  * State for [TagGroupsViewModel].
@@ -75,7 +76,7 @@ class TagGroupsViewModel(
                     if (groups.isEmpty()) {
                         TagGroupsUiState.Empty
                     } else {
-                        TagGroupsUiState.Content(groups)
+                        TagGroupsUiState.Content(groups.toImmutableList())
                     }
                 }
                 .catch { error ->

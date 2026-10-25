@@ -17,6 +17,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 
 /**
  * Read-only ViewModel for the NotePreview (view) screen.
@@ -64,7 +66,7 @@ class NotePreview(
                 logger.w(e) { "Failed to load backlink notes" }
                 emptyList()
             }
-            updateState { NotePreviewState.Loaded(note = note, backlinks = backlinks) }
+            updateState { NotePreviewState.Loaded(note = note, backlinks = backlinks.toImmutableList()) }
         }
     }
 
@@ -78,7 +80,7 @@ class NotePreview(
 
 sealed interface NotePreviewState {
     data object Loading : NotePreviewState
-    data class Loaded(val note: Note, val backlinks: List<Note>) : NotePreviewState {
+    data class Loaded(val note: Note, val backlinks: ImmutableList<Note>) : NotePreviewState {
         val backlinkCount: Int get() = backlinks.size
     }
 }
