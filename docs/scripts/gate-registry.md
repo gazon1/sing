@@ -94,3 +94,4 @@ sche... | — | — |
 | the link grammar has one home | blocking | `scripts/check-link-grammar.py` | check-link-grammar.py — the link grammar has one home. | 0=the: grammar has one home, 1=a: file outside the home names the scheme | — |
 | the tool catalogue is current | blocking | `scripts/check-tools-catalog.py` | check-tools-catalog.py — the catalogue of the gate scripts. | 0=the: catalogue is current (or was written), 1=the: catalogue is not what the scripts say today, 2=the: catalogue could not be read or written | — |
 | compose stability contract | blocking | `scripts/check-compose-stability-config.py` | check-compose-stability-config.py — the stability contract must name real typ... | — | — |
+| screen state collections | blocking | `scripts/check-screen-state-collections.py` | check-screen-state-collections.py — a screen state does not hold a raw collec... | — | — |
