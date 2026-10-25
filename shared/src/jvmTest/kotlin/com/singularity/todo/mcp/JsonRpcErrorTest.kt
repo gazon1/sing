@@ -67,6 +67,21 @@ class JsonRpcErrorTest {
     }
 
     @Test
+    fun `a control character in the message does not break it`() {
+        // A control character is not a newline and not a quote, and a JSON string may
+        // not carry one raw: the serialiser has to escape it, or the frame the client
+        // reads stops being a frame.
+        val body = jsonRpcError(-32000, "before\u0000\u0007after")
+
+        val parsed = parser.parseToJsonElement(body).jsonObject
+        assertEquals(
+            "before\u0000\u0007after",
+            parsed["error"]?.jsonObject?.get("message")?.jsonPrimitive?.content,
+            "The message survives the control character",
+        )
+    }
+
+    @Test
     fun `the code is the code that was asked for`() {
         val body = jsonRpcError(-32001, "nope")
 

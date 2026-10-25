@@ -1,8 +1,10 @@
 package com.singularity.todo.mcp
 
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
@@ -24,9 +26,11 @@ import kotlin.test.assertNull
  * ## What this does not check
  *
  * The refusals that need a container or a database — a Koin that will not start, a
- * dependency that will not build, a database that will not open, a profile nobody
- * owns — are not decided here, and this test does not pretend otherwise. What it
- * pins is the decision that can be made from the arguments alone.
+ * dependency that will not build, a database that will not open — are not decided
+ * here, and this test does not pretend otherwise. What it pins is the decision that
+ * can be made from the arguments alone, and the decisions whose *lookup* is a
+ * parameter: whether a profile id is known is asked of a lookup this test supplies,
+ * so the rule can be checked without the database that answers it for real.
  */
 @Tag("fast")
 class ToolServerStartupTest {
@@ -63,5 +67,53 @@ class ToolServerStartupTest {
     fun `the exit codes are the ones the server promises`() {
         assertEquals(1, EXIT_STARTUP)
         assertEquals(2, EXIT_USAGE)
+    }
+
+    @Test
+    fun `a profile id nobody owns is a refusal, not a fallback`() = runTest {
+        val refusal = refusalForUnknownProfile("abc-123") { false }
+
+        assertEquals(
+            ToolServerStartup.Refused(
+                code = -32002,
+                message = "No profile with that id exists.",
+                exitCode = 2,
+            ),
+            refusal,
+        )
+    }
+
+    @Test
+    fun `a profile id somebody owns is served`() = runTest {
+        assertNull(refusalForUnknownProfile("abc-123") { true })
+    }
+
+    @Test
+    fun `a process without a profile id is never refused for one`() = runTest {
+        // The stored profile is the application's business, and this process does not
+        // question it: the lookup is not even asked.
+        var asked = false
+        val refusal = refusalForUnknownProfile(null) {
+            asked = true
+            true
+        }
+
+        assertNull(refusal)
+        assertFalse(asked, "And the lookup was never made")
+    }
+
+    @Test
+    fun `the legacy label activates the profile it always activated`() {
+        assertEquals("AI Agent", profileNameToActivate("ai-agent"))
+        assertEquals("AI Agent", profileNameToActivate("agent"))
+        assertEquals("AI Agent", profileNameToActivate("AI-Agent"), "The label is a name, not a case")
+    }
+
+    @Test
+    fun `the legacy label that means nothing activates nothing`() {
+        assertNull(profileNameToActivate("default"))
+        assertNull(profileNameToActivate("personal"))
+        assertNull(profileNameToActivate(null))
+        assertNull(profileNameToActivate("a-label-nobody-knows"), "An unknown label is ignored, as it always was")
     }
 }

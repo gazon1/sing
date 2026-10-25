@@ -14,8 +14,12 @@ private val log = Logger.withTag("StaleDbCleaner")
  * there", and it treated every error as the second one — which meant a locked file, a
  * corrupted file, an empty file and a database busy with another process all ended in the
  * same place: the user's database deleted.
+ *
+ * Internal rather than private, for the same reason as [deleteDatabaseFiles]: the reason the
+ * probe leaves is the record the startup makes, and a record no test can read is a record
+ * no change can be held to.
  */
-private sealed interface ProbeOutcome {
+internal sealed interface ProbeOutcome {
 
     /** The file carries the application's bookkeeping marker. It is the application's. */
     data object RoomManaged : ProbeOutcome
@@ -39,6 +43,26 @@ private sealed interface ProbeOutcome {
  * such without being handed to the driver at all.
  */
 private val SQLITE_HEADER = "SQLite format 3".toByteArray(Charsets.US_ASCII)
+
+/**
+ * What the first bytes of the file say.
+ *
+ * Three answers, not two: "it is a database", "it is not a database", and "I could not
+ * read it". The third one matters because the record the startup leaves says what it
+ * saw — and "the file does not start with a database header" is not what it saw when the
+ * file could not be opened at all.
+ */
+private sealed interface HeaderOutcome {
+
+    /** The file starts with the database header. */
+    data object Database : HeaderOutcome
+
+    /** The file was read, and it does not start with the header. */
+    data object NotADatabase : HeaderOutcome
+
+    /** The file could not be read. [reason] says what stopped the read. */
+    data class Unreadable(val reason: String) : HeaderOutcome
+}
 
 /**
  * Probes [dbPath] to determine whether it is a Room-managed database.
@@ -91,11 +115,21 @@ fun wipeIfNotRoomManaged(dbPath: String): Boolean {
  * either answers — and the answer is a definite yes or no — or fails, and a failure means
  * the file could not be read as a database at all. There is no third possibility, and no
  * dependence on how a particular driver words its error messages.
+ *
+ * Internal rather than private, for the same reason as [deleteDatabaseFiles]: the reason
+ * this leaves is the record the startup makes, and a record no test can read is a record
+ * no change can be held to.
  */
 @Suppress("TooGenericExceptionCaught") // the probe is fail-safe: every way of failing means "uncertain"
-private fun probe(dbPath: String): ProbeOutcome {
-    if (!hasSqliteHeader(dbPath)) {
-        return ProbeOutcome.Uncertain("the file does not start with a database header")
+internal fun probe(dbPath: String): ProbeOutcome {
+    when (val header = readHeader(dbPath)) {
+        HeaderOutcome.Database -> Unit
+
+        HeaderOutcome.NotADatabase ->
+            return ProbeOutcome.Uncertain("the file does not start with a database header")
+
+        is HeaderOutcome.Unreadable ->
+            return ProbeOutcome.Uncertain("the file could not be read: ${header.reason}")
     }
 
     return try {
@@ -125,21 +159,26 @@ private const val MARKER_QUERY =
     "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'room_master_table'"
 
 /**
- * Whether the file begins with the SQLite header.
+ * Reads the first bytes of the file and says what they are.
  *
- * A cheap, exact check: a file that does not start with it is not a database, and saying so
- * is more useful than opening it and interpreting the driver's error.
+ * A cheap, exact check: a file that does not start with the header is not a database, and
+ * saying so is more useful than opening it and interpreting the driver's error. A file
+ * that could not be read is a third thing again, and it says so — the difference between
+ * "this is not a database" and "I could not look" is the difference between a leftover
+ * from an older layout and a user's data behind a permission the process does not have.
  */
 @Suppress("TooGenericExceptionCaught") // the probe is fail-safe: every way of not reading it means "not ours"
-private fun hasSqliteHeader(dbPath: String): Boolean = try {
-    File(dbPath).inputStream().use { stream ->
-        val header = ByteArray(SQLITE_HEADER.size)
-        val read = stream.read(header)
-        read == SQLITE_HEADER.size && header.contentEquals(SQLITE_HEADER)
+private fun readHeader(dbPath: String): HeaderOutcome = try {
+    val header = ByteArray(SQLITE_HEADER.size)
+    val read = File(dbPath).inputStream().use { stream -> stream.read(header) }
+    if (read == SQLITE_HEADER.size && header.contentEquals(SQLITE_HEADER)) {
+        HeaderOutcome.Database
+    } else {
+        HeaderOutcome.NotADatabase
     }
 } catch (e: Exception) {
-    log.d(e) { "The candidate file could not be read, so it is not a database: $dbPath" }
-    false
+    log.d(e) { "The candidate file could not be read, so the probe cannot say what it is: $dbPath" }
+    HeaderOutcome.Unreadable(e.message ?: e::class.simpleName.orEmpty())
 }
 
 /**

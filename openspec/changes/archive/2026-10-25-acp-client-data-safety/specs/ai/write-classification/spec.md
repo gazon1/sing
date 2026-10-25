@@ -85,9 +85,7 @@ write. An agent connected from outside the application has no privileged path.
 
 ---
 
-## MODIFIED Requirements
-
-### Requirement: REQ-TOOLREG-001
+### Requirement: REQ-WCLS-005
 
 The tool registry **SHALL** list every tool an agent can call, and each entry **SHALL** carry
 the tool's name, its domain, its annotations, and its write behaviour.

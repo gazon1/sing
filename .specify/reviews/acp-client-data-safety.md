@@ -1,10 +1,10 @@
 ---
 change: acp-client-data-safety
-verdict: fail
-date: 2026-10-23
-pr: https://github.com/gazon1/sing/pull/1028
-reviewed: 277e4d17b899cdf7c76c7e92e7f18738135f8a1d
-documents: sha256:f176542a71479d4a1cd88e8245ac27e8d35d19c516ec7258a5fecd41bbb1d94f
+verdict: pass
+date: 2026-10-25
+pr: https://github.com/gazon1/sing/pull/1120
+reviewed: 063343b4f84626f3158db42bda01784bf54f6cec
+documents: sha256:e35f288d483c6e92e8d62dfc102016e983a65a06d8e6357a2756b2527001ed6c
 ---
 
 ## What was reviewed
@@ -75,11 +75,11 @@ with nothing on the protocol channel at all — so a client waiting for an answe
 saw the connection close and no reason. It now says so on the protocol channel
 like every other start-up failure.
 
-## What is still open — why this verdict is a fail
+## The finding that was open, and what closed it
 
-One finding is not fixed, and it is the reason this verdict is not a pass.
+The verdict was a `fail` for one reason, and this is what closed it.
 
-**The "all writes ask first" promise is verified for two of the twelve
+**The "all writes ask first" promise was verified for two of the twelve
 proposal-gated tools.** The catalogue declares twelve tools as proposal-gated,
 and the behavioural contract test drives two of them — a creation and a
 deletion — through the whole round trip, asserting that declining leaves the
@@ -89,13 +89,58 @@ declares itself proposal-gated and writes on its own would break the promise
 the whole surface makes, and the only thing standing between that and the user
 is a list.
 
-This is the follow-up work already scheduled for the write classification:
-publishing the classification in the exported tool surface, making the gate
-check the declaration against the tools' behaviour, and covering every
-proposal-gated tool with the contract the two representatives have today. The
-finding is recorded here so that the next session does not have to rediscover
-it, and so that a reader of this verdict knows the guarantee is currently held
-by a list and by two tests rather than by the whole set.
+**`agent-surface-follow-ups` closed it.** The classification is published in the
+exported tool surface, the check reads the declaration against the tools'
+behaviour in both directions, and every proposal-gated tool is driven through
+the round trip — the aggregate check is what stops a fourteenth tool from
+shipping with no contract. That change's own review passed, and this verdict
+names it rather than re-deciding what it decided.
+
+**And four of this change's own scenarios had no test.** A scenario in a spec
+delta that nothing drives is a promise nobody kept, and four of this change's
+scenarios had that shape:
+
+- `REQ-DBSAFE-002` — *a locked file is kept*. The database is held by another
+  connection while the probe runs; the file survives byte for byte, and the
+  control at the end of the test says the very same file is deleted once the
+  lock is gone. The lock was the only difference, and the difference has to be
+  enough;
+- `REQ-DBSAFE-002` — *a file the probe cannot read is kept*. And the record it
+  leaves says it could not read the file, rather than that the file was not a
+  database — which is what it used to say about a file it had never managed to
+  read;
+- `REQ-MCPSRV-010` — *the stored profile state is never opened*. A
+  fixed-profile graph with a store that cannot be built: the repository is
+  built, so the store was never asked for. The control is the same graph
+  without a fixed profile, which asks for the store and is refused;
+- `REQ-MCPSRV-011` and `REQ-MCPSRV-012` — *an unknown profile id is refused*,
+  and *the legacy label still works*. Both decisions are values now, and the
+  lookup the first one asks is a parameter, so the rules can be checked without
+  a database.
+
+## The second round
+
+The closing work was reviewed by a second agent, and the round returned a `fail`
+with two blocking findings. Both were about the *test*, not about the behaviour,
+and both are closed:
+
+- **The record the probe leaves had no test that could fail.** The probe's
+  outcome was a `Boolean` and the reason it left was a line in a log, so
+  reverting the tri-state read to a boolean would have left every test green:
+  the file would still be kept either way. The probe's outcome is internal now,
+  and the test asserts the *reason* — the two records apart, so the change is
+  visible;
+- **The unreadable case could not detect the breakage it named.** It drove a
+  non-empty directory, and a file delete cannot remove one, so a probe that had
+  decided to delete the file would have left the directory standing and the
+  test green. It drives a symlink to a directory now — a path that cannot be
+  read as a file and that *can* be deleted — so its survival is the probe's
+  decision and not the file system's refusal.
+
+The second round's other observations are taken in the change: the locked case
+now asserts the record as well as the survival, the checklist's verification
+command names the desktop app's test task, and the archive ADR says what it
+means to say.
 
 ## How the fixes were checked
 
@@ -116,3 +161,9 @@ by a list and by two tests rather than by the whole set.
   holds that key, and the move only finds it if the name is the same one.
 - The decision record and the architecture notes were extended to match, and
   the digest regenerated.
+- The closing work was checked by a second agent, and its two blocking findings
+  were closed and checked again: the second round returned a `pass`.
+- The full shared suite: 4378 tests, 3 failures — and the three are the same
+  three `main` fails at the same commit (`CapabilityFlagTest`,
+  `TextFieldShapeConventionTest`, `TextFieldRewriteContractTest`), so none of
+  them is this change's.
