@@ -16,8 +16,8 @@ state *which tasks need the skill*, not summarise its contents.
 
 | Skill | Lines | Description |
 |---|---:|---|
-| `singularity-todo-adb-screen-unlock` | 92 | How to wake and unlock a physical Android device connected via adb before UI verification. |
-| `singularity-todo-adb-workflow` | 170 | Full adb workflow for UI verification on a physical Android device connected via USB. |
+| `singularity-todo-adb-screen-unlock` | 97 | How to wake and unlock a physical Android device connected via adb before UI verification. |
+| `singularity-todo-adb-workflow` | 175 | Full adb workflow for UI verification on a physical Android device connected via USB. |
 | `singularity-todo-agenda-section-design` | 77 | Agenda section design — bucket selectors, discard semantics, and LazyColumn key safety. |
 | `singularity-todo-ai-action-registry-pattern` | 308 | AI action slot-API pattern for Singularity Todo. |
 | `singularity-todo-ai-tool` | 433 | Koog AI tool creation pattern for the Singularity Todo KMP app. |
@@ -42,7 +42,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-domain-logic-pattern` | 176 | Documents the pattern for pure business-logic classes placed in feature/X/domain/logic/. |
 | `singularity-todo-draft-restoration` | 427 | How to implement State Restoration for any form or editor screen in Singularity Todo. |
 | `singularity-todo-dsl-pattern` | 225 | Kotlin DSL patterns used in this project. |
-| `singularity-todo-emulator-launch` | 198 | Launch and recover the Android emulator on this dev host. |
+| `singularity-todo-emulator-launch` | 212 | Launch and recover the Android emulator on this dev host. |
 | `singularity-todo-feature-scaffold` | 454 | Feature scaffold pattern for the Singularity Todo KMP app. |
 | `singularity-todo-genui-catalog` | 194 | How to add, change or remove a component in the GenUI catalog — the one declaration that generates the prompt, the validator and the JSON Schema, plus the renderer that must agree with it. |
 | `singularity-todo-icon-registry` | 273 | KMP-native pattern for user-facing icon selection registries (project icons, tag emoji, priority icons, note color icons). |
@@ -55,7 +55,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-koog-agent` | 242 | KMP-native AI agent pattern using JetBrains Koog 1.1.1 with SimpleTool<T>, expect/actual PromptExecutor, ToolRegistry, and Koin auto-registration. |
 | `singularity-todo-kotlin-idioms` | 454 | Kotlin boilerplate-reduction catalog for Kotlin 2.4. |
 | `singularity-todo-llm-usage-tracking` | 332 | LLM token usage tracking in Singularity Todo KMP. |
-| `singularity-todo-maestro-flows` | 513 | Author and run Maestro UI flows for the Android app. |
+| `singularity-todo-maestro-flows` | 525 | Author and run Maestro UI flows for the Android app. |
 | `singularity-todo-mcp-dogfooding` | 275 | How the AI agent should use the Singularity Todo MCP server to track its own multi-step plans via tasks/projects/tags/ADRs. |
 | `singularity-todo-mcp-init` | 276 | MCP init command pattern for Singularity Todo KMP. |
 | `singularity-todo-monthly-doc-audit` | 113 | Monthly or pre-release sweep of the documentation ecosystem in this repo. |

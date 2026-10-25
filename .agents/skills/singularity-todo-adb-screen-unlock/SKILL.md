@@ -41,6 +41,11 @@ instead of the phone. Emulator targets do not use this skill at all; they go
 through `ensure-emulator`, the repo's single device-recovery
 primitive.
 
+`ensure-emulator` is a console script of this repository's package, so it lives
+in the gate tooling venv of this checkout (`~/.venvs/singularity-todo-<checkout>/bin`)
+— that directory has to be on PATH before it resolves. See
+`singularity-todo-emulator-launch` for the one-liner.
+
 If `state=unauthorized`: the device shows "Allow USB debugging?" on its screen — the human must tap "Allow" and "Always allow from this computer".
 
 ## Full pre-flight checklist before every session

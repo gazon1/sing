@@ -22,6 +22,18 @@ process-verification gotchas) — delegate to `singularity-todo-emulator-launch`
 Device prep (wake, unlock, IME workaround, install, logcat) is
 `singularity-todo-adb-workflow` / `run-maestro`.
 
+**`ensure-emulator` and `run-maestro` have to be on PATH.** Both are console
+scripts of this repository's package, installed into the gate tooling venv of
+the checkout that installed them (`~/.venvs/singularity-todo-<checkout>/bin`):
+
+```bash
+export PATH="$HOME/.venvs/singularity-todo-$(basename "$PWD")/bin:$PATH"
+```
+
+`bash scripts/ci/setup-local-tools.sh` creates that venv. `just ui-maestro` and
+`just gate-maestro` call `run-maestro` by name, so the same PATH applies to
+them.
+
 ## Running
 
 ```bash

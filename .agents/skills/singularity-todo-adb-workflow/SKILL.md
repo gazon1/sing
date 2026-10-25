@@ -41,6 +41,11 @@ hardware someone plugged in. If you want the script to look at this phone, pin i
 rather than booting an emulator. For an AVD target, use the script directly or the
 `singularity-todo-emulator-launch` skill.
 
+The command is a console script of this repository's package, so it lives in the
+gate tooling venv of this checkout (`~/.venvs/singularity-todo-<checkout>/bin`) —
+that directory has to be on PATH before `ensure-emulator` resolves. See
+`singularity-todo-emulator-launch` for the one-liner.
+
 ### Step 2 — Build + install (if APK changed)
 
 ```bash

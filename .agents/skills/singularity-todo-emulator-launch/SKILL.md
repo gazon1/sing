@@ -37,6 +37,20 @@ the one that mattered, because the AVD that had just been restarted came up
 with the keyboard on and every flow measured after that measured a
 half-covered screen.
 
+**Where the command comes from:** both are console scripts of this repository's
+package (`scripts/src/pyproject.toml` declares them), so they are installed
+into the gate tooling venv of the checkout that installed them —
+`~/.venvs/singularity-todo-<checkout>/bin`. That directory has to be on PATH:
+
+```bash
+export PATH="$HOME/.venvs/singularity-todo-$(basename "$PWD")/bin:$PATH"
+```
+
+`bash scripts/ci/setup-local-tools.sh` creates the venv. The command is not on
+PATH by default, and a checkout with no venv of its own has no
+`ensure-emulator` at all — which is the right way round: the command belongs to
+the tree it came from.
+
 **Pinning `SERIAL` does not switch recovery off.** A pinned-but-unready *emulator*
 is exactly the crash case recovery exists for, so `SERIAL=emulator-5554
 ensure-emulator` restarts the AVD instead of reporting failure. Only a pinned
