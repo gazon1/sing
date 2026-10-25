@@ -135,6 +135,34 @@ class StaleDbCleanerTest {
     }
 
     @Test
+    fun `a locked database is kept`() {
+        val path = dbPath()
+        writeValidDatabase(path, withMarker = false)
+        val before = bytesOf(path)
+
+        // The same file, unlocked, is a file this probe deletes: it is a valid database
+        // and it does not carry the marker. The lock is the only difference, so the
+        // difference has to be enough — which is why the control is at the end of this
+        // test and not in another one.
+        val driver = BundledSQLiteDriver()
+        driver.open(path).use { connection ->
+            connection.execSQL("BEGIN EXCLUSIVE")
+
+            val deleted = wipeIfNotRoomManaged(path)
+
+            assertFalse(deleted, "A database another process is holding is not proof of anything")
+            assertContentEquals(before, bytesOf(path), "And not a byte of it changed")
+
+            connection.execSQL("COMMIT")
+        }
+
+        val deletedOnceUnlocked = wipeIfNotRoomManaged(path)
+
+        assertTrue(deletedOnceUnlocked, "Without the lock, the very same file is provably not ours")
+        assertFalse(File(path).exists(), "And it goes")
+    }
+
+    @Test
     fun `a file the probe cannot read is kept`() {
         // A path that cannot be read as a file, and that could have been deleted: a
         // symlink to a directory. `inputStream()` on it fails ("Is a directory"), so the
