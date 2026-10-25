@@ -1,6 +1,8 @@
 package com.singularity.todo.feature.statistics
 
 import com.singularity.todo.core.platform.TimeConstants
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -12,7 +14,7 @@ data class DayBucket(
 )
 
 data class StatisticsSnapshot(
-    val tasksPerDay: List<DayBucket>,
+    val tasksPerDay: ImmutableList<DayBucket>,
     val totalCompleted: Int,
     val totalOverdue: Int,
     val averagePerDay: Double,
@@ -117,7 +119,7 @@ internal fun computeStatistics(
     }
 
     return StatisticsSnapshot(
-        tasksPerDay = buckets,
+        tasksPerDay = buckets.toImmutableList(),
         totalCompleted = recentCompleted.size,
         totalOverdue = recentOverdue.size,
         averagePerDay = if (rangeDays > 0) recentCompleted.size.toDouble() / rangeDays else 0.0,

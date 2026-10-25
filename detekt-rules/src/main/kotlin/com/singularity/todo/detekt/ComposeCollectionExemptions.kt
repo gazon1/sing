@@ -72,20 +72,6 @@ internal object ComposeCollectionExemptions {
      * register without a translation table.
      */
     val KNOWN: Map<String, Map<String, String>> = mapOf(
-        "com.singularity.todo.feature.search.presentation.PriorityChips" to
-            mapOf("selected" to "Set<TaskPriority>"),
-        "com.singularity.todo.feature.search.presentation.SavedSearchesRow" to
-            mapOf("savedSearches" to "List<SavedSearch>"),
-        "com.singularity.todo.feature.search.presentation.StateChips" to
-            mapOf("selected" to "Set<TaskStatus>?"),
-        "com.singularity.todo.feature.settings.SettingsContent" to
-            mapOf("previewOverrides" to "Map<SettingsTab, @Composable () -> Unit>"),
-        "com.singularity.todo.feature.statistics.InsightsStackedBarChart" to
-            mapOf("buckets" to "List<DayInsightsBucket>"),
-        "com.singularity.todo.feature.statistics.ProjectBreakdown" to
-            mapOf("projectBuckets" to "List<ProjectInsightsBucket>"),
-        "com.singularity.todo.feature.statistics.TasksBarChart" to
-            mapOf("buckets" to "List<DayBucket>"),
         "com.singularity.todo.core.ui.onboarding.rememberSpotlightTour" to
             mapOf("steps" to "List<SpotlightStep>"),
         "com.singularity.todo.feature.nav.Nav3State.toDecoratedEntries" to

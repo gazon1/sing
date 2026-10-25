@@ -52,6 +52,9 @@ import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.tasks.domain.logic.TaskHealthBucket
 import com.singularity.todo.feature.tasks.domain.logic.TaskHealthSummary
 import com.singularity.todo.feature.timetracking.domain.logic.DayInsightsBucket
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import org.koin.compose.viewmodel.koinViewModel
@@ -200,13 +203,13 @@ private fun TasksTabContent(state: StatisticsUiState) {
         )
 
         // Bar chart
-        val buckets = snapshot?.tasksPerDay ?: emptyList()
+        val buckets = snapshot?.tasksPerDay ?: persistentListOf()
         TasksBarChart(buckets = buckets)
     }
 }
 
 @Composable
-private fun TasksBarChart(buckets: List<DayBucket>) {
+private fun TasksBarChart(buckets: ImmutableList<DayBucket>) {
     val maxCount =
         (buckets.maxOfOrNull { it.completedCount } ?: 1)
             .coerceAtLeast(buckets.maxOfOrNull { it.overdueCount } ?: 1)
@@ -352,7 +355,7 @@ private fun InsightsTabContent(
 
 @Composable
 private fun ProjectBreakdown(
-    projectBuckets: List<ProjectInsightsBucket>,
+    projectBuckets: ImmutableList<ProjectInsightsBucket>,
     totalMs: Long,
 ) {
     if (projectBuckets.isEmpty()) return
@@ -387,7 +390,7 @@ private fun ProjectBreakdown(
 
 @Composable
 private fun InsightsStackedBarChart(
-    buckets: List<DayInsightsBucket>,
+    buckets: ImmutableList<DayInsightsBucket>,
     modifier: Modifier = Modifier,
 ) {
     Card(modifier = modifier) {
@@ -630,7 +633,7 @@ private fun StatisticsScreenLightPreview() =
                                         DayBucket("2026-09-04", 4, 0),
                                         DayBucket("2026-09-05", 6, 2),
                                         DayBucket("2026-09-06", 8, 0),
-                                    ),
+                                    ).toImmutableList(),
                                 totalCompleted = 35,
                                 totalOverdue = 3,
                                 averagePerDay = 5.0,

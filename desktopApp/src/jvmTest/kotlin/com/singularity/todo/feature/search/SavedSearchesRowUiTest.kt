@@ -12,6 +12,8 @@ import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import org.junit.jupiter.api.Tag
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlin.test.Test
 import kotlin.time.Instant
 
@@ -49,7 +51,7 @@ class SavedSearchesRowUiTest {
         runIsolatedComposeTest {
             setContent {
                 SavedSearchesRow(
-                    savedSearches = emptyList(),
+                    savedSearches = persistentListOf(),
                     activeSavedSearchId = null,
                     onLoadSearch = {},
                     onSaveClick = {},
@@ -68,7 +70,7 @@ class SavedSearchesRowUiTest {
                 listOf(
                     makeSavedSearch("ss1", "Work tasks"),
                     makeSavedSearch("ss2", "Tomorrow"),
-                )
+                ).toImmutableList()
             setContent {
                 SavedSearchesRow(
                     savedSearches = searches,
@@ -90,7 +92,7 @@ class SavedSearchesRowUiTest {
             var saveClicked = false
             setContent {
                 SavedSearchesRow(
-                    savedSearches = emptyList(),
+                    savedSearches = persistentListOf(),
                     activeSavedSearchId = null,
                     onLoadSearch = {},
                     onSaveClick = { saveClicked = true },
@@ -107,7 +109,7 @@ class SavedSearchesRowUiTest {
     @Test
     fun `clicking a saved search chip calls onLoadSearch with the correct id`() =
         runIsolatedComposeTest {
-            val searches = listOf(makeSavedSearch("ss-home", "Home tasks"))
+            val searches = listOf(makeSavedSearch("ss-home", "Home tasks")).toImmutableList()
             var loadedId: SavedSearchId? = null
             setContent {
                 SavedSearchesRow(
@@ -130,7 +132,7 @@ class SavedSearchesRowUiTest {
     @Test
     fun `active saved search shows filled star icon`() =
         runIsolatedComposeTest {
-            val searches = listOf(makeSavedSearch("ss1", "Active search"))
+            val searches = listOf(makeSavedSearch("ss1", "Active search")).toImmutableList()
             setContent {
                 SavedSearchesRow(
                     savedSearches = searches,

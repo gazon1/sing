@@ -17,6 +17,9 @@ import com.singularity.todo.feature.timetracking.domain.logic.bucketByDay
 import com.singularity.todo.feature.timetracking.domain.logic.bucketByProject
 import com.singularity.todo.feature.timetracking.domain.logic.mergeIntervalsWithOpen
 import com.singularity.todo.feature.timetracking.domain.logic.splitAtMidnight
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -46,8 +49,8 @@ data class StatisticsUiState(
     /** Time-tracking data for the insights tab. */
     data class InsightsData(
         val loading: Boolean = true,
-        val dayBuckets: List<DayInsightsBucket> = emptyList(),
-        val projectBuckets: List<ProjectInsightsBucket> = emptyList(),
+        val dayBuckets: ImmutableList<DayInsightsBucket> = persistentListOf(),
+        val projectBuckets: ImmutableList<ProjectInsightsBucket> = persistentListOf(),
         val totalMs: Long = 0L,
     )
 }
@@ -107,7 +110,7 @@ class StatisticsViewModel(
                 }
                 .catch { error ->
                     crashReporter.report(error, TASK_STATISTICS_FAILED)
-                    emit(StatisticsSnapshot(emptyList(), 0, 0, 0.0, 0))
+                    emit(StatisticsSnapshot(persistentListOf(), 0, 0, 0.0, 0))
                 }
                 .collect { snapshot ->
                     updateState { it.copy(snapshot = snapshot, loading = false) }
@@ -192,8 +195,8 @@ class StatisticsViewModel(
 
                     StatisticsUiState.InsightsData(
                         loading = false,
-                        dayBuckets = dayBuckets,
-                        projectBuckets = projectBuckets,
+                        dayBuckets = dayBuckets.toImmutableList(),
+                        projectBuckets = projectBuckets.toImmutableList(),
                         totalMs = split.sumOf { it.durationMs },
                     )
                 }

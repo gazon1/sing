@@ -84,6 +84,9 @@ import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsIntent
 import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsUiState
 import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsViewModel
 import org.koin.compose.koinInject
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.toImmutableMap
 import org.koin.compose.viewmodel.koinViewModel
 
 private enum class SettingsTab(val label: String) {
@@ -187,7 +190,7 @@ private fun SettingsContent(
     // the one row that needs the store rather than failing to resolve it.
     onboarding: OnboardingSettingsRepository? = null,
     modifier: Modifier = Modifier,
-    previewOverrides: Map<SettingsTab, @Composable () -> Unit> = emptyMap(),
+    previewOverrides: ImmutableMap<SettingsTab, @Composable () -> Unit> = persistentMapOf(),
     navCallbacks: NavCallbacks? = null,
 ) {
     Row(modifier = modifier.fillMaxSize()) {
@@ -401,8 +404,8 @@ private fun AiStatusBadge(
 // WorkSchedule, Calendar, Files) renders through the exact same branch the
 // real screen uses.
 
-private val previewOverrides: Map<SettingsTab, @Composable () -> Unit> =
-    mapOf(
+private val previewOverrides: ImmutableMap<SettingsTab, @Composable () -> Unit> =
+    mapOf<SettingsTab, @Composable () -> Unit>(
         SettingsTab.Tags to {
             val fakeTagsRepo =
                 com.singularity.todo.test.fakes
@@ -445,7 +448,7 @@ private val previewOverrides: Map<SettingsTab, @Composable () -> Unit> =
                 onSignOut = {},
             )
         },
-    )
+    ).toImmutableMap()
 
 @Composable
 private fun SettingsScreenPreview(selectedTab: SettingsTab) {

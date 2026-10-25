@@ -43,6 +43,9 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 
 /**
  * Horizontal row of saved search chips shown above search results.
@@ -55,7 +58,7 @@ import com.singularity.todo.core.ui.preview.noopClick
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun SavedSearchesRow(
-    savedSearches: List<SavedSearch>,
+    savedSearches: ImmutableList<SavedSearch>,
     activeSavedSearchId: SavedSearchId?,
     onLoadSearch: (SavedSearchId) -> Unit,
     onSaveClick: () -> Unit,
@@ -197,7 +200,7 @@ private fun SavedSearchesRowPreview() = PreviewThemed(darkTheme = false) {
             previewSavedSearch("s1", "Overdue", "is:overdue"),
             previewSavedSearch("s2", "Due this week", "due:7d"),
             previewSavedSearch("s3", "Work", "tag:work"),
-        ),
+        ).toImmutableList(),
         activeSavedSearchId = SavedSearchId.fromString("s1"),
         onLoadSearch = { },
         onSaveClick = noopClick,
@@ -210,7 +213,7 @@ private fun SavedSearchesRowPreview() = PreviewThemed(darkTheme = false) {
 @Composable
 private fun SavedSearchesRowEmptyPreview() = PreviewThemed(darkTheme = false) {
     SavedSearchesRow(
-        savedSearches = emptyList(),
+        savedSearches = persistentListOf(),
         activeSavedSearchId = null,
         onLoadSearch = { },
         onSaveClick = noopClick,
