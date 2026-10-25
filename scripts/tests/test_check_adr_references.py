@@ -71,6 +71,55 @@ class ResolutionTest(unittest.TestCase):
         self.assertEqual(dangling, [], f'unexpected dangling refs: {dangling}')
 
 
+class ChangePathTest(unittest.TestCase):
+    """A path into the openspec corpus is not a citation of a decision.
+
+    The archive's directories carry the date of the change they hold, so
+    `openspec/changes/archive/2026-10-20-<slug>/` looks exactly like a dated
+    ADR slug. It is not one: it is a directory of changes, and the gate that
+    checks those is `check-review-verdicts.py`. Reading it as a citation would
+    make every pointer to an archived change a dangling reference.
+    """
+
+    def _dangling(self, line: str) -> list[str]:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            d = root / 'docs' / 'decisions'
+            d.mkdir(parents=True)
+            doc = root / 'AGENTS.md'
+            doc.write_text(line + '\n')
+            saved = (mod.DECISIONS_DIR, mod.ROOT, mod.SCAN_FILES, mod.SCAN_GLOBS)
+            mod.DECISIONS_DIR = d
+            mod.ROOT = root
+            mod.SCAN_FILES = [doc]
+            mod.SCAN_GLOBS = []
+            try:
+                return mod.find_dangling(mod.existing_slugs())
+            finally:
+                (mod.DECISIONS_DIR, mod.ROOT, mod.SCAN_FILES, mod.SCAN_GLOBS) = saved
+
+    def test_a_path_into_the_change_corpus_is_not_a_dangling_citation(self):
+        """The file is scanned — a real citation in it is still reported."""
+        dangling = self._dangling(
+            'the change lives in `openspec/changes/archive/2026-10-20-the-row-keeps-it/`\n'
+            'and see 2026-01-01-a-decision-that-is-gone for detail'
+        )
+        self.assertEqual(
+            dangling,
+            ['AGENTS.md:2026-01-01-a-decision-that-is-gone'],
+            f'the path was read as a citation, or the file was not scanned: {dangling}',
+        )
+
+    def test_a_dangling_citation_is_still_a_dangling_citation(self):
+        """The rule that ignores a path must not ignore a citation."""
+        dangling = self._dangling('see 2026-01-01-a-decision-that-is-gone for detail')
+        self.assertEqual(
+            dangling,
+            ['AGENTS.md:2026-01-01-a-decision-that-is-gone'],
+            f'the gate stopped catching a deleted decision: {dangling}',
+        )
+
+
 class ExclusionTest(unittest.TestCase):
     def test_generated_digest_is_excluded(self):
         """DIGEST.md is generated and gitignored; scanning it double-counts citations."""

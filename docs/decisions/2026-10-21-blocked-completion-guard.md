@@ -158,7 +158,7 @@ detail screen unguarded.
 - Supersedes, in part: `2026-09-18-task-dependencies` — its "completion is always
   allowed" consequence is replaced by the confirmation.
 - `2026-10-01-typed-task-dependency-links` — the verb model the narrowing relies on.
-- `openspec/changes/blocked-completion-guard/` — the specification of the behaviour.
+- `openspec/changes/archive/2026-10-25-blocked-completion-guard/` — the specification of the behaviour.
 - `openspec/specs/tasks/spec.md` — the requirement that closing a blocked task asks.
 - `openspec/specs/destructive-action-safety/spec.md` — the pattern of a risky action
   requiring an explicit confirmation.

@@ -27,10 +27,10 @@ tags:
 - protocol
 - verification
 documents:
-  proposal: openspec/changes/the-client-meets-a-real-bridge/proposal.md
-  design: openspec/changes/the-client-meets-a-real-bridge/design.md
-  adr: openspec/changes/the-client-meets-a-real-bridge/adr.md
-  tasks: openspec/changes/the-client-meets-a-real-bridge/tasks.md
-specs_dir: openspec/changes/the-client-meets-a-real-bridge/specs
+  proposal: openspec/changes/archive/2026-10-25-the-client-meets-a-real-bridge/proposal.md
+  design: openspec/changes/archive/2026-10-25-the-client-meets-a-real-bridge/design.md
+  adr: openspec/changes/archive/2026-10-25-the-client-meets-a-real-bridge/adr.md
+  tasks: openspec/changes/archive/2026-10-25-the-client-meets-a-real-bridge/tasks.md
+specs_dir: openspec/changes/archive/2026-10-25-the-client-meets-a-real-bridge/specs
 is_stub: false
-openspec_path: openspec/changes/the-client-meets-a-real-bridge
+openspec_path: openspec/changes/archive/2026-10-25-the-client-meets-a-real-bridge

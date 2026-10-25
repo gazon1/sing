@@ -20,9 +20,9 @@ tags:
 - statistics
 - ui
 documents:
-  proposal: openspec/changes/task-series-presentation/proposal.md
-  design: openspec/changes/task-series-presentation/design.md
-  tasks: openspec/changes/task-series-presentation/tasks.md
-specs_dir: openspec/changes/task-series-presentation/specs
+  proposal: openspec/changes/archive/2026-10-25-task-series-presentation/proposal.md
+  design: openspec/changes/archive/2026-10-25-task-series-presentation/design.md
+  tasks: openspec/changes/archive/2026-10-25-task-series-presentation/tasks.md
+specs_dir: openspec/changes/archive/2026-10-25-task-series-presentation/specs
 is_stub: false
-openspec_path: openspec/changes/task-series-presentation
+openspec_path: openspec/changes/archive/2026-10-25-task-series-presentation

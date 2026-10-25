@@ -164,7 +164,7 @@ but it has not been run, and this ADR does not claim it would pass.
 - `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpBridgeProbe.kt` —
   the probe.
 - `scripts/acp-bridge-probe.sh` — the way in.
-- `openspec/changes/the-client-meets-a-real-bridge/bridge-transcript.txt` — the bridge's
+- `openspec/changes/archive/2026-10-25-the-client-meets-a-real-bridge/bridge-transcript.txt` — the bridge's
   own frames.
 - `shared/src/jvmTest/kotlin/com/singularity/todo/feature/ai/acp/FakeAcpAgent.kt` — the
   fake, and what it learned.

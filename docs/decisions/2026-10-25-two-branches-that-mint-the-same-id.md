@@ -1,0 +1,181 @@
+---
+title: "Two branches that mint the same requirement id are merged by hand, and a capability the archive creates is given a purpose by hand"
+date: 2026-10-25
+status: accepted
+tags: [openspec, specs, tooling]
+---
+
+## Context
+
+Forty-seven changes had all their tasks closed and none of them had been archived. The
+archive was run over them in the order the changes were authored, and thirty-nine
+archived cleanly. Eight refused.
+
+The refusal was not about the code and not about the wording. It was about ids.
+
+`openspec archive` refuses to archive a `MODIFIED` requirement whose block does not
+carry every scenario the live spec already holds — because applying it would drop
+those scenarios from the spec — and it refuses to archive an `ADDED` requirement whose
+id is already taken. Both refusals fired here, and both had the same cause.
+
+The changes had been written on parallel branches, each against a spec that did not
+exist yet, and each had minted requirement ids of its own. `text-input` was never in
+git at all: the capability lived only in the deltas of the branches that were
+building it. Five branches then wrote the same requirement — the structural check
+that verifies a rewrite contract from the shape of the code — and four of them
+named it `REQ-TI-REWRITE-1`, which was already the id of a different requirement,
+the sealed kind of a field's source. The fifth was the branch that added it, and
+it had named it `REQ-TI-SHAPE-3`. Two branches wrote the same requirement of the
+task editor, each with the requirement as it stood when that branch was written:
+seven scenarios, then eight, then nine, then eleven. One branch added a
+requirement about the tool that searches, and gave it the id `REQ-SEARCH-011`,
+which the spec already held for the requirement that a search result shows the
+matched word. One branch added a requirement about the kind of a field's source,
+and gave it the id `REQ-TI-REWRITE-2`, which the spec already held for the
+requirement that the bridge takes no count of replacements.
+
+One branch did something the archive could not check: it carried a
+`REMOVED Requirements` block for a requirement — `REQ-TI-REWRITE-EXCEPTION` —
+that no change ever added. What it meant to remove was the exception that two
+other requirements stated in their own prose: that a field site may build its own
+source and say so. The code says the opposite, and says so in the test that
+checks it: there is no exception, the GenUI renderer's owner is the data
+context, and a site that constructs the source fails the check. The removal
+therefore had to be applied by hand, and the block stays in the archive as the
+branch wrote it.
+
+The second refusal had a different shape and the same cause. Archiving a change that
+creates a capability writes a placeholder purpose into the new spec —
+`TBD - created by archiving change <name>. Update Purpose after archive.` — and the
+strict validator refuses a spec whose purpose is still a placeholder. Fourteen
+capabilities were created by this archive, and every one of them arrived with the
+placeholder.
+
+## Idea
+
+An id is a name, and two things cannot have the same name. When two branches mint the
+same name for different requirements, the requirements have to be told apart — and
+the one that is already in the spec keeps the name, because the spec is what the code
+is read against. When two branches write the same requirement, the requirement has to
+carry both of them, because a requirement that drops a scenario is a requirement that
+says less than the code does.
+
+## Decision
+
+1. **The requirement in the spec keeps its id; a branch that meant another requirement
+   is retargeted onto the one it meant.** The four branches that meant the structural
+   check were retargeted from `REQ-TI-REWRITE-1` onto `REQ-TI-SHAPE-3`, which is the
+   requirement that actually states it. The bodies were not merged: the body of
+   `REQ-TI-REWRITE-1` — the sealed kind of a field's source — is correct and matches
+   the code, so it stays where it is, and `REQ-TI-SHAPE-3` keeps its own body.
+
+2. **A requirement that cannot keep its id gets one that is free.** The requirement
+   about the kind of a field's source became `REQ-TI-SOURCE-KIND-1`, and the
+   requirement about the tool that searches became `REQ-SEARCH-016`. Both ids were
+   free; both requirements are the ones their branch wrote, and nothing else claims
+   either name.
+
+3. **A merged requirement carries the prose and the scenarios of every branch that
+   touched it.** The requirement on the task editor carries the prose of all four
+   branches and the union of their scenarios. A requirement that drops a scenario
+   says less than the code does, and the archive's refusal is right to insist on the
+   union.
+
+4. **A capability the archive creates is given a purpose by hand, from the change
+   that created it.** The purpose says what the capability is for, in the words of
+   the proposal that introduced it. It is not a description of the requirements it
+   holds — the requirements say that — but the answer to "why does this capability
+   exist at all".
+
+5. **The index of capabilities is updated in the same change that creates them.**
+   `openspec/specs/MODULE-INDEX.md` names every capability that has a spec and
+   every module that does not. Fourteen capabilities were added to it, and three
+   rows that named changes which are now archived were rewritten to name the
+   archived change and the capability it produced.
+
+6. **A removal that names a requirement nobody added is applied by hand, and the
+   removal stays in the archive.** The block that removed `REQ-TI-REWRITE-EXCEPTION`
+   meant to remove the exception that two requirements state in their own prose —
+   that a field site may build its own source and say so. The code says the
+   opposite, and the test that checks it says so in its own words: there is no
+   exception. So the exception paragraph and its scenario were removed from
+   `REQ-TI-REWRITE-3`, and the sentence and the scenario that let a site build its
+   own source were removed from `REQ-TI-REGISTRY-2`. The block the branch wrote
+   stays in the archived delta, because the archive is the record of what the
+   branch said.
+
+## Rationale
+
+**Why the ids were not renumbered.** The obvious repair — give every colliding
+requirement a fresh id — would have been a lie about the history. The spec says
+`REQ-TI-SHAPE-3`; four branches wrote a block under a different name because the
+person writing it had not seen the other branch. The number belongs to the
+requirement, and the branch was wrong about the requirement's name, not the other way
+round.
+
+**Why the removal was applied by hand.** The archive applies a `REMOVED
+Requirements` block by id, and the block named an id that no change ever added —
+so the archive would have applied nothing and said nothing. The block's own
+reason says what it meant: the field site that built its own source no longer
+exists, the data context builds the source and hands it out whole, and the
+contract has no exception left to state. That is what the code says too, and what
+the test that checks it says. So the removal was carried out by hand, against the
+two requirements that stated the exception, and the block stayed in the archive as
+the record of what the branch said it was removing. A removal that silently
+removes nothing is the same defect as a requirement that silently drops a
+scenario, and it is worse: the branch's reason is right there.
+
+**Why the bodies were not merged.** Two requirements had collided, and merging them
+would have produced one requirement with two contradictory bodies. The structural
+check and the sealed kind of a source are different claims about different code —
+`TextFieldSource.kt` holds `sealed interface TextSource` with `StaticText` and
+`OwnedText`, and the check that a field's source is one of those is a different
+statement from the check that a rewrite contract has the shape it claims. Merging
+them would have made the spec say both at once and mean neither.
+
+**Why the union of scenarios, and not the last branch's.** The branches were written
+in sequence on a chain, each against the requirement as it stood. The scenario sets
+grew: seven, eight, nine, eleven. The last branch's block is the most complete, and
+it does not mention one scenario the spec holds — the screen that opens a picker from
+an editor's row — because that branch was written against a spec that did not have
+it yet. Dropping it would have deleted a requirement the code already implements.
+
+**Why the purpose is written and not generated.** The placeholder is what the tool
+writes when it does not know. The tool does not know what a capability is for, and
+nobody should have guessed it from a requirement list: `agent-toolbox-surface` and
+`gate-tooling` are both obviously about tooling and are about entirely different
+things. The change that created the capability said what it was for, and that is
+what the purpose says.
+
+## Consequences
+
+- Eight changes that the archive refused are archived, and the corpus of live
+  capabilities holds what the code has been shipping.
+- The `text-input` capability exists in git for the first time. It had lived only in
+  the deltas of the branches that built it, which is why two of them could mint the
+  same id without either of them seeing the other.
+- The spec carries two requirements whose ids do not look like their neighbours:
+  `REQ-TI-SOURCE-KIND-1` and `REQ-SEARCH-016`. The numbers are free because the ids
+  that would have been natural were taken by different requirements.
+- One removal had to be applied by hand, because the block that carried it named
+  a requirement nobody had added. The archive cannot see that: it applies a
+  removal by id, and an id that is not there removes nothing and reports
+  nothing.
+- The corpus of requirement ids is only unique because this repair was careful. The
+  next parallel pair of branches can mint the same id again, and the archive will
+  refuse again — the refusal is the tool working, and the repair is the work.
+- `MODULE-INDEX.md` lists eighteen capabilities it did not list before, four of which
+  were missing before this change and were not created by it.
+
+## Links
+
+- ADR `2026-10-20-an-archived-change-lives-in-the-live-spec.md` — why an archived
+  change lands in the live spec
+- ADR `2026-10-05-doc-gates-must-parse-structure.md` — the index of covered modules
+  and why it is kept honest
+- `openspec/specs/MODULE-INDEX.md` — the index this change updates
+- `openspec/specs/text-input/spec.md` — the capability that was never in git
+- `shared/src/commonMain/kotlin/com/singularity/todo/core/text/TextFieldSource.kt` —
+  the sealed source the two requirements describe
+- `shared/src/jvmTest/kotlin/com/singularity/todo/arch/TextFieldRewriteContractTest.kt`
+  — the check that reads the shape of the code

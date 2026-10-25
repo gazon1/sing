@@ -182,10 +182,15 @@ def documented_flag_keys() -> list[tuple[pathlib.Path, str]]:
     return found
 
 
-# The documents that show a configuration. The specification of the change that
-# introduced the switch, and the architecture document that describes it.
+# The documents that show a configuration. The specification of the capability
+# that introduced the switch, and the architecture document that describes it.
+#
+# The specification is the live one, not the delta of the change that wrote it:
+# the change is archived, and the requirement it wrote is the contract the code
+# is read against. A delta that is no longer a source of truth is a document
+# that stops being checked the day it is archived.
 DOCUMENTED_FLAG_SOURCES = (
-    ROOT / 'openspec/changes/agent-toolbox-surface/specs/agent-toolbox-surface/spec.md',
+    ROOT / 'openspec/specs/agent-toolbox-surface/spec.md',
     ROOT / 'docs/architecture/mcp-server.md',
 )
 

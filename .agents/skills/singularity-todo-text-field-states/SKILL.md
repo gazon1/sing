@@ -584,7 +584,7 @@ every other field in the app.
   value is a `FieldOwnedText` and not a `String`
 - `docs/decisions/2026-10-21-the-kind-of-the-source-is-a-property-of-the-parameter.md` —
   why a component that serves two kinds of upstream is split
-- `openspec/changes/text-field-state-migration/` — the behavioural spec
+- `openspec/changes/archive/2026-10-25-text-field-state-migration/` — the behavioural spec
 - `singularity-todo-compose-overview` — the router over the Compose skills
 - `singularity-todo-desktop-compose-ui-tests` — the desktop harness and its conventions
 - `singularity-todo-detekt-rules-authoring` — how the two text-field rules are written

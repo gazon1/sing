@@ -91,7 +91,7 @@ disappeared.
 
 ## Links
 
-- `openspec/changes/the-gates-run-on-every-machine/`
+- `openspec/changes/archive/2026-10-25-the-gates-run-on-every-machine/`
 - `scripts/check-waiver-references.py`
 - `scripts/src/sgate/commands/_registry.py` — `GATE_CONTROLS`
 - `docs/decisions/2026-10-04-measurement-integrity.md`

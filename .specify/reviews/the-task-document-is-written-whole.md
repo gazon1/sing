@@ -9,7 +9,7 @@ documents: sha256:a60d5bd73a902c7a63b7343c53ce53b6535e6e1fba122237e0b13519592a99
 
 ## What was reviewed
 
-The whole change: `openspec/changes/the-task-document-is-written-whole/` — the
+The whole change: `openspec/changes/archive/2026-10-25-the-task-document-is-written-whole/` — the
 proposal, the design, the tasks and the `tasks` spec — against the code it
 describes and against
 `docs/decisions/2026-10-23-a-task-document-is-written-whole.md`.

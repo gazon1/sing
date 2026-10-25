@@ -173,4 +173,4 @@ unprotected — and the shape is exactly what the broken lookup was sensitive to
 - `mcp-server/src/test/kotlin/com/singularity/todo/mcp/ToolRegistrarTest.kt` — the switch
   where it is applied
 - `docs/architecture/mcp-server.md` — the surface as it is now
-- `openspec/changes/agent-toolbox-surface/design.md` — finding F16
+- `openspec/changes/archive/2026-10-25-agent-toolbox-surface/design.md` — finding F16

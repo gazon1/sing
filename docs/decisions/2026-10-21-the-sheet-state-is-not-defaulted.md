@@ -74,4 +74,4 @@ one state, the state must be *one* — not "the caller's if there is one, mine o
   principle applied to the sources: what a component depends on is in its signature.
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/detail/TaskEditorContent.kt`
   — the editors and the scaffold.
-- `openspec/changes/the-sheet-state-is-not-defaulted/` — the change this records.
+- `openspec/changes/archive/2026-10-25-the-sheet-state-is-not-defaulted/` — the change this records.

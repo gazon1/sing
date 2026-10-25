@@ -21,9 +21,9 @@ tags:
 - sync
 - agenda
 documents:
-  proposal: openspec/changes/task-series-invariants/proposal.md
-  design: openspec/changes/task-series-invariants/design.md
-  tasks: openspec/changes/task-series-invariants/tasks.md
-specs_dir: openspec/changes/task-series-invariants/specs
+  proposal: openspec/changes/archive/2026-10-25-task-series-invariants/proposal.md
+  design: openspec/changes/archive/2026-10-25-task-series-invariants/design.md
+  tasks: openspec/changes/archive/2026-10-25-task-series-invariants/tasks.md
+specs_dir: openspec/changes/archive/2026-10-25-task-series-invariants/specs
 is_stub: false
-openspec_path: openspec/changes/task-series-invariants
+openspec_path: openspec/changes/archive/2026-10-25-task-series-invariants

@@ -9,12 +9,12 @@ documents: sha256:d56ea1259ebc37a52b13e2621c87099ed01a147162a287d28574507499c16e
 
 ## What was reviewed
 
-The whole change: `openspec/changes/the-document-says-only-what-it-carries/` —
+The whole change: `openspec/changes/archive/2026-10-25-the-document-says-only-what-it-carries/` —
 the proposal, the design, the tasks and the `tasks` spec — against the code it
 describes and against
 `docs/decisions/2026-10-23-a-document-says-only-what-it-carries.md`, plus the
 amendment of the previous change's spec
-(`openspec/changes/the-task-document-is-written-whole/specs/tasks/spec.md`).
+(`openspec/changes/archive/2026-10-25-the-task-document-is-written-whole/specs/tasks/spec.md`).
 
 The reviewers were separate agents given the delta, the ADR, the OpenSpec
 change and the test files, and nothing else: no history of writing the code,

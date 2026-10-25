@@ -114,4 +114,4 @@ value — see `2026-10-21-the-count-travels-with-the-value`.
   source, and now reads the pair in one go.
 - `shared/src/commonMain/kotlin/com/singularity/todo/feature/genui/schema/DataModel.kt`
   — the document and the counts, in one state.
-- `openspec/changes/the-genui-count-travels-with-the-value/` — the change this records.
+- `openspec/changes/archive/2026-10-25-the-genui-count-travels-with-the-value/` — the change this records.

@@ -9,7 +9,7 @@ documents: sha256:6a626459e49c454e6c549bec5e802456b60f227041c5efafe82ceb30847d67
 
 ## What was reviewed
 
-The whole change: `openspec/changes/a-push-carries-what-the-database-holds/` —
+The whole change: `openspec/changes/archive/2026-10-25-a-push-carries-what-the-database-holds/` —
 the proposal, the design, the tasks and the `tasks` spec — against the code it
 describes and against
 `docs/decisions/2026-10-23-a-push-carries-what-the-database-holds.md`, plus the

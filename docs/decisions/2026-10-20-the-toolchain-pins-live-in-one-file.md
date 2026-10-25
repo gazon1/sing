@@ -113,7 +113,7 @@ breakage.
 
 ## Links
 
-- `openspec/changes/the-next-layer-of-contracts/`
+- `openspec/changes/archive/2026-10-25-the-next-layer-of-contracts/`
 - `config/toolchain-versions.env`
 - `scripts/ci/setup-local-tools.sh`
 - `scripts/ci/preflight-gate-tools.sh`
