@@ -34,6 +34,8 @@ import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiS
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectDetailViewModel
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 
 // ─── Content ─────────────────────────────────────────────────────────────────
 
@@ -187,12 +189,12 @@ private fun ProjectDetailSheets(
                         defaultReminderOffset = c.ui.defaultReminderOffset,
                         actions = actions,
                         tagGroups = c.tagGroups,
-                        inheritedTagGroupIds = c.ui.project.inheritedTagGroupIds,
+                        inheritedTagGroupIds = c.ui.inheritedTagGroupIds,
                     )
                 },
-                parentOptions = content?.parentOptions.orEmpty(),
-                tagGroups = content?.tagGroups.orEmpty(),
-                inheritedTagGroupIds = content?.ui?.project?.inheritedTagGroupIds ?: emptySet(),
+                parentOptions = content?.parentOptions ?: persistentListOf(),
+                tagGroups = content?.tagGroups ?: persistentListOf(),
+                inheritedTagGroupIds = content?.ui?.inheritedTagGroupIds ?: persistentSetOf(),
                 onSheetDismiss = { sheets.dismissSheet() },
             )
         }

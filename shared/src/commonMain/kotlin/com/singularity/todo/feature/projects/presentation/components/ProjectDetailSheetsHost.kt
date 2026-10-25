@@ -6,6 +6,9 @@ import com.singularity.todo.core.ui.components.sheet.DatePickerSheet
 import com.singularity.todo.feature.projects.presentation.model.ParentOption
 import com.singularity.todo.feature.projects.presentation.model.TagGroupOption
 import com.singularity.todo.feature.tags.domain.model.TagGroupId
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  * All sheets for [ProjectDetailContent].
@@ -23,9 +26,9 @@ import com.singularity.todo.feature.tags.domain.model.TagGroupId
 fun ProjectDetailSheetsHost(
     activeSheet: ActiveSheet?,
     currentContent: CurrentProjectContent?,
-    parentOptions: List<ParentOption>,
-    tagGroups: List<TagGroupOption>,
-    inheritedTagGroupIds: Set<TagGroupId>,
+    parentOptions: ImmutableList<ParentOption>,
+    tagGroups: ImmutableList<TagGroupOption>,
+    inheritedTagGroupIds: ImmutableSet<TagGroupId>,
     onSheetDismiss: () -> Unit,
 ) {
     when (activeSheet) {
@@ -73,7 +76,7 @@ fun ProjectDetailSheetsHost(
 
         is ActiveSheet.ShowChildren -> ChildProjectsSheet(
             children = currentContent?.childProjects
-                ?: emptyList(),
+                ?: persistentListOf(),
             onShowChildren = { child -> currentContent?.actions?.onNavigateToChild(child.id) },
             onDismiss = onSheetDismiss,
         )

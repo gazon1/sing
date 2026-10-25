@@ -28,6 +28,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.feature.projects.presentation.model.TagGroupOption
 import com.singularity.todo.feature.tags.domain.model.TagGroupId
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
 
 /**
  * Inherited tag groups picker sheet.
@@ -39,13 +41,15 @@ import com.singularity.todo.feature.tags.domain.model.TagGroupId
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InheritedTagGroupsSheet(
-    options: List<TagGroupOption>,
-    currentIds: Set<TagGroupId>,
+    options: ImmutableList<TagGroupOption>,
+    currentIds: ImmutableSet<TagGroupId>,
     onPick: (Set<TagGroupId>) -> Unit,
     onDismiss: () -> Unit,
 ) {
     // Local mutable state mirrors the user's selections before they confirm with "Done".
-    var selected by remember(currentIds) { mutableStateOf(currentIds) }
+    // The set type is the ordinary one: picking a group adds or removes one, and the
+    // result is handed back as a set.
+    var selected: Set<TagGroupId> by remember(currentIds) { mutableStateOf(currentIds) }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.padding(24.dp)) {

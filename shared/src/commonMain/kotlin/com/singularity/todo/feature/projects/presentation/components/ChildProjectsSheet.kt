@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.feature.projects.domain.model.Project
+import kotlinx.collections.immutable.ImmutableList
 
 /**
  * Sheet showing the list of child (sub-) projects.
@@ -23,7 +24,7 @@ import com.singularity.todo.feature.projects.domain.model.Project
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChildProjectsSheet(children: List<Project>, onShowChildren: (Project) -> Unit, onDismiss: () -> Unit) {
+fun ChildProjectsSheet(children: ImmutableList<Project>, onShowChildren: (Project) -> Unit, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.padding(24.dp)) {
             Text("Sub-projects", style = MaterialTheme.typography.titleMedium)

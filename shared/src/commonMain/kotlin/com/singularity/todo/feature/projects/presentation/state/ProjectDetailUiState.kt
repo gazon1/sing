@@ -49,17 +49,13 @@ sealed interface ProjectDetailUiState {
  *
  * ## Why there is no `@Immutable` here
  *
- * The class carries a raw `List<String>`, and `@Immutable` promises that the
- * instance never changes. The compiler believes the promise and never looks at
- * the fields, so a list that changes underneath it goes unnoticed.
- *
- * The promise was false, and the annotation bought exactly the thing that hid
- * it: the skipping. Making it true means a persistent collection — the same
- * debt the register of raw collection parameters names. Until that sweep, the
- * class is honestly unstable, and the `NoFalseImmutable` rule keeps the
- * annotation from coming back.
+ * The class carries a list of task titles, and it is a persistent list now — a
+ * collection that cannot change after it is built. `@Immutable` would promise
+ * something the class no longer needs to be told twice, and the annotation was
+ * bought with a promise that was false when it was written. The
+ * `NoFalseImmutable` rule keeps it from coming back.
  *
  * @property blockedTaskTitles the titles of the tasks that are in the way.
  * @property openTaskCount how many of the project's tasks the close will close.
  */
-data class ProjectCloseConfirmation(val blockedTaskTitles: List<String>, val openTaskCount: Int)
+data class ProjectCloseConfirmation(val blockedTaskTitles: ImmutableList<String>, val openTaskCount: Int)

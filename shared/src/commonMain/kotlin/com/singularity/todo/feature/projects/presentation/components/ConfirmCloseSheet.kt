@@ -5,6 +5,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import com.singularity.todo.core.ui.text.SelectableText
+import kotlinx.collections.immutable.ImmutableList
 
 /**
  * Confirmation sheet for closing a project.
@@ -47,7 +48,7 @@ fun ConfirmCloseSheet(openTaskCount: Int, onConfirm: () -> Unit, onDismiss: () -
  */
 @Composable
 fun ConfirmBlockedCloseDialog(
-    blockedTaskTitles: List<String>,
+    blockedTaskTitles: ImmutableList<String>,
     openTaskCount: Int,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,

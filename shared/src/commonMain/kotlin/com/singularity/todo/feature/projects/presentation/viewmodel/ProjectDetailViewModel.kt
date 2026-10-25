@@ -47,6 +47,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
+import kotlinx.collections.immutable.toImmutableSet
 
 /**
  * ViewModel for [com.singularity.todo.feature.projects.presentation.screen.ProjectDetailScreen].
@@ -303,8 +304,9 @@ class ProjectDetailViewModel(
                                 // must not become "5 of 5" when rows are hidden.
                                 totalCount = ProjectTaskListDeriver.totalCount(tasks),
                                 completedCount = ProjectTaskListDeriver.completedCount(tasks),
-                                childProjects = childProjects,
+                                childProjects = childProjects.toImmutableList(),
                                 parent = parent,
+                                inheritedTagGroupIds = project.inheritedTagGroupIds.toImmutableSet(),
                             ),
                             hideCompleted = visibility.hideCompleted,
                             hideBlocked = visibility.hideBlocked,
@@ -503,7 +505,7 @@ class ProjectDetailViewModel(
 
                     is ProjectCloseOutcome.NeedsConfirmation ->
                         pendingCloseConfirmation.value = ProjectCloseConfirmation(
-                            blockedTaskTitles = outcome.blockedTasks.map { it.title },
+                            blockedTaskTitles = outcome.blockedTasks.map { it.title }.toImmutableList(),
                             openTaskCount = outcome.openTaskCount,
                         )
                 }
