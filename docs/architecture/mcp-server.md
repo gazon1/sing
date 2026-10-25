@@ -192,13 +192,22 @@ active profile, and an id nobody knows is an error rather than a fallback.
 preferences store of its own — `profile_state.preferences_pb` — that takes a file lock,
 and the application is holding it. A second process opening the same store conflicts with
 the application. The mechanism is the module list, not a check the server performs later —
-`domainModule(fixedProfileId)` binds `ProfileRepositoryImpl` with `profileStateStore = null`
-in the fixed-profile branch
-(`shared/src/commonMain/kotlin/com/singularity/todo/core/di/Modules.kt`), so the store is
-never constructed and its lock is never taken. The key used to live in the settings store,
-which this server opens for the AI configuration; it has its own file now, so "the server
-never opens the stored active-profile state" is a fact about a file rather than an
-intention about a key.
+`domainModule(fixedProfileId)` passes the id into the profile bindings
+(`shared/src/commonMain/kotlin/com/singularity/todo/core/di/Modules.kt`), and the profile
+module binds `ProfileRepositoryImpl` with `profileStateStore = null` in the fixed-profile
+branch
+(`shared/src/commonMain/kotlin/com/singularity/todo/feature/profile/ProfileDiModule.kt`),
+so the store is never constructed and its lock is never taken. The key used to live in the
+settings store, which this server opens for the AI configuration; it has its own file now,
+so "the server never opens the stored active-profile state" is a fact about a file rather
+than an intention about a key.
+
+**And the fact is asserted, not assumed.** The test that says so builds a fixed-profile
+graph in which the profile-state store cannot be built at all, and resolves the
+repository: the repository answers, so the store was never asked for. The control is the
+same graph without a fixed profile, which asks for the store and is refused — a test that
+could not fail would prove nothing
+(`desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/profile/FixedProfileGraphTest.kt`).
 
 **The legacy argument is preserved deliberately.** Distributed client manifests in the
 wild already pass `--profile=ai-agent`; changing its meaning silently would break every
