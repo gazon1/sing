@@ -678,6 +678,11 @@ TIMEOUT_RC = 124
 #: 127 is the shell's convention for "command not found".
 MISSING_TOOL_RC = 127
 
+#: Where a fixture's COPY of the repository lives. A fixture control that runs
+#: the repository's own script from there is running that script, and the
+#: registry knows it by its repository-relative name.
+FIXTURE_REPO_PREFIX = "{tmp}/repo/"
+
 _GRADLE_COMMANDS = frozenset({"./gw", "./gradlew", "gradle"})
 
 #: Gradle-backed controls are skipped unless this is set to `1`. `check.sh`
@@ -2074,6 +2079,13 @@ def _control_identity(cmd: list[str]) -> str | None:
       by accident, and this join reports the wrong reason.
     * `["./scripts/check-x.sh"]` — a one-element shell command. `len(cmd) >= 2` is
       false, so the entry left the join entirely.
+    * `[python3, "{tmp}/repo/scripts/check-x.py", …]` — a fixture control runs
+      the repository's own script from the fixture's COPY of the repository.
+      The registry knows that script by its repository-relative name, and the
+      join used to compare the two spellings verbatim: the control was
+      invisible, and a gate that HAS a control was reported as a gate without
+      one. The fixture path is translated back to the repository path, because
+      it is the same script.
 
     Resolved by shape, not by index: a module command keys on its module, anything
     else on its first non-flag argument. A command with no such argument names no
@@ -2088,6 +2100,10 @@ def _control_identity(cmd: list[str]) -> str | None:
     for token in cmd[1:]:
         if token.startswith("-"):
             continue
+        if token.startswith(FIXTURE_REPO_PREFIX):
+            # The fixture's copy of the repository is the same repository: the
+            # script in it is the script the registry names.
+            return token[len(FIXTURE_REPO_PREFIX):]
         return token[2:] if token.startswith("./") else token
     return None
 

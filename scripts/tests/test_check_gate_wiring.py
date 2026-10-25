@@ -1297,6 +1297,31 @@ class PartJJoinTest(unittest.TestCase):
         self.assertIsNone(gw._control_identity([]))
         self.assertIsNone(gw._control_identity([sys.executable, '--quiet']))
 
+    def test_a_fixture_control_joins_on_the_script_it_copies(self):
+        """The fixture's copy of the repository is the same repository.
+
+        A fixture control runs the repository's own script from the fixture's
+        copy of it, and the registry knows that script by its repository-
+        relative name. Compared verbatim, the two spellings differ, the
+        control is invisible, and a gate that HAS a control is reported as a
+        gate without one — which is what Part J said about the baseline
+        ratchet until this translation existed.
+        """
+        self.assertEqual(
+            gw._control_identity([sys.executable, '{tmp}/repo/scripts/check-x.py']),
+            'scripts/check-x.py',
+        )
+
+    def test_every_registered_gate_with_a_script_has_a_control(self):
+        """The complaint Part J makes, checked here instead of in CI.
+
+        It is the one failure of this harness that a reader sees as a verdict
+        about the repository rather than about the harness — so it has to be
+        true, and it has to be true here.
+        """
+        errors = gw.check_script_gates_vs_registry()
+        self.assertEqual([], errors, '\n'.join(errors))
+
 
 class GateDeadlineTest(unittest.TestCase):
     """A hanging gate must be killed, not waited on.
