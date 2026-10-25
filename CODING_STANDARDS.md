@@ -398,6 +398,17 @@ A reviewing agent watches for:
   door, and it is another table's business. Nor is a table shaped like the
   field table — `create table … (like sync_field_allowlist)`: it copies the
   shape of a table and not its rows.
+- A reader that compares the SPELLING of a string instead of the text it
+  holds. A write whose target is written as a string cannot run — the
+  database does not accept a string where a table's name stands — so the
+  reader reports it in every spelling of a string: `'…'`, `E'…'`, `B'…'`,
+  `N'…'`, `X'…'`, `U&'…'`, `$$…$$`, `$tag$…$tag$`. The text inside them is
+  the text the database reads: an E-string's escapes are decoded, and
+  PostgreSQL drops the backslash of an escape it does not know, so
+  `E'sync\_field_allowlist'` holds `sync_field_allowlist`; a `U&` string's
+  unicode escapes are decoded too. A string that HOLDS the words of a write
+  is not reported — the verb is inside the string there, and a column holds
+  words.
 - A migration that writes the server's field table through a computed
   identifier. The field table is a contract, not data: it is written by a
   list of names, and a name the file does not spell is a name no reader of

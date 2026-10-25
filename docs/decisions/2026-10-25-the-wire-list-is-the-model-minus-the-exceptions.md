@@ -24,40 +24,43 @@ There are three lists where there should be one, and the three do not agree.
 **The client's list** — 106 names, written by hand, one name per line.
 
 **The server's live table** — 86 rows across seven entity types, seeded by
-`2026-10-07-sync_schema.sql` and verified against the live database in the same
-pass. It holds the *work's* fields: no `serverVersion`, no `hlc`, no `userId`,
-and no `id` — the id is the row's key, not a field of the document. And it lags
-the models in two places, `task.seriesId` and `project.closedAt`, which arrived
-after the migration that seeded it.
+`2026-10-07-sync_schema.sql`. It holds the *work's* fields: no `serverVersion`,
+no `hlc`, no `userId`, and no `id` — the id is the row's key, not a field of the
+document. And it lags the models in two places, `task.seriesId` and
+`project.closedAt`, which arrived after the migration that seeded it.
 
-**A generated seed file** — `supabase/sync_field_allowlist_seed.sql`,
-103 rows, produced by `infra/gen_sync_allowlist_sql.py`, which reads the
-Kotlin source with a regular expression and writes the names it finds. The fast
-gate `check-sync-allowlist-regenerated.py` compares that file with the client's
-list, and they agree — the gate compares a file with the list the file was
-generated from.
+**A generated seed file** — `supabase/migrations/sync_field_allowlist_seed.sql`,
+106 rows, produced by `infra/gen_sync_allowlist_sql.py`, which reads the
+Kotlin source and writes the names it finds. The fast gate
+`check-sync-allowlist-regenerated.py` compares that file with the client's
+list, and they agree.
 
 Two defects live in that arrangement.
 
-The regular expression is `private val (\w+_ALLOWLIST) = setOf\((.*?)\)`, and it
-stops at the first closing parenthesis. In `TASK_ALLOWLIST` there is one inside
-a comment — `(serverVersion=0, hlc=null for local)` — so the seed carries 27 of
-the task's 30 names. `serverVersion`, `hlc` and `userId` are missing from the
-task rows of the generated seed. The other five types have no parenthesis in
-their comments and keep all their names. The truncation is invisible: the gate
-compares the file with the truncated list, and the truncation is in both.
+The seed is the client's contract, and it sits where the deploy tooling looks
+for migrations. It names what the client sends — the client's own sync
+metadata (`serverVersion`, `hlc`, `userId`) and the key (`id`) — and the
+server's table holds none of them: the server stores that metadata without
+enforcing it, and the id is the row's key, not a field the client writes. A
+file in `supabase/migrations/` is a migration to apply, so applying this one
+would put rows into the server's table that the server's own lookup honours
+and that nobody needs to write. The file also spells two entity types the way
+the client spells them: `taggroup` and `timeentry`. The server spells them
+`tag_group` and `time_entry` — those are the `DocType` keys, and they are
+what `sync_table_for` and `sync_apply_ops` look up — so the rows of a seeded
+file would stand under names the server never reads.
 
-The generated seed also spells two entity types the way the client spells them:
-`taggroup` and `timeentry`. The server spells them `tag_group` and `time_entry`
-— those are the `DocType` keys, and they are what `sync_table_for` and
-`sync_apply_ops` look up. A server seeded from the generated file would hold
-rows under names it never reads.
-
-And the check the client makes is one-sided. `SyncContractIsTheSourceOfTruthTest`
+And the client's list is a copy of the model's own field names, kept by hand.
+The check the client makes is one-sided: `SyncContractIsTheSourceOfTruthTest`
 asserts that every field the wire carries is in the list. It cannot assert the
 other half — that the list has no name the model does not have — because the
 list is written by hand and the model is code: a name in the list that the model
 dropped is a name nobody ever sends, and it looks like a rule.
+
+(The reader that used to cut that list short — the first `)` in the Kotlin
+source — was fixed the day before, in
+`2026-10-24-the-allowlist-seed-is-read-whole.md`. What is left is the copy
+itself, where the seed lives, and the vocabulary it speaks.)
 
 ## Decision
 
@@ -168,7 +171,7 @@ reads it as the description it is.
   not pretend to be one: a row whose values come from a query, a row without a
   column list, a row whose values do not match its columns, a value it does not
   know — each is a failure with a name on it, not a row that quietly
-  disappears. Twenty-three review rounds found such a hole in every one of them, and
+  disappears. Twenty-four review rounds found such a hole in every one of them, and
   every one of them was a row the reader dropped in silence — a field nobody
   sends going past the gate unnoticed, which is the direction the gate exists
   for. The rule is therefore the other way round: what the reader does not
@@ -186,6 +189,19 @@ reads it as the description it is.
   PostgreSQL writes through; a child of the table, whose rows PostgreSQL
   returns when the parent is queried; and a string that spells a write into
   the table and is handed to a call, which may run it.
+
+  A write whose TARGET is written as a string is reported too:
+  `insert into 'sync_field_allowlist'` cannot run, because the database does
+  not accept a string where a table's name stands — and the file spells the
+  name all the same, so the statement is a migration that does not apply and
+  the rows it holds are not rows the server will have. The spelling of the
+  string does not change that: `E'…'`, `B'…'`, `N'…'`, `X'…'`, `U&'…'`,
+  `$$…$$` and `$tag$…$tag$` are all strings where the database wants a name,
+  and all of them are reported. The text inside them is the text the database
+  reads — an E-string's escapes are decoded, a `U&` string's unicode escapes
+  are decoded — because a name read any other way is a name the database
+  never sees. A string that HOLDS the words of a write is not reported: the
+  verb is inside the string there, and a column holds words.
 
   **The list of what it reports is not a guess.** PostgreSQL writes rows into
   an existing table in six ways — insert, update, delete, truncate, merge,
@@ -312,7 +328,7 @@ no longer stop at a parenthesis in a comment.
   whole point: the old list was a copy that had to be kept in step, and the
   step was a person's memory.
 - **The seed file changes.** It loses the client's own bookkeeping and the key
-  — 82 rows instead of 103 — and it spells the entity types the way the server
+  — 82 rows instead of 106 — and it spells the entity types the way the server
   spells them. It moves out of `supabase/migrations/`, because that directory
   is where the deploy tooling looks for migrations and this one describes the
   table rather than changing it. It is a local artifact; the live table is not touched by this
@@ -360,7 +376,7 @@ no longer stop at a parenthesis in a comment.
   spelling, so a reader built on one would not have to learn them. The
   repository has no SQL parser and the CI installs no Python packages, so the
   parser would either be a dependency the gate cannot have, or a hand-written
-  one — and a hand-written one is what twenty-three review rounds found holes in,
+  one — and a hand-written one is what twenty-four review rounds found holes in,
   one per round. The reader this change settles on is narrow instead: it reads
   the shapes it knows, and it reports every shape it does not.
 - **Make every dynamic write a failure.** The reader could report any write
@@ -395,7 +411,8 @@ The client's own bookkeeping did not disappear with it: the projection
 carries both lists — `wire` (106 names, the ones the client sends) and
 `serverWritable` (82 names, the ones the server may write) — and the three
 client-side names, `serverVersion`, `hlc` and `userId`, are in the first
-list and not in the second, exactly as the server's table has them.
+list and not in the second — and the server's table holds neither of them,
+which is the whole difference between the two lists.
 
 **The vocabulary question is answered.** That decision noted that the two
 files did not share a vocabulary for the entity types — the server writes

@@ -13,18 +13,18 @@ be, and the three do not agree:
 - the client's hand-written list — 106 names, including the client's own
   bookkeeping (`serverVersion`, `hlc`, `userId`);
 - the server's live table — 86 rows over seven entity types, seeded by the
-  migration and verified against the live database: the work's fields, without
-  the bookkeeping and without the key;
-- a generated seed file — 103 rows, written by a script that reads the Kotlin
-  source with a regular expression.
+  migration: the work's fields, without the bookkeeping and without the key;
+- a generated seed file — 106 rows, written by a script that reads the Kotlin
+  source.
 
-The script's regular expression stops at the first closing parenthesis, and
-`TASK_ALLOWLIST` has one inside a comment, so three names (`serverVersion`,
-`hlc`, `userId`) never reach the seed. The file also spells two entity types
+The seed is the client's contract, and it sits in `supabase/migrations/` — where
+the deploy tooling looks for migrations. It names the client's bookkeeping and
+the key, which the server's table does not hold, so applying it would put rows
+into the table that nobody needs to write. The file also spells two entity types
 the way the client spells them (`taggroup`, `timeentry`), while the server
 reads `tag_group` and `time_entry` — the `DocType` keys. The gate that checks
-the file compares it with the list the file was generated from, so neither
-defect is visible.
+the file compares it with the list the file was generated from, so the first
+defect is invisible.
 
 And the check the client makes is one-sided: every field the wire carries is in
 the list. The other half — the list has no name the model does not have — is

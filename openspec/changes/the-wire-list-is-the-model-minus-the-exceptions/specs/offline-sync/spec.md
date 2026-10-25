@@ -38,9 +38,8 @@ and a check says the projection is what the models declare.
 **Rationale:** the list was a copy of the models, written out by hand, and a
 copy has to be kept in step by somebody's memory. Three lists existed where one
 should have been, and they did not agree: the copy, the server's live table and
-a generated seed written from the copy by a regular expression that stopped at
-a parenthesis inside a comment — which is how three of the task's field names
-never reached the seed, and how two entity types were spelled the way the
+a generated seed written from the copy — the client's contract, in the
+directory the deploy tooling reads, spelling two entity types the way the
 client spells them rather than the way the server reads them. The check was one
 sided as well: it could say that every field the wire carries is in the list,
 and not that the list has no name the model does not have. Deriving the list
@@ -231,6 +230,23 @@ the server has not been migrated for yet.
 - **And** a table shaped like the field table — `create table … (like
   sync_field_allowlist)` — is not reported, because it copies the shape of a
   table and not its rows
+
+#### Scenario: The migration writes the table's name as a string
+
+- **Given** a migration that writes the field table with its name written as
+  a string — `insert into 'sync_field_allowlist'`, in any spelling of a
+  string: `'…'`, `E'…'`, `B'…'`, `N'…'`, `X'…'`, `U&'…'`, `$$…$$`,
+  `$tag$…$tag$`
+- **When** the migrations are read
+- **Then** the check fails
+- **And** the failure names the file, because the database does not accept a
+  string where a table's name stands — the migration does not apply, and the
+  rows it holds are not rows the server will have
+- **And** the text inside the string is read the way the database reads it:
+  an E-string's escapes are decoded, and a `U&` string's unicode escapes are
+  decoded
+- **And** a string that HOLDS the words of a write is not reported — the
+  verb is inside the string there, and a column holds words
 
 #### Scenario: The migration hands a write to a call
 

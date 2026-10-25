@@ -102,7 +102,12 @@ it cannot interpret is REPORTED, never passed over:
   when the parent is queried, so a row written into the child is a row the
   server's own lookup finds;
 * a string that spells a write into the table and is handed to a CALL, which
-  may run it. A string that is stored is not reported: a column holds words.
+  may run it. A string that is stored is not reported: a column holds words;
+* a write whose TARGET is written as a string — `insert into
+  'sync_field_allowlist'` — which the database does not accept, in every
+  spelling of a string, and with the text inside it read the way the database
+  reads it. A string that holds the words of a write is not a target: the
+  verb is inside the string there.
 
 The list is not a guess. PostgreSQL writes rows into an existing table in six
 ways — insert, update, delete, truncate, merge, copy — and the reader reads
@@ -151,7 +156,7 @@ What a row is written as is not what it is: an insert written as text inside
 a string — dynamic SQL, run by the migration when it applies — is a row the
 file holds, and the reader reads the string to find it.
 
-Twenty-three review rounds found such a hole in every one of them, and every hole
+Twenty-four review rounds found such a hole in every one of them, and every hole
 was a row the reader dropped in silence. A dropped row is a field nobody
 sends, which is the direction this gate exists for. So the rule is the other
 way round: what the reader does not understand is a failure with a name on
@@ -269,32 +274,21 @@ _WRITE_TARGET = re.compile(
 #: The name of the table, as a word.
 _MENTIONS = re.compile(r"\bsync_field_allowlist\b", re.IGNORECASE)
 
-#: A string literal, in the spellings PostgreSQL gives one: a plain quoted
-#: string, a string with a prefix (`E`, `B`, `N`, `X`, `U&`), and a
-#: dollar-quoted string. The spelling of a literal is not the spelling of the
-#: text it holds: `E'…'` and `$$…$$` hold words just as `'` holds them, and
-#: a reader that reads the plain spelling only reads one of the ways a file
-#: may write a name down.
-_STRING_LITERAL = (
-    r"(?:[EeBbNnXx]|[Uu]&)?'(?P<quoted>[^']*)'"
-    r"|\$\$(?P<dollars>[^$]*)\$\$"
-    r"|\$[A-Za-z_][A-Za-z_0-9_]*\$(?P<tagged>[^$]*)\$[A-Za-z_][A-Za-z_0-9_]*\$"
-)
-
-#: A write verb whose target is written as a string. PostgreSQL does not
-#: accept a string where a table's name stands — `insert into 'sync_field_
+#: A write verb, and nothing but the verb after it. A literal that stands
+#: where the verb's target would stand is a table's name written as a string:
+#: PostgreSQL does not accept a string there — `insert into 'sync_field_
 #: allowlist'` is a syntax error — so the migration does not apply. The
 #: reader says so rather than passes the statement over: the file spells the
 #: table's name, and the reader cannot vouch for a statement that cannot run.
 #:
-#: The spelling of the literal does not change that. `E'…'`, `B'…'`, `N'…'`,
-#: `X'…'`, `U&'…'`, `$$…$$` and `$tag$…$tag$` are all strings where the
-#: database wants a name, and all of them are syntax errors — so all of them
-#: are reported, in the spelling the file used.
-_WRITE_INTO_A_STRING = re.compile(
+#: The verb and the literal have to be NEIGHBOURS. A string that holds the
+#: words of a write — `values ('example: insert into sync_field_allowlist …')`
+#: — is stored, and a column holds words: there the verb is inside the
+#: string, not before it.
+_WRITE_VERB_BEFORE = re.compile(
     r"\b(?:insert\s+(?:or\s+(?:replace|ignore|conflict)\s+)?into"
     r"|update|delete\s+from|truncate(?:\s+table)?|merge\s+into)"
-    r"\s+(?:only\s+)?" + _STRING_LITERAL,
+    r"(?:\s+only)?$",
     re.IGNORECASE,
 )
 
@@ -319,6 +313,59 @@ def _target_text(match: re.Match[str]) -> str:
         if text is not None:
             return text
     return ""
+
+
+def _string_targets(text: str) -> list[str]:
+    """The names that stand where a table's name stands, written as strings.
+
+    A write verb and a literal next to it: `insert into 'sync_field_allowlist'`.
+    The database does not accept a string where a table's name stands, so the
+    migration does not apply — and the file spells the name all the same, so
+    the reader says so rather than passes the statement over.
+
+    The literal has to be NEXT to the verb. A literal that holds the words of
+    a write — `values ('example: insert into sync_field_allowlist …')` — is
+    stored, and a column holds words: there the verb is inside the literal,
+    not before it.
+
+    The text is the text the database reads. An E-string's escapes are
+    decoded (`E'sync\\_field_allowlist'` holds `sync_field_allowlist`, because
+    PostgreSQL drops the backslash of an escape it does not know), a `U&`
+    string's unicode escapes are decoded, and a dollar-quoted string holds its
+    words as they are. A reader that compared the spelling would compare a
+    name the database never sees.
+    """
+    targets: list[str] = []
+    for span in _spans(text):
+        kind, start, _end, _content = span
+        if kind not in ("string", "dollar"):
+            continue
+        before = _drop_comments(text[:start], _spans(text[:start]))
+        before = _without_literal_prefix(before)
+        if _WRITE_VERB_BEFORE.search(before) is None:
+            continue
+        decoded = _literal_body(text, span)
+        if decoded:
+            targets.append(decoded)
+    return targets
+
+
+def _literal_body(text: str, span: tuple[str, int, int, str]) -> str:
+    """The text a literal holds, or its spelling when the reader cannot read it.
+
+    A literal the reader cannot decode — a bit string that is not a bit
+    string — is still a literal, and its spelling is what the file wrote. The
+    database does not accept it in a target position either, so the reader
+    says so rather than passes the statement over.
+    """
+    decoded = _piece_text(text, span)
+    if decoded is not None:
+        return decoded
+    kind, _start, _end, content = span
+    if kind == "dollar":
+        body = _dollar_body(content)
+        return body if body is not None else ""
+    return content[1:-1].replace("''", "'")
 
 #: The names the table goes by in text: bare, and qualified with the schema
 #: the migrations put it in.
@@ -1450,7 +1497,7 @@ def _without_literal_prefix(before: str) -> str:
     keyword, and the `E` of `someName` is a letter of the name.
     """
     stripped = before.rstrip()
-    match = re.search(r"(?:[Ee]|[Uu]&|[Bb])$", stripped)
+    match = re.search(r"(?:[EeBbNnXx]|[Uu]&)$", stripped)
     if match is None:
         return stripped
     head = stripped[: match.start()]
@@ -1696,10 +1743,15 @@ def _decode_escapes(text: str) -> str:
                 out.append(chr(int(digits, 16)))
                 index += 2 + width
                 continue
-        # An escape the reader does not know: the text is left as it is, so
-        # the row is read as it is spelled rather than as the reader guesses.
-        out.append(char)
-        index += 1
+        # An escape the reader does not know: PostgreSQL drops the backslash
+        # and takes the character itself — `E'\q'` is `q`, `E'sync\_field'` is
+        # `sync_field` — so the reader reads the string as the database will
+        # store it. A name read any other way is a name the database never
+        # holds, and a row the reader reports is a row the server will not
+        # have.
+        out.append(nxt)
+        index += 2
+        continue
     return "".join(out)
 
 
@@ -2272,8 +2324,8 @@ class _Reader:
         # file spells the name all the same, so the statement is reported —
         # the migration does not apply, and the rows it holds are not rows
         # the server will have.
-        for match in _WRITE_INTO_A_STRING.finditer(text):
-            target = _target_text(match).lower()
+        for target in _string_targets(text):
+            target = target.lower()
             if target in _NAMES_OF_OUR_TABLE or (
                 target in _PIECES_OF_OUR_NAME
                 and self._may_be_assembled_into_our_name(target, scope, scope_raw)

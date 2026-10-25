@@ -20,7 +20,7 @@ same way however it was written — the columns in any order, the flag as `true`
 `'t'`, as `'yes'`, as `TRUE::boolean`, the name as `'task'`, as `'task'::text`, as `$$task$$`.
 
 What the reader cannot read, it REPORTS. It does not pass over it: a row it did not see is
-a field nobody sends, which is the direction the gate exists for. Twenty-three review rounds
+a field nobody sends, which is the direction the gate exists for. Twenty-four review rounds
 found such a hole in every one of them, and every hole was a row the reader dropped
 in silence.
 
@@ -1347,6 +1347,53 @@ class StringTargetSpellingTest(AllowlistTreeTest):
         code, output = self._rows(
             "insert into E'other_table' (entity_type, field, writable) "
             "values ('task', 'ghostField', true);\n"
+        )
+        self.assertEqual(0, code, output)
+
+    def test_an_escaped_target_is_read_the_way_the_database_reads_it(self):
+        """`E'sync\\_field_allowlist'` holds `sync_field_allowlist`.
+
+        PostgreSQL drops the backslash of an escape it does not know, so the
+        string holds the table's name — and the reader that compared the
+        spelling would compare a name the database never sees.
+        """
+        code, output = self._rows(
+            "insert into E'sync\\_field_allowlist' (entity_type, field, writable) "
+            "values ('task', 'ghostField', true);\n"
+        )
+        self.assertEqual(1, code, output)
+        self.assertIn("written as a string", output)
+
+    def test_a_unicode_escaped_target_is_read_the_way_the_database_reads_it(self):
+        """`U&'\\0073ync_field_allowlist'` holds `sync_field_allowlist`.
+
+        The unicode spelling writes a letter as four hex digits, and the
+        reader decodes them the way the database does.
+        """
+        code, output = self._rows(
+            "insert into U&'\\0073ync_field_allowlist' (entity_type, field, writable) "
+            "values ('task', 'ghostField', true);\n"
+        )
+        self.assertEqual(1, code, output)
+        self.assertIn("written as a string", output)
+
+    def test_a_stored_string_that_holds_the_words_of_a_write_is_not_reported(self):
+        """A column holds words, and the words are not a write.
+
+        `values ('example: insert into sync_field_allowlist …')` stores the
+        words of a write in a column. The verb is inside the string there,
+        not before it, and the statement runs.
+        """
+        code, output = self._rows(
+            "insert into audit_log (msg) values "
+            "('example: insert into $$sync_field_allowlist$$ (x)');\n"
+        )
+        self.assertEqual(0, code, output)
+
+    def test_a_stored_string_that_holds_a_quoted_write_is_not_reported(self):
+        code, output = self._rows(
+            "insert into audit_log (msg) values "
+            "('example: insert into ''sync_field_allowlist'' (x)');\n"
         )
         self.assertEqual(0, code, output)
 

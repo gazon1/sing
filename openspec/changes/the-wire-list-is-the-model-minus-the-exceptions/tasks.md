@@ -31,7 +31,7 @@
       in extra parentheses, with a comment in the middle of it.
 - [x] A row the reader CANNOT read is a FAILURE, not a row that disappears: a
       row whose values come from a query, a row without a column list, a row
-      whose values do not match its columns, a value it does not know. Twenty-three
+      whose values do not match its columns, a value it does not know. Twenty-four
       review rounds found such a hole in every one of them, and each was a field
       nobody sends going past the gate unnoticed.
 - [x] EVERY migration is read, not only the first one — a migration may hold
@@ -103,6 +103,11 @@
       than by the gate: the field table is a contract, not data, it is written
       by a list of names, and a migration that writes it through a computed
       identifier is refused in review.
+- [x] A write whose TARGET is written as a string is reported — the database
+      does not accept a string where a table's name stands, so the migration
+      does not apply. Every spelling of a string is reported, and the text
+      inside it is read the way the database reads it. A string that HOLDS the
+      words of a write is not reported: a column holds words.
 - [x] The doors the reader does not follow are reported: a VIEW over the
       table, which PostgreSQL writes through; a CHILD of the table, whose
       rows PostgreSQL returns when the parent is queried, so a row written
@@ -134,7 +139,7 @@
       export left stale would leave them agreeing with each other and with
       nothing.
 - [x] `infra/gen_sync_allowlist_sql.py` reads the export instead of parsing
-      the Kotlin source with a regular expression.
+      the Kotlin source.
 - [x] The seed file is regenerated from the derived server list, with the
       entity types spelled the way the server spells them, and says in its
       header that it is a description of the table rather than a migration to

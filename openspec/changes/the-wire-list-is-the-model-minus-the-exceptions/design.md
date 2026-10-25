@@ -8,7 +8,7 @@ This is the state BEFORE the change — what the design answers.
 |---|---|---|
 | The client's list | `SyncContract.FIELD_ALLOWLIST` | hand-written, 106 names: what a device may put on the wire, plus the client's own bookkeeping |
 | The server's live table | `sync_field_allowlist`, seeded by `2026-10-07-sync_schema.sql` | 86 rows over seven entity types: the fields the server accepts in a patch |
-| The generated seed | `supabase/sync_field_allowlist_seed.sql` | 103 rows, written by `infra/gen_sync_allowlist_sql.py` from the client's list |
+| The generated seed | `supabase/migrations/sync_field_allowlist_seed.sql` | 106 rows, written by `infra/gen_sync_allowlist_sql.py` from the client's list — the client's contract, in the directory the deploy tooling reads |
 
 The first is a copy of the second, plus the client's own three names, and the
 third is a copy of the first. Only the second is a deployment; the other two
@@ -149,7 +149,7 @@ checks say:
    What the reader cannot read, it REPORTS — a row whose values come from a
    query, a row without a column list, a row whose values do not match its
    columns, a value it does not know, a write it cannot place. It does not
-   pass over them: twenty-three review rounds found such a hole in every one of
+   pass over them: twenty-four review rounds found such a hole in every one of
    them, and every hole was a row the reader dropped in silence — a field
    nobody sends going past the check unnoticed, which is the direction this
    check exists for. What the reader does not model — a statement that
@@ -235,8 +235,9 @@ table holds is not one: applying it over a database that already carries rows
 would leave them in place, and its rows for the two fields a migration is
 still owed would close a gap that a real migration has to close.
 
-The regular expression is what produced the two defects, so it goes away
-entirely: `infra/gen_sync_allowlist_sql.py` no longer reads Kotlin.
+The reader of Kotlin goes away entirely: `infra/gen_sync_allowlist_sql.py` no
+longer reads the source, so it can neither cut a list short nor spell an
+entity type the way the client spells it.
 
 ## The seed's entity types
 

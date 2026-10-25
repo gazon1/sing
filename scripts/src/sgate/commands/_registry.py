@@ -1321,7 +1321,7 @@ GATE_CONTROLS: dict[str, Control] = {
     # The other half of the same gate: the rows the migrations hold for the
     # server's table. The probe above proves the staleness half — that the
     # seed is what the generator produces — and says nothing about the half
-    # that reads forty spellings of a row, which is where every hole twenty-three
+    # that reads forty spellings of a row, which is where every hole twenty-four
     # review rounds found lived. So this control writes a row into the
     # server\'s own migration: a field no model declares, a field the server
     # may therefore write and nothing ever sends. The gate must name it.
