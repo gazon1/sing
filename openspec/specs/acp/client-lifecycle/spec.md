@@ -2,8 +2,9 @@
 
 ## Purpose
 
-The client's lifecycle: how a connection to an external agent is opened and closed,
-and what a turn in flight may read while that happens.
+The client's lifecycle: the connect and close transitions, which exclude each other,
+the terminate transition, which does not wait for that exclusion, and what a turn in
+flight may read while any of them happens.
 
 ## Requirements
 

@@ -3,7 +3,8 @@
 ## Purpose
 
 That every Gradle module holding Kotlin source is judged by the repository's detekt
-configuration, and that a class carrying more than one concern is split.
+configuration and by the project's own rules — the rules module and the tool's own
+analysis module excepted — and that a class carrying more than one concern is split.
 
 ## Requirements
 

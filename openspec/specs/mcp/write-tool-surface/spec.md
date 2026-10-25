@@ -3,7 +3,8 @@
 ## Purpose
 
 The tool server's profile argument and its refusals: which profile it works with,
-what an unknown one earns, and what the client is told when it cannot start.
+what an unknown one earns, and what the client is told when it cannot start — and
+that the server works on the profile it was told and never opens the stored one.
 
 ## Requirements
 

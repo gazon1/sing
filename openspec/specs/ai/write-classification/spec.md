@@ -3,7 +3,8 @@
 ## Purpose
 
 How every tool an agent can call declares the one write behaviour it has, and how
-that declaration is checked against what the tool actually does.
+that declaration is checked against what the tool actually does before it is
+proposed to a user.
 
 ## Requirements
 
