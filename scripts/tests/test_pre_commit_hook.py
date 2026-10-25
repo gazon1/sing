@@ -240,6 +240,71 @@ class PreCommitHookTest(unittest.TestCase):
         self.assertIn(':desktopApp:compileKotlin', calls)
         self.assertNotIn(':shared:compileKotlinJvm', calls)
 
+    def test_a_commit_is_checked_on_its_own_tree_not_on_the_working_one(self):
+        """The uncommitted half does not decide whether this commit happens.
+
+        ## What went wrong
+
+        The hook compiled the working tree. On a branch with one commit per
+        idea the working tree usually carries the next idea as well, and the
+        compile saw both: the commit was refused for a breakage that belonged
+        to another change — files the commit does not contain. The way out was
+        to keep the tree in the shape of each commit, one commit at a time,
+        which is the work the hook was supposed to make unnecessary.
+
+        ## What this does
+
+        The hook holds the working tree at the index while the check runs, so
+        the compile sees the tree the commit carries. The half that is not
+        committed — here a marker that makes the stand-in compile fail — is put
+        aside for the check and put back afterwards.
+        """
+        worktree = self._linked_worktree()
+
+        # The branch carries an idea of its own before the commit under test.
+        target = worktree / MODULE_FILE
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text('first\n', encoding='utf-8')
+        _git('add', '--', MODULE_FILE, cwd=worktree)
+        first = subprocess.run(
+            ['git', 'commit', '-m', 'first'],
+            cwd=worktree,
+            capture_output=True,
+            text=True,
+            env=sandbox_env(worktree),
+        )
+        self.assertEqual(0, first.returncode, first.stdout + first.stderr)
+
+        # The next idea: it is not committed, and it does not compile.
+        (worktree / 'gw-fails').write_text('', encoding='utf-8')
+
+        # The commit under test: staged, and it compiles.
+        target.write_text('change\n', encoding='utf-8')
+        _git('add', '--', MODULE_FILE, cwd=worktree)
+        result = subprocess.run(
+            ['git', 'commit', '-m', 'change'],
+            cwd=worktree,
+            capture_output=True,
+            text=True,
+            env=sandbox_env(worktree),
+        )
+
+        self.assertEqual(
+            0,
+            result.returncode,
+            result.stdout + result.stderr,
+        )
+        self.assertIn(':shared:compileKotlinJvm', self._calls(worktree))
+        self.assertTrue(
+            _committed(worktree),
+            'the commit did not happen — the uncommitted half decided it',
+        )
+        # The half that was not committed is exactly where it was.
+        self.assertTrue(
+            (worktree / 'gw-fails').is_file(),
+            'the held work was not put back',
+        )
+
 
 def _committed(worktree: pathlib.Path) -> bool:
     """Whether the worktree's branch carries the commit that was attempted."""
