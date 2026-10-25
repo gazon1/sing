@@ -1,7 +1,6 @@
 package com.singularity.todo.core.sync
 
 import com.singularity.todo.core.auth.SupabaseClientProvider
-import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.transport.SupabaseTransportFailure
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.postgrest
@@ -21,12 +20,13 @@ import kotlinx.serialization.json.JsonObject
  *
  * ## What the failures say
  *
- * The vendor's failures are classified here, where the vendor's types are, and
- * what leaves is the class and the server's own words: a refused identity, a
- * function that is not in the schema cache, a call that never arrived, or a
- * server that said no. The caller above reads a project type and never learns
- * the SDK's — and the difference between "the session is gone" and "the
- * deployment is missing a migration" survives the trip.
+ * The vendor's failures are read here, where the vendor's types are: the status
+ * code, PostgREST's own code and the server's words become three plain values.
+ * What those facts *mean* — the wording, and the difference between "there is no
+ * project" and "the server refused" — is decided in [SyncRpcFailure], which is a
+ * project file with no vendor in it. The caller above reads a project type and
+ * never learns the SDK's — and the difference between "the session is gone" and
+ * "the deployment is missing a migration" survives the trip.
  *
  * **A vendor seam.** This file and `SupabaseClientProvider` are the only two in
  * the project that name the Supabase SDK, which is what lets
@@ -50,14 +50,17 @@ class PostgrestSyncRpc(private val clients: SupabaseClientProvider) : SyncRpc {
         } catch (e: Exception) {
             // A transport boundary is exactly where an unknown throwable is
             // expected: the SDK, Ktor and the platform socket layer each have
-            // their own. The catch does not recover — it classifies and rethrows.
-            throw SupabaseTransportFailure.toTransportException(e, "$function failed")
+            // their own. The catch does not recover — it reads the vendor's
+            // exception and hands the facts to the project's decision.
+            throw SyncRpcFailure.refused(
+                failure = SupabaseTransportFailure.classify(e),
+                facts = SupabaseTransportFailure.facts(e),
+                function = function,
+                cause = e,
+            )
         }
     }
 
     private suspend fun client(function: String): Postgrest = clients.client()?.postgrest
-        ?: throw AppError.Validation(
-            "No Supabase project is configured, so $function cannot be called.",
-            code = "sync.not_configured",
-        )
+        ?: throw SyncRpcFailure.notConfigured(function)
 }
