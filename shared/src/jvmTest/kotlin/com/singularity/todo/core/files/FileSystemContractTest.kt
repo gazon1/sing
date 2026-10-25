@@ -153,6 +153,42 @@ abstract class FileSystemContract<F : FileSystem>(private val makeSut: () -> F) 
         assertFalse(stat.isDirectory)
         sut.delete(path)
     }
+
+    @Test
+    fun `openRead hands out what openWrite wrote`() = runTest {
+        val path = tmpPath()
+        val data = "piece by piece".toByteArray()
+        val sink = sut.openWrite(path)
+        sink.write(data, 0, data.size)
+        sink.close()
+
+        val source = sut.openRead(path)
+        val read = source.readExactly(data.size)
+        source.close()
+
+        assertContentEquals(data, read)
+        sut.delete(path)
+    }
+
+    @Test
+    fun `openRead reads in pieces and says when it is done`() = runTest {
+        val path = tmpPath()
+        val data = "the whole archive".toByteArray()
+        sut.writeBytes(path, data)
+
+        val source = sut.openRead(path)
+        val buffer = ByteArray(4)
+        val collected = mutableListOf<Byte>()
+        while (true) {
+            val read = source.read(buffer, 0, buffer.size)
+            if (read < 0) break
+            collected.addAll(buffer.copyOfRange(0, read).toList())
+        }
+        source.close()
+
+        assertContentEquals(data, collected.toByteArray())
+        sut.delete(path)
+    }
 }
 
 /** Contract test run against [JvmFileSystem] — real filesystem I/O. */
