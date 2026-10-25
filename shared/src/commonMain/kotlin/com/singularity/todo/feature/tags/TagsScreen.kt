@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ContentStateMapper
 import com.singularity.todo.core.ui.components.DeleteActionButton
@@ -95,27 +96,29 @@ fun TagsScreen(
         snackbarHost = { TaggedSnackbarHost(snackbarHostState, countdownProgress = countdownProgress) },
         modifier = modifier,
     ) { paddingValues ->
-        StatefulContent(
-            state = state.toContentState(),
-            emptyTitle = "No tags yet",
-            emptyTestTag = TestTags.TAGS_LIST_EMPTY,
-            modifier = Modifier.padding(paddingValues),
-        ) { tags, contentModifier ->
-            Box(modifier = contentModifier) {
-                TagList(
-                    tags = tags,
-                    onDelete = { id -> viewModel.onIntent(TagsIntent.Delete(id)) },
-                    onRename = { tag -> tagBeingRenamed = tag },
-                    onOpen = onOpenTag,
-                )
-                FloatingActionButton(
-                    onClick = { showAddDialog = true },
-                    modifier = Modifier
-                        .testTag(TestTags.TAGS_FAB)
-                        .align(Alignment.BottomEnd)
-                        .padding(16.dp),
-                ) {
-                    Icon(Icons.Filled.Add, contentDescription = "Add tag")
+        RefreshableContent {
+            StatefulContent(
+                state = state.toContentState(),
+                emptyTitle = "No tags yet",
+                emptyTestTag = TestTags.TAGS_LIST_EMPTY,
+                modifier = Modifier.padding(paddingValues),
+            ) { tags, contentModifier ->
+                Box(modifier = contentModifier) {
+                    TagList(
+                        tags = tags,
+                        onDelete = { id -> viewModel.onIntent(TagsIntent.Delete(id)) },
+                        onRename = { tag -> tagBeingRenamed = tag },
+                        onOpen = onOpenTag,
+                    )
+                    FloatingActionButton(
+                        onClick = { showAddDialog = true },
+                        modifier = Modifier
+                            .testTag(TestTags.TAGS_FAB)
+                            .align(Alignment.BottomEnd)
+                            .padding(16.dp),
+                    ) {
+                        Icon(Icons.Filled.Add, contentDescription = "Add tag")
+                    }
                 }
             }
         }

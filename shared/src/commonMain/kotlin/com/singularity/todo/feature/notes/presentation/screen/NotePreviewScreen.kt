@@ -61,6 +61,7 @@ import com.mohamedrejeb.richeditor.model.rememberRichTextState
 import com.mohamedrejeb.richeditor.ui.material3.RichText
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.TimeConstants
+import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.links.InternalLinkSchemes
 import com.singularity.todo.core.ui.components.rememberOverlayState
@@ -218,58 +219,60 @@ fun NotePreviewScreenContent(
             }
         },
     ) { padding ->
-        when (state) {
-            NotePreviewState.Loading -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator()
-                }
-            }
-
-            is NotePreviewState.Loaded -> {
-                val note = state.note
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding)
-                        .verticalScroll(rememberScrollState()),
-                ) {
-                    // Hero: title
-                    Text(
-                        text = note.title.ifBlank { "Untitled" },
-                        style = MaterialTheme.typography.headlineMedium,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    )
-
-                    // Meta chips
-                    MetaChipsRow(note = note, modifier = Modifier.padding(horizontal = 16.dp))
-
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                    // Body: read-only RichText with internal link interception
-                    if (note.bodyHtml.isNullOrBlank()) {
-                        Text(
-                            text = "No content",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 24.dp),
-                        )
-                    } else {
-                        NotePreviewBody(
-                            html = note.bodyHtml,
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            onNavigateToNote = onNavigateToNote,
-                            onNavigateToTask = onNavigateToTask,
-                        )
+        RefreshableContent {
+            when (state) {
+                NotePreviewState.Loading -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(padding),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator()
                     }
+                }
 
-                    Spacer(modifier = Modifier.height(80.dp)) // bottom bar clearance
+                is NotePreviewState.Loaded -> {
+                    val note = state.note
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(padding)
+                            .verticalScroll(rememberScrollState()),
+                    ) {
+                        // Hero: title
+                        Text(
+                            text = note.title.ifBlank { "Untitled" },
+                            style = MaterialTheme.typography.headlineMedium,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        )
+
+                        // Meta chips
+                        MetaChipsRow(note = note, modifier = Modifier.padding(horizontal = 16.dp))
+
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                        // Body: read-only RichText with internal link interception
+                        if (note.bodyHtml.isNullOrBlank()) {
+                            Text(
+                                text = "No content",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 24.dp),
+                            )
+                        } else {
+                            NotePreviewBody(
+                                html = note.bodyHtml,
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                onNavigateToNote = onNavigateToNote,
+                                onNavigateToTask = onNavigateToTask,
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(80.dp)) // bottom bar clearance
+                    }
                 }
             }
         }

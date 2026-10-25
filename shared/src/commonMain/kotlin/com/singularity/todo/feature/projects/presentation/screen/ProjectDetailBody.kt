@@ -45,6 +45,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
@@ -76,76 +77,78 @@ fun ProjectBodySection(
     nav: ProjectsNavigator,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxWidth()) {
-        ProjectDetailQuickAddInput(
-            availableTasks = availableTasks,
-            actions = actions,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-        )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                "Tasks",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.testTag(TestTags.PROJECT_DETAIL_TASKS_HEADER),
+    RefreshableContent {
+        Column(modifier = modifier.fillMaxWidth()) {
+            ProjectDetailQuickAddInput(
+                availableTasks = availableTasks,
+                actions = actions,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )
-            if (ui.totalCount > 0) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Same text-link idiom as the completed toggle, so the two
-                    // read as one control rather than two competing styles.
-                    Text(
-                        if (hideCompleted) "Show completed" else "Hide completed",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.clickable(onClick = actions::onToggleHideCompleted),
-                    )
-                    Text(
-                        "  ·  ",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Text(
-                        if (hideBlocked) "Show blocked" else "Hide blocked",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.clickable(onClick = actions::onToggleHideBlocked),
-                    )
-                }
-            }
-        }
-        if (ui.tasks.isEmpty()) {
-            EmptyState(
-                title = "No tasks yet",
-                testTag = TestTags.PROJECT_DETAIL_EMPTY,
-                modifier = Modifier.padding(32.dp),
-            )
-        } else {
-            LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                items(ui.tasks, key = { it.id.value }) { task ->
-                    TaskCard(
-                        task = task,
-                        onClick = { nav.openTask(task.id) },
-                        actions = TaskCardActions(
-                            onPin = { actions.onPin(task.id) },
-                            onDelete = { actions.onDeleteTask(task.id) },
-                        ),
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    )
-                }
-            }
-        }
-        if (ui.totalCount > 5) {
-            TextButton(
-                onClick = { nav.openTasks(ui.project.id) },
-                modifier = Modifier.padding(horizontal = 16.dp),
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("See all ${ui.totalCount} tasks")
-                Icon(Icons.Filled.ChevronRight, contentDescription = null)
+                Text(
+                    "Tasks",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.testTag(TestTags.PROJECT_DETAIL_TASKS_HEADER),
+                )
+                if (ui.totalCount > 0) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Same text-link idiom as the completed toggle, so the two
+                        // read as one control rather than two competing styles.
+                        Text(
+                            if (hideCompleted) "Show completed" else "Hide completed",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable(onClick = actions::onToggleHideCompleted),
+                        )
+                        Text(
+                            "  ·  ",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Text(
+                            if (hideBlocked) "Show blocked" else "Hide blocked",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable(onClick = actions::onToggleHideBlocked),
+                        )
+                    }
+                }
+            }
+            if (ui.tasks.isEmpty()) {
+                EmptyState(
+                    title = "No tasks yet",
+                    testTag = TestTags.PROJECT_DETAIL_EMPTY,
+                    modifier = Modifier.padding(32.dp),
+                )
+            } else {
+                LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                    items(ui.tasks, key = { it.id.value }) { task ->
+                        TaskCard(
+                            task = task,
+                            onClick = { nav.openTask(task.id) },
+                            actions = TaskCardActions(
+                                onPin = { actions.onPin(task.id) },
+                                onDelete = { actions.onDeleteTask(task.id) },
+                            ),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                        )
+                    }
+                }
+            }
+            if (ui.totalCount > 5) {
+                TextButton(
+                    onClick = { nav.openTasks(ui.project.id) },
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                ) {
+                    Text("See all ${ui.totalCount} tasks")
+                    Icon(Icons.Filled.ChevronRight, contentDescription = null)
+                }
             }
         }
     }

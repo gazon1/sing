@@ -51,6 +51,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.textfields.maxLengthTransformation
@@ -99,14 +100,16 @@ private fun ProfileSwitcherContent(
             )
         },
     ) { padding ->
-        ProfileListContent(
-            profiles = state.profiles,
-            activeProfileId = state.activeProfileId,
-            modifier = modifier.padding(padding),
-            onSelect = { viewModel.onIntent(ProfileSwitcherIntent.SwitchTo(it)) },
-            onDeleteRequest = { profileToDelete = it },
-            onCreateClick = { showCreateDialog = true },
-        )
+        RefreshableContent {
+            ProfileListContent(
+                profiles = state.profiles,
+                activeProfileId = state.activeProfileId,
+                modifier = modifier.padding(padding),
+                onSelect = { viewModel.onIntent(ProfileSwitcherIntent.SwitchTo(it)) },
+                onDeleteRequest = { profileToDelete = it },
+                onCreateClick = { showCreateDialog = true },
+            )
+        }
     }
 
     if (showCreateDialog) {

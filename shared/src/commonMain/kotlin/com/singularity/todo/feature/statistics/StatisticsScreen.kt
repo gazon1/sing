@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.formatDuration
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -70,88 +71,94 @@ fun StatisticsScreen(
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
-    Column(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+    RefreshableContent {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
         ) {
-            Text(
-                text = "Statistics",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-            )
-            IconButton(
-                onClick = { navCallbacks?.navigate(AppDestination.AgendaGraph(AgendaStartRoute.SavedAgendaList)) },
-                modifier = Modifier.testTag(TestTags.STATISTICS_OPEN_SAVED_VIEWS),
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.List,
-                    contentDescription = "Saved views",
+                Text(
+                    text = "Statistics",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
                 )
+                IconButton(
+                    onClick = { navCallbacks?.navigate(AppDestination.AgendaGraph(AgendaStartRoute.SavedAgendaList)) },
+                    modifier = Modifier.testTag(TestTags.STATISTICS_OPEN_SAVED_VIEWS),
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.List,
+                        contentDescription = "Saved views",
+                    )
+                }
             }
-        }
 
-        Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(16.dp))
 
-        PrimaryTabRow(selectedTabIndex = selectedTab) {
-            TAB_TITLES.forEachIndexed { index, title ->
-                Tab(
-                    selected = selectedTab == index,
-                    onClick = { selectedTab = index },
-                    // A stable id per tab: the health bucket cards live on the
-                    // Health tab, the screen opens on Tasks, and a flow that
-                    // waits for a bucket without selecting the tab is waiting
-                    // for something on the next tab.
-                    modifier = Modifier.testTag(
-                        when (index) {
-                            0 -> TestTags.STATISTICS_TAB_TASKS
-                            1 -> TestTags.STATISTICS_TAB_TIME
-                            else -> TestTags.STATISTICS_TAB_HEALTH
+            PrimaryTabRow(selectedTabIndex = selectedTab) {
+                TAB_TITLES.forEachIndexed { index, title ->
+                    Tab(
+                        selected = selectedTab == index,
+                        onClick = { selectedTab = index },
+                        // A stable id per tab: the health bucket cards live on the
+                        // Health tab, the screen opens on Tasks, and a flow that
+                        // waits for a bucket without selecting the tab is waiting
+                        // for something on the next tab.
+                        modifier = Modifier.testTag(
+                            when (index) {
+                                0 -> TestTags.STATISTICS_TAB_TASKS
+                                1 -> TestTags.STATISTICS_TAB_TIME
+                                else -> TestTags.STATISTICS_TAB_HEALTH
+                            },
+                        ),
+                        text = { Text(title) },
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            when (selectedTab) {
+                0 -> TasksTabContent(state = state)
+
+                1 -> InsightsTabContent(
+                    viewModel = viewModel,
+                    insightsState = state.insights,
+                    rangeDays = state.rangeDays,
+                )
+
+                2 ->
+                    HealthTabContent(
+                        health = state.health,
+                        onBucketClick = { bucket ->
+                            when (bucket) {
+                                // Overdue navigates to the dedicated Overdue preset — one section,
+                                // no date prefill, exact match for the bucket.
+                                TaskHealthBucket.OVERDUE -> {
+                                    navCallbacks?.navigate(AppDestination.AgendaGraph(AgendaStartRoute.Overdue))
+                                }
+
+                                // BLOCKED and STAGNANT have dedicated agenda views via Selector DSL.
+                                TaskHealthBucket.BLOCKED -> {
+                                    navCallbacks?.navigate(AppDestination.AgendaGraph(AgendaStartRoute.Blocked))
+                                }
+
+                                TaskHealthBucket.STAGNANT -> {
+                                    navCallbacks?.navigate(AppDestination.AgendaGraph(AgendaStartRoute.Stagnant))
+                                }
+
+                                // FINE is healthy — no drill-down target.
+                                TaskHealthBucket.FINE -> { /* no-op */ }
+                            }
                         },
-                    ),
-                    text = { Text(title) },
-                )
+                    )
             }
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        when (selectedTab) {
-            0 -> TasksTabContent(state = state)
-
-            1 -> InsightsTabContent(viewModel = viewModel, insightsState = state.insights, rangeDays = state.rangeDays)
-
-            2 ->
-                HealthTabContent(
-                    health = state.health,
-                    onBucketClick = { bucket ->
-                        when (bucket) {
-                            // Overdue navigates to the dedicated Overdue preset — one section,
-                            // no date prefill, exact match for the bucket.
-                            TaskHealthBucket.OVERDUE -> {
-                                navCallbacks?.navigate(AppDestination.AgendaGraph(AgendaStartRoute.Overdue))
-                            }
-
-                            // BLOCKED and STAGNANT have dedicated agenda views via Selector DSL.
-                            TaskHealthBucket.BLOCKED -> {
-                                navCallbacks?.navigate(AppDestination.AgendaGraph(AgendaStartRoute.Blocked))
-                            }
-
-                            TaskHealthBucket.STAGNANT -> {
-                                navCallbacks?.navigate(AppDestination.AgendaGraph(AgendaStartRoute.Stagnant))
-                            }
-
-                            // FINE is healthy — no drill-down target.
-                            TaskHealthBucket.FINE -> { /* no-op */ }
-                        }
-                    },
-                )
         }
     }
 }
