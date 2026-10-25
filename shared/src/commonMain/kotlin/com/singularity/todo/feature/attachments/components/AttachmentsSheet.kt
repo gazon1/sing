@@ -49,6 +49,8 @@ import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  * The attachments sheet: add a link, add a file, remove an attachment.
@@ -67,7 +69,7 @@ import com.singularity.todo.feature.tasks.presentation.components.TaskEditorShee
 @Composable
 fun AttachmentsSheet(
     taskId: TaskId?,
-    attachments: List<Attachment>,
+    attachments: ImmutableList<Attachment>,
     onAddUrl: (String, String?) -> Unit,
     onAttachFile: (() -> Unit)? = null,
     onDelete: (AttachmentId) -> Unit,
@@ -230,7 +232,7 @@ fun AttachmentsSheet(
 private fun AttachmentsSheetEmptyPreview() = PreviewThemed(darkTheme = false) {
     AttachmentsSheet(
         taskId = TaskId("t1"),
-        attachments = emptyList(),
+        attachments = persistentListOf(),
         onAddUrl = { _, _ -> },
         onAttachFile = noopClick,
         onDelete = { },
@@ -243,7 +245,7 @@ private fun AttachmentsSheetEmptyPreview() = PreviewThemed(darkTheme = false) {
 private fun AttachmentsSheetWithItemsPreview() = PreviewThemed(darkTheme = false) {
     AttachmentsSheet(
         taskId = TaskId("t1"),
-        attachments = listOf(
+        attachments = persistentListOf(
             Attachment(
                 id = AttachmentId.fromString("att_1"),
                 taskId = TaskId("t1"),

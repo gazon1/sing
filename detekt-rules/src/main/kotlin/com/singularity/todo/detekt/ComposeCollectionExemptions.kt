@@ -72,12 +72,6 @@ internal object ComposeCollectionExemptions {
      * register without a translation table.
      */
     val KNOWN: Map<String, Map<String, String>> = mapOf(
-        "com.singularity.todo.feature.ai.chat.ChatMessagesList" to
-            mapOf("messages" to "List<ChatMessage>"),
-        "com.singularity.todo.feature.attachments.components.AttachmentsSheet" to
-            mapOf("attachments" to "List<Attachment>"),
-        "com.singularity.todo.feature.attachments.viewer.ViewerMessage" to
-            mapOf("actions" to "List<ViewerAction>"),
         "com.singularity.todo.feature.calendarSync.presentation.CalendarAppPicker" to
             mapOf("availableApps" to "List<CalendarAppInfo>"),
         "com.singularity.todo.feature.checklist.components.ChecklistEditorSheet" to
@@ -104,13 +98,6 @@ internal object ComposeCollectionExemptions {
             mapOf("buckets" to "List<DayBucket>"),
         "com.singularity.todo.core.ui.onboarding.rememberSpotlightTour" to
             mapOf("steps" to "List<SpotlightStep>"),
-        "com.singularity.todo.feature.ai.chat.AgentActivitySection" to
-            mapOf(
-                "plan" to "List<AgentPlanStep>",
-                "calls" to "List<AgentToolCall>",
-            ),
-        "com.singularity.todo.feature.ai.ui.AgentPlanCard" to
-            mapOf("steps" to "List<AgentPlanStep>"),
         "com.singularity.todo.feature.nav.Nav3State.toDecoratedEntries" to
             mapOf("entryDecorators" to "List<NavEntryDecorator<NavKey>>"),
         "com.singularity.todo.core.ui.textfields.TextFieldStateBridgeUiTest.ObservedField" to

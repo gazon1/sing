@@ -36,6 +36,8 @@ import com.singularity.todo.core.files.MimeTypes
 import kotlinx.coroutines.CancellationException
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.mikepenz.markdown.m3.Markdown
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  * The largest file the in-app text viewer will read: 4 MB.
@@ -198,7 +200,7 @@ private fun BoxedMessage(
                 title = "File unavailable",
                 body = "This attachment has no local copy. It may not have been " +
                     "downloaded on this device.",
-                actions = listOf(ViewerAction("Back", onBack)),
+                actions = persistentListOf(ViewerAction("Back", onBack)),
             )
         }
 
@@ -207,10 +209,10 @@ private fun BoxedMessage(
                 title = "Too large to show here",
                 body = "This file is ${formatBytes(s.sizeBytes)}. The in-app viewer reads " +
                     "up to ${formatBytes(MAX_IN_APP_TEXT_BYTES)}, and nothing was read from it.",
-                actions = buildList {
-                    add(ViewerAction("Open in another app", onOpenExternally))
-                    add(ViewerAction("Back", onBack))
-                },
+                actions = persistentListOf(
+                    ViewerAction("Open in another app", onOpenExternally),
+                    ViewerAction("Back", onBack),
+                ),
             )
         }
 
@@ -218,7 +220,7 @@ private fun BoxedMessage(
             ViewerMessage(
                 title = "Could not open",
                 body = s.reason,
-                actions = listOf(ViewerAction("Back", onBack)),
+                actions = persistentListOf(ViewerAction("Back", onBack)),
             )
         }
     }
@@ -227,7 +229,7 @@ private fun BoxedMessage(
 private data class ViewerAction(val label: String, val onClick: (() -> Unit)?)
 
 @Composable
-private fun ViewerMessage(title: String, body: String, actions: List<ViewerAction>) {
+private fun ViewerMessage(title: String, body: String, actions: ImmutableList<ViewerAction>) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -274,7 +276,7 @@ private fun TextViewerUnavailablePreview() = PreviewThemed {
         ViewerMessage(
             title = "File unavailable",
             body = "This attachment has no local copy.",
-            actions = listOf(ViewerAction("Back", {})),
+            actions = persistentListOf(ViewerAction("Back", {})),
         )
     }
 }
@@ -287,7 +289,10 @@ private fun TextViewerTooLargePreview() = PreviewThemed(darkTheme = true) {
             title = "Too large to show here",
             body = "This file is 9 MB. The in-app viewer reads up to 4 MB, and nothing " +
                 "was read from it.",
-            actions = listOf(ViewerAction("Open in another app", {}), ViewerAction("Back", {})),
+            actions = persistentListOf(
+                ViewerAction("Open in another app", {}),
+                ViewerAction("Back", {}),
+            ),
         )
     }
 }

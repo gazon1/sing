@@ -23,6 +23,7 @@ import com.singularity.todo.core.llm.AgentPlanStep
 import com.singularity.todo.core.llm.PlanStepStatus
 import com.singularity.todo.core.llm.ToolCallStatus
 import com.singularity.todo.core.ui.TestTags
+import kotlinx.collections.immutable.ImmutableList
 
 /**
  * One card per tool call the agent made.
@@ -130,7 +131,7 @@ private fun ToolCallSummary(summary: String) {
  */
 @Composable
 fun AgentPlanCard(
-    steps: List<AgentPlanStep>,
+    steps: ImmutableList<AgentPlanStep>,
     modifier: Modifier = Modifier,
 ) {
     if (steps.isEmpty()) return

@@ -48,6 +48,8 @@ import com.singularity.todo.feature.genui.surface.SurfaceController
 import com.singularity.todo.feature.genui.surface.SurfaceId
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  * The chat screen.
@@ -158,7 +160,7 @@ private fun GenuiMessageSurface(
 
 @Composable
 private fun ChatMessagesList(
-    messages: List<ChatMessage>,
+    messages: ImmutableList<ChatMessage>,
     isLoading: Boolean,
     onSurfaceAction: (String, JsonElement?) -> Unit,
     modifier: Modifier = Modifier,
@@ -197,8 +199,8 @@ private fun ChatMessagesList(
  */
 @Composable
 private fun AgentActivitySection(
-    plan: List<AgentPlanStep>,
-    calls: List<AgentToolCall>,
+    plan: ImmutableList<AgentPlanStep>,
+    calls: ImmutableList<AgentToolCall>,
     outcome: AgentTurnOutcome?,
 ) {
     if (plan.isEmpty() && calls.isEmpty() && outcome == null) return
@@ -263,7 +265,7 @@ private fun ChatScreenLightPreview() = PreviewThemed(darkTheme = false, useSurfa
                 .padding(padding),
         ) {
             ChatMessagesList(
-                messages = listOf(
+                messages = persistentListOf(
                     ChatMessage("m1", ChatRole.User, "Hello, what can you help me with?"),
                     ChatMessage(
                         "m2",
@@ -303,7 +305,7 @@ private fun ChatScreenLoadingPreview() = PreviewThemed(darkTheme = false, useSur
                 .padding(padding),
         ) {
             ChatMessagesList(
-                messages = listOf(
+                messages = persistentListOf(
                     ChatMessage("m1", ChatRole.User, "Can you explain Kotlin coroutines?"),
                     ChatMessage(
                         "m2",
@@ -330,7 +332,7 @@ private fun ChatScreenLoadingPreview() = PreviewThemed(darkTheme = false, useSur
 private fun ChatMessagesListDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
     Column(modifier = Modifier.fillMaxSize()) {
         ChatMessagesList(
-            messages = listOf(
+            messages = persistentListOf(
                 ChatMessage("m1", ChatRole.User, "Draft the release notes"),
                 ChatMessage("m2", ChatRole.Assistant, "Here is a first pass at the release notes."),
             ),
