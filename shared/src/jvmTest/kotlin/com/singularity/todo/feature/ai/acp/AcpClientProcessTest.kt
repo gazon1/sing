@@ -96,6 +96,90 @@ class AcpClientProcessTest {
         client.close()
     }
 
+    /**
+     * A notification the application has no answer for does not stop the conversation.
+     *
+     * The real bridge announces its authentication state during the handshake, before
+     * the session answer, and its commands after the session is open. Both are
+     * notifications: a method with no id, answering no request this application made,
+     * and neither one is something the reader needs to see. The client has to read them and carry on — a client that
+     * treated an unknown notification as a failure would never get past the handshake
+     * with a real bridge, and it would never show the reader anything.
+     *
+     * The fake sends both, because the bridge sends both: the shapes come from the
+     * transcript of `scripts/acp-bridge-probe.sh`, run against
+     * `@agentclientprotocol/claude-agent-acp`.
+     *
+     * The commands notification is sent *during* the turn, which is the window in which
+     * a session update could become something the reader sees. A notification sent
+     * before the turn is handed to this application's own notification handler — which
+     * deliberately does nothing — and never reaches the client's adapter, so a test over
+     * it would prove nothing about the half that matters. The agent writes down what it sent, so this test can show that the
+     * notification really was sent while the turn was running.
+     */
+    @Test
+    fun `a notification the application has no answer for does not stop the conversation`() = runTest {
+        val agent = startAgent(MODE_GOOD)
+
+        val client = AcpClient(
+            scope = this,
+            process = agent.process,
+            tree = agent.tree,
+            operations = AcpClientSessionOperations { PermissionDecision.Declined },
+            toolServer = null,
+        )
+
+        val info = withContext(Dispatchers.IO) { client.connect() }
+        assertEquals("fake-agent", info.name, "the handshake completed, notification and all")
+
+        val events = client.prompt("hello").toList()
+
+        // The notifications are session settings, not something the agent did: they
+        // must not put a card on the reader's screen. The count is what says that —
+        // an activity the reader did not get a text from would still be an activity,
+        // and a test that only looked at the texts would not see it.
+        val activity = events.filterIsInstance<AcpTurnEvent.Activity>()
+        assertEquals(
+            1,
+            activity.size,
+            "the only thing the reader was told is what the agent said",
+        )
+        assertEquals(
+            "hello from the fake agent",
+            (activity.single().event as? com.singularity.todo.core.llm.AgentEvent.TextDelta)?.text,
+            "and that is the agent's answer",
+        )
+        assertEquals(
+            1,
+            events.filterIsInstance<AcpTurnEvent.Finished>().size,
+            "and the turn still ended",
+        )
+
+        // The notification really was sent while the turn was running — otherwise the
+        // assertion above would be a statement about a notification nobody received.
+        // The agent's own record has the order in it: the prompt arrives, the
+        // notification is sent, and only then does the turn end. A notification sent
+        // after the answer would be handed to the notification handler that does
+        // nothing, and the test would pass green while covering nothing.
+        val transcript = agent.transcript.readText()
+        // The first "session/prompt" in the record is the request the agent received —
+        // the answer that carries the same word comes later in the record.
+        val promptAt = transcript.indexOf("session/prompt")
+        val commandsAt = transcript.indexOf("available_commands_update")
+        val answeredAt = transcript.indexOf("ANSWERED: session/prompt")
+        assertTrue(promptAt >= 0, "the agent received the prompt")
+        assertTrue(
+            commandsAt > promptAt,
+            "the commands notification was sent after the prompt was received — " +
+                "the agent's own record says so",
+        )
+        assertTrue(
+            answeredAt > commandsAt,
+            "and before the turn was answered — so it arrived while the turn was running",
+        )
+        client.close()
+    }
+
     @Test
     fun `an agent that is not installed is reported with its command`() {
         val profile = AcpAgentProfile(

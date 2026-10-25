@@ -261,8 +261,84 @@ that rule, and no test could see it, because the tests spoke to it in-process ra
 than over a pipe. The packaged build is what showed it: a real agent connected to the
 packaged server and got its tools, but only after the channel was clean.
 
-## The known limitation: the agent's own token cost is not surfaced
+## The check against a real bridge
 
+The tests drive `FakeAcpAgent` — a program in this repository that speaks the protocol
+over a pipe. It is ours, and it was written to answer what our client expects, so the
+suite says that the client and the fake agree with each other. It says nothing about
+whether they agree with the protocol, because the protocol is written by somebody else.
+
+**The probe puts the two side by side.**
+
+```bash
+scripts/acp-bridge-probe.sh                                   # the Claude bridge
+scripts/acp-bridge-probe.sh npx -y @agentclientprotocol/codex-acp
+```
+
+It starts the bridge, drives **this application's own client** against it, and prints
+what came back: the verdict, the agent's name and version, the methods the bridge used
+and every frame verbatim. The exit code is the answer — zero when the handshake
+completed, one when it did not.
+
+It is a script and not a test because it needs a real `npx`, a real network and a real
+bridge; a test that cannot run is a skipped test, and this repository does not allow
+those. It is a program (`AcpBridgeProbe`) with a Gradle task
+(`:shared:acpBridgeProbe`) beside it, the same shape as `exportToolSurface`.
+
+The probe starts the bridge the way the launcher starts an agent —
+`Subprocess.spawnDuplex(...)`, and a `ProcessTree` over the handle. Spawning belongs to
+`core/process`: a spawn outside it is a spawn nobody's tests cover, and the defect that
+class of spawn carries has shipped twice in this repository. The probe then wraps the
+child's output in a tee, because the transcript is a copy taken *underneath* the
+protocol's reader and not a second reader of the stream.
+
+**What it covers.** The handshake and the session — the protocol's own layers, and the
+ones this application owns. Against `@agentclientprotocol/claude-agent-acp` 0.95.0 the
+client completed the handshake on the first run.
+
+**What it does not cover.** The prompt half, and the tool call behind it: those need
+the agent behind the bridge to be installed and signed in, and a bridge on a machine
+without credentials says so itself
+(`"authStatus":{"kind":"none","label":"Not logged in"}`). The tool server half needs a
+profile and a database on top of that.
+
+**What is the verdict.** The script's exit code, not the build's. The Gradle task does
+not fail the build on a probe that did not connect — a build that depended on the
+network would be a build that fails in a tunnel — so `:shared:acpBridgeProbe` on its own
+reports `BUILD SUCCESSFUL` whatever the bridge did, and the script reads the verdict out
+of the probe's output. Run the script when you want an answer. That has a consequence
+worth knowing: the build's exit code is zero even when the probe *crashed*, so "the
+build failed" and "the probe crashed" are told apart by the absence of the verdict line
+and not by the exit code.
+
+**What it found.** The bridge announces two notifications our fake never sent — its
+authentication state during the handshake, before the session answer, and its available
+commands after the session is open — and it answers `session/new` with five permission
+modes and three configuration options where the fake answered with one mode and no
+options. The client survived all of it. The fake now sends the same shapes, so the
+suite covers what the bridge sends rather than what we taught the fake to send.
+
+**When the transcript is read.** When the window is over. The bridge keeps talking
+after the session it answered — its available commands come on a timer — so a
+transcript read the moment the connect returned would be a snapshot of a race. The
+probe reads the bridge's stream for thirty seconds after the connect, and the promise
+is the simple one: every frame the bridge wrote in the window, and that the
+protocol's reader had taken by the time the drain ended, is in the transcript. A short drain follows the window, so that a frame the
+bridge wrote in its last milliseconds is not cut off by the boundary. The
+window is a length of time and not a heuristic — an earlier version waited for the
+bridge to go quiet, and a quiet period cuts off a bridge that announces on a longer
+timer, every time, not sometimes. The authentication notification is a different case:
+the bridge sends it when its own probe resolves — in the recorded run, during the
+handshake, before the session answer — so it was in the transcript already when the
+connect returned. The bridge's own frames are committed with the change
+(`openspec/changes/the-client-meets-a-real-bridge/bridge-transcript.txt`), so the
+claims about them can be checked without a network. The list of models the machine is
+configured for, and the catalogue of commands it happens to have installed, are
+redacted there — they are the machine's, not the bridge's — and the file says which. The
+window is the same whether the handshake completed or not: a failed run's transcript is
+evidence too.
+
+## The known limitation: the agent's own token cost is not surfaced
 The protocol carries usage: `SessionUpdate.UsageUpdate` arrives as a session update, and
 `PromptResponse.usage` carries `Usage` (input, output, and total tokens) at the end of
 a turn. **The application displays neither.**
@@ -287,6 +363,7 @@ its own provider, and this application does not see that bill.
 | `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpAgentProfile.kt` | The agent registry: what to launch, shown before it runs |
 | `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpAgentLauncher.kt` | Starting a real process and building the session around it |
 | `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpAgentSession.kt` | The interface the screen talks to, so the protocol stays behind one door |
+| `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpBridgeProbe.kt` | The probe: this client, against a real bridge, and what the bridge said |
 | `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/external/AcpExternalAgentViewModel.kt` | The state, the intents, and the screen's own logic |
 | `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/external/AcpAgentConversation.kt` | The conversation: the agent's process, the session on top of it, and the process tree that ends both |
 | `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/external/AcpTurnRunner.kt` | A turn: its clock, and the rules about when it may write to the screen |
@@ -305,5 +382,7 @@ its own provider, and this application does not see that bill.
   how it is started.
 - ADR `2026-10-23-acp-client-and-agent-activity.md` — why the client role, why one
   server, and what the trust contours are.
+- ADR `2026-10-24-the-client-meets-a-real-bridge.md` — why the client is checked
+  against a real bridge by a script, and what the bridge sent that the fake did not.
 - `specs/014-acp-client-agent-activity/contracts/tool-server-cli.md` — the argument
   contract the agent's tool server is started with.
