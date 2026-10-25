@@ -10,8 +10,9 @@ agreement and expects the gate to say so:
 
   - a module the CI judges and the record does not mention;
   - a module the record claims the CI judges but it does not;
-  - a script the hook runs and the declaration does not name;
-  - a script the declaration names and the hook does not call;
+  - a gate the hook names itself — the gates it runs are declared in one
+    place, and the hook reads them from there;
+  - a hook that does not read the declaration;
   - a detekt module named in the hook itself;
   - a record that does not state the partiality;
   - a delegate the hook does not call.
@@ -75,6 +76,8 @@ DECLARED = {
     'scripts/ci/validate-maestro-selectors.py',
 }
 TREE_RULES = {'scripts/check-issue-registry.py'}
+MACHINERY = {'scripts/run-gate-tests.py', 'scripts/ci-verdict.py'}
+DECLARATION = 'scripts/src/sgate/gatekit/pre_push.py'.replace('"""', '')
 
 
 class HookGatesTest(unittest.TestCase):
@@ -106,11 +109,19 @@ class HookGatesTest(unittest.TestCase):
 
     @staticmethod
     def _hook() -> str:
+        """A hook that names no gate: the gates come from the declaration.
+
+        What it may name is the machinery it calls with logic of its own, the
+        delegate that decides the detekt verdict, and the declaration the
+        gates are read from.
+        """
         return (
             '#!/usr/bin/env bash\n'
-            'python3 "$REPO_ROOT/scripts/build-version-catalog-gate.py" --quiet .\n'
-            'python3 "$REPO_ROOT/scripts/ci/validate-maestro-selectors.py" Maestro/flows\n'
-            'python3 "$tree/scripts/check-ui-wait-budgets.py" --root "$tree"\n'
+            'PRE_PUSH_STEPS_TABLE="$(python3 "$REPO_ROOT/'
+            + DECLARATION
+            + '" --table)"\n'
+            'python3 "$tree/scripts/run-gate-tests.py"\n'
+            'python3 "$REPO_ROOT/scripts/ci-verdict.py" "$sha"\n'
             'python3 "$REPO_ROOT/scripts/pre-push-verdict.py" --sha "$sha"\n'
         )
 
@@ -144,6 +155,8 @@ class HookGatesTest(unittest.TestCase):
             DECLARED,
             TREE_RULES,
             self.ci_script_path if ci_script is None else ci_script,
+            MACHINERY,
+            DECLARATION,
         )
         return errors
 
@@ -169,26 +182,38 @@ class HookGatesTest(unittest.TestCase):
         errors = self._errors()
         self.assertTrue(any('ghostModule' in err for err in errors), errors)
 
-    def test_a_script_the_hook_runs_and_the_declaration_does_not_name_is_an_error(self):
+    def test_a_gate_the_hook_names_itself_is_an_error(self):
+        """The hook names no gate: the gates are declared in one place.
+
+        A gate written into the hook is a gate the registry does not know
+        about, and the fixture that drives the hook stubs the registry's
+        list — so the hook would run a gate nobody stubbed, and the failure
+        would be about the stub rather than about the gate.
+        """
         self.hook_path.write_text(
             self._hook() + 'python3 "$REPO_ROOT/scripts/check-something-new.py"\n', encoding='utf-8',
         )
         errors = self._errors()
         self.assertTrue(any('check-something-new.py' in err for err in errors), errors)
 
-    def test_a_script_the_declaration_names_and_the_hook_does_not_call_is_an_error(self):
-        errors, _ = mod.collect_errors(
-            self.registry_path,
-            self.hook_path,
-            self.ci_path,
-            GRAPH,
-            DECLARED | {'scripts/check-navigation-doc-sync.py'},
-            TREE_RULES,
-            self.ci_script_path,
+    def test_a_hook_that_does_not_read_the_declaration_is_an_error(self):
+        """A hook that ran no gate and said OK is not a hook that passed.
+
+        The gates come from the declaration, so the hook has to read it. A
+        hook that does not runs no gate at all — and says the tree is clean.
+        """
+        self.hook_path.write_text(
+            '#!/usr/bin/env bash\n'
+            'python3 "$REPO_ROOT/scripts/pre-push-verdict.py" --sha "$sha"\n',
+            encoding='utf-8',
         )
-        self.assertTrue(
-            any('check-navigation-doc-sync.py' in err for err in errors), errors,
-        )
+        errors = self._errors()
+        self.assertTrue(any('does not read the gates' in err for err in errors), errors)
+
+    def test_the_machinery_and_the_delegate_may_be_named(self):
+        """What the hook may name is what it calls with logic of its own."""
+        errors = self._errors()
+        self.assertEqual([], errors)
 
     def test_a_detekt_module_named_in_the_hook_is_an_error(self):
         self.hook_path.write_text(
