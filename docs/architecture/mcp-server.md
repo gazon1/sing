@@ -433,10 +433,8 @@ class ToolRegistrar(private val server: Server, private val tools: List<Tool<*, 
                 isError = false,
             )
         } catch (e: Exception) {
-            CallToolResult(
-                content = listOf(TextContent(text = "[InternalError] ${e.message ?: "unknown"}")),
-                isError = true,
-            )
+            // The caller's answer is a code; the details stay in the log.
+            ErrorMapper.toResult(McpToolError.Internal(code = "tool_call_failed", cause = e))
         }
     }
 }
@@ -594,20 +592,20 @@ their messages are neutral.
 // shared/src/jvmMain/kotlin/com/singularity/todo/mcp/errors/McpToolError.kt
 package com.singularity.todo.mcp.errors
 
-sealed interface McpToolError {
-    data class Validation(val field: String, val message: String) : McpToolError
-    data class NotFound(val resource: String, val id: String) : McpToolError
-    data class Conflict(val reason: String) : McpToolError
-    data class Unauthorized(val resource: String) : McpToolError
-    data class Internal(val message: String, val cause: Throwable? = null) : McpToolError
+sealed class McpToolError : Throwable() {
+    data class Validation(val field: String, val text: String, override val cause: Throwable? = null) : McpToolError()
+    data class NotFound(val resource: String, val id: String) : McpToolError()
+    data class Conflict(val reason: String) : McpToolError()
+    data class Unauthorized(val resource: String) : McpToolError()
+    data class Internal(val code: String, override val cause: Throwable? = null) : McpToolError()
 }
 
 fun McpToolError.format(): String = when (this) {
-    is Validation -> "[Validation] $field: $message"
-    is NotFound -> "[NotFound] $resource '$id' not found"
-    is Conflict -> "[Conflict] $reason"
-    is Unauthorized -> "[Unauthorized] Cannot modify $resource — belongs to another user"
-    is Internal -> "[InternalError] $message${cause?.let { " (${it.message})" } ?: ""}"
+    is McpToolError.Validation -> "[Validation] $field: $text"
+    is McpToolError.NotFound -> "[NotFound] $resource '$id' not found"
+    is McpToolError.Conflict -> "[Conflict] $reason"
+    is McpToolError.Unauthorized -> "[Unauthorized] Cannot modify $resource — belongs to another user"
+    is McpToolError.Internal -> "[InternalError] $code"
 }
 ```
 
@@ -615,19 +613,33 @@ fun McpToolError.format(): String = when (this) {
 // shared/src/jvmMain/kotlin/com/singularity/todo/mcp/errors/ErrorMapper.kt
 package com.singularity.todo.mcp.errors
 
-import io.modelcontextprotocol.kotlin.sdk.CallToolResult
-import io.modelcontextprotocol.kotlin.sdk.TextContent
+import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
+import io.modelcontextprotocol.kotlin.sdk.types.McpException
+import io.modelcontextprotocol.kotlin.sdk.types.TextContent
 
-fun ErrorMapper.toResult(error: McpToolError): CallToolResult = when (error) {
-    is Internal -> throw McpInternalException(error.format(), error.cause)
-    else -> CallToolResult(
-        content = listOf(TextContent(text = error.format())),
-        isError = true,
-    )
+object ErrorMapper {
+    fun toResult(error: McpToolError): CallToolResult = when (error) {
+        is McpToolError.Internal -> {
+            // The log keeps the cause; the caller gets the code.
+            log.e(error.format(), error.cause)
+            throw McpException(code = -32603, message = error.format(), data = JsonNull, cause = error.cause)
+        }
+
+        else -> CallToolResult(
+            content = listOf(TextContent(text = error.format())),
+            isError = true,
+        )
+    }
 }
 ```
 
-Rule: **never** expose stack traces or internal paths in `Validation/NotFound/Conflict/Unauthorized`. The LLM reads the text and self-corrects.
+Rule: **never** expose stack traces or internal paths in `Validation/NotFound/Conflict/Unauthorized`.
+The LLM reads the text and self-corrects.
+
+The same rule holds for the internal tier, and it is enforced by the type: `Internal` carries a
+**code**, not a message. An exception's message can carry a path, an address or the arguments the
+caller sent, and the caller of a tool reads this text — so the details stay in the log, on
+`cause`, and the answer is the code.
 
 ## Tool Annotations
 
