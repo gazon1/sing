@@ -182,6 +182,20 @@ size goes down by one. The boundary is the state that holds the value: a
 collection rebuilt in the call of the composable is rebuilt on every
 recomposition, and the promise of stability never starts.
 
+**The debt is paid.** As of 2026-10-26 the register is empty: every
+`@Composable` in the repository takes its collections from the persistent kind,
+and the value is built at the boundary. The register stays as an empty map,
+because the rule reads it — an empty register is what makes a *new* raw
+collection parameter a finding, and the recorded size is `0`, which the gate
+compares with a register that holds nothing. The debt was paid in waves, each
+one with its own measurement of the compiler's report: the menu, the proposals
+and the logbook; the project screens; the matched ranges; the task editor and
+the task filters; the shared sheets and dialogs; the notes and the tags; the
+calendar and the agenda; the chat and the attachments; the calendar sync, the
+checklist, the pomodoro and the profiles; the search, the settings and the
+statistics; and finally the onboarding tour, the navigation and the test
+bridge.
+
 Three rules guard the contract:
 
 - `NoUnstableCollectionParam` — no raw collection parameter of a `@Composable`.

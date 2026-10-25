@@ -161,7 +161,7 @@ class TextFieldStateBridgeUiTest {
     @Test
     fun the_edit_observer_fires_on_edits_and_not_on_the_seed() = runIsolatedComposeTest {
         val edits = mutableListOf<String>()
-        setContent { ObservedField(edits) }
+        setContent { ObservedField { edits += "edit" } }
 
         // The seed is not an edit: a screen that cleared its error on the seed would
         // clear an error the user has not touched yet.
@@ -384,11 +384,11 @@ class TextFieldStateBridgeUiTest {
         )
     }
 
-    /** A local field that reports every edit to [edits]. */
+    /** A local field that reports every edit through [onEdit]. */
     @Composable
-    private fun ObservedField(edits: MutableList<String>) {
+    private fun ObservedField(onEdit: () -> Unit) {
         val state = androidx.compose.foundation.text.input.rememberTextFieldState()
-        ObserveTextFieldEdits(state) { edits += "edit" }
+        ObserveTextFieldEdits(state) { onEdit() }
         OutlinedTextField(
             state = state,
             modifier = Modifier.testTag(FIELD),
