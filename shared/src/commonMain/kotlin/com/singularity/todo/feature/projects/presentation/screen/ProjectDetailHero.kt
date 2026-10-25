@@ -42,6 +42,8 @@ import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegis
 import com.singularity.todo.feature.tags.domain.model.TagGroupId
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 
 /**
  * Hero section of [ProjectDetailScreen]: project icon, name editor, description editor,
@@ -234,7 +236,8 @@ private fun previewProjectDetailUi(): ProjectDetailUi {
         tasks = listOf(PreviewSamples.task(id = "t1", title = "Design the hero section")),
         totalCount = 4,
         completedCount = 1,
-        childProjects = listOf(PreviewSamples.project(id = "p2", name = "Landing copy")),
+        childProjects = persistentListOf(PreviewSamples.project(id = "p2", name = "Landing copy")),
         parent = PreviewSamples.project(id = "p0", name = "Marketing"),
+        inheritedTagGroupIds = persistentSetOf(TagGroupId("tg1")),
     )
 }

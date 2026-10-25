@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.presentation.model.ParentOption
+import kotlinx.collections.immutable.ImmutableList
 
 /**
  * Parent project picker sheet.
@@ -26,7 +27,7 @@ import com.singularity.todo.feature.projects.presentation.model.ParentOption
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ParentPickerSheet(
-    options: List<ParentOption>,
+    options: ImmutableList<ParentOption>,
     currentParentId: ProjectId?,
     onPick: (ProjectId?) -> Unit,
     onDismiss: () -> Unit,

@@ -58,6 +58,7 @@ import com.singularity.todo.feature.tasks.presentation.components.TaskCard
 import com.singularity.todo.feature.tasks.presentation.components.TaskCardActions
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
+import kotlinx.collections.immutable.ImmutableList
 
 /**
  * Task list section of [ProjectDetailScreen]: quick-add input, task cards, and
@@ -70,7 +71,7 @@ fun ProjectBodySection(
     ui: ProjectDetailUi,
     hideCompleted: Boolean,
     hideBlocked: Boolean,
-    availableTasks: List<Task>,
+    availableTasks: ImmutableList<Task>,
     actions: ProjectDetailActions,
     nav: ProjectsNavigator,
     modifier: Modifier = Modifier,
@@ -214,7 +215,7 @@ sealed class QuickAddSheet {
 
 @Composable
 private fun ProjectDetailQuickAddInput(
-    availableTasks: List<Task>,
+    availableTasks: ImmutableList<Task>,
     actions: ProjectDetailActions,
     modifier: Modifier = Modifier,
 ) {
@@ -278,7 +279,7 @@ private val TASK_PICKER_SEARCH_MODE: SearchMode = SearchMode.Contains
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddExistingTaskPopup(
-    tasks: List<Task>,
+    tasks: ImmutableList<Task>,
     onPick: (TaskId) -> Unit,
     onDismiss: () -> Unit,
 ) {

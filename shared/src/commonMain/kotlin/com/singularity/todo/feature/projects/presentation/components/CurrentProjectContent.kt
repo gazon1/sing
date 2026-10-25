@@ -5,6 +5,10 @@ import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.presentation.model.TagGroupOption
 import com.singularity.todo.feature.tags.domain.model.TagGroupId
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 
 /**
  * Current project values a sheet needs to render itself, plus the [ProjectDetailActions]
@@ -18,17 +22,11 @@ import com.singularity.todo.feature.tags.domain.model.TagGroupId
  *
  * ## Why there is no `@Immutable` here
  *
- * The class carries three raw collections — the child projects, the tag groups and the
- * inherited tag group ids — and `@Immutable` promises that the instance never changes.
- * The compiler believes the promise and never looks at the fields, so a list that
- * changes underneath it goes unnoticed: the sheet shows a value that is one
- * recomposition out of date.
- *
- * The promise was false, and the annotation bought exactly the thing that hid it:
- * the skipping. Making it true means persistent collections, which is the same debt
- * the register of raw collection parameters names — and that sweep is not this
- * change's business. Until then the class is honestly unstable. The
- * `NoFalseImmutable` rule keeps the annotation from coming back.
+ * The class carries three collections — the child projects, the tag groups and the
+ * inherited tag group ids — and they are persistent now: each is a collection that
+ * cannot change after it is built. `@Immutable` would promise something the class no
+ * longer needs to be told twice, and the annotation was bought with a promise that was
+ * false when it was written. The `NoFalseImmutable` rule keeps it from coming back.
  *
  * @see ProjectDetailActions
  * @see docs/architecture/compose-stability.md
@@ -48,7 +46,7 @@ class CurrentProjectContent(
      * be counted before it happens.
      */
     val openTaskCount: Int = 0,
-    val childProjects: List<Project>,
+    val childProjects: ImmutableList<Project>,
     val reminderOffset: ReminderOffset?,
     /**
      * Preselects [ReminderPicker] when [reminderOffset] is null — the user's default
@@ -56,6 +54,6 @@ class CurrentProjectContent(
      */
     val defaultReminderOffset: ReminderOffset = ReminderOffset.AT_DUE,
     val actions: ProjectDetailActions,
-    val tagGroups: List<TagGroupOption> = emptyList(),
-    val inheritedTagGroupIds: Set<TagGroupId> = emptySet(),
+    val tagGroups: ImmutableList<TagGroupOption> = persistentListOf(),
+    val inheritedTagGroupIds: ImmutableSet<TagGroupId> = persistentSetOf(),
 )

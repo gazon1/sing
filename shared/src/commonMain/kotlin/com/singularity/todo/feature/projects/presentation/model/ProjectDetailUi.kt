@@ -4,6 +4,9 @@ import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.domain.model.TagGroupId
 import com.singularity.todo.feature.tasks.domain.model.Task
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
 
 /**
  * DTO for a single option in the parent-project picker.
@@ -38,7 +41,15 @@ data class ProjectDetailUi(
     val totalCount: Int,
     val completedCount: Int,
     /** Child projects under this project. */
-    val childProjects: List<Project>,
+    val childProjects: ImmutableList<Project>,
+    /**
+     * The tag groups this project inherits.
+     *
+     * The domain model keeps an ordinary [Set]; the read model holds the persistent
+     * one, so the sheet that shows the groups receives a collection that cannot
+     * change under it.
+     */
+    val inheritedTagGroupIds: ImmutableSet<TagGroupId> = persistentSetOf(),
     /** The parent project, or null if this is a root project. */
     val parent: Project?,
     /**
