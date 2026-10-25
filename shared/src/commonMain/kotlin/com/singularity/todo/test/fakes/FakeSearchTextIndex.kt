@@ -10,6 +10,7 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.collections.immutable.persistentListOf
 
 /**
  * The in-memory stand-in for the full-text index.
@@ -57,25 +58,25 @@ class FakeSearchTextIndex(
     override fun observeTasks(query: TextMatchQuery): Flow<List<IndexedRecord<Task>>> =
         taskRepo.observeAll().map { tasks ->
             tasks.filter { task -> matchesTextMatch(query, task.title, task.description) }
-                .map { task -> IndexedRecord(task, emptyList()) }
+                .map { task -> IndexedRecord(task, persistentListOf()) }
         }
 
     override fun observeNotes(query: TextMatchQuery): Flow<List<IndexedRecord<Note>>> =
         noteRepo.observeAll().map { notes ->
             notes.filter { note -> matchesTextMatch(query, note.title) }
-                .map { note -> IndexedRecord(note, emptyList()) }
+                .map { note -> IndexedRecord(note, persistentListOf()) }
         }
 
     override fun observeProjects(query: TextMatchQuery): Flow<List<IndexedRecord<Project>>> =
         projectRepo.observeAll().map { projects ->
             projects.filter { project -> matchesTextMatch(query, project.name) }
-                .map { project -> IndexedRecord(project, emptyList()) }
+                .map { project -> IndexedRecord(project, persistentListOf()) }
         }
 
     override fun observeTags(query: TextMatchQuery): Flow<List<IndexedRecord<Tag>>> =
         tagRepo.observeAll().map { tags ->
             tags.filter { tag -> matchesTextMatch(query, tag.name) }
-                .map { tag -> IndexedRecord(tag, emptyList()) }
+                .map { tag -> IndexedRecord(tag, persistentListOf()) }
         }
 
     override suspend fun recentTaskTitles(query: TextMatchQuery, limit: Int): List<Task> =

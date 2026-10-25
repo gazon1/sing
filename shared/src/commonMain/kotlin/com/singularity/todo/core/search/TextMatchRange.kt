@@ -1,5 +1,8 @@
 package com.singularity.todo.core.search
 
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
+
 /**
  * The surface of a record the index found the word in.
  *
@@ -50,4 +53,5 @@ data class TextMatchRange(val column: SearchColumn, val start: Int, val end: Int
  * them. The screen asks for the ranges of the text it is about to draw, so a
  * record that matched in its description is not highlighted in its title.
  */
-fun List<TextMatchRange>.inColumn(column: SearchColumn): List<TextMatchRange> = filter { it.column == column }
+fun List<TextMatchRange>.inColumn(column: SearchColumn): ImmutableList<TextMatchRange> =
+    filter { it.column == column }.toImmutableList()

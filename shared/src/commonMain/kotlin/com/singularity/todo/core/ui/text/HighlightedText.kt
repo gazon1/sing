@@ -7,6 +7,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import com.singularity.todo.core.search.TextMatchRange
+import kotlinx.collections.immutable.ImmutableList
 
 /**
  * The text, with the matched spans emphasised.
@@ -23,7 +24,7 @@ import com.singularity.todo.core.search.TextMatchRange
  * @param ranges where the match is, in the characters of [text].
  * @param style the style the match is drawn with.
  */
-fun highlightedText(text: String, ranges: List<TextMatchRange>, style: SpanStyle): AnnotatedString =
+fun highlightedText(text: String, ranges: ImmutableList<TextMatchRange>, style: SpanStyle): AnnotatedString =
     buildAnnotatedString {
         append(text)
         ranges.forEach { range ->
@@ -44,7 +45,7 @@ fun highlightedText(text: String, ranges: List<TextMatchRange>, style: SpanStyle
  * @param ranges where the match is, in the characters of [text].
  */
 @Composable
-fun highlightedText(text: String, ranges: List<TextMatchRange>): AnnotatedString {
+fun highlightedText(text: String, ranges: ImmutableList<TextMatchRange>): AnnotatedString {
     val style = SpanStyle(
         fontWeight = FontWeight.SemiBold,
         background = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),

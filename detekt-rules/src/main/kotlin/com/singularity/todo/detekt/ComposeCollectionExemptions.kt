@@ -128,8 +128,6 @@ internal object ComposeCollectionExemptions {
             mapOf("tasks" to "List<Task>"),
         "com.singularity.todo.feature.profile.ProfileListContent" to
             mapOf("profiles" to "List<Profile>"),
-        "com.singularity.todo.feature.search.SimpleResultCard" to
-            mapOf("matchRanges" to "List<TextMatchRange>"),
         "com.singularity.todo.feature.search.presentation.PriorityChips" to
             mapOf("selected" to "Set<TaskPriority>"),
         "com.singularity.todo.feature.search.presentation.SavedSearchesRow" to
@@ -150,12 +148,6 @@ internal object ComposeCollectionExemptions {
             mapOf("selectedIds" to "List<TagId>"),
         "com.singularity.todo.feature.tags.presentation.screen.TagGroupList" to
             mapOf("groups" to "List<TagGroup>"),
-        "com.singularity.todo.feature.tasks.presentation.components.DefaultTaskCardBody" to
-            mapOf("matchRanges" to "List<TextMatchRange>"),
-        "com.singularity.todo.feature.tasks.presentation.components.TaskCard" to
-            mapOf("matchRanges" to "List<TextMatchRange>"),
-        "com.singularity.todo.feature.tasks.presentation.components.TaskText" to
-            mapOf("matchRanges" to "List<TextMatchRange>"),
         "com.singularity.todo.feature.tasks.presentation.components.detail.BacklinkSection" to
             mapOf("items" to "List<String>"),
         "com.singularity.todo.feature.tasks.presentation.components.detail.LinkedBacklinksCard" to
@@ -179,8 +171,6 @@ internal object ComposeCollectionExemptions {
             mapOf("counts" to "Map<TaskStatus, Int>"),
         "com.singularity.todo.core.ui.onboarding.rememberSpotlightTour" to
             mapOf("steps" to "List<SpotlightStep>"),
-        "com.singularity.todo.core.ui.text.highlightedText" to
-            mapOf("ranges" to "List<TextMatchRange>"),
         "com.singularity.todo.feature.ai.chat.AgentActivitySection" to
             mapOf(
                 "plan" to "List<AgentPlanStep>",
