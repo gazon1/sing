@@ -6,6 +6,8 @@ import com.singularity.todo.core.error.TransportFailure
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.security.FakeArchiveCrypto
 import com.singularity.todo.test.fakes.MapFileSystem
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -98,7 +100,11 @@ class RemoteBackupServiceImplTest {
         bucket: BackupBucket,
         files: MapFileSystem = MapFileSystem(),
         archive: EncryptedArchive = EncryptedArchive(FakeArchiveCrypto()),
-    ) = RemoteBackupServiceImpl(bucket = bucket, fs = files, archive = archive)
+        // The service moves its work onto an IO dispatcher; the test hands in an
+        // unconfined one so the call stays inside the test's own thread and the
+        // assertions read what just happened.
+        ioDispatcher: CoroutineDispatcher = Dispatchers.Unconfined,
+    ) = RemoteBackupServiceImpl(bucket = bucket, fs = files, archive = archive, ioDispatcher = ioDispatcher)
 
     /**
      * The archive the upload is about, already on disk.

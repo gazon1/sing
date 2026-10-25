@@ -77,6 +77,7 @@ import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.settings.AiApiKeyMigration
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.koin.core.module.Module
@@ -107,6 +108,13 @@ import com.singularity.todo.core.database.UnitOfWork
  * to keep them as the *same* DataStore instance.
  */
 actual fun platformModule(): Module = module {
+    // ─── Dispatchers ──────────────────────────────────────────────────────
+
+    // The dispatcher the heavy work runs on: sealing an archive, exporting one,
+    // reading one. Choosing it here is the platform's business — `commonMain`
+    // is not allowed to name a dispatcher, and a test can hand in its own.
+    single<CoroutineDispatcher> { Dispatchers.IO }
+
     // ─── Room Database ────────────────────────────────────────────────────
 
     single<AppDatabase> {

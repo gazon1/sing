@@ -4,11 +4,13 @@ import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.platform.TimeConstants
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
 import kotlin.time.Clock
 
 /**
@@ -90,6 +92,18 @@ class BackupRepositoryImpl(
     private val backupDir: String,
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
+    /**
+     * Where the archive's own work happens.
+     *
+     * An export reads every row out of the database, serializes them and zips the
+     * result; an import does the same in the other direction. Both are arithmetic
+     * over the whole account, and the caller is the ViewModel — so without this
+     * the screen stops answering while a backup is being written.
+     *
+     * The dispatcher is a parameter rather than a constant so a test can hand in a
+     * thread of its own and see where the work ran.
+     */
+    private val ioDispatcher: CoroutineDispatcher,
 ) : BackupRepository {
     override fun observeAll(): Flow<List<BackupMetadata>> =
         flow {
@@ -127,13 +141,16 @@ class BackupRepositoryImpl(
     private fun pathEndsWithZip(path: String): Boolean = path.endsWith(".zip", ignoreCase = true)
 
     override suspend fun export(options: ExportOptions): Result<BackupResult> =
-        runCatchingCancellable {
-            fs.ensureDir(backupDir)
-            val destPath = resolveBackupDestination(backupDir, options.destPath)
-            exporter.export(options.copy(destPath = destPath)).getOrThrow()
+        withContext(ioDispatcher) {
+            runCatchingCancellable {
+                fs.ensureDir(backupDir)
+                val destPath = resolveBackupDestination(backupDir, options.destPath)
+                exporter.export(options.copy(destPath = destPath)).getOrThrow()
+            }
         }
 
-    override suspend fun import(options: ImportOptions): Result<RestoreResult> = importer.import(options)
+    override suspend fun import(options: ImportOptions): Result<RestoreResult> =
+        withContext(ioDispatcher) { importer.import(options) }
 
     override suspend fun delete(backupId: BackupId): Result<Unit> =
         runCatchingCancellable {

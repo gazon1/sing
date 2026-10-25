@@ -78,6 +78,7 @@ import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.database.RoomUnitOfWork
@@ -90,6 +91,13 @@ import com.singularity.todo.core.database.UnitOfWork
  * DAOs wired through Koin.
  */
 actual fun platformModule(): Module = module {
+    // ─── Dispatchers ──────────────────────────────────────────────────────
+
+    // The dispatcher the heavy work runs on: sealing an archive, exporting one,
+    // reading one. Choosing it here is the platform's business — `commonMain`
+    // is not allowed to name a dispatcher, and a test can hand in its own.
+    single<CoroutineDispatcher> { Dispatchers.IO }
+
     // ─── Room Database ────────────────────────────────────────────────────
 
     single<AppDatabase> {

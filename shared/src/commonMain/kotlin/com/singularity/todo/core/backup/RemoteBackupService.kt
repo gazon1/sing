@@ -7,6 +7,8 @@ import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.error.transportError
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.ids.UserId
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
 
 /**
  * The remote half of the backup feature: where an archive goes when the user
@@ -108,23 +110,39 @@ class RemoteBackupException(message: String) : Exception(message)
  * service-role key is an app that can read every row of the database. The bucket is
  * therefore something the project's owner creates once — and the failure when it is
  * missing says so, rather than reporting a generic error.
+ *
+ * ## Why the work happens on another thread
+ *
+ * Sealing an archive is slow on purpose: the key derivation is 210 000 rounds of
+ * PBKDF2, and the cipher then walks the whole archive. On a phone that is seconds
+ * of arithmetic, and the caller of this class is the ViewModel — so without a
+ * change the screen the person is looking at stops answering while their backup is
+ * being encrypted.
+ *
+ * So the work is moved to [ioDispatcher] before it starts. The dispatcher is a
+ * constructor parameter rather than a constant, so a test can hand in a thread of
+ * its own and see *where* the work ran — the alternative is a test that asserts
+ * the work is fast, which passes on a fast machine and fails on a slow one.
  */
 class RemoteBackupServiceImpl(
     private val bucket: BackupBucket,
     private val fs: FileSystem,
     private val archive: EncryptedArchive,
+    private val ioDispatcher: CoroutineDispatcher,
 ) : RemoteBackupService {
 
     override suspend fun upload(localPath: String, userId: UserId, password: CharArray): Result<String> =
         try {
-            runCatchingCancellable {
-                val plain = readArchive(localPath)
-                val sealed = archive.seal(plain, password)
-                val remotePath = remotePath(userId, localPath)
-                bucket.upload(remotePath, sealed)
-                remotePath
-            }.recoverCatching { error ->
-                throw classified(error, "the archive could not be uploaded")
+            withContext(ioDispatcher) {
+                runCatchingCancellable {
+                    val plain = readArchive(localPath)
+                    val sealed = archive.seal(plain, password)
+                    val remotePath = remotePath(userId, localPath)
+                    bucket.upload(remotePath, sealed)
+                    remotePath
+                }.recoverCatching { error ->
+                    throw classified(error, "the archive could not be uploaded")
+                }
             }
         } finally {
             password.fill('\u0000')
@@ -136,12 +154,14 @@ class RemoteBackupServiceImpl(
         userId: UserId,
         password: CharArray,
     ): Result<Unit> = try {
-        runCatchingCancellable {
-            val sealed = bucket.download(remoteRef)
-            val plain = archive.open(sealed, password)
-            fs.writeBytes(destPath, plain)
-        }.recoverCatching { error ->
-            throw classified(error, "the archive could not be downloaded")
+        withContext(ioDispatcher) {
+            runCatchingCancellable {
+                val sealed = bucket.download(remoteRef)
+                val plain = archive.open(sealed, password)
+                fs.writeBytes(destPath, plain)
+            }.recoverCatching { error ->
+                throw classified(error, "the archive could not be downloaded")
+            }
         }
     } finally {
         password.fill('\u0000')
