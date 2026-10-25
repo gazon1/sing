@@ -49,9 +49,16 @@ data class AcpExternalAgentUiState(
     /** How the last turn ended, or null while one is running. */
     val turnOutcome: AgentTurnOutcome? = null,
     /** Whether the agent may reach the user's tasks. */
-    val toolAccess: AcpToolAccess = AcpToolAccess.Granted,
+    val toolAccess: AcpToolAccess = AcpToolAccess.Unknown,
     /** The permission request on screen, or null. */
     val permission: AcpPermissionRequest? = null,
+    /**
+     * The last permission answer, so the reader can see what was decided.
+     *
+     * A request that was answered and then vanished from the screen leaves the reader with
+     * nothing: the answer happened, and the screen shows no trace of it.
+     */
+    val permissionAnswer: AcpPermissionAnswer? = null,
 ) {
     /** The input as the field's source. */
     val inputSource: StaticText get() = StaticText(input.text)
@@ -75,9 +82,29 @@ sealed interface AcpConnection {
  * agent is blind to their tasks, and a bare "no" is not an answer.
  */
 sealed interface AcpToolAccess {
+    /**
+     * Nothing is known yet.
+     *
+     * There is no session, so there is no access to speak of. The default must not claim
+     * access: a state that says "granted" before anything was negotiated is a claim the
+     * app cannot back, and it is exactly what a failed handshake used to leave behind.
+     */
+    data object Unknown : AcpToolAccess
+
+    /** The agent is connected and may reach the user's tasks. */
     data object Granted : AcpToolAccess
+
+    /** The agent cannot reach the user's tasks, and this says why. */
     data class Unavailable(val reason: String) : AcpToolAccess
 }
+
+/**
+ * What the reader decided about a permission request.
+ *
+ * The request and the decision together, because a decision without its question says
+ * nothing: "allowed" is only meaningful next to what was allowed.
+ */
+data class AcpPermissionAnswer(val request: AcpPermissionRequest, val decision: PermissionDecision)
 
 /** One line of the conversation. */
 data class AcpExternalMessage(val id: String, val fromUser: Boolean, val text: String)
@@ -230,11 +257,23 @@ class AcpExternalAgentViewModel(
 
                 is AcpConversationOutcome.LaunchFailed ->
                     updateState {
-                        it.copy(connection = AcpConnection.Failed(outcome.reason), toolAccess = toolAccess)
+                        it.copy(
+                            connection = AcpConnection.Failed(outcome.reason),
+                            toolAccess = AcpToolAccess.Unavailable(
+                                "The agent did not start, so it cannot reach your tasks.",
+                            ),
+                        )
                     }
 
                 is AcpConversationOutcome.HandshakeFailed ->
-                    updateState { it.copy(connection = AcpConnection.Failed(outcome.reason)) }
+                    updateState {
+                        it.copy(
+                            connection = AcpConnection.Failed(outcome.reason),
+                            toolAccess = AcpToolAccess.Unavailable(
+                                "The agent did not connect, so it cannot reach your tasks.",
+                            ),
+                        )
+                    }
 
                 AcpConversationOutcome.Closed -> Unit
             }
@@ -394,17 +433,19 @@ class AcpExternalAgentViewModel(
      * request declines itself: an unanswered request is not a granted one.
      */
     private suspend fun askForPermission(request: AcpPermissionRequest): PermissionDecision {
-        val decision = permissions.begin()
-        updateState { it.copy(permission = request) }
+        val decision = permissions.begin(request)
+        updateState { it.copy(permission = permissions.onScreen()) }
         return try {
             permissions.await(decision)
         } finally {
-            updateState { it.copy(permission = null) }
+            updateState { it.copy(permission = permissions.onScreen()) }
         }
     }
 
     private fun answerPermission(decision: PermissionDecision) {
+        val request: AcpPermissionRequest = _state.value.permission ?: return
         permissions.answer(decision)
+        updateState { it.copy(permissionAnswer = AcpPermissionAnswer(request, decision)) }
     }
 
     companion object {

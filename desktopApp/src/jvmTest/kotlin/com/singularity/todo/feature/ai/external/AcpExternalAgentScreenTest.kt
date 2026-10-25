@@ -8,7 +8,8 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.ai.acp.AcpAgentLaunch
 import com.singularity.todo.feature.ai.acp.AcpAgentLauncher
 import com.singularity.todo.feature.ai.acp.AcpAgentProfile
-import com.singularity.todo.feature.ai.acp.AcpClientSessionOperations
+import com.singularity.todo.feature.ai.acp.AcpLifecycleSink
+import com.singularity.todo.feature.ai.acp.AcpSessionPermissions
 import com.singularity.todo.test.fakes.FakeProfileRepository
 import com.singularity.todo.test.fakes.SequenceIdGenerator
 import com.singularity.todo.test.helpers.assertTagDisplayed
@@ -146,8 +147,9 @@ class AcpExternalAgentScreenTest {
         override fun launch(
             profile: AcpAgentProfile,
             scope: kotlinx.coroutines.CoroutineScope,
-            operations: AcpClientSessionOperations,
+            permissions: AcpSessionPermissions,
             toolServer: com.singularity.todo.core.mcp.ToolServerCommand.Available?,
+            sessionEvents: AcpLifecycleSink,
         ): AcpAgentLaunch = AcpAgentLaunch.Failed("${profile.displayName} is not installed on this machine.")
     }
 }

@@ -6,8 +6,10 @@ import com.singularity.todo.feature.ai.acp.AcpAgentLaunch
 import com.singularity.todo.feature.ai.acp.AcpAgentLauncher
 import com.singularity.todo.feature.ai.acp.AcpAgentProfile
 import com.singularity.todo.feature.ai.acp.AcpAgentSession
-import com.singularity.todo.feature.ai.acp.AcpClientSessionOperations
+import com.singularity.todo.feature.ai.acp.AcpLifecycleSink
 import com.singularity.todo.feature.ai.acp.AcpPermissionRequest
+import com.singularity.todo.feature.ai.acp.AcpSessionPermissions
+import com.singularity.todo.feature.ai.acp.LoggingAcpLifecycle
 import com.singularity.todo.feature.ai.acp.PermissionDecision
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -52,14 +54,22 @@ internal class AcpAgentConversation(private val scope: CoroutineScope, private v
         agent: AcpAgentProfile,
         toolServer: ToolServerCommand.Available?,
         askForPermission: suspend (AcpPermissionRequest) -> PermissionDecision,
+        /**
+         * Where the session's lifecycle goes.
+         *
+         * One sink for the whole session: the client and the operations are two halves of
+         * the same conversation, and their events belong in the same place.
+         */
+        sessionEvents: AcpLifecycleSink = LoggingAcpLifecycle(),
     ): AcpConversationOutcome {
-        val operations = AcpClientSessionOperations(askForPermission)
+        val permissions = AcpSessionPermissions { request -> askForPermission(request) }
         return when (
             val launch = launcher.launch(
                 profile = agent,
                 scope = scope,
-                operations = operations,
+                permissions = permissions,
                 toolServer = toolServer,
+                sessionEvents = sessionEvents,
             )
         ) {
             is AcpAgentLaunch.Failed -> AcpConversationOutcome.LaunchFailed(launch.reason)

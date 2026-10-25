@@ -48,5 +48,14 @@ interface AcpAgentSession {
  *
  * The protocol's own type is not carried: the screen shows a name and a version, and
  * nothing above this line needs the rest of what the protocol says.
+ *
+ * [protocolVersion] is the exception, and it is the one thing about the agent that has
+ * to be compared rather than shown: it says which version of the protocol the agent
+ * speaks, and a client that speaks another one cannot rely on what the agent means.
  */
-data class AcpAgentInfo(val name: String, val version: String)
+data class AcpAgentInfo(
+    val name: String,
+    val version: String,
+    /** The version of the protocol the agent speaks. */
+    val protocolVersion: Int,
+)

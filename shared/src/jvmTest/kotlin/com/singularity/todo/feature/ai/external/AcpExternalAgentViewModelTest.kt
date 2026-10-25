@@ -2,12 +2,6 @@
 
 package com.singularity.todo.feature.ai.external
 
-import com.agentclientprotocol.model.PermissionOption
-import com.agentclientprotocol.model.PermissionOptionId
-import com.agentclientprotocol.model.PermissionOptionKind
-import com.agentclientprotocol.model.RequestPermissionOutcome
-import com.agentclientprotocol.model.SessionUpdate
-import com.agentclientprotocol.model.ToolCallId
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.llm.AgentEvent
 import com.singularity.todo.core.llm.AgentTurnOutcome
@@ -18,8 +12,12 @@ import com.singularity.todo.feature.ai.acp.AcpAgentLaunch
 import com.singularity.todo.feature.ai.acp.AcpAgentLauncher
 import com.singularity.todo.feature.ai.acp.AcpAgentProfile
 import com.singularity.todo.feature.ai.acp.AcpAgentSession
-import com.singularity.todo.feature.ai.acp.AcpClientSessionOperations
+import com.singularity.todo.feature.ai.acp.AcpLifecycleSink
+import com.singularity.todo.feature.ai.acp.AcpPermissionOption
+import com.singularity.todo.feature.ai.acp.AcpPermissionRequest
+import com.singularity.todo.feature.ai.acp.AcpSessionPermissions
 import com.singularity.todo.feature.ai.acp.AcpTurnEvent
+import com.singularity.todo.feature.ai.acp.PermissionDecision
 import com.singularity.todo.test.fakes.FakeProfileRepository
 import com.singularity.todo.test.fakes.SequenceIdGenerator
 import com.singularity.todo.test.helpers.TestVmContext
@@ -91,8 +89,8 @@ class AcpExternalAgentViewModelTest {
         runCurrent()
 
         val outcome = session.permissionOutcome
-        assertIs<RequestPermissionOutcome.Selected>(outcome, "the agent is told which option was chosen")
-        assertEquals(ALLOW_OPTION_ID, outcome.optionId.value)
+        assertIs<PermissionDecision.Selected>(outcome, "the agent is told which option was chosen")
+        assertEquals(ALLOW_OPTION_ID, outcome.optionId)
     }
 
     @Test
@@ -111,12 +109,7 @@ class AcpExternalAgentViewModelTest {
         runCurrent()
 
         val outcome = session.permissionOutcome
-        assertIs<RequestPermissionOutcome.Selected>(outcome, "a refusal is the agent's own rejecting option")
-        assertEquals(
-            REJECT_OPTION_ID,
-            outcome.optionId.value,
-            "and it is the rejecting one, not the allowing one",
-        )
+        assertIs<PermissionDecision.Declined>(outcome, "a refusal is the reader's refusal")
     }
 
     @Test
@@ -137,8 +130,7 @@ class AcpExternalAgentViewModelTest {
         runCurrent()
 
         val outcome = session.permissionOutcome
-        assertIs<RequestPermissionOutcome.Selected>(outcome, "an unanswered request is a refusal")
-        assertEquals(REJECT_OPTION_ID, outcome.optionId.value, "and it refuses rather than allows")
+        assertIs<PermissionDecision.Declined>(outcome, "an unanswered request is a refusal")
         assertNull(ctx.state.value.permission, "and the request is off the screen")
     }
 
@@ -159,8 +151,7 @@ class AcpExternalAgentViewModelTest {
 
         assertEquals(AgentTurnOutcome.Cancelled, ctx.state.value.turnOutcome, "the turn is cancelled")
         val outcome = session.permissionOutcome
-        assertIs<RequestPermissionOutcome.Selected>(outcome, "the outstanding request is refused")
-        assertEquals(REJECT_OPTION_ID, outcome.optionId.value)
+        assertIs<PermissionDecision.Declined>(outcome, "the outstanding request is refused")
     }
 
     @Test
@@ -349,6 +340,39 @@ class AcpExternalAgentViewModelTest {
     // ── The warning ────────────────────────────────────────────────────────────
 
     @Test
+    fun `the state claims no tool access before there is a session`() = runTest {
+        val session = ScriptedSession { true }
+        val ctx = viewModel(session)
+
+        assertIs<AcpToolAccess.Unknown>(
+            ctx.state.value.toolAccess,
+            "Nothing is claimed before anything was negotiated: a default that says " +
+                "'granted' is a claim the app cannot back",
+        )
+    }
+
+    @Test
+    fun `the answer to a permission request stays on the screen`() = runTest {
+        val session = ScriptedSession {
+            it.askForPermission()
+            true
+        }
+        val ctx = viewModel(session)
+
+        connect(ctx)
+        send(ctx)
+        runCurrent()
+
+        ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.AllowPermission(ALLOW_OPTION_ID))
+        runCurrent()
+
+        val answer = ctx.state.value.permissionAnswer
+        assertNotNull(answer, "the decision leaves a trace: the sheet closes, and the screen keeps it")
+        assertEquals("Read file", answer.request.title, "next to the question it was about")
+        assertIs<PermissionDecision.Selected>(answer.decision, "and it is the decision that was made")
+    }
+
+    @Test
     fun `the no-tool-access warning survives the first reply`() = runTest {
         val session = ScriptedSession { true }
         val ctx = viewModel(session, toolServerAvailable = false)
@@ -415,7 +439,7 @@ class AcpExternalAgentViewModelTest {
     private class ScriptedSession(private val script: suspend (ScriptedSession) -> Boolean) : AcpAgentSession {
 
         val prompts = mutableListOf<String>()
-        var permissionOutcome: RequestPermissionOutcome? = null
+        var permissionOutcome: PermissionDecision? = null
         var cancelled = false
         var closed = false
 
@@ -428,22 +452,22 @@ class AcpExternalAgentViewModelTest {
         /** Completes when the agent is asked to stop, so a script can end its turn then. */
         val cancelledSignal = CompletableDeferred<Unit>()
 
-        private var operations: AcpClientSessionOperations? = null
+        private var permissions: AcpSessionPermissions? = null
 
-        fun bind(operations: AcpClientSessionOperations) {
-            this.operations = operations
+        fun bind(permissions: AcpSessionPermissions) {
+            this.permissions = permissions
         }
 
         /** Makes the request the ViewModel is expected to put on screen. */
-        suspend fun askForPermission(): RequestPermissionOutcome {
-            val response = operations!!.requestPermissions(permissionToolCall(), permissionOptions())
-            permissionOutcome = response.outcome
-            return response.outcome
+        suspend fun askForPermission(): PermissionDecision {
+            val decision = permissions!!.requestPermission(permissionRequest())
+            permissionOutcome = decision
+            return decision
         }
 
         override suspend fun connect(): AcpAgentInfo {
             if (connectBlocks) awaitCancellation()
-            return AcpAgentInfo("scripted-agent", "1.0")
+            return AcpAgentInfo("scripted-agent", "1.0", 1)
         }
 
         override fun prompt(message: String): Flow<AcpTurnEvent> = flow {
@@ -476,32 +500,23 @@ class AcpExternalAgentViewModelTest {
         override fun launch(
             profile: AcpAgentProfile,
             scope: CoroutineScope,
-            operations: AcpClientSessionOperations,
+            permissions: AcpSessionPermissions,
             toolServer: com.singularity.todo.core.mcp.ToolServerCommand.Available?,
+            sessionEvents: AcpLifecycleSink,
         ): AcpAgentLaunch {
-            session.bind(operations)
+            session.bind(permissions)
             return AcpAgentLaunch.Started(session)
         }
     }
 }
 
-/** The tool call the fake agent asks permission for. */
-private fun permissionToolCall() = SessionUpdate.ToolCallUpdate(
-    toolCallId = ToolCallId("call-1"),
+/** The request the fake agent asks permission for. */
+private fun permissionRequest() = AcpPermissionRequest(
+    toolCallId = "call-1",
     title = "Read file",
-)
-
-/** The choices the fake agent offers: one that allows, one that refuses. */
-private fun permissionOptions(): List<PermissionOption> = listOf(
-    PermissionOption(
-        optionId = PermissionOptionId(ALLOW_OPTION_ID),
-        name = "Allow once",
-        kind = PermissionOptionKind.ALLOW_ONCE,
-    ),
-    PermissionOption(
-        optionId = PermissionOptionId(REJECT_OPTION_ID),
-        name = "Reject",
-        kind = PermissionOptionKind.REJECT_ONCE,
+    options = listOf(
+        AcpPermissionOption(optionId = ALLOW_OPTION_ID, label = "Allow once", isRejection = false),
+        AcpPermissionOption(optionId = REJECT_OPTION_ID, label = "Reject", isRejection = true),
     ),
 )
 

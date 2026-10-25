@@ -64,7 +64,7 @@ class AcpClientProcessTest {
             scope = this,
             process = agent.process,
             tree = agent.tree,
-            operations = AcpClientSessionOperations { PermissionDecision.Declined },
+            permissions = AcpSessionPermissions { PermissionDecision.Declined },
             toolServer = null,
         )
         val info = try {
@@ -125,7 +125,7 @@ class AcpClientProcessTest {
             scope = this,
             process = agent.process,
             tree = agent.tree,
-            operations = AcpClientSessionOperations { PermissionDecision.Declined },
+            permissions = AcpSessionPermissions { PermissionDecision.Declined },
             toolServer = null,
         )
 
@@ -191,8 +191,9 @@ class AcpClientProcessTest {
         val launch = SubprocessAcpAgentLauncher.launch(
             profile = profile,
             scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default),
-            operations = AcpClientSessionOperations { PermissionDecision.Declined },
+            permissions = AcpSessionPermissions { PermissionDecision.Declined },
             toolServer = null,
+            sessionEvents = LoggingAcpLifecycle(),
         )
 
         val failed = launch as? AcpAgentLaunch.Failed
@@ -211,7 +212,7 @@ class AcpClientProcessTest {
             scope = this,
             process = agent.process,
             tree = agent.tree,
-            operations = AcpClientSessionOperations { PermissionDecision.Declined },
+            permissions = AcpSessionPermissions { PermissionDecision.Declined },
             toolServer = null,
         )
 
@@ -227,7 +228,7 @@ class AcpClientProcessTest {
             scope = this,
             process = agent.process,
             tree = agent.tree,
-            operations = AcpClientSessionOperations { PermissionDecision.Declined },
+            permissions = AcpSessionPermissions { PermissionDecision.Declined },
             toolServer = null,
             connectTimeout = 2.seconds,
         )
@@ -246,7 +247,7 @@ class AcpClientProcessTest {
             scope = this,
             process = agent.process,
             tree = agent.tree,
-            operations = AcpClientSessionOperations { PermissionDecision.Declined },
+            permissions = AcpSessionPermissions { PermissionDecision.Declined },
             toolServer = null,
         )
         withContext(Dispatchers.IO) { client.connect() }
@@ -268,7 +269,7 @@ class AcpClientProcessTest {
             scope = this,
             process = agent.process,
             tree = agent.tree,
-            operations = AcpClientSessionOperations { PermissionDecision.Declined },
+            permissions = AcpSessionPermissions { PermissionDecision.Declined },
             toolServer = null,
             closeTimeout = 2.seconds,
         )
@@ -298,7 +299,7 @@ class AcpClientProcessTest {
             scope = this,
             process = agent.process,
             tree = agent.tree,
-            operations = AcpClientSessionOperations { PermissionDecision.Declined },
+            permissions = AcpSessionPermissions { PermissionDecision.Declined },
             toolServer = null,
         )
         withContext(Dispatchers.IO) { client.connect() }
@@ -361,7 +362,7 @@ class AcpClientProcessTest {
             scope = this,
             process = agent.process,
             tree = agent.tree,
-            operations = AcpClientSessionOperations { PermissionDecision.Declined },
+            permissions = AcpSessionPermissions { PermissionDecision.Declined },
             toolServer = null,
             connectTimeout = 2.seconds,
         )
@@ -432,7 +433,7 @@ class AcpClientProcessTest {
             scope = this,
             process = agent.process,
             tree = agent.tree,
-            operations = AcpClientSessionOperations { PermissionDecision.Declined },
+            permissions = AcpSessionPermissions { PermissionDecision.Declined },
             toolServer = null,
             connectTimeout = 2.seconds,
         )
@@ -488,7 +489,7 @@ class AcpClientProcessTest {
             scope = this,
             process = agent.process,
             tree = agent.tree,
-            operations = AcpClientSessionOperations { PermissionDecision.Declined },
+            permissions = AcpSessionPermissions { PermissionDecision.Declined },
             toolServer = null,
             closeTimeout = 30.seconds,
         )
@@ -541,7 +542,7 @@ class AcpClientProcessTest {
             scope = this,
             process = agent.process,
             tree = agent.tree,
-            operations = AcpClientSessionOperations { PermissionDecision.Declined },
+            permissions = AcpSessionPermissions { PermissionDecision.Declined },
             toolServer = null,
             connectTimeout = 2.seconds,
         )
@@ -623,6 +624,56 @@ class AcpClientProcessTest {
         /** What the agent received — the other half of the diagnostic. */
         val transcript: File,
     )
+
+    /**
+     * The lifecycle reaches the log, and the protocol stream never sees it.
+     *
+     * FR-044 asks for both halves at once, and they pull in opposite directions: the
+     * lifecycle events MUST be written to the log, and they MUST NOT be written into
+     * the protocol stream. The fast half of that is in `AcpSessionEventTest`; the
+     * half that needs a pipe is here.
+     *
+     * The pipe is the point. An event written into the protocol stream would be read
+     * by the *agent* — the agent would see a line about a connection the application
+     * had with itself, and would have to decide what to do with it. So the check is
+     * not "the description does not appear in the transcript" by accident: the fake
+     * agent writes down every line it receives, and the assertion is that none of
+     * them is a lifecycle event.
+     */
+    @Test
+    fun `the lifecycle reaches the sink and never the protocol stream`() = runTest {
+        val agent = startAgent(MODE_GOOD)
+        val lifecycle = mutableListOf<AcpSessionEvent>()
+        val client = AcpClient(
+            scope = this,
+            process = agent.process,
+            tree = agent.tree,
+            permissions = AcpSessionPermissions { PermissionDecision.Declined },
+            toolServer = null,
+            sessionEvents = AcpLifecycleSink { event -> lifecycle.add(event) },
+        )
+
+        withContext(Dispatchers.IO) { client.connect() }
+        client.prompt("hello").toList()
+        client.close()
+
+        assertTrue(
+            lifecycle.any { it is AcpSessionEvent.Connected },
+            "the connection was reported: $lifecycle",
+        )
+        assertTrue(
+            lifecycle.any { it is AcpSessionEvent.SessionOpened },
+            "and so was the session: $lifecycle",
+        )
+
+        val received = agent.transcript.readText()
+        lifecycle.forEach { event ->
+            assertFalse(
+                received.contains(event.describe()),
+                "the protocol stream carries no lifecycle event: ${event.describe()}",
+            )
+        }
+    }
 
     private fun startAgent(mode: String): RunningAgent {
         // Named "javaBinary", not "java": a local named "java" shadows the package,
