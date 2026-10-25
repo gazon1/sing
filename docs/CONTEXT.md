@@ -191,7 +191,7 @@ surface because one child has not arrived yet would leave the user with nothing,
 **Never report a truncation as a rejection when something already applied** — asking again with the
 same token limit truncates it again.
 
-**Used in:** `feature/genui/core/A2uiError.kt`, `GenuiSession`, `ADR 2026-09-26-genui-subsystem-applied-r23`
+**Used in:** `feature/genui/core/A2uiError.kt`, `SurfaceTurn`, `ADR 2026-09-26-genui-subsystem-applied-r23`
 
 ---
 

@@ -108,8 +108,8 @@ class LineFramer(private val maxLineLength: Int = MAX_LINE_LENGTH) {
     }
 
     private fun classify(line: String): FramedLine = when {
-        insideFence -> if (line.startsWith("{")) FramedLine.Message(line) else FramedLine.Prose(line)
-        line.startsWith("{") -> FramedLine.Message(line)
+        insideFence -> if (looksLikeMessage(line)) FramedLine.Message(line) else FramedLine.Prose(line)
+        looksLikeMessage(line) -> FramedLine.Message(line)
         else -> FramedLine.Prose(line)
     }
 
@@ -120,11 +120,7 @@ class LineFramer(private val maxLineLength: Int = MAX_LINE_LENGTH) {
      * part that makes it fiddly: ` ```json ` is a fence, ` ```json lines ` is not, and treating
      * the first as prose meant the response rendered nothing while looking perfectly correct.
      */
-    private fun isFenceDelimiter(line: String): Boolean {
-        if (!line.startsWith("```")) return false
-        val rest: String = line.removePrefix("```").trim()
-        return rest.isEmpty() || !rest.contains(' ')
-    }
+    private fun isFenceDelimiter(line: String): Boolean = looksLikeFence(line)
 
     companion object {
         /**

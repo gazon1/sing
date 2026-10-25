@@ -63,11 +63,11 @@ class UsageRecordingTextGen(
         return result
     }
 
-    override fun streamChat(message: String): Flow<AgentEvent> {
+    override fun streamChat(message: String, instructions: String): Flow<AgentEvent> {
         val start = clock.now()
         val outputBuilder = StringBuilder()
 
-        return delegate.streamChat(message)
+        return delegate.streamChat(message, instructions)
             .onCompletion { cause ->
                 val durationMs = (clock.now() - start).inWholeMilliseconds
                 val output = outputBuilder.toString()

@@ -32,8 +32,12 @@ interface TextGenPort {
      *
      * [AgentEvent.TurnCompleted] marks a successful end. Everything else — failure,
      * cancellation — is a terminal outcome on the turn's state, not an event in the flow.
+     *
+     * @param instructions what this call may do, beyond what the configured persona says. It
+     *   belongs to the call and not to the port: a turn that is not about drawing a screen is
+     *   not told about screens, and a turn that is told about them is told once, here.
      */
-    fun streamChat(message: String): Flow<AgentEvent>
+    fun streamChat(message: String, instructions: String = ""): Flow<AgentEvent>
 
     /**
      * Fetches available models from the configured API endpoint.
