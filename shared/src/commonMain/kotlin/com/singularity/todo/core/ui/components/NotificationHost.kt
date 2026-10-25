@@ -107,14 +107,30 @@ fun NotificationHost(
     // lives in this composition, so a navigation before the offer ends would
     // take the way back with it.
     LaunchedEffect(notification) {
-        val undo = notification as? Notification.Undo ?: return@LaunchedEffect
-        val result = snackbarHostState.showSnackbar(
-            message = undo.title,
-            actionLabel = undo.actionLabel,
-            duration = SnackbarDuration.Short,
-        )
-        if (result == SnackbarResult.ActionPerformed) undo.onAction() else undo.onDeclined()
-        notification = null
+        when (val n = notification) {
+            // A plain notice: no action, no answer expected. It shows in the
+            // same snackbar host as the undo toast — one host, one queue, so a
+            // notice cannot appear on top of an offer that is still running.
+            is Notification.Toast -> {
+                snackbarHostState.showSnackbar(
+                    message = n.message,
+                    duration = SnackbarDuration.Short,
+                )
+                notification = null
+            }
+
+            is Notification.Undo -> {
+                val result = snackbarHostState.showSnackbar(
+                    message = n.title,
+                    actionLabel = n.actionLabel,
+                    duration = SnackbarDuration.Short,
+                )
+                if (result == SnackbarResult.ActionPerformed) n.onAction() else n.onDeclined()
+                notification = null
+            }
+
+            else -> Unit
+        }
     }
 
     // The undo toast lives in its own window: composed as an in-window sibling it
@@ -160,6 +176,10 @@ fun NotificationHost(
         // The undo toast is presented by the LaunchedEffect above — that is where the
         // host state lives. This branch exists only to keep `when` exhaustive.
         is Notification.Undo -> Unit
+
+        // The plain notice is presented by the same effect and the same host
+        // state, for the same reason.
+        is Notification.Toast -> Unit
 
         Notification.NavigateBack -> {
             notification = null

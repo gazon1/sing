@@ -31,6 +31,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ReopenActionButton
 import com.singularity.todo.core.ui.components.EmptyState
@@ -174,39 +175,41 @@ private fun ProjectsContent(
     onReviewClick: (Project) -> Unit,
     onReopen: (ProjectId) -> Unit,
 ) {
-    when (state) {
-        is ProjectsUiState.Loading -> LoadingIndicator(modifier = modifier)
+    RefreshableContent {
+        when (state) {
+            is ProjectsUiState.Loading -> LoadingIndicator(modifier = modifier)
 
-        // A search that matched nothing is not the same as having no projects —
-        // "No projects yet" would push the user to create one they do not need.
-        //
-        // The closed projects are still there: the list is empty, not the
-        // account.
-        is ProjectsUiState.Empty -> Column(modifier = modifier.fillMaxSize()) {
-            EmptyState(
-                title = if (state.searchQuery.text.isBlank()) {
-                    "No projects yet"
-                } else {
-                    "No projects match \"${state.searchQuery.text}\""
-                },
-                testTag = TestTags.PROJECTS_LIST_EMPTY,
-                modifier = Modifier.weight(1f),
+            // A search that matched nothing is not the same as having no projects —
+            // "No projects yet" would push the user to create one they do not need.
+            //
+            // The closed projects are still there: the list is empty, not the
+            // account.
+            is ProjectsUiState.Empty -> Column(modifier = modifier.fillMaxSize()) {
+                EmptyState(
+                    title = if (state.searchQuery.text.isBlank()) {
+                        "No projects yet"
+                    } else {
+                        "No projects match \"${state.searchQuery.text}\""
+                    },
+                    testTag = TestTags.PROJECTS_LIST_EMPTY,
+                    modifier = Modifier.weight(1f),
+                )
+                ClosedProjectsSection(closedProjects = state.closedProjects, onReopen = onReopen)
+            }
+
+            is ProjectsUiState.Error -> EmptyState(title = "Error: ${state.message}", modifier = modifier)
+
+            is ProjectsUiState.Content -> ProjectList(
+                projects = state.projects,
+                closedProjects = state.closedProjects,
+                modifier = modifier.fillMaxSize(),
+                onNavigateToProject = onNavigateToProject,
+                onCreateProject = onCreateProject,
+                onDelete = onDelete,
+                onReviewClick = onReviewClick,
+                onReopen = onReopen,
             )
-            ClosedProjectsSection(closedProjects = state.closedProjects, onReopen = onReopen)
         }
-
-        is ProjectsUiState.Error -> EmptyState(title = "Error: ${state.message}", modifier = modifier)
-
-        is ProjectsUiState.Content -> ProjectList(
-            projects = state.projects,
-            closedProjects = state.closedProjects,
-            modifier = modifier.fillMaxSize(),
-            onNavigateToProject = onNavigateToProject,
-            onCreateProject = onCreateProject,
-            onDelete = onDelete,
-            onReviewClick = onReviewClick,
-            onReopen = onReopen,
-        )
     }
 }
 

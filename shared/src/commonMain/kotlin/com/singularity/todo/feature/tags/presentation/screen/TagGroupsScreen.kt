@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.components.ContentState
 import com.singularity.todo.core.ui.components.ContentStateMapper
 import com.singularity.todo.core.ui.components.StatefulContent
@@ -41,12 +42,14 @@ import kotlinx.collections.immutable.ImmutableList
 
 @Composable
 fun TagGroupsScreen(state: TagGroupsUiState, onDelete: (TagGroupId) -> Unit, modifier: Modifier = Modifier) {
-    StatefulContent(
-        state = state.toContentState(),
-        emptyTitle = "No tag groups yet",
-        modifier = modifier,
-    ) { groups, contentModifier ->
-        TagGroupList(groups = groups, modifier = contentModifier, onDelete = onDelete)
+    RefreshableContent {
+        StatefulContent(
+            state = state.toContentState(),
+            emptyTitle = "No tag groups yet",
+            modifier = modifier,
+        ) { groups, contentModifier ->
+            TagGroupList(groups = groups, modifier = contentModifier, onDelete = onDelete)
+        }
     }
 }
 

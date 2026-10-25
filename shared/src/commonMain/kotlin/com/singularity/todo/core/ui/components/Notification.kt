@@ -15,6 +15,19 @@ sealed interface Notification {
     data class Error(val message: String) : Notification
 
     /**
+     * Non-blocking notice that appears and disappears on its own.
+     *
+     * Deliberately not [Text]: a report about an action the user just asked for
+     * does not need an answer, and a dialog makes the user dismiss it before
+     * they can do anything else. The refresh report is the case this exists
+     * for — it confirms what happened and gets out of the way.
+     *
+     * One string rather than a title and a text: a notice that disappears on
+     * its own has room for a sentence, not for a heading above it.
+     */
+    data class Toast(val message: String) : Notification
+
+    /**
      * Non-blocking toast offering to reverse a destructive action.
      *
      * Deliberately not [Text]: a delete confirmation belongs in a snackbar, not a modal.

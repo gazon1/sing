@@ -30,6 +30,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.llm.AgentPlanStep
 import com.singularity.todo.core.llm.AgentToolCall
 import com.singularity.todo.core.llm.AgentTurnOutcome
+import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.BubbleRole
 import com.singularity.todo.core.ui.components.ChatInputBar
@@ -88,31 +89,33 @@ fun ChatScreenContent(
         modifier = modifier,
         topBar = { TopAppBar(title = { Text("AI Assistant") }) },
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .imePadding(),
-        ) {
-            ChatMessagesList(
-                messages = state.messages,
-                isLoading = state.isLoading,
-                onSurfaceAction = { name: String, context: JsonElement? ->
-                    vm.onIntent(ChatViewModel.Intent.SurfaceAction(name, context))
-                },
-                modifier = Modifier.weight(1f),
-            )
-            AgentActivitySection(
-                plan = state.activity.plan,
-                calls = state.activity.calls,
-                outcome = state.turnOutcome,
-            )
-            HorizontalDivider()
-            ChatInputBar(
-                state = inputState,
-                onSend = { vm.onIntent(ChatViewModel.Intent.Send) },
-                enabled = !state.isLoading,
-            )
+        RefreshableContent {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .imePadding(),
+            ) {
+                ChatMessagesList(
+                    messages = state.messages,
+                    isLoading = state.isLoading,
+                    onSurfaceAction = { name: String, context: JsonElement? ->
+                        vm.onIntent(ChatViewModel.Intent.SurfaceAction(name, context))
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+                AgentActivitySection(
+                    plan = state.activity.plan,
+                    calls = state.activity.calls,
+                    outcome = state.turnOutcome,
+                )
+                HorizontalDivider()
+                ChatInputBar(
+                    state = inputState,
+                    onSend = { vm.onIntent(ChatViewModel.Intent.Send) },
+                    enabled = !state.isLoading,
+                )
+            }
         }
     }
 

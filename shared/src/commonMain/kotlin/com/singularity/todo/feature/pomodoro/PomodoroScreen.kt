@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -39,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
@@ -58,64 +60,73 @@ fun PomodoroScreen(timer: PomodoroTimer, taskListProvider: PomodoroTaskListProvi
     val totalSeconds = config.phaseSecondsOf(state.phase)
     val progress = state.remainingSeconds.toFloat() / totalSeconds.toFloat()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        TaskChipRow(
-            tasks = tasks,
-            selectedTaskId = state.taskId,
-            isSupported = taskListProvider.isSupported,
-            onTaskSelected = { timer.start(it) },
-        )
+    RefreshableContent {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(32.dp)
+                // The screen had no vertical scroll, and the refresh gesture
+                // needs something to drag. The scroll goes on the screen's own
+                // root, innermost, in the order the rest of the codebase uses:
+                // the column fills the screen, and its children are measured
+                // with an unbounded height so the content can be taller than
+                // the screen and still be reachable.
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            TaskChipRow(
+                tasks = tasks,
+                selectedTaskId = state.taskId,
+                isSupported = taskListProvider.isSupported,
+                onTaskSelected = { timer.start(it) },
+            )
 
-        Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(8.dp))
 
-        val selectedTask = tasks.find { it.id.value == state.taskId }
-        if (selectedTask != null) {
+            val selectedTask = tasks.find { it.id.value == state.taskId }
+            if (selectedTask != null) {
+                Text(
+                    text = "Focus: ${selectedTask.title}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag(TestTags.Pomodoro.FOCUS_CHIP),
+                )
+                Spacer(Modifier.height(8.dp))
+            }
+
+            PhaseLabel(
+                phase = state.phase,
+                phaseColor = phaseColor,
+            )
+
+            Spacer(Modifier.height(32.dp))
+
+            CircularProgressRing(
+                progress = progress,
+                phaseColor = phaseColor,
+                remainingSeconds = state.remainingSeconds,
+                completedCycles = state.completedCycles,
+            )
+
+            Spacer(Modifier.height(48.dp))
+
+            PomodoroControls(
+                isRunning = state.isRunning,
+                phaseColor = phaseColor,
+                onStop = { timer.stop() },
+                onPlayPause = { if (state.isRunning) timer.pause() else timer.resume() },
+                onSkip = { timer.skip() },
+            )
+
+            Spacer(Modifier.height(24.dp))
+
             Text(
-                text = "Focus: ${selectedTask.title}",
+                text = "Pomodoro: ${state.completedCycles} completed",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.testTag(TestTags.Pomodoro.FOCUS_CHIP),
             )
-            Spacer(Modifier.height(8.dp))
         }
-
-        PhaseLabel(
-            phase = state.phase,
-            phaseColor = phaseColor,
-        )
-
-        Spacer(Modifier.height(32.dp))
-
-        CircularProgressRing(
-            progress = progress,
-            phaseColor = phaseColor,
-            remainingSeconds = state.remainingSeconds,
-            completedCycles = state.completedCycles,
-        )
-
-        Spacer(Modifier.height(48.dp))
-
-        PomodoroControls(
-            isRunning = state.isRunning,
-            phaseColor = phaseColor,
-            onStop = { timer.stop() },
-            onPlayPause = { if (state.isRunning) timer.pause() else timer.resume() },
-            onSkip = { timer.skip() },
-        )
-
-        Spacer(Modifier.height(24.dp))
-
-        Text(
-            text = "Pomodoro: ${state.completedCycles} completed",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 

@@ -163,6 +163,49 @@ class SyncEngine(
 }
 ```
 
+## The refresh trigger
+
+Located: `core/refresh/RefreshCoordinator.kt`, `core/refresh/RefreshableContent.kt`.
+
+The pull-to-refresh gesture is a second way into the same sync cycle, preceded by a
+bulk-archive step:
+
+```
+pull down → RefreshCoordinator.request()
+              ├─ 1. archive the completed tasks  (CompletedTaskArchiver → ArchiveRepository)
+              └─ 2. syncOnce()                   (the cycle above)
+```
+
+**The order is the point.** Archiving writes the archived tasks to the outbox. A push
+that ran before the archive step would leave the server holding the un-archived copy,
+and the next download would put every task the user had just cleared away back into the
+list. Archiving first puts those rows in the outbox, so the same gesture's push carries
+them.
+
+**The two steps fail independently.** A refresh that could not reach the server still
+archives — the archive is local, and the user asked for it. A refresh whose archive step
+failed still synchronises — the sync is what carries everything else the user did. The
+outcome carries both verdicts, and the report says which one failed.
+
+**One run at a time.** `RefreshCoordinator` is a singleton. A request that arrives while
+a refresh is running joins that run and receives *its* outcome: one archive pass, one
+push, whatever the number of screens that asked. This is stricter than
+`SyncCoordinator`'s coalescing, which lets a request that arrives mid-cycle queue one
+follow-up cycle — there the follow-up carries the periodic sync's own work, and skipping
+it would drop a scheduled cycle.
+
+**The run outlives the screen.** The run executes in the coordinator's scope, not in the
+ViewModel's: a user who walks away mid-refresh still gets the archive and the sync.
+
+**The report belongs to the screen that asked.** Every screen has its own
+`RefreshViewModel`; they all ask the same coordinator. The report is a notice
+(`Notification.Toast`), not a dialog — it confirms an action the user just asked for and
+must not wait for an answer.
+
+**Known limitation — the calendar.** The calendar screen's only vertical scrollable is
+the hour grid, which is scrolled programmatically to the current hour. The gesture is
+therefore reachable only at the very top of the grid.
+
 ## SyncApiClient (Supabase)
 
 Located: `Modules.kt` as `SupabaseSyncApiClient`.
@@ -239,6 +282,8 @@ class TwoDeviceHarness {
 | `core/sync/SyncApi.kt` | Transport interface — no method takes an owner id |
 | `core/sync/SyncRpc.kt` | One-method port the transport is built over |
 | `core/sync/SyncWire.kt` | Wire names and the refusals a malformed response gets |
+| `core/refresh/RefreshCoordinator.kt` | The one owner of a refresh: archive first, then one sync cycle |
+| `core/refresh/RefreshableContent.kt` | The gesture every screen wraps its content in |
 | `core/database/Entities.kt` | TaskEntity, NoteEntity, ProjectEntity, TagEntity (with sync columns) |
 | `shared/src/jvmTest/.../core/sync/HlcTest.kt` | HLC unit tests |
 | `shared/src/jvmTest/.../core/sync/BuildPatchDiffTest.kt` | One-field edit yields one operation; a stale response cannot promote a superseded patch |

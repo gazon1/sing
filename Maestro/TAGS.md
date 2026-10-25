@@ -260,6 +260,7 @@ non-alphanumeric characters with `_`.
 | `ARCHIVE_NOTIFICATION_HOST` | `archive_notification_host` | |
 | `CHAT_NOTIFICATION_HOST` | `chat_notification_host` | |
 | `PROJECTS_NOTIFICATION_HOST` | `projects_notification_host` | |
+| `REFRESH_NOTIFICATION_HOST` | `refresh_notification_host` | |
 | `SNACKBAR_ACTION` | `snackbar_action` | |
 | `SNACKBAR_MESSAGE` | `snackbar_message` | |
 
@@ -376,6 +377,7 @@ non-alphanumeric characters with `_`.
 | `MultiDatePicker.PREV_MONTH` | `multi_date_picker_prev_month` | |
 | `PROJECTS_LIST_EMPTY` | `projects_list_empty` | |
 | `PROJECTS_SEARCH_INPUT` | `projects_search_input` | |
+| `REFRESH_INDICATOR` | `refresh_indicator` | |
 | `RESULT_DIALOG` | `result_dialog` | |
 | `STATISTICS_OPEN_SAVED_VIEWS` | `statistics_open_saved_views` | |
 | `STATISTICS_TAB_HEALTH` | `statistics_tab_health` | |

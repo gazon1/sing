@@ -62,6 +62,11 @@ fun domainModule(fixedProfileId: ProfileId? = null): List<Module> = buildList {
     add(profileModule(fixedProfileId))
     add(coreModule())
     add(syncModule())
+    // The refresh gesture's owner. Added to this list, NOT included: the
+    // coordinator is a singleton that every screen's refresh asks, and an
+    // included module would put it in a child scope where the sibling
+    // modules above could not see it.
+    add(refreshModule())
     add(aiToolsModule())
     add(genuiModule())
     add(aiSettingsModule())
