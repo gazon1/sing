@@ -1028,6 +1028,22 @@ _REGISTERED: tuple[GateSpec, ...] = (
             cmd_type=CmdType.PYTHON3,
             script=Path("scripts/check-screen-state-collections.py"),
         ),
+        # The external-agent feature is desktop-only — the protocol library needs JDK 21, and this project keeps the Android target at JVM_11 bytecode.
+        GateSpec(
+            name="the mobile build carries no external-agent code",
+            mode=GateMode.BLOCKING,
+            cmd_type=CmdType.PYTHON3,
+            script=Path("scripts/check-mobile-isolation.py"),
+            script_args=("--check",),
+        ),
+        # The gate reads the spec-kit feature specifications and checks that every requirement is traced and every promised check is a file in the tree.
+        GateSpec(
+            name="a specification and the tree agree",
+            mode=GateMode.BLOCKING,
+            cmd_type=CmdType.PYTHON3,
+            script=Path("scripts/check-spec-requirement-traceability.py"),
+            script_args=("--check",),
+        ),
 )
 
 
@@ -1652,6 +1668,38 @@ GATE_CONTROLS: dict[str, Control] = {
             ),
             why=(
                 'a catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there'
+            ),
+        ),
+        # SC-011 promised an automated check that did not exist: the guarantee that the mobile build carries no external-agent code held only by nobody having moved a file yet
+        'mobile-isolation': Control(
+            kind='sabotage',
+            proves='scripts/check-mobile-isolation.py',
+            argv=('{python}', 'scripts/check-mobile-isolation.py',),
+            path='shared/src/commonMain/kotlin/com/singularity/todo/core/llm/TextGenPort.kt',
+            edit=Edit(
+                kind='replace',
+                old='package com.singularity.todo.core.llm',
+                new='package com.singularity.todo.core.llm\n\nimport com.singularity.todo.feature.ai.acp.AcpAgentInfo',
+                count=1,
+            ),
+            why=(
+                'SC-011 promised an automated check that did not exist: the guarantee that the mobile build carries no external-agent code held only by nobody having moved a file yet'
+            ),
+        ),
+        # a traceability table is prose: a requirement can drop out of it, and a promised check can name a file nobody wrote, and neither fails anything
+        'spec-requirement-traceability': Control(
+            kind='sabotage',
+            proves='scripts/check-spec-requirement-traceability.py',
+            argv=('{python}', 'scripts/check-spec-requirement-traceability.py',),
+            path='specs/014-acp-client-agent-activity/spec.md',
+            edit=Edit(
+                kind='replace',
+                old='AcpSessionEventTest',
+                new='NoSuchLifecycleCheck',
+                count=1,
+            ),
+            why=(
+                'a traceability table is prose: a requirement can drop out of it, and a promised check can name a file nobody wrote, and neither fails anything'
             ),
         ),
 }

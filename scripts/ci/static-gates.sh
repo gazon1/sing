@@ -873,6 +873,10 @@ gate blocking "maestro flows do not name a pixel" python3 scripts/check-maestro-
 gate blocking "the link grammar has one home" sgate the_link_grammar_has_one_home
 # The catalogue of the gate scripts, generated from their own docstrings. A catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there.
 gate blocking "the tool catalogue is current" sgate the_tool_catalogue_is_current
+# The external-agent feature is desktop-only — the protocol library needs JDK 21, and this project keeps the Android target at JVM_11 bytecode.
+gate blocking "the mobile build carries no external-agent code" sgate the_mobile_build_carries_no_external_agent_code
+# The gate reads the spec-kit feature specifications and checks that every requirement is traced and every promised check is a file in the tree.
+gate blocking "a specification and the tree agree" sgate a_specification_and_the_tree_agree
 # <<< END GENERATED: sgate render-static-gates >>>
 
 # ─── Collect all results and report ─────────────────────────────────────────
