@@ -93,6 +93,15 @@ negative, validation) lives in the Maestro UI test plan.
 | `regression` | P0 + P1. Full feature coverage. |
 | `feature` | All feature flows (convenience alias). |
 | `lifecycle` | Kill/restart, home-return, rotation. |
+| `auth-live` | Auth flows that need the **real** provider, not the E2E stub. |
+
+The `auth-live` tag is what keeps a flow out of the automated suites: the E2E
+build replaces the auth repository with a stub, so an axis that needs a real
+server (a network error, a rejected password from the provider) cannot happen
+there. Such a flow carries `auth-live` instead of `auth`, and is run by hand
+against a build with the real provider — `manual` says the same thing. A flow
+that only needs the *stub's* behaviour (a flag file the stub reads, a client-side
+validation error) belongs to `auth` and runs in CI.
 
 Filter by feature through the directory path, not a separate tag:
 `Maestro/flows/projects/` = all project flows.

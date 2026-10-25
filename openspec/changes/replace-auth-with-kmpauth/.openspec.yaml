@@ -1,0 +1,16 @@
+schema: spec-driven
+goal: >
+  Replace the hand-written Supabase auth adapter and credential store with KMPAuth's
+  Supabase backend and an SDK-owned session persisted through the existing
+  secure-storage port, without changing observable behaviour — and make the
+  already-specified sign-out on an unrecoverable session reachable in production.
+
+affected_areas: [shared]
+
+# This change alters an observable capability contract: `user-authentication`.
+# REQ-UA-008's architecture guard must now cover every vendor SDK the application
+# depends on, and REQ-UA-023 adds the guarantee that a stored session survives an
+# update that changes how the store represents a session. The delta is in
+# `specs/user-authentication/spec.md`.
+#
+# Invariant: this marker and a specs/ directory are mutually exclusive.

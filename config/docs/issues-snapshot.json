@@ -1,1709 +1,5 @@
 [
   {
-    "number": 25,
-    "state": "OPEN",
-    "title": "JVM coroutine diagnostics: kotlinx-coroutines-debug integration",
-    "backlog_slug": ""
-  },
-  {
-    "number": 26,
-    "state": "CLOSED",
-    "title": "Agenda Views: батч-фиксы + полная тест-пирамида",
-    "backlog_slug": ""
-  },
-  {
-    "number": 27,
-    "state": "CLOSED",
-    "title": "[GATE] Desktop: save → back → blank screen (desktop-nav-goBack-blank-screen)",
-    "backlog_slug": ""
-  },
-  {
-    "number": 28,
-    "state": "OPEN",
-    "title": "Navigation as policy: unified open/close + typed ids",
-    "backlog_slug": "deferred-backlog"
-  },
-  {
-    "number": 29,
-    "state": "CLOSED",
-    "title": "CC hardening: mcp-server fat-jar, CI posture, stale-test-classes",
-    "backlog_slug": ""
-  },
-  {
-    "number": 30,
-    "state": "OPEN",
-    "title": "Migration31To32 backfills after task_id is dropped — all pre-v32 DBs stuck on upgrade",
-    "backlog_slug": "deferred-backlog"
-  },
-  {
-    "number": 32,
-    "state": "CLOSED",
-    "title": "detekt-rules: 4 failing tests, and no job runs the 56-test suite",
-    "backlog_slug": ""
-  },
-  {
-    "number": 33,
-    "state": "CLOSED",
-    "title": "Coverage: 40 packages at 0% (measured), starting with settings/screens and search/presentation",
-    "backlog_slug": "deferred-backlog"
-  },
-  {
-    "number": 34,
-    "state": "OPEN",
-    "title": "detekt baseline: 413 suppressions, no ratchet — stop the ceiling from rising",
-    "backlog_slug": "deferred-backlog"
-  },
-  {
-    "number": 35,
-    "state": "CLOSED",
-    "title": "write-pipeline: 7 requirements have no assertion, 5 name the wrong test",
-    "backlog_slug": "baseline-write-pipeline-verification-was-asserted-not-checked"
-  },
-  {
-    "number": 36,
-    "state": "OPEN",
-    "title": "Bulk task operations have no UI: TaskMutationsUseCase is unwired",
-    "backlog_slug": "bulk-task-operations-have-no-ui"
-  },
-  {
-    "number": 37,
-    "state": "CLOSED",
-    "title": "Log export has no surface: a user cannot attach logs to a bug report",
-    "backlog_slug": "log-export-has-no-surface"
-  },
-  {
-    "number": 38,
-    "state": "OPEN",
-    "title": "core/auth/oauth is entirely unwired — decide Supabase OAuth or delete the file",
-    "backlog_slug": "core-auth-oauth-is-entirely-unwired"
-  },
-  {
-    "number": 39,
-    "state": "CLOSED",
-    "title": "TaskDetailCoordinatorGraphTest times out under parallel load (10s wall-clock budget)",
-    "backlog_slug": "task-detail-coordinator-graph-test-times-out-under-parallel-load"
-  },
-  {
-    "number": 40,
-    "state": "CLOSED",
-    "title": "ProjectsFlowTest: one NPE in five runs, never reproduced",
-    "backlog_slug": "desktop-flow-tests-share-one-jvm-and-one-fails-only-in-the-batch"
-  },
-  {
-    "number": 41,
-    "state": "OPEN",
-    "title": "Skills describe a nonexistent architecture: 840 baselined dangling-symbol references",
-    "backlog_slug": "skill-symbol-clusters-many-fixes-pending"
-  },
-  {
-    "number": 42,
-    "state": "CLOSED",
-    "title": "NoDirectClockSystem: KDoc claims test sources are exempt — they are not",
-    "backlog_slug": "no-direct-clock-system-kdoc-claims-tests-are-exempt"
-  },
-  {
-    "number": 43,
-    "state": "CLOSED",
-    "title": "Log redaction covers credentials, not user content — the commonMain sweep is undone",
-    "backlog_slug": "log-messages-need-a-user-content-sweep"
-  },
-  {
-    "number": 44,
-    "state": "OPEN",
-    "title": "NoDirectDispatchers: inactive pending a sweep that may be unnecessary — close it out",
-    "backlog_slug": "no-direct-dispatchers-rule-one-whitelisted-case"
-  },
-  {
-    "number": 45,
-    "state": "OPEN",
-    "title": "NavDisplay empty-state diagnostic: approach not implementable, closed with a replacement",
-    "backlog_slug": "nav-display-debug-border-not-found"
-  },
-  {
-    "number": 46,
-    "state": "CLOSED",
-    "title": "Maestro smoke cannot run here: every flow dies on DeviceServerDiedException",
-    "backlog_slug": ""
-  },
-  {
-    "number": 47,
-    "state": "OPEN",
-    "title": "7 of 38 worktrees have no .githooks — blocks flipping core.hooksPath to a relative path",
-    "backlog_slug": "deferred-backlog"
-  },
-  {
-    "number": 48,
-    "state": "OPEN",
-    "title": "P4: merge the duplicated JVM/Android entry body (blocked on Maestro)",
-    "backlog_slug": "deferred-backlog"
-  },
-  {
-    "number": 49,
-    "state": "OPEN",
-    "title": "Cleanup: libs.plugins.kover is a dead catalog entry after the settings-level move",
-    "backlog_slug": "deferred-backlog"
-  },
-  {
-    "number": 50,
-    "state": "CLOSED",
-    "title": "backup/01-round-trip.yaml asserts a dated task is in Inbox (No Date) — flow bug, not app bug",
-    "backlog_slug": ""
-  },
-  {
-    "number": 51,
-    "state": "CLOSED",
-    "title": "A test can be @Tag'd and still never run — TestTagCoverageTest checks the tag, not the engine",
-    "backlog_slug": ""
-  },
-  {
-    "number": 52,
-    "state": "OPEN",
-    "title": "DIGEST.md is 1237/1250 lines — the index grows with every ADR, the limit does not",
-    "backlog_slug": "deferred-backlog"
-  },
-  {
-    "number": 53,
-    "state": "CLOSED",
-    "title": "Three CI gates stay advisory by decision: mcp-server-check, assembleDebug, version catalog",
-    "backlog_slug": ""
-  },
-  {
-    "number": 54,
-    "state": "OPEN",
-    "title": ":mcp-server:detekt is configured but no gate owns it — the last module-level gate of its kind",
-    "backlog_slug": "each-module-needs-a-named-gate-owner"
-  },
-  {
-    "number": 55,
-    "state": "OPEN",
-    "title": "8 ADRs drift from the frontmatter schema; the gate that catches it is still `|| true`",
-    "backlog_slug": "adr-frontmatter-drift-is-unenforced"
-  },
-  {
-    "number": 56,
-    "state": "OPEN",
-    "title": "NoConsecutiveBlankLines reports a finding and was never declared — check-rule-intent caught it",
-    "backlog_slug": "no-consecutive-blank-lines-was-never-declared"
-  },
-  {
-    "number": 57,
-    "state": "OPEN",
-    "title": "`--auto-correct` rewrote 5 files unrelated to the change — reverted, and the rule is recorded",
-    "backlog_slug": "autocorrect-touches-files-outside-the-change"
-  },
-  {
-    "number": 58,
-    "state": "OPEN",
-    "title": "detektBaseline is additive AND cached — a baseline that cannot shrink is not a ratchet",
-    "backlog_slug": "detektbaseline-caches-its-output-and-cannot-drain"
-  },
-  {
-    "number": 59,
-    "state": "CLOSED",
-    "title": "A test task served FROM-CACHE prints BUILD SUCCESSFUL with no test executed",
-    "backlog_slug": "gradle-test-cache-silently-skips-the-suite"
-  },
-  {
-    "number": 60,
-    "state": "OPEN",
-    "title": "Two line-length authorities disagree: .editorconfig says 140, the enforced value is 120",
-    "backlog_slug": "two-line-length-authorities-detekt-default-120-beats-editorconfig-140"
-  },
-  {
-    "number": 61,
-    "state": "OPEN",
-    "title": "NoDirectDispatchers: 9 of 21 baselined sites are platform ports where a hardcoded dispatcher is correct",
-    "backlog_slug": "direct-dispatchers-mostly-sit-in-platform-ports-where-they-are-correct"
-  },
-  {
-    "number": 62,
-    "state": "OPEN",
-    "title": "Two rules hold 150+ baseline entries that contradict documented conventions",
-    "backlog_slug": "two-largest-baseline-rules-contradict-documented-conventions"
-  },
-  {
-    "number": 63,
-    "state": "CLOSED",
-    "title": "RecurrenceParser: 309 lines, zero production call sites — decide recurrence, or delete it",
-    "backlog_slug": "recurrence-parser-is-unwired"
-  },
-  {
-    "number": 64,
-    "state": "CLOSED",
-    "title": "Three notes domain classes have test references and no production call sites",
-    "backlog_slug": "note-editor-unwired-domain-classes"
-  },
-  {
-    "number": 65,
-    "state": "CLOSED",
-    "title": "EditorOverflow: 12+ test references, zero production composables apply the tag",
-    "backlog_slug": ""
-  },
-  {
-    "number": 66,
-    "state": "CLOSED",
-    "title": "AwtMenuBarInstaller: a desktop menu bar that nothing installs",
-    "backlog_slug": "awt-menubarinstaller-jvm-unused"
-  },
-  {
-    "number": 67,
-    "state": "CLOSED",
-    "title": "core/auth/oauth: 86 lines, zero references — decide Supabase OAuth or delete the file",
-    "backlog_slug": ""
-  },
-  {
-    "number": 68,
-    "state": "CLOSED",
-    "title": "Log redaction covers credentials, not user content — the commonMain sweep is undone",
-    "backlog_slug": ""
-  },
-  {
-    "number": 69,
-    "state": "CLOSED",
-    "title": "Do the one-shot migration scripts stay in the tree? (decision, not a task)",
-    "backlog_slug": "deferred-backlog"
-  },
-  {
-    "number": 72,
-    "state": "OPEN",
-    "title": "openspec-validate is red on main: 2 pre-existing failures, required check carrying no information",
-    "backlog_slug": "deferred-backlog"
-  },
-  {
-    "number": 73,
-    "state": "CLOSED",
-    "title": "An assumption guard made a contract test vanish exactly where it mattered (found by the skipped ceiling)",
-    "backlog_slug": ""
-  },
-  {
-    "number": 74,
-    "state": "CLOSED",
-    "title": "ReadToolsProfileAwareTest raced on Dispatchers.Default and failed 1-2 tests per run — invisible because the class has no @Tag",
-    "backlog_slug": ""
-  },
-  {
-    "number": 75,
-    "state": "CLOSED",
-    "title": "RoomTaskRepositoryContractTest fails 14 of 14 — the fake passes the same 14, and the suite has never run",
-    "backlog_slug": ""
-  },
-  {
-    "number": 76,
-    "state": "CLOSED",
-    "title": "A baseline higher than the number of tests in the sources is unreachable by construction",
-    "backlog_slug": ""
-  },
-  {
-    "number": 77,
-    "state": "CLOSED",
-    "title": "Backup: 8 tables still missing from the payload — restore silently drops reminders, checklist items, tag groups, saved searches, time entries",
-    "backlog_slug": ""
-  },
-  {
-    "number": 78,
-    "state": "CLOSED",
-    "title": "A failing undo-restore is silent: pending slot already cleared, snackbar gone, task lost",
-    "backlog_slug": "undo-restore-failure-notify"
-  },
-  {
-    "number": 79,
-    "state": "OPEN",
-    "title": "TaskDetailViewScreen cannot host a Scaffold — file-level private composables block the undo snackbar",
-    "backlog_slug": "task-detail-scaffold-refactor"
-  },
-  {
-    "number": 80,
-    "state": "CLOSED",
-    "title": "Delete-undo snackbar has no countdown — the only recovery path closes with no signal",
-    "backlog_slug": ""
-  },
-  {
-    "number": 81,
-    "state": "CLOSED",
-    "title": "No entry point starts a multi-tag agenda — the editor can build the section, nothing opens it",
-    "backlog_slug": "agenda-reachability-byTags-no-ui-entry"
-  },
-  {
-    "number": 82,
-    "state": "CLOSED",
-    "title": "BackupImporter writes straight to DAOs — the bulk-import exemption has no port and no name",
-    "backlog_slug": "bulk-import-port"
-  },
-  {
-    "number": 83,
-    "state": "CLOSED",
-    "title": "Ten ViewModels ship with no test — the allowlist in ViewModelTestCoverageTest is the work list",
-    "backlog_slug": "vm-without-test"
-  },
-  {
-    "number": 84,
-    "state": "OPEN",
-    "title": "run-maestro.sh with SKIP_INSTALL=1 can test a stale APK — a device recovery silently un-installs the build under test",
-    "backlog_slug": "maestro-gate-can-test-a-stale-apk"
-  },
-  {
-    "number": 85,
-    "state": "OPEN",
-    "title": "Kover: the desktopApp report is never merged, so three Compose subtrees stay excluded with a note instead of a number",
-    "backlog_slug": "kover-full-jvmtest-run-unmeasured"
-  },
-  {
-    "number": 86,
-    "state": "OPEN",
-    "title": "just <recipe> name=value does not assign in this environment — it produces a plausible downstream error instead",
-    "backlog_slug": "just-name-value-args-are-not-interpreted"
-  },
-  {
-    "number": 87,
-    "state": "CLOSED",
-    "title": "The maestro-smoke CI job has never executed — and the smoke set is not locale-stable enough to be a blocking gate yet",
-    "backlog_slug": "a-flow-can-be-unrunnable-and-every-check-still-pass"
-  },
-  {
-    "number": 88,
-    "state": "OPEN",
-    "title": "Retro gate should re-verify the backlog: nine OPEN entries described shipped work, two of them misleadingly",
-    "backlog_slug": "an-open-backlog-entry-does-not-mean-the-work-is-still-open"
-  },
-  {
-    "number": 89,
-    "state": "CLOSED",
-    "title": "A Maestro gate and a Gradle build cannot share the device — a concurrent install uninstalls the app mid-run and reports 16 false failures",
-    "backlog_slug": "never-run-gradle-while-a-maestro-gate-is-running"
-  },
-  {
-    "number": 90,
-    "state": "CLOSED",
-    "title": "Sweep Maestro flows that select by localised text — the device is Russian and a translated selector fails silently",
-    "backlog_slug": "flows-select-by-localised-text-and-the-device-is-russian"
-  },
-  {
-    "number": 91,
-    "state": "CLOSED",
-    "title": "UI reads the system clock directly, so an injected Clock cannot reach it — the escape hatch is where the untestable screens live",
-    "backlog_slug": "ui-reads-the-system-clock-directly-so-a-fixed-date-cannot-reach-it"
-  },
-  {
-    "number": 92,
-    "state": "CLOSED",
-    "title": "Six smoke flows are still red, five of them undiagnosed — run them one at a time and read each log",
-    "backlog_slug": "six-smoke-flows-still-red-after-the-harness-fix"
-  },
-  {
-    "number": 95,
-    "state": "OPEN",
-    "title": "docs-audit is green and still cannot fail — every step is advisory",
-    "backlog_slug": ""
-  },
-  {
-    "number": 96,
-    "state": "CLOSED",
-    "title": "check.sh fails on a source set it never runs, using another commit's results",
-    "backlog_slug": ""
-  },
-  {
-    "number": 97,
-    "state": "CLOSED",
-    "title": "Test doubles in commonMain are a permanent false positive in the unwired-surface gate",
-    "backlog_slug": ""
-  },
-  {
-    "number": 98,
-    "state": "CLOSED",
-    "title": "detekt-rule branch coverage is measured but has no floor — koverVerify is not wired",
-    "backlog_slug": "detekt-rule-branch-coverage-owed"
-  },
-  {
-    "number": 99,
-    "state": "CLOSED",
-    "title": "androidApp's src/debug source set has never been linted — deciding the policy first",
-    "backlog_slug": ""
-  },
-  {
-    "number": 100,
-    "state": "OPEN",
-    "title": "CI checks cannot be split into parallel jobs until the intra-job coupling is designed around",
-    "backlog_slug": "ci-parallel-split-blocked-by-new-intra-job-coupling"
-  },
-  {
-    "number": 101,
-    "state": "CLOSED",
-    "title": "Activating 18 detekt rules surfaces 22 findings in code that landed on main after they were last run",
-    "backlog_slug": ""
-  },
-  {
-    "number": 103,
-    "state": "CLOSED",
-    "title": "A Notification.Text with a null body is silently discarded — the routing is not total",
-    "backlog_slug": "notification-text-null-invisible"
-  },
-  {
-    "number": 104,
-    "state": "CLOSED",
-    "title": "Delete surfaces with neither an undo nor a confirmation: NotesListScreen, TagsScreen, ProjectsScreen",
-    "backlog_slug": ""
-  },
-  {
-    "number": 105,
-    "state": "CLOSED",
-    "title": "DebugSeedActivity takes the first matching deep-link key, so ?task=X&profile=Y seeds into the wrong profile",
-    "backlog_slug": "maestro-flows-share-one-app-instance-so-failures-cascade"
-  },
-  {
-    "number": 106,
-    "state": "CLOSED",
-    "title": "Android LLM calls bypass UsageRecordingTextGen — only the JVM binding wraps TextGenPort",
-    "backlog_slug": "usage-recording-text-gen-requires-cross-cutting-architecture"
-  },
-  {
-    "number": 107,
-    "state": "CLOSED",
-    "title": "The agenda selector configurator covers 3 of 5 selector families — Regexp and DateRange have no template",
-    "backlog_slug": ""
-  },
-  {
-    "number": 108,
-    "state": "CLOSED",
-    "title": "CalendarFlowTest asserts month and week boundaries against the real system clock",
-    "backlog_slug": "fake-clock-unused-in-desktop-harness"
-  },
-  {
-    "number": 109,
-    "state": "CLOSED",
-    "title": "Context-menu test tags are derived from the displayed label, so a localised UI produces a localised tag",
-    "backlog_slug": "a-testtag-built-from-a-localised-label-changes-with-device-locale"
-  },
-  {
-    "number": 110,
-    "state": "CLOSED",
-    "title": "SNACKBAR_SAVED is declared, never applied, and its allowlist reason describes behaviour that no longer exists",
-    "backlog_slug": ""
-  },
-  {
-    "number": 113,
-    "state": "OPEN",
-    "title": "The deferred backlog has no size budget, and it is the file that generates the pressure that does",
-    "backlog_slug": "the-backlog-is-unbudgeted-and-feeds-a-budgeted-index"
-  },
-  {
-    "number": 116,
-    "state": "CLOSED",
-    "title": "Four gate scripts are never invoked: check-adr-references, check_adr_status, check_skill_frontmatter, check-detekt-registrations",
-    "backlog_slug": ""
-  },
-  {
-    "number": 117,
-    "state": "CLOSED",
-    "title": "One commit to main produces three CI runs: push and pull_request fire both workflows on the same SHA",
-    "backlog_slug": ""
-  },
-  {
-    "number": 118,
-    "state": "OPEN",
-    "title": "DIGEST.md has two size authorities — 1250 blocking, 1500 advisory — and the band between them is unguarded",
-    "backlog_slug": ""
-  },
-  {
-    "number": 120,
-    "state": "OPEN",
-    "title": "KDoc is enforced on *ViewModel only — *Repository interfaces and expect/actual carry cross-module contracts with no KDoc requirement",
-    "backlog_slug": ""
-  },
-  {
-    "number": 121,
-    "state": "CLOSED",
-    "title": "just detekt-fix does not fix anything: three mechanisms tried, none correct a single finding",
-    "backlog_slug": ""
-  },
-  {
-    "number": 122,
-    "state": "CLOSED",
-    "title": "`just cr` calls a Gradle task that does not exist, so `just gate` cannot finish",
-    "backlog_slug": ""
-  },
-  {
-    "number": 123,
-    "state": "CLOSED",
-    "title": "`just gate` step 2/4 duplicates the detekt task list, and the copy has already drifted",
-    "backlog_slug": ""
-  },
-  {
-    "number": 124,
-    "state": "CLOSED",
-    "title": "`EventBus.emit` is `Channel.send`, so any emit after `onCleared()` throws",
-    "backlog_slug": ""
-  },
-  {
-    "number": 125,
-    "state": "CLOSED",
-    "title": "Remove the interim process-wide `BackgroundFailureHandler` by requiring an injected scope",
-    "backlog_slug": ""
-  },
-  {
-    "number": 126,
-    "state": "CLOSED",
-    "title": "The version gate now fails open, and a config outage is indistinguishable from a healthy config",
-    "backlog_slug": ""
-  },
-  {
-    "number": 127,
-    "state": "CLOSED",
-    "title": "`installBackgroundCrashReporting` is a top-level function, so the unwired-surface audit cannot see it",
-    "backlog_slug": ""
-  },
-  {
-    "number": 128,
-    "state": "CLOSED",
-    "title": "`forkEvery = 1` is the only thing keeping a process-wide failure handler safe in tests",
-    "backlog_slug": ""
-  },
-  {
-    "number": 129,
-    "state": "CLOSED",
-    "title": "The crash-reporting wiring guard matches text, so it will drift the way NoDirectDispatchers did",
-    "backlog_slug": ""
-  },
-  {
-    "number": 130,
-    "state": "CLOSED",
-    "title": "`AppError`: 0 of 31 construction sites pass a `code`, so every NotFound in the app groups together",
-    "backlog_slug": ""
-  },
-  {
-    "number": 131,
-    "state": "CLOSED",
-    "title": "197 plain `runCatching` sites in commonMain reach no reporter",
-    "backlog_slug": ""
-  },
-  {
-    "number": 132,
-    "state": "CLOSED",
-    "title": "Agenda task mutations still discard their `Result` — a failed toggle does nothing, visibly",
-    "backlog_slug": ""
-  },
-  {
-    "number": 133,
-    "state": "CLOSED",
-    "title": "`koinInject` in a composable deformed a shared component's public API into `Haptic?`",
-    "backlog_slug": ""
-  },
-  {
-    "number": 134,
-    "state": "OPEN",
-    "title": "The AppTracer integration has never been verified on a device, and the unproven claim is the load-bearing one",
-    "backlog_slug": ""
-  },
-  {
-    "number": 135,
-    "state": "CLOSED",
-    "title": "Nothing stops the twenty-first detekt rule shipping untested — and my first attempt to measure this was wrong",
-    "backlog_slug": "detekt-rules-test-was-never-run-by-any-gate"
-  },
-  {
-    "number": 136,
-    "state": "CLOSED",
-    "title": "A stale detekt rule classpath makes :shared:detekt report green with no custom rules running",
-    "backlog_slug": "a-stale-detekt-classpath-makes-the-gate-green-with-no-custom-rules-running"
-  },
-  {
-    "number": 137,
-    "state": "CLOSED",
-    "title": ":shared:detektBaseline runs without the custom rule set, so regenerating deletes every custom-rule entry",
-    "backlog_slug": "detektbaseline-drops-every-custom-rule-entry"
-  },
-  {
-    "number": 138,
-    "state": "CLOSED",
-    "title": "A Koin definition body stays at 0% covered even when the definition is resolved for real",
-    "backlog_slug": "a-koin-definition-body-stays-uncovered-after-being-resolved"
-  },
-  {
-    "number": 139,
-    "state": "CLOSED",
-    "title": "Two new detekt rules shipped without a line in the rule-authoring skill",
-    "backlog_slug": ""
-  },
-  {
-    "number": 140,
-    "state": "OPEN",
-    "title": "The background.coroutine_failed group needs a dashboard check before anyone retires the key",
-    "backlog_slug": ""
-  },
-  {
-    "number": 141,
-    "state": "CLOSED",
-    "title": "EventBusAfterCloseTest never asserts a discarded event stays out of the report channel",
-    "backlog_slug": ""
-  },
-  {
-    "number": 142,
-    "state": "CLOSED",
-    "title": "A full just gate run to step 4 is unverified, so the recipe's own composition is untested",
-    "backlog_slug": ""
-  },
-  {
-    "number": 143,
-    "state": "CLOSED",
-    "title": "A ViewModel's background scope and its reporting port can be different ports",
-    "backlog_slug": ""
-  },
-  {
-    "number": 144,
-    "state": "CLOSED",
-    "title": "The version-gate fail-open breadcrumb has no test asserting report and breadcrumb together",
-    "backlog_slug": ""
-  },
-  {
-    "number": 145,
-    "state": "CLOSED",
-    "title": "The generated rule inventory makes an untested rule visible; nothing fails on it",
-    "backlog_slug": ""
-  },
-  {
-    "number": 146,
-    "state": "CLOSED",
-    "title": "The coverage ratchet wipes the evidence it is about to measure, and the test task can come back UP-TO-DATE",
-    "backlog_slug": ""
-  },
-  {
-    "number": 147,
-    "state": "CLOSED",
-    "title": "Kiwi case id follows the file, hiding the class declared inside it",
-    "backlog_slug": "a-kiwi-case-named-after-a-file-hides-the-class-inside-it"
-  },
-  {
-    "number": 148,
-    "state": "CLOSED",
-    "title": "A flow whose tag has one trailing space is dropped from every TAGS run, silently",
-    "backlog_slug": ""
-  },
-  {
-    "number": 149,
-    "state": "CLOSED",
-    "title": "A scenario whose run is missing for a commit that claims it renders not-run, and nothing fails",
-    "backlog_slug": ""
-  },
-  {
-    "number": 150,
-    "state": "CLOSED",
-    "title": "The Android flows run in CI and their JUnit output is discarded",
-    "backlog_slug": ""
-  },
-  {
-    "number": 151,
-    "state": "CLOSED",
-    "title": "No Maestro flow has ever produced a result; the Android tier is unverified end to end",
-    "backlog_slug": "maestro-results-are-produced-and-discarded-in-ci"
-  },
-  {
-    "number": 152,
-    "state": "CLOSED",
-    "title": "A ModalBottomSheet's content is unreachable from every desktop JVM Compose test",
-    "backlog_slug": ""
-  },
-  {
-    "number": 153,
-    "state": "CLOSED",
-    "title": "desktopApp and shared test helpers are duplicated, and no testFixtures can share them",
-    "backlog_slug": ""
-  },
-  {
-    "number": 154,
-    "state": "CLOSED",
-    "title": "Four tag systems coexist and nothing checks that they agree",
-    "backlog_slug": ""
-  },
-  {
-    "number": 155,
-    "state": "CLOSED",
-    "title": "infra/kiwi is a directory of standalone scripts, and every new consumer re-derives the sys.path bootstrap",
-    "backlog_slug": ""
-  },
-  {
-    "number": 156,
-    "state": "CLOSED",
-    "title": "The scenario layer has one scenario, so the machinery costs more than it reports",
-    "backlog_slug": ""
-  },
-  {
-    "number": 157,
-    "state": "CLOSED",
-    "title": "'What is untested' now has two answers, and no rule says which one to trust",
-    "backlog_slug": ""
-  },
-  {
-    "number": 158,
-    "state": "CLOSED",
-    "title": "sync.sync_results — the FQN-to-path join, the ambiguity drop and the status rollup — has no test",
-    "backlog_slug": ""
-  },
-  {
-    "number": 159,
-    "state": "CLOSED",
-    "title": "Five JVM-only annotations sit in commonMain where the new gate cannot see them",
-    "backlog_slug": ""
-  },
-  {
-    "number": 160,
-    "state": "CLOSED",
-    "title": "The clock rule bans one spelling of the system clock and 20 uses of the other walk past it",
-    "backlog_slug": ""
-  },
-  {
-    "number": 161,
-    "state": "CLOSED",
-    "title": "enqueue() is the last write path that cannot tell a local storage failure from a server refusal",
-    "backlog_slug": ""
-  },
-  {
-    "number": 162,
-    "state": "CLOSED",
-    "title": "The coverage ratchet measures a fast-only run, so code only slow-testable is invisible to every floor",
-    "backlog_slug": ""
-  },
-  {
-    "number": 163,
-    "state": "OPEN",
-    "title": "A count written in prose in an ADR cannot be checked, and the one that mattered was wrong by half",
-    "backlog_slug": ""
-  },
-  {
-    "number": 164,
-    "state": "CLOSED",
-    "title": "Two allowlists are kept in step by a comment, and the comment names a function that was renamed",
-    "backlog_slug": ""
-  },
-  {
-    "number": 165,
-    "state": "CLOSED",
-    "title": "Two of four preference wrappers let a corrupt DataStore through, and the other two absorb it",
-    "backlog_slug": ""
-  },
-  {
-    "number": 166,
-    "state": "OPEN",
-    "title": "The commonMain lexer does not track nesting in string templates, and the limitation is only in a KDoc",
-    "backlog_slug": ""
-  },
-  {
-    "number": 167,
-    "state": "CLOSED",
-    "title": "Leaked-password protection is off on the Supabase project, and no gate in this repo can see it",
-    "backlog_slug": ""
-  },
-  {
-    "number": 168,
-    "state": "OPEN",
-    "title": "Month names now render in English on every device, decided by a portability refactor",
-    "backlog_slug": ""
-  },
-  {
-    "number": 169,
-    "state": "OPEN",
-    "title": "Three unrelated changes sit in one uncommitted tree, and the git log cannot answer why any of them is there",
-    "backlog_slug": ""
-  },
-  {
-    "number": 170,
-    "state": "CLOSED",
-    "title": "Thirteen scenario slices, ordered: each one journey = spec + test + its own seed or tag, in one PR",
-    "backlog_slug": "thirteen-scenario-slices-queued-not-yet-written"
-  },
-  {
-    "number": 171,
-    "state": "CLOSED",
-    "title": "The debug seed dispatches on a single key, so no scenario can ask for a related graph",
-    "backlog_slug": "debug-seed-cannot-build-a-related-graph"
-  },
-  {
-    "number": 172,
-    "state": "CLOSED",
-    "title": "test-execution-integrity does not describe the by-results check that main now runs",
-    "backlog_slug": ""
-  },
-  {
-    "number": 173,
-    "state": "CLOSED",
-    "title": "Brace counting over a class body is fooled by a brace in a string literal, and no test catches it",
-    "backlog_slug": ""
-  },
-  {
-    "number": 174,
-    "state": "CLOSED",
-    "title": "An archived gate-repair left the very step it was fixing unable to run",
-    "backlog_slug": "an-archived-gate-repair-left-the-step-it-was-fixing-broken"
-  },
-  {
-    "number": 175,
-    "state": "CLOSED",
-    "title": "An event whose payload is missing advances the cursor as if it had been applied",
-    "backlog_slug": ""
-  },
-  {
-    "number": 176,
-    "state": "CLOSED",
-    "title": "A pull cycle reads one page and cannot tell a truncated page from a complete one",
-    "backlog_slug": ""
-  },
-  {
-    "number": 177,
-    "state": "CLOSED",
-    "title": "A time-entry event stalls the whole account's sync permanently",
-    "backlog_slug": ""
-  },
-  {
-    "number": 178,
-    "state": "CLOSED",
-    "title": "The server's new row version is parsed on every push and then discarded",
-    "backlog_slug": ""
-  },
-  {
-    "number": 179,
-    "state": "CLOSED",
-    "title": "The half of the hybrid clock that merges a received clock has no caller",
-    "backlog_slug": ""
-  },
-  {
-    "number": 180,
-    "state": "CLOSED",
-    "title": "Errors that can never succeed on retry are retried for hours before dead-lettering",
-    "backlog_slug": ""
-  },
-  {
-    "number": 181,
-    "state": "CLOSED",
-    "title": "A push response is applied even when the session that authorised it is gone",
-    "backlog_slug": ""
-  },
-  {
-    "number": 182,
-    "state": "CLOSED",
-    "title": "An anonymous session is never persisted and sync is off for it, so an anonymous user loses their owner on every cold start",
-    "backlog_slug": ""
-  },
-  {
-    "number": 183,
-    "state": "CLOSED",
-    "title": "SyncRunner — the whole periodic driver — has no test",
-    "backlog_slug": ""
-  },
-  {
-    "number": 184,
-    "state": "CLOSED",
-    "title": "The server integration test prints its results instead of checking them, and the schema it tests is not in version control",
-    "backlog_slug": ""
-  },
-  {
-    "number": 185,
-    "state": "CLOSED",
-    "title": "Maestro JUnit XML is produced in CI and never uploaded",
-    "backlog_slug": ""
-  },
-  {
-    "number": 186,
-    "state": "CLOSED",
-    "title": "The two absence rules in normalise() overlap, and one of them is currently unreachable",
-    "backlog_slug": ""
-  },
-  {
-    "number": 187,
-    "state": "CLOSED",
-    "title": "The task detail screen differs by platform, and time tracking is Android-only",
-    "backlog_slug": ""
-  },
-  {
-    "number": 188,
-    "state": "CLOSED",
-    "title": "Fetch origin/main at task start: divergence found at push time costs a full re-verification",
-    "backlog_slug": ""
-  },
-  {
-    "number": 189,
-    "state": "CLOSED",
-    "title": "A file-level @file:Suppress hides 38 direct Clock.System calls, and the policy that forbids exactly this is unenforced",
-    "backlog_slug": ""
-  },
-  {
-    "number": 190,
-    "state": "CLOSED",
-    "title": "The Kiwi stand is a local projection and nothing keeps it current",
-    "backlog_slug": ""
-  },
-  {
-    "number": 191,
-    "state": "CLOSED",
-    "title": "A test stub sits in commonMain with no production caller and no backlog entry",
-    "backlog_slug": ""
-  },
-  {
-    "number": 192,
-    "state": "CLOSED",
-    "title": "SavedSearchRepositoryImpl takes a clock, never reads it, and the rule that says so is suppressed for the whole file",
-    "backlog_slug": ""
-  },
-  {
-    "number": 193,
-    "state": "CLOSED",
-    "title": "An ADR cites a sync-state ADR that has never existed, and it makes check.sh red on main",
-    "backlog_slug": ""
-  },
-  {
-    "number": 194,
-    "state": "CLOSED",
-    "title": "Changing the sync interval does nothing until the profile is switched or the app restarts",
-    "backlog_slug": ""
-  },
-  {
-    "number": 195,
-    "state": "CLOSED",
-    "title": "Nothing pins that a synced entity's delete is a soft delete, and the code comment claims a check that does not exist",
-    "backlog_slug": ""
-  },
-  {
-    "number": 196,
-    "state": "CLOSED",
-    "title": "startEntry failure is swallowed, so a timer that will not start looks like a timer that did not",
-    "backlog_slug": ""
-  },
-  {
-    "number": 197,
-    "state": "CLOSED",
-    "title": "Calendar's dark palette is hand-authored against a generated scheme, and four slots use the raw seed colour",
-    "backlog_slug": "dark-calendar-palette-is-hand-authored-against-a-generated-scheme"
-  },
-  {
-    "number": 198,
-    "state": "CLOSED",
-    "title": "The tasks feature pins its own dark palette — a light-theme user gets a dark task screen, and the accent picker does nothing there",
-    "backlog_slug": "tasks-feature-pins-its-own-dark-palette-and-ignores-the-theme-entirely"
-  },
-  {
-    "number": 199,
-    "state": "CLOSED",
-    "title": "Four more feature screens still carry fixed colour literals; the colour gate allowlists them rather than their being fixed",
-    "backlog_slug": ""
-  },
-  {
-    "number": 200,
-    "state": "CLOSED",
-    "title": "The desktop Compose tests cannot run: DISPLAY is set but no X server answers, and Xvfb is not installed",
-    "backlog_slug": ""
-  },
-  {
-    "number": 201,
-    "state": "OPEN",
-    "title": "No AWT toolkit on this host, so java.awt.Desktop is untestable — the Compose tier is fine",
-    "backlog_slug": ""
-  },
-  {
-    "number": 202,
-    "state": "OPEN",
-    "title": "Four worktrees hold uncommitted work; a branch or worktree sweep would destroy it",
-    "backlog_slug": "four-worktrees-hold-uncommitted-work"
-  },
-  {
-    "number": 203,
-    "state": "CLOSED",
-    "title": "A lost per-field race is reported to the client as a successful push, and the user's edit is never re-sent",
-    "backlog_slug": ""
-  },
-  {
-    "number": 204,
-    "state": "CLOSED",
-    "title": "purchaseStateFor would deny a paying customer, because it downcasts the flow to MutableStateFlow",
-    "backlog_slug": "billing-entitlement-is-a-port-without-a-caller"
-  },
-  {
-    "number": 205,
-    "state": "CLOSED",
-    "title": "A dependency-usage gate needs resolved artifacts, not the catalog — the coordinate does not determine the import package",
-    "backlog_slug": "a-dependency-usage-gate-needs-resolved-artifacts-not-the-catalog"
-  },
-  {
-    "number": 206,
-    "state": "CLOSED",
-    "title": "check.sh runs the gate-wiring check before the test tasks it depends on, so a fresh clone fails at step 7",
-    "backlog_slug": ""
-  },
-  {
-    "number": 207,
-    "state": "CLOSED",
-    "title": "The server reports newVersion 1 on every push, and reads no baseVersion, so the version mechanism is inert at both ends",
-    "backlog_slug": ""
-  },
-  {
-    "number": 208,
-    "state": "CLOSED",
-    "title": "40 NoDirectClockSystem violations in FakeRepositories.kt leave :shared:detekt red",
-    "backlog_slug": ""
-  },
-  {
-    "number": 209,
-    "state": "CLOSED",
-    "title": "The outbox does not record an owner, so one account's queued work is pushed inside another account's request",
-    "backlog_slug": ""
-  },
-  {
-    "number": 210,
-    "state": "CLOSED",
-    "title": "Theme mode: follow the system, light, or dark",
-    "backlog_slug": ""
-  },
-  {
-    "number": 211,
-    "state": "OPEN",
-    "title": "14 declared dependencies that nothing imports",
-    "backlog_slug": ""
-  },
-  {
-    "number": 212,
-    "state": "CLOSED",
-    "title": "Clicking Start on the task timer changes nothing at all: neither Stop nor the refusal appears",
-    "backlog_slug": ""
-  },
-  {
-    "number": 214,
-    "state": "OPEN",
-    "title": "Desktop honesty & background work: seam guard, background executor, jobs, systemd reminders, task health",
-    "backlog_slug": ""
-  },
-  {
-    "number": 215,
-    "state": "CLOSED",
-    "title": "The TASK-TIME-01 desktop carrier passes alone and breaks the test that follows it",
-    "backlog_slug": ""
-  },
-  {
-    "number": 216,
-    "state": "CLOSED",
-    "title": "TaskDetailViewScreen has no call site, and is kept on purpose",
-    "backlog_slug": ""
-  },
-  {
-    "number": 219,
-    "state": "CLOSED",
-    "title": "MainActivity ANRs on emulator cold start, failing every instrumented test",
-    "backlog_slug": "mainactivity-anr-makes-every-instrumented-test-fail"
-  },
-  {
-    "number": 221,
-    "state": "CLOSED",
-    "title": "The versioned sync schema is never applied or verified against the live database",
-    "backlog_slug": ""
-  },
-  {
-    "number": 222,
-    "state": "CLOSED",
-    "title": "A filtered Gradle test run is indistinguishable from a shrunken suite, and every downstream gate verdict inherits the ambiguity",
-    "backlog_slug": ""
-  },
-  {
-    "number": 227,
-    "state": "CLOSED",
-    "title": "The Android Koin graph is never resolved, and androidHostTest runs no tests at all",
-    "backlog_slug": "the-android-graph-is-never-resolved"
-  },
-  {
-    "number": 228,
-    "state": "CLOSED",
-    "title": "TagGroupRepository.setInheritedForProject has no caller: the feature is inert, and inheritedTagGroupIds is a synced field",
-    "backlog_slug": ""
-  },
-  {
-    "number": 229,
-    "state": "CLOSED",
-    "title": "NOT_SYNCED_WRITES' reasons are both wrong, and a column-based exemption needs call-graph, not columns alone",
-    "backlog_slug": ""
-  },
-  {
-    "number": 233,
-    "state": "CLOSED",
-    "title": "Migrate ViewModels to Kotlin 2.4 context parameters",
-    "backlog_slug": ""
-  },
-  {
-    "number": 234,
-    "state": "OPEN",
-    "title": "Migrate ViewModels to Kotlin 2.4 explicit backing fields",
-    "backlog_slug": ""
-  },
-  {
-    "number": 235,
-    "state": "CLOSED",
-    "title": "Replace ULID dependency with Kotlin 2.4 native UUID API",
-    "backlog_slug": ""
-  },
-  {
-    "number": 239,
-    "state": "CLOSED",
-    "title": "Maestro selector gaps: add testTag modifiers to composables",
-    "backlog_slug": ""
-  },
-  {
-    "number": 240,
-    "state": "CLOSED",
-    "title": "Maestro selector gaps: add testTag modifiers to composables",
-    "backlog_slug": ""
-  },
-  {
-    "number": 241,
-    "state": "CLOSED",
-    "title": "ANR on emulator cold start: capture trace and identify root cause",
-    "backlog_slug": ""
-  },
-  {
-    "number": 242,
-    "state": "CLOSED",
-    "title": "Make Maestro selector validator blocking in e2e.yml",
-    "backlog_slug": ""
-  },
-  {
-    "number": 243,
-    "state": "CLOSED",
-    "title": "Fix ANR: move SettingsDataStoreMigration out of main thread",
-    "backlog_slug": ""
-  },
-  {
-    "number": 244,
-    "state": "CLOSED",
-    "title": "Maestro locale-fragile text: selectors: add testTags + replace with id:",
-    "backlog_slug": ""
-  },
-  {
-    "number": 245,
-    "state": "OPEN",
-    "title": "Restore CI measurement: isolate test homes, host-independent probes, licence inventory, UUIDv4 decision",
-    "backlog_slug": ""
-  },
-  {
-    "number": 246,
-    "state": "CLOSED",
-    "title": "MviViewModel: cache stateFlow (fixes collector restart per recomposition) and record the UUID v4/v7 decision",
-    "backlog_slug": ""
-  },
-  {
-    "number": 253,
-    "state": "CLOSED",
-    "title": "Agenda delete never happens: the undo snackbar announces a delete that was never issued",
-    "backlog_slug": ""
-  },
-  {
-    "number": 255,
-    "state": "CLOSED",
-    "title": "[sync] PhaseResult.NotRun.isFailure() = true — семантически неверно",
-    "backlog_slug": ""
-  },
-  {
-    "number": 256,
-    "state": "CLOSED",
-    "title": "[sync] SyncOutcome.Completed слишком permissive — Result внутри Completed",
-    "backlog_slug": ""
-  },
-  {
-    "number": 257,
-    "state": "CLOSED",
-    "title": "[sync] SyncEngineState.phases exposed как internal val — нарушена инкапсуляция",
-    "backlog_slug": ""
-  },
-  {
-    "number": 258,
-    "state": "CLOSED",
-    "title": "[sync] core→feature зависимость: SyncBootstrapper и SeedPlanner зависят от feature-репозиториев",
-    "backlog_slug": ""
-  },
-  {
-    "number": 259,
-    "state": "CLOSED",
-    "title": "[sync] Zero unit tests для SyncEngine, SyncCoordinator, PushPhase, PullPhase",
-    "backlog_slug": ""
-  },
-  {
-    "number": 260,
-    "state": "CLOSED",
-    "title": "[sync] SyncEngine singleton Koin single{} не закрывается — lifecycle gap",
-    "backlog_slug": ""
-  },
-  {
-    "number": 261,
-    "state": "CLOSED",
-    "title": "[sync] SyncScopeProvider интерфейс в core/sync, реализация в feature/profile",
-    "backlog_slug": ""
-  },
-  {
-    "number": 262,
-    "state": "CLOSED",
-    "title": "[sync] SyncPrefs.init silently игнорирует ошибку DataStore — деградация без сигнала",
-    "backlog_slug": ""
-  },
-  {
-    "number": 263,
-    "state": "CLOSED",
-    "title": "e2e-shard.sh: sleep 3 workaround masks underlying race condition",
-    "backlog_slug": ""
-  },
-  {
-    "number": 264,
-    "state": "CLOSED",
-    "title": "Audit DropdownMenu/testTag patterns: SavedAgendaCard is not the only offender",
-    "backlog_slug": ""
-  },
-  {
-    "number": 265,
-    "state": "CLOSED",
-    "title": "MCP server: AiToolsModule depends on Logger but doesn't declare the binding",
-    "backlog_slug": ""
-  },
-  {
-    "number": 266,
-    "state": "CLOSED",
-    "title": "e2e-shard.sh: parametrize hardcoded Maestro flow timeouts",
-    "backlog_slug": ""
-  },
-  {
-    "number": 267,
-    "state": "OPEN",
-    "title": "Kiwi TCMS stand: local projection gets stale, no auto-refresh mechanism",
-    "backlog_slug": ""
-  },
-  {
-    "number": 268,
-    "state": "OPEN",
-    "title": "Branch divergence: git fetch before rebase would have caught 5 missing commits",
-    "backlog_slug": ""
-  },
-  {
-    "number": 269,
-    "state": "CLOSED",
-    "title": "SavedAgendaCard.kt:84 DropdownMenu testTag invisible to Maestro — needs mapTestTagsAsResourceIds",
-    "backlog_slug": ""
-  },
-  {
-    "number": 270,
-    "state": "CLOSED",
-    "title": "TAGS.md generated section is stale — TestTagsCatalogJvmTest fails",
-    "backlog_slug": ""
-  },
-  {
-    "number": 271,
-    "state": "CLOSED",
-    "title": "kiwi inventory gate red: floor file says 398, scanner finds 397",
-    "backlog_slug": ""
-  },
-  {
-    "number": 272,
-    "state": "CLOSED",
-    "title": "SKILLS-CATALOG.md is stale — skills catalog gate fails on every tree",
-    "backlog_slug": ""
-  },
-  {
-    "number": 273,
-    "state": "CLOSED",
-    "title": "kiwi inventory floor file tracks wrong commit —  error confirms broken state",
-    "backlog_slug": ""
-  },
-  {
-    "number": 276,
-    "state": "CLOSED",
-    "title": "Nightly Maestro failed (2026-10-09)",
-    "backlog_slug": ""
-  },
-  {
-    "number": 278,
-    "state": "CLOSED",
-    "title": "[#adr] Extract CountdownStateMachine to deduplicate undo countdown across VMs",
-    "backlog_slug": ""
-  },
-  {
-    "number": 279,
-    "state": "CLOSED",
-    "title": "[detekt] SavedAgendaListScreen LongMethod (100 lines, limit 80)",
-    "backlog_slug": ""
-  },
-  {
-    "number": 280,
-    "state": "CLOSED",
-    "title": "[#adr] TagsScreen needs its own Scaffold for undo snackbar",
-    "backlog_slug": ""
-  },
-  {
-    "number": 282,
-    "state": "CLOSED",
-    "title": "[a11y] TaskEditorDueDateRow: text children invisible to Android accessibility tree",
-    "backlog_slug": ""
-  },
-  {
-    "number": 283,
-    "state": "CLOSED",
-    "title": "[ui] DatePickerSheet 500dp height clips calendar — swipe workaround fragile",
-    "backlog_slug": ""
-  },
-  {
-    "number": 284,
-    "state": "CLOSED",
-    "title": "[tech-debt] Audit koinBridge runBlocking call sites in Koin factories",
-    "backlog_slug": ""
-  },
-  {
-    "number": 285,
-    "state": "CLOSED",
-    "title": "[tasks] Audit null callbacks in TaskDetailContent: priority/estimate/project/tags rows not tappable",
-    "backlog_slug": ""
-  },
-  {
-    "number": 287,
-    "state": "CLOSED",
-    "title": "Investigate: e2e Maestro flows failing on main (menu_notes not visible)",
-    "backlog_slug": ""
-  },
-  {
-    "number": 289,
-    "state": "CLOSED",
-    "title": "[maestro] Update 01-theme-toggle.yaml for tri-state theme selector",
-    "backlog_slug": ""
-  },
-  {
-    "number": 292,
-    "state": "CLOSED",
-    "title": "[sync] FakeSyncApiClient God Object — split recording/scripting/interception",
-    "backlog_slug": ""
-  },
-  {
-    "number": 294,
-    "state": "CLOSED",
-    "title": "[sync] SyncContract.kt — single declarative source for sync protocol contract",
-    "backlog_slug": ""
-  },
-  {
-    "number": 295,
-    "state": "CLOSED",
-    "title": "[sync] SyncContract generator — SQL artifacts from contract",
-    "backlog_slug": ""
-  },
-  {
-    "number": 296,
-    "state": "CLOSED",
-    "title": "[sync] SQL generator — generate server schema from SyncContract",
-    "backlog_slug": ""
-  },
-  {
-    "number": 298,
-    "state": "CLOSED",
-    "title": "[scenarios] implement scenario-claims integrity: detect missing runs for claimed scenarios",
-    "backlog_slug": "scenario-result-missing-for-a-claiming-commit-is-not-a-failure"
-  },
-  {
-    "number": 299,
-    "state": "CLOSED",
-    "title": "[maestro] verify Android scenario results join the traceability matrix",
-    "backlog_slug": ""
-  },
-  {
-    "number": 300,
-    "state": "CLOSED",
-    "title": "[quality] decide: scenario layer vs per-class floor — which is the authoritative untested answer",
-    "backlog_slug": "untested-has-two-answers-per-class-and-per-scenario"
-  },
-  {
-    "number": 301,
-    "state": "OPEN",
-    "title": "[arch] decide ViewModelTestCoverageTest's module home — shared reads desktop sources",
-    "backlog_slug": "an-arch-test-lives-in-the-module-whose-conventions-it-does-not-own"
-  },
-  {
-    "number": 302,
-    "state": "CLOSED",
-    "title": "[backup] add 8 missing tables to backup payload: reminders, checklist_items, tag_groups, etc.",
-    "backlog_slug": "agenda-views-not-in-backup"
-  },
-  {
-    "number": 304,
-    "state": "CLOSED",
-    "title": "core/sync: SQL generator from SyncContract.FIELD_ALLOWLIST #296",
-    "backlog_slug": ""
-  },
-  {
-    "number": 305,
-    "state": "CLOSED",
-    "title": "test: split FakeSyncApiClient into Scripted / Recording / Interceptable #292",
-    "backlog_slug": ""
-  },
-  {
-    "number": 306,
-    "state": "CLOSED",
-    "title": "[AT Tree] menu_notes drawer items not visible to UIAutomator",
-    "backlog_slug": ""
-  },
-  {
-    "number": 307,
-    "state": "CLOSED",
-    "title": "[Material3] DatePicker day cells lack testTag for Maestro UI testing",
-    "backlog_slug": ""
-  },
-  {
-    "number": 309,
-    "state": "CLOSED",
-    "title": "[maestro] 4 flows still have locale-fragile text: selectors (chrome UI text)",
-    "backlog_slug": ""
-  },
-  {
-    "number": 312,
-    "state": "CLOSED",
-    "title": "ci: verify gradle-home-cache-excludes prevents transforms caching",
-    "backlog_slug": ""
-  },
-  {
-    "number": 313,
-    "state": "CLOSED",
-    "title": "ci: evaluate setup-gradle@v6 with cache-provider: enhanced",
-    "backlog_slug": ""
-  },
-  {
-    "number": 314,
-    "state": "CLOSED",
-    "title": "ci: add restore-keys fallback to AVD cache",
-    "backlog_slug": ""
-  },
-  {
-    "number": 315,
-    "state": "CLOSED",
-    "title": "ci: gradle-home entries accumulate from multiple jobs on main",
-    "backlog_slug": ""
-  },
-  {
-    "number": 317,
-    "state": "CLOSED",
-    "title": "ci: make informational static gates advisory",
-    "backlog_slug": ""
-  },
-  {
-    "number": 319,
-    "state": "CLOSED",
-    "title": "ci: gate scripts' own unit tests fails in CI worktree context",
-    "backlog_slug": ""
-  },
-  {
-    "number": 321,
-    "state": "CLOSED",
-    "title": "check-backlog-issue-refs.py has no positive control (static-gate fails)",
-    "backlog_slug": ""
-  },
-  {
-    "number": 322,
-    "state": "CLOSED",
-    "title": "[maestro] UiAutomationSelectorTest LABEL_ALLOWED masks two real localization risks",
-    "backlog_slug": ""
-  },
-  {
-    "number": 323,
-    "state": "CLOSED",
-    "title": "kiwi inventory floor file has stale measurement (397→403)",
-    "backlog_slug": ""
-  },
-  {
-    "number": 324,
-    "state": "CLOSED",
-    "title": "[qa] Maestro selector validator doesn't verify dynamic tag function output",
-    "backlog_slug": ""
-  },
-  {
-    "number": 326,
-    "state": "CLOSED",
-    "title": "[test] Migrate existing sync tests to new Scripted/Recording/Interceptable clients",
-    "backlog_slug": ""
-  },
-  {
-    "number": 327,
-    "state": "CLOSED",
-    "title": "[maestro] menu_notes/calendar/etc — Maestro flows depend on hardcoded English MenuSection labels",
-    "backlog_slug": ""
-  },
-  {
-    "number": 328,
-    "state": "CLOSED",
-    "title": "[sync] Verify all sync tests pass after #292 + #296 merge",
-    "backlog_slug": ""
-  },
-  {
-    "number": 329,
-    "state": "CLOSED",
-    "title": "[maestro] locale-fragile text selectors in theme-toggle and settings flows — caused multiple wasted rebase cycles",
-    "backlog_slug": ""
-  },
-  {
-    "number": 330,
-    "state": "CLOSED",
-    "title": "[sync] Generate sync_field_allowlist INSERT seed from SyncContract.FIELD_ALLOWLIST",
-    "backlog_slug": ""
-  },
-  {
-    "number": 331,
-    "state": "CLOSED",
-    "title": "[mcp] Create McpToolCatalog as single registry of all 37 tools",
-    "backlog_slug": ""
-  },
-  {
-    "number": 332,
-    "state": "CLOSED",
-    "title": "[ci] Add Backlog: field to all open issues (promote gate to blocking)",
-    "backlog_slug": ""
-  },
-  {
-    "number": 333,
-    "state": "CLOSED",
-    "title": "[sync] Replace Clock.System with monotonic clock for PatchRetryPolicy backoff",
-    "backlog_slug": ""
-  },
-  {
-    "number": 334,
-    "state": "CLOSED",
-    "title": "[maestro] nav_tab_today selector fails on every CI E2E run (pre-existing)",
-    "backlog_slug": ""
-  },
-  {
-    "number": 335,
-    "state": "CLOSED",
-    "title": "[UiAutomationSelectorTest] LABEL_ALLOWED masks 2 localization risks in MenuBottomSheet",
-    "backlog_slug": ""
-  },
-  {
-    "number": 336,
-    "state": "CLOSED",
-    "title": "[maestro] Validator does not verify output of dynamic testTag functions",
-    "backlog_slug": ""
-  },
-  {
-    "number": 337,
-    "state": "CLOSED",
-    "title": "[maestro] menu_notes/calendar/etc depend on hardcoded English MenuSection labels",
-    "backlog_slug": ""
-  },
-  {
-    "number": 338,
-    "state": "CLOSED",
-    "title": "[CI] Smoke suite not run on Maestro-affecting PRs; conflicts detected post-merge",
-    "backlog_slug": ""
-  },
-  {
-    "number": 340,
-    "state": "CLOSED",
-    "title": "[sync] OkHttpClient recreated per SyncRpc — no connection pooling, no failover",
-    "backlog_slug": "\\`docs/decisions/deferred-backlog.md#sync-okhttp-pooling\\`"
-  },
-  {
-    "number": 341,
-    "state": "CLOSED",
-    "title": "[auth] No coalescing for concurrent refresh attempts",
-    "backlog_slug": "\\`docs/decisions/deferred-backlog.md#auth-refresh-coalescing\\`"
-  },
-  {
-    "number": 342,
-    "state": "CLOSED",
-    "title": "[sync] SyncScopeProvider interface in core/sync, implementation in feature/profile",
-    "backlog_slug": "\\`docs/decisions/deferred-backlog.md#sync-scope-provider-arch\\`"
-  },
-  {
-    "number": 343,
-    "state": "CLOSED",
-    "title": "[sync] SyncEngine Koin singleton never closed — lifecycle gap",
-    "backlog_slug": "\\`docs/decisions/deferred-backlog.md#sync-engine-lifecycle\\`"
-  },
-  {
-    "number": 344,
-    "state": "CLOSED",
-    "title": "[mcp] Collapse 37 MCP tools into start + run + SDK",
-    "backlog_slug": "\\`docs/decisions/deferred-backlog.md#mcp-start-run-sdk\\`"
-  },
-  {
-    "number": 345,
-    "state": "CLOSED",
-    "title": "[arch] UiAutomationSelectorTest: SavedAgendaScreen AlertDialog at line 401 missing mapTestTagsAsResourceIds",
-    "backlog_slug": ""
-  },
-  {
-    "number": 346,
-    "state": "CLOSED",
-    "title": "[tech-debt] Kotlin 2.4: migrate from @JvmField to explicit backing fields",
-    "backlog_slug": ""
-  },
-  {
-    "number": 347,
-    "state": "CLOSED",
-    "title": "[tech-debt] Migrate from ULID to UUID v4",
-    "backlog_slug": ""
-  },
-  {
-    "number": 348,
-    "state": "CLOSED",
-    "title": "[arch] UiAutomationSelectorTest: SavedAgendaScreen AlertDialog missing mapTestTagsAsResourceIds",
-    "backlog_slug": ""
-  },
-  {
-    "number": 350,
-    "state": "CLOSED",
-    "title": "[mcp] MCP server start()+run()+SDK phases in Main.kt",
-    "backlog_slug": ""
-  },
-  {
-    "number": 351,
-    "state": "CLOSED",
-    "title": "[mcp] McpToolCatalog: compute ToolAnnotations directly, remove TOOL_ANNOTATIONS duplicate",
-    "backlog_slug": ""
-  },
-  {
-    "number": 352,
-    "state": "CLOSED",
-    "title": "[test] Pre-existing arch test failures: TestTagCoverageTest, UiAutomationSelectorTest, TestTagsCatalogJvmTest",
-    "backlog_slug": ""
-  },
-  {
-    "number": 353,
-    "state": "CLOSED",
-    "title": "[sync] feature/sync-sql-generator not merged into main",
-    "backlog_slug": ""
-  },
-  {
-    "number": 355,
-    "state": "CLOSED",
-    "title": "Sweep Maestro flows: convert locale-fragile text selectors to stable IDs",
-    "backlog_slug": ""
-  },
-  {
-    "number": 356,
-    "state": "CLOSED",
-    "title": "#165: DataStore preference wrappers — two absorb errors, two propagate",
-    "backlog_slug": ""
-  },
-  {
-    "number": 357,
-    "state": "CLOSED",
-    "title": "#219: MainActivity ANR on emulator cold start — verify if still reproduces",
-    "backlog_slug": ""
-  },
-  {
-    "number": 359,
-    "state": "CLOSED",
-    "title": "[maestro] backup/01-round-trip.yaml asserts dated task in Inbox (No Date) — flow bug",
-    "backlog_slug": ""
-  },
-  {
-    "number": 360,
-    "state": "OPEN",
-    "title": "ProjectsFlowTest: one NPE in five runs, never reproduced — flaky test",
-    "backlog_slug": "projectsflowtest-npe"
-  },
-  {
-    "number": 361,
-    "state": "OPEN",
-    "title": "NoDirectClockSystem: KDoc claims test sources are exempt — they are not",
-    "backlog_slug": "nodirectclocksystem-kdoc-wrong"
-  },
-  {
-    "number": 362,
-    "state": "OPEN",
-    "title": "TestTagCoverageTest checks the tag, not the test engine — tagged tests can still never run",
-    "backlog_slug": "testtagcoveragetest-only-checks-annotation"
-  },
-  {
     "number": 363,
     "state": "CLOSED",
     "title": "maestro-smoke CI job has never executed — smoke set is not locale-stable enough to be a blocking gate",
@@ -1723,8 +19,8 @@
   },
   {
     "number": 366,
-    "state": "OPEN",
-    "title": "run-maestro.sh with SKIP_INSTALL=1 can test a stale APK — device recovery silently un-installs the build under test",
+    "state": "CLOSED",
+    "title": "Stale APK under SKIP_INSTALL: locate the script first — run-maestro.sh is no longer in scripts/",
     "backlog_slug": "skip-install-stale-apk"
   },
   {
@@ -1813,7 +109,7 @@
   },
   {
     "number": 381,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[adr] Fix deferred-backlog.md tracking CLOSED issue #105",
     "backlog_slug": ""
   },
@@ -1939,19 +235,19 @@
   },
   {
     "number": 413,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Verify JDK 21 behavior for desktop flow SO tests",
     "backlog_slug": ""
   },
   {
     "number": 414,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Investigate NavHost entry lambdas with koinInject causing SO under JDK 25",
     "backlog_slug": ""
   },
   {
     "number": 415,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Android cold start StackOverflowError - related to desktop SO investigation",
     "backlog_slug": ""
   },
@@ -2017,7 +313,7 @@
   },
   {
     "number": 430,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "AppTracer SDK does not generate buildUuid for pro library module",
     "backlog_slug": ""
   },
@@ -2065,31 +361,31 @@
   },
   {
     "number": 438,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[e2e.yml] GitHub Actions ::keyword:: directives break YAML block scalar parsing",
     "backlog_slug": ""
   },
   {
     "number": 439,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[e2e.yml] GitHub Actions ::keyword:: directives break YAML block scalar parsing",
     "backlog_slug": ""
   },
   {
     "number": 440,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[deferred] log-export-has-no-surface: file logging has no user-facing export UI",
     "backlog_slug": ""
   },
   {
     "number": 441,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[deferred] bulk-task-operations-have-no-ui: bulkComplete/bulkDelete have no UI",
     "backlog_slug": ""
   },
   {
     "number": 442,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[deferred] core-auth-oauth-is-entirely-unwired: OAuth.kt has no consumers",
     "backlog_slug": ""
   },
@@ -2107,13 +403,13 @@
   },
   {
     "number": 445,
-    "state": "OPEN",
-    "title": "[deferred] nav-display-debug-border-not-found: desktop nav blank-screen diagnostic",
+    "state": "CLOSED",
+    "title": "NavDisplay empty-state diagnostic: the original approach was not implementable — see #45 for the replacement",
     "backlog_slug": ""
   },
   {
     "number": 446,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[deferred] skill-symbol-clusters-many-fixes-pending: skill files describe outdated architecture",
     "backlog_slug": ""
   },
@@ -2155,13 +451,13 @@
   },
   {
     "number": 453,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[deferred] adr-frontmatter-drift-is-unenforced: 8 ADRs have frontmatter drift",
     "backlog_slug": ""
   },
   {
     "number": 454,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[deferred] two-line-length-authorities: detekt default 120 beats editorconfig 140 silently",
     "backlog_slug": ""
   },
@@ -2173,7 +469,7 @@
   },
   {
     "number": 456,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[deferred] two-largest-baseline-rules-contradict-documented-conventions: BackingPropertyNaming and one other",
     "backlog_slug": ""
   },
@@ -2197,13 +493,13 @@
   },
   {
     "number": 460,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[deferred] no-consecutive-blank-lines-was-never-declared: rule runs on detekt default, not project config",
     "backlog_slug": ""
   },
   {
     "number": 461,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[deferred] each-module-needs-a-named-gate-owner: no gate has an assigned owner per module",
     "backlog_slug": ""
   },
@@ -2215,19 +511,19 @@
   },
   {
     "number": 463,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[deferred] no-direct-clock-system-kdoc-claims-tests-are-exempt",
     "backlog_slug": ""
   },
   {
     "number": 464,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "[deferred] editoroverflow-test-tag-unused",
     "backlog_slug": ""
   },
   {
     "number": 468,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "refresh-issues-snapshot.py: --limit 300 skips older issues, breaking backlog gate",
     "backlog_slug": ""
   },
@@ -2239,19 +535,19 @@
   },
   {
     "number": 471,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "jvmTest batch: executor workers crash with EOFException in shared environment",
     "backlog_slug": ""
   },
   {
     "number": 475,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "CI: duplicate runs on every PR commit due to push+pull_request triggers",
     "backlog_slug": ""
   },
   {
     "number": 476,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "detekt-rules: kover branch coverage 65.1% with no floor, koverVerify not wired",
     "backlog_slug": ""
   },
@@ -2263,8 +559,2444 @@
   },
   {
     "number": 478,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "BackupPayload missing 8 tables: task_reminders, project_reminders, checklist_items, tag_groups, project_tag_groups, saved_searches, time_entries, profiles",
+    "backlog_slug": ""
+  },
+  {
+    "number": 482,
+    "state": "CLOSED",
+    "title": "DetektConfigWiringTest fails: custom rule missing detekt.yml block",
+    "backlog_slug": ""
+  },
+  {
+    "number": 483,
+    "state": "CLOSED",
+    "title": "DirtyTrackingTest won't compile: NoteEditorState unresolved",
+    "backlog_slug": ""
+  },
+  {
+    "number": 485,
+    "state": "CLOSED",
+    "title": "Merge hell: разбить append-target по файлам (подход lotti) + разблокировка CI",
+    "backlog_slug": ""
+  },
+  {
+    "number": 486,
+    "state": "CLOSED",
+    "title": "Phase 0: разблокировать main — 3 красных blocking-гейта",
+    "backlog_slug": ""
+  },
+  {
+    "number": 487,
+    "state": "OPEN",
+    "title": "Phase 1: снять конфликты baselines (merge=union) + concurrency-баг #475",
+    "backlog_slug": ""
+  },
+  {
+    "number": 488,
+    "state": "CLOSED",
+    "title": "Phase 2: разбить deferred-backlog.md на 101 файл по подходу lotti",
+    "backlog_slug": ""
+  },
+  {
+    "number": 490,
+    "state": "CLOSED",
+    "title": "main красный: openspec 1.14.1 превратил length-warning в провал (37/53 items)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 491,
+    "state": "OPEN",
+    "title": "ADR как каталог: убрать append-target + закрыть рассогласование write_adr с гейтом",
+    "backlog_slug": ""
+  },
+  {
+    "number": 493,
+    "state": "CLOSED",
+    "title": "T1: перевести digest, check-backlog-status и listAdrs на чтение каталога",
+    "backlog_slug": ""
+  },
+  {
+    "number": 494,
+    "state": "CLOSED",
+    "title": "T2: разложить 129 записей backlog по 129 файлам и удалить append-target",
+    "backlog_slug": ""
+  },
+  {
+    "number": 495,
+    "state": "CLOSED",
+    "title": "T3: merge=union на 5 плоских baselines (+ обязательный merge-тест)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 496,
+    "state": "CLOSED",
+    "title": "T4: починить concurrency CI (двойные прогоны) и добавить paths-фильтры",
+    "backlog_slug": ""
+  },
+  {
+    "number": 497,
+    "state": "CLOSED",
+    "title": "T5: write_adr не пишет status: — ADR от MCP падает на собственном гейте",
+    "backlog_slug": ""
+  },
+  {
+    "number": 498,
+    "state": "CLOSED",
+    "title": "T6: защитить конвенцию ADR в AdrStorage — slug, рекурсия, overwrite, fail-loudly",
+    "backlog_slug": ""
+  },
+  {
+    "number": 499,
+    "state": "CLOSED",
+    "title": "T7: тул list_open_deferred — навигация после удаления индекса",
+    "backlog_slug": ""
+  },
+  {
+    "number": 500,
+    "state": "CLOSED",
+    "title": "T8: CLI mcp-server adr — ручной авторинг через тот же AdrStorage",
+    "backlog_slug": ""
+  },
+  {
+    "number": 501,
+    "state": "CLOSED",
+    "title": "T9: adr validate — локальная проверка ADR вместо ожидания красного CI",
+    "backlog_slug": ""
+  },
+  {
+    "number": 502,
+    "state": "CLOSED",
+    "title": "T10: обновить 5 скиллов под ADR-workflow через MCP и CLI",
+    "backlog_slug": ""
+  },
+  {
+    "number": 506,
+    "state": "CLOSED",
+    "title": "Health tab: BLOCKED tasks drill-down — add Selector.Blocked + TaskFilter.Blocked",
+    "backlog_slug": ""
+  },
+  {
+    "number": 507,
+    "state": "CLOSED",
+    "title": "Health tab: STAGNANT tasks drill-down — add Selector.Stagnant + TaskFilter.Stagnant",
+    "backlog_slug": ""
+  },
+  {
+    "number": 509,
+    "state": "CLOSED",
+    "title": "ADR tooling: нет updateAdr — status machine из doc-maintenance невыполнима",
+    "backlog_slug": ""
+  },
+  {
+    "number": 510,
+    "state": "CLOSED",
+    "title": "CLI adr: нет подкоманды update, а неизвестная подкоманда выходит с кодом 0",
+    "backlog_slug": ""
+  },
+  {
+    "number": 511,
+    "state": "CLOSED",
+    "title": "write_adr обещает 'Create or update', но update не существует — агенты обходят через -v2 без supersedes-связи",
+    "backlog_slug": ""
+  },
+  {
+    "number": 512,
+    "state": "CLOSED",
+    "title": "MCP-сервер не стартует: StackOverflowError из-за циклической зависимости в coreModule",
+    "backlog_slug": ""
+  },
+  {
+    "number": 513,
+    "state": "CLOSED",
+    "title": "CLI adr пишет в ~/.singularity-todo вместо docs/decisions — ADR не попадают в git",
+    "backlog_slug": ""
+  },
+  {
+    "number": 514,
+    "state": "CLOSED",
+    "title": "ADR-пайплайн: 3 писателя, ни одного автоматического хука (validate/DIGEST/README-счётчик дрейфуют)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 515,
+    "state": "CLOSED",
+    "title": "[umbrella] ADR как закрываемый процесс: update, supersede, git-видимость, MCP-сервер",
+    "backlog_slug": ""
+  },
+  {
+    "number": 516,
+    "state": "CLOSED",
+    "title": "Гейт статусов слеп к 129 файлам: глоб только YYYY-MM-DD верхнего уровня, deferred/ невидим",
+    "backlog_slug": ""
+  },
+  {
+    "number": 517,
+    "state": "CLOSED",
+    "title": "supersedes: не валидируется никем, но digest по нему молча гасит буллеты целевого ADR",
+    "backlog_slug": ""
+  },
+  {
+    "number": 518,
+    "state": "CLOSED",
+    "title": "Три реализации записи frontmatter с разными правилами — любой правкой одна расходится с двумя",
+    "backlog_slug": ""
+  },
+  {
+    "number": 519,
+    "state": "CLOSED",
+    "title": "DIGEST не в git + core.hooksPath указывает в другой checkout — состояние ADR локально, хуки запаздывают",
+    "backlog_slug": ""
+  },
+  {
+    "number": 520,
+    "state": "CLOSED",
+    "title": "Пять правил поиска одного корпуса ADR + раздвоенный словарь статуса (5 написаний против 1)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 521,
+    "state": "CLOSED",
+    "title": "adr stale — предсказать падение гейта до пуша, а не через 15 минут после",
+    "backlog_slug": ""
+  },
+  {
+    "number": 522,
+    "state": "CLOSED",
+    "title": "ADR-CLI заперт в desktopApp (Compose) — вынести в модуль :adr-cli без Koin",
+    "backlog_slug": ""
+  },
+  {
+    "number": 523,
+    "state": "CLOSED",
+    "title": "Сократить check_adr_status.py: 4 файло-локальных правила переезжают в писателя, гейт ловит дрейф",
+    "backlog_slug": ""
+  },
+  {
+    "number": 524,
+    "state": "CLOSED",
+    "title": "CLI adr: --json на всех подкомандах — стабильный контракт вместо парсинга пробелов",
+    "backlog_slug": ""
+  },
+  {
+    "number": 525,
+    "state": "CLOSED",
+    "title": "adr prune: 61 непроцитированный ADR — хвост корпуса, который можно убрать без потерь",
+    "backlog_slug": ""
+  },
+  {
+    "number": 526,
+    "state": "CLOSED",
+    "title": "Скиллы описывают ADR-тулы вручную и разошлись с кодом — генерировать секцию и гейтить дрейф",
+    "backlog_slug": ""
+  },
+  {
+    "number": 527,
+    "state": "CLOSED",
+    "title": "review-by: правило 'open старше 30 дней' опирается на число, которое никто не выбирал",
+    "backlog_slug": ""
+  },
+  {
+    "number": 528,
+    "state": "CLOSED",
+    "title": "check-adr-immutable: закрытый ADR переписывают вместо дополнения — и никто этого не замечает",
+    "backlog_slug": ""
+  },
+  {
+    "number": 529,
+    "state": "CLOSED",
+    "title": "Аналог docdag lint: проверять сами правила, а не только документы",
+    "backlog_slug": ""
+  },
+  {
+    "number": 530,
+    "state": "OPEN",
+    "title": "CLI adr: неизвестный флаг молча игнорируется — stale --dayz 5 отдаёт 30-дневный результат",
+    "backlog_slug": ""
+  },
+  {
+    "number": 531,
+    "state": "OPEN",
+    "title": "resolve_stale_adr_status.py держит свой read_status — второй читатель того же правила",
+    "backlog_slug": ""
+  },
+  {
+    "number": 532,
+    "state": "CLOSED",
+    "title": ":shared:detekt красный до и после — гейт не enforcing, а просто шумный",
+    "backlog_slug": ""
+  },
+  {
+    "number": 533,
+    "state": "OPEN",
+    "title": "Контроль rebase-compiles недоказуем вне CI — ошибка висит и не закрывается",
+    "backlog_slug": ""
+  },
+  {
+    "number": 534,
+    "state": "CLOSED",
+    "title": "Исключение «не зондировать себя» живёт в одном скрипте — следующий мета-гейт снова сломается",
+    "backlog_slug": ""
+  },
+  {
+    "number": 535,
+    "state": "CLOSED",
+    "title": "Рендерер секции скилла парсит Kotlin регулярками — хрупко уже проявилась дважды",
+    "backlog_slug": ""
+  },
+  {
+    "number": 536,
+    "state": "CLOSED",
+    "title": "MAX_DEPTH в AdrTools.kt — последнее правило обнаружения корпуса вне конфига",
+    "backlog_slug": ""
+  },
+  {
+    "number": 537,
+    "state": "CLOSED",
+    "title": "adr prune: 208 непроцитированных ADR живут вечно — нужно продуктовое решение о списании",
+    "backlog_slug": ""
+  },
+  {
+    "number": 538,
+    "state": "CLOSED",
+    "title": "Второе представление бэклога живёт ради собственных тестов",
+    "backlog_slug": ""
+  },
+  {
+    "number": 539,
+    "state": "CLOSED",
+    "title": "JVM job красный на PR #508: 6 падений тестов и detekt — все из коммитов main, не из ADR-работы",
+    "backlog_slug": ""
+  },
+  {
+    "number": 540,
+    "state": "CLOSED",
+    "title": "Nightly Maestro failed (2026-10-11)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 541,
+    "state": "CLOSED",
+    "title": "adr list/stale: кэш корпуса не нужен — 96.7% прочитанного это тело, которое выбрасывается",
+    "backlog_slug": ""
+  },
+  {
+    "number": 542,
+    "state": "CLOSED",
+    "title": ":adr-cli отрезан от :shared — поставка 127 МБ → 4.9 МБ, граница охраняется гейтом",
+    "backlog_slug": ""
+  },
+  {
+    "number": 543,
+    "state": "OPEN",
+    "title": "find-unwired-surfaces.py не сканирует :adr-core, :core-base и mcp-server — production-код вне гейта",
+    "backlog_slug": ""
+  },
+  {
+    "number": 544,
+    "state": "OPEN",
+    "title": "check-adr-module-boundary.py разбирает Gradle DSL регулярками — может пропустить существующее ребро (пересекается с #535)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 545,
+    "state": "OPEN",
+    "title": "Старт JVM — 109 мс из 256 мс в adr list; крупнейшая статья расхода не имеет отношения к корпусу",
+    "backlog_slug": ""
+  },
+  {
+    "number": 546,
+    "state": "OPEN",
+    "title": "version --check и upgrade --check противоречат друг другу: upgrade не делает то, что требует version",
+    "backlog_slug": ""
+  },
+  {
+    "number": 547,
+    "state": "CLOSED",
+    "title": "Контроль check-hooks-path.py проходит подсаженный вход — гейт не способен упасть (как #533 и #534)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 548,
+    "state": "OPEN",
+    "title": "Обёртка singularity-adr живёт только в ~/.local/bin и не попадает в репозиторий — её не будет ни у кого",
+    "backlog_slug": ""
+  },
+  {
+    "number": 549,
+    "state": "OPEN",
+    "title": "adr-cli: добавить store registry — именованные ADR-корпуса",
+    "backlog_slug": ""
+  },
+  {
+    "number": 550,
+    "state": "OPEN",
+    "title": "adr-cli: добавить команду doctor — единый health check корпуса",
+    "backlog_slug": ""
+  },
+  {
+    "number": 551,
+    "state": "OPEN",
+    "title": "adr-cli: добавить команду context — показать текущий ADR-контекст",
+    "backlog_slug": "129"
+  },
+  {
+    "number": 552,
+    "state": "OPEN",
+    "title": "Установить скиллы grill-me и architectural-decision-records из intent-driven-dev/skills",
+    "backlog_slug": ""
+  },
+  {
+    "number": 553,
+    "state": "CLOSED",
+    "title": "ADR CLI + OpenSpec integration: workflow state machine для агента",
+    "backlog_slug": ""
+  },
+  {
+    "number": 554,
+    "state": "CLOSED",
+    "title": "ADR CLI на Node.js + OpenSpec schema fork: 3-week implementation",
+    "backlog_slug": ""
+  },
+  {
+    "number": 556,
+    "state": "CLOSED",
+    "title": "4 pre-existing unit test failures в gate suite",
+    "backlog_slug": ""
+  },
+  {
+    "number": 557,
+    "state": "CLOSED",
+    "title": "30 dangling ADR references в openspec/changes/",
+    "backlog_slug": ""
+  },
+  {
+    "number": 558,
+    "state": "CLOSED",
+    "title": "E2E тест openspec-change workflow требует human approval",
+    "backlog_slug": ""
+  },
+  {
+    "number": 559,
+    "state": "CLOSED",
+    "title": "4 pre-existing unit test failures в gate suite",
+    "backlog_slug": ""
+  },
+  {
+    "number": 560,
+    "state": "CLOSED",
+    "title": "30 dangling ADR references в openspec/changes/",
+    "backlog_slug": ""
+  },
+  {
+    "number": 561,
+    "state": "OPEN",
+    "title": "E2E тест openspec-change workflow требует human approval",
+    "backlog_slug": ""
+  },
+  {
+    "number": 564,
+    "state": "CLOSED",
+    "title": ".specify корпус хранит абсолютные пути импортёра — красит publication-hygiene, speckit-registry и docs-audit",
+    "backlog_slug": ""
+  },
+  {
+    "number": 565,
+    "state": "OPEN",
+    "title": "TestTagsCatalog парсит TestTags.kt построчно — format-перенос молча выкидывает тег из каталога",
+    "backlog_slug": ""
+  },
+  {
+    "number": 566,
+    "state": "CLOSED",
+    "title": "Unwired surfaces: SupabaseAuthRepository, AuthGateway-binding, MapFileSystem/FakeSecureStorage в commonMain, ReminderTile",
+    "backlog_slug": ""
+  },
+  {
+    "number": 567,
+    "state": "OPEN",
+    "title": "Dead-refs: path-drift ссылки на перемещённые файлы (reminders/Jvm*, desktopApp/main.kt)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 568,
+    "state": "OPEN",
+    "title": "ADR frontmatter drift: flip advisory → blocking (второй шаг exit-plan)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 569,
+    "state": "CLOSED",
+    "title": "Desktop Compose UI-тесты флакают на CI-раннере (main: 7 failed за прогон; детерминизма нет)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 573,
+    "state": "OPEN",
+    "title": "Nightly Maestro failed (2026-10-12)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 576,
+    "state": "CLOSED",
+    "title": "TASK-REC-01: recurrence picker не открывается в Maestro flow",
+    "backlog_slug": ""
+  },
+  {
+    "number": 577,
+    "state": "CLOSED",
+    "title": "AUTH-SESSION-01: sign-out button без testTag — flow заблокирован",
+    "backlog_slug": ""
+  },
+  {
+    "number": 578,
+    "state": "CLOSED",
+    "title": "Emulator DeviceServerDiedException: ensure-emulator.sh is gone from scripts/ — locate the launch path first",
+    "backlog_slug": ""
+  },
+  {
+    "number": 579,
+    "state": "CLOSED",
+    "title": "FakeAuthRepository неконфигурируема — desktop auth flows невозможно проверить",
+    "backlog_slug": ""
+  },
+  {
+    "number": 580,
+    "state": "OPEN",
+    "title": "SYNC holes: network fault injection architecture (8 cells)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 581,
+    "state": "CLOSED",
+    "title": "AUTH-SIGNUP-02: email unconfirmed state не верифицируется (android + desktop)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 590,
+    "state": "OPEN",
+    "title": "Nightly CI failed (2026-10-13)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 591,
+    "state": "OPEN",
+    "title": "Nightly Maestro failed (2026-10-13)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 599,
+    "state": "OPEN",
+    "title": "Nightly CI failed (2026-10-14)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 601,
+    "state": "CLOSED",
+    "title": "Maestro flow commands not in KNOWN_COMMANDS: exec, waitForAnimations",
+    "backlog_slug": ""
+  },
+  {
+    "number": 602,
+    "state": "CLOSED",
+    "title": "Maestro flow IDs not in TestTags.kt: calendar_weekday_mon, calendar_weekday_sun",
+    "backlog_slug": ""
+  },
+  {
+    "number": 603,
+    "state": "CLOSED",
+    "title": "Maestro flow runFlow path unresolved: launch-clean.yaml from 06-no-results.yaml",
+    "backlog_slug": ""
+  },
+  {
+    "number": 604,
+    "state": "CLOSED",
+    "title": "SubprocessConfinedTest: TestAuthStubs.kt spawns process outside core/process",
+    "backlog_slug": ""
+  },
+  {
+    "number": 605,
+    "state": "CLOSED",
+    "title": "TestTagsCatalogJvmTest: 8 constants classified into unrendered staticSubsections category",
+    "backlog_slug": ""
+  },
+  {
+    "number": 606,
+    "state": "CLOSED",
+    "title": "AuthViewModelTest: error message assertion fails with unnamed link error",
+    "backlog_slug": ""
+  },
+  {
+    "number": 607,
+    "state": "OPEN",
+    "title": "Nightly Maestro failed (2026-10-14)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 609,
+    "state": "CLOSED",
+    "title": "sync: a failed or stalled cycle still stamps lastSuccessfulSyncAt (REQ-OS-022)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 610,
+    "state": "CLOSED",
+    "title": "sync: syncOnce reads the active scope twice, so one cycle can push and pull under different scopes",
+    "backlog_slug": ""
+  },
+  {
+    "number": 611,
+    "state": "CLOSED",
+    "title": "sync: seed upload bypasses the coordinator and can delete a concurrent edit's outbox patch",
+    "backlog_slug": ""
+  },
+  {
+    "number": 612,
+    "state": "OPEN",
+    "title": "Decision: TLA+ is not justified for sync; pre-registered criterion for revisiting it",
+    "backlog_slug": ""
+  },
+  {
+    "number": 615,
+    "state": "OPEN",
+    "title": "Pre-existing: 35 detekt issues on main from PR #608",
+    "backlog_slug": ""
+  },
+  {
+    "number": 616,
+    "state": "OPEN",
+    "title": "Pre-existing: 3 failing tests block push without --no-verify",
+    "backlog_slug": ""
+  },
+  {
+    "number": 617,
+    "state": "CLOSED",
+    "title": "Register measure-flake-rate.py in check-gate-wiring.py",
+    "backlog_slug": ""
+  },
+  {
+    "number": 618,
+    "state": "OPEN",
+    "title": "flake.yml and ci.yml nightly may contend on the same Gradle load",
+    "backlog_slug": ""
+  },
+  {
+    "number": 619,
+    "state": "CLOSED",
+    "title": "flaky-baseline.txt: stale entry for TaskDetailCoordinatorGraphTest (fixed by PR #613)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 620,
+    "state": "CLOSED",
+    "title": "Unify JUnit parsing: check-flaky-tests.py duplicates traceability/junit_xml.py",
+    "backlog_slug": ""
+  },
+  {
+    "number": 621,
+    "state": "CLOSED",
+    "title": "Enable mergeReruns=true in shared/build.gradle.kts for Flake B signal",
+    "backlog_slug": ""
+  },
+  {
+    "number": 625,
+    "state": "CLOSED",
+    "title": "main red after #614/#623: 2 compile breaks (SessionStore import, App() harness call) + 9 desktop flow failures",
+    "backlog_slug": ""
+  },
+  {
+    "number": 627,
+    "state": "CLOSED",
+    "title": "god-VM split: SettingsViewModel and ProjectDetailViewModel exceed 300 lines",
+    "backlog_slug": ""
+  },
+  {
+    "number": 628,
+    "state": "CLOSED",
+    "title": "Sync engine: integration test gaps",
+    "backlog_slug": ""
+  },
+  {
+    "number": 629,
+    "state": "CLOSED",
+    "title": "repeatOnLifecycle migration: 20+ VMs use scope.launch without lifecycle binding",
+    "backlog_slug": ""
+  },
+  {
+    "number": 630,
+    "state": "OPEN",
+    "title": "Nightly Maestro failed (2026-10-15)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 632,
+    "state": "CLOSED",
+    "title": "Nightly flake-rate measurement found an unacknowledged flake (2026-10-15)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 636,
+    "state": "CLOSED",
+    "title": "Desktop MSI and DMG are not packaged",
+    "backlog_slug": ""
+  },
+  {
+    "number": 637,
+    "state": "OPEN",
+    "title": "Every gate reachability was measured not assumed",
+    "backlog_slug": ""
+  },
+  {
+    "number": 638,
+    "state": "OPEN",
+    "title": "Google OAuth cannot be proved in CI",
+    "backlog_slug": ""
+  },
+  {
+    "number": 639,
+    "state": "CLOSED",
+    "title": "Release APK is unsigned and unminified",
+    "backlog_slug": ""
+  },
+  {
+    "number": 640,
+    "state": "OPEN",
+    "title": "Android scenario matrix is not illuminated by CI",
+    "backlog_slug": ""
+  },
+  {
+    "number": 641,
+    "state": "OPEN",
+    "title": "Android graph test runs but cannot open a database",
+    "backlog_slug": ""
+  },
+  {
+    "number": 642,
+    "state": "OPEN",
+    "title": "Measurement system cannot see a feature that declares no scenario",
+    "backlog_slug": ""
+  },
+  {
+    "number": 643,
+    "state": "OPEN",
+    "title": "Unwritten property detector cannot see a KSP expression",
+    "backlog_slug": ""
+  },
+  {
+    "number": 659,
+    "state": "CLOSED",
+    "title": "Nightly CI failed (2026-10-16)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 660,
+    "state": "OPEN",
+    "title": "Nightly Maestro failed (2026-10-16)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 661,
+    "state": "CLOSED",
+    "title": "Nightly flake-rate measurement found an unacknowledged flake (2026-10-16)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 662,
+    "state": "CLOSED",
+    "title": "Koin *Of(::Class) cannot see Kotlin default arguments, and nothing guards the class",
+    "backlog_slug": ""
+  },
+  {
+    "number": 663,
+    "state": "CLOSED",
+    "title": "Harness conventions missing two rules: scroll-reachability and button-state assertions",
+    "backlog_slug": ""
+  },
+  {
+    "number": 664,
+    "state": "CLOSED",
+    "title": "Release artifacts are verified by metadata only — no install or smoke test",
+    "backlog_slug": ""
+  },
+  {
+    "number": 665,
+    "state": "CLOSED",
+    "title": "detekt debt: 111 findings in :shared (supersedes the 35 in #615)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 666,
+    "state": "CLOSED",
+    "title": "Advisory 'unwired surfaces' is red, uncovered beyond :adr-core/:core-base/mcp-server, and has no ratchet floor",
+    "backlog_slug": ""
+  },
+  {
+    "number": 667,
+    "state": "OPEN",
+    "title": "Advisory 'script conventions' red by construction until argparse -> Click lands (~35 scripts)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 676,
+    "state": "OPEN",
+    "title": "Project reminders are persisted and never fired — PROJECT_REMINDERS_SUPPORTED is false",
+    "backlog_slug": ""
+  },
+  {
+    "number": 677,
+    "state": "CLOSED",
+    "title": "WorkSchedule: six persisted settings with no consumer — decide day-bounds, working segments, or hide",
+    "backlog_slug": ""
+  },
+  {
+    "number": 678,
+    "state": "CLOSED",
+    "title": "Greeting: two persisted settings and no greeting feature — decide build or hide",
+    "backlog_slug": ""
+  },
+  {
+    "number": 679,
+    "state": "CLOSED",
+    "title": "Notifications.sound/vibration: the baseline says 'one parameter away', but on API 26+ sound is a channel property",
+    "backlog_slug": ""
+  },
+  {
+    "number": 680,
+    "state": "CLOSED",
+    "title": "60 unbaselined detekt findings, including 9 LongMethod — fix, do not baseline",
+    "backlog_slug": ""
+  },
+  {
+    "number": 681,
+    "state": "CLOSED",
+    "title": "Two CI Gradle steps cannot fail: './gradlew | tee' returns tee's exit code under bash -e without pipefail",
+    "backlog_slug": ""
+  },
+  {
+    "number": 682,
+    "state": "CLOSED",
+    "title": "Part H reachability and Part J join key are blind spots in check-gate-wiring",
+    "backlog_slug": ""
+  },
+  {
+    "number": 683,
+    "state": "CLOSED",
+    "title": "check-test-runs cannot be verified outside CI: 'no run happened' is reported as 'a suite stopped running'",
+    "backlog_slug": ""
+  },
+  {
+    "number": 686,
+    "state": "CLOSED",
+    "title": "The .deb cannot be installed on a headless Debian system",
+    "backlog_slug": ""
+  },
+  {
+    "number": 694,
+    "state": "CLOSED",
+    "title": "The 'Upload Allure results' step uploads nothing: Allure writes to <module>/allure-results/, CI reads <module>/build/allure-results/",
+    "backlog_slug": ""
+  },
+  {
+    "number": 697,
+    "state": "OPEN",
+    "title": "Four gate scripts have a positive control, no registration, and no invocation",
+    "backlog_slug": ""
+  },
+  {
+    "number": 707,
+    "state": "OPEN",
+    "title": "Nightly CI failed (2026-10-17)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 708,
+    "state": "CLOSED",
+    "title": "GenuiSurfaceCorpusTest fails: missing genui-corpus resource files",
+    "backlog_slug": ""
+  },
+  {
+    "number": 709,
+    "state": "OPEN",
+    "title": "Nightly Maestro failed (2026-10-17)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 710,
+    "state": "CLOSED",
+    "title": "Nightly flake-rate measurement found an unacknowledged flake (2026-10-17)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 713,
+    "state": "OPEN",
+    "title": "Nightly CI failed (2026-10-18)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 714,
+    "state": "OPEN",
+    "title": "Nightly Maestro failed (2026-10-18)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 715,
+    "state": "CLOSED",
+    "title": "Nightly flake-rate measurement found an unacknowledged flake (2026-10-18)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 721,
+    "state": "CLOSED",
+    "title": "E2E Maestro smoke нестабилен: reactivecircus-runner не даёт доступа к device recovery",
+    "backlog_slug": ""
+  },
+  {
+    "number": 722,
+    "state": "OPEN",
+    "title": "Measure SwiftShader GPU impact on Maestro E2E suite speed and stability",
+    "backlog_slug": ""
+  },
+  {
+    "number": 723,
+    "state": "OPEN",
+    "title": "Consolidate EMULATOR_GPU_MODE across workflows",
+    "backlog_slug": ""
+  },
+  {
+    "number": 724,
+    "state": "OPEN",
+    "title": "Establish Maestro flow stability baseline after e2e.yml migration",
+    "backlog_slug": ""
+  },
+  {
+    "number": 725,
+    "state": "CLOSED",
+    "title": "Audit orphan DI bindings in CoreDiModule.kt and GenuiDiModule.kt",
+    "backlog_slug": ""
+  },
+  {
+    "number": 728,
+    "state": "OPEN",
+    "title": "Measure SwiftShader GPU impact on Maestro E2E suite (benchmark)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 734,
+    "state": "OPEN",
+    "title": "Nightly CI failed (2026-10-19)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 735,
+    "state": "CLOSED",
+    "title": "Nightly Maestro failed (2026-10-19)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 737,
+    "state": "CLOSED",
+    "title": "Nightly flake-rate measurement found an unacknowledged flake (2026-10-19)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 751,
+    "state": "OPEN",
+    "title": "Nightly CI failed (2026-10-20)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 753,
+    "state": "OPEN",
+    "title": "Nightly Maestro failed (2026-10-20)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 754,
+    "state": "CLOSED",
+    "title": "Nightly flake-rate measurement found an unacknowledged flake (2026-10-20)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 755,
+    "state": "OPEN",
+    "title": "Search screen: an empty query shows the task list, not the idle prompt",
+    "backlog_slug": ""
+  },
+  {
+    "number": 757,
+    "state": "OPEN",
+    "title": "The full Maestro suite has been red for 12+ consecutive nights — 49 flows failed on 2026-10-20",
+    "backlog_slug": ""
+  },
+  {
+    "number": 769,
+    "state": "CLOSED",
+    "title": "The JSON contract has two more holes: handle_result and adr_status_policy",
+    "backlog_slug": ""
+  },
+  {
+    "number": 770,
+    "state": "CLOSED",
+    "title": "One owner for stdout: make the JSON contract a mode, not a per-call flag",
+    "backlog_slug": ""
+  },
+  {
+    "number": 771,
+    "state": "CLOSED",
+    "title": "Meta-gate: every gate speaks the JSON contract",
+    "backlog_slug": ""
+  },
+  {
+    "number": 772,
+    "state": "CLOSED",
+    "title": "One canonical gate result: sgate run-all should read the payload, not only the exit code",
+    "backlog_slug": ""
+  },
+  {
+    "number": 773,
+    "state": "CLOSED",
+    "title": "F5: three Kotlin comment strippers become one canonical scanner",
+    "backlog_slug": ""
+  },
+  {
+    "number": 774,
+    "state": "CLOSED",
+    "title": "F6: two Maestro tags: header readers that disagree become one",
+    "backlog_slug": ""
+  },
+  {
+    "number": 775,
+    "state": "CLOSED",
+    "title": "F7: the third Gradle invocation caller uses the shared parser",
+    "backlog_slug": ""
+  },
+  {
+    "number": 776,
+    "state": "CLOSED",
+    "title": "F8: delete the dead emulator exports and the maestro aliases",
+    "backlog_slug": ""
+  },
+  {
+    "number": 777,
+    "state": "CLOSED",
+    "title": "F12: measure-baseline-composition.py has no caller — wire it or delete it",
+    "backlog_slug": ""
+  },
+  {
+    "number": 778,
+    "state": "CLOSED",
+    "title": "F13: 12 gate scripts have no unit test",
+    "backlog_slug": ""
+  },
+  {
+    "number": 779,
+    "state": "CLOSED",
+    "title": "F10 + F11: one manifest of gates and one table of placements",
+    "backlog_slug": ""
+  },
+  {
+    "number": 788,
+    "state": "OPEN",
+    "title": "Kotlin gate audit F1: the 'repository read methods are user-scoped' rule reads an empty corpus",
+    "backlog_slug": ""
+  },
+  {
+    "number": 789,
+    "state": "OPEN",
+    "title": "Kotlin gate audit F2: the nav3 backStack rule cannot fail — its target file is outside the Konsist scope",
+    "backlog_slug": ""
+  },
+  {
+    "number": 790,
+    "state": "OPEN",
+    "title": "Kotlin gate audit F3: two write gates, two corpora — ArchitectureTest (79 mutations) vs ScopedWriteQueryIsolationTest (103)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 791,
+    "state": "OPEN",
+    "title": "Kotlin gate audit F4: MaestroFlowTagsTest and validate-maestro-selectors.py — one rule, two corpora, two verdicts",
+    "backlog_slug": ""
+  },
+  {
+    "number": 792,
+    "state": "OPEN",
+    "title": "Kotlin gate audit F5: four private comment strippers in the Kotlin gates, with KotlinText already in the package",
+    "backlog_slug": ""
+  },
+  {
+    "number": 793,
+    "state": "OPEN",
+    "title": "Kotlin gate audit F6: ScopedReadQueryIsolationTest reads 62 of the 103 SELECTs",
+    "backlog_slug": ""
+  },
+  {
+    "number": 794,
+    "state": "OPEN",
+    "title": "Kotlin gate audit F7: CrossUserWriteRegistryTest points at a backlog file that does not exist",
+    "backlog_slug": ""
+  },
+  {
+    "number": 795,
+    "state": "OPEN",
+    "title": "Kotlin gate audit F8: ViewModelTestCoverageTest keeps an allowlist of 8 ViewModels with no backlog entry",
+    "backlog_slug": ""
+  },
+  {
+    "number": 796,
+    "state": "OPEN",
+    "title": "Kotlin gate audit F9: CapabilityFlagTest is a rule with no positive control and no decision",
+    "backlog_slug": ""
+  },
+  {
+    "number": 797,
+    "state": "OPEN",
+    "title": "Kotlin gate audit F10: the 'commonMain does not use JVM file APIs' rule duplicates CommonMainJvmApiTest",
+    "backlog_slug": ""
+  },
+  {
+    "number": 798,
+    "state": "OPEN",
+    "title": "Kotlin gate audit F11: 22 of the 48 arch gate files cite no decision",
+    "backlog_slug": ""
+  },
+  {
+    "number": 801,
+    "state": "OPEN",
+    "title": "Nightly CI failed (2026-10-21)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 807,
+    "state": "OPEN",
+    "title": "check-rebase-compiles.py: the DI-sensitive directory patterns never match a file path",
+    "backlog_slug": ""
+  },
+  {
+    "number": 808,
+    "state": "OPEN",
+    "title": "check-sync-allowlist-regenerated.py: --self-test passes on an up-to-date seed",
+    "backlog_slug": ""
+  },
+  {
+    "number": 809,
+    "state": "OPEN",
+    "title": "check-hooks-path.py: the existence check runs against .githooks, not the configured path",
+    "backlog_slug": ""
+  },
+  {
+    "number": 810,
+    "state": "OPEN",
+    "title": "Two E2E decisions that no flow edit can fix: the auth stub has no sign-in screen, and Android has no file picker",
+    "backlog_slug": ""
+  },
+  {
+    "number": 811,
+    "state": "CLOSED",
+    "title": "A second testTag on the same node is unreachable: task_detail_title and task_detail_pin_button are dead",
+    "backlog_slug": ""
+  },
+  {
+    "number": 812,
+    "state": "CLOSED",
+    "title": "Eight sheets lose their testTags to Maestro: the gate only sees the file that opens the window",
+    "backlog_slug": ""
+  },
+  {
+    "number": 813,
+    "state": "CLOSED",
+    "title": "The fixture wipe reaches active tasks only: archived tasks and saved agendas survive the run",
+    "backlog_slug": ""
+  },
+  {
+    "number": 814,
+    "state": "CLOSED",
+    "title": "Four second owners the merged E2E, auth and search work left behind",
+    "backlog_slug": ""
+  },
+  {
+    "number": 815,
+    "state": "CLOSED",
+    "title": "The Maestro tier produces a measurement that nothing consumes: no gate reads the reports",
+    "backlog_slug": ""
+  },
+  {
+    "number": 816,
+    "state": "OPEN",
+    "title": "The static kind can still lie, and the registry describes what it cannot check",
+    "backlog_slug": ""
+  },
+  {
+    "number": 818,
+    "state": "OPEN",
+    "title": "The attachments sheet cannot be opened: adding a URL attachment is impossible from the UI",
+    "backlog_slug": ""
+  },
+  {
+    "number": 819,
+    "state": "OPEN",
+    "title": "flake.yml: the flake-rate measurement finds no JUnit XML — it has been broken for seven nights",
+    "backlog_slug": ""
+  },
+  {
+    "number": 820,
+    "state": "CLOSED",
+    "title": "e2e smoke on main: backup-round-trip fails — settings_tab_backup is not found",
+    "backlog_slug": ""
+  },
+  {
+    "number": 821,
+    "state": "OPEN",
+    "title": "The placement table's completeness is asserted by a unit test, not by a gate",
+    "backlog_slug": ""
+  },
+  {
+    "number": 822,
+    "state": "OPEN",
+    "title": "Kotlin arch gates: an inventory of the ones with no positive control",
+    "backlog_slug": ""
+  },
+  {
+    "number": 823,
+    "state": "OPEN",
+    "title": "Kotlin gate audit: eleven findings, sequenced into four rounds",
+    "backlog_slug": ""
+  },
+  {
+    "number": 829,
+    "state": "OPEN",
+    "title": "Maestro: no element matched the id `statistics_tab_health`",
+    "backlog_slug": ""
+  },
+  {
+    "number": 830,
+    "state": "OPEN",
+    "title": "Maestro: `settings_tab_account` was on the screen but not visible",
+    "backlog_slug": ""
+  },
+  {
+    "number": 831,
+    "state": "OPEN",
+    "title": "Maestro: no element matched the id `settings_tab_tags`",
+    "backlog_slug": ""
+  },
+  {
+    "number": 832,
+    "state": "OPEN",
+    "title": "Maestro: no element matched the text pattern `.*[^0-9]21[^0-9].*`",
+    "backlog_slug": ""
+  },
+  {
+    "number": 833,
+    "state": "OPEN",
+    "title": "Maestro: `task_item_pokupki` was on the screen but not visible",
+    "backlog_slug": ""
+  },
+  {
+    "number": 834,
+    "state": "OPEN",
+    "title": "Maestro: `auth_error_text` was on the screen but not visible",
+    "backlog_slug": ""
+  },
+  {
+    "number": 835,
+    "state": "OPEN",
+    "title": "Maestro: `calendar_sync_system_unavailable` was on the screen but not visible",
+    "backlog_slug": ""
+  },
+  {
+    "number": 836,
+    "state": "OPEN",
+    "title": "Maestro: `dialog_date_picker_ok` was on the screen but not visible",
+    "backlog_slug": ""
+  },
+  {
+    "number": 837,
+    "state": "OPEN",
+    "title": "Maestro: `task_editor_title_input` was on the screen but not visible",
+    "backlog_slug": ""
+  },
+  {
+    "number": 838,
+    "state": "OPEN",
+    "title": "Maestro: `auth_confirmation_headline` was on the screen but not visible",
+    "backlog_slug": ""
+  },
+  {
+    "number": 839,
+    "state": "OPEN",
+    "title": "Maestro: `task_item_r5864260430_taskwithdesc2026` was on the screen but not visible",
+    "backlog_slug": ""
+  },
+  {
+    "number": 840,
+    "state": "OPEN",
+    "title": "Maestro: no visible element carried the id `top_bar_back_button`",
+    "backlog_slug": ""
+  },
+  {
+    "number": 841,
+    "state": "OPEN",
+    "title": "Maestro: the text `r5869995730 PinnedTask2026` was expected on screen and was not",
+    "backlog_slug": ""
+  },
+  {
+    "number": 842,
+    "state": "CLOSED",
+    "title": "Maestro: `snackbar_action` was on the screen but not visible",
+    "backlog_slug": ""
+  },
+  {
+    "number": 843,
+    "state": "CLOSED",
+    "title": "The runner counts a missing app as a failing flow: 31 of 94 flows were not measured",
+    "backlog_slug": ""
+  },
+  {
+    "number": 844,
+    "state": "OPEN",
+    "title": "ADR Storage Outlives The Application",
+    "backlog_slug": ""
+  },
+  {
+    "number": 845,
+    "state": "OPEN",
+    "title": "Android log tail may be lost — beginShutdown never called",
+    "backlog_slug": ""
+  },
+  {
+    "number": 846,
+    "state": "OPEN",
+    "title": "ApplyProposalItemUseCase — Refactor Strategy",
+    "backlog_slug": ""
+  },
+  {
+    "number": 847,
+    "state": "OPEN",
+    "title": "AppTracer upload policy — release builds must not upload from developer machines",
+    "backlog_slug": ""
+  },
+  {
+    "number": 848,
+    "state": "OPEN",
+    "title": "Bulk Operations Use Case — Unwired in ViewModel",
+    "backlog_slug": ""
+  },
+  {
+    "number": 849,
+    "state": "OPEN",
+    "title": "Six independent CI checks, run in parallel",
+    "backlog_slug": ""
+  },
+  {
+    "number": 850,
+    "state": "OPEN",
+    "title": "Consolidate ProposalTarget — Remove Legacy taskId from AiProposal",
+    "backlog_slug": ""
+  },
+  {
+    "number": 851,
+    "state": "OPEN",
+    "title": "Coverage ratchet measures fast-only runs — slow-testable code is invisible to every floor",
+    "backlog_slug": ""
+  },
+  {
+    "number": 852,
+    "state": "OPEN",
+    "title": "Detekt rules to make the slow path unreachable, not just documented",
+    "backlog_slug": ""
+  },
+  {
+    "number": 853,
+    "state": "OPEN",
+    "title": "GenUI: gaps found while auditing the layer, and what each one costs",
+    "backlog_slug": ""
+  },
+  {
+    "number": 854,
+    "state": "OPEN",
+    "title": "Known gaps in Google sync, and the two ways this feature drifts",
+    "backlog_slug": ""
+  },
+  {
+    "number": 855,
+    "state": "OPEN",
+    "title": "Instant Type Migration: kotlin.time.Instant → kotlinx.datetime.Instant",
+    "backlog_slug": ""
+  },
+  {
+    "number": 856,
+    "state": "OPEN",
+    "title": "Log writer redaction gaps — cause chain and tag fields not redacted",
+    "backlog_slug": ""
+  },
+  {
+    "number": 857,
+    "state": "OPEN",
+    "title": "Retire NoDirectClockSystemRule",
+    "backlog_slug": ""
+  },
+  {
+    "number": 858,
+    "state": "OPEN",
+    "title": "Note Proposal UI Path — How to Add Proposals to New Surfaces",
+    "backlog_slug": ""
+  },
+  {
+    "number": 859,
+    "state": "OPEN",
+    "title": "Оставшиеся проблемные места после MR про Maestro UI-тесты",
+    "backlog_slug": ""
+  },
+  {
+    "number": 860,
+    "state": "OPEN",
+    "title": "startDate vs dueDate — Task Date Model Semantics",
+    "backlog_slug": ""
+  },
+  {
+    "number": 861,
+    "state": "OPEN",
+    "title": "SyncEngine refactor: split into three collaborators, reshape contracts, fix four defects",
+    "backlog_slug": ""
+  },
+  {
+    "number": 862,
+    "state": "OPEN",
+    "title": "the-orphan-bindings-are-bound-but-never-injected",
+    "backlog_slug": ""
+  },
+  {
+    "number": 863,
+    "state": "OPEN",
+    "title": "The issue registry points at 18 change directories that no longer exist",
+    "backlog_slug": ""
+  },
+  {
+    "number": 864,
+    "state": "CLOSED",
+    "title": "Maestro: `task_detail_title` was on the screen but not visible",
+    "backlog_slug": ""
+  },
+  {
+    "number": 865,
+    "state": "OPEN",
+    "title": "Maestro: `saved_agenda_empty_title` was on the screen but not visible",
+    "backlog_slug": ""
+  },
+  {
+    "number": 866,
+    "state": "OPEN",
+    "title": "Maestro: `auth_attach_email_input` was on the screen but not visible",
+    "backlog_slug": ""
+  },
+  {
+    "number": 867,
+    "state": "OPEN",
+    "title": "Maestro: `auth_save_server_button` was on the screen but not visible",
+    "backlog_slug": ""
+  },
+  {
+    "number": 868,
+    "state": "CLOSED",
+    "title": "Maestro: `agenda_section_today` was on the screen but not visible",
+    "backlog_slug": ""
+  },
+  {
+    "number": 869,
+    "state": "OPEN",
+    "title": "Maestro: `task_item_buy_milk` was not visible on the screen",
+    "backlog_slug": ""
+  },
+  {
+    "number": 870,
+    "state": "OPEN",
+    "title": "Maestro: `task_item_savedalpha<n>` was on the screen but not visible",
+    "backlog_slug": ""
+  },
+  {
+    "number": 871,
+    "state": "OPEN",
+    "title": "Maestro: `agenda_section_upcoming` was on the screen but not visible",
+    "backlog_slug": ""
+  },
+  {
+    "number": 872,
+    "state": "OPEN",
+    "title": "Maestro: `task_item_renameme` was on the screen but not visible",
+    "backlog_slug": ""
+  },
+  {
+    "number": 873,
+    "state": "OPEN",
+    "title": "Maestro: `agenda_section_no_date` was on the screen but not visible",
+    "backlog_slug": ""
+  },
+  {
+    "number": 874,
+    "state": "CLOSED",
+    "title": "Maestro: `recurrence_option_daily` was on the screen but not visible",
+    "backlog_slug": ""
+  },
+  {
+    "number": 875,
+    "state": "CLOSED",
+    "title": "Maestro: no visible element carried the id `attachments_add_file_row`",
+    "backlog_slug": ""
+  },
+  {
+    "number": 876,
+    "state": "OPEN",
+    "title": "Maestro: the text `Archive is empty` was expected on screen and was not",
+    "backlog_slug": ""
+  },
+  {
+    "number": 877,
+    "state": "OPEN",
+    "title": "Maestro: the text `No priority` was expected on screen and was not",
+    "backlog_slug": ""
+  },
+  {
+    "number": 878,
+    "state": "OPEN",
+    "title": "Maestro: the text `r<n> Buy milk` was expected on screen and was not",
+    "backlog_slug": ""
+  },
+  {
+    "number": 879,
+    "state": "OPEN",
+    "title": "Maestro: the text `✓ r<n> Child task one` was expected on screen and was not",
+    "backlog_slug": ""
+  },
+  {
+    "number": 880,
+    "state": "CLOSED",
+    "title": "Maestro: `task_item_r<n>_taskwithdesc<n>` was on the screen but not visible",
+    "backlog_slug": ""
+  },
+  {
+    "number": 881,
+    "state": "OPEN",
+    "title": "Maestro: no element matched the text pattern `High priority`",
+    "backlog_slug": ""
+  },
+  {
+    "number": 882,
+    "state": "CLOSED",
+    "title": "Maestro: no visible element carried the id `settings_tab_backup`",
+    "backlog_slug": ""
+  },
+  {
+    "number": 885,
+    "state": "CLOSED",
+    "title": "The index's capabilities live in the resolver, not next to the rule",
+    "backlog_slug": ""
+  },
+  {
+    "number": 886,
+    "state": "CLOSED",
+    "title": "The rule filters twice: the index already matched the positives",
+    "backlog_slug": ""
+  },
+  {
+    "number": 887,
+    "state": "CLOSED",
+    "title": "TaskFilter.ByRegexp stays on LIKE — the reason is nowhere written down",
+    "backlog_slug": ""
+  },
+  {
+    "number": 888,
+    "state": "CLOSED",
+    "title": "TextMatch and FtsMatchQuery are two halves of one rule",
+    "backlog_slug": ""
+  },
+  {
+    "number": 889,
+    "state": "CLOSED",
+    "title": "Escape-hatch for substring search: 'port' no longer finds 'airport'",
+    "backlog_slug": ""
+  },
+  {
+    "number": 890,
+    "state": "CLOSED",
+    "title": "Archive the FTS openspec change and update MODULE-INDEX",
+    "backlog_slug": ""
+  },
+  {
+    "number": 891,
+    "state": "CLOSED",
+    "title": "Traceability scenario for the new word-prefix rule (SEARCH-08)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 892,
+    "state": "OPEN",
+    "title": "docs-audit is broken: the self_test parameter shadows the self_test() function",
+    "backlog_slug": ""
+  },
+  {
+    "number": 895,
+    "state": "CLOSED",
+    "title": "Highlight the match: the index says where, and the search shows it",
+    "backlog_slug": ""
+  },
+  {
+    "number": 902,
+    "state": "OPEN",
+    "title": "The pre-push gate says green where CI says red",
+    "backlog_slug": ""
+  },
+  {
+    "number": 903,
+    "state": "OPEN",
+    "title": "AndroidSecureStorageRecoveryTest flakes on an empty prefs file",
+    "backlog_slug": ""
+  },
+  {
+    "number": 904,
+    "state": "OPEN",
+    "title": "The gate corpus is traversed five times in one local loop",
+    "backlog_slug": ""
+  },
+  {
+    "number": 905,
+    "state": "OPEN",
+    "title": "The error rate counts the calls it did not read in its denominator",
+    "backlog_slug": ""
+  },
+  {
+    "number": 906,
+    "state": "OPEN",
+    "title": "The two writers purge records by different rules",
+    "backlog_slug": ""
+  },
+  {
+    "number": 907,
+    "state": "OPEN",
+    "title": "The record policy declares an event that nothing writes",
+    "backlog_slug": ""
+  },
+  {
+    "number": 908,
+    "state": "OPEN",
+    "title": "The affected-module map is written by hand, and the build files are the truth",
+    "backlog_slug": ""
+  },
+  {
+    "number": 909,
+    "state": "OPEN",
+    "title": "The published gate cost is one measurement called a median",
+    "backlog_slug": ""
+  },
+  {
+    "number": 910,
+    "state": "OPEN",
+    "title": "The liveness probe's heavyweight filter misses a gate",
+    "backlog_slug": ""
+  },
+  {
+    "number": 911,
+    "state": "OPEN",
+    "title": "INTERNAL_ERROR means two different things in one repository",
+    "backlog_slug": ""
+  },
+  {
+    "number": 912,
+    "state": "OPEN",
+    "title": "Question: does the liveness probe belong in the local loop?",
+    "backlog_slug": ""
+  },
+  {
+    "number": 914,
+    "state": "OPEN",
+    "title": "Maestro: the calendar month title is drawn under the status bar and is not in the accessibility tree",
+    "backlog_slug": ""
+  },
+  {
+    "number": 915,
+    "state": "OPEN",
+    "title": "The Maestro device lock has no way to wait for the device",
+    "backlog_slug": ""
+  },
+  {
+    "number": 916,
+    "state": "CLOSED",
+    "title": "Maestro flows hard-code 1080x2400 coordinates and fail on a small screen",
+    "backlog_slug": ""
+  },
+  {
+    "number": 917,
+    "state": "CLOSED",
+    "title": "The menu sheet's lower entries are drawn under the system navigation bar, and a tap there leaves the app",
+    "backlog_slug": ""
+  },
+  {
+    "number": 918,
+    "state": "OPEN",
+    "title": "The task detail collects its events twice, so the undo toast after a delete is a coin flip",
+    "backlog_slug": ""
+  },
+  {
+    "number": 919,
+    "state": "CLOSED",
+    "title": "A link attachment does not show its URL in the task detail, and the sheet that deletes it says there is nothing to delete",
+    "backlog_slug": ""
+  },
+  {
+    "number": 920,
+    "state": "CLOSED",
+    "title": "The attachments sheet's title field is pushed off the screen on a phone",
+    "backlog_slug": ""
+  },
+  {
+    "number": 921,
+    "state": "CLOSED",
+    "title": "Two Maestro flows assert on things that are not on the screen",
+    "backlog_slug": ""
+  },
+  {
+    "number": 923,
+    "state": "OPEN",
+    "title": "The task editor closes on BACK while the keyboard is open, and the title that was typed into it is gone",
+    "backlog_slug": ""
+  },
+  {
+    "number": 925,
+    "state": "CLOSED",
+    "title": "The backup flow waits for a dialog the app has never shown",
+    "backlog_slug": ""
+  },
+  {
+    "number": 926,
+    "state": "CLOSED",
+    "title": "Two flows assert on controls the keyboard covers",
+    "backlog_slug": ""
+  },
+  {
+    "number": 927,
+    "state": "CLOSED",
+    "title": "A seed deep link leaves the app on the screen the previous flow left it on",
+    "backlog_slug": ""
+  },
+  {
+    "number": 928,
+    "state": "OPEN",
+    "title": "The date picker's day cell is not addressable in the device's locale",
+    "backlog_slug": ""
+  },
+  {
+    "number": 929,
+    "state": "OPEN",
+    "title": "The Maestro device server died during three flows",
+    "backlog_slug": ""
+  },
+  {
+    "number": 933,
+    "state": "OPEN",
+    "title": "The backup button writes to the working directory — EROFS on Android, the wrong directory on desktop",
+    "backlog_slug": ""
+  },
+  {
+    "number": 934,
+    "state": "OPEN",
+    "title": "A flow that opens Settings cannot reach the rail's trailing tabs unless it scrolls the rail itself",
+    "backlog_slug": ""
+  },
+  {
+    "number": 935,
+    "state": "OPEN",
+    "title": "The Stagnant agenda shows no section for a task that has not moved in 22 days",
+    "backlog_slug": ""
+  },
+  {
+    "number": 936,
+    "state": "OPEN",
+    "title": "Renaming a saved agenda view does not produce the renamed card",
+    "backlog_slug": ""
+  },
+  {
+    "number": 937,
+    "state": "OPEN",
+    "title": "Two search flows assert on a result the app cannot produce — a query that is not a substring, and the wrong tab",
+    "backlog_slug": ""
+  },
+  {
+    "number": 938,
+    "state": "OPEN",
+    "title": "The seed writes the task under an identity the agenda does not use",
+    "backlog_slug": ""
+  },
+  {
+    "number": 941,
+    "state": "OPEN",
+    "title": "The Maestro floor is calibrated on an emulator only, so a phone run cannot be judged",
+    "backlog_slug": ""
+  },
+  {
+    "number": 943,
+    "state": "OPEN",
+    "title": "Nightly Maestro failed (2026-10-22)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 944,
+    "state": "OPEN",
+    "title": "The negated terms are answered by the index too — and the last full scan goes with them",
+    "backlog_slug": ""
+  },
+  {
+    "number": 946,
+    "state": "OPEN",
+    "title": "The registry and the floor hold one environment, so the CI emulator has no floor of its own",
+    "backlog_slug": ""
+  },
+  {
+    "number": 947,
+    "state": "OPEN",
+    "title": "A cause key changes when a number in the failure message has two digits",
+    "backlog_slug": ""
+  },
+  {
+    "number": 948,
+    "state": "OPEN",
+    "title": "The runner drops a flow's verdict when the app is not on the device",
+    "backlog_slug": ""
+  },
+  {
+    "number": 949,
+    "state": "OPEN",
+    "title": "\"One consumer per event bus\" is a convention, and the type does not enforce it",
+    "backlog_slug": ""
+  },
+  {
+    "number": 950,
+    "state": "OPEN",
+    "title": "Two sheet hosts, and no rule that a sheet is made through one",
+    "backlog_slug": ""
+  },
+  {
+    "number": 951,
+    "state": "OPEN",
+    "title": "DI binds a primitive twice without a qualifier, and the compile-time check does not see it",
+    "backlog_slug": ""
+  },
+  {
+    "number": 952,
+    "state": "OPEN",
+    "title": "A flow waits for an element that has no test tag, and reaches it by its text instead",
+    "backlog_slug": ""
+  },
+  {
+    "number": 953,
+    "state": "OPEN",
+    "title": "The runner resets the content between flows, but not the session or the active profile",
+    "backlog_slug": ""
+  },
+  {
+    "number": 954,
+    "state": "OPEN",
+    "title": "The static-gates job has a ten-minute budget that a cold npm cache spends on one step",
+    "backlog_slug": ""
+  },
+  {
+    "number": 955,
+    "state": "OPEN",
+    "title": "The registry does not say which calibration a cause's flow count came from",
+    "backlog_slug": ""
+  },
+  {
+    "number": 956,
+    "state": "OPEN",
+    "title": "The tags screen's empty state has a test tag nobody uses, and its text is written three times",
+    "backlog_slug": ""
+  },
+  {
+    "number": 960,
+    "state": "OPEN",
+    "title": "The Maestro flows that create a task never see it in the agenda",
+    "backlog_slug": ""
+  },
+  {
+    "number": 961,
+    "state": "OPEN",
+    "title": "The date picker's OK button cannot be found by its text",
+    "backlog_slug": ""
+  },
+  {
+    "number": 988,
+    "state": "OPEN",
+    "title": "Nightly Maestro failed (2026-10-23)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 993,
+    "state": "CLOSED",
+    "title": "The Kotlin ACP client has only ever spoken to our own fake agent, and the real bridge was driven by a Python client",
+    "backlog_slug": ""
+  },
+  {
+    "number": 994,
+    "state": "CLOSED",
+    "title": "The external agent's ViewModel and the tool server's entry point are god classes, and the tech-debt epic is where that debt belongs",
+    "backlog_slug": ""
+  },
+  {
+    "number": 999,
+    "state": "OPEN",
+    "title": "The four vestigial sync columns of the task row have to go, or be threaded through the domain",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1000,
+    "state": "OPEN",
+    "title": "The undo of a series has to outlive the screen that offers it",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1001,
+    "state": "OPEN",
+    "title": "The document of a task deserves a writer of its own",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1002,
+    "state": "OPEN",
+    "title": "Three writers write the row of a task, and the gate reads one of them",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1003,
+    "state": "OPEN",
+    "title": "TaskDetailContent routes its events by hand, and the routing grew",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1004,
+    "state": "OPEN",
+    "title": "The first member of the batch is a hidden rule",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1005,
+    "state": "OPEN",
+    "title": "The deletion of a series has never been run on a device",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1006,
+    "state": "OPEN",
+    "title": "The document that leaves is not the document that arrives",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1007,
+    "state": "OPEN",
+    "title": "A second notification overwrites the first",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1008,
+    "state": "OPEN",
+    "title": "The composition of a task document is written down in four places",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1009,
+    "state": "OPEN",
+    "title": "Eighty-four open changes, twenty-five archived",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1010,
+    "state": "OPEN",
+    "title": "The deferred items of this cycle have no home",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1011,
+    "state": "OPEN",
+    "title": "The review bundle does not run in CI",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1012,
+    "state": "OPEN",
+    "title": "AGENTS.md does not fit in the injection budget",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1013,
+    "state": "OPEN",
+    "title": "A series can be split, and the split cannot be taken back",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1014,
+    "state": "OPEN",
+    "title": "A series in the trash is a dozen independent rows",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1015,
+    "state": "OPEN",
+    "title": "A repeated task is not a series",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1016,
+    "state": "OPEN",
+    "title": "The search and the statistics do not know that a series is one work",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1026,
+    "state": "OPEN",
+    "title": "The row's own absences are still deletions",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1032,
+    "state": "OPEN",
+    "title": "The shadow does not remember what the device knew",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1033,
+    "state": "OPEN",
+    "title": "The allow-list on the wire is a second list",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1034,
+    "state": "OPEN",
+    "title": "A project write takes the inherited tag groups away",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1038,
+    "state": "OPEN",
+    "title": "The release APK is never launched",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1039,
+    "state": "OPEN",
+    "title": "A missing build-time field is a crash",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1050,
+    "state": "OPEN",
+    "title": "The server's field table is owed task.seriesId and project.closedAt",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1054,
+    "state": "OPEN",
+    "title": "The ceiling of a search belongs to every kind of record, and to one place",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1055,
+    "state": "OPEN",
+    "title": "The corpus of the search agrees with the index on a single word, and on nothing else",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1056,
+    "state": "OPEN",
+    "title": "The rule and the index still decide in two places",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1057,
+    "state": "OPEN",
+    "title": "The verdict registry serves two gates, and the rest of the review tooling keeps its own copy",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1058,
+    "state": "OPEN",
+    "title": "The baseline of the pointer rule is a list of exemptions without a reason",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1059,
+    "state": "OPEN",
+    "title": "The pre-push hook runs everything, so a push costs twenty minutes",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1060,
+    "state": "OPEN",
+    "title": "The gate tests leave a report, and nothing checks that the report is there",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1061,
+    "state": "OPEN",
+    "title": "The architecture rules live in a scan that grows with the code, and the gate that answers in seconds is in another language",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1062,
+    "state": "OPEN",
+    "title": "The search flows have not been run on a device since the search was rewritten",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1063,
+    "state": "OPEN",
+    "title": "The floor's calibration is five issues and one measurement",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1064,
+    "state": "OPEN",
+    "title": "The reader cannot tell that a field with a default was dropped by a newer build",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1065,
+    "state": "OPEN",
+    "title": "The flat reader is still here, and it goes when the old release goes out of support",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1066,
+    "state": "OPEN",
+    "title": "The proposal vocabulary lives in six files, and the largest is six hundred lines",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1067,
+    "state": "OPEN",
+    "title": "The pre-push verdict and the impact map read the paths the way git quotes them",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1068,
+    "state": "OPEN",
+    "title": "The verdict on a pull request does not name the commit it is about",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1069,
+    "state": "OPEN",
+    "title": "The decision record says CI does not build :tools:unwritten-properties, and CI does",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1070,
+    "state": "OPEN",
+    "title": "The price of the new commit hook is not measured",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1071,
+    "state": "OPEN",
+    "title": "The branch cleanup only prints a plan, and nothing asks for the plan",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1072,
+    "state": "OPEN",
+    "title": "The orientation layer has not been measured on the current corpus",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1073,
+    "state": "OPEN",
+    "title": "main is not protected, so a red pull request can be merged",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1078,
+    "state": "CLOSED",
+    "title": "The detekt list has one home",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1079,
+    "state": "CLOSED",
+    "title": "The repair advice does not write to the shared config",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1080,
+    "state": "CLOSED",
+    "title": "A `git config` write names its destination",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1081,
+    "state": "CLOSED",
+    "title": "One helper resolves the git layout",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1084,
+    "state": "OPEN",
+    "title": "Waiting for a subagent has no primitive, and the workaround costs the session",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1085,
+    "state": "OPEN",
+    "title": "The gate suite takes five minutes inside the pre-push hook, and the cost is not measured",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1089,
+    "state": "OPEN",
+    "title": "The auto-correct invocation corrects one module and claims eight",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1090,
+    "state": "OPEN",
+    "title": "The shared-config rule does not read the justfile or the workflows",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1091,
+    "state": "OPEN",
+    "title": "The agent has never called a tool through our tool server against a real bridge",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1095,
+    "state": "OPEN",
+    "title": "The record of the folded index states its numbers, and every decision dated backwards moves the corpus they were measured on",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1099,
+    "state": "OPEN",
+    "title": "The published price of the pre-push verdict prices commands the tool no longer runs",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1100,
+    "state": "OPEN",
+    "title": "The trunk path pays for coverage on pushes that cannot change it",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1101,
+    "state": "OPEN",
+    "title": "The published price of the pull-request path is the price of an empty question",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1102,
+    "state": "OPEN",
+    "title": "The `just ci::` recipes mirror the CI jobs, and no gate checks that they do",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1103,
+    "state": "OPEN",
+    "title": "R4's wording is wider than the job graph it is checked against",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1104,
+    "state": "OPEN",
+    "title": "The reason a change failed is the exception's own text, and it names an internal id",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1105,
+    "state": "OPEN",
+    "title": "A change about a target that is gone keeps waiting, and the card cannot say why",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1106,
+    "state": "OPEN",
+    "title": "The proposal row's status column is written and read by nobody",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1107,
+    "state": "OPEN",
+    "title": "The source of a proposal is read leniently, while every other word of the row is read strictly",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1108,
+    "state": "OPEN",
+    "title": "A change this build cannot read is shown to the user and to nobody else",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1109,
+    "state": "OPEN",
+    "title": "The agent cannot see what happened to its proposal",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1110,
+    "state": "OPEN",
+    "title": "The card that three surfaces share has no UI test",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1111,
+    "state": "OPEN",
+    "title": "The reason the user gave is kept for the model, and the user cannot read it again",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1130,
+    "state": "OPEN",
+    "title": "Nightly CI failed (2026-10-25)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1134,
+    "state": "OPEN",
+    "title": "Nightly Maestro failed (2026-10-25)",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1141,
+    "state": "OPEN",
+    "title": "The compose-stability gate stops watching the debt when it cannot read the register, and says nothing",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1142,
+    "state": "OPEN",
+    "title": "`--except-can-fail` does not exclude the fixture controls, so the JVM tests job proves them twice",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1143,
+    "state": "OPEN",
+    "title": "The registry identity of a control is inferred from the shape of its path instead of declared",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1144,
+    "state": "OPEN",
+    "title": "The gate and the rule read two different shapes of one register",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1145,
+    "state": "OPEN",
+    "title": "A missing binary means 'skipped' for a gate and 'failed' for its control",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1146,
+    "state": "OPEN",
+    "title": "The doctor and the preflight ask about two different `sgate`s",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1147,
+    "state": "OPEN",
+    "title": "The deno version is written down three times, and the pins file that exists to prevent that does not know about it",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1148,
+    "state": "OPEN",
+    "title": "The auth-live flows never enter the server credentials, so they cannot reach the login screen",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1149,
+    "state": "OPEN",
+    "title": "The session is published as signed out while the store still holds the record",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1150,
+    "state": "OPEN",
+    "title": "A write before the first read suppresses the migration and leaves the legacy plain-text token in place",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1151,
+    "state": "OPEN",
+    "title": "Two of the store's counterexamples have no test",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1152,
+    "state": "OPEN",
+    "title": "design.md describes a live-session mechanism and an SDK flag that the code does not use",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1153,
+    "state": "OPEN",
+    "title": "just gm installs the APK twice because the recipe sets an environment variable the runner does not read",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1154,
+    "state": "OPEN",
+    "title": "The measurement floor was calibrated on 94 flows and the catalogue holds 98",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1155,
+    "state": "OPEN",
+    "title": "The plain-text copy of the SDK session is still on disk",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1156,
+    "state": "OPEN",
+    "title": "The store now has two writers, and the ADR does not say so",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1157,
+    "state": "OPEN",
+    "title": "The issue-registry gate cannot run outside the checkout's own venv",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1158,
+    "state": "OPEN",
+    "title": "The checkout-state check the agent is told to run first names a command that does not exist here",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1159,
+    "state": "OPEN",
+    "title": "The command log that shows what Maestro actually did is not in any skill",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1160,
+    "state": "OPEN",
+    "title": "The instruction to wait for a long run is conditional, so the timer wait stays legal",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1161,
+    "state": "OPEN",
+    "title": "A Kotlin edit is not followed by the formatter, so formatting findings cost a lint round",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1162,
+    "state": "OPEN",
+    "title": "Two bans live only in prose: java.io.File in commonMain and *Blocking() in repositories",
+    "backlog_slug": ""
+  },
+  {
+    "number": 1163,
+    "state": "OPEN",
+    "title": "The app's own log is a diagnostic channel no skill points at",
     "backlog_slug": ""
   }
 ]

@@ -267,8 +267,11 @@ auth-kt = { module = "io.github.jan-tennert.supabase:auth-kt", version.ref = "su
 functions-kt = { module = "io.github.jan-tennert.supabase:functions-kt", version.ref = "supabase" }
 storage-kt = { module = "io.github.jan-tennert.supabase:storage-kt", version.ref = "supabase" }
 
-# KMPAuth — the Google account sign-in. See docs/decisions/2026-10-24-google-oauth-kmpauth-signin-server-side-refresh.md
+# KMPAuth — the Google account sign-in and the Supabase credential model.
+# See docs/decisions/2026-10-24-google-oauth-kmpauth-signin-server-side-refresh.md
+# and docs/decisions/2026-10-25-auth-adapter-replaced-by-kmpauth.md
 kmpauth-google = { module = "io.github.mirzemehdi:kmpauth-google", version.ref = "kmpauth" }
+kmpauth-supabase = { module = "io.github.mirzemehdi:kmpauth-supabase", version.ref = "kmpauth" }
 
 # Google's authorization API — the offline authorization request.
 play-services-auth = { module = "com.google.android.gms:play-services-auth", version.ref = "playServicesAuth" }

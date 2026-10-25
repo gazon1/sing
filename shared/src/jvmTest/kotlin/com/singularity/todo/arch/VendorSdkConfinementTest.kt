@@ -7,7 +7,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * The Supabase SDK appears in the transport and authentication seams, and nowhere else.
+ * A vendor SDK appears in the transport and authentication seams, and nowhere else.
  *
  * ## What the rule is protecting
  *
@@ -20,14 +20,24 @@ import kotlin.test.assertTrue
  * project's. Each step compiles, each looks local, and by the end the vendor's
  * types are in the domain model and a version bump is a migration.
  *
- * The boundary is drawn at **six files**, because the SDK is needed in exactly
- * six places: to own a client (`SupabaseClientProvider`), to speak auth
- * (`SupabaseAuthGateway`), to speak PostgREST (`PostgrestSyncRpc`), to speak
- * Storage (`SupabaseBackupBucket`), to call an Edge Function
+ * The boundary is drawn at **one file per seam**, because each SDK is needed in
+ * exactly a few places: to own a client (`SupabaseClientProvider`), to speak auth
+ * (`SupabaseAuthGateway`), to keep the session (`SecureSessionManager`), to speak
+ * PostgREST (`PostgrestSyncRpc`), to speak Storage
+ * (`SupabaseBackupBucket`), to call an Edge Function
  * (`SupabaseGoogleTokenGateway`) and to tell its failures apart
- * (`SupabaseTransportFailure`). Everything else the SDK offers — the session
- * flow, the plugin surface, the user model — is reached through a project
- * interface, so it can be replaced or tested without a network.
+ * (`SupabaseTransportFailure`). Everything else the SDKs offer — the session flow,
+ * the plugin surface, the user model — is reached through a project interface, so
+ * it can be replaced or tested without a network.
+ *
+ * ## Why there is more than one vendor
+ *
+ * The application depends on two SDKs now: Supabase's own client, and KMPAuth's
+ * credential model on top of it. A rule that only watched the first would let the
+ * second spread through the codebase one file at a time, and the second is exactly
+ * the one that brings a credential type into the domain. Each vendor has its own
+ * allowlist, because a seam is a seam for *one* vendor: the file that keeps the
+ * session speaks Supabase, and the file that signs in speaks KMPAuth.
  *
  * ## Why the rule is one file per seam
  *
@@ -54,7 +64,7 @@ import kotlin.test.assertTrue
  * This is a regex over source text. A regex that silently stops matching reports
  * success having checked nothing, which is the specific failure this project has
  * already paid for twice — a gate that was green and was measuring nothing. The
- * last test here feeds the rule a sample that *does* import the vendor and asserts
+ * last test here feeds the rule a sample that *does* import each vendor and asserts
  * that it is caught. If someone tightens the pattern into uselessness, that test
  * fails.
  */
@@ -73,74 +83,100 @@ class VendorSdkConfinementTest {
     }
 
     @Test
-    fun `only the transport and auth seams import the supabase sdk`() {
-        val offenders = productionSources()
-            .filter { file -> file.readText().contains(VENDOR_IMPORT) }
-            .filterNot { file -> ALLOWED_SUFFIXES.any { file.path.endsWith(it) } }
-            .map { it.name }
+    fun `only the declared seams import a vendor sdk`() {
+        for (vendor in VENDORS) {
+            val offenders = productionSources()
+                .filter { file -> file.readText().contains(vendor.prefix) }
+                .filterNot { file -> vendor.seams.any { file.path.endsWith(it) } }
+                .map { it.name }
 
-        assertEquals(
-            emptyList(),
-            offenders,
-            "these files import the Supabase SDK but are not a declared seam. The SDK " +
-                "carries a session, a connection pool and a serialiser, and each file that " +
-                "reaches for one is a step toward having its types in the domain model. " +
-                "Go through SyncRpc, SyncApiClient or AuthRepository instead — " +
-                offenders.joinToString(),
-        )
+            assertEquals(
+                emptyList(),
+                offenders,
+                "these files import ${vendor.prefix} but are not a declared seam. A vendor " +
+                    "SDK carries a session, a connection pool and a serialiser, and each file " +
+                    "that reaches for one is a step toward having its types in the domain " +
+                    "model. Go through SyncRpc, SyncApiClient or AuthRepository instead — " +
+                    offenders.joinToString(),
+            )
+        }
     }
 
     @Test
-    fun `the declared seams still exist and still import the sdk`() {
+    fun `the declared seams still exist and still import their vendor`() {
         // Without this, deleting a seam file would make the rule above vacuously
         // true: no file would be an offender because nothing would import anything.
         // The rule would keep passing while measuring nothing at all.
-        for (suffix in ALLOWED_SUFFIXES) {
-            val matches = productionSources().filter { it.path.endsWith(suffix) }
-            assertTrue(
-                matches.isNotEmpty(),
-                "the seam $suffix does not exist, so the confinement rule is vacuous",
-            )
-            assertTrue(
-                matches.any { it.readText().contains(VENDOR_IMPORT) },
-                "the seam $suffix no longer imports the vendor SDK, so it is no longer a seam",
-            )
+        for (vendor in VENDORS) {
+            for (suffix in vendor.seams) {
+                val matches = productionSources().filter { it.path.endsWith(suffix) }
+                assertTrue(
+                    matches.isNotEmpty(),
+                    "the seam $suffix does not exist, so the confinement rule is vacuous",
+                )
+                assertTrue(
+                    matches.any { it.readText().contains(vendor.prefix) },
+                    "the seam $suffix no longer imports ${vendor.prefix}, so it is no longer a seam",
+                )
+            }
         }
     }
 
     @Test
     fun `the rule detects a vendor import outside a seam`() {
         // Positive control. See the class comment.
-        val offender = """
-            package com.singularity.todo.feature.tasks
+        for (vendor in VENDORS) {
+            val offender = """
+                package com.singularity.todo.feature.tasks
 
-            import io.github.jan.supabase.auth.Auth
+                import ${vendor.prefix}.Something
 
-            class Sneaky(private val client: io.github.jan.supabase.SupabaseClient)
-        """.trimIndent()
+                class Sneaky
+            """.trimIndent()
 
-        assertTrue(
-            offender.contains(VENDOR_IMPORT),
-            "the rule must still recognise a vendor import; if it cannot, it cannot fail",
-        )
+            val caught = listOf(offender)
+                .filter { it.contains(vendor.prefix) }
+                .filterNot { text -> vendor.seams.any { text.endsWith(it) } }
+
+            assertEquals(
+                1,
+                caught.size,
+                "the rule must still catch a $vendor.prefix import outside a seam; " +
+                    "if it cannot, it cannot fail",
+            )
+        }
     }
 
-    private companion object {
-        /**
-         * The prefix, without the trailing dot, so a fully-qualified reference in
-         * code (`io.github.jan.supabase.SupabaseClient` as a type argument) is
-         * caught as readily as an import line. An import-only scan would miss the
-         * former, which is the same capability by another route.
-         */
-        const val VENDOR_IMPORT = "io.github.jan.supabase"
+    /**
+     * A vendor SDK and the files allowed to name it.
+     *
+     * The prefix has no trailing dot, so a fully-qualified reference in code
+     * (`io.github.jan.supabase.SupabaseClient` as a type argument) is caught as
+     * readily as an import line. An import-only scan would miss the former, which is
+     * the same capability by another route.
+     */
+    private data class Vendor(val prefix: String, val seams: List<String>)
 
-        val ALLOWED_SUFFIXES = listOf(
-            "auth/SupabaseClientProvider.kt",
-            "auth/SupabaseAuthGateway.kt",
-            "sync/PostgrestSyncRpc.kt",
-            "backup/SupabaseBackupBucket.kt",
-            "calendarSync/auth/SupabaseGoogleTokenGateway.kt",
-            "transport/SupabaseTransportFailure.kt",
+    private companion object {
+        val VENDORS = listOf(
+            Vendor(
+                prefix = "io.github.jan.supabase",
+                seams = listOf(
+                    "auth/SupabaseClientProvider.kt",
+                    "auth/SupabaseAuthGateway.kt",
+                    "auth/SecureSessionManager.kt",
+                    "sync/PostgrestSyncRpc.kt",
+                    "backup/SupabaseBackupBucket.kt",
+                    "calendarSync/auth/SupabaseGoogleTokenGateway.kt",
+                    "transport/SupabaseTransportFailure.kt",
+                ),
+            ),
+            Vendor(
+                prefix = "com.mmk.kmpauth",
+                seams = listOf(
+                    "auth/SupabaseAuthGateway.kt",
+                ),
+            ),
         )
     }
 }

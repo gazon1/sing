@@ -153,11 +153,10 @@ interface AuthRepository {
 class SupabaseAuthRepository(
     private val log: Logger,
     private val gateway: AuthGateway,
-    private val sessionStore: SecureSessionStore,
     /**
      * Where the local owner's id and the offline-mode marker live.
      *
-     * Plain DataStore, not [sessionStore]: neither value is a secret, and on the
+     * Plain DataStore, not the credential store: neither value is a secret, and on the
      * desktop every read through the keychain is a `secret-tool` subprocess.
      */
     private val localOwnerStore: DataStoreSessionStore,
@@ -237,15 +236,46 @@ class SupabaseAuthRepository(
         scope.coroutineContext.minusKey(Job) + SupervisorJob(),
     )
 
+    /**
+     * The scope the observation of the provider's session runs in.
+     *
+     * A scope of its own, and the same bargain the restore's read makes: the
+     * observation is a long-lived reader, and it must not be a child of the scope
+     * that asked for it — a caller that has been released must not still be carrying
+     * the work it released.
+     *
+     * The scope's lifetime is the repository's: it is a property of this class, it is
+     * never cancelled explicitly, and the repository is a process-lifetime singleton —
+     * the same bargain every other background scope in this app makes.
+     */
+    private val observationScope: CoroutineScope = CoroutineScope(
+        scope.coroutineContext.minusKey(Job) + SupervisorJob(),
+    )
+
+    /**
+     * The reader that watches the provider.
+     *
+     * A separate object because it is a separate job: it reads the provider's
+     * state and reports the sessions the application should publish, and it does
+     * not belong to the repository's own state machine.
+     */
+    private val observer = ProviderSessionObserver(gateway, log)
+
     init {
         scope.launch { restoreSession() }
+        observationScope.launch {
+            observer.observe(
+                currentSession = { _currentSession.value },
+                publish = { remote, current -> apply(remote, remote.email ?: current.email) },
+            )
+        }
     }
 
     /**
      * Restores a stored session, refreshing it if the access token has expired.
      *
-     * The three values are read through one call each and used together, and the
-     * id is stored rather than decoded from the token: a JWT's subject would do,
+     * The session is read in one piece, through the port, and the owner id comes
+     * with it rather than being decoded from the token: a JWT's subject would do,
      * but on this path the token may be expired and unverifiable, and the sync
      * scope provider downstream treats whatever it is given as the owner of every
      * row it writes.
@@ -364,36 +394,54 @@ class SupabaseAuthRepository(
      * the whole operation without conflating the timeout concern with the logic.
      */
     private suspend fun doRestoreSession() {
-        val refreshToken = sessionStore.currentRefreshToken()
-        val userId = sessionStore.currentUserId()
-        val email = sessionStore.currentEmail()
-        if (refreshToken == null || userId == null) {
+        // The live session, read in one piece.
+        //
+        // This used to be four reads out of the credential store — the access token,
+        // the refresh token, the owner id and the address — and a reconciliation of
+        // the four. They can disagree, and a session assembled from disagreeing
+        // pieces is a session nobody can use. The provider owns the session now, so
+        // there is one of it and one answer about it.
+        val stored = gateway.currentSession()
+        if (stored == null) {
             restoreLocalSessionOrSignOut()
             return
         }
-        val accessToken = sessionStore.currentAccessToken().orEmpty()
 
-        gateway.refresh(accessToken, refreshToken)
+        gateway.refresh(stored.accessToken, stored.refreshToken)
             .onSuccess { session ->
                 if (session == null) {
                     // The server refused the refresh token. Keeping it would mean
                     // every later sync fails with a 401 nothing ever clears.
                     log.w { "The stored session was rejected; signing out" }
-                    sessionStore.clear()
+                    endStoredSession()
                     _currentSession.value = Session.SignedOut
                 } else {
-                    apply(session, session.email ?: email.orEmpty())
+                    apply(session, session.email ?: stored.email.orEmpty())
                 }
             }
             .onFailure {
                 log.w(it) { "Could not refresh the stored session; keeping it for the next attempt" }
                 _currentSession.value = Session.SignedIn(
-                    UserId.fromString(userId),
-                    email.orEmpty(),
-                    accessToken,
-                    refreshToken,
+                    UserId.fromString(stored.userId),
+                    stored.email.orEmpty(),
+                    stored.accessToken,
+                    stored.refreshToken,
                 )
             }
+    }
+
+    /**
+     * Ends the stored session after the provider refused to refresh it.
+     *
+     * The provider is asked and the device is cleared on the way out: a refresh token
+     * the provider has already refused is worth revoking there, and the credential
+     * store goes either way. The call is best-effort — the outcome the user needs is
+     * the signed-out session, and that is published either way.
+     */
+    private suspend fun endStoredSession() {
+        gateway.signOut().onFailure {
+            log.w(it) { "The rejected session could not be ended at the provider" }
+        }
     }
 
     /**
@@ -487,14 +535,15 @@ class SupabaseAuthRepository(
      *
      * ## Why the write to the store is inside the captured block
      *
-     * Storing the session was the last statement of a success handler, and a handler
-     * that throws is not caught by the result it is attached to — so a keychain that
-     * failed while writing turned a failed attempt into an exception that left the
-     * repository, and from there an uncaught failure in the view model's scope. The
-     * user saw nothing at all, and the account existed at the provider holding a live
-     * session the device had never learned about. Doing the write inside the block
-     * makes it a failure of the attempt, which is what it is: the attempt got as far
-     * as the provider and then could not be completed here.
+     * The session is written to the credential store by the provider plugin, inside
+     * the gateway call — and a handler that throws is not caught by the result it is
+     * attached to. So a keychain that failed while writing used to turn a failed
+     * attempt into an exception that left the repository, and from there an uncaught
+     * failure in the view model's scope. The user saw nothing at all, and the account
+     * existed at the provider holding a live session the device had never learned
+     * about. Doing the write inside the block makes it a failure of the attempt, which
+     * is what it is: the attempt got as far as the provider and then could not be
+     * completed here.
      */
     private suspend fun attempt(
         what: String,
@@ -517,7 +566,7 @@ class SupabaseAuthRepository(
             }
                 .map { }
                 .onFailure { e ->
-                    if (e.toAppError().code == SecureSessionStore.STORAGE_FAILED) endOrphanedSession(what)
+                    if (e.toAppError().code == SecureSessionManager.STORAGE_FAILED) endOrphanedSession(what)
                     log.e(e) { "Auth $what failed [email=${email?.let(Redaction::redactEmail) ?: "none"}]" }
                 }
         } finally {
@@ -542,24 +591,23 @@ class SupabaseAuthRepository(
     }
 
     /**
-     * Publishes a session, writing it to the store first.
+     * Publishes a session.
      *
-     * Order matters: a collector that reacts to the new session by reading a token
-     * must find the token already there, or the first request it makes goes out
-     * unauthenticated.
+     * The session was persisted before this method was called: the provider plugin
+     * saves what it is given, through the app's credential store. A collector that
+     * reacts to the new session by reading a token finds it already there — which is
+     * the order this method's callers rely on, and the reason the write is not here.
      */
-    private suspend fun apply(remote: RemoteSession, email: String) {
+    private fun apply(remote: RemoteSession, email: String) {
         if (remote.isAnonymous) {
             _currentSession.value = Session.Anonymous(UserId.fromString(remote.userId))
         } else {
-            val session = Session.SignedIn(
+            _currentSession.value = Session.SignedIn(
                 userId = UserId.fromString(remote.userId),
                 email = email,
                 accessToken = remote.accessToken,
                 refreshToken = remote.refreshToken,
             )
-            sessionStore.save(session)
-            _currentSession.value = session
         }
     }
 
@@ -576,12 +624,13 @@ class SupabaseAuthRepository(
         _isLoading.value = true
         return try {
             val result = runCatchingResult {
-                sessionStore.clear()
                 localOwnerStore.clearLocalSession()
                 _currentSession.value = Session.SignedOut
             }
             // After the local state, not before: a server that is unreachable is
-            // not a reason to keep credentials the user asked to be rid of.
+            // not a reason to keep credentials the user asked to be rid of. The
+            // credential store is cleared by the provider's own sign-out, which is
+            // the only thing that knows how the session is kept.
             gateway.signOut().onFailure {
                 log.w(it) { "Sign out could not reach the server; the session is cleared locally anyway" }
             }
@@ -641,6 +690,64 @@ class SupabaseAuthRepository(
          * short enough to avoid a visible freeze when storage is unreachable.
          */
         const val RESTORE_SESSION_TIMEOUT = 10_000L
+    }
+}
+
+/**
+ * The provider's session, watched.
+ *
+ * The provider owns the session, and it may replace it behind the application's
+ * back: a refresh it did on its own, a token it rotated, a session it imported
+ * from the store. The application has to publish the new tokens, or it keeps
+ * handing out a token the provider has already retired — and every request made
+ * with it is made as somebody whose session ended.
+ *
+ * ## The guard is the machine's
+ *
+ * The transition exists only while the application is signed in, and only for a
+ * session with the same owner. Three answers are therefore not transitions, and
+ * this reader leaves all three alone:
+ *
+ * - a provider that holds **no session** — the machine has no transition for a
+ *   session that ended on its own, and the application's own sign-out is the only
+ *   thing that may publish `SignedOut`;
+ * - a session with a **different owner** — that is a different account, and the
+ *   machine has no transition for it either;
+ * - a provider that is **not signed in yet** — the restore owns that answer.
+ *
+ * The observation is a second reader of the provider's state, not a second source
+ * of truth: it can only replace the tokens of a session the application already
+ * published.
+ */
+private class ProviderSessionObserver(private val gateway: AuthGateway, private val log: Logger) {
+    /**
+     * Reports every session the provider replaces with the same owner.
+     *
+     * @param currentSession the session the application published, read at the
+     *   moment the provider reports — the reader decides nothing about it.
+     * @param publish called with the provider's session and the session it
+     *   replaces, once the reader has decided the two belong together.
+     */
+    suspend fun observe(
+        currentSession: () -> Session?,
+        publish: suspend (remote: RemoteSession, current: Session.SignedIn) -> Unit,
+    ) {
+        runCatchingCancellable {
+            gateway.sessionChanges().collect { remote ->
+                val current = currentSession() as? Session.SignedIn ?: return@collect
+                if (remote == null) return@collect
+                if (remote.userId != current.userId.value) return@collect
+                // The owner is the same, so the identity is unchanged; the address is
+                // the provider's answer, and a provider that has none does not erase
+                // the one the application is showing.
+                publish(remote, current)
+            }
+        }.onFailure { e ->
+            // The observation is an addition to what the application already knows, not
+            // the way it learns who the user is: a provider that cannot be observed
+            // leaves the restore and the attempts in charge, exactly as before.
+            log.w(e) { "The provider's session could not be observed" }
+        }
     }
 }
 

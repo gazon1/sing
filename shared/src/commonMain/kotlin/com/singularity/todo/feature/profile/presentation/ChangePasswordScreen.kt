@@ -40,7 +40,7 @@ import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.textfields.ObserveTextFieldEdits
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.text.SelectableText
-import com.singularity.todo.feature.settings.presentation.nav.LocalSettingsNavigator
+import com.singularity.todo.feature.nav.LocalAppNavigator
 import org.koin.compose.viewmodel.koinViewModel
 
 private const val PASSWORD_TAG = "change_password_input"
@@ -52,7 +52,14 @@ fun ChangePasswordScreen(
     viewModel: ChangePasswordViewModel = koinViewModel(),
 ) {
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
-    val settingsNavigator = LocalSettingsNavigator.current
+    // The settings graph's own navigator is *not* read here, and reading it was
+    // a crash: this screen is opened by leaving the settings graph
+    // (`openChangePassword` → `onExitGraph`), so the graph's CompositionLocal is
+    // gone by the time this screen is composed, and the local's default is an
+    // `error(...)`. The app's back stack still holds the settings graph
+    // underneath — the screen is pushed onto it, not swapped for it — so the
+    // app-level back is the way out of this screen.
+    val navigator = LocalAppNavigator.current
 
     val passwordState = rememberTextFieldState()
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -60,7 +67,7 @@ fun ChangePasswordScreen(
     CollectEvents(viewModel.events) { event ->
         when (event) {
             ChangePasswordEvent.Success -> {
-                settingsNavigator.back()
+                navigator.goBack()
             }
 
             is ChangePasswordEvent.Error -> {
@@ -82,7 +89,7 @@ fun ChangePasswordScreen(
                 title = { Text("Change Password") },
                 navigationIcon = {
                     IconButton(
-                        onClick = { settingsNavigator.back() },
+                        onClick = { navigator.goBack() },
                         modifier = Modifier.testTag(TestTags.AUTH_ATTACH_BACK_BUTTON),
                     ) {
                         Icon(

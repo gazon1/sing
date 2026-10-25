@@ -17,6 +17,8 @@ import com.singularity.todo.test.helpers.awaitState
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -85,36 +87,48 @@ class AuthRepositoryRestoreBoundTest {
      * read it abandons at the deadline is not a leftover coroutine in the test's.
      */
     private fun TestScope.repository(
-        storage: SecureStorage,
-        gateway: AuthGateway = FakeAuthGateway(),
+        manager: SecureSessionManager,
+        gateway: AuthGateway = FakeAuthGateway(manager),
         preferences: DataStore<Preferences> = FakePreferencesStore(),
     ): SupabaseAuthRepository {
         val legacy = DataStoreSessionStore(preferences, SequentialIds())
         return SupabaseAuthRepository(
             log = logger(),
             gateway = gateway,
-            sessionStore = SecureSessionStore(log = logger(), secure = storage, legacy = legacy),
             localOwnerStore = legacy,
             scope = AutoCloseableCoroutineScope(coroutineContext),
         )
     }
 
+    /**
+     * The credential store over the storage the test controls.
+     *
+     * The store is behind the provider now, so the read that can hang, throw or
+     * answer late is the provider's read — and the provider is what the restore
+     * waits on.
+     */
+    private fun manager(storage: SecureStorage): SecureSessionManager = SecureSessionManager(
+        log = logger(),
+        secure = storage,
+        legacy = DataStoreSessionStore(FakePreferencesStore(), SequentialIds()),
+    )
+
+    /** A session the store can be seeded with. */
+    private fun storedSession() =
+        Session.SignedIn(UserId.fromString("owner-1"), "a@b.c", "access-1", "refresh-1")
+
     @Test
     fun `a restore that answers in time publishes the session it restored`() = runTest {
-        val storage = FakeSecureStorage(
-            values = mapOf(
-                SecureSessionStore.KEY_ACCESS to "access-1",
-                SecureSessionStore.KEY_REFRESH to "refresh-1",
-                SecureSessionStore.KEY_USER_ID to "owner-1",
-                SecureSessionStore.KEY_EMAIL to "a@b.c",
-            ),
-        )
+        val storage = FakeSecureStorage()
+        val manager = manager(storage)
+        manager.save(storedSession())
         val gateway = FakeAuthGateway(
+            manager = manager,
             refreshResult = Result.success(
                 RemoteSession("owner-1", "a@b.c", "access-2", "refresh-2", isAnonymous = false),
             ),
         )
-        val repository = repository(storage, gateway)
+        val repository = repository(manager, gateway)
 
         repository.restoreFailures.test {
             awaitState(timeoutMs = settleBudgetMs) { repository.currentSession.value !is Session.Loading }
@@ -134,7 +148,7 @@ class AuthRepositoryRestoreBoundTest {
         // The read blocks in a driver call and ignores cancellation: the shape a
         // deadline in the caller's own coroutine cannot end.
         val storage = FakeSecureStorage(behaviour = ReadBehaviour.Block)
-        val repository = repository(storage)
+        val repository = repository(manager(storage))
 
         repository.restoreFailures.test {
             awaitState(timeoutMs = settleBudgetMs) { repository.currentSession.value !is Session.Loading }
@@ -161,7 +175,7 @@ class AuthRepositoryRestoreBoundTest {
         // hanging store mean the same thing to the user — this install has no session
         // it can prove — so they get the same answer.
         val storage = FakeSecureStorage(behaviour = ReadBehaviour.Throw)
-        val repository = repository(storage)
+        val repository = repository(manager(storage))
 
         repository.restoreFailures.test {
             awaitState(timeoutMs = settleBudgetMs) { repository.currentSession.value !is Session.Loading }
@@ -179,7 +193,7 @@ class AuthRepositoryRestoreBoundTest {
         // to handle that failure, so the repository has to report it — the same shape
         // the remote-config port uses for a read it abandoned.
         val storage = FakeSecureStorage(behaviour = ReadBehaviour.BlockThenFail)
-        val repository = repository(storage)
+        val repository = repository(manager(storage))
 
         repository.restoreFailures.test {
             awaitState(timeoutMs = settleBudgetMs) { repository.currentSession.value !is Session.Loading }
@@ -222,15 +236,10 @@ class AuthRepositoryRestoreBoundTest {
      */
     @Test
     fun `a reader that arrives after the restore is answered without waiting`() = runTest {
-        val storage = FakeSecureStorage(
-            values = mapOf(
-                SecureSessionStore.KEY_ACCESS to "access-1",
-                SecureSessionStore.KEY_REFRESH to "refresh-1",
-                SecureSessionStore.KEY_USER_ID to "owner-1",
-                SecureSessionStore.KEY_EMAIL to "a@b.c",
-            ),
-        )
-        val repository = repository(storage)
+        val storage = FakeSecureStorage()
+        val manager = manager(storage)
+        manager.save(storedSession())
+        val repository = repository(manager)
 
         awaitState(timeoutMs = settleBudgetMs) { repository.currentSession.value !is Session.Loading }
         advanceUntilIdle()
@@ -314,7 +323,10 @@ class AuthRepositoryRestoreBoundTest {
             if (behaviour == ReadBehaviour.BlockThenFail) {
                 throw IllegalStateException("the store failed after the caller gave up")
             }
-            return values[key]
+            // What was written is what is read back. A store whose writes went
+            // somewhere else would answer every read with "nothing here", and the
+            // restore would sign the user out of a session the device does hold.
+            return values[key] ?: written[key]
         }
 
         override suspend fun write(key: String, value: String) {
@@ -327,8 +339,25 @@ class AuthRepositoryRestoreBoundTest {
     }
 
     /** A gateway that answers the refresh the test scripted, and nothing else. */
-    private class FakeAuthGateway(private val refreshResult: Result<RemoteSession?> = Result.success(null)) :
-        AuthGateway {
+    private class FakeAuthGateway(
+        private val manager: SecureSessionManager,
+        private val refreshResult: Result<RemoteSession?> = Result.success(null),
+    ) : AuthGateway {
+
+        override suspend fun currentSession(): RemoteSession? {
+            // The credential store is behind the provider now. The read that can
+            // hang, throw or answer late is the provider's, and the restore waits
+            // on the provider.
+            val session = manager.currentSession() ?: return null
+            return RemoteSession(
+                userId = session.userId.value,
+                email = session.email,
+                accessToken = session.accessToken,
+                refreshToken = session.refreshToken,
+                isAnonymous = false,
+            )
+        }
+
         override suspend fun signUp(email: String, password: String): Result<RemoteSession> =
             Result.failure(IllegalStateException("not scripted"))
 
@@ -346,6 +375,9 @@ class AuthRepositoryRestoreBoundTest {
 
         override suspend fun refresh(accessToken: String, refreshToken: String): Result<RemoteSession?> =
             refreshResult
+
+        /** This gateway never changes the session behind the repository's back. */
+        override fun sessionChanges(): Flow<RemoteSession?> = emptyFlow()
     }
 
     /** A preferences store that answers with what it was given. */

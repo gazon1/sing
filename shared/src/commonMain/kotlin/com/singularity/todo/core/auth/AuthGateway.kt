@@ -1,5 +1,7 @@
 package com.singularity.todo.core.auth
 
+import kotlinx.coroutines.flow.Flow
+
 /**
  * The identity operations the repository needs, in the project's own vocabulary.
  *
@@ -73,6 +75,45 @@ interface AuthGateway {
      * the repository can tell whether to retry or to sign the user out.
      */
     suspend fun refresh(accessToken: String, refreshToken: String): Result<RemoteSession?>
+
+    /**
+     * The live session, or null when the device holds none.
+     *
+     * ## Why the session is read in one piece
+     *
+     * The repository used to read the access token, the refresh token, the owner id
+     * and the address out of the credential store separately, and reconcile them. They
+     * can disagree — a write that failed half way leaves exactly that — and a session
+     * assembled from disagreeing pieces is a session nobody can use: the owner the
+     * rows would be filed under is not the owner the tokens belong to.
+     *
+     * ## Why a failure is an exception and not a null
+     *
+     * Null means "this device holds no session", which is an ordinary state. A store
+     * that cannot be read is a different thing, and the repository has to be able to
+     * tell them apart: the first signs the user out, the second signs the user out
+     * *and says so*. A port that cannot express the difference cannot carry it.
+     */
+    suspend fun currentSession(): RemoteSession?
+
+    /**
+     * The provider's session, as it changes.
+     *
+     * The provider owns the session, and it may replace it: a refresh it did on its
+     * own, a session it imported from the store, a token the provider rotated behind
+     * the application's back. The application has to hear about the replacement, or it
+     * keeps publishing tokens the provider has already retired, and every request it
+     * makes afterwards is made as somebody whose session ended.
+     *
+     * A null is an answer and not a failure: "the provider holds no session" is what a
+     * signed-out device says. The port says nothing about *why* there is none — the
+     * repository's machine has no transition for a session that ended on its own, and
+     * it must not invent one.
+     *
+     * The flow is cold and lives as long as it is collected. It says nothing about
+     * when the provider changes the session, only that it did.
+     */
+    fun sessionChanges(): Flow<RemoteSession?>
 }
 
 /**

@@ -2,6 +2,7 @@ package com.singularity.todo.core.auth
 
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.functions.Functions
 import io.github.jan.supabase.postgrest.Postgrest
@@ -37,7 +38,18 @@ import kotlinx.coroutines.sync.withLock
  * rather than dropping the reference: an HTTP client that is merely unreferenced
  * keeps its pool and its scope alive until the process ends.
  */
-open class SupabaseClientProvider(private val resolver: SupabaseConfigResolver, private val store: SecureStorage) {
+open class SupabaseClientProvider(
+    private val resolver: SupabaseConfigResolver,
+    private val store: SecureStorage,
+    /**
+     * Where the auth plugin keeps the session.
+     *
+     * The plugin saves and loads the session wherever this says, and the default would
+     * be the SDK's own settings store — a plain-text file, which is the very thing
+     * [DataStoreSessionStore] was moved out of.
+     */
+    private val sessionStore: SecureSessionManager,
+) {
     private val lock = Mutex()
     private var cachedConfig: SupabaseConfig? = null
     private var cachedClient: SupabaseClient? = null
@@ -98,8 +110,30 @@ open class SupabaseClientProvider(private val resolver: SupabaseConfigResolver, 
         doomed?.close()
     }
 
+    /**
+     * The provider's auth plugin, or null when no project is configured.
+     *
+     * The seam's way of reaching the plugin. The plugin is an **interface**, so a test
+     * can substitute it — and this class is already open with open methods for exactly
+     * that, which is why the seam's own tests can exist at all.
+     */
+    open suspend fun auth(): Auth? = client()?.auth
+
     private fun build(config: SupabaseConfig): SupabaseClient = createSupabaseClient(config.url, config.anonKey) {
-        install(Auth)
+        install(Auth) {
+            // The one session both sides read, in the app's keychain. Left to itself
+            // the plugin would keep a second copy in its own settings store.
+            sessionManager = sessionStore
+            // The plugin must not read the session while the client is being built:
+            // whoever builds the client first is not necessarily the restore, and a
+            // migration that runs there is a migration outside the restore's bound.
+            autoLoadFromStorage = false
+            // The application owns the refresh. A plugin that refreshes on its own
+            // republishes a session the application did not ask for.
+            alwaysAutoRefresh = false
+            // What the plugin is given, it keeps. The store is the credential store.
+            autoSaveToStorage = true
+        }
         install(Postgrest)
         // The backup feature's remote half: the archive goes into a Storage bucket.
         install(Storage)

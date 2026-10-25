@@ -23,8 +23,28 @@
 # The step therefore asserts what this build can show: the sign-up was
 # accepted as far as it goes, and the app did not let anyone in. The agenda
 # half of the claim belongs to a build whose sign-up establishes a session.
+#
+# ## How the stub is told to establish no session
+#
+# The stub's `unconfirmed_signup` flag is set before the flow and removed
+# after it. The flag is a file in the app's own data directory, written
+# through `run-as`; without it the stub would establish a session, the app
+# would let the user in, and this flow would fail on the screen it never
+# reached — a difference in the stub's behaviour, not in the app's.
 appId: com.singularity.todo
 name: auth-signup-toggle
+onFlowStart:
+  - runScript:
+      file: ../../helpers/scripts/set-stub-flag.js
+      env:
+        FLAG: unconfirmed_signup
+        VALUE: "true"
+onFlowComplete:
+  - runScript:
+      file: ../../helpers/scripts/set-stub-flag.js
+      env:
+        FLAG: unconfirmed_signup
+        VALUE: "false"
 tags:
   - regression
   - auth
@@ -46,12 +66,12 @@ tags:
 - assertVisible: "Already have an account? Sign In"
 
 # Enter valid-looking details and submit.
-- inputText:
+- tapOn:
     id: auth_email_input
-    text: "newuser@example.com"
-- inputText:
+- inputText: "newuser@example.com"
+- tapOn:
     id: auth_password_input
-    text: "ValidPassword123!"
+- inputText: "ValidPassword123!"
 - tapOn:
     id: auth_sign_in_button
 

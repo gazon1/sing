@@ -76,13 +76,24 @@ tags:
 - assertVisible:
     id: auth_attach_submit_button
 
+# The offline data has to be answered before the form can be submitted: the
+# submit button stays disabled until a disposition is picked (REQ-UA-005 —
+# neither outcome is a default). "Keep" is the choice that leaves the local
+# rows where they are.
+- tapOn:
+    id: auth_attach_keep_button
+
 # Enter credentials — the stubbed repository succeeds immediately.
-- inputText:
+- tapOn:
     id: auth_attach_email_input
-    text: "alice@example.com"
-- inputText:
+- inputText: "alice@example.com"
+# The keyboard covers the submit button on this screen, so it is hidden after
+# each input — a tap that lands on the keyboard is a tap that does nothing.
+- hideKeyboard
+- tapOn:
     id: auth_attach_password_input
-    text: "ValidPassword123!"
+- inputText: "ValidPassword123!"
+- hideKeyboard
 
 # Submit.
 - tapOn:

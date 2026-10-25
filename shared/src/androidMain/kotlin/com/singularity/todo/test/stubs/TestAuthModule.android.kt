@@ -21,7 +21,7 @@ import org.koin.dsl.module
  *
  * The app starts straight into the agenda screen, bypassing the auth screen entirely.
  *
- * The stub reads and writes the same [com.singularity.todo.core.auth.SecureSessionStore]
+ * The stub reads and writes the same [com.singularity.todo.core.auth.SecureSessionManager]
  * the real login writes to, so a flow that signs the user out, damages the store or
  * restarts the app exercises the app's own session path rather than a memory that
  * dies with the process.

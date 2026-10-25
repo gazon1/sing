@@ -7,6 +7,8 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.ids.IdGenerator
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
@@ -47,6 +49,81 @@ class MapSecureStorage(private val failWrites: Boolean = false, private val fail
 
     /** Write attempts so far, whether or not they succeeded. */
     val writeAttempts: Int get() = writes
+}
+
+/**
+ * A [SecureStorage] whose writes wait for a signal.
+ *
+ * The store serialises its operations, so the only way to see what happens when a
+ * write and a delete overlap is to hold the write open: a fake that answers in
+ * microseconds is never in flight at the same time as anything else, and a suite built
+ * out of such fakes cannot ask what a caller does when it is.
+ *
+ * The value is stored only after [releaseTheWrite], which is what a busy keychain looks
+ * like from the outside: the call is in, and nothing has come back yet.
+ */
+class GatedWriteSecureStorage : SecureStorage {
+    val values = mutableMapOf<String, String>()
+    private val gate = CompletableDeferred<Unit>()
+    private val waiting = CompletableDeferred<Unit>()
+    private var writes = 0
+
+    override suspend fun read(key: String): String? = values[key]
+
+    override suspend fun write(key: String, value: String) {
+        writes++
+        waiting.complete(Unit)
+        gate.await()
+        values[key] = value
+    }
+
+    override suspend fun delete(key: String) {
+        values.remove(key)
+    }
+
+    /** Lets the writes that are waiting finish. */
+    fun releaseTheWrite() {
+        gate.complete(Unit)
+    }
+
+    /** Completed when a write is waiting for the gate. */
+    val writeWaiting: Deferred<Unit> get() = waiting
+
+    /** Write attempts so far, whether or not they landed. */
+    val writeAttempts: Int get() = writes
+}
+
+/**
+ * A [SecureStorage] whose deletes wait for a signal.
+ *
+ * The counterpart to [GatedWriteSecureStorage], and the shape that lets a test cancel
+ * a migration between the write that moved the token and the erase that cleans up
+ * after it — the one moment where the token is in two places at once.
+ */
+class GatedDeleteSecureStorage : SecureStorage {
+    val values = mutableMapOf<String, String>()
+    private val gate = CompletableDeferred<Unit>()
+    private val waiting = CompletableDeferred<Unit>()
+
+    override suspend fun read(key: String): String? = values[key]
+
+    override suspend fun write(key: String, value: String) {
+        values[key] = value
+    }
+
+    override suspend fun delete(key: String) {
+        waiting.complete(Unit)
+        gate.await()
+        values.remove(key)
+    }
+
+    /** Lets the deletes that are waiting finish. */
+    fun releaseTheDelete() {
+        gate.complete(Unit)
+    }
+
+    /** Completed when a delete is waiting for the gate. */
+    val deleteWaiting: Deferred<Unit> get() = waiting
 }
 
 class FixedIdGenerator(private val id: String = "dev") : IdGenerator {

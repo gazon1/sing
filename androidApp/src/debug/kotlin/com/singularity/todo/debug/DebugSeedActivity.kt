@@ -4,7 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import com.singularity.todo.core.auth.AuthRepository
-import com.singularity.todo.core.auth.SecureSessionStore
+import com.singularity.todo.core.auth.SecureSessionManager
 import com.singularity.todo.core.seed.NoteSeed
 import com.singularity.todo.core.seed.ProjectSeed
 import com.singularity.todo.core.seed.SeedWriter
@@ -381,7 +381,7 @@ class DebugSeedActivity :
                 // so the session is really on the device, and a flow can go on
                 // to invalidate it, damage the store it lives in, or recover
                 // from it.
-                val sessionStore: SecureSessionStore by inject()
+                val sessionStore: SecureSessionManager by inject()
                 TestAuthStubs.installSignedInSession(sessionStore, this@DebugSeedActivity)
                     .onFailure {
                         android.util.Log.e("DebugSeedActivity", "the session could not be installed", it)

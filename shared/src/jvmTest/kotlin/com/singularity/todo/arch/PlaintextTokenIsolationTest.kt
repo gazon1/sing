@@ -18,8 +18,8 @@ import kotlin.test.assertTrue
  * an access token and act as the user. That is not a leak in the sense of a log
  * line ending up in a file; it is the credential itself, at rest, unencrypted.
  *
- * `SecureSessionStore` moved it into the platform keychain and erases the old copy
- * once, at first read.
+ * `SecureSessionManager` moved it into the platform keychain and erases the old
+ * copy once, at first read.
  *
  * ## Why a scan and not a type
  *
@@ -80,7 +80,7 @@ class PlaintextTokenIsolationTest {
             "a session token is being written to plain-text preferences. The refresh " +
                 "token is a bearer credential for the user's account, and preferences are " +
                 "an unencrypted file that travels in backups. Tokens belong in the keychain, " +
-                "behind SecureSessionStore — " + offenders.joinToString(),
+                "behind SecureSessionManager — " + offenders.joinToString(),
         )
     }
 
@@ -120,7 +120,7 @@ class PlaintextTokenIsolationTest {
         /**
          * The one class allowed to touch the legacy keys: it moves a value out of
          * them and then erases it. Even here, the erase is the *second* of two
-         * operations — see `SecureSessionStoreTest`.
+         * operations — see `SecureSessionManagerTest`.
          */
         const val MIGRATION_OWNER = "auth/DataStoreSessionStore.kt"
     }
