@@ -247,3 +247,30 @@ With more than one implementer:
 - No pass-through use cases: where this feature looks like it wants one, inject the repository or port directly
 - Never pipe a command into `head`/`tail` — redirect to a file and read the file, or the command dies on SIGPIPE with a misleading exit code
 - Commit after each task or logical group; push without `--no-verify`
+
+---
+
+## Phase 7: Convergence
+
+A convergence pass over the code as it stands, requirement by requirement, found the work
+below still missing or partial. The order is CRITICAL first, then HIGH, then MEDIUM, then
+LOW. Each item names the requirement it traces to and the kind of gap it closes.
+
+- [ ] T058 CRITICAL: route the built-in chat's production turn through the activity stream, so a tool call is visible in the app — the shipped path is the GenUI branch, which calls the model with no tools and emits no `AgentEvent`, so no activity card is ever drawn — and prove it with a test that drives the production wiring per US1/AC1 (partial)
+- [ ] T059 Record a terminal outcome when the GenUI path is cancelled: a `CancellationException` from `session.respond` escapes `getOrElse`, so the turn ends with no outcome at all per FR-022 (partial)
+- [ ] T060 Keep internal diagnostics out of the tool server's responses: the registrar puts the raw exception message into `McpToolError.Internal`, whose text becomes the JSON-RPC error message the caller reads per FR-015 (partial)
+- [ ] T061 Decide and record what the tool-server version comparison is to be: nothing compares an expected version with a running one, and the app cannot see the version of a server the agent launches per FR-043 (missing)
+- [ ] T062 Make the card summary's field policy explicit: a short note body is quoted verbatim, because the rule is length-based and not field-based per FR-020 (partial)
+- [ ] T063 Report a provider with no API key as a failure outcome rather than as a successful completion per FR-023 (partial)
+- [ ] T064 Give the built-in chat a reachable way to stop a running turn: the cancellation mechanics exist, but no control reaches them per FR-024 (partial)
+- [ ] T065 Cover the terminal-outcome cases the checked boxes claim — cancellation, a late event after the outcome, and a thrown transport failure — and point T012 and T014 at the files that hold the invariants per US1/AC2 (partial)
+- [ ] T066 Write the five unlogged session lifecycle events — connection, disconnection, session identity, permission-request identity and process-tree termination — to the log per FR-044 (partial)
+- [ ] T067 Bound a hung turn and offer a reconnect after a mid-turn crash: a hung agent leaves the screen running, and a crashed one keeps the connection connected per FR-040 (partial)
+- [ ] T068 Amend the plan's structural rule and T044's wording: the ACP SDK is touched in three production files, not one, and T045 and T046 require two of them per plan: Project Structure (contradicts)
+- [ ] T069 Carry the tool-access state on the handshake-failure path, so a failed handshake does not leave the access state granted per FR-032 (partial)
+- [ ] T070 Do not lose a pending permission request to a second one: the later request overwrites the earlier, which then waits out the timeout per FR-036 (partial)
+- [ ] T071 Make the second-turn refusal reachable from the screen: the input is disabled while a turn runs, so the refusal is met at the ViewModel level only per FR-042 (partial)
+- [ ] T072 Record the permission answer in the state, so that "the answer is visible afterwards" is visible and not only indirect per US3/AC4 (partial)
+- [ ] T073 Reconcile the task list with the tree and with the accepted ADR: T010, T012, T022 and T051 name paths that do not exist, and T051 describes work the ADR superseded per T051 (partial)
+- [ ] T074 Record the built-in agent's plan surface, or its absence: `PlanUpdated` has no built-in producer, so the plan card is unreachable for the built-in agent per US1/AC3 (partial)
+- [ ] T075 Record the real-bridge probe in the feature's artifacts: it is work the specification and the tasks never asked for, and it is a bridge probe rather than the packaging probe T033 names (unrequested)
