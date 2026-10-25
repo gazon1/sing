@@ -45,6 +45,7 @@ Maestro/flows/auth/10-attach-account-validation-error.yaml
 Maestro/flows/auth/11-cold-install-login.yaml
 Maestro/flows/auth/12-unreadable-store-recovers.yaml
 Maestro/flows/backup/01-round-trip.yaml
+Maestro/flows/backup/02-cloud-password.yaml
 Maestro/flows/calendar/01-month-view.yaml
 Maestro/flows/calendar/02-view-mode.yaml
 Maestro/flows/calendar/03-tap-day.yaml
