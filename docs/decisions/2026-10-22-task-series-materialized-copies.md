@@ -1,7 +1,8 @@
 ---
 title: "A series is several task rows that share one id"
 date: 2026-10-22
-status: accepted
+status: superseded
+superseded-by: 2026-10-25-a-recurring-series-carries-the-rule-on-every-row
 tags: [tasks, series, database, sync, ui, calendar]
 ---
 
