@@ -875,6 +875,15 @@ class FixtureGate:
     explicitly is the point. A guard that is silently skipped for an unstated
     reason is the same defect one level up: a check that cannot run, reported
     as a check that passed.
+
+    `clean_cmd` is the command that *does* mean "the clean repository": the
+    gate's own command, run against the real input instead of the synthesised
+    one. It cannot be derived from `cmd`, because `cmd` is a **template** — it
+    carries `{tmp}`, and a template run literally asks a command to read a path
+    that does not exist. The answer is "failed", which says nothing about the
+    gate, and the harness reads it as "this gate is already red" — a verdict
+    about a path that was never there. So a control that declares a clean run
+    has to say which command that is.
     """
 
     name: str
@@ -884,6 +893,20 @@ class FixtureGate:
     # True when the gate has a meaningful clean-tree invocation, i.e. the
     # "already red would mask the sabotage" guard applies.
     needs_clean_run: bool = True
+    #: The command that means "the clean repository" for this gate: the gate's
+    #: own command, run on the real input. Required when `needs_clean_run` is
+    #: true — see the class docstring for why it cannot be derived from `cmd`.
+    clean_cmd: list[str] | None = None
+
+    def __post_init__(self) -> None:
+        if self.needs_clean_run and self.clean_cmd is None:
+            raise ValueError(
+                f"{self.name}: a control with a clean run needs `clean_cmd` — the "
+                "command that means 'the clean repository'. The fixture command "
+                "carries a {tmp} placeholder, and running it literally asks a "
+                "command to read a path that does not exist: the answer is "
+                "'failed', which says nothing about the gate."
+            )
 
 def _setup_agent_review(root: Path) -> None:
     """A pull request whose comments carry no review.
@@ -1250,6 +1273,12 @@ FIXTURE_GATES = [
             "failures used to reach the device as one answer — the tests are what tells "
             "a mismatched redirect URI from a spent code from a call that never came back"
         ),
+        # The clean run is the gate's own command on the real function — the one
+        # `static-gates.sh` registers ("deno test supabase/functions/
+        # google-oauth-exchange/"). It is the only clean run that means anything
+        # here: the fixture command carries `{tmp}`, and running it literally
+        # asks deno about a path that was never there.
+        clean_cmd=["deno", "test", "supabase/functions/google-oauth-exchange/"],
     ),
     FixtureGate(
         name="flaky-tests",

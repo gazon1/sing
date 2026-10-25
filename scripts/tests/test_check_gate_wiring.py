@@ -524,6 +524,54 @@ class PartFTest(unittest.TestCase):
             next(g for g in gw.FIXTURE_GATES if g.name == 'measure-flake-rate').needs_clean_run
         )
 
+    def test_a_fixture_gate_with_a_clean_run_names_the_clean_command(self):
+        """A clean run must be a command, not the fixture's own template.
+
+        The fixture command carries `{tmp}`: run literally, it asks a command to
+        read a path that does not exist, and the answer — "failed" — says
+        nothing about the gate. The harness used to read that answer as "this
+        gate is already red", which is a finding about a path that was never
+        there, and it pointed at the wrong cause entirely.
+        """
+        for gate in gw.FIXTURE_GATES:
+            if not gate.needs_clean_run:
+                continue
+            self.assertIsNotNone(
+                gate.clean_cmd,
+                f"{gate.name}: a control with a clean run must name the clean command",
+            )
+            self.assertNotIn(
+                '{tmp}',
+                ' '.join(gate.clean_cmd or []),
+                f"{gate.name}: the clean command is a template — it asks a command "
+                "about a path that does not exist",
+            )
+
+    def test_a_control_with_a_clean_run_and_no_clean_command_is_refused(self):
+        """The declaration is refused where it is written, not where it runs.
+
+        A control that cannot say what "the clean repository" means for it is a
+        control whose clean run is a guess; the guess is what produced the
+        finding about a path that was never there.
+        """
+        with self.assertRaises(ValueError):
+            gw.FixtureGate(
+                name='no-clean-command',
+                cmd=['echo', '{tmp}/x'],
+                setup=lambda root: None,
+                why='a control that cannot say what the clean tree means',
+            )
+
+    def test_a_command_that_is_not_on_path_is_not_a_verdict(self):
+        """A missing binary is its own answer, not "the gate is red".
+
+        The edge function's control is a `deno test`, and a machine without deno
+        used to report the control as a gate that was already red — a finding
+        about the machine, filed as a finding about the gate.
+        """
+        rc = gw.run_gate(['sgate-command-that-does-not-exist'])
+        self.assertEqual(rc, gw.MISSING_TOOL_RC)
+
     def test_a_sabotage_that_cannot_apply_fails_loudly(self):
         """A control whose premise no longer holds must not pass as a control.
 

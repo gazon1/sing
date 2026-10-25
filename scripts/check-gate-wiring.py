@@ -671,6 +671,13 @@ GRADLE_GATE_TIMEOUT_S = 600
 #: 124 into "no verdict, it hung" rather than "it failed".
 TIMEOUT_RC = 124
 
+#: A command that is not on PATH is not a verdict either. `deno` is the case
+#: this exists for: the edge function's control is a `deno test`, and a machine
+#: without deno used to report the control as "the gate is already red" —
+#: a finding about a path that was never there, pointing at the wrong cause.
+#: 127 is the shell's convention for "command not found".
+MISSING_TOOL_RC = 127
+
 _GRADLE_COMMANDS = frozenset({"./gw", "./gradlew", "gradle"})
 
 #: Gradle-backed controls are skipped unless this is set to `1`. `check.sh`
@@ -717,6 +724,11 @@ def run_gate(cmd: list[str], timeout_s: int | None = None) -> int:
     goes through this function, so a gate cannot hang the harness by
     accident. `subprocess.run` kills the child on expiry, so no orphan
     survives the deadline either.
+
+    A command that is not on PATH comes back as [MISSING_TOOL_RC], not as a
+    crash: the harness has to be able to *report* that the control could not
+    run, because a control that cannot run proves nothing, and a traceback
+    says less than a sentence that names the missing binary.
     """
     if timeout_s is None:
         timeout_s = GRADLE_GATE_TIMEOUT_S if _is_gradle_gate(cmd) else GATE_TIMEOUT_S
@@ -732,6 +744,9 @@ def run_gate(cmd: list[str], timeout_s: int | None = None) -> int:
         )
     except subprocess.TimeoutExpired:
         return TIMEOUT_RC
+    except FileNotFoundError:
+        print(f"  MISSING  {cmd[0]}: not on PATH — the control cannot run")
+        return MISSING_TOOL_RC
     return proc.returncode
 
 
@@ -1025,6 +1040,14 @@ def check_can_fail(include_fast: bool = True) -> list[str]:
             )
             continue
 
+        if rc == MISSING_TOOL_RC:
+            errors.append(
+                f"gate '{gate.name}': the sabotaged run could not run — its command "
+                f"is not on PATH. A control that cannot run proves nothing, so this "
+                f"gate is not proven to be able to fail."
+            )
+            continue
+
         if rc == 0:
             errors.append(
                 f"gate '{gate.name}' PASSED a deliberately sabotaged input "
@@ -1052,11 +1075,32 @@ def check_fixture_gates() -> list[str]:
                   f"to include it (check.sh does)")
             continue
         if gate.needs_clean_run:
-            baseline_rc = run_gate(gate.cmd)
+            # The clean run is the gate's OWN command on the real input. The
+            # fixture command is a template — it carries `{tmp}` — and running
+            # it literally asks a command about a path that does not exist:
+            # the answer is "failed", and the harness used to read that as
+            # "this gate is already red", a finding about a path that was
+            # never there.
+            clean_cmd = gate.clean_cmd
+            if clean_cmd is None:
+                errors.append(
+                    f"gate '{gate.name}': the control declares a clean run but names "
+                    "no clean command — the harness cannot tell what 'the clean "
+                    "repository' means for it."
+                )
+                continue
+            baseline_rc = run_gate(clean_cmd)
             if baseline_rc == TIMEOUT_RC:
                 errors.append(
                     f"gate '{gate.name}' timed out on a clean run — no verdict. "
                     f"A hang is not a failure; find what it waits on first."
+                )
+                continue
+            if baseline_rc == MISSING_TOOL_RC:
+                errors.append(
+                    f"gate '{gate.name}': the control could not run — "
+                    f"'{clean_cmd[0]}' is not on PATH. A control that cannot run "
+                    "proves nothing, so this gate is not proven to be able to fail."
                 )
                 continue
             if baseline_rc != 0:
@@ -1085,6 +1129,12 @@ def check_fixture_gates() -> list[str]:
             errors.append(
                 f"gate '{gate.name}': the sabotaged run timed out — a hang is "
                 f"not a verdict, and not evidence the gate can fail."
+            )
+        elif sabotaged_rc == MISSING_TOOL_RC:
+            errors.append(
+                f"gate '{gate.name}': the sabotaged run could not run — its command "
+                f"is not on PATH. A control that cannot run proves nothing, so this "
+                f"gate is not proven to be able to fail."
             )
         elif sabotaged_rc == 0:
             errors.append(

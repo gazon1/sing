@@ -138,6 +138,27 @@ package is missing — that is the case it refuses — and `./sg` has to work wh
 the package is broken, so the thing that repairs the package cannot live
 inside it.
 
+**A control's clean run is a command, not a template.** Before each control the
+harness asks whether the gate it proves is green on a clean tree: a gate that
+is already red proves nothing about the sabotage. For a fixture control that
+question has to name a command, and the command cannot be the fixture's own —
+the fixture command is a template (`deno test {tmp}/function`), and running a
+template literally asks a command about a path that was never there. The
+answer is "failed", and the harness read that answer as "this gate is already
+red": a finding about a path that did not exist, filed against the wrong
+cause, and pointing at the gate instead of at the harness. `FixtureGate`
+therefore carries a `clean_cmd` — the gate's own command on the real input
+(`deno test supabase/functions/google-oauth-exchange/`). A control that
+declares a clean run and names no clean command is refused where it is
+declared.
+
+**A command that is not on PATH is not a verdict.** The same harness reported a
+missing binary as a failing gate: on a machine without `deno` the control said
+the gate was already red — a finding about the machine, filed as a finding
+about the gate. A missing command now has its own answer (127, the shell's
+"command not found"), and the harness names the command that is missing instead
+of guessing what its absence meant.
+
 ## Rationale
 
 - **A pin is a measurement; a refusal is an absence.** Refusing to run because
@@ -196,7 +217,12 @@ inside it.
   pinned binaries, and the refusal.
 - `scripts/check-gate-tooling-origin.py` — the origin question, asked without
   importing the package.
-- `scripts/tests/test_run_gate_tests.py`,
+- `scripts/src/sgate/gate_controls.py` — the controls, and the clean command
+  each one names.
+- `scripts/check-gate-wiring.py` — the harness that runs them, and what a
+  missing command is allowed to mean.
+- `scripts/tests/test_check_gate_wiring.py`,
+  `scripts/tests/test_run_gate_tests.py`,
   `scripts/tests/test_check_script_conventions.py` — the rules as tests.
 - `scripts/tests/test_pre_commit_hook.py` — the hook checks the commit's tree,
   not the working tree.
