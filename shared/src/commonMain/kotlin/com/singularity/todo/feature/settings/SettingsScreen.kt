@@ -296,14 +296,16 @@ private fun BackupScreenWrapper(onBack: () -> Unit) {
         onSelectRestoreFile = pickBackup,
         onRestore = { path -> backupVm.onIntent(BackupIntent.Restore(path)) },
         onDelete = { id -> backupVm.onIntent(BackupIntent.Delete(id)) },
-        onPush = { id -> backupVm.onIntent(BackupIntent.Push(id)) },
+        onPush = { id, password -> backupVm.onIntent(BackupIntent.Push(id, password)) },
         onSaveToFile = { id -> backupVm.onIntent(BackupIntent.SaveToFile(id)) },
         onExportSettings = { backupVm.onIntent(BackupIntent.ExportSettingsSnapshot) },
         onSelectSettingsFile = pickSettings,
         onShareSettingsJson = { json -> sharePort.shareText("Singularity settings", json) },
         onImportSettings = { json -> backupVm.onIntent(BackupIntent.ImportSettingsSnapshot(json)) },
         onLoadRemoteBackups = { backupVm.onIntent(BackupIntent.LoadRemoteBackups) },
-        onRestoreFromCloud = { ref -> backupVm.onIntent(BackupIntent.RestoreFromCloud(ref)) },
+        onRestoreFromCloud = { ref, password ->
+            backupVm.onIntent(BackupIntent.RestoreFromCloud(ref, password))
+        },
     )
 }
 

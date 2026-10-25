@@ -11,6 +11,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextObfuscationMode
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CloudUpload
@@ -26,6 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedSecureTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -42,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.backup.BackupId
@@ -53,6 +58,7 @@ import com.singularity.todo.core.ui.components.ButtonSpinner
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.formatFileSize
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.core.ui.text.SelectableText
@@ -72,7 +78,13 @@ fun BackupScreen(
     onSelectRestoreFile: () -> Unit,
     onRestore: (sourcePath: String) -> Unit,
     onDelete: (BackupId) -> Unit,
-    onPush: (BackupId) -> Unit,
+    /**
+     * Called when the user wants to upload a backup to the cloud.
+     *
+     * [password] is the key the archive is sealed with. It is asked for at the
+     * moment of the push, handed over once, and kept nowhere.
+     */
+    onPush: (BackupId, CharArray) -> Unit,
     /**
      * Called when the user wants a copy of the backup outside the app.
      *
@@ -105,17 +117,24 @@ fun BackupScreen(
      *
      * [remoteRef] is the archive's path in the bucket — the repository downloads it
      * into the app's own backup directory and imports it from there.
+     *
+     * [password] is the key the archive was sealed with. The archive in the bucket
+     * is ciphertext, and the person who pushed it is the one who can open it.
      */
-    onRestoreFromCloud: (remoteRef: String) -> Unit,
+    onRestoreFromCloud: (remoteRef: String, password: CharArray) -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     var pendingSettingsJson by remember { mutableStateOf<String?>(null) }
 
-    // The archive the person is about to restore from the cloud, and the question
-    // that has to be asked before it is fetched: the import overwrites the rows it
-    // finds, so an archive from last month can undo this afternoon's work without
-    // ever asking. The local restore asks the same question, and the answer has to
-    // be the same one.
+    // The archive the person is about to upload, and the question that has to be
+    // answered before it leaves the device: the archive is encrypted with the
+    // person's password, and the server never sees it.
+    var pendingPush by remember { mutableStateOf<BackupId?>(null) }
+
+    // The archive the person is about to restore from the cloud. The import
+    // overwrites the rows it finds, so an archive from last month can undo this
+    // afternoon's work without ever asking — and the archive is sealed, so the
+    // password is asked in the same breath.
     var pendingCloudRestore by remember { mutableStateOf<RemoteBackup?>(null) }
 
     // The screen owns the single collection of the event bus. The bus is a
@@ -274,7 +293,7 @@ fun BackupScreen(
                         BackupListItem(
                             backup = backup,
                             onRestore = { onRestore(backup.path) },
-                            onPush = { onPush(backup.id) },
+                            onPush = { pendingPush = backup.id },
                             onSaveToFile = { onSaveToFile(backup.id) },
                             onDelete = { onDelete(backup.id) },
                         )
@@ -355,15 +374,29 @@ fun BackupScreen(
         }
     }
 
+    pendingPush?.let { id ->
+        BackupPasswordDialog(
+            title = "Push to cloud",
+            text = "The archive is encrypted with this password before it leaves the device. " +
+                "The server never sees it, and nobody can open the archive without it.",
+            confirmLabel = "Push",
+            onConfirm = { password ->
+                pendingPush = null
+                onPush(id, password)
+            },
+            onDismiss = { pendingPush = null },
+        )
+    }
+
     pendingCloudRestore?.let { remote ->
-        BackupConfirmDialog(
+        BackupPasswordDialog(
             title = "Restore from cloud",
-            text = "Restore will overwrite current data with the archive " +
-                "${remote.name}. Are you sure?",
+            text = "Restore overwrites the current data with the archive ${remote.name}. " +
+                "The archive is encrypted — enter the password it was pushed with.",
             confirmLabel = "Restore",
-            onConfirm = {
+            onConfirm = { password ->
                 pendingCloudRestore = null
-                onRestoreFromCloud(remote.ref)
+                onRestoreFromCloud(remote.ref, password)
             },
             onDismiss = { pendingCloudRestore = null },
         )
@@ -484,8 +517,79 @@ private fun BackupConfirmDialog(
     )
 }
 
-private fun formatDate(epochMillis: Long): String = formatBackupDate(epochMillis, TimeZone.currentSystemDefault())
+/**
+ * The dialog that asks for the password the cloud archive is sealed with.
+ *
+ * One dialog serves both directions — the push and the restore — because the
+ * question is the same one and the answer is the same secret: the archive in the
+ * bucket is ciphertext, and the key is the person's password.
+ *
+ * ## The password is not kept
+ *
+ * The field is a *local* one: the text belongs to the field, and to nobody else.
+ * The password is handed over as a `CharArray` and goes straight to the repository,
+ * which wipes it. It is not written to the state, not to the settings and not to
+ * the keychain — a forgotten password means a lost archive, and that is the honest
+ * price of a key the server never has.
+ *
+ * What the runtime keeps is the field's own text, for as long as the field lives,
+ * and the immutable copy Compose makes of it. A secret in memory cannot be made to
+ * vanish on demand — it can only stop being reachable — and what this feature
+ * promises is the second thing: the password is not *kept*, and the copy that
+ * travels is wiped.
+ */
+@Composable
+private fun BackupPasswordDialog(
+    title: String,
+    text: String,
+    confirmLabel: String,
+    onConfirm: (CharArray) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val passwordState = rememberTextFieldState()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        // A dialog is its own Android window, so the app-root
+        // testTagsAsResourceId never reaches it. Without this the tags on the
+        // field and the button are invisible to Maestro.
+        modifier = Modifier.mapTestTagsAsResourceIds(),
+        title = { Text(title) },
+        text = {
+            Column {
+                Text(text, style = MaterialTheme.typography.bodyMedium)
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedSecureTextField(
+                    state = passwordState,
+                    label = { Text("Password") },
+                    textObfuscationMode = TextObfuscationMode.Hidden,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag(TestTags.BACKUP_PASSWORD_FIELD)
+                        .mapTestTagsAsResourceIds(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(passwordState.text.toString().toCharArray()) },
+                enabled = passwordState.text.isNotBlank(),
+                modifier = Modifier
+                    .testTag(TestTags.BACKUP_PASSWORD_CONFIRM)
+                    .mapTestTagsAsResourceIds(),
+            ) {
+                Text(confirmLabel)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
+    )
+}
 
+private fun formatDate(epochMillis: Long): String = formatBackupDate(epochMillis, TimeZone.currentSystemDefault())
 // ===== Preview =====
 
 @Composable

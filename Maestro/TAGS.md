@@ -270,6 +270,8 @@ non-alphanumeric characters with `_`.
 | `BACKUP_EXPORT_SETTINGS` | `backup_export_settings` | |
 | `BACKUP_IMPORT_SETTINGS` | `backup_import_settings` | |
 | `BACKUP_LOAD_REMOTE_BUTTON` | `backup_load_remote_button` | |
+| `BACKUP_PASSWORD_CONFIRM` | `backup_password_confirm` | |
+| `BACKUP_PASSWORD_FIELD` | `backup_password_field` | |
 | `BACKUP_RESTORE_BUTTON` | `backup_restore_button` | |
 | `BACKUP_RESTORE_FROM_CLOUD_PREFIX` | `backup_restore_from_cloud_` | |
 | `BACKUP_TOP_BAR_BACK` | `backup_top_bar_back` | |
@@ -420,6 +422,7 @@ use the expanded string directly).
 | `pomodoroTaskChip("Buy milk")` | `"Buy milk"` | `pomodoro_task_chip_buy_milk` | Pomodoro focus-task chips |
 | `Dialog.title("discard")` | `"discard"` | `dialog_title_discard` | Dialog title |
 | `taskAction("Archive")` | `"Archive"` | `task_action_archive` | Long-press action rows |
+| `backupRestoreFromCloud("singularity_backup_1.zip")` | `"singularity_backup_1.zip"` | `backup_restore_from_cloud_singularity_backup_1_zip` | The Restore button of one archive in the cloud |
 | `profileItem("Personal")` | `"Personal"` | `profile_item_personal` | Profile list items |
 | `acpAgentChip("gemini-cli")` | `"gemini-cli"` | `acp_agent_chip_gemini_cli` | The chip that selects one agent of the registry |
 | `genUi("whatsnew")` | `"whatsnew"` | `genui_whatsnew` | GenUI surfaces |

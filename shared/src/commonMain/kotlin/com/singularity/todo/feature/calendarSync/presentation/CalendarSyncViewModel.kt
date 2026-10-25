@@ -2,6 +2,8 @@ package com.singularity.todo.feature.calendarSync.presentation
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.text.FieldOwnedText
+import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.featureSlot.combineStates
@@ -72,13 +74,18 @@ data class CalendarSyncUiState(
      */
     val deviceSyncSupported: Boolean = true,
     /**
-     * The OAuth client id the Google sign-in will use, or null when none is configured.
+     * The OAuth client id the field holds — the one the user is typing.
      *
-     * Shown so the user can see *which* project the app talks to. A client id is not a
-     * secret — it ships inside the APK — but the project behind it decides whose
-     * calendar the sync writes into, and that is worth being visible.
+     * It is a [FieldOwnedText] so that every write to it says what kind of write it
+     * was: the field's own text (`echoed`), the value that was on the disk when the
+     * panel opened (`seeded`), or an empty field (`cleared`). A bare string could be
+     * written from anywhere, and the write would say nothing about what it was —
+     * and this value is the field's, so the promise has to live in its type.
+     *
+     * A client id is not a secret — it ships inside the APK — but the project behind
+     * it decides whose calendar the sync writes into, and that is worth being visible.
      */
-    val googleClientId: String? = null,
+    val googleClientId: FieldOwnedText = FieldOwnedText.empty(),
     /**
      * True while the consent step is running.
      *
@@ -189,6 +196,21 @@ data class CalendarSyncUiState(
      */
     val importWindow: ImportWindow = ImportWindow.DEFAULT,
 ) {
+    /**
+     * The client id as the field's source.
+     *
+     * The ViewModel holds the id the user typed and hands it back unchanged; the
+     * configured id replaces it with one the field never produced, which the field
+     * takes as it stands. So the value is never rewritten with one the field
+     * produced: the field's echo guard needs no lifting, and there is no counter to
+     * read.
+     *
+     * The promise is in the type of the value, not in this sentence: the client id is
+     * a [FieldOwnedText], and the only ways to write one are the field's own text, a
+     * seed and a clear.
+     */
+    val googleClientIdSource: StaticText get() = StaticText(googleClientId.text)
+
     /** True when the user has connected Google and picked a calendar. */
     val googleReady: Boolean get() = googleConnected && selectedGoogleCalendarId != null
 }
@@ -436,7 +458,14 @@ class CalendarSyncViewModel(
         vmScope.launch {
             val clientId = googleAuthorization.configuredClientId()
             updateState {
-                it.copy(googleClientId = clientId, googleConfiguredClientId = clientId)
+                // The value came from the disk, not from the field: it is a seed,
+                // and the field takes it as it stands. Nothing configured is
+                // nothing to seed — the field stays empty until the person types.
+                it.copy(
+                    googleClientId = clientId?.let { id -> it.googleClientId.seeded(id) }
+                        ?: it.googleClientId,
+                    googleConfiguredClientId = clientId,
+                )
             }
         }
     }
@@ -635,7 +664,11 @@ class CalendarSyncViewModel(
      * its draft, and the keystore is written once, on the button.
      */
     private fun setGoogleClientId(clientId: String) {
-        updateState { it.copy(googleClientId = clientId, googleError = null) }
+        updateState {
+            // The field's own text came back: the field already shows it, and the
+            // bridge's echo guard is there for exactly this.
+            it.copy(googleClientId = it.googleClientId.echoed(clientId), googleError = null)
+        }
     }
 
     /**
@@ -646,7 +679,7 @@ class CalendarSyncViewModel(
      */
     private fun saveGoogleClientId() {
         vmScope.launch {
-            val trimmed = currentState.googleClientId?.trim().orEmpty()
+            val trimmed = currentState.googleClientId.text.trim()
             if (trimmed.isEmpty()) {
                 updateState { it.copy(googleError = "A client id cannot be empty") }
                 return@launch
@@ -655,7 +688,9 @@ class CalendarSyncViewModel(
                 .onSuccess {
                     updateState {
                         it.copy(
-                            googleClientId = trimmed,
+                            // The user's own text, trimmed: the field's text, and
+                            // the field's echo.
+                            googleClientId = it.googleClientId.echoed(trimmed),
                             googleConfiguredClientId = trimmed,
                             googleError = null,
                         )

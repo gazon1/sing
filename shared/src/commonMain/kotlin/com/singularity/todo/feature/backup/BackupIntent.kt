@@ -22,8 +22,19 @@ sealed interface BackupIntent : MviIntent {
     /** Delete a stored backup. */
     data class Delete(val id: BackupId) : BackupIntent
 
-    /** Upload a stored backup to the remote endpoint. */
-    data class Push(val id: BackupId) : BackupIntent
+    /**
+     * Upload a stored backup to the remote endpoint, sealed under the person's password.
+     *
+     * The archive is encrypted on the device: the bucket holds ciphertext and the
+     * key is the password, which the server never sees. The password is asked for
+     * at the moment of the push and is not kept anywhere.
+     *
+     * The intent is a plain class and not a `data class` on purpose: a
+     * `CharArray`'s equality is its identity, so two intents carrying the same
+     * password would not be equal — and an intent that says two equal things are
+     * different is worse than one that says nothing about equality at all.
+     */
+    class Push(val id: BackupId, val password: CharArray) : BackupIntent
 
     /**
      * Reads the archives that live in the cloud.
@@ -34,12 +45,14 @@ sealed interface BackupIntent : MviIntent {
     data object LoadRemoteBackups : BackupIntent
 
     /**
-     * Restores an archive that lives in the cloud.
+     * Restores an archive that lives in the cloud, opening it under the person's password.
      *
      * The archive is downloaded and imported in one step — the download lands in the
      * app's own backup directory, which the repository owns.
+     *
+     * A plain class and not a `data class`, for the reason [Push] gives.
      */
-    data class RestoreFromCloud(val remoteRef: String) : BackupIntent
+    class RestoreFromCloud(val remoteRef: String, val password: CharArray) : BackupIntent
 
     /**
      * Hand a stored backup to the platform, so the user can keep it outside the app.

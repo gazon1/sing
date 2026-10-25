@@ -3,29 +3,36 @@ package com.singularity.todo.feature.calendarSync.auth
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * The server's answer, read.
+ * The wire contract with the project's own Edge Function.
  *
- * ## Why the wire format is worth a test of its own
+ * ## Why the contract is worth a test of its own
  *
- * A renamed field reads as a null token, and a null token reads as "not connected".
- * The failure then looks like a missing grant rather than a broken contract, and the
- * user is told to reconnect when the server is the thing that changed. These tests
- * pin the format: a canned body in, a credential out.
+ * The Edge Function lives in this repository, under
+ * `supabase/functions/google-oauth-exchange`, and the app is its client. The two
+ * can drift apart silently: a renamed action is an answer the function does not
+ * understand, and a wrong status code turns "the grant is already gone" into a
+ * failure the person reads as "something went wrong".
+ *
+ * The contract is a project's decision and it lives in a file without the SDK in
+ * it, so it can be checked here — with no server, no network and no SDK.
  */
 @Tag("fast")
-class SupabaseGoogleTokenGatewayTest {
+class GoogleTokenExchangeWireTest {
 
     private val json = Json { ignoreUnknownKeys = true }
 
+    /** A canned body, the way the server would send it. */
     private fun body(vararg pairs: Pair<String, String>): kotlinx.serialization.json.JsonObject =
         buildJsonObject { pairs.forEach { (key, value) -> put(key, value) } }
 
@@ -120,5 +127,61 @@ class SupabaseGoogleTokenGatewayTest {
         val credentials = answer.readGoogleCredentials()
 
         assertEquals("the-token", credentials.accessToken)
+    }
+
+    /** The exchange asks for the code to be redeemed, and says which code. */
+    @Test
+    fun `the exchange request carries the code`() {
+        val request = GoogleTokenExchangeWire.exchangeRequest("the-code")
+
+        assertEquals("exchange", request["action"]?.jsonPrimitive?.content)
+        assertEquals("the-code", request["code"]?.jsonPrimitive?.content)
+    }
+
+    /** The token request carries no code: the server knows the account. */
+    @Test
+    fun `the token request asks for the current token`() {
+        val request = GoogleTokenExchangeWire.tokenRequest()
+
+        assertEquals("token", request["action"]?.jsonPrimitive?.content)
+        assertTrue(
+            request.keys.none { it == "code" },
+            "the token request must not carry a code: $request",
+        )
+    }
+
+    /** The revoke request says what it wants, and carries nothing else. */
+    @Test
+    fun `the revoke request asks for the grant to be cancelled`() {
+        val request = GoogleTokenExchangeWire.revokeRequest()
+
+        assertEquals("revoke", request["action"]?.jsonPrimitive?.content)
+        assertEquals(1, request.size, "the revoke request carries the action and nothing else: $request")
+    }
+
+    /**
+     * A revoke that found nothing is not a failure.
+     *
+     * The server holds no grant for this account: there is nothing to revoke, and
+     * the account is disconnected either way. A person who pressed "Disconnect"
+     * must not be told that something went wrong.
+     */
+    @Test
+    fun `a revoke that found nothing is not a failure`() {
+        assertTrue(GoogleTokenExchangeWire.revokeIsDone(200), "the grant was cancelled")
+        assertTrue(GoogleTokenExchangeWire.revokeIsDone(404), "there was no grant to cancel")
+        assertFalse(GoogleTokenExchangeWire.revokeIsDone(500), "the server failed")
+        assertFalse(GoogleTokenExchangeWire.revokeIsDone(403), "the server refused")
+    }
+
+    /** The advice for an unconfigured project says what to do about it. */
+    @Test
+    fun `the refusal for an unconfigured project says what to do`() {
+        val failure = GoogleTokenExchangeWire.noCloudServerConfigured()
+
+        assertTrue(
+            failure.message.orEmpty().contains("Account settings"),
+            "the message must say where to fix it: ${failure.message}",
+        )
     }
 }

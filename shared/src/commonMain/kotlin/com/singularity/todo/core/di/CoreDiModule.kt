@@ -27,6 +27,7 @@ import com.singularity.todo.core.backup.BackupBucket
 import com.singularity.todo.core.backup.BackupRepository
 import com.singularity.todo.core.backup.BackupRepositoryImpl
 import com.singularity.todo.core.backup.DefaultBackupFileNamer
+import com.singularity.todo.core.backup.EncryptedArchive
 import com.singularity.todo.core.backup.RemoteBackupService
 import com.singularity.todo.core.backup.RemoteBackupServiceImpl
 import com.singularity.todo.core.backup.SupabaseBackupBucket
@@ -344,7 +345,13 @@ fun coreModule(): org.koin.core.module.Module =
         // where an archive goes and what a failure means can be tested without a
         // network.
         single<BackupBucket> { SupabaseBackupBucket(get()) }
-        single<RemoteBackupService> { RemoteBackupServiceImpl(get(), get()) }
+
+        // The archive's envelope. The cryptography behind it is a port the platform
+        // provides — `ArchiveCrypto` — and the envelope is the project's own: the
+        // header, the salt, the nonce and the version. The server never sees the
+        // password, so it can never open what it stores.
+        single { EncryptedArchive(get()) }
+        single<RemoteBackupService> { RemoteBackupServiceImpl(get(), get(), get()) }
 
         // ─── IDs / Clock ────────────────────────────────────────────────────
 

@@ -77,6 +77,7 @@ object TagsMd {
         "Projects",
         "Pomodoro",
         "Dialog",
+        "Backup",
         "Profile",
         "AI",
         "Calendar",
@@ -284,6 +285,9 @@ object TagsMd {
         "Dialog.title" -> DynamicMeta(fnName, "Dialog", "discard", "Dialog title")
 
         "profileItem" -> DynamicMeta(fnName, "Profile", "Personal", "Profile list items")
+
+        "backupRestoreFromCloud" ->
+            DynamicMeta(fnName, "Backup", "singularity_backup_1.zip", "The Restore button of one archive in the cloud")
 
         // A new dynamic function must be described here, not silently dropped:
         // "Used for" and the example input are documentation, not derivable from source.

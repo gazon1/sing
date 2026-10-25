@@ -966,7 +966,13 @@ object TestTags {
     const val BACKUP_RESTORE_FROM_CLOUD_PREFIX = "backup_restore_from_cloud_"
 
     /** The restore button of the archive with this [ref]. */
-    fun backupRestoreFromCloud(ref: String) = "$BACKUP_RESTORE_FROM_CLOUD_PREFIX${slug(ref)}"
+    fun backupRestoreFromCloud(ref: String) = "${BACKUP_RESTORE_FROM_CLOUD_PREFIX}${slug(ref)}"
+
+    /** The field the archive's password is typed into. */
+    const val BACKUP_PASSWORD_FIELD = "backup_password_field"
+
+    /** The button that hands the typed password over. */
+    const val BACKUP_PASSWORD_CONFIRM = "backup_password_confirm"
 
     // ─── Profile ────────────────────────────────────────────────────────────
     const val PROFILE_CREATE_BUTTON = "profile_create_button"

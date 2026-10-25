@@ -24,25 +24,55 @@ import com.singularity.todo.core.ids.UserId
  */
 interface RemoteBackupService {
     /**
-     * Uploads the archive at [localPath].
+     * Uploads the archive at [localPath], encrypted under [password].
      *
+     * What lands in the bucket is ciphertext: the archive is sealed on the device, and
+     * the key is derived from the password, which the server never sees. The name of
+     * the object says so — it carries [ENCRYPTED_SUFFIX].
+     *
+     * @param password the person's password, as an array. The call consumes it: the
+     *   array is wiped before the call returns, so the secret does not sit in memory
+     *   longer than the upload needs it.
      * @return a reference to the uploaded object, which [download] can use.
      */
-    suspend fun upload(localPath: String, userId: UserId): Result<String>
+    suspend fun upload(localPath: String, userId: UserId, password: CharArray): Result<String>
 
     /**
-     * Downloads [remoteRef] to [destPath].
+     * Downloads [remoteRef] to [destPath] and opens it under [password].
      *
      * The reference is not checked against the user's own prefix here: the bucket's
      * policy is what keeps one account's archive out of another's reach, and a check
      * on top of it would be a second opinion about what the policy allows. The
      * references this is called with come from [list], which asks for the user's own
      * prefix — so the path is the user's by the time it gets here.
+     *
+     * What is written to [destPath] is the archive itself, decrypted: the file on the
+     * device is a zip again, and only the copy in the bucket is sealed.
      */
-    suspend fun download(remoteRef: String, destPath: String, userId: UserId): Result<Unit>
+    suspend fun download(
+        remoteRef: String,
+        destPath: String,
+        userId: UserId,
+        password: CharArray,
+    ): Result<Unit>
 
     /** The remote objects that belong to [userId]. */
     suspend fun list(userId: UserId): Result<List<BucketObject>>
+
+    companion object {
+        /**
+         * The suffix an encrypted archive carries in the bucket.
+         *
+         * The name is not a secret — a bucket listing shows it — but it says what the
+         * object is, and it is how the archive's own name is recovered when it comes
+         * back: the local copy is the name without this suffix.
+         */
+        const val ENCRYPTED_SUFFIX = ".enc"
+
+        /** The name the archive has on the device, from the reference it has in the bucket. */
+        fun localFileName(remoteRef: String): String =
+            remoteRef.substringAfterLast('/').removeSuffix(ENCRYPTED_SUFFIX)
+    }
 }
 
 /** The remote half could not do its job, with a reason a user can act on. */
@@ -79,27 +109,42 @@ class RemoteBackupException(message: String) : Exception(message)
  * therefore something the project's owner creates once — and the failure when it is
  * missing says so, rather than reporting a generic error.
  */
-class RemoteBackupServiceImpl(private val bucket: BackupBucket, private val fs: FileSystem) : RemoteBackupService {
+class RemoteBackupServiceImpl(
+    private val bucket: BackupBucket,
+    private val fs: FileSystem,
+    private val archive: EncryptedArchive,
+) : RemoteBackupService {
 
-    override suspend fun upload(localPath: String, userId: UserId): Result<String> =
-        runCatchingCancellable {
-            val bytes = readArchive(localPath)
-            val remotePath = remotePath(userId, localPath)
-            bucket.upload(remotePath, bytes)
-            remotePath
-        }.recoverCatching { error ->
-            throw classified(error, "the archive could not be uploaded")
+    override suspend fun upload(localPath: String, userId: UserId, password: CharArray): Result<String> =
+        try {
+            runCatchingCancellable {
+                val plain = readArchive(localPath)
+                val sealed = archive.seal(plain, password)
+                val remotePath = remotePath(userId, localPath)
+                bucket.upload(remotePath, sealed)
+                remotePath
+            }.recoverCatching { error ->
+                throw classified(error, "the archive could not be uploaded")
+            }
+        } finally {
+            password.fill('\u0000')
         }
 
     override suspend fun download(
         remoteRef: String,
         destPath: String,
         userId: UserId,
-    ): Result<Unit> = runCatchingCancellable {
-        val bytes = bucket.download(remoteRef)
-        fs.writeBytes(destPath, bytes)
-    }.recoverCatching { error ->
-        throw classified(error, "the archive could not be downloaded")
+        password: CharArray,
+    ): Result<Unit> = try {
+        runCatchingCancellable {
+            val sealed = bucket.download(remoteRef)
+            val plain = archive.open(sealed, password)
+            fs.writeBytes(destPath, plain)
+        }.recoverCatching { error ->
+            throw classified(error, "the archive could not be downloaded")
+        }
+    } finally {
+        password.fill('\u0000')
     }
 
     override suspend fun list(userId: UserId): Result<List<BucketObject>> = runCatchingCancellable {
@@ -147,6 +192,11 @@ class RemoteBackupServiceImpl(private val bucket: BackupBucket, private val fs: 
         // one it has.
         is RemoteBackupException -> error
 
+        // The archive's own failures say what a person can do: the password does not
+        // open it, the bytes are not an encrypted archive. Flattening them into
+        // "the upload failed" would throw that away.
+        is BackupError -> error
+
         is AppError -> error
 
         else -> transportError(
@@ -159,7 +209,7 @@ class RemoteBackupServiceImpl(private val bucket: BackupBucket, private val fs: 
     }
 
     private fun remotePath(userId: UserId, localPath: String): String =
-        "${userId.value}/${localPath.substringAfterLast('/')}"
+        "${userId.value}/${localPath.substringAfterLast('/')}${RemoteBackupService.ENCRYPTED_SUFFIX}"
 
     companion object {
         /** The code for the class that means "something else went wrong". */

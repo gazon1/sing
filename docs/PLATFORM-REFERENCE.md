@@ -34,6 +34,7 @@ port. The authority on which binding is which is the seam registry
 
 | Port | jvmMain | androidMain | Checked |
 |---|---|---|---|
+| `ArchiveCrypto` | `JvmArchiveCrypto` | `AndroidArchiveCrypto` | checked |
 | `BackgroundWorkScheduler` | `JvmBackgroundWorkScheduler` | `AndroidBackgroundWorkScheduler` | checked |
 | `BackupCodec` | `JvmBackupCodec` | `AndroidBackupCodec` | checked |
 | `CalendarAppQueries` | `JvmCalendarAppQueries` | `AndroidCalendarAppQueries` | checked |

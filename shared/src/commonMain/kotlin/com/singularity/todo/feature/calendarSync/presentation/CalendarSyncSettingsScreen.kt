@@ -31,7 +31,6 @@ import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
 import com.singularity.todo.core.ui.text.SelectableText
-import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.feature.calendarSync.domain.model.CalendarSyncStatus
 import com.singularity.todo.feature.calendarSync.domain.model.GoogleCalendarSummary
 import com.singularity.todo.feature.calendarSync.permission.rememberCalendarPermissionRequester
@@ -427,7 +426,7 @@ private fun GoogleClientIdSection(state: CalendarSyncUiState, onIntent: (Calenda
     // is a *draft* until the button says otherwise, so a keystroke never writes
     // to the keystore; only the save does.
     val clientIdState = rememberBridgedTextFieldState(
-        source = StaticText(state.googleClientId.orEmpty()),
+        source = state.googleClientIdSource,
         onTextChanged = { onIntent(SetGoogleClientId(it)) },
     )
     SettingsSection(title = "Google Cloud client id") {

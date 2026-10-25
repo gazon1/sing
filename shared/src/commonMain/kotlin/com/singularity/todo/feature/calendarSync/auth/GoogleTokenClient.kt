@@ -79,6 +79,10 @@ interface GoogleTokenExchange {
  * one can therefore still cancel a grant, which matters at the moment the grant is
  * cancelled: a person who removed the client id before pressing "Disconnect" must still
  * be able to revoke what the app gave them.
+ *
+ * @param clientId the OAuth client id the sign-in registered, or null when none is
+ *   configured. A null is not "the empty client id": the calls that need one refuse
+ *   with a message that says what is missing, and the revoke goes on without it.
  */
 class GoogleTokenClient(
     private val httpClient: HttpClient = createHttpClient(),

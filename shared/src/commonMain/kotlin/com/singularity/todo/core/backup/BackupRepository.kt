@@ -47,18 +47,30 @@ interface BackupRepository {
     suspend fun delete(backupId: BackupId): Result<Unit>
 
     /**
-     * Pushes a local backup to remote storage.
-     * Returns the remote reference (URL or path) on success.
+     * Pushes a local backup to remote storage, encrypted under [password].
+     *
+     * What lands in the bucket is ciphertext: the archive is sealed on the device
+     * and the key is the person's password, which the server never sees.
+     *
+     * The call **consumes** the password: the array is wiped before it returns, so
+     * a failure does not leave the secret lying in memory for the next attempt.
+     * A person who has to try again types it again.
+     *
+     * @return the remote reference (URL or path) on success.
      */
-    suspend fun push(backupId: BackupId): Result<String>
+    suspend fun push(backupId: BackupId, password: CharArray): Result<String>
 
     /**
-     * Pulls a backup from remote storage to `destPath`.
+     * Pulls a backup from remote storage to `destPath`, opening it under [password].
+     *
+     * The password is consumed the way [push] consumes it.
+     *
      * The caller is responsible for importing it via [import].
      */
     suspend fun pull(
         remoteRef: String,
         destPath: String,
+        password: CharArray,
     ): Result<Unit>
 
     /**
@@ -76,8 +88,11 @@ interface BackupRepository {
      * repository owns that directory — a caller that named the destination could aim
      * the download anywhere — and the two steps belong together: an archive that was
      * downloaded and not imported is a file nobody asked for.
+     *
+     * The archive is encrypted in the bucket and is opened here, under [password].
+     * The password is consumed the way [push] consumes it.
      */
-    suspend fun restoreFromCloud(remoteRef: String): Result<RestoreResult>
+    suspend fun restoreFromCloud(remoteRef: String, password: CharArray): Result<RestoreResult>
 }
 
 class BackupRepositoryImpl(
@@ -142,25 +157,43 @@ class BackupRepositoryImpl(
             }
         }
 
-    override suspend fun push(backupId: BackupId): Result<String> =
-        runCatchingCancellable {
-            val backup =
-                scanBackups().find { it.id == backupId }
-                    ?: throw BackupError.FileNotFound(backupId.value)
-            remoteService.upload(backup.path, currentUser.scopedUserId.value).getOrThrow()
+    override suspend fun push(backupId: BackupId, password: CharArray): Result<String> =
+        try {
+            runCatchingCancellable {
+                val backup =
+                    scanBackups().find { it.id == backupId }
+                        ?: throw BackupError.FileNotFound(backupId.value)
+                remoteService
+                    .upload(backup.path, currentUser.scopedUserId.value, password)
+                    .getOrThrow()
+            }
+        } finally {
+            // The secret leaves with the call, whatever the call answered. The
+            // service wipes it too — this is the path that never reaches the
+            // service, the archive was not there to be encrypted.
+            password.fill('\u0000')
         }
 
     override suspend fun pull(
         remoteRef: String,
         destPath: String,
-    ): Result<Unit> = remoteService.download(remoteRef, destPath, currentUser.scopedUserId.value)
+        password: CharArray,
+    ): Result<Unit> =
+        try {
+            remoteService.download(remoteRef, destPath, currentUser.scopedUserId.value, password)
+        } finally {
+            password.fill('\u0000')
+        }
 
     override suspend fun listRemote(): Result<List<RemoteBackup>> =
         runCatchingCancellable {
             remoteService.list(currentUser.scopedUserId.value).getOrThrow().map { stored ->
                 RemoteBackup(
                     ref = stored.path,
-                    name = stored.path.substringAfterLast('/'),
+                    // The name the person reads is the archive's own name, not the
+                    // bucket's: the object carries the `.enc` that says it is
+                    // sealed, and that is the archive's business, not theirs.
+                    name = RemoteBackupService.localFileName(stored.path),
                     updatedAtEpochMillis = stored.updatedAtEpochMillis,
                     sizeBytes = stored.sizeBytes,
                 )
@@ -168,30 +201,38 @@ class BackupRepositoryImpl(
         }
 
     @Suppress("TooGenericExceptionCaught")
-    override suspend fun restoreFromCloud(remoteRef: String): Result<RestoreResult> =
-        runCatchingCancellable {
-            // The name comes from the ref, and only the name: a ref is reduced to its
-            // last segment, so the download cannot aim outside the backup directory
-            // and cannot write a file under a name the bucket made up.
-            val fileName = remoteRef.substringAfterLast('/')
-            fs.ensureDir(backupDir)
-            val destPath = resolveBackupDestination(backupDir, fileName)
-            remoteService.download(remoteRef, destPath, currentUser.scopedUserId.value).getOrThrow()
-            try {
-                importer.import(
-                    ImportOptions(
-                        sourcePath = destPath,
-                        targetUserId = currentUser.scopedUserId.value,
-                    ),
-                ).getOrThrow()
-            } catch (error: Exception) {
-                // The archive was fetched and could not be read: a file nobody asked
-                // for, and it would sit in the list of the backups this person can
-                // restore from as if it were one of theirs. It goes away with the
-                // failure that brought it.
-                runCatchingCancellable { fs.delete(destPath) }
-                throw error
+    override suspend fun restoreFromCloud(remoteRef: String, password: CharArray): Result<RestoreResult> =
+        try {
+            runCatchingCancellable {
+                // The name comes from the ref, and only the name: a ref is reduced to its
+                // last segment, so the download cannot aim outside the backup directory
+                // and cannot write a file under a name the bucket made up. The suffix
+                // that says "this is sealed" is dropped — the file that lands here is
+                // the archive again, and the importer wants a zip.
+                val fileName = RemoteBackupService.localFileName(remoteRef)
+                fs.ensureDir(backupDir)
+                val destPath = resolveBackupDestination(backupDir, fileName)
+                remoteService
+                    .download(remoteRef, destPath, currentUser.scopedUserId.value, password)
+                    .getOrThrow()
+                try {
+                    importer.import(
+                        ImportOptions(
+                            sourcePath = destPath,
+                            targetUserId = currentUser.scopedUserId.value,
+                        ),
+                    ).getOrThrow()
+                } catch (error: Exception) {
+                    // The archive was fetched and could not be read: a file nobody asked
+                    // for, and it would sit in the list of the backups this person can
+                    // restore from as if it were one of theirs. It goes away with the
+                    // failure that brought it.
+                    runCatchingCancellable { fs.delete(destPath) }
+                    throw error
+                }
             }
+        } finally {
+            password.fill('\u0000')
         }
 }
 

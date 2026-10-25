@@ -36,7 +36,9 @@ import com.singularity.todo.core.observability.ToolCallRecorder
 import com.singularity.todo.core.platform.HostEnvironmentPort
 import com.singularity.todo.core.platform.haptics.AndroidHaptic
 import com.singularity.todo.core.platform.haptics.Haptic
+import com.singularity.todo.core.security.AndroidArchiveCrypto
 import com.singularity.todo.core.security.AndroidSecureStorage
+import com.singularity.todo.core.security.ArchiveCrypto
 import com.singularity.todo.core.security.SecureStoragePort
 import com.singularity.todo.core.settings.SettingsDataStoreMigration
 import com.singularity.todo.core.sync.AndroidSyncPeriodicTrigger
@@ -164,6 +166,11 @@ actual fun platformModule(): Module = module {
     // ─── Platform Ports (registered early — needed by koinBridge migrations) ────
 
     single<SecureStoragePort> { AndroidSecureStorage(get()) }
+
+    // The cryptography of the encrypted backup archive: the same JDK providers the
+    // desktop uses, so an archive written by one is read by the other — see
+    // `ArchiveCrypto`.
+    single<ArchiveCrypto> { AndroidArchiveCrypto() }
 
     // ─── DataStore (split: user settings + state) ─────────────────────────
 

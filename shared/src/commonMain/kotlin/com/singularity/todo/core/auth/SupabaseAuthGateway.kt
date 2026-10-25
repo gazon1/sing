@@ -6,8 +6,11 @@ import com.singularity.todo.core.error.runCatchingCancellable
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.OtpType
 import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.exception.AuthErrorCode
+import io.github.jan.supabase.auth.exception.AuthRestException
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.providers.builtin.OTP
+import io.github.jan.supabase.exceptions.RestException
 import kotlinx.coroutines.CancellationException
 
 /**
@@ -15,6 +18,14 @@ import kotlinx.coroutines.CancellationException
  *
  * **A vendor seam.** The third and last of them, alongside
  * `SupabaseClientProvider` and `PostgrestSyncRpc`.
+ *
+ * ## What this file holds, and what it does not
+ *
+ * This is the seam: the vendor's plugin, the calls, and the vendor's own vocabulary
+ * read where only the vendor's vocabulary can be read. The messages, the codes and
+ * the rules — what "no session" means, and what a failed refresh does to the
+ * session — live in [AuthFailure], where they can be read and checked without the
+ * SDK.
  *
  * ## Why every call reads the session back instead of trusting the return value
  *
@@ -38,11 +49,7 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
      * is the honest shape, and it is why this class takes the provider rather than
      * the plugin.
      */
-    private suspend fun auth(): Auth = clients.client()?.auth
-        ?: throw AppError.Validation(
-            "No Supabase project is configured, so there is nothing to sign in to.",
-            code = "auth.not_configured",
-        )
+    private suspend fun auth(): Auth = clients.client()?.auth ?: throw AuthFailure.notConfigured()
 
     override suspend fun signUp(email: String, password: String): Result<RemoteSession> = call("sign up") {
         val auth = auth()
@@ -93,10 +100,8 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
             when (result) {
                 is io.github.jan.supabase.auth.OtpVerifyResult.Authenticated -> result.session.toRemote()
 
-                is io.github.jan.supabase.auth.OtpVerifyResult.VerifiedNoSession -> throw AppError.Unauthorized(
-                    "Magic link verified but no session was issued",
-                    code = "auth.no_session",
-                )
+                is io.github.jan.supabase.auth.OtpVerifyResult.VerifiedNoSession ->
+                    throw AuthFailure.verifiedWithoutSession()
             }
         }.onFailure { e ->
             if (e !is CancellationException) {
@@ -112,17 +117,42 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
         Unit
     }
 
+    /**
+     * Refreshes the session, or says that the session is gone.
+     *
+     * ## The two answers
+     *
+     * A rejected refresh token is the *answer*: the session cannot be recovered, and
+     * the repository has to hear it so it can clear its credentials. Everything else
+     * is a failure of the request, not a verdict on the token, and it is reported as
+     * one — the stored session stays, and the next attempt tries again.
+     *
+     * The earlier version swallowed every failure and answered "the session is gone"
+     * for all of them, which is the opposite of what the repository's contract says
+     * (REQ-UA-003): a person on a train was signed out by a timeout, and a person
+     * whose token was genuinely rejected kept a session that every later call
+     * answered with a 401.
+     */
+    @Suppress("TooGenericExceptionCaught")
     override suspend fun refresh(
         accessToken: String,
         refreshToken: String,
-    ): Result<RemoteSession?> = call("token refresh") {
+    ): Result<RemoteSession?> = runCatchingCancellable {
         val auth = auth()
-        // A rejected refresh token is the answer, not an error to propagate: it is
-        // how the repository learns the session is unrecoverable. Everything else
-        // still throws, because a timeout is worth retrying and a rejection is not.
-        runCatchingCancellable { auth.refreshSession(refreshToken) }
-            .getOrNull()
-            ?.toRemote()
+        try {
+            auth.refreshSession(refreshToken).toRemote()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Throwable) {
+            when (AuthFailure.refreshOutcome(failure.refreshFailureReason())) {
+                RefreshOutcome.SessionIsGone -> null
+                RefreshOutcome.KeepSession -> throw failure
+            }
+        }
+    }.onFailure { e ->
+        if (e !is CancellationException) {
+            log.w(e) { "Auth token refresh failed" }
+        }
     }
 
     /**
@@ -134,15 +164,32 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
      */
     private suspend fun <T> call(what: String, block: suspend () -> T?): Result<T> =
         runCatchingCancellable {
-            block() ?: throw AppError.Unauthorized(
-                "The identity provider accepted '$what' but left no session behind",
-                code = "auth.no_session",
-            )
+            block() ?: throw AuthFailure.noSession(what)
         }.onFailure { e ->
             if (e !is CancellationException) {
                 log.w(e) { "Auth $what failed" }
             }
         }
+
+    /**
+     * The vendor's answer, read as the project's question.
+     *
+     * The SDK says "the refresh token is not there" in its own words; the project
+     * asks "is the session still recoverable?". Only the SDK's vocabulary can answer
+     * the first, and only the project can say what the answer means.
+     */
+    private fun Throwable.refreshFailureReason(): RefreshFailureReason {
+        val rest = this as? RestException ?: return RefreshFailureReason.Transient
+        val code = (this as? AuthRestException)?.errorCode
+        // The refresh endpoint answers 400 for a token it will not accept, and for
+        // nothing else. That is the fallback for the answer that arrives without the
+        // SDK's own error code.
+        return when {
+            code != null && code in REJECTED_REFRESH_CODES -> RefreshFailureReason.Rejected
+            rest.statusCode == HTTP_BAD_REQUEST -> RefreshFailureReason.Rejected
+            else -> RefreshFailureReason.Transient
+        }
+    }
 
     /**
      * Maps the provider's session onto [RemoteSession].
@@ -159,4 +206,16 @@ class SupabaseAuthGateway(private val clients: SupabaseClientProvider, private v
         refreshToken = refreshToken,
         isAnonymous = user?.isAnonymous ?: false,
     )
+
+    private companion object {
+        /** The codes GoTrue answers with when it will not accept the refresh token. */
+        val REJECTED_REFRESH_CODES = setOf(
+            AuthErrorCode.RefreshTokenNotFound,
+            AuthErrorCode.RefreshTokenAlreadyUsed,
+            AuthErrorCode.SessionNotFound,
+            AuthErrorCode.SessionExpired,
+        )
+
+        const val HTTP_BAD_REQUEST = 400
+    }
 }

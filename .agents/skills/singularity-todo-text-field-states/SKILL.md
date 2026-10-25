@@ -287,6 +287,8 @@ Paths are relative to `shared/src/commonMain/kotlin/com/singularity/todo/`.
 | `feature/auth/LoginScreen.kt` | local | the email and password fields |
 | `feature/auth/presentation/AttachAccountScreen.kt` | local | the email field |
 | `feature/auth/presentation/MagicLinkConfirmScreen.kt` | local | the code field |
+| `feature/backup/BackupScreen.kt` | local | the archive's password |
+| `feature/calendarSync/presentation/CalendarSyncSettingsScreen.kt` | bridged | the Google client id |
 | `feature/checklist/components/ChecklistEditorSheet.kt` | local | the item's text |
 | `feature/genui/render/material3/input/TextFieldRenderer.kt` | bridged | the GenUI input — the server can rewrite it (see the owned source) |
 | `feature/notes/components/InternalLinkPickerSheet.kt` | local | the link's text |
@@ -438,6 +440,7 @@ Paths are relative to `shared/src/commonMain/kotlin/com/singularity/todo/`.
 | `feature/ai/chat/ChatScreen.kt` | the chat input | `StaticText` | `feature/ai/chat/ChatViewModel.kt` | - | - |
 | `feature/attachments/annotation/AttachmentAnnotationPanel.kt` | the annotation draft (start, end, quote, note) | `StaticText` | `feature/attachments/annotation/AttachmentAnnotationViewModel.kt` | - | - |
 | `feature/genui/render/material3/input/TextFieldRenderer.kt` | the bound text field | `OwnedText` | `feature/genui/render/DefaultDataContext.kt` | `feature/genui/schema/DataModel.kt` | `feature/genui/schema/DataModel.kt` |
+| `feature/calendarSync/presentation/CalendarSyncSettingsScreen.kt` | the Google client id | `StaticText` | `feature/calendarSync/presentation/CalendarSyncViewModel.kt` | - | - |
 | `feature/notes/presentation/screen/NoteEditorScreen.kt` | the note's title | `OwnedText` | `feature/notes/Ids.kt` | `feature/notes/Ids.kt` | `feature/notes/presentation/viewmodel/NoteEditor.kt` |
 | `feature/notes/presentation/screen/NoteEditorScreen.kt` | the note's body | `OwnedText` | `feature/notes/Ids.kt` | `feature/notes/Ids.kt` | `feature/notes/presentation/viewmodel/NoteEditor.kt` |
 | `feature/notes/presentation/screen/NotesListScreen.kt` | the notes search query | `StaticText` | `feature/notes/Ids.kt` | - | - |

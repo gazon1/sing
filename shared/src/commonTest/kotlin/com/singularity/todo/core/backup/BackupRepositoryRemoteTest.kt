@@ -49,13 +49,14 @@ class BackupRepositoryRemoteTest {
         /** The refs the download was asked for, in order. */
         val downloadedRefs = mutableListOf<String>()
 
-        override suspend fun upload(localPath: String, userId: UserId): Result<String> =
+        override suspend fun upload(localPath: String, userId: UserId, password: CharArray): Result<String> =
             Result.success("$userId/${localPath.substringAfterLast('/')}")
 
         override suspend fun download(
             remoteRef: String,
             destPath: String,
             userId: UserId,
+            password: CharArray,
         ): Result<Unit> {
             downloadedRefs += remoteRef
             downloadedTo += destPath
@@ -127,7 +128,7 @@ class BackupRepositoryRemoteTest {
         val remote = FakeRemoteBackupService(
             listed = listOf(
                 BucketObject(
-                    path = "u-1/singularity_backup_1.zip",
+                    path = "u-1/singularity_backup_1.zip${RemoteBackupService.ENCRYPTED_SUFFIX}",
                     updatedAtEpochMillis = 1_700_000_000_000,
                     sizeBytes = 4096,
                 ),
@@ -137,8 +138,16 @@ class BackupRepositoryRemoteTest {
         val result = repository(MapFileSystem(), remote, RecordingImporter()).listRemote()
 
         val backup = result.getOrThrow().single()
-        assertEquals("u-1/singularity_backup_1.zip", backup.ref, "the ref is what the download takes")
-        assertEquals("singularity_backup_1.zip", backup.name, "the name is what the person reads")
+        assertEquals(
+            "u-1/singularity_backup_1.zip${RemoteBackupService.ENCRYPTED_SUFFIX}",
+            backup.ref,
+            "the ref is what the download takes",
+        )
+        assertEquals(
+            "singularity_backup_1.zip",
+            backup.name,
+            "the name is what the person reads — the sealed suffix is the bucket's business",
+        )
         assertEquals(1_700_000_000_000, backup.updatedAtEpochMillis, "the bucket knows when it was written")
         assertEquals(4096, backup.sizeBytes, "the bucket knows how big it is")
     }
@@ -157,7 +166,7 @@ class BackupRepositoryRemoteTest {
         val importer = RecordingImporter()
 
         val result = repository(fs, remote, importer)
-            .restoreFromCloud("u-1/singularity_backup_1.zip")
+            .restoreFromCloud("u-1/singularity_backup_1.zip", "correct horse".toCharArray())
 
         assertTrue(result.isSuccess, "the restore must succeed: $result")
         assertEquals(listOf("$backupDir/singularity_backup_1.zip"), remote.downloadedTo)
@@ -178,12 +187,33 @@ class BackupRepositoryRemoteTest {
         val importer = RecordingImporter(failure = IllegalStateException("the archive is not a zip"))
 
         val result = repository(fs, remote, importer)
-            .restoreFromCloud("u-1/singularity_backup_1.zip")
+            .restoreFromCloud("u-1/singularity_backup_1.zip", "correct horse".toCharArray())
 
         assertTrue(result.isFailure, "a failed import must be reported: $result")
         assertFalse(
             fs.exists("$backupDir/singularity_backup_1.zip"),
             "the fetched archive must not be left behind",
+        )
+    }
+
+    /**
+     * The password does not survive the call — not even when the call failed early.
+     *
+     * The archive was not there to be encrypted, so the service never saw the
+     * password; the repository is the one that has to wipe it. A secret that
+     * survives a failed push is a secret that waits for the next attempt.
+     */
+    @Test
+    fun `the password is wiped even when the archive is not there`() = runTest {
+        val secret = "correct horse".toCharArray()
+
+        val result = repository(MapFileSystem(), FakeRemoteBackupService(), RecordingImporter())
+            .push(BackupId("b-1"), secret)
+
+        assertTrue(result.isFailure, "there is no archive to push: $result")
+        assertTrue(
+            secret.all { it == '\u0000' },
+            "the password must not survive the call: ${secret.concatToString()}",
         )
     }
 
@@ -200,7 +230,7 @@ class BackupRepositoryRemoteTest {
         val importer = RecordingImporter()
 
         val result = repository(MapFileSystem(), remote, importer)
-            .restoreFromCloud("u-1/singularity_backup_1.zip")
+            .restoreFromCloud("u-1/singularity_backup_1.zip", "correct horse".toCharArray())
 
         assertTrue(result.isFailure, "a failed download must be reported: $result")
         assertTrue(importer.importedFrom.isEmpty(), "nothing may be imported without the archive")

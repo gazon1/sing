@@ -49,7 +49,10 @@ interface BackupBucket {
  *
  * @param path the object's path in the bucket — the reference a download takes.
  * @param updatedAtEpochMillis when the object was last written, or null when the
- *   bucket does not say.
+ *   bucket does not say. A bucket may answer a listing without the metadata of
+ *   every object, and "unknown" is what null means — not zero, and not the epoch.
+ *   The list leaves the line out rather than showing a date that never was.
  * @param sizeBytes how large the object is, or null when the bucket does not say.
+ *   The same holds here: an unknown size is not a size of zero.
  */
 data class BucketObject(val path: String, val updatedAtEpochMillis: Long?, val sizeBytes: Long?)
