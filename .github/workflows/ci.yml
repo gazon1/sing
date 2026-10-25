@@ -808,6 +808,15 @@ jobs:
           with-yaml-lint: 'false'
           with-action-lint: 'false'
 
+      # Deno, for the same reason the static and meta jobs install it: the
+      # wiring check below runs every registered gate's control, and the Edge
+      # Function's own tests are one of them — `deno test` on a fixture. The
+      # control cannot run without the binary, and a control that cannot run
+      # proves nothing: it dies with FileNotFoundError before it ever says
+      # whether the gate can fail.
+      - name: Set up Deno
+        run: npm install -g deno@2.9.5
+
       # A fresh checkout runs every test task, so results older than this stamp
       # cannot belong to this run.
       - name: Stamp run start
