@@ -1,0 +1,20 @@
+schema: spec-driven
+
+# The requirement this change delivers already exists and does not move.
+#
+# REQ-EXTAG-007 — "refuse to begin a second turn while one is in progress, and say why" —
+# is written in the in-flight change `acp-external-agent-desktop` (its spec delta at
+# `specs/ai/external-agent/spec.md`). That requirement was right when it was written; the
+# code simply never delivered its second half to a person using the screen, because the
+# screen disabled the input for the duration of a turn.
+#
+# So there is no requirement to add, modify or remove here: the capability is not yet folded
+# into `openspec/specs/` (the external-agent change is still open), and re-stating its
+# requirement in a second delta would either duplicate the id or collide with that change when
+# it archives. The change is a *fix* that makes the existing requirement reachable, which is
+# why it carries a proposal, tasks and a review verdict and no spec delta.
+#
+# Invariant: if this change ever needs to alter the requirement's own words — as opposed to
+# making them true — delete `skip_specs` and write the delta in the change that owns the
+# capability, not this one.
+skip_specs: true

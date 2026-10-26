@@ -28,6 +28,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -220,6 +221,12 @@ class AcpExternalAgentViewModelTest {
             kotlinx.coroutines.awaitCancellation()
         }
         val ctx = viewModel(session)
+        val errors = mutableListOf<AcpExternalAgentViewModel.UiEvent.Error>()
+        backgroundScope.launch {
+            ctx.vm.events.collect { event ->
+                if (event is AcpExternalAgentViewModel.UiEvent.Error) errors += event
+            }
+        }
 
         connect(ctx)
         send(ctx)
@@ -230,6 +237,14 @@ class AcpExternalAgentViewModelTest {
         runCurrent()
 
         assertEquals(1, session.prompts.size, "the second message was not sent")
+        // The refusal is a message, not a silence (REQ-EXTAG-007): the reader pressed Send and
+        // must be told why nothing happened, so that "nothing happened" is not what reaches them.
+        val refusal = errors.singleOrNull()
+        assertNotNull(refusal, "the reader is told the second turn was refused")
+        assertTrue(
+            refusal.message.contains("already running", ignoreCase = true),
+            "and the message says a turn is running: ${refusal.message}",
+        )
 
         // The turn is still running; the session is closed, so the test does not leave
         // a coroutine behind for the harness to wait for.
