@@ -24,6 +24,9 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
+import kotlin.test.assertNull
 
 /**
  * Tests for [PullPhase] — the pull half of the sync cycle.
@@ -59,6 +62,7 @@ class PullPhaseTest {
         stateRepo: FakeSyncStateRepository = FakeSyncStateRepository(),
         scopeProvider: FakeSyncScopeProvider = FakeSyncScopeProvider(testScopeObj),
         taskRepo: FakeTaskRepository = FakeTaskRepository(),
+        shadow: FakeSyncShadowDao? = null,
     ): Pair<PullPhase, AutoCloseableCoroutineScope> {
         val writer = fakeSyncDocumentWriter(tasks = taskRepo)
         val state = SyncEngineState(log, NoOpCrashReportingPort())
@@ -95,6 +99,7 @@ class PullPhaseTest {
                 getHandlers = { handlers },
                 scope = phaseScope,
                 hlcFactory = FakeHlcFactory(),
+                shadowDao = shadow,
             )
         return p to phaseScope
     }
@@ -538,5 +543,68 @@ class PullPhaseTest {
             assertEquals(2, ok.value.applied)
             assertEquals(0, ok.value.dropped)
             assertEquals(20L, stateRepo.lastLsn(testScopeObj))
+        }
+
+    // ─── Shadow refresh on pull ─────────────────────────────────────────────
+
+    @Test
+    fun `a successful pull refreshes an existing shadow's confirmedJson`() =
+        runTest {
+            val shadow = FakeSyncShadowDao()
+            shadow.upsert(
+                SyncShadowEntity(
+                    ownerId = testScopeObj.ownerId,
+                    profileId = testScopeObj.profileId,
+                    entityType = DocType.Task.key,
+                    entityId = "e-10",
+                    confirmedJson = """{"id":"e-10","title":"old"}""",
+                    inFlightJson = """{"id":"e-10","title":"in-flight"}""",
+                    inFlightPatchId = "p1",
+                ),
+            )
+            val events = listOf(taskEvent(10, entityId = "e-10"))
+            val api = FakeSyncApiClient(pullEvents = events)
+            val stateRepo = FakeSyncStateRepository()
+            val (p, phaseScope) = phase(api = api, stateRepo = stateRepo, shadow = shadow)
+
+            val result = p.pull(testScopeObj, sinceLsn = 0)
+            advanceUntilIdle()
+            phaseScope.close()
+
+            assertIs<PhaseResult.Ok<PullSummary>>(result)
+            val row = shadow.state(testScopeObj.ownerId, testScopeObj.profileId, DocType.Task.key, "e-10")!!
+            assertTrue(
+                row.confirmedJson.contains("title"),
+                "confirmedJson should reflect the pulled document",
+            )
+            assertEquals(
+                """{"id":"e-10","title":"in-flight"}""",
+                row.inFlightJson,
+                "in-flight marker must be preserved",
+            )
+            assertEquals(
+                "p1",
+                row.inFlightPatchId,
+                "in-flight patch id must be preserved",
+            )
+        }
+
+    @Test
+    fun `a successful pull inserts a shadow when none exists`() =
+        runTest {
+            val shadow = FakeSyncShadowDao()
+            val events = listOf(taskEvent(10, entityId = "e-10"))
+            val api = FakeSyncApiClient(pullEvents = events)
+            val stateRepo = FakeSyncStateRepository()
+            val (p, phaseScope) = phase(api = api, stateRepo = stateRepo, shadow = shadow)
+
+            val result = p.pull(testScopeObj, sinceLsn = 0)
+            advanceUntilIdle()
+            phaseScope.close()
+
+            assertIs<PhaseResult.Ok<PullSummary>>(result)
+            val row = shadow.state(testScopeObj.ownerId, testScopeObj.profileId, DocType.Task.key, "e-10")
+            assertNotNull(row, "a shadow should be created on pull")
+            assertNull(row!!.inFlightJson, "no in-flight state for a freshly pulled entity")
         }
 }

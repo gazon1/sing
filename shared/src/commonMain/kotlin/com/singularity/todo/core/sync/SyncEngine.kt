@@ -349,6 +349,7 @@ internal class SyncEngine(
             getHandlers = { handlerRegistry.handlers },
             scope = scope,
             hlcFactory = hlcFactory,
+            shadowDao = shadowDao,
         ),
 ) : AutoCloseable {
     private class CompositeCloseable(
