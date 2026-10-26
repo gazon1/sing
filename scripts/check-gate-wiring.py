@@ -663,7 +663,7 @@ SABOTAGE_ONLY_GATES = [
     # rows the migrations hold for the server's table agree with the derived
     # list (the reader half). The registry control for the gate proves the
     # first; the reader is the half that has to know forty spellings of a row,
-    # and every hole twenty-four review rounds found lived there. So the reader
+    # and every hole twenty-nine review rounds found lived there. So the reader
     # gets a control of its own: a row in the server's own migration that no
     # model declares, which the gate must name.
     ScriptGate(

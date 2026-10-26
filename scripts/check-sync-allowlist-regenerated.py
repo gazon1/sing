@@ -177,7 +177,7 @@ What a row is written as is not what it is: an insert written as text inside
 a string — dynamic SQL, run by the migration when it applies — is a row the
 file holds, and the reader reads the string to find it.
 
-Twenty-four review rounds found such a hole in every one of them, and every hole
+Twenty-nine review rounds found such a hole in every one of them, and every hole
 was a row the reader dropped in silence. A dropped row is a field nobody
 sends, which is the direction this gate exists for. So the rule is the other
 way round: what the reader does not understand is a failure with a name on

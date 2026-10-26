@@ -20,7 +20,7 @@ same way however it was written — the columns in any order, the flag as `true`
 `'t'`, as `'yes'`, as `TRUE::boolean`, the name as `'task'`, as `'task'::text`, as `$$task$$`.
 
 What the reader cannot read, it REPORTS. It does not pass over it: a row it did not see is
-a field nobody sends, which is the direction the gate exists for. Twenty-four review rounds
+a field nobody sends, which is the direction the gate exists for. Twenty-nine review rounds
 found such a hole in every one of them, and every hole was a row the reader dropped
 in silence.
 
