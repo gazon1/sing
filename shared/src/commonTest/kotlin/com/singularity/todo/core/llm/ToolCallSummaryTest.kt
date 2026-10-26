@@ -11,9 +11,9 @@ import kotlin.test.assertTrue
 /**
  * What a card is allowed to quote.
  *
- * The rule under test is the one that keeps the user's content off a screen that was about
- * to be shared: a summary names the fields and quotes the values that are too short to be
- * prose, and replaces everything else with an ellipsis.
+ * The rule under test is the one that keeps the user's content off a screen that was about to
+ * be shared: a summary names the fields, quotes a value only when its field identifies and the
+ * value is short and single-line, and replaces every other value with an ellipsis.
  */
 @Tag("fast")
 class ToolCallSummaryTest {
@@ -79,9 +79,20 @@ class ToolCallSummaryTest {
 
     @Test
     fun aValueSpanningLinesIsNotQuoted() {
-        val summary = toolCallSummary("update_note", """{"body":"first line\nsecond line"}""")
+        // An identifying field, so this exercises the multi-line rule and not the field rule.
+        val summary = toolCallSummary("update_task", """{"title":"first line\nsecond line"}""")
 
         assertTrue(!summary.contains("first line"), "A document is not a label: $summary")
+        assertTrue(summary.contains("title=…"), summary)
+    }
+
+    @Test
+    fun anIdentifyingValuePastTheLimitIsNotQuoted() {
+        // Also an identifying field, so this exercises the length rule itself.
+        val summary = toolCallSummary("update_task", """{"title":"${"x".repeat(61)}"}""")
+
+        assertTrue(!summary.contains("xxx"), "Past the limit is a document: $summary")
+        assertTrue(summary.contains("title=…"), summary)
     }
 
     @Test

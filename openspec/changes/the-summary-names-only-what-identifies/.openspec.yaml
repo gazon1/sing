@@ -10,7 +10,7 @@ schema: spec-driven
 #
 # `openspec/specs/` does not carry this capability (the external-agent change that owns it is
 # still open), so a delta here would duplicate or collide. `skip_specs` is therefore set; the
-# change still carries a proposal, tasks and a verdict.
+# change still carries a proposal and tasks here, and a verdict in `.specify/reviews/`.
 #
 # Invariant: if this change ever needs an openspec-level requirement of its own — a capability
 # that exists in `openspec/specs/` — delete `skip_specs` and write the delta instead of

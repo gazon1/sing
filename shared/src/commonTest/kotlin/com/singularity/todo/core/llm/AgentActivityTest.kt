@@ -112,8 +112,8 @@ class AgentActivityTest {
     /**
      * A value that is too long to be a label is not quoted.
      *
-     * A note body of a hundred characters is short enough to fit in a card and long enough to
-     * be the user's content, so it is replaced by an ellipsis rather than shown.
+     * A note body of five hundred characters is short enough to fit in a card and long enough
+     * to be the user's content, so it is replaced by an ellipsis rather than shown.
      */
     @Test
     fun aValueThatIsTooLongToBeALabelIsNotQuoted() {

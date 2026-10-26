@@ -37,26 +37,30 @@ private val summaryJson = Json { ignoreUnknownKeys = true }
  * free-text argument cannot leak by being short; it has to be added here, where a reviewer
  * sees it, and the reason it is identifying written next to it.
  *
- * ## Why numbers and flags need no entry
+ * ## Why numbers and flags have no entry
  *
  * A JSON number or boolean is not free text, whatever its field is called: it cannot carry a
- * paragraph. Those are quoted by the value rule alone (see [describe]).
+ * paragraph. [describe] quotes those by the value rule alone, before this list is consulted,
+ * so a boolean or a number in this list would be an entry nothing reads.
+ *
+ * The list is maintained by hand against the `*Input` models under `feature/ai/tools/`. It has
+ * to be re-derived when a tool gains a string argument: a new free-text argument is elided by
+ * default, and a new identifying one has to be added here.
  */
 private val IDENTIFYING_FIELDS: Set<String> = setOf(
     // Identifiers: the name of a row, which is all a card needs to say what was touched.
     "id", "taskId", "noteId", "projectId", "tagId", "tagGroupId", "parentId", "parentNoteId",
-    "itemId", "attachmentId", "seriesId", "proposalId", "callId", "userId", "profileId",
-    "dependsOnTaskId", "dependsOn",
+    "parentTaskId", "itemId", "attachmentId", "seriesId", "proposalId", "callId", "userId",
+    "profileId", "dependsOnTaskId", "dependsOn", "supersededBy",
     // Titles and names: the label of the thing, not its content.
-    "title", "name", "label", "slug",
-    // Categorical values: a kind, a state, a rank — one word from a closed set.
-    "kind", "status", "priority", "tone", "verb", "operation", "field", "mode",
-    // Dates, numbers and bounds.
+    "title", "name", "label", "slug", "icon", "projectName",
+    // Categorical values: one word from a closed set.
+    "kind", "status", "priority", "tone", "verb", "operation", "field", "mode", "scope",
+    // Dates.
     "dueDate", "dueTime", "startDate", "endDate", "startsAt", "endsAt", "date", "time",
-    "limit", "sortOrder", "color", "offset",
-    // Flags.
-    "isPinned", "isFolder", "isDefault", "isCompleted", "isPinnedToday", "someday",
-    "completed", "archived", "deleted", "recurring",
+    // A colour is a hex string in some tools and a number in others; the number is quoted by
+    // shape, the string needs its name here.
+    "colorHex",
 )
 
 /**
