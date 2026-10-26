@@ -31,8 +31,14 @@ sealed class McpToolError : Throwable() {
     /** User is not authorized to modify this resource. */
     data class Unauthorized(val resource: String) : McpToolError()
 
-    /** Unexpected programming or infrastructure error — logged, not surfaced to LLM. */
-    data class Internal(val text: String, val rootCause: Throwable? = null) : McpToolError()
+    /**
+     * Unexpected programming or infrastructure error — logged, not surfaced to the LLM.
+     *
+     * [code] is a stable identifier and never a message. An exception message can carry
+     * arguments, paths and server responses, and this error's text is read by the caller: the
+     * details belong in the log, where [cause] keeps them.
+     */
+    data class Internal(val code: String, override val cause: Throwable? = null) : McpToolError()
 }
 
 /** Human-readable representation of [McpToolError], safe to include in a tool response. */
@@ -41,5 +47,5 @@ fun McpToolError.format(): String = when (this) {
     is McpToolError.NotFound -> "[NotFound] $resource '$id' not found"
     is McpToolError.Conflict -> "[Conflict] $reason"
     is McpToolError.Unauthorized -> "[Unauthorized] Cannot modify $resource — belongs to another user"
-    is McpToolError.Internal -> "[InternalError] $text"
+    is McpToolError.Internal -> "[InternalError] $code"
 }

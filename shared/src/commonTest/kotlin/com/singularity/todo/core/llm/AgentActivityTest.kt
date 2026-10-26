@@ -5,6 +5,7 @@ package com.singularity.todo.core.llm
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -78,5 +79,53 @@ class AgentActivityTest {
 
         assertEquals(listOf("c1", "c2"), state.calls.map { it.id }, "The order the calls were made")
         assertEquals(ToolCallStatus.FAILED, state.calls.first().status, "And the first call's outcome")
+    }
+
+    /**
+     * The fourth invariant: a summary is a label, not a document.
+     *
+     * The summary is what a card shows about a tool call, and the card is a thing a
+     * reader may photograph. A summary that grew to the size of the payload would put
+     * the payload back on the screen — so the bound is part of the vocabulary, not a
+     * detail of one surface's rendering.
+     */
+    @Test
+    fun aSummaryIsLengthBounded() {
+        val value = "x".repeat(60)
+        val fields = (1..8).joinToString(",") { """"field$it":"$value"""" }
+
+        val summary = toolCallSummary(toolName = "create_task", argumentsJson = "{$fields}")
+
+        assertTrue(
+            summary.length <= TOOL_CALL_SUMMARY_MAX_LENGTH,
+            "A summary is a label: ${summary.length} characters is a document, not a summary",
+        )
+        assertTrue(
+            summary.endsWith("…"),
+            "And the cut is visible, so a reader knows the summary was shortened: $summary",
+        )
+    }
+
+    /**
+     * A value that is too long to be a label is not quoted.
+     *
+     * The rule is a bound on the value, not on the summary alone: a note body of a
+     * hundred characters is short enough to fit in a card and long enough to be the
+     * user's content, so it is replaced by an ellipsis rather than shown.
+     */
+    @Test
+    fun aValueThatIsTooLongToBeALabelIsNotQuoted() {
+        val body = "x".repeat(500)
+
+        val summary = toolCallSummary(toolName = "update_note", argumentsJson = """{"body":"$body"}""")
+
+        assertFalse(
+            summary.contains(body),
+            "The note body is not in the summary: $summary",
+        )
+        assertTrue(
+            summary.contains("body=…"),
+            "The field is named and its value is elided: $summary",
+        )
     }
 }

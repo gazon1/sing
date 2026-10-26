@@ -28,7 +28,7 @@ Delivery order is A → B → C. A and B depend on nothing in this feature and a
 
 **Performance Goals**: no turn may leave the UI in a loading state; a permission request that receives no answer is resolved within 5 minutes (fail-closed); a closed session leaves no process of its tree behind; median time from "agent selected" to "first visible agent response" under 15 s.
 
-**Constraints**: the mobile build must not acquire any dependency on this feature · process spawning stays in the single file an architecture test allows · no pass-through use cases · no `stateIn` / `viewModelScope` / `runBlocking` in production · the tool server must not leak internal diagnostics in protocol responses · no auto-retry of a failed prompt or tool call.
+**Constraints**: the mobile build must not acquire any dependency on this feature · process spawning stays in the single file an architecture test allows · no pass-through use cases · no `stateIn` / `viewModelScope` / `runBlocking` in production (the bridge probe's `main()` is the one recorded exception) · the tool server must not leak internal diagnostics in protocol responses · no auto-retry of a failed prompt or tool call.
 
 **Scale/Scope**: 43 agent-facing tools, each to be classified; one new screen; one new port shape; 50 functional requirements.
 
@@ -43,7 +43,7 @@ Delivery order is A → B → C. A and B depend on nothing in this feature and a
 | III. Validate Early and Often | `singularity-adr validate` after ADR changes | PASS | Runs after the ADR is written, before tasks are closed. |
 | IV. Immutable Historical Record | Accepted ADRs are superseded, never edited | PASS | `docs/decisions/2026-09-18-profile-subsystem.md` already intends `--profile=<id>` routing; this work realises it and links rather than edits. |
 | V. CI Gates | ADR + openspec validation before merge | PASS | Both run; the branch is pushed without `--no-verify`. |
-| VI. MVI ViewModels | `StateFlow<SealedUiState>` + sealed Intent + injected scope; no `stateIn`, `viewModelScope`, `runBlocking` | PASS | The external-agent screen's ViewModel owns the session and the process tree through an injected `AutoCloseableCoroutineScope` registered with `addCloseable`. |
+| VI. MVI ViewModels | `StateFlow<SealedUiState>` + sealed Intent + injected scope; no `stateIn`, `viewModelScope`, `runBlocking` | PASS with a scoped exception | The external-agent screen's ViewModel owns the session and the process tree through an injected `AutoCloseableCoroutineScope` registered with `addCloseable`. **The one `runBlocking` in the feature is the bridge probe's `main()`** — a command-line diagnostic, not a ViewModel and not a request handler. The exception is recorded in the ADR `2026-10-23-acp-client-and-agent-activity` rather than left to look like an oversight. |
 | VII. Test Fakes | Fakes over mocks; virtual time | PASS | A fake ACP agent process and a fake agent that spawns a child replace every real agent in tests; no real clock or `delay(N)`. |
 | VIII. OpenSpec Workflow | Behavioural changes go through proposal → specs → adr → tasks | PASS with an obligation | Three openspec changes, one per part, each with an issue-registry record created immediately after the change exists. |
 
@@ -108,9 +108,10 @@ shared/src/jvmMain/kotlin/com/singularity/todo/
 │   └── FixedProfileRepository.kt      # NEW: profile fixed by argument, never DataStore
 ├── feature/ai/acp/
 │   ├── AcpClient.kt                   # NEW: the only file that touches the SDK
-│   ├── AcpClientSessionOperations.kt  # NEW: two methods — requestPermissions, notify (D-02)
+│   ├── AcpSessionUpdate.kt            # NEW: what the agent did, in the application's words
+│   ├── AcpPermission.kt               # NEW: the request, the decision, and the port the SDK is plugged into
 │   ├── AcpAgentProfile.kt             # NEW: registry of external agents (data)
-│   ├── AcpEventAdapter.kt             # NEW: session updates → activity vocabulary (D-07, D-08)
+│   ├── AcpEventAdapter.kt             # NEW: what the agent did → activity vocabulary (D-07, D-08)
 │   └── di/AcpDiModule.jvm.kt          # NEW: bindings, list-composed
 └── feature/ai/external/
     ├── AcpExternalAgentViewModel.kt   # NEW: MVI, owns session + process tree
@@ -131,13 +132,19 @@ scripts/
 
 **Structure decision**: the existing KMP layout is kept unchanged. The one structural rule this feature introduces is that **the ACP SDK is touched in exactly one file** (`AcpClient.kt`), so an SDK upgrade is a single-file diff; every adapter concern (event mapping, permissions, process ownership) sits in files that do not import the SDK. Part A touches existing files only — it adds no new surface.
 
+**How the rule is kept, in practice**: the door translates the protocol's own vocabulary into the application's (`AcpSessionUpdate`) and builds the protocol's client operations from the application's port (`AcpSessionPermissions`). Everything above the door — the adapter, the permission broker, the screen, the ViewModel, and their tests — is written in the application's vocabulary and never sees a protocol type. The translation is exhaustive over the protocol's variants, so a new SDK version breaks the build in the door and nowhere else.
+
+> **Amended after the convergence pass.** This rule was originally written while the code spread the SDK over three files: the client, the session operations and the event adapter. Two of the three implemented SDK interfaces and could not avoid the import, so the rule was contradicted by the code it described. The rule was right and the code was wrong, so the code was inverted to match it — see `docs/decisions/2026-10-25-the-sdk-lives-in-one-file.md`.
+
 ## Part sequencing and what each part proves
 
 | Part | Merged when | Proves |
 |---|---|---|
 | A | FR-001–FR-016 green; probe absent | The user's database survives an ambiguous startup probe; a second process cannot hijack the active profile; every tool says how it writes. |
-| B | FR-017–FR-027 green | The user sees every tool call and every terminal outcome; no turn ends spinning. |
+| B | FR-017–FR-027 green **and US1's baseline delivered** — the production turn goes through the activity stream, not a branch that draws no card | The user sees every tool call and every terminal outcome; no turn ends spinning. |
 | C | FR-028–FR-050 green, plus one real agent on a packaged build | A third-party agent works on the user's tasks, is supervised, and leaves nothing behind. |
+
+> **Amended after the convergence pass.** Part B's criterion was read as "every Phase 3 task is checked", and that reading let the part merge with US1's baseline missing: the built-in chat took the GenUI branch, which emits no `AgentEvent`, so no activity card was ever drawn — the criterion was satisfied by the checkboxes rather than by the behaviour. The criterion now names the behaviour, and the production path is covered by a test that drives the real wiring rather than a fake.
 
 ## Carry-forward from research
 

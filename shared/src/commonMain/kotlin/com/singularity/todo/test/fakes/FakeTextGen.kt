@@ -50,7 +50,8 @@ class FakeTextGen(
         return failureMessage?.let { Result.failure(RuntimeException(it)) } ?: Result.success(success)
     }
 
-    override fun streamChat(message: String): Flow<AgentEvent> = flow {
+    override fun streamChat(message: String, instructions: String): Flow<AgentEvent> = flow {
+        lastInstructions = instructions
         val scripted = events
         if (scripted != null) {
             scripted.forEach { emit(it) }
@@ -59,6 +60,15 @@ class FakeTextGen(
             emit(AgentEvent.TurnCompleted)
         }
     }
+
+    /**
+     * The instructions of the last call, so a test can see what the caller asked for.
+     *
+     * A chat turn tells the model what it may draw, and the whole point of the parameter is
+     * that the caller says so — so the fake remembers it.
+     */
+    var lastInstructions: String? = null
+        private set
 
     override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> = Result.success(emptyList())
 }

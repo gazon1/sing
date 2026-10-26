@@ -1,16 +1,18 @@
-package com.singularity.todo.feature.genui.engine
+package com.singularity.todo.feature.ai.chat
 
 import com.singularity.todo.arch.SourceScan
+import com.singularity.todo.core.llm.AgentEvent
+import com.singularity.todo.feature.ai.TextGenPort
 import com.singularity.todo.feature.genui.catalog.SingularityCatalog
 import com.singularity.todo.feature.genui.core.A2uiMessageProcessor
 import com.singularity.todo.feature.genui.core.A2uiParseOutcome
 import com.singularity.todo.feature.genui.core.A2uiValidator
 import com.singularity.todo.feature.genui.core.GenuiRejectionCounter
 import com.singularity.todo.feature.genui.core.GenuiUsageCounter
+import com.singularity.todo.feature.genui.engine.SurfaceTurn
 import com.singularity.todo.feature.genui.parser.A2uiParser
 import com.singularity.todo.feature.genui.surface.SurfaceController
 import com.singularity.todo.feature.genui.surface.SurfaceId
-import com.singularity.todo.feature.genui.transport.GenuiTransport
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.runTest
@@ -23,12 +25,12 @@ import kotlin.test.assertTrue
 /**
  * First-attempt validity, as a regression test rather than a live metric.
  *
- * Every other GenUI test replays a fixture the test itself wrote, so the layer proved it could
- * *accept* a surface and nothing about whether it produces one. Measuring that against a real
+ * Every other test replays a fixture the test itself wrote, so the layer proved it could
+ * *accept* a screen and nothing about whether it produces one. Measuring that against a real
  * provider needs a key and is not something a unit test can do.
  *
- * The shape that does work offline: a recorded response goes through the real session — real
- * parser, real validator, real correction loop — and the assertion is `attempts == 1`. A screen that
+ * The shape that does work offline: a recorded response goes through the real turn — real
+ * parser, real validator, real correction loop — and the assertion is `one call`. A screen that
  * starts needing a second try becomes a failing test rather than a metric somebody has to remember
  * to look at, and it fails in the ordinary test loop instead of after a provider bill.
  *
@@ -40,18 +42,21 @@ import kotlin.test.assertTrue
  */
 @Tag("slow")
 @Tag("slow:platform")
-class GenuiFirstAttemptReplayTest {
+class ChatTurnReplayTest {
 
     private val surface = SurfaceId("replay")
     private val controller = SurfaceController()
 
     /** One screen's recorded response, replayed and asserted to need no correction. */
     @Test
-    fun aRecordedAnswerStillNeedsOnlyOneAttempt() = runTest {
-        val outcome = session(transportReplaying(recording("task-list.jsonl"))).respond("show my tasks", surface)
+    fun aRecordedAnswerStillNeedsOnlyOneCall() = runTest {
+        val agent = replaying(recording("task-list.jsonl"))
+        val screen = screen()
 
-        assertEquals(1, outcome.attempts, "A recorded good answer needs no correction: ${outcome.feedback()}")
-        assertTrue(!outcome.failed, outcome.feedback())
+        ChatTurn(agent, screen, emptyList()).run("show my tasks").collect { }
+
+        assertEquals(1, agent.calls, "A recorded good answer needs no correction: ${screen.readerFeedback()}")
+        assertTrue(screen.rejections.isEmpty(), screen.readerFeedback())
         assertNotNull(controller.snapshot(surface), "And it draws a surface")
     }
 
@@ -89,47 +94,40 @@ class GenuiFirstAttemptReplayTest {
      *
      * The counterpart to the test above. When the catalog moves on, a stale recording must fail
      * loudly rather than assert nothing. The surface is still partly drawn — the correction loop
-     * leaves what it applied — so the assertion is on attempts and on the reason, not on the surface.
+     * leaves what it applied — so the assertion is on the number of calls and on the reason, not
+     * on the surface.
      */
     @Test
     fun anUnusableAnswerIsReportedRatherThanAcceptedQuietly() = runTest {
         val unknownKind = """{"createSurface":{"surfaceId":"s1","rootId":"r","components":[""" +
             """{"id":"r","kind":"sunburst_chart"}]}}"""
-        val outcome = session(transportReplaying(listOf(unknownKind))).respond("show my chart", surface)
+        val agent = replaying(listOf(unknownKind))
+        val screen = screen()
 
-        assertTrue(outcome.attempts >= 2, "An unusable answer is corrected, not taken")
+        ChatTurn(agent, screen, emptyList()).run("show my chart").collect { }
+
+        assertTrue(agent.calls >= 2, "An unusable answer is corrected, not taken")
         assertTrue(
-            outcome.feedback().contains("UNKNOWN_COMPONENT"),
-            "and the model is told why: ${outcome.feedback()}",
+            screen.readerFeedback().contains("UNKNOWN_COMPONENT"),
+            "and the model is told why: ${screen.readerFeedback()}",
         )
     }
 
     // ─── harness ───────────────────────────────────────────────────────────
 
     /**
-     * A transport that emits [responses] once and then nothing, so a second attempt is visible as
+     * A model that emits [responses] once and then nothing, so a second attempt is visible as
      * an empty answer rather than as an infinite replay of the same mistake.
      */
-    private fun transportReplaying(responses: List<String>): GenuiTransport = object : GenuiTransport {
-        var calls: Int = 0
-            private set
+    private fun replaying(responses: List<String>): ReplayingTextGen = object : ReplayingTextGen(responses) {}
 
-        override suspend fun send(prompt: String, systemPrompt: String): Flow<String> = flow {
-            val answer: List<String> = if (calls++ == 0) responses else emptyList()
-            // Each recorded line is terminated the way the wire terminates one. The corpus files do
-            // not end in a newline, and replaying them verbatim leaves the last message unterminated
-            // — which the framer correctly reports as a response cut off mid-message, and which has
-            // nothing to do with what is being measured.
-            answer.forEach { emit("$it\n") }
-        }
-    }
-
-    /** A real session over the real pipeline, with one shared controller. */
-    private fun session(transport: GenuiTransport): GenuiSession = GenuiSession(
-        transport = transport,
+    /** A real turn over the real pipeline, with one shared controller. */
+    private fun screen(): SurfaceTurn = SurfaceTurn(
+        id = surface,
         parser = A2uiParser(SingularityCatalog),
         processor = A2uiMessageProcessor(A2uiValidator(SingularityCatalog), controller),
         controller = controller,
+        catalog = SingularityCatalog,
         rejectionCounter = GenuiRejectionCounter(),
     )
 
@@ -146,4 +144,31 @@ class GenuiFirstAttemptReplayTest {
             .resolve("genui-corpus/$name")
             .readLines()
             .filter { it.isNotBlank() }
+}
+
+/**
+ * A model that replays recorded answers.
+ *
+ * Each recorded line is terminated the way the wire terminates one. The corpus files do not end in
+ * a newline, and replaying them verbatim leaves the last message unterminated — which the framer
+ * correctly reports as a response cut off mid-message, and which has nothing to do with what is
+ * being measured.
+ */
+private open class ReplayingTextGen(responses: List<String>) : TextGenPort {
+    var calls: Int = 0
+        private set
+
+    private val responses: List<String> = responses
+
+    override suspend fun generate(prompt: String, systemPrompt: String?, model: String?): Result<String> =
+        Result.success("unused")
+
+    override fun streamChat(message: String, instructions: String): Flow<AgentEvent> = flow {
+        val answer: List<String> = if (calls++ == 0) responses else emptyList()
+        answer.forEach { emit(AgentEvent.TextDelta("$it\n")) }
+        emit(AgentEvent.TurnCompleted)
+    }
+
+    override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> =
+        Result.success(emptyList())
 }

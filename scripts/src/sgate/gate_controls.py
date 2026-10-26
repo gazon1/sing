@@ -877,6 +877,22 @@ SCRIPT_GATES = [
             "state the project does not have — and the gate must say so."
         ),
     ),
+    # SC-011 promised an automated check that did not exist: the guarantee that the mobile build carries no external-agent code held only by nobody having moved a file yet
+    ScriptGate(
+        name="mobile-isolation",
+        cmd=[sys.executable, "scripts/check-mobile-isolation.py", "--check"],
+        why=(
+            'SC-011 promised an automated check that did not exist: the guarantee that the mobile build carries no external-agent code held only by nobody having moved a file yet'
+        ),
+    ),
+    # a traceability table is prose: a requirement can drop out of it, and a promised check can name a file nobody wrote, and neither fails anything
+    ScriptGate(
+        name="spec-requirement-traceability",
+        cmd=[sys.executable, "scripts/check-spec-requirement-traceability.py", "--check"],
+        why=(
+            'a traceability table is prose: a requirement can drop out of it, and a promised check can name a file nobody wrote, and neither fails anything'
+        ),
+    ),
 ]
 
 @dataclass(frozen=True)

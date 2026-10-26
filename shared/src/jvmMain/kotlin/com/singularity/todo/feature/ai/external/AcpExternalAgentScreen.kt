@@ -108,7 +108,7 @@ fun AcpExternalAgentScreenContent(
 
         when (val access = state.toolAccess) {
             is AcpToolAccess.Unavailable -> ToolAccessWarning(access.reason)
-            AcpToolAccess.Granted -> Unit
+            AcpToolAccess.Granted, AcpToolAccess.Unknown -> Unit
         }
 
         LazyColumn(
@@ -159,6 +159,10 @@ fun AcpExternalAgentScreenContent(
                 onDeny = { vm.onIntent(AcpExternalAgentViewModel.Intent.DenyPermission) },
             )
         }
+    }
+
+    state.permissionAnswer?.let { answer ->
+        PermissionAnswerLine(answer)
     }
 
     NotificationHost(
@@ -297,7 +301,8 @@ private fun AgentHeader(
             )
 
             is AcpConnection.Connected -> Text(
-                text = "Connected to ${connection.agentName}",
+                text = "Connected to ${connection.agentName} (protocol version ${connection.protocolVersion}); " +
+                    "tool server build ${connection.toolServerBuild}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.testTag(TestTags.ACP_CONNECTION_STATUS),
@@ -376,6 +381,27 @@ private fun TurnOutcomeLine(outcome: com.singularity.todo.core.llm.AgentTurnOutc
 
         is com.singularity.todo.core.llm.AgentTurnOutcome.Completed -> Unit
     }
+}
+
+/**
+ * What the reader decided about the last permission request.
+ *
+ * The sheet closes when the answer is given, and without this the decision leaves no trace
+ * at all: the reader allowed a tool once, and the screen afterwards shows nothing about
+ * it. The question is named next to the answer, because "allowed" only means something
+ * next to what was allowed.
+ */
+@Composable
+private fun PermissionAnswerLine(answer: AcpPermissionAnswer) {
+    val decided: String = when (answer.decision) {
+        is com.singularity.todo.feature.ai.acp.PermissionDecision.Selected -> "Allowed"
+        com.singularity.todo.feature.ai.acp.PermissionDecision.Declined -> "Declined"
+    }
+    Text(
+        text = "$decided: ${answer.request.title}",
+        style = MaterialTheme.typography.bodySmall,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    )
 }
 
 /**

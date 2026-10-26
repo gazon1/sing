@@ -105,6 +105,24 @@ requirements use SHALL/MUST, and that each has a scenario. It cannot tell you th
 matches the code. Reading the spec against the implementation is still your job at
 archive time.
 
+## Closing a task
+
+A task is closed when its acceptance scenario runs on the **production path** — the
+wiring the application actually uses, not a fake, a stub or a test-only seam
+(constitution IX). Three questions decide it:
+
+1. **Which path does the scenario drive?** If it drives a double, it proves the
+   double works. The behaviour a reader relies on is the behaviour of the assembled
+   graph and the branch that is actually taken.
+2. **Can the production path be reached at all?** If not, that is a finding about
+   the design: a path no scenario can reach does not deliver, and the task stays
+   open until it does. This is the finding that produced the rule — a user story
+   closed as delivered whose scenario ran only through a test double, while the
+   production wiring took a different branch and never delivered the promised
+   behaviour.
+3. **Would the scenario fail if the production path changed?** A check that passes
+   either way describes the behaviour; it does not check it.
+
 ## CLI reference
 
 ```bash

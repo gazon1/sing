@@ -2,12 +2,16 @@ package com.singularity.todo.feature.ai.external
 
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.mcp.ToolServerCommand
+import com.singularity.todo.core.version.appVersion
+import com.singularity.todo.feature.ai.acp.AcpAgentInfo
 import com.singularity.todo.feature.ai.acp.AcpAgentLaunch
 import com.singularity.todo.feature.ai.acp.AcpAgentLauncher
 import com.singularity.todo.feature.ai.acp.AcpAgentProfile
 import com.singularity.todo.feature.ai.acp.AcpAgentSession
-import com.singularity.todo.feature.ai.acp.AcpClientSessionOperations
+import com.singularity.todo.feature.ai.acp.AcpLifecycleSink
 import com.singularity.todo.feature.ai.acp.AcpPermissionRequest
+import com.singularity.todo.feature.ai.acp.AcpSessionPermissions
+import com.singularity.todo.feature.ai.acp.LoggingAcpLifecycle
 import com.singularity.todo.feature.ai.acp.PermissionDecision
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -52,14 +56,22 @@ internal class AcpAgentConversation(private val scope: CoroutineScope, private v
         agent: AcpAgentProfile,
         toolServer: ToolServerCommand.Available?,
         askForPermission: suspend (AcpPermissionRequest) -> PermissionDecision,
+        /**
+         * Where the session's lifecycle goes.
+         *
+         * One sink for the whole session: the client and the operations are two halves of
+         * the same conversation, and their events belong in the same place.
+         */
+        sessionEvents: AcpLifecycleSink = LoggingAcpLifecycle(),
     ): AcpConversationOutcome {
-        val operations = AcpClientSessionOperations(askForPermission)
+        val permissions = AcpSessionPermissions { request -> askForPermission(request) }
         return when (
             val launch = launcher.launch(
                 profile = agent,
                 scope = scope,
-                operations = operations,
+                permissions = permissions,
                 toolServer = toolServer,
+                sessionEvents = sessionEvents,
             )
         ) {
             is AcpAgentLaunch.Failed -> AcpConversationOutcome.LaunchFailed(launch.reason)
@@ -81,7 +93,7 @@ internal class AcpAgentConversation(private val scope: CoroutineScope, private v
         agent: AcpAgentProfile,
         agentSession: AcpAgentSession,
     ): AcpConversationOutcome {
-        try {
+        val info: AcpAgentInfo = try {
             agentSession.connect()
         } catch (e: CancellationException) {
             // A cancellation that did not come from us is the connection failing, not the
@@ -111,7 +123,15 @@ internal class AcpAgentConversation(private val scope: CoroutineScope, private v
             return AcpConversationOutcome.Closed
         }
 
-        return AcpConversationOutcome.Connected(agent.displayName)
+        return AcpConversationOutcome.Connected(
+            agentName = agent.displayName,
+            protocolVersion = info.protocolVersion,
+            // The tool server the app hands over is the app's own executable with
+            // `--mcp-server`; its version is therefore this build. It is reported and not
+            // compared: the app knows what it offered, and has no way to observe what the
+            // agent started. See ADR `2026-10-25-the-version-we-can-compare`.
+            toolServerBuild = appVersion().name,
+        )
     }
 
     /**
@@ -147,8 +167,20 @@ internal class AcpAgentConversation(private val scope: CoroutineScope, private v
  */
 internal sealed interface AcpConversationOutcome {
 
-    /** The agent answered the handshake. */
-    data class Connected(val agentName: String) : AcpConversationOutcome
+    /**
+     * The agent answered the handshake.
+     *
+     * [protocolVersion] is the version of the protocol the agent speaks. It is compared
+     * during the handshake — a client that speaks another version cannot rely on what the
+     * agent means — and it is kept, because a reader who is looking at a connection to a
+     * third-party program deserves to know which version of the protocol it is speaking.
+     *
+     * [toolServerBuild] is the build of the application whose tool server was handed over.
+     * It is reported, not compared: the app knows which build it offered and cannot see
+     * which one the agent started. See ADR `2026-10-25-the-version-we-can-compare`.
+     */
+    data class Connected(val agentName: String, val protocolVersion: Int, val toolServerBuild: String) :
+        AcpConversationOutcome
 
     /** The agent's process could not be started. */
     data class LaunchFailed(val reason: String) : AcpConversationOutcome

@@ -392,3 +392,19 @@ shared/src/jvmTest/kotlin/com/singularity/todo/arch/RunnableTestFixtureTest.kt:t
 shared/src/jvmTest/kotlin/com/singularity/todo/arch/RunnableTestMember.kt:infra/kiwi/sync.py
 shared/src/jvmTest/kotlin/com/singularity/todo/arch/RunnableTestMember.kt:sync.py
 shared/src/jvmTest/kotlin/com/singularity/todo/arch/TestTagCoverageTest.kt:infra/kiwi/sync.py
+
+# Added 2026-10-25 when `specs/` joined the scan in check-doc-dead-refs.py.
+#
+# The 013 feature removed its own gate script (`check-adr-immutable.py`) on purpose:
+# the feature's own plan says so, and the script is gone from the tree with it. The
+# artifacts of a completed feature are a record of what was decided then, and they
+# name the script that was removed. They are history, not a promise about a file that
+# should exist — so they are accepted debt, and the reason is written down here
+# rather than left for the next reader to work out.
+specs/013-gate-probe-cost/plan.md:check-adr-immutable.py
+specs/013-gate-probe-cost/plan.md:scripts/check-adr-immutable.py
+specs/013-gate-probe-cost/research.md:check-adr-immutable.py
+specs/013-gate-probe-cost/spec.md:check-adr-immutable.py
+specs/013-gate-probe-cost/spec.md:scripts/check-adr-immutable.py
+specs/013-gate-probe-cost/tasks.md:check-adr-immutable.py
+specs/013-gate-probe-cost/tasks.md:scripts/check-adr-immutable.py

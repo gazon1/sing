@@ -70,11 +70,18 @@ The SDK needs JDK 21; the Android target stays at JVM_11 bytecode. Nothing in
 `commonMain` or `androidMain` may depend on it — the mobile build must not acquire a
 dependency it cannot use.
 
-Three production files import the library, all under
-`shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/`: `AcpClient.kt` (the
-protocol conversation), `AcpClientSessionOperations.kt` (what the agent may ask of this
-application), and `AcpEventAdapter.kt` (the mapping from protocol updates to the
-activity vocabulary).
+**One** production file imports the library, and it is
+`shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpClient.kt`: the
+protocol conversation, the translation of the protocol's updates and stop reasons into
+the application's vocabulary, and the implementation of the protocol's client
+operations. Everything else — the adapter, the permissions, the process ownership —
+speaks the application's own types, so an SDK upgrade is a diff in one file and cannot
+change what a reader sees.
+
+The seam that makes this possible is `AcpSessionUpdate`: the protocol's updates are
+translated into it at the door, and it is what the adapter reads. The translation is
+exhaustive over the protocol's variants, so a new variant in a new SDK version is a
+compile error in the door and nowhere else.
 
 ## The lifecycle: process → protocol → session → turn → close
 
@@ -211,7 +218,8 @@ passes every test that only looks at the confirmation path.
 **The application advertises neither the file system nor the terminal.**
 `AcpClient.connect()` sends `ClientCapabilities()` with no `fs` and no `terminal`. The
 protocol's client operations cover the file system, the terminal, elicitation, and
-permissions; `AcpClientSessionOperations` implements the permissions and nothing else.
+permissions; the operations the client builds implement the permissions and nothing
+else.
 That is not an omission — the file system, terminal, and elicitation methods have
 defaults in the protocol library, and those defaults **refuse**. An agent that honours
 the protocol never asks; one that asks anyway is told no. An implementation that
@@ -344,10 +352,10 @@ The protocol carries usage: `SessionUpdate.UsageUpdate` arrives as a session upd
 `PromptResponse.usage` carries `Usage` (input, output, and total tokens) at the end of
 a turn. **The application displays neither.**
 
-`AcpEventAdapter` maps `SessionUpdate.UsageUpdate` to `null` — it is bookkeeping, not
-activity, and an unrecognised update must not invent one. `AcpClient.prompt` reads
-`event.response.stopReason` from the completion event and nothing else; the `usage`
-field on the same response is not read.
+The translation at the door maps the usage update to the application's "session
+setting" — it is bookkeeping, not activity, and an unrecognised update must not invent
+one. `AcpClient.prompt` reads `event.response.stopReason` from the completion event and
+nothing else; the `usage` field on the same response is not read.
 
 This is a scope decision, not a protocol limitation, and it is recorded so it is not
 rediscovered later as an accident. The application's own LLM usage tracking
@@ -358,9 +366,10 @@ its own provider, and this application does not see that bill.
 
 | File | Role |
 |---|---|
-| `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpClient.kt` | The protocol conversation: transport, initialize, session, prompt, close |
-| `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpClientSessionOperations.kt` | The client side of a session: permissions, and the refusal of everything else |
-| `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpEventAdapter.kt` | The mapping from protocol updates and stop reasons to the activity vocabulary |
+| `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpClient.kt` | The one door to the library: the protocol conversation, the translation out of it, and the client's operations |
+| `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpSessionUpdate.kt` | What the agent did, in the application's words: the vocabulary the door translates into |
+| `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpPermission.kt` | The permission request and the reader's decision, plus the port the protocol is plugged into |
+| `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpEventAdapter.kt` | The mapping from what the agent did to the activity vocabulary |
 | `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpAgentProfile.kt` | The agent registry: what to launch, shown before it runs |
 | `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpAgentLauncher.kt` | Starting a real process and building the session around it |
 | `shared/src/jvmMain/kotlin/com/singularity/todo/feature/ai/acp/AcpAgentSession.kt` | The interface the screen talks to, so the protocol stays behind one door |

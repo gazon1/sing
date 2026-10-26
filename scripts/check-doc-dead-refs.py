@@ -419,6 +419,20 @@ def cli(
     ]
     targets += sorted(SKILLS_DIR.glob("*/SKILL.md"))
     targets += sorted((ROOT / "shared/src").rglob("*.kt"))
+    # The spec-kit feature artifacts. A task says "create `…/X.kt`", and that is a
+    # promise that the file exists — so when the file is renamed, the task's
+    # promise is broken and nobody would notice, because a task list is read for
+    # what it *says*, not for what it points at. The gate did not look at
+    # `specs/`, which is how four tasks in one feature named files that had been
+    # moved months earlier (the paths are the only thing in a task that can go
+    # stale without anyone editing the task).
+    targets += sorted((ROOT / "specs").rglob("*.md"))
+    # The OpenSpec changes are **not** scanned here: they belong to the
+    # OpenSpec workflow's own gates, and several of them are other sessions'
+    # live work whose task lists name files that have since moved. Pointing this
+    # gate at them would turn a drift in someone else's change into a red line
+    # in mine. The spec-kit feature artifacts — the ones this repository's own
+    # convergence pass reads and reconciles — are the ones checked here.
     # Build scripts cite ADRs too, and a dangling one there is the worst case:
     # the comment outlives the rename, and nothing else in the tree would notice.
     targets += [ROOT / name for name in GLOB_BUILD if (ROOT / name).is_file()]
