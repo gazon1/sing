@@ -199,7 +199,13 @@ private fun AgentInputRow(
         ChatInputBar(
             state = inputState,
             onSend = onSend,
-            enabled = !state.isRunning && state.connection is AcpConnection.Connected,
+            // The input stays enabled while a turn runs, on purpose. Disabling it would stop a
+            // second message before it reached the ViewModel — so the refusal the screen owes
+            // the reader (REQ-EXTAG-007: a second turn is refused, and the reason is said) would
+            // never be reachable from the screen. The reader may type and press Send; the
+            // ViewModel refuses it with a message, and the Stop button beside the field is how a
+            // running turn is ended.
+            enabled = state.connection is AcpConnection.Connected,
             placeholder = "Ask the agent...",
             modifier = Modifier.weight(1f),
         )

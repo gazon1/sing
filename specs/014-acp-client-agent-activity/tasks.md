@@ -269,7 +269,7 @@ LOW. Each item names the requirement it traces to and the kind of gap it closes.
 - [X] T068 Amend the plan's structural rule and T044's wording: the ACP SDK is touched in three production files, not one, and T045 and T046 require two of them per plan: Project Structure (contradicts) — **done the other way round**: the rule was right and the code was wrong, so the code was inverted — the SDK now lives in `AcpClient.kt` alone (`2026-10-25-the-sdk-lives-in-one-file`), and the plan and T044–T046 are amended to match
 - [X] T069 Carry the tool-access state on the handshake-failure path, so a failed handshake does not leave the access state granted per FR-032 (partial) — **done**: the state starts *unknown* and a failed connection leaves it *unavailable*, with the reason
 - [X] T070 Do not lose a pending permission request to a second one: the later request overwrites the earlier, which then waits out the timeout per FR-036 (partial) — **done**: the broker is a queue, the oldest request is the one on screen, and answering takes it off the screen at once
-- [ ] T071 Make the second-turn refusal reachable from the screen: the input is disabled while a turn runs, so the refusal is met at the ViewModel level only per FR-042 (partial) — **open**: the ViewModel refuses a second turn, and the screen still disables its input while a turn runs
+- [X] T071 Make the second-turn refusal reachable from the screen: the input is disabled while a turn runs, so the refusal is met at the ViewModel level only per FR-042 (partial) — **done**: the input stays enabled while a turn runs, so a second message reaches the ViewModel and is refused there with a message shown through the notification host; the Stop control beside the field ends the turn. See `openspec/changes/the-refusal-is-reachable-from-the-screen`
 - [X] T072 Record the permission answer in the state, so that "the answer is visible afterwards" is visible and not only indirect per US3/AC4 (partial) — **done**: the answer stays in the state and the screen shows it
 - [X] T073 Reconcile the task list with the tree and with the accepted ADR: T010, T012, T022 and T051 name paths that do not exist, and T051 describes work the ADR superseded per T051 (partial) — **done**: T012, T022 and T023 name the files that exist, T051 names the ADR's delivery mechanism, and T033's record home is the ADR
 - [ ] T074 Record the built-in agent's plan surface, or its absence: `PlanUpdated` has no built-in producer, so the plan card is unreachable for the built-in agent per US1/AC3 (partial) — **open**: the plan card renders, but the built-in agent emits no plan
@@ -288,5 +288,4 @@ LOW. Each item names the requirement it traces to and the kind of gap it closes.
 - **Still open after the convergence pass**, each with its criterion written into
   the specification: T062 (the summary's field policy is length-based, not
   field-based), T067 (a hung turn is unbounded and a crashed agent keeps the
-  connection connected), T071 (the second-turn refusal is not reachable from the
-  screen), T074 (the built-in agent emits no plan).
+  connection connected), T074 (the built-in agent emits no plan).
