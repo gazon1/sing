@@ -199,6 +199,10 @@ class TaskRepositoryImpl(
         unitOfWork.write {
             val currentUid = currentUser.scopedUserId.value
             currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
+            // A rule implies a series (FR-001). Every writer passes here — the two
+            // UI doors, an AI tool, the MCP server — so the refusal lives here
+            // rather than in the doors.
+            TaskSeriesInvariants.requireRuleLivesInSeries(item)
             val toInsert = item.copy(userId = currentUid)
             taskDao.upsert(toInsert.toEntity())
             saveOutgoingLinks(toInsert.id, toInsert.description)
@@ -221,6 +225,7 @@ class TaskRepositoryImpl(
             // Prevents silent data loss from upsert-on-missing.
             taskDao.getByIdForUser(item.id.value, currentUser.scopedUserId.value.value)
                 ?: throw IllegalArgumentException("Task not found: ${item.id.value}")
+            TaskSeriesInvariants.requireRuleLivesInSeries(item)
             // Re-stamp after the guard, exactly as `create` does: the guard has just
             // established that userId is either current or anonymous, so normalising
             // anonymous -> current cannot lose information, whereas upserting the
@@ -268,6 +273,7 @@ class TaskRepositoryImpl(
             // The alignment belongs to a series: a batch of tasks that stand
             // alone keeps what each row says about itself.
             val aligned = TaskSeriesInvariants.alignedIfOneSeries(tasks)
+            aligned.forEach(TaskSeriesInvariants::requireRuleLivesInSeries)
             aligned.map { item ->
                 currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
                 val toInsert = item.copy(userId = currentUid)
@@ -297,6 +303,7 @@ class TaskRepositoryImpl(
                 "A series write carries more than one series id: ${tasks.map { it.seriesId }}"
             }
             val aligned = TaskSeriesInvariants.alignedIfOneSeries(tasks)
+            aligned.forEach(TaskSeriesInvariants::requireRuleLivesInSeries)
             val written = aligned.map { item ->
                 currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
                 // The same guard the single-row update has: an upsert onto a missing
@@ -564,6 +571,10 @@ class TaskRepositoryImpl(
         // would leave the series saying two things about the work — the very
         // divergence this path exists to repair.
         unitOfWork.write {
+            // A pulled document is a write like any other: a rule that arrived
+            // without a series id is the forbidden shape (FR-001), and adopting it
+            // would leave the launch repair to clean up after the network.
+            TaskSeriesInvariants.requireRuleLivesInSeries(task)
             if (task.userId == currentUser.scopedUserId.value) {
                 // The row that arrived.
                 taskDao.upsert(task.toEntity())
