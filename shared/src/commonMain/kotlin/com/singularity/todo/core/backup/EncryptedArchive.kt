@@ -170,12 +170,21 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
      * The header of what the source yields.
      *
      * @throws BackupError.NotEncrypted when the bytes are too short to be one.
+     * @throws BackupError.Unreadable when the bytes could not be read at all — the
+     *   device fell over mid-read. The header is read before the cipher is asked for
+     *   anything, so a failure here is not a wrong password either, and it must not
+     *   escape as a raw I/O error the layer above cannot name.
      */
+    @Suppress("TooGenericExceptionCaught")
     private fun readHeader(source: ByteSource): ByteArray =
         try {
             source.readExactly(HEADER_BYTES)
         } catch (error: IllegalStateException) {
+            // Too few bytes: the source said what it is, and it is not a container.
             throw BackupError.NotEncrypted(error)
+        } catch (error: Exception) {
+            // The bytes never arrived: the archive is unreadable, not wrong-password.
+            throw BackupError.Unreadable(error)
         }
 
     /**

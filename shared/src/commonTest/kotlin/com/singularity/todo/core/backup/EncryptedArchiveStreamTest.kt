@@ -118,6 +118,42 @@ class EncryptedArchiveStreamTest {
     }
 
     /**
+     * A source that breaks while the header is being read is unreadable too.
+     *
+     * The header is read before the cipher is asked for anything, so a failure
+     * there used to escape raw — an `IOException` the layer above could not name,
+     * reported as an upload that failed. It is the same thing as a break later on:
+     * the bytes never arrived, and the archive is unreadable, not wrong-password
+     * and not "not an archive".
+     */
+    @Test
+    fun `a source that breaks before the header is read is unreadable`() {
+        val error = assertFailsWith<BackupError.Unreadable> {
+            archive.open(failingOnFirstRead(), ByteArraySink(), password)
+        }
+        assertTrue(
+            error.message?.contains("read") == true,
+            "the message must name the reading, not the password: ${error.message}",
+        )
+    }
+
+    /**
+     * A source that fails on its very first read.
+     *
+     * Wrapped in an `IllegalStateException`: a real one — a closed channel, a
+     * device that fell over — is not `IllegalStateException`, and the header read
+     * catches that type first for the "too short" case, so a source that threw one
+     * would be a different test.
+     */
+    private fun failingOnFirstRead(): ByteSource =
+        object : ByteSource {
+            override fun read(buffer: ByteArray, offset: Int, length: Int): Int =
+                throw java.io.IOException("the disk fell over")
+
+            override fun close() = Unit
+        }
+
+    /**
      * A source that serves the header and then fails.
      *
      * The header is read before the cipher is asked for anything, so the failure
