@@ -61,6 +61,15 @@ class TaskRepositoryImpl(
     private val log: Logger = Logger.withTag("TaskRepository"),
 ) : TaskRepository {
 
+    private val documentWriter: TaskDocumentWriter =
+        TaskDocumentWriter(
+            taskDao = taskDao,
+            currentUser = currentUser,
+            dependencyValidator = dependencyValidator,
+            log = log,
+            clock = clock,
+        )
+
     // ── Helpers ────────────────────────────────────────────────────────────────
 
     // ── GenericUserScopedRepository ───────────────────────────────────────────
@@ -545,7 +554,7 @@ class TaskRepositoryImpl(
                 taskDao.upsert(task.toEntity())
                 // The parts of the document that are not the row — and only the
                 // parts the document speaks about.
-                writeTaskParts(task, document)
+                documentWriter.writeParts(task, document)
                 // A row that arrives from another device is the newest word about the work:
                 // the device that wrote it had already made the whole series say the same
                 // thing. So the local series follows it, and the rows that changed are pushed
@@ -570,89 +579,6 @@ class TaskRepositoryImpl(
             }
         }
         return task
-    }
-
-    /**
-     * The parts of a task document that are not the row: the tags, the links
-     * the description implies, and the blocking dependencies.
-     *
-     * A task is not one row. It is a row plus a set of cross-references — the
-     * tags in `task_tags`, the outgoing links in the row's own column, the
-     * blocking edges in `task_dependencies` — and a document that carries only
-     * the row is a document that says one thing about the work while the
-     * database says another. `@Upsert` replaces the whole row, so a writer that
-     * forgets one part of the document does not leave that part alone: it
-     * resets it.
-     *
-     * The path that applies a document applies all of it: the row, and these
-     * parts, in one unit of work. The paths that apply *part* of a document —
-     * an edit that changes the title — are a different thing, and they say so.
-     *
-     * And the parts the document does not speak about are not touched at all:
-     * a device that sends no `tags` key says nothing about the tags, and
-     * nothing is a claim that there are none.
-     */
-    private suspend fun writeTaskParts(task: Task, document: TaskDocument) {
-        val uid = currentUser.scopedUserId.value.value
-        // The tags: only when the document says something about them.
-        document.tags?.let { tags -> writeTags(task.id, tags, uid) }
-        // The links are derived from the description: a document that carries a
-        // description carries the links that description implies.
-        //
-        // The stamp is the document's own, not the local clock. The row was
-        // written with the time the remote device had, and a write that stamps
-        // it with the local clock would say "this work was changed now" for a
-        // document that says otherwise — and the next push would carry that
-        // time to the other devices.
-        saveOutgoingLinks(task.id, task.description, task.updatedAt.toEpochMillis())
-        // The dependencies: only when the document says something about them.
-        document.blockedBy?.let { deps -> writeBlockingDependencies(task.id, deps, uid) }
-    }
-
-    /**
-     * Replaces the blocking edges of [id] with the ones the document carries.
-     *
-     * Only the `BLOCKS` edges are touched: they are the ones the wire carries
-     * (`dependsOn`), and the other verbs — a task that follows up another, one
-     * that duplicates another — are not in the document at all. Replacing them
-     * with the document's edges would delete what the document never spoke
-     * about.
-     *
-     * A pair may carry several relations: the verbs are different claims about
-     * the same pair, and the document speaks about the blocking one only. The
-     * other relation of the pair stays, and the blocking edge is added beside
-     * it.
-     *
-     * An edge that would close a cycle is refused on its own, and the rest of
-     * the document still applies. The local graph stays acyclic — the code that
-     * walks it assumes that — while a remote document that says something the
-     * local graph cannot hold does not stop the row from landing. The refusal
-     * is logged: a device that refuses an edge silently disagrees with the
-     * device that sent it, and the disagreement is invisible until somebody
-     * looks for it.
-     */
-    private suspend fun writeBlockingDependencies(id: TaskId, blockedBy: Set<TaskId>, uid: String) {
-        val desired = blockedBy.map { it.value }.toSet()
-        val existing = taskDao.getBlockingEdgeIdsForUser(id.value, uid, DependencyVerb.BLOCKS.name)
-            .first()
-            .toSet()
-        (existing - desired).forEach { depId ->
-            taskDao.removeDependencyForVerb(id.value, depId, DependencyVerb.BLOCKS.name, uid)
-        }
-        (desired - existing).forEach { depId ->
-            val closesCycle = dependencyValidator
-                .assertNoCycles(id, setOf(TaskId.fromString(depId)))
-                .isFailure
-            if (closesCycle) {
-                log.w {
-                    "The task ${id.value} of the profile $uid was not made to wait for " +
-                        "$depId: the ${DependencyVerb.BLOCKS.name} edge would close a cycle in " +
-                        "the local graph. The row and the rest of the document were applied."
-                }
-                return@forEach
-            }
-            taskDao.upsertDependencyForUser(id.value, depId, DependencyVerb.BLOCKS.name, uid)
-        }
     }
 
     override suspend fun softDelete(id: TaskId): Result<Unit> = runCatchingCancellable {
@@ -963,5 +889,5 @@ private const val EMPTY_LINKS = "[]"
  * that rewrites the links of a row that is already there. Two derivations would
  * be two truths about the same description.
  */
-private fun linksJsonOf(description: String?): String =
+internal fun linksJsonOf(description: String?): String =
     description?.let { extractOutgoingLinks(it) }.orEmpty().toLinksJson()
