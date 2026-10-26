@@ -14,6 +14,7 @@ import com.singularity.todo.core.database.SavedSearchEntity
 import com.singularity.todo.core.database.SyncColumns
 import com.singularity.todo.core.database.TagEntity
 import com.singularity.todo.core.database.TagGroupEntity
+import com.singularity.todo.core.database.toWorkflowState
 import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskReminderEntity
@@ -73,6 +74,15 @@ data class TaskDto(
      * the dates would survive, the connection between them would not.
      */
     val seriesId: String? = null,
+    /**
+     * The state the user claimed for this task's work — `Open`, `NextUp` or
+     * `InProgress`.
+     *
+     * A backup written before the field existed restores as `Open`, which is what
+     * "nothing claimed" means. A name this build does not know restores as
+     * `Open` too, rather than failing the restore.
+     */
+    val workflowState: String = "Open",
     /** Wikilink targets of this task, stored as a list in JSON and as a JSON array column in Room. */
     val outgoingLinks: List<String> = emptyList(),
     val aiSuppressedTagIds: List<String> = emptyList(),
@@ -103,6 +113,7 @@ fun TaskEntity.toDto(): TaskDto =
         estimateMinutes = estimateMinutes,
         recurrenceRule = recurrenceRule,
         seriesId = seriesId,
+        workflowState = workflowState,
         outgoingLinks = decodeLinkList(outgoingLinks), // JSON string → List
         aiSuppressedTagIds = decodeLinkList(aiSuppressedTagIds), // JSON string → List
         createdAt = createdAt,
@@ -136,6 +147,7 @@ fun TaskDto.toEntity(userId: String): TaskEntity =
         estimateMinutes = estimateMinutes,
         recurrenceRule = recurrenceRule,
         seriesId = seriesId,
+        workflowState = workflowState.toWorkflowState().name,
         outgoingLinks = encodeLinkList(outgoingLinks), // List → JSON string
         aiSuppressedTagIds = encodeLinkList(aiSuppressedTagIds), // List → JSON string
         createdAt = createdAt,

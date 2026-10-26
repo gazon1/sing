@@ -18,7 +18,7 @@ the table carries the one-line version so a row is readable in a diff.
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-**101 scenarios · 31/124 claimed cells automated · 93 holes**
+**110 scenarios · 40/133 claimed cells automated · 93 holes**
 
 ## feature.agenda
 
@@ -32,6 +32,8 @@ the table carries the one-line version so a row is readable in a diff.
 | `AGENDA-06` | A saved view survives create, rename, reopen and delete | ○ | — | The list ends where it started — empty — with every intermediate step observable along the way: the rename is what the… |
 | `AGENDA-07` | A saved view can be copied to another profile | ○ | — | The copy appears in the destination profile's saved-views list as a distinct entry from the source, so a view can be… |
 | `AGENDA-08` | A saved view survives an app restart | ○ | — | The saved view is still listed and still opens, so it was persisted rather than held in memory. Restarting without… |
+| `AGENDA-STATE-01` | A saved view shows only the tasks in a chosen workflow state | — | ● | The section is named after the state, and it contains the in-progress task and not the task with no state — the view… |
+| `AGENDA-STATE-02` | A saved view follows a task after its workflow state changes | — | ● | The in-progress section was empty before the change and contains the moved task afterwards, while the view itself was… |
 
 ## feature.archive
 
@@ -194,11 +196,18 @@ the table carries the one-line version so a row is readable in a diff.
 | `TASK-15` | FAB from Inbox tab does NOT pre-fill a due date | ○ | — | The task is saved with no due date and appears in the No Date section. After saving, the user is returned to the Inbox… |
 | `TASK-16` | Creating from a tab returns to that tab after save | ○ | — | The save operation returns to the originating tab. The Today task is in the Today section and the Inbox task is in the… |
 | `TASK-17` | Start and stop a time-tracking session on a task | ○ | — | The chip swaps from Start to Stop in place while the timer is running, and returns to Start when stopped. No crash… |
-| `TASK-CHECK-01` | Add a checklist item to a task | ● | — | The item persists with its text and its completed state, so the list survives closing and reopening the editor on the… |
+| `TASK-CHECK-01` | Add a checklist item to a task | ● | — | The item is listed on the task screen with a real checkbox, the tick is kept, and the list survives leaving the task… |
+| `TASK-ITEM-01` | Work through a task's subtasks and checklist items in place | — | ● | Both lists are on the task screen, every row carries a real checkbox, the checklist count reads one finished of two… |
+| `TASK-ITEM-02` | A checklist item and a subtask do not change each other | — | ● | Ticking the checklist item leaves the subtask unfinished and the task unfinished, and ticking the subtask leaves the… |
 | `TASK-LOG-01` | A note written from the task logbook stays attached to the task | ● | — | The task's logbook shows the note under the title the user typed. The note is still there after the navigation… |
 | `TASK-LOG-02` | Abandoning the logbook's note editor leaves no note behind | ● | — | The task's logbook is still empty — the same empty state it showed before the editor was opened. No note row was… |
+| `TASK-MARK-01` | A task row shows every marking that applies, and counts the ones it hides | — | ● | The blocked and overdue task shows both the blocked and the overdue marking at the same time; the follow-up task shows… |
 | `TASK-REC-01` | Create a daily recurring task | ● | ● | The task list shows the next occurrence dated one day after the completion date, and the original instance is gone… |
+| `TASK-STATE-01` | Set a task's workflow state from the task screen | — | ● | The control shows the current state before it is opened, offers the states a task can be in, applies the chosen one,… |
+| `TASK-STATE-02` | A workflow state survives leaving and reopening the task | — | ● | The control shows "In progress" after the task is reopened, and the stored task still carries that state — the state… |
+| `TASK-STATE-03` | A completed task keeps its workflow state | — | ● | The completed task still shows "In progress", the state control is not offered for change while the task is completed,… |
 | `TASK-SUB-01` | Subtask lifecycle — add, toggle, delete | ● | — | The subtask survives add → toggle → delete. Its parentTaskId is set correctly so it appears as a child in the… |
+| `TASK-TAG-01` | Add a tag that does not exist yet | — | ● | The new tag is in the list of tags to choose from without the list being reopened, and it is applied to the task; a… |
 | `TASK-TIME-01` | Start a timer on a task from its detail view | ○ | ● | The chip swaps between "Start" and "Stop" in place, and the elapsed total for that task grows while the timer runs. |
 
 ## Holes

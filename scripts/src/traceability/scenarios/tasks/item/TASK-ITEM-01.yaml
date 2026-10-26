@@ -1,0 +1,39 @@
+# Scenario specification for TASK-ITEM-01.
+#
+# The canonical statement of this user scenario. Linkage to automation is *not*
+# here — it lives in code (@DisplayName for Kotlin, a `scenario:TASK-ITEM-01`
+# Maestro tag), so there is no second source of truth to keep in sync.
+#
+# `area` is derived from this path (scenarios/tasks/…) and only cross-checked
+# when stated; the id prefix TASK-ITEM is checked against tasks/item.
+#
+# The scenario is about the *shape* of the two lists on the task screen: a real
+# checkbox in front of every row, a count of the finished items out of all of
+# them, and an add-row that adds without a panel opening.
+
+id: TASK-ITEM-01
+title: Work through a task's subtasks and checklist items in place
+area: feature.tasks
+priority: P2
+status: confirmed
+targets: [desktop]
+preconditions: >-
+  A task exists with two checklist items and one subtask, and its detail view
+  is open on desktop.
+steps:
+  - Look at the checklist list and at the subtask list.
+  - Tick the first checklist item.
+  - Look at the two counts.
+  - Type a title into the checklist's add-row and submit it.
+  - Look at the checklist list again.
+expected: >-
+  Both lists are on the task screen, every row carries a real checkbox, the
+  checklist count reads one finished of two and the subtask count reads none
+  finished of one, and the new item appears in the checklist with no panel
+  having opened.
+
+# Claimed on `desktop` by
+# desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/tasks/TaskItemScenarioTest.kt.
+# Android is not claimed: the Maestro flow that covers the inline checklist is
+# `scenario:TASK-CHECK-01`, which is a different question — the persistence of
+# the item, not the shape of the two lists.

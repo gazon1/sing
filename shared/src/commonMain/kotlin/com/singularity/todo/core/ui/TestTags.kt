@@ -178,6 +178,15 @@ object TestTags {
     /** Priority row in the task editor attribute list. */
     const val TASK_EDITOR_PRIORITY_ROW = "task_editor_priority_row"
 
+    /**
+     * Dependencies row in the task editor.
+     *
+     * The row exists even when nothing is selected: that is the only way to add the
+     * first relation, and a card hidden until something is chosen is a card that can
+     * never be chosen for the first time.
+     */
+    const val TASK_EDITOR_DEPENDENCIES_ROW = "task_editor_dependencies_row"
+
     // The × button of a task editor's sheet.
     //
     // The sheet's × has the content description "Close", and so does the calendar
@@ -215,6 +224,25 @@ object TestTags {
     /** "No tasks available" empty text in the dependency picker sheet. */
     const val DEPENDENCY_PICKER_EMPTY = "dependency_picker_empty"
 
+    /** Dynamic tag of one selectable task row in the dependency picker. */
+    fun dependencyItem(taskId: String) = "dependency_item_${slug(taskId)}"
+
+    /**
+     * Dynamic tag of the verb chip on a selected dependency row.
+     *
+     * [verb] is the wire name of the verb (`BLOCKS`, `FOLLOWS_UP`), not its label:
+     * the label is user-facing copy and a tag built from it would break in another
+     * locale.
+     */
+    fun dependencyVerb(taskId: String, verb: String) = "dependency_verb_${slug(taskId)}_${verb.lowercase()}"
+
+    /** Workflow-state row in the task editor attribute list. */
+    const val TASK_EDITOR_WORKFLOW_STATE_ROW = "task_editor_workflow_state_row"
+
+    const val WORKFLOW_STATE_OPTION_OPEN = "workflow_state_option_open"
+    const val WORKFLOW_STATE_OPTION_NEXT_UP = "workflow_state_option_next_up"
+    const val WORKFLOW_STATE_OPTION_IN_PROGRESS = "workflow_state_option_in_progress"
+
     /**
      * First-run suggestion card in the task detail view.
      *
@@ -236,6 +264,26 @@ object TestTags {
 
     /** "Add" button in the checklist editor sheet — submits the current input. */
     const val CHECKLIST_ADD_BUTTON = "checklist_add_button"
+
+    /**
+     * The checklist section of the task detail screen.
+     *
+     * The section is always rendered, empty list or not: it carries the add-row,
+     * so a task without checklist items is still a task the user can add one to.
+     */
+    const val TASK_CHECKLIST_SECTION = "task_checklist_section"
+
+    /**
+     * Text input of the inline add-row in the task detail's checklist section.
+     *
+     * Separate from [CHECKLIST_ADD_INPUT], which belongs to the checklist sheet:
+     * two inputs with one id would leave a flow unable to say which one it typed
+     * into, and the sheet is a window of its own on desktop.
+     */
+    const val CHECKLIST_INLINE_ADD_INPUT = "checklist_inline_add_input"
+
+    /** Add/submit button of the inline add-row in the checklist section. */
+    const val CHECKLIST_INLINE_ADD_BUTTON = "checklist_inline_add_button"
 
     /**
      * Dynamic tag of the form `checklist_item_<slug>` — one per checklist item row.

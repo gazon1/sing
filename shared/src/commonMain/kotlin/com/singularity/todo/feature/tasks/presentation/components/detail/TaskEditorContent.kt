@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material3.DropdownMenu
@@ -57,6 +58,7 @@ import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
 import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import kotlinx.datetime.LocalDate
@@ -141,6 +143,9 @@ private fun TaskEditorContent(
     estimateMinutes: Int? = null,
     estimateCallbacks: RowCallbacks<Int?>? = null,
     blockedBy: ImmutableSet<TaskId> = persistentSetOf(),
+    followsUp: ImmutableSet<TaskId> = persistentSetOf(),
+    workflowState: TaskWorkflowState = TaskWorkflowState.Open,
+    workflowStateCallbacks: RowCallbacks<TaskWorkflowState>? = null,
     availableTasks: ImmutableList<Task> = persistentListOf(),
     checklistCount: Int = 0,
     attachmentsCount: Int = 0,
@@ -191,19 +196,27 @@ private fun TaskEditorContent(
             extraSections?.invoke()
 
             // Dependencies card
-            if (blockedBy.isNotEmpty() && availableTasks.isNotEmpty()) {
-                val depTitles = blockedBy.mapNotNull { depId ->
+            //
+            // Shown when there is something to pick from, not when something is
+            // already picked: a card that appears only after the first relation is
+            // added has no first click. The label says which edge means what, because
+            // "blocks" and "follows up" are different answers about the same two
+            // tasks.
+            if (availableTasks.isNotEmpty()) {
+                val relations = blockedBy + followsUp
+                val relationTitles = relations.mapNotNull { depId ->
                     availableTasks.find { it.id == depId }?.title?.ifBlank { null }
                 }
                 TaskAttributeCard(
                     icon = Icons.Filled.Block,
-                    label = if (depTitles.isNotEmpty()) {
-                        depTitles.joinToString(", ")
-                    } else {
-                        "${blockedBy.size} dependency${if (blockedBy.size > 1) "s" else ""}"
+                    label = when {
+                        relations.isEmpty() -> "Add dependencies"
+                        relationTitles.isNotEmpty() -> relationTitles.joinToString(", ")
+                        else -> "${relations.size} relation${if (relations.size > 1) "s" else ""}"
                     },
-                    isActive = true,
+                    isActive = relations.isNotEmpty(),
                     onClick = { sheets.show(TaskEditorSheet.Dependencies) },
+                    modifier = Modifier.testTag(TestTags.TASK_EDITOR_DEPENDENCIES_ROW),
                 )
             }
 
@@ -245,6 +258,22 @@ private fun TaskEditorContent(
                         modifier = Modifier.testTag(TestTags.TASK_EDITOR_ATTACHMENTS_ROW),
                     )
                 }
+            }
+
+            // Workflow-state row
+            //
+            // Shown after completion too, because the state records how the work went
+            // and completion does not erase that. It is inert there: a completed task
+            // is shown, not re-planned.
+            workflowStateCallbacks?.let { cb ->
+                TaskAttributeCard(
+                    icon = Icons.Filled.PlayArrow,
+                    label = workflowState.label(),
+                    isActive = workflowState != TaskWorkflowState.Open,
+                    onClick = cb.onClick ?: { sheets.show(TaskEditorSheet.WorkflowState) },
+                    enabled = !isCompleted,
+                    modifier = Modifier.testTag(TestTags.TASK_EDITOR_WORKFLOW_STATE_ROW),
+                )
             }
 
             // Priority row
@@ -539,6 +568,9 @@ private fun TaskEditorScaffold(
         estimateMinutes = model.estimateMinutes,
         estimateCallbacks = callbacks.estimate,
         blockedBy = model.blockedBy,
+        followsUp = model.followsUp,
+        workflowState = model.workflowState,
+        workflowStateCallbacks = callbacks.workflowState,
         availableTasks = model.availableTasks,
         checklistCount = model.checklist.size,
         attachmentsCount = model.attachments.size,
@@ -563,6 +595,7 @@ private fun TaskEditorScaffold(
         // decided what "now" is cannot compile.
         now = now,
         onSheetDismiss = { sheets.dismiss() },
+        isCompleted = isCompleted,
     )
 }
 

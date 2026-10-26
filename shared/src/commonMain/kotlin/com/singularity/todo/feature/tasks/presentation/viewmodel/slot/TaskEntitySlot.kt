@@ -3,6 +3,7 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskChildrenDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps
@@ -95,6 +96,9 @@ class TaskEntitySlot(
 
             is TaskDetailIntent.Domain.SetPriority -> mutate(task, intent) { copy(priority = intent.priority) }
 
+            is TaskDetailIntent.Domain.SetWorkflowState ->
+                mutate(task, intent) { copy(workflowState = intent.state) }
+
             is TaskDetailIntent.Domain.SetProject -> mutate(task, intent) { copy(projectId = intent.projectId) }
 
             is TaskDetailIntent.Domain.SetTags -> setTags(task, intent.tagIds)
@@ -123,6 +127,8 @@ class TaskEntitySlot(
             is TaskDetailIntent.Domain.SetRecurrence -> setRecurrence(task, intent.spec)
 
             is TaskDetailIntent.Domain.SetDependencies -> setDependencies(task, intent)
+
+            is TaskDetailIntent.Domain.SetDependencyRelations -> setDependencyRelations(task, intent)
 
             is TaskDetailIntent.Domain.SetEstimate -> mutate(
                 task,
@@ -238,5 +244,43 @@ class TaskEntitySlot(
     private fun setDependencies(task: Task, intent: TaskDetailIntent.Domain.SetDependencies) = scope.launch {
         core.taskRepo.setDependencies(task.id, intent.blockedBy)
             .onFailure { onError("Failed to set dependencies") }
+    }
+
+    /**
+     * Turns the picker's "desired relations" into the smallest set of edge writes.
+     *
+     * The picker returns the whole map, because that is what the user edited. The
+     * repository's write is per edge and per verb, because an edge is one row with a
+     * verb on it — so the diff is what decides whether a click removed an edge,
+     * added one, or changed what it means. Writing the map as a bulk replacement
+     * would have to delete every verb it did not mention, and the follow-up edges
+     * the picker does not show would be the first casualties.
+     */
+    private fun setDependencyRelations(
+        task: Task,
+        intent: TaskDetailIntent.Domain.SetDependencyRelations,
+    ) = scope.launch {
+        val current = task.blockedBy.associateWith { DependencyVerb.BLOCKS } +
+            task.followsUp.associateWith { DependencyVerb.FOLLOWS_UP }
+        val touched = current.keys + intent.relations.keys
+        touched.forEach { depId ->
+            val was = current[depId]
+            val now = intent.relations[depId]
+            val result = when {
+                was == null && now != null ->
+                    core.taskRepo.setDependency(task.id, depId, now, enabled = true)
+
+                was != null && now == null ->
+                    core.taskRepo.setDependency(task.id, depId, was, enabled = false)
+
+                was != null && now != null && was != now -> {
+                    core.taskRepo.setDependency(task.id, depId, was, enabled = false)
+                    core.taskRepo.setDependency(task.id, depId, now, enabled = true)
+                }
+
+                else -> null
+            }
+            result?.onFailure { onError("Failed to set dependencies") }
+        }
     }
 }

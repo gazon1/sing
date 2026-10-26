@@ -34,4 +34,12 @@ enum class TaskSharedField {
     Emoji,
     Estimate,
     Recurrence,
+
+    /**
+     * The workflow state — `Open`, `NextUp` or `InProgress`.
+     *
+     * It is shared because it describes *the work*, not one of its dates: the
+     * work is either in progress or it is not, whichever day it falls on.
+     */
+    WorkflowState,
 }

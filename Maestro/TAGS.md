@@ -74,6 +74,8 @@ non-alphanumeric characters with `_`.
 |---|---|---|
 | `CHECKLIST_ADD_BUTTON` | `checklist_add_button` | |
 | `CHECKLIST_ADD_INPUT` | `checklist_add_input` | |
+| `CHECKLIST_INLINE_ADD_BUTTON` | `checklist_inline_add_button` | |
+| `CHECKLIST_INLINE_ADD_INPUT` | `checklist_inline_add_input` | |
 | `CHECKLIST_SHEET` | `checklist_sheet` | |
 | `FIRST_RUN_SECTION` | `first_run_section` | |
 | `LOGBOOK_ADD_NOTE_BUTTON` | `logbook_add_note_button` | |
@@ -101,6 +103,7 @@ non-alphanumeric characters with `_`.
 | `SUBTASK_ADD_INPUT` | `subtask_add_input` | |
 | `TASKS_FAB` | `tasks_fab` | |
 | `TASKS_LIST` | `tasks_list` | |
+| `TASK_CHECKLIST_SECTION` | `task_checklist_section` | |
 | `TASK_CONTEXT_MENU_ARCHIVE` | `task_action_archive` | |
 | `TASK_CONTEXT_MENU_COMPLETE` | `task_action_mark_as_completed` | |
 | `TASK_CONTEXT_MENU_OPEN` | `task_action_open` | |
@@ -109,6 +112,7 @@ non-alphanumeric characters with `_`.
 | `TASK_EDITOR_AI_BUTTON` | `task_editor_ai_button` | |
 | `TASK_EDITOR_ATTACHMENTS_ROW` | `task_editor_attachments_row` | |
 | `TASK_EDITOR_CHECKLIST_ROW` | `task_editor_checklist_row` | |
+| `TASK_EDITOR_DEPENDENCIES_ROW` | `task_editor_dependencies_row` | |
 | `TASK_EDITOR_DUE_DATE_ROW_LABEL` | `task_editor_due_date_row_label` | |
 | `TASK_EDITOR_DUE_ROW` | `task_editor_due_row` | |
 | `TASK_EDITOR_ESTIMATE_ROW` | `task_editor_estimate_row` | |
@@ -122,6 +126,7 @@ non-alphanumeric characters with `_`.
 | `TASK_EDITOR_START_DATE_ROW` | `task_editor_start_date_row` | |
 | `TASK_EDITOR_TAGS_ROW` | `task_editor_tags_row` | |
 | `TASK_EDITOR_TITLE_INPUT` | `task_editor_title_input` | |
+| `TASK_EDITOR_WORKFLOW_STATE_ROW` | `task_editor_workflow_state_row` | |
 | `TimeTracking.ERROR` | `time_tracking_error` | |
 | `TimeTracking.START` | `time_tracking_start` | |
 | `TimeTracking.STOP` | `time_tracking_stop` | |
@@ -393,6 +398,9 @@ non-alphanumeric characters with `_`.
 | `TaskSeries.DETACH` | `task_series_detach` | |
 | `TaskSeries.MARKER` | `task_series_marker` | |
 | `TaskSeries.MEMBER` | `task_series_member` | |
+| `WORKFLOW_STATE_OPTION_IN_PROGRESS` | `workflow_state_option_in_progress` | |
+| `WORKFLOW_STATE_OPTION_NEXT_UP` | `workflow_state_option_next_up` | |
+| `WORKFLOW_STATE_OPTION_OPEN` | `workflow_state_option_open` | |
 
 ## Dynamic functions
 
@@ -412,6 +420,8 @@ use the expanded string directly).
 | `checklistItem("Item")` | `"Item"` | `checklist_item_item` | Checklist item rows |
 | `checklistItemCheckbox("Item")` | `"Item"` | `checklist_item_checkbox_item` | Checklist item checkboxes |
 | `checklistItemDelete("Item")` | `"Item"` | `checklist_item_delete_item` | Checklist item delete buttons |
+| `dependencyItem("Dep task")` | `"Dep task"` | `dependency_item_dep_task` | Rows in the dependency picker |
+| `dependencyVerb("blocks")` | `"blocks"` | `dependency_verb_blocks` | Kind-of-relation chips on one dependency row |
 | `logbookNoteByTitle("Logbook note")` | `"Logbook note"` | `logbook_note_by_title_logbook_note` | Note rows in a task's logbook |
 | `subtaskCheckbox("Child task one")` | `"Child task one"` | `subtask_checkbox_child_task_one` | Subtask checkboxes |
 | `subtaskDelete("Child task one")` | `"Child task one"` | `subtask_delete_child_task_one` | Subtask delete buttons |

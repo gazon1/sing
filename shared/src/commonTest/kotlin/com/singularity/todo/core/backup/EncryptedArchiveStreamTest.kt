@@ -108,7 +108,7 @@ class EncryptedArchiveStreamTest {
         val sealed = ByteArraySink()
         archive.seal(ByteArraySource("the-archive-bytes".encodeToByteArray()), sealed, password)
 
-        val error = assertFailsWith<BackupError.Unreadable> {
+        val error = assertFailsWith<BackupError.Unusable> {
             archive.open(brokenAfterHeader(sealed.bytes()), ByteArraySink(), password)
         }
         assertTrue(
@@ -116,6 +116,65 @@ class EncryptedArchiveStreamTest {
             "the message must name the reading, not the password: ${error.message}",
         )
     }
+
+    /**
+     * A source that breaks while the header is being read is unreadable too.
+     *
+     * The header is read before the cipher is asked for anything, so a failure
+     * there used to escape raw — an `IOException` the layer above could not name,
+     * reported as an upload that failed. It is the same thing as a break later on:
+     * the bytes never arrived, and the archive is unreadable, not wrong-password
+     * and not "not an archive".
+     */
+    @Test
+    fun `a source that breaks before the header is read is unreadable`() {
+        val error = assertFailsWith<BackupError.Unusable> {
+            archive.open(failingOnFirstRead(), ByteArraySink(), password)
+        }
+        assertTrue(
+            error.message?.contains("read") == true,
+            "the message must name the reading, not the password: ${error.message}",
+        )
+    }
+
+    /**
+     * A cancellation while the header is read is not "not an archive".
+     *
+     * `CancellationException` extends `IllegalStateException` on the JVM, and the
+     * header read answers `IllegalStateException` with "this is not an encrypted
+     * archive". Without the cancellation clause first, a coroutine told to stop
+     * during the header read would be told the archive is not one — a cancellation
+     * swallowed and a person sent looking for a corrupt file.
+     */
+    @Test
+    fun `a cancellation while the header is read is not reported as a bad archive`() {
+        val cancelled = object : ByteSource {
+            override fun read(buffer: ByteArray, offset: Int, length: Int): Int =
+                throw kotlinx.coroutines.CancellationException("the screen went away")
+
+            override fun close() = Unit
+        }
+
+        assertFailsWith<kotlinx.coroutines.CancellationException> {
+            archive.open(cancelled, ByteArraySink(), password)
+        }
+    }
+
+    /**
+     * A source that fails on its very first read.
+     *
+     * Wrapped in an `IllegalStateException`: a real one — a closed channel, a
+     * device that fell over — is not `IllegalStateException`, and the header read
+     * catches that type first for the "too short" case, so a source that threw one
+     * would be a different test.
+     */
+    private fun failingOnFirstRead(): ByteSource =
+        object : ByteSource {
+            override fun read(buffer: ByteArray, offset: Int, length: Int): Int =
+                throw java.io.IOException("the disk fell over")
+
+            override fun close() = Unit
+        }
 
     /**
      * A source that serves the header and then fails.

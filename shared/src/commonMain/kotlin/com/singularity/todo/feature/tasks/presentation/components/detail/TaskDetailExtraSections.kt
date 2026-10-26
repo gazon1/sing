@@ -5,31 +5,38 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ListAlt
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AttachFile
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.attachments.Attachment
-import kotlinx.collections.immutable.ImmutableList
 import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.attachments.AttachmentTile
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
+import com.singularity.todo.feature.checklist.components.ChecklistItemRow
+import com.singularity.todo.feature.checklist.components.ChecklistRowTags
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
+import kotlinx.collections.immutable.ImmutableList
 
 // ─── Recurrence ────────────────────────────────────────────────────────────────
 
@@ -56,55 +63,77 @@ fun TaskDetailChecklistSection(
     checklist: ImmutableList<ChecklistItem>,
     onToggle: (ChecklistItem) -> Unit,
     onDelete: (ChecklistItemId) -> Unit,
+    onAddItem: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    if (checklist.isEmpty()) return
+    val newTitleState = rememberTextFieldState()
+    val completed = checklist.count { it.isCompleted }
+
+    // The section always renders, empty list or not. It is the only place the
+    // checklist can be edited from the task screen, so a section that hid itself
+    // when the list was empty left the user with no way to add the first item —
+    // and no way to say "this task has no checklist" either.
     ExtraSectionCard(
+        modifier = modifier.testTag(TestTags.TASK_CHECKLIST_SECTION),
         icon = { Icon(Icons.AutoMirrored.Filled.ListAlt, contentDescription = null) },
-        label = "Checklist (${checklist.count { it.isCompleted }}/${checklist.size})",
+        label = "Checklist ($completed/${checklist.size})",
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                checklist.take(10).forEach { item ->
-                    Row(
+                // The add row — always present, so the first item can be added
+                // without leaving the screen.
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OutlinedTextField(
+                        state = newTitleState,
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onToggle(item) }
-                            .padding(vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                            .weight(1f)
+                            .testTag(TestTags.CHECKLIST_INLINE_ADD_INPUT),
+                        placeholder = { Text("Add item...", style = MaterialTheme.typography.bodySmall) },
+                        lineLimits = TextFieldLineLimits.SingleLine,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        onKeyboardAction = {
+                            val trimmed = newTitleState.text.toString().trim()
+                            if (trimmed.isNotEmpty()) {
+                                onAddItem(trimmed)
+                                newTitleState.clearText()
+                            }
+                        },
+                    )
+                    IconButton(
+                        onClick = {
+                            val trimmed = newTitleState.text.toString().trim()
+                            if (trimmed.isNotEmpty()) {
+                                onAddItem(trimmed)
+                                newTitleState.clearText()
+                            }
+                        },
+                        modifier = Modifier
+                            .size(40.dp)
+                            .testTag(TestTags.CHECKLIST_INLINE_ADD_BUTTON),
                     ) {
-                        Text(
-                            text = if (item.isCompleted) "✓ ${item.title}" else item.title,
-                            style = MaterialTheme.typography.bodySmall,
-                            textDecoration = if (item.isCompleted) TextDecoration.LineThrough else null,
-                            color = if (item.isCompleted) {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            } else {
-                                MaterialTheme.colorScheme.onSurface
-                            },
-                            modifier = Modifier.weight(1f),
+                        Icon(
+                            Icons.Filled.Add,
+                            contentDescription = "Add item",
                         )
-                        IconButton(
-                            onClick = { onDelete(item.id) },
-                            modifier = Modifier.height(24.dp),
-                        ) {
-                            Icon(
-                                Icons.Filled.Close,
-                                contentDescription = "Delete item",
-                                tint = MaterialTheme.colorScheme.error,
-                            )
-                        }
                     }
                 }
-                if (checklist.size > 10) {
-                    Text(
-                        "+${checklist.size - 10} more",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+                // No cap: a task with fourteen checklist items shows fourteen of
+                // them. The list used to show ten and say "+4 more", which is a
+                // truncation the user cannot act on from the screen they are on.
+                checklist.forEach { item ->
+                    ChecklistItemRow(
+                        text = item.title,
+                        checked = item.isCompleted,
+                        onToggle = { onToggle(item) },
+                        onDelete = { onDelete(item.id) },
+                        tags = ChecklistRowTags.forChecklistItem(id = item.id.value, title = item.title),
                     )
                 }
             }
         },
-        modifier = modifier,
     )
 }
 

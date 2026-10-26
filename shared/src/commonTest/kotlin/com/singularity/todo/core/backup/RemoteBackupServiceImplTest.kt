@@ -8,6 +8,7 @@ import com.singularity.todo.core.error.TransportFailure
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.security.FakeArchiveCrypto
 import com.singularity.todo.test.fakes.MapFileSystem
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
@@ -16,6 +17,7 @@ import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
@@ -388,6 +390,36 @@ class RemoteBackupServiceImplTest {
             error.code,
             "a local read that failed is not an upload that was refused",
         )
+    }
+
+    /**
+     * A cancelled upload is a cancellation, not a failure of the bucket.
+     *
+     * The person who leaves the screen, or a scope that is torn down, cancels the
+     * push — and "the archive could not be uploaded" is a sentence about the
+     * archive, not about a screen that went away. A cancellation that is turned
+     * into a failure is a cancellation that is swallowed: the caller's coroutine
+     * carries on past a boundary that was supposed to end it.
+     */
+    @Test
+    fun `a cancelled upload stays a cancellation`() = runTest {
+        val bucket = FakeBucket()
+        bucket.failure = CancellationException("the screen went away")
+
+        assertFailsWith<CancellationException> {
+            service(bucket, archive(MapFileSystem())).upload("/backups/a.zip", UserId("user-1"), password())
+        }
+    }
+
+    /** The same holds on the way back down: a cancelled download is not a failure. */
+    @Test
+    fun `a cancelled download stays a cancellation`() = runTest {
+        val bucket = FakeBucket()
+        bucket.failure = CancellationException("the screen went away")
+
+        assertFailsWith<CancellationException> {
+            service(bucket).download("user-1/a.zip", "/backups/a.zip", UserId("user-1"), password())
+        }
     }
 }
 

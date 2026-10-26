@@ -16,6 +16,7 @@ import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.database.textIndex
+import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.JvmFileSourceFactory
 import com.singularity.todo.core.files.JvmFileSystem
 import com.singularity.todo.core.ids.UserId
@@ -25,6 +26,7 @@ import com.singularity.todo.feature.tasks.domain.logic.DependencyValidatorImpl
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeUnitOfWork
@@ -108,6 +110,44 @@ class BackupRoundTripTest {
         val restoredTasks = targetDb.taskDao().listAllForUser(owner.value)
         assertEquals(1, restoredTasks.size, "the restored database holds ${restoredTasks.size} tasks")
         assertEquals("Backup round trip", restoredTasks.first().title)
+        assertEquals(
+            "InProgress",
+            restoredTasks.first().workflowState,
+            "the state the user claimed for the task's work must survive the round trip",
+        )
+    }
+
+    /**
+     * Exporting never reads the archive — or an attachment — back into memory.
+     *
+     * The archive is written in pieces through `openWrite`, and its size is asked
+     * of the filesystem rather than measured by reading the file back. This test
+     * is the anchor for that: the filesystem it hands the exporter refuses every
+     * whole-file read, so an exporter that reaches for `readBytes` — for the size
+     * of the archive, or for an attachment's bytes — fails here and does not fail
+     * on a phone, where the same code simply costs the whole account in memory.
+     */
+    @Test
+    fun `exporting never reads a whole file into memory`() = runTest {
+        val owner = UserId("backup-user")
+        seedTask(owner)
+
+        val fs = NoWholeFileReads(JvmFileSystem())
+        val destPath = File(tempDir, "no-whole-reads.zip").absolutePath
+
+        val exported = exporter(fs).export(
+            exportOptions {
+                this.userId = owner
+                this.destPath = destPath
+                includeAttachments = true
+            },
+        )
+
+        assertTrue(
+            exported.isSuccess,
+            "the export read a whole file into memory: ${exported.exceptionOrNull()}",
+        )
+        assertTrue(File(destPath).isFile, "the backup file was not written")
     }
 
     /** Writes the task the round-trip starts from into the source database. */
@@ -130,6 +170,10 @@ class BackupRoundTripTest {
                 userId = owner,
                 createdAt = Clock.System.now(),
                 updatedAt = Clock.System.now(),
+                // A claimed state, so the round trip has something to carry: a
+                // task that was never claimed would restore as `Open` whether
+                // the field travelled or not.
+                workflowState = TaskWorkflowState.InProgress,
             ),
         )
     }
@@ -206,7 +250,7 @@ class BackupRoundTripTest {
     }
 
     /** The exporter reads the source database. */
-    private fun exporter(fs: JvmFileSystem) = BackupExporter(
+    private fun exporter(fs: FileSystem) = BackupExporter(
         taskDao = sourceDb.taskDao(),
         noteDao = sourceDb.noteDao(),
         projectDao = sourceDb.projectDao(),
@@ -250,4 +294,17 @@ class BackupRoundTripTest {
         clock = Clock.System,
         createFileSource = JvmFileSourceFactory(),
     )
+}
+
+/**
+ * A filesystem that refuses every whole-file read, and delegates everything else.
+ *
+ * The archive is meant to travel in pieces. This double makes that a property a
+ * test can check: the streaming paths (`openRead`, `openWrite`, `stat`) work as
+ * they normally would, and `readBytes` — the one call that loads a whole file into
+ * memory — fails loudly instead of quietly costing the account's largest files.
+ */
+private class NoWholeFileReads(private val delegate: FileSystem) : FileSystem by delegate {
+    override suspend fun readBytes(path: String): ByteArray =
+        error("a whole file was read into memory: $path")
 }

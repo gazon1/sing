@@ -2,6 +2,7 @@ package com.singularity.todo.feature.agenda.domain.model
 import com.singularity.todo.feature.tasks.domain.model.BlockedBulkCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskMarking
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
@@ -83,13 +84,20 @@ data class RenderedSection(
  * that carries agenda-specific display metadata.
  *
  * @param task The underlying task.
- * @param badge Optional per-task badge (e.g. "recurring", "overdue").
+ * @param markings Everything the task is marked with — blocked, follow-up, in
+ *   progress, next up, overdue, no date, pinned, repeating, completed.
+ *
+ *   It is a **set**, not a single badge. The row used to carry one badge,
+ *   chosen by a fixed priority, and a task that was both blocked and overdue
+ *   showed one of the two and lost the other. The markings are computed by
+ *   the one shared policy, so the agenda and the task list answer the same
+ *   question the same way.
+ *
+ * @see com.singularity.todo.feature.tasks.domain.logic.computeTaskMarkings
  */
 data class AgendaRowItem(
     val task: com.singularity.todo.feature.tasks.domain.model.Task,
-    val badge: AgendaBadge? = null,
-    /** MR-1: true when the task has incomplete dependencies. */
-    val isBlocked: Boolean = false,
+    val markings: ImmutableSet<TaskMarking> = persistentSetOf(),
     /** How many dates the series of this row has; null when it stands alone. */
     val seriesDates: Int? = null,
     /**
@@ -103,15 +111,3 @@ data class AgendaRowItem(
     val project: String? = null,
     val projectColor: Int? = null,
 )
-
-/**
- * Per-task or per-section badge label.
- */
-enum class AgendaBadge {
-    Overdue,
-    Recurring,
-    Pinned,
-    Completed,
-    NoDate,
-    Blocked, // MR-1: task has incomplete dependencies
-}

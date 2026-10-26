@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.agenda.domain.logic
 
-import com.singularity.todo.feature.agenda.domain.model.AgendaBadge
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.AgendaRowItem
 import com.singularity.todo.feature.agenda.domain.model.RenderedSection
@@ -11,8 +10,8 @@ import com.singularity.todo.feature.agenda.domain.selector.SelectorContext
 import com.singularity.todo.feature.agenda.domain.selector.matches
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.tasks.domain.logic.Blocking
+import com.singularity.todo.feature.tasks.domain.logic.computeTaskMarkings
 import com.singularity.todo.feature.tasks.domain.model.Task
-import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
 
@@ -27,7 +26,7 @@ import kotlinx.datetime.LocalDate
  * 1. Sort sections by [Section.order].
  * 2. For each section, filter tasks that match [Selector].
  * 3. If [Section.discard] is true, remove matched tasks from the pool for subsequent sections.
- * 4. Wrap remaining tasks in [AgendaRowItem] with computed [AgendaBadge]s.
+ * 4. Wrap remaining tasks in [AgendaRowItem] with their computed markings.
  */
 object AgendaEvaluator {
 
@@ -55,7 +54,16 @@ object AgendaEvaluator {
         // How many dates each series has. The row says which work it is one date
         // of, so the count is counted once for the whole list rather than per row.
         val seriesSizes = seriesSizes(tasks)
-        val context = SelectorContext(today = today, now = now, blockedIds = blockedIds)
+        // The ordering projection, computed the same once-per-evaluation way as the
+        // blocking one: `FollowUp` asks whether the task is in this set, not whether
+        // some other task points at it.
+        val followUpIds = tasks.filter { it.followsUp.isNotEmpty() }.map { it.id }.toSet()
+        val context = SelectorContext(
+            today = today,
+            now = now,
+            blockedIds = blockedIds,
+            followUpIds = followUpIds,
+        )
         return definition.sections
             .sortedBy { it.order }
             .mapNotNull { section ->
@@ -73,8 +81,11 @@ object AgendaEvaluator {
                         val project = task.projectId?.value?.let { projectsById[it] }
                         AgendaRowItem(
                             task = task,
-                            badge = computeBadge(task, today, blockedIds),
-                            isBlocked = task.id in blockedIds,
+                            markings = computeTaskMarkings(
+                                task = task,
+                                today = today,
+                                isBlocked = task.id in blockedIds,
+                            ),
                             seriesDates = task.seriesId?.let { seriesSizes[it.value] },
                             project = project?.name,
                             projectColor = project?.color,
@@ -102,9 +113,6 @@ object AgendaEvaluator {
     )
     fun matches(task: Task, selector: Selector, context: SelectorContext): Boolean =
         selector.matches(task, context)
-
-    private fun computeBadge(task: Task, today: LocalDate, blockedIds: Set<TaskId>): AgendaBadge? =
-        computeAgendaBadge(task, today, blockedIds)
 
     /**
      * How many dates each series has.

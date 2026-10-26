@@ -1,0 +1,29 @@
+# Scenario specification for AGENDA-STATE-01.
+#
+# The canonical statement of this user scenario. Linkage to automation lives in
+# code (@DisplayName for Kotlin, a `scenario:AGENDA-STATE-01` Maestro tag), so
+# there is no second source of truth to keep in sync.
+#
+# A saved view is a query. Once workflow state is a fact on the task, "the
+# tasks I am working on" is a query the view should be able to express without
+# the user maintaining a tag by hand.
+
+id: AGENDA-STATE-01
+title: A saved view shows only the tasks in a chosen workflow state
+area: feature.agenda
+priority: P2
+status: confirmed
+targets: [desktop]
+preconditions: >-
+  Two open tasks exist, one with the workflow state "In progress" and one with
+  no state; a saved view whose only section is grouped by workflow state
+  exists and is open on desktop.
+steps:
+  - Open the saved view.
+  - Look at the section and at the tasks in it.
+expected: >-
+  The section is named after the state, and it contains the in-progress task
+  and not the task with no state — the view filters by the stored state.
+
+# Claimed on `desktop` by
+# desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/agenda/AgendaStateScenarioTest.kt.

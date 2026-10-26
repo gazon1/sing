@@ -1,0 +1,36 @@
+# Scenario specification for TASK-TAG-01.
+#
+# The gap this closes: a tag that does not exist yet could only be made by
+# leaving the task, going to the tags screen, creating it there and coming
+# back — a routine moment interrupted by a detour.
+#
+# The rule that makes it safe to create a tag from where it is applied is
+# stated in the domain (`TagDomain.findByName`), not in the screen: there is no
+# unique index on `tags.name` and the repository creates whatever it is handed,
+# so the rule had to be written down somewhere both the tags screen and the
+# picker share.
+#
+# The scenario is claimed on `desktop` because the picker is reachable from the
+# JVM tier: the sheet opens its own window, and the cross-root search finds
+# what is inside it — the same measurement `SheetReachabilityTest` pins.
+
+id: TASK-TAG-01
+title: Add a tag that does not exist yet
+area: feature.tasks
+priority: P2
+status: confirmed
+targets: [desktop]
+preconditions: >-
+  A task exists and its detail view is open on desktop, where the place the
+  task's tags are chosen is reachable from the task editor.
+steps:
+  - Open the place where the task's tags are chosen.
+  - Create a tag named "invoice" from there.
+  - Confirm the choice, so the tag reaches the task.
+  - Open the same place again and create a tag named "Invoice".
+  - Try to create a tag with an empty name.
+expected: >-
+  The new tag is in the list of tags to choose from without the list being
+  reopened, and it is applied to the task; a name that differs only in case is
+  not created a second time but the existing tag is offered instead; an empty
+  name is refused, no tag is created, and the reason is stated.

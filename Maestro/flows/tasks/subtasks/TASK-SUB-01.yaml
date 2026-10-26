@@ -20,7 +20,7 @@
 # 2. Open the task detail view — SubtasksSection appears.
 # 3. Type a subtask title in the add-subtask input and submit.
 # 4. Verify the subtask appears in the list.
-# 5. Tap the subtask row to toggle its completed state.
+# 5. Tap the subtask's checkbox to toggle its completed state.
 # 6. Verify the completed state changes.
 # 7. Tap the delete (×) button to remove the subtask.
 # 8. Verify the subtask is removed from the list.
@@ -77,12 +77,16 @@ tags:
     timeout: 8000
 
 # ── Toggle subtask completed state ───────────────────────────────
+# The row is a real checkbox now, not a tap on the title: the title opens the
+# subtask as its own task, and the tick character that used to be drawn in
+# front of it is gone.
 - tapOn:
-    id: subtask_item_${RUN_ID}_child_task_one
+    id: subtask_checkbox_${RUN_ID}_child_task_one
 - extendedWaitUntil:
     visible:
-      text: "✓ ${RUN_ID} Child task one"
-    timeout: 5000
+      id: subtask_checkbox_${RUN_ID}_child_task_one
+      checked: true
+    timeout: 8000
 
 # ── Delete subtask ────────────────────────────────────────────────
 - tapOn:

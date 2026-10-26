@@ -26,17 +26,13 @@ class ChecklistRepositoryImpl(
         title: String,
         id: ChecklistItemId,
     ): Result<ChecklistItemId> = runCatchingCancellable {
-        // Append, not `0`. This wrote `sortOrder = 0` for every item, while
-        // `createBatch` in this same class numbers from `index`, and the DAO
-        // reads back with `ORDER BY sort_order ASC`. A new item therefore tied
-        // with the first row of the list and the tie was resolved by rowid — so
-        // an item added to a two-item list came back in the middle of it
-        // (`[first, second, third]` read as `[first, third, second]`). It is
-        // invisible on a list that has only ever been added to one item at a
-        // time, which is why the four existing checklist tests never saw it:
-        // they assert `size`, and on a fresh database the rowid tie-break
-        // happens to agree with insertion order.
-        val sortOrder = dao.watchByTask(taskId).first().size
+        // Append, and append *after the last row*: the order is the number of
+        // existing rows, which a delete followed by an add collides on — the new
+        // row takes the number the deleted row had, and the DAO reads back with
+        // `ORDER BY sort_order ASC`, so the tie is broken by rowid, which SQL
+        // does not promise. The inline add-row on the task screen makes adds
+        // frequent, which is exactly the usage that finds the collision.
+        val sortOrder = dao.watchByTask(taskId).first().maxOfOrNull { it.sortOrder }?.plus(1) ?: 0
         val item = ChecklistItem(
             id = id,
             taskId = taskId,

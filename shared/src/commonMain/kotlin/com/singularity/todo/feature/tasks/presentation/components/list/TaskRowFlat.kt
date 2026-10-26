@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tasks.presentation.components.list
 
+import kotlinx.collections.immutable.persistentSetOf
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Column
@@ -15,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskMarking
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
@@ -112,7 +114,7 @@ private fun TaskRowFlatPreview() {
                     title = "Позвонить родителям в сб или вс",
                     project = "Семья",
                     dueLabel = "Сб, 05 сент 2026",
-                    isRecurring = true,
+                    markings = persistentSetOf(TaskMarking.Recurring),
                 ),
                 onToggleCompleted = {},
                 onClick = {},
@@ -123,7 +125,7 @@ private fun TaskRowFlatPreview() {
                     title = "Отправить заявку на баллы фитмост от гпб",
                     project = "Финансы",
                     dueLabel = "Пн, 18 мая 2026",
-                    isRecurring = true,
+                    markings = persistentSetOf(TaskMarking.Recurring),
                     priority = TaskPriority.High,
                 ),
                 onToggleCompleted = {},

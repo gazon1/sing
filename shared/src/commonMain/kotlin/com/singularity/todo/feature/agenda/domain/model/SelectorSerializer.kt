@@ -17,6 +17,7 @@
 package com.singularity.todo.feature.agenda.domain.model
 
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerializationException
@@ -32,7 +33,7 @@ import kotlinx.serialization.serializer
 
 /**
  * The serialized discriminator tag for a [Selector] variant.
- * Kept as a plain `when` expression (17 cases) so it requires no reflection
+ * Kept as a plain `when` expression (19 cases) so it requires no reflection
  * and works across all KMP targets.
  */
 val Selector.typeTag: String
@@ -47,6 +48,8 @@ val Selector.typeTag: String
         is Selector.Completed -> "Completed"
         is Selector.Overdue -> "Overdue"
         is Selector.Blocked -> "Blocked"
+        is Selector.WorkflowState -> "WorkflowState"
+        is Selector.FollowUp -> "FollowUp"
         is Selector.Stagnant -> "Stagnant"
         is Selector.Regexp -> "Regexp"
         is Selector.AllOf -> "AllOf"
@@ -227,6 +230,33 @@ private class RegistryHolder {
         )
 
         put(
+            "WorkflowState",
+            SelectorEntry(
+                encode = { s ->
+                    JsonObject(
+                        mapOf(
+                            "_type" to JsonPrimitive("WorkflowState"),
+                            "state" to JsonPrimitive((s as Selector.WorkflowState).state.name),
+                        ),
+                    )
+                },
+                decode = { obj ->
+                    Selector.WorkflowState(
+                        state = Json.decodeFromJsonElement(serializer(), obj.getValue("state")),
+                    )
+                },
+            ),
+        )
+
+        put(
+            "FollowUp",
+            SelectorEntry(
+                encode = { JsonObject(mapOf("_type" to JsonPrimitive("FollowUp"))) },
+                decode = { Selector.FollowUp },
+            ),
+        )
+
+        put(
             "Stagnant",
             SelectorEntry(
                 encode = { s ->
@@ -301,7 +331,7 @@ private class RegistryHolder {
                 },
             ),
         )
-    }.also { require(it.size == 14) { "Expected 14 leaf entries, got ${it.size}" } }
+    }.also { require(it.size == 16) { "Expected 16 leaf entries, got ${it.size}" } }
 
     // compositeEntries encode lambdas capture `this` (the RegistryHolder instance) and look up
     // from `allEntries` at CALL time, not at capture/creation time. This avoids the
@@ -405,7 +435,7 @@ object SelectorSerializer : KSerializer<Selector> {
 
     private val registry = RegistryHolder()
 
-    /** All 17 expected typeTag values — used for the construction assertion. */
+    /** All 19 expected typeTag values — used for the construction assertion. */
     private val expectedTypeTags: Set<String> by lazy {
         setOf(
             Selector.DateBucket(RelativeBucket.Today),
@@ -418,6 +448,8 @@ object SelectorSerializer : KSerializer<Selector> {
             Selector.Completed,
             Selector.Overdue,
             Selector.Blocked,
+            Selector.WorkflowState(TaskWorkflowState.Open),
+            Selector.FollowUp,
             Selector.Stagnant(kotlin.time.Duration.parse("P1D")),
             Selector.Regexp(""),
             Selector.AllOf(emptyList()),

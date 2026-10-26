@@ -237,6 +237,12 @@ object TagsMd {
 
         "taskCheckbox" -> DynamicMeta(fnName, "Tasks", "Buy milk", "Task checkboxes")
 
+        "dependencyItem" ->
+            DynamicMeta(fnName, "Tasks", "Dep task", "Rows in the dependency picker")
+
+        "dependencyVerb" ->
+            DynamicMeta(fnName, "Tasks", "blocks", "Kind-of-relation chips on one dependency row")
+
         "subtaskItem" -> DynamicMeta(fnName, "Tasks", "Child task one", "Subtask list rows")
 
         "subtaskCheckbox" -> DynamicMeta(fnName, "Tasks", "Child task one", "Subtask checkboxes")
