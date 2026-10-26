@@ -221,7 +221,10 @@ fun NoteEditorScreenContent(
                     }
                 },
                 actions = {
-                    SavedIndicator(visible = savedVisible)
+                    SavedIndicator(
+                        visible = savedVisible,
+                        modifier = Modifier.testTag(TestTags.NOTE_EDITOR_SAVED_INDICATOR),
+                    )
                     IconButton(
                         onClick = {
                             // Flush the editor before the save reads the draft.

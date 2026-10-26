@@ -131,7 +131,6 @@
     <ID>TooGenericExceptionCaught:ExtractActionsTool.kt:ExtractActionsTool$e: Exception</ID>
     <ID>TooGenericExceptionCaught:GenerateChecklistTool.kt:GenerateChecklistTool$e: Exception</ID>
     <ID>TooGenericExceptionCaught:ImproveNoteTool.kt:ImproveNoteTool$e: Exception</ID>
-    <ID>TooGenericExceptionCaught:NoteEditor.kt:NoteEditor$e: Exception</ID>
     <ID>TooGenericExceptionCaught:NotePreview.kt:NotePreview$e: Exception</ID>
     <ID>TooGenericExceptionCaught:PullPhase.kt:PullPhase$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:PushPhase.kt:PushPhase$e: Throwable</ID>

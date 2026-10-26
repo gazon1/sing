@@ -1355,6 +1355,35 @@ Steps:
 
 **Expected:** The item persists with its text and its completed state, so the list survives closing and reopening the editor on the same task.
 
+#### `TASK-LOG-01` — A note written from the task logbook stays attached to the task
+
+**confirmed** · P1 · `#TASK-LOG`
+
+**Given:** A signed-in device with an empty task database and the app in the foreground. One task named "Buy milk" exists.
+
+Steps:
+
+1. Open the task and scroll to its Logbook section.
+2. Tap the logbook's "+" and type a title in the note editor that opens.
+3. Save the note and leave the editor.
+4. Reopen the task and scroll to its Logbook section.
+
+**Expected:** The task's logbook shows the note under the title the user typed. The note is still there after the navigation round-trip — it is stored with the task's attachment, not only on the screen the user came from. A wrong implementation that drops the attachment on the first save leaves the logbook empty, and this scenario fails.
+
+#### `TASK-LOG-02` — Abandoning the logbook's note editor leaves no note behind
+
+**confirmed** · P1 · `#TASK-LOG`
+
+**Given:** A signed-in device with an empty task database and the app in the foreground. One task named "Buy milk" exists, and its logbook is empty.
+
+Steps:
+
+1. Open the task and scroll to its Logbook section.
+2. Tap the logbook's "+" and leave the note editor without writing anything.
+3. Reopen the task and scroll to its Logbook section.
+
+**Expected:** The task's logbook is still empty — the same empty state it showed before the editor was opened. No note row was written, so there is nothing to show. A wrong implementation that creates the note on open leaves a row behind and this scenario fails.
+
 #### `TASK-REC-01` — Create a daily recurring task
 
 **confirmed** · P1 · `#TASK-REC`

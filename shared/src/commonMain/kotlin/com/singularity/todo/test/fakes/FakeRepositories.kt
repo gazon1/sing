@@ -2643,13 +2643,13 @@ open class FakeNotesRepository(
         }
 
     override suspend fun createForTask(
+        id: com.singularity.todo.feature.notes.NoteId,
         taskId: TaskId,
         title: String,
         bodyMarkdown: String?,
         bodyHtml: String?,
     ): Result<com.singularity.todo.feature.notes.NoteId> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
-        val id = com.singularity.todo.feature.notes.NoteId(com.singularity.todo.core.ids.nextId())
         val now = clock.now()
         val note = com.singularity.todo.feature.notes.Note(
             id = id,

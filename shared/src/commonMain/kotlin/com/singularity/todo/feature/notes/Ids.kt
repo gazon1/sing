@@ -112,8 +112,9 @@ data class Note(
      * Structural note-to-task linkage. When non-null, this note is attached to the
      * identified task and appears in the task's logbook.
      *
-     * This field coexists with [outgoingLinks] — the `task://<id>` URL token is still
-     * written into [outgoingLinks] for backward compatibility during migration.
+     * The attachment is written once, when the note is created, and no content save
+     * touches it. A note that merely *links* to a task from its body has no attachment
+     * here — that link lives in [outgoingLinks] and surfaces in the task's "Linked" card.
      */
     val taskId: TaskId? = null,
     val createdAt: Instant,
@@ -171,6 +172,14 @@ sealed interface EditorState {
         val isDirty: Boolean = false,
         /** True until the note is persisted for the first time (create-on-first-save). */
         val isNew: Boolean = false,
+        /**
+         * The task this note belongs to, when it was opened from that task's logbook.
+         *
+         * The attachment lives in the draft until the note is created: the editor
+         * generates the id, the user writes, and the first save creates the note already
+         * attached. A note that was not opened from a logbook has no task here.
+         */
+        val taskId: TaskId? = null,
     ) : EditorState {
         /**
          * The title as the field's source.

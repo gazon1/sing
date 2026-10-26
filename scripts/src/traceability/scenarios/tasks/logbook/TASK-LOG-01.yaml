@@ -1,0 +1,35 @@
+# Scenario TASK-LOG-01 — a note written from the task logbook stays attached.
+#
+# Generated from specs/015-fix-task-logbook/spec.md.
+#
+# The behaviour this scenario pins: a note written from a task's logbook keeps
+# its attachment. The note used to lose it on the first save — the editor wrote
+# the note with the *create* primitive, and Room's `@Upsert` replaces every
+# column, so the `task_id` was overwritten with NULL and the note fell out of
+# the logbook.
+#
+# The carrier: Maestro/flows/tasks/logbook/TASK-LOG-01.yaml
+# (`scenario:TASK-LOG-01`).
+
+id: TASK-LOG-01
+title: "A note written from the task logbook stays attached to the task"
+priority: P1
+status: confirmed
+targets: [android]
+
+preconditions: >-
+  A signed-in device with an empty task database and the app in the
+  foreground. One task named "Buy milk" exists.
+
+steps:
+  - "Open the task and scroll to its Logbook section."
+  - "Tap the logbook's \"+\" and type a title in the note editor that opens."
+  - "Save the note and leave the editor."
+  - "Reopen the task and scroll to its Logbook section."
+
+expected: >-
+  The task's logbook shows the note under the title the user typed. The note
+  is still there after the navigation round-trip — it is stored with the task's
+  attachment, not only on the screen the user came from. A wrong implementation
+  that drops the attachment on the first save leaves the logbook empty, and
+  this scenario fails.

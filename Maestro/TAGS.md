@@ -76,6 +76,9 @@ non-alphanumeric characters with `_`.
 | `CHECKLIST_ADD_INPUT` | `checklist_add_input` | |
 | `CHECKLIST_SHEET` | `checklist_sheet` | |
 | `FIRST_RUN_SECTION` | `first_run_section` | |
+| `LOGBOOK_ADD_NOTE_BUTTON` | `logbook_add_note_button` | |
+| `LOGBOOK_EMPTY` | `logbook_empty` | |
+| `LOGBOOK_SECTION` | `logbook_section` | |
 | `PRIORITY_OPTION_HIGH` | `priority_option_high` | |
 | `PRIORITY_OPTION_LOW` | `priority_option_low` | |
 | `PRIORITY_OPTION_MEDIUM` | `priority_option_medium` | |
@@ -176,6 +179,7 @@ non-alphanumeric characters with `_`.
 | `NOTE_EDITOR_BODY` | `note_editor_body` | |
 | `NOTE_EDITOR_NOTIFICATION_HOST` | `note_editor_notification_host` | |
 | `NOTE_EDITOR_SAVE` | `note_editor_save` | |
+| `NOTE_EDITOR_SAVED_INDICATOR` | `note_editor_saved_indicator` | |
 | `NOTE_EDITOR_TITLE_INPUT` | `note_editor_title_input` | |
 
 ### Search
@@ -405,6 +409,7 @@ use the expanded string directly).
 | `checklistItem("Item")` | `"Item"` | `checklist_item_item` | Checklist item rows |
 | `checklistItemCheckbox("Item")` | `"Item"` | `checklist_item_checkbox_item` | Checklist item checkboxes |
 | `checklistItemDelete("Item")` | `"Item"` | `checklist_item_delete_item` | Checklist item delete buttons |
+| `logbookNoteByTitle("Logbook note")` | `"Logbook note"` | `logbook_note_by_title_logbook_note` | Note rows in a task's logbook |
 | `subtaskCheckbox("Child task one")` | `"Child task one"` | `subtask_checkbox_child_task_one` | Subtask checkboxes |
 | `subtaskDelete("Child task one")` | `"Child task one"` | `subtask_delete_child_task_one` | Subtask delete buttons |
 | `subtaskItem("Child task one")` | `"Child task one"` | `subtask_item_child_task_one` | Subtask list rows |
