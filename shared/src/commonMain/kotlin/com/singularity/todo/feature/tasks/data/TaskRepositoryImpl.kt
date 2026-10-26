@@ -850,7 +850,7 @@ class TaskRepositoryImpl(
             require(taskDao.getByIdForUser(taskId.value, uid) != null) { "Task $taskId not found" }
 
             // Validate the resulting blocking set before any write.
-            val blockingSet = relations.filterValues { it == DependencyVerb.BLOCKS }.keys.map { it.value }.toSet()
+            val blockingSet = relations.filterValues { it == DependencyVerb.BLOCKS }.keys.toSet()
             dependencyValidator.assertNoCycles(taskId, blockingSet).getOrThrow()
 
             val existingEdges = taskDao.observeTypedDependenciesForUser(taskId.value, uid).first()
