@@ -138,6 +138,29 @@ class EncryptedArchiveStreamTest {
     }
 
     /**
+     * A cancellation while the header is read is not "not an archive".
+     *
+     * `CancellationException` extends `IllegalStateException` on the JVM, and the
+     * header read answers `IllegalStateException` with "this is not an encrypted
+     * archive". Without the cancellation clause first, a coroutine told to stop
+     * during the header read would be told the archive is not one — a cancellation
+     * swallowed and a person sent looking for a corrupt file.
+     */
+    @Test
+    fun `a cancellation while the header is read is not reported as a bad archive`() {
+        val cancelled = object : ByteSource {
+            override fun read(buffer: ByteArray, offset: Int, length: Int): Int =
+                throw kotlinx.coroutines.CancellationException("the screen went away")
+
+            override fun close() = Unit
+        }
+
+        assertFailsWith<kotlinx.coroutines.CancellationException> {
+            archive.open(cancelled, ByteArraySink(), password)
+        }
+    }
+
+    /**
      * A source that fails on its very first read.
      *
      * Wrapped in an `IllegalStateException`: a real one — a closed channel, a

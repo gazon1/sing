@@ -139,19 +139,25 @@ supabase.anonKey=<ключ из .env стека>
    не выполнить: оставить его в дереве — значит завести `slow`-тест, который
    `check-slow-tests-ran.py` требует, а CI выполнить не может.
 
+Имена `PROBE_*` и класса ниже — это **пример**: класс пишется заново под задачу
+(в репозитории его нет намеренно, см. пункт 3), а команда показывает форму
+запуска. Имена переменных окружения самого стека (`$SUPABASE_PUBLIC_URL`,
+`$ANON_KEY`, `$SERVICE_ROLE_KEY`) — из `.env` стека, а не из этого репозитория.
+
 ```bash
 cd /tmp/supa-stack && set -a && . ./.env && set +a
 cd <этот-репозиторий>
+# TMPDIR — каталог прогона на этой машине; на своей подставьте свой.
 PROBE_SUPABASE_URL="$SUPABASE_PUBLIC_URL" \
 PROBE_SUPABASE_ANON="$ANON_KEY" \
 PROBE_SUPABASE_SERVICE_ROLE="$SERVICE_ROLE_KEY" \
-TMPDIR=/home/max/.cache/escolar-tmp \
+TMPDIR=<каталог-прогона> \
 ./gw :shared:jvmTest -Ptest.tags=all \
-  --tests "com.singularity.todo.core.backup.LiveStorageProbeTest"
+  --tests "com.singularity.todo.core.backup.<ВашProbe>Test"
 ```
 
 Зелёный прогон: `tests="1" skipped="0" failures="0" errors="0"` в
-`shared/build/test-results/jvmTest/TEST-...LiveStorageProbeTest.xml`.
+`shared/build/test-results/jvmTest/TEST-...<ВашProbe>Test.xml`.
 
 Мелкие грабли стека:
 

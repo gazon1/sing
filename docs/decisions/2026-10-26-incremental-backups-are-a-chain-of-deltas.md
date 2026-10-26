@@ -2,7 +2,7 @@
 title: "Incremental backups are a chain of sealed deltas inside one container"
 date: 2026-10-26
 status: accepted
-tags: ["backup", "crypto", "cloud"]
+tags: [backup, crypto, cloud]
 ---
 
 # Incremental backups are a chain of sealed deltas inside one container
@@ -69,19 +69,41 @@ and every later build still reads the old ones — the rule the format's own ADR
 is the first test of that rule: version 1 stays exactly as it is and stays readable; version
 2 is what an incremental archive is, and a build that reads v2 reads v1 as well.
 
+That promise has a mechanical consequence the first draft of this record missed: the reader
+cannot check `version != VERSION`. It has to know the **set** of versions it reads, route v1
+to the shape v1 always had and v2 to the chain — so `VERSION` becomes a set with a "write
+this one" member, not a single constant, and the refusal names the version the archive has
+against the versions this build knows.
+
 The shape:
 
 ```
-magic (4) | version=2 (1) | salt (16) | nonce (12) | base ciphertext + tag
-                                                   | entry* : length (4) | nonce (12) | ciphertext + tag
+magic (4) | version=2 (1) | salt (16) | nonce (12) | head (16) | base ciphertext + tag
+                                                              | entry* : index (4) | length (4) | nonce (12) | ciphertext + tag
 ```
 
-- **the base** is a version-1-shaped payload: the full archive at the moment the chain
-  started. It opens exactly as a v1 archive does.
+- **the head** is a fixed, *authenticated* field inside the base's covered data: the number
+  of entries in the chain and the total length of the entries that follow. It is what makes
+  a **truncated tail** detectable. Per-entry GCM with a cursor inside each entry catches a
+  reordered or inserted entry — a cursor that does not follow is refused — but dropping the
+  last entries leaves a shorter chain whose every surviving entry still opens, and the
+  reader would restore an earlier state believing it is the current one. The head is the
+  one place the chain's length is bound into the base's tag, so dropping entries makes the
+  chain disagree with its own head and the archive is refused by name.
+- **the base** is a version-1-shaped payload plus the head: the full archive at the moment
+  the chain started. Its ciphertext is what the head authenticates.
 - **an entry** is a sealed delta — the patches since the entry before it, stamped with the
-  cursor they apply at — and it carries its own nonce and its own tag. An entry that does
-  not open, or whose cursor does not follow the one before it, is refused by name rather
-  than skipped.
+  cursor they apply at — carrying its own nonce and its own tag, and its **index** as the
+  entry's AAD. The index is what catches a swap of two entries that carry valid cursors:
+  entry *n* whose index is not *n* is refused, whatever its cursor says. An entry that does
+  not open, whose index is wrong, or whose cursor does not follow the one before it is
+  refused by name rather than skipped.
+
+**The device key is part of the v2 header, and its wrap is authenticated.** The key that
+lets a scheduled export run without a person (below) is wrapped under the password and
+carried in the container, so it has to be in the picture above: it lives in a key block that
+follows the head, is covered by the base's tag like the head is, and a build that does not
+read v2 does not have to know it exists.
 
 **The cursor is the archive's own, not the sync engine's.** The chain records where in the
 *backup* it stands — which is a fact the backup feature owns. It may be read from the same
@@ -148,8 +170,9 @@ after that the key is as protected as the keystore, which is as protected as the
 
 ## Consequences
 
-- `EncryptedArchive.VERSION` goes to 2, and **version 1 must keep opening** — the golden
-  archive pins v1 byte for byte, and a change to it is now a change to a promise.
+- The container learns a **set** of readable versions, not one constant: it routes v1 to the
+  v1 shape and v2 to the chain, and refuses anything else by name with both numbers. Bumping
+  `VERSION` alone would break v1 readability, which is the promise this record exists to keep.
 - `EncryptedArchive` gains a chain reader and a chain writer: open(base, entries…) and
   seal(base, entry…). The whole-archive and streaming shapes both have to learn it.
 - The archive's manifest and payload gain the cursor the chain stands at; the payload

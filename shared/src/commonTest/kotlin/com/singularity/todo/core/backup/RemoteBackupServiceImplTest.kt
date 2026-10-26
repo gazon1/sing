@@ -17,6 +17,7 @@ import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
@@ -405,14 +406,9 @@ class RemoteBackupServiceImplTest {
         val bucket = FakeBucket()
         bucket.failure = CancellationException("the screen went away")
 
-        val result = runCatching {
+        assertFailsWith<CancellationException> {
             service(bucket, archive(MapFileSystem())).upload("/backups/a.zip", UserId("user-1"), password())
         }
-
-        assertTrue(
-            result.exceptionOrNull() is CancellationException,
-            "a cancellation must reach the caller as itself: ${result.exceptionOrNull()}",
-        )
     }
 
     /** The same holds on the way back down: a cancelled download is not a failure. */
@@ -421,14 +417,9 @@ class RemoteBackupServiceImplTest {
         val bucket = FakeBucket()
         bucket.failure = CancellationException("the screen went away")
 
-        val result = runCatching {
+        assertFailsWith<CancellationException> {
             service(bucket).download("user-1/a.zip", "/backups/a.zip", UserId("user-1"), password())
         }
-
-        assertTrue(
-            result.exceptionOrNull() is CancellationException,
-            "a cancellation must reach the caller as itself: ${result.exceptionOrNull()}",
-        )
     }
 }
 

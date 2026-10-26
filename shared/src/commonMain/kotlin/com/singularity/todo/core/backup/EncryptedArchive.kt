@@ -8,6 +8,7 @@ import com.singularity.todo.core.files.readExactly
 import com.singularity.todo.core.security.ArchiveCrypto
 import com.singularity.todo.core.security.ArchiveCryptoParams
 import com.singularity.todo.core.security.ArchiveTagMismatchException
+import kotlinx.coroutines.CancellationException
 
 /**
  * The encrypted archive: what sits in the bucket, and what comes back out of it.
@@ -179,6 +180,15 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
     private fun readHeader(source: ByteSource): ByteArray =
         try {
             source.readExactly(HEADER_BYTES)
+        } catch (error: CancellationException) {
+            // A cancellation is not a failure of the archive, and it must not be
+            // read as one. `CancellationException` extends `IllegalStateException`
+            // on the JVM, so this clause has to come before the one below — the
+            // "too short" sentence would otherwise be said about a coroutine that
+            // was simply told to stop.
+            throw error
+        } catch (error: BackupError) {
+            throw error
         } catch (error: IllegalStateException) {
             // Too few bytes: the source said what it is, and it is not a container.
             throw BackupError.NotEncrypted(error)
