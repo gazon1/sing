@@ -1,0 +1,17 @@
+schema: spec-driven
+
+# FR-040 already says all of this, and its words do not move.
+#
+# The requirement lives in the in-flight change `acp-external-agent-desktop` (its delta at
+# `specs/ai/external-agent/spec.md`): a turn that produces no event for 60 seconds is hung
+# and ends as a failure; a session whose process tree dies is marked disconnected; the turn
+# keeps the answer produced so far. This change makes the code do it.
+#
+# The capability is not yet folded into `openspec/specs/` (that change is still open), so a
+# delta here would either duplicate FR-040's id or collide when the external-agent change
+# archives. The change carries a proposal, a design and tasks here, an ADR in
+# `docs/decisions/`, and a verdict in `.specify/reviews/` — no delta.
+#
+# Invariant: if this change ever needs to move FR-040's own words — as opposed to making them
+# true — delete `skip_specs` and write the delta in the change that owns the capability.
+skip_specs: true

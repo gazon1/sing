@@ -176,6 +176,9 @@ class AcpExternalAgentViewModel(
      */
     private val conversation = AcpAgentConversation(vmScope, launcher)
 
+    /** The permission request on screen, and the answer the reader gives. */
+    private val permissions = AcpPermissionBroker()
+
     /**
      * The turn that is running, and the rules about when it may write to the screen.
      *
@@ -186,10 +189,9 @@ class AcpExternalAgentViewModel(
         scope = vmScope,
         onActivity = { assistantId, event -> applyActivity(assistantId, event) },
         onOutcome = { outcome -> setOutcome(outcome) },
+        onSessionLost = { reason -> onSessionLost(reason) },
+        awaitingReader = { permissions.hasPending },
     )
-
-    /** The permission request on screen, and the answer the reader gives. */
-    private val permissions = AcpPermissionBroker()
 
     sealed interface Intent : MviIntent {
         /** The user picked a different agent. */
@@ -367,9 +369,7 @@ class AcpExternalAgentViewModel(
             )
         }
 
-        turnRunner.start(assistantId) { sink ->
-            openSession.prompt(text).collect { event -> sink(event) }
-        }
+        turnRunner.start(assistantId, openSession.prompt(text))
     }
 
     /**
@@ -380,6 +380,32 @@ class AcpExternalAgentViewModel(
      */
     private fun setOutcome(outcome: AgentTurnOutcome) {
         updateState { it.copy(isRunning = false, turnOutcome = outcome) }
+    }
+
+    /**
+     * The session the last turn was talking to is gone.
+     *
+     * The turn already ended as a failure with the reason; what is left is the connection.
+     * A dead session that still reads *connected* offers a Disconnect button and an input
+     * that cannot work, and leaves the reader with no way back — so the connection becomes
+     * failed, which is the state that shows the reason and the Connect control (FR-040: an
+     * error and a way to reconnect). The session is closed so nothing holds a dead process,
+     * and the tool access goes unavailable, because a session that is gone cannot reach the
+     * reader's tasks and a stale *granted* would be a false claim.
+     *
+     * The answer produced so far is left alone: it is what the reader saw, and the failure is
+     * reported next to it rather than instead of it.
+     */
+    private fun onSessionLost(reason: String) {
+        vmScope.launch { conversation.close() }
+        updateState {
+            it.copy(
+                connection = AcpConnection.Failed(reason),
+                toolAccess = AcpToolAccess.Unavailable(
+                    "The connection was lost, so the agent cannot reach your tasks.",
+                ),
+            )
+        }
     }
 
     /**

@@ -8,7 +8,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -43,6 +45,24 @@ internal class AcpTurnRunner(
     private val scope: CoroutineScope,
     private val onActivity: (assistantId: String, event: AgentEvent) -> Unit,
     private val onOutcome: (outcome: AgentTurnOutcome) -> Unit,
+    /**
+     * The session the turn was talking to is gone.
+     *
+     * Reported once per turn, for the turn that is on screen, when the turn ends without the
+     * protocol's completion event and the reader did not stop it. The screen answers it by
+     * marking the connection failed — the reader is owed the reason and a way to connect
+     * again.
+     */
+    private val onSessionLost: (reason: String) -> Unit,
+    /**
+     * Whether the turn is waiting on the reader right now.
+     *
+     * A permission request is the turn talking to the reader, not the agent going quiet. The
+     * agent is silent because it is *asked* to be, and a wait longer than the idle window is
+     * normal: the permission deadline is five minutes. So the idle window is re-armed while
+     * this is true instead of ending a turn that is working as designed.
+     */
+    private val awaitingReader: () -> Boolean,
 ) {
 
     /**
@@ -60,14 +80,22 @@ internal class AcpTurnRunner(
     private var outcomeRecorded: Boolean = false
 
     /**
-     * Starts a turn.
+     * Starts a turn and runs it to exactly one ending.
+     *
+     * The turn is bounded by **inactivity**: no event for [TURN_IDLE_TIMEOUT] ends it, because
+     * an agent that is working emits something — text, a tool call, a status — and an agent
+     * that has stopped saying anything is not a turn the reader can wait for. A total budget
+     * would be the wrong rule: it would kill a long but healthy turn.
+     *
+     * A turn that ends without the protocol's completion event, and that the reader did not
+     * stop, means the session is gone: it is reported to [onSessionLost] once, for the turn on
+     * screen.
      *
      * @param assistantId the message the agent's text is written into.
-     * @param run the turn's body: it is given a sink for the protocol's events and
-     *   returns when the turn is over.
+     * @param events the turn's event stream, as the session produces it.
      */
     @Suppress("TooGenericExceptionCaught")
-    fun start(assistantId: String, run: suspend (suspend (AcpTurnEvent) -> Unit) -> Unit) {
+    fun start(assistantId: String, events: Flow<AcpTurnEvent>) {
         val turnId = ++turnNumber
         currentTurn = turnId
         outcomeRecorded = false
@@ -79,28 +107,71 @@ internal class AcpTurnRunner(
             // nothing sensible about the second one; and the turn that is ending
             // belongs to the turn that started it.
             previousTurn?.cancelAndJoin()
+            var completed: Boolean = false
             var outcome: AgentTurnOutcome? = null
-            try {
-                run { event ->
-                    when (event) {
-                        is AcpTurnEvent.Activity -> applyActivity(turnId, assistantId, event.event)
-                        is AcpTurnEvent.Finished -> outcome = event.outcome
-                    }
+            var failure: String? = null
+
+            // The turn's events are drained into a channel by one producer, and consumed here
+            // one at a time under a deadline. A flow is collected once; the deadline has to be
+            // re-armed per event, and while the reader is being asked.
+            val received = Channel<AcpTurnEvent>(Channel.UNLIMITED)
+            val pump = launch {
+                try {
+                    events.collect { received.send(it) }
+                    received.close()
+                } catch (e: CancellationException) {
+                    received.close()
+                    throw e
+                } catch (e: Exception) {
+                    received.close(e)
                 }
+            }
+
+            try {
+                var step: Step
+                do {
+                    step = nextStep(received)
+                    if (step is Step.Event) {
+                        when (val event: AcpTurnEvent = step.event) {
+                            is AcpTurnEvent.Activity -> applyActivity(turnId, assistantId, event.event)
+
+                            is AcpTurnEvent.Finished -> {
+                                completed = true
+                                outcome = event.outcome
+                            }
+                        }
+                    }
+                } while (step is Step.Event || step is Step.Waiting)
+
+                if (step is Step.Failed) failure = step.reason
             } catch (e: CancellationException) {
                 // The same distinction as on the way in: a cancellation the screen did
                 // not ask for is the agent's process dying mid-turn, and the turn has to
                 // end as a failure. Reporting it as "cancelled" would tell the reader
                 // that they stopped something that had already stopped.
                 if (!currentCoroutineContext().isActive) throw e
-                outcome = AgentTurnOutcome.Failed("The agent stopped without answering.")
+                failure = "The agent stopped without answering."
             } catch (e: Exception) {
-                outcome = AgentTurnOutcome.Failed(e.message ?: "The agent stopped unexpectedly.")
+                failure = e.message ?: "The agent stopped unexpectedly."
+            } finally {
+                pump.cancel()
             }
+
+            // Whether the reader stopped this turn. A stopped turn ends here too, but its
+            // ending says nothing about the session: the reader asked for it. The outcome
+            // was already recorded by the cancel path, and that is the flag.
+            val stoppedByReader: Boolean = outcomeRecorded
+            val reason: String = failure ?: "The agent stopped without answering."
 
             // The absence of a completion event is the failure. There is no path that
             // ends a turn without one and calls it a success.
-            recordOutcome(turnId, outcome ?: AgentTurnOutcome.Failed("The agent stopped without answering."))
+            recordOutcome(turnId, outcome ?: AgentTurnOutcome.Failed(reason))
+
+            // A turn that ended without a completion, and that the reader did not stop, is a
+            // session that is no longer there. Said once, for the turn that is on screen.
+            if (!completed && !stoppedByReader) {
+                if (turnId == currentTurn) onSessionLost(reason)
+            }
         }
     }
 
@@ -173,6 +244,52 @@ internal class AcpTurnRunner(
     /** The turn that is on screen, and the job that is running it. */
     data class RunningTurn(val turnId: Long, val job: Job?)
 
+    /**
+     * One step of a turn: the next event, or a reason there will not be one.
+     *
+     * A small vocabulary because the loop that consumes the turn has to answer three questions
+     * differently — take the event, wait again for a reader the agent is waiting on, or stop
+     * with a reason — and a `Boolean`/nullable pair would make the loop read worse than the
+     * rule it enforces.
+     */
+    private sealed interface Step {
+        /** The next event the agent produced. */
+        data class Event(val event: AcpTurnEvent) : Step
+
+        /** The window elapsed while the reader is being asked — the agent is not silent. */
+        data object Waiting : Step
+
+        /** The stream closed without a completion. */
+        data object Ended : Step
+
+        /** The window elapsed with no question outstanding, or the transport threw. */
+        data class Failed(val reason: String) : Step
+    }
+
+    /**
+     * Waits for the turn's next step under the idle deadline, and re-arms while the reader is
+     * being asked.
+     */
+    private suspend fun nextStep(received: Channel<AcpTurnEvent>): Step {
+        val result = withTimeoutOrNull(TURN_IDLE_TIMEOUT) { received.receiveCatching() }
+        if (result == null) {
+            // Nothing for the whole window. If the turn is waiting on the reader, the agent is
+            // silent by design — the window is re-armed rather than allowed to expire.
+            return if (awaitingReader()) {
+                Step.Waiting
+            } else {
+                Step.Failed("The agent did not respond for ${TURN_IDLE_TIMEOUT.inWholeSeconds} seconds.")
+            }
+        }
+        if (result.isClosed) {
+            // The stream ended, or the transport threw. Either way there is no completion;
+            // the cause, when there is one, is the reason.
+            val cause: Throwable? = result.exceptionOrNull()
+            return if (cause == null) Step.Ended else Step.Failed(cause.message ?: "The agent stopped unexpectedly.")
+        }
+        return Step.Event(result.getOrThrow())
+    }
+
     companion object {
         /**
          * How long an agent is given to end a cancelled turn on its own.
@@ -184,5 +301,15 @@ internal class AcpTurnRunner(
          * cancel must not watch the turn continue.
          */
         val CANCEL_GRACE: Duration = 5.seconds
+
+        /**
+         * How long a turn may go without producing an event before it is hung.
+         *
+         * Inactivity, not total duration: a working agent emits text, tool calls and status
+         * as it goes, so silence this long means silence. The number is the one FR-040 names;
+         * its cost — a single tool call quieter than the window would be read as hung — is
+         * stated in ADR `2026-10-26-a-turn-that-hangs-has-ended`.
+         */
+        val TURN_IDLE_TIMEOUT: Duration = 60.seconds
     }
 }

@@ -57,6 +57,15 @@ internal class AcpPermissionBroker(private val timeout: Duration = PERMISSION_TI
     fun onScreen(): AcpPermissionRequest? = pending.firstOrNull()?.request
 
     /**
+     * Whether a request is waiting for the reader right now.
+     *
+     * The turn uses this to know that the agent's silence is expected: the agent is not
+     * talking because it asked the reader a question, and a wait longer than the turn's idle
+     * window is normal — the permission deadline is five minutes.
+     */
+    val hasPending: Boolean get() = pending.isNotEmpty()
+
+    /**
      * Waits for the reader, and declines the request if nobody answers in time.
      *
      * An unanswered request is not a granted one, so the timeout answers "no" rather

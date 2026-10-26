@@ -269,6 +269,103 @@ class AcpExternalAgentViewModelTest {
         assertEquals(1, session.prompts.size, "and the turn is not retried")
     }
 
+    /**
+     * A turn that goes quiet for the idle window is hung, and ends as a failure that says so.
+     *
+     * FR-040: "a turn that produces no event for 60 seconds is treated as hung and ends as a
+     * failure with a visible error". The clock is virtual, so the test advances it rather than
+     * waiting.
+     */
+    @Test
+    fun `a turn that produces no event for the idle window is failed and the connection is reported lost`() = runTest {
+        val session = ScriptedSession { _ ->
+            // One event, then silence: a hung agent keeps the flow open and says nothing more.
+            kotlinx.coroutines.awaitCancellation()
+        }
+        val ctx = viewModel(session)
+
+        connect(ctx)
+        send(ctx)
+        runCurrent()
+
+        assertTrue(ctx.state.value.isRunning, "the turn is running before the window passes")
+
+        advanceTimeBy(AcpTurnRunner.TURN_IDLE_TIMEOUT.inWholeMilliseconds + 1_000)
+        runCurrent()
+
+        val outcome = ctx.state.value.turnOutcome
+        assertIs<AgentTurnOutcome.Failed>(outcome, "a silent agent did not answer: $outcome")
+        assertTrue(
+            outcome.reason.contains("did not respond", ignoreCase = true),
+            "and the reason names the silence: ${outcome.reason}",
+        )
+        assertFalse(ctx.state.value.isRunning, "the spinner is gone")
+        val connection = ctx.state.value.connection
+        assertIs<AcpConnection.Failed>(connection, "a dead session is not reported as connected: $connection")
+        assertIs<AcpToolAccess.Unavailable>(ctx.state.value.toolAccess, "the tool access is not claimed")
+    }
+
+    /**
+     * A session that ends a turn without a completion is marked disconnected — FR-040's
+     * "a session whose process tree dies is marked disconnected rather than connected".
+     *
+     * The connection becomes failed, which is the state that offers the Connect control; the
+     * partial answer stays.
+     */
+    @Test
+    fun `a session that dies mid-turn is marked disconnected and keeps the answer`() = runTest {
+        val session = ScriptedSession { _ -> false }
+        val ctx = viewModel(session)
+
+        connect(ctx)
+        assertIs<AcpConnection.Connected>(ctx.state.value.connection, "connected before the turn")
+
+        send(ctx)
+        runCurrent()
+
+        val connection = ctx.state.value.connection
+        assertIs<AcpConnection.Failed>(connection, "the session that died is not still connected: $connection")
+        assertEquals(
+            "hello",
+            ctx.state.value.messages.last { !it.fromUser }.text,
+            "the answer produced so far stays",
+        )
+    }
+
+    /**
+     * A turn the reader stopped is not a session loss.
+     *
+     * The Stop control is the reader's, not the agent's death: cancelling must not mark the
+     * connection failed, or the reader would be punished for using it.
+     */
+    @Test
+    fun `a turn the reader stopped does not mark the connection lost`() = runTest {
+        val session = ScriptedSession { me ->
+            // The agent stops when asked, and does not complete the turn.
+            me.cancelledSignal.await()
+            false
+        }
+        val ctx = viewModel(session)
+
+        connect(ctx)
+        send(ctx)
+        runCurrent()
+
+        ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Cancel)
+        runCurrent()
+        advanceTimeBy(AcpExternalAgentViewModel.CANCEL_GRACE.inWholeMilliseconds + 1_000)
+        runCurrent()
+
+        assertIs<AgentTurnOutcome.Cancelled>(ctx.state.value.turnOutcome, "the reader stopped the turn")
+        assertIs<AcpConnection.Connected>(
+            ctx.state.value.connection,
+            "a stopped turn says nothing about the session: ${ctx.state.value.connection}",
+        )
+
+        ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Disconnect)
+        runCurrent()
+    }
+
     @Test
     fun `the answer streams into the conversation`() = runTest {
         val session = ScriptedSession { _ ->
