@@ -444,7 +444,10 @@ fun BackupListItem(
             IconButton(onClick = { showRestoreConfirm = true }) {
                 Icon(Icons.Default.Restore, "Restore", tint = MaterialTheme.colorScheme.primary)
             }
-            IconButton(onClick = onPush) {
+            IconButton(
+                onClick = onPush,
+                modifier = Modifier.testTag(TestTags.BACKUP_PUSH_BUTTON),
+            ) {
                 Icon(Icons.Default.CloudUpload, "Push to cloud", tint = MaterialTheme.colorScheme.primary)
             }
             IconButton(onClick = onSaveToFile) {

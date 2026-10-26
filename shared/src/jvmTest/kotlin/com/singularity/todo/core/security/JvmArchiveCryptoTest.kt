@@ -2,6 +2,8 @@ package com.singularity.todo.core.security
 
 import com.singularity.todo.core.backup.BackupError
 import com.singularity.todo.core.backup.EncryptedArchive
+import com.singularity.todo.core.files.ByteArraySink
+import com.singularity.todo.core.files.ByteArraySource
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertFailsWith
@@ -102,5 +104,43 @@ class JvmArchiveCryptoTest {
         assertFailsWith<BackupError.WrongPassword> {
             archive.open(tampered, password)
         }
+    }
+
+    /**
+     * The streaming path produces the same bytes as the byte-shaped one.
+     *
+     * The archive's format does not depend on how it was fed: a container sealed
+     * in pieces has to be byte-for-byte the container sealed in one go, or the
+     * two would be two formats — and the one written by the phone would not open
+     * on the desktop.
+     */
+    @Test
+    fun `the streaming cipher produces the same bytes as the byte-shaped one`() {
+        val salt = "the-salt".encodeToByteArray()
+        val nonce = "the-nonce".encodeToByteArray()
+        val aad = "the-header".encodeToByteArray()
+        val key = crypto.deriveKey(password, salt)
+
+        val byBytes = crypto.seal(key, nonce, plaintext, aad)
+        val streamed = ByteArraySink()
+        crypto.seal(ByteArraySource(plaintext), streamed, key, nonce, aad)
+
+        assertContentEquals(byBytes, streamed.bytes(), "the streaming path must not change the bytes")
+    }
+
+    /** And the streaming path opens what it sealed. */
+    @Test
+    fun `the streaming cipher opens what it sealed`() {
+        val salt = "the-salt".encodeToByteArray()
+        val nonce = "the-nonce".encodeToByteArray()
+        val aad = "the-header".encodeToByteArray()
+        val key = crypto.deriveKey(password, salt)
+
+        val sealed = ByteArraySink()
+        crypto.seal(ByteArraySource(plaintext), sealed, key, nonce, aad)
+        val opened = ByteArraySink()
+        crypto.open(ByteArraySource(sealed.bytes()), opened, key, nonce, aad)
+
+        assertContentEquals(plaintext, opened.bytes(), "the archive must come back as it went in")
     }
 }

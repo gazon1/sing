@@ -37,6 +37,8 @@ auth_message_text network
 auth_save_server_button boot
 auth_sign_out_button button
 backup_create_button button
+backup_password_field dialog
+backup_push button
 backup_restore_button button
 calendar_sync_google_connect_button button
 calendar_sync_system_enable_switch button

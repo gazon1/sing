@@ -273,6 +273,7 @@ non-alphanumeric characters with `_`.
 | `BACKUP_LOAD_REMOTE_BUTTON` | `backup_load_remote_button` | |
 | `BACKUP_PASSWORD_CONFIRM` | `backup_password_confirm` | |
 | `BACKUP_PASSWORD_FIELD` | `backup_password_field` | |
+| `BACKUP_PUSH_BUTTON` | `backup_push` | |
 | `BACKUP_RESTORE_BUTTON` | `backup_restore_button` | |
 | `BACKUP_RESTORE_FROM_CLOUD_PREFIX` | `backup_restore_from_cloud_` | |
 | `BACKUP_TOP_BAR_BACK` | `backup_top_bar_back` | |

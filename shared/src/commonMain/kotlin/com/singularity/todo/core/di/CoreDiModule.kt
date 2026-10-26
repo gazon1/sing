@@ -359,7 +359,7 @@ fun coreModule(): org.koin.core.module.Module =
         // header, the salt, the nonce and the version. The server never sees the
         // password, so it can never open what it stores.
         single { EncryptedArchive(get()) }
-        single<RemoteBackupService> { RemoteBackupServiceImpl(get(), get(), get()) }
+        single<RemoteBackupService> { RemoteBackupServiceImpl(get(), get(), get(), get()) }
 
         // ─── IDs / Clock ────────────────────────────────────────────────────
 
@@ -428,6 +428,7 @@ fun coreModule(): org.koin.core.module.Module =
                 backupDir = get(BackupDirQualifier),
                 currentUser = get(),
                 clock = get(),
+                ioDispatcher = get(),
             )
         }
         // ─── Settings ────────────────────────────────────────────────────────

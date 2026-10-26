@@ -1,6 +1,13 @@
 package com.singularity.todo.core.backup
 
+import com.singularity.todo.core.files.ByteArraySink
+import com.singularity.todo.core.files.ByteArraySource
+import com.singularity.todo.core.files.ByteSink
+import com.singularity.todo.core.files.ByteSource
+import com.singularity.todo.core.files.readExactly
 import com.singularity.todo.core.security.ArchiveCrypto
+import com.singularity.todo.core.security.ArchiveCryptoParams
+import com.singularity.todo.core.security.ArchiveTagMismatchException
 
 /**
  * The encrypted archive: what sits in the bucket, and what comes back out of it.
@@ -55,13 +62,31 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
      * @throws BackupError.MissingPassword when the password is empty.
      */
     fun seal(plain: ByteArray, password: CharArray): ByteArray {
+        val sink = ByteArraySink()
+        seal(ByteArraySource(plain), sink, password)
+        return sink.bytes()
+    }
+
+    /**
+     * The encrypted form of what [source] yields, written to [sink].
+     *
+     * The archive is never held in memory whole: it is read in pieces and
+     * encrypted in pieces, so the app's memory carries a chunk of the account
+     * rather than all of it.
+     *
+     * @throws BackupError.MissingPassword when the password is empty.
+     */
+    fun seal(source: ByteSource, sink: ByteSink, password: CharArray) {
         requirePassword(password)
         val salt = crypto.randomBytes(SALT_BYTES)
         val nonce = crypto.randomBytes(NONCE_BYTES)
         val header = header(salt, nonce)
         val key = crypto.deriveKey(password, salt)
-        return try {
-            header + crypto.seal(key, nonce, plain, header)
+        try {
+            // The header goes out first, and it is the authenticated data: it has
+            // to be known before the first byte of the archive is encrypted.
+            sink.write(header, 0, header.size)
+            crypto.seal(source, sink, key, nonce, header)
         } finally {
             // The derived key is the archive's key in the only form it ever takes.
             // It is not the password — the password is wiped by whoever owns it —
@@ -78,22 +103,80 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
      *   not the one this build reads.
      * @throws BackupError.WrongPassword when the password does not open it.
      */
-    @Suppress("TooGenericExceptionCaught")
+    @Suppress("TooGenericExceptionCaught", "ThrowsCount")
     fun open(container: ByteArray, password: CharArray): ByteArray {
         requirePassword(password)
-        val header = readHeader(container)
+        val source = ByteArraySource(container)
+        val header = readHeader(source)
         val parts = readHeaderParts(header)
         val key = crypto.deriveKey(password, parts.salt)
+        val sink = ByteArraySink()
         return try {
-            crypto.open(key, parts.nonce, container.copyOfRange(HEADER_BYTES, container.size), header)
+            crypto.open(source, sink, key, parts.nonce, header)
+            sink.bytes()
         } catch (error: BackupError) {
             throw error
-        } catch (error: Exception) {
+        } catch (error: ArchiveTagMismatchException) {
+            // The cipher says the tag does not match: the password is wrong.
             throw BackupError.WrongPassword(error)
+        } catch (error: Exception) {
+            // Anything else is not about the password: the bytes could not be read
+            // at all. Saying "wrong password" here sends the person to retype a
+            // password that was never the problem.
+            throw BackupError.Unreadable(error)
         } finally {
             key.fill(0)
         }
     }
+
+    /**
+     * The archive inside what [source] yields, written to [sink].
+     *
+     * **The sink is written before the password is proven.** The cipher can only
+     * check the tag when it has read everything, so what arrives in the sink may
+     * be garbage when the password was wrong. A caller that cares writes into a
+     * temporary file and moves it into place only after this call returned
+     * without throwing.
+     *
+     * @throws BackupError.NotEncrypted when the bytes are not an encrypted archive.
+     * @throws BackupError.UnsupportedArchiveVersion when the container's version is
+     *   not the one this build reads.
+     * @throws BackupError.WrongPassword when the password does not open it.
+     */
+    @Suppress("TooGenericExceptionCaught", "ThrowsCount")
+    fun open(source: ByteSource, sink: ByteSink, password: CharArray) {
+        requirePassword(password)
+        val header = readHeader(source)
+        val parts = readHeaderParts(header)
+        val key = crypto.deriveKey(password, parts.salt)
+        try {
+            crypto.open(source, sink, key, parts.nonce, header)
+        } catch (error: BackupError) {
+            throw error
+        } catch (error: ArchiveTagMismatchException) {
+            // The cipher says the tag does not match: the password is wrong.
+            throw BackupError.WrongPassword(error)
+        } catch (error: Exception) {
+            // Anything else is not about the password: the bytes could not be read
+            // at all. Saying "wrong password" here sends the person to retype a
+            // password that was never the problem.
+            throw BackupError.Unreadable(error)
+        } finally {
+            key.fill(0)
+        }
+    }
+
+    /**
+     * The header of what the source yields.
+     *
+     * @throws BackupError.NotEncrypted when the bytes are too short to be one.
+     */
+    private fun readHeader(source: ByteSource): ByteArray =
+        try {
+            source.readExactly(HEADER_BYTES)
+        } catch (error: IllegalStateException) {
+            throw BackupError.NotEncrypted(error)
+        }
 
     /**
      * A password is not optional.
@@ -157,10 +240,10 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
         const val VERSION = 1
 
         /** The salt's length: 16 bytes, as PBKDF2 expects. */
-        const val SALT_BYTES = 16
+        const val SALT_BYTES = ArchiveCryptoParams.SALT_BYTES
 
         /** The GCM nonce's length: 12 bytes, as GCM expects. */
-        const val NONCE_BYTES = 12
+        const val NONCE_BYTES = ArchiveCryptoParams.NONCE_BYTES
 
         /** The length of the header: magic, version, salt and nonce. */
         const val HEADER_BYTES = MAGIC.length + 1 + SALT_BYTES + NONCE_BYTES

@@ -27,7 +27,8 @@ sealed class BackupError(message: String, cause: Throwable? = null) : Exception(
      * archive at all. Either way the bucket holds something this build cannot open,
      * and saying "not encrypted" is more useful than a checksum mismatch.
      */
-    class NotEncrypted : BackupError("The archive in the cloud is not encrypted")
+    class NotEncrypted(cause: Throwable? = null) :
+        BackupError("The archive in the cloud is not encrypted", cause)
 
     /**
      * The password does not open the archive.
@@ -48,6 +49,15 @@ sealed class BackupError(message: String, cause: Throwable? = null) : Exception(
      */
     class UnsupportedArchiveVersion(val version: Int, val currentVersion: Int) :
         BackupError("The archive's version is $version, and this build reads $currentVersion")
+
+    /**
+     * The archive could not be read at all.
+     *
+     * Not a wrong password: the bytes never made it to the cipher. A file that is
+     * not there, a disk that is full, a device that fell over mid-read. The person
+     * can act on this one — the archive is damaged, not their password.
+     */
+    class Unreadable(cause: Throwable? = null) : BackupError("The archive could not be read", cause)
 
     /**
      * The archive cannot be encrypted without a password.

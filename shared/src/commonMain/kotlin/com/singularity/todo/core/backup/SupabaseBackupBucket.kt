@@ -2,8 +2,18 @@ package com.singularity.todo.core.backup
 
 import com.singularity.todo.core.auth.SupabaseClientProvider
 import com.singularity.todo.core.error.TransportException
+import com.singularity.todo.core.files.ByteSink
+import com.singularity.todo.core.files.ByteSource
 import com.singularity.todo.core.transport.SupabaseTransportFailure
+import io.github.jan.supabase.storage.UploadData
 import io.github.jan.supabase.storage.storage
+import io.ktor.utils.io.ByteChannel
+import io.ktor.utils.io.close
+import io.ktor.utils.io.readAvailable
+import io.ktor.utils.io.writeFully
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
@@ -39,16 +49,72 @@ import kotlinx.serialization.json.jsonPrimitive
  */
 class SupabaseBackupBucket(private val clientProvider: SupabaseClientProvider) : BackupBucket {
 
-    override suspend fun upload(path: String, bytes: ByteArray) {
+    /**
+     * The upload, in pieces.
+     *
+     * The SDK takes a channel and a size, so the archive is fed into the channel
+     * rather than handed over: a push of a large account must not turn the whole
+     * account into one array in the app's memory.
+     *
+     * The producer and the request run together — the request reads the channel
+     * while the producer fills it, and both end when the archive is over.
+     */
+    override suspend fun upload(path: String, source: ByteSource, sizeBytes: Long) {
         translating("the archive could not be uploaded") {
             val client = requireClient()
-            client.storage.from(BUCKET_ID).upload(path, bytes) { upsert = true }
+            val channel = ByteChannel(autoFlush = true)
+            coroutineScope {
+                // The producer and the request are siblings: whoever fails first
+                // cancels the other, and the failure that killed the scope is the
+                // one the caller hears. Catching it here would only hide which of
+                // the two halves broke — the file that could not be read, or the
+                // bucket that refused the write.
+                launch {
+                    val buffer = ByteArray(CHUNK_BYTES)
+                    while (true) {
+                        val read = source.read(buffer, 0, buffer.size)
+                        if (read < 0) break
+                        channel.writeFully(buffer, 0, read)
+                    }
+                    // The end of the archive is the end of the channel: the request
+                    // is reading the length it was promised, and the promise ends here.
+                    channel.close()
+                }
+                client.storage.from(BUCKET_ID)
+                    .upload(path, UploadData(channel, sizeBytes)) { upsert = true }
+            }
         }
     }
 
-    override suspend fun download(path: String): ByteArray = translating("the archive could not be downloaded") {
-        val client = requireClient()
-        client.storage.from(BUCKET_ID).downloadAuthenticated(path)
+    /**
+     * The download, in pieces.
+     *
+     * The SDK writes into a channel and the consumer reads it out into the sink,
+     * so the archive travels from the bucket to the file without ever being whole
+     * in memory.
+     */
+    override suspend fun download(path: String, sink: ByteSink) {
+        translating("the archive could not be downloaded") {
+            val client = requireClient()
+            val channel = ByteChannel(autoFlush = true)
+            coroutineScope {
+                // Same shape as the upload: the consumer and the request are
+                // siblings, and a failure in either cancels the other.
+                launch {
+                    val buffer = ByteArray(CHUNK_BYTES)
+                    while (true) {
+                        val read = channel.readAvailable(buffer, 0, buffer.size)
+                        if (read < 0) break
+                        sink.write(buffer, 0, read)
+                    }
+                }
+                client.storage.from(BUCKET_ID).downloadAuthenticated(path, channel)
+                // The SDK closes the channel when the body is over; closing it
+                // again is harmless and keeps the consumer from waiting for an
+                // end that a future SDK version might not send.
+                channel.close()
+            }
+        }
     }
 
     override suspend fun list(prefix: String): List<BucketObject> = translating("the archives could not be listed") {
@@ -75,6 +141,11 @@ class SupabaseBackupBucket(private val clientProvider: SupabaseClientProvider) :
     @Suppress("TooGenericExceptionCaught")
     private suspend fun <T> translating(what: String, block: suspend () -> T): T = try {
         block()
+    } catch (error: CancellationException) {
+        // The push was cancelled — by the person, or by the screen that went away.
+        // That is not a failure of the bucket, and it must not be reported as one:
+        // "the archive could not be uploaded" is a sentence about the archive.
+        throw error
     } catch (error: TransportException) {
         throw error
     } catch (error: RemoteBackupException) {
@@ -90,6 +161,9 @@ class SupabaseBackupBucket(private val clientProvider: SupabaseClientProvider) :
     companion object {
         /** The bucket the archives go into. It has to exist in the project. */
         const val BUCKET_ID = "backups"
+
+        /** How much of the archive travels at a time. */
+        private const val CHUNK_BYTES = 64 * 1024
 
         /** The metadata key the bucket reports an object's size under. */
         private const val SIZE_KEY = "size"

@@ -2,6 +2,7 @@ package com.singularity.todo.core.transport
 
 import com.singularity.todo.core.error.TransportException
 import com.singularity.todo.core.error.TransportFailure
+import com.singularity.todo.core.error.TransportFacts
 import com.singularity.todo.core.error.classifyTransportFailure
 import io.github.jan.supabase.exceptions.RestException
 import io.github.jan.supabase.exceptions.SupabaseEncodingException
@@ -50,6 +51,23 @@ internal object SupabaseTransportFailure {
             answered = status != null || error is SupabaseEncodingException,
         )
     }
+
+    /**
+     * The facts the server's answer carries.
+     *
+     * The status code, PostgREST's own code and the server's words live in the
+     * vendor's exception, so this is where they are read — and they leave as
+     * three plain values, without a vendor's type attached. What is done with
+     * them is the project's decision, and it is made further up.
+     */
+    fun facts(error: Throwable): TransportFacts = TransportFacts(
+        statusCode = (error as? RestException)?.statusCode,
+        // PostgREST has its own code and the rest of the SDK carries the server's
+        // own error string — the same fallback the exception path uses, because a
+        // storage or auth failure that loses its code is a failure nobody can act on.
+        serverCode = (error as? PostgrestRestException)?.code ?: (error as? RestException)?.error,
+        detail = (error as? RestException)?.description ?: error.message,
+    )
 
     /**
      * The failure as the project sees it: the class, and the server's words.

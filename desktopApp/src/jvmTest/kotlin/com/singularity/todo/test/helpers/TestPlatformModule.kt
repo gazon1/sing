@@ -10,7 +10,9 @@ import com.singularity.todo.core.platform.HostEnvironmentPort
 import com.singularity.todo.core.platform.JvmHostEnvironment
 import com.singularity.todo.core.work.BackgroundWorkScheduler
 import com.singularity.todo.feature.calendarSync.work.GoogleSyncPeriodicTrigger
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.backup.BackupCodec
 import com.singularity.todo.core.security.ArchiveCrypto
@@ -268,6 +270,10 @@ fun testPlatformModule(): Module = module {
     // and the DAO scan — this binding exists so the next one of those is not a
     // `NoDefinitionFoundException` on a screen no test has reached yet.
     single<CoroutineScope> { alreadyCancelledScope() }
+    // The dispatcher the heavy work runs on: sealing an archive, exporting one,
+    // reading one. Mirrors PlatformModule.jvm.kt — `commonMain` may not name a
+    // dispatcher, so the graph has to carry one.
+    single<CoroutineDispatcher> { Dispatchers.IO }
     // Mirrors PlatformModule.jvm.kt. Note the *reason* has changed: when TaskTitleRow and
     // ChecklistItemRow resolved this through koinInject they needed it bound here, because
     // koinInject throws in a preview. They now read LocalHaptic, whose default is NoOpHaptic,

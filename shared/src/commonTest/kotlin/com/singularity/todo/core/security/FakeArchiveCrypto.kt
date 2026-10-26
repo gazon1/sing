@@ -1,5 +1,8 @@
 package com.singularity.todo.core.security
 
+import com.singularity.todo.core.files.ByteSink
+import com.singularity.todo.core.files.ByteSource
+
 /**
  * The archive cryptography, faked.
  *
@@ -56,8 +59,35 @@ internal class FakeArchiveCrypto : ArchiveCrypto {
         if (ciphertext.size < TAG_BYTES) throw IllegalStateException("the ciphertext is too short to be sealed")
         val body = ciphertext.copyOfRange(0, ciphertext.size - TAG_BYTES)
         val tag = ciphertext.copyOfRange(ciphertext.size - TAG_BYTES, ciphertext.size)
-        if (!tag.contentEquals(tag(key, nonce, aad))) throw IllegalStateException("the tag does not match")
+        if (!tag.contentEquals(tag(key, nonce, aad))) throw ArchiveTagMismatchException()
         return xor(body, key)
+    }
+
+    override fun seal(source: ByteSource, sink: ByteSink, key: ByteArray, nonce: ByteArray, aad: ByteArray) {
+        val sealed = seal(key, nonce, source.readAll(), aad)
+        sink.write(sealed, 0, sealed.size)
+    }
+
+    override fun open(source: ByteSource, sink: ByteSink, key: ByteArray, nonce: ByteArray, aad: ByteArray) {
+        val plain = open(key, nonce, source.readAll(), aad)
+        sink.write(plain, 0, plain.size)
+    }
+
+    /**
+     * Everything the source yields.
+     *
+     * The fake holds the archive in memory on purpose: it is a test double, and
+     * the memory behaviour of the real thing is not what these tests are about.
+     */
+    private fun ByteSource.readAll(): ByteArray {
+        var collected = ByteArray(0)
+        val buffer = ByteArray(CHUNK)
+        while (true) {
+            val read = read(buffer, 0, buffer.size)
+            if (read < 0) break
+            collected += buffer.copyOfRange(0, read)
+        }
+        return collected
     }
 
     private fun xor(bytes: ByteArray, key: ByteArray): ByteArray =
@@ -82,5 +112,6 @@ internal class FakeArchiveCrypto : ArchiveCrypto {
 
     private companion object {
         const val TAG_BYTES = 4
+        const val CHUNK = 1024
     }
 }

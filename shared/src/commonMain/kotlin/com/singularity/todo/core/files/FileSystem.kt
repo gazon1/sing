@@ -47,4 +47,24 @@ interface FileSystem {
 
     /** Returns `FileStat` for the path, or `null` if it does not exist. */
     suspend fun stat(path: String): FileStat?
+
+    /**
+     * Opens the file at [path] for reading, in pieces.
+     *
+     * The counterpart of [readBytes] for the files that do not fit in memory: the
+     * archive of an account with attachments is read this way, so that the app
+     * does not have to hold the whole account to encrypt it.
+     *
+     * The read is blocking, like the platform's own streams — the caller is the
+     * one that decides which thread it runs on.
+     */
+    fun openRead(path: String): ByteSource
+
+    /**
+     * Opens the file at [path] for writing, in pieces.
+     *
+     * The counterpart of [writeBytes]. The parent directory is created as needed,
+     * the way [writeBytes] creates it.
+     */
+    fun openWrite(path: String): ByteSink
 }

@@ -44,6 +44,7 @@ ciphertext and the server never sees the key.**
 | the container's format | `core/backup/EncryptedArchive.kt` | a project decision, and it is testable without a cipher |
 | the cryptography | `core/security/ArchiveCrypto.kt` — a port, with a JVM and an Android implementation | `javax.crypto` may not be used from `commonMain` |
 | the key derivation | PBKDF2-HMAC-SHA256, 210 000 iterations, a 256-bit key | a password is short and guessable; the cost is what makes guessing it expensive |
+| the parameters themselves | `core/security/ArchiveCryptoParams.kt` — one declaration for both implementations | the two implementations are copies of each other, and a copy of a number is a number that drifts |
 | the cipher | AES-256-GCM with a 128-bit tag | the tag is what tells a wrong password from a right one |
 | the container | `magic (4) \| version (1) \| salt (16) \| nonce (12) \| ciphertext + tag` | the header says what the bytes are and how to read them |
 | the authenticated data | the whole header | the salt and the nonce travel in the clear, so they must be covered by the tag |
@@ -96,6 +97,18 @@ stop being reachable — and what this decision promises is the second thing.
 password does not open the archive". The alternative — a generic "the download failed" — sends
 the person to look at a network that is working perfectly.
 
+**An archive written on the desktop opens on the phone, and that is checked rather than
+assumed.** The two implementations are copies — `javax.crypto` cannot live in `commonMain` — and
+a copy of a number is a number that drifts. A drift is invisible until it is not: the archive
+written by the desktop stops opening on the phone, and the message the app gives is "the
+password does not open it", which sends the person looking for a wrong password instead of a
+changed constant.
+
+So the parameters are declared once, in `ArchiveCryptoParams`, and both implementations read
+them. And a full archive — header, ciphertext and tag — is pinned in `ArchiveCryptoGolden`:
+the desktop's test says it still produces those bytes, and the Android test says it opens
+them. When the two platforms disagree, a test is red instead of a person's backup is lost.
+
 **An archive from before this is refused by name.** The magic bytes say "this is an encrypted
 archive", so an archive pushed before the encryption existed is answered with a sentence that
 names the problem instead of a checksum mismatch.
@@ -120,6 +133,10 @@ names the problem instead of a checksum mismatch.
 
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/backup/EncryptedArchive.kt` — the container.
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/security/ArchiveCrypto.kt` — the cryptography's port.
+- `shared/src/commonMain/kotlin/com/singularity/todo/core/security/ArchiveCryptoParams.kt` — the parameters both implementations read.
+- `shared/src/commonMain/kotlin/com/singularity/todo/test/fakes/ArchiveCryptoGolden.kt` — the archive the two platforms must agree on.
+- `shared/src/jvmTest/kotlin/com/singularity/todo/core/security/ArchiveCryptoGoldenJvmTest.kt` — the desktop against the golden archive.
+- `shared/src/androidHostTest/kotlin/com/singularity/todo/core/security/ArchiveCryptoGoldenAndroidTest.kt` — the phone against the golden archive.
 - `shared/src/jvmMain/kotlin/com/singularity/todo/core/security/JvmArchiveCrypto.kt` — the desktop's implementation.
 - `shared/src/androidMain/kotlin/com/singularity/todo/core/security/AndroidArchiveCrypto.kt` — Android's implementation.
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/backup/RemoteBackupService.kt` — where the archive is sealed and opened.

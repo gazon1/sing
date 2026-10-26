@@ -1,6 +1,10 @@
 package com.singularity.todo.test.helpers
 
 import com.singularity.todo.core.backup.BackupCodec
+import com.singularity.todo.core.files.ByteArraySink
+import com.singularity.todo.core.files.ByteArraySource
+import com.singularity.todo.core.files.ByteSink
+import com.singularity.todo.core.files.ByteSource
 import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.files.FileSharePort
 import com.singularity.todo.core.files.FileSource
@@ -101,6 +105,33 @@ class InMemoryFileSystem : FileSystem {
                 isDirectory = false,
             )
         }
+
+    /**
+     * The file as a source of bytes.
+     *
+     * The bytes are already in memory here, so the source hands them out as they are.
+     */
+    override fun openRead(path: String): ByteSource =
+        ByteArraySource(files[path] ?: error("no such file in InMemoryFileSystem: $path"))
+
+    /**
+     * The file as a sink of bytes.
+     *
+     * The file appears when the sink is closed — that is when the bytes are real,
+     * the same rule the platform's own streams follow.
+     */
+    override fun openWrite(path: String): ByteSink {
+        val collected = ByteArraySink()
+        return object : ByteSink {
+            override fun write(buffer: ByteArray, offset: Int, length: Int) {
+                collected.write(buffer, offset, length)
+            }
+
+            override fun close() {
+                files[path] = collected.bytes()
+            }
+        }
+    }
 }
 
 /** Records share requests instead of opening a system dialog. */

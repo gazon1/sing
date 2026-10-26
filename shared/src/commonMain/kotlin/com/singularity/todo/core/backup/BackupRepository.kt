@@ -4,11 +4,13 @@ import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.platform.TimeConstants
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
 import kotlin.time.Clock
 
 /**
@@ -61,19 +63,6 @@ interface BackupRepository {
     suspend fun push(backupId: BackupId, password: CharArray): Result<String>
 
     /**
-     * Pulls a backup from remote storage to `destPath`, opening it under [password].
-     *
-     * The password is consumed the way [push] consumes it.
-     *
-     * The caller is responsible for importing it via [import].
-     */
-    suspend fun pull(
-        remoteRef: String,
-        destPath: String,
-        password: CharArray,
-    ): Result<Unit>
-
-    /**
      * The archives that live in the cloud, for this profile.
      *
      * Push without a way back is half a feature: the person who uploaded an archive
@@ -103,6 +92,18 @@ class BackupRepositoryImpl(
     private val backupDir: String,
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
+    /**
+     * Where the archive's own work happens.
+     *
+     * An export reads every row out of the database, serializes them and zips the
+     * result; an import does the same in the other direction. Both are arithmetic
+     * over the whole account, and the caller is the ViewModel — so without this
+     * the screen stops answering while a backup is being written.
+     *
+     * The dispatcher is a parameter rather than a constant so a test can hand in a
+     * thread of its own and see where the work ran.
+     */
+    private val ioDispatcher: CoroutineDispatcher,
 ) : BackupRepository {
     override fun observeAll(): Flow<List<BackupMetadata>> =
         flow {
@@ -140,13 +141,16 @@ class BackupRepositoryImpl(
     private fun pathEndsWithZip(path: String): Boolean = path.endsWith(".zip", ignoreCase = true)
 
     override suspend fun export(options: ExportOptions): Result<BackupResult> =
-        runCatchingCancellable {
-            fs.ensureDir(backupDir)
-            val destPath = resolveBackupDestination(backupDir, options.destPath)
-            exporter.export(options.copy(destPath = destPath)).getOrThrow()
+        withContext(ioDispatcher) {
+            runCatchingCancellable {
+                fs.ensureDir(backupDir)
+                val destPath = resolveBackupDestination(backupDir, options.destPath)
+                exporter.export(options.copy(destPath = destPath)).getOrThrow()
+            }
         }
 
-    override suspend fun import(options: ImportOptions): Result<RestoreResult> = importer.import(options)
+    override suspend fun import(options: ImportOptions): Result<RestoreResult> =
+        withContext(ioDispatcher) { importer.import(options) }
 
     override suspend fun delete(backupId: BackupId): Result<Unit> =
         runCatchingCancellable {
@@ -171,17 +175,6 @@ class BackupRepositoryImpl(
             // The secret leaves with the call, whatever the call answered. The
             // service wipes it too — this is the path that never reaches the
             // service, the archive was not there to be encrypted.
-            password.fill('\u0000')
-        }
-
-    override suspend fun pull(
-        remoteRef: String,
-        destPath: String,
-        password: CharArray,
-    ): Result<Unit> =
-        try {
-            remoteService.download(remoteRef, destPath, currentUser.scopedUserId.value, password)
-        } finally {
             password.fill('\u0000')
         }
 

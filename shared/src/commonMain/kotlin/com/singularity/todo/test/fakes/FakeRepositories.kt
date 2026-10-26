@@ -427,12 +427,6 @@ class FakeBackupRepository : BackupRepository {
         return pushResult
     }
 
-    override suspend fun pull(
-        remoteRef: String,
-        destPath: String,
-        password: CharArray,
-    ): Result<Unit> = Result.failure(NotImplementedError())
-
     override suspend fun listRemote(): Result<List<RemoteBackup>> = listRemoteResult
 
     override suspend fun restoreFromCloud(remoteRef: String, password: CharArray): Result<RestoreResult> {

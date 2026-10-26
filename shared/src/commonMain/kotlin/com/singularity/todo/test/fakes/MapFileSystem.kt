@@ -1,5 +1,7 @@
 package com.singularity.todo.test.fakes
 
+import com.singularity.todo.core.files.ByteSink
+import com.singularity.todo.core.files.ByteSource
 import com.singularity.todo.core.files.FileStat
 import com.singularity.todo.core.files.FileSystem
 
@@ -57,6 +59,42 @@ class MapFileSystem(
             return FileStat(path, lastModifiedEpochMillis = 0L, sizeBytes = 0L, isDirectory = true)
         }
         return null
+    }
+
+    /**
+     * The bytes of a file, read in pieces.
+     *
+     * The in-memory file is a single array, so the pieces come out of it one
+     * after another — which is the point: a reader that assumes a read always
+     * fills the buffer is caught by this fake and not by a file.
+     */
+    override fun openRead(path: String): ByteSource {
+        val bytes = storage[path] ?: throw NoSuchFileException(path)
+        var position = 0
+        return object : ByteSource {
+            override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+                if (position >= bytes.size) return -1
+                val count = minOf(length, bytes.size - position)
+                bytes.copyInto(buffer, offset, position, position + count)
+                position += count
+                return count
+            }
+
+            override fun close() = Unit
+        }
+    }
+
+    /** The file is written in pieces, and the pieces are concatenated. */
+    override fun openWrite(path: String): ByteSink {
+        var written = ByteArray(0)
+        return object : ByteSink {
+            override fun write(buffer: ByteArray, offset: Int, length: Int) {
+                written += buffer.copyOfRange(offset, offset + length)
+                storage[path] = written
+            }
+
+            override fun close() = Unit
+        }
     }
 
     fun storedFiles(): Map<String, ByteArray> = storage.toMap()

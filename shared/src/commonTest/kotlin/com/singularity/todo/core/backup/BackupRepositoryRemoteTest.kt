@@ -4,6 +4,7 @@ import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.MapFileSystem
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -114,6 +115,9 @@ class BackupRepositoryRemoteTest {
         backupDir = backupDir,
         currentUser = FakeProfileAwareCurrentUser(initialUserId = UserId("u-1")),
         clock = FixedClock(),
+        // The repository moves its work onto an IO dispatcher; the test hands in
+        // an unconfined one so the call stays inside the test's own thread.
+        ioDispatcher = Dispatchers.Unconfined,
     )
 
     /**

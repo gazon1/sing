@@ -5,8 +5,12 @@ import com.singularity.todo.core.error.TransportException
 import com.singularity.todo.core.error.TransportFailure
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.error.transportError
+import com.singularity.todo.core.files.ByteSink
+import com.singularity.todo.core.files.ByteSource
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.ids.UserId
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
 
 /**
  * The remote half of the backup feature: where an archive goes when the user
@@ -108,23 +112,49 @@ class RemoteBackupException(message: String) : Exception(message)
  * service-role key is an app that can read every row of the database. The bucket is
  * therefore something the project's owner creates once — and the failure when it is
  * missing says so, rather than reporting a generic error.
+ *
+ * ## Why the work happens on another thread
+ *
+ * Sealing an archive is slow on purpose: the key derivation is 210 000 rounds of
+ * PBKDF2, and the cipher then walks the whole archive. On a phone that is seconds
+ * of arithmetic, and the caller of this class is the ViewModel — so without a
+ * change the screen the person is looking at stops answering while their backup is
+ * being encrypted.
+ *
+ * So the work is moved to [ioDispatcher] before it starts. The dispatcher is a
+ * constructor parameter rather than a constant, so a test can hand in a thread of
+ * its own and see *where* the work ran — the alternative is a test that asserts
+ * the work is fast, which passes on a fast machine and fails on a slow one.
  */
 class RemoteBackupServiceImpl(
     private val bucket: BackupBucket,
     private val fs: FileSystem,
     private val archive: EncryptedArchive,
+    private val ioDispatcher: CoroutineDispatcher,
 ) : RemoteBackupService {
 
     override suspend fun upload(localPath: String, userId: UserId, password: CharArray): Result<String> =
         try {
-            runCatchingCancellable {
-                val plain = readArchive(localPath)
-                val sealed = archive.seal(plain, password)
-                val remotePath = remotePath(userId, localPath)
-                bucket.upload(remotePath, sealed)
-                remotePath
-            }.recoverCatching { error ->
-                throw classified(error, "the archive could not be uploaded")
+            withContext(ioDispatcher) {
+                runCatchingCancellable {
+                    val remotePath = remotePath(userId, localPath)
+                    val sealed = workingPath(localPath, SEALED_SUFFIX)
+                    try {
+                        sealInto(localPath, sealed, password)
+                        val size = sealedSize(sealed)
+                        val source = fs.openRead(sealed)
+                        try {
+                            bucket.upload(remotePath, source, size)
+                        } finally {
+                            source.close()
+                        }
+                    } finally {
+                        fs.delete(sealed)
+                    }
+                    remotePath
+                }.recoverCatching { error ->
+                    throw classified(error, "the archive could not be uploaded")
+                }
             }
         } finally {
             password.fill('\u0000')
@@ -136,41 +166,148 @@ class RemoteBackupServiceImpl(
         userId: UserId,
         password: CharArray,
     ): Result<Unit> = try {
-        runCatchingCancellable {
-            val sealed = bucket.download(remoteRef)
-            val plain = archive.open(sealed, password)
-            fs.writeBytes(destPath, plain)
-        }.recoverCatching { error ->
-            throw classified(error, "the archive could not be downloaded")
+        withContext(ioDispatcher) {
+            runCatchingCancellable {
+                // Three files, not one: what came down, what came out of it, and
+                // the archive itself. The middle one exists because the cipher
+                // cannot tell a wrong password from a right one until it has
+                // read everything — so the plaintext is written to a temporary
+                // file and only copied over the destination once the tag has
+                // matched. A wrong password must not replace a good archive
+                // with rubbish.
+                val sealed = workingPath(destPath, SEALED_SUFFIX)
+                val plain = workingPath(destPath, PLAIN_SUFFIX)
+                try {
+                    val sink = fs.openWrite(sealed)
+                    try {
+                        bucket.download(remoteRef, sink)
+                    } finally {
+                        sink.close()
+                    }
+                    val source = fs.openRead(sealed)
+                    val target = openTarget(source, plain)
+                    try {
+                        archive.open(source, target, password)
+                    } finally {
+                        target.close()
+                        source.close()
+                    }
+                    copy(plain, destPath)
+                } finally {
+                    fs.delete(sealed)
+                    fs.delete(plain)
+                }
+            }.recoverCatching { error ->
+                throw classified(error, "the archive could not be downloaded")
+            }
         }
     } finally {
         password.fill('\u0000')
     }
 
-    override suspend fun list(userId: UserId): Result<List<BucketObject>> = runCatchingCancellable {
-        bucket.list("${userId.value}/")
-    }.recoverCatching { error ->
-        throw classified(error, "the archives could not be listed")
+    /**
+     * The archive, sealed, written to [sealedPath].
+     *
+     * The archive is never held in memory: it is read from the device in pieces
+     * and encrypted in pieces, and the sealed form lands on the disk before it
+     * goes anywhere. The disk is cheaper than the heap, and the heap is what
+     * runs out on a phone.
+     */
+    private suspend fun sealInto(localPath: String, sealedPath: String, password: CharArray) {
+        val source = openArchive(localPath)
+        val sink = openTarget(source, sealedPath)
+        try {
+            archive.seal(source, sink, password)
+        } finally {
+            sink.close()
+            source.close()
+        }
     }
 
     /**
-     * The archive's own bytes, read from the device.
+     * The file to write into, opened for [source].
+     *
+     * The source is opened first, so opening the sink can fail — and a source that
+     * was opened and never closed is a file nobody can delete. So the sink opens
+     * with the source in hand, and the source is closed if it does not.
+     */
+    private suspend fun openTarget(source: ByteSource, path: String): ByteSink {
+        var opened = false
+        try {
+            return fs.openWrite(path).also { opened = true }
+        } finally {
+            // The sink did not open, so there is nothing to hand back — and a source
+            // that was opened and never closed is a file nobody can delete. Nothing
+            // is caught here: the failure — a cancellation above all — keeps its own
+            // type and reaches the caller as itself, and the close happens anyway.
+            if (!opened) source.close()
+        }
+    }
+
+    /**
+     * How many bytes the sealed archive has.
+     *
+     * The bucket wants the size before the first byte arrives — it is what the
+     * request is lengthened with. A sealed archive that cannot be measured is
+     * not an archive that can be uploaded, and reporting "zero bytes" would
+     * send an empty object to the bucket and call it a push.
+     */
+    private suspend fun sealedSize(path: String): Long =
+        fs.stat(path)?.sizeBytes ?: throw AppError.Persistence(
+            message = "The sealed archive at $path could not be measured",
+            code = ARCHIVE_UNREADABLE_CODE,
+        )
+
+    /**
+     * The archive's own source, opened for reading.
      *
      * A failure here is local, and not a transport failure: the archive never
      * started its way to the bucket, so reporting it as "could not be uploaded"
      * names a cause that was never in play and buries the one that was — an
      * archive that is not on the disk any more is a different defect from a
-     * bucket that refused the write, and the person reading the message has to be
-     * able to tell them apart.
+     * bucket that refused the write, and the person reading the message has to
+     * be able to tell them apart.
      */
-    private suspend fun readArchive(localPath: String): ByteArray =
-        runCatchingCancellable { fs.readBytes(localPath) }.getOrElse { error ->
+    private suspend fun openArchive(localPath: String): ByteSource =
+        runCatchingCancellable { fs.openRead(localPath) }.getOrElse { error ->
             throw AppError.Persistence(
                 message = "The archive at $localPath could not be read: ${error.message}",
                 code = ARCHIVE_UNREADABLE_CODE,
                 cause = error,
             )
         }
+
+    /** One file copied over another, in pieces. */
+    private suspend fun copy(fromPath: String, toPath: String) {
+        val source = fs.openRead(fromPath)
+        val sink = openTarget(source, toPath)
+        try {
+            val buffer = ByteArray(COPY_CHUNK_BYTES)
+            while (true) {
+                val read = source.read(buffer, 0, buffer.size)
+                if (read < 0) break
+                sink.write(buffer, 0, read)
+            }
+        } finally {
+            sink.close()
+            source.close()
+        }
+    }
+
+    /**
+     * The path of a working file next to [path].
+     *
+     * The working files live beside the archive they belong to, so that they are
+     * on the same volume and are removed with it — and they are named apart
+     * from the archives, so a leftover is never mistaken for one.
+     */
+    private fun workingPath(path: String, suffix: String): String = "$path$suffix"
+
+    override suspend fun list(userId: UserId): Result<List<BucketObject>> = runCatchingCancellable {
+        bucket.list("${userId.value}/")
+    }.recoverCatching { error ->
+        throw classified(error, "the archives could not be listed")
+    }
 
     /**
      * The failure as the project reports it.
@@ -212,6 +349,15 @@ class RemoteBackupServiceImpl(
         "${userId.value}/${localPath.substringAfterLast('/')}${RemoteBackupService.ENCRYPTED_SUFFIX}"
 
     companion object {
+        /** The suffix of the working file that holds the sealed archive. */
+        private const val SEALED_SUFFIX = ".sealed"
+
+        /** The suffix of the working file that holds the opened archive. */
+        private const val PLAIN_SUFFIX = ".plain"
+
+        /** How much of the archive is copied at a time. */
+        private const val COPY_CHUNK_BYTES = 64 * 1024
+
         /** The code for the class that means "something else went wrong". */
         const val REJECTED_CODE = "backup.push_failed"
 

@@ -1,11 +1,15 @@
 package com.singularity.todo.core.backup
 
 import com.singularity.todo.core.error.AppError
+import com.singularity.todo.core.files.ByteSink
+import com.singularity.todo.core.files.ByteSource
 import com.singularity.todo.core.error.TransportException
 import com.singularity.todo.core.error.TransportFailure
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.security.FakeArchiveCrypto
 import com.singularity.todo.test.fakes.MapFileSystem
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -57,6 +61,9 @@ class RemoteBackupServiceImplTest {
         /** The uploads, by path. */
         val uploads = mutableMapOf<String, ByteArray>()
 
+        /** The size the service declared for each upload, by path. */
+        val declaredSizes = mutableMapOf<String, Long>()
+
         /** The prefix the last listing asked for. */
         var listedPrefix: String? = null
             private set
@@ -67,14 +74,16 @@ class RemoteBackupServiceImplTest {
         /** The bytes a download answers with. */
         var downloadBytes: ByteArray = ByteArray(0)
 
-        override suspend fun upload(path: String, bytes: ByteArray) {
+        override suspend fun upload(path: String, source: ByteSource, sizeBytes: Long) {
             failure?.let { throw it }
+            val bytes = readAll(source)
+            declaredSizes[path] = sizeBytes
             uploads[path] = bytes
         }
 
-        override suspend fun download(path: String): ByteArray {
+        override suspend fun download(path: String, sink: ByteSink) {
             failure?.let { throw it }
-            return downloadBytes
+            sink.write(downloadBytes, 0, downloadBytes.size)
         }
 
         override suspend fun list(prefix: String): List<BucketObject> {
@@ -98,7 +107,11 @@ class RemoteBackupServiceImplTest {
         bucket: BackupBucket,
         files: MapFileSystem = MapFileSystem(),
         archive: EncryptedArchive = EncryptedArchive(FakeArchiveCrypto()),
-    ) = RemoteBackupServiceImpl(bucket = bucket, fs = files, archive = archive)
+        // The service moves its work onto an IO dispatcher; the test hands in an
+        // unconfined one so the call stays inside the test's own thread and the
+        // assertions read what just happened.
+        ioDispatcher: CoroutineDispatcher = Dispatchers.Unconfined,
+    ) = RemoteBackupServiceImpl(bucket = bucket, fs = files, archive = archive, ioDispatcher = ioDispatcher)
 
     /**
      * The archive the upload is about, already on disk.
@@ -132,6 +145,31 @@ class RemoteBackupServiceImplTest {
         assertTrue(
             bucket.uploads.containsKey("user-1/archive.zip${RemoteBackupService.ENCRYPTED_SUFFIX}"),
             "the object that was uploaded must carry the sealed name: ${bucket.uploads.keys}",
+        )
+    }
+
+    /**
+     * The size the bucket was told about is the size that was uploaded.
+     *
+     * The bucket needs the length before the first byte arrives — it is what the
+     * request is lengthened with. A wrong number is a truncated upload, and a
+     * truncated archive is a restore that fails with a checksum mismatch much
+     * later.
+     */
+    @Test
+    fun `the upload tells the bucket how many bytes it will send`() = runTest {
+        val bucket = FakeBucket()
+        val files = MapFileSystem()
+        files.writeBytes("/backups/archive.zip", "the-archive".encodeToByteArray())
+
+        val result = service(bucket, files).upload("/backups/archive.zip", UserId("user-1"), password())
+
+        assertTrue(result.isSuccess, "the upload must succeed: $result")
+        val path = "user-1/archive.zip${RemoteBackupService.ENCRYPTED_SUFFIX}"
+        assertEquals(
+            bucket.uploads.getValue(path).size.toLong(),
+            bucket.declaredSizes.getValue(path),
+            "the declared size must be the size that was uploaded",
         )
     }
 
@@ -351,4 +389,16 @@ class RemoteBackupServiceImplTest {
             "a local read that failed is not an upload that was refused",
         )
     }
+}
+
+/** Everything the source yields, read in pieces. */
+private fun readAll(source: ByteSource): ByteArray {
+    var collected = ByteArray(0)
+    val buffer = ByteArray(1024)
+    while (true) {
+        val read = source.read(buffer, 0, buffer.size)
+        if (read < 0) break
+        collected += buffer.copyOfRange(0, read)
+    }
+    return collected
 }

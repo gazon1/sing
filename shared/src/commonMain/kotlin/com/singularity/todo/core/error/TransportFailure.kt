@@ -50,6 +50,23 @@ enum class TransportFailure(val codeSuffix: String, val summary: String) {
 }
 
 /**
+ * The facts a server's answer carries, without the server's types.
+ *
+ * The status code, the server's own code and its words are worth repeating in a
+ * message, and they live in the vendor's exception — so the seam reads them and
+ * hands them over as these three. What is *done* with them is the project's
+ * decision, and it can be made without a vendor in sight.
+ */
+data class TransportFacts(
+    /** The HTTP status the server answered with, or null when it did not answer. */
+    val statusCode: Int?,
+    /** The server's own code — PostgREST's `PGRST202`, for one. */
+    val serverCode: String?,
+    /** What the server said, in its own words. */
+    val detail: String?,
+)
+
+/**
  * A failure that came from a call to a server, already classified.
  *
  * The classification is done at the seam, where the vendor's types are, and
