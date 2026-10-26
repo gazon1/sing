@@ -825,7 +825,38 @@ class TaskRepositoryImpl(
             } else {
                 taskDao.removeDependencyForVerb(from.value, to.value, verb.name, uid)
             }
-            enqueueFresh(from)
+             enqueueFresh(from)
+        }
+    }
+
+    override suspend fun setDependencyRelations(
+        taskId: TaskId,
+        relations: Map<TaskId, DependencyVerb>,
+    ): Result<Unit> = runCatchingCancellable {
+        unitOfWork.write {
+            val uid = currentUser.scopedUserId.value.value
+            require(taskDao.getByIdForUser(taskId.value, uid) != null) { "Task $taskId not found" }
+
+            // Validate the resulting blocking set before any write.
+            val blockingSet = relations.filterValues { it == DependencyVerb.BLOCKS }.keys.map { it.value }.toSet()
+            dependencyValidator.assertNoCycles(taskId, blockingSet).getOrThrow()
+
+            val existingEdges = taskDao.observeTypedDependenciesForUser(taskId.value, uid).first()
+            val existing = existingEdges.map { it.dependsOnTaskId }.toSet()
+            val desired = relations.keys.map { it.value }.toSet()
+
+            // Remove edges no longer desired (any verb).
+            (existing - desired).forEach { depId ->
+                taskDao.removeDependencyForUser(taskId.value, depId, uid)
+            }
+
+            // Upsert desired edges with their verbs (verb change = one upsert).
+            desired.forEach { depId ->
+                val verb = relations[TaskId.fromString(depId)] ?: DependencyVerb.BLOCKS
+                taskDao.upsertDependencyForUser(taskId.value, depId, verb.name, uid)
+            }
+
+            enqueueFresh(taskId)
         }
     }
 }

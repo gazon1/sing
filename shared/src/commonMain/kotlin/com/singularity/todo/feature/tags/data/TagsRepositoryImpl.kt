@@ -46,6 +46,11 @@ class TagsRepositoryImpl(
     override suspend fun create(item: Tag): Result<Tag> = runCatchingCancellable {
         unitOfWork.write {
             currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
+            val uid = currentUser.scopedUserId.value.value
+            val existing = tagDao.findByNameForUser(uid, item.name)
+            if (existing != null) {
+                return@write existing.toTag()
+            }
             tagDao.upsert(item.toEntity())
             item.also { syncRepository.enqueue(it) }
         }

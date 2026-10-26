@@ -173,6 +173,14 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
      */
     suspend fun setDependency(from: TaskId, to: TaskId, verb: DependencyVerb, enabled: Boolean): Result<Unit>
 
+    /**
+     * Replaces the full dependency set for [taskId] with [relations] (target → verb)
+     * in a single transaction: one validation of the resulting blocking set, one
+     * enqueue. A verb change for an existing target is one upsert, not a
+     * delete-then-add.
+     */
+    suspend fun setDependencyRelations(taskId: TaskId, relations: Map<TaskId, DependencyVerb>): Result<Unit>
+
     suspend fun exists(id: TaskId): Boolean
 
     // ── Series ─────────────────────────────────────────────────────────────────
