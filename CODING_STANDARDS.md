@@ -394,6 +394,13 @@ A reviewing agent watches for:
   The name a piece spells is the SPELLING of the piece: a bit string and a
   hex string spell bytes, so `'sync_field_' || B'0110…'` spells the table's
   name and the write the file spells is the write the reader sees.
+- A reader that reports one spelling of "a target the database refuses" and
+  not another. The database does not accept a string where a table's name
+  stands, so a target that holds one cannot run — whatever the string may be
+  completed with — and the reader reports it whenever the string spells the
+  table's name or a piece of it, in any position of the target. A target
+  written as a NAME is another thing: the database may have a table by that
+  name, and a name the reader cannot read is not reported.
 - A reader that reads a NAME, a VALUE and a STATEMENT the same way. They are
   not the same: a bit string and a hex string hold BITS — the text a text
   column stores — and they spell bytes as well. A name assembled out of pieces

@@ -132,8 +132,11 @@ checks say:
    `format('%s%s', 'sync_field_', 'allowlist')` alike, in every spelling of a
    literal: `'…'`, `E'…'`, `U&'…'`, `B'…'` and `$$…$$`, with a cast between two
    pieces or without one — because a name nobody can see is a write nobody can
-   place. The folding is applied to a statement BEFORE it is read, so the text
-   the migration runs is the text the pieces spell.
+   place. The folding is applied to a statement BEFORE it is read, and it is
+   applied TWICE: the NAME the pieces spell answers what a write in the
+   statement points at, and the VALUE the pieces hold answers what text the
+   statement runs — so the text the migration runs is the value the pieces
+   hold, the bits of a bit string or a hex string.
 
    A name the reader CANNOT fold it reports: the pieces it cannot fold are the
    pieces where the name goes missing. `'sync_' || v_suffix`, where the suffix
@@ -143,6 +146,18 @@ checks say:
    at run time, and the reader cannot rule out that it reaches the field
    table. A piece on its own is not the name: `'field'` is a word, and a file
    may hold it without meaning the table.
+
+   A target written as a STRING is a different thing, and the database refuses
+   it whatever it holds: the database does not accept a string where a table's
+   name stands, so the migration does not apply. The reader reports it
+   whenever the string spells the table's name or a piece of it — in any
+   position of the target, so `'sync_field_' || v_suffix` and `v_prefix ||
+   'sync_field_'` are the same target — and a call where a table's name
+   stands (`format(…)`) is not a table either. The reader does not have to
+   know what completes the piece to say that the statement cannot run. A
+   target written as a NAME is another thing: the database may have a table
+   by that name, and a name the reader cannot read — `insert into v_table` —
+   is not reported.
 
    A NAME, a VALUE and a STATEMENT are read apart, because the server stores
    them apart. A bit string and a hex string hold BITS — the text a text
@@ -165,7 +180,7 @@ checks say:
    What the reader cannot read, it REPORTS — a row whose values come from a
    query, a row without a column list, a row whose values do not match its
    columns, a value it does not know, a write it cannot place. It does not
-   pass over them: twenty-four review rounds found such a hole in every one of
+   pass over them: twenty-nine review rounds found such a hole in every one of
    them, and every hole was a row the reader dropped in silence — a field
    nobody sends going past the check unnoticed, which is the direction this
    check exists for. What the reader does not model — a statement that

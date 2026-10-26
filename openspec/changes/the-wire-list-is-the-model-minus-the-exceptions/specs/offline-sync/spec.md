@@ -156,6 +156,17 @@ the server has not been migrated for yet.
 - **And** the failure names the file, because a write the reader cannot rule out
   is a row it cannot vouch for
 
+#### Scenario: The migration writes into a target spelled as a string
+
+- **Given** a migration whose write names the table as a string — the whole
+  name, or a piece of it, in any position of the target — so that the target
+  is a string or a call where the database expects a table's name
+- **When** the migrations are read
+- **Then** the check fails
+- **And** the failure names the file, because the database does not accept a
+  string where a table's name stands: the migration does not apply, whatever
+  the string may be completed with
+
 #### Scenario: The name is computed at run time
 
 - **Given** a migration that writes into the table through a name the write

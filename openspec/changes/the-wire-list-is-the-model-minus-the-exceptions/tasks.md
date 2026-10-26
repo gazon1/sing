@@ -31,7 +31,7 @@
       in extra parentheses, with a comment in the middle of it.
 - [x] A row the reader CANNOT read is a FAILURE, not a row that disappears: a
       row whose values come from a query, a row without a column list, a row
-      whose values do not match its columns, a value it does not know. Twenty-four
+      whose values do not match its columns, a value it does not know. Twenty-nine
       review rounds found such a hole in every one of them, and each was a field
       nobody sends going past the gate unnoticed.
 - [x] EVERY migration is read, not only the first one — a migration may hold
@@ -97,6 +97,14 @@
       another piece of the name, or the name itself — is a write the reader
       cannot rule out, and it is reported. A piece on its own is not the name:
       `'field'` is a word, and a file may hold it without meaning the table.
+- [x] A target written as a STRING is a write the database refuses, whatever
+      the string may be completed with: the database does not accept a string
+      where a table's name stands. The reader reports it whenever the string
+      spells the table's name or a piece of it, in any position of the target
+      — `'sync_field_' || v_suffix` and `v_prefix || 'sync_field_'` are the
+      same target — and a call where a table's name stands is not a table
+      either. A target written as a NAME is another thing: a name the reader
+      cannot read is not reported.
 - [x] A NAME, a VALUE and a STATEMENT are read apart, because the server
       stores them apart. A bit string and a hex string hold BITS — the text a
       text column stores — and they spell BYTES as well, and a file that writes

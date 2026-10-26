@@ -172,11 +172,24 @@ reads it as the description it is.
   and a file may hold it without meaning the table — so a write into a piece
   is reported only together with what the piece may be completed with.
 
+  **A target written as a string is a write the database refuses.** The
+  database does not accept a string where a table's name stands, so a target
+  that holds one cannot run — whatever the string may be completed with. The
+  reader reports it whenever the string spells the table's name or a piece of
+  it, and in any position of the target: `'sync_field_' || v_suffix` and
+  `v_prefix || 'sync_field_'` are the same target, and a call where a table's
+  name stands (`format(…)`) is not a table either. The reader does not have
+  to know what completes the piece to say that the statement cannot run, and
+  the class is reported uniformly: a rule that holds in one spelling and not
+  in another is a rule with a hole in it. A target written as a NAME is a
+  different thing — the database may have a table by that name, and a name
+  the reader cannot read (`insert into v_table`) is not reported.
+
   **What the reader cannot read, it reports.** It is not a SQL parser and does
   not pretend to be one: a row whose values come from a query, a row without a
   column list, a row whose values do not match its columns, a value it does not
   know — each is a failure with a name on it, not a row that quietly
-  disappears. Twenty-four review rounds found such a hole in every one of them, and
+  disappears. Twenty-nine review rounds found such a hole in every one of them, and
   every one of them was a row the reader dropped in silence — a field nobody
   sends going past the gate unnoticed, which is the direction the gate exists
   for. The rule is therefore the other way round: what the reader does not
@@ -443,7 +456,7 @@ no longer stop at a parenthesis in a comment.
   spelling, so a reader built on one would not have to learn them. The
   repository has no SQL parser and the CI installs no Python packages, so the
   parser would either be a dependency the gate cannot have, or a hand-written
-  one — and a hand-written one is what twenty-four review rounds found holes in,
+  one — and a hand-written one is what twenty-nine review rounds found holes in,
   one per round. The reader this change settles on is narrow instead: it reads
   the shapes it knows, and it reports every shape it does not.
 - **Make every dynamic write a failure.** The reader could report any write
