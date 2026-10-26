@@ -119,29 +119,41 @@ class AcpExternalAgentScreenTest {
     }
 
     /**
-     * The input stays enabled while a turn runs, so a second message can reach the ViewModel.
+     * The input stays enabled while a turn runs, and the refusal reaches the reader.
      *
      * Disabling the field would stop the second message before the ViewModel ever sees it, and
      * the refusal the screen owes the reader — a turn is already running, said in words — would
      * never be reachable from the screen (REQ-EXTAG-007). So the field and its send button stay
-     * enabled, and the Stop control beside them is what ends the turn.
+     * enabled, the Stop control beside them ends the turn, and a second message produces the
+     * refusal as a dialog the reader can see.
      */
     @Test
-    fun `the input stays enabled while a turn is running`() = runIsolatedComposeTest {
-        val vm = viewModel(launcher = RunningLauncher)
+    fun `the input stays enabled while a turn is running, and the refusal is shown`() =
+        runIsolatedComposeTest {
+            val vm = viewModel(launcher = RunningLauncher)
 
-        setContent { AcpExternalAgentScreenContent(vm = vm) }
+            setContent { AcpExternalAgentScreenContent(vm = vm) }
 
-        vm.onIntent(AcpExternalAgentViewModel.Intent.Connect)
-        waitUntil { vm.stateFlow.value.connection is AcpConnection.Connected }
+            vm.onIntent(AcpExternalAgentViewModel.Intent.Connect)
+            waitUntil { vm.stateFlow.value.connection is AcpConnection.Connected }
 
-        vm.onIntent(AcpExternalAgentViewModel.Intent.InputChanged("hello"))
-        vm.onIntent(AcpExternalAgentViewModel.Intent.Send)
-        waitUntil { vm.stateFlow.value.isRunning }
+            vm.onIntent(AcpExternalAgentViewModel.Intent.InputChanged("hello"))
+            vm.onIntent(AcpExternalAgentViewModel.Intent.Send)
+            waitUntil { vm.stateFlow.value.isRunning }
 
-        assertTagEnabled(TestTags.CHAT_INPUT)
-        assertTagExists(TestTags.ACP_CANCEL_BUTTON)
-    }
+            assertTagEnabled(TestTags.CHAT_INPUT)
+            assertTagExists(TestTags.ACP_CANCEL_BUTTON)
+
+            // A second message, sent from a screen whose input is enabled, is refused — and the
+            // reason is on screen. This is the half of REQ-EXTAG-007 the disabled field hid.
+            vm.onIntent(AcpExternalAgentViewModel.Intent.InputChanged("and another thing"))
+            vm.onIntent(AcpExternalAgentViewModel.Intent.Send)
+            assertTagDisplayed(TestTags.RESULT_DIALOG)
+
+            // The turn is still running; end it through the screen so the test leaves nothing
+            // behind for the harness to wait for.
+            vm.onIntent(AcpExternalAgentViewModel.Intent.Disconnect)
+        }
 
     // ── Fixtures ───────────────────────────────────────────────────────────────
 

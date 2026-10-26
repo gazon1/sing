@@ -12,7 +12,7 @@ schema: spec-driven
 # into `openspec/specs/` (the external-agent change is still open), and re-stating its
 # requirement in a second delta would either duplicate the id or collide with that change when
 # it archives. The change is a *fix* that makes the existing requirement reachable, which is
-# why it carries a proposal, tasks and a review verdict and no spec delta.
+# why it carries a proposal and tasks here and a verdict in `.specify/reviews/` — no delta.
 #
 # Invariant: if this change ever needs to alter the requirement's own words — as opposed to
 # making them true — delete `skip_specs` and write the delta in the change that owns the
