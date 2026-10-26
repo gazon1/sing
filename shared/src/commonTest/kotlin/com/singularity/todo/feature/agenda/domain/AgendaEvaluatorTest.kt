@@ -10,6 +10,8 @@ import com.singularity.todo.feature.agenda.domain.selector.matches
 import kotlin.time.Duration.Companion.days
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
+import com.singularity.todo.feature.tasks.domain.logic.computeTaskMarkings
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
@@ -66,6 +68,7 @@ class AgendaEvaluatorTest {
         priority: TaskPriority = TaskPriority.None,
         isCompleted: Boolean = false,
         isPinned: Boolean = false,
+        isTrashed: Boolean = false,
         tags: List<TagId> = emptyList(),
         projectId: ProjectId? = null,
         updatedAt: kotlin.time.Instant = kotlin.time.Instant.fromEpochMilliseconds(0),
@@ -79,6 +82,7 @@ class AgendaEvaluatorTest {
         projectId = projectId,
         kind = TaskKind.Task,
         completedAt = if (isCompleted) kotlin.time.Instant.fromEpochMilliseconds(0) else null,
+        archivedAt = if (isTrashed) kotlin.time.Instant.fromEpochMilliseconds(0) else null,
         createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
         updatedAt = updatedAt,
         userId = com.singularity.todo.core.ids.UserId("test-user"),
@@ -252,6 +256,47 @@ class AgendaEvaluatorTest {
     fun `Overdue does not match future task`() {
         val task = makeTask("1", "Future task", dueDate = today.plus(1, DateTimeUnit.DAY))
         assertFalse(AgendaEvaluator.matches(task, Selector.Overdue, context))
+    }
+
+    @Test
+    fun `Overdue does not match a trashed task that is past its due date`() {
+        val task = makeTask(
+            "1",
+            "Archived and late",
+            dueDate = today.minus(1, DateTimeUnit.DAY),
+            isTrashed = true,
+        )
+
+        assertFalse(
+            Selector.Overdue.matches(task, context),
+            "the overdue rule has one owner — TaskComputed.isOverdue — and it says a trashed task is not overdue",
+        )
+        assertFalse(
+            Selector.DateBucket(RelativeBucket.Overdue).matches(task, context),
+            "the date bucket answers the same question and must answer it the same way",
+        )
+        assertFalse(
+            TaskComputed.isOverdue(task, today),
+            "the owner of the rule says the same thing the selectors do",
+        )
+    }
+
+    @Test
+    fun `the overdue selector and the overdue marking agree on a trashed task`() {
+        val task = makeTask(
+            "1",
+            "Archived and late",
+            dueDate = today.minus(1, DateTimeUnit.DAY),
+            isTrashed = true,
+        )
+
+        val markedOverdue = computeTaskMarkings(task, today).contains(TaskMarking.Overdue)
+        assertEquals(
+            TaskComputed.isOverdue(task, today),
+            markedOverdue,
+            "the marking and the predicate cannot disagree about the same task",
+        )
+        assertFalse(markedOverdue, "a trashed task is not overdue, so it carries no overdue marking")
     }
 
     // ─── Selector: Regexp ─────────────────────────────────────────────────────

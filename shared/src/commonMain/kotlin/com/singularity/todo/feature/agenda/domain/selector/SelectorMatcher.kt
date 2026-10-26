@@ -3,6 +3,7 @@ package com.singularity.todo.feature.agenda.domain.selector
 import com.singularity.todo.feature.agenda.domain.logic.toDateRange
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.agenda.domain.model.Selector
+import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
@@ -96,9 +97,9 @@ fun Selector.matches(task: Task, context: SelectorContext): Boolean = when (this
 
     is Selector.Completed -> task.isCompleted
 
-    is Selector.Overdue ->
-        task.dueDate != null &&
-            task.dueDate < context.today && !task.isCompleted
+    // The overdue rule has one owner: TaskComputed.isOverdue. A task that is
+    // trashed is not overdue, and this selector must not say otherwise.
+    is Selector.Overdue -> TaskComputed.isOverdue(task, context.today)
 
     // BLOCKED: task is in the set of tasks blocked by an unfinished dependency.
     // BLOCKED takes precedence over STAGNANT in health classification, so a blocked
@@ -150,9 +151,7 @@ fun Selector.matches(task: Task, context: SelectorContext): Boolean = when (this
 private fun Selector.DateBucket.matches(task: Task, today: LocalDate): Boolean {
     val range = bucket.toDateRange(today)
     return when (bucket) {
-        RelativeBucket.Overdue ->
-            task.dueDate != null &&
-                task.dueDate < today && !task.isCompleted
+        RelativeBucket.Overdue -> TaskComputed.isOverdue(task, today)
 
         RelativeBucket.NoDate -> task.dueDate == null
 

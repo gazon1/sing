@@ -44,7 +44,8 @@ sealed interface Selector {
 
     /**
      * Tasks bucketed by a relative date period.
-     * - [RelativeBucket.Overdue] — dueDate < today
+     * - [RelativeBucket.Overdue] — past the due date and still open
+     *   ([com.singularity.todo.feature.tasks.domain.logic.TaskComputed.isOverdue])
      * - [RelativeBucket.NoDate] — dueDate is null
      * All other buckets use the range computed by [RelativeBucket.toDateRange].
      */
@@ -101,8 +102,9 @@ sealed interface Selector {
     data object Completed : Selector
 
     /**
-     * Overdue tasks — dueDate < today AND not completed.
-     * A shortcut for `DateBucket(Overdue)` combined with `Statuses(setOf(Active))`.
+     * Overdue tasks — past the due date and still open.
+     * The rule is [com.singularity.todo.feature.tasks.domain.logic.TaskComputed.isOverdue],
+     * the same one the date bucket and the overdue marking use.
      */
     @Serializable
     @SerialName("Overdue")
