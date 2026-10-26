@@ -46,6 +46,8 @@ calendar_sync_system_unavailable text
 calendar_view_mode_month button
 calendar_view_mode_week button
 calendar_weekday_mon text
+checklist_item_${RUN_ID}_milk item
+checklist_item_checkbox_${RUN_ID}_milk item
 checklist_item_milk item
 checklist_sheet dialog
 dialog_date_picker_ok dialog
@@ -119,10 +121,12 @@ snackbar_action button
 snackbar_message text
 statistics_tab_health tab
 statistics_tab_tasks tab
+subtask_checkbox_${RUN_ID}_child_task_one item
 subtask_item_${RUN_ID}_child_task_one item
 subtasks_section item
 sync_interval_row item
 task_checkbox_buy_milk item
+task_checklist_section item
 task_context_menu_sheet dialog
 task_editor_due_date_row_label text
 task_editor_due_row item

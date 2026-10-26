@@ -1,0 +1,31 @@
+# Scenario specification for TASK-STATE-03.
+#
+# The canonical statement of this user scenario. Linkage to automation lives in
+# code (@DisplayName for Kotlin, a `scenario:TASK-STATE-03` Maestro tag), so
+# there is no second source of truth to keep in sync.
+#
+# The state and the completion flag are independent. Completing a task must
+# not wipe out the state — the state still describes how the work went, and
+# reopening the task must not silently forget it either.
+
+id: TASK-STATE-03
+title: A completed task keeps its workflow state
+area: feature.tasks
+priority: P3
+status: confirmed
+targets: [desktop]
+preconditions: >-
+  A task with the workflow state "In progress" exists, and its detail view is
+  open on desktop.
+steps:
+  - Complete the task.
+  - Open the completed task and look at the workflow-state control.
+  - Try to change the state of the completed task.
+expected: >-
+  The completed task still shows "In progress", the state control is not
+  offered for change while the task is completed, and the stored task keeps
+  the state — completing a task is not a reason to lose the description of
+  work already done.
+
+# Claimed on `desktop` by
+# desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/tasks/TaskStateScenarioTest.kt.

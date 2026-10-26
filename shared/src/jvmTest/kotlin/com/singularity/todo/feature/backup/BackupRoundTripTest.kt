@@ -25,6 +25,7 @@ import com.singularity.todo.feature.tasks.domain.logic.DependencyValidatorImpl
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeUnitOfWork
@@ -108,6 +109,11 @@ class BackupRoundTripTest {
         val restoredTasks = targetDb.taskDao().listAllForUser(owner.value)
         assertEquals(1, restoredTasks.size, "the restored database holds ${restoredTasks.size} tasks")
         assertEquals("Backup round trip", restoredTasks.first().title)
+        assertEquals(
+            "InProgress",
+            restoredTasks.first().workflowState,
+            "the state the user claimed for the task's work must survive the round trip",
+        )
     }
 
     /** Writes the task the round-trip starts from into the source database. */
@@ -130,6 +136,10 @@ class BackupRoundTripTest {
                 userId = owner,
                 createdAt = Clock.System.now(),
                 updatedAt = Clock.System.now(),
+                // A claimed state, so the round trip has something to carry: a
+                // task that was never claimed would restore as `Open` whether
+                // the field travelled or not.
+                workflowState = TaskWorkflowState.InProgress,
             ),
         )
     }

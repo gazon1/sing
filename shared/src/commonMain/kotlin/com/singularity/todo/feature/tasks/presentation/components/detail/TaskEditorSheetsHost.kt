@@ -10,6 +10,7 @@ import com.singularity.todo.feature.attachments.components.AttachmentsSheet
 import com.singularity.todo.feature.checklist.components.ChecklistEditorSheet
 import com.singularity.todo.feature.tags.components.TagsPickerSheet
 import com.singularity.todo.feature.tasks.domain.logic.TaskSeriesPlanner
+import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.presentation.components.ProjectPickerSheet
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
 import com.singularity.todo.feature.tasks.presentation.state.TaskEditorSheet
@@ -17,6 +18,7 @@ import com.singularity.todo.feature.timetracking.presentation.components.TimeEnt
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableMap
 import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 import androidx.compose.runtime.remember
@@ -42,6 +44,7 @@ fun TaskEditorSheetsHost(
     activeSheet: TaskEditorSheet?,
     now: kotlin.time.Instant,
     onSheetDismiss: () -> Unit,
+    isCompleted: Boolean = false,
 ) {
     when (activeSheet) {
         // ── Date/Time sheets ────────────────────────────────────────────────
@@ -51,31 +54,12 @@ fun TaskEditorSheetsHost(
         // opens the ordinary one. The switch is [TaskEditorModel.multiDateEnabled]
         // and not the presence of a callback: the callback says *where the result
         // goes*, the flag says *what the user is allowed to choose*.
-        is TaskEditorSheet.Date -> if (model.multiDateEnabled) {
-            MultiDatePickerSheet(
-                initialDates = remember(model.dueDates, model.dueDate) {
-                    model.dueDates
-                        .ifEmpty { model.dueDate?.let { persistentListOf(it) } ?: persistentListOf() }
-                        .toImmutableSet()
-                },
-                onConfirm = { dates ->
-                    callbacks.dueDate.onChangeDates?.invoke(dates)
-                    onSheetDismiss()
-                },
-                onDismiss = onSheetDismiss,
-                today = now.toLocalDateTime(TimeZone.currentSystemDefault()).date,
-                maxDates = TaskSeriesPlanner.MAX_DATES,
-            )
-        } else {
-            DatePickerSheet(
-                initialDate = model.dueDate,
-                onDateSelected = { date ->
-                    callbacks.dueDate.onChangeDate.invoke(date)
-                    onSheetDismiss()
-                },
-                onDismiss = onSheetDismiss,
-            )
-        }
+        is TaskEditorSheet.Date -> TaskEditorDateSheet(
+            model = model,
+            callbacks = callbacks,
+            now = now,
+            onSheetDismiss = onSheetDismiss,
+        )
 
         is TaskEditorSheet.Time -> TimePickerSheet(
             initialTime = model.dueTime,
@@ -113,6 +97,21 @@ fun TaskEditorSheetsHost(
                 selected = model.priority,
                 onSelect = { p ->
                     callbacks.priority.onChange.invoke(p)
+                    onSheetDismiss()
+                },
+            )
+        }
+
+        // ── Workflow state ──────────────────────────────────────────────────
+        is TaskEditorSheet.WorkflowState -> TaskEditorSheetHost(
+            title = "State",
+            onClose = onSheetDismiss,
+        ) {
+            TaskEditorStateSheet(
+                selected = model.workflowState,
+                enabled = !isCompleted,
+                onSelect = { state ->
+                    callbacks.workflowState?.onChange?.invoke(state)
                     onSheetDismiss()
                 },
             )
@@ -159,15 +158,11 @@ fun TaskEditorSheetsHost(
         // Wrapping the picker in that host gave the sheet two headers and two sheets,
         // and left the ✓ untagged: `sheet_confirm` was declared in the tag registry
         // and tapped by the Maestro flow, but no element ever carried it.
-        is TaskEditorSheet.Recurrence -> RecurrencePickerSheet(
-            currentSpec = model.recurrence,
-            anchorDate = model.dueDate
-                ?: now.toLocalDateTime(TimeZone.currentSystemDefault()).date,
-            onApply = { spec ->
-                callbacks.recurrence?.onChange?.invoke(spec)
-                onSheetDismiss()
-            },
-            onDismiss = onSheetDismiss,
+        is TaskEditorSheet.Recurrence -> TaskEditorRecurrenceSheet(
+            model = model,
+            callbacks = callbacks,
+            now = now,
+            onSheetDismiss = onSheetDismiss,
         )
 
         // ── Checklist ────────────────────────────────────────────────────────
@@ -203,7 +198,12 @@ fun TaskEditorSheetsHost(
 
         // ── Dependencies ────────────────────────────────────────────────────
         is TaskEditorSheet.Dependencies -> DependencyPickerSheet(
-            currentDeps = remember(model.blockedBy) { model.blockedBy.toImmutableSet() },
+            currentDeps = remember(model.blockedBy, model.followsUp) {
+                buildMap {
+                    model.blockedBy.forEach { put(it, DependencyVerb.BLOCKS) }
+                    model.followsUp.forEach { put(it, DependencyVerb.FOLLOWS_UP) }
+                }.toImmutableMap()
+            },
             availableTasks = remember(model.availableTasks) { model.availableTasks.toImmutableList() },
             onApply = { newDeps ->
                 callbacks.dependencies?.onChange?.invoke(newDeps)
@@ -243,4 +243,69 @@ fun TaskEditorSheetsHost(
             /* no sheet open */
         }
     }
+}
+
+/**
+ * The two shapes of the date sheet.
+ *
+ * Extracted from the host's `when` so the choice between the multi-date and the
+ * ordinary picker does not add a branch to a function that already dispatches on
+ * every sheet the editor can open.
+ */
+@Composable
+private fun TaskEditorDateSheet(
+    model: TaskEditorModel,
+    callbacks: TaskEditorCallbacks,
+    now: kotlin.time.Instant,
+    onSheetDismiss: () -> Unit,
+) {
+    if (model.multiDateEnabled) {
+        MultiDatePickerSheet(
+            initialDates = remember(model.dueDates, model.dueDate) {
+                model.dueDates
+                    .ifEmpty { model.dueDate?.let { persistentListOf(it) } ?: persistentListOf() }
+                    .toImmutableSet()
+            },
+            onConfirm = { dates ->
+                callbacks.dueDate.onChangeDates?.invoke(dates)
+                onSheetDismiss()
+            },
+            onDismiss = onSheetDismiss,
+            today = now.toLocalDateTime(TimeZone.currentSystemDefault()).date,
+            maxDates = TaskSeriesPlanner.MAX_DATES,
+        )
+    } else {
+        DatePickerSheet(
+            initialDate = model.dueDate,
+            onDateSelected = { date ->
+                callbacks.dueDate.onChangeDate.invoke(date)
+                onSheetDismiss()
+            },
+            onDismiss = onSheetDismiss,
+        )
+    }
+}
+
+/**
+ * The recurrence sheet and its anchor date.
+ *
+ * The anchor falls back to today, and that fallback is a branch; it lives here
+ * rather than in the dispatcher so the dispatcher stays a dispatcher.
+ */
+@Composable
+private fun TaskEditorRecurrenceSheet(
+    model: TaskEditorModel,
+    callbacks: TaskEditorCallbacks,
+    now: kotlin.time.Instant,
+    onSheetDismiss: () -> Unit,
+) {
+    RecurrencePickerSheet(
+        currentSpec = model.recurrence,
+        anchorDate = model.dueDate ?: now.toLocalDateTime(TimeZone.currentSystemDefault()).date,
+        onApply = { spec ->
+            callbacks.recurrence?.onChange?.invoke(spec)
+            onSheetDismiss()
+        },
+        onDismiss = onSheetDismiss,
+    )
 }

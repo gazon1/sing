@@ -1,0 +1,33 @@
+# Scenario specification for TASK-MARK-01.
+#
+# The canonical statement of this user scenario. Linkage to automation lives in
+# code (@DisplayName for Kotlin, a `scenario:TASK-MARK-01` Maestro tag), so
+# there is no second source of truth to keep in sync.
+#
+# A task row used to carry one "special" mark at a time, which quietly said
+# that a task can be special in only one way. This scenario is about the set:
+# the same facts, all visible at once, and an honest count when there are more
+# than the row shows.
+
+id: TASK-MARK-01
+title: A task row shows every marking that applies, and counts the ones it hides
+area: feature.tasks
+priority: P2
+status: confirmed
+targets: [desktop]
+preconditions: >-
+  Three tasks exist: one is blocked by an unfinished task and overdue, one
+  follows up on another task, and one is in progress, pinned, blocked by an
+  unfinished task and follows up on another — four markings at once.
+steps:
+  - Look at the blocked and overdue task.
+  - Look at the follow-up task.
+  - Look at the task with four markings.
+expected: >-
+  The blocked and overdue task shows both the blocked and the overdue marking
+  at the same time; the follow-up task shows the follow-up marking and not the
+  blocked one; the task with four markings shows three and a count of the one
+  it hides — a task can be more than one thing at once, and the row says so.
+
+# Claimed on `desktop` by
+# desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/agenda/AgendaBadgePolicyFlowTest.kt.

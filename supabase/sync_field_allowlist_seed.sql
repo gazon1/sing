@@ -84,6 +84,7 @@ insert into sync_field_allowlist (entity_type, field, writable) values
     ('task', 'aiSuppressedTagIds', true),
     ('task', 'recurrence', true),
     ('task', 'seriesId', true),
+    ('task', 'workflowState', true),
     ('task', 'createdAt', true),
     ('task', 'updatedAt', true),
     ('time_entry', 'taskId', true),

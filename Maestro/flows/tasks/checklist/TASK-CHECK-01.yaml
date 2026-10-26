@@ -1,38 +1,28 @@
-# Scenario TASK-CHECK-01 — the editor offers a checklist section and the checklist
-# sheet accepts input.
+# Scenario TASK-CHECK-01 — the task screen carries the checklist, and the item
+# is ticked there.
 #
 # Canonical spec: scripts/src/traceability/scenarios/tasks/checklist/TASK-CHECK-01.yaml
 #
 # The `scenario:TASK-CHECK-01` tag below is the linkage, matched by exact string
-# comparison in run-maestro. The id is the first token after the
-# `scenario:` namespace prefix, for the same reason it is the first token in a
-# Kotlin @DisplayName: a reader — human or scanner — can tell an id from prose.
+# comparison in run-maestro. The id is the first token after the `scenario:`
+# namespace prefix, for the same reason it is the first token in a Kotlin
+# @DisplayName: a reader — human or scanner — can tell an id from prose.
 #
-# ## Platform notes
+# ## What changed, and why this flow moved
 #
-# android: Maestro drives the real Android UI; the checklist entry is the
-# "Add checklist" chip in the FirstRunSection, shown for tasks < 5 min old with
-# no description, checklist items, or completed subtasks.
-#
-# desktop: JVM Compose UI test — see
-# desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/tasks/
-# checklist/TaskCheck01ScenarioTest.kt
+# The checklist used to live behind a sheet: the task detail's editor passed
+# `checklist = null`, so the section was unreachable from the task screen, and the
+# only way in was the "Add checklist" chip of the FirstRunSection — a row that
+# exists for the first five minutes of a task's life. The items are inline now,
+# so the flow drives the inline section.
 #
 # ## What this flow covers
 #
-# 1. A fresh task (no checklist) is saved and immediately re-opened.
-#    The FirstRunSection appears because the task is within the 5-minute Offer window.
-# 2. Tapping "Add checklist" opens the ChecklistEditorSheet.
-# 3. Entering text and tapping Add persists the item.
-# 4. The item appears in the checklist.
-#
-# ## Gaps to close
-#
-# - The OutlinedTextField and FilledTonalButton in ChecklistEditorSheet have no
-#   testTag. This flow uses text-based selectors as a workaround. A follow-up
-#   should add testTag(TestTags.CHECKLIST_ADD_INPUT) and
-#   testTag(TestTags.CHECKLIST_ADD_BUTTON) to ChecklistEditorSheet and update
-#   this flow to use id: selectors.
+# 1. A task is created and opened.
+# 2. The checklist section is on the task screen, and it is there even though the
+#    task has no checklist items — the section carries the add-row.
+# 3. An item is typed into the inline add-row and added, with no sheet opening.
+# 4. The item's checkbox is ticked and the item is marked as finished.
 appId: com.singularity.todo
 name: tasks-checklist
 tags:
@@ -47,14 +37,12 @@ tags:
 # A section header renders only when the section has a task, and the runner
 # wipes the content before the flow, so the agenda is empty here: there is no
 # header to find, and waiting for one is a claim about nothing. The shell
-# affordance the flow needs next is what is waited for instead; the section
-# header is asserted later, after the flow has put a task in it.
+# affordance the flow needs next is what is waited for instead.
 - extendedWaitUntil:
     visible:
       id: tasks_fab
     timeout: 8000
 
-# Open composer via FAB
 - tapOn:
     id: tasks_fab
 - extendedWaitUntil:
@@ -62,7 +50,7 @@ tags:
       id: task_editor_title_input
     timeout: 5000
 
-# Give the task a title so it can be saved and re-opened
+# A title, so the task can be saved and re-opened.
 - tapOn:
     id: task_editor_title_input
 - inputText: "${RUN_ID} Grocery run"
@@ -70,8 +58,7 @@ tags:
 - tapOn:
     id: task_editor_save
 
-# ── Re-open the task to trigger FirstRunSection ─────────────────────
-# The task must be re-opened within the 5-minute FirstRun Offer window.
+# ── Open the task ─────────────────────────────────────────────────
 - extendedWaitUntil:
     visible:
       id: "task_item_${RUN_ID}_grocery_run"
@@ -83,37 +70,43 @@ tags:
       id: task_editor_title_input
     timeout: 5000
 
-# ── FirstRunSection: tap "Add checklist" ───────────────────────────
-# The FirstRunSection appears for tasks < 5 min old with no content.
-# "Add checklist" is the chip that opens the ChecklistEditorSheet.
+# ── The checklist section ─────────────────────────────────────────
+# It renders whether or not there are items: it is the only place a checklist
+# item can be added from the task screen, so a section that hid itself would
+# leave no way to add the first one.
 - extendedWaitUntil:
     visible:
-      id: first_run_section
-    timeout: 8000
-- tapOn: "Add checklist"
-
-# ── ChecklistEditorSheet: add an item ─────────────────────────────
-# The sheet title is "Checklist" (TaskEditorSheetHost).
-- extendedWaitUntil:
-    visible:
-      id: checklist_sheet
+      id: task_checklist_section
     timeout: 8000
 
-# Type the first item. testTag(TestTags.CHECKLIST_ADD_INPUT) now
-# replaces the placeholder-text selector.
+# ── Add an item inline ───────────────────────────────────────────
+# The add-row of the section. Nothing opens: the item is typed where it is
+# listed.
 - tapOn:
-    id: checklist_add_input
-- inputText: "Milk"
-
-# Tap the Add button. testTag(TestTags.CHECKLIST_ADD_BUTTON).
+    id: checklist_inline_add_input
+- inputText: "${RUN_ID} Milk"
+- hideKeyboard
 - tapOn:
-    id: checklist_add_button
+    id: checklist_inline_add_button
 
-# ── Verify the item appears in the checklist ───────────────────────
-# slug("Milk") → "milk", so id: checklist_item_milk
+# slug("${RUN_ID} Milk") → "<run id>_milk"
 - extendedWaitUntil:
     visible:
-      id: checklist_item_milk
+      id: "checklist_item_${RUN_ID}_milk"
     timeout: 8000
-- assertVisible:
-    id: checklist_item_milk
+
+# ── Tick the item ────────────────────────────────────────────────
+# A real checkbox, not a tick character in front of the title.
+- tapOn:
+    id: "checklist_item_checkbox_${RUN_ID}_milk"
+- extendedWaitUntil:
+    visible:
+      id: "checklist_item_checkbox_${RUN_ID}_milk"
+      checked: true
+    timeout: 8000
+
+# The count of the section is deliberately not asserted here. The composer
+# creates a task per run, so the section's own history is not what a second
+# run of this flow would see, and a number about the fixture's history is not
+# a number about the behaviour. The count is asserted on the desktop tier,
+# where the database starts empty.

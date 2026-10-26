@@ -5,6 +5,7 @@ import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
+import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
 import com.singularity.todo.feature.tags.TagId
 
 /**
@@ -137,6 +138,14 @@ sealed interface SelectorTemplate {
             Fixed("No date", Selector.DateBucket(RelativeBucket.NoDate)),
             Fixed("This week", Selector.DateBucket(RelativeBucket.ThisWeek)),
             Fixed("Next week", Selector.DateBucket(RelativeBucket.NextWeek)),
+            // The stored state and the two derived dependency conditions. `Blocked`
+            // has been in the hierarchy since before this catalogue existed; the
+            // entry is what makes it reachable at all.
+            Fixed("In progress", Selector.WorkflowState(TaskWorkflowState.InProgress)),
+            Fixed("Next up", Selector.WorkflowState(TaskWorkflowState.NextUp)),
+            Fixed("No state", Selector.WorkflowState(TaskWorkflowState.Open)),
+            Fixed("Blocked", Selector.Blocked),
+            Fixed("Follow-ups", Selector.FollowUp),
             ByTags(),
             ByProjects,
             ByPriority(),

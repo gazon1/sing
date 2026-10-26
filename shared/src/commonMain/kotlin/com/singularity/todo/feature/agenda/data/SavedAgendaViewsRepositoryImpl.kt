@@ -10,6 +10,7 @@ import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
+import com.singularity.todo.feature.agenda.domain.model.decodeSavedSections
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.flow.Flow
@@ -28,17 +29,29 @@ class SavedAgendaViewsRepositoryImpl(
     override suspend fun currentUserId(): String = currentUser.scopedUserId.value.value
 
     override fun observeAll(): Flow<List<SavedAgendaView>> = currentUser.observeForCurrentUser { uid ->
-        agendaViewDao.watchAll(uid.value).map { entities -> entities.map { it.toDomain() } }
+        agendaViewDao.watchAll(uid.value).map { entities ->
+            entities.map { it.toDomain() }.filter { it.isDecodable() }
+        }
     }
 
     override fun observe(id: SavedAgendaViewId): Flow<SavedAgendaView?> = currentUser.observeForCurrentUser { uid ->
-        agendaViewDao.watchById(uid.value, id.raw).map { it?.toDomain() }
+        agendaViewDao.watchById(uid.value, id.raw).map { it?.toDomain()?.takeIf { it.isDecodable() } }
     }
 
     override suspend fun get(id: SavedAgendaViewId): SavedAgendaView? {
         val uid = currentUser.scopedUserId.value
-        return agendaViewDao.getById(uid.value, id.raw)?.toDomain()
+        return agendaViewDao.getById(uid.value, id.raw)?.toDomain()?.takeIf { it.isDecodable() }
     }
+
+    /**
+     * Whether the stored blob still decodes.
+     *
+     * The read drops what it cannot decode instead of handing the screen a view it
+     * will render empty: one unknown `_type` takes the whole blob down, and a list
+     * where the broken row is missing is more useful than a list where one row says
+     * "no tasks" forever.
+     */
+    private fun SavedAgendaView.isDecodable(): Boolean = decodeSavedSections(sectionsJson) != null
 
     override suspend fun create(item: SavedAgendaView): Result<SavedAgendaView> = upsert(item)
 

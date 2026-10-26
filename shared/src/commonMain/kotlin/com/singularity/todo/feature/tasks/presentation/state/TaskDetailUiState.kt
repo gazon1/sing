@@ -53,6 +53,8 @@ data class TaskDetailUi(
     val subtasks: ImmutableList<Task> = persistentListOf(),
     /** IDs of tasks this task depends on. Used to populate [DependencyPickerSheet]. */
     val blockedBy: ImmutableSet<TaskId> = persistentSetOf(),
+    /** IDs of the tasks this task follows up on — the ordering graph, not the blocking one. */
+    val followsUp: ImmutableSet<TaskId> = persistentSetOf(),
     /** Tasks available for dependency selection (not trashed, not self). */
     val availableTasks: ImmutableList<Task> = persistentListOf(),
     /** Notes that link TO this task via task:// URL scheme. */

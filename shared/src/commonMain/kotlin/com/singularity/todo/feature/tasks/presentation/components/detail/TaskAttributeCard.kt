@@ -52,13 +52,22 @@ fun TaskAttributeCard(
      * tag: a test that means "the row" must pass the tag through [modifier] instead.
      */
     testTag: String? = null,
+    /**
+     * When false the card is shown but cannot be pressed.
+     *
+     * The workflow-state row uses it for a completed task: the state is a fact about
+     * how the work went, so it is still shown, but it is not a choice any more. An
+     * empty `onClick` would look identical and would still be a button to a screen
+     * reader; no clickable at all is the difference.
+     */
+    enabled: Boolean = true,
 ) {
     Surface(
         color = containerColor,
         shape = RoundedCornerShape(TaskSpacing.cardCornerRadius),
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier),
     ) {
         Row(
             modifier = Modifier

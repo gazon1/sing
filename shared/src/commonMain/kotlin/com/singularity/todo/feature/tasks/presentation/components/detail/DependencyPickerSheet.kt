@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,33 +27,48 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.text.SelectableText
+import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.ImmutableSet
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
-import kotlinx.collections.immutable.toImmutableSet
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.toImmutableMap
+
+/**
+ * The verbs the picker can write.
+ *
+ * The enum carries more (`DUPLICATES`, `FIXES`, `SUPERSEDES`) because the table and
+ * the sync wire carry them, but a person choosing a relation on this screen is
+ * saying one of two things: "I cannot start until this is done" or "this picks up
+ * where that left off". Offering the other three here would be offering words the
+ * app's own views never read.
+ */
+private val PICKER_VERBS = listOf(DependencyVerb.BLOCKS, DependencyVerb.FOLLOWS_UP)
 
 /**
  * Multi-select task dependency picker sheet.
  *
- * Allows the user to pick which tasks this task depends on.
- * Opens from a "Dependencies" card in [com.singularity.todo.feature.tasks.presentation.screen.TaskDetailScreen].
+ * Allows the user to pick which tasks this task relates to, and what the relation
+ * means: blocking (`BLOCKS`) or ordering (`FOLLOWS_UP`). Opens from the Dependencies
+ * card in the task editor.
  *
- * @param currentDeps Currently selected dependency IDs for this task.
+ * @param currentDeps The current outgoing relations, keyed by the other task and
+ *   carrying the verb. A selected task that is merely ordered rather than waited on
+ *   must arrive with `FOLLOWS_UP`, or the picker would show it as blocking.
  * @param availableTasks All tasks available for selection (not trashed, not self).
- * @param onApply Called with the new set of dependency IDs when the user confirms.
+ * @param onApply Called with the new relation map when the user confirms.
  * @param onDismiss Called when the user dismisses or cancels.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DependencyPickerSheet(
-    currentDeps: ImmutableSet<TaskId>,
+    currentDeps: ImmutableMap<TaskId, DependencyVerb>,
     availableTasks: ImmutableList<Task>,
-    onApply: (Set<TaskId>) -> Unit,
+    onApply: (ImmutableMap<TaskId, DependencyVerb>) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var selected by remember { mutableStateOf(currentDeps) }
+    var selected by remember(currentDeps) { mutableStateOf(currentDeps) }
 
     TaskEditorSheetHost(
         title = "Dependencies",
@@ -75,13 +92,16 @@ fun DependencyPickerSheet(
                 ) { task ->
                     DependencyItem(
                         task = task,
-                        isChecked = task.id in selected,
+                        verb = selected[task.id],
                         onToggle = { id ->
                             selected = if (id in selected) {
-                                (selected - id).toImmutableSet()
+                                selected - id
                             } else {
-                                (selected + id).toImmutableSet()
-                            }
+                                selected + (id to DependencyVerb.BLOCKS)
+                            }.toImmutableMap()
+                        },
+                        onVerbChange = { id, verb ->
+                            if (id in selected) selected = (selected + (id to verb)).toImmutableMap()
                         },
                     )
                 }
@@ -91,16 +111,22 @@ fun DependencyPickerSheet(
 }
 
 @Composable
-private fun DependencyItem(task: Task, isChecked: Boolean, onToggle: (TaskId) -> Unit) {
+private fun DependencyItem(
+    task: Task,
+    verb: DependencyVerb?,
+    onToggle: (TaskId) -> Unit,
+    onVerbChange: (TaskId, DependencyVerb) -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .testTag(TestTags.dependencyItem(task.id.value))
             .clickable { onToggle(task.id) }
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Checkbox(
-            checked = isChecked,
+            checked = verb != null,
             onCheckedChange = { onToggle(task.id) },
         )
         Spacer(Modifier.width(12.dp))
@@ -118,6 +144,40 @@ private fun DependencyItem(task: Task, isChecked: Boolean, onToggle: (TaskId) ->
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            if (verb != null) {
+                Row(
+                    modifier = Modifier.padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    PICKER_VERBS.forEach { candidate ->
+                        FilterChip(
+                            selected = verb == candidate,
+                            onClick = { onVerbChange(task.id, candidate) },
+                            label = { Text(candidate.label()) },
+                            modifier = Modifier.testTag(
+                                TestTags.dependencyVerb(task.id.value, candidate.name),
+                            ),
+                        )
+                    }
+                }
+            }
         }
     }
+}
+
+/**
+ * The user-facing name of a picker verb.
+ *
+ * Keyed on the enum, never on its `name`: the wire name is stable and the label is
+ * copy the app may translate.
+ */
+private fun DependencyVerb.label(): String = when (this) {
+    DependencyVerb.BLOCKS -> "Blocks"
+
+    DependencyVerb.FOLLOWS_UP -> "Follows up"
+
+    DependencyVerb.DUPLICATES,
+    DependencyVerb.FIXES,
+    DependencyVerb.SUPERSEDES,
+    -> name.lowercase().replaceFirstChar { it.uppercase() }
 }
