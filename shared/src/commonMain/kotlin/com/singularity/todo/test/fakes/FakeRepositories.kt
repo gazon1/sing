@@ -3076,7 +3076,7 @@ private val NoOpBackupCodec = object : BackupCodec {
     override suspend fun export(
         manifestBytes: ByteArray,
         payloadBytes: ByteArray,
-        attachments: List<Pair<String, ByteArray>>,
+        attachments: List<Pair<String, String>>,
         destPath: String,
         fs: FileSystem,
     ): Result<Unit> = Result.success(Unit)

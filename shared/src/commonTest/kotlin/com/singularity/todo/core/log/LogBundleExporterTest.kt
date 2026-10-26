@@ -52,7 +52,9 @@ class LogBundleExporterTest {
         val attachments = codec.lastAttachments!!
         assertEquals(1, attachments.size)
         assertEquals("log.0.txt", attachments[0].first)
-        assertEquals("line1\nline2\n".toByteArray().toList(), attachments[0].second.toList())
+        // The attachment names a path; the bytes the codec would stream are there.
+        assertEquals("/logs/log.0.txt", attachments[0].second)
+        assertEquals("line1\nline2\n".toByteArray().toList(), fs.readBytes(attachments[0].second).toList())
     }
 
     @Test
@@ -69,7 +71,7 @@ class LogBundleExporterTest {
         val attachments = codec.lastAttachments!!
         assertEquals(3, attachments.size)
         assertEquals("log.0.txt", attachments[0].first)
-        assertEquals("oldest".toByteArray().toList(), attachments[0].second.toList())
+        assertEquals("oldest".toByteArray().toList(), fs.readBytes(attachments[0].second).toList())
         assertEquals("log.1.txt", attachments[1].first)
         assertEquals("log.2.txt", attachments[2].first)
     }
@@ -135,7 +137,7 @@ class LogBundleExporterStampTest {
 private class FakeBackupCodec(private val failExport: Boolean = false) : BackupCodec {
     var calls = 0
         private set
-    var lastAttachments: List<Pair<String, ByteArray>>? = null
+    var lastAttachments: List<Pair<String, String>>? = null
         private set
     var lastDestPath: String? = null
         private set
@@ -145,7 +147,7 @@ private class FakeBackupCodec(private val failExport: Boolean = false) : BackupC
     override suspend fun export(
         manifestBytes: ByteArray,
         payloadBytes: ByteArray,
-        attachments: List<Pair<String, ByteArray>>,
+        attachments: List<Pair<String, String>>,
         destPath: String,
         fs: FileSystem,
     ): Result<Unit> {

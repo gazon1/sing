@@ -16,12 +16,18 @@ interface BackupCodec {
      * Creates a zip archive at `destPath` containing:
      * - `MANIFEST.json` — [manifestBytes]
      * - `payload.json` — [payloadBytes]
-     * - `attachments/$name` — one entry per [attachments] pair (name → bytes)
+     * - `attachments/$name` — one entry per [attachments] pair, copied from the
+     *   path it names
+     *
+     * The attachment's value is a **path**, not bytes: an attachment can be a
+     * file of many megabytes, and the archive is written in pieces so that the
+     * app never holds one whole. The implementation reads each source in chunks
+     * and writes them into the entry.
      */
     suspend fun export(
         manifestBytes: ByteArray,
         payloadBytes: ByteArray,
-        attachments: List<Pair<String, ByteArray>>,
+        attachments: List<Pair<String, String>>,
         destPath: String,
         fs: FileSystem,
     ): Result<Unit>

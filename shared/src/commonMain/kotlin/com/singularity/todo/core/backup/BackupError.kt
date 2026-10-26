@@ -51,13 +51,34 @@ sealed class BackupError(message: String, cause: Throwable? = null) : Exception(
         BackupError("The archive's version is $version, and this build reads $currentVersion")
 
     /**
-     * The archive could not be read at all.
+     * The archive's bytes could not be moved — read from the source, or written to
+     * the sink.
      *
-     * Not a wrong password: the bytes never made it to the cipher. A file that is
-     * not there, a disk that is full, a device that fell over mid-read. The person
-     * can act on this one — the archive is damaged, not their password.
+     * Not a wrong password: the bytes never reached the cipher, or the plaintext
+     * never reached the disk. A file that is not there, a disk that is full, a
+     * device that fell over mid-read. The person can act on this one — the archive
+     * is damaged or the destination refused it, not their password.
+     *
+     * The message names **both directions** because one catch covers both: the
+     * cipher reads the source and writes the sink in the same call, and
+     * `commonMain` cannot tell whose failure it was. Calling the whole class
+     * "unreadable" was the lie the earlier version told a person whose disk was
+     * full.
      */
-    class Unreadable(cause: Throwable? = null) : BackupError("The archive could not be read", cause)
+    class Unusable(cause: Throwable? = null) : BackupError("The archive could not be read or written", cause)
+
+    /**
+     * The chain of deltas does not hold together.
+     *
+     * A chain is a base and the deltas that follow it, and the archive refuses to
+     * pretend it read one: an entry whose index is not where it should be, a chain
+     * shorter than its own head says (the tail was dropped), or extra bytes after
+     * the last entry. Applying the entries before the break and calling the result
+     * restored is the failure this case exists to prevent — a restore that returns
+     * yesterday's data and says nothing.
+     */
+    class BrokenChain(reason: String, cause: Throwable? = null) :
+        BackupError("The archive's chain of changes is broken: $reason", cause)
 
     /**
      * The archive cannot be encrypted without a password.

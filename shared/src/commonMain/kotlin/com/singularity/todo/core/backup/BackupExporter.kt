@@ -143,14 +143,19 @@ class BackupExporter(
                     .encodeToString(BackupManifest.serializer(), manifest)
                     .encodeToByteArray()
 
-            // 5. Read attachment files
-            val attachmentEntries = mutableListOf<Pair<String, ByteArray>>()
+            // 5. Point at the attachment files
+            //
+            // Paths, not bytes: the codec copies each file into the zip in pieces,
+            // so an attachment is never whole in memory here — reading it with
+            // `fs.readBytes` would be the one place the account's largest files
+            // are held at once.
+            val attachmentEntries = mutableListOf<Pair<String, String>>()
 
             if (options.includeAttachments) {
                 for (att in attachments) {
                     val path = att.localPath
                     if (path != null) {
-                        attachmentEntries.add("${att.id}.dat" to fs.readBytes(path))
+                        attachmentEntries.add("${att.id}.dat" to path)
                     }
                 }
             }
@@ -160,7 +165,11 @@ class BackupExporter(
                 .export(manifestBytes, payloadBytes, attachmentEntries, options.destPath, fs)
                 .getOrThrow()
 
-            val byteSize = fs.readBytes(options.destPath).size.toLong()
+            // The archive's size is asked of the filesystem, not read back out of
+            // it: `fs.readBytes` here would load the whole archive into memory a
+            // second time, which is the cost the streaming encoder exists to avoid.
+            val byteSize = fs.stat(options.destPath)?.sizeBytes
+                ?: throw BackupError.FileNotFound(options.destPath)
 
             BackupResult(
                 manifest = manifest,
