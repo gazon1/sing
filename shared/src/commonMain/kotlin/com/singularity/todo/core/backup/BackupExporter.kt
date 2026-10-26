@@ -169,7 +169,7 @@ class BackupExporter(
             // it: `fs.readBytes` here would load the whole archive into memory a
             // second time, which is the cost the streaming encoder exists to avoid.
             val byteSize = fs.stat(options.destPath)?.sizeBytes
-                ?: throw BackupError.FileNotFound(options.destPath)
+                ?: throw BackupStorageError.FileNotFound(options.destPath)
 
             BackupResult(
                 manifest = manifest,

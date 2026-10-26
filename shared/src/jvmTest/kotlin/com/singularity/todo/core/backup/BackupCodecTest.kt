@@ -42,7 +42,7 @@ class BackupCodecTest {
         val result = codec.import("/nonexistent.zip", fs)
         assertTrue(result.isFailure)
         result.onFailure {
-            assertTrue(it is BackupError.FileNotFound)
+            assertTrue(it is BackupStorageError.FileNotFound)
         }
     }
 

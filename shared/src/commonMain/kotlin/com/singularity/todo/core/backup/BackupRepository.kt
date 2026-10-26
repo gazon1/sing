@@ -166,7 +166,7 @@ class BackupRepositoryImpl(
             runCatchingCancellable {
                 val backup =
                     scanBackups().find { it.id == backupId }
-                        ?: throw BackupError.FileNotFound(backupId.value)
+                        ?: throw BackupStorageError.FileNotFound(backupId.value)
                 remoteService
                     .upload(backup.path, currentUser.scopedUserId.value, password)
                     .getOrThrow()

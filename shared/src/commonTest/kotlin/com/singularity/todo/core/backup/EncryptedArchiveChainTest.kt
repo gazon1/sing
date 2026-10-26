@@ -83,7 +83,7 @@ class EncryptedArchiveChainTest {
             password = password,
         )
 
-        val error = assertFailsWith<BackupError.BrokenChain> {
+        val error = assertFailsWith<ArchiveEnvelopeError.BrokenChain> {
             archive.open(sealed.bytes(), password)
         }
         assertTrue(
@@ -110,9 +110,9 @@ class EncryptedArchiveChainTest {
             password = password,
         )
 
-        val truncated = sealed.bytes().copyOfRange(0, EncryptedArchive.HEADER_BYTES_V2)
+        val truncated = sealed.bytes().copyOfRange(0, ArchiveFormat.HEADER_BYTES_V2)
 
-        val error = assertFailsWith<BackupError.BrokenChain> {
+        val error = assertFailsWith<ArchiveEnvelopeError.BrokenChain> {
             archive.openChain(ByteArraySource(truncated), ByteArraySink(), password) { _, _ -> }
         }
         assertTrue(
@@ -141,14 +141,14 @@ class EncryptedArchiveChainTest {
         val whole = sealed.bytes()
 
         // The head sits right after the prefix: count (4) then total length (8).
-        val entriesLength = whole.longAfter(EncryptedArchive.PREFIX_BYTES + 4)
-        val withoutChanges = whole.copyOfRange(0, EncryptedArchive.HEADER_BYTES_V2) +
+        val entriesLength = whole.longAfter(ArchiveFormat.PREFIX_BYTES + 4)
+        val withoutChanges = whole.copyOfRange(0, ArchiveFormat.HEADER_BYTES_V2) +
             whole.copyOfRange(
-                (EncryptedArchive.HEADER_BYTES_V2 + entriesLength).toInt(),
+                (ArchiveFormat.HEADER_BYTES_V2 + entriesLength).toInt(),
                 whole.size,
             )
 
-        assertFailsWith<BackupError.BrokenChain> {
+        assertFailsWith<ArchiveEnvelopeError.BrokenChain> {
             archive.openChain(ByteArraySource(withoutChanges), ByteArraySink(), password) { _, _ -> }
         }
     }
@@ -163,9 +163,9 @@ class EncryptedArchiveChainTest {
     @Test
     fun `a version-1 container still opens`() {
         val base = "an archive from an older build".encodeToByteArray()
-        val salt = crypto.randomBytes(EncryptedArchive.SALT_BYTES)
-        val nonce = crypto.randomBytes(EncryptedArchive.NONCE_BYTES)
-        val header = EncryptedArchive.MAGIC.encodeToByteArray() + byteArrayOf(1) + salt + nonce
+        val salt = crypto.randomBytes(ArchiveFormat.SALT_BYTES)
+        val nonce = crypto.randomBytes(ArchiveFormat.NONCE_BYTES)
+        val header = ArchiveFormat.MAGIC.encodeToByteArray() + byteArrayOf(1) + salt + nonce
         val key = crypto.deriveKey(password, salt)
 
         val sealed = ByteArraySink()
@@ -183,16 +183,16 @@ class EncryptedArchiveChainTest {
     /** A version this build does not read is refused, and the message says which. */
     @Test
     fun `an unknown version is refused by name`() {
-        val container = EncryptedArchive.MAGIC.encodeToByteArray() +
+        val container = ArchiveFormat.MAGIC.encodeToByteArray() +
             byteArrayOf(99) +
-            ByteArray(EncryptedArchive.SALT_BYTES) +
-            ByteArray(EncryptedArchive.NONCE_BYTES)
+            ByteArray(ArchiveFormat.SALT_BYTES) +
+            ByteArray(ArchiveFormat.NONCE_BYTES)
 
-        val error = assertFailsWith<BackupError.UnsupportedArchiveVersion> {
+        val error = assertFailsWith<ArchiveEnvelopeError.UnsupportedArchiveVersion> {
             archive.open(container, password)
         }
         assertEquals(99, error.version, "the message must name the version the archive has")
-        assertTrue(EncryptedArchive.VERSION in error.readableVersions, "and the one this build writes")
+        assertTrue(ArchiveFormat.LATEST_VERSION in error.readableVersions, "and the one this build writes")
     }
 }
 

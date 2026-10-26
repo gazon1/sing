@@ -27,17 +27,17 @@ object BackupDomain {
 
     fun validateManifest(manifest: BackupManifest, payloadBytes: ByteArray): Result<Unit> = runCatching {
         if (manifest.formatVersion > BackupFormat.FORMAT_VERSION) {
-            throw BackupError.UnsupportedFormatVersion(manifest.formatVersion)
+            throw BackupPayloadError.UnsupportedFormatVersion(manifest.formatVersion)
         }
         if (manifest.schemaVersion > BackupFormat.SCHEMA_VERSION) {
-            throw BackupError.UnsupportedSchemaVersion(manifest.schemaVersion)
+            throw BackupPayloadError.UnsupportedSchemaVersion(manifest.schemaVersion)
         }
         if (manifest.schemaVersion < BackupFormat.MIN_SUPPORTED_SCHEMA_VERSION) {
-            throw BackupError.SchemaTooOld(manifest.schemaVersion)
+            throw BackupPayloadError.SchemaTooOld(manifest.schemaVersion)
         }
         val actualChecksum = sha256Hex(payloadBytes)
         if (manifest.payloadChecksum != actualChecksum) {
-            throw BackupError.ChecksumMismatch(manifest.payloadChecksum, actualChecksum)
+            throw BackupPayloadError.ChecksumMismatch(manifest.payloadChecksum, actualChecksum)
         }
     }
 }

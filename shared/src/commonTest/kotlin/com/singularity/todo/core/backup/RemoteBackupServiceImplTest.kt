@@ -197,7 +197,7 @@ class RemoteBackupServiceImplTest {
             "the object in the bucket must not be the archive in the clear",
         )
         assertTrue(
-            uploaded.copyOfRange(0, EncryptedArchive.MAGIC.length).decodeToString() == EncryptedArchive.MAGIC,
+            uploaded.copyOfRange(0, ArchiveFormat.MAGIC.length).decodeToString() == ArchiveFormat.MAGIC,
             "the object in the bucket must say what it is",
         )
     }

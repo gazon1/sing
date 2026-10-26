@@ -59,7 +59,7 @@ class EncryptedArchiveTest {
             "the bytes that leave the device must not be the archive in the clear",
         )
         assertTrue(
-            sealed.copyOfRange(0, EncryptedArchive.MAGIC.length).decodeToString() == EncryptedArchive.MAGIC,
+            sealed.copyOfRange(0, ArchiveFormat.MAGIC.length).decodeToString() == ArchiveFormat.MAGIC,
             "the container must say what it is: ${sealed.copyOfRange(0, 8).decodeToString()}",
         )
     }
@@ -96,7 +96,7 @@ class EncryptedArchiveTest {
         assertEquals(
             // The base's authenticated data is the whole version-2 header: the prefix
             // and the head, so the chain's own count cannot be rewritten either.
-            EncryptedArchive.HEADER_BYTES_V2,
+            ArchiveFormat.HEADER_BYTES_V2,
             aad.size,
             "the authenticated data is the header, and nothing else",
         )
@@ -132,7 +132,7 @@ class EncryptedArchiveTest {
     fun `a wrong password is reported as a wrong password`() {
         val sealed = archive.seal(plaintext, password)
 
-        val error = assertFailsWith<BackupError.WrongPassword> {
+        val error = assertFailsWith<ArchiveEnvelopeError.WrongPassword> {
             archive.open(sealed, "wrong horse".toCharArray())
         }
         assertTrue(
@@ -150,7 +150,7 @@ class EncryptedArchiveTest {
      */
     @Test
     fun `bytes that are not an encrypted archive are refused`() {
-        val error = assertFailsWith<BackupError.NotEncrypted> {
+        val error = assertFailsWith<ArchiveEnvelopeError.NotEncrypted> {
             archive.open("PK\u0003\u0004a-plain-zip".encodeToByteArray(), password)
         }
         assertTrue(
@@ -169,13 +169,13 @@ class EncryptedArchiveTest {
     fun `a newer container version is refused`() {
         val sealed = archive.seal(plaintext, password)
         val newer = sealed.copyOf().also {
-            it[EncryptedArchive.MAGIC.length] = (EncryptedArchive.VERSION + 1).toByte()
+            it[ArchiveFormat.MAGIC.length] = (ArchiveFormat.LATEST_VERSION + 1).toByte()
         }
 
-        val error = assertFailsWith<BackupError.UnsupportedArchiveVersion> {
+        val error = assertFailsWith<ArchiveEnvelopeError.UnsupportedArchiveVersion> {
             archive.open(newer, password)
         }
-        assertEquals(EncryptedArchive.VERSION + 1, error.version)
+        assertEquals(ArchiveFormat.LATEST_VERSION + 1, error.version)
     }
 
     /**
@@ -186,7 +186,7 @@ class EncryptedArchiveTest {
      */
     @Test
     fun `an empty password is refused`() {
-        assertFailsWith<BackupError.MissingPassword> {
+        assertFailsWith<ArchiveEnvelopeError.MissingPassword> {
             archive.seal(plaintext, CharArray(0))
         }
     }
