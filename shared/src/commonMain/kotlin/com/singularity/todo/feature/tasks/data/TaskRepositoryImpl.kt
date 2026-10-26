@@ -456,6 +456,18 @@ class TaskRepositoryImpl(
             taskDao.withExtras(uid, taskDao.observeSeriesForUser(seriesId.value, uid.value))
         }
 
+    override suspend fun legacyRecurringTasks(): List<Task> {
+        val uid = currentUser.scopedUserId.value.value
+        val rows = taskDao.legacyRecurringForUser(uid)
+        if (rows.isEmpty()) return emptyList()
+        // The tags live in a cross-ref table, so the rows are completed with them:
+        // the occurrences the repair builds inherit the work, tags included.
+        val tagRefs = taskDao.listAllTagsForUser(uid)
+            .groupBy { it.taskId }
+            .mapValues { (_, refs) -> refs.map { TagId.fromString(it.tagId) } }
+        return rows.map { row -> row.toTask(tags = tagRefs[row.id].orEmpty()) }
+    }
+
     /**
      * Writes the outgoing links of [id] and stamps the row.
      *

@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.domain.usecase
 
 import com.singularity.todo.feature.tasks.domain.logic.TaskSeriesInvariants
+import com.singularity.todo.feature.tasks.domain.logic.TaskSeriesKinds
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
@@ -38,17 +39,12 @@ class MergeTaskSeriesUseCase(private val repo: TaskRepository) {
      *   series, written twice.
      */
     suspend operator fun invoke(seriesId: TaskSeriesId, otherSeriesId: TaskSeriesId): Result<List<Task>> {
-        if (seriesId == otherSeriesId) {
-            return Result.failure(IllegalArgumentException("A series is not merged with itself: $seriesId"))
+        val problem = validate(seriesId, otherSeriesId)
+        if (problem != null) {
+            return Result.failure(problem)
         }
         val members = repo.getSeries(seriesId)
         val others = repo.getSeries(otherSeriesId)
-        if (members.isEmpty()) {
-            return Result.failure(IllegalStateException("Series $seriesId has no members"))
-        }
-        if (others.isEmpty()) {
-            return Result.failure(IllegalStateException("Series $otherSeriesId has no members"))
-        }
 
         // The rows that join take the shared fields of the series they joined, and
         // keep everything that belongs to the occurrence they are.
@@ -58,5 +54,29 @@ class MergeTaskSeriesUseCase(private val repo: TaskRepository) {
         )
         val merged = members + joined
         return repo.updateAll(merged)
+    }
+
+    /**
+     * The reason [seriesId] and [otherSeriesId] may not be joined, or `null`.
+     *
+     * The reasons are checked before any write: a join of two series of different
+     * kinds, of two recurring series with different rules, of a series with itself
+     * or of a series that is not there are all mistakes in the caller, and none of
+     * them may leave a write behind.
+     */
+    private suspend fun validate(seriesId: TaskSeriesId, otherSeriesId: TaskSeriesId): Throwable? {
+        if (seriesId == otherSeriesId) {
+            return IllegalArgumentException("A series is not merged with itself: $seriesId")
+        }
+        val members = repo.getSeries(seriesId)
+        val others = repo.getSeries(otherSeriesId)
+        if (members.isEmpty()) return IllegalStateException("Series $seriesId has no members")
+        if (others.isEmpty()) return IllegalStateException("Series $otherSeriesId has no members")
+
+        // A series has one kind, and a join must not mix them. Joining a recurring
+        // series with a series of picked dates would leave the result holding a
+        // rule and hand-picked dates; joining two recurring series with different
+        // rules would leave the members disagreeing about the work (FR-050).
+        return TaskSeriesKinds.joinRefusal(members, others)?.let { IllegalArgumentException(it) }
     }
 }

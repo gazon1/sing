@@ -123,4 +123,72 @@ class MergeTaskSeriesUseCaseTest {
 
         assertTrue(result.isFailure)
     }
+
+    // ─── The two kinds are not joined ─────────────────────────────────────────
+
+    private val weekly = com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Interval(
+        com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase.FROM_DUE,
+        1,
+        kotlinx.datetime.DateTimeUnit.WEEK,
+    )
+    private val monthly = com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Monthly(
+        com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase.FROM_DUE,
+        5,
+    )
+
+    @Test
+    fun `a recurring series and a series of picked dates are not joined`() = runTest {
+        val repo = repoFor(alice)
+        repo.seed(
+            member("a1", first, dueDate = LocalDate(2026, 10, 5)).copy(recurrence = weekly),
+            member("b1", second, dueDate = LocalDate(2026, 10, 12)),
+        )
+
+        val result = MergeTaskSeriesUseCase(repo)(first, second)
+        advanceUntilIdle()
+
+        assertTrue(result.isFailure, "the kinds differ — the join is refused")
+        assertTrue(
+            result.exceptionOrNull()?.message?.contains("picked dates") == true,
+            "the refusal names the reason: ${result.exceptionOrNull()?.message}",
+        )
+        val stored = repo.tasks.value.values
+        assertTrue(
+            stored.any { it.seriesId == first } && stored.any { it.seriesId == second },
+            "the two series stay two",
+        )
+    }
+
+    @Test
+    fun `two recurring series with different rules are not joined`() = runTest {
+        val repo = repoFor(alice)
+        repo.seed(
+            member("a1", first, dueDate = LocalDate(2026, 10, 5)).copy(recurrence = weekly),
+            member("b1", second, dueDate = LocalDate(2026, 10, 12)).copy(recurrence = monthly),
+        )
+
+        val result = MergeTaskSeriesUseCase(repo)(first, second)
+        advanceUntilIdle()
+
+        assertTrue(result.isFailure, "the rules differ — the join is refused")
+        assertTrue(
+            result.exceptionOrNull()?.message?.contains("rules") == true,
+            "the refusal names the reason: ${result.exceptionOrNull()?.message}",
+        )
+    }
+
+    @Test
+    fun `two recurring series with the same rule still join`() = runTest {
+        val repo = repoFor(alice)
+        repo.seed(
+            member("a1", first, dueDate = LocalDate(2026, 10, 5)).copy(recurrence = weekly),
+            member("b1", second, dueDate = LocalDate(2026, 10, 12)).copy(recurrence = weekly),
+        )
+
+        val result = MergeTaskSeriesUseCase(repo)(first, second)
+        advanceUntilIdle()
+
+        assertTrue(result.isSuccess, "a join of two series of the same kind is unchanged")
+        assertTrue(repo.tasks.value.values.all { it.seriesId == first })
+    }
 }

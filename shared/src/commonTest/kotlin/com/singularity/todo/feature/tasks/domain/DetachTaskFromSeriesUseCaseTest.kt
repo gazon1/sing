@@ -140,4 +140,63 @@ class DetachTaskFromSeriesUseCaseTest {
 
         assertTrue(result.isFailure, "there is nothing to detach")
     }
+
+    // ─── A recurring series: the rule goes with the series id ─────────────────
+
+    private val weekly = com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Interval(
+        com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase.FROM_DUE,
+        1,
+        kotlinx.datetime.DateTimeUnit.WEEK,
+    )
+
+    private fun recurringMember(id: String, dueDate: LocalDate) = member(id, dueDate).copy(recurrence = weekly)
+
+    @Test
+    fun `an occurrence that leaves a recurring series loses the rule`() = runTest {
+        val repo = repoFor(alice)
+        repo.seed(
+            recurringMember("s1", LocalDate(2026, 10, 5)),
+            recurringMember("s2", LocalDate(2026, 10, 12)),
+            recurringMember("s3", LocalDate(2026, 10, 19)),
+        )
+
+        DetachTaskFromSeriesUseCase(repo)(TaskId("s2"))
+        advanceUntilIdle()
+
+        val detached = repo.tasks.value[TaskId("s2").value]
+        assertNull(detached?.seriesId, "the occurrence leaves the series")
+        assertNull(detached?.recurrence, "and it stops repeating — the rule leaves with the series id")
+    }
+
+    @Test
+    fun `the remaining members keep the rule`() = runTest {
+        val repo = repoFor(alice)
+        repo.seed(
+            recurringMember("s1", LocalDate(2026, 10, 5)),
+            recurringMember("s2", LocalDate(2026, 10, 12)),
+            recurringMember("s3", LocalDate(2026, 10, 19)),
+        )
+
+        DetachTaskFromSeriesUseCase(repo)(TaskId("s2"))
+        advanceUntilIdle()
+
+        assertEquals(weekly, repo.tasks.value[TaskId("s1").value]?.recurrence, "the series keeps repeating")
+        assertEquals(weekly, repo.tasks.value[TaskId("s3").value]?.recurrence)
+    }
+
+    @Test
+    fun `the row that stays behind when a recurring series ends loses the rule too`() = runTest {
+        val repo = repoFor(alice)
+        repo.seed(
+            recurringMember("s1", LocalDate(2026, 10, 5)),
+            recurringMember("s2", LocalDate(2026, 10, 12)),
+        )
+
+        DetachTaskFromSeriesUseCase(repo)(TaskId("s2"))
+        advanceUntilIdle()
+
+        val stayed = repo.tasks.value[TaskId("s1").value]
+        assertNull(stayed?.seriesId, "the leftover stands alone")
+        assertNull(stayed?.recurrence, "and carries no rule — or the launch repair would adopt it back")
+    }
 }

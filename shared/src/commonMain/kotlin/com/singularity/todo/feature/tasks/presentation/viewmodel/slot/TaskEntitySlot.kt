@@ -124,11 +124,7 @@ class TaskEntitySlot(
                 TaskDetailIntent.Domain.TogglePinned,
             ) { copy(isPinned = !isPinned) }
 
-            is TaskDetailIntent.Domain.SetRecurrence -> mutate(
-                task,
-                intent,
-                "Failed to set recurrence",
-            ) { copy(recurrence = intent.spec) }
+            is TaskDetailIntent.Domain.SetRecurrence -> setRecurrence(task, intent.spec)
 
             is TaskDetailIntent.Domain.SetDependencies -> setDependencies(task, intent)
 
@@ -161,6 +157,36 @@ class TaskEntitySlot(
     private fun setTags(task: Task, tagIds: List<TagId>) = scope.launch {
         core.taskRepo.setTags(task.id, tagIds)
             .onFailure { onError("Failed to set tags") }
+    }
+
+    /**
+     * Sets the rule on the task.
+     *
+     * A task that is already in a series changes the rule of the whole series —
+     * the recurrence is a shared field, so the write goes through
+     * [TaskCoreDeps.updateSeries] — and the series is re-planned so the future
+     * occurrences follow the new rule.
+     *
+     * A task that **stands alone** and is given a rule becomes a recurring series:
+     * the row is the current occurrence and the rule's future dates are materialised
+     * beside it (FR-001). Removing the rule from a task that stands alone is an
+     * ordinary field write — there is nothing to re-plan.
+     */
+    private fun setRecurrence(
+        task: Task,
+        spec: com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec?,
+    ) = scope.launch {
+        val seriesId = task.seriesId
+        when {
+            seriesId != null -> core.updateSeries.updateSeries(seriesId) { it.copy(recurrence = spec) }
+                .onFailure { onError("Failed to set recurrence") }
+
+            spec != null -> core.startRecurringSeries(task.id, spec)
+                .onFailure { onError("Failed to set recurrence") }
+
+            else -> core.updateTask(task.id) { it.copy(recurrence = null) }
+                .onFailure { onError("Failed to set recurrence") }
+        }
     }
 
     /**

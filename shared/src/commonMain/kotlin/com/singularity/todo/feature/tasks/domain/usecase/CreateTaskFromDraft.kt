@@ -59,6 +59,7 @@ class CreateTaskFromDraftUseCase(
     private val currentUser: ProfileAwareCurrentUser,
     private val checklistRepository: ChecklistRepository,
     private val attachmentRepository: AttachmentRepository,
+    private val materialize: MaterializeRecurringSeriesUseCase? = null,
 ) {
     suspend operator fun invoke(draft: TaskDraft): Either<AppError, TaskId> {
         // `today` once, then used by both resolutions below. The class already
@@ -119,6 +120,27 @@ class CreateTaskFromDraftUseCase(
             is Either.Right -> {
                 val userId = currentUser.scopedUserId.value
                 val now = clock.now()
+                val rule = validated.value.recurrence
+                val materializer = materialize
+                // A single date with a rule is a recurring series: the row becomes
+                // the current occurrence and the rule's future dates become further
+                // members. This is the door the create screen goes through, and it
+                // used to drop the rule — the planner clears it on every row — so a
+                // task created with "repeat every week" came out with no rule at all.
+                //
+                // A rule together with picked dates drops the rule instead (FR-048),
+                // which is what the create screen already tells the user.
+                if (dates.size == 1 && rule != null && materializer != null) {
+                    return createRecurringSeries(
+                        input = validated.value,
+                        date = dates.single(),
+                        rule = rule,
+                        draft = draft,
+                        userId = userId,
+                        now = now,
+                        materializer = materializer,
+                    )
+                }
                 // One id for the whole series — but only when there is a series.
                 // A single date produces an ordinary task that carries no id, so
                 // nothing downstream has to special-case it.
@@ -156,6 +178,44 @@ class CreateTaskFromDraftUseCase(
                 }
             }
         }
+    }
+
+    /**
+     * Creates the current occurrence of a recurring series and fills its window.
+     *
+     * The row is created first, carrying the rule and a freshly minted series id;
+     * then [MaterializeRecurringSeriesUseCase] turns the rule's future dates into
+     * further members. The two writes are not one transaction — a create is a create
+     * — but a failure of the second leaves the rule on the row, which the launch
+     * repair adopts into a series on the next launch rather than losing the rule.
+     */
+    private suspend fun createRecurringSeries(
+        input: CreateTaskInput,
+        date: LocalDate,
+        rule: com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec,
+        draft: TaskDraft,
+        userId: com.singularity.todo.core.ids.UserId,
+        now: kotlin.time.Instant,
+        materializer: MaterializeRecurringSeriesUseCase,
+    ): Either<AppError, TaskId> {
+        val seriesId = TaskSeriesId.generate()
+        val current = TaskDomain.buildTask(
+            input = input.copy(dueDate = date, someday = false),
+            id = TaskId.generate(),
+            createdAt = now,
+            updatedAt = now,
+            userId = userId,
+        ).copy(seriesId = seriesId)
+
+        return repo.createSeries(listOf(current)).fold(
+            onSuccess = {
+                persistAttachmentsAndChecklist(draft, current.id, keepDraftIds = true)
+                materializer(template = current, rule = rule, anchor = date)
+                    .onFailure { e -> return Either.Left(persistenceFailure(e)) }
+                Either.Right(current.id)
+            },
+            onFailure = { e -> Either.Left(persistenceFailure(e)) },
+        )
     }
 
     /**

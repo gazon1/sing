@@ -8,6 +8,7 @@ import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.domain.selector.SelectorContext
 import com.singularity.todo.feature.agenda.domain.selector.matches
+import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.domain.logic.computeTaskMarkings
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -36,12 +37,15 @@ object AgendaEvaluator {
      * @param definition The agenda definition to apply.
      * @param today The current date used for relative bucket calculations.
      * @param now The current instant, used for staleness computation in [Selector.Stagnant].
+     * @param projectsById The projects resolved once for the whole list, keyed by id —
+     *   the name and colour a row carries. Empty when the caller has no projects.
      */
     fun evaluate(
         tasks: List<Task>,
         definition: AgendaDefinition,
         today: LocalDate,
         now: Instant,
+        projectsById: Map<String, Project> = emptyMap(),
     ): List<RenderedSection> {
         var remaining = tasks.toSet()
         // Resolved once for the whole evaluation. `isBlocked` rebuilds its lookup
@@ -74,6 +78,7 @@ object AgendaEvaluator {
                     id = section.effectiveId,
                     name = section.name,
                     tasks = matched.map { task ->
+                        val project = task.projectId?.value?.let { projectsById[it] }
                         AgendaRowItem(
                             task = task,
                             markings = computeTaskMarkings(
@@ -82,6 +87,8 @@ object AgendaEvaluator {
                                 isBlocked = task.id in blockedIds,
                             ),
                             seriesDates = task.seriesId?.let { seriesSizes[it.value] },
+                            project = project?.name,
+                            projectColor = project?.color,
                         )
                     }.toImmutableList(),
                     badge = matched.size.takeIf { it > 0 },
