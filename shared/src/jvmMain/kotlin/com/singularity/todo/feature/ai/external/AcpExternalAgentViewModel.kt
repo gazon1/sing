@@ -397,6 +397,10 @@ class AcpExternalAgentViewModel(
      * reported next to it rather than instead of it.
      */
     private fun onSessionLost(reason: String) {
+        // A request that was on screen belongs to a session that is gone: it is refused, and it
+        // leaves the screen. A live sheet under a "connection failed" banner is a question the
+        // reader can answer but nothing will hear.
+        permissions.decline()
         vmScope.launch { conversation.close() }
         updateState {
             it.copy(
@@ -404,6 +408,7 @@ class AcpExternalAgentViewModel(
                 toolAccess = AcpToolAccess.Unavailable(
                     "The connection was lost, so the agent cannot reach your tasks.",
                 ),
+                permission = null,
             )
         }
     }
@@ -452,6 +457,13 @@ class AcpExternalAgentViewModel(
     private fun cancel() {
         val openSession = conversation.openSession ?: return
         val turn = turnRunner.captureRunningTurn()
+        // The outcome is recorded *before* anything suspends. It is also the flag that tells
+        // the turn this stop was the reader's, so it must be set before the agent is asked to
+        // stop: an agent that obeys quickly closes its stream, and a turn that ended between
+        // the ask and the record must not be mistaken for a session that died.
+        turnRunner.recordOutcome(turn.turnId, AgentTurnOutcome.Cancelled)
+        updateState { it.copy(permission = null) }
+
         vmScope.launch {
             openSession.cancel()
             // The outstanding request is refused, and the refusal is allowed to reach
@@ -463,8 +475,6 @@ class AcpExternalAgentViewModel(
             // The job is cancelled in [closeSession], where tearing it down is the
             // point.
             permissions.decline()
-            turnRunner.recordOutcome(turn.turnId, AgentTurnOutcome.Cancelled)
-            updateState { it.copy(permission = null) }
 
             turnRunner.endTurnThatOutlivedTheRequest(openSession, turn.job)
         }

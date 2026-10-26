@@ -333,15 +333,21 @@ class AcpExternalAgentViewModelTest {
     }
 
     /**
-     * A turn the reader stopped is not a session loss.
+     * A turn the reader stopped is not a session loss — even when the agent obeys before the
+     * stop request has finished being delivered.
      *
-     * The Stop control is the reader's, not the agent's death: cancelling must not mark the
-     * connection failed, or the reader would be punished for using it.
+     * The fake's `cancel()` is held open by [ScriptedSession.cancelGate] so the stream closes
+     * while the cancel is still in flight. If the reader's stop were recorded after that
+     * suspension, the turn body would see no completion and no recorded outcome, and would
+     * report the session lost — the reader would be punished for pressing Stop.
      */
     @Test
-    fun `a turn the reader stopped does not mark the connection lost`() = runTest {
-        val session = ScriptedSession { me ->
-            // The agent stops when asked, and does not complete the turn.
+    fun `a turn the reader stopped is not a session loss even when the agent obeys at once`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val session = ScriptedSession(
+            cancelGate = gate,
+        ) { me ->
+            // The agent obeys the cancel and closes the stream with no completion.
             me.cancelledSignal.await()
             false
         }
@@ -352,8 +358,7 @@ class AcpExternalAgentViewModelTest {
         runCurrent()
 
         ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Cancel)
-        runCurrent()
-        advanceTimeBy(AcpExternalAgentViewModel.CANCEL_GRACE.inWholeMilliseconds + 1_000)
+        // The agent has obeyed and the stream has closed, but `cancel()` is still suspended.
         runCurrent()
 
         assertIs<AgentTurnOutcome.Cancelled>(ctx.state.value.turnOutcome, "the reader stopped the turn")
@@ -362,8 +367,36 @@ class AcpExternalAgentViewModelTest {
             "a stopped turn says nothing about the session: ${ctx.state.value.connection}",
         )
 
+        gate.complete(Unit)
+        advanceTimeBy(AcpExternalAgentViewModel.CANCEL_GRACE.inWholeMilliseconds + 1_000)
+        runCurrent()
+
         ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Disconnect)
         runCurrent()
+    }
+
+    /**
+     * A turn the agent itself ends as failed — a refusal, say — is not a session loss.
+     *
+     * The agent answered: the protocol's completion event arrived, whatever its outcome. Only a
+     * stream that ends *without* that event means the session is gone.
+     */
+    @Test
+    fun `a turn the agent completes as failed is not a session loss`() = runTest {
+        val session = ScriptedSession(
+            completion = AgentTurnOutcome.Failed("the agent refused"),
+        ) { _ -> true }
+        val ctx = viewModel(session)
+
+        connect(ctx)
+        send(ctx)
+        runCurrent()
+
+        assertIs<AgentTurnOutcome.Failed>(ctx.state.value.turnOutcome, "the turn failed, as the agent said")
+        assertIs<AcpConnection.Connected>(
+            ctx.state.value.connection,
+            "a completion — even a failed one — is the agent answering: ${ctx.state.value.connection}",
+        )
     }
 
     @Test
@@ -576,7 +609,13 @@ class AcpExternalAgentViewModelTest {
      * The script is where the permission request is made, because that is the only way
      * the request reaches the ViewModel in production: the agent's process asks for it.
      */
-    private class ScriptedSession(private val script: suspend (ScriptedSession) -> Boolean) : AcpAgentSession {
+    private class ScriptedSession(
+        /** Held open by the test to keep `cancel()` suspended past the stream's close. */
+        private val cancelGate: CompletableDeferred<Unit>? = null,
+        /** The outcome a completed turn carries; a refusal is a completion too. */
+        private val completion: AgentTurnOutcome = AgentTurnOutcome.Completed(),
+        private val script: suspend (ScriptedSession) -> Boolean,
+    ) : AcpAgentSession {
 
         val prompts = mutableListOf<String>()
         var permissionOutcome: PermissionDecision? = null
@@ -617,13 +656,14 @@ class AcpExternalAgentViewModelTest {
             // without saying so is a turn that ended without a completion — the failure
             // the outcome has to report.
             if (script(this@ScriptedSession)) {
-                emit(AcpTurnEvent.Finished(AgentTurnOutcome.Completed()))
+                emit(AcpTurnEvent.Finished(completion))
             }
         }
 
         override suspend fun cancel() {
             cancelled = true
             cancelledSignal.complete(Unit)
+            cancelGate?.await()
         }
 
         override suspend fun close() {

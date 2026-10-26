@@ -31,6 +31,17 @@ internal class AcpPermissionBroker(private val timeout: Duration = PERMISSION_TI
      */
     private val pending = ArrayDeque<PendingRequest>()
 
+    /**
+     * Guards [pending].
+     *
+     * The request is registered from the agent's own callbacks and answered from the screen's
+     * coroutine, and the turn's deadline reads [hasPending] from a third. On one dispatcher the
+     * queue never actually races, but the turn's idle deadline now *decides* whether to end a
+     * turn from that read, so a stale answer would fail a turn that is working as designed. The
+     * critical sections hold only deque operations; nothing suspends inside the lock.
+     */
+    private val lock = Any()
+
     private data class PendingRequest(
         val request: AcpPermissionRequest,
         val decision: CompletableDeferred<PermissionDecision>,
@@ -44,7 +55,7 @@ internal class AcpPermissionBroker(private val timeout: Duration = PERMISSION_TI
      */
     fun begin(request: AcpPermissionRequest): CompletableDeferred<PermissionDecision> {
         val decision = CompletableDeferred<PermissionDecision>()
-        pending.addLast(PendingRequest(request, decision))
+        synchronized(lock) { pending.addLast(PendingRequest(request, decision)) }
         return decision
     }
 
@@ -54,7 +65,7 @@ internal class AcpPermissionBroker(private val timeout: Duration = PERMISSION_TI
      * The oldest, because it was asked first and the reader is owed that answer before
      * the next one.
      */
-    fun onScreen(): AcpPermissionRequest? = pending.firstOrNull()?.request
+    fun onScreen(): AcpPermissionRequest? = synchronized(lock) { pending.firstOrNull()?.request }
 
     /**
      * Whether a request is waiting for the reader right now.
@@ -63,7 +74,7 @@ internal class AcpPermissionBroker(private val timeout: Duration = PERMISSION_TI
      * talking because it asked the reader a question, and a wait longer than the turn's idle
      * window is normal — the permission deadline is five minutes.
      */
-    val hasPending: Boolean get() = pending.isNotEmpty()
+    val hasPending: Boolean get() = synchronized(lock) { pending.isNotEmpty() }
 
     /**
      * Waits for the reader, and declines the request if nobody answers in time.
@@ -75,7 +86,7 @@ internal class AcpPermissionBroker(private val timeout: Duration = PERMISSION_TI
         try {
             withTimeoutOrNull(timeout) { decision.await() } ?: PermissionDecision.Declined
         } finally {
-            pending.removeAll { it.decision === decision }
+            synchronized(lock) { pending.removeAll { it.decision === decision } }
         }
 
     /**
@@ -88,7 +99,7 @@ internal class AcpPermissionBroker(private val timeout: Duration = PERMISSION_TI
      * would wait for a wake-up that has nothing to do with the reader.
      */
     fun answer(decision: PermissionDecision) {
-        val answered = pending.removeFirstOrNull() ?: return
+        val answered = synchronized(lock) { pending.removeFirstOrNull() } ?: return
         answered.decision.complete(decision)
     }
 
@@ -100,8 +111,12 @@ internal class AcpPermissionBroker(private val timeout: Duration = PERMISSION_TI
      * one that has to know.
      */
     fun decline() {
-        pending.forEach { it.decision.complete(PermissionDecision.Declined) }
-        pending.clear()
+        val refused: List<PendingRequest> = synchronized(lock) {
+            val all = pending.toList()
+            pending.clear()
+            all
+        }
+        refused.forEach { it.decision.complete(PermissionDecision.Declined) }
     }
 
     companion object {

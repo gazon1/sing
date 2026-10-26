@@ -113,14 +113,18 @@ internal class AcpTurnRunner(
 
             // The turn's events are drained into a channel by one producer, and consumed here
             // one at a time under a deadline. A flow is collected once; the deadline has to be
-            // re-armed per event, and while the reader is being asked.
-            val received = Channel<AcpTurnEvent>(Channel.UNLIMITED)
+            // re-armed per event, and while the reader is being asked. The buffer is bounded:
+            // it is the transport's backpressure, and a full channel can never starve the
+            // deadline — a full buffer means the consumer has something to take.
+            val received = Channel<AcpTurnEvent>(capacity = EVENT_BUFFER)
             val pump = launch {
                 try {
                     events.collect { received.send(it) }
                     received.close()
                 } catch (e: CancellationException) {
-                    received.close()
+                    // Our own cancellation ends the turn quietly; one from the transport is the
+                    // session dying, and its reason belongs to the reader.
+                    if (currentCoroutineContext().isActive) received.close(e) else received.close()
                     throw e
                 } catch (e: Exception) {
                     received.close(e)
@@ -141,7 +145,9 @@ internal class AcpTurnRunner(
                             }
                         }
                     }
-                } while (step is Step.Event || step is Step.Waiting)
+                    // A completion ends the turn: waiting for more would keep the spinner up for
+                    // a whole idle window after the agent had answered.
+                } while (step is Step.Waiting || (step is Step.Event && !completed))
 
                 if (step is Step.Failed) failure = step.reason
             } catch (e: CancellationException) {
@@ -273,6 +279,10 @@ internal class AcpTurnRunner(
     private suspend fun nextStep(received: Channel<AcpTurnEvent>): Step {
         val result = withTimeoutOrNull(TURN_IDLE_TIMEOUT) { received.receiveCatching() }
         if (result == null) {
+            // An event that arrived exactly as the window closed is still the agent speaking:
+            // take it rather than calling a turn that just answered hung.
+            val late = received.tryReceive()
+            if (late.isSuccess) return Step.Event(late.getOrThrow())
             // Nothing for the whole window. If the turn is waiting on the reader, the agent is
             // silent by design — the window is re-armed rather than allowed to expire.
             return if (awaitingReader()) {
@@ -311,5 +321,14 @@ internal class AcpTurnRunner(
          * stated in ADR `2026-10-26-a-turn-that-hangs-has-ended`.
          */
         val TURN_IDLE_TIMEOUT: Duration = 60.seconds
+
+        /**
+         * How many of the turn's events may wait to be folded.
+         *
+         * Bounded on purpose: it is the transport's backpressure. The consumer is always about
+         * to take one, so the buffer only ever holds a burst — and a full buffer means there is
+         * always something to take, so it cannot hide a hang from the idle deadline.
+         */
+        private const val EVENT_BUFFER: Int = 64
     }
 }

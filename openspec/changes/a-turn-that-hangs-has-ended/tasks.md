@@ -32,6 +32,8 @@
 
 ## 4. The gates
 
-- [X] Run the shared tests for the affected area. `./gw :shared:jvmTest --tests "*AcpExternalAgentViewModelTest*"`
-- [X] Run the desktop screen test. `./gw :desktopApp:test -Ptest.tags=slow --tests "*AcpExternalAgentScreenTest*"`
+- [X] Run the shared tests for the affected area — `--rerun`, or Gradle reports UP-TO-DATE and
+      runs nothing. `./gw :shared:jvmTest --tests "*AcpExternalAgentViewModelTest*" --rerun`
+- [X] Run the desktop screen test — same `--rerun`, and the class is `@Tag("slow")`.
+      `./gw :desktopApp:test -Ptest.tags=slow --tests "*AcpExternalAgentScreenTest*" --rerun`
 - [X] Run the linter over the changed files. `python3 scripts/lint-changed.py`
