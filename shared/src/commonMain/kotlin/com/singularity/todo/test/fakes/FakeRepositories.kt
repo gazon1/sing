@@ -1119,6 +1119,20 @@ open class FakeTaskRepository(
         }
         store.upsert(task.copy(blockedBy = blockedBy))
     }
+
+    override suspend fun setDependencyRelations(
+        taskId: TaskId,
+        relations: Map<TaskId, DependencyVerb>,
+    ): Result<Unit> = runCatchingCancellable {
+        val uid = currentUserId().value
+        dao.clearDependenciesForUser(taskId.value, uid)
+        relations.forEach { (dep, verb) ->
+            dao.upsertDependencyForUser(taskId.value, dep.value, verb.name, uid)
+        }
+        val blockedBy = relations.filterValues { it == DependencyVerb.BLOCKS }.keys
+        val task = store[taskId.value] ?: return@runCatchingCancellable
+        store.upsert(task.copy(blockedBy = blockedBy))
+    }
 }
 
 // ─── TaskMutationsUseCase ────────────────────────────────────────────────────
