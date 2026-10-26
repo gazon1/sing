@@ -397,7 +397,8 @@ private fun AgendaTaskRow(
         TaskUi(
             id = task.id,
             title = task.title,
-            project = null,
+            project = rowItem.project,
+            projectColor = rowItem.projectColor,
             dueLabel = formatRussianDueDate(task.dueDate),
             parentId = task.parentTaskId?.value,
             indentLevel = if (task.parentTaskId != null) 1 else 0,

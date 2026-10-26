@@ -68,6 +68,7 @@ fun agendaModule(): Module = module {
                 mergeSeries = get<MergeTaskSeriesUseCase>(),
                 workScheduleSettings = get<WorkScheduleSettingsRepository>(),
                 greetingSettings = get<GreetingSettingsRepository>(),
+                projectsRepository = get(),
             ),
             definition = definition,
             crashReporter = get(),

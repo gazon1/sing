@@ -47,7 +47,10 @@ import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.DetachTaskFromSeriesUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.MaterializeRecurringSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.MergeTaskSeriesUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.RepairRecurringSeriesUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.StartRecurringSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.feature.tasks.presentation.nav.TaskDeepLink
@@ -140,12 +143,15 @@ fun tasksModule(): org.koin.core.module.Module = module {
     // ─── Use Cases ──────────────────────────────────────────────────────
 
     factory { CreateTaskUseCase(get(), get(), get()) }
-    factory { CreateTaskFromDraftUseCase(get(), get(), get(), get(), get(), get()) }
+    factory { CreateTaskFromDraftUseCase(get(), get(), get(), get(), get(), get(), get()) }
     factory { UpdateTaskUseCase(get(), get()) }
-    factory { UpdateTaskSeriesUseCase(get()) }
+    factory { MaterializeRecurringSeriesUseCase(get(), get(), get()) }
+    factory { StartRecurringSeriesUseCase(get(), get(), get(), get()) }
+    factory { UpdateTaskSeriesUseCase(get(), get(), get()) }
     factory { DetachTaskFromSeriesUseCase(get()) }
     factory { MergeTaskSeriesUseCase(get()) }
-    factory { CompleteRecurringTaskUseCase(get(), get(), get(), get(), get()) }
+    factory { CompleteRecurringTaskUseCase(get(), get(), get(), get(), get(), get()) }
+    factory { RepairRecurringSeriesUseCase(get(), get(), get(), get()) }
     factoryOf(::TaskMutationsUseCase)
 
     // The rule of opening a task: it brings its closed project back with it.
@@ -194,6 +200,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
                     completion = get(),
                     updateSeries = get(),
                     detachFromSeries = get(),
+                    startRecurringSeries = get(),
                 ),
                 children = TaskChildrenDeps(
                     checklistRepository = get(),

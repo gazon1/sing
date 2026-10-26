@@ -16,6 +16,7 @@ import com.singularity.todo.feature.auth.AuthLinkSpec
 import com.singularity.todo.feature.nav.deeplink.DeepLinkRegistry
 import com.singularity.todo.feature.nav.deeplink.DeepLinkTarget
 import com.singularity.todo.feature.profile.ProfileBootstrapper
+import com.singularity.todo.feature.tasks.domain.usecase.RepairRecurringSeriesUseCase
 import okio.Path
 import okio.Path.Companion.toPath
 import com.singularity.todo.core.version.appVersion
@@ -124,6 +125,14 @@ fun main(args: Array<String>) {
             // Android entry point makes, against the same common class, so both platforms
             // prune on the same schedule instead of drifting apart.
             GlobalContext.get().get<BackgroundWorkBootstrapper>().run()
+            // Adopt legacy repeating tasks into series. This ran at every launch on the
+            // Android side too; without it a task that carried a rule and no series id —
+            // the shape the old one-row roll-forward left behind — would never gain its
+            // materialised future.
+            GlobalContext.get().get<RepairRecurringSeriesUseCase>().invoke()
+                .onFailure { error ->
+                    Logger.withTag("repair-recurring-series").w(error) { "The recurring-series repair failed" }
+                }
             // After the profile is active: the reminder rows are read through the active
             // user. This is the Desktop counterpart to Android's BOOT_COMPLETED catch-up,
             // and without it a transient systemd unit is a one-shot reminder that works

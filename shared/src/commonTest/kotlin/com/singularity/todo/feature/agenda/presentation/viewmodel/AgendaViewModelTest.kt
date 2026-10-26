@@ -137,6 +137,7 @@ class AgendaViewModelTest {
         mergeSeries = MergeTaskSeriesUseCase(fakeRepo),
         workScheduleSettings = fakeSettings.workSchedule,
         greetingSettings = greetingSettings,
+        projectsRepository = fakeProjectsRepo,
     )
 
     /**
@@ -823,5 +824,74 @@ class AgendaViewModelTest {
 
         assertNotNull(fakeRepo.tasks.value["t1"]?.completedAt)
         assertNull(assertIs<AgendaUiState.Loaded>(vm.stateFlow.value).pendingBlockedClose)
+    }
+
+    // ─── The project badge ────────────────────────────────────────────────────
+
+    /** The row for [taskId] in the current state, or null. */
+    private fun rowFor(vm: AgendaViewModel, taskId: String) =
+        assertIs<AgendaUiState.Loaded>(vm.stateFlow.value)
+            .sections
+            .flatMap { it.tasks }
+            .firstOrNull { it.task.id.value == taskId }
+
+    @Test
+    fun `a row carries its project's name and colour`() = withVm { vm ->
+        val projectId = com.singularity.todo.feature.projects.domain.model.ProjectId("p1")
+        fakeProjectsRepo.seed(
+            com.singularity.todo.test.fakes.testProject(id = projectId, name = "Семья", color = 0xFF6A4C93.toInt()),
+        )
+        fakeRepo.seed(task("t1", "Buy milk").copy(projectId = projectId))
+        runCurrent()
+
+        val row = rowFor(vm, "t1")
+        assertEquals("Семья", row?.project, "the row carries the project's name")
+        assertEquals(0xFF6A4C93.toInt(), row?.projectColor, "and its colour, resolved once per list build")
+    }
+
+    @Test
+    fun `a row in a closed project still carries its badge`() = withVm { vm ->
+        val projectId = com.singularity.todo.feature.projects.domain.model.ProjectId("p1")
+        fakeProjectsRepo.seed(
+            com.singularity.todo.test.fakes.testProject(
+                id = projectId,
+                name = "Closed family",
+                color = 0xFF112233.toInt(),
+                closedAt = now,
+            ),
+        )
+        fakeRepo.seed(task("t1", "Buy milk").copy(projectId = projectId))
+        runCurrent()
+
+        assertEquals(
+            "Closed family",
+            rowFor(vm, "t1")?.project,
+            "a closed project still names itself — the badge must not vanish",
+        )
+    }
+
+    @Test
+    fun `a row without a project carries no badge`() = withVm { vm ->
+        fakeRepo.seed(task("t1", "Buy milk"))
+        runCurrent()
+
+        assertNull(rowFor(vm, "t1")?.project, "no project, no badge — and no placeholder")
+    }
+
+    @Test
+    fun `the projects are resolved once per list build, not per row`() = withVm { vm ->
+        val projectId = com.singularity.todo.feature.projects.domain.model.ProjectId("p1")
+        fakeProjectsRepo.seed(
+            com.singularity.todo.test.fakes.testProject(id = projectId, name = "Семья", color = 1),
+        )
+        // A list of many rows, all in the same project.
+        fakeRepo.seed(*(0 until 100).map { i -> task("t$i", "Task $i").copy(projectId = projectId) }.toTypedArray())
+        runCurrent()
+
+        assertEquals(
+            1,
+            fakeProjectsRepo.observeAllIncludingClosedCalls,
+            "the lookup is once per list build, not once per row",
+        )
     }
 }

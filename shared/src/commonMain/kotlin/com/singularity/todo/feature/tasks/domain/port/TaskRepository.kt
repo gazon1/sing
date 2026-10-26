@@ -213,6 +213,16 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
     /** The rows of [seriesId] as of now — the one-shot form of [observeSeries]. */
     suspend fun getSeries(seriesId: TaskSeriesId): List<Task> = observeSeries(seriesId).first()
 
+    /**
+     * The active profile's rows that carry a repeat rule and belong to no series —
+     * the legacy repeating tasks the launch repair adopts into series.
+     *
+     * A one-shot read scoped to the current profile: the repair runs at launch and
+     * needs the candidates once. Reading every active task and filtering in memory
+     * would pull the whole profile in to find the handful that repeat.
+     */
+    suspend fun legacyRecurringTasks(): List<Task>
+
     // ── User-scoped observers ──────────────────────────────────────────────────
 
     /**

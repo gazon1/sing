@@ -167,7 +167,7 @@ class UnusedBackupCodec : BackupCodec {
     override suspend fun export(
         manifestBytes: ByteArray,
         payloadBytes: ByteArray,
-        attachments: List<Pair<String, ByteArray>>,
+        attachments: List<Pair<String, String>>,
         destPath: String,
         fs: FileSystem,
     ): Result<Unit> = error("BackupCodec is not available in desktop flow tests")

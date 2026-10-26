@@ -76,6 +76,15 @@ interface ProjectsRepository :
      */
     fun observeClosed(): Flow<List<Project>>
 
+    /**
+     * Every project of the profile that is not deleted — open and closed alike.
+     *
+     * The badge lookup: a row names the project it belongs to whether or not the
+     * project was later closed. [observeClosed] and the project list are about what
+     * is being worked on; a badge is not that, so it reads through this.
+     */
+    fun observeAllIncludingClosed(): Flow<List<Project>>
+
     /** Children of a parent project, scoped to current user. */
     fun observeChildrenOf(parentId: ProjectId): Flow<List<Project>>
 
