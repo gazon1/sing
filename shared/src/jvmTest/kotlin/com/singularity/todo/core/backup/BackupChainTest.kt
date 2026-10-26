@@ -11,6 +11,7 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.security.FakeArchiveCrypto
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.test.fakes.FakeAppDatabase
+import com.singularity.todo.test.fakes.FakeDeviceKeyStore
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import java.io.File
 import java.nio.file.Files
@@ -332,6 +333,8 @@ class BackupChainTest {
         backupDir = backupDir,
         currentUser = FakeProfileAwareCurrentUser(initialUserId = owner),
         clock = Clock.System,
+        archive = EncryptedArchive(FakeArchiveCrypto()),
+        deviceKeyStore = FakeDeviceKeyStore(EncryptedArchive(FakeArchiveCrypto())),
         cursors = cursors,
         ioDispatcher = Dispatchers.Unconfined,
     )
