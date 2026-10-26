@@ -53,9 +53,11 @@ open class LogBundleExporter(
         val payloadBytes = buildPayload(files)
 
         backupCodec.export(
+            // Names to paths, not names to bytes: the codec streams each log file
+            // into the zip rather than holding them all in memory here.
+            attachments = files.map { (name, path) -> name to path },
             manifestBytes = manifestBytes,
             payloadBytes = payloadBytes,
-            attachments = files,
             destPath = archivePath,
             fs = fileSystem,
         ).getOrThrow()
@@ -63,25 +65,24 @@ open class LogBundleExporter(
         archivePath
     }
 
-    private fun buildPayload(files: List<Pair<String, ByteArray>>): ByteArray {
+    private suspend fun buildPayload(files: List<Pair<String, String>>): ByteArray {
         val sb = StringBuilder()
         sb.append("""{"logs":[""")
-        files.forEachIndexed { idx, (name, data) ->
+        files.forEachIndexed { idx, (name, path) ->
             if (idx > 0) sb.append(",")
-            sb.append("""{"name":"$name","size":${data.size}}""")
+            val size = fileSystem.stat(path)?.sizeBytes ?: 0L
+            sb.append("""{"name":"$name","size":$size}""")
         }
         sb.append("]}")
         return sb.toString().toByteArray()
     }
 
-    private suspend fun collectLogFiles(): List<Pair<String, ByteArray>> {
-        val files = (0 until fileCount)
+    private suspend fun collectLogFiles(): List<Pair<String, String>> =
+        (0 until fileCount)
             .map { "log.$it.txt" }
             .map { "$logDirectory/$it" }
             .filter { fileSystem.exists(it) }
-            .map { path -> path.substringAfterLast('/') to fileSystem.readBytes(path) }
-        return files
-    }
+            .map { path -> path.substringAfterLast('/') to path }
 
     private companion object {
         /**

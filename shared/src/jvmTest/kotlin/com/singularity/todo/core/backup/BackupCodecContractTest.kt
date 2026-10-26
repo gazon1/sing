@@ -31,9 +31,11 @@ class BackupCodecContractTest {
     fun `export and import are lossless round-trip`() = runTest {
         val manifest = """{"version":1,"schema":1}""".toByteArray()
         val payload = """{"tasks":[]}""".toByteArray()
+        fs.writeBytes("/attach/note-1.md", "Hello world".toByteArray())
+        fs.writeBytes("/attach/note-2.md", "# Title".toByteArray())
         val attachments = listOf(
-            "note-1.md" to "Hello world".toByteArray(),
-            "note-2.md" to "# Title".toByteArray(),
+            "note-1.md" to "/attach/note-1.md",
+            "note-2.md" to "/attach/note-2.md",
         )
 
         sut.export(manifest, payload, attachments, backupPath, fs)
