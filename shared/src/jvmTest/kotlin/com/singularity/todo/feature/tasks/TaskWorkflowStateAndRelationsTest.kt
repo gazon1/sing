@@ -146,6 +146,32 @@ class TaskWorkflowStateAndRelationsTest {
         )
     }
 
+    /**
+     * The relation map is validated before it is written.
+     *
+     * A task cannot block on itself, and the check runs on the same map that is about to be
+     * saved — the blocking subset of it, as identifiers. A self-loop is refused with nothing
+     * written; a relation that breaks no cycle is applied.
+     */
+    @Test
+    fun `a relation map is validated before it is written`() = runTest {
+        val repo = repository()
+        repo.create(task("t1", "Cycle"))
+        repo.create(task("dep", "Dependency"))
+
+        val refused = repo.setDependencyRelations(TaskId("t1"), mapOf(TaskId("t1") to DependencyVerb.BLOCKS))
+
+        assertTrue(refused.isFailure, "a self-loop is a cycle, and is refused: $refused")
+        assertTrue(
+            repo.observe(TaskId("t1")).first()?.blockedBy.isNullOrEmpty(),
+            "and nothing is written",
+        )
+
+        repo.setDependencyRelations(TaskId("t1"), mapOf(TaskId("dep") to DependencyVerb.BLOCKS)).getOrThrow()
+
+        assertEquals(setOf(TaskId("dep")), repo.observe(TaskId("t1")).first()?.blockedBy)
+    }
+
     @Test
     fun `disabling one verb leaves an edge of the other verb intact`() = runTest {
         val repo = repository()
