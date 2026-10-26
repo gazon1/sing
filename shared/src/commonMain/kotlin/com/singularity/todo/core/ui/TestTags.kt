@@ -1071,6 +1071,14 @@ object TestTags {
     /** The button that asks the cloud for its archives. */
     const val BACKUP_LOAD_REMOTE_BUTTON = "backup_load_remote_button"
 
+    /**
+     * The button that lets this device push backups without a person.
+     *
+     * It opens the password dialog, and a dialog that nothing can reach is a
+     * dialog nobody tests.
+     */
+    const val BACKUP_AUTHORIZE_SCHEDULED_BUTTON = "backup_authorize_scheduled_button"
+
     /** The prefix of the "Restore" button of one archive in the cloud. */
     const val BACKUP_RESTORE_FROM_CLOUD_PREFIX = "backup_restore_from_cloud_"
 

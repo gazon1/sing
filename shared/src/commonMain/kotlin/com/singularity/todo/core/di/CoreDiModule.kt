@@ -27,10 +27,12 @@ import com.singularity.todo.core.backup.BackupBucket
 import com.singularity.todo.core.backup.BackupRepository
 import com.singularity.todo.core.backup.BackupRepositoryImpl
 import com.singularity.todo.core.backup.DefaultBackupFileNamer
+import com.singularity.todo.core.backup.DeviceKeyStore
 import com.singularity.todo.core.backup.EncryptedArchive
 import com.singularity.todo.core.backup.RemoteBackupService
 import com.singularity.todo.core.backup.RemoteBackupServiceImpl
 import com.singularity.todo.core.backup.SupabaseBackupBucket
+import com.singularity.todo.core.backup.SecureStorageDeviceKeyStore
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.draft.DataStoreDraftStore
 import com.singularity.todo.core.draft.DraftStore
@@ -361,6 +363,15 @@ fun coreModule(): org.koin.core.module.Module =
         single { EncryptedArchive(get()) }
         single<RemoteBackupService> { RemoteBackupServiceImpl(get(), get(), get(), get()) }
 
+        // The key a device seals its archives with when no person is there.
+        //
+        // It is generated on first use and kept in the platform keystore, and it
+        // is wrapped under the person's password once — so a scheduled run can
+        // seal an archive without a person, and the person can still open it.
+        // The password itself is not kept: storing it would remove the property
+        // the encryption exists for.
+        single<DeviceKeyStore> { SecureStorageDeviceKeyStore(get(), get(), get()) }
+
         // ─── IDs / Clock ────────────────────────────────────────────────────
 
         single<IdGenerator> { UuidIdGenerator }
@@ -428,6 +439,8 @@ fun coreModule(): org.koin.core.module.Module =
                 backupDir = get(BackupDirQualifier),
                 currentUser = get(),
                 clock = get(),
+                archive = get(),
+                deviceKeyStore = get(),
                 ioDispatcher = get(),
             )
         }

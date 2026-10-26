@@ -82,6 +82,46 @@ interface BackupRepository {
      * The password is consumed the way [push] consumes it.
      */
     suspend fun restoreFromCloud(remoteRef: String, password: CharArray): Result<RestoreResult>
+
+    /**
+     * Lets this device seal its own archives, so that a scheduled run needs no person.
+     *
+     * ## What it does
+     *
+     * The password is asked **once**, and it does not stay: it wraps the device
+     * key, and the wrapped key is what travels in every archive from then on.
+     * The password itself is wiped before the call returns — storing it would
+     * remove the very property the encryption exists for.
+     *
+     * ## What it does not do
+     *
+     * It does not upload anything and it does not change what a manual push
+     * does. It says: *this device may seal archives on its own, and the person
+     * who owns the account can still open them with their password.*
+     */
+    suspend fun authorizeScheduledBackup(password: CharArray): Result<Unit>
+
+    /**
+     * Whether this device may seal archives on its own.
+     *
+     * The answer is what the scheduled run asks before it does anything: a
+     * device that was never authorized has no key to seal with, and asking it
+     * to push anyway would produce an archive nobody can open.
+     */
+    suspend fun isScheduledBackupAuthorized(): Boolean
+
+    /**
+     * Pushes the newest local archive, sealed under this device's key.
+     *
+     * No password is involved: the archive is sealed under the key that
+     * [authorizeScheduledBackup] wrapped, and the person who restores it still
+     * needs their own password to unwrap that key out of the container.
+     *
+     * Fails when the device has not been authorized — a scheduled run that
+     * cannot open its own archives is not a backup, and saying so is better
+     * than pushing something nobody can read.
+     */
+    suspend fun pushScheduled(): Result<String>
 }
 
 class BackupRepositoryImpl(
@@ -92,6 +132,17 @@ class BackupRepositoryImpl(
     private val backupDir: String,
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
+    /**
+     * The archive's envelope — the container that is sealed and opened.
+     *
+     * It is here for the **scheduled** push: that path seals the archive under
+     * the device key, and the sealing is the archive's business.
+     */
+    private val archive: EncryptedArchive,
+    /**
+     * The key a device seals with when no person is there.
+     */
+    private val deviceKeyStore: DeviceKeyStore,
     /**
      * Where the archive's own work happens.
      *
@@ -227,6 +278,89 @@ class BackupRepositoryImpl(
         } finally {
             password.fill('\u0000')
         }
+
+    override suspend fun authorizeScheduledBackup(password: CharArray): Result<Unit> =
+        try {
+            runCatchingCancellable {
+                // The password is asked once: it wraps the device key, and the
+                // wrapped key is what travels from now on. The password itself
+                // is not kept — see the interface's note on why.
+                deviceKeyStore.prepare(password)
+                Unit
+            }
+        } finally {
+            password.fill('\u0000')
+        }
+
+    override suspend fun isScheduledBackupAuthorized(): Boolean = deviceKeyStore.keyBlock() != null
+
+    override suspend fun pushScheduled(): Result<String> =
+        withContext(ioDispatcher) {
+            runCatchingCancellable {
+                // No block means no authorized device: the archive would be
+                // sealed under a key nobody can unwrap, and a backup that
+                // cannot be restored is not a backup.
+                val block = deviceKeyStore.keyBlock()
+                    ?: throw BackupStorageError.DeviceNotAuthorized("push backups on its own")
+                val backup = scanBackups().firstOrNull()
+                    ?: throw BackupStorageError.FileNotFound("there is no backup to push")
+                val deviceKey = deviceKeyStore.deviceKey()
+                try {
+                    val working = "$backupDir/${backup.id.value}.scheduled"
+                    sealUnderDeviceKey(backup.path, working, deviceKey, block)
+                    try {
+                        remoteService
+                            .uploadSealed(
+                                localPath = working,
+                                remoteName = backup.path.substringAfterLast('/'),
+                                userId = currentUser.scopedUserId.value,
+                            ).getOrThrow()
+                    } finally {
+                        // The sealed copy is a working file: nobody asked for it,
+                        // and it is the only copy of the ciphertext on the device.
+                        runCatchingCancellable { fs.delete(working) }
+                    }
+                } finally {
+                    deviceKey.fill(0)
+                }
+            }
+        }
+
+    /**
+     * The archive at [archivePath], sealed under the device key, written to [sealedPath].
+     *
+     * The container is version 3: the chain's content is sealed under the device
+     * key, and the key itself travels in the header wrapped under the password.
+     * A person restores it with their password; a scheduled run writes it with
+     * the key.
+     *
+     * The source is opened first: opening the sink can fail, and a source that
+     * was opened and never closed is a file nobody can delete.
+     */
+    private suspend fun sealUnderDeviceKey(
+        archivePath: String,
+        sealedPath: String,
+        deviceKey: ByteArray,
+        block: ArchiveKeyBlock,
+    ) {
+        val source = fs.openRead(archivePath)
+        try {
+            val sink = fs.openWrite(sealedPath)
+            try {
+                archive.sealChain(
+                    base = source,
+                    entries = emptyList(),
+                    sink = sink,
+                    deviceKey = deviceKey,
+                    keyBlock = block,
+                )
+            } finally {
+                sink.close()
+            }
+        } finally {
+            source.close()
+        }
+    }
 }
 
 /**

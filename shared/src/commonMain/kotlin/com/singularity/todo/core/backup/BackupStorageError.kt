@@ -18,4 +18,14 @@ sealed class BackupStorageError(message: String, cause: Throwable? = null) : Bac
     /** The file is not on the device. */
     class FileNotFound(val path: String) :
         BackupStorageError("file not found: $path")
+
+    /**
+     * The device may not do this on its own.
+     *
+     * A scheduled run that was never authorized has no key to seal with, and
+     * an archive nobody can open is not a backup — so the run refuses rather
+     * than writing something useless.
+     */
+    class DeviceNotAuthorized(val what: String) :
+        BackupStorageError("this device is not authorized to $what")
 }

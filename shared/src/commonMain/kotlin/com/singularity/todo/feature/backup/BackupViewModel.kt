@@ -37,6 +37,14 @@ data class BackupUiState(
     val remoteBackups: List<RemoteBackup> = emptyList(),
     /** Whether the cloud has been asked for its archives at least once. */
     val remoteBackupsLoaded: Boolean = false,
+    /**
+     * Whether this device may seal archives on its own.
+     *
+     * False means the daily backup stays on the device, and the person is asked
+     * for a password every time they want one in the cloud. True means the
+     * device holds a key and the daily run can push without anyone there.
+     */
+    val scheduledBackupAuthorized: Boolean = false,
 )
 
 data class BackupSummary(val destPath: String, val byteSize: Long, val entityCount: Int)
@@ -85,6 +93,12 @@ class BackupViewModel(
                 updateState { it.copy(backups = backups) }
             }
         }
+        scope.launch {
+            // Whether this device may seal archives on its own is a fact about the
+            // device, and the screen says so before the person presses anything.
+            val authorized = repository.isScheduledBackupAuthorized()
+            updateState { it.copy(scheduledBackupAuthorized = authorized) }
+        }
     }
 
     override fun onIntent(intent: BackupIntent) {
@@ -95,6 +109,7 @@ class BackupViewModel(
             is BackupIntent.Push -> vmScope.launch { runPush(intent.id, intent.password) }
             BackupIntent.LoadRemoteBackups -> vmScope.launch { runLoadRemoteBackups() }
             is BackupIntent.RestoreFromCloud -> vmScope.launch { runRestoreFromCloud(intent) }
+            is BackupIntent.AuthorizeScheduledBackup -> vmScope.launch { runAuthorizeScheduledBackup(intent) }
             is BackupIntent.SaveToFile -> vmScope.launch { runSaveToFile(intent.id) }
             BackupIntent.ExportSettingsSnapshot -> vmScope.launch { runExportSettingsSnapshot() }
             is BackupIntent.ImportSettingsSnapshot -> vmScope.launch { runImportSettingsSnapshot(intent.json) }
@@ -311,6 +326,28 @@ class BackupViewModel(
     }
 
     /**
+     * Lets this device seal archives on its own.
+     *
+     * The password is asked once, and it does not stay: it wraps the device key,
+     * and the wrapped key is what travels from then on. The person who restores
+     * an archive still needs their password — this only removes the need for one
+     * to be *there* at push time.
+     */
+    private suspend fun runAuthorizeScheduledBackup(intent: BackupIntent.AuthorizeScheduledBackup) {
+        updateState { it.copy(isWorking = true) }
+        repository.authorizeScheduledBackup(intent.password)
+            .onSuccess {
+                updateState { it.copy(isWorking = false, scheduledBackupAuthorized = true) }
+                tryEmit(BackupUiEvent.ShowSnackbar("This device can now back up on its own"))
+            }
+            .onFailure { e ->
+                updateState { it.copy(isWorking = false) }
+                crashReporter.report(e, BACKUP_AUTHORIZE_FAILED)
+                emit(Error(e.message ?: "Could not authorize this device"))
+            }
+    }
+
+    /**
      * Hands the archive to the platform's share sheet.
      *
      * The file stays where it is — the share sheet copies it wherever the user
@@ -343,6 +380,7 @@ class BackupViewModel(
         const val BACKUP_MIME_TYPE = "application/zip"
         const val BACKUP_DELETE_FAILED = "backup.delete_failed"
         const val BACKUP_PUSH_FAILED = "backup.push_failed"
+        const val BACKUP_AUTHORIZE_FAILED = "backup.authorize_failed"
         const val SETTINGS_EXPORT_FAILED = "backup.settings_export_failed"
         const val SETTINGS_FILE_READ_FAILED = "backup.settings_file_read_failed"
     }

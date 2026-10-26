@@ -2,6 +2,8 @@ package com.singularity.todo.core.backup
 
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.security.FakeArchiveCrypto
+import com.singularity.todo.test.fakes.FakeDeviceKeyStore
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.MapFileSystem
 import kotlinx.coroutines.Dispatchers
@@ -52,6 +54,12 @@ class BackupRepositoryRemoteTest {
 
         override suspend fun upload(localPath: String, userId: UserId, password: CharArray): Result<String> =
             Result.success("$userId/${localPath.substringAfterLast('/')}")
+
+        override suspend fun uploadSealed(
+            localPath: String,
+            remoteName: String,
+            userId: UserId,
+        ): Result<String> = Result.success("$userId/$remoteName")
 
         override suspend fun download(
             remoteRef: String,
@@ -115,6 +123,8 @@ class BackupRepositoryRemoteTest {
         backupDir = backupDir,
         currentUser = FakeProfileAwareCurrentUser(initialUserId = UserId("u-1")),
         clock = FixedClock(),
+        archive = EncryptedArchive(FakeArchiveCrypto()),
+        deviceKeyStore = FakeDeviceKeyStore(EncryptedArchive(FakeArchiveCrypto())),
         // The repository moves its work onto an IO dispatcher; the test hands in
         // an unconfined one so the call stays inside the test's own thread.
         ioDispatcher = Dispatchers.Unconfined,

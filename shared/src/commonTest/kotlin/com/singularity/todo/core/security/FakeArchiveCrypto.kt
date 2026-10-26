@@ -111,7 +111,17 @@ internal class FakeArchiveCrypto : ArchiveCrypto {
     }
 
     private companion object {
-        const val TAG_BYTES = 4
+        /**
+         * The tag's length: the **real** GCM tag's length.
+         *
+         * The fake is a stand-in for the cipher, not for the cipher's *sizes*:
+         * the container has a field whose length is fixed by the tag — the key
+         * block of a version-3 container is salt, nonce, key and tag, and the
+         * reader knows exactly how many bytes that is. A fake with a shorter
+         * tag writes a block the reader reads wrong, and the failure looks like
+         * a broken archive rather than a broken double.
+         */
+        const val TAG_BYTES = 16
         const val CHUNK = 1024
     }
 }

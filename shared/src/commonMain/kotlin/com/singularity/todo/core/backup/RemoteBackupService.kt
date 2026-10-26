@@ -42,6 +42,24 @@ interface RemoteBackupService {
     suspend fun upload(localPath: String, userId: UserId, password: CharArray): Result<String>
 
     /**
+     * Uploads a container that is **already sealed**, under the name [remoteName].
+     *
+     * ## Why this call exists
+     *
+     * The ordinary [upload] seals the archive here, under the person's password —
+     * the password is the key, and the server never has it. A **scheduled** export
+     * has no person and therefore no password: it seals the archive under the
+     * device key, and the device key travels in the container wrapped under the
+     * password. The sealing is done by whoever holds the key, so this call only
+     * moves the bytes.
+     *
+     * The name in the bucket is [remoteName] and not the name of the file the
+     * container happens to sit in: the sealed container is a working file, and a
+     * working file's name is not the archive's name.
+     */
+    suspend fun uploadSealed(localPath: String, remoteName: String, userId: UserId): Result<String>
+
+    /**
      * Downloads [remoteRef] to [destPath] and opens it under [password].
      *
      * The reference is not checked against the user's own prefix here: the bucket's
@@ -158,6 +176,26 @@ class RemoteBackupServiceImpl(
             }
         } finally {
             password.fill('\u0000')
+        }
+
+    override suspend fun uploadSealed(
+        localPath: String,
+        remoteName: String,
+        userId: UserId,
+    ): Result<String> =
+        withContext(ioDispatcher) {
+            runCatchingCancellable {
+                val remotePath = "${userId.value}/$remoteName${RemoteBackupService.ENCRYPTED_SUFFIX}"
+                val source = fs.openRead(localPath)
+                try {
+                    bucket.upload(remotePath, source, sealedSize(localPath))
+                } finally {
+                    source.close()
+                }
+                remotePath
+            }.recoverCatching { error ->
+                throw classified(error, "the archive could not be uploaded")
+            }
         }
 
     override suspend fun download(
