@@ -1674,7 +1674,7 @@ GATE_CONTROLS: dict[str, Control] = {
         'mobile-isolation': Control(
             kind='sabotage',
             proves='scripts/check-mobile-isolation.py',
-            argv=('{python}', 'scripts/check-mobile-isolation.py',),
+            argv=('{python}', 'scripts/check-mobile-isolation.py', '--check'),
             path='shared/src/commonMain/kotlin/com/singularity/todo/core/llm/TextGenPort.kt',
             edit=Edit(
                 kind='replace',
@@ -1690,7 +1690,7 @@ GATE_CONTROLS: dict[str, Control] = {
         'spec-requirement-traceability': Control(
             kind='sabotage',
             proves='scripts/check-spec-requirement-traceability.py',
-            argv=('{python}', 'scripts/check-spec-requirement-traceability.py',),
+            argv=('{python}', 'scripts/check-spec-requirement-traceability.py', '--check'),
             path='specs/014-acp-client-agent-activity/spec.md',
             edit=Edit(
                 kind='replace',
