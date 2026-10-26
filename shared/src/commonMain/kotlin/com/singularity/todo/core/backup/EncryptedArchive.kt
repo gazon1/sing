@@ -371,7 +371,7 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
         val header = readOrNull(source, PREFIX_BYTES) ?: throw BackupError.NotEncrypted()
         if (header.copyOfRange(0, MAGIC.length).decodeToString() != MAGIC) throw BackupError.NotEncrypted()
         val version = header[MAGIC.length].toInt() and 0xFF
-        if (version !in READABLE_VERSIONS) throw BackupError.UnsupportedArchiveVersion(version, VERSION)
+        if (version !in READABLE_VERSIONS) throw BackupError.UnsupportedArchiveVersion(version, READABLE_VERSIONS)
         return header
     }
 

@@ -192,7 +192,7 @@ class EncryptedArchiveChainTest {
             archive.open(container, password)
         }
         assertEquals(99, error.version, "the message must name the version the archive has")
-        assertEquals(EncryptedArchive.VERSION, error.currentVersion, "and the one this build writes")
+        assertTrue(EncryptedArchive.VERSION in error.readableVersions, "and the one this build writes")
     }
 }
 

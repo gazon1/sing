@@ -47,8 +47,8 @@ sealed class BackupError(message: String, cause: Throwable? = null) : Exception(
      * one from the future, and "0 > current" is a sentence that is only true half of
      * the time.
      */
-    class UnsupportedArchiveVersion(val version: Int, val currentVersion: Int) :
-        BackupError("The archive's version is $version, and this build reads $currentVersion")
+    class UnsupportedArchiveVersion(val version: Int, val readableVersions: Set<Int>) :
+        BackupError("The archive's version is $version, and this build reads $readableVersions")
 
     /**
      * The archive's bytes could not be moved — read from the source, or written to
