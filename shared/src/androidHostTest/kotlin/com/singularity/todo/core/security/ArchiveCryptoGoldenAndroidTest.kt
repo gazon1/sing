@@ -1,7 +1,11 @@
 package com.singularity.todo.core.security
 
+import com.singularity.todo.core.backup.ArchiveFormat
 import com.singularity.todo.core.backup.EncryptedArchive
+import com.singularity.todo.core.files.ByteArraySink
+import com.singularity.todo.core.files.ByteArraySource
 import com.singularity.todo.test.fakes.ArchiveCryptoGolden
+import com.singularity.todo.test.fakes.buildGoldenChain
 import com.singularity.todo.test.fakes.hexToBytes
 import com.singularity.todo.test.fakes.toHex
 import org.junit.Assert.assertArrayEquals
@@ -80,7 +84,7 @@ class ArchiveCryptoGoldenAndroidTest {
             ArchiveCryptoGolden.PASSWORD.toCharArray(),
             ArchiveCryptoGolden.salt,
         )
-        val header = container.copyOfRange(0, EncryptedArchive.HEADER_BYTES)
+        val header = container.copyOfRange(0, ArchiveFormat.HEADER_BYTES)
         val sealed = crypto.seal(key, ArchiveCryptoGolden.nonce, ArchiveCryptoGolden.plaintext, header)
 
         assertEquals(
@@ -88,5 +92,56 @@ class ArchiveCryptoGoldenAndroidTest {
             ArchiveCryptoGolden.SEALED_HEX,
             sealed.toHex(),
         )
+    }
+
+    /**
+     * The phone agrees with the golden chain.
+     *
+     * The chain is the container an incremental backup is written in, and it has
+     * three rules the version-1 container does not: the head that counts the
+     * changes, the frame around each change, and the change's own authenticated
+     * data — the header's prefix plus the change's place. A rule that differs
+     * between the platforms reads as a **broken chain**, not as a mismatch, and
+     * a broken chain is a refusal to restore.
+     *
+     * So the phone builds the golden chain and opens it, and the desktop's test
+     * does the same with the same bytes.
+     */
+    @Test
+    fun `the phone agrees with the golden chain`() {
+        val key = crypto.deriveKey(
+            ArchiveCryptoGolden.PASSWORD.toCharArray(),
+            ArchiveCryptoGolden.chainSalt,
+        )
+
+        assertEquals(
+            "the key derivation must not drift between the platforms",
+            ArchiveCryptoGolden.CHAIN_KEY_HEX,
+            key.toHex(),
+        )
+
+        assertEquals(
+            "the phone must build the golden chain exactly",
+            ArchiveCryptoGolden.CHAIN_CONTAINER_HEX,
+            buildGoldenChain(crypto, key).toHex(),
+        )
+
+        val base = ByteArraySink()
+        val changes = mutableListOf<ByteArray>()
+        archive.openChain(
+            source = ByteArraySource(hexToBytes(ArchiveCryptoGolden.CHAIN_CONTAINER_HEX)),
+            sink = base,
+            password = ArchiveCryptoGolden.PASSWORD.toCharArray(),
+        ) { _, plain ->
+            changes.add(plain)
+        }
+
+        assertArrayEquals(
+            "the chain's base must come back as it went in",
+            ArchiveCryptoGolden.chainBase,
+            base.bytes(),
+        )
+        assertEquals("the chain carries one change", 1, changes.size)
+        assertArrayEquals(ArchiveCryptoGolden.chainEntry, changes[0])
     }
 }

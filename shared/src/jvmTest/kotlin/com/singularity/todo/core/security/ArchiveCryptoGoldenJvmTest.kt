@@ -1,7 +1,11 @@
 package com.singularity.todo.core.security
 
+import com.singularity.todo.core.backup.ArchiveFormat
 import com.singularity.todo.core.backup.EncryptedArchive
+import com.singularity.todo.core.files.ByteArraySink
+import com.singularity.todo.core.files.ByteArraySource
 import com.singularity.todo.test.fakes.ArchiveCryptoGolden
+import com.singularity.todo.test.fakes.buildGoldenChain
 import com.singularity.todo.test.fakes.hexToBytes
 import com.singularity.todo.test.fakes.toHex
 import kotlin.test.Test
@@ -70,7 +74,7 @@ class ArchiveCryptoGoldenJvmTest {
             ArchiveCryptoGolden.PASSWORD.toCharArray(),
             ArchiveCryptoGolden.salt,
         )
-        val header = container.copyOfRange(0, EncryptedArchive.HEADER_BYTES)
+        val header = container.copyOfRange(0, ArchiveFormat.HEADER_BYTES)
         val sealed = crypto.seal(key, ArchiveCryptoGolden.nonce, ArchiveCryptoGolden.plaintext, header)
 
         assertEquals(
@@ -78,5 +82,56 @@ class ArchiveCryptoGoldenJvmTest {
             sealed.toHex(),
             "the desktop must seal the golden bytes exactly",
         )
+    }
+
+    /**
+     * The desktop agrees with the golden chain.
+     *
+     * The chain is the container an incremental backup is written in, and it has
+     * three things the version-1 container does not: a **head** that says how many
+     * changes there are, a **frame** around every change, and the changes
+     * themselves. Each of those is a rule the two platforms have to share, and a
+     * rule that differs by one byte between them reads as a broken chain — not as
+     * a mismatch — which sends the person looking for damage that is not there.
+     *
+     * So the chain is pinned the way the version-1 archive is: the desktop builds
+     * the golden bytes, opens them, and gets the base and the change back.
+     */
+    @Test
+    fun `the desktop agrees with the golden chain`() {
+        val key = crypto.deriveKey(
+            ArchiveCryptoGolden.PASSWORD.toCharArray(),
+            ArchiveCryptoGolden.chainSalt,
+        )
+
+        assertEquals(
+            ArchiveCryptoGolden.CHAIN_KEY_HEX,
+            key.toHex(),
+            "the key derivation must not drift between the platforms",
+        )
+
+        assertEquals(
+            ArchiveCryptoGolden.CHAIN_CONTAINER_HEX,
+            buildGoldenChain(crypto, key).toHex(),
+            "the desktop must build the golden chain exactly",
+        )
+
+        val base = ByteArraySink()
+        val changes = mutableListOf<ByteArray>()
+        archive.openChain(
+            source = ByteArraySource(hexToBytes(ArchiveCryptoGolden.CHAIN_CONTAINER_HEX)),
+            sink = base,
+            password = ArchiveCryptoGolden.PASSWORD.toCharArray(),
+        ) { _, plain ->
+            changes.add(plain)
+        }
+
+        assertContentEquals(
+            ArchiveCryptoGolden.chainBase,
+            base.bytes(),
+            "the chain's base must come back as it went in",
+        )
+        assertEquals(1, changes.size, "the chain carries one change")
+        assertContentEquals(ArchiveCryptoGolden.chainEntry, changes[0])
     }
 }
