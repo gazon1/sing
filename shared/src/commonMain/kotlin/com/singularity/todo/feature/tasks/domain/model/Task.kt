@@ -12,6 +12,7 @@ import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.serializer
 import kotlin.time.Instant
@@ -196,6 +197,30 @@ data class Task(
     @SerialName(BLOCKED_BY_WIRE_NAME)
     val blockedBy: Set<TaskId> = emptySet(),
     /**
+     * The tasks this one **follows up on**.
+     *
+     * The other half of the dependency table: a relation that orders or relates
+     * two pieces of work without making either wait for the other. It is not a
+     * blocker — a task that follows up on another is not blocked by it — so it
+     * is kept apart from [blockedBy] rather than folded into it.
+     *
+     * ## Why it is transient
+     *
+     * The relation is **device-local**. The cross-reference table it lives in
+     * does not sync: the wire carries the blocking projection only, and the
+     * server's dependency tables are still deferred work
+     * (`2026-10-01-typed-task-dependency-links.md`). A property that went on
+     * the wire would be a field the client wrote and the server silently
+     * dropped — the same debt the server still carries for `task.seriesId`.
+     *
+     * So it is `@Transient`: it rides with the task in memory, it is read from
+     * the local table, and it never reaches the server. The backup carries the
+     * verb, so the relation does survive a restore even though it does not
+     * survive a sync.
+     */
+    @Transient
+    val followsUp: Set<TaskId> = emptySet(),
+    /**
      * Tag IDs that the AI has suggested removing, and which the user has suppressed.
      * Suppressed tags are excluded from AI prompts so they are not re-proposed.
      * The set is cleared when the user manually adds any of these tags back.
@@ -222,6 +247,21 @@ data class Task(
      * @see com.singularity.todo.feature.tasks.domain.logic.TaskSeriesPlanner
      */
     val seriesId: TaskSeriesId? = null,
+    /**
+     * The state the user has claimed for this task's work.
+     *
+     * Everything else on this task is either a fact about the task or a fact the
+     * app derives — overdue, blocked, recurring, pinned. This field is the one
+     * thing on the task that only the user can set, and it records what they
+     * said: this is the one I will do next, or the one I am doing now.
+     *
+     * It is independent of [completedAt]: completing a task does not change the
+     * state, and reopening it restores the state it held. It is a shared field
+     * of a series — the state describes the work, not one of its dates.
+     *
+     * @see TaskWorkflowState
+     */
+    val workflowState: TaskWorkflowState = TaskWorkflowState.Open,
     val createdAt: Instant,
     val updatedAt: Instant,
     val userId: UserId,

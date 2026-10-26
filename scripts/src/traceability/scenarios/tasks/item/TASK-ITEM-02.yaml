@@ -1,0 +1,36 @@
+# Scenario specification for TASK-ITEM-02.
+#
+# The canonical statement of this user scenario. Linkage to automation is *not*
+# here — it lives in code (@DisplayName for Kotlin, a `scenario:TASK-ITEM-02`
+# Maestro tag), so there is no second source of truth to keep in sync.
+#
+# `area` is derived from this path (scenarios/tasks/…) and only cross-checked
+# when stated; the id prefix TASK-ITEM is checked against tasks/item.
+#
+# The scenario is about the two kinds of item staying apart. They look alike on
+# the screen and behave differently: a subtask is a task with its own screen,
+# a checklist item is not, and neither kind may change the other or the task
+# they belong to.
+
+id: TASK-ITEM-02
+title: A checklist item and a subtask do not change each other
+area: feature.tasks
+priority: P3
+status: confirmed
+targets: [desktop]
+preconditions: >-
+  A task exists with one checklist item and one subtask, and its detail view
+  is open on desktop.
+steps:
+  - Tick the checklist item.
+  - Look at the subtask and at the task itself.
+  - Tick the subtask.
+  - Look at the checklist and at the task itself.
+expected: >-
+  Ticking the checklist item leaves the subtask unfinished and the task
+  unfinished, and ticking the subtask leaves the checklist item as it was and
+  the task unfinished — the two lists never touch each other, and neither of
+  them completes the task they belong to.
+
+# Claimed on `desktop` by
+# desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/tasks/TaskItemScenarioTest.kt.

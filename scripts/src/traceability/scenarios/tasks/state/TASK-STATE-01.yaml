@@ -1,0 +1,30 @@
+# Scenario specification for TASK-STATE-01.
+#
+# The canonical statement of this user scenario. Linkage to automation lives in
+# code (@DisplayName for Kotlin, a `scenario:TASK-STATE-01` Maestro tag), so
+# there is no second source of truth to keep in sync.
+#
+# A workflow state is not a task status: the task is still open, and the state
+# says *where in the work* it is. Setting it is therefore a change to one
+# attribute of an open task, not a way of completing one.
+
+id: TASK-STATE-01
+title: Set a task's workflow state from the task screen
+area: feature.tasks
+priority: P2
+status: confirmed
+targets: [desktop]
+preconditions: >-
+  An open task with no workflow state exists, and its detail view is open on
+  desktop.
+steps:
+  - Open the workflow-state control.
+  - Choose "In progress".
+  - Look at the task screen.
+expected: >-
+  The control shows the current state before it is opened, offers the states a
+  task can be in, applies the chosen one, and the task screen shows "In
+  progress" afterwards — the task itself is still open.
+
+# Claimed on `desktop` by
+# desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/tasks/TaskStateScenarioTest.kt.

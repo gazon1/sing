@@ -12,6 +12,7 @@ import com.singularity.todo.feature.tags.domain.model.TagGroupId
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.serialization.builtins.SetSerializer
@@ -109,11 +110,26 @@ internal fun String?.toProjectIdOrNull(): ProjectId? =
     this?.takeIf { it.isNotBlank() }?.let { ProjectId.fromString(it) }
 
 /**
+ * The stored workflow state, read tolerantly.
+ *
+ * The column holds the enum entry name, and a name this build does not know
+ * must not make the task unreadable: a row written by a build that knew a
+ * fourth state reads back as [TaskWorkflowState.Open] — "nothing claimed" —
+ * rather than throwing on every list load.
+ */
+internal fun String.toWorkflowState(): TaskWorkflowState =
+    TaskWorkflowState.entries.firstOrNull { it.name == this } ?: TaskWorkflowState.Open
+
+/**
  * Converts a [TaskEntity] to a domain [Task].
  * Tags and blockedBy are populated from the bundled [TaskExtras] when loading lists.
  * A single task is read through the same extras, so both carry the same edges.
  */
-internal fun TaskEntity.toTask(tags: List<TagId> = emptyList(), blockedBy: Set<TaskId> = emptySet()): Task = Task(
+internal fun TaskEntity.toTask(
+    tags: List<TagId> = emptyList(),
+    blockedBy: Set<TaskId> = emptySet(),
+    followsUp: Set<TaskId> = emptySet(),
+): Task = Task(
     id = id.toId(),
     title = title,
     description = description,
@@ -135,6 +151,7 @@ internal fun TaskEntity.toTask(tags: List<TagId> = emptyList(), blockedBy: Set<T
     archivedAt = archivedAt.toInstantOrNull(),
     isPinned = isPinned,
     blockedBy = blockedBy,
+    followsUp = followsUp,
     aiSuppressedTagIds = StableJson.decodeFromString(
         SetSerializer(String.serializer()),
         aiSuppressedTagIds,
@@ -143,6 +160,7 @@ internal fun TaskEntity.toTask(tags: List<TagId> = emptyList(), blockedBy: Set<T
         StableJson.decodeFromString<RecurrenceSpec>(it)
     },
     seriesId = seriesId?.let { com.singularity.todo.feature.tasks.domain.model.TaskSeriesId.fromString(it) },
+    workflowState = workflowState.toWorkflowState(),
     estimateMinutes = estimateMinutes,
     createdAt = createdAt.toInstant(),
     updatedAt = updatedAt.toInstant(),

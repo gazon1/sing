@@ -59,6 +59,16 @@ data class TaskEntity(
      * auto-migration then writes a statement the SQL validator rejects.
      */
     @ColumnInfo("series_id") val seriesId: String? = null,
+    /**
+     * The state the user has claimed for this task's work — `Open`, `NextUp` or
+     * `InProgress`, stored by name.
+     *
+     * The column carries a SQL default of `'Open'` so the column can be added
+     * without a table rewrite: a task that existed before the upgrade reads back
+     * as `Open`, which is what "nothing claimed" means. The default is written
+     * with its quotes because Room takes the value verbatim as SQL.
+     */
+    @ColumnInfo("workflow_state", defaultValue = "'Open'") val workflowState: String = "Open",
     @ColumnInfo("outgoing_links", defaultValue = "[]") val outgoingLinks: String = "[]", // wikilink backlinks
     @ColumnInfo("ai_suppressed_tag_ids", defaultValue = "[]") val aiSuppressedTagIds: String = "[]",
     @ColumnInfo("created_at") val createdAt: Long,

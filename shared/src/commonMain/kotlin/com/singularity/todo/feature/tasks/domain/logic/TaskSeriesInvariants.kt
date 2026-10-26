@@ -7,6 +7,7 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskSharedField
 import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
+import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
 
 /**
  * The rules a series keeps, whoever wrote to it.
@@ -198,6 +199,7 @@ object TaskSeriesInvariants {
         TaskSharedField.Emoji -> task.emoji
         TaskSharedField.Estimate -> task.estimateMinutes
         TaskSharedField.Recurrence -> task.recurrence
+        TaskSharedField.WorkflowState -> task.workflowState
     }
 
     /**
@@ -213,5 +215,6 @@ object TaskSeriesInvariants {
         TaskSharedField.Emoji -> copy(emoji = value as String?)
         TaskSharedField.Estimate -> copy(estimateMinutes = value as Int?)
         TaskSharedField.Recurrence -> copy(recurrence = value as RecurrenceSpec?)
+        TaskSharedField.WorkflowState -> copy(workflowState = value as TaskWorkflowState)
     }
 }

@@ -1,9 +1,10 @@
 package com.singularity.todo.feature.tasks.presentation.model
 
 import com.singularity.todo.core.ui.components.formatRussianDueDate
-import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
+import com.singularity.todo.feature.tasks.domain.logic.computeTaskMarkings
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskMarking
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
@@ -38,6 +39,19 @@ import kotlinx.datetime.LocalDate
  * menu builder no longer needs a domain reference. The AI bottom sheet
  * (future work) will look up the [Task] by [id] from the repository.
  *
+ * ## Why the markings are a set and not three booleans
+ *
+ * The row used to carry `isBlocked`, `isRecurring` and `isOverdue` — three
+ * separate facts that the row happened to display, and three separate places
+ * for a fourth fact to be forgotten. They are now one set of
+ * [TaskMarking]s, computed by the shared policy, so the agenda and the task
+ * list answer "what is this task marked with?" the same way.
+ *
+ * The two fields that survived — [isCompleted] and [isPinned] — are the ones
+ * the UI *acts* on rather than merely shows: the checkbox toggles completion
+ * and the context menu offers to unpin. A field the UI acts on belongs to the
+ * model; a field it only shows belongs to the marking.
+ *
  * @see 2026-09-18-task-dependencies
  * @see 2026-10-22-compose-stability-contract
  */
@@ -48,16 +62,20 @@ data class TaskUi(
     val dueLabel: String?, // pre-formatted date: "Сб, 05 сент 2026"
     val parentId: String? = null, // null = top-level, otherwise parent TaskId.value
     val indentLevel: Int = 0, // 0 for top-level, 1 for direct child
-    val isRecurring: Boolean = false,
     val isPinned: Boolean = false, // MR-1: lifted from domainTask to avoid reference
     val priority: TaskPriority = TaskPriority.None,
     val isCompleted: Boolean = false,
-    val isOverdue: Boolean = false,
     val isSelected: Boolean = false,
     /** MR-1: IDs of tasks that must be completed before this task. */
     val blockedBy: ImmutableSet<TaskId> = persistentSetOf(),
-    /** MR-1: true when at least one dependency is not yet completed. */
-    val isBlocked: Boolean = false,
+    /**
+     * Everything this task is marked with — blocked, follow-up, in progress,
+     * next up, overdue, no date, pinned, repeating, completed.
+     *
+     * A set, because a task can carry several of these at once and none of
+     * them may hide another.
+     */
+    val markings: ImmutableSet<TaskMarking> = persistentSetOf(),
     /** How many dates the series of this row has; null when it stands alone. */
     val seriesDates: Int? = null,
 ) {
@@ -67,7 +85,8 @@ data class TaskUi(
 /**
  * Converts a domain [Task] to a [TaskUi].
  *
- * [today] is used to compute [isOverdue]. [projectNamesById] maps
+ * [today] is used to compute the overdue marking and to resolve the date
+ * buckets. [projectNamesById] maps
  * [ProjectId.value][com.singularity.todo.feature.projects.domain.model.ProjectId.value] to
  * the project name string.
  * [blockedBy] and [isBlocked] are passed from the list-building context — they default
@@ -86,11 +105,10 @@ fun Task.toTaskUi(
     parentId = this.parentTaskId?.value,
     indentLevel = if (this.parentTaskId != null) 1 else 0,
     isCompleted = this.completedAt != null,
-    isOverdue = TaskComputed.isOverdue(this, today),
     isPinned = this.isPinned,
     priority = this.priority,
     blockedBy = blockedBy.toImmutableSet(),
-    isBlocked = isBlocked,
+    markings = computeTaskMarkings(this, today, isBlocked),
 )
 
 /** Counters for the header / filter chips — computed from the list once. */

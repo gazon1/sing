@@ -1,0 +1,29 @@
+# Scenario specification for TASK-STATE-02.
+#
+# The canonical statement of this user scenario. Linkage to automation lives in
+# code (@DisplayName for Kotlin, a `scenario:TASK-STATE-02` Maestro tag), so
+# there is no second source of truth to keep in sync.
+#
+# A state that lives only in the open screen is a decoration. This scenario
+# pins the write: leave the task, come back, and the state is still there.
+
+id: TASK-STATE-02
+title: A workflow state survives leaving and reopening the task
+area: feature.tasks
+priority: P2
+status: confirmed
+targets: [desktop]
+preconditions: >-
+  An open task exists, and its detail view is open on desktop.
+steps:
+  - Set the task's workflow state to "In progress".
+  - Leave the task screen.
+  - Open the same task again.
+  - Look at the workflow-state control.
+expected: >-
+  The control shows "In progress" after the task is reopened, and the stored
+  task still carries that state — the state is a property of the task, not of
+  the screen that happened to be open.
+
+# Claimed on `desktop` by
+# desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/tasks/TaskStateScenarioTest.kt.

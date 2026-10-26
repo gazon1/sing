@@ -218,6 +218,8 @@ fun TaskDetailContent(
                                 isPinned = ui.task.isPinned,
                                 estimateMinutes = ui.task.estimateMinutes,
                                 blockedBy = ui.blockedBy,
+                                followsUp = ui.followsUp,
+                                workflowState = ui.task.workflowState,
                                 availableTasks = ui.availableTasks,
                                 // The attachments sheet reads the model's list, and the
                                 // sheet is where an attachment is deleted. The detail
@@ -237,6 +239,14 @@ fun TaskDetailContent(
                             callbacks = TaskEditorCallbacks(
                                 onBack = { navigator.back() },
                                 onCheckToggle = { coordinator.onIntent(TaskDetailIntent.Domain.ToggleComplete) },
+                                workflowState = RowCallbacks(
+                                    onChange = {
+                                        coordinator.onIntent(
+                                            TaskDetailIntent.Domain.SetWorkflowState(it),
+                                        )
+                                    },
+                                    onClick = { sheets.show(TaskEditorSheet.WorkflowState) },
+                                ),
                                 priority = RowCallbacks(
                                     onChange = { coordinator.onIntent(TaskDetailIntent.Domain.SetPriority(it)) },
                                     onClick = { sheets.show(TaskEditorSheet.Priority) },
@@ -278,7 +288,11 @@ fun TaskDetailContent(
                                     onClear = { coordinator.onIntent(TaskDetailIntent.Domain.SetEstimate(null)) },
                                 ),
                                 dependencies = RowCallbacks(
-                                    onChange = { coordinator.onIntent(TaskDetailIntent.Domain.SetDependencies(it)) },
+                                    onChange = {
+                                        coordinator.onIntent(
+                                            TaskDetailIntent.Domain.SetDependencyRelations(it),
+                                        )
+                                    },
                                 ),
                                 checklist = null,
                                 // The bundle that gives the attachments sheet its
@@ -382,6 +396,14 @@ fun TaskDetailContent(
                                             },
                                             onDelete = {
                                                 coordinator.onIntent(TaskDetailIntent.Domain.DeleteChecklistItem(it))
+                                            },
+                                            // The add-row lives in the section itself, so
+                                            // a checklist item is created from the task
+                                            // screen without a sheet opening.
+                                            onAddItem = {
+                                                coordinator.onIntent(
+                                                    TaskDetailIntent.Domain.AddChecklistItem(it),
+                                                )
                                             },
                                         )
                                         SubtasksSection(

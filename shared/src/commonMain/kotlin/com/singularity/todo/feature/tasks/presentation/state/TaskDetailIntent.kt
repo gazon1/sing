@@ -9,12 +9,14 @@ import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskAiAction
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
 import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
@@ -90,6 +92,18 @@ sealed interface TaskDetailIntent : MviIntent {
         data class SetPriority(val priority: TaskPriority) :
             Domain,
             TaskEntityIntent
+
+        /**
+         * Moves the task to another workflow state — `Open`, `NextUp` or
+         * `InProgress`.
+         *
+         * The state is the user's own claim about the work, so it is a shared
+         * field of a series: marking one occurrence "in progress" marks the work
+         * in progress, not one of its dates.
+         */
+        data class SetWorkflowState(val state: TaskWorkflowState) :
+            Domain,
+            TaskEntityIntent
         data class SetProject(val projectId: ProjectId?) :
             Domain,
             TaskEntityIntent
@@ -160,6 +174,20 @@ sealed interface TaskDetailIntent : MviIntent {
         // ── Dependencies ─────────────────────────────────────────────────────
 
         data class SetDependencies(val blockedBy: Set<TaskId>) :
+            Domain,
+            TaskEntityIntent
+
+        /**
+         * The whole set of outgoing relations, each with the verb that says what it
+         * means.
+         *
+         * The picker edits one map — every selected task and how this task relates to
+         * it — so a write has to carry the same shape. [SetDependencies] says only
+         * "these block me" and must not be used for an edge that merely orders two
+         * pieces of work; this intent is what keeps the two verbs from overwriting
+         * each other.
+         */
+        data class SetDependencyRelations(val relations: Map<TaskId, DependencyVerb>) :
             Domain,
             TaskEntityIntent
 

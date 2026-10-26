@@ -5,9 +5,11 @@ import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
 import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
@@ -115,8 +117,17 @@ data class TaskEditorCallbacks(
     val recurrence: RowCallbacks<RecurrenceSpec?>?,
     /** Pin/toggle row — null = hidden */
     val pin: ToggleCallbacks?,
-    /** Dependencies row — null = hidden */
-    val dependencies: RowCallbacks<Set<TaskId>>?,
+    /**
+     * Dependencies row — null = hidden.
+     *
+     * The value is the whole outgoing relation map, keyed by the other task and
+     * carrying the verb that says what the edge means. A bare `Set<TaskId>` could
+     * not express "follows up on", so the picker would have to invent the verb at
+     * the write site — which is where the two verbs overwrote each other.
+     */
+    val dependencies: RowCallbacks<Map<TaskId, DependencyVerb>>?,
+    /** Workflow-state row — null = hidden. */
+    val workflowState: RowCallbacks<TaskWorkflowState>? = null,
     /** Checklist row — null = hidden */
     val checklist: ChecklistCallbacks?,
     /** Attachments row — null = hidden */

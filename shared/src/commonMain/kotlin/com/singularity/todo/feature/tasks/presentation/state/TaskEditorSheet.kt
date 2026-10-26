@@ -12,6 +12,7 @@ sealed interface TaskEditorSheet {
 
     // ── Attribute pickers ──────────────────────────────────────────────────────
     data object Priority : TaskEditorSheet
+    data object WorkflowState : TaskEditorSheet
     data object Project : TaskEditorSheet
     data object Tags : TaskEditorSheet
     data object Recurrence : TaskEditorSheet

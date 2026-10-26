@@ -7,6 +7,7 @@ import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.collections.immutable.ImmutableList
@@ -41,6 +42,8 @@ import kotlinx.collections.immutable.persistentSetOf
  * @param recurrence Current recurrence rule (null = not repeating).
  * @param isPinned Whether the task is pinned.
  * @param blockedBy Set of task IDs this task depends on.
+ * @param followsUp Set of task IDs this task follows up on.
+ * @param workflowState The state the user claimed for the work.
  * @param availableTasks Tasks available for dependency picker (reactive).
  */
 data class TaskEditorModel(
@@ -73,9 +76,13 @@ data class TaskEditorModel(
     val recurrence: RecurrenceSpec? = null,
     val isPinned: Boolean = false,
     val blockedBy: ImmutableSet<TaskId> = persistentSetOf(),
+    /** IDs of the tasks this task follows up on. */
+    val followsUp: ImmutableSet<TaskId> = persistentSetOf(),
     val availableTasks: ImmutableList<com.singularity.todo.feature.tasks.domain.model.Task> = persistentListOf(),
     /** Estimated time in minutes. Null means no estimate has been set. */
     val estimateMinutes: Int? = null,
+    /** The state the user claimed for the work; `Open` when nothing was claimed. */
+    val workflowState: TaskWorkflowState = TaskWorkflowState.Open,
     /** Task creation timestamp in epoch milliseconds — used as default for time entry start. */
     val taskStartedAtMs: Long? = null,
 )

@@ -1,0 +1,29 @@
+# Scenario specification for AGENDA-STATE-02.
+#
+# The canonical statement of this user scenario. Linkage to automation lives in
+# code (@DisplayName for Kotlin, a `scenario:AGENDA-STATE-02` Maestro tag), so
+# there is no second source of truth to keep in sync.
+#
+# The view stores a *selector*, not a list of tasks. Moving a task into the
+# state must therefore move it into the section, with no edit to the view.
+
+id: AGENDA-STATE-02
+title: A saved view follows a task after its workflow state changes
+area: feature.agenda
+priority: P2
+status: confirmed
+targets: [desktop]
+preconditions: >-
+  Two open tasks exist, neither with a workflow state; a saved view grouped by
+  workflow state exists.
+steps:
+  - Open the saved view and look at the in-progress section.
+  - Move one task into "In progress".
+  - Open the saved view again.
+expected: >-
+  The in-progress section was empty before the change and contains the moved
+  task afterwards, while the view itself was not edited — the section is
+  evaluated from the task's current state each time it is shown.
+
+# Claimed on `desktop` by
+# desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/agenda/AgendaStateScenarioTest.kt.

@@ -7,6 +7,7 @@ import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.domain.model.agenda
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 
@@ -250,6 +251,32 @@ object AgendaPresets {
      */
     fun byBlocked(): AgendaDefinition = agenda("Blocked") {
         section("blocked", "Blocked", Selector.Blocked, order = 0)
+    }
+
+    /**
+     * The tasks the user marked as being worked on now.
+     *
+     * Used as a built-in view, next to [byBlocked]. Completed tasks are excluded by
+     * the selector: the state stays on the task after completion, but the view is a
+     * list of work still to do.
+     */
+    fun byInProgress(): AgendaDefinition = agenda("In progress") {
+        section(
+            "in_progress",
+            "In progress",
+            Selector.WorkflowState(TaskWorkflowState.InProgress),
+            order = 0,
+        )
+    }
+
+    /**
+     * The tasks that follow up on another task.
+     *
+     * The other projection of the dependency table: an ordering relation, not a
+     * reason to wait.
+     */
+    fun byFollowUp(): AgendaDefinition = agenda("Follow-ups") {
+        section("follow_up", "Follow-ups", Selector.FollowUp, order = 0)
     }
 
     /**
