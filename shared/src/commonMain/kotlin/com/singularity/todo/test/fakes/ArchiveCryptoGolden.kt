@@ -137,7 +137,12 @@ fun buildGoldenChain(crypto: ArchiveCrypto, key: ByteArray): ByteArray {
         ArchiveCryptoGolden.chainNonce
     // The change is sealed with the prefix and its own place; the base is sealed
     // with the whole header, head included.
-    val body = crypto.seal(key, ArchiveCryptoGolden.chainEntryNonce, ArchiveCryptoGolden.chainEntry, prefix + 0.toBytes())
+    val body = crypto.seal(
+        key,
+        ArchiveCryptoGolden.chainEntryNonce,
+        ArchiveCryptoGolden.chainEntry,
+        prefix + 0.toBytes(),
+    )
     val head = ChainHead(count = 1, entriesLength = (ArchiveFormat.ENTRY_HEAD_BYTES + body.size).toLong())
     val header = prefix + head.toBytes()
     val sealedBase = crypto.seal(key, ArchiveCryptoGolden.chainNonce, ArchiveCryptoGolden.chainBase, header)

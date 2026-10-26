@@ -19,9 +19,7 @@ import com.singularity.todo.core.backup.EncryptedArchive
  * store's block under a password opens it for real. A fake that made up the
  * bytes would test nothing about the thing it stands for.
  */
-class FakeDeviceKeyStore(
-    private val archive: EncryptedArchive,
-) : DeviceKeyStore {
+class FakeDeviceKeyStore(private val archive: EncryptedArchive) : DeviceKeyStore {
 
     /** The key, as it was generated. */
     private var key: ByteArray? = null
