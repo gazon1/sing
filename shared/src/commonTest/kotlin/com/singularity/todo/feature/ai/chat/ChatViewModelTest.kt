@@ -11,15 +11,16 @@ import com.singularity.todo.feature.ai.TextGenPort
 import com.singularity.todo.feature.genui.catalog.SingularityCatalog
 import com.singularity.todo.feature.genui.core.A2uiMessageProcessor
 import com.singularity.todo.feature.genui.core.A2uiValidator
-import com.singularity.todo.feature.genui.engine.GenuiSession
+import com.singularity.todo.feature.genui.core.GenuiRejectionCounter
+import com.singularity.todo.feature.genui.engine.SurfaceTurnFactory
 import com.singularity.todo.feature.genui.parser.A2uiParser
 import com.singularity.todo.feature.genui.surface.SurfaceController
-import com.singularity.todo.feature.genui.transport.GenuiTransport
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
@@ -51,45 +52,52 @@ class ChatViewModelTest {
         scope = AutoCloseableCoroutineScope(scope.coroutineContext),
     )
 
-    private fun newGenuiVm(
+    /**
+     * A chat that may draw a screen, driven by a model that answers with whole messages.
+     *
+     * The wiring is the production one — one model call, the screen drawn from what it wrote —
+     * because a test that wires it differently proves nothing about the screen.
+     */
+    private fun newScreenVm(
         scope: CoroutineScope,
         answers: List<String>,
-    ): Pair<ChatViewModel, ScriptedGenuiTransport> {
-        val transport = ScriptedGenuiTransport(answers)
+    ): Pair<ChatViewModel, ScriptedScreenTextGen> {
+        val agent = ScriptedScreenTextGen(answers)
         val controller = SurfaceController()
-        val parser = A2uiParser()
         val vm = ChatViewModel(
             testLog,
-            ScriptedTextGen(flowOf(AgentEvent.TurnCompleted)),
+            agent,
             SequenceIdGenerator(),
-            genui = GenuiSession(
-                transport,
-                parser,
+            surfaces = SurfaceTurnFactory(
+                A2uiParser(),
                 A2uiMessageProcessor(A2uiValidator(SingularityCatalog), controller),
                 controller,
+                SingularityCatalog,
+                GenuiRejectionCounter(),
             ),
             scope = AutoCloseableCoroutineScope(scope.coroutineContext),
         )
-        return vm to transport
+        return vm to agent
     }
 
     // ─── A surface is part of the conversation, not a picture of it ───────
 
     @Test
     fun anAnswerWithAScreenCarriesItInTheMessage() = runTest {
-        val (vm, _) = newGenuiVm(this, listOf(SURFACE))
+        val (vm, _) = newScreenVm(this, listOf(SURFACE))
         vm.onIntent(ChatViewModel.Intent.InputChanged("show my tasks"))
         vm.onIntent(ChatViewModel.Intent.Send)
         advanceUntilIdle()
 
         val reply = vm.stateFlow.value.messages.last()
-        assertTrue(reply.content.isNotBlank(), "The answer still has its words")
+        // The model wrote a screen and no words, so the message points at the screen and
+        // says nothing: a sentence the model did not write would be worse than silence.
         assertTrue(reply.surfaceId != null, "And the screen it drew")
     }
 
     @Test
     fun aProseOnlyAnswerIsACompleteAnswer() = runTest {
-        val (vm, _) = newGenuiVm(this, listOf("Three things are due today.\n"))
+        val (vm, _) = newScreenVm(this, listOf("Three things are due today.\n"))
         vm.onIntent(ChatViewModel.Intent.InputChanged("what is due?"))
         vm.onIntent(ChatViewModel.Intent.Send)
         advanceUntilIdle()
@@ -101,7 +109,7 @@ class ChatViewModelTest {
 
     @Test
     fun twoAnswersDoNotShareOneScreen() = runTest {
-        val (vm, _) = newGenuiVm(this, listOf(SURFACE, SURFACE))
+        val (vm, _) = newScreenVm(this, listOf(SURFACE, SURFACE))
         vm.onIntent(ChatViewModel.Intent.InputChanged("show my tasks"))
         vm.onIntent(ChatViewModel.Intent.Send)
         advanceUntilIdle()
@@ -116,7 +124,7 @@ class ChatViewModelTest {
 
     @Test
     fun aPressInsideAScreenIsTheNextTurnOfTheConversation() = runTest {
-        val (vm, transport) = newGenuiVm(this, listOf(SURFACE, SURFACE))
+        val (vm, agent) = newScreenVm(this, listOf(SURFACE, SURFACE))
         vm.onIntent(ChatViewModel.Intent.InputChanged("show my tasks"))
         vm.onIntent(ChatViewModel.Intent.Send)
         advanceUntilIdle()
@@ -124,8 +132,8 @@ class ChatViewModelTest {
         vm.onIntent(ChatViewModel.Intent.SurfaceAction("open_task", null))
         advanceUntilIdle()
 
-        assertEquals(2, transport.requests.size, "The press reached the model")
-        val followUp = transport.requests[1]
+        assertEquals(2, agent.requests.size, "The press reached the model")
+        val followUp = agent.requests[1]
         assertTrue("open_task" in followUp, "By the name the model gave the control: $followUp")
         assertTrue("show my tasks" in followUp, "In the context of the conversation: $followUp")
 
@@ -136,7 +144,7 @@ class ChatViewModelTest {
 
     @Test
     fun aPressCarriesWhatTheControlWasBoundTo() = runTest {
-        val (vm, transport) = newGenuiVm(this, listOf(SURFACE, SURFACE))
+        val (vm, agent) = newScreenVm(this, listOf(SURFACE, SURFACE))
         vm.onIntent(ChatViewModel.Intent.InputChanged("show my tasks"))
         vm.onIntent(ChatViewModel.Intent.Send)
         advanceUntilIdle()
@@ -145,7 +153,7 @@ class ChatViewModelTest {
         vm.onIntent(ChatViewModel.Intent.SurfaceAction("open_task", bound))
         advanceUntilIdle()
 
-        assertTrue("t-42" in transport.requests[1], "The model needs to know which task: ${transport.requests[1]}")
+        assertTrue("t-42" in agent.requests[1], "The model needs to know which task: ${agent.requests[1]}")
     }
 
     private companion object {
@@ -210,18 +218,24 @@ class ChatViewModelTest {
 }
 
 /**
- * A transport that answers with whole messages, one per call.
+ * A model that answers with whole messages, one per call.
  *
  * Whole messages rather than fragments: what is being tested here is what the chat does with an
- * answer, and fragmentation is the session's business, tested on its own.
+ * answer, and fragmentation is the turn's business, tested on its own.
  */
-private class ScriptedGenuiTransport(private val answers: List<String>) : GenuiTransport {
+private class ScriptedScreenTextGen(private val answers: List<String>) : TextGenPort {
     val requests: MutableList<String> = mutableListOf()
 
-    override suspend fun send(prompt: String, systemPrompt: String): Flow<String> {
-        requests += prompt
-        return flowOf(answers.getOrElse(requests.size - 1) { "" })
+    override suspend fun generate(prompt: String, systemPrompt: String?, model: String?): Result<String> =
+        Result.success("unused")
+
+    override fun streamChat(message: String, instructions: String): Flow<AgentEvent> = flow {
+        requests += message
+        emit(AgentEvent.TextDelta(answers.getOrElse(requests.size - 1) { "" }))
+        emit(AgentEvent.TurnCompleted)
     }
+
+    override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> = Result.success(emptyList())
 }
 
 /** Test double for [TextGenPort] that emits a scripted [Flow]. */
@@ -229,7 +243,7 @@ private class ScriptedTextGen(private val scripted: Flow<AgentEvent>) : TextGenP
     override suspend fun generate(prompt: String, systemPrompt: String?, model: String?): Result<String> =
         Result.success("unused")
 
-    override fun streamChat(message: String): Flow<AgentEvent> = scripted
+    override fun streamChat(message: String, instructions: String): Flow<AgentEvent> = scripted
 
     override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> = Result.success(emptyList())
 }

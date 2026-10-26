@@ -114,6 +114,12 @@ fun ChatScreenContent(
                     state = inputState,
                     onSend = { vm.onIntent(ChatViewModel.Intent.Send) },
                     enabled = !state.isLoading,
+                    // While a turn runs there is nothing to send, and the reader may want it to stop.
+                    onStop = if (state.isLoading) {
+                        { vm.onIntent(ChatViewModel.Intent.Stop) }
+                    } else {
+                        null
+                    },
                 )
             }
         }
@@ -179,10 +185,14 @@ private fun ChatMessagesList(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items(messages, key = { it.id }) { msg ->
-            MessageBubble(
-                role = if (msg.role == ChatRole.User) BubbleRole.User else BubbleRole.Assistant,
-                content = msg.content,
-            )
+            // An answer that is only a screen has no words, and an empty bubble next to a
+            // screen reads as a broken answer. The screen is the answer, so it stands alone.
+            if (msg.content.isNotBlank()) {
+                MessageBubble(
+                    role = if (msg.role == ChatRole.User) BubbleRole.User else BubbleRole.Assistant,
+                    content = msg.content,
+                )
+            }
             // A reply may be a sentence and a screen at once. The surface is drawn inside the
             // bubble rather than below it so that the two read as one answer.
             msg.surfaceId?.let { surfaceId: SurfaceId -> GenuiMessageSurface(surfaceId, onSurfaceAction) }

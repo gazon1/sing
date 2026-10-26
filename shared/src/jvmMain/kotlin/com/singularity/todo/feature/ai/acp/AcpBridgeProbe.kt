@@ -171,7 +171,7 @@ object AcpBridgeProbe {
                 scope = scope,
                 process = process,
                 tree = tree,
-                operations = AcpClientSessionOperations { PermissionDecision.Declined },
+                permissions = AcpSessionPermissions { PermissionDecision.Declined },
                 toolServer = null,
                 workingDirectory = workingDirectory,
                 // The bridge may be an `npx` invocation that has never run on this

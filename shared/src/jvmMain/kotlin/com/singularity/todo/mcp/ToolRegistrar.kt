@@ -233,7 +233,10 @@ class ToolRegistrar(
             // (server-side log only — never leak stack traces to the LLM).
             ErrorMapper.toResult(e)
         } catch (e: Exception) {
-            ErrorMapper.toResult(McpToolError.Internal(e.message ?: "unknown", e))
+            // The caller's answer is a code, not the failure's text: an exception message can
+            // carry arguments, paths and server responses, and this one is read by the agent.
+            // The cause stays on the error, where the mapper logs it.
+            ErrorMapper.toResult(McpToolError.Internal(code = "tool_call_failed", cause = e))
         }
     }
 

@@ -152,17 +152,24 @@ class KoogAgentService(
      *
      * The stream carries activity, not just text: the text as it arrives, the tool calls and
      * their outcomes, and the end of the turn. A reader can watch what the agent did.
+     *
+     * [instructions] is what this one call may do beyond the configured persona — the screen
+     * format, for a call that may draw a screen. It is added to the persona, not swapped for
+     * it: the persona is who the assistant is, and the instructions are what it is doing now.
      */
-    override fun streamChat(message: String): Flow<AgentEvent> = flow {
+    override fun streamChat(message: String, instructions: String): Flow<AgentEvent> = flow {
         val apiKey = requireApiKey()
         if (apiKey == null) {
+            // No completion event: the turn did not finish, it never started. A turn that ends
+            // without one is a failed turn, and a failed turn says so — a completed turn whose
+            // text mentions a missing key is a turn that reports two different things.
             emit(AgentEvent.TextDelta("(AI unavailable: API key not configured. Set it in Settings > AI Provider.)"))
-            emit(AgentEvent.TurnCompleted)
             return@flow
         }
 
         val flags = remoteConfigPort.observe().value.modelFlags
-        val systemPrompt = settings.aiSystemPrompt.first().ifBlank { Prompts.chatSystem }
+        val configuredPrompt = settings.aiSystemPrompt.first().ifBlank { Prompts.chatSystem }
+        val systemPrompt = if (instructions.isBlank()) configuredPrompt else "$configuredPrompt\n\n$instructions"
         val modelId = settings.aiModel.first().ifBlank { OpenAiConfig.DEFAULT_MODEL }
         val model = resolveModelWithFlags(modelId, flags)
 

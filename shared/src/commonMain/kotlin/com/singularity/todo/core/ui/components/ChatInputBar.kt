@@ -9,6 +9,7 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -29,6 +30,12 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
  * `rememberBridgedTextFieldState`, so the chat ViewModel keeps the last submitted text without
  * owning the buffer). The parent decides when `onSend` is allowed to fire (typically gated on
  * `enabled`).
+ *
+ * ## The button turns into a stop
+ *
+ * While a turn is running there is nothing to send, and a reader who cannot stop a turn that is
+ * taking too long has to wait for it. So the same button becomes the stop: [onStop] non-null
+ * means the turn is running and the button stops it rather than sending.
  */
 @Composable
 fun ChatInputBar(
@@ -37,6 +44,12 @@ fun ChatInputBar(
     enabled: Boolean = true,
     placeholder: String = "Ask the AI...",
     maxLines: Int = 4,
+    /**
+     * Stops the turn that is running, when there is one.
+     *
+     * Null while no turn is running — which is also when the button sends.
+     */
+    onStop: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -59,8 +72,14 @@ fun ChatInputBar(
             },
             enabled = enabled,
         )
-        IconButton(onClick = onSend, enabled = enabled) {
-            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
+        if (onStop != null) {
+            IconButton(onClick = onStop, enabled = true) {
+                Icon(Icons.Filled.Stop, contentDescription = "Stop")
+            }
+        } else {
+            IconButton(onClick = onSend, enabled = enabled) {
+                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
+            }
         }
     }
 }

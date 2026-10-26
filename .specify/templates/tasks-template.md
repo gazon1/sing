@@ -247,6 +247,10 @@ With multiple developers:
 - [Story] label maps task to specific user story for traceability
 - Each user story should be independently completable and testable
 - Verify tests fail before implementing
+- **A task closes only when its acceptance scenario runs on the production path** —
+  the wiring the application actually uses, not a fake or a test-only seam
+  (constitution IX). A path no scenario can reach is a path that does not
+  deliver, and the task stays open until it does.
 - Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
 - Avoid: vague tasks, same file conflicts, cross-story dependencies that break independence

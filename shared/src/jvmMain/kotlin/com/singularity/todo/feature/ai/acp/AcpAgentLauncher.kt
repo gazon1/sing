@@ -22,15 +22,27 @@ fun interface AcpAgentLauncher {
      * Starts the agent and opens a session on it.
      *
      * @param scope the scope the session lives in.
-     * @param operations what the agent may ask of the application.
+     * @param permissions how the agent asks the reader for permission.
      * @param toolServer the tool server the agent may use, or null when the agent is to
      *   connected without tool access.
      */
     fun launch(
         profile: AcpAgentProfile,
         scope: CoroutineScope,
-        operations: AcpClientSessionOperations,
+        permissions: AcpSessionPermissions,
         toolServer: ToolServerCommand.Available?,
+        /**
+         * Where the session's lifecycle goes.
+         *
+         * The launcher starts the agent, so it is the place where the session's life
+         * begins — and the sink has to reach the client, which is the thing that knows
+         * when the conversation ends.
+         *
+         * There is no default: a launcher that quietly chose its own sink would drop
+         * the caller's events, and the caller is the only one that knows where the
+         * session's life is being watched.
+         */
+        sessionEvents: AcpLifecycleSink,
     ): AcpAgentLaunch
 }
 
@@ -72,8 +84,9 @@ object SubprocessAcpAgentLauncher : AcpAgentLauncher {
     override fun launch(
         profile: AcpAgentProfile,
         scope: CoroutineScope,
-        operations: AcpClientSessionOperations,
+        permissions: AcpSessionPermissions,
         toolServer: ToolServerCommand.Available?,
+        sessionEvents: AcpLifecycleSink,
     ): AcpAgentLaunch {
         val diagnostics = ArrayDeque<String>()
         val argv = listOf(profile.command) + profile.args
@@ -91,8 +104,9 @@ object SubprocessAcpAgentLauncher : AcpAgentLauncher {
                     scope = scope,
                     process = process,
                     tree = tree,
-                    operations = operations,
+                    permissions = permissions,
                     toolServer = toolServer,
+                    sessionEvents = sessionEvents,
                 ),
             )
         } catch (e: IOException) {
@@ -123,7 +137,8 @@ object FailingAcpAgentLauncher : AcpAgentLauncher {
     override fun launch(
         profile: AcpAgentProfile,
         scope: CoroutineScope,
-        operations: AcpClientSessionOperations,
+        permissions: AcpSessionPermissions,
         toolServer: ToolServerCommand.Available?,
+        sessionEvents: AcpLifecycleSink,
     ): AcpAgentLaunch = AcpAgentLaunch.Failed("No agent could be started.")
 }

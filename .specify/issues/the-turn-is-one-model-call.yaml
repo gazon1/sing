@@ -1,0 +1,41 @@
+# spec-kit issue record — hand-written at change creation.
+# The registry gate fails on a change with no record, so this file is created
+# in the same step as the change itself.
+---
+version: '1.0'
+type: openspec-change
+slug: the-turn-is-one-model-call
+date: '2026-10-25'
+title: the-turn-is-one-model-call
+status: accepted
+change_type: active
+speckit_imported: false
+adr_refs:
+- sequence: '20261025'
+  slug: the-turn-is-one-model-call
+  title: The chat's turn is one model call, and the screen is a format of it
+  status: accepted
+  notes: The chat's turn asks the model once, through the port that owns the tools; the screen is a format of that answer; the transport seam that made a second model call possible is gone.
+- sequence: '20260923'
+  slug: genui-server-driven-ui
+  title: The screen is drawn by the server
+  status: superseded
+  notes: "Its transport seam is superseded: the screen is asked for inside the turn that asks the model, and the parser, the catalogue and the renderer stay."
+- sequence: '20261023'
+  slug: acp-client-and-agent-activity
+  title: External agent in the app (ACP client) and agent activity visibility
+  status: accepted
+  notes: The decision behind the activity vocabulary; this change gives that vocabulary a producer in the built-in chat.
+tags:
+- ai
+- genui
+- chat
+- activity
+documents:
+  proposal: openspec/changes/the-turn-is-one-model-call/proposal.md
+  design: openspec/changes/the-turn-is-one-model-call/design.md
+  adr: openspec/changes/the-turn-is-one-model-call/adr.md
+  tasks: openspec/changes/the-turn-is-one-model-call/tasks.md
+specs_dir: openspec/changes/the-turn-is-one-model-call/specs
+is_stub: false
+openspec_path: openspec/changes/the-turn-is-one-model-call

@@ -7,17 +7,28 @@ import com.agentclientprotocol.agent.AgentInfo
 import com.agentclientprotocol.client.Client
 import com.agentclientprotocol.client.ClientInfo
 import com.agentclientprotocol.client.ClientSession
+import com.agentclientprotocol.common.ClientSessionOperations
 import com.agentclientprotocol.common.Event
 import com.agentclientprotocol.common.SessionCreationParameters
 import com.agentclientprotocol.model.ClientCapabilities
 import com.agentclientprotocol.model.ContentBlock
 import com.agentclientprotocol.model.Implementation
 import com.agentclientprotocol.model.McpServer
+import com.agentclientprotocol.model.PermissionOption
+import com.agentclientprotocol.model.PermissionOptionId
+import com.agentclientprotocol.model.PermissionOptionKind
+import com.agentclientprotocol.model.PlanEntryStatus
+import com.agentclientprotocol.model.RequestPermissionOutcome
+import com.agentclientprotocol.model.RequestPermissionResponse
+import com.agentclientprotocol.model.SessionUpdate
+import com.agentclientprotocol.model.StopReason
+import com.agentclientprotocol.model.ToolCallStatus as AcpToolCallStatus
 import com.agentclientprotocol.protocol.Protocol
 import com.agentclientprotocol.transport.StdioTransport
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.llm.AgentEvent
 import com.singularity.todo.core.llm.AgentTurnOutcome
+import com.singularity.todo.core.llm.toolCallSummary
 import com.singularity.todo.core.mcp.ToolServerCommand
 import com.singularity.todo.core.process.DuplexProcess
 import com.singularity.todo.core.process.ProcessTree
@@ -35,6 +46,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.json.JsonElement
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -109,7 +121,14 @@ class AcpClient(
     private val scope: CoroutineScope,
     private val process: DuplexProcess,
     private val tree: ProcessTree,
-    private val operations: AcpClientSessionOperations,
+    /**
+     * How the agent asks the reader for permission.
+     *
+     * The application's own port, not the protocol's type: the protocol's client
+     * operations are built from it at the moment the session is opened, and the
+     * protocol never sees the port.
+     */
+    private val permissions: AcpSessionPermissions,
     private val toolServer: ToolServerCommand.Available?,
     private val workingDirectory: String = System.getProperty("user.home").orEmpty(),
     /**
@@ -128,6 +147,14 @@ class AcpClient(
      * the caller's clock, and a test that wants it short says so.
      */
     private val closeTimeout: Duration = CLOSE_TIMEOUT,
+    /**
+     * Where the session's lifecycle goes.
+     *
+     * The client is the only place that knows when the conversation was opened, which
+     * session it was, and how many processes the agent left behind — so it is the client
+     * that says so.
+     */
+    private val sessionEvents: AcpLifecycleSink = LoggingAcpLifecycle(),
 ) : AcpAgentSession {
 
     private val logger = Logger.withTag("acp-client")
@@ -279,10 +306,34 @@ class AcpClient(
             session = handshake.second
             connected = true
 
+            val agentInfo = handshake.first
+            // The one comparison the app can make: the agent says which version of the
+            // protocol it speaks, and this client speaks one version. An agent that speaks
+            // another one may mean something different by the same words, so the connection
+            // is refused rather than continued on a guess.
+            if (agentInfo.protocolVersion != SUPPORTED_PROTOCOL_VERSION) {
+                throw AgentUnavailable(
+                    "The agent speaks protocol version ${agentInfo.protocolVersion}; " +
+                        "this client speaks version $SUPPORTED_PROTOCOL_VERSION.",
+                )
+            }
+
             AcpAgentInfo(
-                name = handshake.first.implementation?.name.orEmpty(),
-                version = handshake.first.implementation?.version.orEmpty(),
-            )
+                name = agentInfo.implementation?.name.orEmpty(),
+                version = agentInfo.implementation?.version.orEmpty(),
+                protocolVersion = agentInfo.protocolVersion,
+            ).also { info ->
+                sessionEvents.record(
+                    AcpSessionEvent.Connected(
+                        agentName = info.name,
+                        agentVersion = info.version,
+                        protocolVersion = info.protocolVersion,
+                    ),
+                )
+                sessionEvents.record(
+                    AcpSessionEvent.SessionOpened(sessionId = handshake.second.sessionId.value),
+                )
+            }
         } finally {
             if (!connected) dropConnection()
         }
@@ -329,7 +380,7 @@ class AcpClient(
                             },
                         ),
                     ),
-                ) { _, _ -> operations }
+                ) { _, _ -> SdkSessionOperations(permissions, sessionEvents) }
                 info to ioSession
             }
         } catch (e: CancellationException) {
@@ -369,10 +420,10 @@ class AcpClient(
                     .map { event ->
                         when (event) {
                             is Event.SessionUpdateEvent ->
-                                AcpEventAdapter.adapt(event.update)?.let { AcpTurnEvent.Activity(it) }
+                                AcpEventAdapter.adapt(event.update.toDomain())?.let { AcpTurnEvent.Activity(it) }
 
                             is Event.PromptResponseEvent ->
-                                AcpTurnEvent.Finished(AcpEventAdapter.outcomeFor(event.response.stopReason))
+                                AcpTurnEvent.Finished(AcpEventAdapter.outcomeFor(event.response.stopReason.toDomain()))
                         }
                     }
                     .filterNotNull(),
@@ -464,8 +515,14 @@ class AcpClient(
                 goodbye()
             } finally {
                 dropConnection()
-                runCatchingCancellable { tree.close() }
+                val terminated: Int = runCatchingCancellable { tree.close() }.getOrDefault(0)
+                sessionEvents.record(
+                    AcpSessionEvent.ProcessTreeTerminated(processes = terminated),
+                )
                 runCatchingCancellable { process.close() }
+                sessionEvents.record(
+                    AcpSessionEvent.Disconnected(reason = "the conversation was closed"),
+                )
             }
         }
     }
@@ -562,6 +619,17 @@ class AcpClient(
 private const val TOOL_SERVER_NAME = "singularity-todo"
 
 /**
+ * The version of the protocol this client speaks.
+ *
+ * The only version the app can compare: the agent says which version of the protocol it
+ * speaks, and a client that speaks another one cannot rely on what the agent means by
+ * the same words. The tool server's version is a different matter — the app does not
+ * start it, it hands the agent a command — so the app knows which version it offered and
+ * cannot see which one ran. See ADR `2026-10-25-the-version-we-can-compare.md`.
+ */
+private const val SUPPORTED_PROTOCOL_VERSION: Int = 1
+
+/**
  * How long the agent has to answer the handshake.
  *
  * The screen shows a spinner while it connects and offers no way out of that state, so
@@ -602,3 +670,195 @@ class AgentUnavailable(message: String) : Exception(message)
 /** The version this application reports to the agent. */
 private fun appVersionCode(): String =
     runCatching { com.singularity.todo.core.version.appVersion().code.toString() }.getOrDefault("0.0.0")
+
+/**
+ * The protocol's client operations, in the application's vocabulary.
+ *
+ * ## Exactly two methods
+ *
+ * The protocol's client operations cover four areas — the file system, the terminal,
+ * elicitation, and permissions — and this class implements the permissions and nothing
+ * else.
+ *
+ * That is not an omission. The file system, terminal and elicitation methods have
+ * defaults in the protocol library, and those defaults **refuse**: an agent that asks
+ * to read a file, or to run a command, or to ask the user a question, is told no. The
+ * application advertises neither of those capabilities when it initializes, so an
+ * agent that honours the protocol never asks. And if one does ask anyway, the refusal
+ * is the answer — an implementation that quietly granted access would be a hole in a
+ * guarantee the application makes about the user's files.
+ *
+ * The application's own tool server is how the agent reaches the user's tasks, and it
+ * goes through the proposal pipeline, which is where a write becomes a question for the
+ * user. An agent with file and terminal access would have a second, quieter way to
+ * change the user's data, and it would not ask.
+ *
+ * ## The permission request
+ *
+ * A request suspends until the reader answers. The protocol allows exactly one
+ * outstanding request per session, so there is no queue to get wrong: the request that
+ * arrives is the request on screen.
+ */
+internal class SdkSessionOperations(
+    private val ask: AcpSessionPermissions,
+    /**
+     * Where the session's lifecycle goes.
+     *
+     * The permission request is one of the five facts about a session that only the log
+     * can answer: the sheet closes when the reader answers, and afterwards the screen
+     * shows nothing about the request that was made.
+     */
+    private val sessionEvents: AcpLifecycleSink,
+) : ClientSessionOperations {
+
+    override suspend fun requestPermissions(
+        toolCall: SessionUpdate.ToolCallUpdate,
+        permissions: List<PermissionOption>,
+        _meta: JsonElement?,
+    ): RequestPermissionResponse {
+        val request = AcpPermissionRequest(
+            toolCallId = toolCall.toolCallId.value,
+            title = toolCall.title.orEmpty(),
+            options = permissions.map { it.toOption() },
+        )
+        sessionEvents.record(
+            AcpSessionEvent.PermissionRequested(toolCallId = request.toolCallId, title = request.title),
+        )
+        val decision = ask.requestPermission(request)
+        val outcome = when (decision) {
+            is PermissionDecision.Selected -> RequestPermissionOutcome.Selected(PermissionOptionId(decision.optionId))
+            PermissionDecision.Declined -> refusingOutcome(permissions)
+        }
+        return RequestPermissionResponse(outcome = outcome)
+    }
+
+    /**
+     * A notification that is not bound to a prompt.
+     *
+     * The protocol defines it for agents that have something to say outside a turn.
+     * This application has no surface for it, and inventing one would show the reader
+     * text nobody asked for — so it is received and dropped.
+     */
+    override suspend fun notify(notification: SessionUpdate, _meta: JsonElement?) {
+        // Intentionally empty — see the KDoc above.
+    }
+
+    /**
+     * How a refusal is expressed on the wire.
+     *
+     * The protocol has no "rejected" outcome: a refusal is the agent's own rejecting
+     * option, chosen on its behalf. When the agent offered no such option, the only
+     * honest answer left is that the turn was cancelled before the reader answered.
+     */
+    private fun refusingOutcome(options: List<PermissionOption>): RequestPermissionOutcome {
+        val rejecting = options.firstOrNull { it.kind.isRejection() }
+        return rejecting?.let { RequestPermissionOutcome.Selected(PermissionOptionId(it.optionId.value)) }
+            ?: RequestPermissionOutcome.Cancelled
+    }
+
+    private fun PermissionOption.toOption(): AcpPermissionOption = AcpPermissionOption(
+        optionId = optionId.value,
+        label = name,
+        isRejection = kind.isRejection(),
+    )
+
+    private fun PermissionOptionKind.isRejection(): Boolean =
+        this == PermissionOptionKind.REJECT_ONCE || this == PermissionOptionKind.REJECT_ALWAYS
+}
+
+/**
+ * The protocol's session updates, in the application's words.
+ *
+ * ## Why the translation is here and not in the adapter
+ *
+ * The adapter's table decides what a reader sees, and it is written in the
+ * application's vocabulary so that it can be read and checked without knowing the
+ * protocol. This function is the other half: it says what the protocol *did*, and it
+ * is the only place that knows what the protocol's variants are.
+ *
+ * So an upgrade of the library is a diff in this file: a new variant appears here,
+ * and the compiler says so, because the `when` below is exhaustive. The reader sees
+ * nothing new, because the adapter decides that — and the adapter did not change.
+ *
+ * The variants that carry nothing for the reader are translated too, into the
+ * application's own "nothing" — that is what makes the adapter's ignore list
+ * testable without the library.
+ */
+internal fun SessionUpdate.toDomain(): AcpSessionUpdate = when (this) {
+    is SessionUpdate.AgentMessageChunk -> content.textOrNull()
+        ?.let { AcpSessionUpdate.TextDelta(it) }
+        ?: AcpSessionUpdate.Unrecognised
+
+    is SessionUpdate.ToolCall -> AcpSessionUpdate.ToolCall(
+        id = toolCallId.value,
+        name = title,
+        status = status.toDomain(),
+        summary = toolCallSummary(title, rawInput?.toString()),
+    )
+
+    is SessionUpdate.ToolCallUpdate -> AcpSessionUpdate.ToolCall(
+        id = toolCallId.value,
+        name = title.orEmpty(),
+        status = status.toDomain(),
+        summary = title?.let { toolCallSummary(it, rawInput?.toString()) },
+    )
+
+    is SessionUpdate.PlanUpdate -> AcpSessionUpdate.Plan(
+        steps = entries.map { entry -> AcpPlanStep(title = entry.content, status = entry.status.toDomain()) },
+    )
+
+    // The reader's own words, the agent's private reasoning, the session's settings,
+    // and anything this application does not recognise. None of them is activity —
+    // the adapter decides that, not this file.
+    is SessionUpdate.UserMessageChunk -> AcpSessionUpdate.UserMessage
+
+    is SessionUpdate.AgentThoughtChunk -> AcpSessionUpdate.AgentThought
+
+    is SessionUpdate.PlanUpdateV2,
+    is SessionUpdate.PlanRemoved,
+    is SessionUpdate.AvailableCommandsUpdate,
+    is SessionUpdate.CurrentModeUpdate,
+    is SessionUpdate.ConfigOptionUpdate,
+    is SessionUpdate.SessionInfoUpdate,
+    is SessionUpdate.UsageUpdate,
+    -> AcpSessionUpdate.SessionSetting
+
+    is SessionUpdate.UnknownSessionUpdate -> AcpSessionUpdate.Unrecognised
+}
+
+/**
+ * The agent's four states, one for one.
+ *
+ * A missing status is a call that has not started: the protocol makes it optional,
+ * and the only sensible reading of "no status yet" is "it has not finished".
+ */
+private fun AcpToolCallStatus?.toDomain(): AcpToolCallState = when (this) {
+    AcpToolCallStatus.PENDING -> AcpToolCallState.PENDING
+    AcpToolCallStatus.IN_PROGRESS -> AcpToolCallState.IN_PROGRESS
+    AcpToolCallStatus.COMPLETED -> AcpToolCallState.COMPLETED
+    AcpToolCallStatus.FAILED -> AcpToolCallState.FAILED
+    null -> AcpToolCallState.PENDING
+}
+
+private fun PlanEntryStatus.toDomain(): AcpPlanStepState = when (this) {
+    PlanEntryStatus.PENDING -> AcpPlanStepState.PENDING
+    PlanEntryStatus.IN_PROGRESS -> AcpPlanStepState.IN_PROGRESS
+    PlanEntryStatus.COMPLETED -> AcpPlanStepState.COMPLETED
+}
+
+/** The agent's reasons for stopping, one for one. */
+private fun StopReason.toDomain(): AcpStopReason = when (this) {
+    StopReason.END_TURN -> AcpStopReason.END_TURN
+    StopReason.MAX_TOKENS -> AcpStopReason.MAX_TOKENS
+    StopReason.MAX_TURN_REQUESTS -> AcpStopReason.MAX_TURN_REQUESTS
+    StopReason.REFUSAL -> AcpStopReason.REFUSAL
+    StopReason.CANCELLED -> AcpStopReason.CANCELLED
+}
+
+/**
+ * The text of a content block, when it is text.
+ *
+ * An image or a resource in a message is not something to render as a delta of the
+ * answer; the reader is here for the words.
+ */
+private fun ContentBlock.textOrNull(): String? = (this as? ContentBlock.Text)?.text

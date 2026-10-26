@@ -6,15 +6,12 @@ import com.singularity.todo.feature.genui.core.A2uiMessageProcessor
 import com.singularity.todo.feature.genui.core.A2uiValidator
 import com.singularity.todo.feature.genui.core.GenuiRejectionCounter
 import com.singularity.todo.feature.genui.core.GenuiUsageCounter
-import com.singularity.todo.feature.genui.engine.GenuiSession
+import com.singularity.todo.feature.genui.engine.SurfaceTurnFactory
 import com.singularity.todo.feature.genui.function.A2uiFunctionRegistry
 import com.singularity.todo.feature.genui.parser.A2uiParser
 import com.singularity.todo.feature.genui.render.ComponentRegistry
 import com.singularity.todo.feature.genui.render.material3.Material3Catalog
 import com.singularity.todo.feature.genui.surface.SurfaceController
-import com.singularity.todo.feature.genui.transport.BaseGenuiTransport
-import com.singularity.todo.feature.genui.transport.GenuiTransport
-import com.singularity.todo.feature.genui.transport.UsageRecordingGenuiTransport
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -23,8 +20,8 @@ import org.koin.dsl.module
  *
  * These were duplicated verbatim in the Android and JVM `aiToolsModule` actuals, which is the shape
  * that produces a binding registered twice in one platform and not at all in another. Nothing here
- * is platform-specific: the transport is supplied by the caller as [genuiTransport], so a platform
- * that has no model provider — or a test — substitutes its own without the graph growing a branch.
+ * is platform-specific: the screen is made from what the model wrote, and the model is asked by
+ * the chat's turn, not by this layer.
  */
 fun genuiModule(): Module = module {
     // The interface, not the object: everything downstream asks for A2uiCatalog, and a binding
@@ -39,22 +36,11 @@ fun genuiModule(): Module = module {
     single { A2uiMessageProcessor(get(), get()) }
     single { GenuiRejectionCounter() }
     // One tally for the process, injected into the parser so every turn accumulates into it.
-    // `GenuiSession` is a factory, so a counter created per session would answer "what did this
-    // conversation use" rather than the question the tally exists for: "what does the catalog
-    // actually earn".
+    // The screen is made per answer, so a counter created per answer would answer "what did this
+    // answer use" rather than the question the tally exists for: "what does the catalog actually
+    // earn".
     single { GenuiUsageCounter() }
     single { ComponentRegistry().also { Material3Catalog.installAll(it) } }
-    single<GenuiTransport> {
-        UsageRecordingGenuiTransport(get<BaseGenuiTransport>(), get(), get(), get())
-    }
-    factory {
-        GenuiSession(
-            get(),
-            get(),
-            get(),
-            get(),
-            get(),
-            rejectionCounter = get(),
-        )
-    }
+    // The screen of an answer is made per answer; everything it is made of is not.
+    factory { SurfaceTurnFactory(get(), get(), get(), get(), get()) }
 }

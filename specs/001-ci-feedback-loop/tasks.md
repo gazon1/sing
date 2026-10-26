@@ -497,7 +497,7 @@ uv run --python 3.12 bash scripts/ci/static-gates.sh
 
 | PR changes | Expected jobs |
 |-------------|---------------|
-| `docs/something.md` | `static` only |
+| `docs/CONTEXT.md` | `static` only |
 | `scripts/ci/static-gates.sh` | `static` only |
 | `shared/src/commonMain/**/*.kt` | `static` + `tests` + `ci-gate` |
 | `androidApp/src/**/*.kt` | `static` + `tests` + `ci-gate` |

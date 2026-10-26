@@ -3,7 +3,6 @@ package com.singularity.todo.feature.ai.chat
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.IdGenerator
-import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.llm.AgentActivityState
 import com.singularity.todo.core.llm.AgentEvent
 import com.singularity.todo.core.llm.AgentTurnOutcome
@@ -13,8 +12,8 @@ import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.feature.ai.TextGenPort
-import com.singularity.todo.feature.genui.engine.GenuiOutcome
-import com.singularity.todo.feature.genui.engine.GenuiSession
+import com.singularity.todo.feature.genui.engine.SurfaceTurn
+import com.singularity.todo.feature.genui.engine.SurfaceTurnFactory
 import com.singularity.todo.feature.genui.surface.SurfaceId
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -24,7 +23,9 @@ import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlin.coroutines.coroutineContext
 
 /**
  * AI chat state and intents.
@@ -39,13 +40,13 @@ class ChatViewModel(
     private val idGen: IdGenerator,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     /**
-     * The generated-UI path, when the platform has a model to drive it.
+     * The screens an answer may draw, when the platform has a model to drive them.
      *
      * Null on a platform with no provider, and null in tests that are about the text conversation.
-     * A reply may then carry text only — which is not a degraded mode, because most replies are
-     * text and a surface is the exception rather than the rule.
+     * An answer may then carry text only — which is not a degraded mode, because most answers are
+     * text and a screen is the exception rather than the rule.
      */
-    private val genui: GenuiSession? = null,
+    private val surfaces: SurfaceTurnFactory? = null,
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<ChatViewModel.State, ChatViewModel.Intent, ChatUiEvent>(
         initialState = State(),
@@ -99,6 +100,15 @@ class ChatViewModel(
     sealed interface Intent : MviIntent {
         data class InputChanged(val text: String) : Intent
         data object Send : Intent
+
+        /**
+         * The reader stops the turn that is running.
+         *
+         * An agent that cannot be stopped is an agent the reader has to wait for, and waiting is
+         * the one thing a reader who has understood the situation should not have to do.
+         */
+        data object Stop : Intent
+
         data object DismissSurfaceError : Intent
 
         /**
@@ -111,13 +121,29 @@ class ChatViewModel(
         data class SurfaceAction(val name: String, val context: JsonElement?) : Intent
     }
 
+    /**
+     * The turn that is running, if one is running.
+     *
+     * Held so that the reader can stop it. The turn is a coroutine of the ViewModel's scope, and
+     * cancelling it is the only honest way to stop it: the cancellation travels through the model
+     * call and reaches the provider, so the turn really ends rather than being abandoned while
+     * the model keeps talking to a socket nobody reads.
+     */
+    private var turnJob: Job? = null
+
     override fun onIntent(intent: Intent) {
         when (intent) {
             is Intent.InputChanged -> updateState { it.copy(input = it.input.echoed(intent.text)) }
             Intent.Send -> send(_state.value.input.text)
+            Intent.Stop -> stop()
             Intent.DismissSurfaceError -> updateState { it.copy(surfaceError = null) }
             is Intent.SurfaceAction -> act(intent.name, intent.context)
         }
+    }
+
+    /** Stops the turn that is running, if one is running. */
+    private fun stop() {
+        turnJob?.cancel()
     }
 
     /** One turn of the conversation, started by what the user typed. */
@@ -151,6 +177,15 @@ class ChatViewModel(
         if (_state.value.isLoading) return@launch
 
         val assistantId = newId()
+        // A fresh identifier per answer: a screen belongs to the answer that drew it. Two
+        // answers sharing one identifier would make an older message redraw whatever the
+        // newest answer produced, and an answer with no screen would empty the one an older
+        // message points at.
+        val surfaceId = SurfaceId(newId())
+        // The conversation as it was before this question, so the turn is asked in the context
+        // of the questions that came before it and not in the context of itself.
+        val history: List<ChatTurnRecord> = historyRecords()
+
         updateState { current ->
             current.copy(
                 input = current.input.cleared(),
@@ -172,22 +207,44 @@ class ChatViewModel(
             )
         }
 
+        turnJob = coroutineContext[Job]
         try {
-            val session: GenuiSession? = genui
-            if (session == null) {
-                streamTextReply(assistantId, prompt)
-            } else {
-                // A fresh identifier per answer: a surface belongs to the answer that drew it. Two
-                // answers sharing one identifier would make an older message redraw whatever the
-                // newest answer produced, and an answer with no screen would empty the one an older
-                // message points at.
-                renderSurfaceReply(assistantId, prompt, session, SurfaceId(newId()))
-            }
+            runTurn(assistantId, prompt, surfaceId, history)
         } finally {
             // The loading state is cleared on every path, including a cancellation: a turn
             // that was cancelled while the spinner was up must not leave the spinner up.
             updateState { it.copy(isLoading = false) }
+            turnJob = null
         }
+    }
+
+    /**
+     * The conversation so far, in the form the next turn hears it.
+     *
+     * A user's question and the answer it produced are one record: an answer that arrived
+     * without a question belongs to no question, and an answer that drew a screen is told about
+     * as "showed a screen" rather than as the screen itself.
+     */
+    private fun historyRecords(): List<ChatTurnRecord> {
+        val records: MutableList<ChatTurnRecord> = mutableListOf()
+        var question: String? = null
+        _state.value.messages.forEach { message: ChatMessage ->
+            when (message.role) {
+                ChatRole.User -> {
+                    question?.let { records += ChatTurnRecord(it, "", false) }
+                    question = message.content
+                }
+
+                ChatRole.Assistant -> {
+                    question?.let { asked: String ->
+                        records += ChatTurnRecord(asked, message.content, message.surfaceId != null)
+                    }
+                    question = null
+                }
+            }
+        }
+        question?.let { records += ChatTurnRecord(it, "", false) }
+        return records
     }
 
     /**
@@ -208,51 +265,30 @@ class ChatViewModel(
     }
 
     /**
-     * Asks the model for a surface, and falls back to the text conversation if it will not produce
-     * one.
+     * Asks the model, once, and folds what comes back into the screen.
      *
-     * The fallback is not a courtesy to the model. A surface is an answer to "show me", and a user
-     * who asked a question deserves a sentence even when the model found it easier to emit JSON.
+     * There is one path here, and it is the path production takes. The earlier shape had two —
+     * one for a platform with a screen and one without — and the one production took was the one
+     * no test drove, so the cards and the outcome rules were verified against a branch the
+     * application never ran.
      */
-    private suspend fun renderSurfaceReply(
+    @Suppress("NoSwallowedCancellation", "TooGenericExceptionCaught")
+    private suspend fun runTurn(
         assistantId: String,
         prompt: String,
-        session: GenuiSession,
         surfaceId: SurfaceId,
+        history: List<ChatTurnRecord>,
     ) {
-        val outcome: GenuiOutcome = runCatchingCancellable { session.respond(prompt, surfaceId) }
-            .getOrElse { error: Throwable ->
-                log.e(error) { "GenUI session failed" }
-                crashReporter.report(error, GENUI_FAILED)
-                emit(ChatUiEvent.Error("Could not generate a screen: ${error.message ?: "unknown error"}"))
-                streamTextReply(assistantId, prompt)
-                return
-            }
-
-        val text: String = outcome.text.ifBlank { "Here is what I found." }
-        applyReply(assistantId, text, outcome.surfaceId)
-        if (outcome.failed) {
-            updateState {
-                it.copy(surfaceError = "The screen could not be completed: ${outcome.feedback()}")
-            }
-        }
-        // The surface path produces an answer rather than a stream, so there is no completion
-        // event to wait for. The turn ended, and it ended with an answer on screen.
-        setOutcome(AgentTurnOutcome.Completed())
-    }
-
-    // The cancellation is re-thrown after the outcome is recorded: the reader has to see
-    // the turn as cancelled, and the cancellation still has to reach the caller.
-    @Suppress("NoSwallowedCancellation", "TooGenericExceptionCaught")
-    private suspend fun streamTextReply(assistantId: String, prompt: String) {
+        val surface: SurfaceTurn? = surfaces?.begin(surfaceId)
+        val turn = ChatTurn(agent = agent, surface = surface, history = history)
         val collected = StringBuilder()
         var completed = false
         try {
-            agent.streamChat(prompt).collect { event ->
+            turn.run(prompt).collect { event ->
                 when (event) {
                     is AgentEvent.TextDelta -> {
                         collected.append(event.text)
-                        applyReply(assistantId, collected.toString(), null)
+                        applyReply(assistantId, collected.toString().trim(), null)
                     }
 
                     is AgentEvent.ToolCallUpdated -> applyToolCall(event)
@@ -275,6 +311,21 @@ class ChatViewModel(
             setOutcome(AgentTurnOutcome.Failed(error.message ?: "AI request failed"))
             return
         }
+
+        // The screen, if the answer drew one. The identifier is filed on the answer only now:
+        // an answer that drew nothing must not point at a screen, and an answer that drew one
+        // must not point at nothing.
+        if (surface?.drawn == true) {
+            applyReply(assistantId, collected.toString(), surfaceId)
+        }
+        val rejections = surface?.rejections.orEmpty()
+        if (rejections.isNotEmpty()) {
+            val feedback: String = surface?.readerFeedback().orEmpty()
+            updateState {
+                it.copy(surfaceError = "The screen could not be completed: $feedback")
+            }
+        }
+
         // The stream ended without the completion event: the agent did not finish. Reporting
         // that as a completed turn would tell the reader the answer is complete when it is
         // not — and the missing text would be the very thing they needed to know.
@@ -327,7 +378,6 @@ class ChatViewModel(
     private companion object {
         /** Machine-shaped grouping key — it leaves the device. */
         const val CHAT_STREAM_FAILED = "chat.stream_failed"
-        const val GENUI_FAILED = "chat.genui_failed"
     }
 
     private fun newId(): String = idGen.next()

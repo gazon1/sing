@@ -1074,6 +1074,20 @@ the same gesture on every display.""",
             'The catalogue of the gate scripts, generated from their own docstrings. A catalogue that lost a tool is a catalogue that sends a reader to a tool that is not there.'
         ),
     ),
+        'the mobile build carries no external-agent code': Placement(
+            kind=PlacementKind.STATIC,
+            command="sgate the_mobile_build_carries_no_external_agent_code",
+            note=(
+                'The external-agent feature is desktop-only — the protocol library needs JDK 21, and this project keeps the Android target at JVM_11 bytecode.'
+            ),
+        ),
+        'a specification and the tree agree': Placement(
+            kind=PlacementKind.STATIC,
+            command="sgate a_specification_and_the_tree_agree",
+            note=(
+                'The gate reads the spec-kit feature specifications and checks that every requirement is traced and every promised check is a file in the tree.'
+            ),
+        ),
 }
 
 #: The gates that are deliberately NOT a line in ``scripts/ci/static-gates.sh``.

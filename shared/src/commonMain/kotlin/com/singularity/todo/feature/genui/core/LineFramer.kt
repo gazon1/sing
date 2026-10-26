@@ -41,6 +41,19 @@ class LineFramer(private val maxLineLength: Int = MAX_LINE_LENGTH) {
     private var insideFence: Boolean = false
     private var skippingOversizedLine: Boolean = false
 
+    /**
+     * The message being assembled, when it spans more than one line.
+     *
+     * A model asked for JSON Lines often pretty-prints instead, and a pretty-printed
+     * message is still one message: its first line opens it and a later line closes it.
+     * Reading it line by line would offer the parser a truncated object to reject — a
+     * rejection the model is then told about, for a message it had written correctly.
+     */
+    private var message: StringBuilder? = null
+
+    /** How deep the message being assembled is. */
+    private val depth = JsonMessageDepth()
+
     /** Feeds [chunk] and returns every complete line it finished. */
     fun accept(chunk: String): List<FramedLine> {
         val produced: MutableList<FramedLine> = mutableListOf()
@@ -65,6 +78,14 @@ class LineFramer(private val maxLineLength: Int = MAX_LINE_LENGTH) {
         val produced: MutableList<FramedLine> = mutableListOf()
         if (skippingOversizedLine) {
             finishSkipped(produced)
+        }
+        val open = message
+        if (open != null) {
+            // The message was cut off before it closed: the model stopped in the middle of it.
+            message = null
+            produced += FramedLine.Dropped(
+                "Response ended mid-message; ${open.length} characters discarded",
+            )
         }
         val remainder: String = buffer.toString().trim()
         buffer.clear()
@@ -94,23 +115,42 @@ class LineFramer(private val maxLineLength: Int = MAX_LINE_LENGTH) {
         }
         val line: String = buffer.toString().trim()
         buffer.clear()
-        if (line.isEmpty()) return
-        if (isFenceDelimiter(line)) {
-            insideFence = !insideFence
+        if (line.isEmpty() || isFenceDelimiter(line)) {
+            if (line.isNotEmpty()) insideFence = !insideFence
             return
         }
-        produced += classify(line)
+        if (continueMessage(line, produced)) return
+        if (looksLikeMessage(line)) {
+            if (depth.accept(line) > 0) {
+                // The message is not closed yet: it continues on the next line.
+                message = StringBuilder(line)
+            } else {
+                produced += FramedLine.Message(line)
+            }
+            return
+        }
+        produced += FramedLine.Prose(line)
+    }
+
+    /**
+     * Extends the message being assembled with [line], if there is one.
+     *
+     * @return whether the line was consumed as a continuation; false when no message is
+     *   open, so the caller decides what the line is on its own.
+     */
+    private fun continueMessage(line: String, produced: MutableList<FramedLine>): Boolean {
+        val open = message ?: return false
+        open.append('\n').append(line)
+        if (depth.accept(line) <= 0) {
+            message = null
+            produced += FramedLine.Message(open.toString())
+        }
+        return true
     }
 
     private fun finishSkipped(produced: MutableList<FramedLine>) {
         skippingOversizedLine = false
         produced += FramedLine.Dropped("Line exceeded $maxLineLength characters and was skipped")
-    }
-
-    private fun classify(line: String): FramedLine = when {
-        insideFence -> if (line.startsWith("{")) FramedLine.Message(line) else FramedLine.Prose(line)
-        line.startsWith("{") -> FramedLine.Message(line)
-        else -> FramedLine.Prose(line)
     }
 
     /**
@@ -120,11 +160,7 @@ class LineFramer(private val maxLineLength: Int = MAX_LINE_LENGTH) {
      * part that makes it fiddly: ` ```json ` is a fence, ` ```json lines ` is not, and treating
      * the first as prose meant the response rendered nothing while looking perfectly correct.
      */
-    private fun isFenceDelimiter(line: String): Boolean {
-        if (!line.startsWith("```")) return false
-        val rest: String = line.removePrefix("```").trim()
-        return rest.isEmpty() || !rest.contains(' ')
-    }
+    private fun isFenceDelimiter(line: String): Boolean = looksLikeFence(line)
 
     companion object {
         /**

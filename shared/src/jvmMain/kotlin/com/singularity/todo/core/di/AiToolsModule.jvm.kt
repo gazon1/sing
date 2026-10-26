@@ -68,8 +68,6 @@ import com.singularity.todo.feature.ai.use_cases.RefineTaskUseCase
 import com.singularity.todo.feature.ai.use_cases.RewriteNoteUseCase
 import com.singularity.todo.feature.ai.use_cases.SuggestTagsUseCase
 import com.singularity.todo.feature.ai.use_cases.SummarizeNoteUseCase
-import com.singularity.todo.feature.genui.transport.BaseGenuiTransport
-import com.singularity.todo.feature.genui.transport.KoogGenuiTransport
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.profile.ProfileSwitcherViewModel
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
@@ -96,7 +94,7 @@ actual fun aiToolsModule(): Module = module {
 
     // Interface bindings stay as explicit lambdas: `factoryOf(::Impl)` binds the concrete
     // type, so it cannot express `factory<ProfileAwareSecureStorage> { … }` or
-    // `factory<GenuiTransport> { … }` below. `ImproveNoteUseCase(tool = …)` keeps its
+    // `factory<ProfileAwareSecureStorage> { … }` below. `ImproveNoteUseCase(tool = …)` keeps its
     // named argument for the same reason — `factoryOf` passes positionally only.
     factory<ProfileAwareSecureStorage> {
         ProfileAwareSecureStorage(get(), get())
@@ -137,17 +135,11 @@ actual fun aiToolsModule(): Module = module {
             agent = get(),
             idGen = get(),
             crashReporter = get(),
-            genui = get(),
+            surfaces = get(),
         )
     }
     viewModel { AiUsageViewModel(usageRecorder = get(), profileRepository = get(), crashReporter = get()) }
     viewModel { ProfileSwitcherViewModel(profileRepository = get(), crashReporter = get(), clock = get()) }
-
-    // ─── GenUI ───
-
-    // The bindings themselves live in one shared module; what stays here is the part that is
-    // genuinely platform-specific, which is the transport the shared module decorates.
-    single<BaseGenuiTransport> { KoogGenuiTransport(get()) }
 
     // ─── AI Use Cases ───
 
