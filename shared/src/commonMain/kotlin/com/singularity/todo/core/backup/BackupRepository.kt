@@ -133,6 +133,7 @@ class BackupRepositoryImpl(
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
     /**
+    /**
      * The archive's envelope — the container that is sealed and opened.
      *
      * It is here for the **scheduled** push: that path seals the archive under
@@ -143,6 +144,15 @@ class BackupRepositoryImpl(
      * The key a device seals with when no person is there.
      */
     private val deviceKeyStore: DeviceKeyStore,
+    /**
+     * Where the backup keeps its own bookkeeping.
+     *
+     * A push has to know which changes follow the archive it uploads — that is
+     * what the bookkeeping holds — and a restore has to know what the archive
+     * it fetched was. The bookkeeping is device-local and never uploaded: see
+     * [BackupCursorStore].
+     */
+    private val cursors: BackupCursorStore,
     /**
      * Where the archive's own work happens.
      *
@@ -219,7 +229,7 @@ class BackupRepositoryImpl(
                     scanBackups().find { it.id == backupId }
                         ?: throw BackupStorageError.FileNotFound(backupId.value)
                 remoteService
-                    .upload(backup.path, currentUser.scopedUserId.value, password)
+                    .upload(chainFor(backup.path), currentUser.scopedUserId.value, password)
                     .getOrThrow()
             }
         } finally {
@@ -228,6 +238,39 @@ class BackupRepositoryImpl(
             // service, the archive was not there to be encrypted.
             password.fill('\u0000')
         }
+
+    /**
+     * What a push carries: the archive, and the changes that follow it.
+     *
+     * The chain is the base the changes were written against and the changes
+     * themselves — so a push of an archive in the middle of a chain carries the
+     * base of that chain, not the archive. The name in the bucket is still the
+     * archive's own: it is the one the person pushed and the one they will see
+     * in the list.
+     *
+     * When the chain cannot be assembled — the base is gone, or a change is —
+     * the archive goes up alone. A push of a whole snapshot is not what the
+     * person asked for, but it is a backup, and the alternative is a failure
+     * over bookkeeping.
+     */
+    private suspend fun chainFor(archivePath: String): RemoteArchive {
+        val name = archivePath.substringAfterLast('/')
+        val state = cursors.load(currentUser.scopedUserId.value)
+        val base = state.baseArchivePath
+        val index = state.entries.indexOfFirst { it.archivePath == archivePath }
+        if (base == null || index < 0 || !fs.exists(base)) {
+            return RemoteArchive(basePath = archivePath, name = name)
+        }
+        val changes = state.entries.take(index + 1)
+        if (changes.any { !fs.exists(it.deltaPath) }) {
+            return RemoteArchive(basePath = archivePath, name = name)
+        }
+        return RemoteArchive(
+            basePath = base,
+            entries = changes.map { it.deltaPath },
+            name = name,
+        )
+    }
 
     override suspend fun listRemote(): Result<List<RemoteBackup>> =
         runCatchingCancellable {
@@ -256,14 +299,16 @@ class BackupRepositoryImpl(
                 val fileName = RemoteBackupService.localFileName(remoteRef)
                 fs.ensureDir(backupDir)
                 val destPath = resolveBackupDestination(backupDir, fileName)
-                remoteService
-                    .download(remoteRef, destPath, currentUser.scopedUserId.value, password)
-                    .getOrThrow()
+                val downloaded =
+                    remoteService
+                        .download(remoteRef, destPath, currentUser.scopedUserId.value, password)
+                        .getOrThrow()
                 try {
                     importer.import(
                         ImportOptions(
                             sourcePath = destPath,
                             targetUserId = currentUser.scopedUserId.value,
+                            entries = downloaded.entries,
                         ),
                     ).getOrThrow()
                 } catch (error: Exception) {

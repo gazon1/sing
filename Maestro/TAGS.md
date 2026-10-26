@@ -276,6 +276,7 @@ non-alphanumeric characters with `_`.
 ### Backup
 | Constant | Value | Where |
 |---|---|---|
+| `BACKUP_AUTHORIZE_SCHEDULED_BUTTON` | `backup_authorize_scheduled_button` | |
 | `BACKUP_CREATE_BUTTON` | `backup_create_button` | |
 | `BACKUP_EXPORT_SETTINGS` | `backup_export_settings` | |
 | `BACKUP_IMPORT_SETTINGS` | `backup_import_settings` | |

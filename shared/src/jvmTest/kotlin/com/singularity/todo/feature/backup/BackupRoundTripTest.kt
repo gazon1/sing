@@ -7,6 +7,7 @@ import co.touchlab.kermit.Logger
 import co.touchlab.kermit.loggerConfigInit
 import com.singularity.todo.core.attachments.AttachmentStorage
 import com.singularity.todo.core.auth.Session
+import com.singularity.todo.core.backup.BackupCursorStore
 import com.singularity.todo.core.backup.BackupExporter
 import com.singularity.todo.core.backup.BackupImporter
 import com.singularity.todo.core.backup.JvmBackupCodec
@@ -269,6 +270,7 @@ class BackupRoundTripTest {
         codec = JvmBackupCodec(),
         clock = Clock.System,
         fs = fs,
+        cursors = BackupCursorStore(fs = fs, dir = File(tempDir, "cursor").absolutePath),
     )
 
     /** The importer writes into the empty target database. */

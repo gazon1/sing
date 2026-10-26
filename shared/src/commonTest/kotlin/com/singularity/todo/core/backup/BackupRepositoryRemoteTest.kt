@@ -45,6 +45,7 @@ class BackupRepositoryRemoteTest {
         private val fs: FileSystem? = null,
         private val listed: List<BucketObject> = emptyList(),
         private val downloadFailure: Throwable? = null,
+        private val downloadedEntries: List<ByteArray> = emptyList(),
     ) : RemoteBackupService {
         /** The paths the download was asked to write to, in order. */
         val downloadedTo = mutableListOf<String>()
@@ -52,8 +53,17 @@ class BackupRepositoryRemoteTest {
         /** The refs the download was asked for, in order. */
         val downloadedRefs = mutableListOf<String>()
 
-        override suspend fun upload(localPath: String, userId: UserId, password: CharArray): Result<String> =
-            Result.success("$userId/${localPath.substringAfterLast('/')}")
+        /** The archives the upload was asked for, in order. */
+        val uploaded = mutableListOf<RemoteArchive>()
+
+        override suspend fun upload(
+            archive: RemoteArchive,
+            userId: UserId,
+            password: CharArray,
+        ): Result<String> {
+            uploaded += archive
+            return Result.success("$userId/${archive.name}")
+        }
 
         override suspend fun uploadSealed(
             localPath: String,
@@ -66,14 +76,14 @@ class BackupRepositoryRemoteTest {
             destPath: String,
             userId: UserId,
             password: CharArray,
-        ): Result<Unit> {
+        ): Result<DownloadedArchive> {
             downloadedRefs += remoteRef
             downloadedTo += destPath
             downloadFailure?.let { return Result.failure(it) }
             // The download really writes the archive: the cleanup of a failed
             // import is only worth a test if there is a file to clean up.
             fs?.writeBytes(destPath, byteArrayOf(1, 2, 3))
-            return Result.success(Unit)
+            return Result.success(DownloadedArchive(basePath = destPath, entries = downloadedEntries))
         }
 
         override suspend fun list(userId: UserId): Result<List<BucketObject>> = Result.success(listed)
@@ -83,8 +93,12 @@ class BackupRepositoryRemoteTest {
         /** The paths the import was asked to read, in order. */
         val importedFrom = mutableListOf<String>()
 
+        /** The changes the import was asked to apply, in order. */
+        val importedEntries = mutableListOf<List<ByteArray>>()
+
         override suspend fun import(options: ImportOptions): Result<RestoreResult> {
             importedFrom += options.sourcePath
+            importedEntries += options.entries
             failure?.let { return Result.failure(it) }
             return Result.success(
                 RestoreResult(
@@ -125,6 +139,7 @@ class BackupRepositoryRemoteTest {
         clock = FixedClock(),
         archive = EncryptedArchive(FakeArchiveCrypto()),
         deviceKeyStore = FakeDeviceKeyStore(EncryptedArchive(FakeArchiveCrypto())),
+        cursors = BackupCursorStore(fs = fs, dir = backupDir),
         // The repository moves its work onto an IO dispatcher; the test hands in
         // an unconfined one so the call stays inside the test's own thread.
         ioDispatcher = Dispatchers.Unconfined,
@@ -229,6 +244,90 @@ class BackupRepositoryRemoteTest {
             secret.all { it == '\u0000' },
             "the password must not survive the call: ${secret.concatToString()}",
         )
+    }
+
+    /**
+     * A push carries the chain the archive belongs to.
+     *
+     * The base and the changes travel together, because a change says "on top
+     * of that base" — a push that carried only the change would carry nothing
+     * that could be restored. The name in the bucket is still the archive's own
+     * name: it is the one the person pushed.
+     */
+    @Test
+    fun `a push carries the base and the changes that follow the archive`() = runTest {
+        val fs = MapFileSystem()
+        fs.writeBytes("$backupDir/a.zip", byteArrayOf(1))
+        fs.writeBytes("$backupDir/b.zip", byteArrayOf(2))
+        fs.writeBytes("$backupDir/b.zip.delta", byteArrayOf(3))
+        val cursors = BackupCursorStore(fs = fs, dir = backupDir)
+        cursors.save(
+            UserId("u-1"),
+            BackupCursorState(
+                cursor = 10L,
+                baseArchivePath = "$backupDir/a.zip",
+                entries = listOf(
+                    BackupChainEntry(
+                        archivePath = "$backupDir/b.zip",
+                        deltaPath = "$backupDir/b.zip.delta",
+                        byteSize = 1L,
+                    ),
+                ),
+            ),
+        )
+        val remote = FakeRemoteBackupService()
+
+        val result = repository(fs, remote, RecordingImporter()).push(BackupId("b"), "horse".toCharArray())
+
+        assertTrue(result.isSuccess, "the push must succeed: $result")
+        val pushed = remote.uploaded.single()
+        assertEquals("$backupDir/a.zip", pushed.basePath, "the base of the chain is what travels")
+        assertEquals(listOf("$backupDir/b.zip.delta"), pushed.entries, "the changes travel with the base")
+        assertEquals("b.zip", pushed.name, "the object keeps the name of the archive that was pushed")
+    }
+
+    /**
+     * A push of an archive that is not part of a chain carries that archive
+     * alone.
+     *
+     * The bookkeeping can be behind the disk — a file that was deleted, a state
+     * that was never written — and a push that failed over bookkeeping would be
+     * a backup that did not happen.
+     */
+    @Test
+    fun `a push of an archive outside a chain carries that archive alone`() = runTest {
+        val fs = MapFileSystem()
+        fs.writeBytes("$backupDir/lonely.zip", byteArrayOf(1))
+        val remote = FakeRemoteBackupService()
+
+        val result = repository(fs, remote, RecordingImporter())
+            .push(BackupId("lonely"), "horse".toCharArray())
+
+        assertTrue(result.isSuccess, "the push must succeed: $result")
+        val pushed = remote.uploaded.single()
+        assertEquals("$backupDir/lonely.zip", pushed.basePath)
+        assertTrue(pushed.entries.isEmpty(), "there are no changes to carry")
+    }
+
+    /**
+     * The changes that came down with the archive are handed to the importer.
+     *
+     * A download that brought back the base alone would restore an older state
+     * and call it current — the base is what the chain started from, and the
+     * changes are what the account looks like now.
+     */
+    @Test
+    fun `the changes that came down are applied after the archive`() = runTest {
+        val fs = MapFileSystem()
+        val change = "the-change".encodeToByteArray()
+        val remote = FakeRemoteBackupService(fs = fs, downloadedEntries = listOf(change))
+        val importer = RecordingImporter()
+
+        val result = repository(fs, remote, importer)
+            .restoreFromCloud("u-1/singularity_backup_1.zip", "correct horse".toCharArray())
+
+        assertTrue(result.isSuccess, "the restore must succeed: $result")
+        assertEquals(listOf(listOf(change)), importer.importedEntries)
     }
 
     /**

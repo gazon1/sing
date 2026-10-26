@@ -26,6 +26,7 @@ import com.singularity.todo.core.backup.BackupImporter
 import com.singularity.todo.core.backup.BackupBucket
 import com.singularity.todo.core.backup.BackupRepository
 import com.singularity.todo.core.backup.BackupRepositoryImpl
+import com.singularity.todo.core.backup.BackupCursorStore
 import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.DeviceKeyStore
 import com.singularity.todo.core.backup.EncryptedArchive
@@ -402,6 +403,14 @@ fun coreModule(): org.koin.core.module.Module =
 
         // ─── Backup ─────────────────────────────────────────────────────────
 
+        // Where the backup keeps its own bookkeeping: the cursor, the chain and
+        // the fingerprints of the last export's rows.
+        //
+        // It lives in the backup directory, and it is device-local: the push
+        // names the archive it uploads and the changes that follow it, and the
+        // bookkeeping is not among them.
+        single { BackupCursorStore(fs = get(), dir = get(BackupDirQualifier)) }
+
         // The repository talks to the archive through the two ports, not to the
         // concrete classes: the ports are what a test can replace.
         singleOf(::BackupExporter)
@@ -441,6 +450,7 @@ fun coreModule(): org.koin.core.module.Module =
                 clock = get(),
                 archive = get(),
                 deviceKeyStore = get(),
+                cursors = get(),
                 ioDispatcher = get(),
             )
         }
