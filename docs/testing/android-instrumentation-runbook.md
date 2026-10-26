@@ -154,8 +154,24 @@ so its report is below the floor by construction.
   An empty artifact set is a measurement of "nothing ran", not of "everything
   passed".
 
-## Links
+## Real-device Maestro run with auth bypass
 
+For running Maestro flows on a physical device with `TEST_AUTH_BYPASS=true`:
+
+1. Build & install the bypass APK:
+   `./gw :androidApp:assembleDebug -PTEST_AUTH_BYPASS=true` then
+   `adb install -r androidApp/build/outputs/apk/debug/androidApp-debug.apk`.
+2. Wipe stale state (safe on a bypass build — no real session needed):
+   `adb shell pm clear com.singularity.todo`.
+3. Seed content: `adb shell am start -a android.intent.action.VIEW -d "todo-debug://seed?reset=content" com.singularity.todo`.
+4. Unlock the screen (`adb shell input keyevent 82`) — the lock screen / notification
+   shade otherwise covers the app and uiautomator/Maestro see only system UI.
+5. Run: `maestro test <flow> --env RUN_ID=<id>`.
+
+Gotcha: `launch-clean.yaml` uses `clearState: false` (for real-auth runs). On a bypass
+build the persisted session is unnecessary and can mask the bypass, hence the `pm clear`.
+
+## Links
 - `docs/decisions/2026-10-07-the-instrumentation-tier-ran-in-no-ci-job.md` — why
   the tier is a separate workflow rather than a registry gate
 - `docs/decisions/2026-10-20-android-instrumented-smoke-on-every-pr.md` — why
