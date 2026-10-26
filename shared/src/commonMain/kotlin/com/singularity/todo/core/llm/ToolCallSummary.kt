@@ -21,6 +21,45 @@ private const val MAX_FIELDS: Int = 6
 private val summaryJson = Json { ignoreUnknownKeys = true }
 
 /**
+ * The field names whose values may be quoted.
+ *
+ * ## Why a list and not a length rule
+ *
+ * A length rule cannot tell a note body from a task title: "Buy milk" is four characters
+ * either way. So the rule was "quote anything short and single-line", and a one-line note
+ * body — the exact content the summary exists to keep off the screen — was quoted into the
+ * card. FR-020 says the summary must contain *only identifying information*, and a bound on
+ * the value cannot express that.
+ *
+ * So the decision is field-based: a value is quoted only when its **field** identifies rather
+ * than describes. Everything else is named and elided (`body=…`), because the reader needs to
+ * know *what kind of thing* was touched, not what it says. The list is explicit so that a new
+ * free-text argument cannot leak by being short; it has to be added here, where a reviewer
+ * sees it, and the reason it is identifying written next to it.
+ *
+ * ## Why numbers and flags need no entry
+ *
+ * A JSON number or boolean is not free text, whatever its field is called: it cannot carry a
+ * paragraph. Those are quoted by the value rule alone (see [describe]).
+ */
+private val IDENTIFYING_FIELDS: Set<String> = setOf(
+    // Identifiers: the name of a row, which is all a card needs to say what was touched.
+    "id", "taskId", "noteId", "projectId", "tagId", "tagGroupId", "parentId", "parentNoteId",
+    "itemId", "attachmentId", "seriesId", "proposalId", "callId", "userId", "profileId",
+    "dependsOnTaskId", "dependsOn",
+    // Titles and names: the label of the thing, not its content.
+    "title", "name", "label", "slug",
+    // Categorical values: a kind, a state, a rank — one word from a closed set.
+    "kind", "status", "priority", "tone", "verb", "operation", "field", "mode",
+    // Dates, numbers and bounds.
+    "dueDate", "dueTime", "startDate", "endDate", "startsAt", "endsAt", "date", "time",
+    "limit", "sortOrder", "color", "offset",
+    // Flags.
+    "isPinned", "isFolder", "isDefault", "isCompleted", "isPinnedToday", "someday",
+    "completed", "archived", "deleted", "recurring",
+)
+
+/**
  * A short, sanitized description of what a tool call touched.
  *
  * ## Why this is not "the arguments"
@@ -31,10 +70,11 @@ private val summaryJson = Json { ignoreUnknownKeys = true }
  * that shows a note body puts that content on a screen that was about to be shared,
  * photographed or screenshotted.
  *
- * So the summary names the fields and quotes the values that are too short to be prose:
- * identifiers, ids, titles, numbers, flags. A value that is long, or that spans lines, is
- * replaced by an ellipsis — it is either free text or a document, and neither belongs in a
- * label.
+ * So the summary names the fields, quotes the values of fields that **identify** (see
+ * [IDENTIFYING_FIELDS]) and that are short and single-line, and replaces every other value
+ * with an ellipsis. A free-text value — a note body, a description, a query — is elided
+ * whether it is long or short, because its length says nothing about whether it is the
+ * reader's content.
  *
  * ## Why it is a function and not UI code
  *
@@ -56,7 +96,7 @@ fun toolCallSummary(toolName: String, argumentsJson: String?): String {
     if (fields == null || fields.isEmpty()) return head
 
     val described = fields.entries.take(MAX_FIELDS).map { (name, value) ->
-        "$name=${describe(value)}"
+        "$name=${describe(name, value)}"
     }.joinToString(", ")
 
     val overflow = fields.size - MAX_FIELDS
@@ -66,14 +106,19 @@ fun toolCallSummary(toolName: String, argumentsJson: String?): String {
 }
 
 /**
- * One field's value, quoted only if it is too short to be prose.
+ * One field's value, quoted only if the field identifies and the value is a label.
+ *
+ * Numbers and flags are quoted by the value rule alone: they cannot carry free text. A
+ * string is quoted only when its field is in [IDENTIFYING_FIELDS] — the field decides, not
+ * the length, because a short value is exactly as likely to be the reader's own words.
  */
-private fun describe(value: kotlinx.serialization.json.JsonElement): String {
+private fun describe(name: String, value: kotlinx.serialization.json.JsonElement): String {
     val primitive = value as? JsonPrimitive ?: return "…"
     val text = primitive.content
     return when {
         !primitive.isString -> if (text.length <= MAX_VALUE_LENGTH) text else "…"
         text.isEmpty() -> "∅"
+        name !in IDENTIFYING_FIELDS -> "…"
         text.isDocument() -> "…"
         else -> text
     }

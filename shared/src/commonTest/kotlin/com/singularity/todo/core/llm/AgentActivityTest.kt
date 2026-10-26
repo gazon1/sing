@@ -91,8 +91,11 @@ class AgentActivityTest {
      */
     @Test
     fun aSummaryIsLengthBounded() {
+        // Identifying fields (so the quoting rule does not shrink them first), each at the
+        // value limit, so the summary is large enough for the length bound to bite.
         val value = "x".repeat(60)
-        val fields = (1..8).joinToString(",") { """"field$it":"$value"""" }
+        val fields = listOf("title", "name", "label", "slug", "kind", "status", "tone", "verb")
+            .joinToString(",") { """"$it":"$value"""" }
 
         val summary = toolCallSummary(toolName = "create_task", argumentsJson = "{$fields}")
 
@@ -109,9 +112,8 @@ class AgentActivityTest {
     /**
      * A value that is too long to be a label is not quoted.
      *
-     * The rule is a bound on the value, not on the summary alone: a note body of a
-     * hundred characters is short enough to fit in a card and long enough to be the
-     * user's content, so it is replaced by an ellipsis rather than shown.
+     * A note body of a hundred characters is short enough to fit in a card and long enough to
+     * be the user's content, so it is replaced by an ellipsis rather than shown.
      */
     @Test
     fun aValueThatIsTooLongToBeALabelIsNotQuoted() {
