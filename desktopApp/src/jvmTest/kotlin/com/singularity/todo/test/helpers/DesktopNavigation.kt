@@ -26,11 +26,23 @@ object DesktopShell {
     const val FAB_ADD_TASK = "Add task"
     const val FAB_ADD_PROJECT = "Add project"
 
-    /** The six top-level tabs, in drawer order. */
-    val TABS = listOf("Inbox", "Today", "Upcoming", "Plans", "Pomodoro", "Calendar")
+    /** The five top-level tabs, in drawer order. */
+    val TABS = listOf("Inbox", "Today", "Upcoming", "Plans", "Pomodoro")
 
-    /** The seven destinations behind the drawer's second group. */
-    val MENU_ENTRIES = listOf("Statistics", "Notes", "AI Chat", "Search", "Archive", "Profiles", "Settings")
+    /** The entry at the end of the drawer's Projects section. */
+    const val ALL_PROJECTS_ENTRY = "All projects"
+
+    /** The destinations behind the drawer's second group, the menu proper. */
+    val MENU_ENTRIES = listOf(
+        "Statistics",
+        "Notes",
+        "AI Chat",
+        "Search",
+        "Archive",
+        "Calendar",
+        "Profiles",
+        "Settings",
+    )
 }
 
 /**
@@ -116,6 +128,24 @@ fun DesktopComposeUiTest.goBack() = step("goBack") {
             .fetchSemanticsNodes()
             .isNotEmpty()
     }
+    waitForIdle()
+}
+
+/**
+ * Opens the full project list from the drawer's Projects section.
+ *
+ * The project list is not a tab any more — it left the bottom bar with the rest
+ * of the projects — so a flow that needs it goes through the menu, the same way
+ * the user does.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.openAllProjects() = step("openAllProjects") {
+    openDrawer()
+    onNode(drawerEntry(DesktopShell.ALL_PROJECTS_ENTRY)).performScrollTo().performClick()
+    waitUntil(
+        conditionDescription = "drawer closes after selecting '${DesktopShell.ALL_PROJECTS_ENTRY}'",
+        timeoutMillis = TIMEOUT_MS,
+    ) { !isDrawerOpen() }
     waitForIdle()
 }
 

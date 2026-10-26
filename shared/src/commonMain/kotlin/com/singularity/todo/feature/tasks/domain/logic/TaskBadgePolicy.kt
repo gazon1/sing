@@ -1,15 +1,14 @@
-package com.singularity.todo.feature.agenda.domain.logic
+package com.singularity.todo.feature.tasks.domain.logic
 
-import com.singularity.todo.feature.agenda.domain.model.AgendaBadge
-import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskBadge
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.datetime.LocalDate
 
 /**
  * Pure badge computation for a single [Task].
  *
- * Returns the [AgendaBadge] that should be shown for [task] on [today], or `null`
+ * Returns the [TaskBadge] that should be shown for [task] on [today], or `null`
  * when the task has no special badge (normal in-date task).
  *
  * ## Priority (first non-null wins)
@@ -26,17 +25,19 @@ import kotlinx.datetime.LocalDate
  *
  * ## Single source of truth
  *
- * Both [AgendaEvaluator.computeBadge] and [com.singularity.todo.feature.agenda.domain.selector.DefaultBadgeRules]
- * delegate to this function so the priority table above is enforced in one place.
+ * Both the agenda's evaluator and its selector badge rules delegate to this
+ * function, so the priority table above is enforced in one place. It moved out
+ * of the agenda feature because the plans timeline renders the same rows and
+ * must reach the same verdict — one policy, one vocabulary.
  *
  * @param task The task to evaluate.
  * @param today The reference date for overdue / active checks.
  * @param allTasks Required only when [Blocking.isBlocked] needs to be evaluated.
  *                 Pass an empty list when badge evaluation for blocked tasks is not needed.
  */
-fun computeAgendaBadge(task: Task, today: LocalDate, allTasks: List<Task> = emptyList()): AgendaBadge? {
+fun computeTaskBadge(task: Task, today: LocalDate, allTasks: List<Task> = emptyList()): TaskBadge? {
     val blockedIds = Blocking.blockedTaskIds(allTasks)
-    return computeAgendaBadge(task, today, blockedIds)
+    return computeTaskBadge(task, today, blockedIds)
 }
 
 /**
@@ -49,12 +50,12 @@ fun computeAgendaBadge(task: Task, today: LocalDate, allTasks: List<Task> = empt
  * Semantically identical to the [allTasks] overload; the set is consulted instead
  * of recomputed.
  */
-fun computeAgendaBadge(task: Task, today: LocalDate, blockedIds: Set<TaskId>): AgendaBadge? = when {
-    task.id in blockedIds -> AgendaBadge.Blocked
-    task.isPinned -> AgendaBadge.Pinned
-    task.recurrence != null -> AgendaBadge.Recurring
-    task.isCompleted -> AgendaBadge.Completed
-    task.dueDate != null && task.dueDate < today -> AgendaBadge.Overdue
-    task.dueDate == null -> AgendaBadge.NoDate
+fun computeTaskBadge(task: Task, today: LocalDate, blockedIds: Set<TaskId>): TaskBadge? = when {
+    task.id in blockedIds -> TaskBadge.Blocked
+    task.isPinned -> TaskBadge.Pinned
+    task.recurrence != null -> TaskBadge.Recurring
+    task.isCompleted -> TaskBadge.Completed
+    task.dueDate != null && task.dueDate < today -> TaskBadge.Overdue
+    task.dueDate == null -> TaskBadge.NoDate
     else -> null
 }

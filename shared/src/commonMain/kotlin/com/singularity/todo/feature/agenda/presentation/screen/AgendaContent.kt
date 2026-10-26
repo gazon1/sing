@@ -32,6 +32,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -43,13 +44,12 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.core.ui.components.formatRussianDueDate
 import com.singularity.todo.core.ui.menu.onSecondaryClick
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import com.singularity.todo.feature.agenda.domain.model.AgendaBadge
+import com.singularity.todo.feature.tasks.domain.model.TaskBadge
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
-import com.singularity.todo.feature.agenda.domain.model.AgendaRowItem
+import com.singularity.todo.feature.tasks.domain.model.TaskRowItem
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
 import com.singularity.todo.feature.agenda.domain.model.RenderedSection
 import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
@@ -57,16 +57,15 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.components.list.SwipeableTaskRow
 import com.singularity.todo.feature.tasks.presentation.components.list.TaskRowFlat
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
+import com.singularity.todo.feature.tasks.presentation.model.toTaskUi
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
-import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
-import androidx.compose.runtime.getValue
 
 /**
  * Content composable for the Agenda screen.
@@ -390,7 +389,7 @@ private fun AgendaSectionHeader(name: String, badge: Int?, onAddClick: (() -> Un
 
 @Composable
 private fun AgendaTaskRow(
-    rowItem: AgendaRowItem,
+    rowItem: TaskRowItem,
     today: LocalDate,
     isSelectionMode: Boolean,
     selectedTaskIds: ImmutableSet<TaskId>,
@@ -401,23 +400,7 @@ private fun AgendaTaskRow(
     val isSelected = task.id in selectedTaskIds
     val isOverdue = TaskComputed.isOverdue(task, today)
     val taskUi = remember(task, rowItem, isOverdue, isSelected) {
-        TaskUi(
-            id = task.id,
-            title = task.title,
-            project = null,
-            dueLabel = formatRussianDueDate(task.dueDate),
-            parentId = task.parentTaskId?.value,
-            indentLevel = if (task.parentTaskId != null) 1 else 0,
-            isRecurring = false,
-            isPinned = task.isPinned,
-            priority = task.priority,
-            isCompleted = task.completedAt != null,
-            isOverdue = isOverdue,
-            isSelected = isSelected,
-            blockedBy = task.blockedBy.toImmutableSet(),
-            isBlocked = rowItem.isBlocked,
-            seriesDates = rowItem.seriesDates,
-        )
+        rowItem.toTaskUi(today = today, isSelected = isSelected)
     }
 
     // Right-click handler — uses onSecondaryClick (expect/actual, jvmMain actual).
@@ -538,21 +521,21 @@ private fun AgendaContentLoadedPreview() = PreviewThemed(darkTheme = false, useS
                     id = "overdue",
                     name = "Overdue",
                     tasks = persistentListOf(
-                        AgendaRowItem(task = overdueTask, badge = AgendaBadge.Overdue, isBlocked = false),
+                        TaskRowItem(task = overdueTask, badge = TaskBadge.Overdue, isBlocked = false),
                     ),
                     badge = 1,
                 ),
                 RenderedSection(
                     id = "today",
                     name = "Today",
-                    tasks = persistentListOf(AgendaRowItem(task = todayTask, isBlocked = false)),
+                    tasks = persistentListOf(TaskRowItem(task = todayTask, isBlocked = false)),
                     badge = null,
                 ),
                 RenderedSection(
                     id = "completed",
                     name = "Completed",
                     tasks = persistentListOf(
-                        AgendaRowItem(task = completedTask, badge = AgendaBadge.Completed, isBlocked = false),
+                        TaskRowItem(task = completedTask, badge = TaskBadge.Completed, isBlocked = false),
                     ),
                     badge = null,
                 ),
@@ -560,8 +543,8 @@ private fun AgendaContentLoadedPreview() = PreviewThemed(darkTheme = false, useS
                     id = "upcoming",
                     name = "Upcoming",
                     tasks = persistentListOf(
-                        AgendaRowItem(task = pinnedTask, badge = AgendaBadge.Pinned, isBlocked = false),
-                        AgendaRowItem(task = noDateTask, badge = AgendaBadge.NoDate, isBlocked = false),
+                        TaskRowItem(task = pinnedTask, badge = TaskBadge.Pinned, isBlocked = false),
+                        TaskRowItem(task = noDateTask, badge = TaskBadge.NoDate, isBlocked = false),
                     ),
                     badge = null,
                 ),
@@ -590,8 +573,8 @@ private fun AgendaContentSelectionModePreview() = PreviewThemed(darkTheme = fals
                     id = "today",
                     name = "Today",
                     tasks = persistentListOf(
-                        AgendaRowItem(task = task1, isBlocked = false),
-                        AgendaRowItem(task = task2, isBlocked = false),
+                        TaskRowItem(task = task1, isBlocked = false),
+                        TaskRowItem(task = task2, isBlocked = false),
                     ),
                     badge = null,
                 ),
@@ -617,8 +600,8 @@ private fun AgendaContentDarkPreview() = PreviewThemed(darkTheme = true, useSurf
                     id = "today",
                     name = "Today",
                     tasks = persistentListOf(
-                        AgendaRowItem(task = PreviewSamples.task(id = "t1", title = "Review PR", dueDate = today)),
-                        AgendaRowItem(task = PreviewSamples.task(id = "t2", title = "Send report", dueDate = today)),
+                        TaskRowItem(task = PreviewSamples.task(id = "t1", title = "Review PR", dueDate = today)),
+                        TaskRowItem(task = PreviewSamples.task(id = "t2", title = "Send report", dueDate = today)),
                     ),
                     badge = null,
                 ),

@@ -17,6 +17,7 @@ import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
 import com.singularity.todo.core.tasks.TasksSettingsRepository
 import com.singularity.todo.feature.agenda.DataStoreDefaultAgendaViewSettingsRepository
 import com.singularity.todo.feature.agenda.domain.port.DefaultAgendaViewSettingsRepository
+import com.singularity.todo.feature.plans.domain.port.PlansSettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -37,6 +38,7 @@ object SettingsNamespace {
     const val ONBOARDING = "onboarding"
     const val BACKUP = "backup"
     const val TASKS = "tasks"
+    const val PLANS = "plans"
 
     fun key(ns: String, name: String): String = "$ns.$name"
 }
@@ -67,6 +69,7 @@ interface SettingsRepository :
     val workSchedule: WorkScheduleSettingsRepository
     val greeting: GreetingSettingsRepository
     val defaultAgendaView: DefaultAgendaViewSettingsRepository
+    val plans: PlansSettingsRepository
     val onboarding: com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
 
     // ── AI (flat — AiSettingsStore depends on these) ─────────────────────────
@@ -190,6 +193,8 @@ class DataStoreSettingsRepository(private val dataStore: DataStore<Preferences>)
         DataStoreGreetingSettingsRepository(dataStore)
     override val defaultAgendaView: DefaultAgendaViewSettingsRepository =
         DataStoreDefaultAgendaViewSettingsRepository(dataStore)
+    override val plans: PlansSettingsRepository =
+        com.singularity.todo.feature.plans.data.DataStorePlansSettingsRepository(dataStore)
     override val onboarding: com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository =
         com.singularity.todo.core.ui.onboarding.DataStoreOnboardingSettingsRepository(dataStore)
 

@@ -7,8 +7,10 @@ import com.singularity.todo.feature.projects.domain.usecase.CloseProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.CreateProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
+import com.singularity.todo.feature.projects.presentation.nav.ProjectsOpener
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectDetailViewModel
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectEditorViewModel
+import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTreeViewModel
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
@@ -71,6 +73,20 @@ fun projectsModule(): org.koin.core.module.Module = module {
             projectReminders = get(),
             notificationsSettings = get(),
             clock = get(),
+            crashReporter = get(),
+        )
+    }
+
+    // ─── The menu's project tree ─────────────────────────────────────────────
+
+    // The rendezvous between the menu's tree and this graph. A singleton,
+    // because it is app state: the tree and the graph are two different
+    // compositions that have to meet.
+    single { ProjectsOpener() }
+
+    viewModel {
+        ProjectsTreeViewModel(
+            repo = get(),
             crashReporter = get(),
         )
     }

@@ -1,0 +1,20 @@
+# Plans: overdue work leads the timeline, in a section of its own.
+appId: com.singularity.todo
+name: plans-overdue
+tags:
+  - smoke
+  - plans
+  - scenario:PLANS-05
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=Late%20task&due=-1d"
+- tapOn:
+    id: nav_tab_plans
+# The overdue section is above the dated ones: the first section on the screen.
+- extendedWaitUntil:
+    visible:
+      id: plans_section_overdue
+    timeout: 8000

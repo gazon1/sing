@@ -2,11 +2,15 @@ package com.singularity.todo.feature.projects.presentation.nav
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.entryProvider
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.ui.NavDisplay
+import org.koin.compose.koinInject
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.rememberAppEntryDecorators
 import com.singularity.todo.feature.nav.ProjectsRoute
@@ -41,6 +45,24 @@ fun ProjectsNavGraph(
     val stack: NavBackStack<ProjectsRoute> = backStack ?: rememberAppNavBackStack(start)
     val navigator = remember(stack, onExitGraph) {
         ProjectsNavigator(stack, onExitGraph)
+    }
+
+    // The menu's tree asks for a project to be opened from outside the graph.
+    // The request is picked up here, where the project's screen lives.
+    val opener = koinInject<ProjectsOpener>()
+    val requested by opener.requested.collectAsStateWithLifecycle()
+    LaunchedEffect(requested) {
+        requested?.let { request ->
+            // A fresh stack: the request is an explicit "open this projects
+            // screen", not a step in whatever the user was doing in the graph.
+            stack.clear()
+            stack.add(ProjectsRoute.List)
+            when (request) {
+                is ProjectsOpenRequest.List -> Unit
+                is ProjectsOpenRequest.Project -> stack.add(ProjectsRoute.Detail(request.projectId))
+            }
+            opener.consume()
+        }
     }
     CompositionLocalProvider(
         LocalProjectsNavigator provides navigator,

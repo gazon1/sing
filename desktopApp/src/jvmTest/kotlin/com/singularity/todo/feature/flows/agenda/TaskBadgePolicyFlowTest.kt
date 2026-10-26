@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 
 /**
- * Desktop Compose UI test for [com.singularity.todo.feature.agenda.domain.logic.computeAgendaBadge].
+ * Desktop Compose UI test for [com.singularity.todo.feature.tasks.domain.logic.computeTaskBadge].
  *
  * Verifies each badge case is rendered in the agenda when the qualifying task
  * satisfies the badge condition:
@@ -41,15 +41,15 @@ import kotlin.test.Test
  *
  * ## Coverage (MR-14)
  *
- * - `AgendaBadge.Recurring` is now assigned by [computeAgendaBadge] (was declared
+ * - `TaskBadge.Recurring` is now assigned by [com.singularity.todo.feature.tasks.domain.logic.computeTaskBadge] (was declared
  *   in the enum but never returned — the primary gap closed by MR-14)
  * - `DefaultBadgeRules.recurring` transformer added to cover it
- * - `AgendaEvaluator.computeBadge` delegates to [computeAgendaBadge]
+ * - `AgendaEvaluator.computeBadge` delegates to [com.singularity.todo.feature.tasks.domain.logic.computeTaskBadge]
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
 @Tag("slow:compose")
-class AgendaBadgePolicyFlowTest {
+class TaskBadgePolicyFlowTest {
     @Test
     fun pinned_task_shows_pinned_badge() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
         tasks(koin).given(due = today, title = "Pinned task", isPinned = true)
@@ -60,7 +60,7 @@ class AgendaBadgePolicyFlowTest {
 
     // NOTE: RecurrenceSpec serialization is covered by jvmTest (RecurrenceParserTest).
     // StableJson cannot serialize kotlinx-datetime's DateTimeUnit.DateBased in
-    // desktop flow tests. Recurring badge coverage: AgendaBadgePolicyTest (jvmTest).
+    // desktop flow tests. Recurring badge coverage: TaskBadgePolicyTest (jvmTest).
     // @Test fun recurring_task_shows_recurring_badge() = ...
 
     @Test

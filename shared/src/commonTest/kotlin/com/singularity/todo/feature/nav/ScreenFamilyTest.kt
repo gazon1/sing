@@ -31,7 +31,9 @@ class ScreenFamilyTest {
 
     @Test
     fun `top-level destinations classify by feature`() {
-        assertFamily(ScreenFamily.Projects, AppDestination.Plans)
+        // The plan tab is the timeline, which is a feature of its own — not a
+        // list of projects that happens to be arranged by date.
+        assertFamily(ScreenFamily.Plans, AppDestination.Plans)
         assertFamily(ScreenFamily.Tasks, AppDestination.TasksByProject(ProjectId("p1")))
         assertFamily(ScreenFamily.Pomodoro, AppDestination.Pomodoro)
         assertFamily(ScreenFamily.Statistics, AppDestination.Statistics)

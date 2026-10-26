@@ -1,0 +1,23 @@
+# Scenario PLANS-05 — overdue work leads the timeline and is not dated twice.
+#
+# An overdue task has no day of its own to sit in, so it gets a section of its
+# own at the front. The second half of the assertion matters more: the same
+# overdue task must not also appear inside a dated section, which is how a
+# duplicate row gets into the list.
+
+id: PLANS-05
+title: "Overdue tasks lead the timeline and never sit inside a dated section"
+area: feature.plans
+priority: P1
+status: confirmed
+targets: [android, desktop]
+preconditions: >-
+  One task has a due date in the past and one task is due today.
+steps:
+  - "Open Plans."
+  - "Read the order of the section headers."
+  - "Look for the overdue task in every section."
+expected: >-
+  The "Overdue" section comes first, before the "Today" section. The overdue
+  task is inside it, and it appears in no other section — in particular it is
+  not repeated inside "Today".

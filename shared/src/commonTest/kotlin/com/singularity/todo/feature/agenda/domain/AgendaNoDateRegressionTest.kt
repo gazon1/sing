@@ -3,7 +3,7 @@ package com.singularity.todo.feature.agenda.domain
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.agenda.domain.logic.AgendaEvaluator
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
-import com.singularity.todo.feature.agenda.domain.model.AgendaBadge
+import com.singularity.todo.feature.tasks.domain.model.TaskBadge
 import com.singularity.todo.feature.agenda.domain.selector.SelectorContext
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -103,7 +103,7 @@ class AgendaNoDateRegressionTest {
 
         val row = sections.single { it.name == "No Date" }.tasks.single()
         assertEquals(
-            AgendaBadge.NoDate,
+            TaskBadge.NoDate,
             row.badge,
             "the row must be badged as undated so the UI can render it",
         )
@@ -130,7 +130,7 @@ class AgendaNoDateRegressionTest {
      *
      * `TaskDao.watchActive` selects on `archived_at IS NULL` and nothing else, so
      * a completed task reaches the agenda and is rendered with the
-     * [AgendaBadge.Completed] badge. Only *archiving* removes a row from the
+     * [TaskBadge.Completed] badge. Only *archiving* removes a row from the
      * list. Anyone reading `AgendaPresets.Inbox` as "the active list" will write
      * the opposite assertion and be wrong.
      */
@@ -143,7 +143,7 @@ class AgendaNoDateRegressionTest {
 
         val row = sections.single { it.name == "No Date" }.tasks.single()
         assertEquals(
-            AgendaBadge.Completed,
+            TaskBadge.Completed,
             row.badge,
             "completing a task badges it; it does not remove it from the agenda",
         )

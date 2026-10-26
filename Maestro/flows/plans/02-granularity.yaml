@@ -1,0 +1,29 @@
+# Plans: the granularity control re-groups the timeline and names the choice.
+appId: com.singularity.todo
+name: plans-granularity
+tags:
+  - smoke
+  - plans
+  - scenario:PLANS-03
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- runScript: ../../helpers/scripts/date.js
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=Due%20today&due=today"
+- tapOn:
+    id: nav_tab_plans
+- extendedWaitUntil:
+    visible:
+      id: plans_granularity_day
+    timeout: 8000
+# The week granularity replaces the day sections with the week they belong to.
+- tapOn:
+    id: plans_granularity_week
+- extendedWaitUntil:
+    visible:
+      id: "${PLANS_WEEK_SECTION}"
+    timeout: 8000
+- assertNotVisible:
+    id: "${PLANS_TODAY_SECTION}"

@@ -1,0 +1,26 @@
+# Scenario PLANS-01 — the timeline is a sequence of days, not a list of projects.
+#
+# The assertion is on the order of the section headers and on the rows inside a
+# section, because that is what "a day with its tasks" means. A screen that
+# listed the same tasks under project headings would satisfy a looser check and
+# still be the wrong screen.
+
+id: PLANS-01
+title: "Plans renders days in chronological order with that day's tasks"
+area: feature.plans
+priority: P1
+status: confirmed
+targets: [android, desktop]
+preconditions: >-
+  Tasks exist with due dates on three different days, one of them today and one
+  of them six days out, and one day in between carries no task at all.
+steps:
+  - "Open the Plans tab."
+  - "Read the section headers from top to bottom."
+  - "Read the rows inside the first and the last section that carries a task."
+expected: >-
+  The sections appear earliest date first and every header names its day. The
+  rows of a section are exactly the tasks whose due date is that day — the task
+  due today sits in the "Today" section and the task due in six days sits in
+  that day's section and in no other. The empty day in between has no section
+  of its own, and the days that do carry tasks keep their chronological order.

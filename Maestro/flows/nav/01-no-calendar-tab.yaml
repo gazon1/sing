@@ -1,0 +1,21 @@
+# The bottom bar no longer holds a Calendar button, and the other tabs are there.
+appId: com.singularity.todo
+name: nav-no-calendar-tab
+tags:
+  - smoke
+  - nav
+  - scenario:NAV-01
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- assertNotVisible:
+    id: nav_tab_calendar
+- assertVisible:
+    id: nav_tab_inbox
+- assertVisible:
+    id: nav_tab_today
+- assertVisible:
+    id: nav_tab_upcoming
+- assertVisible:
+    id: nav_tab_plans
+- assertVisible:
+    id: nav_tab_pomodoro

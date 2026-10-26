@@ -461,7 +461,7 @@ class AgendaEvaluatorTest {
         val task = makeTask("1", "Late!", dueDate = today.minus(1, DateTimeUnit.DAY))
         val result = AgendaEvaluator.evaluate(listOf(task), definition, today, context.now)
         assertEquals(1, result.size)
-        assertEquals(com.singularity.todo.feature.agenda.domain.model.AgendaBadge.Overdue, result[0].tasks[0].badge)
+        assertEquals(com.singularity.todo.feature.tasks.domain.model.TaskBadge.Overdue, result[0].tasks[0].badge)
     }
 
     @Test

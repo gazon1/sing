@@ -1,0 +1,23 @@
+# The menu carries the projects as a tree, and the way to the full list.
+appId: com.singularity.todo
+name: menu-projects-tree
+tags:
+  - smoke
+  - menu
+  - scenario:MENU-01
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "project=Roadmap"
+- runFlow: ../../helpers/open-app-menu.yaml
+# The project is in the menu, and the way to the full list is under it.
+- extendedWaitUntil:
+    visible: "Roadmap"
+    timeout: 8000
+- scrollUntilVisible:
+    element:
+      id: menu_all_projects
+    direction: DOWN
+    timeout: 8000

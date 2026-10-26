@@ -7,7 +7,7 @@ package com.singularity.todo.feature.agenda.domain.selector
  *
  * Each Selector variant has four colocated pure functions:
  * - [matches]       — predicate: does this task match?
- * - [badgeFor]      — badge: what AgendaBadge (if any) applies?
+ * - [badgeFor]      — badge: what TaskBadge (if any) applies?
  * - [description]   — UI: human-readable label for the selector type
  * - [toJsonElement] — serialization via the enclosing [SelectorSerializer]
  *

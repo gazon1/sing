@@ -147,7 +147,8 @@ FINITE_DYNAMIC_SPACES: List[tuple[str, str, str]] = [
     ("navTab", "Upcoming", "nav_tab_"),
     ("navTab", "Plans", "nav_tab_"),
     ("navTab", "Pomodoro", "nav_tab_"),
-    ("navTab", "Calendar", "nav_tab_"),
+    # The Calendar left the tab bar for the app menu — there is no
+    # `nav_tab_calendar` any more, and the menu entry is `menu_calendar`.
     # themeModeButton — 3 ThemeMode values (prefix: theme_mode_button_)
     ("themeModeButton", "System", "theme_mode_button_"),
     ("themeModeButton", "Light", "theme_mode_button_"),
@@ -181,11 +182,19 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "nav_tab_upcoming",
     "nav_tab_plans",
     "nav_tab_pomodoro",
+    # The Calendar is not a tab any more. The id stays in the known set because
+    # the NAV-01 flow asserts its *absence* from the bottom bar, and an id the
+    # validator has never heard of cannot be asserted to be missing.
     "nav_tab_calendar",
     # menuItem(...) — menu sheet items
     "menu_archive",
     "menu_profiles",
     "menu_settings",
+    "menu_calendar",
+    "menu_all_projects",
+    # plansSection("overdue") — the overdue section's id is a constant of the
+    # grouper, so the expansion is finite.
+    "plans_section_overdue",
     # taskItem(...) — from seed flows
     "task_item_buy_milk",
     "task_item_uniquesearchabletask2026",

@@ -20,14 +20,6 @@ import com.singularity.todo.feature.projects.presentation.nav.ProjectsNavGraph
  * @param stacks the stacks the platform hoists.
  */
 fun EntryProviderScope<AppDestination>.projectsEntries(nav: NavCallbacks, stacks: AppNavStacks) {
-    entry<AppDestination.Plans>(clazzContentKey = { it.stableContentKey() }) {
-        ProjectsNavGraph(
-            start = ProjectsRoute.List,
-            onExitGraph = nav.graphExit,
-            backStack = stacks.projects,
-        )
-    }
-
     entry<AppDestination.ProjectEditor>(clazzContentKey = { it.stableContentKey() }) { route ->
         ProjectsNavGraph(
             start = ProjectsRoute.Editor(route.projectId),
@@ -46,6 +38,7 @@ fun EntryProviderScope<AppDestination>.projectsEntries(nav: NavCallbacks, stacks
         ProjectsNavGraph(
             start = route.start.toProjectsRoute(),
             onExitGraph = nav.graphExit,
+            backStack = stacks.projects,
         )
     }
 }

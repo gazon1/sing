@@ -1,0 +1,12 @@
+# Opens the app menu (the bottom-bar "Menu" button).
+#
+# The Calendar and the projects are not tabs any more: they live in this menu.
+# A flow that needs one of them opens the menu first and then taps the entry.
+appId: com.singularity.todo
+---
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_sheet
+    timeout: 8000

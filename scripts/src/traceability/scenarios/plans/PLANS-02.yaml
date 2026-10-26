@@ -1,0 +1,23 @@
+# Scenario PLANS-02 — a task is in exactly one section, at every granularity.
+#
+# This is the invariant the whole screen rests on: a task shown twice is a
+# duplicated row, and a task shown nowhere is work the user believes is
+# scheduled and is not. It is asserted by counting, not by looking, because a
+# single stray row is invisible to the eye in a long list.
+
+id: PLANS-02
+title: "A task appears in exactly one section at every granularity"
+area: feature.plans
+priority: P1
+status: confirmed
+targets: [android, desktop]
+preconditions: >-
+  One task has a due date inside the current horizon.
+steps:
+  - "Open Plans in day granularity and count how many times the task is listed."
+  - "Switch the granularity to week and count again."
+  - "Switch the granularity to month and count again."
+expected: >-
+  The task is listed exactly once in every granularity — never in two sections
+  at once and never missing. Switching the granularity changes which section
+  holds the task, not the task's due date and not how many times it appears.

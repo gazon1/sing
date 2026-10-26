@@ -1,4 +1,5 @@
-# Empty state: the Plans tab with no projects.
+# Empty state: the project list with no projects. The list is no longer a tab —
+# it is reached from the menu's Projects section.
 appId: com.singularity.todo
 name: negative-empty-projects
 tags:
@@ -6,8 +7,15 @@ tags:
   - negative
 ---
 - runFlow: ../../helpers/launch-clean.yaml
+- runFlow: ../../helpers/open-app-menu.yaml
+# The Projects section sits at the end of the menu, so it is scrolled to.
+- scrollUntilVisible:
+    element:
+      id: menu_all_projects
+    direction: DOWN
+    timeout: 8000
 - tapOn:
-    id: nav_tab_plans
+    id: menu_all_projects
 - extendedWaitUntil:
     visible: "No projects yet"
     timeout: 8000

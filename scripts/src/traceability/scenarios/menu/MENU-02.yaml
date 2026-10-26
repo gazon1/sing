@@ -1,0 +1,19 @@
+# Scenario MENU-02 — tapping a project in the tree opens that project.
+#
+# The tree is a way into the project, not a summary of it. A menu that showed
+# the hierarchy but did not navigate would be a picture of the projects.
+
+id: MENU-02
+title: "Tapping a project in the tree opens the project detail screen"
+area: feature.menu
+priority: P1
+status: confirmed
+targets: [android, desktop]
+preconditions: >-
+  A project exists.
+steps:
+  - "Open the app menu."
+  - "Tap the project in the Projects tree."
+expected: >-
+  The project's own screen opens, showing that project's name and its tasks.
+  The menu closes on the way in, so the project screen is not covered by it.

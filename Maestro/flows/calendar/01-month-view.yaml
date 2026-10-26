@@ -13,8 +13,10 @@ tags:
 ---
 - runFlow: ../../helpers/launch-clean.yaml
 - runScript: ../../helpers/scripts/date.js
+# The Calendar left the bottom bar; it is an entry of the app menu.
+- runFlow: ../../helpers/open-app-menu.yaml
 - tapOn:
-    id: nav_tab_calendar
+    id: menu_calendar
 # The grid is showing the current month: today's cell is one of its cells.
 - runFlow:
     file: ../../helpers/calendar-day-cell.yaml

@@ -1,0 +1,22 @@
+# Scenario NAV-02 — both platforms offer the same menu.
+#
+# The two menus are drawn by different code — a bottom sheet on Android, a
+# drawer on Desktop — and they are the same menu to the user. A feature added
+# to one of them and not the other is a feature half the users do not have.
+
+id: NAV-02
+title: "Android and Desktop expose the same menu entries and the same project tree"
+area: feature.nav
+priority: P2
+status: confirmed
+targets: [android, desktop]
+preconditions: >-
+  The same profile is open on an Android device and on the desktop build, and
+  it holds several projects.
+steps:
+  - "Open the menu on Android and open the drawer on Desktop."
+  - "Compare the entries of the two."
+  - "Compare the project trees of the two."
+expected: >-
+  Both surfaces offer the same entries — including Calendar and the Projects
+  tree — and the same projects in the same order.

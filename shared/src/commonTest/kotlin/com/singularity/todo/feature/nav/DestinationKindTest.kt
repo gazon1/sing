@@ -3,6 +3,7 @@ package com.singularity.todo.feature.nav
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -17,13 +18,38 @@ import kotlin.test.assertTrue
 class DestinationKindTest {
 
     @Test
-    fun isTabRecognisesAllSixBottomBarTabs() {
+    fun isTabRecognisesAllFiveBottomBarTabs() {
         assertTrue(DestinationKind.isTab(AppDestination.AgendaGraph(AgendaStartRoute.Inbox)))
         assertTrue(DestinationKind.isTab(AppDestination.AgendaGraph(AgendaStartRoute.Today)))
         assertTrue(DestinationKind.isTab(AppDestination.AgendaGraph(AgendaStartRoute.Upcoming)))
         assertTrue(DestinationKind.isTab(AppDestination.Plans))
         assertTrue(DestinationKind.isTab(AppDestination.Pomodoro))
-        assertTrue(DestinationKind.isTab(AppDestination.Calendar))
+    }
+
+    @Test
+    fun theCalendarIsNoLongerATab() {
+        // The Calendar left the bottom bar for the menu: a five-tab bar has no
+        // room for a sixth, and the menu is where the rest of the app's
+        // destinations live.
+        assertFalse(DestinationKind.isTab(AppDestination.Calendar))
+        assertFalse(AppDestination.Calendar in DestinationKind.tabs)
+        assertTrue(DestinationKind.isMenuEntry(AppDestination.Calendar))
+        assertTrue(AppDestination.Calendar in DestinationKind.menuEntries)
+    }
+
+    @Test
+    fun theOtherTabsAreStillThere() {
+        // The bar lost exactly one entry, not two.
+        assertEquals(
+            listOf(
+                AppDestination.AgendaGraph(AgendaStartRoute.Inbox),
+                AppDestination.AgendaGraph(AgendaStartRoute.Today),
+                AppDestination.AgendaGraph(AgendaStartRoute.Upcoming),
+                AppDestination.Plans,
+                AppDestination.Pomodoro,
+            ),
+            DestinationKind.tabs,
+        )
     }
 
     @Test

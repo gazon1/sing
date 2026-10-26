@@ -1,6 +1,6 @@
-package com.singularity.todo.feature.agenda.domain
+package com.singularity.todo.feature.tasks.domain.logic
 
-import com.singularity.todo.feature.agenda.domain.logic.computeAgendaBadge
+import com.singularity.todo.feature.tasks.domain.logic.computeTaskBadge
 import com.singularity.todo.feature.tasks.domain.logic.Blocking.isBlocked
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -20,7 +20,7 @@ import kotlin.test.assertTrue
 import org.junit.jupiter.api.Tag
 
 /**
- * Tests [computeAgendaBadge] and [isBlocked] for all [AgendaBadge] variants.
+ * Tests [computeTaskBadge] and [isBlocked] for all [TaskBadge] variants.
  *
  * Badge priority (first-match wins):
  * 1. Blocked   — incomplete dependency
@@ -32,7 +32,7 @@ import org.junit.jupiter.api.Tag
  * (null — normal in-date task)
  */
 @Tag("fast")
-class AgendaBadgePolicyTest {
+class TaskBadgePolicyTest {
 
     private val today = LocalDate(2026, 10, 14) // reference "today"
     private val epoch0 = kotlin.time.Instant.fromEpochMilliseconds(0)
@@ -70,7 +70,7 @@ class AgendaBadgePolicyTest {
         tags = emptyList(),
     )
 
-    // ─── computeAgendaBadge ──────────────────────────────────────────────
+    // ─── computeTaskBadge ──────────────────────────────────────────────
 
     @Test
     fun `Blocked badge when task has incomplete dependency`() {
@@ -78,8 +78,8 @@ class AgendaBadgePolicyTest {
         val task = t("t", blockedBy = listOf("dep"))
         val all = listOf(dep, task)
         assertEquals(
-            com.singularity.todo.feature.agenda.domain.model.AgendaBadge.Blocked,
-            computeAgendaBadge(task, today, all),
+            com.singularity.todo.feature.tasks.domain.model.TaskBadge.Blocked,
+            computeTaskBadge(task, today, all),
         )
     }
 
@@ -91,8 +91,8 @@ class AgendaBadgePolicyTest {
         // dep.isCompleted → isBlocked=false → priority falls through
         // (not pinned, not recurring, not completed) → dueDate == null → NoDate
         assertEquals(
-            com.singularity.todo.feature.agenda.domain.model.AgendaBadge.NoDate,
-            computeAgendaBadge(task, today, all),
+            com.singularity.todo.feature.tasks.domain.model.TaskBadge.NoDate,
+            computeTaskBadge(task, today, all),
         )
     }
 
@@ -100,8 +100,8 @@ class AgendaBadgePolicyTest {
     fun `Pinned badge when task is pinned`() {
         val task = t("t", pinned = true)
         assertEquals(
-            com.singularity.todo.feature.agenda.domain.model.AgendaBadge.Pinned,
-            computeAgendaBadge(task, today, emptyList()),
+            com.singularity.todo.feature.tasks.domain.model.TaskBadge.Pinned,
+            computeTaskBadge(task, today, emptyList()),
         )
     }
 
@@ -109,8 +109,8 @@ class AgendaBadgePolicyTest {
     fun `Recurring badge when task has recurrence`() {
         val task = t("t", recurring = true)
         assertEquals(
-            com.singularity.todo.feature.agenda.domain.model.AgendaBadge.Recurring,
-            computeAgendaBadge(task, today, emptyList()),
+            com.singularity.todo.feature.tasks.domain.model.TaskBadge.Recurring,
+            computeTaskBadge(task, today, emptyList()),
         )
     }
 
@@ -118,8 +118,8 @@ class AgendaBadgePolicyTest {
     fun `Completed badge when task is completed`() {
         val task = t("t", completed = true)
         assertEquals(
-            com.singularity.todo.feature.agenda.domain.model.AgendaBadge.Completed,
-            computeAgendaBadge(task, today, emptyList()),
+            com.singularity.todo.feature.tasks.domain.model.TaskBadge.Completed,
+            computeTaskBadge(task, today, emptyList()),
         )
     }
 
@@ -127,8 +127,8 @@ class AgendaBadgePolicyTest {
     fun `Overdue badge when past-dated and not completed`() {
         val task = t("t", dueDate = today.minus(1, DateTimeUnit.DAY))
         assertEquals(
-            com.singularity.todo.feature.agenda.domain.model.AgendaBadge.Overdue,
-            computeAgendaBadge(task, today, emptyList()),
+            com.singularity.todo.feature.tasks.domain.model.TaskBadge.Overdue,
+            computeTaskBadge(task, today, emptyList()),
         )
     }
 
@@ -136,15 +136,15 @@ class AgendaBadgePolicyTest {
     fun `NoDate badge when dueDate is null`() {
         val task = t("t", dueDate = null)
         assertEquals(
-            com.singularity.todo.feature.agenda.domain.model.AgendaBadge.NoDate,
-            computeAgendaBadge(task, today, emptyList()),
+            com.singularity.todo.feature.tasks.domain.model.TaskBadge.NoDate,
+            computeTaskBadge(task, today, emptyList()),
         )
     }
 
     @Test
     fun `null badge for normal in-date active task`() {
         val task = t("t", dueDate = today.plus(1, DateTimeUnit.DAY))
-        assertNull(computeAgendaBadge(task, today, emptyList()))
+        assertNull(computeTaskBadge(task, today, emptyList()))
     }
 
     @Test
@@ -152,8 +152,8 @@ class AgendaBadgePolicyTest {
         val dep = t("dep")
         val pinnedBlocked = t("t", pinned = true, blockedBy = listOf("dep"))
         assertEquals(
-            com.singularity.todo.feature.agenda.domain.model.AgendaBadge.Blocked,
-            computeAgendaBadge(pinnedBlocked, today, listOf(dep, pinnedBlocked)),
+            com.singularity.todo.feature.tasks.domain.model.TaskBadge.Blocked,
+            computeTaskBadge(pinnedBlocked, today, listOf(dep, pinnedBlocked)),
         )
     }
 
@@ -162,8 +162,8 @@ class AgendaBadgePolicyTest {
         // A completed past-due task should show Completed, not Overdue
         val task = t("t", dueDate = today.minus(1, DateTimeUnit.DAY), completed = true)
         assertEquals(
-            com.singularity.todo.feature.agenda.domain.model.AgendaBadge.Completed,
-            computeAgendaBadge(task, today, emptyList()),
+            com.singularity.todo.feature.tasks.domain.model.TaskBadge.Completed,
+            computeTaskBadge(task, today, emptyList()),
         )
     }
 
@@ -171,8 +171,8 @@ class AgendaBadgePolicyTest {
     fun `priority Pinned over Recurring`() {
         val task = t("t", pinned = true, recurring = true)
         assertEquals(
-            com.singularity.todo.feature.agenda.domain.model.AgendaBadge.Pinned,
-            computeAgendaBadge(task, today, emptyList()),
+            com.singularity.todo.feature.tasks.domain.model.TaskBadge.Pinned,
+            computeTaskBadge(task, today, emptyList()),
         )
     }
 

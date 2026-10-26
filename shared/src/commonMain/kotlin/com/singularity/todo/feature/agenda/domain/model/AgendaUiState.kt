@@ -2,6 +2,7 @@ package com.singularity.todo.feature.agenda.domain.model
 import com.singularity.todo.feature.tasks.domain.model.BlockedBulkCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskRowItem
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
@@ -71,37 +72,7 @@ sealed interface AgendaUiState {
 data class RenderedSection(
     val id: String,
     val name: String,
-    val tasks: ImmutableList<AgendaRowItem>,
+    val tasks: ImmutableList<TaskRowItem>,
     val badge: Int? = null,
     val prefill: SectionPrefill? = null,
 )
-
-/**
- * A single task row within a rendered [RenderedSection].
- *
- * Thin wrapper around [com.singularity.todo.feature.tasks.domain.model.Task]
- * that carries agenda-specific display metadata.
- *
- * @param task The underlying task.
- * @param badge Optional per-task badge (e.g. "recurring", "overdue").
- */
-data class AgendaRowItem(
-    val task: com.singularity.todo.feature.tasks.domain.model.Task,
-    val badge: AgendaBadge? = null,
-    /** MR-1: true when the task has incomplete dependencies. */
-    val isBlocked: Boolean = false,
-    /** How many dates the series of this row has; null when it stands alone. */
-    val seriesDates: Int? = null,
-)
-
-/**
- * Per-task or per-section badge label.
- */
-enum class AgendaBadge {
-    Overdue,
-    Recurring,
-    Pinned,
-    Completed,
-    NoDate,
-    Blocked, // MR-1: task has incomplete dependencies
-}

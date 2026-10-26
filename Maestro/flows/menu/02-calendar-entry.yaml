@@ -1,0 +1,16 @@
+# The Calendar left the bottom bar and is an entry of the menu.
+appId: com.singularity.todo
+name: menu-calendar-entry
+tags:
+  - smoke
+  - menu
+  - scenario:MENU-04
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- runFlow: ../../helpers/open-app-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: menu_calendar
+    timeout: 8000
+- tapOn:
+    id: menu_calendar

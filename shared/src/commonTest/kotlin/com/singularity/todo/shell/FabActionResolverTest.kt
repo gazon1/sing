@@ -93,9 +93,11 @@ class FabActionResolverTest {
     // ── Agenda routes (modern) ────────────────────────────────────────────────
 
     @Test
-    fun plans_returnsAddProject() {
+    fun plans_returnsAddTask() {
+        // The plan tab creates the work that is due — a task due today — not a
+        // project. The plan is the work ahead, and a project is not a piece of it.
         val result = fabActionForNav3(AppDestination.Plans, today, navigate)
-        assertEquals("Add project", result.label())
+        assertEquals("Add task", result.label())
     }
 
     // ── Destinations with no FAB ────────────────────────────────────────────────

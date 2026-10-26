@@ -9,6 +9,7 @@ import com.singularity.todo.feature.nav.entries.agendaEntries
 import com.singularity.todo.feature.nav.entries.appEntries
 import com.singularity.todo.feature.nav.entries.calendarEntries
 import com.singularity.todo.feature.nav.entries.notesEntries
+import com.singularity.todo.feature.nav.entries.plansEntries
 import com.singularity.todo.feature.nav.entries.projectsEntries
 import com.singularity.todo.feature.nav.entries.searchEntries
 import com.singularity.todo.feature.nav.entries.settingsEntries
@@ -64,6 +65,7 @@ fun createAppEntryProvider(
     calendarEntries(nav, stacks, today)
     notesEntries(nav, stacks)
     projectsEntries(nav, stacks)
+    plansEntries()
     searchEntries(nav, stacks)
     settingsEntries(nav, stacks)
 

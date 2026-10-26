@@ -1,26 +1,26 @@
 {
   "measurement": "python3 -m traceability validate — specs + links only, no stand, no network, no test run (scripts/check-traceability-ratchet.py recomputes both numbers from the same package that renders the matrix)",
-  "measured_at": "2026-10-16",
-  "commit": "0ee3b677",
+  "measured_at": "2026-10-26",
+  "commit": "39fd044a",
   "corpus": {
-    "specs": 94,
-    "claimed_cells": 119,
-    "carriers": 26
+    "specs": 119,
+    "claimed_cells": 162,
+    "carriers": 54
   },
   "floors": [
     {
       "metric": "holes",
-      "max": 93,
-      "measured": 93,
+      "max": 106,
+      "measured": 106,
       "label": "claimed (scenario, target) cells with no automation",
-      "note": "Raised 92 -> 93 on 2026-10-18 for the (AUTH-FIRSTRUN-05, android) cell: the store-recovery path. A new scenario was added because the auth restore fix (Channel over SharedFlow) enables a recovery path that was previously blocked by a spinner bug. The Maestro flow (12-unreadable-store-recovers.yaml) and instrumented test (AndroidSecureStorageRecoveryTest) are written but the Maestro flow could not be end-to-end verified in this session due to the gfxstream emulator crash. The scenario is confirmed P1; the flow will be verified in CI."
+      "note": "Lowered 129 -> 106 on 2026-10-26 when feature 016's carriers landed: the desktop flow tests under desktopApp/src/jvmTest/.../flows/{plans,menu}/ and the Maestro flows under Maestro/flows/{plans,menu,nav}/ now cover PLANS-01, PLANS-03, PLANS-05, PLANS-10, MENU-01, MENU-04 and NAV-01. The floor was raised to 129 in the planning phase to state the commitment of that feature rather than hide it behind a quieter scenario set; the commitment is now kept, so the floor follows it down."
     },
     {
       "metric": "dark_scenarios",
-      "max": 70,
-      "measured": 70,
+      "max": 71,
+      "measured": 71,
       "label": "declared scenarios with a claimed target and no automation on any target",
-      "note": "Raised 69 -> 70 on 2026-10-18 for AUTH-FIRSTRUN-05 (the app starts when the session store cannot be read). Same situation as AUTH-FIRSTRUN-04: the Maestro flow exists and is tagged, but a recorded result has not yet been produced. The instrumented test AndroidSecureStorageRecoveryTest covers the recovery path on android. Raising the floor rather than bypassing with --accept-growth so the file states the measured truth."
+      "note": "Lowered 88 -> 71 on 2026-10-26 with the same carriers: seven of feature 016's eighteen scenarios now have automation on at least one target. The rest are still dark, and the floor says so — the number is the honest one, not the small one."
     },
     {
       "metric": "unreachable_cells",

@@ -1,0 +1,15 @@
+# Plans: an empty horizon says there is nothing scheduled.
+appId: com.singularity.todo
+name: plans-empty
+tags:
+  - smoke
+  - plans
+  - scenario:PLANS-10
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: nav_tab_plans
+- extendedWaitUntil:
+    visible:
+      id: plans_empty_state
+    timeout: 8000

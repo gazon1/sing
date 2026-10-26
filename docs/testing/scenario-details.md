@@ -543,6 +543,117 @@ Steps:
 
 **Expected:** The editor is still open and still usable, and the title is still in it — so a configuration change did not discard what the user was typing.
 
+### feature.menu
+
+#### `MENU-01` — The menu shows projects as an expandable tree with children indented
+
+**confirmed** · P1 · `#MENU`
+
+**Given:** Project A has a child project B, and project C has no children.
+
+Steps:
+
+1. Open the app menu and look at the Projects section.
+2. Expand project A.
+3. Look at project C.
+
+**Expected:** A and C are listed at the top level of the Projects section. Expanding A reveals B indented under it, so B reads as a child of A rather than as another project beside it. C shows no expander control, because C has nothing to expand.
+
+#### `MENU-02` — Tapping a project in the tree opens the project detail screen
+
+**confirmed** · P1 · `#MENU`
+
+**Given:** A project exists.
+
+Steps:
+
+1. Open the app menu.
+2. Tap the project in the Projects tree.
+
+**Expected:** The project's own screen opens, showing that project's name and its tasks. The menu closes on the way in, so the project screen is not covered by it.
+
+#### `MENU-03` — The project tree reflects creations and renames made elsewhere
+
+**confirmed** · P1 · `#MENU`
+
+**Given:** A project exists and the menu has been opened at least once.
+
+Steps:
+
+1. Open the menu and note the project's name.
+2. Rename the project in the project's own screen and create a second project.
+3. Open the menu again.
+
+**Expected:** The tree shows the new name and shows the newly created project. Neither change needed the menu to be closed and reopened before it could be seen.
+
+#### `MENU-04` — The Calendar is an entry of the menu on Android and Desktop
+
+**confirmed** · P2 · `#MENU`
+
+**Given:** The app is running.
+
+Steps:
+
+1. On Android, open the menu and look for Calendar.
+2. On Desktop, open the navigation drawer and look for Calendar.
+3. Choose the Calendar entry.
+
+**Expected:** Calendar is listed in the menu on both platforms, and choosing it opens the calendar. The menu closes on the way in, and the calendar can be left with the usual back action.
+
+#### `MENU-05` — A project without children shows no expander, and a closed project is absent from the tree
+
+**confirmed** · P2 · `#MENU`
+
+**Given:** One project has no children, and one project has been closed.
+
+Steps:
+
+1. Open the app menu and look at the Projects section.
+
+**Expected:** The childless project shows no expander control, so nothing in the tree invites an expansion that cannot happen. The closed project is not in the tree at all.
+
+#### `MENU-06` — The full project list stays reachable from the Projects section of the menu
+
+**confirmed** · P2 · `#MENU`
+
+**Given:** Several projects exist.
+
+Steps:
+
+1. Open the app menu and look at the Projects section.
+2. Open the entry that leads to the full list.
+
+**Expected:** The full project list opens with its search and its sorting, so the tree is not the only way to work with projects.
+
+### feature.nav
+
+#### `NAV-01` — The bottom navigation bar no longer holds a Calendar button
+
+**confirmed** · P2 · `#NAV`
+
+**Given:** The app is running.
+
+Steps:
+
+1. Look at the bottom navigation bar on Android.
+2. Look at the tab list in the navigation drawer on Desktop.
+
+**Expected:** There is no Calendar item among the tabs on either platform. The other tabs are still there, so the bar lost exactly one entry.
+
+#### `NAV-02` — Android and Desktop expose the same menu entries and the same project tree
+
+**confirmed** · P2 · `#NAV`
+
+**Given:** The same profile is open on an Android device and on the desktop build, and it holds several projects.
+
+Steps:
+
+1. Open the menu on Android and open the drawer on Desktop.
+2. Compare the entries of the two.
+3. Compare the project trees of the two.
+
+**Expected:** Both surfaces offer the same entries — including Calendar and the Projects tree — and the same projects in the same order.
+
 ### feature.negative
 
 #### `NEGATIVE-01` — The Inbox empty state names what is missing
@@ -660,6 +771,144 @@ Steps:
 3. Switch to Archived.
 
 **Expected:** All shows both notes and the other two chips show neither, so each filter narrows the list to its own set rather than leaving it unchanged.
+
+### feature.plans
+
+#### `PLANS-01` — Plans renders days in chronological order with that day's tasks
+
+**confirmed** · P1 · `#PLANS`
+
+**Given:** Tasks exist with due dates on three different days, one of them today and one of them six days out, and one day in between carries no task at all.
+
+Steps:
+
+1. Open the Plans tab.
+2. Read the section headers from top to bottom.
+3. Read the rows inside the first and the last section that carries a task.
+
+**Expected:** The sections appear earliest date first and every header names its day. The rows of a section are exactly the tasks whose due date is that day — the task due today sits in the "Today" section and the task due in six days sits in that day's section and in no other. The empty day in between has no section of its own, and the days that do carry tasks keep their chronological order.
+
+#### `PLANS-02` — A task appears in exactly one section at every granularity
+
+**confirmed** · P1 · `#PLANS`
+
+**Given:** One task has a due date inside the current horizon.
+
+Steps:
+
+1. Open Plans in day granularity and count how many times the task is listed.
+2. Switch the granularity to week and count again.
+3. Switch the granularity to month and count again.
+
+**Expected:** The task is listed exactly once in every granularity — never in two sections at once and never missing. Switching the granularity changes which section holds the task, not the task's due date and not how many times it appears.
+
+#### `PLANS-03` — The granularity control switches between day, week and month and names the selection
+
+**confirmed** · P1 · `#PLANS`
+
+**Given:** Tasks are due in more than one calendar month, and at least one of them falls in the current week.
+
+Steps:
+
+1. Open Plans and read the granularity control.
+2. Switch the control to week and read the section headers.
+3. Switch the control to month and read the section headers again.
+
+**Expected:** The control names the granularity that is in effect. In week granularity the headers are date ranges running Monday to Sunday; in month granularity they are calendar months. A task stays in the section that contains it in each granularity, and the sections remain in chronological order throughout.
+
+#### `PLANS-04` — The chosen granularity is restored the next time Plans is opened
+
+**confirmed** · P1 · `#PLANS`
+
+**Given:** Plans has been opened and its granularity switched to week.
+
+Steps:
+
+1. Leave Plans for another tab.
+2. Open Plans again.
+
+**Expected:** Plans opens in week granularity. The choice made before the round trip is still in effect, so the user does not have to set it again.
+
+#### `PLANS-05` — Overdue tasks lead the timeline and never sit inside a dated section
+
+**confirmed** · P1 · `#PLANS`
+
+**Given:** One task has a due date in the past and one task is due today.
+
+Steps:
+
+1. Open Plans.
+2. Read the order of the section headers.
+3. Look for the overdue task in every section.
+
+**Expected:** The "Overdue" section comes first, before the "Today" section. The overdue task is inside it, and it appears in no other section — in particular it is not repeated inside "Today".
+
+#### `PLANS-06` — The Plans tab no longer shows a project list
+
+**confirmed** · P1 · `#PLANS`
+
+**Given:** Two or more projects exist.
+
+Steps:
+
+1. Open the Plans tab and look at what is listed.
+2. Open the app menu and look at its Projects section.
+
+**Expected:** The Plans tab lists tasks grouped by date and shows no project list. The projects appear in the menu's Projects section as a tree, so none of them has been lost with the list.
+
+#### `PLANS-07` — The horizon follows the granularity
+
+**confirmed** · P1 · `#PLANS`
+
+**Given:** One task is due tomorrow and one task is due 45 days from today.
+
+Steps:
+
+1. Open Plans in day granularity and look for both tasks.
+2. Switch to week granularity and look for both tasks.
+3. Switch to month granularity and look for both tasks.
+
+**Expected:** The task due tomorrow is listed in every granularity. The task due in 45 days is listed in month granularity and is absent in day and week granularity, whose horizons end sooner.
+
+#### `PLANS-08` — A section header names the period it covers
+
+**confirmed** · P2 · `#PLANS`
+
+**Given:** Tasks are due today, in a later week and in a later month.
+
+Steps:
+
+1. Open Plans in day granularity and read a day header.
+2. Switch to week granularity and read a week header.
+3. Switch to month granularity and read a month header.
+
+**Expected:** The day header names the date, the week header names the date range of that week, and the month header names the month and the year. Each header names the period that the rows beneath it belong to.
+
+#### `PLANS-09` — A task is opened from a section and a new task inherits that section's date
+
+**confirmed** · P2 · `#PLANS`
+
+**Given:** A task with a due date inside the horizon exists, and Plans is open.
+
+Steps:
+
+1. Tap the task and read what opens.
+2. Go back to Plans and tap the add control on that section's header.
+3. Read the due date in the editor that opens.
+
+**Expected:** Tapping the task opens that task's own screen. The editor for a new task opens with the due date prefilled with the section's date — the day itself in day granularity, and the first day of the period in week and month granularity.
+
+#### `PLANS-10` — An empty horizon shows an empty state, and undated tasks are absent from the timeline
+
+**confirmed** · P2 · `#PLANS`
+
+**Given:** No task has a due date inside the current horizon, and one task exists with no due date at all.
+
+Steps:
+
+1. Open Plans.
+
+**Expected:** The screen shows a message that there is nothing scheduled rather than a blank list, and the undated task is not listed anywhere on the timeline.
 
 ### feature.pomodoro
 

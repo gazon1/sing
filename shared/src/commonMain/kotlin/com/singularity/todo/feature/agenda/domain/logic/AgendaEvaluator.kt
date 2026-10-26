@@ -1,8 +1,9 @@
 package com.singularity.todo.feature.agenda.domain.logic
 
-import com.singularity.todo.feature.agenda.domain.model.AgendaBadge
+import com.singularity.todo.feature.tasks.domain.model.TaskBadge
+import com.singularity.todo.feature.tasks.domain.logic.computeTaskBadge
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
-import com.singularity.todo.feature.agenda.domain.model.AgendaRowItem
+import com.singularity.todo.feature.tasks.domain.model.TaskRowItem
 import com.singularity.todo.feature.agenda.domain.model.RenderedSection
 import kotlinx.collections.immutable.toImmutableList
 import com.singularity.todo.feature.agenda.domain.model.Section
@@ -10,6 +11,7 @@ import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.domain.selector.SelectorContext
 import com.singularity.todo.feature.agenda.domain.selector.matches
 import com.singularity.todo.feature.tasks.domain.logic.Blocking
+import com.singularity.todo.feature.tasks.domain.logic.seriesSizes
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlin.time.Instant
@@ -26,7 +28,7 @@ import kotlinx.datetime.LocalDate
  * 1. Sort sections by [Section.order].
  * 2. For each section, filter tasks that match [Selector].
  * 3. If [Section.discard] is true, remove matched tasks from the pool for subsequent sections.
- * 4. Wrap remaining tasks in [AgendaRowItem] with computed [AgendaBadge]s.
+ * 4. Wrap remaining tasks in [TaskRowItem] with computed [TaskBadge]s.
  */
 object AgendaEvaluator {
 
@@ -66,7 +68,7 @@ object AgendaEvaluator {
                     id = section.effectiveId,
                     name = section.name,
                     tasks = matched.map { task ->
-                        AgendaRowItem(
+                        TaskRowItem(
                             task = task,
                             badge = computeBadge(task, today, blockedIds),
                             isBlocked = task.id in blockedIds,
@@ -96,18 +98,6 @@ object AgendaEvaluator {
     fun matches(task: Task, selector: Selector, context: SelectorContext): Boolean =
         selector.matches(task, context)
 
-    private fun computeBadge(task: Task, today: LocalDate, blockedIds: Set<TaskId>): AgendaBadge? =
-        computeAgendaBadge(task, today, blockedIds)
-
-    /**
-     * How many dates each series has.
-     *
-     * The count is the number of rows that share the id — the dates the work is
-     * scheduled on. A task that stands alone is not in the table: it has no
-     * series to say anything about.
-     */
-    private fun seriesSizes(tasks: List<Task>): Map<String, Int> =
-        tasks.mapNotNull { it.seriesId?.value }
-            .groupingBy { it }
-            .eachCount()
+    private fun computeBadge(task: Task, today: LocalDate, blockedIds: Set<TaskId>): TaskBadge? =
+        computeTaskBadge(task, today, blockedIds)
 }

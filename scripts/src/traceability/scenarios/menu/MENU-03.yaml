@@ -1,0 +1,22 @@
+# Scenario MENU-03 — the tree is live.
+#
+# The menu is opened and closed many times a day, so a tree that shows what the
+# projects looked like when the app started would be wrong more often than
+# right. The rename is the sharper half: a stale tree shows the old name
+# under the new project.
+
+id: MENU-03
+title: "The project tree reflects creations and renames made elsewhere"
+area: feature.menu
+priority: P1
+status: confirmed
+targets: [android, desktop]
+preconditions: >-
+  A project exists and the menu has been opened at least once.
+steps:
+  - "Open the menu and note the project's name."
+  - "Rename the project in the project's own screen and create a second project."
+  - "Open the menu again."
+expected: >-
+  The tree shows the new name and shows the newly created project. Neither
+  change needed the menu to be closed and reopened before it could be seen.

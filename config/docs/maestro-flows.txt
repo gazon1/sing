@@ -54,6 +54,9 @@ Maestro/flows/calendar_sync/02-system-calendar-unavailable.yaml
 Maestro/flows/calendar_sync/03-system-calendar-toggle.yaml
 Maestro/flows/lifecycle/01-kill-restart-persist.yaml
 Maestro/flows/lifecycle/03-rotate-in-editor.yaml
+Maestro/flows/menu/01-projects-tree.yaml
+Maestro/flows/menu/02-calendar-entry.yaml
+Maestro/flows/nav/01-no-calendar-tab.yaml
 Maestro/flows/nav/bottom-nav-tabs.yaml
 Maestro/flows/nav/deep-link-task.yaml
 Maestro/flows/negative/01-empty-inbox.yaml
@@ -66,6 +69,10 @@ Maestro/flows/notes/01-edit-body.yaml
 Maestro/flows/notes/02-filter-chips.yaml
 Maestro/flows/notes/03-internal-link-navigation.yaml
 Maestro/flows/notes/create-note.yaml
+Maestro/flows/plans/01-days-in-order.yaml
+Maestro/flows/plans/02-granularity.yaml
+Maestro/flows/plans/03-overdue.yaml
+Maestro/flows/plans/04-empty.yaml
 Maestro/flows/pomodoro/01-open-tab.yaml
 Maestro/flows/pomodoro/02-start-focus-task.yaml
 Maestro/flows/pomodoro/03-pause-resume.yaml

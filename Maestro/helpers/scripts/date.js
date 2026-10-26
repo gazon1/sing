@@ -49,3 +49,30 @@ output.DAY15_CELL = cell(15);
 // device's language. The number is the part the app does not write, so a
 // flow can address a day by it.
 output.TODAY_DAY = String(d.getDate());
+
+// The testTag of the timeline section of a day.
+//
+// The timeline's section ids carry the date they cover ("day:2026-09-16"), and
+// the tag is that id as a slug. A flow that wrote the date down would be a flow
+// that fails tomorrow, so the id is computed from the same clock the app reads.
+function plansDay(date) {
+    return "plans_section_day_" + date.getFullYear() + "_" + pad2(date.getMonth() + 1) + "_" + pad2(date.getDate());
+}
+
+// The testTag of the timeline section of the week a date belongs to.
+//
+// The week starts on Monday, the same as the app's relative week buckets, and
+// JavaScript's Sunday is 0 — so Sunday is the last day of the week, not the
+// first.
+function plansWeek(date) {
+    var weekday = date.getDay();
+    var back = (weekday === 0) ? 6 : weekday - 1;
+    var monday = new Date(date.getTime());
+    monday.setDate(date.getDate() - back);
+    return "plans_section_week_" + monday.getFullYear() + "_" + pad2(monday.getMonth() + 1) + "_" + pad2(monday.getDate());
+}
+
+var tomorrowDate = new Date(d.getTime() + 24 * 60 * 60 * 1000);
+output.PLANS_TODAY_SECTION = plansDay(d);
+output.PLANS_TOMORROW_SECTION = plansDay(tomorrowDate);
+output.PLANS_WEEK_SECTION = plansWeek(d);

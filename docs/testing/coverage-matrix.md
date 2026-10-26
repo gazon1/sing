@@ -18,7 +18,7 @@ the table carries the one-line version so a row is readable in a diff.
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-**101 scenarios · 31/124 claimed cells automated · 93 holes**
+**119 scenarios · 54/160 claimed cells automated · 106 holes**
 
 ## feature.agenda
 
@@ -93,6 +93,24 @@ the table carries the one-line version so a row is readable in a diff.
 | `LIFECYCLE-01` | Data survives a process kill and a relaunch that does not clear state | ○ | — | The data is still present, so it was written to storage rather than held in memory. Reopening after a kill looks the… |
 | `LIFECYCLE-02` | The task editor stays open and keeps its content through rotation | ○ | — | The editor is still open and still usable, and the title is still in it — so a configuration change did not discard… |
 
+## feature.menu
+
+| Scenario | Title | android | desktop | What we verify |
+|---|---|---|---|---|
+| `MENU-01` | The menu shows projects as an expandable tree with children indented | ● | ● | A and C are listed at the top level of the Projects section. Expanding A reveals B indented under it, so B reads as a… |
+| `MENU-02` | Tapping a project in the tree opens the project detail screen | ○ | ● | The project's own screen opens, showing that project's name and its tasks. The menu closes on the way in, so the… |
+| `MENU-03` | The project tree reflects creations and renames made elsewhere | ○ | ● | The tree shows the new name and shows the newly created project. Neither change needed the menu to be closed and… |
+| `MENU-04` | The Calendar is an entry of the menu on Android and Desktop | ● | ● | Calendar is listed in the menu on both platforms, and choosing it opens the calendar. The menu closes on the way in,… |
+| `MENU-05` | A project without children shows no expander, and a closed project is absent from the tree | ○ | ● | The childless project shows no expander control, so nothing in the tree invites an expansion that cannot happen. The… |
+| `MENU-06` | The full project list stays reachable from the Projects section of the menu | ○ | ● | The full project list opens with its search and its sorting, so the tree is not the only way to work with projects. |
+
+## feature.nav
+
+| Scenario | Title | android | desktop | What we verify |
+|---|---|---|---|---|
+| `NAV-01` | The bottom navigation bar no longer holds a Calendar button | ● | ○ | There is no Calendar item among the tabs on either platform. The other tabs are still there, so the bar lost exactly… |
+| `NAV-02` | Android and Desktop expose the same menu entries and the same project tree | ○ | ● | Both surfaces offer the same entries — including Calendar and the Projects tree — and the same projects in the same… |
+
 ## feature.negative
 
 | Scenario | Title | android | desktop | What we verify |
@@ -111,6 +129,21 @@ the table carries the one-line version so a row is readable in a diff.
 | `NOTES-01` | A note is created from the notes list | ○ | — | The note exists in the list and can be opened, so creation is reachable from the notes list itself — a user is never… |
 | `NOTES-02` | An edited note body survives reopening the note | ○ | — | The edited body is still there, so the autosave happened and the text is not lost on the way out. Quick-add lands on… |
 | `NOTES-03` | The All, Pinned and Archived chips show different sets | ○ | — | All shows both notes and the other two chips show neither, so each filter narrows the list to its own set rather than… |
+
+## feature.plans
+
+| Scenario | Title | android | desktop | What we verify |
+|---|---|---|---|---|
+| `PLANS-01` | Plans renders days in chronological order with that day's tasks | ● | ● | The sections appear earliest date first and every header names its day. The rows of a section are exactly the tasks… |
+| `PLANS-02` | A task appears in exactly one section at every granularity | ○ | ● | The task is listed exactly once in every granularity — never in two sections at once and never missing. Switching the… |
+| `PLANS-03` | The granularity control switches between day, week and month and names the selection | ● | ● | The control names the granularity that is in effect. In week granularity the headers are date ranges running Monday to… |
+| `PLANS-04` | The chosen granularity is restored the next time Plans is opened | ○ | ● | Plans opens in week granularity. The choice made before the round trip is still in effect, so the user does not have… |
+| `PLANS-05` | Overdue tasks lead the timeline and never sit inside a dated section | ● | ● | The "Overdue" section comes first, before the "Today" section. The overdue task is inside it, and it appears in no… |
+| `PLANS-06` | The Plans tab no longer shows a project list | ○ | ○ | The Plans tab lists tasks grouped by date and shows no project list. The projects appear in the menu's Projects… |
+| `PLANS-07` | The horizon follows the granularity | ○ | ● | The task due tomorrow is listed in every granularity. The task due in 45 days is listed in month granularity and is… |
+| `PLANS-08` | A section header names the period it covers | ○ | ● | The day header names the date, the week header names the date range of that week, and the month header names the month… |
+| `PLANS-09` | A task is opened from a section and a new task inherits that section's date | ○ | ● | Tapping the task opens that task's own screen. The editor for a new task opens with the due date prefilled with the… |
+| `PLANS-10` | An empty horizon shows an empty state, and undated tasks are absent from the timeline | ● | ● | The screen shows a message that there is nothing scheduled rather than a blank list, and the undated task is not… |
 
 ## feature.pomodoro
 
@@ -241,6 +274,12 @@ Claimed but not automated:
 - `CALENDAR-03` / android
 - `LIFECYCLE-01` / android
 - `LIFECYCLE-02` / android
+- `MENU-02` / android
+- `MENU-03` / android
+- `MENU-05` / android
+- `MENU-06` / android
+- `NAV-01` / desktop
+- `NAV-02` / android
 - `NEGATIVE-01` / android
 - `NEGATIVE-02` / android
 - `NEGATIVE-03` / android
@@ -250,6 +289,13 @@ Claimed but not automated:
 - `NOTES-01` / android
 - `NOTES-02` / android
 - `NOTES-03` / android
+- `PLANS-02` / android
+- `PLANS-04` / android
+- `PLANS-06` / android
+- `PLANS-06` / desktop
+- `PLANS-07` / android
+- `PLANS-08` / android
+- `PLANS-09` / android
 - `POMODORO-01` / android
 - `POMODORO-02` / android
 - `POMODORO-03` / android

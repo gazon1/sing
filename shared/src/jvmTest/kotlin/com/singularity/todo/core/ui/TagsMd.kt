@@ -40,6 +40,7 @@ object TagsMd {
         "Navigation",
         "Tasks",
         "Agenda",
+        "Plans",
         "Pomodoro",
         "Tags",
         "Notes",
@@ -74,6 +75,7 @@ object TagsMd {
         "Tasks",
         "Notes",
         "Agenda",
+        "Plans",
         "Projects",
         "Pomodoro",
         "Dialog",
@@ -264,6 +266,18 @@ object TagsMd {
 
         "agendaSection" -> DynamicMeta(fnName, "Agenda", "Today", "Agenda section headers")
 
+        "plansSection" ->
+            DynamicMeta(fnName, "Plans", "day:2026-09-16", "Timeline section headers")
+
+        "plansSectionAdd" ->
+            DynamicMeta(fnName, "Plans", "day:2026-09-16", "The add control of a timeline section")
+
+        "menuProjectNode" ->
+            DynamicMeta(fnName, "Menu", "p1", "A project in the menu's project tree")
+
+        "menuProjectExpander" ->
+            DynamicMeta(fnName, "Menu", "p1", "The expander of a project in the menu's tree")
+
         "agendaSectionTemplate" ->
             DynamicMeta(fnName, "Agenda", "By tag", "Section *types* in the add-section sheet")
 
@@ -371,6 +385,10 @@ object TagsMd {
         "CHECKLIST_" to "Tasks",
         "SUBTASK" to "Tasks",
         "AGENDA_" to "Agenda",
+        // The timeline of the Plans tab: its sections, its granularity control
+        // and its empty state. A heading of its own rather than a fragment of
+        // Agenda: the plan is a feature, not a preset of the agenda's.
+        "PLANS_" to "Plans",
         "SAVED_" to "Agenda",
         "POMODORO_" to "Pomodoro",
         "TAGS_" to "Tags",

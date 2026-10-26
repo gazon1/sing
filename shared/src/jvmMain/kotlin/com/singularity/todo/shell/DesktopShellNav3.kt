@@ -8,6 +8,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
@@ -34,8 +35,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavKey
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.core.ui.menu.ComposeTopMenuBar
 import com.singularity.todo.core.ui.menu.MenuNode
@@ -50,8 +53,15 @@ import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.Navigator
 import com.singularity.todo.feature.nav.Settings
 import com.singularity.todo.feature.nav.createJvmEntryProvider
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.nav.icon
+import com.singularity.todo.feature.projects.presentation.components.ProjectTreeSection
+import com.singularity.todo.feature.projects.presentation.nav.ProjectsOpener
+import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTreeIntent
+import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTreeViewModel
 import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 import java.net.URI
 import kotlin.system.exitProcess
 
@@ -96,6 +106,12 @@ fun DesktopShellNav3Root(
     val canGoBack = currentStack.size > 1
 
     val appEntryProvider = createJvmEntryProvider(navCallbacks, today)
+
+    // The projects the drawer shows as a tree — the same tree the Android sheet
+    // shows, drawn by the same composable.
+    val projectsTreeViewModel: ProjectsTreeViewModel = koinViewModel()
+    val projectsTreeState by projectsTreeViewModel.stateFlow.collectAsStateWithLifecycle()
+    val projectsOpener: ProjectsOpener = koinInject()
 
     // About dialog state
     var showAbout by remember { mutableStateOf(false) }
@@ -224,24 +240,76 @@ fun DesktopShellNav3Root(
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-                    DestinationKind.menuEntries.forEach { destination ->
-                        val selected = current == destination
+                    // The same entries the Android sheet offers — one model,
+                    // two drawings.
+                    AppMenu.destinations.forEach { entry ->
+                        val selected = current == entry.destination
                         NavigationDrawerItem(
-                            label = { Text(destination.title) },
+                            label = { Text(entry.label) },
                             selected = selected,
                             onClick = {
                                 scope.launch { drawerState.close() }
-                                navigator.open(destination)
+                                navigator.open(entry.destination)
                             },
                             icon = {
                                 Icon(
-                                    destination.icon,
-                                    contentDescription = destination.title,
+                                    entry.icon ?: Icons.Default.Menu,
+                                    contentDescription = entry.label,
                                 )
                             },
-                            modifier = Modifier.padding(horizontal = 12.dp),
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp)
+                                .testTag(entry.id),
                         )
                     }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                    // ─── Projects ───────────────────────────────────────────────
+                    // The tree, and the way to the full list. The tree is drawn by
+                    // the composable the Android sheet draws too.
+                    Text(
+                        text = "Projects",
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+
+                    ProjectTreeSection(
+                        state = projectsTreeState,
+                        onToggleExpanded = { projectId ->
+                            projectsTreeViewModel.onIntent(ProjectsTreeIntent.ToggleExpanded(projectId))
+                        },
+                        onOpenProject = { projectId ->
+                            scope.launch { drawerState.close() }
+                            // The request is a piece of app state, not a
+                            // destination: the project id stays out of the
+                            // navigation key space.
+                            projectsOpener.requestOpen(projectId)
+                            navigator.open(AppDestination.ProjectsGraph())
+                        },
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                    )
+
+                    NavigationDrawerItem(
+                        label = { Text("All projects") },
+                        selected = false,
+                        onClick = {
+                            scope.launch { drawerState.close() }
+                            // The hoisted stack survives the graph leaving the
+                            // screen, so the list is asked for explicitly.
+                            projectsOpener.requestList()
+                            navigator.open(AppDestination.ProjectsGraph())
+                        },
+                        icon = {
+                            Icon(
+                                Icons.Default.Folder,
+                                contentDescription = "All projects",
+                            )
+                        },
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .testTag(TestTags.MENU_ALL_PROJECTS),
+                    )
                 }
             }
         },

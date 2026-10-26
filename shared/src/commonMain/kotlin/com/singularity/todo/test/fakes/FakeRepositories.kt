@@ -66,6 +66,8 @@ import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewKey
 import com.singularity.todo.feature.agenda.domain.port.DefaultAgendaViewSettingsRepository
+import com.singularity.todo.feature.plans.domain.model.PlansGranularity
+import com.singularity.todo.feature.plans.domain.port.PlansSettingsRepository
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.calendarSync.auth.GoogleAuthorizationException
 import com.singularity.todo.feature.calendarSync.auth.GoogleAuthorizationRequest
@@ -233,6 +235,14 @@ class FakeSettingsRepository(initialUserId: String = TestUsers.DEFAULT.value) : 
         override val defaultViewId: Flow<SavedAgendaViewId?> = _id
         override suspend fun setDefaultViewId(id: SavedAgendaViewId?) {
             _id.value = id
+        }
+    }
+
+    override val plans: PlansSettingsRepository = object : PlansSettingsRepository {
+        private val _granularity = MutableStateFlow(PlansGranularity.Default)
+        override val granularity: Flow<PlansGranularity> = _granularity
+        override suspend fun setGranularity(granularity: PlansGranularity) {
+            _granularity.value = granularity
         }
     }
 
