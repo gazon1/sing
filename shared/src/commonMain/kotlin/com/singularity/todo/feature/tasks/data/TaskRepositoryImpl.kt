@@ -31,6 +31,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import com.singularity.todo.feature.tasks.domain.model.TaskSharedField
 import com.singularity.todo.feature.tasks.blockingDependencyIdsForUser
+import com.singularity.todo.feature.tasks.followUpDependencyIdsForUser
 import com.singularity.todo.feature.tasks.freshTask
 import com.singularity.todo.feature.tasks.withExtras
 import com.singularity.todo.feature.tasks.domain.port.DependencyValidator
@@ -84,11 +85,13 @@ class TaskRepositoryImpl(
         combine(
             taskDao.watchByIdForUser(id.value, uid.value),
             taskDao.blockingDependencyIdsForUser(id.value, uid.value),
+            taskDao.followUpDependencyIdsForUser(id.value, uid.value),
             taskDao.getTagIdsForUser(id.value, uid.value),
-        ) { entity, depIds, tagIds ->
+        ) { entity, depIds, followUpIds, tagIds ->
             if (entity?.userId == uid.value) {
                 entity.toTask(
                     blockedBy = depIds.map { TaskId.fromString(it) }.toSet(),
+                    followsUp = followUpIds.map { TaskId.fromString(it) }.toSet(),
                     tags = tagIds.map { TagId.fromString(it) },
                 )
             } else {
@@ -453,6 +456,18 @@ class TaskRepositoryImpl(
             taskDao.withExtras(uid, taskDao.observeSeriesForUser(seriesId.value, uid.value))
         }
 
+    override suspend fun legacyRecurringTasks(): List<Task> {
+        val uid = currentUser.scopedUserId.value.value
+        val rows = taskDao.legacyRecurringForUser(uid)
+        if (rows.isEmpty()) return emptyList()
+        // The tags live in a cross-ref table, so the rows are completed with them:
+        // the occurrences the repair builds inherit the work, tags included.
+        val tagRefs = taskDao.listAllTagsForUser(uid)
+            .groupBy { it.taskId }
+            .mapValues { (_, refs) -> refs.map { TagId.fromString(it.tagId) } }
+        return rows.map { row -> row.toTask(tags = tagRefs[row.id].orEmpty()) }
+    }
+
     /**
      * Writes the outgoing links of [id] and stamps the row.
      *
@@ -784,22 +799,23 @@ class TaskRepositoryImpl(
             require(taskDao.getByIdForUser(taskId.value, uid) != null) { "Task $taskId not found" }
             dependencyValidator.assertNoCycles(taskId, deps).getOrThrow()
 
-            // Read existing edges so we can preserve their verbs (fixes prior hardcoded BLOCKS bug).
-            val existingEdges = taskDao.observeTypedDependenciesForUser(taskId.value, uid).first()
-            val existingMap = existingEdges.associateBy({ it.dependsOnTaskId }, { it.verb })
-
+            // `SetDependencies` carries the *blocking* set, and the table also holds
+            // the ordering edges (FOLLOWS_UP and friends). Filtering by verb is what
+            // keeps a save of the blocking set from erasing a follow-up edge the
+            // picker never mentioned: the old code read every edge and removed
+            // everything outside `desired`, so the two verbs could not coexist.
             val desired = deps.map { it.value }.toSet()
-            val existing = existingEdges.map { it.dependsOnTaskId }.toSet()
+            val existingBlocking = taskDao.observeTypedDependenciesForUser(taskId.value, uid).first()
+                .filter { it.verb == DependencyVerb.BLOCKS.name }
+                .map { it.dependsOnTaskId }
+                .toSet()
 
-            // Remove edges no longer in the desired set
-            (existing - desired).forEach { depId ->
-                taskDao.removeDependencyForUser(taskId.value, depId, uid)
+            (existingBlocking - desired).forEach { depId ->
+                taskDao.removeDependencyForVerb(taskId.value, depId, DependencyVerb.BLOCKS.name, uid)
             }
 
-            // Upsert remaining edges, preserving existing verb or defaulting to BLOCKS for new ones
             desired.forEach { depId ->
-                val verb = existingMap[depId] ?: DependencyVerb.BLOCKS.name
-                taskDao.upsertDependencyForUser(taskId.value, depId, verb, uid)
+                taskDao.upsertDependencyForUser(taskId.value, depId, DependencyVerb.BLOCKS.name, uid)
             }
 
             // Same as setTags: `blockedBy` is part of the synced payload.
@@ -822,6 +838,37 @@ class TaskRepositoryImpl(
                 taskDao.removeDependencyForVerb(from.value, to.value, verb.name, uid)
             }
             enqueueFresh(from)
+        }
+    }
+
+    override suspend fun setDependencyRelations(
+        taskId: TaskId,
+        relations: Map<TaskId, DependencyVerb>,
+    ): Result<Unit> = runCatchingCancellable {
+        unitOfWork.write {
+            val uid = currentUser.scopedUserId.value.value
+            require(taskDao.getByIdForUser(taskId.value, uid) != null) { "Task $taskId not found" }
+
+            // Validate the resulting blocking set before any write.
+            val blockingSet = relations.filterValues { it == DependencyVerb.BLOCKS }.keys
+            dependencyValidator.assertNoCycles(taskId, blockingSet).getOrThrow()
+
+            val existingEdges = taskDao.observeTypedDependenciesForUser(taskId.value, uid).first()
+            val existing = existingEdges.map { it.dependsOnTaskId }.toSet()
+            val desired = relations.keys.map { it.value }.toSet()
+
+            // Remove edges no longer desired (any verb).
+            (existing - desired).forEach { depId ->
+                taskDao.removeDependencyForUser(taskId.value, depId, uid)
+            }
+
+            // Upsert desired edges with their verbs (verb change = one upsert).
+            desired.forEach { depId ->
+                val verb = relations[TaskId.fromString(depId)] ?: DependencyVerb.BLOCKS
+                taskDao.upsertDependencyForUser(taskId.value, depId, verb.name, uid)
+            }
+
+            enqueueFresh(taskId)
         }
     }
 }
@@ -862,6 +909,7 @@ private fun Task.toEntity(outgoingLinks: String = linksJsonOf(description)): Tas
     isPinned = isPinned,
     recurrenceRule = recurrence?.let { StableJson.encodeToString(RecurrenceSpec.serializer(), it) },
     seriesId = seriesId?.value,
+    workflowState = workflowState.name,
     aiSuppressedTagIds = StableJson.encodeToString(
         SetSerializer(String.serializer()),
         aiSuppressedTagIds.map { it.value }.toSet(),

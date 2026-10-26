@@ -6,9 +6,11 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import com.singularity.todo.core.ui.TestTags
 
 /**
  * Content descriptions of the desktop shell's own controls.
@@ -56,10 +58,17 @@ object DesktopShell {
 private fun drawerEntry(label: String): SemanticsMatcher =
     hasContentDescription(label) and SemanticsMatcher.keyIsDefined(SemanticsProperties.Role)
 
-/** True once the drawer sheet has slid in — its first entry is on-screen. */
+/**
+ * True once the drawer sheet has slid in.
+ *
+ * The sheet itself is the thing that slides, so it is the thing to ask about.
+ * An entry would be the wrong probe: the drawer is a scrollable column, and a
+ * flow that scrolled to the trailing entries leaves the first tab above the
+ * fold — the drawer is open, and the tab is not on screen.
+ */
 @OptIn(ExperimentalTestApi::class)
 private fun DesktopComposeUiTest.isDrawerOpen(): Boolean =
-    onAllNodes(drawerEntry(DesktopShell.TABS.first()))
+    onAllNodes(hasTestTag(TestTags.DESKTOP_DRAWER))
         .fetchSemanticsNodes()
         .any { it.boundsInRoot.right > 0 }
 

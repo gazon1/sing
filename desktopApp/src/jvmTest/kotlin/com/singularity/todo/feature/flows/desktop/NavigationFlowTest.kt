@@ -115,7 +115,9 @@ class NavigationFlowTest {
 
         // Leave the project (the shell's back leaves the graph the menu
         // opened) and come back through the menu: the project is still there.
-        clickContentDescriptionFirst("Back")
+        // The shell's own back arrow: the project's own arrow would only go
+        // from the project back to the list, still inside the graph.
+        awaitTag(TestTags.SHELL_BACK_BUTTON).performClick()
         openAllProjects()
         awaitTag(TestTags.projectCard("Roadmap")).performClick()
 

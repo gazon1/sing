@@ -15,12 +15,9 @@ import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -28,7 +25,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -73,10 +69,16 @@ fun ChecklistEditorSheet(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     items(items, key = { it.id.value }) { item ->
+                        // The shared row, not a private copy of it: the task screen
+                        // renders checklist items and subtasks with the same widget,
+                        // and a second house style here is what made the two lists
+                        // look different in the first place.
                         ChecklistItemRow(
-                            item = item,
-                            onToggle = onToggle,
-                            onDelete = onDelete,
+                            text = item.title,
+                            checked = item.isCompleted,
+                            onToggle = { onToggle(item.id) },
+                            onDelete = { onDelete(item.id) },
+                            tags = ChecklistRowTags.forChecklistItem(id = item.id.value, title = item.title),
                         )
                     }
                 }
@@ -113,51 +115,6 @@ private fun ChecklistAddRow(onAdd: (String) -> Unit) {
             modifier = Modifier.testTag(TestTags.CHECKLIST_ADD_BUTTON),
         ) {
             Icon(Icons.Default.Add, contentDescription = "Add")
-        }
-    }
-}
-
-@Composable
-private fun ChecklistItemRow(
-    item: ChecklistItem,
-    onToggle: (ChecklistItemId) -> Unit,
-    onDelete: (ChecklistItemId) -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Checkbox(
-            checked = item.isCompleted,
-            onCheckedChange = { onToggle(item.id) },
-            modifier = Modifier.testTag(
-                TestTags.checklistItemCheckbox(item.id.value, item.title),
-            ),
-        )
-        Text(
-            text = item.title,
-            modifier = Modifier
-                .weight(1f)
-                .testTag(TestTags.checklistItem(item.id.value, item.title)),
-            style = MaterialTheme.typography.bodyLarge,
-            textDecoration = if (item.isCompleted) TextDecoration.LineThrough else null,
-            color = if (item.isCompleted) {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            } else {
-                MaterialTheme.colorScheme.onSurface
-            },
-        )
-        IconButton(
-            onClick = { onDelete(item.id) },
-            modifier = Modifier.testTag(
-                TestTags.checklistItemDelete(item.id.value, item.title),
-            ),
-        ) {
-            Icon(
-                Icons.Default.Delete,
-                contentDescription = "Delete",
-                tint = MaterialTheme.colorScheme.error,
-            )
         }
     }
 }

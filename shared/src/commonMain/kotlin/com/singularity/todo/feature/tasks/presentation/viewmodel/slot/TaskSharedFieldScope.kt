@@ -52,5 +52,6 @@ internal fun sharedFieldOf(intent: TaskDetailIntent.Domain): TaskSharedField? = 
     is TaskDetailIntent.Domain.RemoveTag -> TaskSharedField.Tags
     is TaskDetailIntent.Domain.SetRecurrence -> TaskSharedField.Recurrence
     is TaskDetailIntent.Domain.SetEstimate -> TaskSharedField.Estimate
+    is TaskDetailIntent.Domain.SetWorkflowState -> TaskSharedField.WorkflowState
     else -> null
 }

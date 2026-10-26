@@ -1,20 +1,26 @@
 # Scenario specification for TASK-CHECK-01.
 #
-# Un-automated on purpose: this row proves the matrix renders `○` for a claimed
-# target with no carrier, which is the one thing the layer exists to surface. A
-# hole that is recorded is information; the same hole left implicit is invisible
-# until a test fails.
+# The canonical statement of this user scenario. Linkage to automation is *not*
+# here — it lives in code (@DisplayName for Kotlin, a `scenario:TASK-CHECK-01`
+# Maestro tag), so there is no second source of truth to keep in sync.
 #
-# The hole here is mechanical rather than a matter of effort, and the reason is
-# worth more than the row: the checklist editor is a `ModalBottomSheet`
-# (`ChecklistEditorSheet`, hosted by `TaskEditorSheetsHost.kt:140`), and on
-# desktop a sheet resolves to a `Dialog` — a separate window, not an overlay in
-# the main one. Measured on 2026-10-05 (#152): the main semantics tree is
-# byte-identical before and after the sheet opens, and the cross-root search
-# finds nothing, so no JVM test can address anything inside it.
+# `area` is derived from this path (scenarios/tasks/…) and only cross-checked
+# when stated; the id prefix TASK-CHECK is checked against tasks/checklist.
 #
-# So this hole has exactly two honest closures: a Maestro flow, or a change of
-# surface. Anything else is a test written to fail.
+# ## What changed with the surface
+#
+# The checklist used to be edited behind a panel, and the task screen's editor
+# passed `checklist = null`, so the panel was unreachable from the task screen:
+# the only way into it was the "Add checklist" chip of the FirstRunSection, a
+# row that exists for the first five minutes of a task's life. The items are
+# inline now, and this scenario follows them there.
+#
+# The desktop cell stays a hole, and the reason is a platform fact rather than
+# an omission: a sheet on desktop resolves to a `Dialog` — a separate window,
+# not an overlay in the main one. Measured on 2026-10-05 (#152): the main
+# semantics tree is byte-identical before and after the sheet opens, and the
+# cross-root search finds nothing, so no JVM test could address anything inside
+# it. The inline section is reachable, and `TASK-ITEM-01` claims it.
 
 id: TASK-CHECK-01
 title: Add a checklist item to a task
@@ -23,16 +29,18 @@ priority: P1
 status: confirmed
 targets: [android]
 preconditions: >-
-  A task exists and its detail view is open on desktop, where the checklist
-  editor is reachable from the task editor.
+  A task exists and its detail view is open on the device, where the checklist
+  is listed inline on the task screen.
 steps:
-  - Open the checklist editor for the task.
-  - Add an item and give it text.
-  - Complete the item, close the editor and reopen it.
+  - Type a title into the checklist's add-row on the task screen.
+  - Submit the row.
+  - Tick the item's checkbox.
+  - Leave the task and come back to it.
 expected: >-
-  The item persists with its text and its completed state, so the list survives
-  closing and reopening the editor on the same task.
+  The item is listed on the task screen with a real checkbox, the tick is kept,
+  and the list survives leaving the task and coming back to it.
 
-# Claimed on `android` via Maestro flow. The Android cell reads "●".
-# Desktop remains unclaimed: the ModalBottomSheet → Dialog translation on desktop
-# makes the sheet unreachable from JVM UI tests, and no desktop flow exists.
+# Claimed on `android` via the Maestro flow `scenario:TASK-CHECK-01`.
+# Desktop remains unclaimed for the checklist *sheet*: the ModalBottomSheet →
+# Dialog translation on desktop makes the sheet unreachable from JVM UI tests,
+# and no desktop flow exists. The inline checklist is claimed by `TASK-ITEM-01`.

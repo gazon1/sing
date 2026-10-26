@@ -9,6 +9,7 @@ import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
+import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -32,7 +33,7 @@ class SelectorSerializerTest {
     // ─── typeTag ────────────────────────────────────────────────────────────────
 
     @Test
-    fun `typeTag returns @SerialName value for all 17 variants`() {
+    fun `typeTag returns @SerialName value for all 19 variants`() {
         assertEquals("DateBucket", Selector.DateBucket(RelativeBucket.Today).typeTag)
         assertEquals("DateRange", Selector.DateRange(LocalDate(2025, 1, 1), LocalDate(2025, 1, 31)).typeTag)
         assertEquals("Tags", Selector.Tags(setOf()).typeTag)
@@ -43,6 +44,8 @@ class SelectorSerializerTest {
         assertEquals("Completed", Selector.Completed.typeTag)
         assertEquals("Overdue", Selector.Overdue.typeTag)
         assertEquals("Blocked", Selector.Blocked.typeTag)
+        assertEquals("WorkflowState", Selector.WorkflowState(TaskWorkflowState.InProgress).typeTag)
+        assertEquals("FollowUp", Selector.FollowUp.typeTag)
         assertEquals("Stagnant", Selector.Stagnant().typeTag)
         assertEquals("Regexp", Selector.Regexp(".*").typeTag)
         assertEquals("AllOf", Selector.AllOf(emptyList()).typeTag)
@@ -78,6 +81,8 @@ class SelectorSerializerTest {
             Selector.Completed,
             Selector.Overdue,
             Selector.Blocked,
+            Selector.WorkflowState(TaskWorkflowState.NextUp),
+            Selector.FollowUp,
             Selector.Stagnant(),
             Selector.Regexp(".*"),
             Selector.AllOf(listOf(Selector.Pinned, Selector.Not(Selector.Completed))),

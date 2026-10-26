@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.plans.domain.model
 
-import com.singularity.todo.feature.tasks.domain.model.TaskRowItem
 import kotlinx.collections.immutable.ImmutableList
 
 /**
@@ -17,5 +16,5 @@ data class TimelineSection(
     val id: String,
     val label: String,
     val period: TimelinePeriod?,
-    val tasks: ImmutableList<TaskRowItem>,
+    val tasks: ImmutableList<TimelineTask>,
 )

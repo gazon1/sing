@@ -17,6 +17,8 @@ import kotlinx.datetime.LocalDate
  * @param now The current instant, used to compute staleness for [Selector.Stagnant].
  * @param blockedIds The set of task IDs blocked by an unfinished dependency,
  *                   computed once per agenda evaluation via [Blocking.blockedTaskIds].
+ * @param followUpIds The set of task IDs that follow up on another task — the
+ *                   ordering projection of the dependency cross-references.
  * @param lastActivityOf Returns the instant of the task's last meaningful activity,
  *                   used for [Selector.Stagnant] staleness. Defaults to [Task.updatedAt]
  *                   to preserve existing Selector semantics; callers that need the
@@ -27,6 +29,7 @@ data class SelectorContext(
     val today: LocalDate,
     val now: Instant,
     val blockedIds: Set<TaskId>,
+    val followUpIds: Set<TaskId> = emptySet(),
     val lastActivityOf: (Task) -> Instant = { task -> task.updatedAt },
 )
 
@@ -45,9 +48,9 @@ data class SelectorContext(
  *
  * ## Coverage
  *
- * All 16 Selector variants are covered: DateBucket, DateRange, Statuses,
- * Priorities, Tags, Projects, Pinned, Completed, Overdue, Blocked, Stagnant,
- * Regexp, AllOf, AnyOf, Not, Anything.
+ * All 19 Selector variants are covered: DateBucket, DateRange, Statuses,
+ * Priorities, Tags, Projects, Pinned, Completed, Overdue, Blocked, WorkflowState,
+ * FollowUp, Stagnant, Regexp, AllOf, AnyOf, Not, Anything, TimeOfDay.
  *
  * @see Selector
  */
@@ -101,6 +104,15 @@ fun Selector.matches(task: Task, context: SelectorContext): Boolean = when (this
     // BLOCKED takes precedence over STAGNANT in health classification, so a blocked
     // task that is also stale does NOT match this selector.
     is Selector.Blocked -> task.id in context.blockedIds
+
+    // The stored state, independent of completion on the task itself; a *section*
+    // of work is not where a finished task belongs, so completion wins here.
+    is Selector.WorkflowState ->
+        !task.isCompleted && task.workflowState == state
+
+    // The ordering graph: a task that follows up on another is not waiting for it,
+    // which is exactly why this reads a different context set than Blocked.
+    is Selector.FollowUp -> task.id in context.followUpIds
 
     // STAGNANT: undated, incomplete, and not touched for long enough.
     // Excludes blocked tasks (BLOCKED has higher health precedence).

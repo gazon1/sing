@@ -24,8 +24,8 @@ import kotlinx.serialization.Serializable
  *
  * - [RecurrenceBase.FROM_DUE]: next occurrence is relative to the due date of the current occurrence.
  * - [RecurrenceBase.FROM_COMPLETION]: next occurrence is relative to when the current occurrence was completed.
- * - [RecurrenceBase.CATCH_UP]: like FROM_COMPLETION but creates copies for each missed occurrence
- *   up to [MAX_MISSED] (10). Used to fill in gaps when tasks are completed late.
+ * - [RecurrenceBase.CATCH_UP]: fills the gaps between *scheduled* occurrences — the next occurrence, and
+ *   the missed ones, are measured from the due date, not from completion, up to [MAX_MISSED] (10).
  *
  * @see RecurrenceCalculator for next-occurrence computation.
  */

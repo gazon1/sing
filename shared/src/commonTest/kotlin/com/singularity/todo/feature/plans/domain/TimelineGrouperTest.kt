@@ -208,7 +208,7 @@ class TimelineGrouperTest {
     }
 
     @Test
-    fun `an overdue task carries the overdue badge`() {
+    fun `an overdue task carries the overdue marking`() {
         val sections = TimelineGrouper.group(
             tasks = listOf(task("late", "Late", due = yesterday)),
             granularity = PlansGranularity.Day,
@@ -216,8 +216,8 @@ class TimelineGrouperTest {
         )
 
         assertEquals(
-            com.singularity.todo.feature.tasks.domain.model.TaskBadge.Overdue,
-            sections[0].tasks[0].badge,
+            setOf(com.singularity.todo.feature.tasks.domain.model.TaskMarking.Overdue),
+            sections[0].tasks[0].markings,
         )
     }
 

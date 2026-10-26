@@ -76,6 +76,23 @@ interface TaskDao {
     suspend fun getSeriesForUser(seriesId: String, userId: String): List<TaskEntity>
 
     /**
+     * The active profile's legacy repeating rows: a rule but no series.
+     *
+     * The launch repair adopts these into series. The condition — a rule and no
+     * `series_id` — is exactly the shape the old one-row model left behind, and it
+     * is a new statement on an existing table: `recurrence_rule` is indexed, and
+     * nothing about the schema changes.
+     *
+     * Only the live rows are read: a trashed legacy task is not something to
+     * materialise, and the active list is what the user sees.
+     */
+    @Query(
+        "SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL " +
+            "AND recurrence_rule IS NOT NULL AND series_id IS NULL ORDER BY due_date ASC",
+    )
+    suspend fun legacyRecurringForUser(userId: String): List<TaskEntity>
+
+    /**
      * Returns tasks that carry [tagId] either directly or via any tag group
      * inherited by their project.
      *
@@ -860,6 +877,21 @@ interface ProjectDao {
             "ORDER BY closed_at DESC, name ASC",
     )
     fun watchClosedForUser(userId: String): Flow<List<ProjectEntity>>
+
+    /**
+     * Every project of the profile that is not deleted — open and closed alike.
+     *
+     * A row of a list names its project whether or not the project was later
+     * closed: a badge that vanished the moment the project was closed would be a
+     * badge that lies about the work's history. [watchAll] filters closed projects
+     * out because the *project list* shows what is being worked on; a badge is not
+     * that list, so it reads through this.
+     */
+    @Query(
+        "SELECT * FROM projects WHERE user_id = :userId AND is_deleted = 0 " +
+            "ORDER BY sort_order ASC, name ASC",
+    )
+    fun watchAllIncludingClosed(userId: String): Flow<List<ProjectEntity>>
 
     // ─── UserId-scoped reads (Phase 2.8 fix) ──────────────────────────────────
     @Query("SELECT * FROM projects WHERE id = :id AND user_id = :userId")

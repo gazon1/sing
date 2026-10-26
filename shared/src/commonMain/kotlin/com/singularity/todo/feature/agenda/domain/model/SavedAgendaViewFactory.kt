@@ -74,3 +74,20 @@ object SavedAgendaViewFactory {
  * this function so both halves stay format-coupled in one place.
  */
 fun AgendaDefinition.toSectionsJson(): String = StableJson.encodeToString(AgendaDefinition.serializer(), this)
+
+/**
+ * The sections of a saved view, or null when the stored blob cannot be decoded.
+ *
+ * A saved view is one JSON blob, so one selector the registry no longer knows takes
+ * the whole view down. Callers use a null to *drop* the view rather than show a
+ * blank screen: the rest of the list stays usable, and the broken row does not
+ * pretend to be an empty agenda. An absent blob is an empty section list — a view
+ * that never had sections is still a view.
+ */
+fun decodeSavedSections(json: String?): List<Section>? = if (json == null) {
+    emptyList()
+} else {
+    runCatching {
+        StableJson.decodeFromString<AgendaDefinition>(json).sections
+    }.getOrNull()
+}

@@ -4,6 +4,7 @@ import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
+import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
 
 /**
  * Human-readable description of a [Selector] for UI display.
@@ -13,9 +14,9 @@ import com.singularity.todo.feature.tasks.domain.model.TaskStatus
  *
  * ## Coverage
  *
- * All 16 Selector variants are covered: DateBucket, DateRange, Statuses,
- * Priorities, Tags, Projects, Pinned, Completed, Overdue, Blocked, Stagnant,
- * Regexp, AllOf, AnyOf, Not, Anything.
+ * All 19 Selector variants are covered: DateBucket, DateRange, Statuses,
+ * Priorities, Tags, Projects, Pinned, Completed, Overdue, Blocked, WorkflowState,
+ * FollowUp, Stagnant, Regexp, AllOf, AnyOf, Not, Anything, TimeOfDay.
  *
  * @see Selector
  */
@@ -68,6 +69,14 @@ val Selector.typeDescription: String
         is Selector.Overdue -> "Overdue"
 
         is Selector.Blocked -> "Blocked"
+
+        is Selector.WorkflowState -> when (state) {
+            TaskWorkflowState.Open -> "No state"
+            TaskWorkflowState.NextUp -> "Next up"
+            TaskWorkflowState.InProgress -> "In progress"
+        }
+
+        is Selector.FollowUp -> "Follow-ups"
 
         is Selector.Stagnant -> "Stagnant"
 

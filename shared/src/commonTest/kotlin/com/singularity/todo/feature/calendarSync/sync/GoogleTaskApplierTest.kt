@@ -421,6 +421,36 @@ class GoogleTaskApplierTest {
         assertEquals(noon.toEpochMilliseconds() - 600_000, assertNotNull(reminders.get(ReminderId("rem-1"))).fireAt)
     }
 
+    // ─── A recurring series on the calendar ─────────────────────────────
+
+    /**
+     * A recurring series appears on the calendar as one event per **open**
+     * occurrence — the same "one row, one event" rule a multi-date series already
+     * follows (FR-042, SC-010). The task's own rule is never exported as an RRULE.
+     */
+    @Test
+    fun `a recurring series is one event per open occurrence, and no rule`() = runTest {
+        val series = com.singularity.todo.feature.tasks.domain.model.TaskSeriesId("series-1")
+        val rule = com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Interval(
+            com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase.FROM_DUE,
+            1,
+            kotlinx.datetime.DateTimeUnit.WEEK,
+        )
+        taskRepo.seed(
+            task(id = "occ-1", dueDate = LocalDate(2026, 3, 4)).copy(seriesId = series, recurrence = rule),
+            task(id = "occ-2", dueDate = LocalDate(2026, 3, 11)).copy(seriesId = series, recurrence = rule),
+            task(id = "occ-3", dueDate = LocalDate(2026, 3, 18)).copy(seriesId = series, recurrence = rule),
+            // A closed occurrence is already out of the active list: it is not an event.
+            task(id = "done", dueDate = LocalDate(2026, 2, 25))
+                .copy(seriesId = series, recurrence = rule, completedAt = t0),
+        )
+
+        val events = applier().desiredEvents("primary")
+
+        assertEquals(3, events.size, "one event per open occurrence — the closed one is not exported")
+        assertTrue(events.all { it.recurrenceRule == null }, "the task's own rule is never exported as a calendar rule")
+    }
+
     // ─── Helpers ────────────────────────────────────────────────────────
 
     /**

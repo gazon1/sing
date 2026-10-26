@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tasks.presentation.components.list
 
+import kotlinx.collections.immutable.persistentSetOf
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskMarking
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
@@ -77,16 +79,18 @@ fun TaskRowContent(task: TaskUi, onToggleCompleted: () -> Unit, modifier: Modifi
                 )
             }
 
-            // One fact, four sources: the meta row is drawn when there is something to say.
-            val hasMeta = task.dueLabel != null || task.project != null || task.isBlocked || task.seriesDates != null
+            // One fact, several sources: the meta row is drawn when there is something
+            // to say. The repeat badge is a marking now, so `markings.isNotEmpty()`
+            // covers it — a repeating task with nothing else still shows its meta row.
+            val hasMeta = task.dueLabel != null || task.project != null ||
+                task.markings.isNotEmpty() || task.seriesDates != null
             if (hasMeta) {
                 Spacer(Modifier.height(TaskListSpacing.Xs))
                 TaskMetaRow(
                     dueLabel = task.dueLabel,
-                    project = task.project ?: "Без проекта",
-                    isRecurring = task.isRecurring,
-                    isOverdue = task.isOverdue && !task.isCompleted,
-                    isBlocked = task.isBlocked && !task.isCompleted,
+                    project = task.project,
+                    projectColor = task.projectColor,
+                    markings = task.markings,
                     seriesDates = task.seriesDates,
                 )
             }
@@ -105,7 +109,7 @@ private fun TaskRowContentPreview() {
                     title = "Позвонить родителям в сб или вс",
                     project = "Семья",
                     dueLabel = "Сб, 05 сент 2026",
-                    isRecurring = true,
+                    markings = persistentSetOf(TaskMarking.Recurring),
                     priority = TaskPriority.Medium,
                 ),
                 onToggleCompleted = {},
@@ -127,7 +131,7 @@ private fun TaskRowContentPreview() {
                     project = "Финансы",
                     dueLabel = "Вчера",
                     priority = TaskPriority.High,
-                    isOverdue = true,
+                    markings = persistentSetOf(TaskMarking.Overdue),
                 ),
                 onToggleCompleted = {},
             )

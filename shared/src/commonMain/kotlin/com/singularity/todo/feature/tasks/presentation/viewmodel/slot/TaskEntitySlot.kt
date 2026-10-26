@@ -3,6 +3,7 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
 import com.singularity.todo.feature.tags.TagId
+import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskChildrenDeps
 import com.singularity.todo.feature.tasks.domain.model.TaskCoreDeps
@@ -95,6 +96,9 @@ class TaskEntitySlot(
 
             is TaskDetailIntent.Domain.SetPriority -> mutate(task, intent) { copy(priority = intent.priority) }
 
+            is TaskDetailIntent.Domain.SetWorkflowState ->
+                mutate(task, intent) { copy(workflowState = intent.state) }
+
             is TaskDetailIntent.Domain.SetProject -> mutate(task, intent) { copy(projectId = intent.projectId) }
 
             is TaskDetailIntent.Domain.SetTags -> setTags(task, intent.tagIds)
@@ -120,13 +124,11 @@ class TaskEntitySlot(
                 TaskDetailIntent.Domain.TogglePinned,
             ) { copy(isPinned = !isPinned) }
 
-            is TaskDetailIntent.Domain.SetRecurrence -> mutate(
-                task,
-                intent,
-                "Failed to set recurrence",
-            ) { copy(recurrence = intent.spec) }
+            is TaskDetailIntent.Domain.SetRecurrence -> setRecurrence(task, intent.spec)
 
             is TaskDetailIntent.Domain.SetDependencies -> setDependencies(task, intent)
+
+            is TaskDetailIntent.Domain.SetDependencyRelations -> setDependencyRelations(task, intent)
 
             is TaskDetailIntent.Domain.SetEstimate -> mutate(
                 task,
@@ -155,6 +157,36 @@ class TaskEntitySlot(
     private fun setTags(task: Task, tagIds: List<TagId>) = scope.launch {
         core.taskRepo.setTags(task.id, tagIds)
             .onFailure { onError("Failed to set tags") }
+    }
+
+    /**
+     * Sets the rule on the task.
+     *
+     * A task that is already in a series changes the rule of the whole series —
+     * the recurrence is a shared field, so the write goes through
+     * [TaskCoreDeps.updateSeries] — and the series is re-planned so the future
+     * occurrences follow the new rule.
+     *
+     * A task that **stands alone** and is given a rule becomes a recurring series:
+     * the row is the current occurrence and the rule's future dates are materialised
+     * beside it (FR-001). Removing the rule from a task that stands alone is an
+     * ordinary field write — there is nothing to re-plan.
+     */
+    private fun setRecurrence(
+        task: Task,
+        spec: com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec?,
+    ) = scope.launch {
+        val seriesId = task.seriesId
+        when {
+            seriesId != null -> core.updateSeries.updateSeries(seriesId) { it.copy(recurrence = spec) }
+                .onFailure { onError("Failed to set recurrence") }
+
+            spec != null -> core.startRecurringSeries(task.id, spec)
+                .onFailure { onError("Failed to set recurrence") }
+
+            else -> core.updateTask(task.id) { it.copy(recurrence = null) }
+                .onFailure { onError("Failed to set recurrence") }
+        }
     }
 
     /**
@@ -212,5 +244,43 @@ class TaskEntitySlot(
     private fun setDependencies(task: Task, intent: TaskDetailIntent.Domain.SetDependencies) = scope.launch {
         core.taskRepo.setDependencies(task.id, intent.blockedBy)
             .onFailure { onError("Failed to set dependencies") }
+    }
+
+    /**
+     * Turns the picker's "desired relations" into the smallest set of edge writes.
+     *
+     * The picker returns the whole map, because that is what the user edited. The
+     * repository's write is per edge and per verb, because an edge is one row with a
+     * verb on it — so the diff is what decides whether a click removed an edge,
+     * added one, or changed what it means. Writing the map as a bulk replacement
+     * would have to delete every verb it did not mention, and the follow-up edges
+     * the picker does not show would be the first casualties.
+     */
+    private fun setDependencyRelations(
+        task: Task,
+        intent: TaskDetailIntent.Domain.SetDependencyRelations,
+    ) = scope.launch {
+        val current = task.blockedBy.associateWith { DependencyVerb.BLOCKS } +
+            task.followsUp.associateWith { DependencyVerb.FOLLOWS_UP }
+        val touched = current.keys + intent.relations.keys
+        touched.forEach { depId ->
+            val was = current[depId]
+            val now = intent.relations[depId]
+            val result = when {
+                was == null && now != null ->
+                    core.taskRepo.setDependency(task.id, depId, now, enabled = true)
+
+                was != null && now == null ->
+                    core.taskRepo.setDependency(task.id, depId, was, enabled = false)
+
+                was != null && now != null && was != now -> {
+                    core.taskRepo.setDependency(task.id, depId, was, enabled = false)
+                    core.taskRepo.setDependency(task.id, depId, now, enabled = true)
+                }
+
+                else -> null
+            }
+            result?.onFailure { onError("Failed to set dependencies") }
+        }
     }
 }

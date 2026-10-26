@@ -94,7 +94,6 @@ fun PlansContent(
                     } else {
                         PlansSectionList(
                             sections = state.sections,
-                            today = state.today,
                             onTaskClick = onTaskClick,
                             onToggleCompleted = onToggleCompleted,
                             onSwipeAway = onSwipeAway,

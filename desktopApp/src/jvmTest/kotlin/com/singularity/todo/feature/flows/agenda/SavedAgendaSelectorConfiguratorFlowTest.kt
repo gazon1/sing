@@ -31,6 +31,7 @@ import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import kotlin.test.Test
+import kotlin.test.assertTrue
 import org.koin.core.Koin
 import kotlin.time.Instant
 import org.junit.jupiter.api.Tag as JUnitTag
@@ -182,5 +183,41 @@ class SavedAgendaSelectorConfiguratorFlowTest {
         // The section row renders the description twice — as the section name
         // and as the row subtitle — so match the first, not "exactly one".
         assertNodeDisplayed(hasText("Any tag: 1"), "Any tag: 1 row")
+    }
+
+    /**
+     * The state facts are section types now, and a section built from one
+     * survives a save.
+     *
+     * A parameterless type is the dangerous shape here: it is added in one
+     * step, so nothing between the tap and the write asks the user to confirm
+     * that a value was chosen. The reopened editor is what proves the selector
+     * was serialized rather than dropped.
+     */
+    @Test
+    fun `a workflow-state section is offered and survives a save`() = runDesktopAppTest(checkA11y = true) { koin ->
+        val labels = SelectorTemplate.catalogue.map { it.label }
+        assertTrue("In progress" in labels, "the catalogue must offer the state sections: $labels")
+        assertTrue("Blocked" in labels, "the catalogue must offer the blocked section: $labels")
+        assertTrue("Follow-ups" in labels, "the catalogue must offer the follow-up section: $labels")
+
+        createView(koin)
+        openEditorForConfigurable()
+        openAddSectionSheet()
+
+        pickSectionTemplate("In progress")
+
+        // The section row renders the resolved description twice — as the name
+        // and as the subtitle — so match the first, not "exactly one".
+        assertNodeDisplayed(hasText("In progress"), "In progress row")
+
+        assertTagDisplayed(TestTags.SAVED_AGENDA_SAVE_BUTTON).performClick()
+        awaitTagGone(TestTags.SAVED_AGENDA_NAME_INPUT)
+
+        // Reopen: the selector round-tripped through the stored JSON.
+        assertTextDisplayed("Configurable")
+        clickText("⋮")
+        onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
+        assertNodeDisplayed(hasText("In progress"), "In progress row after reopen")
     }
 }

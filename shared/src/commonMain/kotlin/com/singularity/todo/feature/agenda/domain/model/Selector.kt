@@ -4,6 +4,7 @@ import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
+import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlinx.serialization.SerialName
@@ -116,6 +117,32 @@ sealed interface Selector {
     @Serializable
     @SerialName("Blocked")
     data object Blocked : Selector
+
+    /**
+     * Tasks the user claimed a particular workflow state for.
+     *
+     * The state is independent of completion, but a *section* of the agenda is a
+     * list of work to do: a completed task that was in progress when it was
+     * finished keeps the state on the task, and is not listed here. That is the
+     * one place the two ideas meet, and they meet in the selector rather than in
+     * the stored value.
+     *
+     * Requires no [SelectorContext]: the state is on the task.
+     */
+    @Serializable
+    @SerialName("WorkflowState")
+    data class WorkflowState(val state: TaskWorkflowState) : Selector
+
+    /**
+     * Tasks that follow up on another task.
+     *
+     * A follow-up edge orders two pieces of work without making either wait for
+     * the other. The ids come from [SelectorContext.followUpIds] — the ordering
+     * projection of the cross-reference table, computed once per evaluation.
+     */
+    @Serializable
+    @SerialName("FollowUp")
+    data object FollowUp : Selector
 
     /**
      * Tasks with no due date that have been idle for at least [threshold].

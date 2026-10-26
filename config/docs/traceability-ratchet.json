@@ -1,26 +1,26 @@
 {
   "measurement": "python3 -m traceability validate — specs + links only, no stand, no network, no test run (scripts/check-traceability-ratchet.py recomputes both numbers from the same package that renders the matrix)",
   "measured_at": "2026-10-26",
-  "commit": "39fd044a",
+  "commit": "origin/main merged",
   "corpus": {
-    "specs": 119,
-    "claimed_cells": 162,
-    "carriers": 54
+    "specs": 128,
+    "claimed_cells": 254,
+    "carriers": 62
   },
   "floors": [
     {
       "metric": "holes",
-      "max": 106,
-      "measured": 106,
+      "max": 107,
+      "measured": 107,
       "label": "claimed (scenario, target) cells with no automation",
-      "note": "Lowered 129 -> 106 on 2026-10-26 when feature 016's carriers landed: the desktop flow tests under desktopApp/src/jvmTest/.../flows/{plans,menu}/ and the Maestro flows under Maestro/flows/{plans,menu,nav}/ now cover PLANS-01, PLANS-03, PLANS-05, PLANS-10, MENU-01, MENU-04 and NAV-01. The floor was raised to 129 in the planning phase to state the commitment of that feature rather than hide it behind a quieter scenario set; the commitment is now kept, so the floor follows it down."
+      "note": "Lowered 129 -> 106 on 2026-10-26 when feature 016's carriers landed: the desktop flow tests under desktopApp/src/jvmTest/.../flows/{plans,menu}/ and the Maestro flows under Maestro/flows/{plans,menu,nav}/ now cover PLANS-01, PLANS-03, PLANS-05, PLANS-10, MENU-01, MENU-04 and NAV-01. Raised 106 -> 107 on the same day when origin/main was merged: upstream brought nine new task and agenda scenarios (TASK-STATE-01..03, TASK-ITEM-01..02, TASK-TAG-01, TASK-MARK-01, AGENDA-STATE-01..02) and one of their claimed cells has no automation yet. The growth is upstream's, not this feature's, and it is recorded rather than absorbed."
     },
     {
       "metric": "dark_scenarios",
-      "max": 71,
-      "measured": 71,
+      "max": 72,
+      "measured": 72,
       "label": "declared scenarios with a claimed target and no automation on any target",
-      "note": "Lowered 88 -> 71 on 2026-10-26 with the same carriers: seven of feature 016's eighteen scenarios now have automation on at least one target. The rest are still dark, and the floor says so — the number is the honest one, not the small one."
+      "note": "Lowered 88 -> 71 on 2026-10-26 with the same carriers: seven of feature 016's eighteen scenarios now have automation on at least one target. Raised 71 -> 72 on the same day when origin/main was merged: one of upstream's new scenarios claims a target and has no automation on any target yet. Recorded, not absorbed."
     },
     {
       "metric": "unreachable_cells",

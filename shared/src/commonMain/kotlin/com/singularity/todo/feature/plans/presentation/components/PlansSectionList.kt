@@ -26,10 +26,10 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.plans.domain.model.TimelineSection
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.tasks.domain.model.TaskRowItem
+import com.singularity.todo.feature.plans.domain.model.TimelineTask
 import com.singularity.todo.feature.tasks.presentation.components.list.SwipeableTaskRow
+import com.singularity.todo.feature.plans.presentation.model.toTaskUi
 import com.singularity.todo.feature.tasks.presentation.components.list.TaskRowFlat
-import com.singularity.todo.feature.tasks.presentation.model.toTaskUi
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.datetime.LocalDate
 
@@ -51,7 +51,6 @@ import kotlinx.datetime.LocalDate
  * is late the moment it is created is not what the button would promise.
  *
  * @param sections The sections to render, oldest period first.
- * @param today The date the rows judge "overdue" against.
  * @param onTaskClick Called with the id of the task the user tapped.
  * @param onToggleCompleted Called when the user ticks a task off — or back on.
  * @param onSwipeAway Called when the user swipes a task away.
@@ -60,7 +59,6 @@ import kotlinx.datetime.LocalDate
 @Composable
 fun PlansSectionList(
     sections: ImmutableList<TimelineSection>,
-    today: LocalDate,
     onTaskClick: (TaskId) -> Unit,
     onToggleCompleted: (TaskId) -> Unit,
     onSwipeAway: (TaskId) -> Unit,
@@ -91,7 +89,6 @@ fun PlansSectionList(
             ) { rowItem ->
                 PlansTaskRow(
                     rowItem = rowItem,
-                    today = today,
                     onTaskClick = onTaskClick,
                     onToggleCompleted = onToggleCompleted,
                     onSwipeAway = onSwipeAway,
@@ -150,14 +147,13 @@ private fun PlansSectionHeader(
  */
 @Composable
 private fun PlansTaskRow(
-    rowItem: TaskRowItem,
-    today: LocalDate,
+    rowItem: TimelineTask,
     onTaskClick: (TaskId) -> Unit,
     onToggleCompleted: (TaskId) -> Unit,
     onSwipeAway: (TaskId) -> Unit,
 ) {
     val taskId = rowItem.task.id
-    val taskUi = remember(rowItem, today) { rowItem.toTaskUi(today = today) }
+    val taskUi = remember(rowItem) { rowItem.toTaskUi() }
 
     SwipeableTaskRow(
         onDelete = { onSwipeAway(taskId) },

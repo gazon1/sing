@@ -19,7 +19,8 @@ class BackupCodecTest {
 
         val manifestBytes = """{"formatVersion":1,"appName":"test","appVersion":"1.0","createdAtEpochMillis":1000,"userIdHash":"abc","schemaVersion":1,"entityCounts":{},"payloadChecksum":"def"}""".toByteArray()
         val payloadBytes = """{"schemaVersion":1,"tasks":[]}""".toByteArray()
-        val attachments = listOf("file1.txt" to "hello".toByteArray())
+        fs.writeBytes("/attach/file1.txt", "hello".toByteArray())
+        val attachments = listOf("file1.txt" to "/attach/file1.txt")
 
         val destPath = "/backup/test.zip"
         codec.export(manifestBytes, payloadBytes, attachments, destPath, fs).getOrThrow()

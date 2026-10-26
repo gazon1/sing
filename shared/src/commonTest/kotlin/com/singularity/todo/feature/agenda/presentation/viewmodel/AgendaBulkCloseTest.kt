@@ -103,6 +103,7 @@ class AgendaBulkCloseTest {
                 mergeSeries = MergeTaskSeriesUseCase(fakeRepo),
                 workScheduleSettings = fakeSettings.workSchedule,
                 greetingSettings = fakeSettings.greeting,
+                projectsRepository = com.singularity.todo.test.fakes.FakeProjectsRepository(),
             ),
             definition = AgendaPresets.Inbox,
             scope = scope,

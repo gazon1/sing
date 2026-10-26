@@ -2,12 +2,11 @@ package com.singularity.todo.feature.plans.domain.logic
 
 import com.singularity.todo.feature.plans.domain.model.PlansGranularity
 import com.singularity.todo.feature.plans.domain.model.TimelineSection
+import com.singularity.todo.feature.plans.domain.model.TimelineTask
 import com.singularity.todo.feature.tasks.domain.logic.Blocking
-import com.singularity.todo.feature.tasks.domain.logic.computeTaskBadge
-import com.singularity.todo.feature.tasks.domain.logic.seriesSizes
+import com.singularity.todo.feature.tasks.domain.logic.computeTaskMarkings
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.tasks.domain.model.TaskRowItem
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.datetime.LocalDate
 
@@ -89,10 +88,20 @@ object TimelineGrouper {
         today: LocalDate,
         blockedIds: Set<TaskId>,
         seriesCount: Map<String, Int>,
-    ): TaskRowItem = TaskRowItem(
+    ): TimelineTask = TimelineTask(
         task = this,
-        badge = computeTaskBadge(this, today, blockedIds),
-        isBlocked = id in blockedIds,
+        markings = computeTaskMarkings(this, today, isBlocked = id in blockedIds),
         seriesDates = seriesId?.let { seriesCount[it.value] },
     )
+
+    /**
+     * How many dates each series has.
+     *
+     * The count is the number of rows that share the id — the dates the work is
+     * scheduled on. Counted once for the whole list rather than per row.
+     */
+    private fun seriesSizes(tasks: List<Task>): Map<String, Int> =
+        tasks.mapNotNull { it.seriesId?.value }
+            .groupingBy { it }
+            .eachCount()
 }

@@ -199,7 +199,11 @@ fun DesktopShellNav3Root(
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            ModalDrawerSheet(modifier = Modifier.fillMaxSize()) {
+            ModalDrawerSheet(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag(TestTags.DESKTOP_DRAWER),
+            ) {
                 // Five tabs + a divider + eight menu entries is a fixed column that is
                 // taller than a 1024x768 window, so without a scroll the trailing entries —
                 // Settings last of all — are clipped and unreachable. The drawer looked
@@ -344,6 +348,7 @@ fun DesktopShellNav3Root(
                                             }
                                         }
                                     },
+                                    modifier = Modifier.testTag(TestTags.SHELL_BACK_BUTTON),
                                 ) {
                                     Icon(
                                         imageVector = if (canGoBack) {

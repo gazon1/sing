@@ -25,6 +25,8 @@ import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUs
 import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.DetachTaskFromSeriesUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.MaterializeRecurringSeriesUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.StartRecurringSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.test.fakes.FakeAttachmentRepository
@@ -138,6 +140,19 @@ internal class SlotFakes(
         completion = TaskReopenUseCase(taskRepo, projectsRepo, FakeClock(SLOT_NOW)),
         updateSeries = UpdateTaskSeriesUseCase(taskRepo),
         detachFromSeries = DetachTaskFromSeriesUseCase(taskRepo),
+        startRecurringSeries = StartRecurringSeriesUseCase(
+            repo = taskRepo,
+            clock = FakeClock(SLOT_NOW),
+            timeZone = TEST_TZ,
+            materialize = materialize(),
+        ),
+    )
+
+    /** The write that fills a recurring series' window. */
+    fun materialize() = MaterializeRecurringSeriesUseCase(
+        repo = taskRepo,
+        unitOfWork = FakeUnitOfWork(),
+        clock = FakeClock(SLOT_NOW),
     )
 
     fun children() = TaskChildrenDeps(
@@ -195,6 +210,7 @@ internal class SlotFakes(
         clock = FakeClock(SLOT_NOW),
         timeZoneProvider = TEST_TZ,
         calculator = RecurrenceCalculator,
+        materialize = materialize(),
     ) {
         override suspend fun invoke(taskId: TaskId, force: Boolean): Result<Task> {
             recurringCalled = taskId

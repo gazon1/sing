@@ -34,6 +34,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
@@ -192,13 +193,22 @@ class AgendaViewModel(
 
         scope.launch {
             todayFlow(deps.clock, deps.timeZone.current()).flatMapLatest { today ->
-                deps.taskRepo.observeByFilter(TaskFilter.All)
-                    .distinctUntilChanged() // skip recompute when task list unchanged (e.g. midnight today tick)
-                    .onEach { latestTasks.value = it }
-                    .map { tasks ->
+                // The projects are observed alongside the tasks: the row needs its
+                // project's name and colour, and the lookup includes closed projects
+                // so a badge never vanishes because the project was finished. The
+                // projects are resolved here — once per list build — and ride on the
+                // row item, so no row looks a project up.
+                combine(
+                    deps.taskRepo.observeByFilter(TaskFilter.All)
+                        .distinctUntilChanged(), // skip recompute when task list unchanged (e.g. midnight today tick)
+                    deps.projectsRepository.observeAllIncludingClosed(),
+                ) { tasks, projects -> tasks to projects }
+                    .onEach { (tasks, _) -> latestTasks.value = tasks }
+                    .map { (tasks, projects) ->
+                        val projectsById = projects.associateBy { it.id.value }
                         AgendaUiState.Loaded(
                             sections = AgendaEvaluator
-                                .evaluate(tasks, definition, today, deps.clock.now())
+                                .evaluate(tasks, definition, today, deps.clock.now(), projectsById)
                                 .toImmutableList(),
                             today = today,
                             greeting = _greeting.value,

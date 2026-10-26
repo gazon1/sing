@@ -7,7 +7,6 @@ import com.singularity.todo.feature.tasks.domain.logic.RecurrenceCalculator
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import com.singularity.todo.feature.tasks.domain.model.isExhaustedBy
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.toLocalDateTime
@@ -15,32 +14,49 @@ import kotlin.time.Clock
 import kotlin.time.Instant
 
 /**
- * Handles completion of a recurring task, rolling forward to the next occurrence.
+ * Closes one occurrence of a recurring task and materialises the next one.
  *
- * - **FROM_DUE**: next occurrence = `calculator.nextOccurrence(spec, task.dueDate ?? today)`
- * - **FROM_COMPLETION**: next occurrence = `calculator.nextOccurrence(spec, completedAt.toLocalDate())`
- * - **CATCH_UP**: generates up to [RecurrenceSpec.MAX_MISSED] copies for missed occurrences,
- *   then rolls the current task forward.
+ * ## The two things every base does
+ *
+ * Every base closes the occurrence and materialises the next occurrence as a **new
+ * row**. The occurrence stays on its own date; its date never moves. The bases
+ * differ only in *which date* the rule is measured from:
+ *
+ * | Base | The anchor the next occurrences are measured from |
+ * |---|---|
+ * | [RecurrenceSpec.RecurrenceBase.FROM_DUE] | the occurrence's due date |
+ * | [RecurrenceSpec.RecurrenceBase.FROM_COMPLETION] | the completion date |
+ * | [RecurrenceSpec.RecurrenceBase.CATCH_UP] | the occurrence's due date, with the missed occurrences materialised as closed rows first |
+ *
+ * ## Why the date no longer moves
+ *
+ * The old roll-forward closed the row and then moved its date, and the move never
+ * touched `completed_at` — so the row was closed *and* dated in the future. It left
+ * "Today" and came back in "Upcoming" struck through, and the next occurrence never
+ * existed as an open task. Closing the occurrence and creating the next one as a
+ * separate row removes that defect entirely: the row's date never moves.
  *
  * ## The refusal
  *
- * Closing an occurrence is closing a task, and the rule is the same one every
- * other close obeys: the write refuses while a prerequisite is open, and the
- * caller asks the user. The refusal is in the write — the guarded statement —
- * and not in a check that runs before it, because a check-then-write has a
- * window between the two, and the window is where another device reopens the
- * prerequisite.
+ * Closing is closing, and the write refuses while a prerequisite is open. The
+ * refusal is the guarded statement in [TaskRepository.completeOccurrence] — not a
+ * check that runs before it — and it is the *first* write, so a refusal leaves
+ * nothing behind: no completion, no new occurrence, no missed copies. The whole
+ * close is one transaction.
  *
- * A roll-forward is several writes — the completion, the copies of the missed
- * occurrences, the move to the next date — and they are one transaction, so a
- * refusal leaves nothing behind: no completion, no copies, no new date. A
- * refusal that left the copies behind would be refused twice on the retry.
+ * ## A rule that has run out
  *
- * @param repo Task repository for create/update operations.
- * @param unitOfWork The transaction the roll-forward is one write inside.
- * @param clock Injected clock for determining current time.
+ * When the rule has run out — there is no next date — the occurrence is **closed**
+ * and the series stops growing. Nothing is archived: a closed occurrence is already
+ * out of the active list, and archiving a row the user closed would move finished
+ * work into the trash.
+ *
+ * @param repo Task repository.
+ * @param unitOfWork The transaction the close and the materialisation are one write inside.
+ * @param clock Injected clock.
  * @param timeZoneProvider Injected timezone for date calculations.
  * @param calculator Pure recurrence calculator.
+ * @param materialize Fills the window of the series after the close.
  */
 open class CompleteRecurringTaskUseCase(
     private val repo: TaskRepository,
@@ -48,18 +64,21 @@ open class CompleteRecurringTaskUseCase(
     private val clock: Clock,
     private val timeZoneProvider: TimeZoneProvider,
     private val calculator: RecurrenceCalculator,
+    private val materialize: MaterializeRecurringSeriesUseCase,
 ) {
     /**
-     * Completes the recurring task identified by [taskId], rolling it forward.
+     * Completes the recurring task identified by [taskId], closing the occurrence
+     * and materialising the next occurrences of the series.
      *
      * @param force close the occurrence even while a prerequisite is open. The
      *   caller passes `true` only after the user has confirmed.
-     * @return the newly updated (rolled-forward) task, or `null` if the task was not found
-     * or had no recurrence rule.
+     * @return the closed occurrence, or a failure. A task with no rule is a
+     *   failure — this path is only for a repeating task.
      */
     open suspend operator fun invoke(taskId: TaskId, force: Boolean = false): Result<Task> {
         val task = repo.get(taskId) ?: return Result.failure(IllegalArgumentException("Task not found: $taskId"))
-        val spec = task.recurrence ?: return Result.failure(IllegalArgumentException("Task has no recurrence: $taskId"))
+        val spec = task.recurrence
+            ?: return Result.failure(IllegalArgumentException("Task has no recurrence: $taskId"))
         return invoke(task, spec, force)
     }
 
@@ -70,69 +89,24 @@ open class CompleteRecurringTaskUseCase(
 
         return when (spec.base) {
             RecurrenceSpec.RecurrenceBase.FROM_DUE ->
-                // Anchor: task's due date (or today if no due date)
-                rollForward(
-                    task = task,
-                    spec = spec,
-                    nextDue = calculator.nextOccurrence(spec, task.dueDate ?: today),
-                    now = now,
-                    completeIt = true,
-                    force = force,
-                )
+                closeAndMaterialize(task, spec, anchor = task.dueDate ?: today, now = now, force = force)
 
-            RecurrenceSpec.RecurrenceBase.FROM_COMPLETION -> {
-                // Anchor: completion timestamp
-                val completedDate = task.completedAt?.toLocalDateTime(zone)?.date ?: today
-                rollForward(
-                    task = task,
-                    spec = spec,
-                    nextDue = calculator.nextOccurrence(spec, completedDate),
-                    now = now,
-                    completeIt = false,
-                    force = force,
-                )
-            }
+            RecurrenceSpec.RecurrenceBase.FROM_COMPLETION ->
+                closeAndMaterialize(task, spec, anchor = today, now = now, force = force)
 
             RecurrenceSpec.RecurrenceBase.CATCH_UP -> {
+                // Catch-up fills the gaps between *scheduled* occurrences, so its
+                // anchor is the due date. The missed occurrences become closed
+                // rows dated in the past, in the same transaction as the close.
                 val anchor = task.dueDate ?: today
                 val missed = calculator.missedCount(spec, anchor, today)
                     .coerceIn(0, RecurrenceSpec.MAX_MISSED)
-
-                // No missed occurrences — just roll forward normally
-                if (missed == 0) {
-                    return rollForward(
-                        task = task,
-                        spec = spec,
-                        nextDue = calculator.nextOccurrence(spec, anchor),
-                        now = now,
-                        completeIt = true,
-                        force = force,
-                    )
-                }
-
-                // Generate N-1 historical copies for the missed occurrences (oldest first),
-                // then roll the current task to the next future occurrence.
-                // We cap at MAX_MISSED so we generate at most MAX_MISSED - 1 new copies
-                // (the rolling task itself accounts for one slot).
-                val copiesToGenerate = (missed - 1).coerceAtLeast(0)
-                var currentAnchor = anchor
-                val missedAnchors = mutableListOf<LocalDate>()
-
-                repeat(copiesToGenerate) {
-                    missedAnchors += currentAnchor
-                    currentAnchor = calculator.nextOccurrence(spec, currentAnchor)
-                }
-
-                // The copies are written by the roll-forward, inside the same
-                // transaction and after the guarded completion — so a refusal
-                // leaves no copies behind, and the retry after the user's
-                // confirmation does not write them twice.
-                return rollForward(
+                val missedAnchors = generateMissedAnchors(spec, anchor, missed)
+                closeAndMaterialize(
                     task = task,
                     spec = spec,
-                    nextDue = calculator.nextOccurrence(spec, currentAnchor),
+                    anchor = anchor,
                     now = now,
-                    completeIt = true,
                     force = force,
                     missedAnchors = missedAnchors,
                 )
@@ -141,71 +115,49 @@ open class CompleteRecurringTaskUseCase(
     }
 
     /**
-     * Ends a series whose next occurrence falls past its end date.
+     * The dates of the occurrences that were scheduled and missed, oldest first.
      *
-     * Soft-deletes rather than inventing an archive call: `Task.isTrashed` is
-     * `archivedAt != null`, and the app's own "Archive" action in
-     * `TaskLifecycleSlot` is a `softDelete`. Reusing it means a finished series is
-     * restorable from the trash exactly like a hand-archived task.
-     *
-     * A failure here returns the failure rather than swallowing it: in the
-     * catch-up path the historical copies already exist, so a silent success
-     * would leave a retry to duplicate them.
+     * The rolling occurrence itself accounts for the most recent slot, so at most
+     * `missed - 1` copies are produced — the same accounting the one-row model used.
      */
-    private suspend fun terminate(task: Task): Result<Task> = repo.softDelete(task.id).map { task }
+    private fun generateMissedAnchors(spec: RecurrenceSpec, anchor: LocalDate, missed: Int): List<LocalDate> {
+        val copies = (missed - 1).coerceAtLeast(0)
+        val dates = mutableListOf<LocalDate>()
+        var current = anchor
+        repeat(copies) {
+            dates += current
+            current = calculator.nextOccurrence(spec, current)
+        }
+        return dates
+    }
 
     /**
-     * Moves [task] to its next occurrence on [nextDue], or ends the series when
-     * that occurrence falls past its end date.
-     *
-     * The one place the termination check lives, so no [RecurrenceSpec.RecurrenceBase]
-     * branch re-implements it.
-     *
-     * @param completeIt `true` stamps this occurrence complete and rolls the due
-     *        date; `false` un-completes the task and moves it forward (FROM_COMPLETION).
-     * @param missedAnchors the occurrences that already happened — written as
-     *        copies of the series, dated in the past.
+     * The close: close the occurrence where it is, write the missed copies, and
+     * materialise the series' window from [anchor] — all in one transaction, so a
+     * failure anywhere leaves nothing behind and a refusal writes nothing at all.
      */
-    private suspend fun rollForward(
+    private suspend fun closeAndMaterialize(
         task: Task,
         spec: RecurrenceSpec,
-        nextDue: LocalDate,
+        anchor: LocalDate,
         now: Instant,
-        completeIt: Boolean,
         force: Boolean,
         missedAnchors: List<LocalDate> = emptyList(),
     ): Result<Task> {
         val nowMillis = now.toEpochMilliseconds()
-        if (spec.isExhaustedBy(nextDue)) {
-            // The series ends here, but the missed occurrences already
-            // happened: their copies are written all the same. The task is
-            // archived rather than closed, so nothing about it is gated.
-            return runCatchingCancellable {
-                unitOfWork.write {
-                    writeMissedCopies(task, missedAnchors, now)
-                    terminate(task).getOrThrow()
-                }
-            }
-        }
         return runCatchingCancellable {
             unitOfWork.write {
-                if (completeIt) {
-                    // The guarded statement: it refuses while a prerequisite is
-                    // open, and the refusal is the write.
-                    val closed = repo.completeOccurrence(task.id, nowMillis, nowMillis, force).getOrThrow()
-                    if (!closed) throw BlockedTasksException(setOf(task.id))
-                } else {
-                    // The FROM_COMPLETION base rolls the open row forward instead
-                    // of closing it. Nothing is closed, so nothing is gated.
-                    repo.reopen(task.id).getOrThrow()
-                }
+                // The guarded statement: it refuses while a prerequisite is open,
+                // and the refusal is the write.
+                val done = repo.completeOccurrence(task.id, nowMillis, nowMillis, force).getOrThrow()
+                if (!done) throw BlockedTasksException(setOf(task.id))
                 writeMissedCopies(task, missedAnchors, now)
-                repo.moveDueDate(task.id, nextDue, nowMillis).getOrThrow()
-                task.copy(
-                    completedAt = if (completeIt) now else null,
-                    dueDate = nextDue,
-                    updatedAt = now,
-                )
+                val closed = task.copy(completedAt = now, updatedAt = now)
+                // The window is filled from the anchor the base decides, in the same
+                // transaction: the materialisation nests into this one, so either
+                // the whole close-and-fill lands or none of it does.
+                materialize(template = closed, rule = spec, anchor = anchor).getOrThrow()
+                closed
             }
         }
     }
@@ -214,8 +166,8 @@ open class CompleteRecurringTaskUseCase(
      * Writes the copies of the occurrences that already happened.
      *
      * They are dated in the past and closed, and they are part of the same
-     * transaction as the roll-forward: a refusal writes none of them, so a
-     * retry after the user's confirmation does not write them twice.
+     * transaction as the close: a refusal writes none of them, so a retry after the
+     * user's confirmation does not write them twice.
      */
     private suspend fun writeMissedCopies(task: Task, missedAnchors: List<LocalDate>, now: Instant) {
         missedAnchors.forEach { anchor ->

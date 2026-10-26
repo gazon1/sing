@@ -14,26 +14,28 @@ import kotlin.test.assertTrue
 /**
  * Round-trip tests for [AgendaDefinition] JSON serialization.
  *
- * Verifies that legacy JSON blobs (saved before the `transformers` field was added)
- * deserialize correctly, and that the `@Transient transformers = emptyList()` default
- * is applied on deserialization.
+ * The saved views on a user's device are JSON blobs written by an older build,
+ * so the shape has to keep deserializing after the definition changes. The
+ * definition used to carry a `transformers` field — a second, never-read copy
+ * of the badge rules — and it is gone now; a blob that carries it must still
+ * deserialize, because a field nobody reads must never cost a user their
+ * views.
  */
 @Tag("fast")
 class AgendaDefinitionRoundTripTest {
 
     private val json get() = StableJson
 
-    // ─── Legacy JSON without transformers field ─────────────────────────────────
+    // ─── Legacy JSON ────────────────────────────────────────────────────────────
 
     /**
-     * A JSON blob that mimics what was saved by MR4 or earlier.
-     * No `transformers` field — proving the `@Transient default = emptyList()` works.
+     * A JSON blob of the shape an older build wrote.
      *
      * `id` IS present: it became a required [Section] field when section prefill
      * landed, so blobs predating that change cannot deserialize at all (see the
      * `legacy JSON without an id field fails to deserialize` test below).
      */
-    private val legacyJsonWithoutTransformers = """
+    private val legacyJson = """
         {
             "title": "My Saved View",
             "sections": [
@@ -62,8 +64,8 @@ class AgendaDefinitionRoundTripTest {
     """.trimIndent()
 
     @Test
-    fun `legacy JSON without transformers deserializes with empty transformers`() {
-        val decoded = json.decodeFromString<AgendaDefinition>(legacyJsonWithoutTransformers)
+    fun `legacy JSON deserializes`() {
+        val decoded = json.decodeFromString<AgendaDefinition>(legacyJson)
 
         assertEquals("My Saved View", decoded.title)
         assertEquals(AgendaLayout.ListFlat, decoded.layout)
@@ -76,9 +78,6 @@ class AgendaDefinitionRoundTripTest {
         assertEquals("overdue", decoded.sections[1].id)
         assertEquals("Overdue", decoded.sections[1].name)
         assertTrue(decoded.sections[1].discard)
-
-        // Key assertion: transformers defaults to emptyList() even though JSON had no field
-        assertTrue(decoded.transformers.isEmpty())
     }
 
     /**
@@ -88,7 +87,7 @@ class AgendaDefinitionRoundTripTest {
      */
     @Test
     fun `legacy JSON without id deserializes and derives effectiveId from name`() {
-        val jsonWithoutIds = legacyJsonWithoutTransformers
+        val jsonWithoutIds = legacyJson
             .replace("\"id\": \"today\",", "")
             .replace("\"id\": \"overdue\",", "")
 
@@ -103,17 +102,31 @@ class AgendaDefinitionRoundTripTest {
     }
 
     @Test
-    fun `round-trip legacy JSON decode and re-encode produces transformers-free JSON`() {
-        val decoded = json.decodeFromString<AgendaDefinition>(legacyJsonWithoutTransformers)
+    fun `re-encoding a legacy blob adds no field that was not there`() {
+        val decoded = json.decodeFromString<AgendaDefinition>(legacyJson)
         val reEncoded = json.encodeToString(AgendaDefinition.serializer(), decoded)
 
-        // Re-encoding should NOT add `transformers` field (it's @Transient)
         assertTrue(reEncoded.contains("\"title\":\"My Saved View\""))
+        // The `transformers` field is gone from the model. A blob that still
+        // carries it must deserialize, and re-encoding must not bring it back.
         assertTrue(!reEncoded.contains("transformers"))
     }
 
     @Test
-    fun `round-trip modern AgendaDefinition with explicit transformers preserves transformers`() {
+    fun `a blob that still carries the retired transformers field deserializes`() {
+        val withTransformers = legacyJson.replace(
+            "\"layout\": \"ListFlat\"",
+            "\"layout\": \"ListFlat\", \"transformers\": []",
+        )
+
+        val decoded = json.decodeFromString<AgendaDefinition>(withTransformers)
+
+        assertEquals("My Saved View", decoded.title)
+        assertEquals(2, decoded.sections.size)
+    }
+
+    @Test
+    fun `a modern definition round-trips`() {
         val modern = AgendaDefinition(
             title = "Modern View",
             sections = agenda("Modern View") {
@@ -122,7 +135,6 @@ class AgendaDefinitionRoundTripTest {
                 }
             }.sections,
             layout = AgendaLayout.ListGrouped,
-            transformers = emptyList(), // explicitly set, but @Transient means it won't be in JSON
         )
 
         val encoded = json.encodeToString(AgendaDefinition.serializer(), modern)
@@ -130,8 +142,6 @@ class AgendaDefinitionRoundTripTest {
 
         assertEquals("Modern View", decoded.title)
         assertEquals(AgendaLayout.ListGrouped, decoded.layout)
-        assertTrue(decoded.transformers.isEmpty())
-        // Even explicit empty transformers is not serialized (@Transient)
         assertTrue(!encoded.contains("transformers"))
     }
 }

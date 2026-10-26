@@ -7,7 +7,6 @@ package com.singularity.todo.feature.agenda.domain.selector
  *
  * Each Selector variant has four colocated pure functions:
  * - [matches]       — predicate: does this task match?
- * - [badgeFor]      — badge: what TaskBadge (if any) applies?
  * - [description]   — UI: human-readable label for the selector type
  * - [toJsonElement] — serialization via the enclosing [SelectorSerializer]
  *
@@ -27,7 +26,6 @@ package com.singularity.todo.feature.agenda.domain.selector
  * - [com.singularity.todo.feature.agenda.domain.logic.AgendaEvaluator.matches]
  *   (delegates to `selector.matches`)
  * - [com.singularity.todo.feature.agenda.domain.logic.AgendaEvaluator.computeBadge]
- *   (delegates to `selector.badgeFor` via SelectorTransformer fold)
  * - [com.singularity.todo.feature.agenda.domain.model.SelectorSerializer.serialize]
  *   (manual JSON building per variant — the sole remaining `when` site)
  * - [com.singularity.todo.feature.agenda.domain.model.SelectorSerializer.deserialize]

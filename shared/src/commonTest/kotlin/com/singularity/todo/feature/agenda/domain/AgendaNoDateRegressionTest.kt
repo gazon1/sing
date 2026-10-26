@@ -3,7 +3,7 @@ package com.singularity.todo.feature.agenda.domain
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.agenda.domain.logic.AgendaEvaluator
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
-import com.singularity.todo.feature.tasks.domain.model.TaskBadge
+import com.singularity.todo.feature.tasks.domain.model.TaskMarking
 import com.singularity.todo.feature.agenda.domain.selector.SelectorContext
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -96,16 +96,15 @@ class AgendaNoDateRegressionTest {
     }
 
     @Test
-    fun `undated task carries the NoDate badge`() {
+    fun `undated task carries the NoDate marking`() {
         val task = undatedTask("t1", "Buy milk")
 
         val sections = AgendaEvaluator.evaluate(listOf(task), AgendaPresets.Inbox, today, context.now)
 
         val row = sections.single { it.name == "No Date" }.tasks.single()
-        assertEquals(
-            TaskBadge.NoDate,
-            row.badge,
-            "the row must be badged as undated so the UI can render it",
+        assertTrue(
+            row.markings.contains(TaskMarking.NoDate),
+            "the row must be marked as undated so the UI can render it",
         )
     }
 
@@ -130,22 +129,21 @@ class AgendaNoDateRegressionTest {
      *
      * `TaskDao.watchActive` selects on `archived_at IS NULL` and nothing else, so
      * a completed task reaches the agenda and is rendered with the
-     * [TaskBadge.Completed] badge. Only *archiving* removes a row from the
+     * [TaskMarking.Completed] marking. Only *archiving* removes a row from the
      * list. Anyone reading `AgendaPresets.Inbox` as "the active list" will write
      * the opposite assertion and be wrong.
      */
     @Test
-    fun `a completed undated task is listed and badged as completed`() {
+    fun `a completed undated task is listed and marked as completed`() {
         val task = undatedTask("t1", "Buy milk")
             .copy(completedAt = kotlin.time.Instant.fromEpochMilliseconds(1))
 
         val sections = AgendaEvaluator.evaluate(listOf(task), AgendaPresets.Inbox, today, context.now)
 
         val row = sections.single { it.name == "No Date" }.tasks.single()
-        assertEquals(
-            TaskBadge.Completed,
-            row.badge,
-            "completing a task badges it; it does not remove it from the agenda",
+        assertTrue(
+            row.markings.contains(TaskMarking.Completed),
+            "completing a task marks it completed; it does not remove it from the agenda",
         )
     }
 

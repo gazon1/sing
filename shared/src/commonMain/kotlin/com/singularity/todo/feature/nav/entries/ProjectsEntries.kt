@@ -38,7 +38,12 @@ fun EntryProviderScope<AppDestination>.projectsEntries(nav: NavCallbacks, stacks
         ProjectsNavGraph(
             start = route.start.toProjectsRoute(),
             onExitGraph = nav.graphExit,
-            backStack = stacks.projects,
+            // The list is hoisted on the desktop, so the graph keeps its place
+            // when a task is opened from a project and the graph leaves the
+            // screen. An entry that starts somewhere else — the editor — gets
+            // a stack of its own, or it would show the hoisted stack's top
+            // instead of the route it was opened for.
+            backStack = if (route.start == AppDestination.ProjectsStartRoute.List) stacks.projects else null,
         )
     }
 }

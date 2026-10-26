@@ -119,6 +119,33 @@ Steps:
 
 **Expected:** The saved view is still listed and still opens, so it was persisted rather than held in memory. Restarting without clearing data is what makes this a persistence check. Backup and restore are not exercised here.
 
+#### `AGENDA-STATE-01` — A saved view shows only the tasks in a chosen workflow state
+
+**confirmed** · P2 · `#AGENDA-STATE`
+
+**Given:** Two open tasks exist, one with the workflow state "In progress" and one with no state; a saved view whose only section is grouped by workflow state exists and is open on desktop.
+
+Steps:
+
+1. Open the saved view.
+2. Look at the section and at the tasks in it.
+
+**Expected:** The section is named after the state, and it contains the in-progress task and not the task with no state — the view filters by the stored state.
+
+#### `AGENDA-STATE-02` — A saved view follows a task after its workflow state changes
+
+**confirmed** · P2 · `#AGENDA-STATE`
+
+**Given:** Two open tasks exist, neither with a workflow state; a saved view grouped by workflow state exists.
+
+Steps:
+
+1. Open the saved view and look at the in-progress section.
+2. Move one task into "In progress".
+3. Open the saved view again.
+
+**Expected:** The in-progress section was empty before the change and contains the moved task afterwards, while the view itself was not edited — the section is evaluated from the task's current state each time it is shown.
+
 ### feature.archive
 
 #### `ARCHIVE-01` — An archived task is restored to Inbox
@@ -868,7 +895,7 @@ Steps:
 2. Switch to week granularity and look for both tasks.
 3. Switch to month granularity and look for both tasks.
 
-**Expected:** The task due tomorrow is listed in every granularity. The task due in 45 days is listed in month granularity and is absent in day and week granularity, whose horizons end sooner.
+**Expected:** The task due tomorrow is listed in every granularity. The task due in 45 days is absent in day granularity, whose horizon ends after thirty days, and is listed in week and month granularity, whose horizons reach further.
 
 #### `PLANS-08` — A section header names the period it covers
 
@@ -1594,15 +1621,47 @@ Steps:
 
 **confirmed** · P1 · `#TASK-CHECK`
 
-**Given:** A task exists and its detail view is open on desktop, where the checklist editor is reachable from the task editor.
+**Given:** A task exists and its detail view is open on the device, where the checklist is listed inline on the task screen.
 
 Steps:
 
-1. Open the checklist editor for the task.
-2. Add an item and give it text.
-3. Complete the item, close the editor and reopen it.
+1. Type a title into the checklist's add-row on the task screen.
+2. Submit the row.
+3. Tick the item's checkbox.
+4. Leave the task and come back to it.
 
-**Expected:** The item persists with its text and its completed state, so the list survives closing and reopening the editor on the same task.
+**Expected:** The item is listed on the task screen with a real checkbox, the tick is kept, and the list survives leaving the task and coming back to it.
+
+#### `TASK-ITEM-01` — Work through a task's subtasks and checklist items in place
+
+**confirmed** · P2 · `#TASK-ITEM`
+
+**Given:** A task exists with two checklist items and one subtask, and its detail view is open on desktop.
+
+Steps:
+
+1. Look at the checklist list and at the subtask list.
+2. Tick the first checklist item.
+3. Look at the two counts.
+4. Type a title into the checklist's add-row and submit it.
+5. Look at the checklist list again.
+
+**Expected:** Both lists are on the task screen, every row carries a real checkbox, the checklist count reads one finished of two and the subtask count reads none finished of one, and the new item appears in the checklist with no panel having opened.
+
+#### `TASK-ITEM-02` — A checklist item and a subtask do not change each other
+
+**confirmed** · P3 · `#TASK-ITEM`
+
+**Given:** A task exists with one checklist item and one subtask, and its detail view is open on desktop.
+
+Steps:
+
+1. Tick the checklist item.
+2. Look at the subtask and at the task itself.
+3. Tick the subtask.
+4. Look at the checklist and at the task itself.
+
+**Expected:** Ticking the checklist item leaves the subtask unfinished and the task unfinished, and ticking the subtask leaves the checklist item as it was and the task unfinished — the two lists never touch each other, and neither of them completes the task they belong to.
 
 #### `TASK-LOG-01` — A note written from the task logbook stays attached to the task
 
@@ -1633,6 +1692,20 @@ Steps:
 
 **Expected:** The task's logbook is still empty — the same empty state it showed before the editor was opened. No note row was written, so there is nothing to show. A wrong implementation that creates the note on open leaves a row behind and this scenario fails.
 
+#### `TASK-MARK-01` — A task row shows every marking that applies, and counts the ones it hides
+
+**confirmed** · P2 · `#TASK-MARK`
+
+**Given:** Three tasks exist: one is blocked by an unfinished task and overdue, one follows up on another task, and one is in progress, pinned, blocked by an unfinished task and follows up on another — four markings at once.
+
+Steps:
+
+1. Look at the blocked and overdue task.
+2. Look at the follow-up task.
+3. Look at the task with four markings.
+
+**Expected:** The blocked and overdue task shows both the blocked and the overdue marking at the same time; the follow-up task shows the follow-up marking and not the blocked one; the task with four markings shows three and a count of the one it hides — a task can be more than one thing at once, and the row says so.
+
 #### `TASK-REC-01` — Create a daily recurring task
 
 **confirmed** · P1 · `#TASK-REC`
@@ -1646,6 +1719,49 @@ Steps:
 3. Save the task and complete it once.
 
 **Expected:** The task list shows the next occurrence dated one day after the completion date, and the original instance is gone from Today.
+
+#### `TASK-STATE-01` — Set a task's workflow state from the task screen
+
+**confirmed** · P2 · `#TASK-STATE`
+
+**Given:** An open task with no workflow state exists, and its detail view is open on desktop.
+
+Steps:
+
+1. Open the workflow-state control.
+2. Choose "In progress".
+3. Look at the task screen.
+
+**Expected:** The control shows the current state before it is opened, offers the states a task can be in, applies the chosen one, and the task screen shows "In progress" afterwards — the task itself is still open.
+
+#### `TASK-STATE-02` — A workflow state survives leaving and reopening the task
+
+**confirmed** · P2 · `#TASK-STATE`
+
+**Given:** An open task exists, and its detail view is open on desktop.
+
+Steps:
+
+1. Set the task's workflow state to "In progress".
+2. Leave the task screen.
+3. Open the same task again.
+4. Look at the workflow-state control.
+
+**Expected:** The control shows "In progress" after the task is reopened, and the stored task still carries that state — the state is a property of the task, not of the screen that happened to be open.
+
+#### `TASK-STATE-03` — A completed task keeps its workflow state
+
+**confirmed** · P3 · `#TASK-STATE`
+
+**Given:** A task with the workflow state "In progress" exists, and its detail view is open on desktop.
+
+Steps:
+
+1. Complete the task.
+2. Open the completed task and look at the workflow-state control.
+3. Try to change the state of the completed task.
+
+**Expected:** The completed task still shows "In progress", the state control is not offered for change while the task is completed, and the stored task keeps the state — completing a task is not a reason to lose the description of work already done.
 
 #### `TASK-SUB-01` — Subtask lifecycle — add, toggle, delete
 
@@ -1664,6 +1780,22 @@ Steps:
 7. Verify the subtask is removed from the list.
 
 **Expected:** The subtask survives add → toggle → delete. Its parentTaskId is set correctly so it appears as a child in the SubtasksSection and nowhere else in the agenda unless "Show subtasks" is enabled.
+
+#### `TASK-TAG-01` — Add a tag that does not exist yet
+
+**confirmed** · P2 · `#TASK-TAG`
+
+**Given:** A task exists and its detail view is open on desktop, where the place the task's tags are chosen is reachable from the task editor.
+
+Steps:
+
+1. Open the place where the task's tags are chosen.
+2. Create a tag named "invoice" from there.
+3. Confirm the choice, so the tag reaches the task.
+4. Open the same place again and create a tag named "Invoice".
+5. Try to create a tag with an empty name.
+
+**Expected:** The new tag is in the list of tags to choose from without the list being reopened, and it is applied to the task; a name that differs only in case is not created a second time but the existing tag is offered instead; an empty name is refused, no tag is created, and the reason is stated.
 
 #### `TASK-TIME-01` — Start a timer on a task from its detail view
 

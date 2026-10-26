@@ -8,9 +8,11 @@ import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Recurrence
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceTermination
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import com.singularity.todo.feature.tasks.domain.model.isExhaustedBy
 import com.singularity.todo.feature.tasks.domain.usecase.BlockedTasksException
 import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.MaterializeRecurringSeriesUseCase
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeUnitOfWork
@@ -19,6 +21,7 @@ import com.singularity.todo.test.fakes.TestUsers
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -31,12 +34,13 @@ import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 /**
- * A recurring series with an end date stops instead of rolling forward forever.
+ * Closing an occurrence of a repeating task closes it where it is and
+ * materialises the next occurrence as a new row.
  *
- * The boundary is inclusive — an occurrence landing *on* the end date still runs,
- * because "repeat until Dec 31" means Dec 31 is included. Everything here pins
- * that edge, because a series that stops one occurrence early or late is
- * indistinguishable from correct behaviour in ordinary use.
+ * The old roll-forward closed the row and moved its date — the move never touched
+ * `completed_at`, so the row was closed *and* dated in the future, and the next
+ * occurrence never existed as an open task. These tests pin the new shape: the
+ * closed occurrence stays on its date, and the future is real rows.
  */
 @Tag("fast")
 class CompleteRecurringTaskUseCaseTest {
@@ -47,16 +51,27 @@ class CompleteRecurringTaskUseCaseTest {
 
     private val weekly = RecurrenceSpec.Interval(RecurrenceBase.FROM_DUE, 1, DateTimeUnit.WEEK)
 
-    private fun useCase() = CompleteRecurringTaskUseCase(repo, FakeUnitOfWork(), clock, TEST_TZ, RecurrenceCalculator)
+    private fun materialize() = MaterializeRecurringSeriesUseCase(repo, FakeUnitOfWork(), clock)
+
+    private fun useCase() = CompleteRecurringTaskUseCase(
+        repo,
+        FakeUnitOfWork(),
+        clock,
+        TEST_TZ,
+        RecurrenceCalculator,
+        materialize(),
+    )
 
     private fun recurringTask(
         dueDate: LocalDate = today,
         spec: RecurrenceSpec = weekly,
+        seriesId: TaskSeriesId = TaskSeriesId("series-1"),
     ) = Task(
         id = TaskId("t1"),
         title = "Buy bread",
         dueDate = dueDate,
         recurrence = spec,
+        seriesId = seriesId,
         createdAt = Instant.parse("2026-01-01T00:00:00Z"),
         updatedAt = Instant.parse("2026-01-01T00:00:00Z"),
         userId = TestUsers.DEFAULT,
@@ -65,55 +80,99 @@ class CompleteRecurringTaskUseCaseTest {
     private fun boundedUntil(endDate: LocalDate) =
         weekly.copy(termination = RecurrenceTermination(endDate))
 
+    /** The rows of the series [id], regardless of state. */
+    private fun seriesRows(id: String = "series-1") =
+        repo.tasks.value.values.filter { it.seriesId?.value == id }
+
+    // ─── The close does not move the occurrence ──────────────────────────────────
+
+    @Test
+    fun `closing an occurrence leaves it on its own date, closed`() = runTest {
+        repo.seed(recurringTask())
+
+        val result = useCase()(TaskId("t1"))
+
+        assertTrue(result.isSuccess, "the unblocked close lands: ${result.exceptionOrNull()}")
+        val task = repo.get(TaskId("t1"))
+        assertNotNull(task?.completedAt, "the occurrence is closed")
+        assertEquals(today, task?.dueDate, "the occurrence stays on its own date — the date never moves")
+    }
+
+    @Test
+    fun `closing materialises the next occurrences as new rows`() = runTest {
+        repo.seed(recurringTask())
+
+        useCase()(TaskId("t1"))
+
+        val openAhead = seriesRows().filter { it.completedAt == null && it.id != TaskId("t1") }
+        assertTrue(openAhead.isNotEmpty(), "the future exists as open rows")
+        assertTrue(openAhead.all { (it.dueDate ?: today) > today }, "the future rows are dated ahead")
+        // The next occurrence is a different row, not the closed one moved.
+        assertTrue(openAhead.none { it.id == TaskId("t1") }, "the next occurrence is a new row")
+    }
+
+    @Test
+    fun `the future rows carry the rule and the series id`() = runTest {
+        repo.seed(recurringTask())
+
+        useCase()(TaskId("t1"))
+
+        val futureRows = seriesRows().filter { it.completedAt == null && it.id != TaskId("t1") }
+        assertTrue(futureRows.all { it.recurrence == weekly }, "every occurrence carries the rule")
+        assertTrue(futureRows.all { it.seriesId?.value == "series-1" }, "every occurrence carries the series id")
+        assertTrue(futureRows.all { it.title == "Buy bread" }, "the work is inherited")
+    }
+
+    @Test
+    fun `closing does not shrink the number of open future occurrences`() = runTest {
+        repo.seed(recurringTask())
+        val before = seriesRows().count { it.completedAt == null } - 1 // excluding the one about to close
+
+        useCase()(TaskId("t1"))
+
+        val after = seriesRows().count { it.completedAt == null }
+        assertTrue(after >= before, "the open future must not shrink: $before -> $after")
+    }
+
     // ─── The refusal ──────────────────────────────────────────────────────────
 
     @Test
     fun `a recurring close is refused while a prerequisite is open`() = runTest {
-        repo.seed(recurringTask(dueDate = today, spec = weekly))
+        repo.seed(recurringTask())
         repo.seed(prerequisite())
         repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
 
         val result = useCase()(TaskId("t1"))
 
-        assertTrue(result.isFailure, "a blocked recurring task must not roll forward")
+        assertTrue(result.isFailure, "a blocked recurring close must not go through")
         assertTrue(
             result.exceptionOrNull() is BlockedTasksException,
             "the refusal must name the task in the way: ${result.exceptionOrNull()}",
         )
         val task = repo.get(TaskId("t1"))
         assertNull(task?.completedAt, "the occurrence must not be closed")
-        assertEquals(today, task?.dueDate, "the series must not move forward")
+        assertEquals(today, task?.dueDate, "the occurrence must not move")
+        assertTrue(seriesRows().size == 1, "a refusal materialises nothing — the series is exactly as it was")
     }
 
     @Test
-    fun `a confirmed recurring close goes through`() = runTest {
-        repo.seed(recurringTask(dueDate = today, spec = weekly))
+    fun `a confirmed recurring close goes through and materialises`() = runTest {
+        repo.seed(recurringTask())
         repo.seed(prerequisite())
         repo.setDependency(TaskId("t1"), TaskId("dep"), DependencyVerb.BLOCKS, enabled = true)
 
         val result = useCase()(TaskId("t1"), force = true)
 
         assertTrue(result.isSuccess, "the confirmed path must close: ${result.exceptionOrNull()}")
-        val task = repo.get(TaskId("t1"))
-        assertNotNull(task?.completedAt, "the occurrence must be closed")
-        assertEquals(today.plus(7, DateTimeUnit.DAY), task?.dueDate, "the series must move forward")
-    }
-
-    @Test
-    fun `a recurring close with no prerequisite rolls forward`() = runTest {
-        repo.seed(recurringTask(dueDate = today, spec = weekly))
-
-        val result = useCase()(TaskId("t1"))
-
-        assertTrue(result.isSuccess)
-        assertNotNull(repo.get(TaskId("t1"))?.completedAt)
+        assertNotNull(repo.get(TaskId("t1"))?.completedAt, "the occurrence is closed")
+        assertEquals(today, repo.get(TaskId("t1"))?.dueDate, "and it stays on its own date")
+        assertTrue(seriesRows().size > 1, "the future is materialised")
     }
 
     @Test
     fun `a refused recurring close writes no copy of a missed occurrence`() = runTest {
-        // A catch-up series writes a copy of every missed occurrence. If the
-        // guard ran after those writes, a refusal would leave the copies
-        // behind and the retry would write them twice.
+        // A catch-up series writes a copy of every missed occurrence. If the guard
+        // ran after those writes, a refusal would leave the copies behind.
         val staleDue = today.plus(-14, DateTimeUnit.DAY)
         repo.seed(
             recurringTask(
@@ -127,14 +186,8 @@ class CompleteRecurringTaskUseCaseTest {
         val result = useCase()(TaskId("t1"))
 
         assertTrue(result.isFailure, "the close must be refused")
-        // The prerequisite is a task of its own, so count the series by title:
-        // only the original occurrence may exist, no copy of the missed one.
         val series = repo.tasks.value.values.filter { it.title == "Buy bread" }
-        assertEquals(
-            1,
-            series.size,
-            "a refusal leaves the series as it was — no copy of a missed occurrence",
-        )
+        assertEquals(1, series.size, "a refusal leaves the series as it was — no copy of a missed occurrence")
     }
 
     /** The prerequisite that is still open, and the reason the close is refused. */
@@ -146,83 +199,59 @@ class CompleteRecurringTaskUseCaseTest {
         userId = TestUsers.DEFAULT,
     )
 
-    // ─── The boundary itself ──────────────────────────────────────────────────
+    // ─── A rule that has run out ─────────────────────────────────────────────────
 
     @Test
     fun `an occurrence on the end date still runs`() = runTest {
         // Due today, next weekly occurrence is today+7. Ending on exactly that
         // day must still recur — the end date is inclusive.
-        repo.seed(recurringTask(dueDate = today, spec = boundedUntil(today.plus(7, DateTimeUnit.DAY))))
+        repo.seed(recurringTask(spec = boundedUntil(today.plus(7, DateTimeUnit.DAY))))
 
         useCase()(TaskId("t1"))
 
         val task = repo.get(TaskId("t1"))
         assertNull(task?.archivedAt, "must not stop on the end date itself")
-        assertEquals(today.plus(7, DateTimeUnit.DAY), task?.dueDate)
+        assertNotNull(task?.completedAt, "the occurrence is closed")
+        assertTrue(seriesRows().size > 1, "the next occurrence is materialised")
     }
 
     @Test
-    fun `an occurrence one day past the end date stops the series`() = runTest {
-        repo.seed(recurringTask(dueDate = today, spec = boundedUntil(today.plus(6, DateTimeUnit.DAY))))
+    fun `a rule that has run out closes the occurrence and stops the series`() = runTest {
+        repo.seed(recurringTask(spec = boundedUntil(today.plus(6, DateTimeUnit.DAY))))
 
         useCase()(TaskId("t1"))
 
         val task = repo.get(TaskId("t1"))
-        assertNotNull(task?.archivedAt, "one day past the end date the series must stop")
-        assertEquals(today, task?.dueDate, "a stopped series must not advance its due date")
+        assertNotNull(task?.completedAt, "the occurrence is closed")
+        assertEquals(today, task?.dueDate, "it stays on its own date")
+        assertNull(task?.archivedAt, "nothing is archived — a closed occurrence is already out of the active list")
+        assertEquals(1, seriesRows().size, "the series holds no further occurrence")
     }
 
     @Test
-    fun `a series with no end date keeps recurring`() = runTest {
-        repo.seed(recurringTask(dueDate = today, spec = weekly))
-
-        useCase()(TaskId("t1"))
-
-        val task = repo.get(TaskId("t1"))
-        assertNull(task?.archivedAt)
-        assertEquals(today.plus(7, DateTimeUnit.DAY), task?.dueDate)
-    }
-
-    @Test
-    fun `a null end date inside a termination is unbounded`() = runTest {
-        repo.seed(
-            recurringTask(
-                dueDate = today,
-                spec = weekly.copy(termination = RecurrenceTermination(endDate = null)),
-            ),
-        )
-
-        useCase()(TaskId("t1"))
-
-        assertNull(repo.get(TaskId("t1"))?.archivedAt)
-    }
-
-    // ─── Every base, not just the default one ─────────────────────────────────
-
-    @Test
-    fun `all three bases stop at the end date`() = runTest {
+    fun `all three bases close the occurrence without moving it`() = runTest {
         val bases = listOf(RecurrenceBase.FROM_DUE, RecurrenceBase.FROM_COMPLETION, RecurrenceBase.CATCH_UP)
         bases.forEachIndexed { index, base ->
-            val id = TaskId("bounded-$index")
-            // End one day before the next occurrence, whatever the base.
+            val id = TaskId("base-$index")
             repo.seed(
-                recurringTask(
-                    dueDate = today,
-                    spec = RecurrenceSpec.Interval(base, 1, DateTimeUnit.WEEK)
-                        .copy(termination = RecurrenceTermination(today.plus(6, DateTimeUnit.DAY))),
-                ).copy(id = id),
+                recurringTask(spec = RecurrenceSpec.Interval(base, 1, DateTimeUnit.WEEK))
+                    .copy(id = id, seriesId = TaskSeriesId("series-$index")),
             )
 
             useCase()(id)
 
-            assertNotNull(repo.get(id)?.archivedAt, "base $base must stop past its end date")
+            val task = repo.get(id)
+            assertNotNull(task?.completedAt, "base $base must close the occurrence")
+            assertEquals(today, task?.dueDate, "base $base must not move the occurrence")
         }
     }
+
+    // ─── The catch-up copies ─────────────────────────────────────────────────────
 
     @Test
     fun `catch-up still creates historical copies before the series stops`() = runTest {
         // Due two weeks ago, weekly, catch-up base. The missed occurrences are
-        // real work that already happened — only the roll-forward is suppressed.
+        // real work that already happened.
         val staleDue = today.plus(-14, DateTimeUnit.DAY)
         repo.seed(
             recurringTask(
@@ -235,8 +264,77 @@ class CompleteRecurringTaskUseCaseTest {
         useCase()(TaskId("t1"))
 
         val all = repo.tasks.value.values.toList()
-        assertTrue(all.size > 1, "catch-up copies must still be created, got ${all.size}")
-        assertNotNull(repo.get(TaskId("t1"))?.archivedAt, "the rolling task stops")
+        assertTrue(all.size > 1, "catch-up copies are still created, got ${all.size}")
+    }
+
+    @Test
+    fun `catch-up copies are closed and dated in the past`() = runTest {
+        val staleDue = today.plus(-14, DateTimeUnit.DAY)
+        repo.seed(
+            recurringTask(
+                dueDate = staleDue,
+                spec = RecurrenceSpec.Interval(RecurrenceBase.CATCH_UP, 1, DateTimeUnit.WEEK),
+            ),
+        )
+
+        useCase()(TaskId("t1"))
+
+        val historical = seriesRows().filter { it.id != TaskId("t1") && it.completedAt != null }
+        assertTrue(historical.isNotEmpty(), "the missed occurrences are materialised as closed rows")
+        assertTrue(historical.all { (it.dueDate ?: today) <= today }, "and they are dated in the past")
+    }
+
+    // ─── The base decides which date the rule is measured from (D10) ──────────
+
+    @Test
+    fun `a late close moves a from-completion window and keeps the rows' own state`() = runTest {
+        // The current occurrence is due three days ago; "from completion" measures
+        // the next occurrences from when the close happens — today — so the window
+        // shifts forward by those three days.
+        val due = today.minus(3, DateTimeUnit.DAY)
+        val spec = RecurrenceSpec.Interval(RecurrenceBase.FROM_COMPLETION, 1, DateTimeUnit.WEEK)
+        val series = TaskSeriesId("series-fc")
+        repo.seed(recurringTask(dueDate = due, spec = spec, seriesId = series))
+        // Fill the window from the due date, as setting the rule while open would.
+        materialize()(template = repo.get(TaskId("t1"))!!, rule = spec, anchor = due).getOrThrow()
+
+        // The first future occurrence carries its own state, which a shift must not
+        // discard — the move is a date update, not a rebuild.
+        val firstFuture = seriesRows("series-fc")
+            .filter { (it.dueDate ?: due) > due }
+            .minBy { it.dueDate ?: due }
+        repo.update(firstFuture.copy(isPinned = true)).getOrThrow()
+        val plannedDate = firstFuture.dueDate
+
+        useCase()(TaskId("t1"))
+
+        val moved = repo.tasks.value.values.firstOrNull { it.isPinned }
+        assertNotNull(moved, "the future row survives the shift")
+        assertEquals(firstFuture.id, moved.id, "the row keeps its identity — it was moved, not rebuilt")
+        assertEquals(
+            plannedDate?.plus(3, DateTimeUnit.DAY),
+            moved.dueDate,
+            "the window shifted by exactly how late the close was",
+        )
+    }
+
+    @Test
+    fun `a late close does not move a from-due window`() = runTest {
+        val due = today.minus(3, DateTimeUnit.DAY)
+        repo.seed(recurringTask(dueDate = due, spec = weekly))
+        materialize()(template = repo.get(TaskId("t1"))!!, rule = weekly, anchor = due).getOrThrow()
+
+        val firstFuture = seriesRows().filter { (it.dueDate ?: due) > due }.minBy { it.dueDate ?: due }
+        val planned = firstFuture.dueDate
+
+        useCase()(TaskId("t1"))
+
+        val stillThere = repo.tasks.value.values.firstOrNull { it.id == firstFuture.id }
+        assertEquals(
+            planned,
+            stillThere?.dueDate,
+            "under from-due the next occurrence is due on the date the rule gives; the window does not move",
+        )
     }
 
     // ─── Value semantics — the reason termination is a constructor property ───
@@ -250,8 +348,6 @@ class CompleteRecurringTaskUseCaseTest {
 
     @Test
     fun `copy preserves the termination`() {
-        // A `var` on the sealed base would be invisible to copy() and silently
-        // dropped here. This is the assertion that keeps it a constructor property.
         val bounded = weekly.copy(termination = RecurrenceTermination(today))
         val changed = bounded.copy(amount = 2)
 
@@ -276,9 +372,6 @@ class CompleteRecurringTaskUseCaseTest {
 
     @Test
     fun `a rule written before this field decodes with no termination`() {
-        // A literal blob in the exact shape a pre-change build wrote — no
-        // `termination` key at all. Derived from the encoder it would only prove
-        // the encoder agrees with itself; this proves an *old row* still loads.
         val legacy = """{"_type":"com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Interval",""" +
             """"base":"FROM_DUE","amount":1,"unit":{"_type":"kotlinx.datetime.DayBased","days":7}}"""
 
@@ -300,9 +393,6 @@ class CompleteRecurringTaskUseCaseTest {
 
     @Test
     fun `an unbounded rule carries no termination wrapper`() {
-        // kotlinx does emit `"termination":null` for the null property, and that
-        // is harmless. What must not appear is an empty wrapper object, which
-        // would read as "has a termination that says nothing".
         val encoded = StableJson.encodeToString(RecurrenceSpec.serializer(), weekly)
         assertFalse(
             encoded.contains("\"termination\":{"),

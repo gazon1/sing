@@ -25,6 +25,18 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
  * point at. So when the occurrence that leaves was the second of two, the
  * one that stays also stands alone: the series ends where it ends, and both
  * rows are ordinary tasks afterwards.
+ *
+ * ## The rule goes with the series id
+ *
+ * An occurrence that leaves a **recurring** series loses the rule as well as the
+ * series id. A row that kept the rule would carry the repeat badge and never
+ * repeat — a promise nothing keeps. The other members keep the rule, and the
+ * series continues from what remains.
+ *
+ * The row that stays behind when the series ends loses the rule too: a rule on a
+ * row that stands alone is the exact shape the launch repair adopts into a new
+ * series, so a rule that stayed would make the detach undo itself at the next
+ * launch.
  */
 class DetachTaskFromSeriesUseCase(private val repo: TaskRepository) {
 
@@ -43,14 +55,20 @@ class DetachTaskFromSeriesUseCase(private val repo: TaskRepository) {
 
         val members = repo.getSeries(seriesId)
         val remaining = members.filter { it.id != taskId }
+        val recurring = members.any { it.recurrence != null }
 
-        val detached = task.copy(seriesId = null)
+        // A row that leaves a recurring series loses the rule with the series id.
+        val detached = if (recurring) task.copy(seriesId = null, recurrence = null) else task.copy(seriesId = null)
         repo.update(detached).getOrThrow()
 
         // The last other member stands alone as well: a series of one is not a
-        // series, and leaving the id on it would promise a group of one.
+        // series, and leaving the id on it would promise a group of one. A
+        // recurring member also loses the rule — otherwise the launch repair
+        // would adopt it back.
         if (remaining.size == 1) {
-            repo.update(remaining.single().copy(seriesId = null)).getOrThrow()
+            val last = remaining.single()
+            val standing = if (recurring) last.copy(seriesId = null, recurrence = null) else last.copy(seriesId = null)
+            repo.update(standing).getOrThrow()
         }
 
         return Result.success(detached)
