@@ -7,7 +7,9 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.usecase.MaterializeRecurringSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.RepairRecurringSeriesUseCase
 import com.singularity.todo.test.fakes.FakeClock
+import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import com.singularity.todo.test.fakes.FakeTasksSettingsRepository
 import com.singularity.todo.test.fakes.FakeUnitOfWork
 import com.singularity.todo.test.fakes.TestUsers
 import kotlinx.coroutines.test.runTest
@@ -44,7 +46,18 @@ class RepairRecurringSeriesUseCaseTest {
     private val weekly = RecurrenceSpec.Interval(RecurrenceBase.FROM_DUE, 1, DateTimeUnit.WEEK)
 
     private fun materialize() = MaterializeRecurringSeriesUseCase(repo, FakeUnitOfWork(), clock)
-    private fun useCase() = RepairRecurringSeriesUseCase(repo, FakeUnitOfWork(), clock, materialize())
+
+    private val settings = FakeTasksSettingsRepository()
+    private val currentUser = FakeProfileAwareCurrentUser(initialUserId = TestUsers.DEFAULT)
+
+    private fun useCase() = RepairRecurringSeriesUseCase(
+        repo,
+        FakeUnitOfWork(),
+        clock,
+        materialize(),
+        settings,
+        currentUser,
+    )
 
     private fun legacy(
         id: String = "legacy",
@@ -97,10 +110,40 @@ class RepairRecurringSeriesUseCaseTest {
 
         useCase()()
         val afterFirst = repo.tasks.value.values.size
-        val result = useCase()()
+        // A fresh marker, so this pass really reads the candidates instead of
+        // being skipped: idempotency has to hold for a profile the gate does not
+        // remember, too.
+        val second = RepairRecurringSeriesUseCase(
+            repo,
+            FakeUnitOfWork(),
+            clock,
+            materialize(),
+            FakeTasksSettingsRepository(),
+            currentUser,
+        )
+        val result = second()
 
         assertEquals(0, result.getOrNull(), "a second launch finds nothing to repair")
         assertEquals(afterFirst, repo.tasks.value.values.size, "and no occurrence is duplicated")
+    }
+
+    @Test
+    fun `a second launch in the same profile performs no repair query`() = runTest {
+        repo.seed(legacy(dueDate = today, completedAt = null))
+
+        val first = useCase()()
+        assertEquals(1, first.getOrNull(), "the first launch adopts the legacy row")
+        assertEquals(1, repo.legacyRecurringQueries, "the first launch asks the candidate query once")
+
+        val second = useCase()()
+
+        assertEquals(0, second.getOrNull(), "a repaired profile has nothing to adopt")
+        assertEquals(
+            1,
+            repo.legacyRecurringQueries,
+            "the marker means a second launch runs no repair query at all — " +
+                "the count is the only way to tell the gate from a query that found nothing",
+        )
     }
 
     @Test
