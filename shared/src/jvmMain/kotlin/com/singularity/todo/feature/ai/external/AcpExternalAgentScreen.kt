@@ -301,7 +301,8 @@ private fun AgentHeader(
             )
 
             is AcpConnection.Connected -> Text(
-                text = "Connected to ${connection.agentName}",
+                text = "Connected to ${connection.agentName} (protocol version ${connection.protocolVersion}); " +
+                    "tool server build ${connection.toolServerBuild}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.testTag(TestTags.ACP_CONNECTION_STATUS),

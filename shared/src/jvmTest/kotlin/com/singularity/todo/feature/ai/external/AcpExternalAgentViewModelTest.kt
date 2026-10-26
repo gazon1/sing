@@ -351,6 +351,34 @@ class AcpExternalAgentViewModelTest {
         )
     }
 
+    /**
+     * The connect outcome carries the protocol version, and the build of the tool server
+     * the app handed over.
+     *
+     * The protocol version is a real comparison — the handshake refused an agent that
+     * spoke another — and the screen names it. The tool-server build is *reported*, not
+     * compared: the app knows which build it offered and cannot see which one the agent
+     * started, so the outcome states it so the reader knows which build answers. The build
+     * is the app's own version, read from a system property on the JVM; in a test it is
+     * the fallback, so this asserts the shape and not a literal. See ADR
+     * `2026-10-25-the-version-we-can-compare`.
+     */
+    @Test
+    fun `the connect outcome carries the protocol version and the tool-server build`() = runTest {
+        val session = ScriptedSession { true }
+        val ctx = viewModel(session)
+
+        connect(ctx)
+
+        val connection = ctx.state.value.connection
+        assertIs<AcpConnection.Connected>(connection, "the handshake answered")
+        assertEquals(1, connection.protocolVersion, "the version the agent speaks")
+        assertTrue(
+            connection.toolServerBuild.isNotBlank(),
+            "the build of the tool server handed over is reported: ${connection.toolServerBuild}",
+        )
+    }
+
     @Test
     fun `the answer to a permission request stays on the screen`() = runTest {
         val session = ScriptedSession {

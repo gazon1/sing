@@ -71,7 +71,20 @@ data class AcpExternalAgentUiState(
 sealed interface AcpConnection {
     data object Disconnected : AcpConnection
     data object Connecting : AcpConnection
-    data class Connected(val agentName: String) : AcpConnection
+
+    /**
+     * The agent is connected.
+     *
+     * [protocolVersion] is the version of the protocol the agent speaks: the handshake
+     * compared it, and the screen says which one answered.
+     *
+     * [toolServerBuild] is the build of the application whose tool server was handed to
+     * the agent. It is reported, not compared — the app cannot see which one the agent
+     * started — and the screen says it so a reader knows which build is answering.
+     */
+    data class Connected(val agentName: String, val protocolVersion: Int, val toolServerBuild: String) :
+        AcpConnection
+
     data class Failed(val reason: String) : AcpConnection
 }
 
@@ -252,7 +265,14 @@ class AcpExternalAgentViewModel(
             ) {
                 is AcpConversationOutcome.Connected ->
                     updateState {
-                        it.copy(connection = AcpConnection.Connected(outcome.agentName), toolAccess = toolAccess)
+                        it.copy(
+                            connection = AcpConnection.Connected(
+                                agentName = outcome.agentName,
+                                protocolVersion = outcome.protocolVersion,
+                                toolServerBuild = outcome.toolServerBuild,
+                            ),
+                            toolAccess = toolAccess,
+                        )
                     }
 
                 is AcpConversationOutcome.LaunchFailed ->
