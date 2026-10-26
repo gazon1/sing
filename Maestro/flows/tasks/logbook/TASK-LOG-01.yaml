@@ -1,0 +1,123 @@
+# Scenario TASK-LOG-01 — a note written from the task logbook stays attached.
+#
+# Canonical spec: scripts/src/traceability/scenarios/tasks/logbook/TASK-LOG-01.yaml
+#
+# The `scenario:TASK-LOG-01` tag below is the linkage, matched by exact string
+# comparison in run-maestro.
+#
+# ## What this flow covers
+#
+# 1. Seed a task via DebugSeedActivity deep-link.
+# 2. Open the task detail view — the Logbook section appears.
+# 3. Tap the logbook's "+" — the note editor opens, attached to that task.
+# 4. Type a title and save.
+# 5. Leave the editor, reopen the task, and find the note in the logbook.
+#
+# ## The bug this flow guards
+#
+# The note used to lose its attachment on the first save: the editor wrote it
+# with the *create* primitive, and Room's `@Upsert` replaces every column — so
+# the `task_id` was overwritten with NULL and the note vanished from the
+# logbook. Step 5 is the assertion that catches it: the note has to be *there*,
+# in *that* task's logbook, after a full navigation round-trip.
+#
+# ## Platform notes
+#
+# android: Maestro drives the real Android UI.
+#
+# The "+" in the logbook exits the tasks nested graph and opens the notes graph
+# at the app level, so `back` lands on the agenda — the task has to be reopened
+# to see its logbook again. That is not a workaround: the round-trip through the
+# agenda is what proves the note survived in the *database* rather than in a
+# screen's memory.
+appId: com.singularity.todo
+name: tasks-logbook-note-stays-attached
+tags:
+  - scenario:TASK-LOG-01
+  - regression
+  - tasks
+---
+- runFlow: ../../../helpers/seed-task.yaml
+
+# ── Open the task detail view ──────────────────────────────────
+- tapOn:
+    id: task_item_buy_milk
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+
+# ── The Logbook section ─────────────────────────────────────────
+# The section is below the fold on a phone: scroll it into view first.
+- scrollUntilVisible:
+    element:
+      id: logbook_section
+    direction: DOWN
+    timeout: 8000
+
+# ── Add a note from the logbook ─────────────────────────────────
+- tapOn:
+    id: logbook_add_note_button
+- extendedWaitUntil:
+    visible:
+      id: note_editor_title_input
+    timeout: 5000
+- tapOn:
+    id: note_editor_title_input
+- inputText: "${RUN_ID} Logbook note"
+
+# The editor autosaves, and the explicit save writes the note with its task
+# attachment. The "Saved" pill appears only after that write completed, so
+# waiting for it means the note is on disk before the editor is left — otherwise
+# leaving right after the tap races the write.
+- tapOn:
+    id: note_editor_save
+- extendedWaitUntil:
+    visible:
+      id: note_editor_saved_indicator
+    timeout: 8000
+# The keyboard is still up over the title field: the first back would dismiss it
+# and leave the editor on screen, so it is put away first.
+- hideKeyboard
+# The editor is pushed on top of the task detail, and where "back" lands depends
+# on the graph it was pushed on: the task detail or the agenda. One more back —
+# but only when the detail is still there — brings the flow to a known place.
+- back
+- runFlow:
+    when:
+      visible:
+        id: task_editor_more_menu
+    commands:
+      - back
+
+# ── Return to the task and find the note in its logbook ─────────
+# The attachment lives in the database, not in the screen that showed it: the
+# note has to be in the logbook of the task that is opened from scratch.
+- tapOn:
+    id: nav_tab_inbox
+- scrollUntilVisible:
+    element:
+      id: task_item_buy_milk
+    direction: DOWN
+    timeout: 8000
+- tapOn:
+    id: task_item_buy_milk
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+- scrollUntilVisible:
+    element:
+      id: logbook_section
+    direction: DOWN
+    timeout: 8000
+
+# The note is addressed by its visible title: the row's id is a generated ULID
+# that the flow never learns.
+- extendedWaitUntil:
+    visible:
+      id: logbook_note_by_title_${RUN_ID}_logbook_note
+    timeout: 8000
+- assertVisible:
+    id: logbook_note_by_title_${RUN_ID}_logbook_note
+- takeScreenshot: tasks/logbook-note-attached

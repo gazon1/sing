@@ -129,19 +129,28 @@ interface NotesRepository :
     // ─── Task-linked notes ────────────────────────────────────────────────────
 
     /**
-     * Watches notes linked to a specific task via wikilinks.
+     * Watches notes **attached** to a specific task.
+     *
+     * The attachment is structural: it is the `task_id` column, written once when the
+     * note is created. A note that merely *links* to the task from its body is not
+     * attached to it — such a link surfaces in the task's "Linked" card instead.
+     *
      * @see createForTask
      */
     fun watchForTask(taskId: com.singularity.todo.feature.tasks.domain.model.TaskId): Flow<List<Note>>
 
     /**
      * Creates a new note attached to [taskId] and returns its id.
-     * The note is also written to [outgoingLinks] as `task://<taskId>` for backward
-     * compatibility with wikilink-based backlinks.
+     *
+     * The caller owns [id]: the editor generates it before the note exists, so the
+     * draft, the navigation and the written row all speak about the same note. The
+     * attachment is written here, once, and never by a content save — a content save
+     * touches the content columns only.
      *
      * @return the new note's id.
      */
     suspend fun createForTask(
+        id: NoteId,
         taskId: com.singularity.todo.feature.tasks.domain.model.TaskId,
         title: String,
         bodyMarkdown: String? = null,

@@ -21,6 +21,7 @@ import kotlinx.serialization.json.JsonObject
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import java.util.UUID
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import com.singularity.todo.feature.tags.Tag as SyncTagEntity
 
@@ -28,11 +29,22 @@ import com.singularity.todo.feature.tags.Tag as SyncTagEntity
  * Verifies that [SyncContract] is the genuine single source of truth for the
  * sync protocol contract, and that the Kotlin sync implementation conforms to it.
  *
+ * The field lists are derived from the models, so the interesting question is
+ * not "does the list match the model" — it is derived from it — but "does the
+ * wire carry exactly what the list says", which pins the encoder, and "is the
+ * hand-written part of the contract, the fields the server owns, saying a name
+ * the model has".
+ *
  * Two failure modes this test catches:
- * 1. A field added to a Kotlin entity's `toJson()` without updating the allowlist
- *    → the server silently rejects it and the client never knows
- * 2. [SyncContract.CURRENT_PROTOCOL_VERSION] diverging from the version
- *    embedded in the production [SupabaseSyncApiClient]
+ * 1. The wire and the wire's list are not the same set — the encoder stopped
+ *    writing a field the model has, and the device would send a document
+ *    without it while the list says it is there.
+ * 2. A subtraction of a name the model does not have — a name the server would
+ *    try to subtract from a list that does not hold it, leaving the model's own
+ *    bookkeeping writable.
+ *
+ * It also catches [SyncContract.CURRENT_PROTOCOL_VERSION] diverging from the
+ * version embedded in the production [SupabaseSyncApiClient].
  *
  * Runs as part of `:shared:jvmTest` ([Tag.fast]).
  */
@@ -81,97 +93,153 @@ class SyncContractIsTheSourceOfTruthTest {
         assertTrue(missing.isEmpty(), "DocTypes with no Kotlin entity: $missing")
     }
 
-    // ── 3. Field allowlist conformance ──────────────────────────────────────
+    // ── 3. The field lists are derived from the models ────────────────────────
 
     @Test
-    fun `Task serialises only allowlisted fields`() {
-        assertAllowlistConformance(minimalTask().toJson(), DocType.Task)
+    fun `the wire carries exactly the fields the contract derives`() {
+        assertWireConformance(minimalTask().toJson(), DocType.Task)
     }
 
     @Test
-    fun `Note serialises only allowlisted fields`() {
-        assertAllowlistConformance(minimalNote().toJson(), DocType.Note)
+    fun `a note carries exactly the fields the contract derives`() {
+        assertWireConformance(minimalNote().toJson(), DocType.Note)
     }
 
     @Test
-    fun `Project serialises only allowlisted fields`() {
-        assertAllowlistConformance(minimalProject().toJson(), DocType.Project)
+    fun `a project carries exactly the fields the contract derives`() {
+        assertWireConformance(minimalProject().toJson(), DocType.Project)
     }
 
     @Test
-    fun `Tag serialises only allowlisted fields`() {
-        assertAllowlistConformance(minimalTag().toJson(), DocType.Tag)
+    fun `a tag carries exactly the fields the contract derives`() {
+        assertWireConformance(minimalTag().toJson(), DocType.Tag)
     }
 
     @Test
-    fun `TagGroup serialises only allowlisted fields`() {
-        assertAllowlistConformance(minimalTagGroup().toJson(), DocType.TagGroup)
+    fun `a tag group carries exactly the fields the contract derives`() {
+        assertWireConformance(minimalTagGroup().toJson(), DocType.TagGroup)
     }
 
     @Test
-    fun `TimeEntry serialises only allowlisted fields`() {
-        assertAllowlistConformance(minimalTimeEntry().toJson(), DocType.TimeEntry)
+    fun `a time entry carries exactly the fields the contract derives`() {
+        assertWireConformance(minimalTimeEntry().toJson(), DocType.TimeEntry)
+    }
+
+    @Test
+    fun `every field the server owns is a field every model has`() {
+        for (docType in DocType.entries) {
+            val modelFields = SyncContract.wireFieldsFor(docType)
+            val unknown = SyncContract.SERVER_OWNED.filter { it !in modelFields }
+            assertTrue(
+                unknown.isEmpty(),
+                "DocType.$docType does not have the fields the server owns: $unknown — " +
+                    "the server owns them the same way for every type, so a model that " +
+                    "does not have one is a model whose own bookkeeping the server would " +
+                    "write",
+            )
+        }
+    }
+
+    @Test
+    fun `the server's fields are the wire's fields less what the server owns`() {
+        for (docType in DocType.entries) {
+            val wireFields = SyncContract.wireFieldsFor(docType)
+            assertEquals(
+                wireFields - SyncContract.SERVER_OWNED,
+                SyncContract.serverFieldsFor(docType),
+                "DocType.$docType: the server's fields must be the wire's fields less the " +
+                    "fields the server owns",
+            )
+        }
     }
 
     // ── 4. Positive control ──────────────────────────────────────────────────
 
     /**
-     * Positive control: prove that removing a field from the allowlist would
-     * cause [assertAllowlistConformance] to fail.
+     * Positive control: prove that the check has teeth.
      *
-     * If this test fails after intentionally adding a field to both the entity
-     * and the allowlist, update [SyncContract.FIELD_ALLOWLIST] — that is the
-     * expected workflow.
+     * A check that cannot fail is not a check. The check under test is the same
+     * function the assertions above use — the mismatch between what the wire
+     * carries and what the list says — run here against a list that was
+     * doctored, so a failure of the real check is a failure of this one.
      */
     @Test
-    fun `a field absent from the allowlist would cause the conformance test to fail`() {
-        val allowlist = SyncContract.allowlistFor(DocType.Tag).toMutableSet()
-        val fieldToRemove =
-            allowlist.firstOrNull()
-                ?: throw AssertionError("Tag allowlist is empty — cannot run probe")
+    fun `a list that does not match the wire is caught`() {
+        val docType = DocType.Tag
+        val wireFields = SyncContract.wireFieldsFor(docType)
+        val probe = wireFields.first()
+        val shrunk = wireFields - probe
 
-        // Shrink the allowlist to exclude a field that IS in the Tag JSON.
-        // The conformance check MUST detect this and fire.
-        allowlist.remove(fieldToRemove)
-
-        val tag = minimalTag()
-        val jsonKeys = tag.toJson().keys
-        val unexpected = jsonKeys.filter { it !in allowlist }
+        val mismatch = wireMismatch(minimalTag().toJson(), shrunk)
 
         assertTrue(
-            unexpected.isNotEmpty() && fieldToRemove in unexpected,
-            "Probe failed: removing '$fieldToRemove' from the allowlist should have " +
-                "caused the conformance check to detect it in the JSON keys. " +
-                "Keys in Tag.toJson() not in shrunk allowlist: $unexpected",
+            probe in mismatch,
+            "Probe failed: a list without '$probe' must be reported as not matching the " +
+                "wire. The check saw: $mismatch",
+        )
+    }
+
+    @Test
+    fun `a field the encoder stops writing is caught`() {
+        val docType = DocType.Tag
+        val json = minimalTag().toJson()
+        val withoutTheField = JsonObject(json.filterKeys { it != "name" })
+
+        val mismatch = wireMismatch(withoutTheField, SyncContract.wireFieldsFor(docType))
+
+        assertTrue(
+            "name" in mismatch,
+            "Probe failed: a wire that stopped writing 'name' must be reported. " +
+                "The check saw: $mismatch",
         )
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     /**
-     * Asserts that every JSON key in [json] is present in [SyncContract.FIELD_ALLOWLIST]
-     * for [docType].
+     * The names that do not match: what the list has and the wire does not
+     * carry, and what the wire carries and the list does not have.
      *
-     * A failure means a Kotlin entity property is being serialised but is not
-     * in the allowlist.  The field must either be added to the allowlist
-     * (if intentional) or removed from the entity's serialised output.
+     * The check under test, as a function, so that the positive controls can run
+     * it against a doctored list instead of re-implementing it.
      */
-    private fun assertAllowlistConformance(
+    private fun wireMismatch(
+        json: JsonObject,
+        wireFields: List<String>,
+    ): List<String> {
+        val onTheWire = json.keys
+        return wireFields.filter { it !in onTheWire } + onTheWire.filter { it !in wireFields }
+    }
+
+    /**
+     * Asserts that the fields the wire carries and the wire's derived list are
+     * the same set.
+     *
+     * Not "the wire's fields are in the list" — the same set. The wire is the
+     * model, serialised: the device writes every field the model has, and the
+     * list is derived from the same model. So the equality holds by
+     * construction, and what it pins is the encoder: a field the encoder stops
+     * writing — because `encodeDefaults` was turned off, or a custom
+     * serializer left one out — is a field the device sends no more and the
+     * server never hears of, and this is where that is said.
+     */
+    private fun assertWireConformance(
         json: JsonObject,
         docType: DocType,
     ) {
-        val allowlist = SyncContract.allowlistFor(docType)
-        val unexpected = json.keys.filter { it !in allowlist }
+        val wireFields = SyncContract.wireFieldsFor(docType)
+        val mismatch = wireMismatch(json, wireFields)
         assertTrue(
-            unexpected.isEmpty(),
+            mismatch.isEmpty(),
             buildString {
-                appendLine("DocType.$docType serialises fields not in SyncContract.FIELD_ALLOWLIST:")
-                for (key in unexpected.sorted()) {
-                    appendLine("  unknown field: \"$key\"")
+                appendLine("DocType.$docType and the contract's derived list disagree:")
+                for (key in mismatch.sorted()) {
+                    appendLine("  \"$key\" is on one side and not on the other")
                 }
                 append(
-                    "Add these fields to SyncContract.FIELD_ALLOWLIST[DocType.$docType] " +
-                        "if intentional, or remove them from the entity's serialised output.",
+                    "The wire is the model, serialised: the encoder writes every field the " +
+                        "model has, and the list is derived from the same model. A field " +
+                        "that is on one side only is the encoder and the model disagreeing.",
                 )
             },
         )

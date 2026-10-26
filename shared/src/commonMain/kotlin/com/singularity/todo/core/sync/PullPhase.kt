@@ -35,6 +35,12 @@ internal class PullPhase(
      * @see <a href="https://github.com/gazon1/sing/issues/179">GH #179</a>
      */
     private val hlcFactory: HlcFactory,
+    /**
+     * The shadow of what the server holds, kept current on pull so a lost-race
+     * revert restores the server's state (and its claims) rather than a stale
+     * snapshot. Nullable so callers that do not need the shadow (tests) can omit it.
+     */
+    private val shadowDao: SyncShadowDao? = null,
 ) {
     private val log = Logger.withTag("PullPhase")
 
@@ -83,9 +89,54 @@ internal class PullPhase(
         event.hlc?.let { hlcFactory.tock(it) }
         val handler = getHandlers()[event.entityType] ?: return PullStep.Unappliable
         return when (val outcome = handler.apply(event)) {
-            is ApplyOutcome.Applied -> PullStep.Done
+            is ApplyOutcome.Applied -> {
+                refreshShadow(event, scope)
+                PullStep.Done
+            }
+
             is ApplyOutcome.Skipped -> PullStep.AppliedButUnusable(outcome.reason)
+
             is ApplyOutcome.Failed -> PullStep.Unappliable
+        }
+    }
+
+    /**
+     * Keeps the shadow current with the server's state (and its claims) for an
+     * entity that was just pulled, so a later lost-race revert restores what
+     * the server holds rather than a stale snapshot.
+     *
+     * Only CREATED/UPDATED/RESTORED events carry a document; DELETED and events
+     * without data leave the shadow untouched. A missing shadow means the entity
+     * was never pushed by this device, and one is inserted so the first push
+     * diffs against the server's state instead of an empty base.
+     *
+     * The in-flight marker (if any) is preserved: only `confirmed_json` moves.
+     */
+    private suspend fun refreshShadow(event: SyncEvent, scope: SyncScope) {
+        val dao = shadowDao ?: return
+        val data = event.data as? kotlinx.serialization.json.JsonObject ?: return
+        if (event.eventType == SyncEventType.DELETED) return
+        val json = com.singularity.todo.core.serialization.StableJson.encodeToString(
+            kotlinx.serialization.json.JsonObject.serializer(),
+            data,
+        )
+        val updated = dao.updateConfirmed(
+            ownerId = scope.ownerId,
+            profileId = scope.profileId,
+            entityType = event.entityType.key,
+            entityId = event.entityId,
+            json = json,
+        )
+        if (updated == 0) {
+            dao.upsert(
+                SyncShadowEntity(
+                    ownerId = scope.ownerId,
+                    profileId = scope.profileId,
+                    entityType = event.entityType.key,
+                    entityId = event.entityId,
+                    confirmedJson = json,
+                ),
+            )
         }
     }
 

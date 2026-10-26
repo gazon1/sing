@@ -141,7 +141,7 @@ fun TaskDto.toEntity(userId: String): TaskEntity =
         createdAt = createdAt,
         updatedAt = updatedAt,
         userId = userId,
-        sync = SyncColumns(),
+        sync = SyncColumns(), // a restore is a fresh import: sync state is not carried by a backup
     )
 
 // ─── NoteDto ───────────────────────────────────────────────────────────────────

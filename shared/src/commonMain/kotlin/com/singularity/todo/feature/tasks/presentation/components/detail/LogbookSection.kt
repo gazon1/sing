@@ -23,10 +23,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.formatElapsed
 import com.singularity.todo.core.ui.monthAbbreviation
 import com.singularity.todo.core.ui.text.SelectableText
@@ -85,40 +87,70 @@ private fun LogbookEmptyCard(onAddNote: () -> Unit, modifier: Modifier = Modifie
     Surface(
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(TaskSpacing.cardCornerRadius),
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag(TestTags.LOGBOOK_SECTION),
     ) {
         Row(
-            modifier = Modifier.padding(
-                horizontal = TaskSpacing.cardPaddingHorizontal,
-                vertical = TaskSpacing.cardPaddingVertical,
-            )
-                .fillMaxWidth(),
+            modifier = Modifier
+                .padding(
+                    horizontal = TaskSpacing.cardPaddingHorizontal,
+                    vertical = TaskSpacing.cardPaddingVertical,
+                )
+                .fillMaxWidth()
+                .testTag(TestTags.LOGBOOK_EMPTY),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.TextSnippet,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(TaskSpacing.iconSize),
+            LogbookHeader(
+                title = "Logbook",
+                onAddNote = onAddNote,
             )
-            Spacer(Modifier.width(TaskSpacing.lg))
-            SelectableTextGroup(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Logbook",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
+        }
+    }
+}
+
+/**
+ * The logbook's header row: the icon, the title and the "add note" action.
+ *
+ * Both cards of the section share it — the empty one and the loaded one differ
+ * only in what the title says and what is under it.
+ */
+@Composable
+private fun LogbookHeader(
+    title: String,
+    onAddNote: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.TextSnippet,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(TaskSpacing.iconSize),
+        )
+        Spacer(Modifier.width(TaskSpacing.lg))
+        SelectableTextGroup(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+            )
+        }
+        UnselectableContent {
+            IconButton(
+                onClick = onAddNote,
+                modifier = Modifier.testTag(TestTags.LOGBOOK_ADD_NOTE_BUTTON),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = "Add note to logbook",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(TaskSpacing.iconSize),
                 )
-            }
-            UnselectableContent {
-                IconButton(onClick = onAddNote) {
-                    Icon(
-                        imageVector = Icons.Filled.Add,
-                        contentDescription = "Add note to logbook",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(TaskSpacing.iconSize),
-                    )
-                }
             }
         }
     }
@@ -151,7 +183,9 @@ private fun LogbookLoadedCard(
     Surface(
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(TaskSpacing.cardCornerRadius),
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag(TestTags.LOGBOOK_SECTION),
     ) {
         Column(
             modifier = Modifier.padding(
@@ -161,36 +195,10 @@ private fun LogbookLoadedCard(
                 .fillMaxWidth(),
         ) {
             // Header row
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.TextSnippet,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(TaskSpacing.iconSize),
-                )
-                Spacer(Modifier.width(TaskSpacing.lg))
-                SelectableTextGroup(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Logbook (${entries.size})",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                    )
-                }
-                UnselectableContent {
-                    IconButton(onClick = onAddNote) {
-                        Icon(
-                            imageVector = Icons.Filled.Add,
-                            contentDescription = "Add note to logbook",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(TaskSpacing.iconSize),
-                        )
-                    }
-                }
-            }
+            LogbookHeader(
+                title = "Logbook (${entries.size})",
+                onAddNote = onAddNote,
+            )
 
             Spacer(Modifier.height(TaskSpacing.md))
 
@@ -222,14 +230,19 @@ private fun LogbookLoadedCard(
 
 @Composable
 private fun LogbookNoteRow(note: Note, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    // The tag is keyed by the visible title, because the row's id is a generated
+    // ULID that a UI-automation flow never learns — the title is what the user
+    // sees, and therefore what a flow can address.
+    val title = note.title.ifBlank { "(untitled)" }
     Row(
         modifier = modifier.fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 6.dp),
+            .padding(vertical = 6.dp)
+            .testTag(TestTags.logbookNoteByTitle(title)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SelectableText(
-            text = note.title.ifBlank { "(untitled)" },
+            text = title,
             style = LocalTextStyle.current.copy(fontSize = 14.sp, fontWeight = FontWeight.Normal),
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,

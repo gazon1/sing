@@ -39,6 +39,25 @@ SANDBOX_IDENTITY = {
 }
 
 
+#: The shell helper that runs a command without the environment a hook exports.
+#:
+#: The name is part of the answer: the hook calls the helper, the gate that
+#: checks the scripts reads the name, and the test that reads the hook reads
+#: the name — so a script that scrubs the environment in some other way is
+#: visible as a script that does something else.
+SHELL_HELPER = "without_hook_git_env"
+
+
+def shell_unset_args() -> str:
+    """The `env` arguments that drop the variables a hook exports.
+
+    The shell cannot import this module — the hook runs where the package is
+    out of reach — so the answer is printed and read. This is the one place
+    the names are written down, and the shell side of it carries no copy.
+    """
+    return " ".join(f"-u {name}" for name in INHERITED_FROM_HOOK)
+
+
 def tree_env() -> dict[str, str]:
     """An environment in which git means the repository it discovers."""
     env = dict(os.environ)
@@ -67,3 +86,13 @@ def sandbox_env(root: pathlib.Path) -> dict[str, str]:
     env['GIT_CEILING_DIRECTORIES'] = str(root)
     env.update(SANDBOX_IDENTITY)
     return env
+
+
+if __name__ == '__main__':
+    import sys
+
+    if sys.argv[1:] == ['--shell-unset-args']:
+        print(shell_unset_args())
+    else:
+        print('usage: gitenv.py --shell-unset-args', file=sys.stderr)
+        raise SystemExit(2)

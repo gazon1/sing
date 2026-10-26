@@ -1435,6 +1435,19 @@ private class FakeSyncShadowDao(private val store: MutableStateFlow<Map<SyncShad
         store.value = store.value + (k to entity)
     }
 
+    override suspend fun updateConfirmed(
+        ownerId: String,
+        profileId: String,
+        entityType: String,
+        entityId: String,
+        json: String,
+    ): Int {
+        val k = key(ownerId, profileId, entityType, entityId)
+        val row = store.value[k] ?: return 0
+        store.value = store.value + (k to row.copy(confirmedJson = json))
+        return 1
+    }
+
     override suspend fun confirm(
         ownerId: String,
         profileId: String,

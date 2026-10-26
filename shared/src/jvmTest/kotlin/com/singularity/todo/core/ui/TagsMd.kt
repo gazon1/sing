@@ -253,6 +253,9 @@ object TagsMd {
 
         "noteItemByTitle" -> DynamicMeta(fnName, "Notes", "Meeting notes", "Note cards (automation)")
 
+        "logbookNoteByTitle" ->
+            DynamicMeta(fnName, "Tasks", "Logbook note", "Note rows in a task's logbook")
+
         "noteFilterChip" -> DynamicMeta(fnName, "Notes", "pinned", "Note list filter chips")
 
         "noteAction" -> DynamicMeta(fnName, "Notes", "edit", "Note editor action buttons")
@@ -351,6 +354,10 @@ object TagsMd {
         "TASK_CONTEXT_" to "Tasks",
         "TASKS_" to "Tasks",
         "TASK_" to "Tasks",
+        // The logbook section of the task detail: the notes attached to a task. A
+        // section of the task screen, so it files with the other task rows rather
+        // than getting a heading of its own.
+        "LOGBOOK_" to "Tasks",
         "PRIORITY_" to "Tasks",
         // Recurrence options live in the task editor's recurrence picker, so
         // they belong with the other task-editor rows. Anchored like every other

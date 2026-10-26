@@ -18,7 +18,7 @@ the table carries the one-line version so a row is readable in a diff.
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-**99 scenarios · 29/122 claimed cells automated · 93 holes**
+**101 scenarios · 31/124 claimed cells automated · 93 holes**
 
 ## feature.agenda
 
@@ -195,6 +195,8 @@ the table carries the one-line version so a row is readable in a diff.
 | `TASK-16` | Creating from a tab returns to that tab after save | ○ | — | The save operation returns to the originating tab. The Today task is in the Today section and the Inbox task is in the… |
 | `TASK-17` | Start and stop a time-tracking session on a task | ○ | — | The chip swaps from Start to Stop in place while the timer is running, and returns to Start when stopped. No crash… |
 | `TASK-CHECK-01` | Add a checklist item to a task | ● | — | The item persists with its text and its completed state, so the list survives closing and reopening the editor on the… |
+| `TASK-LOG-01` | A note written from the task logbook stays attached to the task | ● | — | The task's logbook shows the note under the title the user typed. The note is still there after the navigation… |
+| `TASK-LOG-02` | Abandoning the logbook's note editor leaves no note behind | ● | — | The task's logbook is still empty — the same empty state it showed before the editor was opened. No note row was… |
 | `TASK-REC-01` | Create a daily recurring task | ● | ● | The task list shows the next occurrence dated one day after the completion date, and the original instance is gone… |
 | `TASK-SUB-01` | Subtask lifecycle — add, toggle, delete | ● | — | The subtask survives add → toggle → delete. Its parentTaskId is set correctly so it appears as a child in the… |
 | `TASK-TIME-01` | Start a timer on a task from its detail view | ○ | ● | The chip swaps between "Start" and "Stop" in place, and the elapsed total for that task grows while the timer runs. |

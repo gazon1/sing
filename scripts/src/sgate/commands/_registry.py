@@ -79,18 +79,50 @@ class CmdType(StrEnum):
 #: ``scripts/check-adr-module-boundary.py``, deleted on 2026-10-15 when the
 #: owner retired that gate. Both are gone — a command that cannot pass is not
 #: a gate, it is a way to run a stack trace.
-#: The tree rules the pre-push hook runs against the tree being pushed.
+#: What the pre-push hook runs, declared once.
 #:
-#: The hook carried the list in its own loop, and the test that drives the hook
-#: carried a second list — the scripts it stubs. A gate added to the hook and
-#: not to the fixture was a failing test, and the failure was found by the full
-#: run rather than by the edit that caused it. One declaration now serves both
-#: sides: the hook reads the rules, the test reads the scripts.
-PRE_PUSH_TREE_RULES: tuple[str, ...] = (
-    "check-agents-pointers",
-    "check-issue-registry",
-    "check-review-verdicts",
+#: The declaration lives in ``sgate.gatekit.pre_push`` rather than here,
+#: because the hook reads it by path, in a tree that carries nothing else of
+#: the package, and a module that needed its neighbours could not be read
+#: there. This module re-exports it, so every reader that already imported
+#: ``PRE_PUSH_SCRIPTS`` from here keeps reading it from here.
+#:
+#: The hook carried the list of gates in its own code, and the test that
+#: drives the hook carried a second list — the scripts it stubs. A gate added
+#: to the hook and not to the fixture was a failing test, and the failure was
+#: found by the full run rather than by the edit that caused it. One
+#: declaration now serves all three sides: the hook reads the steps, the test
+#: reads the scripts, and the registry derives the list.
+from sgate.gatekit.pre_push import (  # noqa: F401
+    PRE_PUSH_MACHINERY,
+    PRE_PUSH_STEPS,
+    PRE_PUSH_TREE_RULES,
+    PrePushStep,
+    pre_push_step_table,
 )
+
+#: The file the declaration lives in.
+#:
+#: The hook runs it by path, so the path is part of the declaration: the gate
+#: that compares the hook with the registry has to know which script the hook
+#: is allowed to name — the declaration is not a gate, and a hook that names
+#: anything else is a gate the registry does not know about.
+PRE_PUSH_DECLARATION = "scripts/src/sgate/gatekit/pre_push.py"
+
+#: The file that drops the git environment a hook exports.
+#:
+#: It is not a gate either: it is where the list of the names is read from,
+#: and the hook calls it instead of writing the names down a fifth time. The
+#: gate that compares the hook with the registry allows this path for the same
+#: reason it allows the declaration's.
+PRE_PUSH_ENVIRONMENT = "scripts/git-env.sh"
+
+#: The canon the environment helper reads the list of the names from.
+#:
+#: The helper asks it rather than carrying a copy, and the hook names it in
+#: the message it prints when the answer cannot be read — so it is a path the
+#: hook may name, the way the declaration and the helper are.
+PRE_PUSH_ENVIRONMENT_CANON = "scripts/src/sgate/gatekit/gitenv.py"
 
 #: Every script the pre-push hook runs.
 #:
@@ -98,29 +130,16 @@ PRE_PUSH_TREE_RULES: tuple[str, ...] = (
 #: hook *may* run; the tree decides what it does. The test stubs all of them,
 #: because a hook that calls a script nobody stubbed fails for a reason that
 #: has nothing to do with what the test is about.
-PRE_PUSH_SCRIPTS: tuple[str, ...] = (
-    "scripts/build-version-catalog-gate.py",
-    "scripts/check-ui-wait-budgets.py",
-    "scripts/ci/validate-maestro-selectors.py",
-    "scripts/check-di-fixture-sync.py",
-    "scripts/check-navigation-doc-sync.py",
-    # The hook calls these two as well, and the declaration did not name them:
-    # a script the hook runs and the declaration does not list is a gate the
-    # test fixture does not stub — a failing test that only the full run
-    # finds. scripts/check-hook-gates.py is what found it.
-    "scripts/check-maestro-flow-catalogue.py",
-    "scripts/check-test-tags-catalog.py",
-    # The runner of the gate suite's own tests. It is not a gate — it judges
-    # nothing about the tree — but the hook runs it, and a script the hook
-    # runs and no record names is a script nobody knows about.
-    "scripts/run-gate-tests.py",
-
-    # The hook asks the CI verdict about the commit it is pushing. It is not
-    # a gate — it decides nothing and blocks nothing — but the hook runs it,
-    # and a script the hook runs and the record does not name is a script
-    # nobody knows runs.
-    "scripts/ci-verdict.py",
-) + tuple(f"scripts/{rule}.py" for rule in PRE_PUSH_TREE_RULES)
+#:
+#: The list is derived from the steps and the machinery, so it cannot name a
+#: script the hook does not run: a gate that is added to the table is a gate
+#: the hook runs, and a gate that is removed from the table is a gate that is
+#: not run.
+PRE_PUSH_SCRIPTS: tuple[str, ...] = tuple(
+    dict.fromkeys(
+        tuple(step.script for step in PRE_PUSH_STEPS) + PRE_PUSH_MACHINERY
+    )
+)
 
 COMMAND_MODULES: dict[str, str] = {
     "adr_references_are_valid": "gate",
@@ -271,6 +290,22 @@ GRADLE_TASK_PARITY: dict[str, GradleTaskParity] = {
             "compares, without waiting for the twenty-minute suite. Naming it "
             "in `ci.yml` as well would buy a second run of a check CI already "
             "performs — and a second Gradle invocation on every PR."
+        ),
+    ),
+    ":shared:verifySyncFieldAllowlist": GradleTaskParity(
+        scope="covered",
+        why=(
+            "CI reaches it through `SyncFieldAllowlistExportTest` in `:shared:jvmTest`, "
+            "which compares the committed `config/docs/sync-field-allowlist.json` with "
+            "the lists the models declare. The Gradle task is the fast rehearsal of that "
+            "check for the local loop: it asks the exporter whether the committed "
+            "file says what the models declare - the same comparison, through the "
+            "same function - without waiting for the twenty-minute suite. Naming it in `ci.yml` as well "
+            "would buy a second run of a check CI already performs — and a second "
+            "Gradle invocation on every PR. The fast half matters here more than it "
+            "does for the tool surface: the seed and the gate both read the export, so "
+            "an export left stale by a model field would leave the seed and the export "
+            "agreeing with each other and with nothing."
         ),
     ),
     ":adr-cli:installDist": GradleTaskParity(
@@ -1301,7 +1336,15 @@ GATE_CONTROLS: dict[str, Control] = {
     'maestro-screen-geometry': Control(kind='sabotage', proves='scripts/check-maestro-screen-geometry.py', argv=('{python}', 'scripts/check-maestro-screen-geometry.py'), path='Maestro/flows/smoke/01-launch-today.yaml', edit=Edit(kind='replace', old='- assertVisible:\n    id: tasks_fab', new='- swipe:\n    start: 105, 2000\n    end: 105, 1600\n- assertVisible:\n    id: tasks_fab', count=1), why='a flow that swipes to a point in pixels only works on the display it was measured on: on a 720x1600 phone the start point is off-screen, the swipe never happens, and the flow fails on a screen it never claimed to know about. The probe adds exactly that swipe to a flow that needs none and is not on the exceptions registry, and the gate must say so instead of reading the flow as portable'),
     'ui-wait-budgets': Control(kind='sabotage', proves='scripts/check-ui-wait-budgets.py', argv=('{python}', 'scripts/check-ui-wait-budgets.py'), path='config/docs/ui-wait-budgets.txt', edit=Edit(kind='replace', old='shell 30000', new='shell 12000', count=1), why='the two UI layers wait for the same screen from two runners that cannot share a constant, and the only thing that keeps them honest is one written budget. Moving the shell budget in the catalogue while the Kotlin constant and the Maestro flows keep the old number is exactly the drift this gate exists for: the instrumented suite waited 8 s while the Maestro helper had already learned that 8 s is not enough on a loaded CI runner, and `android-device-tests` was red on every run of `main` for days'),
     'dead-settings': Control(kind='sabotage', proves='scripts/check-dead-settings.py', argv=('{python}', 'scripts/check-dead-settings.py', '--quiet'), path='shared/src/commonMain/kotlin/com/singularity/todo/core/settings/SettingsBundle.kt', edit=Edit(kind='replace', old='        val workingDays: Set<DayOfWeek> = WorkingDays.DEFAULT,', new='        val workingDays: Set<DayOfWeek> = WorkingDays.DEFAULT,\n        val deadSettingProbe: Boolean = false,', count=1), why='a persisted setting rendered in Settings and read by no feature is a control that looks like it works; every baseline line is a claim that needs its own justification'),
-    'sync-allowlist-regenerated': Control(kind='sabotage', proves='scripts/check-sync-allowlist-regenerated.py', argv=('{python}', 'scripts/check-sync-allowlist-regenerated.py'), path='shared/src/commonMain/kotlin/com/singularity/todo/core/sync/SyncContract.kt', edit=Edit(kind='replace', old='"aiSuppressedTagIds",', new='"aiSuppressedTagIds",\n        "sabotage_probe_field",', count=-1), why='if the committed seed differs from the generator output, the gate catches it — and the seed is the one artifact that cannot be regenerated from within the check'),
+    'sync-allowlist-regenerated': Control(kind='sabotage', proves='scripts/check-sync-allowlist-regenerated.py', argv=('{python}', 'scripts/check-sync-allowlist-regenerated.py'), path='config/docs/sync-field-allowlist.json', edit=Edit(kind='regex', pattern=r'("serverWritable": \[)', repl='\\1\n                "sabotage_probe_field",'), why='the seed is generated from the derived lists, and the derived lists are the models\' own field names — so a field that gets into the seed and not into any model is a name nobody sends, and it reads like a rule. The probe adds a field to the derived server list, and the gate must report the seed as stale'),
+    # The other half of the same gate: the rows the migrations hold for the
+    # server's table. The probe above proves the staleness half — that the
+    # seed is what the generator produces — and says nothing about the half
+    # that reads forty spellings of a row, which is where every hole twenty-four
+    # review rounds found lived. So this control writes a row into the
+    # server\'s own migration: a field no model declares, a field the server
+    # may therefore write and nothing ever sends. The gate must name it.
+    'sync-allowlist-reader': Control(kind='sabotage', proves='scripts/check-sync-allowlist-regenerated.py', argv=('{python}', 'scripts/check-sync-allowlist-regenerated.py'), path='supabase/migrations/2026-10-07-sync_schema.sql', edit=Edit(kind='append', new="\n\ninsert into sync_field_allowlist (entity_type, field, writable) values ('task', 'sabotage_probe_field', true);\n"), why='a row the server\'s table holds that no model declares is a field the server may write and nothing ever writes, and it reads like a rule — the server looks the row up by name, so the row is honoured. The reader is the half of the gate that holds the names, and the other control proves only that the seed is current. The probe adds exactly that row to the migration that seeds the table, and the gate must name the field'),
     'doc-dead-refs': Control(kind='sabotage', proves='scripts/check-doc-dead-refs.py', argv=('{python}', 'scripts/check-doc-dead-refs.py', '--strict'), path='README.md', edit=Edit(kind='append', new='\nSee `docs/decisions/DefinitelyNotAFile.md` for details.\n'), why='a new dead reference must fail until baselined'),
     'issue-registry': Control(kind='sabotage', proves='scripts/check-issue-registry.py', argv=('{python}', 'scripts/check-issue-registry.py', '--quiet'), path='.specify/issues/a-delete-that-was-never-issued-was-reported-as-deleted.yaml', edit=Edit(kind='replace', old='openspec_path: openspec/changes/a-delete-that-was-never-issued-was-reported-as-deleted', new='openspec_path: openspec/changes/some-other-change', count=1), why='a registry entry that points at another change is a record of something else, and it looks like coverage: the next session reads the record, believes the change is known, and never learns what the change actually was. Four changes reached main with no entry at all, which is the same defect one step further from the surface'),
     'agents-pointers': Control(kind='sabotage', proves='scripts/check-agents-pointers.py', argv=('{python}', 'scripts/check-agents-pointers.py', '--quiet'), path='AGENTS.md', edit=Edit(kind='append', new='\nSee `docs/decisions/definitely-not-a-file.md` for the reasoning.\n'), why='a pointer that names a file that is not there sends the next session to look for it: the note that was written to remove the stop becomes the stop'),

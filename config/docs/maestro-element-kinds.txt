@@ -55,6 +55,10 @@ first_run_section item
 health_bucket_blocked item
 health_bucket_overdue item
 health_bucket_stagnant item
+logbook_add_note_button button
+logbook_empty item
+logbook_note_by_title_${RUN_ID}_logbook_note item
+logbook_section item
 menu_aichat menu
 menu_archive menu
 menu_notes menu
@@ -68,6 +72,7 @@ nav_tab_inbox tab
 nav_tab_today shell
 note_action_edit button
 note_editor_body field
+note_editor_saved_indicator text
 note_editor_title_input field
 note_item_by_title_${RUN_ID}_alpha item
 note_item_by_title_${RUN_ID}_meeting_notes item

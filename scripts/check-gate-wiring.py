@@ -657,6 +657,26 @@ SABOTAGE_ONLY_GATES = [
             "feature is never reached"
         ),
     ),
+    # The reader half of the sync field table's gate.
+    #
+    # The gate has two halves: the seed is current (the staleness half), and the
+    # rows the migrations hold for the server's table agree with the derived
+    # list (the reader half). The registry control for the gate proves the
+    # first; the reader is the half that has to know forty spellings of a row,
+    # and every hole twenty-nine review rounds found lived there. So the reader
+    # gets a control of its own: a row in the server's own migration that no
+    # model declares, which the gate must name.
+    ScriptGate(
+        name="sync-allowlist-reader",
+        cmd=[sys.executable, "scripts/check-sync-allowlist-regenerated.py"],
+        sabotage_path="supabase/migrations/2026-10-07-sync_schema.sql",
+        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
+        why=(
+            "a row the server's table holds that no model declares is a field the "
+            "server may write and nothing ever writes, and the server honours the "
+            "row by name"
+        ),
+    ),
 ]
 
 

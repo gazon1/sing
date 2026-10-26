@@ -1,0 +1,105 @@
+# Scenario TASK-LOG-02 — abandoning the logbook's note editor leaves no note.
+#
+# Canonical spec: scripts/src/traceability/scenarios/tasks/logbook/TASK-LOG-02.yaml
+#
+# The `scenario:TASK-LOG-02` tag below is the linkage, matched by exact string
+# comparison in run-maestro.
+#
+# ## What this flow covers
+#
+# 1. Seed a task via DebugSeedActivity deep-link.
+# 2. Open the task detail view — the Logbook section shows its empty state.
+# 3. Tap the logbook's "+" — the note editor opens, attached to that task.
+# 4. Leave the editor without typing anything.
+# 5. Reopen the task and find the logbook still empty.
+#
+# ## The behaviour this flow guards
+#
+# The editor used to create the note on *open*, so an abandoned editor left an
+# empty row in the logbook — a row with no title, sitting there for the user to
+# wonder about. Now the note is created on the first save, so an untouched
+# draft is never written.
+#
+# The assertion is the empty state itself: the logbook renders a different card
+# when it has entries, so `logbook_empty` being visible *is* the statement that
+# the logbook holds nothing.
+#
+# ## Platform notes
+#
+# android: Maestro drives the real Android UI.
+appId: com.singularity.todo
+name: tasks-logbook-abandoned-note-leaves-nothing
+tags:
+  - scenario:TASK-LOG-02
+  - regression
+  - tasks
+---
+- runFlow: ../../../helpers/seed-task.yaml
+
+# ── Open the task detail view ──────────────────────────────────
+- tapOn:
+    id: task_item_buy_milk
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+
+# ── The Logbook section, still empty ───────────────────────────
+- scrollUntilVisible:
+    element:
+      id: logbook_section
+    direction: DOWN
+    timeout: 8000
+- assertVisible:
+    id: logbook_empty
+
+# ── Open the note editor and abandon it ─────────────────────────
+- tapOn:
+    id: logbook_add_note_button
+- extendedWaitUntil:
+    visible:
+      id: note_editor_title_input
+    timeout: 5000
+# The keyboard is up over the title field: the first back would dismiss it and
+# leave the editor on screen, so it is put away first.
+- hideKeyboard
+# The editor is pushed on top of the task detail, and where "back" lands depends
+# on the graph it was pushed on: the task detail or the agenda. One more back —
+# but only when the detail is still there — brings the flow to a known place.
+- back
+- runFlow:
+    when:
+      visible:
+        id: task_editor_more_menu
+    commands:
+      - back
+
+# ── Return to the task: the logbook is still empty ──────────────
+# The task is undated, so it lives in the Inbox bucket.
+- tapOn:
+    id: nav_tab_inbox
+- scrollUntilVisible:
+    element:
+      id: task_item_buy_milk
+    direction: DOWN
+    timeout: 8000
+- tapOn:
+    id: task_item_buy_milk
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000
+- scrollUntilVisible:
+    element:
+      id: logbook_section
+    direction: DOWN
+    timeout: 8000
+
+# The empty state is still the one on screen — nothing was written.
+- extendedWaitUntil:
+    visible:
+      id: logbook_empty
+    timeout: 8000
+- assertVisible:
+    id: logbook_empty
+- takeScreenshot: tasks/logbook-empty-after-abandon

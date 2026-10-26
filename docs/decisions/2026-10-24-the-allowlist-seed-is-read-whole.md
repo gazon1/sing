@@ -1,7 +1,8 @@
 ---
 title: "The allow-list seed is read whole, and it is not the server's table"
 date: 2026-10-24
-status: accepted
+status: superseded
+superseded-by: 2026-10-25-the-wire-list-is-the-model-minus-the-exceptions
 tags: [sync, protocol, tooling, database]
 ---
 

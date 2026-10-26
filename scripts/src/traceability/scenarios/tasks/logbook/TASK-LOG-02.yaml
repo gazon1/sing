@@ -1,0 +1,32 @@
+# Scenario TASK-LOG-02 — abandoning the logbook's note editor leaves no note.
+#
+# Generated from specs/015-fix-task-logbook/spec.md.
+#
+# The behaviour this scenario pins: opening the logbook's "+" and leaving
+# without writing anything must not leave a note behind. The editor used to
+# create the note on *open*, so an abandoned editor left an empty row in the
+# logbook — a row with no title, sitting there for the user to wonder about.
+#
+# The carrier: Maestro/flows/tasks/logbook/TASK-LOG-02.yaml
+# (`scenario:TASK-LOG-02`).
+
+id: TASK-LOG-02
+title: "Abandoning the logbook's note editor leaves no note behind"
+priority: P1
+status: confirmed
+targets: [android]
+
+preconditions: >-
+  A signed-in device with an empty task database and the app in the
+  foreground. One task named "Buy milk" exists, and its logbook is empty.
+
+steps:
+  - "Open the task and scroll to its Logbook section."
+  - "Tap the logbook's \"+\" and leave the note editor without writing anything."
+  - "Reopen the task and scroll to its Logbook section."
+
+expected: >-
+  The task's logbook is still empty — the same empty state it showed before the
+  editor was opened. No note row was written, so there is nothing to show. A
+  wrong implementation that creates the note on open leaves a row behind and
+  this scenario fails.

@@ -354,6 +354,19 @@ class FakeSyncShadowDao : SyncShadowDao {
         rows[Key(entity.ownerId, entity.profileId, entity.entityType, entity.entityId)] = entity
     }
 
+    override suspend fun updateConfirmed(
+        ownerId: String,
+        profileId: String,
+        entityType: String,
+        entityId: String,
+        json: String,
+    ): Int {
+        val key = Key(ownerId, profileId, entityType, entityId)
+        val row = rows[key] ?: return 0
+        rows[key] = row.copy(confirmedJson = json)
+        return 1
+    }
+
     override suspend fun confirm(
         ownerId: String,
         profileId: String,

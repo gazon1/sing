@@ -79,6 +79,27 @@ interface SyncShadowDao {
     suspend fun upsert(entity: SyncShadowEntity)
 
     /**
+     * Replaces only the confirmed state, leaving any in-flight marker untouched.
+     *
+     * Used by the pull path to keep the shadow current with the server's state
+     * (and its claims) without clobbering a queued patch's base. Returns the
+     * number of rows changed: 0 means no shadow exists yet for this entity, and
+     * the caller inserts a fresh row instead.
+     */
+    @Query(
+        "UPDATE sync_shadow SET confirmed_json = :json " +
+            "WHERE owner_id = :ownerId AND profile_id = :profileId " +
+            "AND entity_type = :entityType AND entity_id = :entityId",
+    )
+    suspend fun updateConfirmed(
+        ownerId: String,
+        profileId: String,
+        entityType: String,
+        entityId: String,
+        json: String,
+    ): Int
+
+    /**
      * Promotes the in-flight state to confirmed, but only if [patchId] is still the
      * patch that owns the in-flight state.
      *
