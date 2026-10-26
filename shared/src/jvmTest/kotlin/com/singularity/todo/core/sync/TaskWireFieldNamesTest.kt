@@ -21,11 +21,12 @@ import kotlin.test.assertTrue
  * every backup ever written, and the server stores documents by it.
  *
  * A rename of the domain property that quietly renamed the wire would have
- * been invisible in every test that only looked at Kotlin: the allow-list
- * conformance check passes when a field is *absent* as well as when it is
- * present under the right name, and the server would have received a document
- * with an unknown field and dropped the dependencies from it. So the name is
- * asserted here, in both directions.
+ * been invisible in every test that only looked at Kotlin: the field-list
+ * conformance check used to pass when a field was *absent* as well as when it
+ * was present under the right name, and the server would have received a
+ * document with an unknown field and dropped the dependencies from it. So the
+ * name is asserted here, in both directions — on the wire and in the list the
+ * contract derives from the model.
  */
 @Tag("fast")
 class TaskWireFieldNamesTest {
@@ -53,10 +54,10 @@ class TaskWireFieldNamesTest {
     }
 
     @Test
-    fun `the allow-list still names the wire field`() {
+    fun `the wire field list still names the wire field`() {
         assertTrue(
-            "dependsOn" in SyncContract.allowlistFor(DocType.Task),
-            "The sync allow-list must keep the wire name, or the server drops the field.",
+            "dependsOn" in SyncContract.wireFieldsFor(DocType.Task),
+            "The wire's field list must keep the wire name, or the server drops the field.",
         )
     }
 

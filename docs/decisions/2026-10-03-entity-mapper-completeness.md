@@ -28,8 +28,8 @@ A Konsist arch test (`EntityMapperCompletenessTest`) enumerates every `@Entity` 
 
 1. **Completeness**: every entity constructor parameter appears in the corresponding
    `toX()` mapper (i.e., there is a `entity.fieldName` access for each column).
-   Fields intentionally dropped must be listed in `FIELD_ALLOWLIST` with a comment
-   citing an ADR.
+   Fields intentionally dropped must be listed in the test's own
+   `FIELD_ALLOWLIST` map with a comment citing an ADR.
 
 2. **No phantoms**: every parameter declared in a `toX()` mapper exists in the
    entity constructor. Supplemental params (`tags`, `dependsOn`) loaded from join
