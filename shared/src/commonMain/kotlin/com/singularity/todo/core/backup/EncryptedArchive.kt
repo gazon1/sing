@@ -97,6 +97,7 @@ import com.singularity.todo.core.security.ArchiveCrypto
  * - [ArchiveFormat] — the numbers the bytes are made of, and the bounds;
  * - [ArchiveFrame] and [ArchiveHead] — the framing;
  * - [ArchiveContainer] — the version routing;
+ * - [ArchiveChainReader] — the reading of a chain's changes;
  * - [ArchiveCryptoSession] — the key and the cipher calls;
  * - [ArchiveErrors] — what a failure means.
  */
@@ -309,7 +310,7 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
         val container = archiveErrors { ArchiveContainerReader.read(source) }
         val session = contentSession(container, password)
         try {
-            val consumed = readEntries(source, container, session, onEntry)
+            val consumed = ArchiveChainReader.read(source, container, session, onEntry)
 
             if (consumed != container.head.entriesLength) {
                 throw ArchiveEnvelopeError.BrokenChain(
@@ -321,59 +322,6 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
         } finally {
             session.close()
         }
-    }
-
-    /**
-     * The changes of a chain, in order, and how many bytes they took.
-     *
-     * Every change is checked before it is opened: its place in the chain, its
-     * length, and whether it is there at all. A chain that breaks in the middle is
-     * a chain that must not be applied halfway — a restore that returns yesterday's
-     * rows and calls it current is the failure this whole family exists to prevent.
-     */
-    private fun readEntries(
-        source: ByteSource,
-        container: ArchiveContainer,
-        session: ArchiveCryptoSession,
-        onEntry: (index: Int, plain: ByteArray) -> Unit,
-    ): Long {
-        var consumed = 0L
-        for (index in 0 until container.head.count) {
-            val frameHead = archiveErrors { ArchiveFrame.readHead(source) }
-                ?: throw ArchiveEnvelopeError.BrokenChain("it ends before the changes its head promised")
-            checkFrameIndex(index, frameHead.index)
-            val body = readFrameBody(source, frameHead)
-            consumed += ArchiveFormat.ENTRY_HEAD_BYTES + frameHead.length
-
-            val plain = archiveErrors {
-                session.openEntry(index, body, container.prefix, frameHead.nonce)
-            }
-            onEntry(index, plain)
-        }
-        return consumed
-    }
-
-    /** The change is where the chain says it is, or the chain does not hold together. */
-    private fun checkFrameIndex(expected: Int, actual: Int) {
-        if (actual != expected) {
-            throw ArchiveEnvelopeError.BrokenChain(
-                "an entry that should be number $expected says it is $actual",
-            )
-        }
-    }
-
-    /**
-     * The body of a change, if the frame's own length can be trusted.
-     *
-     * A length read out of a corrupt frame is not a length: allocating it would be
-     * the corruption, not the reading of it.
-     */
-    private fun readFrameBody(source: ByteSource, head: ArchiveFrameHead): ByteArray {
-        if (head.length <= 0 || head.length > ArchiveFormat.MAX_ENTRY_BYTES) {
-            throw ArchiveEnvelopeError.BrokenChain("a change claims to be ${head.length} bytes long")
-        }
-        return source.readOrNull(head.length)
-            ?: throw ArchiveEnvelopeError.BrokenChain("a change ends before its own length says")
     }
 
     /**
