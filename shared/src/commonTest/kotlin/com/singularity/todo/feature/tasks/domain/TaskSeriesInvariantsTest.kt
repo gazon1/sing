@@ -230,4 +230,15 @@ class TaskSeriesInvariantsTest {
             "a series that drifted apart is repaired before it is written",
         )
     }
+
+    @Test
+    fun `the same batch in two orders produces the same result`() {
+        val a = member("s1", title = "Pay the rent")
+        val b = member("s2", title = "Pay the rent (old)")
+
+        val forward = TaskSeriesInvariants.alignedIfOneSeries(listOf(a, b))
+        val reversed = TaskSeriesInvariants.alignedIfOneSeries(listOf(b, a))
+
+        assertEquals(forward.map { it.title }, reversed.map { it.title })
+    }
 }
