@@ -470,6 +470,15 @@ object TestTags {
     const val NOTE_EDITOR_SAVE = "note_editor_save"
     const val NOTE_EDITOR_NOTIFICATION_HOST = "note_editor_notification_host"
 
+    /**
+     * The "Saved" pill of the note editor.
+     *
+     * It appears *after* the write completed, so an automation that waits for it
+     * knows the note is on disk — without it, leaving the editor right after the
+     * save races the write, and the row may never appear.
+     */
+    const val NOTE_EDITOR_SAVED_INDICATOR = "note_editor_saved_indicator"
+
     // ─── Note Preview ────────────────────────────────────────────────────────
     const val NOTES_BACKLINKS_BUTTON = "notes_backlinks_button"
 
@@ -881,6 +890,38 @@ object TestTags {
          */
         const val ERROR = "time_tracking_error"
     }
+
+    // ─── Task logbook ─────────────────────────────────────────────────────
+
+    /**
+     * The logbook section on the task detail screen — the notes attached to the task,
+     * together with its time entries.
+     *
+     * Tagged as a whole, not only its rows: a flow has to be able to wait for the
+     * section to be on screen before it can address anything inside it.
+     */
+    const val LOGBOOK_SECTION = "logbook_section"
+
+    /**
+     * The logbook's empty state — the card that says the task has no notes yet.
+     *
+     * Tagged because "the logbook is empty" is the state a note has to *not* change:
+     * a note that only exists after the user saves anything is what this tag makes
+     * observable.
+     */
+    const val LOGBOOK_EMPTY = "logbook_empty"
+
+    /** The "+" button that opens the note editor with the task already attached. */
+    const val LOGBOOK_ADD_NOTE_BUTTON = "logbook_add_note_button"
+
+    /**
+     * Dynamic tag of the form `logbook_note_by_title_<slug>` — a note row in the
+     * logbook of a task, keyed by the visible title.
+     *
+     * Keyed by the title because the row's id is a generated ULID that a flow never
+     * learns; the title is what the user sees.
+     */
+    fun logbookNoteByTitle(title: String) = "logbook_note_by_title_${slug(title)}"
 
     // ─── Long-press context menu sheet ─────────────────────────────────────
 

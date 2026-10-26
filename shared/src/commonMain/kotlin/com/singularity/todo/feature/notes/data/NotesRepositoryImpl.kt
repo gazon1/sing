@@ -195,33 +195,58 @@ class NotesRepositoryImpl(
         bodyMarkdown: String,
         bodyHtml: String,
     ): Result<NoteId> = runCatchingCancellable {
+        createNoteRow(newNoteEntity(id, title, bodyMarkdown, bodyHtml, taskId = null))
+    }
+
+    /**
+     * The row of a brand-new note.
+     *
+     * Room's `@Upsert` replaces every column, so a note has to be written whole: the
+     * entity carries the structural fields (`taskId`, `kind`, `createdAt`) as well as
+     * the content. A note written without them loses them on the next save — which is
+     * how a note attached to a task used to fall out of that task's logbook.
+     */
+    private fun newNoteEntity(
+        id: NoteId,
+        title: String,
+        bodyMarkdown: String?,
+        bodyHtml: String?,
+        taskId: TaskId?,
+    ): NoteEntity {
+        val uid = currentUser.scopedUserId.value
+        val now = clock.now().toEpochMilliseconds()
+        val wordCount = bodyMarkdown?.split(Regex("\\s+"))?.count { it.isNotBlank() } ?: 0
+        return NoteEntity(
+            id = id.value,
+            userId = uid.value,
+            title = title,
+            bodyMarkdown = bodyMarkdown,
+            bodyHtml = bodyHtml,
+            kind = NoteKind.Plain,
+            parentNoteId = null,
+            isPinned = false,
+            pinnedAt = null,
+            color = null,
+            sortOrder = 0,
+            wordCount = wordCount,
+            charCount = bodyMarkdown?.length ?: 0,
+            outgoingLinks = "[]",
+            taskId = taskId?.value,
+            createdAt = now,
+            updatedAt = now,
+            deletedAt = null,
+            archivedAt = null,
+        )
+    }
+
+    /** Writes a whole note row and queues it for sync — the "create" primitive. */
+    private suspend fun createNoteRow(entity: NoteEntity): NoteId {
+        val id = NoteId(entity.id)
         unitOfWork.write {
-            val uid = currentUser.scopedUserId.value
-            val now = clock.now().toEpochMilliseconds()
-            noteDao.upsert(
-                NoteEntity(
-                    id = id.value,
-                    userId = uid.value,
-                    title = title,
-                    bodyMarkdown = bodyMarkdown,
-                    bodyHtml = bodyHtml,
-                    kind = NoteKind.Plain,
-                    parentNoteId = null,
-                    isPinned = false,
-                    pinnedAt = null,
-                    color = null,
-                    sortOrder = 0,
-                    wordCount = bodyMarkdown.split(Regex("\\s+")).count { it.isNotBlank() },
-                    charCount = bodyMarkdown.length,
-                    createdAt = now,
-                    updatedAt = now,
-                    deletedAt = null,
-                    archivedAt = null,
-                ),
-            )
+            noteDao.upsert(entity)
             enqueueFresh(id)
-            id
         }
+        return id
     }
 
     override suspend fun createNoteWithTitle(title: String): Result<NoteId> = runCatchingCancellable {
@@ -479,41 +504,15 @@ class NotesRepositoryImpl(
     }
 
     override suspend fun createForTask(
+        id: NoteId,
         taskId: TaskId,
         title: String,
         bodyMarkdown: String?,
         bodyHtml: String?,
     ): Result<NoteId> = runCatchingCancellable {
-        unitOfWork.write {
-            val uid = currentUser.scopedUserId.value
-            val now = clock.now().toEpochMilliseconds()
-            val id = NoteId(com.singularity.todo.core.ids.nextId())
-            val wordCount = bodyMarkdown?.split(Regex("\\s+"))?.count { it.isNotBlank() } ?: 0
-            noteDao.upsert(
-                NoteEntity(
-                    id = id.value,
-                    userId = uid.value,
-                    title = title,
-                    bodyMarkdown = bodyMarkdown,
-                    bodyHtml = bodyHtml,
-                    kind = NoteKind.Plain,
-                    parentNoteId = null,
-                    isPinned = false,
-                    pinnedAt = null,
-                    color = null,
-                    sortOrder = 0,
-                    wordCount = wordCount,
-                    charCount = bodyMarkdown?.length ?: 0,
-                    outgoingLinks = "[]", // task:// links are stored only in taskId (structural FK)
-                    taskId = taskId.value,
-                    createdAt = now,
-                    updatedAt = now,
-                    deletedAt = null,
-                    archivedAt = null,
-                ),
-            )
-            enqueueFresh(id)
-            id
-        }
+        // The attachment is written once, here, with the row that carries the content.
+        // A later content save touches the content columns only, so the note stays in
+        // the task's logbook.
+        createNoteRow(newNoteEntity(id, title, bodyMarkdown, bodyHtml, taskId))
     }
 }

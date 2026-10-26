@@ -114,6 +114,8 @@ Maestro/flows/tasks/17-create-daily-recurring.yaml
 Maestro/flows/tasks/18-time-tracking-start-stop.yaml
 Maestro/flows/tasks/checklist/TASK-CHECK-01.yaml
 Maestro/flows/tasks/create-task.yaml
+Maestro/flows/tasks/logbook/TASK-LOG-01.yaml
+Maestro/flows/tasks/logbook/TASK-LOG-02.yaml
 Maestro/flows/tasks/open-task-detail.yaml
 Maestro/flows/tasks/subtasks/TASK-SUB-01.yaml
 Maestro/flows/tasks/toggle-task-complete.yaml

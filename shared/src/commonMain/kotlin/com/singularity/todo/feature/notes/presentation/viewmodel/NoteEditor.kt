@@ -44,7 +44,6 @@ import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.CancellationException
 import kotlin.time.Clock
 
 /**
@@ -53,10 +52,11 @@ import kotlin.time.Clock
  * Draft type is [Editing] — the editing session including title, body HTML, and
  * isDirty/isNew flags.
  *
- * Autosave uses [NotesRepository.update] via [buildPersistedNote] with 500ms debounce.
- * The builder merges draft changes into the full note read from the DB (or the
- * cached note for opened notes), preserving every field: kind, isPinned, color,
- * taskId, outgoingLinks, wordCount, charCount, etc.
+ * Writes go through one writer — [writeNote] — used by both the debounced autosave and
+ * the explicit Save. A note is *created* once, with the whole row (including the task
+ * attachment, when the note was opened from a task's logbook), and every later save is a
+ * targeted UPDATE that touches the content columns only. That is what keeps an attached
+ * note in its task's logbook: a content save cannot drop the attachment.
  *
  * Restore returns null since notes are opened by ID, not from draft store.
  *
@@ -80,13 +80,13 @@ internal class NoteEditor(
     // kind of thing a test wants to assert (#91).
     private val clock: Clock,
     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
-    // Derived from crashReporter rather than a bare factory call: the autosave lambda below
-    // launches on this scope, and a launch whose body throws with no handler escalates to the
-    // platform's uncaught-exception handler — on Android, process death.
+    // Derived from crashReporter rather than a bare factory call: a coroutine launched on
+    // this scope whose body throws with no handler escalates to the platform's
+    // uncaught-exception handler — on Android, process death.
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
     // Constructor PARAMETER (not body property) so the autosave lambda can capture it.
     // The default is evaluated before the supercall; the lambda body is NOT executed then.
-    autosaveCtx: AutosaveContext = AutosaveContext(repo, currentUser, log, scope),
+    autosaveCtx: AutosaveContext = AutosaveContext(repo, currentUser, log),
 ) : DraftMviViewModel<Editing, NotesEditorIntent, NotesUiEvent>(
         crashReporter = crashReporter,
         initialDraft = Editing(
@@ -99,27 +99,19 @@ internal class NoteEditor(
         // The lambda body is stored (not executed) during default parameter evaluation.
         // It captures autosaveCtx from the constructor parameter scope — no 'this' access.
         autosave = { draft ->
-            autosaveCtx.scope.launch {
-                val noteId = NoteId.fromString(draft.id)
-                val result = if (draft.isNew) {
-                    // New note: create it first so we get a proper createdAt + full row.
-                    autosaveCtx.repo.createWithContent(
-                        id = noteId,
-                        title = draft.title.value,
-                        bodyMarkdown = "",
-                        bodyHtml = draft.html.value,
-                    )
-                } else {
-                    // Existing note: targeted UPDATE — preserves all other fields
-                    // (isPinned, color, sortOrder, taskId, outgoingLinks, serverVersion, etc.).
-                    autosaveCtx.repo.updateContent(
-                        id = noteId,
-                        title = draft.title.value,
-                        bodyMarkdown = "",
-                        bodyHtml = draft.html.value,
-                    )
+            // An untouched draft is not a note yet. Writing it here would leave an
+            // empty row behind for a user who opened the editor and left — the same
+            // kind of leftover the task logbook used to collect.
+            if (draft.isNew && !draft.isDirty) {
+                Unit
+            } else {
+                // The write completes before the lambda returns, so the base class
+                // learns the outcome: a failed autosave reaches the user instead of
+                // the log.
+                when (val outcome = autosaveCtx.writeNote(draft)) {
+                    is Either.Left -> throw outcome.error
+                    is Either.Right -> Unit
                 }
-                result.onFailure { e -> autosaveCtx.log.e(e) { "autosave failed: ${e.message}" } }
             }
         },
         restore = { null },
@@ -139,14 +131,10 @@ internal class NoteEditor(
         val repo: NotesRepository,
         val currentUser: ProfileAwareCurrentUser,
         val log: Logger,
-        val scope: AutoCloseableCoroutineScope,
     )
 
-    // Exposed for createNoteForTask which needs to pre-populate the repo before opening.
+    /** The writer's dependencies, for the code paths that write outside the autosave lambda. */
     val autosaveContext: AutosaveContext get() = autosaveCtx
-
-    /** Caches the existing note when opening to preserve every field across saves. */
-    private var cachedNote: Note? = null
 
     /** Watches the open note for rewrites that come from outside this editor. */
     private val rewriteWatcher = NoteRewriteWatcher(repo, vmScope)
@@ -156,7 +144,6 @@ internal class NoteEditor(
         vmScope.launch {
             val note = repo.get(NoteId.fromString(noteId))
                 ?: return@launch
-            cachedNote = note // preserve ALL fields for autosave/persist
             val html = note.bodyHtml
                 ?: note.bodyMarkdown?.let { NoteContentMapper.toHtml(it) }
                 ?: ""
@@ -179,7 +166,6 @@ internal class NoteEditor(
             open(opened)
             updateDraft { opened }
             rewriteWatcher.start(NoteId.fromString(noteId), { draft }) { note, html ->
-                cachedNote = note
                 val reseeded = draft.copy(
                     // Each field's count moves for its own field. A rewrite that changed
                     // only the body must not announce itself through the title's count:
@@ -198,18 +184,13 @@ internal class NoteEditor(
 
     /**
      * Creates a new note and returns the generated ID.
-     * The note is saved to the DB immediately (via autosave) with an empty title;
-     * the caller opens the editor which will set isDirty on first keystroke.
      *
-     * @param preExistingId When non-null, uses this ID instead of generating a new one.
-     *                      Used by [createNoteForTask] to keep the editor ID in sync with
-     *                      the note already created in the repository.
+     * Nothing is written yet: the note reaches the database with the first save, which
+     * writes it whole — with the id generated here, so the draft, the navigation and the
+     * written row all speak about the same note.
      */
-    fun createNote(preExistingId: String? = null): String {
-        val id = NoteId.fromString(
-            preExistingId
-                ?: idGen.next(),
-        )
+    fun createNote(): String {
+        val id = NoteId.fromString(idGen.next())
         val draft = Editing(
             id = id.value,
             title = Revisioned.initial(""),
@@ -223,17 +204,15 @@ internal class NoteEditor(
     }
 
     /**
-     * Creates a new note attached to [taskId] and opens it in the editor.
-     * The note is first persisted via [NotesRepository.createForTask] so it exists
-     * in the DB before autosave. The editor draft uses the same ID.
-     * [cachedNote] is preserved so autosave uses [buildPersistedNote] update path.
+     * Opens an empty note that belongs to [taskId].
+     *
+     * Nothing is written yet — the note is created, already attached, by the first save.
+     * The attachment lives in the draft until then, which is what makes the note show up
+     * in that task's logbook.
      */
-    suspend fun createNoteForTask(taskId: TaskId) {
-        val newNoteId = repo.createForTask(taskId, title = "", bodyMarkdown = null, bodyHtml = null)
-            .getOrThrow()
-        val note = repo.get(newNoteId)!! // createForTask guarantees the note exists
-        cachedNote = note // preserve taskId + createdAt for autosave — DO NOT reset below
-        createNote(preExistingId = note.id.value)
+    fun createNoteForTask(taskId: TaskId) {
+        createNote()
+        updateDraft { it.copy(taskId = taskId) }
     }
 
     /** Current editor state for the screen. */
@@ -248,45 +227,7 @@ internal class NoteEditor(
         emit(NotesUiEvent.SavedPulse)
     }
 
-    override suspend fun persist(draft: Editing): Either<AppError, Unit> = try {
-        // For new notes: createWithContent (INSERT). For existing: updateContent (UPDATE).
-        // updateContent is a targeted UPDATE — preserves all other fields:
-        // isPinned, pinnedAt, color, sortOrder, kind, isFolder, parentNoteId, taskId,
-        // serverVersion, hlc, deletedAt, archivedAt, createdAt.
-        val noteId = NoteId.fromString(draft.id)
-        if (draft.isNew) {
-            autosaveContext.repo.createWithContent(
-                id = noteId,
-                title = draft.title.value,
-                bodyMarkdown = "",
-                bodyHtml = draft.html.value,
-            ).getOrThrow()
-        } else {
-            autosaveContext.repo.updateContent(
-                id = noteId,
-                title = draft.title.value,
-                bodyMarkdown = "",
-                bodyHtml = draft.html.value,
-            ).getOrThrow()
-        }
-        // Extract outgoing links from the rendered HTML and persist them.
-        // This is the write path for the backlinks feature: without this, outgoing_links
-        // is never written and [[note://...]] / [[task://...]] links are dead.
-        //
-        // Unwrapped for the same reason as the two writes above, and the comment above is
-        // the reason it has to be: without the unwrap a save reported success while the
-        // backlinks feature silently did nothing, which is the exact failure this comment
-        // claims to prevent. Outgoing links are not synced — no DocType describes them,
-        // see SyncedWriteEnqueuesTest — so a failure here loses the column locally and
-        // there is no later reconciliation that would notice.
-        val linkUrls = NoteContentMapper.outgoingLinkUrls(draft.html.value)
-        autosaveContext.repo.setOutgoingLinks(noteId, linkUrls).getOrThrow()
-        Either.Right(Unit)
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        Either.Left(AppError.Persistence(e.toMessage(), code = "notes.editor.persist_failed"))
-    }
+    override suspend fun persist(draft: Editing): Either<AppError, Unit> = autosaveContext.writeNote(draft)
 
     override fun onAutosaveError(e: Throwable) {
         log.e(e) { "autosave failed: ${e.message}" }
@@ -301,6 +242,9 @@ internal class NoteEditor(
     }
 
     override fun onAutosaved(current: Editing) {
+        // Nothing was written — the draft was untouched, so it stays "new" and keeps its
+        // task attachment until the user writes something or saves.
+        if (current.isNew && !current.isDirty) return
         // The autosaved content is persisted: clear the draft-local dirty flag
         // (mirroring the derived DraftUiState.isDirty which the base clears via
         // baseline) and the isNew flag — the note now exists in the repo, so a
@@ -477,4 +421,72 @@ internal class NoteEditor(
          */
         val LINK_SEARCH_MODE: SearchMode = SearchMode.Word
     }
+}
+
+/**
+ * The one writer of the note editor.
+ *
+ * A note is *created* once — with the whole row, including the task attachment when the
+ * note was opened from a task's logbook — and every later save is a targeted UPDATE that
+ * touches the content columns only. A content save therefore cannot drop the attachment,
+ * which is what keeps an attached note in its task's logbook.
+ *
+ * The debounced autosave and the explicit Save both come here, so there is one place
+ * where "what a save writes" is decided. It is a file-level extension because the
+ * autosave lambda is a constructor argument: it cannot reach `this` before the
+ * superclass call.
+ */
+internal suspend fun NoteEditor.AutosaveContext.writeNote(draft: Editing): Either<AppError, Unit> {
+    val noteId = NoteId.fromString(draft.id)
+    // The one writer. A new note is *created* — already attached to its task, if it
+    // came from a logbook — and every later save is a targeted UPDATE that touches
+    // the content columns only, so it cannot detach the note again.
+    val written = if (draft.isNew) {
+        val taskId = draft.taskId
+        if (taskId != null) {
+            repo.createForTask(
+                id = noteId,
+                taskId = taskId,
+                title = draft.title.value,
+                bodyMarkdown = "",
+                bodyHtml = draft.html.value,
+            )
+        } else {
+            repo.createWithContent(
+                id = noteId,
+                title = draft.title.value,
+                bodyMarkdown = "",
+                bodyHtml = draft.html.value,
+            )
+        }
+    } else {
+        repo.updateContent(
+            id = noteId,
+            title = draft.title.value,
+            bodyMarkdown = "",
+            bodyHtml = draft.html.value,
+        )
+    }
+    // The repository reports a failure as a failed Result — it does not throw — so
+    // the failure becomes a Left here instead of an exception that would be lost.
+    val writeFailure = written.exceptionOrNull()
+    if (writeFailure != null) {
+        return Either.Left(AppError.Persistence(writeFailure.toMessage(), code = "notes.editor.persist_failed"))
+    }
+    // Extract outgoing links from the rendered HTML and persist them.
+    // This is the write path for the backlinks feature: without this, outgoing_links
+    // is never written and [[note://...]] / [[task://...]] links are dead.
+    //
+    // Reported the same way as the write above, and for the same reason: without it
+    // a save reported success while the backlinks feature silently did nothing,
+    // which is the exact failure this comment claims to prevent. Outgoing links are
+    // not synced — no DocType describes them, see SyncedWriteEnqueuesTest — so a
+    // failure here loses the column locally and there is no later reconciliation
+    // that would notice.
+    val linkUrls = NoteContentMapper.outgoingLinkUrls(draft.html.value)
+    val linkFailure = repo.setOutgoingLinks(noteId, linkUrls).exceptionOrNull()
+    if (linkFailure != null) {
+        return Either.Left(AppError.Persistence(linkFailure.toMessage(), code = "notes.editor.persist_failed"))
+    }
+    return Either.Right(Unit)
 }
