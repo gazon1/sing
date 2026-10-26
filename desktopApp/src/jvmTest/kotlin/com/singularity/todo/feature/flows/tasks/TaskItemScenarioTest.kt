@@ -1,10 +1,6 @@
 package com.singularity.todo.feature.flows.tasks
 
-import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.semantics.getOrNull
-import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.platform.todayAt
@@ -26,6 +22,7 @@ import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitText
 import com.singularity.todo.test.helpers.clickCheckbox
 import com.singularity.todo.test.helpers.clickTag
+import com.singularity.todo.test.helpers.isCheckboxChecked
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.scrollToTag
 import com.singularity.todo.test.helpers.tapTab
@@ -187,13 +184,11 @@ class TaskItemScenarioTest {
      * The repository is asked about the *task* rather than about a pixel, but a
      * checkbox has no "is ticked" property on the node — its state is the
      * `ToggleableState` the toggleable modifier writes. This is the same
-     * question [awaitCheckboxChecked] asks, with the other answer.
+     * question [awaitCheckboxChecked] asks, with the other answer, through the
+     * shared helper so the selector lives with the other test selectors.
      */
-    @OptIn(ExperimentalTestApi::class)
     private fun androidx.compose.ui.test.DesktopComposeUiTest.isChecked(tag: String): Boolean =
-        onAllNodesWithTag(tag).fetchSemanticsNodes().any { node ->
-            node.config.getOrNull(SemanticsProperties.ToggleableState) == ToggleableState.On
-        }
+        isCheckboxChecked(tag)
 
     private suspend fun seedParent(koin: Koin): Task =
         seedTask(koin, id = PARENT_ID, title = PARENT, dueDate = todayAt(TEST_CLOCK, TEST_ZONE))
