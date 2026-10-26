@@ -139,7 +139,14 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
                 val entryNonce = crypto.randomBytes(NONCE_BYTES)
                 val body = ByteArraySink()
                 crypto.seal(entry, body, key, entryNonce, entryAad(prefix, index))
-                SealedEntry(index = index, nonce = entryNonce, body = body.bytes())
+                val sealed = body.bytes()
+                if (sealed.size > MAX_ENTRY_BYTES) {
+                    // The reader refuses a change bigger than this. Writing one anyway
+                    // would produce an archive this very build calls broken — a
+                    // failure at restore time instead of at export time.
+                    throw BackupError.BrokenChain("a change is ${sealed.size} bytes, more than this build reads")
+                }
+                SealedEntry(index = index, nonce = entryNonce, body = sealed)
             }
             val head = ChainHead(count = sealedEntries.size, entriesLength = sealedEntries.sumOf { it.frameSize() })
             val header = prefix + head.toBytes()
@@ -215,8 +222,8 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
     }
 
     /**
-     * The archive inside what [source] yields: the base into [sink], then every
-     * entry in order to [onEntry].
+     * The archive inside what [source] yields: every entry in order to [onEntry],
+     * then the base into [sink].
      *
      * The base is written to [sink] as it is read; each entry's plaintext is handed
      * over as a `ByteArray`, because a delta is small and the caller has to apply it

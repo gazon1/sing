@@ -104,15 +104,21 @@ what showed the framing could not work that way.
   cursor they apply at — carrying its own nonce and its own tag. Its authenticated data is
   the header **prefix** (magic, version, salt, nonce) plus its **index**: the prefix binds
   the entry to this archive, and the index catches a swap. The head cannot be in that data,
-  because the head is computed from the entries' sealed lengths. An entry that does not
-  open, whose index is wrong, or whose length is not a length is refused by name rather
-  than skipped.
+  because the head is computed from the entries' sealed lengths. An entry whose index or
+  length is wrong is refused as a **broken chain**, by name. An entry whose tag does not
+  match is reported as the **password** — the same ambiguity version 1 has always had: a
+  tag that fails is a wrong key or damaged bytes, and the cipher cannot say which. The
+  chain does not make that worse, and this record does not pretend it fixed it.
 
-**The device key is part of the v2 header, and its wrap is authenticated.** The key that
-lets a scheduled export run without a person (below) is wrapped under the password and
-carried in the container, so it has to be in the picture above: it lives in a key block that
-follows the head, is covered by the base's tag like the head is, and a build that does not
-read v2 does not have to know it exists.
+**The device key is a version 3 concern, not a v2 field.** The key that lets a
+scheduled export run without a person (below) is wrapped under the password and has
+to travel in the container, so it was tempting to say it lives in the v2 header. It
+does not, and the first version of this record was wrong to say so: v2 was written
+to buckets before any key block existed, so a v2 container has no such block and a
+reader cannot expect one. Adding it is a **new version**, by the same rule that
+made v2 a version: a new kind of bytes is a new meaning. The rule stands — a
+version is never reused and old ones stay readable — so the key block arrives as
+version 3, and v2 archives keep opening exactly as they are.
 
 **The cursor is the archive's own, not the sync engine's.** The chain records where in the
 *backup* it stands — which is a fact the backup feature owns. It may be read from the same

@@ -93,14 +93,44 @@ class EncryptedArchiveChainTest {
     }
 
     /**
-     * A chain whose changes are not there is refused by name.
+     * A chain that ends before the changes its head promised is refused by name.
      *
-     * The entries are dropped from the middle of the container — the bytes the head
-     * promised are simply absent — and the reader must say so rather than hand back
-     * a base that looks whole.
+     * The file is cut right after the header, so the entries the head counts are
+     * simply not there — the shape of a dropped tail. The reader has to stop with
+     * `BrokenChain`; reading what is left as if it were the whole archive is the
+     * failure this guard exists for.
      */
     @Test
-    fun `a chain shorter than its head is refused`() {
+    fun `a chain that ends before its changes is refused`() {
+        val sealed = ByteArraySink()
+        archive.sealChain(
+            base = ByteArraySource("the base".encodeToByteArray()),
+            entries = listOf(ByteArraySource("the only change".encodeToByteArray())),
+            sink = sealed,
+            password = password,
+        )
+
+        val truncated = sealed.bytes().copyOfRange(0, EncryptedArchive.HEADER_BYTES_V2)
+
+        val error = assertFailsWith<BackupError.BrokenChain> {
+            archive.openChain(ByteArraySource(truncated), ByteArraySink(), password) { _, _ -> }
+        }
+        assertTrue(
+            error.message?.contains("ends before") == true,
+            "the message must say the chain ends early: ${error.message}",
+        )
+    }
+
+    /**
+     * A chain whose entries were removed but whose head still counts them is refused.
+     *
+     * This is the tampering shape the head exists for: drop the entry frames, keep
+     * the header. The head is authenticated by the base's tag, so it cannot be
+     * rewritten to match, and the reader must not read the base where it expected a
+     * frame.
+     */
+    @Test
+    fun `a chain with its changes cut out is refused`() {
         val sealed = ByteArraySink()
         archive.sealChain(
             base = ByteArraySource("the base".encodeToByteArray()),
@@ -110,17 +140,17 @@ class EncryptedArchiveChainTest {
         )
         val whole = sealed.bytes()
 
-        // Cut the entry's frame out: everything after the header, up to the base.
-        val withoutTheEntry = whole.copyOfRange(0, EncryptedArchive.HEADER_BYTES_V2) +
-            whole.copyOfRange(EncryptedArchive.HEADER_BYTES_V2 + EncryptedArchive.ENTRY_HEAD_BYTES, whole.size)
+        // The head sits right after the prefix: count (4) then total length (8).
+        val entriesLength = whole.longAfter(EncryptedArchive.PREFIX_BYTES + 4)
+        val withoutChanges = whole.copyOfRange(0, EncryptedArchive.HEADER_BYTES_V2) +
+            whole.copyOfRange(
+                (EncryptedArchive.HEADER_BYTES_V2 + entriesLength).toInt(),
+                whole.size,
+            )
 
-        val error = assertFailsWith<BackupError.BrokenChain> {
-            archive.openChain(ByteArraySource(withoutTheEntry), ByteArraySink(), password) { _, _ -> }
+        assertFailsWith<BackupError.BrokenChain> {
+            archive.openChain(ByteArraySource(withoutChanges), ByteArraySink(), password) { _, _ -> }
         }
-        assertTrue(
-            error.message?.contains("broken") == true || error.message?.contains("ends") == true,
-            "the message must name the chain: ${error.message}",
-        )
     }
 
     /**
@@ -164,4 +194,13 @@ class EncryptedArchiveChainTest {
         assertEquals(99, error.version, "the message must name the version the archive has")
         assertEquals(EncryptedArchive.VERSION, error.currentVersion, "and the one this build writes")
     }
+}
+
+/** The big-endian long at [offset] — the head's `entriesLength` is written that way. */
+private fun ByteArray.longAfter(offset: Int): Long {
+    var value = 0L
+    for (index in 0 until 8) {
+        value = (value shl 8) or (this[offset + index].toLong() and 0xFF)
+    }
+    return value
 }
