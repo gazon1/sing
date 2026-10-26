@@ -159,16 +159,21 @@ object TaskSeriesInvariants {
     }
 
     /**
-     * The members with the shared fields of the first written onto them, when the
-     * batch is one series.
+     * The members with the shared fields of the chosen source written onto them,
+     * when the batch is one series.
      *
-     * A batch of tasks that stand alone keeps what each row says about itself:
-     * aligning it to the first would give every task in it the first task's
+     * The source is chosen by a canonical rule rather than by list position, so
+     * the same batch in any order resolves to the same member: the one with the
+     * latest `updatedAt`, and, when two members share that time, the one with
+     * the smallest id. A batch that stands alone keeps what each row says about
+     * itself — aligning it to a source would give every task in it that task's
      * title, which is a different work entirely.
      */
     fun alignedIfOneSeries(members: List<Task>): List<Task> {
         if (seriesIdOf(members) == null) return members
-        return alignedTo(members, members.first())
+        val latest = members.maxOf { it.updatedAt }
+        val source = members.filter { it.updatedAt == latest }.minBy { it.id.value }
+        return alignedTo(members, source)
     }
 
     /**
