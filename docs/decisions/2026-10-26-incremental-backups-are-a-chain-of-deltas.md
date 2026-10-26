@@ -78,26 +78,35 @@ against the versions this build knows.
 The shape:
 
 ```
-magic (4) | version=2 (1) | salt (16) | nonce (12) | head (16) | base ciphertext + tag
-                                                              | entry* : index (4) | length (4) | nonce (12) | ciphertext + tag
+magic (4) | version=2 (1) | salt (16) | nonce (12) | head (12)
+          | entry*: index (4) | length (4) | nonce (12) | ciphertext + tag
+          | base ciphertext + tag            (to the end of the stream)
 ```
 
+**The base is last, and that is a consequence of streaming, not a preference.** A
+streamed base cannot state its own sealed length before it is sealed, and the head
+has to be written — and authenticated — before anything else. Everything that *is*
+length-framed (the entries) can be measured first; the base cannot, so it runs to
+the end of the stream, where the cipher's own end-of-stream tag already says where
+it stops. The first draft of this record had the base first; implementing it is
+what showed the framing could not work that way.
+
 - **the head** is a fixed, *authenticated* field inside the base's covered data: the number
-  of entries in the chain and the total length of the entries that follow. It is what makes
-  a **truncated tail** detectable. Per-entry GCM with a cursor inside each entry catches a
-  reordered or inserted entry — a cursor that does not follow is refused — but dropping the
-  last entries leaves a shorter chain whose every surviving entry still opens, and the
-  reader would restore an earlier state believing it is the current one. The head is the
-  one place the chain's length is bound into the base's tag, so dropping entries makes the
-  chain disagree with its own head and the archive is refused by name.
-- **the base** is a version-1-shaped payload plus the head: the full archive at the moment
-  the chain started. Its ciphertext is what the head authenticates.
+  of entries in the chain and their total length. It is what makes a **truncated chain**
+  detectable. Per-entry GCM with an index inside the frame catches a reordered or inserted
+  entry, but dropping entries leaves a shorter chain whose every surviving entry still opens,
+  and the reader would restore an earlier state believing it is the current one. The head is
+  the one place the chain's length is bound into the base's tag, so dropping entries makes
+  the chain disagree with its own head and the archive is refused by name.
+- **the base** is the full archive at the moment the chain started, sealed with the header as
+  its authenticated data, and written last.
 - **an entry** is a sealed delta — the patches since the entry before it, stamped with the
-  cursor they apply at — carrying its own nonce and its own tag, and its **index** as the
-  entry's AAD. The index is what catches a swap of two entries that carry valid cursors:
-  entry *n* whose index is not *n* is refused, whatever its cursor says. An entry that does
-  not open, whose index is wrong, or whose cursor does not follow the one before it is
-  refused by name rather than skipped.
+  cursor they apply at — carrying its own nonce and its own tag. Its authenticated data is
+  the header **prefix** (magic, version, salt, nonce) plus its **index**: the prefix binds
+  the entry to this archive, and the index catches a swap. The head cannot be in that data,
+  because the head is computed from the entries' sealed lengths. An entry that does not
+  open, whose index is wrong, or whose length is not a length is refused by name rather
+  than skipped.
 
 **The device key is part of the v2 header, and its wrap is authenticated.** The key that
 lets a scheduled export run without a person (below) is wrapped under the password and

@@ -94,7 +94,9 @@ class EncryptedArchiveTest {
         val aad = crypto.lastAad
         assertTrue(aad != null, "the seal must have been given something to authenticate")
         assertEquals(
-            EncryptedArchive.HEADER_BYTES,
+            // The base's authenticated data is the whole version-2 header: the prefix
+            // and the head, so the chain's own count cannot be rewritten either.
+            EncryptedArchive.HEADER_BYTES_V2,
             aad.size,
             "the authenticated data is the header, and nothing else",
         )

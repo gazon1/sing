@@ -108,7 +108,7 @@ class EncryptedArchiveStreamTest {
         val sealed = ByteArraySink()
         archive.seal(ByteArraySource("the-archive-bytes".encodeToByteArray()), sealed, password)
 
-        val error = assertFailsWith<BackupError.Unreadable> {
+        val error = assertFailsWith<BackupError.Unusable> {
             archive.open(brokenAfterHeader(sealed.bytes()), ByteArraySink(), password)
         }
         assertTrue(
@@ -128,7 +128,7 @@ class EncryptedArchiveStreamTest {
      */
     @Test
     fun `a source that breaks before the header is read is unreadable`() {
-        val error = assertFailsWith<BackupError.Unreadable> {
+        val error = assertFailsWith<BackupError.Unusable> {
             archive.open(failingOnFirstRead(), ByteArraySink(), password)
         }
         assertTrue(
