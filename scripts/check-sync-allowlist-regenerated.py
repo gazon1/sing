@@ -295,23 +295,36 @@ _WRITE_TARGET = re.compile(
 #: The name of the table, as a word.
 _MENTIONS = re.compile(r"\bsync_field_allowlist\b", re.IGNORECASE)
 
-#: A write verb, and nothing but the verb after it. A literal that stands
-#: where the verb's target would stand is a table's name written as a string:
+#: A write verb, and nothing but the verb. A literal that stands where the
+#: verb's target would stand is a table's name written as a string:
 #: PostgreSQL does not accept a string there — `insert into 'sync_field_
 #: allowlist'` is a syntax error — so the migration does not apply. The
 #: reader says so rather than passes the statement over: the file spells the
 #: table's name, and the reader cannot vouch for a statement that cannot run.
 #:
-#: The verb and the literal have to be NEIGHBOURS. A string that holds the
-#: words of a write — `values ('example: insert into sync_field_allowlist …')`
-#: — is stored, and a column holds words: there the verb is inside the
-#: string, not before it.
-_WRITE_VERB_BEFORE = re.compile(
+#: The verb has to be OUTSIDE the string. A string that holds the words of a
+#: write — `values ('example: insert into sync_field_allowlist …')` — is
+#: stored, and a column holds words: there the verb is inside the string,
+#: not before it.
+_WRITE_VERB = re.compile(
     r"\b(?:insert\s+(?:or\s+(?:replace|ignore|conflict)\s+)?into"
     r"|update|delete\s+from|truncate(?:\s+table)?|merge\s+into)"
-    r"(?:\s+only)?$",
+    r"(?:\s+only)?\b",
     re.IGNORECASE,
 )
+
+#: What ends the expression a write's target is. A target is a name, or an
+#: expression that spells one; it ends where the statement goes on — the
+#: column list, the values, the end of the statement.
+_TARGET_ENDS = re.compile(
+    r"[;(]|\b(?:values?|default|select|set|using|on|where|from|returning|as|with)\b",
+    re.IGNORECASE,
+)
+
+#: A call: a name and the parentheses of its arguments. A call where a
+#: table's name stands is not a table — PostgreSQL refuses it — and the
+#: literals inside it are literals of the target.
+_CALL_AT_THE_START = re.compile(r"\s*(?:[A-Za-z_][A-Za-z_0-9$]*\s*\.\s*)*[A-Za-z_][A-Za-z_0-9$]*\s*\(")
 
 #: A statement a migration runs through `execute`. What it runs is a
 #: statement, not a table name, so the target of such a write is never a name
@@ -344,10 +357,16 @@ def _string_targets(text: str) -> list[str]:
     migration does not apply — and the file spells the name all the same, so
     the reader says so rather than passes the statement over.
 
-    The literal has to be NEXT to the verb. A literal that holds the words of
+    The literal has to be IN the target. A literal that holds the words of
     a write — `values ('example: insert into sync_field_allowlist …')` — is
     stored, and a column holds words: there the verb is inside the literal,
     not before it.
+
+    The target is the whole expression that stands where the table's name
+    stands, not only the literal that stands right after the verb: `'sync_' ||
+    v_suffix` and `v_prefix || 'sync_'` are the same target, and the database
+    refuses both. A call where a table's name stands is not a table either,
+    and the literals of its arguments are literals of the target.
 
     The text is the text the database reads. An E-string's escapes are
     decoded (`E'sync\\_field_allowlist'` holds `sync_field_allowlist`, because
@@ -361,23 +380,68 @@ def _string_targets(text: str) -> list[str]:
     that writes the name in hex writes. So `insert into X'73796e63…'` is the
     write into this table that it spells.
     """
+    spans = _spans(text)
+    masked = _mask(text, spans)
     targets: list[str] = []
-    for span in _spans(text):
-        kind, start, _end, _content = span
-        if kind not in ("string", "dollar"):
-            continue
-        before = _drop_comments(text[:start], _spans(text[:start]))
-        before = _without_literal_prefix(before)
-        if _WRITE_VERB_BEFORE.search(before) is None:
-            continue
-        readings = _constant_readings(text, span)
-        if not readings:
-            decoded = _literal_body(text, span)
-            if decoded:
-                targets.append(decoded)
-            continue
-        targets.extend(readings)
+    for region in _target_regions(masked):
+        for span in spans:
+            kind, start, end, _content = span
+            if kind not in ("string", "dollar"):
+                continue
+            if start < region[0] or end > region[1]:
+                continue
+            readings = _constant_readings(text, span)
+            if not readings:
+                decoded = _literal_body(text, span)
+                if decoded:
+                    targets.append(decoded)
+                continue
+            targets.extend(readings)
     return targets
+
+
+def _target_regions(masked: str) -> list[tuple[int, int]]:
+    """The spans of the text that stands where a write's target stands.
+
+    The masked text is the statement with its literals blanked out, so a verb
+    inside a literal is invisible: the words of a write are stored, and they
+    are not a write.
+
+    The target ends where the statement goes on — the column list, the
+    values, the end of the statement. A call where a table's name stands is
+    the target whole: the parentheses and the arguments are part of it.
+    """
+    regions: list[tuple[int, int]] = []
+    for match in _WRITE_VERB.finditer(masked):
+        start = match.end()
+        call = _CALL_AT_THE_START.match(masked, start)
+        if call is not None:
+            end = _closing_parenthesis(masked, call.end() - 1)
+            regions.append((start, end))
+            continue
+        ends = _TARGET_ENDS.search(masked, start)
+        end = ends.start() if ends is not None else len(masked)
+        if end > start:
+            regions.append((start, end))
+    return regions
+
+
+def _closing_parenthesis(masked: str, opening: int) -> int:
+    """The index just past the parenthesis that closes the one at `opening`.
+
+    The masked text keeps its length, so the index is an index into the text
+    the mask was made of. A parenthesis nobody closes runs to the end.
+    """
+    depth = 0
+    for index in range(opening, len(masked)):
+        char = masked[index]
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                return index + 1
+    return len(masked)
 
 
 def _literal_body(text: str, span: tuple[str, int, int, str]) -> str:
@@ -1515,9 +1579,13 @@ def _fold_concatenations(text: str, spelling: bool) -> str:
 
     A run that holds a bit string is folded into a bit string when the reader
     folds a VALUE, because that is what PostgreSQL does with it: `||` on a
-    bit string is a concatenation of bits, and the text it joins has to be
-    bits as well. The reader does not invent the bits of a text that is not
-    bits — it reports the literal it cannot read.
+    bit string is a concatenation of bits. The text it joins is cast with
+    `bitin`, which takes binary digits — and hex digits behind an `x` prefix,
+    which is a form the reader does not read: `'x' || B'01'` is `01` on the
+    server, and the reader reports the literal it cannot read rather than
+    guess the bits the prefix stands for. The reader's rule is the strict one
+    on purpose: a statement the server accepts and the reader cannot read is
+    reported, and a statement the server refuses is never read as a row.
     """
     spans = [span for span in _spans(text) if span[0] in ("string", "dollar")]
     if not spans:
@@ -2726,12 +2794,16 @@ class _Reader:
         # file spells the name all the same, so the statement is reported —
         # the migration does not apply, and the rows it holds are not rows
         # the server will have.
+        #
+        # It does not matter what the string may be completed with: the
+        # database refuses the target either way, so a target that holds a
+        # piece of the name is reported whether the scope holds what the
+        # piece may be completed with or not. `'sync_field_' || v_suffix` is
+        # a write the database refuses, and a write the database refuses is
+        # a migration that does not apply.
         for target in _string_targets(text):
             target = target.lower()
-            if target in _NAMES_OF_OUR_TABLE or (
-                target in _PIECES_OF_OUR_NAME
-                and self._may_be_assembled_into_our_name(target, scope, scope_raw)
-            ):
+            if target in _NAMES_OF_OUR_TABLE or target in _PIECES_OF_OUR_NAME:
                 self._problem(
                     origin,
                     "unreadable",

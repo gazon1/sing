@@ -1397,6 +1397,74 @@ class StringTargetSpellingTest(AllowlistTreeTest):
         )
         self.assertEqual(0, code, output)
 
+    def test_a_target_that_holds_a_piece_is_reported_whatever_completes_it(self):
+        """A string where a table's name stands is refused whatever fills it in.
+
+        `'sync_field_' || v_suffix` names the table as a string, and the
+        database does not accept a string there — so the statement cannot
+        run, and the reader does not have to know what the suffix holds to
+        say so. A reader that reported this only when the scope held the
+        rest of the name would report the same class of statement in some
+        spellings and not in others.
+        """
+        code, output = self._rows(
+            "insert into 'sync_field_' || v_suffix (entity_type, field, writable) "
+            "values ('task', 'ghostField', true);\n"
+        )
+        self.assertEqual(1, code, output)
+        self.assertIn("written as a string", output)
+
+    def test_a_target_whose_piece_stands_at_the_end_is_reported(self):
+        """The target is the whole expression, not only the first piece.
+
+        `v_prefix || 'sync_field_'` is the same target as
+        `'sync_field_' || v_suffix`: a string where a table's name stands.
+        """
+        code, output = self._rows(
+            "insert into v_prefix || 'sync_field_' (entity_type, field, writable) "
+            "values ('task', 'ghostField', true);\n"
+        )
+        self.assertEqual(1, code, output)
+        self.assertIn("written as a string", output)
+
+    def test_a_target_that_is_a_call_is_reported(self):
+        """A call is not a table either.
+
+        `insert into format(…)` is a syntax error, and the literals of the
+        call are literals of the target: the name is spelled as a string
+        there too.
+        """
+        code, output = self._rows(
+            "insert into format('%s%s', 'sync_field_', 'allowlist') "
+            "(entity_type, field, writable) values ('task', 'ghostField', true);\n"
+        )
+        self.assertEqual(1, code, output)
+        self.assertIn("written as a string", output)
+
+    def test_a_target_that_is_a_name_the_reader_cannot_tell_is_not_reported(self):
+        """A name the reader cannot read is not a string.
+
+        `insert into v_table` names a table the reader cannot see, and the
+        database may have one by that name. The reader reports what it read
+        and found to be a string; a name it cannot read is not that.
+        """
+        code, output = self._rows(
+            "insert into v_table (entity_type, field, writable) "
+            "values ('task', 'ghostField', true);\n"
+        )
+        self.assertEqual(0, code, output)
+
+    def test_a_value_that_holds_the_name_is_not_a_target(self):
+        """A column holds words, and the words are not a write.
+
+        The name in a value position is data: the statement runs, and the
+        row it writes is a row of another table.
+        """
+        code, output = self._rows(
+            "insert into audit_log (msg) values ('sync_field_allowlist');\n"
+        )
+        self.assertEqual(0, code, output)
+
 
 class InheritanceDoorTest(AllowlistTreeTest):
     """A table that inherits from the field table is a second door into it.
