@@ -23,6 +23,7 @@ import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUs
 import com.singularity.todo.feature.tasks.domain.usecase.DetachTaskFromSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.StartRecurringSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskSeriesUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
 import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
@@ -93,6 +94,15 @@ data class TaskCoreDeps(
      * occurrence keeps its date and stops claiming to be one of several.
      */
     val detachFromSeries: DetachTaskFromSeriesUseCase,
+
+    /**
+     * Turns a task that stands alone into a recurring series.
+     *
+     * Setting a rule on a task is the one door besides the create screen through
+     * which a rule reaches a row, and it has to materialise the series — otherwise
+     * a "repeating" task would be a single row with a rule and no future.
+     */
+    val startRecurringSeries: StartRecurringSeriesUseCase,
 )
 
 /**

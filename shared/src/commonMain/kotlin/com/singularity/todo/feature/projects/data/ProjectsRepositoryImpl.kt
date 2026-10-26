@@ -208,6 +208,11 @@ class ProjectsRepositoryImpl(
             projectDao.watchAllWithCounts(uid.value)
         }
 
+    override fun observeAllIncludingClosed(): Flow<List<Project>> =
+        currentUser.observeForCurrentUser { uid ->
+            projectDao.watchAllIncludingClosed(uid.value).map { list -> list.map { it.toProject() } }
+        }
+
     override fun observeClosed(): Flow<List<Project>> =
         currentUser.observeForCurrentUser { uid ->
             projectDao.watchClosedForUser(uid.value).map { list ->

@@ -617,6 +617,10 @@ internal class InMemoryTaskDao(private val clock: Clock = FakeClock()) : TaskDao
         userId: String,
     ): List<com.singularity.todo.core.database.TaskEntity> = error("not implemented")
 
+    override suspend fun legacyRecurringForUser(
+        userId: String,
+    ): List<com.singularity.todo.core.database.TaskEntity> = error("not implemented")
+
     override fun watchByTag(userId: String, tagId: String): Flow<List<com.singularity.todo.core.database.TaskEntity>> =
         error("not implemented")
 
@@ -857,6 +861,13 @@ open class FakeTaskRepository(
                     .filter { it.userId == uid && it.seriesId == seriesId }
                     .sortedBy { it.dueDate }
             }
+    }
+
+    override suspend fun legacyRecurringTasks(): List<Task> {
+        val uid = currentUserId()
+        return store.values()
+            .filter { it.userId == uid && !it.isTrashed && it.recurrence != null && it.seriesId == null }
+            .sortedBy { it.dueDate }
     }
 
     override suspend fun delete(id: TaskId): Result<Unit> {
@@ -1734,11 +1745,29 @@ class FakeProjectsRepository(
     var observeAllCalls: Int = 0
         private set
 
+    /**
+     * How many times the badge lookup was asked for.
+     *
+     * The lookup is resolved once per list build, not once per row — a list of a
+     * thousand rows is one call, and this is what a test asserts that with.
+     */
+    var observeAllIncludingClosedCalls: Int = 0
+        private set
+
     override fun observeAll(): Flow<List<Project>> {
         observeAllCalls++
         return currentUser.observeForCurrentUser { uid ->
             store.state.map { list ->
                 list.values.filter { it.userId == uid && !it.isDeleted && it.closedAt == null }
+            }
+        }
+    }
+
+    override fun observeAllIncludingClosed(): Flow<List<Project>> {
+        observeAllIncludingClosedCalls++
+        return currentUser.observeForCurrentUser { uid ->
+            store.state.map { list ->
+                list.values.filter { it.userId == uid && !it.isDeleted }
             }
         }
     }

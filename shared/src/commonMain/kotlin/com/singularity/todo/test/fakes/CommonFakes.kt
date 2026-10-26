@@ -5,6 +5,7 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteColor
 import com.singularity.todo.feature.notes.NoteId
+import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -65,6 +66,32 @@ fun testTask(
     updatedAt = updatedAt,
     userId = userId,
 ).apply { overrides() }
+
+// ─── Project fixtures ────────────────────────────────────────────────────────
+
+/**
+ * Creates a [Project] with predictable defaults for tests.
+ *
+ * The colour defaults to a non-zero ARGB value so a test that asserts a badge
+ * carries the project's colour does not silently pass on the default.
+ */
+fun testProject(
+    id: ProjectId = ProjectId.generate(),
+    name: String = "Test project",
+    color: Int = 0xFF3F51B5.toInt(),
+    closedAt: Instant? = null,
+    createdAt: Instant = Instant.fromEpochMilliseconds(0),
+    updatedAt: Instant = Instant.fromEpochMilliseconds(0),
+    userId: UserId = TestUsers.DEFAULT,
+): Project = Project(
+    id = id,
+    name = name,
+    color = color,
+    closedAt = closedAt,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+    userId = userId,
+)
 
 // ─── Note fixtures ─────────────────────────────────────────────────────────────
 

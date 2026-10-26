@@ -5,6 +5,7 @@ import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.schedule.GreetingSettingsRepository
 import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.reminders.ReminderScheduler
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.MergeTaskSeriesUseCase
@@ -52,4 +53,13 @@ data class AgendaDeps(
     val mergeSeries: MergeTaskSeriesUseCase,
     val workScheduleSettings: WorkScheduleSettingsRepository,
     val greetingSettings: GreetingSettingsRepository,
+
+    /**
+     * The projects, so a row can carry its project's name and colour.
+     *
+     * Read once per list build through a lookup that **includes closed** projects:
+     * a task whose project was closed must keep its badge, and the default lookup
+     * filters closed projects out.
+     */
+    val projectsRepository: ProjectsRepository,
 )

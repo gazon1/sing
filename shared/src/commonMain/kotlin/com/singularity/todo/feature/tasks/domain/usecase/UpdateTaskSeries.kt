@@ -4,6 +4,10 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
 
 /**
  * Writes one change to every member of a series.
@@ -22,13 +26,27 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
  * `updateAll`: the members are the ones in the database *now*, not a snapshot
  * the screen happened to be holding.
  *
+ * ## When the change is a rule
+ *
+ * A **recurring** series is re-planned when its rule changes: the open
+ * occurrences the new rule does not give are removed, the ones it does give are
+ * materialised, and the closed occurrences stay closed. The re-plan only runs
+ * when the series carries a rule — a picked-dates series is left exactly as it
+ * was. This is why the constructor takes an optional
+ * [MaterializeRecurringSeriesUseCase]: a series write that does not carry a rule
+ * does not need it.
+ *
  * ## What it does not do
  *
  * It does not decide *which* fields are shared — that rule lives in
  * [com.singularity.todo.feature.tasks.domain.model.TaskSharedField] and is
  * applied by the caller. This use case only knows how to write a series.
  */
-class UpdateTaskSeriesUseCase(private val repo: TaskRepository) {
+class UpdateTaskSeriesUseCase(
+    private val repo: TaskRepository,
+    private val materialize: MaterializeRecurringSeriesUseCase? = null,
+    private val clock: Clock? = null,
+) {
     /**
      * Applies [transform] to every member of [seriesId] and writes them in one
      * transaction.
@@ -45,7 +63,37 @@ class UpdateTaskSeriesUseCase(private val repo: TaskRepository) {
         if (members.isEmpty()) {
             return Result.failure(IllegalStateException("Series $seriesId has no members"))
         }
-        return repo.updateAll(members.map(transform))
+        val written = repo.updateAll(members.map(transform))
+        val updated = written.getOrNull() ?: return written
+
+        // A recurring series whose rule changed is re-planned: the dates the new
+        // rule gives are materialised and the ones it does not give are removed,
+        // while the closed occurrences stay closed (REQ-TS-010). A picked-dates
+        // series carries no rule, so nothing is re-planned for it, and a use case
+        // without a materializer leaves it exactly as it was.
+        val rule = updated.first().recurrence
+        val materializer = materialize
+        return if (rule != null && materializer != null) {
+            val template = updated.first()
+            materializer(template = template, rule = rule, anchor = anchorOf(updated, template))
+                .map { repo.getSeries(seriesId) }
+        } else {
+            written
+        }
+    }
+
+    /**
+     * The series' position: the earliest open occurrence's date, or — when the
+     * series holds no open occurrence — the latest occurrence's date.
+     */
+    private fun anchorOf(members: List<Task>, fallback: Task): LocalDate {
+        val fallbackDate = fallback.dueDate
+            ?: clock?.now()?.toLocalDateTime(TimeZone.UTC)?.date
+            ?: LocalDate.fromEpochDays(0)
+        val open = members.filter { it.completedAt == null && !it.isTrashed }
+        return open.minByOrNull { it.dueDate ?: fallbackDate }?.dueDate
+            ?: members.maxByOrNull { it.dueDate ?: fallbackDate }?.dueDate
+            ?: fallbackDate
     }
 
     /**

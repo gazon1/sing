@@ -574,6 +574,13 @@ private class FakeTaskDao(
             .filter { t -> t.userId == userId && t.seriesId == seriesId }
             .sortedBy { it.dueDate }
 
+    override suspend fun legacyRecurringForUser(userId: String): List<TaskEntity> =
+        store.value.values
+            .filter { t ->
+                t.userId == userId && t.archivedAt == null && t.recurrenceRule != null && t.seriesId == null
+            }
+            .sortedBy { it.dueDate }
+
     override fun watchByTag(userId: String, tagId: String): Flow<List<TaskEntity>> =
         kotlinx.coroutines.flow.combine(store, crossRefs, tags, projectTagGroups) { tasks, refs, tagsMap, ptgRefs ->
             val directlyTagged = refs.filter { it.tagId == tagId }.map { it.taskId }.toSet()
@@ -1056,6 +1063,11 @@ private class FakeProjectDao(private val store: MutableStateFlow<Map<String, Pro
     override fun watchClosedForUser(userId: String): Flow<List<ProjectEntity>> = store.map {
         it.values.filter { p -> p.userId == userId && !p.isDeleted && p.closedAt != null }
             .sortedWith(compareByDescending<ProjectEntity> { it.closedAt }.thenBy { it.name })
+    }
+
+    override fun watchAllIncludingClosed(userId: String): Flow<List<ProjectEntity>> = store.map {
+        it.values.filter { p -> p.userId == userId && !p.isDeleted }
+            .sortedWith(compareBy({ it.sortOrder }, { it.name }))
     }
 
     // ─── UserId-scoped reads (Phase 2.8 fix) ──────────────────────────────────

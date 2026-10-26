@@ -404,11 +404,14 @@ private fun AgendaTaskRow(
         TaskUi(
             id = task.id,
             title = task.title,
-            project = null,
+            project = rowItem.project,
+            projectColor = rowItem.projectColor,
             dueLabel = formatRussianDueDate(task.dueDate),
             parentId = task.parentTaskId?.value,
             indentLevel = if (task.parentTaskId != null) 1 else 0,
-            isRecurring = false,
+            // Derived from the task's own rule, never a hardcoded flag: a repeating
+            // task says so, and a one-off task does not.
+            isRecurring = task.recurrence != null,
             isPinned = task.isPinned,
             priority = task.priority,
             isCompleted = task.completedAt != null,

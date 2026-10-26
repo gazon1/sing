@@ -92,6 +92,16 @@ data class AgendaRowItem(
     val isBlocked: Boolean = false,
     /** How many dates the series of this row has; null when it stands alone. */
     val seriesDates: Int? = null,
+    /**
+     * The task's project, resolved once per list build — name and colour.
+     *
+     * The row cannot resolve it itself: a lookup per row would be one repository
+     * read per row, and it would make the row unpreviewable. Both are resolved in
+     * the ViewModel, from a projects flow that includes **closed** projects, so a
+     * row whose project was closed keeps its badge.
+     */
+    val project: String? = null,
+    val projectColor: Int? = null,
 )
 
 /**

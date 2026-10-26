@@ -20,6 +20,7 @@ import com.singularity.todo.feature.calendarSync.work.GoogleSyncPeriodicTrigger
 import com.singularity.todo.feature.gate.gateModule
 import com.singularity.todo.core.work.BackgroundWorkBootstrapper
 import com.singularity.todo.feature.profile.ProfileBootstrapper
+import com.singularity.todo.feature.tasks.domain.usecase.RepairRecurringSeriesUseCase
 import com.singularity.todo.update.AppUpdateGate
 import com.singularity.todo.update.AppUpdatePrefs
 import com.singularity.todo.update.DirectUrlUpdateStore
@@ -178,6 +179,13 @@ open class SingularityApp : Application() {
             // happen to share a launch hook, and merging them would make the profile
             // seeding harder to read than either part is on its own.
             getKoin().get<BackgroundWorkBootstrapper>().run()
+            // Adopt legacy repeating tasks into series: a task that carries a rule and no
+            // series id is the shape the old one-row roll-forward left behind, and without
+            // this pass it never gains its materialised future.
+            getKoin().get<RepairRecurringSeriesUseCase>().invoke()
+                .onFailure { error ->
+                    android.util.Log.w("repair-recurring-series", "The recurring-series repair failed", error)
+                }
         }
     }
 

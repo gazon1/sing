@@ -44,7 +44,14 @@ import kotlinx.datetime.LocalDate
 data class TaskUi(
     val id: TaskId,
     val title: String,
-    val project: String?, // null -> "Без проекта"
+    val project: String?, // null -> no badge
+    /**
+     * The project's ARGB colour, or `null` when there is no project.
+     *
+     * Resolved once per list build, beside the name, so the row never looks a
+     * project up. The Compose conversion is `Color(projectColor)`.
+     */
+    val projectColor: Int? = null,
     val dueLabel: String?, // pre-formatted date: "Сб, 05 сент 2026"
     val parentId: String? = null, // null = top-level, otherwise parent TaskId.value
     val indentLevel: Int = 0, // 0 for top-level, 1 for direct child
@@ -76,12 +83,14 @@ data class TaskUi(
 fun Task.toTaskUi(
     today: LocalDate,
     projectNamesById: Map<String, String>,
+    projectColorsById: Map<String, Int> = emptyMap(),
     blockedBy: Set<TaskId> = this.blockedBy,
     isBlocked: Boolean = false,
 ): TaskUi = TaskUi(
     id = this.id,
     title = this.title,
     project = this.projectId?.value?.let { projectNamesById[it] },
+    projectColor = this.projectId?.value?.let { projectColorsById[it] },
     dueLabel = formatRussianDueDate(this.dueDate),
     parentId = this.parentTaskId?.value,
     indentLevel = if (this.parentTaskId != null) 1 else 0,

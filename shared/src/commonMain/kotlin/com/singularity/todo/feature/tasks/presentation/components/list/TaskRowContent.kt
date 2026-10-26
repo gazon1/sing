@@ -77,13 +77,20 @@ fun TaskRowContent(task: TaskUi, onToggleCompleted: () -> Unit, modifier: Modifi
                 )
             }
 
-            // One fact, four sources: the meta row is drawn when there is something to say.
-            val hasMeta = task.dueLabel != null || task.project != null || task.isBlocked || task.seriesDates != null
+            // One fact, several sources: the meta row is drawn when there is something
+            // to say. The repeat badge is one of them — a repeating task with no date,
+            // no project and not blocked still shows its meta row.
+            val hasMeta = task.dueLabel != null ||
+                task.project != null ||
+                task.isBlocked ||
+                task.seriesDates != null ||
+                task.isRecurring
             if (hasMeta) {
                 Spacer(Modifier.height(TaskListSpacing.Xs))
                 TaskMetaRow(
                     dueLabel = task.dueLabel,
-                    project = task.project ?: "Без проекта",
+                    project = task.project,
+                    projectColor = task.projectColor,
                     isRecurring = task.isRecurring,
                     isOverdue = task.isOverdue && !task.isCompleted,
                     isBlocked = task.isBlocked && !task.isCompleted,
