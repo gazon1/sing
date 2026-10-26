@@ -369,7 +369,10 @@ class AcpExternalAgentViewModel(
             )
         }
 
-        turnRunner.start(assistantId, openSession.prompt(text))
+        // The stream is built inside the turn, not here: a client that is no longer connected
+        // throws when the flow is built, and that throw is an outcome the reader is told
+        // about — not an exception escaping the intent that started the turn.
+        turnRunner.start(assistantId) { openSession.prompt(text) }
     }
 
     /**
@@ -462,7 +465,6 @@ class AcpExternalAgentViewModel(
         // stop: an agent that obeys quickly closes its stream, and a turn that ended between
         // the ask and the record must not be mistaken for a session that died.
         turnRunner.recordOutcome(turn.turnId, AgentTurnOutcome.Cancelled)
-        updateState { it.copy(permission = null) }
 
         vmScope.launch {
             openSession.cancel()
@@ -475,6 +477,7 @@ class AcpExternalAgentViewModel(
             // The job is cancelled in [closeSession], where tearing it down is the
             // point.
             permissions.decline()
+            updateState { it.copy(permission = null) }
 
             turnRunner.endTurnThatOutlivedTheRequest(openSession, turn.job)
         }

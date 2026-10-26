@@ -13,8 +13,8 @@ suspend lambda to the turn's event stream:
 // before — the runner cannot see the flow, so it cannot bound it
 fun start(assistantId: String, run: suspend (sink: suspend (AcpTurnEvent) -> Unit) -> Unit)
 
-// after — the runner owns the clock and collects the flow
-fun start(assistantId: String, events: Flow<AcpTurnEvent>)
+// after — the runner owns the clock and builds the flow inside the turn
+fun start(assistantId: String, events: () -> Flow<AcpTurnEvent>)
 ```
 
 The events are drained into a channel by one producer and consumed one at a time under a
@@ -26,6 +26,11 @@ per event. This is deliberately *not* `Flow.timeout`, and not `withTimeout`:
   spends waiting on the reader. A permission request is silence by design: the agent asked
   the reader a question, and the permission deadline is five minutes. So when the window
   expires and `awaitingReader()` is true, the loop re-arms instead of ending the turn.
+
+The channel is bounded (64): it is the transport's backpressure, and a full buffer can never
+starve the deadline, because a full buffer means the consumer has something to take. The turn
+stops as soon as the completion arrives, and an event that lands exactly as a window closes is
+taken (`tryReceive`) rather than calling a turn that just answered hung.
 
 Without that exception the idle bound would contradict FR-036 ("the permission request is
 declined, and the turn continues afterwards") — every turn that waited more than a minute for
@@ -56,10 +61,16 @@ On `sessionLost(reason)`:
   reason and the Connect control — the "error and a way to reconnect" FR-040 asks for;
 - the session is closed (bounded, graceful; the process may already be gone, and closing an
   already-dead session is safe — FR-039);
+- a permission request that was on screen is refused and taken off it: a live sheet under a
+  "connection failed" banner is a question the reader can answer but nothing will hear;
 - the tool-access state becomes `Unavailable`, because a session that is gone cannot reach
   the user's tasks and a stale `Granted` is a false claim (the same reasoning FR-032 applies
   to a failed handshake);
 - the partial answer is left alone.
+
+The turn's stream is built **inside** the turn, not on the intent that starts it: the client
+builds the flow eagerly and throws when it is no longer connected, and that throw must become
+a turn outcome rather than an exception escaping the screen's intent.
 
 ## Rollback risk
 

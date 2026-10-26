@@ -26,6 +26,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
@@ -33,6 +34,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -376,6 +378,49 @@ class AcpExternalAgentViewModelTest {
     }
 
     /**
+     * A session that cannot even build its stream fails the turn instead of throwing at the
+     * intent that started it.
+     *
+     * The client builds the prompt flow eagerly and throws when it is no longer connected — the
+     * path a Stop on an agent that ignores cancellation leads to. That throw must become a turn
+     * outcome, not an exception escaping `send()` onto the caller's thread after the spinner was
+     * already put up.
+     */
+    @Test
+    fun `a session that cannot build the stream fails the turn instead of throwing`() = runTest {
+        val session = ScriptedSession { _ -> true }
+        session.promptThrows = true
+        val ctx = viewModel(session)
+
+        connect(ctx)
+        send(ctx) // must not throw
+        runCurrent()
+
+        assertIs<AgentTurnOutcome.Failed>(ctx.state.value.turnOutcome, "the turn is told, not the caller")
+        assertFalse(ctx.state.value.isRunning, "and the spinner is gone")
+    }
+
+    /**
+     * A session lost while a permission request is on screen takes the request with it.
+     *
+     * A live sheet under a "connection failed" banner is a question the reader can answer but
+     * nothing will hear.
+     */
+    @Test
+    fun `a session lost while a permission request is on screen clears the request`() = runTest {
+        val session = ScriptedSession { _ -> true }
+        session.diesWhileAsking = true
+        val ctx = viewModel(session)
+
+        connect(ctx)
+        send(ctx)
+        runCurrent()
+
+        assertIs<AcpConnection.Failed>(ctx.state.value.connection, "the session is gone")
+        assertNull(ctx.state.value.permission, "and the question that belonged to it is off the screen")
+    }
+
+    /**
      * A turn the agent itself ends as failed — a refusal, say — is not a session loss.
      *
      * The agent answered: the protocol's completion event arrived, whatever its outcome. Only a
@@ -628,6 +673,12 @@ class AcpExternalAgentViewModelTest {
         /** Set when the handshake never finishes: the agent does not answer. */
         var connectBlocks = false
 
+        /** Set when building the stream throws, as a client that lost its session does. */
+        var promptThrows = false
+
+        /** Set when the stream should die while a permission request is still on screen. */
+        var diesWhileAsking = false
+
         /** Completes when the agent is asked to stop, so a script can end its turn then. */
         val cancelledSignal = CompletableDeferred<Unit>()
 
@@ -649,14 +700,26 @@ class AcpExternalAgentViewModelTest {
             return AcpAgentInfo("scripted-agent", "1.0", 1)
         }
 
-        override fun prompt(message: String): Flow<AcpTurnEvent> = flow {
-            prompts += message
-            emit(AcpTurnEvent.Activity(AgentEvent.TextDelta("hello")))
-            // The script says whether the agent completed the turn. A script that ends
-            // without saying so is a turn that ended without a completion — the failure
-            // the outcome has to report.
-            if (script(this@ScriptedSession)) {
-                emit(AcpTurnEvent.Finished(completion))
+        override fun prompt(message: String): Flow<AcpTurnEvent> {
+            if (promptThrows) error("The client is not connected")
+            return flow {
+                prompts += message
+                emit(AcpTurnEvent.Activity(AgentEvent.TextDelta("hello")))
+                if (diesWhileAsking) {
+                    coroutineScope {
+                        // Register the request and let it reach the screen, then die with it
+                        // still pending — the transport going away mid-question.
+                        launch { askForPermission() }
+                        yield()
+                        error("the transport went away")
+                    }
+                }
+                // The script says whether the agent completed the turn. A script that ends
+                // without saying so is a turn that ended without a completion — the failure
+                // the outcome has to report.
+                if (script(this@ScriptedSession)) {
+                    emit(AcpTurnEvent.Finished(completion))
+                }
             }
         }
 

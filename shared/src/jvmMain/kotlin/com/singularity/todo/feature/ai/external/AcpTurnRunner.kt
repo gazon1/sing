@@ -77,6 +77,16 @@ internal class AcpTurnRunner(
     private var turnNumber: Long = 0
     private var currentTurn: Long = 0
     private var job: Job? = null
+
+    /**
+     * Whether an outcome has been recorded for the current turn.
+     *
+     * Written on the reader's thread (a Stop records `Cancelled` synchronously) and read on the
+     * turn's own dispatcher, where it decides whether a turn that ended without a completion
+     * was stopped by the reader or is a dead session. Volatile because a stale `false` would
+     * report a reader's Stop as a lost connection.
+     */
+    @Volatile
     private var outcomeRecorded: Boolean = false
 
     /**
@@ -92,10 +102,13 @@ internal class AcpTurnRunner(
      * screen.
      *
      * @param assistantId the message the agent's text is written into.
-     * @param events the turn's event stream, as the session produces it.
+     * @param events builds the turn's event stream. It is a factory and not a built flow on
+     *   purpose: the session builds the flow eagerly and can throw doing it (a client that is
+     *   no longer connected), and that throw belongs to the turn — an outcome the reader is
+     *   told about — not to the intent that started it.
      */
     @Suppress("TooGenericExceptionCaught")
-    fun start(assistantId: String, events: Flow<AcpTurnEvent>) {
+    fun start(assistantId: String, events: () -> Flow<AcpTurnEvent>) {
         val turnId = ++turnNumber
         currentTurn = turnId
         outcomeRecorded = false
@@ -119,7 +132,7 @@ internal class AcpTurnRunner(
             val received = Channel<AcpTurnEvent>(capacity = EVENT_BUFFER)
             val pump = launch {
                 try {
-                    events.collect { received.send(it) }
+                    events().collect { received.send(it) }
                     received.close()
                 } catch (e: CancellationException) {
                     // Our own cancellation ends the turn quietly; one from the transport is the
