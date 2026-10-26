@@ -1,8 +1,10 @@
 package com.singularity.todo.feature.tasks.domain.usecase
 
 import com.singularity.todo.core.attachments.AttachmentRepository
+import com.singularity.todo.core.database.UnitOfWork
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.feature.checklist.ChecklistItem
@@ -59,6 +61,7 @@ class CreateTaskFromDraftUseCase(
     private val currentUser: ProfileAwareCurrentUser,
     private val checklistRepository: ChecklistRepository,
     private val attachmentRepository: AttachmentRepository,
+    private val unitOfWork: UnitOfWork,
     private val materialize: MaterializeRecurringSeriesUseCase? = null,
 ) {
     suspend operator fun invoke(draft: TaskDraft): Either<AppError, TaskId> {
@@ -183,11 +186,10 @@ class CreateTaskFromDraftUseCase(
     /**
      * Creates the current occurrence of a recurring series and fills its window.
      *
-     * The row is created first, carrying the rule and a freshly minted series id;
-     * then [MaterializeRecurringSeriesUseCase] turns the rule's future dates into
-     * further members. The two writes are not one transaction — a create is a create
-     * — but a failure of the second leaves the rule on the row, which the launch
-     * repair adopts into a series on the next launch rather than losing the rule.
+     * The row and its window land together: the create is one [UnitOfWork.write],
+     * and the materialisation nests into it. A failure of the window fill
+     * therefore leaves no row behind — without the transaction it left a series
+     * of one carrying a rule, the shape the launch repair then had to adopt.
      */
     private suspend fun createRecurringSeries(
         input: CreateTaskInput,
@@ -207,14 +209,19 @@ class CreateTaskFromDraftUseCase(
             userId = userId,
         ).copy(seriesId = seriesId)
 
-        return repo.createSeries(listOf(current)).fold(
-            onSuccess = {
+        // The failure has to leave the block rather than be turned into a value
+        // inside it: catching it here would return normally and let the
+        // transaction commit the row the window fill was supposed to join.
+        return runCatchingCancellable {
+            unitOfWork.write {
+                repo.createSeries(listOf(current)).getOrThrow()
                 persistAttachmentsAndChecklist(draft, current.id, keepDraftIds = true)
-                materializer(template = current, rule = rule, anchor = date)
-                    .onFailure { e -> return Either.Left(persistenceFailure(e)) }
-                Either.Right(current.id)
-            },
-            onFailure = { e -> Either.Left(persistenceFailure(e)) },
+                materializer(template = current, rule = rule, anchor = date).getOrThrow()
+                current.id
+            }
+        }.fold(
+            onSuccess = { Either.Right(it) },
+            onFailure = { Either.Left(persistenceFailure(it)) },
         )
     }
 
