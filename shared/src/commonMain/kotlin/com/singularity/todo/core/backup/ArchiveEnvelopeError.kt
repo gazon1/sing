@@ -86,8 +86,7 @@ sealed class ArchiveEnvelopeError(message: String, cause: Throwable? = null) : B
      * An archive without a password is the archive this feature exists to stop
      * writing, so it is refused rather than quietly sent in the clear.
      */
-    class MissingPassword :
-        ArchiveEnvelopeError("The archive cannot be encrypted without a password")
+    class MissingPassword : ArchiveEnvelopeError("The archive cannot be encrypted without a password")
 
     /**
      * The chain is longer than this build writes or reads.

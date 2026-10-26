@@ -153,13 +153,20 @@ internal object ArchiveContainerReader {
     private fun readPrefix(source: ByteSource): ByteArray {
         val header = source.readOrNull(ArchiveFormat.PREFIX_BYTES)
             ?: throw ArchiveEnvelopeError.NotEncrypted()
-        if (header.copyOfRange(0, ArchiveFormat.MAGIC.length).decodeToString() != ArchiveFormat.MAGIC) {
-            throw ArchiveEnvelopeError.NotEncrypted()
-        }
+        checkMagic(header)
         val version = header[ArchiveFormat.MAGIC.length].toInt() and 0xFF
         if (version !in ArchiveFormat.READABLE_VERSIONS) {
             throw ArchiveEnvelopeError.UnsupportedArchiveVersion(version, ArchiveFormat.READABLE_VERSIONS)
         }
         return header
+    }
+
+    /**
+     * The bytes say "this is an encrypted archive", or they say nothing of the kind.
+     */
+    private fun checkMagic(header: ByteArray) {
+        if (header.copyOfRange(0, ArchiveFormat.MAGIC.length).decodeToString() != ArchiveFormat.MAGIC) {
+            throw ArchiveEnvelopeError.NotEncrypted()
+        }
     }
 }

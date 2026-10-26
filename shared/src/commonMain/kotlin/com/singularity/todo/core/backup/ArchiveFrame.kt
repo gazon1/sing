@@ -74,11 +74,7 @@ internal class ArchiveFrame(
  * body at different moments — and because a head whose length is nonsense has to
  * be refused *before* the body is read, not after.
  */
-internal class ArchiveFrameHead(
-    val index: Int,
-    val length: Int,
-    val nonce: ByteArray,
-)
+internal class ArchiveFrameHead(val index: Int, val length: Int, val nonce: ByteArray)
 
 /**
  * Exactly [count] bytes, or `null` when the source ends first.

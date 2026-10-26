@@ -1,6 +1,6 @@
 package com.singularity.todo.core.backup
 
-/**
+/*
  * The container's own little arithmetic: big-endian integers, in and out of bytes.
  *
  * The container writes its counts, lengths and indices as big-endian numbers, and

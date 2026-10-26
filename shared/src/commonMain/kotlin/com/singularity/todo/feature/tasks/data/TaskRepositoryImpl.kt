@@ -837,7 +837,7 @@ class TaskRepositoryImpl(
             } else {
                 taskDao.removeDependencyForVerb(from.value, to.value, verb.name, uid)
             }
-             enqueueFresh(from)
+            enqueueFresh(from)
         }
     }
 

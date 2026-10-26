@@ -16,12 +16,10 @@ package com.singularity.todo.core.backup
 sealed class BackupPayloadError(message: String, cause: Throwable? = null) : BackupError(message, cause) {
 
     /** The archive's own format version is newer than this build's. */
-    class UnsupportedFormatVersion(val version: Int) :
-        BackupPayloadError("formatVersion $version > current")
+    class UnsupportedFormatVersion(val version: Int) : BackupPayloadError("formatVersion $version > current")
 
     /** The payload's schema version is newer than this build's. */
-    class UnsupportedSchemaVersion(val version: Int) :
-        BackupPayloadError("schemaVersion $version > current")
+    class UnsupportedSchemaVersion(val version: Int) : BackupPayloadError("schemaVersion $version > current")
 
     /** The payload's schema version is older than this build still reads. */
     class SchemaTooOld(val version: Int) :
@@ -36,6 +34,5 @@ sealed class BackupPayloadError(message: String, cause: Throwable? = null) : Bac
         )
 
     /** The manifest is not a manifest this build can read. */
-    class MalformedManifest(reason: String) :
-        BackupPayloadError("malformed manifest: $reason")
+    class MalformedManifest(reason: String) : BackupPayloadError("malformed manifest: $reason")
 }
