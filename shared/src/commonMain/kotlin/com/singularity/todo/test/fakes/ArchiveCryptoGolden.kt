@@ -1,7 +1,10 @@
 package com.singularity.todo.test.fakes
 
+import com.singularity.todo.core.backup.ArchiveCryptoSession.Companion.blockKeyAad
 import com.singularity.todo.core.backup.ArchiveFormat
+import com.singularity.todo.core.backup.ArchiveKeyBlock
 import com.singularity.todo.core.backup.ChainHead
+import com.singularity.todo.core.backup.asPasswordChars
 import com.singularity.todo.core.backup.toBytes
 import com.singularity.todo.core.security.ArchiveCrypto
 
@@ -101,6 +104,41 @@ object ArchiveCryptoGolden {
             "480000000000000034303132333435363738393a3b24490ed11e48dfc0ade8683fcec1ad31cb547a1fa54179d4" +
             "eeb7263bd7556fc1021f584c86e8ef50d5deca0f0579f6b44b129c4d30a99e2e2135b51ec47389f22cb7844922a" +
             "693ff0534c0ba221d7978ded975524308694cd7c9b9454050e18a836b101de714"
+
+    // ── The version-3 container ─────────────────────────────────────────────────
+    //
+    // The container above is sealed under the password. The version-3 container is
+    // sealed under the **device key**, and the device key travels in the header
+    // wrapped under the password — so this one pins two rules at once: that the two
+    // platforms wrap the key the same way, and that they read the block back the
+    // same way. A drift in either reads as "the password does not open it", which
+    // is the one thing a person cannot debug.
+
+    /** The device key the golden container was sealed under. */
+    val deviceKey: ByteArray =
+        hexToBytes("404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f")
+
+    /** The salt of the golden container's content. */
+    val deviceSalt: ByteArray = hexToBytes("606162636465666768696a6b6c6d6e6f")
+
+    /** The nonce of the golden container's content. */
+    val deviceNonce: ByteArray = hexToBytes("707172737475767778797a7b")
+
+    /** The salt of the golden container's key block — the block has one of its own. */
+    val blockSalt: ByteArray = hexToBytes("808182838485868788898a8b8c8d8e8f")
+
+    /** The nonce of the golden container's key block. */
+    val blockNonce: ByteArray = hexToBytes("909192939495969798999a9b")
+
+    /** What the golden container's base holds. */
+    val deviceBase: ByteArray = "The base the golden device-key chain carries.".encodeToByteArray()
+
+    /** The whole version-3 container: header, key block and the sealed base. */
+    const val DEVICE_KEY_CONTAINER_HEX =
+        "5347424b03606162636465666768696a6b6c6d6e6f707172737475767778797a7b000000000000000000000000808182" +
+            "838485868788898a8b8c8d8e8f909192939495969798999a9b061c1fdfa3991ecf6b9c9eb866e1c4c251dcc117ce082d" +
+            "2d982e989bd37dadc0bf78721cc9a40d0e24599e19299d867f571139afd39990f64ab62b60a3b7ae0f8bb3e3f4a052c3" +
+            "f948f9f9c9438b33c7e993eb233eca14cd207586dc29665b085b9740c36c2facef372a11fde3"
 }
 
 /** The bytes of a hex string. */
@@ -148,4 +186,48 @@ fun buildGoldenChain(crypto: ArchiveCrypto, key: ByteArray): ByteArray {
     val sealedBase = crypto.seal(key, ArchiveCryptoGolden.chainNonce, ArchiveCryptoGolden.chainBase, header)
     val frame = 0.toBytes() + body.size.toBytes() + ArchiveCryptoGolden.chainEntryNonce + body
     return header + frame + sealedBase
+}
+
+/**
+ * The version-3 container, built from the golden's parts.
+ *
+ * ## What is different from the version-2 chain
+ *
+ * The content is sealed under the **device key** rather than under the password,
+ * and the header carries the device key wrapped under the password — in a block
+ * with a salt and a nonce of its own, because the block is wrapped once per device
+ * and travels in every archive the device writes.
+ *
+ * So the container has three rules the version-2 one does not: the key block's own
+ * layout, the derivation of the content key from the device key, and the
+ * authenticated data of the wrapping. Each of them is a place where the two
+ * platforms can disagree, and each disagreement reads as a wrong password.
+ */
+fun buildGoldenDeviceKeyContainer(crypto: ArchiveCrypto): ByteArray {
+    val salt = ArchiveCryptoGolden.deviceSalt
+    val nonce = ArchiveCryptoGolden.deviceNonce
+    val blockSalt = ArchiveCryptoGolden.blockSalt
+    val blockNonce = ArchiveCryptoGolden.blockNonce
+    val prefix = ArchiveFormat.MAGIC.encodeToByteArray() +
+        byteArrayOf(ArchiveFormat.DEVICE_KEY_VERSION.toByte()) +
+        salt +
+        nonce
+    val head = ChainHead(count = 0, entriesLength = 0L)
+
+    // The key block: the device key wrapped under the password, with the block's
+    // own salt and the block's own marker as the authenticated data.
+    val wrappingKey = crypto.deriveKey(ArchiveCryptoGolden.PASSWORD.toCharArray(), blockSalt)
+    val wrapped = crypto.seal(
+        wrappingKey,
+        blockNonce,
+        ArchiveCryptoGolden.deviceKey,
+        blockKeyAad(blockSalt),
+    )
+    val keyBlock = ArchiveKeyBlock(blockSalt, blockNonce, wrapped)
+    val header = prefix + head.toBytes() + keyBlock.toBytes()
+
+    // The content is sealed under the device key, spelled in hex.
+    val contentKey = crypto.deriveKey(ArchiveCryptoGolden.deviceKey.asPasswordChars(), salt)
+    val sealedBase = crypto.seal(contentKey, nonce, ArchiveCryptoGolden.deviceBase, header)
+    return header + sealedBase
 }

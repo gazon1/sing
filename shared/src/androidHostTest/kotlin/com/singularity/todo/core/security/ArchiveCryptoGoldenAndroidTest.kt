@@ -6,6 +6,7 @@ import com.singularity.todo.core.files.ByteArraySink
 import com.singularity.todo.core.files.ByteArraySource
 import com.singularity.todo.test.fakes.ArchiveCryptoGolden
 import com.singularity.todo.test.fakes.buildGoldenChain
+import com.singularity.todo.test.fakes.buildGoldenDeviceKeyContainer
 import com.singularity.todo.test.fakes.hexToBytes
 import com.singularity.todo.test.fakes.toHex
 import org.junit.Assert.assertArrayEquals
@@ -143,5 +144,38 @@ class ArchiveCryptoGoldenAndroidTest {
         )
         assertEquals("the chain carries one change", 1, changes.size)
         assertArrayEquals(ArchiveCryptoGolden.chainEntry, changes[0])
+    }
+
+    /**
+     * The phone agrees with the golden device-key container.
+     *
+     * This is the container a **scheduled** export writes: the content is sealed
+     * under the device key, and the header carries that key wrapped under the
+     * password. The phone has to unwrap the block and read the content, and the
+     * desktop has to produce exactly these bytes.
+     *
+     * A disagreement here reads as "the password does not open it" — the one
+     * message that sends a person looking in the wrong place.
+     */
+    @Test
+    fun `the phone agrees with the golden device-key container`() {
+        assertEquals(
+            "the phone must build the golden device-key container exactly",
+            ArchiveCryptoGolden.DEVICE_KEY_CONTAINER_HEX,
+            buildGoldenDeviceKeyContainer(crypto).toHex(),
+        )
+
+        val base = ByteArraySink()
+        archive.openChain(
+            source = ByteArraySource(hexToBytes(ArchiveCryptoGolden.DEVICE_KEY_CONTAINER_HEX)),
+            sink = base,
+            password = ArchiveCryptoGolden.PASSWORD.toCharArray(),
+        ) { _, _ -> }
+
+        assertArrayEquals(
+            "the container's base must come back as it went in",
+            ArchiveCryptoGolden.deviceBase,
+            base.bytes(),
+        )
     }
 }
