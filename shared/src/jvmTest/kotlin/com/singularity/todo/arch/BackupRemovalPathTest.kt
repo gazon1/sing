@@ -26,6 +26,10 @@ import kotlin.test.fail
  * by an `else`, a dispatch that stopped dispatching, a kind that was added and
  * the dispatch that was not.
  *
+ * What it reads is the branch *label*, not the statement under it: a branch
+ * that stopped deleting anything is not this test's finding. The compiler does
+ * not catch that one either — the branch is there, and it compiles.
+ *
  * ## What it reads
  *
  * Two facts, both from the sources:
@@ -89,6 +93,23 @@ class BackupRemovalPathTest {
             emptyList(),
             (dispatch.branches - kinds).sorted(),
             "the dispatch names kinds the enum does not declare",
+        )
+    }
+
+    @Test
+    fun `the removals go in the order the kinds are declared in`() {
+        val declared = BackupEntityKind.entries.map { it.name }
+
+        assertEquals(
+            EXPECTED_ORDER,
+            declared,
+            "the order the rows are removed in has changed.\n\n" +
+                "The order is a decision about the tables: an annotation goes before the " +
+                "attachment it belongs to, a link before the row it hangs off, and the parents " +
+                "last. The kinds are declared in that order, and this test says which order that " +
+                "is — so a kind that is added, moved or swapped cannot change it quietly.\n\n" +
+                "If the order really has to change, change it here too: this list is the order, " +
+                "written down where a reader can see it.",
         )
     }
 
@@ -182,6 +203,38 @@ class BackupRemovalPathTest {
     private class Dispatch(val file: File, val method: SourceScan.Method, val branches: Set<String>)
 
     private companion object {
+        /**
+         * The order the rows are removed in.
+         *
+         * The children first — the links, and the rows that hang off one — then the rows
+         * that hold no link of their own, and last the rows the children hang off.
+         *
+         * Inside a phase the order matters too: an annotation goes before the
+         * attachment it belongs to, because the annotations are not cascaded either.
+         */
+        val EXPECTED_ORDER = listOf(
+            // The children first.
+            "TASK_TAGS",
+            "TASK_DEPENDENCIES",
+            "CHECKLIST_ITEMS",
+            "PROJECT_TAG_GROUPS",
+            // Then the rows themselves.
+            "ATTACHMENT_ANNOTATIONS",
+            "ATTACHMENTS",
+            "AGENDA_VIEWS",
+            "SAVED_SEARCHES",
+            "TASK_REMINDERS",
+            "PROJECT_REMINDERS",
+            "TIME_ENTRIES",
+            // Then the rows the children hang off, last.
+            "TAGS",
+            "TAG_GROUPS",
+            "TASKS",
+            "NOTES",
+            "PROJECTS",
+            "PROFILES",
+        )
+
         /** The declaration of the kinds. */
         val ENUM_DECLARATION = Regex("""enum class BackupEntityKind\b""")
 
