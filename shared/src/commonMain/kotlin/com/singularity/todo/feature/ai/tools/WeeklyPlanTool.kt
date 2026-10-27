@@ -59,10 +59,8 @@ class WeeklyPlanTool(
             throw e
         } catch (e: Exception) {
             logger.w(e) { "failed" }
-            val lines = text.lines()
-                .filter { it.isNotBlank() && !it.startsWith("[") && !it.startsWith("]") }
-                .map { it.trim().removePrefix("- ").removePrefix("* ").removeSurrounding("\"") }
-            Json.encodeToString(WeeklyPlanOutput.serializer(), WeeklyPlanOutput(lines))
+            val items = runCatching { Json.decodeFromString<List<String>>(text) }.getOrNull() ?: emptyList()
+            Json.encodeToString(WeeklyPlanOutput.serializer(), WeeklyPlanOutput(items))
         }
     }
 
