@@ -426,6 +426,7 @@ class BackupChainTest {
                     createdAt = 1L,
                     updatedAt = 1L,
                     deletedAt = null,
+                    nameNormalized = id.trim().lowercase(),
                 ),
             ),
         )
