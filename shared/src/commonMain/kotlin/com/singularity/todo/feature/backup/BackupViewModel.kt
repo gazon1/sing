@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.backup
 
-import com.singularity.todo.core.auth.AuthDomain
 import com.singularity.todo.core.auth.AuthRepository
 import com.singularity.todo.core.backup.BackupMetadata
 import com.singularity.todo.core.backup.BackupRepository
@@ -13,7 +12,6 @@ import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.files.FileSharePort
 import com.singularity.todo.core.files.FileSourceFactory
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.settings.SettingsImporter
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.backup.BackupUiEvent.Error
@@ -81,9 +79,6 @@ class BackupViewModel(
         scope = scope,
     ) {
 
-    private val effectiveUserId: UserId
-        get() = AuthDomain.effectiveUserId(authRepository.currentSession.value)
-
     init {
         addCloseable(scope)
         scope.launch {
@@ -123,7 +118,6 @@ class BackupViewModel(
         updateState { it.copy(isWorking = true) }
         repository.export(
             exportOptions {
-                userId = effectiveUserId
                 this.destPath = fileName
                 includeAttachments = true
             },

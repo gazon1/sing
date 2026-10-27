@@ -68,26 +68,27 @@ class BackupExporter(
     override suspend fun export(options: ExportOptions): Result<BackupResult> =
         runCatchingCancellable {
             val now = clock.now().toEpochMilliseconds()
+            val userId = options.userId ?: throw IllegalStateException("userId required")
 
             // 1. Read all entities for user
-            val tasks = taskDao.listAllForUser(options.userId.value)
-            val notes = noteDao.listAllForUser(options.userId.value)
-            val projects = projectDao.listAllForUser(options.userId.value)
-            val tags = tagDao.listAllForUser(options.userId.value)
-            val attachments = attachmentDao.listAllForUser(options.userId.value)
-            val annotations = annotationDao.listAllForUser(options.userId.value)
-            val taskDeps = taskDao.listAllDependenciesForUser(options.userId.value)
-            val taskTagRefs = taskDao.listAllTagsForUser(options.userId.value)
-            val agendaViews = agendaViewDao.listAllForUser(options.userId.value)
+            val tasks = taskDao.listAllForUser(userId.value)
+            val notes = noteDao.listAllForUser(userId.value)
+            val projects = projectDao.listAllForUser(userId.value)
+            val tags = tagDao.listAllForUser(userId.value)
+            val attachments = attachmentDao.listAllForUser(userId.value)
+            val annotations = annotationDao.listAllForUser(userId.value)
+            val taskDeps = taskDao.listAllDependenciesForUser(userId.value)
+            val taskTagRefs = taskDao.listAllTagsForUser(userId.value)
+            val agendaViews = agendaViewDao.listAllForUser(userId.value)
             // MR-2: 8 new entity types
-            val taskReminders = reminderDao.listAllForUser(options.userId.value)
-            val projectReminders = projectReminderDao.listAllForUser(options.userId.value)
-            val checklistItems = checklistDao.listAllForUser(options.userId.value)
-            val tagGroups = tagGroupDao.listAllForUser(options.userId.value)
-            val projectTagGroups = projectTagGroupDao.listAllForUser(options.userId.value)
-            val savedSearches = savedSearchDao.listAllForUser(options.userId.value)
-            val timeEntries = timeEntryDao.listAllForUser(options.userId.value)
-            val profiles = profileDao.listAll()
+            val taskReminders = reminderDao.listAllForUser(userId.value)
+            val projectReminders = projectReminderDao.listAllForUser(userId.value)
+            val checklistItems = checklistDao.listAllForUser(userId.value)
+            val tagGroups = tagGroupDao.listAllForUser(userId.value)
+            val projectTagGroups = projectTagGroupDao.listAllForUser(userId.value)
+            val savedSearches = savedSearchDao.listAllForUser(userId.value)
+            val timeEntries = timeEntryDao.listAllForUser(userId.value)
+            val profiles = profileDao.listAll().filter { it.userId == null || it.userId == userId.value }
 
             // 2. Map to DTOs
             val payload =
@@ -143,7 +144,7 @@ class BackupExporter(
                 BackupDomain.buildManifest(
                     appVersion = options.appVersion,
                     nowEpochMillis = now,
-                    userId = options.userId,
+                    userId = userId,
                     payloadBytes = payloadBytes,
                     counts = counts,
                 )
@@ -222,7 +223,7 @@ class BackupExporter(
         payload: BackupPayload,
         now: Long,
     ) {
-        val state = cursors.load(options.userId)
+        val state = cursors.load(options.userId!!)
         val index = BackupRows.index(payload)
         val previous = state.rows.takeIf { it.isNotEmpty() }
 
@@ -234,7 +235,7 @@ class BackupExporter(
                     // Nothing changed: there is no change to write, and an empty
                     // entry would only make the chain longer than the account.
                     cursors.save(
-                        options.userId,
+                        options.userId!!,
                         state.copy(cursor = now, rows = index),
                     )
                 } else {
@@ -283,7 +284,7 @@ class BackupExporter(
             restartChain(options, state, index, now)
         } else {
             cursors.save(
-                options.userId,
+                options.userId!!,
                 state.copy(
                     cursor = now,
                     baseArchivePath = state.baseArchivePath ?: options.destPath,
@@ -309,7 +310,7 @@ class BackupExporter(
     ) {
         state.entries.forEach { fs.delete(it.deltaPath) }
         cursors.save(
-            options.userId,
+            options.userId!!,
             state.copy(
                 cursor = now,
                 baseArchivePath = options.destPath,

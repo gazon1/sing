@@ -234,7 +234,7 @@ class BackupRepositoryImpl(
             runCatchingCancellable {
                 fs.ensureDir(backupDir)
                 val destPath = resolveBackupDestination(backupDir, options.destPath)
-                exporter.export(options.copy(destPath = destPath)).getOrThrow()
+                exporter.export(options.copy(destPath = destPath, userId = currentUser.scopedUserId.value)).getOrThrow()
             }
         }
 

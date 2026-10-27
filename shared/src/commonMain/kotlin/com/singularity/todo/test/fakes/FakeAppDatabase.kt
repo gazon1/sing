@@ -1327,7 +1327,11 @@ private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, 
     override suspend fun attemptsOf(id: String): Int? = store.value[id]?.attempts
 
     override suspend fun deleteByEntity(ownerId: String, profileId: String, entityId: String) {
-        store.update { it.filterValues { e -> e.ownerId != ownerId || e.profileId != profileId || e.entityId != entityId } }
+        store.update {
+            it.filterValues { e ->
+                e.ownerId != ownerId || e.profileId != profileId || e.entityId != entityId
+            }
+        }
     }
 
     /** `DELETE FROM sync_outbox WHERE owner_id = :ownerId` — every profile's patches of that owner. */
@@ -2205,6 +2209,9 @@ private class FakeProfileDao(private val store: MutableStateFlow<Map<String, Pro
     }
 
     override suspend fun listAll(): List<ProfileEntity> = store.value.values.toList()
+
+    override suspend fun listAllForUser(userId: String): List<ProfileEntity> =
+        store.value.values.filter { it.userId == userId }.sortedBy { it.createdAt }
 }
 
 // ─── AgendaViewDao ────────────────────────────────────────────────────────────

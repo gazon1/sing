@@ -32,6 +32,12 @@ open class JvmSecureStorage : SecureStoragePort {
         val home = System.getProperty("user.home")
         val dir = Paths.get(home, ".config", "singularity")
         Files.createDirectories(dir)
+        dir.toFile().setReadable(false, false)
+        dir.toFile().setWritable(false, false)
+        dir.toFile().setExecutable(false, false)
+        dir.toFile().setReadable(true, true)
+        dir.toFile().setWritable(true, true)
+        dir.toFile().setExecutable(true, true)
         dir.resolve("secure.bin")
     }
 
@@ -215,6 +221,10 @@ open class JvmSecureStorage : SecureStoragePort {
                 dos.write(ct2)
             }
         }
+        fallbackFile.toFile().setReadable(false, false)
+        fallbackFile.toFile().setWritable(false, false)
+        fallbackFile.toFile().setReadable(true, true)
+        fallbackFile.toFile().setWritable(true, true)
     }
 
     private fun fallbackDelete(key: String) {
@@ -253,6 +263,10 @@ open class JvmSecureStorage : SecureStoragePort {
                 dos.write(ct2)
             }
         }
+        fallbackFile.toFile().setReadable(false, false)
+        fallbackFile.toFile().setWritable(false, false)
+        fallbackFile.toFile().setReadable(true, true)
+        fallbackFile.toFile().setWritable(true, true)
     }
 
     private companion object {
