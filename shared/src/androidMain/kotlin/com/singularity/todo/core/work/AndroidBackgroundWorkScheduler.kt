@@ -51,10 +51,6 @@ class AndroidBackgroundWorkScheduler(
             JobSchedule.OnDemand -> runNow(jobId)
 
             is JobSchedule.Periodic -> {
-                // WorkManager 2.10 takes java.time.Duration, while JobSchedule speaks
-                // kotlin.time.Duration. Converted here rather than at the JobSchedule
-                // boundary: the domain must not depend on a platform library, and
-                // androidMain is the only place that is allowed to know WorkManager exists.
                 val interval = maxOf(schedule.interval, MIN_PERIODIC_INTERVAL)
                 val request = PeriodicWorkRequestBuilder<BackgroundJobWorker>(
                     java.time.Duration.ofMillis(interval.inWholeMilliseconds),
@@ -63,7 +59,6 @@ class AndroidBackgroundWorkScheduler(
                     .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF)
                     .setInputData(inputData(jobId, schedule))
                     .build()
-                // KEEP: re-arming must not stack a second periodic request on the first.
                 workManager.enqueueUniquePeriodicWork(
                     workName(jobId),
                     ExistingPeriodicWorkPolicy.KEEP,
@@ -74,7 +69,36 @@ class AndroidBackgroundWorkScheduler(
             is JobSchedule.Daily, is JobSchedule.Weekly -> {
                 val delay = JobScheduleMath.delayUntil(schedule, clock.now().toLocalDateTime(zone), zone)
                 logger.d { "scheduling $jobId in $delay" }
-                enqueueOneShot(jobId, schedule, delay)
+                enqueueOneShot(jobId, schedule, delay, ExistingWorkPolicy.KEEP)
+            }
+        }
+    }
+
+    override fun scheduleNext(jobId: String, schedule: JobSchedule) {
+        requireRegistered(jobId)
+        when (schedule) {
+            JobSchedule.OnDemand -> runNow(jobId)
+
+            is JobSchedule.Periodic -> {
+                val interval = maxOf(schedule.interval, MIN_PERIODIC_INTERVAL)
+                val request = PeriodicWorkRequestBuilder<BackgroundJobWorker>(
+                    java.time.Duration.ofMillis(interval.inWholeMilliseconds),
+                )
+                    .setConstraints(constraints())
+                    .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF)
+                    .setInputData(inputData(jobId, schedule))
+                    .build()
+                workManager.enqueueUniquePeriodicWork(
+                    workName(jobId),
+                    ExistingPeriodicWorkPolicy.KEEP,
+                    request,
+                )
+            }
+
+            is JobSchedule.Daily, is JobSchedule.Weekly -> {
+                val delay = JobScheduleMath.delayUntil(schedule, clock.now().toLocalDateTime(zone), zone)
+                logger.d { "scheduling $jobId in $delay" }
+                enqueueOneShot(jobId, schedule, delay, ExistingWorkPolicy.APPEND)
             }
         }
     }
@@ -92,18 +116,18 @@ class AndroidBackgroundWorkScheduler(
         jobId: String,
         schedule: JobSchedule,
         delay: kotlin.time.Duration,
+        policy: ExistingWorkPolicy = ExistingWorkPolicy.KEEP,
     ) {
         val builder = OneTimeWorkRequestBuilder<BackgroundJobWorker>()
             .setConstraints(constraints())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF)
             .setInputData(inputData(jobId, schedule))
         if (delay > kotlin.time.Duration.ZERO) {
-            // Same kotlin.time -> java.time conversion as the periodic branch above.
             builder.setInitialDelay(java.time.Duration.ofMillis(delay.inWholeMilliseconds))
         }
         workManager.enqueueUniqueWork(
             workName(jobId),
-            ExistingWorkPolicy.KEEP,
+            policy,
             builder.build(),
         )
     }

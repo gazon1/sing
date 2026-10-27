@@ -55,7 +55,7 @@ class FakeRemoteConfigApiClient(
     override suspend fun batchPush(request: BatchPushRequest): BatchPushResponse =
         BatchPushResponse(emptyList())
 
-    override suspend fun getEventsSince(sinceLsn: Long, limit: Int): List<SyncEvent> = emptyList()
+    override suspend fun getEventsSince(sinceLsn: Long, limit: Int, profileId: String): List<SyncEvent> = emptyList()
 
     override suspend fun testConnection(): Result<Unit> = Result.success(Unit)
 

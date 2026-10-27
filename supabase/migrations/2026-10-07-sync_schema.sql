@@ -543,7 +543,7 @@ $fn$;
 -- `HlcFactory.tock` still has no caller — which is exactly why it is written down here,
 -- where the fix will change this function's payload first.
 
-create or replace function public.sync_events_since(p_since_lsn bigint, p_limit integer)
+create or replace function public.sync_events_since(p_since_lsn bigint, p_limit integer, p_profile text default '')
 returns jsonb
 language plpgsql
 stable
@@ -574,6 +574,7 @@ begin
         from (
             select * from sync_events
             where owner_id = v_owner and lsn > p_since_lsn
+              and (p_profile is null or p_profile = '' or profile_id = p_profile or profile_id = '')
             order by lsn
             limit least(greatest(coalesce(p_limit, 50), 1), 500)
         ) e

@@ -63,7 +63,7 @@ class AndroidSyncWorkScheduler(private val context: Context) : SyncWorkScheduler
 
         workManager.enqueueUniquePeriodicWork(
             SyncOutboxWorker.PERIODIC_WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.UPDATE,
             request,
         )
     }

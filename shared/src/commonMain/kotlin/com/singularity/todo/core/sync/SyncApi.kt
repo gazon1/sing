@@ -47,7 +47,7 @@ interface SyncApiClient {
      *
      * The scope is not an argument: it is whoever the transport is authenticated as.
      */
-    suspend fun getEventsSince(sinceLsn: Long, limit: Int = 50): List<SyncEvent>
+    suspend fun getEventsSince(sinceLsn: Long, limit: Int = 50, profileId: String = ""): List<SyncEvent>
 
     /** Verifies connectivity to the sync endpoint. Returns success if reachable. */
     suspend fun testConnection(): Result<Unit>

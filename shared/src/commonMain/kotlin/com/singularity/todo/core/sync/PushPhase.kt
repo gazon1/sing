@@ -32,6 +32,8 @@ import kotlinx.serialization.json.jsonObject
  * `scopeProvider.current`. A profile switch between the response and this call would
  * otherwise file the dead-letter under the wrong owner.
  */
+const val PUSH_BATCH_SIZE = 100
+
 internal class PushPhase(
     private val api: SyncApiClient,
     private val authRepository: AuthRepository,
@@ -60,35 +62,59 @@ internal class PushPhase(
         val signedIn = session is Session.SignedIn
         if (signedIn) phases.setPushStatus(isPushing = true)
 
-        // One exit for "there is nothing to push", whether that is because nobody is
-        // signed in or because the queue is empty. They are the same answer — an empty
-        // summary over an untouched outbox — and splitting them across two returns cost
-        // the budget the discard below needs.
-        val plan =
-            if (signedIn) {
-                planPush().getOrElse { return PhaseResult.Failed(it.toAppError()) }
-            } else {
-                null
-            }
-
-        if (plan == null) {
+        if (!signedIn) {
             phases.setPushStatus(isPushing = false)
             return PhaseResult.Ok(PushSummary(0, 0, 0))
         }
 
-        // Smart-cast does not work across method boundaries on a sealed type's
-        // concrete subclass. Unpack explicitly so the compiler knows the type.
-        val ready =
-            when (plan) {
-                is PushPlan.Ready -> plan
+        var succeeded = 0
+        var failed = 0
+        var lost = 0
+        var superseded = 0
+        var discarded = 0
+        var processed = 0
 
-                PushPlan.Empty -> {
+        while (true) {
+                val plan = planPush().getOrElse { error ->
+                    phases.pushFailed(error.toAppError(), 0)
                     phases.setPushStatus(isPushing = false)
-                    return PhaseResult.Ok(PushSummary(0, 0, 0))
+                    return PhaseResult.Failed(error.toAppError())
+                }
+                val ready = (plan as? PushPlan.Ready) ?: break
+
+                val result = pushWithPlan(ready, session)
+                when (result) {
+                    is PhaseResult.Ok -> {
+                        val s = result.getOrThrow()
+                        succeeded += s.succeeded
+                        failed += s.failed
+                        lost += s.lost
+                        superseded += s.superseded
+                        discarded += s.discarded
+                        processed += s.processed
+                    }
+
+                    is PhaseResult.Failed -> {
+                        phases.setPushStatus(isPushing = false)
+                        return result
+                    }
+
+                    else -> {}
                 }
             }
+        }
 
-        return pushWithPlan(ready, session)
+        val summary = PushSummary(
+            processed = processed,
+            succeeded = succeeded,
+            failed = failed,
+            lost = lost,
+            superseded = superseded,
+            discarded = discarded,
+        )
+        phases.recordPushResult(Result.success(summary))
+        phases.setPushStatus(isPushing = false)
+        return PhaseResult.Ok(summary)
     }
 
     /**
@@ -105,8 +131,6 @@ internal class PushPhase(
         return try {
             val response = api.batchPush(ready.request)
             val counts = processResponses(response, pending, activeScope, session)
-            phases.recordPushResult(Result.success(counts.toSummary()))
-            phases.setPushStatus(isPushing = false)
             PhaseResult.Ok(counts.toSummary())
         } catch (e: CancellationException) {
             throw e
@@ -263,14 +287,15 @@ internal class PushPhase(
                 }
                 ?: emptyList()
 
-        if (pending.isEmpty()) return Result.success(null)
+        val batched = pending.take(PUSH_BATCH_SIZE)
+        if (batched.isEmpty()) return Result.success(null)
 
         return phases
             .localStorage("sync.outbox.decode", "assemble the queued changes") {
-                val patches = pending.map { entity -> StableJson.decodeFromString<DeltaPatch>(entity.payload) }
+                val patches = batched.map { entity -> StableJson.decodeFromString<DeltaPatch>(entity.payload) }
                 PushPlan.Ready(
                     scope = activeScope!!,
-                    pending = pending,
+                    pending = batched,
                     patches = patches,
                     request =
                         BatchPushRequest(
@@ -282,7 +307,7 @@ internal class PushPhase(
             }.fold(
                 onSuccess = { Result.success(it as PushPlan?) },
                 onFailure = { error ->
-                    phases.pushFailed(error.toAppError(), pending.size)
+                    phases.pushFailed(error.toAppError(), batched.size)
                     Result.failure(error.toAppError())
                 },
             )
