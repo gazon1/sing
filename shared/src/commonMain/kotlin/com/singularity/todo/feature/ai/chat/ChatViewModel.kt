@@ -221,9 +221,9 @@ class ChatViewModel(
     /**
      * The conversation so far, in the form the next turn hears it.
      *
-     * A user's question and the answer it produced are one record: an answer that arrived
-     * without a question belongs to no question, and an answer that drew a screen is told about
-     * as "showed a screen" rather than as the screen itself.
+     * A user's question and the answer it produced are one record: an answer that arrived without
+     * a question belongs to no question. An answer that drew only a screen carries no words, and
+     * [ChatTurn] names it as "showed a screen" rather than replaying the screen itself.
      */
     private fun historyRecords(): List<ChatTurnRecord> {
         val records: MutableList<ChatTurnRecord> = mutableListOf()
@@ -231,19 +231,19 @@ class ChatViewModel(
         _state.value.messages.forEach { message: ChatMessage ->
             when (message.role) {
                 ChatRole.User -> {
-                    question?.let { records += ChatTurnRecord(it, "", false) }
+                    question?.let { records += ChatTurnRecord(it, "") }
                     question = message.content
                 }
 
                 ChatRole.Assistant -> {
                     question?.let { asked: String ->
-                        records += ChatTurnRecord(asked, message.content, message.surfaceId != null)
+                        records += ChatTurnRecord(asked, message.content)
                     }
                     question = null
                 }
             }
         }
-        question?.let { records += ChatTurnRecord(it, "", false) }
+        question?.let { records += ChatTurnRecord(it, "") }
         return records
     }
 

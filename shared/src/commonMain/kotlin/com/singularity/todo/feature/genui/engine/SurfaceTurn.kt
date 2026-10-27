@@ -36,7 +36,7 @@ import com.singularity.todo.feature.genui.surface.SurfaceId
  * ## The corrections
  *
  * A screen that was rejected is asked for again, and what the model is told about it is
- * [feedback]. The rules that decide what counts as a rejection come with it: an advisory
+ * [correctionRequest]. The rules that decide what counts as a rejection come with it: an advisory
  * error is reported but does not cost the screen, and a message the parser rejected whole is a
  * rejection while one that was skipped is not.
  */
@@ -62,7 +62,6 @@ class SurfaceTurn(
     /** One framer per attempt: it holds the partial line between chunks. */
     private var framer: LineFramer = LineFramer()
 
-    private val prose: StringBuilder = StringBuilder()
     private val errors: MutableList<A2uiError> = mutableListOf()
     private var applied: Boolean = false
 
@@ -76,7 +75,6 @@ class SurfaceTurn(
     fun beginAttempt() {
         controller.apply(UiEvent.DeleteSurface(id))
         framer = LineFramer()
-        prose.clear()
         errors.clear()
         applied = false
     }
@@ -90,9 +88,6 @@ class SurfaceTurn(
     fun finish() {
         framer.finish().forEach { line: FramedLine -> absorb(line) }
     }
-
-    /** The prose of the answer, without the screen. */
-    val text: String get() = prose.toString().trim()
 
     /** Whether this answer drew anything. */
     val drawn: Boolean get() = applied
@@ -152,17 +147,16 @@ class SurfaceTurn(
     /**
      * Takes one framed line, and reports what it changed.
      *
-     * Prose and messages are told apart here rather than in the parser because they mean
-     * different things to a user: the prose is the reply, a message is the screen. A sentence
-     * around the screen is not a malformed response, and reporting it to the model as one would
-     * be the worst possible answer to a question that was answered.
+     * The prose is not this class's business. The reader's text is filtered by the answer's own
+     * filter ([com.singularity.todo.feature.genui.engine.AnswerText]) in the turn that owns the
+     * answer; a screen only has to notice the prose and leave it where it is. So the line is
+     * accepted and dropped. A sentence around the screen is not a malformed response, and
+     * reporting it to the model as one would be the worst possible answer to a question that was
+     * answered.
      */
     private fun absorb(line: FramedLine) {
         when (line) {
-            is FramedLine.Prose -> {
-                if (prose.isNotEmpty()) prose.append(' ')
-                prose.append(line.text)
-            }
+            is FramedLine.Prose -> Unit
 
             is FramedLine.Dropped -> {
                 // A line the transport could not deliver is not a contract violation, and repeating

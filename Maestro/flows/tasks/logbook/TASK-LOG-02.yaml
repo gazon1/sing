@@ -60,9 +60,6 @@ tags:
     visible:
       id: note_editor_title_input
     timeout: 5000
-# The keyboard is up over the title field: the first back would dismiss it and
-# leave the editor on screen, so it is put away first.
-- hideKeyboard
 # The editor is pushed on top of the task detail, and where "back" lands depends
 # on the graph it was pushed on: the task detail or the agenda. One more back —
 # but only when the detail is still there — brings the flow to a known place.

@@ -34,7 +34,9 @@ import com.singularity.todo.test.fakes.FakeUnitOfWork
 import java.io.File
 import java.nio.file.Files
 import kotlin.time.Clock
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import com.singularity.todo.test.fakes.FakeTasksSettingsRepository
 import org.junit.jupiter.api.Tag
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -69,6 +71,9 @@ class BackupRoundTripTest {
     private val targetDbLazy = lazy { buildDb("target.db") }
     private val targetDb: AppDatabase by targetDbLazy
 
+    /** Shared by the importer under test, so the marker it clears can be read back. */
+    private val repairSettings = FakeTasksSettingsRepository()
+
     @AfterTest
     fun tearDown() {
         if (sourceDbLazy.isInitialized()) sourceDb.close()
@@ -99,6 +104,13 @@ class BackupRoundTripTest {
         assertTrue(exported.isSuccess, "export failed: ${exported.exceptionOrNull()}")
         assertTrue(File(destPath).isFile, "the backup file was not written")
 
+        // A profile that was already repaired must be visited again after a
+        // restore: the archive may carry rows from before the series model.
+        repairSettings.setRecurringSeriesRepairVersion(
+            owner.value,
+            com.singularity.todo.feature.tasks.domain.usecase.RepairRecurringSeriesUseCase.VERSION,
+        )
+
         val restored = importer(fs).import(
             importOptions {
                 sourcePath = destPath
@@ -107,6 +119,11 @@ class BackupRoundTripTest {
             },
         )
         assertTrue(restored.isSuccess, "import failed: ${restored.exceptionOrNull()}")
+        assertEquals(
+            0,
+            repairSettings.recurringSeriesRepairVersion(owner.value).first(),
+            "a restore must clear the repair marker so the next launch adopts legacy rows",
+        )
 
         val restoredTasks = targetDb.taskDao().listAllForUser(owner.value)
         assertEquals(1, restoredTasks.size, "the restored database holds ${restoredTasks.size} tasks")
@@ -295,6 +312,7 @@ class BackupRoundTripTest {
         codec = JvmBackupCodec(),
         clock = Clock.System,
         createFileSource = JvmFileSourceFactory(),
+        tasksSettings = repairSettings,
     )
 }
 

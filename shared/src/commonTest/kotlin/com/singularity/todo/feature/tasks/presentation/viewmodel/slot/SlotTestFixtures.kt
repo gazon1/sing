@@ -138,7 +138,7 @@ internal class SlotFakes(
         createTask = CreateTaskUseCase(taskRepo, FakeClock(SLOT_NOW), currentUser),
         completeRecurring = stubCompleteRecurring,
         completion = TaskReopenUseCase(taskRepo, projectsRepo, FakeClock(SLOT_NOW)),
-        updateSeries = UpdateTaskSeriesUseCase(taskRepo),
+        updateSeries = UpdateTaskSeriesUseCase(taskRepo, clock = FakeClock(SLOT_NOW)),
         detachFromSeries = DetachTaskFromSeriesUseCase(taskRepo),
         startRecurringSeries = StartRecurringSeriesUseCase(
             repo = taskRepo,

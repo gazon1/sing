@@ -2,6 +2,7 @@ package com.singularity.todo.feature.tasks.domain
 
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.logic.TaskSeriesInvariants
+import com.singularity.todo.feature.tasks.domain.logic.TaskSeriesShape
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
@@ -152,8 +153,8 @@ class TaskSeriesInvariantsTest {
     fun `rows with one series id are one series`() {
         val members = listOf(member("s1"), member("s2"))
 
-        assertTrue(TaskSeriesInvariants.isOneSeries(members))
-        assertEquals(seriesId, TaskSeriesInvariants.seriesIdOf(members))
+        assertTrue(TaskSeriesShape.isOneSeries(members))
+        assertEquals(seriesId, TaskSeriesShape.seriesIdOf(members))
     }
 
     @Test
@@ -161,7 +162,7 @@ class TaskSeriesInvariantsTest {
         val members = listOf(member("s1"), member("s2", series = TaskSeriesId("series-2")))
 
         assertTrue(
-            !TaskSeriesInvariants.isOneSeries(members),
+            !TaskSeriesShape.isOneSeries(members),
             "a batch with two ids is two series written at once",
         )
     }
@@ -171,10 +172,10 @@ class TaskSeriesInvariantsTest {
         val members = listOf(member("s1", series = null), member("s2", series = null))
 
         assertTrue(
-            TaskSeriesInvariants.isOneSeries(members),
+            TaskSeriesShape.isOneSeries(members),
             "a batch of ordinary tasks is a batch, and the caller may write it",
         )
-        assertEquals(null, TaskSeriesInvariants.seriesIdOf(members))
+        assertEquals(null, TaskSeriesShape.seriesIdOf(members))
     }
 
     // ─── One series, or a batch of tasks that stand alone ─────────────────
@@ -184,7 +185,7 @@ class TaskSeriesInvariantsTest {
         val members = listOf(member("s1", series = null), member("s2", series = null))
 
         assertTrue(
-            TaskSeriesInvariants.isOneSeriesOrStandalone(members),
+            TaskSeriesShape.isOneSeriesOrStandalone(members),
             "the draft of a single date is a batch without a series id, and it is written",
         )
     }
@@ -194,7 +195,7 @@ class TaskSeriesInvariantsTest {
         val members = listOf(member("s1"), member("s2", series = null))
 
         assertTrue(
-            !TaskSeriesInvariants.isOneSeriesOrStandalone(members),
+            !TaskSeriesShape.isOneSeriesOrStandalone(members),
             "one row carrying the id and one not is a series and a task in one write",
         )
     }
@@ -206,7 +207,7 @@ class TaskSeriesInvariantsTest {
             member("s2", title = "Call the plumber", series = null),
         )
 
-        val aligned = TaskSeriesInvariants.alignedIfOneSeries(members)
+        val aligned = TaskSeriesShape.alignedIfOneSeries(members)
 
         assertEquals(
             listOf("Pay the rent", "Call the plumber"),
@@ -222,7 +223,7 @@ class TaskSeriesInvariantsTest {
             member("s2", title = "Pay the rent (old)"),
         )
 
-        val aligned = TaskSeriesInvariants.alignedIfOneSeries(members)
+        val aligned = TaskSeriesShape.alignedIfOneSeries(members)
 
         assertEquals(
             listOf("Pay the rent", "Pay the rent"),
@@ -236,8 +237,8 @@ class TaskSeriesInvariantsTest {
         val a = member("s1", title = "Pay the rent")
         val b = member("s2", title = "Pay the rent (old)")
 
-        val forward = TaskSeriesInvariants.alignedIfOneSeries(listOf(a, b))
-        val reversed = TaskSeriesInvariants.alignedIfOneSeries(listOf(b, a))
+        val forward = TaskSeriesShape.alignedIfOneSeries(listOf(a, b))
+        val reversed = TaskSeriesShape.alignedIfOneSeries(listOf(b, a))
 
         assertEquals(forward.map { it.title }, reversed.map { it.title })
     }

@@ -143,7 +143,7 @@ in the list and in the detail screen, and survives leaving and re-entering the s
 ### Tests for User Story 2
 
 - [x] T040 [P] [US2] Repository test in `shared/src/jvmTest/kotlin/com/singularity/todo/feature/tasks/` — a task set to `InProgress` reads back as `InProgress` from a fresh repository read, not from an in-memory copy
-- [x] T041 [P] [US2] Compose flow test in `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/tasks/TaskStateScenarioTest.kt` — the state control shows the current state and the states it may move to, and the chosen state is reflected on the screen
+- [x] T041 [P] [US2] Compose flow test in `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/tasks/TaskStateChosenScenarioTest.kt` — the state control shows the current state and the states it may move to, and the chosen state is reflected on the screen
 
 ### Implementation for User Story 2
 
@@ -153,7 +153,7 @@ in the list and in the detail screen, and survives leaving and re-entering the s
 - [x] T045 [P] [US2] Create the state picker sheet `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/detail/TaskEditorStateSheet.kt`, following `TaskEditorPrioritySheet.kt`
 - [x] T046 [US2] Register `WorkflowState` in the `TaskEditorSheet` enum and add the branch in `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/detail/TaskEditorSheetsHost.kt` — one branch per sheet, no registry
 - [x] T047 [US2] Freeze the state control on a completed task in `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/detail/TaskEditorContent.kt` and `TaskEditorStateSheet.kt` — a completed task's state is shown but cannot be changed, and completing a task does not change its state and reopening does not reset it
-- [x] T048 [US2] Create the scenario specs `scripts/src/traceability/scenarios/tasks/state/TASK-STATE-01.yaml`, `TASK-STATE-02.yaml` and `TASK-STATE-03.yaml` **and** their carriers in `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/tasks/TaskStateScenarioTest.kt` — the id prefix must match the path: `TASK-STATE` in `tasks/state/`
+- [x] T048 [US2] Create the scenario specs `scripts/src/traceability/scenarios/tasks/state/TASK-STATE-01.yaml`, `TASK-STATE-02.yaml` and `TASK-STATE-03.yaml` **and** their carriers in `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/tasks/TaskStateChosenScenarioTest.kt`, `TaskStateSurvivesScenarioTest.kt` and `TaskStateCompletedScenarioTest.kt` — the id prefix must match the path: `TASK-STATE` in `tasks/state/`
 - [ ] T049 [US2] Declare the three scenarios in the `## Scenario Matrix` of `specs/016-task-states-and-items/spec.md` and run `python3 scripts/check-traceability-ratchet.py`
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently.
@@ -225,7 +225,7 @@ and confirm both counts update and neither list touched the other.
 
 ### Tests for User Story 5
 
-- [x] T069 [P] [US5] Compose flow test in `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/tasks/TaskItemScenarioTest.kt` — both lists render with checkboxes, the counts update, and an item can be added without a modal opening
+- [x] T069 [P] [US5] Compose flow test in `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/tasks/TaskItemListScenarioTest.kt` — both lists render with checkboxes, the counts update, and an item can be added without a modal opening
 
 ### Implementation for User Story 5
 
@@ -239,7 +239,7 @@ and confirm both counts update and neither list touched the other.
 - [x] T077 [US5] Drop the ten-item cap in both lists — `checklist.take(10)` with a `"+N more"` line, and the same in `SubtasksSection.kt`, silently truncate without saying what was left
 - [x] T078 [US5] Fix the ordering in `shared/src/commonMain/kotlin/com/singularity/todo/feature/checklist/data/ChecklistRepositoryImpl.kt` — `addItem` numbers a new item by the **count** of existing rows (line 39), so a delete followed by an add collides and the tie is broken by rowid. Use `max(sortOrder) + 1`
 - [x] T079 [US5] Re-point the Maestro flow `Maestro/flows/tasks/checklist/TASK-CHECK-01.yaml` at the inline section — the detail screen never opened the checklist sheet (it passes `checklist = null`), and after this story the items are inline. Its scenario file `scripts/src/traceability/scenarios/tasks/checklist/TASK-CHECK-01.yaml` moves with it
-- [x] T080 [US5] Create the scenario spec `scripts/src/traceability/scenarios/tasks/item/TASK-ITEM-01.yaml` **and** its carrier in `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/tasks/TaskItemScenarioTest.kt` — the id prefix must match the path: `TASK-ITEM` in `tasks/item/`
+- [x] T080 [US5] Create the scenario spec `scripts/src/traceability/scenarios/tasks/item/TASK-ITEM-01.yaml` **and** its carrier in `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/tasks/TaskItemListScenarioTest.kt` — the id prefix must match the path: `TASK-ITEM` in `tasks/item/`
 - [ ] T081 [US5] Declare `TASK-ITEM-01` in the `## Scenario Matrix` of `specs/016-task-states-and-items/spec.md` and run `python3 scripts/check-traceability-ratchet.py`
 
 **Checkpoint**: At this point, User Stories 1–5 should all work independently.
@@ -257,13 +257,13 @@ by the other.
 
 ### Tests for User Story 6
 
-- [x] T082 [P] [US6] Compose flow test in `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/tasks/TaskItemScenarioTest.kt` — ticking a checklist item leaves the task and the subtasks untouched, ticking a subtask leaves the checklist untouched, and only a subtask opens as a task
+- [x] T082 [P] [US6] Compose flow test in `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/tasks/TaskItemIndependenceScenarioTest.kt` — ticking a checklist item leaves the task and the subtasks untouched, ticking a subtask leaves the checklist untouched, and only a subtask opens as a task
 
 ### Implementation for User Story 6
 
 - [x] T083 [US6] Make the shared row's "open as a task" affordance apply to subtasks only — in `shared/src/commonMain/kotlin/com/singularity/todo/feature/checklist/components/ChecklistItemRow.kt` and `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/components/detail/SubtasksSection.kt`. A checklist item is not presented as something that opens as a task of its own, while a subtask still opens through `onOpen` → `navigator.openDetail(it.id)`
 - [x] T084 [US6] Confirm the two writes stay separate in `shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/presentation/viewmodel/slot/TaskChildrenSlot.kt` — a subtask toggle is `taskRepo.complete(subtask.id)` with its prerequisite guard, a checklist toggle is `checklistRepository.toggleItem(taskId, itemId, "user")` with no task-lifecycle semantics at all
-- [x] T085 [US6] Create the scenario spec `scripts/src/traceability/scenarios/tasks/item/TASK-ITEM-02.yaml` **and** its carrier in `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/tasks/TaskItemScenarioTest.kt`
+- [x] T085 [US6] Create the scenario spec `scripts/src/traceability/scenarios/tasks/item/TASK-ITEM-02.yaml` **and** its carrier in `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/tasks/TaskItemIndependenceScenarioTest.kt`
 - [ ] T086 [US6] Declare `TASK-ITEM-02` in the `## Scenario Matrix` of `specs/016-task-states-and-items/spec.md` and run `python3 scripts/check-traceability-ratchet.py`
 
 **Checkpoint**: All user stories should now be independently functional.

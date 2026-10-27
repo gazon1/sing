@@ -88,7 +88,7 @@ fun runGenuiRenderTest(
         if (outcome !is A2uiParseOutcome.Parsed) {
             throw AssertionError("Line ${index + 1} did not parse: $outcome")
         }
-        // Retargeted exactly as GenuiSession does it: the identifier inside a message groups one
+        // Retargeted exactly as SurfaceTurn does it: the identifier inside a message groups one
         // answer's lines, and the surface is filed under the caller's. A harness that skipped this
         // would put the surface under whatever the fixture happened to name it, and every lookup
         // here would miss.

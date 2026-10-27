@@ -21,6 +21,74 @@ private const val MAX_FIELDS: Int = 6
 private val summaryJson = Json { ignoreUnknownKeys = true }
 
 /**
+ * The field names whose values may be quoted.
+ *
+ * ## Why a list and not a length rule
+ *
+ * A length rule cannot tell a note body from a task title: "Buy milk" is four characters
+ * either way. So the rule was "quote anything short and single-line", and a one-line note
+ * body — the exact content the summary exists to keep off the screen — was quoted into the
+ * card. FR-020 says the summary must contain *only identifying information*, and a bound on
+ * the value cannot express that.
+ *
+ * So the decision is field-based: a value is quoted only when its **field** identifies rather
+ * than describes. Everything else is named and elided (`body=…`), because the reader needs to
+ * know *what kind of thing* was touched, not what it says. The list is explicit so that a new
+ * free-text argument cannot leak by being short; it has to be added here, where a reviewer
+ * sees it, and the reason it is identifying written next to it.
+ *
+ * ## Why numbers and flags have no entry
+ *
+ * A JSON number or boolean is not free text, whatever its field is called: it cannot carry a
+ * paragraph. [describe] quotes those by the value rule alone, before this list is consulted,
+ * so a boolean or a number in this list would be an entry nothing reads.
+ *
+ * The list is maintained by hand against the `*Input` models under `feature/ai/tools/`. It has
+ * to be re-derived when a tool gains a string argument: a new free-text argument is elided by
+ * default, and a new identifying one has to be added here.
+ */
+internal val IDENTIFYING_FIELDS: Set<String> = setOf(
+    // Identifiers: the name of a row, which is all a card needs to say what was touched.
+    "id", "taskId", "noteId", "projectId", "tagId", "tagGroupId", "parentId", "parentNoteId",
+    "parentTaskId", "itemId", "attachmentId", "seriesId", "proposalId", "callId", "userId",
+    "profileId", "dependsOnTaskId", "dependsOn", "supersededBy",
+    // Titles and names: the label of the thing, not its content.
+    "title", "name", "label", "slug", "icon", "projectName",
+    // Categorical values: one word from a closed set.
+    "kind", "status", "priority", "tone", "verb", "operation", "field", "mode", "scope",
+    // Dates.
+    "dueDate", "dueTime", "startDate", "endDate", "startsAt", "endsAt", "date", "time",
+    // A colour is a hex string in some tools and a number in others; the number is quoted by
+    // shape, the string needs its name here.
+    "colorHex",
+)
+
+/**
+ * The field names whose values are free text and must never be quoted in a summary.
+ *
+ * ## Why this list exists
+ *
+ * [IDENTIFYING_FIELDS] is the allow-list: a value is quoted only when its field
+ * identifies. Everything else is free text by default. That default is safe but
+ * invisible: a new string field added to an `*Input` model is silently elided,
+ * which is the right behaviour, but nobody is told it happened. This list makes
+ * the default explicit, so that a field added without classification trips a
+ * structural test instead of slipping through.
+ *
+ * ## Maintenance
+ *
+ * When a tool gains a string argument, it lands here if it is free text, or in
+ * [IDENTIFYING_FIELDS] if it identifies. The structural test
+ * `ToolCallSummaryAllowListTest` fails otherwise.
+ */
+internal val FREE_TEXT_FIELDS: Set<String> = setOf(
+    "action", "body", "bodyHtml", "bodyMarkdown", "content", "createdAt", "currentTitle",
+    "cursor", "cursorWarning", "description", "doneWhen", "error", "health", "message",
+    "newTitle", "nextCursor", "planSource", "query", "rationale", "rawIdea", "reason",
+    "selection", "suggestedTime", "summary", "text", "updatedAt", "value", "warning",
+)
+
+/**
  * A short, sanitized description of what a tool call touched.
  *
  * ## Why this is not "the arguments"
@@ -31,10 +99,11 @@ private val summaryJson = Json { ignoreUnknownKeys = true }
  * that shows a note body puts that content on a screen that was about to be shared,
  * photographed or screenshotted.
  *
- * So the summary names the fields and quotes the values that are too short to be prose:
- * identifiers, ids, titles, numbers, flags. A value that is long, or that spans lines, is
- * replaced by an ellipsis — it is either free text or a document, and neither belongs in a
- * label.
+ * So the summary names the fields, quotes the values of fields that **identify** (see
+ * [IDENTIFYING_FIELDS]) and that are short and single-line, and replaces every other value
+ * with an ellipsis. A free-text value — a note body, a description, a query — is elided
+ * whether it is long or short, because its length says nothing about whether it is the
+ * reader's content.
  *
  * ## Why it is a function and not UI code
  *
@@ -56,7 +125,7 @@ fun toolCallSummary(toolName: String, argumentsJson: String?): String {
     if (fields == null || fields.isEmpty()) return head
 
     val described = fields.entries.take(MAX_FIELDS).map { (name, value) ->
-        "$name=${describe(value)}"
+        "$name=${describe(name, value)}"
     }.joinToString(", ")
 
     val overflow = fields.size - MAX_FIELDS
@@ -66,14 +135,19 @@ fun toolCallSummary(toolName: String, argumentsJson: String?): String {
 }
 
 /**
- * One field's value, quoted only if it is too short to be prose.
+ * One field's value, quoted only if the field identifies and the value is a label.
+ *
+ * Numbers and flags are quoted by the value rule alone: they cannot carry free text. A
+ * string is quoted only when its field is in [IDENTIFYING_FIELDS] — the field decides, not
+ * the length, because a short value is exactly as likely to be the reader's own words.
  */
-private fun describe(value: kotlinx.serialization.json.JsonElement): String {
+private fun describe(name: String, value: kotlinx.serialization.json.JsonElement): String {
     val primitive = value as? JsonPrimitive ?: return "…"
     val text = primitive.content
     return when {
         !primitive.isString -> if (text.length <= MAX_VALUE_LENGTH) text else "…"
         text.isEmpty() -> "∅"
+        name !in IDENTIFYING_FIELDS -> "…"
         text.isDocument() -> "…"
         else -> text
     }

@@ -3,6 +3,7 @@ package com.singularity.todo.test.helpers
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
@@ -260,6 +261,23 @@ fun DesktopComposeUiTest.awaitContentDescription(desc: String) = step("awaitCont
 @OptIn(ExperimentalTestApi::class)
 fun DesktopComposeUiTest.countNodes(tag: String): Int =
     onAllNodesWithTag(tag).fetchSemanticsNodes().size
+
+/**
+ * Whether the checkbox with [testTag] reports ToggleableState.On right now.
+ *
+ * The negative of [awaitCheckboxChecked]: that one waits for the state to
+ * become on, this one answers without waiting. A checkbox has no "is ticked"
+ * property on the node — its state is the `ToggleableState` the toggleable
+ * modifier writes — so the answer is read from the semantics of every node
+ * carrying the tag.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.isCheckboxChecked(testTag: String): Boolean =
+    onAllNodesWithTag(testTag)
+        .fetchSemanticsNodes()
+        .any { node ->
+            node.config.getOrNull(SemanticsProperties.ToggleableState) == ToggleableState.On
+        }
 
 /**
  * Waits until the checkbox with [testTag] reports ToggleableState.On.

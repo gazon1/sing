@@ -58,15 +58,25 @@ class JsonMessageDepth {
      * answer as it arrives, one character at a time.
      */
     fun accept(text: String): Int {
-        for (character in text) {
-            when {
-                escaped -> escaped = false
-                inString && character == '\\' -> escaped = true
-                inString && character == '"' -> inString = false
-                !inString && character == '"' -> inString = true
-                !inString && character == '{' -> depth++
-                !inString && character == '}' -> depth--
-            }
+        for (character in text) accept(character)
+        return depth
+    }
+
+    /**
+     * [accept] for one character.
+     *
+     * A stream is fed one character at a time, and going through [String] for each
+     * of them allocated a string per character. The character form is the one a
+     * streaming caller should use.
+     */
+    fun accept(character: Char): Int {
+        when {
+            escaped -> escaped = false
+            inString && character == '\\' -> escaped = true
+            inString && character == '"' -> inString = false
+            !inString && character == '"' -> inString = true
+            !inString && character == '{' -> depth++
+            !inString && character == '}' -> depth--
         }
         return depth
     }

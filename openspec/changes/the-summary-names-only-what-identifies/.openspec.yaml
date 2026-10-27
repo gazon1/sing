@@ -1,0 +1,20 @@
+schema: spec-driven
+
+# The requirement this change alters lives in the feature specification, not in openspec.
+#
+# FR-020 in `specs/014-acp-client-agent-activity/spec.md` is amended by this change: its
+# measurable clause said "a field's value is quoted only when it is a single-line value of at
+# most 60 characters", which cannot express "only identifying information", and that is why a
+# one-line note body reached the card. The amendment is in that file, in this diff, where a
+# reviewer reads the requirement and its new wording together.
+#
+# `openspec/specs/` does not carry this capability (the external-agent change that owns it is
+# still open), so a delta here would duplicate or collide. `skip_specs` is therefore set; the
+# change still carries a proposal and tasks here, and a verdict in `.specify/reviews/`.
+#
+# Invariant: if this change ever needs an openspec-level requirement of its own — a capability
+# that exists in `openspec/specs/` — delete `skip_specs` and write the delta instead of
+# amending the feature spec alone.
+# skip_specs removed: acp-external-agent-desktop is now archived and the
+# ai/external-agent capability lives in openspec/specs/. A delta can be
+# written here if this change needs an openspec-level requirement.

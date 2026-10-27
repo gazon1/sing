@@ -1738,7 +1738,7 @@ GATE_CONTROLS: dict[str, Control] = {
             edit=Edit(
                 kind='replace',
                 old='AcpSessionEventTest',
-                new='NoSuchLifecycleCheck',
+                new='NoSuchLifecycleCheckTest',
                 count=1,
             ),
             why=(

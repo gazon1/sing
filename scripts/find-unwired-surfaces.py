@@ -856,9 +856,8 @@ def _injected_by_constructor(
 #
 # The type is in the constructor's signature, and the call site says only
 # `get()`. A scan that reads `get<X>()` sees nothing here, so a binding that
-# the graph does use reads as an orphan — which is how `DeviceIdProvider` and
-# `GenuiTransport` ended up in the allowlist with a note saying the scanner
-# could not follow them.
+# the graph does use reads as an orphan — which is how `DeviceIdProvider` ended
+# up in the allowlist with a note saying the scanner could not follow it.
 #
 # The resolution is deliberately one-sided: a type is marked consumed only when
 # the scan can name the constructor it came from and the parameter it fills.

@@ -9,7 +9,7 @@ documents: sha256:4d64f2abede2a663a6d6bf42bfddf5d05c001ec60efbbd51c10a7575260f64
 
 ## What was reviewed
 
-The whole change: `openspec/changes/the-turn-is-one-model-call/` — the
+The whole change: `openspec/changes/archive/2026-10-26-the-turn-is-one-model-call/` — the
 proposal, the design, the spec delta and the tasks — against the code it
 describes. The turn of the built-in chat, the format the screen travels in,
 and the two records the change rests on (REQ-CHTURN-007's usage rule and
@@ -111,7 +111,7 @@ reason and a set of smaller ones, all closed here:
 
 ## Links
 
-- OpenSpec: `openspec/changes/the-turn-is-one-model-call/`
+- OpenSpec: `openspec/changes/archive/2026-10-26-the-turn-is-one-model-call/`
 - ADR `docs/decisions/2026-10-25-the-turn-is-one-model-call.md`
 - ADR `docs/decisions/2026-10-25-the-version-we-can-compare.md`
 - ADR `docs/decisions/2026-10-25-the-sdk-lives-in-one-file.md`

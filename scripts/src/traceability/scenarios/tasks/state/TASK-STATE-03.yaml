@@ -28,4 +28,4 @@ expected: >-
   work already done.
 
 # Claimed on `desktop` by
-# desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/tasks/TaskStateScenarioTest.kt.
+# desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/tasks/TaskStateCompletedScenarioTest.kt.

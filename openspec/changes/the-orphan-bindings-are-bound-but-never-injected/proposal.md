@@ -5,14 +5,13 @@ Tags: **koin di orphan-binding**
 
 ## What
 
-Three Koin bindings are declared and never injected. They are no-ops at
+Koin bindings are declared and never injected. They are no-ops at
 runtime, and the unwired-surfaces detector reports them:
 
 | Binding | Module |
 |---|---|
 | `single<AuthGateway>` | `shared/src/commonMain/kotlin/com/singularity/todo/core/di/CoreDiModule.kt` |
 | `single<DeviceIdProvider>` | `shared/src/commonMain/kotlin/com/singularity/todo/core/di/CoreDiModule.kt` |
-| `single<GenuiTransport>` | `shared/src/commonMain/kotlin/com/singularity/todo/feature/genui/di/GenuiDiModule.kt` |
 
 A binding nobody injects is not a binding. It is a line that reads like a
 promise, and the graph verification the Koin compiler plugin performs does not
@@ -29,7 +28,7 @@ first one.
 
 ## What this change does not do yet
 
-It is **deferred**, and the deferral is deliberate. Each of the three needs a
+It is **deferred**, and the deferral is deliberate. Each of the two needs a
 product answer before it can be closed, and guessing would be worse than
 leaving them visible:
 
@@ -38,14 +37,22 @@ leaving them visible:
 - **`DeviceIdProvider`** — the device id is needed by sync, by the backup
   format, or by neither. The answer decides whether the binding is the
   provider or the provider is dead.
-- **`GenuiTransport`** — the transport is the seam between the agent and the
-  app. A seam with no traffic is a seam that was designed and never used; it
-  either gets a consumer or it goes.
 
 Closing them by deleting the bindings alone would be the wrong move: the
 interfaces would remain, and the *next* binding to them would be the same
 orphans. Closing them by inventing consumers would be worse: it would wire
 features nobody asked for.
+
+## The third binding, since closed
+
+The third orphan this change was written about, `single<GenuiTransport>`
+(`feature/genui/di/GenuiDiModule.kt`), is gone. The screen's transport seam was
+the last place in the app that could make a second model call, and the change
+`the-turn-is-one-model-call` deleted it rather than give it a consumer: the
+turn asks the model now, and a seam with no traffic is a seam that was designed
+and never used. The interface went with the binding, which is the closure this
+change asks for — not the "delete the binding and leave the hole" it warns
+against.
 
 ## What not to do
 
@@ -60,10 +67,11 @@ features nobody asked for.
 
 ## Consequences
 
-- The three bindings stay visible in the detector's output until each one is
-  decided.
-- The detector's finding is the record: three specific interfaces, three
-  specific modules, and a question attached to each.
+- The two remaining bindings stay visible in the detector's output until each
+  one is decided.
+- The detector's finding is the record: two specific interfaces, two specific
+  modules, and a question attached to each.
+- The third one is closed: `GenuiTransport` is gone, and its interface with it.
 - The graph test does not claim to prove what it cannot prove. It proves that
   what is injected can be constructed; it does not claim that every
   declaration has a consumer.

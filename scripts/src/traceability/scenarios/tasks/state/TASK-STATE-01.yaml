@@ -27,4 +27,4 @@ expected: >-
   progress" afterwards — the task itself is still open.
 
 # Claimed on `desktop` by
-# desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/tasks/TaskStateScenarioTest.kt.
+# desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/tasks/TaskStateChosenScenarioTest.kt.

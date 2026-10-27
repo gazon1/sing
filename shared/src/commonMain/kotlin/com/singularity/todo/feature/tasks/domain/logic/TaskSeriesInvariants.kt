@@ -6,7 +6,6 @@ import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskSharedField
-import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
 
 /**
@@ -47,7 +46,12 @@ import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
  *    but carries two series ids, or two titles, is a mistake in the caller —
  *    and a mistake that is written is a series that cannot be described.
  *
+ * The structural rules — is this batch one series, may this row carry a rule —
+ * live in [TaskSeriesShape]. This object answers the other question: do the rows
+ * of a series say the same thing about the work.
+ *
  * @see TaskSharedField
+ * @see TaskSeriesShape
  */
 object TaskSeriesInvariants {
 
@@ -129,58 +133,6 @@ object TaskSeriesInvariants {
                 aligned
             }
     }
-
-    /**
-     * Whether a batch of rows is one series.
-     *
-     * A batch that carries no series id at all is not a series — it is a
-     * batch of tasks, and the caller is free to write it. A batch that carries
-     * two different ids claims to be two series in one write, which is the
-     * mistake the write path refuses.
-     */
-    fun isOneSeries(tasks: List<Task>): Boolean {
-        val ids = tasks.mapNotNull { it.seriesId }.distinct()
-        return ids.size <= 1
-    }
-
-    /**
-     * Whether a batch is either one series or a batch of tasks that stand alone.
-     *
-     * The two are told apart by the id every member carries: a series is a
-     * batch whose members all carry the same id, and a batch of tasks that
-     * stand alone is a batch whose members carry none. A batch whose members
-     * disagree about that — one carries the id, the other does not — is the
-     * mistake the write path refuses: it is a series and a task in one write,
-     * and no rule can say which of the two stories was meant.
-     */
-    fun isOneSeriesOrStandalone(tasks: List<Task>): Boolean {
-        if (!isOneSeries(tasks)) return false
-        val ids = tasks.mapNotNull { it.seriesId }.distinct()
-        return ids.isEmpty() || tasks.all { it.seriesId != null }
-    }
-
-    /**
-     * The members with the shared fields of the chosen source written onto them,
-     * when the batch is one series.
-     *
-     * The source is chosen by a canonical rule rather than by list position, so
-     * the same batch in any order resolves to the same member: the one with the
-     * latest `updatedAt`, and, when two members share that time, the one with
-     * the smallest id. A batch that stands alone keeps what each row says about
-     * itself — aligning it to a source would give every task in it that task's
-     * title, which is a different work entirely.
-     */
-    fun alignedIfOneSeries(members: List<Task>): List<Task> {
-        if (seriesIdOf(members) == null) return members
-        val latest = members.maxOf { it.updatedAt }
-        val source = members.filter { it.updatedAt == latest }.minBy { it.id.value }
-        return alignedTo(members, source)
-    }
-
-    /**
-     * The one series id of a batch, if it has one.
-     */
-    fun seriesIdOf(tasks: List<Task>): TaskSeriesId? = tasks.mapNotNull { it.seriesId }.distinct().singleOrNull()
 
     /**
      * The value of a shared field of a task.
