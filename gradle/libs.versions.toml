@@ -72,7 +72,7 @@ nav3 = "1.2.0"
 # androidx line has no desktop variant at all, so the JetBrains root is the only
 # artifact that can put `NavDisplay` into commonMain: on Android it redirects to
 # `androidx.navigation3:navigation3-ui`, on Desktop it carries the port.
-nav3-ui = "1.2.0-rc01"
+nav3-ui = "1.2.0"
 nav3-lifecycle-vm = "2.11.0"
 
 # Supabase
