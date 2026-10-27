@@ -293,7 +293,7 @@ def run_one_flow(
                 installed_sha = deps.apk_sha_from_device(serial)
                 if not installed_sha or installed_sha != expected_sha:
                     logger.warning(
-                        "device was relaunched and SKIP_INSTALL=1, "
+                        "device was relaunched and the run skips the install, "
                         "so binary is whatever the snapshot held."
                     )
 
