@@ -161,13 +161,17 @@ private open class ReplayingTextGen(responses: List<String>) : TextGenPort {
     var calls: Int = 0
         private set
 
+    private val recorded: MutableList<String> = mutableListOf()
+
     /**
      * The message of every call, in order — what the model was asked, each time.
      *
      * The correction the model receives is the only place the reason a first attempt
      * was refused survives: the screen clears its errors when the next attempt begins.
+     * It is a view of what was recorded, so a test cannot edit the record it is
+     * asserting on.
      */
-    val requests: MutableList<String> = mutableListOf()
+    val requests: List<String> get() = recorded
 
     private val responses: List<String> = responses
 
@@ -175,7 +179,7 @@ private open class ReplayingTextGen(responses: List<String>) : TextGenPort {
         Result.success("unused")
 
     override fun streamChat(message: String, instructions: String): Flow<AgentEvent> = flow {
-        requests += message
+        recorded += message
         val answer: List<String> = if (calls++ == 0) responses else emptyList()
         answer.forEach { emit(AgentEvent.TextDelta("$it\n")) }
         emit(AgentEvent.TurnCompleted)
