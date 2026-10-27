@@ -1,6 +1,8 @@
 package com.singularity.todo.core.wipe
 
 import com.singularity.todo.core.attachments.AttachmentEntity
+import com.singularity.todo.core.attachments.AttachmentStorage
+import com.singularity.todo.core.files.JvmFileSystem
 import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationEntity
 import com.singularity.todo.core.config.RemoteConfigCacheEntity
 import com.singularity.todo.core.database.AgendaViewEntity
@@ -707,6 +709,7 @@ class ProfileResetReachesTheWholeProfileTest {
             calendarImportEventDao = db.calendarImportEventDao(),
             calendarSyncTaskMapDao = db.calendarSyncTaskMapDao(),
             googleEventShadowDao = db.googleEventShadowDao(),
+            attachmentStorage = AttachmentStorage(fs = JvmFileSystem(), dir = tempDir.absolutePath),
         ),
         draftStore = FakeDraftStore(),
         currentUser = currentUser,

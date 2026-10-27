@@ -16,6 +16,7 @@ import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import kotlin.test.AfterTest
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /**
@@ -116,6 +117,21 @@ class AdrStorageRoundTripTest {
         val storage = storageFor(hasDecisionsDir = true)
 
         assertEquals(emptyList(), storage.listAdrs())
+    }
+
+    @Test
+    fun `writeAdr rejects a title with a newline or quote`() {
+        val storage = storageFor(hasDecisionsDir = true)
+
+        assertFailsWith<IllegalArgumentException> {
+            storage.writeAdr("2026-10-05-bad", "Bad\nDecision: x", emptyList(), "Body.")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            storage.writeAdr("2026-10-05-bad2", "Bad\"title", emptyList(), "Body.")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            storage.writeAdr("2026-10-05-bad3", "Fine", listOf("tag\nx"), "Body.")
+        }
     }
 
     @Test
