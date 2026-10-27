@@ -1,7 +1,10 @@
 # ai/external-agent Specification
 
 ## Purpose
-TBD - created by archiving change acp-external-agent-desktop. Update Purpose after archive.
+The user runs an agent program of their own against the application: they pick an agent from
+a registry of known ones, see what it may do before it starts, connect it, watch it work, and
+stop it — with every write it proposes passing through the application's own confirmation, and
+every process it starts ending with the session.
 
 ## Requirements
 
