@@ -101,7 +101,7 @@ kotlinxCollectionsImmutable = "0.5.2"
 filekit = "0.16.0"
 
 # Rich Text Editor
-rich-editor = "1.2.0"
+rich-editor = "1.2.1"
 
 # Security
 security-crypto = "1.1.0"
