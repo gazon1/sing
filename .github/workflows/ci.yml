@@ -1584,7 +1584,7 @@ jobs:
       # Gradle toolchain (21) and the installed script then dies with
       # UnsupportedClassVersionError (class file 65 vs 61) on `validate`.
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
@@ -1651,7 +1651,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
