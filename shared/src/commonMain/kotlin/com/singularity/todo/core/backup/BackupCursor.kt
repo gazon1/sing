@@ -108,10 +108,32 @@ class BackupCursorStore(private val fs: FileSystem, private val dir: String) {
         }.getOrElse { BackupCursorState() }
     }
 
-    /** Records what the account's last export left behind. */
+    /**
+     * Records what the account's last export left behind.
+     *
+     * The write is **atomic**: the state goes to a temporary file, and that file
+     * is moved over the real one. A process that dies between the two leaves the
+     * old state intact rather than half of the new one — and half a state is a
+     * state that cannot be read, which costs the chain and makes the next export
+     * write a fresh base.
+     */
     suspend fun save(userId: UserId, state: BackupCursorState) {
         fs.ensureDir(dir)
-        fs.writeBytes(pathFor(userId), json.encodeToString(BackupCursorState.serializer(), state).encodeToByteArray())
+        val path = pathFor(userId)
+        val temporary = "$path$TEMPORARY_SUFFIX"
+        try {
+            fs.writeBytes(
+                temporary,
+                json.encodeToString(BackupCursorState.serializer(), state).encodeToByteArray(),
+            )
+            fs.move(temporary, path)
+        } finally {
+            // A temporary file that did not become the cursor is litter, and
+            // litter in the backup's own directory is a file the person may see.
+            if (fs.exists(temporary)) {
+                runCatchingCancellable { fs.delete(temporary) }
+            }
+        }
     }
 
     /** The file the account's bookkeeping lives in. */
@@ -127,5 +149,8 @@ class BackupCursorStore(private val fs: FileSystem, private val dir: String) {
 
         /** The suffix of the bookkeeping file's name — and deliberately not `.zip`. */
         const val FILE_SUFFIX = ".json"
+
+        /** The suffix of the file the state is written to before it is moved. */
+        const val TEMPORARY_SUFFIX = ".tmp"
     }
 }

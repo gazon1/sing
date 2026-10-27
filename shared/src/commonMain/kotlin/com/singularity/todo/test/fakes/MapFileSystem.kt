@@ -28,6 +28,17 @@ class MapFileSystem(
         storage[path] = data
     }
 
+    /**
+     * The file moves, and the old name is gone.
+     *
+     * The in-memory map has no rename, so the move is a removal and an
+     * insertion — which is what a rename does to a directory anyway.
+     */
+    override suspend fun move(from: String, to: String) {
+        val bytes = storage.remove(from) ?: throw NoSuchFileException(from)
+        storage[to] = bytes
+    }
+
     override suspend fun delete(path: String): Boolean = storage.remove(path) != null || dirs.remove(path)
 
     override suspend fun exists(path: String): Boolean = storage.containsKey(path) || dirs.contains(path)

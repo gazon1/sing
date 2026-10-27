@@ -25,9 +25,25 @@ interface FileSystem {
 
     /**
      * Writes `data` to `path`, creating parent directories as needed.
-     * **Note**: on JVM this is not crash-safe — use a temp file + rename for critical data.
+     * **Note**: on JVM this is not crash-safe — write a temporary file and
+     * [move] it over the target when the data must survive a crash.
      */
     suspend fun writeBytes(path: String, data: ByteArray)
+
+    /**
+     * Moves [from] to [to], replacing [to] when it is there.
+     *
+     * The rename is what makes a write **atomic**: a file written under a
+     * temporary name and then moved over the real one is either the old file or
+     * the new one, never half of each other. A caller that writes the real name
+     * directly can leave a truncated file behind when the process dies mid-write
+     * — and the files where that matters are the bookkeeping ones, where a
+     * truncated file is a lost chain.
+     *
+     * The move stays within one filesystem: a move across two is a copy, and a
+     * copy is not atomic.
+     */
+    suspend fun move(from: String, to: String)
 
     /** Deletes file or empty directory. Returns `true` if the path existed prior to deletion. */
     suspend fun delete(path: String): Boolean

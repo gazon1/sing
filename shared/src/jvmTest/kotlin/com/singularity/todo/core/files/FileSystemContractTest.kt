@@ -78,6 +78,41 @@ abstract class FileSystemContract<F : FileSystem>(private val makeSut: () -> F) 
         sut.delete(path)
     }
 
+    /**
+     * A move carries the bytes and takes the old name away.
+     *
+     * The move is what makes a write atomic — a file written under a temporary
+     * name and moved over the real one is either the old file or the new one —
+     * so the two halves of that promise are pinned here: the bytes arrive, and
+     * the old name is gone.
+     */
+    @Test
+    fun `a move carries the bytes and takes the old name away`() = runTest {
+        val from = tmpPath()
+        val to = tmpPath("/moved/file.txt")
+        sut.writeBytes(from, byteArrayOf(7, 8, 9))
+
+        sut.move(from, to)
+
+        assertContentEquals(byteArrayOf(7, 8, 9), sut.readBytes(to), "the bytes must arrive")
+        assertFalse(sut.exists(from), "the old name must be gone")
+        sut.delete(to)
+    }
+
+    /** A move over a file that is already there replaces it. */
+    @Test
+    fun `a move replaces what was at the target`() = runTest {
+        val from = tmpPath()
+        val to = tmpPath()
+        sut.writeBytes(from, byteArrayOf(1))
+        sut.writeBytes(to, byteArrayOf(2))
+
+        sut.move(from, to)
+
+        assertContentEquals(byteArrayOf(1), sut.readBytes(to), "the moved bytes win")
+        sut.delete(to)
+    }
+
     @Test
     fun `exists returns false for missing path`() = runTest {
         assertFalse(sut.exists(missingPath()))

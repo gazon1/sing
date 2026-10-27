@@ -87,6 +87,12 @@ class InMemoryFileSystem : FileSystem {
         files[path] = data
     }
 
+    /** The file moves, and the old name is gone. */
+    override suspend fun move(from: String, to: String) {
+        val bytes = files.remove(from) ?: error("no such file in InMemoryFileSystem: $from")
+        files[to] = bytes
+    }
+
     override suspend fun delete(path: String): Boolean = files.remove(path) != null
 
     override suspend fun exists(path: String): Boolean = files.containsKey(path)
