@@ -257,7 +257,7 @@ jobs:
       - name: Preflight environment check
         uses: ./.github/actions/setup-repo-tools
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
 
