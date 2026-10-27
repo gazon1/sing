@@ -19,6 +19,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -35,6 +36,8 @@ import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.LocalAppNavigator
+import com.singularity.todo.feature.tasks.domain.logic.Blocking
+import kotlinx.collections.immutable.toImmutableSet
 import com.singularity.todo.feature.tasks.presentation.components.TaskCard
 import com.singularity.todo.feature.tasks.presentation.components.TaskCardActions
 import org.koin.compose.viewmodel.koinViewModel
@@ -42,6 +45,7 @@ import com.singularity.todo.core.ui.preview.noopClick
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+@Suppress("LongMethod")
 fun ArchiveScreen(viewModel: ArchiveViewModel = koinViewModel(), onBack: () -> Unit = {}) {
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     val navigator = LocalAppNavigator.current
@@ -90,10 +94,12 @@ fun ArchiveScreen(viewModel: ArchiveViewModel = koinViewModel(), onBack: () -> U
                                 testTag = TestTags.ARCHIVE_EMPTY,
                             )
                         } else {
+                            val blockedTaskIds = remember(s.tasks) { Blocking.blockedTaskIds(s.tasks).toImmutableSet() }
                             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 items(s.tasks, key = { it.id.value }) { task ->
                                     TaskCard(
                                         task = task,
+                                        blockedTaskIds = blockedTaskIds,
                                         onClick = {
                                             navigator.navigate(
                                                 AppDestination.TasksGraph(
@@ -162,10 +168,14 @@ private fun ArchiveContentPreview(state: ArchiveUiState) {
                             testTag = TestTags.ARCHIVE_EMPTY,
                         )
                     } else {
+                        val blockedTaskIds = remember(state.tasks) {
+                            Blocking.blockedTaskIds(state.tasks).toImmutableSet()
+                        }
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(state.tasks, key = { it.id.value }) { task ->
                                 TaskCard(
                                     task = task,
+                                    blockedTaskIds = blockedTaskIds,
                                     onClick = noopClick,
                                     actions = TaskCardActions(),
                                 )
