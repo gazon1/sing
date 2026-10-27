@@ -53,7 +53,7 @@ kermit = "2.1.0"
 
 # AppTracer (ru.ok.tracer) — crash / ANR / non-fatal reporting, Android only.
 # BOM-aligned: modules below carry no version of their own.
-tracer = "1.4.0"
+tracer = "1.5.1"
 
 # Markdown
 markdown-renderer = "0.43.0"
