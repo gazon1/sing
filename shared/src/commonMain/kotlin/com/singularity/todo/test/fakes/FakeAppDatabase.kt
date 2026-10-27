@@ -863,6 +863,17 @@ private class FakeTaskDao(
         return doomed.size
     }
 
+    /**
+     * The single-row counterpart of [deleteAllForUser]: one task of one profile,
+     * and nothing else.
+     */
+    override suspend fun deleteForUser(id: String, userId: String): Int {
+        val existing = store.value[id] ?: return 0
+        if (existing.userId != userId) return 0
+        store.update { it - id }
+        return 1
+    }
+
     override suspend fun deleteTagRefsForUser(userId: String): Int {
         val owned = store.value.values.filter { it.userId == userId }.map { it.id }.toSet()
         val doomed = crossRefs.value.count { it.taskId in owned }
@@ -1049,6 +1060,17 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
         store.update { map -> map.filterValues { it.userId != userId } }
         return doomed.size
     }
+
+    /**
+     * The single-row counterpart of [deleteAllForUser]: one note of one profile,
+     * and nothing else.
+     */
+    override suspend fun deleteForUser(id: String, userId: String): Int {
+        val existing = store.value[id] ?: return 0
+        if (existing.userId != userId) return 0
+        store.update { it - id }
+        return 1
+    }
 }
 
 // ─── ProjectDao ────────────────────────────────────────────────────────────────
@@ -1141,6 +1163,17 @@ private class FakeProjectDao(private val store: MutableStateFlow<Map<String, Pro
         return doomed.size
     }
 
+    /**
+     * The single-row counterpart of [deleteAllForUser]: one project of one
+     * profile, and nothing else.
+     */
+    override suspend fun deleteForUser(id: String, userId: String): Int {
+        val existing = store.value[id] ?: return 0
+        if (existing.userId != userId) return 0
+        store.update { it - id }
+        return 1
+    }
+
     private fun mutateForUser(id: String, userId: String, fn: (ProjectEntity) -> ProjectEntity): Int {
         store.update { current ->
             val existing = current[id] ?: return@update current
@@ -1219,6 +1252,17 @@ private class FakeTagDao(private val store: MutableStateFlow<Map<String, TagEnti
         val doomed = store.value.values.filter { it.userId == userId }
         store.update { map -> map.filterValues { it.userId != userId } }
         return doomed.size
+    }
+
+    /**
+     * The single-row counterpart of [deleteAllForUser]: one tag of one profile,
+     * and nothing else.
+     */
+    override suspend fun deleteForUser(id: String, userId: String): Int {
+        val existing = store.value[id] ?: return 0
+        if (existing.userId != userId) return 0
+        store.update { it - id }
+        return 1
     }
 
     override suspend fun listByGroupForUser(groupId: String, userId: String): List<TagEntity> =
@@ -1628,6 +1672,17 @@ private class FakeAttachmentAnnotationDao(
         val doomed = store.value.values.filter { it.userId == userId }
         store.update { map -> map.filterValues { it.userId != userId } }
         return doomed.size
+    }
+
+    /**
+     * The single-row counterpart of [deleteAllForUser]: one annotation of one
+     * profile, and nothing else.
+     */
+    override suspend fun deleteForUser(id: String, userId: String): Int {
+        val existing = store.value[id] ?: return 0
+        if (existing.userId != userId) return 0
+        store.update { it - id }
+        return 1
     }
 
     override suspend fun upsert(entity: AttachmentAnnotationEntity) {
@@ -2125,6 +2180,13 @@ private class FakeProfileDao(private val store: MutableStateFlow<Map<String, Pro
         store.update { it - id }
     }
 
+    override suspend fun deleteForUser(id: String, userId: String): Int {
+        val existing = store.value[id] ?: return 0
+        if (existing.userId != userId) return 0
+        store.update { it - id }
+        return 1
+    }
+
     override suspend fun count(): Int = store.value.size
 
     override suspend fun listOwnedBy(userId: String): List<ProfileEntity> =
@@ -2299,6 +2361,17 @@ private class FakeTagGroupDao(private val store: MutableStateFlow<Map<String, Ta
         store.update { map -> map.filterValues { it.userId != userId } }
         return doomed.size
     }
+
+    /**
+     * The single-row counterpart of [deleteAllForUser]: one tag group of one
+     * profile, and nothing else.
+     */
+    override suspend fun deleteForUser(id: String, userId: String): Int {
+        val existing = store.value[id] ?: return 0
+        if (existing.userId != userId) return 0
+        store.update { it - id }
+        return 1
+    }
 }
 
 // ─── ProjectInheritedTagGroupDao ───────────────────────────────────────────────
@@ -2374,6 +2447,21 @@ private class FakeProjectInheritedTagGroupDao(
                 list + ref
             }
         }
+    }
+
+    /**
+     * One inheritance row: the link between a project and a tag group.
+     *
+     * The real DAO scopes this through the owning project's `user_id`; this fake
+     * holds only the join rows and has no view of the projects table, so it
+     * removes the pair it is given.
+     */
+    override suspend fun delete(projectId: String, tagGroupId: String, userId: String): Int {
+        val before = store.value.count { it.projectId == projectId && it.tagGroupId == tagGroupId }
+        store.update { list ->
+            list.filterNot { it.projectId == projectId && it.tagGroupId == tagGroupId }
+        }
+        return before
     }
 }
 

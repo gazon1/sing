@@ -1,0 +1,596 @@
+package com.singularity.todo.core.backup
+
+import co.touchlab.kermit.Logger
+import com.singularity.todo.core.attachments.AttachmentStorage
+import com.singularity.todo.core.database.ProfileEntity
+import com.singularity.todo.core.database.TagEntity
+import com.singularity.todo.core.database.TaskEntity
+import com.singularity.todo.core.database.TaskTagCrossRef
+import com.singularity.todo.core.files.ByteSink
+import com.singularity.todo.core.files.ByteSource
+import com.singularity.todo.core.files.JvmFileSourceFactory
+import com.singularity.todo.core.files.JvmFileSystem
+import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.security.FakeArchiveCrypto
+import com.singularity.todo.core.serialization.StableJson
+import com.singularity.todo.test.fakes.FakeAppDatabase
+import com.singularity.todo.test.fakes.FakeDeviceKeyStore
+import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.test.fakes.FakeTasksSettingsRepository
+import java.io.File
+import java.nio.file.Files
+import kotlin.test.AfterTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Tag
+import kotlin.time.Clock
+
+/**
+ * The chain: a base and the changes that follow it.
+ *
+ * ## What these tests are about
+ *
+ * The chain is a promise about the account: "the snapshot plus the changes is
+ * the account as it was when the last export ran". Every part of that promise
+ * can be broken in a way that is invisible until a restore is wrong — a change
+ * that carries more than it should, a removal that is silently dropped, a chain
+ * that grows without end, a push that carries the base but not the change.
+ *
+ * So the tests drive the whole way round: export, export again, push, restore.
+ *
+ * ## Why the cryptography is faked
+ *
+ * The real cipher is a platform implementation and cannot be reached from a
+ * common test; what matters here is that the service *seals* what it uploads
+ * and *opens* what it downloads, and the container's own round trip against the
+ * real AES-GCM is proved elsewhere.
+ */
+@Tag("fast")
+class BackupChainTest {
+
+    private val tempDirLazy = lazy { Files.createTempDirectory("singularity-backup-chain-").toFile() }
+    private val tempDir: File by tempDirLazy
+
+    private val backupDir: String get() = File(tempDir, "backups").absolutePath
+
+    private val fs = JvmFileSystem()
+
+    private val sourceDb = FakeAppDatabase()
+
+    private val targetDb = FakeAppDatabase()
+
+    private val owner = UserId("chain-user")
+
+    private val cursors = BackupCursorStore(fs = fs, dir = File(tempDir, "cursor").absolutePath)
+
+    @AfterTest
+    fun tearDown() {
+        if (tempDirLazy.isInitialized()) tempDir.deleteRecursively()
+    }
+
+    /**
+     * The change carries the rows that changed — and nothing else.
+     *
+     * The rows that did not change are still in the base, and a change that
+     * carried them would be a snapshot wearing a different name.
+     */
+    @Test
+    fun `the change carries the rows that changed and nothing else`() = runTest {
+        seedTask("t-1", "before")
+        seedTask("t-2", "untouched")
+        export("a.zip")
+        renameTask("t-1", "after")
+
+        export("b.zip")
+
+        val change = readChange("b.zip")
+        assertEquals(listOf("t-1"), change.payload.tasks.map { it.id }, "only the changed row travels")
+        assertEquals("after", change.payload.tasks.single().title)
+    }
+
+    /**
+     * The first export writes no change at all.
+     *
+     * There is nothing before it, so the snapshot it wrote is the beginning of
+     * the chain and there is no change to carry.
+     */
+    @Test
+    fun `the first export writes no change`() = runTest {
+        seedTask("t-1", "before")
+
+        export("a.zip")
+
+        assertFalse(File("$backupDir/a.zip.delta").exists(), "there is nothing before the first export")
+    }
+
+    /**
+     * A removal travels in the change, and the chain keeps going.
+     *
+     * A removal is a change like any other: the change says which row is gone,
+     * and the chain does not start again over it. The old behaviour — a fresh
+     * base — cost the whole snapshot for one deleted task, and the person who
+     * deleted a task could not back up without starting over.
+     */
+    @Test
+    fun `a removal travels in the change instead of starting the chain again`() = runTest {
+        seedTask("t-1", "before")
+        export("a.zip")
+        sourceDb.taskDao().deleteAllForUser(owner.value)
+
+        export("b.zip")
+
+        assertTrue(
+            File("$backupDir/b.zip.delta").exists(),
+            "a removal is a change: it must be written beside the snapshot",
+        )
+        val change = readChange("b.zip")
+        assertEquals(
+            listOf("t-1"),
+            change.payload.removals[BackupEntityKind.TASKS],
+            "the change must name the row that is gone",
+        )
+        val state = cursors.load(owner)
+        assertEquals("$backupDir/a.zip", state.baseArchivePath, "the chain does not start again")
+        assertEquals(1, state.entries.size, "the change joins the chain")
+    }
+
+    /**
+     * A restore of a change that says a row is gone leaves the row out.
+     *
+     * The base is restored first — it holds the row — and the change is applied
+     * on top of it. If the removal did not travel, the row would come back, and
+     * the account on the other device would keep a task the person deleted.
+     */
+    @Test
+    fun `a restore of a removal leaves the row out`() = runTest {
+        seedTask("t-1", "before")
+        export("a.zip")
+        sourceDb.taskDao().deleteAllForUser(owner.value)
+        export("b.zip")
+
+        val bucket = InMemoryBucket()
+        val repository = repository(bucket)
+        val pushed = repository.push(BackupId.fromPath("$backupDir/b.zip"), "horse".toCharArray())
+        assertTrue(pushed.isSuccess, "the push must succeed: ${pushed.exceptionOrNull()}")
+
+        val restored = repository.restoreFromCloud(pushed.getOrThrow(), "horse".toCharArray())
+        assertTrue(restored.isSuccess, "the restore must succeed: ${restored.exceptionOrNull()}")
+
+        val tasks = targetDb.taskDao().listAllForUser(owner.value)
+        assertTrue(
+            tasks.isEmpty(),
+            "the row the change says is gone must not come back: ${tasks.map { it.id }}",
+        )
+        assertEquals(
+            0,
+            restored.getOrThrow().entityCounts.tasks,
+            "the restore reports the merged account, and the merged account has no task",
+        )
+    }
+
+    /**
+     * A removal takes the task's links with it.
+     *
+     * The link tables carry no `user_id` of their own: a row of `task_tags`
+     * belongs to whoever owns the task it joins, and the statement that removes it
+     * reaches its row through that task. So the removal of a task and the removal
+     * of one of its links can only be taken out in one order — the link first,
+     * while the task is still there. The other order leaves the link behind,
+     * pointing at a task that is not there any more, and nothing ever cleans it
+     * up: the tables have no foreign key to cascade.
+     */
+    @Test
+    fun `a removal takes the task's links with it`() = runTest {
+        seedTask("t-1", "before")
+        seedTag("g-1")
+        sourceDb.seedTagRefs(listOf(TaskTagCrossRef(taskId = "t-1", tagId = "g-1")))
+        export("a.zip")
+
+        // The task is erased on the other device. The row is gone from the table,
+        // and the link it had goes with it — the export reads the links through
+        // the tasks that are still there.
+        sourceDb.taskDao().deleteForUser("t-1", owner.value)
+        export("b.zip")
+
+        val change = readChange("b.zip")
+        assertEquals(
+            listOf("t-1"),
+            change.payload.removals[BackupEntityKind.TASKS],
+            "the change must name the task that is gone",
+        )
+        assertEquals(
+            listOf("t-1\u0000g-1"),
+            change.payload.removals[BackupEntityKind.TASK_TAGS],
+            "the link of a task that is gone is gone too",
+        )
+
+        val bucket = InMemoryBucket()
+        val repository = repository(bucket)
+        val pushed = repository.push(BackupId.fromPath("$backupDir/b.zip"), "horse".toCharArray())
+        assertTrue(pushed.isSuccess, "the push must succeed: ${pushed.exceptionOrNull()}")
+
+        val restored = repository.restoreFromCloud(pushed.getOrThrow(), "horse".toCharArray())
+        assertTrue(restored.isSuccess, "the restore must succeed: ${restored.exceptionOrNull()}")
+
+        assertTrue(
+            targetDb.taskDao().listAllForUser(owner.value).none { it.id == "t-1" },
+            "the task the change says is gone must not come back",
+        )
+        assertTrue(
+            targetDb.taskDao().getTagIdsForTask("t-1").first().isEmpty(),
+            "the link must go with the task: an orphan points at a task that is not there",
+        )
+    }
+
+    /**
+     * An archived task travels as a changed row, not as a removal.
+     *
+     * Archiving hides the task; it does not erase it. The row is still in the
+     * table, so the export still sees it — as a row that changed — and the other
+     * device archives its own copy instead of losing the task outright. Only a
+     * row that is physically gone is a removal.
+     *
+     * (A task's soft delete *is* its archive: the row stays, with `archived_at`
+     * set.)
+     *
+     * The two are not interchangeable: a removal takes the row out of the other
+     * device for good, and an archive that travelled as a removal would be a
+     * delete the person never asked for.
+     */
+    @Test
+    fun `an archived task travels as a changed row, not as a removal`() = runTest {
+        seedTask("t-1", "before")
+        export("a.zip")
+
+        sourceDb.taskDao().softDeleteForUser("t-1", 2L, owner.value)
+        export("b.zip")
+
+        val change = readChange("b.zip")
+        assertEquals(
+            listOf("t-1"),
+            change.payload.tasks.map { it.id },
+            "the archived task travels as a row that changed",
+        )
+        assertTrue(
+            change.payload.removals[BackupEntityKind.TASKS].isNullOrEmpty(),
+            "an archived task is not gone: it must not travel as a removal",
+        )
+    }
+
+    /**
+     * A removal does not take out a profile that belongs to somebody else.
+     *
+     * The export carries every profile it can see, and a change says which of
+     * them are gone. The restore, though, is restoring **one** account: a
+     * removal may only take out what belongs to the account being restored, so a
+     * profile of another account survives the restore even when the change names
+     * it.
+     *
+     * Without the scoping the restore would delete another account's profile on
+     * a device that holds it — a removal meant for one account reaching across
+     * to another.
+     */
+    @Test
+    fun `a removal does not take out a profile that belongs to somebody else`() = runTest {
+        sourceDb.profileDao().upsert(profile("p-mine", owner.value))
+        sourceDb.profileDao().upsert(profile("p-theirs", "other-account"))
+        export("a.zip")
+
+        // The other account's profile is gone from this device's export, so the
+        // change says so.
+        sourceDb.profileDao().deleteById("p-theirs")
+        export("b.zip")
+
+        val change = readChange("b.zip")
+        assertEquals(
+            listOf("p-theirs"),
+            change.payload.removals[BackupEntityKind.PROFILES],
+            "the change must name the profile that is gone",
+        )
+
+        // The device being restored holds that profile, owned by the other account.
+        targetDb.profileDao().upsert(profile("p-theirs", "other-account"))
+
+        val bucket = InMemoryBucket()
+        val repository = repository(bucket)
+        val pushed = repository.push(BackupId.fromPath("$backupDir/b.zip"), "horse".toCharArray())
+        assertTrue(pushed.isSuccess, "the push must succeed: ${pushed.exceptionOrNull()}")
+
+        val restored = repository.restoreFromCloud(pushed.getOrThrow(), "horse".toCharArray())
+        assertTrue(restored.isSuccess, "the restore must succeed: ${restored.exceptionOrNull()}")
+
+        assertTrue(
+            targetDb.profileDao().getById("p-theirs") != null,
+            "the removal belongs to the account being restored: another account's profile stays",
+        )
+    }
+
+    /**
+     * A chain past its bound starts again.
+     *
+     * A chain that only grows is a restore that gets slower every time it runs,
+     * so the number of changes is bounded — and the export that passes the bound
+     * writes a fresh base instead.
+     */
+    @Test
+    fun `a chain past its bound starts again`() = runTest {
+        seedTask("t-1", "before")
+        val exports = ArchiveFormat.MAX_CHAIN_ENTRIES + 2
+        repeat(exports) { index ->
+            renameTask("t-1", "title-$index")
+            export("archive-$index.zip")
+        }
+
+        val state = cursors.load(owner)
+        assertTrue(
+            state.entries.size <= ArchiveFormat.MAX_CHAIN_ENTRIES,
+            "the chain must not grow past its bound: ${state.entries.size}",
+        )
+        assertEquals(
+            "$backupDir/archive-${exports - 1}.zip",
+            state.baseArchivePath,
+            "the last snapshot is the base of the chain that started again",
+        )
+    }
+
+    /**
+     * A push carries the chain, and a restore brings back the merged account.
+     *
+     * The push seals the base and the change together; the restore opens them
+     * and applies the change on top of the base. What the second database holds
+     * afterwards is the account as it was when the change was written — which is
+     * not what the base alone says.
+     */
+    @Test
+    fun `a push carries the chain and a restore brings back the merged account`() = runTest {
+        seedTask("t-1", "before")
+        export("a.zip")
+        renameTask("t-1", "after")
+        export("b.zip")
+
+        val bucket = InMemoryBucket()
+        val repository = repository(bucket)
+        val pushed = repository.push(BackupId.fromPath("$backupDir/b.zip"), "horse".toCharArray())
+        assertTrue(pushed.isSuccess, "the push must succeed: ${pushed.exceptionOrNull()}")
+
+        val restored = repository.restoreFromCloud(pushed.getOrThrow(), "horse".toCharArray())
+        assertTrue(restored.isSuccess, "the restore must succeed: ${restored.exceptionOrNull()}")
+
+        val tasks = targetDb.taskDao().listAllForUser(owner.value)
+        assertEquals(1, tasks.size, "the restored database holds ${tasks.size} tasks")
+        assertEquals("after", tasks.single().title, "the change must be applied on top of the base")
+        assertEquals(
+            1,
+            restored.getOrThrow().entityCounts.tasks,
+            "the restore reports the merged account, not the base",
+        )
+    }
+
+    /**
+     * An archive from before the chain existed restores exactly as it always did.
+     *
+     * No changes, no merged state to speak of: the base is the account, and the
+     * restore says so.
+     */
+    @Test
+    fun `an archive without changes restores exactly as before`() = runTest {
+        seedTask("t-1", "before")
+        export("a.zip")
+
+        val restored = importer().import(
+            ImportOptions(sourcePath = "$backupDir/a.zip", targetUserId = owner),
+        )
+
+        assertTrue(restored.isSuccess, "the restore must succeed: ${restored.exceptionOrNull()}")
+        val tasks = targetDb.taskDao().listAllForUser(owner.value)
+        assertEquals(1, tasks.size)
+        assertEquals("before", tasks.single().title)
+        assertEquals(1, restored.getOrThrow().entityCounts.tasks)
+    }
+
+    /**
+     * A change that says nothing is not written.
+     *
+     * An export of an account that did not move writes no change: a change with
+     * nothing in it would only make the chain longer than the account.
+     */
+    @Test
+    fun `an export of an account that did not move writes no change`() = runTest {
+        seedTask("t-1", "before")
+        export("a.zip")
+
+        export("b.zip")
+
+        assertFalse(File("$backupDir/b.zip.delta").exists(), "there was nothing to change")
+    }
+
+    /** Writes a task into the source database. */
+    private suspend fun seedTask(id: String, title: String) {
+        sourceDb.taskDao().upsert(task(id, title))
+    }
+
+    /** Writes a tag into the source database. */
+    private fun seedTag(id: String) {
+        sourceDb.seedTags(
+            listOf(
+                TagEntity(
+                    id = id,
+                    userId = owner.value,
+                    name = id,
+                    color = 0,
+                    createdAt = 1L,
+                    updatedAt = 1L,
+                    deletedAt = null,
+                    nameNormalized = id.trim().lowercase(),
+                ),
+            ),
+        )
+    }
+
+    /** A profile, owned by the account named. */
+    private fun profile(id: String, userId: String) = ProfileEntity(
+        id = id,
+        name = id,
+        emoji = "",
+        colorIdx = 0,
+        isDefault = false,
+        createdAt = 1L,
+        updatedAt = 1L,
+        userId = userId,
+    )
+
+    /** Changes the title of a task — a row that changed. */
+    private suspend fun renameTask(id: String, title: String) {
+        sourceDb.taskDao().upsert(task(id, title))
+    }
+
+    /** The task, as the database holds it. */
+    private fun task(id: String, title: String) = TaskEntity(
+        id = id,
+        title = title,
+        description = null,
+        projectId = null,
+        dueDate = null,
+        dueTime = null,
+        startDate = null,
+        startTime = null,
+        endDate = null,
+        endTime = null,
+        accentColor = null,
+        emoji = null,
+        completedAt = null,
+        archivedAt = null,
+        createdAt = 1L,
+        updatedAt = 1L,
+        userId = owner.value,
+    )
+
+    /** Exports the source database into the backup directory. */
+    private suspend fun export(name: String) {
+        val result = exporter().export(
+            ExportOptions(userId = owner, destPath = "$backupDir/$name"),
+        )
+        assertTrue(result.isSuccess, "the export must succeed: ${result.exceptionOrNull()}")
+    }
+
+    /** The change that was written beside the snapshot. */
+    private suspend fun readChange(name: String): BackupDelta {
+        val bytes = fs.readBytes("$backupDir/$name.delta")
+        return StableJson.decodeFromString(BackupDelta.serializer(), bytes.decodeToString())
+    }
+
+    /** The exporter, writing into the backup directory. */
+    private fun exporter() = BackupExporter(
+        taskDao = sourceDb.taskDao(),
+        noteDao = sourceDb.noteDao(),
+        projectDao = sourceDb.projectDao(),
+        tagDao = sourceDb.tagDao(),
+        reminderDao = sourceDb.reminderDao(),
+        projectReminderDao = sourceDb.projectReminderDao(),
+        checklistDao = sourceDb.checklistDao(),
+        tagGroupDao = sourceDb.tagGroupDao(),
+        projectTagGroupDao = sourceDb.projectInheritedTagGroupDao(),
+        savedSearchDao = sourceDb.savedSearchDao(),
+        timeEntryDao = sourceDb.timeEntryDao(),
+        profileDao = sourceDb.profileDao(),
+        attachmentDao = sourceDb.attachmentDao(),
+        annotationDao = sourceDb.annotationDao(),
+        agendaViewDao = sourceDb.agendaViewDao(),
+        codec = JvmBackupCodec(),
+        clock = Clock.System,
+        fs = fs,
+        cursors = cursors,
+    )
+
+    /** The importer, writing into the target database. */
+    private fun importer() = BackupImporter(
+        log = Logger.withTag("BackupChainTest"),
+        taskDao = targetDb.taskDao(),
+        noteDao = targetDb.noteDao(),
+        projectDao = targetDb.projectDao(),
+        tagDao = targetDb.tagDao(),
+        reminderDao = targetDb.reminderDao(),
+        projectReminderDao = targetDb.projectReminderDao(),
+        checklistDao = targetDb.checklistDao(),
+        tagGroupDao = targetDb.tagGroupDao(),
+        projectTagGroupDao = targetDb.projectInheritedTagGroupDao(),
+        savedSearchDao = targetDb.savedSearchDao(),
+        timeEntryDao = targetDb.timeEntryDao(),
+        profileDao = targetDb.profileDao(),
+        agendaViewDao = targetDb.agendaViewDao(),
+        attachmentDao = targetDb.attachmentDao(),
+        annotationDao = targetDb.annotationDao(),
+        attachmentStorage = AttachmentStorage(fs, File(tempDir, "attachments").absolutePath),
+        codec = JvmBackupCodec(),
+        clock = Clock.System,
+        createFileSource = JvmFileSourceFactory(),
+        tasksSettings = FakeTasksSettingsRepository(),
+    )
+
+    /** The repository, with a bucket that keeps what was uploaded. */
+    private fun repository(bucket: BackupBucket) = BackupRepositoryImpl(
+        exporter = exporter(),
+        importer = importer(),
+        remoteService = RemoteBackupServiceImpl(
+            bucket = bucket,
+            fs = fs,
+            archive = EncryptedArchive(FakeArchiveCrypto()),
+            ioDispatcher = Dispatchers.Unconfined,
+        ),
+        fs = fs,
+        backupDir = backupDir,
+        currentUser = FakeProfileAwareCurrentUser(initialUserId = owner),
+        clock = Clock.System,
+        deviceKeyStore = FakeDeviceKeyStore(EncryptedArchive(FakeArchiveCrypto())),
+        cursors = cursors,
+        ioDispatcher = Dispatchers.Unconfined,
+    )
+
+    /**
+     * A bucket that keeps the objects in memory.
+     *
+     * The push and the restore have to talk to the same bucket, so the bytes
+     * that went up are the bytes that come down — which is the whole point of
+     * the round trip.
+     */
+    private class InMemoryBucket : BackupBucket {
+        private val objects = mutableMapOf<String, ByteArray>()
+
+        override suspend fun upload(path: String, source: ByteSource, sizeBytes: Long) {
+            objects[path] = readAll(source)
+        }
+
+        override suspend fun download(path: String, sink: ByteSink) {
+            val bytes = objects[path] ?: throw NoSuchElementException("no object at $path")
+            sink.write(bytes, 0, bytes.size)
+        }
+
+        override suspend fun list(prefix: String): List<BucketObject> =
+            objects.keys
+                .filter { it.startsWith(prefix) }
+                .map {
+                    BucketObject(
+                        path = it,
+                        updatedAtEpochMillis = 0L,
+                        sizeBytes = objects.getValue(it).size.toLong(),
+                    )
+                }
+    }
+}
+
+/** Everything the source yields, read in pieces. */
+private fun readAll(source: ByteSource): ByteArray {
+    var collected = ByteArray(0)
+    val buffer = ByteArray(1024)
+    while (true) {
+        val read = source.read(buffer, 0, buffer.size)
+        if (read < 0) break
+        collected += buffer.copyOfRange(0, read)
+    }
+    return collected
+}

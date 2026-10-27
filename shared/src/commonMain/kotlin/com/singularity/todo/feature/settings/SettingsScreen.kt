@@ -306,6 +306,9 @@ private fun BackupScreenWrapper(onBack: () -> Unit) {
         onRestoreFromCloud = { ref, password ->
             backupVm.onIntent(BackupIntent.RestoreFromCloud(ref, password))
         },
+        onAuthorizeScheduledBackup = { password ->
+            backupVm.onIntent(BackupIntent.AuthorizeScheduledBackup(password))
+        },
     )
 }
 

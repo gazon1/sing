@@ -5,6 +5,8 @@ import com.singularity.todo.core.files.ByteSink
 import com.singularity.todo.core.files.ByteSource
 import com.singularity.todo.core.error.TransportException
 import com.singularity.todo.core.error.TransportFailure
+import com.singularity.todo.core.files.ByteArraySink
+import com.singularity.todo.core.files.ByteArraySource
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.security.FakeArchiveCrypto
 import com.singularity.todo.test.fakes.MapFileSystem
@@ -140,7 +142,12 @@ class RemoteBackupServiceImplTest {
         val files = MapFileSystem()
         files.writeBytes("/backups/archive.zip", "the-archive".encodeToByteArray())
 
-        val result = service(bucket, files).upload("/backups/archive.zip", UserId("user-1"), password())
+        val result = service(bucket, files)
+            .upload(
+                RemoteArchive(basePath = "/backups/archive.zip"),
+                UserId("user-1"),
+                ArchiveSealer.UnderPassword(password()),
+            )
 
         assertTrue(result.isSuccess, "the upload must succeed: $result")
         assertEquals("user-1/archive.zip${RemoteBackupService.ENCRYPTED_SUFFIX}", result.getOrNull())
@@ -164,7 +171,12 @@ class RemoteBackupServiceImplTest {
         val files = MapFileSystem()
         files.writeBytes("/backups/archive.zip", "the-archive".encodeToByteArray())
 
-        val result = service(bucket, files).upload("/backups/archive.zip", UserId("user-1"), password())
+        val result = service(bucket, files)
+            .upload(
+                RemoteArchive(basePath = "/backups/archive.zip"),
+                UserId("user-1"),
+                ArchiveSealer.UnderPassword(password()),
+            )
 
         assertTrue(result.isSuccess, "the upload must succeed: $result")
         val path = "user-1/archive.zip${RemoteBackupService.ENCRYPTED_SUFFIX}"
@@ -187,7 +199,12 @@ class RemoteBackupServiceImplTest {
         val files = MapFileSystem()
         files.writeBytes("/backups/archive.zip", "the-archive".encodeToByteArray())
 
-        val result = service(bucket, files).upload("/backups/archive.zip", UserId("user-1"), password())
+        val result = service(bucket, files)
+            .upload(
+                RemoteArchive(basePath = "/backups/archive.zip"),
+                UserId("user-1"),
+                ArchiveSealer.UnderPassword(password()),
+            )
 
         assertTrue(result.isSuccess, "the upload must succeed: $result")
         val uploaded = bucket.uploads.values.single()
@@ -197,7 +214,7 @@ class RemoteBackupServiceImplTest {
             "the object in the bucket must not be the archive in the clear",
         )
         assertTrue(
-            uploaded.copyOfRange(0, EncryptedArchive.MAGIC.length).decodeToString() == EncryptedArchive.MAGIC,
+            uploaded.copyOfRange(0, ArchiveFormat.MAGIC.length).decodeToString() == ArchiveFormat.MAGIC,
             "the object in the bucket must say what it is",
         )
     }
@@ -251,7 +268,12 @@ class RemoteBackupServiceImplTest {
         files.writeBytes("/backups/archive.zip", "the-archive".encodeToByteArray())
         val secret = password()
 
-        service(bucket, files).upload("/backups/archive.zip", UserId("user-1"), secret)
+        service(bucket, files)
+            .upload(
+                RemoteArchive(basePath = "/backups/archive.zip"),
+                UserId("user-1"),
+                ArchiveSealer.UnderPassword(secret),
+            )
 
         assertTrue(
             secret.all { it == '\u0000' },
@@ -291,7 +313,12 @@ class RemoteBackupServiceImplTest {
         val bucket = FakeBucket()
         bucket.failure = TransportException(TransportFailure.UNAUTHORIZED, "HTTP 401")
 
-        val result = service(bucket, archive(MapFileSystem())).upload("/backups/a.zip", UserId("user-1"), password())
+        val result = service(bucket, archive(MapFileSystem()))
+            .upload(
+                RemoteArchive(basePath = "/backups/a.zip"),
+                UserId("user-1"),
+                ArchiveSealer.UnderPassword(password()),
+            )
 
         val error = result.exceptionOrNull()
         assertIs<AppError>(error, "the failure must be reported as a project error: $error")
@@ -317,7 +344,12 @@ class RemoteBackupServiceImplTest {
         val bucket = FakeBucket()
         bucket.failure = TransportException(TransportFailure.NETWORK, "the socket gave up")
 
-        val result = service(bucket, archive(MapFileSystem())).upload("/backups/a.zip", UserId("user-1"), password())
+        val result = service(bucket, archive(MapFileSystem()))
+            .upload(
+                RemoteArchive(basePath = "/backups/a.zip"),
+                UserId("user-1"),
+                ArchiveSealer.UnderPassword(password()),
+            )
 
         val error = result.exceptionOrNull()
         assertIs<AppError>(error, "the failure must be reported as a project error: $error")
@@ -335,7 +367,12 @@ class RemoteBackupServiceImplTest {
         val bucket = FakeBucket()
         bucket.failure = TransportException(TransportFailure.REJECTED, "HTTP 403")
 
-        val result = service(bucket, archive(MapFileSystem())).upload("/backups/a.zip", UserId("user-1"), password())
+        val result = service(bucket, archive(MapFileSystem()))
+            .upload(
+                RemoteArchive(basePath = "/backups/a.zip"),
+                UserId("user-1"),
+                ArchiveSealer.UnderPassword(password()),
+            )
 
         val error = result.exceptionOrNull()
         assertIs<AppError>(error, "the failure must be reported as a project error: $error")
@@ -356,7 +393,12 @@ class RemoteBackupServiceImplTest {
             "No cloud storage is configured. Add a Supabase project in the Account settings first.",
         )
 
-        val result = service(bucket, archive(MapFileSystem())).upload("/backups/a.zip", UserId("user-1"), password())
+        val result = service(bucket, archive(MapFileSystem()))
+            .upload(
+                RemoteArchive(basePath = "/backups/a.zip"),
+                UserId("user-1"),
+                ArchiveSealer.UnderPassword(password()),
+            )
 
         val error = result.exceptionOrNull()
         assertIs<RemoteBackupException>(error, "the project's own failure must survive: $error")
@@ -378,7 +420,12 @@ class RemoteBackupServiceImplTest {
     fun `an archive that cannot be read is not uploaded`() = runTest {
         val bucket = FakeBucket()
 
-        val result = service(bucket).upload("/backups/missing.zip", UserId("user-1"), password())
+        val result = service(bucket)
+            .upload(
+                RemoteArchive(basePath = "/backups/missing.zip"),
+                UserId("user-1"),
+                ArchiveSealer.UnderPassword(password()),
+            )
 
         assertTrue(result.isFailure, "a missing archive must not report success")
         assertTrue(bucket.uploads.isEmpty(), "nothing must have been uploaded")
@@ -390,6 +437,93 @@ class RemoteBackupServiceImplTest {
             error.code,
             "a local read that failed is not an upload that was refused",
         )
+    }
+
+    /**
+     * The upload seals the base **and** the changes, as one archive.
+     *
+     * A change says "on top of that base", so the two cannot be pushed apart: an
+     * upload that carried only the change would carry nothing that could be
+     * restored.
+     */
+    @Test
+    fun `the upload seals the base and the changes as one archive`() = runTest {
+        val bucket = FakeBucket()
+        val files = MapFileSystem()
+        files.writeBytes("/backups/a.zip", "the-base".encodeToByteArray())
+        files.writeBytes("/backups/a.zip.delta", "the-change".encodeToByteArray())
+        val archive = EncryptedArchive(FakeArchiveCrypto())
+
+        val result = service(bucket, files, archive).upload(
+            RemoteArchive(
+                basePath = "/backups/a.zip",
+                entries = listOf("/backups/a.zip.delta"),
+                name = "a.zip",
+            ),
+            UserId("user-1"),
+            ArchiveSealer.UnderPassword(password()),
+        )
+
+        assertTrue(result.isSuccess, "the upload must succeed: $result")
+        val uploaded = bucket.uploads.values.single()
+        val changes = mutableListOf<ByteArray>()
+        val base = ByteArraySink()
+        archive.openChain(ByteArraySource(uploaded), base, password()) { _, change -> changes += change }
+        assertEquals(1, changes.size, "the change must travel inside the archive")
+        assertEquals("the-change", changes.single().decodeToString())
+        assertEquals("the-base", base.bytes().decodeToString())
+    }
+
+    /**
+     * The download hands back the changes that came with the archive.
+     *
+     * The base is written to the file the caller named; the changes are handed
+     * over as they were sealed, because a change has to be applied whole.
+     */
+    @Test
+    fun `the download hands back the changes that came with the archive`() = runTest {
+        val bucket = FakeBucket()
+        val archive = EncryptedArchive(FakeArchiveCrypto())
+        val sealed = ByteArraySink()
+        archive.sealChain(
+            base = ByteArraySource("the-base".encodeToByteArray()),
+            entries = listOf(ByteArraySource("the-change".encodeToByteArray())),
+            sink = sealed,
+            password = password(),
+        )
+        bucket.downloadBytes = sealed.bytes()
+        val files = MapFileSystem()
+
+        val result = service(bucket, files, archive)
+            .download("user-1/a.zip", "/backups/a.zip", UserId("user-1"), password())
+
+        assertTrue(result.isSuccess, "the download must succeed: $result")
+        val downloaded = result.getOrThrow()
+        assertEquals("the-base", files.readBytes("/backups/a.zip").decodeToString())
+        assertEquals(1, downloaded.entries.size, "the change must come back with the base")
+        assertEquals("the-change", downloaded.entries.single().decodeToString())
+    }
+
+    /**
+     * An archive from before the chain existed comes back as the base alone.
+     *
+     * It carries no changes, and the restore of it is exactly the restore that
+     * always worked.
+     */
+    @Test
+    fun `an archive without changes comes back as the base alone`() = runTest {
+        val bucket = FakeBucket()
+        val archive = EncryptedArchive(FakeArchiveCrypto())
+        bucket.downloadBytes = archive.seal("the-base".encodeToByteArray(), password())
+        val files = MapFileSystem()
+
+        val result = service(bucket, files, archive)
+            .download("user-1/a.zip", "/backups/a.zip", UserId("user-1"), password())
+
+        assertTrue(result.isSuccess, "the download must succeed: $result")
+        val downloaded = result.getOrThrow()
+        assertTrue(downloaded.entries.isEmpty(), "there are no changes to hand back")
+        assertEquals("the-base", files.readBytes("/backups/a.zip").decodeToString())
     }
 
     /**
@@ -407,7 +541,12 @@ class RemoteBackupServiceImplTest {
         bucket.failure = CancellationException("the screen went away")
 
         assertFailsWith<CancellationException> {
-            service(bucket, archive(MapFileSystem())).upload("/backups/a.zip", UserId("user-1"), password())
+            service(bucket, archive(MapFileSystem()))
+                .upload(
+                    RemoteArchive(basePath = "/backups/a.zip"),
+                    UserId("user-1"),
+                    ArchiveSealer.UnderPassword(password()),
+                )
         }
     }
 

@@ -8,7 +8,6 @@ import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.RemoteBackup
 import com.singularity.todo.core.backup.exportOptions
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
-import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
@@ -36,6 +35,14 @@ data class BackupUiState(
     val remoteBackups: List<RemoteBackup> = emptyList(),
     /** Whether the cloud has been asked for its archives at least once. */
     val remoteBackupsLoaded: Boolean = false,
+    /**
+     * Whether this device may seal archives on its own.
+     *
+     * False means the daily backup stays on the device, and the person is asked
+     * for a password every time they want one in the cloud. True means the
+     * device holds a key and the daily run can push without anyone there.
+     */
+    val scheduledBackupAuthorized: Boolean = false,
 )
 
 data class BackupSummary(val destPath: String, val byteSize: Long, val entityCount: Int)
@@ -84,6 +91,12 @@ class BackupViewModel(
                 updateState { it.copy(backups = backups) }
             }
         }
+        scope.launch {
+            // Whether this device may seal archives on its own is a fact about the
+            // device, and the screen says so before the person presses anything.
+            val authorized = repository.isScheduledBackupAuthorized()
+            updateState { it.copy(scheduledBackupAuthorized = authorized) }
+        }
     }
 
     override fun onIntent(intent: BackupIntent) {
@@ -94,6 +107,7 @@ class BackupViewModel(
             is BackupIntent.Push -> vmScope.launch { runPush(intent.id, intent.password) }
             BackupIntent.LoadRemoteBackups -> vmScope.launch { runLoadRemoteBackups() }
             is BackupIntent.RestoreFromCloud -> vmScope.launch { runRestoreFromCloud(intent) }
+            is BackupIntent.AuthorizeScheduledBackup -> vmScope.launch { runAuthorizeScheduledBackup(intent) }
             is BackupIntent.SaveToFile -> vmScope.launch { runSaveToFile(intent.id) }
             BackupIntent.ExportSettingsSnapshot -> vmScope.launch { runExportSettingsSnapshot() }
             is BackupIntent.ImportSettingsSnapshot -> vmScope.launch { runImportSettingsSnapshot(intent.json) }
@@ -131,8 +145,9 @@ class BackupViewModel(
             }
             .onFailure { e ->
                 updateState { it.copy(isWorking = false) }
-                crashReporter.report(e, BACKUP_EXPORT_FAILED)
-                emit(Error(e.message ?: "Export failed"))
+                val failure = failure(e, BACKUP_EXPORT_FAILED, "Export failed")
+                crashReporter.report(e, failure.code)
+                emit(Error(failure.message))
             }
     }
 
@@ -145,8 +160,9 @@ class BackupViewModel(
             }
             .onFailure { e ->
                 updateState { it.copy(isWorking = false) }
-                crashReporter.report(e, BACKUP_RESTORE_FAILED)
-                emit(Error(e.message ?: "Import failed"))
+                val failure = failure(e, BACKUP_RESTORE_FAILED, "Import failed")
+                crashReporter.report(e, failure.code)
+                emit(Error(failure.message))
             }
     }
 
@@ -221,8 +237,9 @@ class BackupViewModel(
         repository.delete(backupId)
             .onSuccess { tryEmit(BackupUiEvent.ShowSnackbar("Backup deleted")) }
             .onFailure { e ->
-                crashReporter.report(e, BACKUP_DELETE_FAILED)
-                emit(Error(e.message ?: "Delete failed"))
+                val failure = failure(e, BACKUP_DELETE_FAILED, "Delete failed")
+                crashReporter.report(e, failure.code)
+                emit(Error(failure.message))
             }
     }
 
@@ -246,8 +263,9 @@ class BackupViewModel(
                 // defects, and one key for all three is how "the anon key went
                 // instead of the user's token" and "the row-level policy
                 // refused the write" ended up in the same group.
-                crashReporter.report(e, (e as? AppError)?.code ?: BACKUP_PUSH_FAILED)
-                emit(Error(e.message ?: "Push failed"))
+                val failure = failure(e, BACKUP_PUSH_FAILED, "Push failed")
+                crashReporter.report(e, failure.code)
+                emit(Error(failure.message))
             }
             .onSuccess {
                 updateState { it.copy(isWorking = false) }
@@ -266,8 +284,9 @@ class BackupViewModel(
         repository.listRemote()
             .onFailure { e ->
                 updateState { it.copy(isWorking = false) }
-                crashReporter.report(e, (e as? AppError)?.code ?: BACKUP_PUSH_FAILED)
-                emit(Error(e.message ?: "Could not read the cloud backups"))
+                val failure = failure(e, BACKUP_LIST_FAILED, "Could not read the cloud backups")
+                crashReporter.report(e, failure.code)
+                emit(Error(failure.message))
             }
             .onSuccess { backups ->
                 updateState {
@@ -296,12 +315,39 @@ class BackupViewModel(
         repository.restoreFromCloud(intent.remoteRef, intent.password)
             .onFailure { e ->
                 updateState { it.copy(isWorking = false) }
-                crashReporter.report(e, (e as? AppError)?.code ?: BACKUP_RESTORE_FAILED)
-                emit(Error(e.message ?: "Restore from the cloud failed"))
+                val failure = failure(e, BACKUP_RESTORE_FAILED, "Restore from the cloud failed")
+                crashReporter.report(e, failure.code)
+                emit(Error(failure.message))
             }
             .onSuccess {
                 updateState { it.copy(isWorking = false) }
                 tryEmit(BackupUiEvent.ShowSnackbar("Restore complete"))
+            }
+    }
+
+    /**
+     * Lets this device seal archives on its own.
+     *
+     * The password is asked once, and it does not stay: it wraps the device key,
+     * and the wrapped key is what travels from then on. The person who restores
+     * an archive still needs their password — this only removes the need for one
+     * to be *there* at push time.
+     */
+    private suspend fun runAuthorizeScheduledBackup(intent: BackupIntent.AuthorizeScheduledBackup) {
+        updateState { it.copy(isWorking = true) }
+        repository.authorizeScheduledBackup(intent.password)
+            .onSuccess { authorization ->
+                updateState { it.copy(isWorking = false, scheduledBackupAuthorized = true) }
+                // What happened to the archive that was already in the cloud is
+                // part of the answer: it either opens with the new password now,
+                // or it still asks for the old one.
+                tryEmit(BackupUiEvent.ShowSnackbar(authorizationMessage(authorization)))
+            }
+            .onFailure { e ->
+                updateState { it.copy(isWorking = false) }
+                val failure = failure(e, BACKUP_AUTHORIZE_FAILED, "Could not authorize this device")
+                crashReporter.report(e, failure.code)
+                emit(Error(failure.message))
             }
     }
 
@@ -326,6 +372,17 @@ class BackupViewModel(
         }
     }
 
+    /**
+     * The failure [error] means, in the words the screen shows and the report
+     * groups by.
+     *
+     * The backup layer reports three families of failure, and each case in each
+     * family is something a person can act on. The mapping lives in one place —
+     * [backupFailure] — so the screen and the report cannot drift apart.
+     */
+    private fun failure(error: Throwable, fallbackCode: String, fallbackMessage: String): BackupFailure =
+        backupFailure(error, BackupFailure(fallbackCode, fallbackMessage))
+
     private companion object {
         // Machine-shaped grouping keys — these leave the device. The settings-decode
         // outcomes (SchemaTooOld, ParseError) are deliberately absent: they are the user
@@ -338,6 +395,8 @@ class BackupViewModel(
         const val BACKUP_MIME_TYPE = "application/zip"
         const val BACKUP_DELETE_FAILED = "backup.delete_failed"
         const val BACKUP_PUSH_FAILED = "backup.push_failed"
+        const val BACKUP_LIST_FAILED = "backup.list_failed"
+        const val BACKUP_AUTHORIZE_FAILED = "backup.authorize_failed"
         const val SETTINGS_EXPORT_FAILED = "backup.settings_export_failed"
         const val SETTINGS_FILE_READ_FAILED = "backup.settings_file_read_failed"
     }

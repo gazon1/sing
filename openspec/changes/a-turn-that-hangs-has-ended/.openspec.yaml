@@ -5,17 +5,18 @@ schema: spec-driven
 # FR-040's text is in the feature specification, `specs/014-acp-client-agent-activity/spec.md`
 # ("a turn that produces no event for 60 seconds is treated as hung…; a session whose process
 # tree dies is marked disconnected rather than connected; and the turn that was running keeps
-# the answer produced so far"). Its openspec-side sibling is REQ-EXTAG-006 in the in-flight
-# change `acp-external-agent-desktop`. This change makes the code do what FR-040 says.
+# the answer produced so far"). Its openspec-side sibling is REQ-EXTAG-006, which now lives in
+# the folded capability `openspec/specs/ai/external-agent/spec.md` (the change
+# `acp-external-agent-desktop` that owned it is archived). This change makes the code do what
+# FR-040 says; the requirement's own words are untouched.
 #
-# The capability is not yet folded into `openspec/specs/` (that change is still open), so a
-# delta here would either duplicate the requirement's id or collide when the external-agent
-# change archives. The change carries a proposal, a design and tasks here, an ADR in
-# `docs/decisions/`, and a verdict in `.specify/reviews/` — no delta.
+# So there is nothing to add, modify or remove in the capability: the requirement is already
+# written down, and a delta here would restate it. The change carries a proposal, a design and
+# tasks here, an ADR in `docs/decisions/`, and a verdict in `.specify/reviews/` — no delta.
 #
 # The 60-second threshold is normative in `specs/014` only; no openspec requirement states a
 # number, which is one more reason not to restate it in a delta here.
 #
 # Invariant: if this change ever needs to move FR-040's own words — as opposed to making them
 # true — delete `skip_specs` and write the delta in the change that owns the capability.
-# skip_specs removed: acp-external-agent-desktop is now archived.
+skip_specs: true

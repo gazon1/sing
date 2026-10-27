@@ -5,9 +5,6 @@ import com.singularity.todo.core.files.ByteArraySource
 import com.singularity.todo.core.files.ByteSink
 import com.singularity.todo.core.files.ByteSource
 import com.singularity.todo.core.security.ArchiveCrypto
-import com.singularity.todo.core.security.ArchiveCryptoParams
-import com.singularity.todo.core.security.ArchiveTagMismatchException
-import kotlinx.coroutines.CancellationException
 
 /**
  * The encrypted archive: what sits in the bucket, and what comes back out of it.
@@ -39,12 +36,22 @@ import kotlinx.coroutines.CancellationException
  *           | base ciphertext + tag            (to the end of the stream)
  * ```
  *
+ * Version 3 — the same chain, sealed under a device key instead of the password,
+ * with that key carried in the header wrapped under the password:
+ *
+ * ```
+ * magic (4) | version=3 (1) | salt (16) | nonce (12) | head (12)
+ *           | key block: salt (16) | nonce (12) | wrapped key + tag
+ *           | entry*: …                     (as in version 2)
+ *           | base ciphertext + tag          (to the end of the stream)
+ * ```
+ *
  * - **magic** says "this is an encrypted archive" — so an archive from before the
  *   encryption is refused with a sentence that names the problem, instead of
  *   failing as a checksum mismatch;
  * - **version** says how to read the rest. A version is never reused, and every
- *   later build reads every version it can: [READABLE_VERSIONS] is a set, and
- *   [VERSION] is only the one this build writes;
+ *   later build reads every version it can: [ArchiveFormat.READABLE_VERSIONS] is a
+ *   set, and [ArchiveFormat.LATEST_VERSION] is only the one this build writes;
  * - **salt** feeds the key derivation, so two archives under one password do not
  *   share a key;
  * - **nonce** is the GCM nonce of the base, and it is fresh for every archive;
@@ -54,12 +61,15 @@ import kotlinx.coroutines.CancellationException
  *   without the head a reader would restore an older state and call it current;
  * - **the base is last** because it is the part that is streamed, and a stream
  *   cannot say its own sealed length before it is sealed. Everything else is small
- *   enough to know its length first, so everything else is length-framed.
+ *   enough to know its length first, so everything else is length-framed;
+ * - **the key block** is version 3's own field: the device key, wrapped under the
+ *   password, so that a scheduled export can seal an archive without a person and
+ *   the person can still open it with the password they know.
  *
  * The header is the authenticated data: it is covered by the tag, so neither the
- * salt nor the nonce nor the version nor the head can be changed without the
- * archive ceasing to open. That is why the header is passed to the cipher as AAD
- * rather than being trusted.
+ * salt nor the nonce nor the version nor the head nor the key block can be changed
+ * without the archive ceasing to open. That is why the header is passed to the
+ * cipher as AAD rather than being trusted.
  *
  * Each entry is sealed with `header-prefix ‖ index` as its authenticated data. The
  * index is what makes a swap detectable — an entry sealed as number one does not
@@ -78,13 +88,25 @@ import kotlinx.coroutines.CancellationException
  * not in the archive. The person who pushed it is the one who can open it, and a
  * forgotten password means a lost archive — the honest price of a key that the
  * server never has.
+ *
+ * ## Where the parts live
+ *
+ * This class is the **shape** of the archive — what it seals and what it opens —
+ * and nothing else:
+ *
+ * - [ArchiveFormat] — the numbers the bytes are made of, and the bounds;
+ * - [ArchiveFrame] and [ArchiveHead] — the framing;
+ * - [ArchiveContainer] — the version routing;
+ * - [ArchiveChainReader] — the reading of a chain's changes;
+ * - [ArchiveCryptoSession] — the key and the cipher calls;
+ * - [ArchiveErrors] — what a failure means.
  */
 class EncryptedArchive(private val crypto: ArchiveCrypto) {
 
     /**
      * The encrypted form of [plain].
      *
-     * @throws BackupError.MissingPassword when the password is empty.
+     * @throws ArchiveEnvelopeError.MissingPassword when the password is empty.
      */
     fun seal(plain: ByteArray, password: CharArray): ByteArray {
         val sink = ByteArraySink()
@@ -102,7 +124,7 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
      * This writes a version-2 container whose chain has **no entries** — a full
      * snapshot in the newer envelope. [sealChain] is what writes a chain.
      *
-     * @throws BackupError.MissingPassword when the password is empty.
+     * @throws ArchiveEnvelopeError.MissingPassword when the password is empty.
      */
     fun seal(source: ByteSource, sink: ByteSink, password: CharArray) {
         sealChain(base = source, entries = emptyList(), sink = sink, password = password)
@@ -124,49 +146,78 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
      *
      * The base is streamed and never buffered. The entries are: they are deltas,
      * measured in kilobytes, and each one has to be sealed before the head can say
-     * how long it is.
+     * how long it is. How much they may take is not left to chance — the chain is
+     * bounded by [ArchiveFormat.MAX_CHAIN_ENTRIES] and [ArchiveFormat.MAX_CHAIN_BYTES],
+     * and a chain past the bound is refused **here**, at export time, rather than
+     * being written and refused at restore time.
      *
-     * @throws BackupError.MissingPassword when the password is empty.
+     * @throws ArchiveEnvelopeError.MissingPassword when the password is empty.
+     * @throws ArchiveEnvelopeError.ChainTooLong when the chain is past its bound.
      */
     fun sealChain(base: ByteSource, entries: List<ByteSource>, sink: ByteSink, password: CharArray) {
         requirePassword(password)
-        val salt = crypto.randomBytes(SALT_BYTES)
-        val nonce = crypto.randomBytes(NONCE_BYTES)
-        val prefix = headerPrefix(salt, nonce)
-        val key = crypto.deriveKey(password, salt)
-        try {
-            val sealedEntries = entries.mapIndexed { index, entry ->
-                val entryNonce = crypto.randomBytes(NONCE_BYTES)
-                val body = ByteArraySink()
-                crypto.seal(entry, body, key, entryNonce, entryAad(prefix, index))
-                val sealed = body.bytes()
-                if (sealed.size > MAX_ENTRY_BYTES) {
-                    // The reader refuses a change bigger than this. Writing one anyway
-                    // would produce an archive this very build calls broken — a
-                    // failure at restore time instead of at export time.
-                    throw BackupError.BrokenChain("a change is ${sealed.size} bytes, more than this build reads")
-                }
-                SealedEntry(index = index, nonce = entryNonce, body = sealed)
-            }
-            if (sealedEntries.sumOf { it.body.size } > MAX_CHAIN_BYTES) {
-                throw BackupError.BrokenChain("its changes together exceed the size this build seals")
-            }
-            val head = ChainHead(count = sealedEntries.size, entriesLength = sealedEntries.sumOf { it.frameSize() })
-            val header = prefix + head.toBytes()
+        sealChainWith(
+            base = base,
+            entries = entries,
+            sink = sink,
+            version = ArchiveFormat.CHAIN_VERSION,
+            contentKey = { ContentKey.Password(password) },
+            keyBlock = null,
+        )
+    }
 
-            sink.write(header, 0, header.size)
-            for (entry in sealedEntries) {
-                val frame = entry.frame()
-                sink.write(frame, 0, frame.size)
-            }
-            // The base goes last and runs to the end of the stream: it is the part
-            // whose sealed length nobody knows until it is sealed.
-            crypto.seal(base, sink, key, nonce, header)
+    /**
+     * The encrypted form of [entries] followed by [base], sealed under a **device
+     * key** and written to [sink].
+     *
+     * ## What this is for
+     *
+     * A scheduled export has no person, and therefore no password — but the archive
+     * still has to be openable by the person who owns the account. So the archive
+     * carries the key it was sealed with, in a form only the password can open: the
+     * [keyBlock], which is the device key wrapped under the password.
+     *
+     * The block is made once per device ([wrapDeviceKey]) and travels in every
+     * archive, so the wrapping is not repeated per export.
+     *
+     * @throws ArchiveEnvelopeError.ChainTooLong when the chain is past its bound.
+     */
+    fun sealChain(
+        base: ByteSource,
+        entries: List<ByteSource>,
+        sink: ByteSink,
+        deviceKey: ByteArray,
+        keyBlock: ArchiveKeyBlock,
+    ) {
+        sealChainWith(
+            base = base,
+            entries = entries,
+            sink = sink,
+            version = ArchiveFormat.DEVICE_KEY_VERSION,
+            contentKey = { ContentKey.Device(deviceKey) },
+            keyBlock = keyBlock,
+        )
+    }
+
+    /**
+     * The device key, wrapped under [password] so that it can travel in a container.
+     *
+     * The wrapping is done **once per device**: the block has a salt of its own, so
+     * it does not have to be re-wrapped when the archive's salt changes.
+     */
+    fun wrapDeviceKey(deviceKey: ByteArray, password: CharArray): ArchiveKeyBlock {
+        requirePassword(password)
+        val blockSalt = crypto.randomBytes(ArchiveFormat.SALT_BYTES)
+        val blockNonce = crypto.randomBytes(ArchiveFormat.NONCE_BYTES)
+        val session = ArchiveCryptoSession.forPassword(crypto, password, blockSalt)
+        return try {
+            ArchiveKeyBlock(
+                salt = blockSalt,
+                nonce = blockNonce,
+                ciphertext = session.wrapDeviceKey(deviceKey, blockNonce, blockSalt),
+            )
         } finally {
-            // The derived key is the archive's key in the only form it ever takes.
-            // It is not the password — the password is wiped by whoever owns it —
-            // but this one is ours, and ours is what we clean up after ourselves.
-            key.fill(0)
+            session.close()
         }
     }
 
@@ -177,18 +228,17 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
      * **base**, and refuses one that carries entries: this call cannot apply them,
      * and returning the base alone would silently restore an older state.
      *
-     * @throws BackupError.NotEncrypted when the bytes are not an encrypted archive.
-     * @throws BackupError.UnsupportedArchiveVersion when no version this build reads
+     * @throws ArchiveEnvelopeError.NotEncrypted when the bytes are not an encrypted archive.
+     * @throws ArchiveEnvelopeError.UnsupportedArchiveVersion when no version this build reads
      *   is the container's version.
-     * @throws BackupError.WrongPassword when the password does not open it.
-     * @throws BackupError.BrokenChain when the archive carries entries, which this
+     * @throws ArchiveEnvelopeError.WrongPassword when the password does not open it.
+     * @throws ArchiveEnvelopeError.BrokenChain when the archive carries entries, which this
      *   call cannot apply — see [openChain].
      */
-    @Suppress("TooGenericExceptionCaught", "ThrowsCount")
     fun open(container: ByteArray, password: CharArray): ByteArray {
         val sink = ByteArraySink()
         openChain(ByteArraySource(container), sink, password) { _, _ ->
-            throw BackupError.BrokenChain(
+            throw ArchiveEnvelopeError.BrokenChain(
                 "it carries changes, and reading an archive whole cannot apply them",
             )
         }
@@ -209,16 +259,16 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
      * temporary file and moves it into place only after this call returned without
      * throwing.
      *
-     * @throws BackupError.NotEncrypted when the bytes are not an encrypted archive.
-     * @throws BackupError.UnsupportedArchiveVersion when no version this build reads
+     * @throws ArchiveEnvelopeError.NotEncrypted when the bytes are not an encrypted archive.
+     * @throws ArchiveEnvelopeError.UnsupportedArchiveVersion when no version this build reads
      *   is the container's version.
-     * @throws BackupError.WrongPassword when the password does not open it.
-     * @throws BackupError.BrokenChain when the archive carries entries, which this
+     * @throws ArchiveEnvelopeError.WrongPassword when the password does not open it.
+     * @throws ArchiveEnvelopeError.BrokenChain when the archive carries entries, which this
      *   call cannot apply.
      */
     fun open(source: ByteSource, sink: ByteSink, password: CharArray) {
         openChain(source, sink, password) { _, _ ->
-            throw BackupError.BrokenChain(
+            throw ArchiveEnvelopeError.BrokenChain(
                 "it carries changes, and reading an archive whole cannot apply them",
             )
         }
@@ -232,21 +282,27 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
      * over as a `ByteArray`, because a delta is small and the caller has to apply it
      * whole.
      *
+     * A version-3 container is opened with the **password** too: the password
+     * unwraps the device key that the content was sealed with, and the content is
+     * then read under the device key.
+     *
      * **The sink is written before the password is proven.** The cipher can only
      * check the tag when it has read everything, so what arrives in the sink may be
      * garbage when the password was wrong. A caller that cares writes into a
      * temporary file and moves it into place only after this call returned
      * without throwing.
      *
-     * @throws BackupError.NotEncrypted when the bytes are not an encrypted archive.
-     * @throws BackupError.UnsupportedArchiveVersion when no version this build reads
+     * @throws ArchiveEnvelopeError.NotEncrypted when the bytes are not an encrypted archive.
+     * @throws ArchiveEnvelopeError.UnsupportedArchiveVersion when no version this build reads
      *   is the container's version.
-     * @throws BackupError.WrongPassword when the password does not open it.
-     * @throws BackupError.BrokenChain when the chain does not hold together: an
+     * @throws ArchiveEnvelopeError.WrongPassword when the password does not open it.
+     * @throws ArchiveEnvelopeError.BrokenChain when the chain does not hold together: an
      *   entry out of place, or a chain shorter than its own head says — a dropped
      *   tail.
+     * @throws ArchiveEnvelopeError.ChainTooLong when the head promises more changes
+     *   than this build reads. The count is read before the password is proven, so
+     *   it is refused before it can become a loop.
      */
-    @Suppress("TooGenericExceptionCaught", "ThrowsCount")
     fun openChain(
         source: ByteSource,
         sink: ByteSink,
@@ -254,152 +310,169 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
         onEntry: (index: Int, plain: ByteArray) -> Unit,
     ) {
         requirePassword(password)
-        // Every read of the source goes through `said`: a source that fails to read
-        // at all is `Unusable` wherever it happens, a tag that does not match is the
-        // password, and the chain's own refusals pass through untouched.
-        val container = said { readContainer(source) }
-        if (container.head.count < 0 || container.head.count > MAX_CHAIN_ENTRIES) {
-            throw BackupError.BrokenChain("its head promises ${container.head.count} changes, more than this build reads")
-        }
-        val key = crypto.deriveKey(password, container.salt)
+        val container = archiveErrors { ArchiveContainerReader.read(source) }
+        requireChainFits(container.head.count, "reads")
+        val session = contentSession(container, password)
         try {
-            var consumed = 0L
-            for (index in 0 until container.head.count) {
-                val frame = said { readFrame(source) }
-                val entryIndex = frame.intAt(0)
-                if (entryIndex != index) {
-                    throw BackupError.BrokenChain("an entry that should be number $index says it is $entryIndex")
-                }
-                val length = frame.intAt(4)
-                if (length <= 0 || length > MAX_ENTRY_BYTES) {
-                    // A length read out of a corrupt frame is not a length: allocating
-                    // it would be the corruption, not the reading of it.
-                    throw BackupError.BrokenChain("a change claims to be $length bytes long")
-                }
-                val entryNonce = frame.copyOfRange(8, 8 + NONCE_BYTES)
-                val body = said { readFrameBody(source, length) }
-                consumed += ENTRY_HEAD_BYTES + length
-
-                val plain = ByteArraySink()
-                said {
-                    crypto.open(ByteArraySource(body), plain, key, entryNonce, entryAad(container.prefix, index))
-                }
-                onEntry(index, plain.bytes())
-            }
+            val consumed = ArchiveChainReader.read(source, container, session, onEntry)
 
             if (consumed != container.head.entriesLength) {
-                throw BackupError.BrokenChain(
+                throw ArchiveEnvelopeError.BrokenChain(
                     "its head says ${container.head.entriesLength} bytes of changes and $consumed were there",
                 )
             }
 
-            said { crypto.open(source, sink, key, container.nonce, container.header) }
+            archiveErrors { session.openBase(source, sink, container.nonce, container.header) }
         } finally {
-            key.fill(0)
+            session.close()
         }
     }
 
     /**
-     * Runs [block], saying in the project's words what the cipher's failure means.
+     * The chain, written to [sink].
      *
-     * The same rules as before the chain: a tag mismatch is the password, anything
-     * else is the bytes not moving. A project failure passes through untouched, and
-     * a cancellation is not a failure at all.
+     * The one place that writes a container, whatever the version: the differences
+     * between the versions are the version byte, the key the content is sealed
+     * under, and the key block in the header — and each of those three is a
+     * parameter here, so the framing is written once.
      */
-    @Suppress("TooGenericExceptionCaught", "ThrowsCount")
-    private inline fun <T> said(block: () -> T): T =
+    private fun sealChainWith(
+        base: ByteSource,
+        entries: List<ByteSource>,
+        sink: ByteSink,
+        version: Int,
+        contentKey: () -> ContentKey,
+        keyBlock: ArchiveKeyBlock?,
+    ) {
+        requireChainFits(entries.size, "writes")
+
+        val salt = crypto.randomBytes(ArchiveFormat.SALT_BYTES)
+        val nonce = crypto.randomBytes(ArchiveFormat.NONCE_BYTES)
+        val prefix = headerPrefix(version, salt, nonce)
+        val session = sessionFor(contentKey(), salt)
         try {
-            block()
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: BackupError) {
-            throw error
-        } catch (error: ArchiveTagMismatchException) {
-            // The cipher says the tag does not match: the password is wrong.
-            throw BackupError.WrongPassword(error)
-        } catch (error: Exception) {
-            // Anything else is not about the password: the bytes could not be moved
-            // at all. Saying "wrong password" here sends the person to retype a
-            // password that was never the problem.
-            throw BackupError.Unusable(error)
+            val frames = mutableListOf<ArchiveFrame>()
+            var sealedBytes = 0L
+            entries.forEachIndexed { index, entry ->
+                val frame = sealFrame(session, entry, index, prefix)
+                sealedBytes += frame.frameSize()
+                if (sealedBytes > ArchiveFormat.MAX_CHAIN_BYTES) {
+                    throw ArchiveEnvelopeError.ChainTooLong(
+                        "$sealedBytes bytes of changes, more than the ${ArchiveFormat.MAX_CHAIN_BYTES} this build writes",
+                    )
+                }
+                frames.add(frame)
+            }
+            val head = ChainHead(count = frames.size, entriesLength = frames.sumOf { it.frameSize() })
+            val header = prefix + head.toBytes() + (keyBlock?.toBytes() ?: ByteArray(0))
+
+            sink.write(header, 0, header.size)
+            for (frame in frames) {
+                frame.writeTo(sink)
+            }
+            // The base goes last and runs to the end of the stream: it is the part
+            // whose sealed length nobody knows until it is sealed.
+            session.sealBase(base, sink, nonce, header)
+        } finally {
+            // The derived key is the archive's key in the only form it ever takes.
+            // It is not the password — the password is wiped by whoever owns it —
+            // but this one is ours, and ours is what we clean up after ourselves.
+            session.close()
         }
-
-    /**
-     * An entry's frame header, or "the chain is shorter than its head says".
-     *
-     * A source that ends here was not a short entry — the head promised a frame, and
-     * the bytes are not there. That is a dropped tail, and it is refused by name
-     * rather than read as the end of the archive.
-     */
-    private fun readFrame(source: ByteSource): ByteArray =
-        readOrNull(source, ENTRY_HEAD_BYTES)
-            ?: throw BackupError.BrokenChain("it ends before the changes its head promised")
-
-    /** An entry's body, with the same mapping: a missing body is a dropped tail. */
-    private fun readFrameBody(source: ByteSource, length: Int): ByteArray =
-        readOrNull(source, length)
-            ?: throw BackupError.BrokenChain("a change ends before its own length says")
-
-    /**
-     * The container's header, whichever readable version it is.
-     *
-     * **The magic and the version are read first, and everything after them depends
-     * on the version** — a version-2 header is longer than a version-1 one, so a
-     * reader that read a fixed length would cut a v2 header in half and reject the
-     * archive it was written by.
-     *
-     * @throws BackupError.NotEncrypted when the bytes do not say what they are.
-     * @throws BackupError.UnsupportedArchiveVersion when the version is not one this
-     *   build reads; the message names the version and the one this build writes.
-     */
-    private fun readContainer(source: ByteSource): Container {
-        val prefix = readPrefix(source)
-        val salt = prefix.copyOfRange(MAGIC.length + 1, MAGIC.length + 1 + SALT_BYTES)
-        val nonce = prefix.copyOfRange(MAGIC.length + 1 + SALT_BYTES, prefix.size)
-        val version = prefix[MAGIC.length].toInt() and 0xFF
-        if (version == 1) {
-            return Container(prefix, salt, nonce, ChainHead(count = 0, entriesLength = 0))
-        }
-        val headBytes = readOrNull(source, HEAD_BYTES)
-            ?: throw BackupError.NotEncrypted(IllegalStateException("a version-2 header ends early"))
-        return Container(prefix, salt, nonce, ChainHead.fromBytes(headBytes), header = prefix + headBytes)
     }
+
+    /**
+     * One change, sealed and framed.
+     *
+     * The changes are sealed into memory before the head can say how long they
+     * are, so this is where the chain's size bound is enforced: an export that
+     * writes a chain past the bound has produced an archive this very build calls
+     * broken, and it finds out at restore time instead of at export time.
+     */
+    private fun sealFrame(
+        session: ArchiveCryptoSession,
+        entry: ByteSource,
+        index: Int,
+        prefix: ByteArray,
+    ): ArchiveFrame {
+        val entryNonce = crypto.randomBytes(ArchiveFormat.NONCE_BYTES)
+        val body = ByteArraySink()
+        session.sealEntry(index, entry, body, prefix, entryNonce)
+        val sealed = body.bytes()
+        if (sealed.size > ArchiveFormat.MAX_ENTRY_BYTES) {
+            throw ArchiveEnvelopeError.BrokenChain(
+                "a change is ${sealed.size} bytes, more than this build reads",
+            )
+        }
+        return ArchiveFrame(index = index, length = sealed.size, nonce = entryNonce, body = sealed)
+    }
+
+    /**
+     * The chain has to fit its bound.
+     *
+     * The count is what a restore reads: a chain of a thousand changes is a
+     * restore that is slower than the snapshot it replaced. The size is what the
+     * writer holds: the changes are sealed into memory before the head can say
+     * how long they are, so an unbounded chain is an unbounded allocation.
+     *
+     * Both are refused **by name**. At export time, because the export re-seals a
+     * fresh base instead. At restore time, because the count in the head is read
+     * before the password is proven — a count nobody has proven yet must not
+     * become a loop that allocates.
+     *
+     * @param count how many changes the chain claims to carry.
+     * @param direction what this build does with that many — `writes` at export
+     *   time, `reads` at restore time. The message says it, because "more than
+     *   this build writes" would be a lie to a person reading a restore.
+     */
+    private fun requireChainFits(count: Int, direction: String) {
+        if (count < 0 || count > ArchiveFormat.MAX_CHAIN_ENTRIES) {
+            throw ArchiveEnvelopeError.ChainTooLong(
+                "it promises $count changes, and this build $direction at most " +
+                    ArchiveFormat.MAX_CHAIN_ENTRIES,
+            )
+        }
+    }
+
+    /**
+     * The session that reads the container's content.
+     *
+     * A version-1 or version-2 container is sealed under the password. A version-3
+     * one is sealed under the device key, which the password unwraps out of the
+     * key block the header carries.
+     */
+    private fun contentSession(container: ArchiveContainer, password: CharArray): ArchiveCryptoSession =
+        when (container.version) {
+            ArchiveFormat.DEVICE_KEY_VERSION -> {
+                val block = container.keyBlock
+                    ?: throw ArchiveEnvelopeError.BrokenChain("it says it carries a key block, and it does not")
+                val wrapping = ArchiveCryptoSession.forPassword(crypto, password, block.salt)
+                val deviceKey = try {
+                    archiveErrors { wrapping.unwrapDeviceKey(block) }
+                } finally {
+                    wrapping.close()
+                }
+                ArchiveCryptoSession.forDeviceKey(crypto, deviceKey, container.salt)
+            }
+
+            else -> ArchiveCryptoSession.forPassword(crypto, password, container.salt)
+        }
+
+    /** The session for a container this build is writing. */
+    private fun sessionFor(key: ContentKey, salt: ByteArray): ArchiveCryptoSession =
+        when (key) {
+            is ContentKey.Password -> ArchiveCryptoSession.forPassword(crypto, key.password, salt)
+            is ContentKey.Device -> ArchiveCryptoSession.forDeviceKey(crypto, key.deviceKey, salt)
+        }
 
     /**
      * The magic, the version, the salt and the nonce.
-     *
-     * @throws BackupError.NotEncrypted when the bytes are too short or are not an
-     *   encrypted archive.
-     * @throws BackupError.UnsupportedArchiveVersion when the version is not read.
      */
-    @Suppress("ThrowsCount")
-    private fun readPrefix(source: ByteSource): ByteArray {
-        val header = readOrNull(source, PREFIX_BYTES) ?: throw BackupError.NotEncrypted()
-        if (header.copyOfRange(0, MAGIC.length).decodeToString() != MAGIC) throw BackupError.NotEncrypted()
-        val version = header[MAGIC.length].toInt() and 0xFF
-        if (version !in READABLE_VERSIONS) throw BackupError.UnsupportedArchiveVersion(version, READABLE_VERSIONS)
-        return header
-    }
-
-    /**
-     * Exactly [count] bytes, or `null` when the source ends first.
-     *
-     * The distinction the container needs is **end-of-stream versus a failure to
-     * read at all** — and `readExactly` cannot make it: it answers both with an
-     * `IllegalStateException`, so a disk that fell over mid-read would be reported
-     * as "this is not an archive". Reading the pieces here keeps the two apart: a
-     * short read returns `null`, and a source that throws is left to throw.
-     */
-    private fun readOrNull(source: ByteSource, count: Int): ByteArray? {
-        val buffer = ByteArray(count)
-        var filled = 0
-        while (filled < count) {
-            val read = source.read(buffer, filled, count - filled)
-            if (read < 0) return null
-            filled += read
-        }
-        return buffer
-    }
+    private fun headerPrefix(version: Int, salt: ByteArray, nonce: ByteArray): ByteArray =
+        ArchiveFormat.MAGIC.encodeToByteArray() +
+            byteArrayOf(version.toByte()) +
+            salt +
+            nonce
 
     /**
      * A password is not optional.
@@ -409,149 +482,18 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
      * refuse it by name, rather than the opening one failing with a wrong
      * password it never had.
      *
-     * @throws BackupError.MissingPassword when the password is empty.
+     * @throws ArchiveEnvelopeError.MissingPassword when the password is empty.
      */
     private fun requirePassword(password: CharArray) {
-        if (password.isEmpty()) throw BackupError.MissingPassword()
+        if (password.isEmpty()) throw ArchiveEnvelopeError.MissingPassword()
     }
 
-    private fun headerPrefix(salt: ByteArray, nonce: ByteArray): ByteArray =
-        MAGIC.encodeToByteArray() +
-            byteArrayOf(VERSION.toByte()) +
-            salt +
-            nonce
+    /** What the content of a container is sealed under. */
+    private sealed interface ContentKey {
+        /** The person's password — versions 1 and 2. */
+        class Password(val password: CharArray) : ContentKey
 
-    /** What an entry is sealed with: this archive's prefix, then the entry's place. */
-    private fun entryAad(prefix: ByteArray, index: Int): ByteArray = prefix + index.toBytes()
-
-    /** The container, as the reader sees it. */
-    private class Container(
-        val prefix: ByteArray,
-        val salt: ByteArray,
-        val nonce: ByteArray,
-        val head: ChainHead,
-        val header: ByteArray = prefix,
-    )
-
-    /**
-     * The chain's own count.
-     *
-     * `count` entries, together `entriesLength` bytes — each frame including its
-     * index, length and nonce. Both numbers are authenticated as part of the base's
-     * data, which is what makes a dropped tail visible.
-     */
-    private class ChainHead(val count: Int, val entriesLength: Long) {
-        fun toBytes(): ByteArray = count.toBytes() + entriesLength.toBytes()
-
-        companion object {
-            fun fromBytes(bytes: ByteArray): ChainHead =
-                ChainHead(count = bytes.intAt(0), entriesLength = bytes.longAt(4))
-        }
+        /** The device key — version 3. */
+        class Device(val deviceKey: ByteArray) : ContentKey
     }
-
-    /** One entry, sealed and framed. */
-    private class SealedEntry(val index: Int, val nonce: ByteArray, val body: ByteArray) {
-        fun frameSize(): Long = ENTRY_HEAD_BYTES.toLong() + body.size
-
-        fun frame(): ByteArray = index.toBytes() + body.size.toBytes() + nonce + body
-    }
-
-    companion object {
-        /** The bytes that say "an encrypted archive follows". */
-        const val MAGIC = "SGBK"
-
-        /** The version this build **writes**. */
-        const val VERSION = 2
-
-        /**
-         * The versions this build **reads**.
-         *
-         * A version is never reused, and a build keeps reading the ones it shipped
-         * with: an archive written before the chain existed still has to open. A
-         * bump to [VERSION] is not a bump to this set.
-         */
-        val READABLE_VERSIONS = setOf(1, 2)
-
-        /** The salt's length: 16 bytes, as PBKDF2 expects. */
-        const val SALT_BYTES = ArchiveCryptoParams.SALT_BYTES
-
-        /** The GCM nonce's length: 12 bytes, as GCM expects. */
-        const val NONCE_BYTES = ArchiveCryptoParams.NONCE_BYTES
-
-        /** Magic, version, salt and nonce — the data every version starts with. */
-        const val PREFIX_BYTES = MAGIC.length + 1 + SALT_BYTES + NONCE_BYTES
-
-        /** The head's length: the entry count (4) and the entries' total length (8). */
-        const val HEAD_BYTES = 4 + 8
-
-        /** A version-1 header: magic, version, salt and nonce, and nothing else. */
-        const val HEADER_BYTES = PREFIX_BYTES
-
-        /** A version-2 header: the prefix and the chain's head — the base's AAD. */
-        const val HEADER_BYTES_V2 = PREFIX_BYTES + HEAD_BYTES
-
-        /** An entry's frame before its body: index (4), length (4) and nonce (12). */
-        const val ENTRY_HEAD_BYTES = 4 + 4 + NONCE_BYTES
-
-        /**
-         * The largest change this build will read, in bytes.
-         *
-         * A change is a delta — kilobytes. The bound exists because the length comes
-         * out of the container, and a corrupt length must not become an allocation:
-         * refusing it is what keeps a damaged archive from taking the process down.
-         */
-        const val MAX_ENTRY_BYTES = 64 * 1024 * 1024
-
-        /**
-         * The largest number of deltas a chain may carry.
-         *
-         * A chain is a base and the deltas that follow it, and the count is part
-         * of the authenticated header — but it is read before the password is
-         * proven, so a corrupt or hostile count must not become a loop that
-         * allocates. Refusing a chain longer than this keeps a damaged archive
-         * from taking the process down, the same way [MAX_ENTRY_BYTES] keeps a
-         * damaged length from doing so.
-         */
-        const val MAX_CHAIN_ENTRIES = 1024
-
-        /**
-         * The largest total size of a chain's entries, in bytes.
-         *
-         * A chain is a base and the deltas that follow it; the deltas are
-         * small, and a chain whose entries together exceed this bound is not
-         * a chain of deltas but a full snapshot wearing a chain's clothes.
-         * Refusing it keeps a pathological input from exhausting memory while
-         * the entries are sealed.
-         */
-        const val MAX_CHAIN_BYTES = 256 * 1024 * 1024
-    }
-}
-
-/** The four bytes of [this], most significant first. */
-private fun Int.toBytes(): ByteArray = byteArrayOf(
-    (this ushr 24).toByte(),
-    (this ushr 16).toByte(),
-    (this ushr 8).toByte(),
-    toByte(),
-)
-
-/** The eight bytes of [this], most significant first. */
-private fun Long.toBytes(): ByteArray = ByteArray(8) { index ->
-    (this ushr (56 - 8 * index)).toByte()
-}
-
-/** The big-endian int at [offset]. */
-private fun ByteArray.intAt(offset: Int): Int =
-    ((this[offset].toInt() and 0xFF) shl 24) or
-        ((this[offset + 1].toInt() and 0xFF) shl 16) or
-        ((this[offset + 2].toInt() and 0xFF) shl 8) or
-        (this[offset + 3].toInt() and 0xFF)
-
-/** The big-endian long at [offset]. */
-private fun ByteArray.longAt(offset: Int): Long {
-    var value = 0L
-    for (index in 0 until 8) {
-        value = (value shl 8) or (this[offset + index].toLong() and 0xFF)
-    }
-    return value
 }

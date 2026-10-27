@@ -122,6 +122,13 @@ fun BackupScreen(
      * is ciphertext, and the person who pushed it is the one who can open it.
      */
     onRestoreFromCloud: (remoteRef: String, password: CharArray) -> Unit,
+    /**
+     * Called when the user wants this device to push backups on its own.
+     *
+     * [password] wraps the device key — it is asked **once**, and it does not
+     * stay on the device. The person who restores an archive still needs it.
+     */
+    onAuthorizeScheduledBackup: (CharArray) -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     var pendingSettingsJson by remember { mutableStateOf<String?>(null) }
@@ -136,6 +143,10 @@ fun BackupScreen(
     // afternoon's work without ever asking — and the archive is sealed, so the
     // password is asked in the same breath.
     var pendingCloudRestore by remember { mutableStateOf<RemoteBackup?>(null) }
+
+    // The daily run needs no person only when the device holds a key of its own.
+    // The password that wraps that key is asked here, once, and never again.
+    var pendingAuthorize by remember { mutableStateOf(false) }
 
     // The screen owns the single collection of the event bus. The bus is a
     // channel, and a channel has one consumer: a second collector on `events`
@@ -312,6 +323,25 @@ fun BackupScreen(
                 modifier = Modifier.padding(bottom = 8.dp),
             )
 
+            // A backup on this device dies with this device. The daily run can put one
+            // in the cloud without a person — but only when the device holds a key of
+            // its own, and getting that key needs the password exactly once.
+            if (state.scheduledBackupAuthorized) {
+                Text(
+                    "This device backs up to the cloud on its own",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                OutlinedButton(
+                    onClick = { pendingAuthorize = true },
+                    modifier = Modifier.testTag(TestTags.BACKUP_AUTHORIZE_SCHEDULED_BUTTON),
+                    enabled = !state.isWorking,
+                ) {
+                    Text("Let this device back up on its own")
+                }
+            }
+
             if (!state.remoteBackupsLoaded) {
                 OutlinedButton(
                     onClick = onLoadRemoteBackups,
@@ -399,6 +429,27 @@ fun BackupScreen(
                 onRestoreFromCloud(remote.ref, password)
             },
             onDismiss = { pendingCloudRestore = null },
+        )
+    }
+
+    if (pendingAuthorize) {
+        BackupPasswordDialog(
+            title = "Back up on its own",
+            // The honest sentence about what the password does: it wraps the key
+            // this device uses from now on. The archives that are already in the
+            // cloud carry the password they were made with, and saying so here
+            // is better than letting the person find out at a restore.
+            text = "This device will keep a copy of your data in the cloud every day, " +
+                "with nobody here to type a password. Enter your backup password once: " +
+                "it wraps a key that stays on this device, and you will need the same " +
+                "password to restore an archive. Archives that are already in the cloud " +
+                "keep the password they were made with.",
+            confirmLabel = "Authorize",
+            onConfirm = { password ->
+                pendingAuthorize = false
+                onAuthorizeScheduledBackup(password)
+            },
+            onDismiss = { pendingAuthorize = false },
         )
     }
 }

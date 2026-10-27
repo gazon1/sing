@@ -38,7 +38,9 @@ object TaskComputed {
      * - it is not completed
      * - it is not trashed (archived)
      *
-     * Corresponds to `Selector.Overdue` and `DateBucket(RelativeBucket.Overdue)`.
+     * This is the one rule that answers "is this task overdue?": the agenda's
+     * `Selector.Overdue` and `DateBucket(RelativeBucket.Overdue)`, the task
+     * marking, the calendar mapper and the task filter all ask here.
      */
     fun isOverdue(task: Task, today: LocalDate): Boolean = task.dueDate != null &&
         task.dueDate < today &&

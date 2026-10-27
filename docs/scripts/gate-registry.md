@@ -29,6 +29,8 @@ its helper tools — and the gates are described here, once.
 | declared dependencies are used | blocking | `scripts/check-dependency-usage.py` | Dependency-usage gate: a declared dependency that nothing imports (#205). | — | — |
 | room schema integrity | blocking | `scripts/check-room-schema-integrity.py` | check-room-schema-integrity.py — prove the declared schema, the exported
 sche... | — | — |
+| tag entity constructions include nameNormalized | blocking | `scripts/ci/check-tag-entity-normalized.py` | Fail if a TagEntity(...) construction omits nameNormalized. | — | — |
+| migration index names follow convention | blocking | `scripts/ci/check-migration-naming.py` | Cheap migration-naming checks: partial indexes must be named index_<table>_<c... | — | — |
 | gates are alive | blocking | `scripts/check-gate-liveness.py` | check-gate-liveness.py — a gate is green because it passed, or because it died? | — | — |
 | the toolbox surface is declared once | blocking | `scripts/check-skill-drift.py` | check-skill-drift.py — the declared toolbox must be the implemented toolbox (... | — | — |
 | workflow env context resolves | blocking | `scripts/check-workflow-env-context.py` | check-workflow-env-context.py — every `${{ env.X }}` in a workflow must resolve. | — | — |
@@ -97,3 +99,4 @@ sche... | — | — |
 | screen state collections | blocking | `scripts/check-screen-state-collections.py` | check-screen-state-collections.py — a screen state does not hold a raw collec... | — | — |
 | the mobile build carries no external-agent code | blocking | `scripts/check-mobile-isolation.py` | check-mobile-isolation.py — the mobile build carries no external-agent code. | — | — |
 | a specification and the tree agree | blocking | `scripts/check-spec-requirement-traceability.py` | check-spec-requirement-traceability.py — every requirement in a spec is trace... | — | — |
+| hideKeyboard follows an input | blocking | `scripts/check-maestro-hidekeyboard.py` | check-maestro-hidekeyboard.py — hideKeyboard must follow an input, not preced... | — | — |

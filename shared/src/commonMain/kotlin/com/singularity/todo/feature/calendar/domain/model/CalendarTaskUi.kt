@@ -10,7 +10,7 @@ import kotlinx.datetime.LocalTime
  * Derived from the domain [com.singularity.todo.feature.tasks.domain.model.Task]:
  * - [dueTime] is null → [isAllDay] = true
  * - [isCompleted] → [status] = DONE
- * - overdue (dueDate < today && !isCompleted) → [status] = OVERDUE
+ * - overdue ([com.singularity.todo.feature.tasks.domain.logic.TaskComputed.isOverdue]) → [status] = OVERDUE
  * - [isRecurring] is derived from [ReminderRepository.watchByTask]
  * - [isLink] = kind == TaskKind.Note
  */

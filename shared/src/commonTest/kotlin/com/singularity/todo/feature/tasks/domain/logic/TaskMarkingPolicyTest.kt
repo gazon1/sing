@@ -39,6 +39,7 @@ class TaskMarkingPolicyTest {
         id: String,
         dueDate: LocalDate? = null,
         completed: Boolean = false,
+        trashed: Boolean = false,
         pinned: Boolean = false,
         recurring: Boolean = false,
         blockedBy: List<String> = emptyList(),
@@ -53,7 +54,7 @@ class TaskMarkingPolicyTest {
         kind = TaskKind.Task,
         priority = TaskPriority.None,
         completedAt = if (completed) epoch0 else null,
-        archivedAt = null,
+        archivedAt = if (trashed) epoch0 else null,
         someday = false,
         isPinned = pinned,
         recurrence = if (recurring) {
@@ -117,6 +118,35 @@ class TaskMarkingPolicyTest {
         val task = t("t", dueDate = null)
 
         assertTrue(computeTaskMarkings(task, today).contains(TaskMarking.NoDate))
+    }
+
+    @Test
+    fun `a trashed task that is past its due date does not carry the overdue marking`() {
+        val task = t("t", dueDate = today.minus(1, DateTimeUnit.DAY), trashed = true)
+
+        assertFalse(
+            computeTaskMarkings(task, today).contains(TaskMarking.Overdue),
+            "the overdue rule has one owner — TaskComputed.isOverdue — and it says a trashed task is not overdue",
+        )
+        assertFalse(
+            TaskComputed.isOverdue(task, today),
+            "the owner of the rule says the same thing the marking does",
+        )
+    }
+
+    @Test
+    fun `the overdue marking and the overdue rule agree`() {
+        val past = t("past", dueDate = today.minus(1, DateTimeUnit.DAY))
+        val trashed = t("trashed", dueDate = today.minus(1, DateTimeUnit.DAY), trashed = true)
+        val done = t("done", dueDate = today.minus(1, DateTimeUnit.DAY), completed = true)
+
+        listOf(past, trashed, done).forEach { task ->
+            assertEquals(
+                TaskComputed.isOverdue(task, today),
+                computeTaskMarkings(task, today).contains(TaskMarking.Overdue),
+                "the marking and the predicate cannot disagree about the same task",
+            )
+        }
     }
 
     @Test

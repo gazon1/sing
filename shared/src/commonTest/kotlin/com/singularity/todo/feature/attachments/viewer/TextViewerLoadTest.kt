@@ -42,6 +42,7 @@ class TextViewerLoadTest {
 
         override suspend fun stat(path: String): FileStat? = stat
         override suspend fun writeBytes(path: String, data: ByteArray) = Unit
+        override suspend fun move(from: String, to: String) = Unit
         override suspend fun delete(path: String): Boolean = true
         override suspend fun exists(path: String): Boolean = stat != null
         override suspend fun ensureDir(dir: String) = Unit

@@ -53,6 +53,15 @@ class BackupExporter(
     private val codec: BackupCodec,
     private val clock: Clock,
     private val fs: FileSystem,
+    /**
+     * Where the backup keeps its own bookkeeping.
+     *
+     * The export writes the change that follows the snapshot, and the bookkeeping
+     * is what tells it what the last export's rows looked like — so the next
+     * export can say what changed. It is the backup's own state and nobody
+     * else's: see [BackupCursorStore].
+     */
+    private val cursors: BackupCursorStore,
 ) : ArchiveExporter {
     private val json = StableJson
 
@@ -169,7 +178,17 @@ class BackupExporter(
             // it: `fs.readBytes` here would load the whole archive into memory a
             // second time, which is the cost the streaming encoder exists to avoid.
             val byteSize = fs.stat(options.destPath)?.sizeBytes
-                ?: throw BackupError.FileNotFound(options.destPath)
+                ?: throw BackupStorageError.FileNotFound(options.destPath)
+
+            // The change that follows this snapshot.
+            //
+            // It is written after the snapshot, never before: the bookkeeping says
+            // what the last export's rows looked like, and it may only say that
+            // once the snapshot the change follows is on the disk. An export that
+            // failed half way through leaves the chain where it was, and the next
+            // export carries the change again — which costs a few rows and is
+            // wrong in no direction.
+            writeChange(options, payload, now)
 
             BackupResult(
                 manifest = manifest,
@@ -177,4 +196,131 @@ class BackupExporter(
                 byteSize = byteSize,
             )
         }
+
+    /**
+     * Writes the change that follows the snapshot, and records where the backup
+     * stands.
+     *
+     * ## What it writes
+     *
+     * The rows that changed — the new ones and the ones whose content changed —
+     * together with the rows that are gone, as a [BackupDelta] beside the
+     * snapshot. When the change cannot be carried that way, **nothing** is written
+     * and the chain starts again from this snapshot: an attachment carries bytes
+     * that an entry does not.
+     *
+     * ## When the chain starts again
+     *
+     * A chain that only grows is a restore that gets slower every time it runs,
+     * so the chain is bounded — by the number of changes and by their size — and
+     * the export that passes the bound writes a fresh base instead. The old chain
+     * is the previous archive: it is still on the device, and it is still a
+     * backup.
+     */
+    private suspend fun writeChange(
+        options: ExportOptions,
+        payload: BackupPayload,
+        now: Long,
+    ) {
+        val state = cursors.load(options.userId)
+        val index = BackupRows.index(payload)
+        val previous = state.rows.takeIf { it.isNotEmpty() }
+
+        when (val plan = BackupDeltaPlanner.plan(previous, index, payload)) {
+            is BackupDeltaPlan.FreshBase -> restartChain(options, state, index, now)
+
+            is BackupDeltaPlan.Entry -> {
+                if (plan.payload.hasNoChanges()) {
+                    // Nothing changed: there is no change to write, and an empty
+                    // entry would only make the chain longer than the account.
+                    cursors.save(
+                        options.userId,
+                        state.copy(cursor = now, rows = index),
+                    )
+                } else {
+                    writeEntry(options, state, index, now, plan.payload)
+                }
+            }
+        }
+    }
+
+    /**
+     * The change is written beside the snapshot, and the chain grows by one.
+     *
+     * When the chain has passed its bound, the change is taken back off the
+     * disk and the snapshot becomes the base of a new chain: a chain that only
+     * grows is a restore that gets slower every time it runs.
+     */
+    private suspend fun writeEntry(
+        options: ExportOptions,
+        state: BackupCursorState,
+        index: BackupRowIndex,
+        now: Long,
+        payload: BackupPayload,
+    ) {
+        val delta =
+            BackupDelta(
+                schemaVersion = BackupFormat.SCHEMA_VERSION,
+                cursor = now,
+                payload = payload,
+            )
+        val bytes = json.encodeToString(BackupDelta.serializer(), delta).encodeToByteArray()
+        val deltaPath = "${options.destPath}$DELTA_SUFFIX"
+        fs.writeBytes(deltaPath, bytes)
+
+        val entries = state.entries + BackupChainEntry(
+            archivePath = options.destPath,
+            deltaPath = deltaPath,
+            byteSize = bytes.size.toLong(),
+        )
+        val tooLong =
+            entries.size > ArchiveFormat.MAX_CHAIN_ENTRIES ||
+                entries.sumOf { it.byteSize } > ArchiveFormat.MAX_CHAIN_BYTES
+        if (tooLong) {
+            // The chain has passed its bound: this snapshot is the new
+            // base, and the change just written is not part of any chain.
+            fs.delete(deltaPath)
+            restartChain(options, state, index, now)
+        } else {
+            cursors.save(
+                options.userId,
+                state.copy(
+                    cursor = now,
+                    baseArchivePath = state.baseArchivePath ?: options.destPath,
+                    entries = entries,
+                    rows = index,
+                ),
+            )
+        }
+    }
+
+    /**
+     * The chain starts again from this snapshot.
+     *
+     * The changes the old chain carried are dropped: they described a chain that
+     * no longer exists, and leaving them on the disk would make the backup
+     * directory hold files that belong to nothing.
+     */
+    private suspend fun restartChain(
+        options: ExportOptions,
+        state: BackupCursorState,
+        index: BackupRowIndex,
+        now: Long,
+    ) {
+        state.entries.forEach { fs.delete(it.deltaPath) }
+        cursors.save(
+            options.userId,
+            state.copy(
+                cursor = now,
+                baseArchivePath = options.destPath,
+                entries = emptyList(),
+                rows = index,
+            ),
+        )
+    }
+
+    private companion object {
+        /** The suffix of the file the change is written to, beside the snapshot. */
+        const val DELTA_SUFFIX = ".delta"
+    }
 }

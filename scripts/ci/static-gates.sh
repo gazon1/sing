@@ -879,6 +879,8 @@ gate blocking "the tool catalogue is current" sgate the_tool_catalogue_is_curren
 gate blocking "the mobile build carries no external-agent code" sgate the_mobile_build_carries_no_external_agent_code
 # The gate reads the spec-kit feature specifications and checks that every requirement is traced and every promised check is a file in the tree.
 gate blocking "a specification and the tree agree" sgate a_specification_and_the_tree_agree
+# The flows are in Maestro/flows; the lint was added with the hideKeyboard fix.
+gate blocking "hideKeyboard follows an input" sgate hidekeyboard_follows_an_input
 # <<< END GENERATED: sgate render-static-gates >>>
 
 # ─── Collect all results and report ─────────────────────────────────────────

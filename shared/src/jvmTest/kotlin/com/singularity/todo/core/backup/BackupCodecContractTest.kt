@@ -57,7 +57,7 @@ class BackupCodecContractTest {
         val result = sut.import("/nonexistent/${System.nanoTime()}.zip", fs)
 
         assertTrue(result.isFailure)
-        assertTrue { result.exceptionOrNull() is BackupError.FileNotFound }
+        assertTrue { result.exceptionOrNull() is BackupStorageError.FileNotFound }
     }
 
     @Test
