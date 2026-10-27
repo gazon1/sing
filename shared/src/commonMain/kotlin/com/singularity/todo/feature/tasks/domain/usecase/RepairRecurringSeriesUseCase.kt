@@ -99,8 +99,21 @@ class RepairRecurringSeriesUseCase(
         }
         val candidates = repo.legacyRecurringTasks()
         var repaired = 0
+        val errors = mutableListOf<Throwable>()
         for (row in candidates) {
-            repairOne(row)?.let { repaired++ }
+            runCatching { repairOne(row) }
+                .onSuccess { result -> if (result != null) repaired++ }
+                .onFailure { error -> errors += error }
+        }
+        if (errors.isNotEmpty()) {
+            // One unreadable row must not stop the others from being repaired,
+            // and it must not declare the profile clean: the marker stays unset so
+            // the next launch visits the remaining rows again.
+            co.touchlab.kermit.Logger.withTag("RepairRecurringSeries").w {
+                "Skipped ${errors.size} of ${candidates.size} legacy rows; " +
+                    "marker left unset. First error: ${errors.first().message}"
+            }
+            return@runCatchingCancellable repaired
         }
         // Only after a pass that ran to the end: a failure above leaves the marker
         // unset, so the next launch tries again instead of declaring the profile
@@ -123,6 +136,12 @@ class RepairRecurringSeriesUseCase(
         unitOfWork.write {
             repo.update(adopted).getOrThrow()
         }
+
+        // A trashed row is adopted — it gains the series id so a restore cannot
+        // resurrect a rule without a series — but its window is not materialised:
+        // trashed work stays trashed, and materialising would create live
+        // occurrences from a row the user threw away.
+        if (row.isTrashed) return Unit
 
         // The anchor is the row's own date — the current occurrence of the series
         // it just became. The window is materialised from there.

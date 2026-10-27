@@ -121,6 +121,13 @@ class LineFramerTest {
     }
 
     @Test
+    fun aBalancedMessageWithoutTrailingNewlineIsEmittedOnFinish() {
+        val framer = LineFramer()
+        assertEquals(emptyList(), framer.accept(message))
+        assertEquals(listOf(FramedLine.Message(message)), framer.finish())
+    }
+
+    @Test
     fun finishingAnEmptyResponseProducesNothing() {
         assertEquals(emptyList(), LineFramer().finish())
     }

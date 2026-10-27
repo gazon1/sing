@@ -473,14 +473,14 @@ BUILD_AREAS = (
 #: pretending it checked. `scripts/compile-changed.py` holds that policy.
 COMPILE_TASKS: dict[str, list[str]] = {
     'shared': [':shared:compileKotlinJvm', ':shared:compileTestKotlinJvm'],
-    'core-base': [':core-base:compileKotlinJvm'],
-    'adr-core': [':adr-core:compileKotlinJvm'],
-    'adr-cli': [':adr-cli:compileKotlin'],
-    'detekt-rules': [':detekt-rules:compileKotlin'],
-    'desktopApp': [':desktopApp:compileKotlin'],
-    'mcp-server': [':mcp-server:compileKotlin'],
+    'core-base': [':core-base:compileKotlinJvm', ':core-base:compileTestKotlinJvm'],
+    'adr-core': [':adr-core:compileKotlinJvm', ':adr-core:compileTestKotlinJvm'],
+    'adr-cli': [':adr-cli:compileKotlin', ':adr-cli:compileTestKotlin'],
+    'detekt-rules': [':detekt-rules:compileKotlin', ':detekt-rules:compileTestKotlin'],
+    'desktopApp': [':desktopApp:compileKotlin', ':desktopApp:compileTestKotlin'],
+    'mcp-server': [':mcp-server:compileKotlin', ':mcp-server:compileTestKotlin'],
     'androidApp': [':androidApp:compileDebugKotlin'],
-    'tools:unwritten-properties': [':tools:unwritten-properties:compileKotlin'],
+    'tools:unwritten-properties': [':tools:unwritten-properties:compileKotlin', ':tools:unwritten-properties:compileTestKotlin'],
     'pro': [],
 }
 

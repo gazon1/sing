@@ -43,6 +43,7 @@ import com.singularity.todo.feature.tasks.domain.port.DependencyValidator
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CompleteRecurringTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.CreateRecurringTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskReopenUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase
@@ -143,6 +144,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
     // ─── Use Cases ──────────────────────────────────────────────────────
 
     factory { CreateTaskUseCase(get(), get(), get()) }
+    factory { CreateRecurringTaskUseCase(get(), get(), get(), get(), get()) }
     factory { CreateTaskFromDraftUseCase(get(), get(), get(), get(), get(), get(), get(), get()) }
     factory { UpdateTaskUseCase(get(), get()) }
     factory { MaterializeRecurringSeriesUseCase(get(), get(), get()) }
