@@ -132,17 +132,33 @@ For contrast, the controls that exist in the other two types:
 | A (sabotage) | `DiFacadeTest.kt:100` (`positiveControlDetectsLooseBinding`), `SingleOfKotlinDefaultsTest.kt:106`, `UnannotatedTestMemberTest.kt:114-132` (+ fixture `shared/src/jvmTest/fixtures/arch/UnannotatedMemberFixtureSource.kt`), `FieldOwnedTextSeedContractTest.kt:61,119,145`, `SyncTransportIdentityTest.kt:86`, `CommonMainJvmApiTest.kt:182`, `CachedIdentityReadArchitectureTest.kt:39` |
 | B (corpus guard only) | `CrashReportingWiringTest.kt:70,93,98` (guard `:113`), `ViewModelTestCoverageTest.kt:127`, `MaestroFlowTagsTest.kt:116`, `ViewModelInitOrderTest.kt:77`, `TextFieldRewriteContractTest.kt:111` |
 
-`ArchitectureTest` is `@Tag("slow")` (`ArchitectureTest.kt:24`) and CI runs it
+`ArchitectureTest` is `@Tag("slow")` (`ArchitectureTest.kt:25`) and CI runs it
 (`.github/workflows/ci.yml:406`), so it does execute — the gap is that it cannot
 *distinguish* "clean" from "scanner broken".
 
 **One assertion has left this class since the audit.** The rule *the question
-asked of the index is built by the rule* (`ArchitectureTest.kt:330`) was added on
+asked of the index is built by the rule* (`ArchitectureTest.kt:395`) was added on
 2026-10-23 and shipped without a control; it gained one the same day —
 `positiveControlDetectsAQuestionBuiltByHand` runs the scan over a synthetic
 file that builds the question by hand, outside `core/search`, and fails if the
 scan finds nothing. The count above is therefore 26 as of the audit and 25
-after it. The two layers still differ: the detekt layer derives its inventory
+after it.
+
+**Two more have left this class since then** (2026-10-27). The rule *core layer
+reaches DAO mutations only through a repository* read any `something.delete(` in a
+file that mentioned a DAO, so it reported `BackupExporter.kt` for `fs.delete(...)` —
+a file, not a row. It now names the DAO as the receiver, and
+`positiveControlDetectsADaoWriteAndLeavesTheFileSystemAlone` runs it over a
+synthetic file that deletes a row (it must be reported) and one that deletes a
+file (it must not). The rule *feature domain does not import presentation or data
+layers* matched any package carrying the word `domain`, so it reported
+`feature/genui/render/domain` — the components that render the app's own
+vocabulary, not a domain layer. It now reads the layer (the segment after the
+feature's area), and `positiveControlDetectsADomainFileThatImportsPresentation`
+runs it over a synthetic domain file that imports a presentation type (it must be
+reported) and over the genui package (it must not). The count is therefore 23.
+
+The two layers still differ: the detekt layer derives its inventory
 from the sources (`scripts/gen-detekt-rule-table.py:266`), and the Konsist
 layer has no equivalent derivation — so this count is a reading, and a rule
 added today is invisible to it until someone re-reads this file.

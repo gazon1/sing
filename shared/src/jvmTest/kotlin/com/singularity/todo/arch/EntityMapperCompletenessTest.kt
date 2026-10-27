@@ -98,8 +98,11 @@ abstract class EntityMapperCompletenessTest {
         private val FIELD_ALLOWLIST = mapOf<String, Set<String>>()
 
         /**
-         * All entity constructor params in `core/database/Entities.kt`.
-         * Updated manually when the schema changes.
+         * All entity constructor params, by the entity's name.
+         *
+         * The entities live in several places — the database, the attachments, the
+         * feature that owns a table of its own — so what matters here is the name and
+         * the params, not the file. Updated manually when the schema changes.
          */
         private val ENTITY_PARAMS = mapOf(
             // Mapped both ways by the annotation repository, so it belongs here rather
