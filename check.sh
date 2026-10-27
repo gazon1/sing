@@ -154,6 +154,7 @@ echo -e "${GREEN}the derived field lists are current${NC}"
 echo -e "${YELLOW}=== [3/$TOTAL] shared:jvmTest ===${NC}"
 timed "shared:jvmTest" ./gw :shared:jvmTest --quiet || {
     echo -e "${RED}shared:jvmTest FAILED${NC}"
+    scripts/ci/print-test-failures.sh shared/build/test-results || true
     exit 1
 }
 echo -e "${GREEN}shared:jvmTest passed${NC}"

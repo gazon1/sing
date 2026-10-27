@@ -82,6 +82,7 @@ class MigrationRoundTripTest {
             44,
             45,
             46,
+            47,
         ],
     )
     fun `the upgrade lands on the head schema`(version: Int) {

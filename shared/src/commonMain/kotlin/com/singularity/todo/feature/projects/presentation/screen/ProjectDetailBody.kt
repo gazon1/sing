@@ -53,6 +53,8 @@ import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.feature.projects.presentation.components.ProjectDetailActions
 import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsNavigator
+import com.singularity.todo.feature.tasks.domain.logic.Blocking
+import kotlinx.collections.immutable.toImmutableSet
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.components.TaskCard
@@ -127,10 +129,14 @@ fun ProjectBodySection(
                     modifier = Modifier.padding(32.dp),
                 )
             } else {
+                val blockedTaskIds = remember(ui.tasks) {
+                    Blocking.blockedTaskIds(ui.tasks).toImmutableSet()
+                }
                 LazyColumn(modifier = Modifier.fillMaxWidth()) {
                     items(ui.tasks, key = { it.id.value }) { task ->
                         TaskCard(
                             task = task,
+                            blockedTaskIds = blockedTaskIds,
                             onClick = { nav.openTask(task.id) },
                             actions = TaskCardActions(
                                 onPin = { actions.onPin(task.id) },

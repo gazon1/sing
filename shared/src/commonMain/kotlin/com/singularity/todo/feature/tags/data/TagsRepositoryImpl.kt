@@ -59,6 +59,13 @@ class TagsRepositoryImpl(
     override suspend fun update(item: Tag): Result<Tag> = runCatchingCancellable {
         unitOfWork.write {
             currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
+            val uid = currentUser.scopedUserId.value.value
+            val existing = tagDao.findByNameForUser(uid, item.name)
+            if (existing != null && existing.id != item.id.value) {
+                // A tag with this name already exists — reuse it instead of
+                // creating a case/trim duplicate.
+                return@write existing.toTag()
+            }
             tagDao.upsert(item.toEntity())
             item.also { syncRepository.enqueue(it) }
         }
@@ -138,6 +145,7 @@ fun Tag.toEntity(): TagEntity = TagEntity(
     id = id.value,
     userId = userId.value,
     name = name,
+    nameNormalized = name.trim().lowercase(),
     color = color,
     createdAt = createdAt.toEpochMilliseconds(),
     updatedAt = updatedAt.toEpochMilliseconds(),
