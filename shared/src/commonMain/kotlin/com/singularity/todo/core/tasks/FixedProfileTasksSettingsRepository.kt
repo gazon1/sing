@@ -45,4 +45,14 @@ class FixedProfileTasksSettingsRepository : TasksSettingsRepository {
     override suspend fun setStalenessThresholdDays(value: Int) {
         // Intentionally empty: this process does not own the application's settings.
     }
+
+    /**
+     * This process never runs the launch repair — the application owns the launch —
+     * so it reports the pass as never having run.
+     */
+    override fun recurringSeriesRepairVersion(profileScope: String): Flow<Int> = flowOf(0)
+
+    override suspend fun setRecurringSeriesRepairVersion(profileScope: String, version: Int) {
+        // Intentionally empty: this process does not own the application's settings.
+    }
 }

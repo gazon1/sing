@@ -60,7 +60,7 @@
 ./sg device-holders                      # устройство свободно?
 ./gw :androidApp:installDebug -Pandroid.device=0O65321F32204DD5
 adb shell am start -a android.intent.action.VIEW -d "todo-debug://seed?reset=content"
-maestro test Maestro/flows/tasks/19-task-logbook-note.yaml
+maestro test Maestro/flows/tasks/logbook/TASK-LOG-01.yaml
 ```
 
 Ожидается: флоу зелёный; скриншот `tasks/logbook-note` показывает карточку «Logbook (1)» с

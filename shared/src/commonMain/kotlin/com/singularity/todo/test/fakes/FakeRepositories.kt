@@ -291,9 +291,16 @@ class FakeSettingsRepository(initialUserId: String = TestUsers.DEFAULT.value) : 
     override suspend fun setStalenessThresholdDays(value: Int) {
         _stalenessThresholdDays.value = value
     }
-}
 
-// ─── TasksSettingsRepository ──────────────────────────────────────────────────
+    private val _repairVersions = MutableStateFlow<Map<String, Int>>(emptyMap())
+
+    override fun recurringSeriesRepairVersion(profileScope: String): Flow<Int> =
+        _repairVersions.map { it[profileScope] ?: 0 }
+
+    override suspend fun setRecurringSeriesRepairVersion(profileScope: String, version: Int) {
+        _repairVersions.value = _repairVersions.value + (profileScope to version)
+    }
+}
 
 /**
  * Standalone in-memory [TasksSettingsRepository] for isolated testing of the Tasks
@@ -303,8 +310,17 @@ class FakeTasksSettingsRepository(initialStalenessThresholdDays: Int = 21) : Tas
     private val _stalenessThresholdDays = MutableStateFlow(initialStalenessThresholdDays)
     override val stalenessThresholdDays: Flow<Int> = _stalenessThresholdDays.asStateFlow()
 
+    private val repairVersions = MutableStateFlow<Map<String, Int>>(emptyMap())
+
     override suspend fun setStalenessThresholdDays(value: Int) {
         _stalenessThresholdDays.value = value
+    }
+
+    override fun recurringSeriesRepairVersion(profileScope: String): Flow<Int> =
+        repairVersions.map { it[profileScope] ?: 0 }
+
+    override suspend fun setRecurringSeriesRepairVersion(profileScope: String, version: Int) {
+        repairVersions.value = repairVersions.value + (profileScope to version)
     }
 }
 
@@ -863,7 +879,19 @@ open class FakeTaskRepository(
             }
     }
 
+    /**
+     * How many times [legacyRecurringTasks] was read.
+     *
+     * The launch repair is gated by a per-profile marker, and the point of the
+     * gate is that a repaired profile runs no query at all. Counting the reads is
+     * the only way a test can tell "the gate worked" from "the query ran and found
+     * nothing".
+     */
+    var legacyRecurringQueries: Int = 0
+        private set
+
     override suspend fun legacyRecurringTasks(): List<Task> {
+        legacyRecurringQueries++
         val uid = currentUserId()
         return store.values()
             .filter { it.userId == uid && !it.isTrashed && it.recurrence != null && it.seriesId == null }

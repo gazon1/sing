@@ -21,6 +21,7 @@ import com.singularity.todo.core.database.TaskDao
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.serialization.StableJson
+import com.singularity.todo.core.tasks.TasksSettingsRepository
 import com.singularity.todo.feature.timetracking.data.TimeEntryDao
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.jsonObject
@@ -61,6 +62,7 @@ class BackupImporter(
     private val codec: BackupCodec,
     private val clock: Clock,
     private val createFileSource: FileSourceFactory,
+    private val tasksSettings: TasksSettingsRepository,
 ) : ArchiveImporter {
     private val json = StableJson
 
@@ -319,6 +321,14 @@ class BackupImporter(
                     missingIds.add(att.id)
                 }
             }
+
+            // A restored archive can contain rows from before the series model: a
+            // rule with no series id. The launch repair is gated by a per-profile
+            // marker, and the profile it is restoring into may already carry that
+            // marker — a backup restored after the upgrade would otherwise leave
+            // the legacy rows unvisited forever. The marker is cleared here, so
+            // the next launch repairs the restored rows.
+            tasksSettings.setRecurringSeriesRepairVersion(options.targetUserId.value, 0)
 
             RestoreResult(
                 manifest = manifest,

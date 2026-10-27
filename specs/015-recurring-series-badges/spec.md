@@ -221,6 +221,19 @@
 - Приведение старых данных не меняет ни одного пользовательского поля.
 - Бейджи читаются на маленьком экране: строка не растёт в высоту из-за бейджей.
 
+## Traceability
+
+| Requirement | Exercised by |
+|---|---|
+| FR-001 – FR-005 | `MaterializeRecurringSeriesUseCaseTest`, `CompleteRecurringTaskUseCaseTest` |
+| FR-006 – FR-014 | `RecurringSeriesWindowTest`, `MaterializeRecurringSeriesUseCaseTest`, `RecurrenceCalculatorTest` |
+| FR-015 – FR-020, FR-043 – FR-047 | `UpdateTaskSeriesUseCaseTest`, `CompleteRecurringTaskUseCaseTest`, `RecurrenceCalculatorTest` |
+| FR-021 – FR-026 | `TaskMetaRowBadgeTest`, `AgendaBadgePolicyFlowTest` |
+| FR-027 – FR-033 | `TaskMetaRowBadgeTest`, `AgendaSeriesCountTest` |
+| FR-034 – FR-038 | `RepairRecurringSeriesUseCaseTest`, `TaskSeriesWritePathTest` |
+| FR-039 – FR-042 | `AgendaBadgePolicyFlowTest`, `GoogleTaskApplierTest` |
+| FR-048 – FR-050 | `CreateTaskFromDraftUseCaseTest`, `DetachTaskFromSeriesUseCaseTest`, `MergeTaskSeriesUseCaseTest` |
+
 ## Assumptions
 
 - Горизонт в 14 дней совпадает с собственной дальностью Upcoming (Просрочено → Сегодня → Завтра → На этой неделе → На следующей неделе): то, что пользователь листает, существует как задача. Горизонт отсчитывается от текущего вхождения серии, а не от сегодняшнего дня, — иначе набор вхождений менялся бы сам по себе и требовал бы ежедневной фоновой записи.

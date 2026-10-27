@@ -23,19 +23,12 @@ import kotlin.time.Instant
  * @param toDetach the rows that leave the series: the open rows the new rule no
  *   longer produces, and — at the ceiling — the oldest closed row. A row that
  *   leaves a recurring series loses the rule with the series id.
- * @param currentOccurrence the row that is the series' current occurrence after
- *   the write: the earliest open one, or the anchor row when nothing is left open.
  */
-data class SeriesMaterialisationPlan(
-    val toCreate: List<Task>,
-    val toMove: List<Task>,
-    val toDetach: List<Task>,
-    val currentOccurrence: TaskId?,
-) {
+data class SeriesMaterialisationPlan(val toCreate: List<Task>, val toMove: List<Task>, val toDetach: List<Task>) {
     val isEmpty: Boolean get() = toCreate.isEmpty() && toMove.isEmpty() && toDetach.isEmpty()
 
     companion object {
-        val empty = SeriesMaterialisationPlan(emptyList(), emptyList(), emptyList(), null)
+        val empty = SeriesMaterialisationPlan(emptyList(), emptyList(), emptyList())
     }
 }
 
@@ -90,8 +83,7 @@ object RecurringSeriesPlanner {
      * @param now the timestamp stamped on the rows this plan creates.
      * @param horizonDays forwarded to [RecurringSeriesWindow.plan].
      * @param maxFuture forwarded to [RecurringSeriesWindow.plan].
-     * @return the plan. Its [SeriesMaterialisationPlan.currentOccurrence] is the
-     *   earliest open row after the write, or `null` when the series holds none.
+     * @return the plan.
      */
     fun plan(
         template: Task,
@@ -113,7 +105,6 @@ object RecurringSeriesPlanner {
         // place: the window looks strictly after the anchor, so it is not part of
         // what the window plans for. Only the open rows *ahead* of the anchor are
         // matched to the window.
-        val anchorRow = openRows.filter { row -> (row.dueDate ?: anchor) <= anchor }
         val aheadRows = openRows
             .filter { row -> (row.dueDate ?: anchor) > anchor }
             .sortedBy { it.dueDate }
@@ -149,13 +140,11 @@ object RecurringSeriesPlanner {
         }
 
         val allDetached = (toDetach + rotated).distinctBy { it.id }
-        val current = (anchorRow + aheadRows.take(paired)).minByOrNull { it.dueDate ?: anchor }?.id
 
         return SeriesMaterialisationPlan(
             toCreate = toCreate,
             toMove = toMove,
             toDetach = allDetached,
-            currentOccurrence = current,
         )
     }
 

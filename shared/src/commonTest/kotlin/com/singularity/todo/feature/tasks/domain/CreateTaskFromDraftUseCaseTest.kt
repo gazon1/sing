@@ -41,10 +41,11 @@ class CreateTaskFromDraftUseCaseTest {
     private val today = LocalDate(2026, 6, 15)
     private val clock = FakeClock(Instant.parse("2026-06-15T10:00:00Z"))
     private val repo = FakeTaskRepository()
+    private val unitOfWork = FakeUnitOfWork()
 
     private val weekly = RecurrenceSpec.Interval(RecurrenceBase.FROM_DUE, 1, DateTimeUnit.WEEK)
 
-    private fun materialize() = MaterializeRecurringSeriesUseCase(repo, FakeUnitOfWork(), clock)
+    private fun materialize() = MaterializeRecurringSeriesUseCase(repo, unitOfWork, clock)
 
     private fun useCase() = CreateTaskFromDraftUseCase(
         repo = repo,
@@ -53,6 +54,7 @@ class CreateTaskFromDraftUseCaseTest {
         currentUser = FakeProfileAwareCurrentUser(),
         checklistRepository = FakeChecklistRepository(),
         attachmentRepository = FakeAttachmentRepository(),
+        unitOfWork = unitOfWork,
         materialize = materialize(),
     )
 

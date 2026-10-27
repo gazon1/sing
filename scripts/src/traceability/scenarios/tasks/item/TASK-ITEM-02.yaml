@@ -33,4 +33,4 @@ expected: >-
   them completes the task they belong to.
 
 # Claimed on `desktop` by
-# desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/tasks/TaskItemScenarioTest.kt.
+# desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/tasks/TaskItemIndependenceScenarioTest.kt.

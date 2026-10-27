@@ -12,6 +12,8 @@ import com.singularity.todo.core.sync.FakeSyncRepository
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl
 import com.singularity.todo.feature.tasks.domain.logic.DependencyValidatorImpl
+import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
+import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDocument
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -29,11 +31,13 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import kotlin.test.AfterTest
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /**
@@ -98,7 +102,7 @@ class TaskSeriesWritePathTest {
         tags: List<TagId> = emptyList(),
         dueDate: LocalDate? = LocalDate(2026, 10, 5),
         updatedAt: Instant = Clock.System.now(),
-        seriesId: TaskSeriesId = this.seriesId,
+        seriesId: TaskSeriesId? = this.seriesId,
     ) = Task(
         id = TaskId(id),
         title = title,
@@ -383,5 +387,34 @@ class TaskSeriesWritePathTest {
 
         val stored = repo.observeSeries(seriesId).first()
         assertTrue(stored.all { it.tags == listOf(tag) }, "the tags reached every member: $stored")
+    }
+
+    /**
+     * FR-001 at the write layer, against the code every writer passes through.
+     *
+     * The two UI doors materialise a series, but an AI tool, the MCP server and a
+     * sync pull reach the repository directly. A rule written on a standalone row
+     * would leave the exact shape the launch repair exists to adopt, so the write
+     * refuses it here rather than storing it.
+     */
+    @Test
+    fun `a rule cannot be written on a row that stands alone`() = runTest {
+        val repo = repo(alice)
+        val rule = RecurrenceSpec.Interval(RecurrenceBase.FROM_DUE, 1, DateTimeUnit.WEEK)
+        val standalone = task("loose", seriesId = null).copy(recurrence = rule)
+
+        val created = repo.create(standalone)
+        assertTrue(created.isFailure, "create refuses a rule on a row with no series id")
+        assertTrue(repo.observeAll().first().isEmpty(), "and writes nothing")
+
+        repo.create(task("plain", seriesId = null)).getOrThrow()
+        val updated = repo.update(repo.get(TaskId("plain"))!!.copy(recurrence = rule))
+        assertTrue(updated.isFailure, "update refuses it too")
+        assertEquals(null, repo.get(TaskId("plain"))?.recurrence, "the stored row keeps no rule")
+
+        assertFailsWith<IllegalArgumentException>("a pulled document is a write like any other") {
+            repo.upsert(TaskDocument.of(standalone.copy(id = TaskId("pulled"))))
+        }
+        assertEquals(null, repo.get(TaskId("pulled")), "the pull wrote nothing")
     }
 }

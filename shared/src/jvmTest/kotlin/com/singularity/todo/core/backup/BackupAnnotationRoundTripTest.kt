@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
+import com.singularity.todo.test.fakes.FakeTasksSettingsRepository
 import org.junit.jupiter.api.Tag
 import java.io.File
 import kotlin.io.path.createTempDirectory
@@ -126,6 +127,7 @@ class BackupAnnotationRoundTripTest {
         codec = codec,
         clock = clock,
         createFileSource = fileSourceFactory,
+        tasksSettings = FakeTasksSettingsRepository(),
     )
 
     /** An attachment whose bytes are not on this disk — the row is what matters here. */

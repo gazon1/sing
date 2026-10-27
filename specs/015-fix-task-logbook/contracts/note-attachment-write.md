@@ -1,6 +1,6 @@
 # Contract: The Note-Attachment Write Path
 
-**Feature**: [spec.md](./spec.md) · **Data model**: [data-model.md](./data-model.md)
+**Feature**: [spec.md](../spec.md) · **Data model**: [data-model.md](../data-model.md)
 **Date**: 2026-10-25
 
 Контракт записи заметки, прикреплённой к задаче. Он же — контракт того, почему логбук

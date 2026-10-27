@@ -4,6 +4,7 @@ verdict: pass
 date: 2026-10-25
 pr: https://github.com/gazon1/sing/pull/1167
 reviewed: d54a2e571f2792704db9dd505277e45e943c2889
+merged: 7d4583598aa32adad29a71d7835a6ebb63c06c83
 documents: sha256:fca411a5f28990448c1d36d8f196ec6560494a7a5f9c0cfdc5649ae9dd1ff373
 ---
 
@@ -18,7 +19,7 @@ row badges (repeat, project). The artefacts:
 - `specs/015-recurring-series-badges/contracts/recurring-series-window.md`, `row-badges.md`
 - `specs/015-recurring-series-badges/checklists/requirements.md`
 - `docs/decisions/2026-10-25-a-recurring-series-carries-the-rule-on-every-row.md`
-- `openspec/changes/a-repeating-task-is-a-series-of-occurrences/` — proposal, design,
+- `openspec/changes/archive/2026-10-26-a-repeating-task-is-a-series-of-occurrences/` — proposal, design,
   tasks, and the spec deltas for **two** capabilities: `tasks` (the occurrences) and
   `task-series` (the model of the series)
 
@@ -81,8 +82,17 @@ the user's request.
 
 The implementation. This verdict is about the design — the specification, the research,
 the plan, the contracts and the two capability deltas — and about whether the claims
-those documents make about the code are true. The code that implements them is not
-written yet, and the tests named in the quickstart do not exist yet.
+those documents make about the code are true. The code that implements them was not
+written when the review ran; it landed with the merge (below).
+
+## After the merge
+
+The implementation was merged as `7d4583598aa32adad29a71d7835a6ebb63c06c83` (PR #1167),
+and the change was archived on 2026-10-26: `openspec/specs/tasks/spec.md` and
+`openspec/specs/task-series/spec.md` now carry the merged requirements. The design
+verdict above still speaks for the contract as reviewed; the follow-ups the merge left
+in the write path and the baseline are tracked separately (#1192–#1198) rather than
+re-opening this review.
 
 One thing outside this change is red: the `review verdicts cover every change` gate
 fails on `origin/main` itself, because two changes from commit `6dfc690c`

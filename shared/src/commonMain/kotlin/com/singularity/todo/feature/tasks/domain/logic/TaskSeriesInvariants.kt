@@ -52,6 +52,27 @@ import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
 object TaskSeriesInvariants {
 
     /**
+     * Refuses a row that carries a repeat rule without belonging to a series.
+     *
+     * A rule implies a series: the rule's dates *are* the series' occurrences, and
+     * a row that carried a rule alone would promise a repeat nothing materialises
+     * (FR-001). The two UI doors uphold this by materialising the series, but they
+     * are not the only writers — an AI tool, the MCP server and a sync pull all
+     * reach the repository directly.
+     *
+     * So the refusal lives where every writer passes. A writer that means to set a
+     * rule must mint the series id and materialise the window
+     * ([com.singularity.todo.feature.tasks.domain.usecase.MaterializeRecurringSeriesUseCase]);
+     * a writer that forgot fails loudly instead of storing the forbidden shape,
+     * which the launch repair would otherwise have to adopt.
+     */
+    fun requireRuleLivesInSeries(task: Task) {
+        require(task.recurrence == null || task.seriesId != null) {
+            "A repeating rule must belong to a series: task ${task.id.value} carries a rule but no series id"
+        }
+    }
+
+    /**
      * The shared fields of a task, as the values that must agree.
      *
      * The keys are the fields themselves, so a field added to

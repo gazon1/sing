@@ -18,6 +18,7 @@ import com.singularity.todo.test.fakes.FakeAttachmentRepository
 import com.singularity.todo.test.fakes.FakeChecklistRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import com.singularity.todo.test.fakes.FakeUnitOfWork
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
@@ -69,6 +70,7 @@ class TaskCreateDebounceTest {
                 fakeCurrentUser,
                 fakeChecklistRepository,
                 fakeAttachmentRepository,
+                FakeUnitOfWork(),
             ),
             logger = Logger.withTag("TaskCreate"),
             draftStore = fakeDraftStore,

@@ -57,7 +57,7 @@ class AgendaBadgePolicyFlowTest {
     @Test
     @DisplayName("TASK-MARK-01 a task row shows every marking that applies")
     fun a_task_that_is_blocked_and_overdue_shows_both_markings() =
-        runDesktopAppTest(clock = OVERDUE_CLOCK) { koin ->
+        runDesktopAppTest(checkA11y = true, clock = OVERDUE_CLOCK) { koin ->
             val repository = koin.get<TaskRepository>()
             val blocker = seed(koin, "blocker", "Blocking task", due = today)
             val blocked = seed(koin, "blocked", "Overdue blocked", due = yesterday)
@@ -73,7 +73,7 @@ class AgendaBadgePolicyFlowTest {
 
     @Test
     fun a_follow_up_shows_its_own_marking_and_not_the_blocked_one() =
-        runDesktopAppTest(clock = CLOCK) { koin ->
+        runDesktopAppTest(checkA11y = true, clock = CLOCK) { koin ->
             val repository = koin.get<TaskRepository>()
             val goal = seed(koin, "goal", "Goal task", due = today)
             val follower = seed(koin, "follower", "Follower", due = today)
@@ -88,7 +88,7 @@ class AgendaBadgePolicyFlowTest {
         }
 
     @Test
-    fun an_in_progress_task_says_so() = runDesktopAppTest(clock = CLOCK) { koin ->
+    fun an_in_progress_task_says_so() = runDesktopAppTest(checkA11y = true, clock = CLOCK) { koin ->
         seed(
             koin,
             "started",
@@ -104,7 +104,7 @@ class AgendaBadgePolicyFlowTest {
     }
 
     @Test
-    fun a_pinned_task_says_so() = runDesktopAppTest(clock = CLOCK) { koin ->
+    fun a_pinned_task_says_so() = runDesktopAppTest(checkA11y = true, clock = CLOCK) { koin ->
         seed(koin, "pinned", "Pinned task", due = today, isPinned = true)
 
         tapTab("Today")
@@ -115,7 +115,7 @@ class AgendaBadgePolicyFlowTest {
 
     @Test
     fun an_undated_task_does_not_get_a_mark_saying_it_has_no_date() =
-        runDesktopAppTest(clock = CLOCK) { koin ->
+        runDesktopAppTest(checkA11y = true, clock = CLOCK) { koin ->
             seed(koin, "undated", "Undated task", due = null)
 
             tapTab("Inbox")
@@ -130,7 +130,7 @@ class AgendaBadgePolicyFlowTest {
 
     @Test
     fun a_row_with_more_markings_than_fit_says_how_many_are_hidden() =
-        runDesktopAppTest(clock = CLOCK) { koin ->
+        runDesktopAppTest(checkA11y = true, clock = CLOCK) { koin ->
             val repository = koin.get<TaskRepository>()
             val blocker = seed(koin, "hidden-blocker", "Hidden blocker", due = today)
             val goal = seed(koin, "hidden-goal", "Hidden goal", due = today)

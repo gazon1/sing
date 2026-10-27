@@ -28,13 +28,14 @@ import kotlin.time.Clock
  *
  * ## When the change is a rule
  *
- * A **recurring** series is re-planned when its rule changes: the open
+ * A **recurring** series is re-planned when its rule **changes**: the open
  * occurrences the new rule does not give are removed, the ones it does give are
- * materialised, and the closed occurrences stay closed. The re-plan only runs
- * when the series carries a rule — a picked-dates series is left exactly as it
- * was. This is why the constructor takes an optional
- * [MaterializeRecurringSeriesUseCase]: a series write that does not carry a rule
- * does not need it.
+ * materialised, and the closed occurrences stay closed. A rename or a re-tag is
+ * not a re-plan — the rule the members carry before the write is compared with
+ * the one they carry after it, so a shared-field edit leaves the occurrence
+ * dates exactly as they were. This is why the constructor takes an optional
+ * [MaterializeRecurringSeriesUseCase]: a series write that does not change the
+ * rule does not need it.
  *
  * ## What it does not do
  *
@@ -63,17 +64,21 @@ class UpdateTaskSeriesUseCase(
         if (members.isEmpty()) {
             return Result.failure(IllegalStateException("Series $seriesId has no members"))
         }
+        val previousRules = members.map { it.recurrence }.toSet()
         val written = repo.updateAll(members.map(transform))
         val updated = written.getOrNull() ?: return written
 
         // A recurring series whose rule changed is re-planned: the dates the new
         // rule gives are materialised and the ones it does not give are removed,
-        // while the closed occurrences stay closed (REQ-TS-010). A picked-dates
-        // series carries no rule, so nothing is re-planned for it, and a use case
-        // without a materializer leaves it exactly as it was.
+        // while the closed occurrences stay closed (REQ-TS-010). "Changed" means
+        // the members did not all already carry the written rule — a series that
+        // had drifted is re-planned, and a rename or a re-tag, which leaves the
+        // rule alone, is not. A picked-dates series carries no rule, so nothing
+        // is re-planned for it, and a use case without a materializer leaves it
+        // exactly as it was.
         val rule = updated.first().recurrence
         val materializer = materialize
-        return if (rule != null && materializer != null) {
+        return if (rule != null && previousRules != setOf(rule) && materializer != null) {
             val template = updated.first()
             materializer(template = template, rule = rule, anchor = anchorOf(updated, template))
                 .map { repo.getSeries(seriesId) }
@@ -85,15 +90,17 @@ class UpdateTaskSeriesUseCase(
     /**
      * The series' position: the earliest open occurrence's date, or — when the
      * series holds no open occurrence — the latest occurrence's date.
+     *
+     * The clock is the last resort, for a series whose rows all carry no date;
+     * it is never replaced by an epoch default, which is a date nobody chose.
      */
     private fun anchorOf(members: List<Task>, fallback: Task): LocalDate {
-        val fallbackDate = fallback.dueDate
-            ?: clock?.now()?.toLocalDateTime(TimeZone.UTC)?.date
-            ?: LocalDate.fromEpochDays(0)
         val open = members.filter { it.completedAt == null && !it.isTrashed }
-        return open.minByOrNull { it.dueDate ?: fallbackDate }?.dueDate
-            ?: members.maxByOrNull { it.dueDate ?: fallbackDate }?.dueDate
-            ?: fallbackDate
+        return open.mapNotNull { it.dueDate }.minOrNull()
+            ?: members.mapNotNull { it.dueDate }.maxOrNull()
+            ?: fallback.dueDate
+            ?: clock?.now()?.toLocalDateTime(TimeZone.UTC)?.date
+            ?: error("A series with no date anywhere cannot be re-planned")
     }
 
     /**
