@@ -16,6 +16,7 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.test.stubs.TestAuthStubs
 import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.profile.domain.port.ProfileRepository
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
@@ -239,6 +240,9 @@ class DebugSeedActivity :
                     name = params["project"]!!,
                     color = 0xFF2196F3.toInt(), // blue ARGB — deterministic default
                     stamp = Clock.System.now(),
+                    // A flow that has to tap a project in the menu's tree asks
+                    // for its id: a generated id is one a flow cannot write down.
+                    id = params["id"]?.let { ProjectId.fromString(it) },
                 ),
             )
 

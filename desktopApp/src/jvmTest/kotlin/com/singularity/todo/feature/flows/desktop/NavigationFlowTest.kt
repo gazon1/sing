@@ -22,8 +22,10 @@ import com.singularity.todo.test.helpers.openAllProjects
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.tasks
+import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 /**
@@ -69,6 +71,24 @@ class NavigationFlowTest {
         tapTab("Calendar")
         assertTextDisplayed("Mon")
         assertTextDisplayed("Sun")
+    }
+
+    @Test
+    @DisplayName("NAV-01 the bottom navigation bar no longer holds a Calendar button")
+    fun the_calendar_is_not_a_tab() = runDesktopAppTest(clock = CLOCK, checkA11y = true) {
+        openDrawer()
+
+        // The bar lost exactly one entry: the Calendar is not among the tabs,
+        // and the tabs that are left are still there.
+        assertTrue(
+            "Calendar" !in DesktopShell.TABS,
+            "the Calendar is a tab again: ${DesktopShell.TABS}",
+        )
+        assertContentDescriptionReachable("Plans")
+
+        // And it did not disappear — it moved to the menu, which is where the
+        // rest of the app's destinations live.
+        assertContentDescriptionReachable("Calendar")
     }
 
     @Test

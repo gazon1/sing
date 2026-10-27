@@ -218,7 +218,7 @@ class SeedWriter(
         if (keeper == null) {
             val created = projects.create(
                 Project(
-                    id = ProjectId.generate(),
+                    id = spec.id ?: ProjectId.generate(),
                     name = spec.name,
                     color = spec.color,
                     description = spec.description,
@@ -232,6 +232,7 @@ class SeedWriter(
 
         val updated = projects.update(
             keeper.copy(
+                id = spec.id ?: keeper.id,
                 name = spec.name,
                 color = spec.color,
                 description = spec.description,
@@ -316,8 +317,21 @@ data class TaskSeed(
 /** What a note seed defines. */
 data class NoteSeed(val title: String)
 
-/** What a project seed defines. */
-data class ProjectSeed(val name: String, val color: Int, val description: String? = null, val stamp: Instant)
+/**
+ * What a project seed defines.
+ *
+ * @param id The project's id, when the flow needs to address it. A project's
+ *   id is generated otherwise, and a generated id is one a flow cannot write
+ *   down — so a flow that has to tap a project in the tree asks for one by
+ *   name.
+ */
+data class ProjectSeed(
+    val name: String,
+    val color: Int,
+    val description: String? = null,
+    val stamp: Instant,
+    val id: ProjectId? = null,
+)
 
 /**
  * Whether a seed wrote a new row or replaced the row that was already there.

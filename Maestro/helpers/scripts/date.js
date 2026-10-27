@@ -72,7 +72,16 @@ function plansWeek(date) {
     return "plans_section_week_" + monday.getFullYear() + "_" + pad2(monday.getMonth() + 1) + "_" + pad2(monday.getDate());
 }
 
+// The testTag of the timeline section of the month a date belongs to.
+//
+// The month section's id is the calendar month without a leading zero on the
+// month number ("month:2026-9"), and the tag is that id as a slug.
+function plansMonth(date) {
+    return "plans_section_month_" + date.getFullYear() + "_" + (date.getMonth() + 1);
+}
+
 var tomorrowDate = new Date(d.getTime() + 24 * 60 * 60 * 1000);
 output.PLANS_TODAY_SECTION = plansDay(d);
 output.PLANS_TOMORROW_SECTION = plansDay(tomorrowDate);
 output.PLANS_WEEK_SECTION = plansWeek(d);
+output.PLANS_MONTH_SECTION = plansMonth(d);

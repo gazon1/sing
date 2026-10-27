@@ -17,6 +17,7 @@
 #
 # Sorted by id, one mapping per line, no blank lines.
 ${DAY_CELL} item
+${PLANS_MONTH_SECTION} item
 ${PLANS_TODAY_SECTION} item
 ${PLANS_TOMORROW_SECTION} item
 ${PLANS_WEEK_SECTION} item
@@ -70,6 +71,9 @@ menu_archive menu
 menu_calendar menu
 menu_notes menu
 menu_profiles menu
+menu_project_node_childless item
+menu_project_node_roadmap item
+menu_projects_section item
 menu_quick_search menu
 menu_search menu
 menu_settings menu
@@ -90,6 +94,8 @@ overflow_delete menu
 overflow_restore menu
 plans_empty_state text
 plans_granularity_day button
+plans_granularity_month button
+plans_granularity_week button
 plans_section_overdue item
 pomodoro_focus_chip button
 pomodoro_phase_label text
@@ -98,7 +104,10 @@ profile_create_button button
 profile_create_name_input field
 profile_item_personal item
 profile_item_work item
+project_card_childless item
+project_card_latecomer item
 project_card_project_alpha item
+project_card_roadmap item
 project_detail_quick_add field
 project_editor_name_input field
 recurrence_option_daily dialog
@@ -163,7 +172,11 @@ task_item_anonymous_task item
 task_item_architecture_of_the_house item
 task_item_buy_milk item
 task_item_clearsearchtask2026 item
+task_item_due_in_45_days item
+task_item_due_today item
+task_item_due_tomorrow item
 task_item_offline_task item
+task_item_only_once item
 task_item_parent_task item
 task_item_pinnedtask2026 item
 task_item_pokupki item

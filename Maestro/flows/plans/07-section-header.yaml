@@ -1,0 +1,40 @@
+# Plans: a section header names the period it covers.
+#
+# The header is the only thing that tells the reader which period the rows
+# under it belong to. The assertion is on the section's own id, which carries
+# the date it covers — the header's *copy* is the app's to change, the date it
+# names is not.
+appId: com.singularity.todo
+name: plans-section-header
+tags:
+  - smoke
+  - plans
+  - scenario:PLANS-08
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- runScript: ../../helpers/scripts/date.js
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=Due%20today&due=today"
+- tapOn:
+    id: nav_tab_plans
+# The day section names its day.
+- extendedWaitUntil:
+    visible:
+      id: "${PLANS_TODAY_SECTION}"
+    timeout: 8000
+# The week section names the week it covers.
+- tapOn:
+    id: plans_granularity_week
+- extendedWaitUntil:
+    visible:
+      id: "${PLANS_WEEK_SECTION}"
+    timeout: 8000
+# The month section names the calendar month.
+- tapOn:
+    id: plans_granularity_month
+- extendedWaitUntil:
+    visible:
+      id: "${PLANS_MONTH_SECTION}"
+    timeout: 8000

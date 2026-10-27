@@ -192,6 +192,13 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "menu_settings",
     "menu_calendar",
     "menu_all_projects",
+    # menuProjectNode(...) / menuProjectExpander(...) — the menu's project tree.
+    # The seed is given the project's id, so the node and its expander are
+    # addressable by that id.
+    "menu_project_node_roadmap",
+    "menu_project_node_childless",
+    "menu_project_expander_roadmap",
+    "menu_project_expander_childless",
     # plansSection("overdue") — the overdue section's id is a constant of the
     # grouper, so the expansion is finite.
     "plans_section_overdue",
@@ -211,6 +218,15 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "task_item_write_spec",
     "task_item_worktask",
     "task_item_grocery_run",
+    # taskItem(...) — from the Plans flows: the timeline's rows
+    "task_item_only_once",
+    "task_item_due_today",
+    "task_item_due_tomorrow",
+    "task_item_due_in_45_days",
+    # projectCard(...) — from the menu's flows: the full project list's rows
+    "project_card_roadmap",
+    "project_card_childless",
+    "project_card_latecomer",
     # taskCheckbox(...) — from seed flows
     "task_checkbox_buy_milk",
     # subtaskItem(...) — from TASK-SUB-01 flow
