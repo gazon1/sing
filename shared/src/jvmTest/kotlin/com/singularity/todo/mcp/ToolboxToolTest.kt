@@ -63,7 +63,7 @@ class ToolboxToolTest {
         assertNull(null.argumentString(), "absent")
         assertNull(JsonNull.argumentString(), "JSON null must not read as the string \"null\"")
         assertNull(buildJsonObject { put("a", 1) }.argumentString(), "an object is not an argument")
-        assertNull(buildJsonArray { add("a") }.argumentString(), "an array is not an argument")
+        assertNull(buildJsonArray { add(JsonPrimitive("a")) }.argumentString(), "an array is not an argument")
     }
 
     @Test
