@@ -9,11 +9,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,7 +25,6 @@ import com.singularity.todo.core.ui.components.AiActionButton
 import com.singularity.todo.core.ui.components.DeleteActionButton
 import com.singularity.todo.core.ui.components.ReopenActionButton
 import com.singularity.todo.feature.projects.domain.model.Project
-import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegistry
 
 /**
  * Visual representation of a [Project]. Stateless — every interaction is
@@ -58,6 +54,7 @@ fun ProjectCard(
             ColorCircle(
                 color = Color(project.color),
                 iconKey = project.icon,
+                contentDescription = project.name,
             )
             Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
                 Text(text = project.name, style = MaterialTheme.typography.titleMedium)
@@ -90,21 +87,19 @@ fun ProjectCard(
 }
 
 @Composable
-private fun ColorCircle(color: Color, iconKey: String?) {
+private fun ColorCircle(color: Color, iconKey: String?, contentDescription: String? = null) {
     Box(
         modifier = Modifier
             .size(32.dp)
             .clip(CircleShape)
             .background(color),
+        contentAlignment = Alignment.Center,
     ) {
-        val icon = iconKey?.let { ProjectIconRegistry.iconByKey(it) } ?: Icons.Filled.Folder
-        Icon(
-            icon,
-            contentDescription = null,
+        ProjectIcon(
+            icon = iconKey,
             tint = Color.White,
-            modifier = Modifier
-                .size(32.dp)
-                .padding(4.dp),
+            size = 20.dp,
+            contentDescription = contentDescription,
         )
     }
 }

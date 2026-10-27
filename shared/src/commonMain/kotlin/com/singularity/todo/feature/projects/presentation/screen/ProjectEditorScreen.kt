@@ -58,6 +58,7 @@ import com.singularity.todo.core.ui.components.sheet.BottomSheetHost
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.presentation.components.EditorParentPickerSheet
 import com.singularity.todo.feature.projects.presentation.components.IconPickerSheet
+import com.singularity.todo.feature.projects.presentation.components.ProjectIcon
 import com.singularity.todo.feature.projects.presentation.nav.LocalProjectsNavigator
 import com.singularity.todo.feature.projects.presentation.state.ProjectEditorIntent
 import com.singularity.todo.feature.projects.presentation.state.ProjectEditorUiEvent
@@ -66,7 +67,6 @@ import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegis
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectEditorViewModel
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
-
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 /**
@@ -164,11 +164,7 @@ fun ProjectEditorContent(viewModel: ProjectEditorViewModel, modifier: Modifier =
         visible = showIconPicker,
         currentIcon = state.icon,
         onPick = { icon ->
-            icon?.let {
-                viewModel.onIntent(
-                    ProjectEditorIntent.IconChanged(it),
-                )
-            }
+            viewModel.onIntent(ProjectEditorIntent.IconChanged(icon))
             showIconPicker = false
         },
         onDismiss = { showIconPicker = false },
@@ -362,13 +358,18 @@ private fun AppearanceSection(
             selected = selectedIcon != null,
             onClick = onIconPickerRequested,
             label = {
-                Text(selectedIcon?.let { ProjectIconRegistry.iconByKey(it)?.name } ?: "Icon")
+                Text(
+                    selectedIcon?.let { key ->
+                        ProjectIconRegistry.iconByKey(key)?.name ?: "Emoji"
+                    } ?: "Icon",
+                )
             },
             leadingIcon = {
-                selectedIcon?.let { key ->
-                    val icon = ProjectIconRegistry.iconByKey(key)
-                    icon?.let { Icon(it, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                } ?: Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
+                ProjectIcon(
+                    icon = selectedIcon,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    size = 16.dp,
+                )
             },
         )
     }

@@ -58,7 +58,7 @@ class SyncEngineStorageFailureTest {
     /** The outbox with [getPending] refusing, which is what a closed database does. */
     private class UnreadableOutbox(private val delegate: FakeSyncOutboxDao, private val failure: Throwable) :
         SyncOutboxDao by delegate {
-        override suspend fun getPending(now: Long, ownerId: String): List<SyncOutboxEntity> =
+        override suspend fun getPending(now: Long, ownerId: String, profileId: String): List<SyncOutboxEntity> =
             throw failure
     }
 
