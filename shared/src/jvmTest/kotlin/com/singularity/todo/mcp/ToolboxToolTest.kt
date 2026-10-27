@@ -1,15 +1,21 @@
 package com.singularity.todo.mcp
 
 import com.singularity.todo.feature.ai.McpToolCatalog
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -51,6 +57,21 @@ class ToolboxToolTest {
         configurationFetchedAtEpochMillis = 1_700_000_000_000L,
         unmatchedFlags = unmatched,
     )
+
+    @Test
+    fun `an argument that is absent, null or not a primitive reads as no argument`() {
+        assertNull(null.argumentString(), "absent")
+        assertNull(JsonNull.argumentString(), "JSON null must not read as the string \"null\"")
+        assertNull(buildJsonObject { put("a", 1) }.argumentString(), "an object is not an argument")
+        assertNull(buildJsonArray { add("a") }.argumentString(), "an array is not an argument")
+    }
+
+    @Test
+    fun `a primitive argument reads as its text`() {
+        assertEquals("tasks", JsonPrimitive("tasks").argumentString())
+        assertEquals("true", JsonPrimitive(true).argumentString())
+        assertEquals(true, JsonPrimitive(true).argumentString()?.toBooleanStrictOrNull())
+    }
 
     @Test
     fun `the toolset carries the five identity facts and the count`() {
