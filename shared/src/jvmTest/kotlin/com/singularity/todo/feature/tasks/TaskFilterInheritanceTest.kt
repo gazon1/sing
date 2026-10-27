@@ -276,6 +276,7 @@ class TaskFilterInheritanceTest {
         id = id,
         userId = userId,
         name = id,
+        nameNormalized = id.trim().lowercase(),
         color = 0xff0000,
         createdAt = 0L,
         updatedAt = 0L,

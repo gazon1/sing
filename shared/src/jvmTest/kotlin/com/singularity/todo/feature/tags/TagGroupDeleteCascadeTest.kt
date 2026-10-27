@@ -72,6 +72,7 @@ class TagGroupDeleteCascadeTest {
         id = id,
         userId = userId.value,
         name = id,
+        nameNormalized = id.trim().lowercase(),
         color = 0,
         sortOrder = 0,
         createdAt = 1_000_000_000L,

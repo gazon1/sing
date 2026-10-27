@@ -1361,3 +1361,8 @@ val verifyToolSurface = tasks.register<JavaExec>("verifyToolSurface") {
         }
     }
 }
+
+// Retro: stale shared-jvm.jar dependency — ensure test compile sees main classes/jar.
+tasks.named("compileTestKotlinJvm") {
+    dependsOn("jvmJar")
+}

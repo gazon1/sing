@@ -92,6 +92,9 @@ object AppDatabaseFactory {
                 // `tasks` cannot be added by the derived auto-migration without
                 // rewriting the table. See Migration46To47.
                 Migration46To47(),
+                // Tag name uniqueness: normalized column, duplicate merge,
+                // re-pointed task_tags, partial unique index. See Migration47To48.
+                Migration47To48(),
                 // Creates the full-text indexes — virtual tables, which an
                 // AutoMigrationSpec cannot describe. See Migration42To43.
                 Migration42To43(),

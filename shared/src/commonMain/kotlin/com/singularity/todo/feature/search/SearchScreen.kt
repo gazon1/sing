@@ -48,6 +48,8 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.core.ui.text.highlightedText
 import com.singularity.todo.core.search.SearchColumn
+import com.singularity.todo.feature.tasks.domain.logic.Blocking
+import kotlinx.collections.immutable.toImmutableSet
 import com.singularity.todo.core.search.TextMatchRange
 import com.singularity.todo.core.search.inColumn
 import com.singularity.todo.feature.nav.Search
@@ -254,6 +256,9 @@ private fun SearchResultsList(
     navigator: SearchNavigator,
     onPin: (com.singularity.todo.feature.tasks.domain.model.TaskId) -> Unit,
 ) {
+    val blockedTaskIds = remember(results) {
+        Blocking.blockedTaskIds(results.tasks.map { it.record }).toImmutableSet()
+    }
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -264,6 +269,7 @@ private fun SearchResultsList(
                 TaskCard(
                     task = hit.record,
                     onClick = { navigator.openTask(hit.record.id) },
+                    blockedTaskIds = blockedTaskIds,
                     matchRanges = hit.ranges,
                     actions = TaskCardActions(
                         onPin = { onPin(hit.record.id) },

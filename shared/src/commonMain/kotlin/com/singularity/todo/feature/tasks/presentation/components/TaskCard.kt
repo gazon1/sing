@@ -36,9 +36,17 @@ import com.singularity.todo.core.ui.text.highlightedText
 import com.singularity.todo.core.search.SearchColumn
 import com.singularity.todo.core.search.TextMatchRange
 import com.singularity.todo.core.search.inColumn
+import com.singularity.todo.feature.tasks.domain.logic.computeTaskMarkings
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskMarking
+import com.singularity.todo.feature.tasks.presentation.components.list.TaskMarkingsRow
+import kotlinx.datetime.LocalDate
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.core.platform.systemToday
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.persistentListOf
 
 /**
@@ -63,7 +71,13 @@ fun TaskCard(
     actions: TaskCardActions = TaskCardActions(),
     modifier: Modifier = Modifier,
     matchRanges: ImmutableList<TextMatchRange> = persistentListOf(),
-    body: @Composable RowScope.() -> Unit = { DefaultTaskCardBody(task, actions, matchRanges) },
+    today: LocalDate = systemToday(),
+    blockedTaskIds: ImmutableSet<TaskId> = persistentSetOf(),
+    isBlocked: Boolean = false,
+    markings: ImmutableSet<TaskMarking>? = null,
+    body: @Composable RowScope.() -> Unit = {
+        DefaultTaskCardBody(task, actions, matchRanges, today, blockedTaskIds, isBlocked, markings)
+    },
     trailing: @Composable RowScope.() -> Unit = { DefaultTaskCardTrailing(task, actions) },
 ) {
     Card(
@@ -100,7 +114,13 @@ internal fun RowScope.DefaultTaskCardBody(
     task: Task,
     actions: TaskCardActions,
     matchRanges: ImmutableList<TextMatchRange> = persistentListOf(),
+    today: LocalDate = systemToday(),
+    blockedTaskIds: ImmutableSet<TaskId> = persistentSetOf(),
+    isBlocked: Boolean = false,
+    markings: ImmutableSet<TaskMarking>? = null,
 ) {
+    val computedMarkings: ImmutableSet<TaskMarking> = markings
+        ?: computeTaskMarkings(task, today, isBlocked || task.id in blockedTaskIds)
     actions.onToggle?.let { onToggle ->
         ToggleButton(isCompleted = task.isCompleted, onClick = onToggle, taskTitle = task.title)
     }
@@ -109,6 +129,7 @@ internal fun RowScope.DefaultTaskCardBody(
         SubtaskChip()
     }
     PriorityChip(priority = task.priority)
+    TaskMarkingsRow(markings = computedMarkings)
 }
 
 /**
