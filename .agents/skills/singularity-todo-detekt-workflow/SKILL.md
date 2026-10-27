@@ -42,6 +42,18 @@ For each reported violation, open the file and fix it by hand. Common patterns:
 - **Style** (ArgumentListWrapping, ImportOrdering, etc.): reformat by hand
 - **Complexity** (LongMethod, TooManyFunctions): split or suppress with `@Suppress`
 
+### Custom rules that bite in Composables
+
+- **NoUnstableCollectionParam** — a `@Composable` must not take a raw `List`/`Set`/`Map`
+  parameter; use `ImmutableList`/`ImmutableSet`/`ImmutableMap` (from kotlinx.collections.immutable).
+  Passing a raw collection breaks skippability and the rule fires at the parameter.
+- **NoCollectionMaterializationInComposable** — a `@Composable` must not call
+  `toImmutableList()`/`toImmutableSet()`/`toImmutableMap()` in its own body (it rebuilds
+  on every recomposition). Build the collection in `remember { … }`, `derivedStateOf { … }`,
+  an event handler, or a top-level `val`, and hand that instance over unchanged.
+  A content lambda (`Column { … }`, `items { … }`) is NOT exempt — it recomposes with
+  the parent.
+
 ### 3. Rebuild Baseline (capture accepted debt)
 
 ```bash
