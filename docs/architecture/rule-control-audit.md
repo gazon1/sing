@@ -142,7 +142,23 @@ asked of the index is built by the rule* (`ArchitectureTest.kt:330`) was added o
 `positiveControlDetectsAQuestionBuiltByHand` runs the scan over a synthetic
 file that builds the question by hand, outside `core/search`, and fails if the
 scan finds nothing. The count above is therefore 26 as of the audit and 25
-after it. The two layers still differ: the detekt layer derives its inventory
+after it.
+
+**Two more have left this class since then** (2026-10-27). The rule *core layer
+reaches DAO mutations only through a repository* read any `something.delete(` in a
+file that mentioned a DAO, so it reported `BackupExporter.kt` for `fs.delete(...)` —
+a file, not a row. It now names the DAO as the receiver, and
+`positiveControlDetectsADaoWriteAndLeavesTheFileSystemAlone` runs it over a
+synthetic file that deletes a row (it must be reported) and one that deletes a
+file (it must not). The rule *feature domain does not import presentation or data
+layers* matched any package carrying the word `domain`, so it reported
+`feature/genui/render/domain` — the components that render the app's own
+vocabulary, not a domain layer. It now reads the layer (the segment after the
+feature's area), and `positiveControlDetectsADomainFileThatImportsPresentation`
+runs it over a synthetic domain file that imports a presentation type (it must be
+reported) and over the genui package (it must not). The count is therefore 23.
+
+The two layers still differ: the detekt layer derives its inventory
 from the sources (`scripts/gen-detekt-rule-table.py:266`), and the Konsist
 layer has no equivalent derivation — so this count is a reading, and a rule
 added today is invisible to it until someone re-reads this file.

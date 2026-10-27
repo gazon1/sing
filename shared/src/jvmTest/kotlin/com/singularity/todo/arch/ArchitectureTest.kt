@@ -116,11 +116,38 @@ class ArchitectureTest {
         private fun offendingFiles(layer: String, forbidden: (importFqn: String) -> Boolean): List<KoFileDeclaration> =
             scope.files
                 .filterNot { file -> LAYER_ALLOWLIST.any { file.path.endsWith(it) } }
-                .filter {
-                    val pkg = it.packageName()
-                    pkg.startsWith("$PKG.feature.") && pkg.contains(".$layer")
-                }
-                .filter { file -> file.importFqns().any(forbidden) }
+                .filter { file -> breaksTheLayerRule(file.packageName(), file.importFqns(), layer, forbidden) }
+
+        /**
+         * Whether a file breaks the layer rule.
+         *
+         * A pure function of the package and the imports, so that the positive control
+         * can run it over a synthetic file: a rule that has never been seen to fire is a
+         * rule that has stopped working, and `docs/architecture/rule-control-audit.md` §3
+         * calls that class of rule "Type C".
+         */
+        private fun breaksTheLayerRule(
+            packageName: String,
+            importFqns: List<String>,
+            layer: String,
+            forbidden: (importFqn: String) -> Boolean,
+        ): Boolean = isInLayer(packageName, layer) && importFqns.any(forbidden)
+
+        /**
+         * Whether the package is in the feature's `layer` layer.
+         *
+         * The layer is the segment right after the feature's area: `feature.tasks.domain.logic`
+         * is in the domain layer, `feature.tasks.presentation.screen` is in the presentation
+         * layer. A package that merely carries the word is not a layer —
+         * `feature.genui.render.domain` holds the components that render the app's own
+         * vocabulary, and reading it as the domain layer reports a package for the name it
+         * has.
+         */
+        private fun isInLayer(packageName: String, layer: String): Boolean {
+            if (!packageName.startsWith("$PKG.feature.")) return false
+            // com.singularity.todo.feature.<area>.<layer> — the layer is the sixth segment.
+            return packageName.split('.').getOrNull(5) == layer
+        }
 
         /**
          * Whether the source builds the question the index is asked by hand.
@@ -320,6 +347,18 @@ class ArchitectureTest {
         private val REPOSITORY_IMPL_SUFFIXES =
             listOf("RepositoryImpl", "Recorder", "Adapters", "ArchiveRepository")
 
+        /**
+         * A call that writes through a DAO.
+         *
+         * The receiver is part of the match, because the receiver is what says what
+         * the call writes: `taskDao.deleteForUser(...)` is a row, `fs.delete(...)` is a
+         * file. `db.taskDao().deleteForUser(...)` is the same row — the `()` is allowed
+         * between the name and the dot.
+         */
+        private val DAO_WRITE = Regex(
+            """\b\w*[Dd]ao(?:\(\))?\.\w*(?:upsert|insert|update|delete|softDelete|restore|clear)\w*\s*\(""",
+        )
+
         /** Packages whose DAOs are legitimately written by the class that owns them. */
         private val CORE_DAO_OWNER_PACKAGES =
             listOf("$PKG.core.database", "$PKG.core.sync", "$PKG.core.llm")
@@ -395,6 +434,42 @@ class ArchitectureTest {
         assertFalse(
             buildsTheQuestionByHand("com.singularity.todo.core.search", synthetic),
             "the scan reported a question built inside core/search, where the rule itself lives",
+        )
+    }
+
+    /**
+     * Positive control: the layer rule is proven able to fail, and proven to read the
+     * layer and not the word.
+     *
+     * The rule above finds nothing in the tree today, which is the state a rule wants
+     * to be in and also the state a broken scanner is in. The control runs the rule
+     * over a synthetic file that breaks it — a domain file importing a presentation
+     * type — and fails if the rule finds nothing.
+     */
+    @Test
+    fun positiveControlDetectsADomainFileThatImportsPresentation() {
+        val presentationImport = "com.singularity.todo.feature.tasks.presentation.components.list.TaskMarkingsRow"
+        val forbidsPresentation = { fqn: String -> fqn.contains(".presentation.") }
+
+        assertTrue(
+            breaksTheLayerRule(
+                "com.singularity.todo.feature.tasks.domain.logic",
+                listOf(presentationImport),
+                "domain",
+                forbidsPresentation,
+            ),
+            "the rule found nothing in a domain file that imports a presentation type — the " +
+                "rule has stopped detecting, so the rule above is vacuous",
+        )
+        assertFalse(
+            breaksTheLayerRule(
+                "com.singularity.todo.feature.genui.render.domain",
+                listOf(presentationImport),
+                "domain",
+                forbidsPresentation,
+            ),
+            "the rule read a package that merely carries the word 'domain' as the domain " +
+                "layer — the layer is the segment after the area, not any segment",
         )
     }
 
@@ -619,14 +694,12 @@ class ArchitectureTest {
 
     @Test
     fun `core layer reaches DAO mutations only through a repository`() {
-        val mutationCall = Regex("""\.\w*(upsert|insert|update|delete|softDelete|restore|clear)\w*\s*\(""")
         val offenders = scope.files
             .filterNot { file -> CORE_DAO_WRITE_ALLOWLIST.any { file.path.endsWith(it) } }
             .map { it.packageName() to it }
             .filter { (pkg, _) -> pkg.startsWith("$PKG.core.") }
             .filter { (pkg, _) -> CORE_DAO_OWNER_PACKAGES.none { pkg == it || pkg.startsWith("$it.") } }
-            .filter { (_, file) -> Regex("""\b\w*[Dd]ao\b""").containsMatchIn(file.codeOnly()) }
-            .filter { (_, file) -> mutationCall.containsMatchIn(file.codeOnly()) }
+            .filter { (_, file) -> writesADao(file.codeOnly()) }
             .filterNot { (_, file) ->
                 Regex("""class\s+(\w+)""").find(file.codeOnly())?.groupValues?.get(1)
                     ?.let { n -> REPOSITORY_IMPL_SUFFIXES.any { n.endsWith(it) } } == true
@@ -640,6 +713,58 @@ class ArchitectureTest {
                 "a cross-repository operation that owns nothing and deletes only the profile's " +
                 "own rows).",
         ) { it }
+    }
+
+    /**
+     * Whether the code calls a DAO's write method.
+     *
+     * The receiver has to be the DAO. A rule that matches any `something.delete(` reads a
+     * file system for a row: `fs.delete(deltaPath)` is a file that goes away, not a row,
+     * and the exporter was reported for it — a defect that is not there, in a rule that
+     * cannot tell a row from a file.
+     *
+     * The receiver may be the DAO itself or a call that hands it over
+     * (`taskDao.deleteForUser(...)`, `db.taskDao().deleteForUser(...)`); both are the same
+     * write.
+     */
+    private fun writesADao(code: String): Boolean = DAO_WRITE.containsMatchIn(code)
+
+    /**
+     * Positive control: the rule above is proven able to fail, and proven to leave the
+     * file system alone.
+     *
+     * A rule that has never been seen to fire is a rule that has stopped working, and a
+     * rule that fires on the wrong thing is a rule that sends people to fix code that is
+     * fine — `docs/architecture/rule-control-audit.md` §3 calls that class of rule
+     * "Type C", and the rule above is one of them until this control exists.
+     */
+    @Test
+    fun positiveControlDetectsADaoWriteAndLeavesTheFileSystemAlone() {
+        val daoWrite = """
+            package com.singularity.todo.core.whatever
+
+            fun purge(taskDao: TaskDao, id: String, userId: String) {
+                taskDao.deleteForUser(id, userId)
+            }
+        """.trimIndent()
+        val fileSystemDelete = """
+            package com.singularity.todo.core.whatever
+
+            fun purge(fs: FileSystem, path: String) {
+                fs.delete(path)
+            }
+        """.trimIndent()
+
+        assertTrue(
+            writesADao(daoWrite),
+            "the rule found nothing in a file that deletes a row through a DAO — the rule has " +
+                "stopped detecting, so the rule above is vacuous",
+        )
+        assertFalse(
+            writesADao(fileSystemDelete),
+            "the rule read a file being deleted as a row being deleted — the receiver is the " +
+                "thing that says which one it is",
+        )
     }
 
     /**
