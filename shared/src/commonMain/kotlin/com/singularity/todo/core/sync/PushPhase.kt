@@ -102,7 +102,6 @@ internal class PushPhase(
                     else -> {}
                 }
             }
-        }
 
         val summary = PushSummary(
             processed = processed,
