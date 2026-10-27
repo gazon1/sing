@@ -63,7 +63,7 @@ wants to be precise says which family it means.
 | `ArchiveHead` | how many changes does the chain carry |
 | `ArchiveContainer` | which shape does a container of this version have |
 | `ArchiveCryptoSession` | which key, and which cipher call |
-| `ArchiveErrors` | what a failing cipher means |
+| `ArchiveErrorMapping` | what a failing cipher means |
 | `EncryptedArchive` | what is sealed, and what is opened |
 
 `EncryptedArchive` keeps the public shape it had — `seal`, `open`, `sealChain`,

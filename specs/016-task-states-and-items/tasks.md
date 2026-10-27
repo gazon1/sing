@@ -64,7 +64,7 @@ the backup format and the server.
 
 ### The backup — the shape changed, so the version changes
 
-- [X] T014 Add `val workflowState: String = "Open"` to `TaskDto` in `shared/src/commonMain/kotlin/com/singularity/todo/core/backup/BackupDtos.kt` and map it in both directions
+- [X] T014 Add `val workflowState: String = "Open"` to `TaskDto` in `shared/src/commonMain/kotlin/com/singularity/todo/core/backup/BackupTaskDtos.kt` and map it in both directions
 - [X] T015 Bump `BackupFormat.SCHEMA_VERSION` from `5` to `6` in `shared/src/commonMain/kotlin/com/singularity/todo/core/backup/BackupFormat.kt` — a record whose shape changed must change the version, so an older client refuses it outright rather than restoring tasks that all claim to be `Open`. `FORMAT_VERSION` stays `1`: the zip layout does not change
 
 ### The wire — the server must accept the field

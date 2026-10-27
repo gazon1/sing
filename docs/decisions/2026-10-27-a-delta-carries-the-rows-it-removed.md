@@ -192,6 +192,8 @@ restores a v6 archive with everything it always restored.
   the merge and the planner.
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/backup/BackupImporter.kt` —
   where the removals are applied.
+- `shared/src/commonMain/kotlin/com/singularity/todo/core/backup/BackupEntityKind.kt` —
+  the kinds, and the phase each of them is removed in.
 - `shared/src/commonMain/kotlin/com/singularity/todo/core/backup/BackupRowIndex.kt` —
-  the kinds and the keys.
+  the keys.
 - Issue: #1184

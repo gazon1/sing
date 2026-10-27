@@ -18,7 +18,7 @@ BackupImporter:  BackupCodec.import() → validate → migrate → DAOs upsert
 - `core/backup/BackupFormat.kt` — constants (FORMAT_VERSION=1, SCHEMA_VERSION=5, entry names)
 - `core/backup/BackupManifest.kt` — `@Serializable` with computed `isCompatibleWith`
 - `core/backup/BackupPayload.kt` — `@Serializable` wrapper with schemaVersion + all DTO lists
-- `core/backup/BackupDtos.kt` — 6 DTOs: TaskDto, NoteDto, ProjectDto, TagDto, AttachmentDto, TaskTagDto. **Sync metadata stripped on toDto()**
+- `core/backup/BackupTaskDtos.kt` — the task rows and the rows that hang off a task; the other domains have a file each (`core/backup/BackupNoteDtos.kt`, `core/backup/BackupProjectDtos.kt`, `core/backup/BackupTagDtos.kt`, `core/backup/BackupAttachmentDtos.kt`, `core/backup/BackupSavedViewDtos.kt`, `core/backup/BackupProfileDtos.kt`). **Sync metadata stripped on toDto()**
 - `core/backup/BackupDomain.kt` — pure: `sha256Hex()`, `extractUserIdHash()`, `buildManifest()`, `validateManifest()`
 - `core/backup/BackupMigrations.kt` — `Map<Int, (JsonObject) → JsonObject>` chain via `fold()`
 - `core/backup/BackupError.kt` — sealed class: UnsupportedFormatVersion, UnsupportedSchemaVersion, ChecksumMismatch, MalformedManifest, FileNotFound, CodecError

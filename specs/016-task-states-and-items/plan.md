@@ -212,7 +212,7 @@ shared/src/commonMain/kotlin/com/singularity/todo/
 │   │   ├── Daos.kt                         # + the typed-dependency read
 │   │   ├── AppDatabaseFactory.kt           # + the manual migration registration
 │   │   └── Migration46To47.kt              # NEW — the hand-written migration
-│   ├── backup/BackupDtos.kt                # + the workflowState field
+│   ├── backup/BackupTaskDtos.kt            # + the workflowState field
 │   ├── sync/SyncContract.kt                # unchanged — the wire list is derived
 │   └── ui/TestTags.kt                      # + the new tags
 └── core/di/

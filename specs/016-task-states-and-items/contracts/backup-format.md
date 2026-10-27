@@ -72,7 +72,7 @@ Worth stating, because it is easy to assume the backup and the sync contract agr
 
 | | carries the relation verb? |
 |---|---|
-| **Backup** | **yes** — `TaskDependencyDto.verb`, defaulting to `"BLOCKS"` (`BackupDtos.kt:473`) |
+| **Backup** | **yes** — `TaskDependencyDto.verb`, defaulting to `"BLOCKS"` (`BackupTaskDtos.kt`) |
 | **Sync wire** | **no** — only the blocking projection travels; see [sync-wire.md](sync-wire.md) |
 
 So a `FOLLOWS_UP` relation **survives a backup** but does **not** survive a sync. The
@@ -99,6 +99,6 @@ another schema-version bump and another migration on the restore path.
 
 | File | What changes |
 |---|---|
-| `shared/src/commonMain/kotlin/com/singularity/todo/core/backup/BackupDtos.kt` | **+ `workflowState`** on `TaskDto`, and the mapping in both directions |
+| `shared/src/commonMain/kotlin/com/singularity/todo/core/backup/BackupTaskDtos.kt` | **+ `workflowState`** on `TaskDto`, and the mapping in both directions |
 | `shared/src/commonMain/kotlin/com/singularity/todo/core/backup/BackupFormat.kt` | **SCHEMA_VERSION 5 → 6** |
 | the backup round-trip test | asserts that a task's state survives a write and a restore |
