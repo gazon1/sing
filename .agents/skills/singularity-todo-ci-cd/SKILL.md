@@ -112,6 +112,14 @@ has no pressure of implementation context — so it catches what the gate does
 not (the state contract, an alias, an entry in the issues registry). The gate
 catches the mechanics; the review catches the meaning.
 
+## autofix.ci (PR auto-fix)
+
+`.github/workflows/autofix.yml` (workflow **name must be `autofix.ci`**) runs detekt
+`--auto-correct` per module on pull requests and hands the diff to
+`autofix-ci/action@…`, which pushes a fix commit via the autofix.ci GitHub App.
+The App must be installed on the repo or nothing is pushed. It is not part of the
+`CI gate` job graph — it is a convenience, not a verdict.
+
 ## The review verdict is a file, not a recollection
 
 Every change that is not in the baseline has `.specify/reviews/<slug>.md`:

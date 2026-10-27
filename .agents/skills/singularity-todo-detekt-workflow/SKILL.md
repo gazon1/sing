@@ -5,14 +5,22 @@ description: 'Run detekt and ktlint in this KMP project: format, auto-fix, basel
 
 > **When to use:** Any lint/formatting work, especially before committing, or when adding new code patterns.
 
-## ⚠️ Auto-correct is inert (ADR 2026-10-09)
+## ⚠️ Auto-correct works only per module (ADR 2026-10-17)
 
-`--auto-correct` is **broken** in detekt 2.0.0-alpha.6 running through the Gradle plugin.
-`just detekt-fix` **reports only** — it does not auto-fix anything. See:
-- `ADR 2026-10-07-detekt-auto-correct-single-task`
-- `ADR 2026-10-09-detekt-auto-correct-inert-multi-module`
+`--auto-correct` is **not** inert — but it only reaches the **last** detekt task of a
+Gradle invocation. Passing `:shared:detekt :desktopApp:detekt --auto-correct` reports
+both and rewrites neither except the last. Run **one module per invocation**, with
+`--rerun-tasks` so a cached task does not skip the rewrite:
 
-**To fix violations today:** edit the files manually.
+```bash
+for task in :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt :mcp-server:detekt; do
+    ./gw "$task" --auto-correct --rerun-tasks --console=plain || true
+done
+./gw :shared:detekt :desktopApp:detekt :detekt-rules:detekt :androidApp:detekt :mcp-server:detekt --console=plain
+```
+
+First pass corrects; second pass reports what is left. Collapsing the loop into one
+call reintroduces the bug silently. See ADR `2026-10-17-detekt-auto-correct-works-use-it`.
 
 ## Workflow
 
@@ -22,8 +30,8 @@ description: 'Run detekt and ktlint in this KMP project: format, auto-fix, basel
 just detekt-fix
 ```
 
-Reports all current detekt + ktlint violations. Does NOT auto-fix — violations must
-be corrected manually.
+Runs the per-module auto-correct loop above, then a report-only pass. Violations that
+cannot be auto-fixed still need manual edits.
 
 ```bash
 just lint
@@ -88,7 +96,7 @@ See `singularity-todo-detekt-rules-authoring` for the PSI-level pitfalls.
 - **androidApp**: `androidApp/build.gradle.kts` + `androidApp/detekt-baseline.xml`
 
 Ktlint rules are in the `ktlint:` section of `config/detekt/detekt.yml`. Key settings:
-- `auto_correct: true` — **has no effect** (see ADR above)
+- `auto_correct: true` — works only when detekt runs one module per invocation with `--rerun-tasks` (see above); multi-module invocations rewrite only the last task
 - `indent: auto_correct: false` (manual fix needed due to IntelliJ NPE)
 - `max-line-length: active: false` (`.editorconfig` owns `max_line_length = 140`)
 
