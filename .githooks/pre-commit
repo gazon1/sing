@@ -97,14 +97,22 @@ cp scripts/staged-tree.py "$PLAN_DIR/staged-tree.py"
 
 restore_held_tree() {
     local rc=$?
+    local restored=1
     if [ -f "$PLAN" ]; then
         echo "=== Pre-commit: restoring the working tree ==="
-        python3 "$PLAN_DIR/staged-tree.py" restore --root "$ROOT" --plan "$PLAN" || {
-            echo "" >&2
-            echo "pre-commit: the held work could not be put back automatically." >&2
-            echo "It is at ${PLAN}/d — the files are there, and the plan beside" >&2
-            echo "them says which is which. Nothing is lost." >&2
-        }
+        python3 "$PLAN_DIR/staged-tree.py" restore --root "$ROOT" --plan "$PLAN" || restored=0
+    fi
+    if [ "$restored" -eq 0 ]; then
+        # The held bytes are somebody's uncommitted work, so a failed restore
+        # must not take them with it. The holder is left in place, and the old
+        # message — which said "Nothing is lost" and then deleted the holder —
+        # told the opposite of what the next line did.
+        echo "" >&2
+        echo "pre-commit: the held work could not be put back automatically." >&2
+        echo "It is still in ${PLAN_DIR} — the files are in ${PLAN}.d and the plan" >&2
+        echo "beside them says which is which. Nothing is lost: the directory is" >&2
+        echo "left in place, so the work can be put back by hand." >&2
+        exit $rc
     fi
     rm -rf "$PLAN_DIR"
     exit $rc
