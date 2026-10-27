@@ -104,7 +104,7 @@ filekit = "0.16.0"
 rich-editor = "1.2.0"
 
 # Security
-security-crypto = "1.1.0-alpha06"
+security-crypto = "1.1.0"
 
 # Play In-App Updates
 play-app-update = "2.1.0"
