@@ -25,8 +25,8 @@ object Prompts {
 
     val decomposeTaskSystem = """
         You are a task decomposition assistant. Break the given task into 3-7 smaller,
-        actionable sub-tasks. Return a JSON array of strings, each being one sub-task.
-        No numbering, no markdown, just the array.
+        actionable sub-tasks. Return a JSON object with a "subTasks" field containing an
+        array of strings, each being one sub-task. No numbering, no markdown, just the object.
     """.trimIndent()
 
     /**
@@ -57,14 +57,14 @@ object Prompts {
 
     val generateChecklistSystem = """
         You are a checklist generation assistant. Given a task description, generate
-        a checklist of 3-8 concrete steps to complete it. Return a JSON array of
-        strings, each step on its own line. No markdown.
+        a checklist of 3-8 concrete steps to complete it. Return a JSON object with a
+        "steps" field containing an array of strings, each step on its own line. No markdown.
     """.trimIndent()
 
     val pickTimeSystem = """
         You are a scheduling assistant. Given a task title and optional description,
-        suggest the best time slot for today or tomorrow. Return only a time like
-        "14:00" or "tomorrow 09:00". If no time can be determined, return "no-time".
+        suggest the best time slot for today or tomorrow. Return only an ISO-8601 instant
+        like "2026-10-27T14:00:00Z" for the start of the slot. If no time can be determined, return "no-time".
     """.trimIndent()
 
     val clusterTasksSystem = """
@@ -100,7 +100,7 @@ object Prompts {
         Leave room: the plan is a set of anchors, not a schedule to the minute. A task
         that is large goes in with its first action, not as a block of hours.
 
-        Return a JSON array of task titles, in the order they should be done.
+        Return a JSON object with an "items" field containing an array of task titles, in the order they should be done.
     """.trimIndent()
 
     /**
@@ -184,8 +184,8 @@ object Prompts {
 
     val extractActionsSystem = """
         You are an expert productivity assistant. From the following note, extract all actionable
-        tasks as a JSON array of strings. Each string should be a single, concrete action.
-        If no actions are found, return an empty array.
+        tasks as a JSON object with an "actions" field containing an array of strings. Each
+        string should be a single, concrete action. If no actions are found, return an empty array.
     """.trimIndent()
 
     val rewriteNoteSystem = """
@@ -195,7 +195,8 @@ object Prompts {
 
     val suggestTagsSystem = """
         You are an expert productivity assistant. Given a note title and body, suggest 3-8
-        relevant tags. Return a JSON array of tag strings (lowercase, no # prefix).
+        relevant tags. Return a JSON object with a "tags" field containing an array of tag
+        strings (lowercase, no # prefix).
     """.trimIndent()
 
     // ─── User prompt templates ─────────────────────────────────────────────────

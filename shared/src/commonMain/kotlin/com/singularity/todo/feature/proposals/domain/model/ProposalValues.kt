@@ -653,6 +653,7 @@ private fun readSomeday(text: String): ReadResult<Boolean> = when (text.trim().l
 private fun readEstimate(text: String): ReadResult<Int> {
     val minutes = text.trim().toIntOrNull()
         ?: return ReadResult.Rejected("\"${text.trim()}\" is not a number of minutes.")
+    if (minutes < 0) return ReadResult.Rejected("\"$minutes\" cannot be negative. Use 0 or a positive number of minutes.")
     return ReadResult.Ok(minutes)
 }
 

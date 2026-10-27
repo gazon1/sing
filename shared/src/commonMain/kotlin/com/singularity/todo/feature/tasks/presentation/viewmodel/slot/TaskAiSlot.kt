@@ -162,10 +162,13 @@ class TaskAiSlot(
             val suggestion = withUseCase(ai.pickTime, "PickTime") { pick ->
                 pick(task.title, task.description).getOrThrow()
             }
+            if (suggestion.trim() == "no-time") error("No time could be determined")
+            val start = runCatching { kotlin.time.Instant.parse(suggestion.trim()).toEpochMilliseconds() }
+                .getOrDefault(context.clock.now().toEpochMilliseconds())
             listOf(
                 newItem(
                     kind = ProposalItemKind.AddTimeEntries(
-                        listOf(ProposedTimeEntry(startedAt = 0L, endedAt = 0L, note = suggestion)),
+                        listOf(ProposedTimeEntry(startedAt = start, endedAt = start + 3_600_000L, note = suggestion)),
                     ),
                     proposalId = proposalId,
                     targetId = task.id.value,

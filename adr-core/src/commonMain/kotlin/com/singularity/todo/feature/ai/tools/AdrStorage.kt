@@ -478,6 +478,8 @@ class AdrStorage(
             append("---").append('\n')
             append(body.joinToString("\n"))
         }
+        // Keep the previous version beside the file so a bad rewrite is recoverable.
+        runCatching { Path(filePath(slug) + ".bak.${clock.now().toEpochMilliseconds()}").writeText(original, Charsets.UTF_8) }
         path.writeText(out, Charsets.UTF_8)
         return path.toString()
     }

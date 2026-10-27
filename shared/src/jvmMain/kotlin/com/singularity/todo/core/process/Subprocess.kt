@@ -42,8 +42,6 @@ class DuplexProcess internal constructor(
 ) {
     private val closed = AtomicBoolean(false)
 
-    private val log = Logger.withTag("subprocess")
-
     /**
      * Writes one line to the child's standard input.
      *
@@ -74,21 +72,15 @@ class DuplexProcess internal constructor(
      * signal can end, and a test that closes a session waits for a coroutine that will
      * never finish.
      */
-    fun stdoutLines(): Flow<String> = flow {
-        stdout.bufferedReader().use { reader ->
-            while (true) {
-                val line = try {
-                    reader.readLine()
-                } catch (e: IOException) {
-                    // The stream was closed underneath the reader: the child is gone and
-                    // the conversation with it is over.
-                    log.d(e) { "The child's output ended while it was being read." }
-                    null
-                } ?: break
-                emit(line)
-            }
+    fun stdoutLines(): Flow<String> = flow<String> {
+        val reader = InputStreamReader(stdout, Charsets.UTF_8)
+        try {
+            readCappedLines(reader, 1_048_576) { emit(it) }
+        } finally {
+            runCatching { reader.close() }
         }
     }.flowOn(Dispatchers.IO)
+
 
     /**
      * Waits for the child to exit, up to [timeoutMillis].
@@ -241,8 +233,22 @@ object Subprocess {
         }
 
         // Read to EOF *before* waiting. Reversing these two is the deadlock above.
-        val output = process.inputStream.bufferedReader().readText()
-        if (process.waitFor() != 0) null else output
+        val maxOutput = 16 * 1024 * 1024
+        val buf = CharArray(8192)
+        val out = StringBuilder()
+        InputStreamReader(process.inputStream, Charsets.UTF_8).use { reader ->
+            while (true) {
+                val n = reader.read(buf)
+                if (n == -1) break
+                if (out.length + n > maxOutput) {
+                    out.append(buf, 0, (maxOutput - out.length).coerceAtLeast(0))
+                    subprocessLog.w { "subprocess output truncated at $maxOutput bytes" }
+                    break
+                }
+                out.append(buf, 0, n)
+            }
+        }
+        if (process.waitFor() != 0) null else out.toString()
     }.getOrNull()
 
     /**
@@ -300,16 +306,45 @@ object Subprocess {
     private fun drainStderr(stream: InputStream, sink: (String) -> Unit) {
         Thread({
             runCatching {
-                BufferedReader(InputStreamReader(stream)).use { reader ->
-                    while (true) {
-                        val line = reader.readLine() ?: break
-                        sink(line)
-                    }
+                val reader = InputStreamReader(stream, Charsets.UTF_8)
+                kotlinx.coroutines.runBlocking<Unit> {
+                    readCappedLines(reader, 1_048_576) { sink(it) }
                 }
+                runCatching { reader.close() }
             }
         }, "subprocess-stderr-drain").apply {
             isDaemon = true
             start()
         }
     }
+}
+
+private val subprocessLog = co.touchlab.kermit.Logger.withTag("subprocess")
+
+private suspend fun readCappedLines(reader: java.io.Reader, maxLine: Int, emit: suspend (String) -> Unit) {
+    val buf = CharArray(8192)
+    val line = StringBuilder()
+    while (true) {
+        val n = try {
+            reader.read(buf)
+        } catch (e: IOException) {
+            subprocessLog.d(e) { "The child's output ended while it was being read." }
+            -1
+        }
+        if (n == -1) break
+        for (i in 0 until n) {
+            val c = buf[i]
+            if (c == '\n') {
+                emit(line.toString())
+                line.setLength(0)
+            } else if (line.length >= maxLine) {
+                emit(line.toString())
+                line.setLength(0)
+                if (c != '\r') line.append(c)
+            } else {
+                line.append(c)
+            }
+        }
+    }
+    if (line.isNotEmpty()) emit(line.toString())
 }
