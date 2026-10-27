@@ -2020,6 +2020,13 @@ private class FakeChecklistDao(
     override fun watchByTask(taskId: String): Flow<List<ChecklistItemEntity>> =
         store.map { it.values.filter { c -> c.taskId == taskId }.sortedBy { c -> c.sortOrder } }
 
+    override fun watchByTaskForUser(taskId: String, userId: String): Flow<List<ChecklistItemEntity>> =
+        store.map { items ->
+            items.values
+                .filter { c -> c.taskId == taskId && tasksStore.value[c.taskId]?.userId == userId }
+                .sortedBy { c -> c.sortOrder }
+        }
+
     override suspend fun upsert(item: ChecklistItemEntity) {
         store.update { it + (item.id to item) }
     }

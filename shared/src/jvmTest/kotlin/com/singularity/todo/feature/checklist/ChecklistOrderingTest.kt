@@ -3,6 +3,7 @@
 package com.singularity.todo.feature.checklist
 
 import com.singularity.todo.core.auth.Session
+import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.checklist.data.ChecklistRepositoryImpl
 import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
@@ -49,14 +50,28 @@ class ChecklistOrderingTest {
             initialSession = Session.SignedIn(UserId("u1"), "test@test.com", "token", "refresh"),
         )
         val currentUser = FakeProfileAwareCurrentUser(authRepository = auth)
+        val db = FakeAppDatabase()
+        // The scoped checklist read resolves ownership through the parent task, so the
+        // tasks have to exist for the same user as the signed-in session.
+        db.seedTasks(listOf(ownedTask("t-order"), ownedTask("t-seq")))
         return ChecklistRepositoryImpl(
-            dao = FakeAppDatabase().checklistDao(),
+            dao = db.checklistDao(),
             // FakeClock, not `Clock.System`: the repository only stamps createdAt/updatedAt
             // here, and a fixed instant keeps that out of the assertion's way.
             clock = FakeClock(),
             currentUser = currentUser,
         )
     }
+
+    private fun ownedTask(id: String) = TaskEntity(
+        id = id, title = "T", description = null, projectId = null,
+        dueDate = null, dueTime = null,
+        startDate = null, startTime = null, endDate = null, endTime = null,
+        accentColor = null, emoji = null,
+        completedAt = null, someday = false,
+        archivedAt = null, isPinned = false, createdAt = 0, updatedAt = 0,
+        userId = "u1",
+    )
 
     @Test
     fun `an item added after a batch is ordered last`() = runTest {

@@ -2,6 +2,7 @@ package com.singularity.todo.feature.checklist.data
 
 import com.singularity.todo.core.database.ChecklistDao
 import com.singularity.todo.core.database.ChecklistItemEntity
+import com.singularity.todo.core.repository.observeForCurrentUser
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
@@ -19,7 +20,9 @@ class ChecklistRepositoryImpl(
 ) : ChecklistRepository {
 
     override fun watchByTask(taskId: String): Flow<List<ChecklistItem>> =
-        dao.watchByTask(taskId).map { list -> list.map { it.toItem() } }
+        currentUser.observeForCurrentUser { uid ->
+            dao.watchByTaskForUser(taskId, uid.value).map { list -> list.map { it.toItem() } }
+        }
 
     override suspend fun addItem(
         taskId: String,
@@ -32,7 +35,8 @@ class ChecklistRepositoryImpl(
         // `ORDER BY sort_order ASC`, so the tie is broken by rowid, which SQL
         // does not promise. The inline add-row on the task screen makes adds
         // frequent, which is exactly the usage that finds the collision.
-        val sortOrder = dao.watchByTask(taskId).first().maxOfOrNull { it.sortOrder }?.plus(1) ?: 0
+        val sortOrder = dao.watchByTaskForUser(taskId, currentUser.scopedUserId.value.value)
+            .first().maxOfOrNull { it.sortOrder }?.plus(1) ?: 0
         val item = ChecklistItem(
             id = id,
             taskId = taskId,
@@ -62,7 +66,7 @@ class ChecklistRepositoryImpl(
         runCatchingCancellable {
             val uid = currentUser.scopedUserId.value.value
             val now = clock.now().toEpochMilliseconds()
-            val existing = dao.watchByTask(taskId).first().find { it.id == itemId.value }
+            val existing = dao.watchByTaskForUser(taskId, uid).first().find { it.id == itemId.value }
                 ?: throw IllegalArgumentException("Checklist item not found: $itemId")
             val rows = dao.toggleItem(itemId.value, !existing.isCompleted, now, now, actor, uid)
             require(rows > 0) { "Checklist item $itemId not found or not owned by current user" }
@@ -70,7 +74,8 @@ class ChecklistRepositoryImpl(
 
     override suspend fun upsert(item: ChecklistItem): Result<Unit> = runCatchingCancellable {
         val now = clock.now().toEpochMilliseconds()
-        val existing = dao.watchByTask(item.taskId).first().find { it.id == item.id.value }
+        val existing = dao.watchByTaskForUser(item.taskId, currentUser.scopedUserId.value.value)
+            .first().find { it.id == item.id.value }
         dao.upsert(item.toEntity(now = now, existing = existing))
     }
 
@@ -85,7 +90,8 @@ class ChecklistRepositoryImpl(
     ): Result<Unit> = runCatchingCancellable {
         val now = clock.now().toEpochMilliseconds()
         // Read existing items so we preserve their createdAt instead of overwriting with now
-        val existing = dao.watchByTask(taskId).first().associateBy { it.id }
+        val existing = dao.watchByTaskForUser(taskId, currentUser.scopedUserId.value.value)
+            .first().associateBy { it.id }
         items.forEachIndexed { index, item ->
             val existingItem = existing[item.id.value]
             dao.upsert(
