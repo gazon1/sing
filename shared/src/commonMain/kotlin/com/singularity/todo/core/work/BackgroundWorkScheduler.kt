@@ -91,6 +91,9 @@ interface BackgroundJob {
     /** Stable identifier. Must match the id used in the catalogue and in any schedule. */
     val id: String
 
+    /** Whether this job needs a network connection to run. Local-only jobs return false. */
+    val requiresNetwork: Boolean get() = true
+
     /** The work itself. Throwing is equivalent to returning [JobOutcome.Failed]. */
     suspend fun run(): JobOutcome
 }

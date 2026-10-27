@@ -510,7 +510,7 @@ class TaskRepositoryImpl(
      */
     private suspend fun enqueueFresh(id: TaskId) {
         val task = taskDao.freshTask(id.value, currentUser.scopedUserId.value) ?: return
-        syncRepository.enqueue(task)
+        syncRepository.enqueue(task).getOrThrow()
     }
 
     override suspend fun delete(id: TaskId): Result<Unit> = softDelete(id)
@@ -557,7 +557,7 @@ class TaskRepositoryImpl(
                     tags = tagRefs[row.id].orEmpty(),
                     blockedBy = depRefs[row.id].orEmpty(),
                 )
-                syncRepository.enqueue(task.copy(archivedAt = task.archivedAt ?: now))
+                syncRepository.enqueue(task.copy(archivedAt = task.archivedAt ?: now)).getOrThrow()
             }
             removed
         }

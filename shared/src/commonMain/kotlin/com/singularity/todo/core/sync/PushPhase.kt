@@ -105,6 +105,9 @@ internal class PushPhase(
             }
         }
 
+        if (batches >= 1000) {
+            log.w { "push loop reached the batch cap; unsent patches remain queued for the next cycle" }
+        }
         val summary = PushSummary(
             processed = processed,
             succeeded = succeeded,

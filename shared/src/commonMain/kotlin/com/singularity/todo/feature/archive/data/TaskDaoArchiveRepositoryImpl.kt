@@ -48,7 +48,7 @@ class TaskDaoArchiveRepositoryImpl(
                 // would apply it, and every other device would lose the tags on
                 // the next pull.
                 taskDao.freshTasks(rows, uid)
-                    .forEach { task -> syncRepository.enqueue(task) }
+                    .forEach { task -> syncRepository.enqueue(task).getOrThrow() }
             }
             archived
         }

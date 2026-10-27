@@ -55,7 +55,7 @@ class AndroidBackgroundWorkScheduler(
                 val request = PeriodicWorkRequestBuilder<BackgroundJobWorker>(
                     java.time.Duration.ofMillis(interval.inWholeMilliseconds),
                 )
-                    .setConstraints(constraints())
+                    .setConstraints(constraints(jobId))
                     .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF)
                     .setInputData(inputData(jobId, schedule))
                     .build()
@@ -84,7 +84,7 @@ class AndroidBackgroundWorkScheduler(
                 val request = PeriodicWorkRequestBuilder<BackgroundJobWorker>(
                     java.time.Duration.ofMillis(interval.inWholeMilliseconds),
                 )
-                    .setConstraints(constraints())
+                    .setConstraints(constraints(jobId))
                     .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF)
                     .setInputData(inputData(jobId, schedule))
                     .build()
@@ -119,7 +119,7 @@ class AndroidBackgroundWorkScheduler(
         policy: ExistingWorkPolicy = ExistingWorkPolicy.KEEP,
     ) {
         val builder = OneTimeWorkRequestBuilder<BackgroundJobWorker>()
-            .setConstraints(constraints())
+            .setConstraints(constraints(jobId))
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF)
             .setInputData(inputData(jobId, schedule))
         if (delay > kotlin.time.Duration.ZERO) {
@@ -157,10 +157,14 @@ class AndroidBackgroundWorkScheduler(
         .putString(BackgroundJobWorker.KEY_SCHEDULE, JobScheduleCodec.encode(schedule))
         .build()
 
-    private fun constraints(): Constraints = Constraints.Builder()
-        .setRequiredNetworkType(NetworkType.CONNECTED)
-        .setRequiresBatteryNotLow(true)
-        .build()
+    private fun constraints(jobId: String): Constraints {
+        val requiresNetwork = catalog.find(jobId)?.requiresNetwork ?: true
+        val builder = Constraints.Builder().setRequiresBatteryNotLow(true)
+        if (requiresNetwork) {
+            builder.setRequiredNetworkType(NetworkType.CONNECTED)
+        }
+        return builder.build()
+    }
 
     private fun workName(jobId: String) = "bg-$jobId"
 

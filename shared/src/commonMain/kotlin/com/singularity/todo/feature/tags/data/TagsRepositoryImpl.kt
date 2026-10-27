@@ -52,7 +52,7 @@ class TagsRepositoryImpl(
                 return@write existing.toTag()
             }
             tagDao.upsert(item.toEntity())
-            item.also { syncRepository.enqueue(it) }
+            item.also { syncRepository.enqueue(it).getOrThrow() }
         }
     }
 
@@ -67,7 +67,7 @@ class TagsRepositoryImpl(
                 return@write existing.toTag()
             }
             tagDao.upsert(item.toEntity())
-            item.also { syncRepository.enqueue(it) }
+            item.also { syncRepository.enqueue(it).getOrThrow() }
         }
     }
 
@@ -94,7 +94,7 @@ class TagsRepositoryImpl(
             // nothing — and the delete still commits alone rather than not at all.
             val row = tagDao.getByIdForUser(id.value, uid.value)
             if (row != null) {
-                syncRepository.enqueue(row.toTag())
+                syncRepository.enqueue(row.toTag()).getOrThrow()
             }
         }
     }
@@ -121,7 +121,7 @@ class TagsRepositoryImpl(
             val removed = tagDao.deleteAllForUser(uid)
             val now = clock.now()
             doomed.forEach { row ->
-                syncRepository.enqueue(row.toTag().copy(deletedAt = now))
+                syncRepository.enqueue(row.toTag().copy(deletedAt = now)).getOrThrow()
             }
             removed
         }
@@ -136,7 +136,7 @@ class TagsRepositoryImpl(
             val rows = tagDao.restoreForUser(id.value, ts, uid.value)
             require(rows > 0) { "Tag $id not found, not owned by user, or not deleted" }
             val row = tagDao.getByIdForUser(id.value, uid.value)
-            if (row != null) syncRepository.enqueue(row.toTag())
+            if (row != null) syncRepository.enqueue(row.toTag()).getOrThrow()
         }
     }
 }
