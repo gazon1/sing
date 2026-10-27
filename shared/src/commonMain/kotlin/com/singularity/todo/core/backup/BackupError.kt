@@ -48,7 +48,11 @@ sealed class BackupError(message: String, cause: Throwable? = null) : Exception(
      * the time.
      */
     class UnsupportedArchiveVersion(val version: Int, val readableVersions: Set<Int>) :
-        BackupError("The archive's version is $version, and this build reads versions ${readableVersions.sorted().joinToString(" and ")}")
+        BackupError(
+            "The archive's version is $version, and this build reads versions ${readableVersions.sorted().joinToString(
+                " and ",
+            )}",
+        )
 
     /**
      * The archive's bytes could not be moved — read from the source, or written to

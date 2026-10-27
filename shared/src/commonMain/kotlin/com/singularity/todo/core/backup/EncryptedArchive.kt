@@ -259,7 +259,9 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
         // password, and the chain's own refusals pass through untouched.
         val container = said { readContainer(source) }
         if (container.head.count < 0 || container.head.count > MAX_CHAIN_ENTRIES) {
-            throw BackupError.BrokenChain("its head promises ${container.head.count} changes, more than this build reads")
+            throw BackupError.BrokenChain(
+                "its head promises ${container.head.count} changes, more than this build reads",
+            )
         }
         val key = crypto.deriveKey(password, container.salt)
         try {
