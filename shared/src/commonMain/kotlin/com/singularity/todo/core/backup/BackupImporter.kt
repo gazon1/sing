@@ -328,7 +328,16 @@ class BackupImporter(
             // marker — a backup restored after the upgrade would otherwise leave
             // the legacy rows unvisited forever. The marker is cleared here, so
             // the next launch repairs the restored rows.
-            tasksSettings.setRecurringSeriesRepairVersion(options.targetUserId.value, 0)
+            val scope = options.targetProfileId?.value ?: options.targetUserId.value
+            runCatchingCancellable { tasksSettings.setRecurringSeriesRepairVersion(scope, 0) }
+                .onFailure { error ->
+                    // The rows are already committed. A settings write that failed
+                    // must not turn a completed restore into a failed one — the
+                    // archive would be deleted by the caller — so the marker reset
+                    // is best-effort: a profile that keeps its marker pays one
+                    // skipped repair, not a lost restore.
+                    log.w(error) { "The recurring-series repair marker was not cleared for $scope" }
+                }
 
             RestoreResult(
                 manifest = manifest,

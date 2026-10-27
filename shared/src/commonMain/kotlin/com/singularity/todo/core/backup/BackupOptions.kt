@@ -1,6 +1,7 @@
 package com.singularity.todo.core.backup
 
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.core.version.appVersion
 
 @DslMarker
@@ -23,11 +24,12 @@ class ExportOptionsBuilder {
 class ImportOptionsBuilder {
     var sourcePath: String? = null
     var targetUserId: UserId? = null
+    var targetProfileId: ProfileId? = null
     var overwriteExisting: Boolean = true
     fun build(): ImportOptions {
         val s = sourcePath ?: error("sourcePath required")
         val u = targetUserId ?: error("targetUserId required")
-        return ImportOptions(s, u, overwriteExisting)
+        return ImportOptions(s, u, overwriteExisting, targetProfileId)
     }
 }
 
@@ -45,7 +47,19 @@ data class ExportOptions(
     val appVersion: String = appVersion().name,
 )
 
-data class ImportOptions(val sourcePath: String, val targetUserId: UserId, val overwriteExisting: Boolean = true)
+data class ImportOptions(
+    val sourcePath: String,
+    val targetUserId: UserId,
+    val overwriteExisting: Boolean = true,
+    /**
+     * The profile the restored rows belong to, when the caller knows it.
+     *
+     * The repository stamps the active profile on both restore paths. A direct
+     * importer caller that does not set it falls back to [targetUserId], which is
+     * the repair's scope only for the default profile.
+     */
+    val targetProfileId: ProfileId? = null,
+)
 
 fun exportOptions(block: ExportOptionsBuilder.() -> Unit): ExportOptions = ExportOptionsBuilder().apply(block).build()
 
