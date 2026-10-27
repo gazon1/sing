@@ -91,7 +91,7 @@ playServicesAuth = "21.6.0"
 okio = "3.10.0"
 
 # Utils
-turbine = "1.2.0"
+turbine = "1.2.1"
 # atomicfu — aligned via resolutionStrategy when transitive conflict occurs
 atomicfu = "0.23.1"
 # kotlinx-collections-immutable — transitive from markdown-renderer:0.43.0
