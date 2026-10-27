@@ -48,6 +48,7 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.core.ui.text.highlightedText
 import com.singularity.todo.core.search.SearchColumn
+import com.singularity.todo.core.platform.systemToday
 import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import kotlinx.collections.immutable.toImmutableSet
 import com.singularity.todo.core.search.TextMatchRange
@@ -269,6 +270,7 @@ private fun SearchResultsList(
                 TaskCard(
                     task = hit.record,
                     onClick = { navigator.openTask(hit.record.id) },
+                    today = systemToday(),
                     blockedTaskIds = blockedTaskIds,
                     matchRanges = hit.ranges,
                     actions = TaskCardActions(

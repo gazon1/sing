@@ -53,6 +53,7 @@ import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.feature.projects.presentation.components.ProjectDetailActions
 import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsNavigator
+import com.singularity.todo.core.platform.systemToday
 import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import kotlinx.collections.immutable.toImmutableSet
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -136,6 +137,7 @@ fun ProjectBodySection(
                     items(ui.tasks, key = { it.id.value }) { task ->
                         TaskCard(
                             task = task,
+                            today = systemToday(),
                             blockedTaskIds = blockedTaskIds,
                             onClick = { nav.openTask(task.id) },
                             actions = TaskCardActions(
