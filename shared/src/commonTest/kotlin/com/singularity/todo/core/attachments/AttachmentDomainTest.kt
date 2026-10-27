@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.test.assertFailsWith
 
 @Tag("fast")
 class AttachmentDomainTest {
@@ -37,6 +38,14 @@ class AttachmentDomainTest {
     fun buildLocalPathHandlesEmptyExtension() {
         val path = AttachmentDomain.buildLocalPath("/files", "task123", "att_abc", "")
         assertEquals("/files/task123/att_abc", path)
+    }
+
+    @Test
+    fun buildLocalPathRejectsTraversal() {
+        assertFailsWith<IllegalArgumentException> { AttachmentDomain.buildLocalPath("/files", "../etc", "id", "png") }
+        assertFailsWith<IllegalArgumentException> { AttachmentDomain.buildLocalPath("/files", "task", "..", "png") }
+        assertFailsWith<IllegalArgumentException> { AttachmentDomain.buildLocalPath("/files", "task", "id", "../png") }
+        assertFailsWith<IllegalArgumentException> { AttachmentDomain.buildLocalPath("/files", "a/b", "id", "png") }
     }
 
     @Test
