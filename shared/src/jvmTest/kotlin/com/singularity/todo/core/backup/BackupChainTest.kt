@@ -15,6 +15,7 @@ import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.test.fakes.FakeAppDatabase
 import com.singularity.todo.test.fakes.FakeDeviceKeyStore
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.test.fakes.FakeTasksSettingsRepository
 import java.io.File
 import java.nio.file.Files
 import kotlin.test.AfterTest
@@ -431,6 +432,7 @@ class BackupChainTest {
         codec = JvmBackupCodec(),
         clock = Clock.System,
         createFileSource = JvmFileSourceFactory(),
+        tasksSettings = FakeTasksSettingsRepository(),
     )
 
     /** The repository, with a bucket that keeps what was uploaded. */
