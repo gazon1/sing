@@ -284,6 +284,16 @@ class AdrStorage(
      */
     fun writeAdr(slug: String, title: String, tags: List<String>, body: String): String {
         requireValidSlug(slug)
+        // Title and tags land in the frontmatter unquoted-ish (quoted, but not escaped):
+        // a newline or a quote in either breaks the YAML block or the normalizer.
+        require(!title.contains('\n') && !title.contains('"')) {
+            "ADR title must not contain a newline or a quote"
+        }
+        tags.forEach { tag ->
+            require(!tag.contains('\n') && !tag.contains('"')) {
+                "ADR tag must not contain a newline or a quote"
+            }
+        }
         val dirPath = Path(decisionsDir)
         dirPath.createDirectories()
         val path = Path(filePath(slug))
@@ -479,7 +489,9 @@ class AdrStorage(
             append(body.joinToString("\n"))
         }
         // Keep the previous version beside the file so a bad rewrite is recoverable.
-        runCatching { Path(filePath(slug) + ".bak.${clock.now().toEpochMilliseconds()}").writeText(original, Charsets.UTF_8) }
+        runCatching {
+            Path(filePath(slug) + ".bak.${clock.now().toEpochMilliseconds()}").writeText(original, Charsets.UTF_8)
+        }
         path.writeText(out, Charsets.UTF_8)
         return path.toString()
     }

@@ -1,10 +1,7 @@
 package com.singularity.todo.mcp
 
-import com.singularity.todo.core.process.Subprocess
 import com.singularity.todo.feature.profile.ProfileBootstrapper
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.first
-import java.io.File
 
 /**
  * The step that seeds the default profiles and points the stored one at the label.
@@ -50,32 +47,12 @@ private suspend fun bootstrap(dependencies: ServerDependencies, profileCliArg: S
         val bootstrapper: ProfileBootstrapper = dependencies.profileBootstrapper
         val activateName = profileNameToActivate(profileCliArg)
 
-        // The un-scoped local userId, read from the session BEFORE the switch.
-        //
-        // It must not come from `ProfileAwareCurrentUser.current`: that is a cached
-        // StateFlow that a background collector rewrites, and `bootstrapper.run` is
-        // suspend, so it gives that collector a chance to run. Once it has, `current`
-        // is already the agent-scoped id, and the migration below would build
-        // newUserId = "{agent}/{agent}/{user}" — an id no profile matches, leaving
-        // every migrated row unreachable. Whether that happened depended on dispatcher
-        // timing. The session is not touched by the switch, so this read is exact.
-        val localUserId: String = dependencies.currentUser
-            .liveLocalUserId
-            .first()
-            .value
-
         val result = bootstrapper.run(
             seedExtras = listOf(ProfileBootstrapper.SeedProfile.AI_AGENT),
             activateName = activateName,
         )
-        result.activated?.let { activated ->
-            // Retro-migrate rows from the unscoped local user id.
-            val agentId = activated.value
-            retromigrateRowsToAgentScope(
-                localUserId = localUserId,
-                newUserId = "$agentId/$localUserId",
-            )
-        }
+        // --profile-id needs no row migration: the agent profile writes under its own
+        // scoped id, and migrating live rows here would hide them from the app.
     } catch (e: CancellationException) {
         throw e
     } catch (e: Throwable) {
@@ -102,40 +79,4 @@ internal fun profileNameToActivate(legacyLabel: String?): String? = when (legacy
 
     // "default", "personal", and every label nobody knows: the stored profile stays.
     else -> null
-}
-
-/**
- * Move rows whose user_id equals the un-scoped local user into the AI Agent
- * scoped user_id (`"{AI Agent id}/{local user id}"`). Idempotent: no-op if
- * no rows match or if the sqlite3 CLI is unavailable.
- *
- * Done via shell `sqlite3` because this is a one-off bootstrap migration
- * touching DB rows that pre-date the profile model.
- *
- * The shell-out goes through [Subprocess] rather than a `ProcessBuilder` of its own:
- * spawning a process is confined to that one file so that every subprocess in the
- * repository is drained and closed the way that does not deliver SIGPIPE to the child.
- */
-private fun retromigrateRowsToAgentScope(localUserId: String, newUserId: String) {
-    // Always use the default DB path — Desktop, Android, and MCP all share it now.
-    val dbPath = System.getProperty("user.home") + "/.singularity-todo/singularity-todo.db"
-    val file = File(dbPath)
-    if (!file.exists()) return
-    val sql = buildString {
-        for (table in listOf("tasks", "notes", "projects", "tags")) {
-            append(
-                "UPDATE $table SET user_id='",
-            ).append(newUserId).append("' WHERE user_id='").append(localUserId).append("';")
-        }
-    }
-    // sqlite3 prints affected row counts to stdout when group statements use
-    // "--changes" (we'll skip that for portability). Better: count before/after by
-    // another route, but for the bootstrap we just trust the operation succeeded if
-    // the exit was 0 — which is exactly what a non-null result means here.
-    val result = Subprocess.runCapturing(listOf("sqlite3", dbPath), stdin = sql)
-    if (result != null) {
-        startupLog.i { "Retro-migrated rows to AI Agent scope ($dbPath)" }
-    } else {
-        startupLog.w { "Retro-migration did not run: sqlite3 is unavailable or the update failed" }
-    }
 }

@@ -1,6 +1,7 @@
 package com.singularity.todo.core.wipe
 
 import com.singularity.todo.core.attachments.AttachmentDao
+import com.singularity.todo.core.attachments.AttachmentStorage
 import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationDao
 import com.singularity.todo.core.database.ProjectReminderDao
 import com.singularity.todo.core.database.ReminderDao
@@ -44,6 +45,7 @@ data class ProfileWipeDeps(
     val calendarImportEventDao: CalendarImportEventDao,
     val calendarSyncTaskMapDao: CalendarSyncTaskMapDao,
     val googleEventShadowDao: GoogleEventShadowDao,
+    val attachmentStorage: AttachmentStorage? = null,
 )
 
 /**
@@ -86,6 +88,12 @@ class ProfileContentResetter(
 
         // The rows that stand on their own.
         deps.proposalDao.deleteAllForUser(uid)
+        // Delete attachment files from disk before the rows disappear.
+        deps.attachmentStorage?.let { storage ->
+            deps.attachmentDao.listAllForUser(uid).forEach { row ->
+                row.localPath?.takeIf { it.isNotBlank() }?.let { storage.deleteFile(it) }
+            }
+        }
         deps.attachmentDao.deleteAllForUser(uid)
         deps.savedSearchDao.deleteAllForUser(uid)
         deps.timeEntryDao.deleteAllForUser(uid)

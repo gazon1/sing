@@ -64,9 +64,12 @@ internal object TaskToolSupport {
     ): List<String> {
         val all = taskRepository.observeByFilter(TaskSelectionResolver.baseFilter()).first()
         val context = context(all, clock, zone)
-        return all
+        val matched = all
             .filter { TaskSelectionResolver.matches(TaskSelectionRequest(selection = selection), it, context) }
-            .map { it.title }
+        // Cap the set sent to the model; report the remainder as a count.
+        val capped = matched.take(50)
+        return capped.map { it.title } +
+            if (matched.size > 50) listOf("…and ${matched.size - 50} more") else emptyList()
     }
 
     /** The short form of [task]. */

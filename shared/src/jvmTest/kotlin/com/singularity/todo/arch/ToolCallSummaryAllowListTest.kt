@@ -33,11 +33,23 @@ class ToolCallSummaryAllowListTest {
             .filter { it.isFile && it.name.endsWith(".kt") }
             .forEach { file ->
                 val text = file.readText()
-                // Match `data class FooInput(` ... `)` (single-line or multi-line until matching paren).
-                val classRegex = Regex("""data\s+class\s+(\w+Input)\s*\(([\s\S]*?)\)""")
-                classRegex.findAll(text).forEach { m ->
+                // Match `data class FooInput(` ... `)` walking balanced parens so fields
+                // after a parameter with a default (which contains its own parens) are
+                // still scanned.
+                val classHeaderRegex = Regex("""data\s+class\s+(\w+Input)\s*\(""")
+                classHeaderRegex.findAll(text).forEach { m ->
                     val className = m.groupValues[1]
-                    val body = m.groupValues[2]
+                    val start = m.range.last + 1
+                    var depth = 1
+                    var i = start
+                    while (i < text.length && depth > 0) {
+                        when (text[i]) {
+                            '(' -> depth++
+                            ')' -> depth--
+                        }
+                        i++
+                    }
+                    val body = text.substring(start, i - 1)
                     // Each property: `val name: Type` possibly with default.
                     val propRegex = Regex("""val\s+(\w+)\s*:\s*(\w+\??)""")
                     propRegex.findAll(body).forEach { p ->

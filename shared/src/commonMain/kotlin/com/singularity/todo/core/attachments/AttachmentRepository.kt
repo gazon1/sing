@@ -92,9 +92,14 @@ class AttachmentRepositoryImpl(
     }
 
     override suspend fun delete(id: AttachmentId): Result<Unit> = runCatchingCancellable {
+        val uid = currentUser.scopedUserId.value
+        val existing = dao.getById(id.value, uid.value)
         val ts = clock.now().toEpochMilliseconds()
-        val rows = dao.softDeleteForUser(id.value, ts, currentUser.scopedUserId.value.value)
+        val rows = dao.softDeleteForUser(id.value, ts, uid.value)
         require(rows > 0) { "Attachment $id not found or not owned by current user" }
+        // Best-effort: the DB row is already gone, so a disk failure must not
+        // resurrect it. storage.deleteFile never throws (it returns a Result).
+        existing?.localPath?.takeIf { it.isNotBlank() }?.let { storage.deleteFile(it) }
     }
 
     // ─── Domain methods ─────────────────────────────────────────────────────
