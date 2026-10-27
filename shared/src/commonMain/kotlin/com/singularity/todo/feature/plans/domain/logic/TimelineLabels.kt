@@ -1,11 +1,12 @@
 package com.singularity.todo.feature.plans.domain.logic
 
+import com.singularity.todo.core.ui.monthAbbreviation
+import com.singularity.todo.core.ui.monthName
+import com.singularity.todo.core.ui.weekdayAbbreviation
 import com.singularity.todo.feature.plans.domain.model.PlansGranularity
 import com.singularity.todo.feature.plans.domain.model.TimelinePeriod
 import kotlinx.datetime.DateTimeUnit
-import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.Month
 import kotlinx.datetime.plus
 
 /**
@@ -18,6 +19,10 @@ import kotlinx.datetime.plus
  * Pure, and in the domain, because the section carries its own label: a
  * section that only knew its dates would leave every screen that renders one
  * to work out what to call it.
+ *
+ * The names of the months and the weekdays are not spelled out here: they come
+ * from the one dictionary in [com.singularity.todo.core.ui], so a timeline
+ * heading and a logbook entry cannot name September differently.
  */
 object TimelineLabels {
 
@@ -38,58 +43,18 @@ object TimelineLabels {
     private fun dayLabel(date: LocalDate, today: LocalDate): String = when (date) {
         today -> "Today"
         today.plus(1, DateTimeUnit.DAY) -> "Tomorrow"
-        else -> "${shortWeekday(date.dayOfWeek)}, ${date.day} ${shortMonth(date.month)}"
+        else -> "${weekdayAbbreviation(date.dayOfWeek)}, ${date.day} ${monthAbbreviation(date.month)}"
     }
 
     private fun weekLabel(period: TimelinePeriod): String {
         val start = period.start
         val end = period.end
         return if (start.month == end.month && start.year == end.year) {
-            "${start.day}–${end.day} ${shortMonth(start.month)}"
+            "${start.day}–${end.day} ${monthAbbreviation(start.month)}"
         } else {
-            "${start.day} ${shortMonth(start.month)} – ${end.day} ${shortMonth(end.month)}"
+            "${start.day} ${monthAbbreviation(start.month)} – ${end.day} ${monthAbbreviation(end.month)}"
         }
     }
 
-    private fun monthLabel(date: LocalDate): String = "${longMonth(date.month)} ${date.year}"
-
-    private fun shortWeekday(day: DayOfWeek): String = when (day) {
-        DayOfWeek.MONDAY -> "Mon"
-        DayOfWeek.TUESDAY -> "Tue"
-        DayOfWeek.WEDNESDAY -> "Wed"
-        DayOfWeek.THURSDAY -> "Thu"
-        DayOfWeek.FRIDAY -> "Fri"
-        DayOfWeek.SATURDAY -> "Sat"
-        DayOfWeek.SUNDAY -> "Sun"
-    }
-
-    private fun shortMonth(month: Month): String = when (month) {
-        Month.JANUARY -> "Jan"
-        Month.FEBRUARY -> "Feb"
-        Month.MARCH -> "Mar"
-        Month.APRIL -> "Apr"
-        Month.MAY -> "May"
-        Month.JUNE -> "Jun"
-        Month.JULY -> "Jul"
-        Month.AUGUST -> "Aug"
-        Month.SEPTEMBER -> "Sep"
-        Month.OCTOBER -> "Oct"
-        Month.NOVEMBER -> "Nov"
-        Month.DECEMBER -> "Dec"
-    }
-
-    private fun longMonth(month: Month): String = when (month) {
-        Month.JANUARY -> "January"
-        Month.FEBRUARY -> "February"
-        Month.MARCH -> "March"
-        Month.APRIL -> "April"
-        Month.MAY -> "May"
-        Month.JUNE -> "June"
-        Month.JULY -> "July"
-        Month.AUGUST -> "August"
-        Month.SEPTEMBER -> "September"
-        Month.OCTOBER -> "October"
-        Month.NOVEMBER -> "November"
-        Month.DECEMBER -> "December"
-    }
+    private fun monthLabel(date: LocalDate): String = "${monthName(date.month)} ${date.year}"
 }

@@ -11,6 +11,7 @@ import com.singularity.todo.feature.agenda.domain.selector.matches
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.domain.logic.computeTaskMarkings
+import com.singularity.todo.feature.tasks.domain.logic.seriesSizes
 import com.singularity.todo.feature.tasks.domain.model.Task
 import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
@@ -113,16 +114,4 @@ object AgendaEvaluator {
     )
     fun matches(task: Task, selector: Selector, context: SelectorContext): Boolean =
         selector.matches(task, context)
-
-    /**
-     * How many dates each series has.
-     *
-     * The count is the number of rows that share the id — the dates the work is
-     * scheduled on. A task that stands alone is not in the table: it has no
-     * series to say anything about.
-     */
-    private fun seriesSizes(tasks: List<Task>): Map<String, Int> =
-        tasks.mapNotNull { it.seriesId?.value }
-            .groupingBy { it }
-            .eachCount()
 }

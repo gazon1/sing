@@ -10,7 +10,7 @@ each holding the work due inside it. The period may be a day, a week or a month.
 This spec covers the screen's observable behaviour. The decisions behind it live in
 `docs/decisions/2026-10-26-plans-timeline-and-projects-menu.md`.
 
-## Requirements
+## ADDED Requirements
 
 ### Requirement: REQ-PLANS-TIMELINE-1 The timeline groups open work by period
 
@@ -112,11 +112,13 @@ the user has to make every time.
 ### Requirement: REQ-PLANS-TIMELINE-6 A task opens, and a new one inherits its period
 
 Tapping a task SHALL open that task's own screen. Creating a task from a section SHALL open the
-task editor with the due date already set to that section's date — the day itself for a day
-period, and the first day of the period for a week or a month period.
+task editor with the due date already set to a date inside that section's period — today when the
+section holds today, and otherwise the first day of the period.
 
 **Rationale:** The two ways a user acts on a section both have to land inside it. A new task that
-came out with no date would be work the timeline is not showing.
+came out with no date would be work the timeline is not showing. The date may not be in the past
+either: a task born overdue is a task the user did not plan, and it would land in the overdue
+section rather than the one it was added from.
 
 #### Scenario: A task opens from its section
 
@@ -128,7 +130,8 @@ came out with no date would be work the timeline is not showing.
 
 - **Given** a section the user is adding a task to
 - **When** the user chooses to add a task there and the editor opens
-- **Then** the due date is already set to that section's date
+- **Then** the due date is already set to a date inside that section's period, and to today when the
+  section holds today
 
 ### Requirement: REQ-PLANS-TIMELINE-7 The screen says when there is nothing scheduled
 

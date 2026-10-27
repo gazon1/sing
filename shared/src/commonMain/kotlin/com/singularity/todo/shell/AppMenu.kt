@@ -106,18 +106,38 @@ object AppMenu {
      * The ids are constants rather than derived from the label, because a
      * label is copy the app is free to change and a test that addresses an
      * entry by its label breaks the day somebody rewords it.
+     *
+     * The last branch is a failure and not a derivation: a destination that
+     * joins the menu without a tag of its own has no id to address it by, and
+     * an id made of its label would move the day somebody rewords that label.
+     * The menu is drawn at startup, so the missing tag is caught the moment
+     * the app opens rather than by a test that quietly stops finding the
+     * entry.
      */
     private fun menuItemId(destination: AppDestination): String = when (destination) {
         AppDestination.Statistics -> TestTags.MENU_STATISTICS
+
         AppDestination.Notes -> TestTags.MENU_NOTES
+
         AppDestination.AiChat -> TestTags.MENU_AI_CHAT
+
         AppDestination.Search -> TestTags.MENU_SEARCH
+
         AppDestination.Archive -> TestTags.MENU_ARCHIVE
+
         AppDestination.Calendar -> TestTags.MENU_CALENDAR
+
         AppDestination.Proposals -> TestTags.MENU_PROPOSALS
+
         AppDestination.AttachAccount -> TestTags.MENU_ATTACH_ACCOUNT
+
         AppDestination.ProfileSwitcher -> TestTags.MENU_PROFILES
+
         AppDestination.Settings -> TestTags.MENU_SETTINGS
-        else -> "menu_" + destination.title.lowercase().replace(" ", "").replace("-", "_")
+
+        else -> error(
+            "The destination '$destination' is in the menu but has no tag of its own. " +
+                "Add a MENU_* tag to TestTags and name it here.",
+        )
     }
 }

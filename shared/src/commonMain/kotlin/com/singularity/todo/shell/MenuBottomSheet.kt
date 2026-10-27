@@ -8,8 +8,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -28,7 +26,6 @@ import com.singularity.todo.core.ui.components.sheet.BottomSheetHost
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.projects.domain.model.ProjectId
-import com.singularity.todo.feature.projects.presentation.components.ProjectTreeSection
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTreeUiState
 
 /**
@@ -124,28 +121,14 @@ fun MenuBottomSheet(
             }
 
             // ─── Projects ─────────────────────────────────────────────────────
-            // The projects as a tree, and the way to the full list. The tree is
-            // drawn by the composable the Desktop drawer draws too.
-            SectionHeader("Projects")
-            ProjectTreeSection(
+            // The projects as a tree, and the way to the full list. The section
+            // is drawn by the composable the Desktop drawer draws too.
+            ProjectsMenuSection(
                 state = treeState,
                 onToggleExpanded = onToggleExpanded,
                 onOpenProject = onOpenProject,
-            )
-            NavigationDrawerItem(
-                label = { Text("All projects") },
-                selected = false,
-                onClick = { onSelect(AppDestination.ProjectsGraph()) },
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.Folder,
-                        contentDescription = "All projects",
-                    )
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .mapTestTagsAsResourceIds()
-                    .testTag(TestTags.MENU_ALL_PROJECTS),
+                onOpenAllProjects = { onSelect(AppDestination.ProjectsGraph()) },
+                headerModifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp),
             )
             HorizontalDivider()
             Spacer(Modifier.height(16.dp))

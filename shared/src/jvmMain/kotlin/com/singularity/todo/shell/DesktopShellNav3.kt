@@ -8,7 +8,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
@@ -55,7 +54,6 @@ import com.singularity.todo.feature.nav.Settings
 import com.singularity.todo.feature.nav.createJvmEntryProvider
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.nav.icon
-import com.singularity.todo.feature.projects.presentation.components.ProjectTreeSection
 import com.singularity.todo.feature.projects.presentation.nav.ProjectsOpener
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTreeIntent
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTreeViewModel
@@ -270,15 +268,9 @@ fun DesktopShellNav3Root(
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                     // ─── Projects ───────────────────────────────────────────────
-                    // The tree, and the way to the full list. The tree is drawn by
-                    // the composable the Android sheet draws too.
-                    Text(
-                        text = "Projects",
-                        style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    )
-
-                    ProjectTreeSection(
+                    // The tree, and the way to the full list. The section is
+                    // drawn by the composable the Android sheet draws too.
+                    ProjectsMenuSection(
                         state = projectsTreeState,
                         onToggleExpanded = { projectId ->
                             projectsTreeViewModel.onIntent(ProjectsTreeIntent.ToggleExpanded(projectId))
@@ -291,28 +283,16 @@ fun DesktopShellNav3Root(
                             projectsOpener.requestOpen(projectId)
                             navigator.open(AppDestination.ProjectsGraph())
                         },
-                        modifier = Modifier.padding(horizontal = 12.dp),
-                    )
-
-                    NavigationDrawerItem(
-                        label = { Text("All projects") },
-                        selected = false,
-                        onClick = {
+                        onOpenAllProjects = {
                             scope.launch { drawerState.close() }
                             // The hoisted stack survives the graph leaving the
                             // screen, so the list is asked for explicitly.
                             projectsOpener.requestList()
                             navigator.open(AppDestination.ProjectsGraph())
                         },
-                        icon = {
-                            Icon(
-                                Icons.Default.Folder,
-                                contentDescription = "All projects",
-                            )
-                        },
-                        modifier = Modifier
-                            .padding(horizontal = 12.dp)
-                            .testTag(TestTags.MENU_ALL_PROJECTS),
+                        headerModifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        treeModifier = Modifier.padding(horizontal = 12.dp),
+                        itemModifier = Modifier.padding(horizontal = 12.dp),
                     )
                 }
             }

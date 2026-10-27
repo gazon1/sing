@@ -5,6 +5,7 @@ import com.singularity.todo.feature.plans.domain.model.TimelineSection
 import com.singularity.todo.feature.plans.domain.model.TimelineTask
 import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.domain.logic.computeTaskMarkings
+import com.singularity.todo.feature.tasks.domain.logic.seriesSizes
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.collections.immutable.toImmutableList
@@ -99,15 +100,4 @@ object TimelineGrouper {
         markings = computeTaskMarkings(this, today, isBlocked = id in blockedIds),
         seriesDates = seriesId?.let { seriesCount[it.value] },
     )
-
-    /**
-     * How many dates each series has.
-     *
-     * The count is the number of rows that share the id — the dates the work is
-     * scheduled on. Counted once for the whole list rather than per row.
-     */
-    private fun seriesSizes(tasks: List<Task>): Map<String, Int> =
-        tasks.mapNotNull { it.seriesId?.value }
-            .groupingBy { it }
-            .eachCount()
 }

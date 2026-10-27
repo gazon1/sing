@@ -11,7 +11,7 @@ holds, on both platforms.
 The decisions behind it live in
 `docs/decisions/2026-10-26-plans-timeline-and-projects-menu.md`.
 
-## Requirements
+## ADDED Requirements
 
 ### Requirement: REQ-NAV-MENU-1 The Calendar is not a tab and is an entry of the menu
 
