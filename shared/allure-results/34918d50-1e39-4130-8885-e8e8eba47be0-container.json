@@ -1,1 +1,0 @@
-{"uuid":"34918d50-1e39-4130-8885-e8e8eba47be0","name":"emitError converts a thrown AppError into an event instead of crashing the coroutine()","children":["55205963-3f41-4c1e-8581-bebd5229ba8e"],"befores":[],"afters":[],"start":1792174018991,"stop":1792174019025}
