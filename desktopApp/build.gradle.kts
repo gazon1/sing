@@ -179,7 +179,7 @@ compose.desktop {
         )
 
         nativeDistributions {
-            targetFormats(TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.Msi, TargetFormat.Dmg)
+            targetFormats(TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.Msi)
             packageName = "singularity-todo"
             packageVersion = (project.findProperty("packageVersion") as String?) ?: "0.1.0"
 
