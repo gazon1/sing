@@ -124,7 +124,7 @@ koog = "1.1.1"
 acp = "0.34.0"
 
 # Coil
-coil = "3.6.1"
+coil = "3.6.3"
 
 # Testing
 junit = "4.13.2"
