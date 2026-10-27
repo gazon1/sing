@@ -34,6 +34,7 @@ data class SyncOutboxEntity(
      * discards the answer, cannot un-send the request. #209.
      */
     @ColumnInfo("owner_id", defaultValue = "''") val ownerId: String,
+    @ColumnInfo("profile_id", defaultValue = "''") val profileId: String = "",
     @ColumnInfo("entity_id") val entityId: String,
     @ColumnInfo("entity_type") val entityType: String,
     val payload: String, // Serialized DeltaPatch JSON
@@ -71,10 +72,11 @@ interface SyncOutboxDao {
     @Query(
         "SELECT * FROM sync_outbox " +
             "WHERE owner_id = :ownerId " +
+            "AND profile_id = :profileId " +
             "AND (next_attempt_at IS NULL OR next_attempt_at <= :now) " +
             "ORDER BY created_at ASC",
     )
-    suspend fun getPending(now: Long, ownerId: String): List<SyncOutboxEntity>
+    suspend fun getPending(now: Long, ownerId: String, profileId: String): List<SyncOutboxEntity>
 
     /**
      * How many patches an account still owes the server.
@@ -134,8 +136,8 @@ interface SyncOutboxDao {
      * discard another account's unsent work, which is the failure REQ-UA-019 exists to
      * prevent, reached from the other direction.
      */
-    @Query("DELETE FROM sync_outbox WHERE owner_id = :ownerId AND entity_id = :entityId")
-    suspend fun deleteByEntity(ownerId: String, entityId: String)
+    @Query("DELETE FROM sync_outbox WHERE owner_id = :ownerId AND profile_id = :profileId AND entity_id = :entityId")
+    suspend fun deleteByEntity(ownerId: String, profileId: String, entityId: String)
 
     /** Clear the entire outbox */
     @Query("DELETE FROM sync_outbox")

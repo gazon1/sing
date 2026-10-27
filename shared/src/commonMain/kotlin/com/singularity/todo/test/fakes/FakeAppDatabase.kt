@@ -1297,9 +1297,9 @@ private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, 
      * says must not arise, and precisely what a fake that quietly drops half a query's
      * conditions will let a test assert as correct.
      */
-    override suspend fun getPending(now: Long, ownerId: String): List<SyncOutboxEntity> =
+    override suspend fun getPending(now: Long, ownerId: String, profileId: String): List<SyncOutboxEntity> =
         store.value.values
-            .filter { it.ownerId == ownerId }
+            .filter { it.ownerId == ownerId && it.profileId == profileId }
             .filter { it.nextAttemptAt == null || it.nextAttemptAt <= now }
             .sortedBy { it.createdAt }
 
@@ -1326,8 +1326,8 @@ private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, 
     }
     override suspend fun attemptsOf(id: String): Int? = store.value[id]?.attempts
 
-    override suspend fun deleteByEntity(ownerId: String, entityId: String) {
-        store.update { it.filterValues { e -> e.ownerId != ownerId || e.entityId != entityId } }
+    override suspend fun deleteByEntity(ownerId: String, profileId: String, entityId: String) {
+        store.update { it.filterValues { e -> e.ownerId != ownerId || e.profileId != profileId || e.entityId != entityId } }
     }
 
     /** `DELETE FROM sync_outbox WHERE owner_id = :ownerId` — every profile's patches of that owner. */

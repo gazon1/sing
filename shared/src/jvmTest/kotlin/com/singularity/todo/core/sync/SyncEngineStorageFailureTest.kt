@@ -73,9 +73,9 @@ class SyncEngineStorageFailureTest {
      */
     private class SwitchableOutbox(private val delegate: FakeSyncOutboxDao) : SyncOutboxDao by delegate {
         var readable: Boolean = true
-        override suspend fun getPending(now: Long, ownerId: String): List<SyncOutboxEntity> =
+        override suspend fun getPending(now: Long, ownerId: String, profileId: String): List<SyncOutboxEntity> =
             if (readable) {
-                delegate.getPending(now, ownerId)
+                delegate.getPending(now, ownerId, profileId)
             } else {
                 throw IllegalStateException("database is closed")
             }
