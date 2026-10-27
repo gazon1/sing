@@ -121,15 +121,10 @@ fix commit via the autofix.ci GitHub App. The App must be installed on the repo 
 nothing is pushed. It is not part of the `CI gate` job graph — it is a convenience,
 not a verdict.
 
-The loop must stay per-module, same as `just detekt-fix` — `--auto-correct` only
-reaches the last detekt task of an invocation:
-
-```bash
-mapfile -t DETEKT_TASKS < <(python3 scripts/changed-modules.py --detekt-tasks)
-for task in "${DETEKT_TASKS[@]}"; do
-  ./gradlew "${task}" --auto-correct --rerun-tasks --console=plain || true
-done
-```
+The correction runs via `bash scripts/lint-autofix.sh`, which discovers modules from
+`changed-modules.py --detekt-tasks`, runs detekt `--auto-correct` once per module, and
+reports the changed files. Do not inline a task list and do not collapse it into one
+invocation — `--auto-correct` only reaches the last detekt task of an invocation.
 
 ktlint is bundled via detekt-formatting, so this single loop covers both. Do not add
 a push-to-main trigger: it would commit to the trunk and risk a run loop.
