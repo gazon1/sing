@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.genui.render.material3
 
 import com.singularity.todo.feature.genui.render.ComponentRegistry
-import com.singularity.todo.feature.genui.render.domain.registerDomainComponents
+import com.singularity.todo.feature.genui.render.app.registerAppComponents
 import com.singularity.todo.feature.genui.render.material3.atoms.registerBadge
 import com.singularity.todo.feature.genui.render.material3.atoms.registerHeading
 import com.singularity.todo.feature.genui.render.material3.atoms.registerIcon
@@ -57,6 +57,6 @@ object Material3Catalog {
      */
     fun installAll(registry: ComponentRegistry) = registry.apply {
         install(registry)
-        registerDomainComponents()
+        registerAppComponents()
     }
 }

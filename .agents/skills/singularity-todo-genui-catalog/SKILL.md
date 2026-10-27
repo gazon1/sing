@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-genui-catalog
-description: How to add, change or remove a component in the GenUI catalog — the one declaration that generates the prompt, the validator and the JSON Schema, plus the renderer that must agree with it. Use when touching feature/genui/catalog, UiNode, Material3Catalog, DomainComponents, or when a model "invents" a component that already exists.
+description: How to add, change or remove a component in the GenUI catalog — the one declaration that generates the prompt, the validator and the JSON Schema, plus the renderer that must agree with it. Use when touching feature/genui/catalog, UiNode, Material3Catalog, AppComponents, or when a model "invents" a component that already exists.
 ---
 
 # Adding a component to the GenUI catalog
@@ -32,7 +32,7 @@ Adding `sparkline` means all four, in this order:
 3. **`core/A2uiNodeFactory.kt`** — `decode` reads the JSON object into the node. It is a `when` over
    the catalog, so adding a kind without a branch is a compile error, not a silent gap.
 4. **A renderer** — `render/material3/atoms/…` and one `registerSparkline()` in
-   `Material3Catalog.install()`, or `render/domain/DomainComponents.kt` for anything that knows about
+   `Material3Catalog.install()`, or `render/app/AppComponents.kt` for anything that knows about
    tasks, projects or dates.
 
 ```kotlin
