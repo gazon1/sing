@@ -2,6 +2,7 @@ package com.singularity.todo.core.backup
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.attachments.AttachmentStorage
+import com.singularity.todo.core.database.ProfileEntity
 import com.singularity.todo.core.database.TagEntity
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
@@ -227,6 +228,89 @@ class BackupChainTest {
     }
 
     /**
+     * An archived task travels as a changed row, not as a removal.
+     *
+     * Archiving hides the task; it does not erase it. The row is still in the
+     * table, so the export still sees it — as a row that changed — and the other
+     * device archives its own copy instead of losing the task outright. Only a
+     * row that is physically gone is a removal.
+     *
+     * (A task's soft delete *is* its archive: the row stays, with `archived_at`
+     * set.)
+     *
+     * The two are not interchangeable: a removal takes the row out of the other
+     * device for good, and an archive that travelled as a removal would be a
+     * delete the person never asked for.
+     */
+    @Test
+    fun `an archived task travels as a changed row, not as a removal`() = runTest {
+        seedTask("t-1", "before")
+        export("a.zip")
+
+        sourceDb.taskDao().softDeleteForUser("t-1", 2L, owner.value)
+        export("b.zip")
+
+        val change = readChange("b.zip")
+        assertEquals(
+            listOf("t-1"),
+            change.payload.tasks.map { it.id },
+            "the archived task travels as a row that changed",
+        )
+        assertTrue(
+            change.payload.removals[BackupEntityKind.TASKS].isNullOrEmpty(),
+            "an archived task is not gone: it must not travel as a removal",
+        )
+    }
+
+    /**
+     * A removal does not take out a profile that belongs to somebody else.
+     *
+     * The export carries every profile it can see, and a change says which of
+     * them are gone. The restore, though, is restoring **one** account: a
+     * removal may only take out what belongs to the account being restored, so a
+     * profile of another account survives the restore even when the change names
+     * it.
+     *
+     * Without the scoping the restore would delete another account's profile on
+     * a device that holds it — a removal meant for one account reaching across
+     * to another.
+     */
+    @Test
+    fun `a removal does not take out a profile that belongs to somebody else`() = runTest {
+        sourceDb.profileDao().upsert(profile("p-mine", owner.value))
+        sourceDb.profileDao().upsert(profile("p-theirs", "other-account"))
+        export("a.zip")
+
+        // The other account's profile is gone from this device's export, so the
+        // change says so.
+        sourceDb.profileDao().deleteById("p-theirs")
+        export("b.zip")
+
+        val change = readChange("b.zip")
+        assertEquals(
+            listOf("p-theirs"),
+            change.payload.removals[BackupEntityKind.PROFILES],
+            "the change must name the profile that is gone",
+        )
+
+        // The device being restored holds that profile, owned by the other account.
+        targetDb.profileDao().upsert(profile("p-theirs", "other-account"))
+
+        val bucket = InMemoryBucket()
+        val repository = repository(bucket)
+        val pushed = repository.push(BackupId.fromPath("$backupDir/b.zip"), "horse".toCharArray())
+        assertTrue(pushed.isSuccess, "the push must succeed: ${pushed.exceptionOrNull()}")
+
+        val restored = repository.restoreFromCloud(pushed.getOrThrow(), "horse".toCharArray())
+        assertTrue(restored.isSuccess, "the restore must succeed: ${restored.exceptionOrNull()}")
+
+        assertTrue(
+            targetDb.profileDao().getById("p-theirs") != null,
+            "the removal belongs to the account being restored: another account's profile stays",
+        )
+    }
+
+    /**
      * A chain past its bound starts again.
      *
      * A chain that only grows is a restore that gets slower every time it runs,
@@ -346,6 +430,18 @@ class BackupChainTest {
             ),
         )
     }
+
+    /** A profile, owned by the account named. */
+    private fun profile(id: String, userId: String) = ProfileEntity(
+        id = id,
+        name = id,
+        emoji = "",
+        colorIdx = 0,
+        isDefault = false,
+        createdAt = 1L,
+        updatedAt = 1L,
+        userId = userId,
+    )
 
     /** Changes the title of a task — a row that changed. */
     private suspend fun renameTask(id: String, title: String) {
