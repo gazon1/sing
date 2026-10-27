@@ -26,4 +26,4 @@ expected: >-
   and not the task with no state — the view filters by the stored state.
 
 # Claimed on `desktop` by
-# desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/agenda/AgendaStateScenarioTest.kt.
+# desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/agenda/AgendaStateFilterScenarioTest.kt.

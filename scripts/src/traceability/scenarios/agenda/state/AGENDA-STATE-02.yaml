@@ -26,4 +26,4 @@ expected: >-
   evaluated from the task's current state each time it is shown.
 
 # Claimed on `desktop` by
-# desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/agenda/AgendaStateScenarioTest.kt.
+# desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/agenda/AgendaStateFollowScenarioTest.kt.

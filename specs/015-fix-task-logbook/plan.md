@@ -653,7 +653,7 @@ Alternatives: адресовать по тексту — хрупко (лока�
 конвенции «контролы — по id».
 
 **D-10 — E2E-флоу на реальном устройстве, сценарий `TASK-LOG-01`.**
-Decision: `Maestro/flows/tasks/19-task-logbook-note.yaml`, теги `regression`, `tasks`,
+Decision: `Maestro/flows/tasks/logbook/TASK-LOG-01.yaml`, теги `regression`, `tasks`,
 `scenario:TASK-LOG-01`; `targets: [android]`; фикстура — штатный `helpers/seed-task.yaml`
 («Buy milk»), заметка создаётся **из логбука**. Rationale: путь «создать из логбука» —
 единственный сломанный; засеять готовую заметку значило бы протестировать не то (seed-linked
@@ -752,7 +752,7 @@ Alternatives: завести OpenSpec «на всякий случай» — л�
 - **Q3. Чтение логбука (T3).** `--tests "*TaskLogbookCollectorTest*"` → пусто / прикреплённая /
   чужая / отмена.
 - **Q4. E2E на телефоне.** `./gw :androidApp:installDebug -Pandroid.device=0O65321F32204DD5`,
-  затем `maestro test Maestro/flows/tasks/19-task-logbook-note.yaml` → флоу зелёный, скриншот
+  затем `maestro test Maestro/flows/tasks/logbook/TASK-LOG-01.yaml` → флоу зелёный, скриншот
   `tasks/logbook-note` показывает заметку в карточке логбука.
 - **Q5. Регрессия до фикса.** T1–T3 на исходном `HEAD` обязаны падать (иначе они не pinsят баг).
 - **Q6. Гейты.** `SKIP_ADB=1 ./check.sh` + перечень §12.
@@ -817,7 +817,7 @@ Alternatives: завести OpenSpec «на всякий случай» — л�
 
 **Maestro на телефоне.** Основной путь: `just tests::gate-maestro regression 0O65321F32204DD5`
 (рецепт сам ставит APK и зовёт `run-maestro`). Fallback, если `run-maestro` не на PATH (на
-текущей машине его нет): ручной `maestro test Maestro/flows/tasks/19-task-logbook-note.yaml`
+текущей машине его нет): ручной `maestro test Maestro/flows/tasks/logbook/TASK-LOG-01.yaml`
 после сброса данных deep link'ом `adb shell am start -a android.intent.action.VIEW -d
 "todo-debug://seed?reset=content"`; либо CI-раннер `python3 scripts/run-maestro-e2e.py --apk
 <apk> --suite full --shard 1 --shards 1 --serial 0O65321F32204DD5`.

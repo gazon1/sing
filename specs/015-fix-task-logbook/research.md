@@ -145,7 +145,7 @@ KDoc `watchForTask` переписывается с «via wikilinks» на «att
 
 ## D-10 — E2E-флоу на реальном устройстве, сценарий `TASK-LOG-01`
 
-**Decision**: `Maestro/flows/tasks/19-task-logbook-note.yaml`, теги `regression`, `tasks`,
+**Decision**: `Maestro/flows/tasks/logbook/TASK-LOG-01.yaml`, теги `regression`, `tasks`,
 `scenario:TASK-LOG-01`; `targets: [android]`; фикстура — штатный `helpers/seed-task.yaml`
 («Buy milk»), заметка создаётся **из логбука**.
 
