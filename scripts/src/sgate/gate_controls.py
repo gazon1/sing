@@ -898,6 +898,14 @@ SCRIPT_GATES = [
             'a traceability table is prose: a requirement can drop out of it, and a promised check can name a file nobody wrote, and neither fails anything'
         ),
     ),
+        # a dismissal that precedes the input saves an empty draft and closes the editor — the flow passes and the user's words are gone
+        ScriptGate(
+            name="maestro-hidekeyboard",
+            cmd=[sys.executable, "scripts/check-maestro-hidekeyboard.py"],
+            why=(
+                "a dismissal that precedes the input saves an empty draft and closes the editor — the flow passes and the user's words are gone"
+            ),
+        ),
 ]
 
 @dataclass(frozen=True)

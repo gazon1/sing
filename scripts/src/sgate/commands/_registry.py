@@ -1079,6 +1079,16 @@ _REGISTERED: tuple[GateSpec, ...] = (
             script=Path("scripts/check-spec-requirement-traceability.py"),
             script_args=("--check",),
         ),
+        # The flows are in Maestro/flows; the lint was added with the hideKeyboard fix.
+        GateSpec(
+            name="hideKeyboard follows an input",
+            mode=GateMode.BLOCKING,
+            cmd_type=CmdType.PYTHON3,
+            script=Path("scripts/check-maestro-hidekeyboard.py"),
+            # No `--check`: the flag this script carries is a dry-run, and a
+            # dry-run exits zero whatever it found. A gate invoked that way
+            # reports success forever.
+        ),
 )
 
 
@@ -1743,6 +1753,22 @@ GATE_CONTROLS: dict[str, Control] = {
             ),
             why=(
                 'a traceability table is prose: a requirement can drop out of it, and a promised check can name a file nobody wrote, and neither fails anything'
+            ),
+        ),
+        # a dismissal that precedes the input saves an empty draft and closes the editor — the flow passes and the user's words are gone
+        'maestro-hidekeyboard': Control(
+            kind='sabotage',
+            proves='scripts/check-maestro-hidekeyboard.py',
+            argv=('{python}', 'scripts/check-maestro-hidekeyboard.py',),
+            path='Maestro/flows/agenda/03-saved-views-crud.yaml',
+            edit=Edit(
+                kind='replace',
+                old='- inputText: "Focus"\n- hideKeyboard',
+                new='- hideKeyboard\n- inputText: "Focus"',
+                count=1,
+            ),
+            why=(
+                "a dismissal that precedes the input saves an empty draft and closes the editor — the flow passes and the user's words are gone"
             ),
         ),
 }

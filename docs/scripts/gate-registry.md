@@ -97,3 +97,4 @@ sche... | — | — |
 | screen state collections | blocking | `scripts/check-screen-state-collections.py` | check-screen-state-collections.py — a screen state does not hold a raw collec... | — | — |
 | the mobile build carries no external-agent code | blocking | `scripts/check-mobile-isolation.py` | check-mobile-isolation.py — the mobile build carries no external-agent code. | — | — |
 | a specification and the tree agree | blocking | `scripts/check-spec-requirement-traceability.py` | check-spec-requirement-traceability.py — every requirement in a spec is trace... | — | — |
+| hideKeyboard follows an input | blocking | `scripts/check-maestro-hidekeyboard.py` | check-maestro-hidekeyboard.py — hideKeyboard must follow an input, not preced... | — | — |

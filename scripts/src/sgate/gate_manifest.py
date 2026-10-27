@@ -1088,6 +1088,13 @@ the same gesture on every display.""",
                 'The gate reads the spec-kit feature specifications and checks that every requirement is traced and every promised check is a file in the tree.'
             ),
         ),
+        'hideKeyboard follows an input': Placement(
+            kind=PlacementKind.STATIC,
+            command="sgate hidekeyboard_follows_an_input",
+            note=(
+                'The flows are in Maestro/flows; the lint was added with the hideKeyboard fix.'
+            ),
+        ),
 }
 
 #: The gates that are deliberately NOT a line in ``scripts/ci/static-gates.sh``.
