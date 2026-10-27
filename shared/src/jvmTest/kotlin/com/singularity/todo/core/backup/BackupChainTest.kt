@@ -333,7 +333,6 @@ class BackupChainTest {
         backupDir = backupDir,
         currentUser = FakeProfileAwareCurrentUser(initialUserId = owner),
         clock = Clock.System,
-        archive = EncryptedArchive(FakeArchiveCrypto()),
         deviceKeyStore = FakeDeviceKeyStore(EncryptedArchive(FakeArchiveCrypto())),
         cursors = cursors,
         ioDispatcher = Dispatchers.Unconfined,

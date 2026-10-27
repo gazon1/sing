@@ -1,7 +1,8 @@
 ---
 title: "A scheduled export seals under a device key, and the password wraps that key"
 date: 2026-10-26
-status: accepted
+status: superseded
+superseded-by: 2026-10-27-a-device-key-and-one-push-path
 tags: [backup, crypto, security]
 ---
 

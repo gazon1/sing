@@ -68,7 +68,7 @@ class RemoteBackupServiceThreadTest {
             val result = service.upload(
                 RemoteArchive(basePath = "/backups/archive.zip"),
                 UserId("user-1"),
-                "horse".toCharArray(),
+                ArchiveSealer.UnderPassword("horse".toCharArray()),
             )
 
             assertTrue(result.isSuccess, "the upload must succeed: ${result.exceptionOrNull()}")

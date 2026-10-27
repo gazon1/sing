@@ -341,9 +341,12 @@ class BackupViewModel(
     private suspend fun runAuthorizeScheduledBackup(intent: BackupIntent.AuthorizeScheduledBackup) {
         updateState { it.copy(isWorking = true) }
         repository.authorizeScheduledBackup(intent.password)
-            .onSuccess {
+            .onSuccess { authorization ->
                 updateState { it.copy(isWorking = false, scheduledBackupAuthorized = true) }
-                tryEmit(BackupUiEvent.ShowSnackbar("This device can now back up on its own"))
+                // What happened to the archive that was already in the cloud is
+                // part of the answer: it either opens with the new password now,
+                // or it still asks for the old one.
+                tryEmit(BackupUiEvent.ShowSnackbar(authorizationMessage(authorization)))
             }
             .onFailure { e ->
                 updateState { it.copy(isWorking = false) }

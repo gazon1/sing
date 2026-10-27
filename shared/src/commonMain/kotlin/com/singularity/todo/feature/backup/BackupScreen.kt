@@ -435,10 +435,15 @@ fun BackupScreen(
     if (pendingAuthorize) {
         BackupPasswordDialog(
             title = "Back up on its own",
+            // The honest sentence about what the password does: it wraps the key
+            // this device uses from now on. The archives that are already in the
+            // cloud carry the password they were made with, and saying so here
+            // is better than letting the person find out at a restore.
             text = "This device will keep a copy of your data in the cloud every day, " +
                 "with nobody here to type a password. Enter your backup password once: " +
                 "it wraps a key that stays on this device, and you will need the same " +
-                "password to restore an archive.",
+                "password to restore an archive. Archives that are already in the cloud " +
+                "keep the password they were made with.",
             confirmLabel = "Authorize",
             onConfirm = { password ->
                 pendingAuthorize = false

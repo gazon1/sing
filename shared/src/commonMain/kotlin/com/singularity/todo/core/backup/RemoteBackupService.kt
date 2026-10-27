@@ -28,36 +28,22 @@ import kotlinx.coroutines.withContext
  */
 interface RemoteBackupService {
     /**
-     * Uploads [archive], encrypted under [password].
+     * Uploads [archive], sealed under the key [sealer] names.
      *
      * What lands in the bucket is ciphertext: the archive is sealed on the device, and
-     * the key is derived from the password, which the server never sees. The name of
-     * the object says so — it carries [ENCRYPTED_SUFFIX].
+     * the key never leaves it. The name of the object says so — it carries
+     * [ENCRYPTED_SUFFIX].
      *
-     * @param password the person's password, as an array. The call consumes it: the
-     *   array is wiped before the call returns, so the secret does not sit in memory
-     *   longer than the upload needs it.
+     * The archive may be a **chain**: a base and the changes that follow it. Both
+     * kinds of push travel the same way — the same call, the same sealing, the same
+     * object — and they differ in one thing: the key. See [ArchiveSealer].
+     *
+     * @param sealer the key the chain is sealed under, and the secret it holds. The
+     *   call consumes the secret: the array is wiped before the call returns, so it
+     *   does not sit in memory longer than the upload needs it.
      * @return a reference to the uploaded object, which [download] can use.
      */
-    suspend fun upload(archive: RemoteArchive, userId: UserId, password: CharArray): Result<String>
-
-    /**
-     * Uploads a container that is **already sealed**, under the name [remoteName].
-     *
-     * ## Why this call exists
-     *
-     * The ordinary [upload] seals the archive here, under the person's password —
-     * the password is the key, and the server never has it. A **scheduled** export
-     * has no person and therefore no password: it seals the archive under the
-     * device key, and the device key travels in the container wrapped under the
-     * password. The sealing is done by whoever holds the key, so this call only
-     * moves the bytes.
-     *
-     * The name in the bucket is [remoteName] and not the name of the file the
-     * container happens to sit in: the sealed container is a working file, and a
-     * working file's name is not the archive's name.
-     */
-    suspend fun uploadSealed(localPath: String, remoteName: String, userId: UserId): Result<String>
+    suspend fun upload(archive: RemoteArchive, userId: UserId, sealer: ArchiveSealer): Result<String>
 
     /**
      * Downloads [remoteRef] to [destPath] and opens it under [password].
@@ -197,14 +183,18 @@ class RemoteBackupServiceImpl(
     private val ioDispatcher: CoroutineDispatcher,
 ) : RemoteBackupService {
 
-    override suspend fun upload(archive: RemoteArchive, userId: UserId, password: CharArray): Result<String> =
+    override suspend fun upload(
+        archive: RemoteArchive,
+        userId: UserId,
+        sealer: ArchiveSealer,
+    ): Result<String> =
         try {
             withContext(ioDispatcher) {
                 runCatchingCancellable {
                     val remotePath = remotePath(userId, archive.name)
                     val sealed = workingPath(archive.basePath, SEALED_SUFFIX)
                     try {
-                        sealInto(archive, sealed, password)
+                        sealInto(archive, sealed, sealer)
                         val size = sealedSize(sealed)
                         val source = fs.openRead(sealed)
                         try {
@@ -221,28 +211,21 @@ class RemoteBackupServiceImpl(
                 }
             }
         } finally {
-            password.fill('\u0000')
+            // The secret leaves with the call, whatever the call answered: a
+            // password or a device key that stays in memory after the upload is a
+            // secret that can be read out of a heap dump.
+            wipe(sealer)
         }
 
-    override suspend fun uploadSealed(
-        localPath: String,
-        remoteName: String,
-        userId: UserId,
-    ): Result<String> =
-        withContext(ioDispatcher) {
-            runCatchingCancellable {
-                val remotePath = "${userId.value}/$remoteName${RemoteBackupService.ENCRYPTED_SUFFIX}"
-                val source = fs.openRead(localPath)
-                try {
-                    bucket.upload(remotePath, source, sealedSize(localPath))
-                } finally {
-                    source.close()
-                }
-                remotePath
-            }.recoverCatching { error ->
-                throw classified(error, "the archive could not be uploaded")
-            }
+    /**
+     * The secret the sealer holds, wiped.
+     */
+    private fun wipe(sealer: ArchiveSealer) {
+        when (sealer) {
+            is ArchiveSealer.UnderPassword -> sealer.password.fill('\u0000')
+            is ArchiveSealer.UnderDeviceKey -> sealer.deviceKey.fill(0)
         }
+    }
 
     override suspend fun download(
         remoteRef: String,
@@ -310,16 +293,16 @@ class RemoteBackupServiceImpl(
      * a whole backup that reaches the bucket is better than an error that does
      * not.
      */
-    private suspend fun sealInto(archive: RemoteArchive, sealedPath: String, password: CharArray) {
+    private suspend fun sealInto(archive: RemoteArchive, sealedPath: String, sealer: ArchiveSealer) {
         val changes = archive.entries.map { path -> openArchive(path) }
         try {
-            val sealed = runCatchingCancellable { sealChain(archive.basePath, changes, sealedPath, password) }
+            val sealed = runCatchingCancellable { sealChain(archive.basePath, changes, sealedPath, sealer) }
             val failure = sealed.exceptionOrNull()
             if (failure is ArchiveEnvelopeError.ChainTooLong) {
                 // The sealed file holds half a chain; it is written again from
                 // the start, because a partial container is not an archive.
                 fs.delete(sealedPath)
-                sealChain(archive.basePath, emptyList(), sealedPath, password)
+                sealChain(archive.basePath, emptyList(), sealedPath, sealer)
             } else if (failure != null) {
                 throw failure
             }
@@ -328,17 +311,23 @@ class RemoteBackupServiceImpl(
         }
     }
 
-    /** The base and the changes, sealed into one container. */
+    /** The base and the changes, sealed into one container under the sealer's key. */
     private suspend fun sealChain(
         basePath: String,
         changes: List<ByteSource>,
         sealedPath: String,
-        password: CharArray,
+        sealer: ArchiveSealer,
     ) {
         val base = openArchive(basePath)
         val sink = openTarget(base, sealedPath)
         try {
-            archive.sealChain(base, changes, sink, password)
+            when (sealer) {
+                is ArchiveSealer.UnderPassword ->
+                    archive.sealChain(base, changes, sink, sealer.password)
+
+                is ArchiveSealer.UnderDeviceKey ->
+                    archive.sealChain(base, changes, sink, sealer.deviceKey, sealer.keyBlock)
+            }
         } finally {
             sink.close()
             base.close()

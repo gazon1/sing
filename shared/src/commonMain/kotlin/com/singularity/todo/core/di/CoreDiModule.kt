@@ -448,7 +448,6 @@ fun coreModule(): org.koin.core.module.Module =
                 backupDir = get(BackupDirQualifier),
                 currentUser = get(),
                 clock = get(),
-                archive = get(),
                 deviceKeyStore = get(),
                 cursors = get(),
                 ioDispatcher = get(),

@@ -93,13 +93,21 @@ interface BackupRepository {
      * The password itself is wiped before the call returns — storing it would
      * remove the very property the encryption exists for.
      *
+     * The archive that is already in the cloud is **sealed again** under the new
+     * password and pushed once more, because the copy that is there carries the
+     * block it was written with. The device holds the key, so it can write a copy
+     * that opens with the password the person just typed; what it cannot do is
+     * reach into the cloud and change the copy that is already there. The
+     * archives that were pushed earlier keep asking for the password they were
+     * made with, and the screen says so.
+     *
      * ## What it does not do
      *
-     * It does not upload anything and it does not change what a manual push
-     * does. It says: *this device may seal archives on its own, and the person
-     * who owns the account can still open them with their password.*
+     * It does not change what a manual push does. It says: *this device may seal
+     * archives on its own, and the person who owns the account can still open
+     * them with their password.*
      */
-    suspend fun authorizeScheduledBackup(password: CharArray): Result<Unit>
+    suspend fun authorizeScheduledBackup(password: CharArray): Result<ScheduledAuthorization>
 
     /**
      * Whether this device may seal archives on its own.
@@ -124,6 +132,34 @@ interface BackupRepository {
     suspend fun pushScheduled(): Result<String>
 }
 
+/**
+ * What authorizing this device did.
+ *
+ * ## Why the answer has three cases
+ *
+ * The password wraps the device key, and the archives that are already in the
+ * cloud carry the block they were sealed with — the old one. So authorizing the
+ * device again with a new password does not reach into the cloud: what it can do
+ * is seal the newest local archive again, under the new password, and push that.
+ *
+ * The three cases are the three things that can happen, and the person is told
+ * which one did: the archive in the cloud now opens with the new password, there
+ * was no archive to seal again, or the archive in the cloud still needs the old
+ * password. A screen that said only "this device can now back up on its own"
+ * would leave the second and the third cases looking like the first.
+ */
+sealed interface ScheduledAuthorization {
+
+    /** The archive in the cloud was sealed again, and opens with the new password. */
+    data class Repushed(val remoteRef: String) : ScheduledAuthorization
+
+    /** There was no local archive to seal again. */
+    data class Authorized(val note: String? = null) : ScheduledAuthorization
+
+    /** The archive in the cloud was not sealed again; it still needs the old password. */
+    data class AuthorizedButNotRepushed(val reason: String) : ScheduledAuthorization
+}
+
 class BackupRepositoryImpl(
     private val exporter: ArchiveExporter,
     private val importer: ArchiveImporter,
@@ -132,13 +168,6 @@ class BackupRepositoryImpl(
     private val backupDir: String,
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
-    /**
-     * The archive's envelope — the container that is sealed and opened.
-     *
-     * It is here for the **scheduled** push: that path seals the archive under
-     * the device key, and the sealing is the archive's business.
-     */
-    private val archive: EncryptedArchive,
     /**
      * The key a device seals with when no person is there.
      */
@@ -228,8 +257,11 @@ class BackupRepositoryImpl(
                     scanBackups().find { it.id == backupId }
                         ?: throw BackupStorageError.FileNotFound(backupId.value)
                 remoteService
-                    .upload(chainFor(backup.path), currentUser.scopedUserId.value, password)
-                    .getOrThrow()
+                    .upload(
+                        chainFor(backup.path),
+                        currentUser.scopedUserId.value,
+                        ArchiveSealer.UnderPassword(password),
+                    ).getOrThrow()
             }
         } finally {
             // The secret leaves with the call, whatever the call answered. The
@@ -323,14 +355,29 @@ class BackupRepositoryImpl(
             password.fill('\u0000')
         }
 
-    override suspend fun authorizeScheduledBackup(password: CharArray): Result<Unit> =
+    override suspend fun authorizeScheduledBackup(password: CharArray): Result<ScheduledAuthorization> =
         try {
             runCatchingCancellable {
                 // The password is asked once: it wraps the device key, and the
                 // wrapped key is what travels from now on. The password itself
                 // is not kept — see the interface's note on why.
                 deviceKeyStore.prepare(password)
-                Unit
+                if (scanBackups().isEmpty()) {
+                    return@runCatchingCancellable ScheduledAuthorization.Authorized()
+                }
+                val pushed = runCatchingCancellable { pushScheduled().getOrThrow() }
+                pushed.fold(
+                    onSuccess = { ref -> ScheduledAuthorization.Repushed(ref) },
+                    // The device is authorized either way — the key is wrapped and
+                    // the next scheduled run will use it. What failed is the
+                    // sealing of the archive that is already in the cloud, and
+                    // that copy keeps asking for the old password.
+                    onFailure = { error ->
+                        ScheduledAuthorization.AuthorizedButNotRepushed(
+                            error.message ?: "the archive was not sealed again",
+                        )
+                    },
+                )
             }
         } finally {
             password.fill('\u0000')
@@ -350,61 +397,20 @@ class BackupRepositoryImpl(
                     ?: throw BackupStorageError.FileNotFound("there is no backup to push")
                 val deviceKey = deviceKeyStore.deviceKey()
                 try {
-                    val working = "$backupDir/${backup.id.value}.scheduled"
-                    sealUnderDeviceKey(backup.path, working, deviceKey, block)
-                    try {
-                        remoteService
-                            .uploadSealed(
-                                localPath = working,
-                                remoteName = backup.path.substringAfterLast('/'),
-                                userId = currentUser.scopedUserId.value,
-                            ).getOrThrow()
-                    } finally {
-                        // The sealed copy is a working file: nobody asked for it,
-                        // and it is the only copy of the ciphertext on the device.
-                        runCatchingCancellable { fs.delete(working) }
-                    }
+                    // The same chain a person pushes by hand: the base and the
+                    // changes that follow it. The scheduled run differs in one
+                    // thing — the key it seals under.
+                    remoteService
+                        .upload(
+                            chainFor(backup.path),
+                            currentUser.scopedUserId.value,
+                            ArchiveSealer.UnderDeviceKey(deviceKey, block),
+                        ).getOrThrow()
                 } finally {
                     deviceKey.fill(0)
                 }
             }
         }
-
-    /**
-     * The archive at [archivePath], sealed under the device key, written to [sealedPath].
-     *
-     * The container is version 3: the chain's content is sealed under the device
-     * key, and the key itself travels in the header wrapped under the password.
-     * A person restores it with their password; a scheduled run writes it with
-     * the key.
-     *
-     * The source is opened first: opening the sink can fail, and a source that
-     * was opened and never closed is a file nobody can delete.
-     */
-    private suspend fun sealUnderDeviceKey(
-        archivePath: String,
-        sealedPath: String,
-        deviceKey: ByteArray,
-        block: ArchiveKeyBlock,
-    ) {
-        val source = fs.openRead(archivePath)
-        try {
-            val sink = fs.openWrite(sealedPath)
-            try {
-                archive.sealChain(
-                    base = source,
-                    entries = emptyList(),
-                    sink = sink,
-                    deviceKey = deviceKey,
-                    keyBlock = block,
-                )
-            } finally {
-                sink.close()
-            }
-        } finally {
-            source.close()
-        }
-    }
 }
 
 /**

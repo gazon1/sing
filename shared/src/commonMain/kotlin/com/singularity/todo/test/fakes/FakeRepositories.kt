@@ -34,6 +34,7 @@ import com.singularity.todo.core.backup.ExportOptions
 import com.singularity.todo.core.backup.ImportOptions
 import com.singularity.todo.core.backup.RemoteBackup
 import com.singularity.todo.core.backup.RestoreResult
+import com.singularity.todo.core.backup.ScheduledAuthorization
 import com.singularity.todo.core.database.ProjectEntity
 import com.singularity.todo.core.database.ProjectWithCountRow
 import com.singularity.todo.core.database.SyncColumns
@@ -408,7 +409,8 @@ class FakeBackupRepository : BackupRepository {
     var listRemoteResult: Result<List<RemoteBackup>> = Result.success(emptyList())
     var restoreFromCloudResult: Result<RestoreResult> =
         Result.failure(NotImplementedError("restoreFromCloud not configured"))
-    var authorizeScheduledBackupResult: Result<Unit> = Result.success(Unit)
+    var authorizeScheduledBackupResult: Result<ScheduledAuthorization> =
+        Result.success(ScheduledAuthorization.Authorized())
     var pushScheduledResult: Result<String> = Result.success("https://remote/scheduled.zip")
 
     /** Whether the fake pretends this device may seal archives on its own. */
@@ -466,7 +468,7 @@ class FakeBackupRepository : BackupRepository {
         return exportResult
     }
 
-    override suspend fun authorizeScheduledBackup(password: CharArray): Result<Unit> {
+    override suspend fun authorizeScheduledBackup(password: CharArray): Result<ScheduledAuthorization> {
         lastAuthorizedPassword = password.concatToString()
         return authorizeScheduledBackupResult
     }

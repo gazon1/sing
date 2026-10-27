@@ -143,7 +143,11 @@ class RemoteBackupServiceImplTest {
         files.writeBytes("/backups/archive.zip", "the-archive".encodeToByteArray())
 
         val result = service(bucket, files)
-            .upload(RemoteArchive(basePath = "/backups/archive.zip"), UserId("user-1"), password())
+            .upload(
+                RemoteArchive(basePath = "/backups/archive.zip"),
+                UserId("user-1"),
+                ArchiveSealer.UnderPassword(password()),
+            )
 
         assertTrue(result.isSuccess, "the upload must succeed: $result")
         assertEquals("user-1/archive.zip${RemoteBackupService.ENCRYPTED_SUFFIX}", result.getOrNull())
@@ -168,7 +172,11 @@ class RemoteBackupServiceImplTest {
         files.writeBytes("/backups/archive.zip", "the-archive".encodeToByteArray())
 
         val result = service(bucket, files)
-            .upload(RemoteArchive(basePath = "/backups/archive.zip"), UserId("user-1"), password())
+            .upload(
+                RemoteArchive(basePath = "/backups/archive.zip"),
+                UserId("user-1"),
+                ArchiveSealer.UnderPassword(password()),
+            )
 
         assertTrue(result.isSuccess, "the upload must succeed: $result")
         val path = "user-1/archive.zip${RemoteBackupService.ENCRYPTED_SUFFIX}"
@@ -192,7 +200,11 @@ class RemoteBackupServiceImplTest {
         files.writeBytes("/backups/archive.zip", "the-archive".encodeToByteArray())
 
         val result = service(bucket, files)
-            .upload(RemoteArchive(basePath = "/backups/archive.zip"), UserId("user-1"), password())
+            .upload(
+                RemoteArchive(basePath = "/backups/archive.zip"),
+                UserId("user-1"),
+                ArchiveSealer.UnderPassword(password()),
+            )
 
         assertTrue(result.isSuccess, "the upload must succeed: $result")
         val uploaded = bucket.uploads.values.single()
@@ -257,7 +269,11 @@ class RemoteBackupServiceImplTest {
         val secret = password()
 
         service(bucket, files)
-            .upload(RemoteArchive(basePath = "/backups/archive.zip"), UserId("user-1"), secret)
+            .upload(
+                RemoteArchive(basePath = "/backups/archive.zip"),
+                UserId("user-1"),
+                ArchiveSealer.UnderPassword(secret),
+            )
 
         assertTrue(
             secret.all { it == '\u0000' },
@@ -298,7 +314,11 @@ class RemoteBackupServiceImplTest {
         bucket.failure = TransportException(TransportFailure.UNAUTHORIZED, "HTTP 401")
 
         val result = service(bucket, archive(MapFileSystem()))
-            .upload(RemoteArchive(basePath = "/backups/a.zip"), UserId("user-1"), password())
+            .upload(
+                RemoteArchive(basePath = "/backups/a.zip"),
+                UserId("user-1"),
+                ArchiveSealer.UnderPassword(password()),
+            )
 
         val error = result.exceptionOrNull()
         assertIs<AppError>(error, "the failure must be reported as a project error: $error")
@@ -325,7 +345,11 @@ class RemoteBackupServiceImplTest {
         bucket.failure = TransportException(TransportFailure.NETWORK, "the socket gave up")
 
         val result = service(bucket, archive(MapFileSystem()))
-            .upload(RemoteArchive(basePath = "/backups/a.zip"), UserId("user-1"), password())
+            .upload(
+                RemoteArchive(basePath = "/backups/a.zip"),
+                UserId("user-1"),
+                ArchiveSealer.UnderPassword(password()),
+            )
 
         val error = result.exceptionOrNull()
         assertIs<AppError>(error, "the failure must be reported as a project error: $error")
@@ -344,7 +368,11 @@ class RemoteBackupServiceImplTest {
         bucket.failure = TransportException(TransportFailure.REJECTED, "HTTP 403")
 
         val result = service(bucket, archive(MapFileSystem()))
-            .upload(RemoteArchive(basePath = "/backups/a.zip"), UserId("user-1"), password())
+            .upload(
+                RemoteArchive(basePath = "/backups/a.zip"),
+                UserId("user-1"),
+                ArchiveSealer.UnderPassword(password()),
+            )
 
         val error = result.exceptionOrNull()
         assertIs<AppError>(error, "the failure must be reported as a project error: $error")
@@ -366,7 +394,11 @@ class RemoteBackupServiceImplTest {
         )
 
         val result = service(bucket, archive(MapFileSystem()))
-            .upload(RemoteArchive(basePath = "/backups/a.zip"), UserId("user-1"), password())
+            .upload(
+                RemoteArchive(basePath = "/backups/a.zip"),
+                UserId("user-1"),
+                ArchiveSealer.UnderPassword(password()),
+            )
 
         val error = result.exceptionOrNull()
         assertIs<RemoteBackupException>(error, "the project's own failure must survive: $error")
@@ -389,7 +421,11 @@ class RemoteBackupServiceImplTest {
         val bucket = FakeBucket()
 
         val result = service(bucket)
-            .upload(RemoteArchive(basePath = "/backups/missing.zip"), UserId("user-1"), password())
+            .upload(
+                RemoteArchive(basePath = "/backups/missing.zip"),
+                UserId("user-1"),
+                ArchiveSealer.UnderPassword(password()),
+            )
 
         assertTrue(result.isFailure, "a missing archive must not report success")
         assertTrue(bucket.uploads.isEmpty(), "nothing must have been uploaded")
@@ -425,7 +461,7 @@ class RemoteBackupServiceImplTest {
                 name = "a.zip",
             ),
             UserId("user-1"),
-            password(),
+            ArchiveSealer.UnderPassword(password()),
         )
 
         assertTrue(result.isSuccess, "the upload must succeed: $result")
@@ -506,7 +542,11 @@ class RemoteBackupServiceImplTest {
 
         assertFailsWith<CancellationException> {
             service(bucket, archive(MapFileSystem()))
-                .upload(RemoteArchive(basePath = "/backups/a.zip"), UserId("user-1"), password())
+                .upload(
+                    RemoteArchive(basePath = "/backups/a.zip"),
+                    UserId("user-1"),
+                    ArchiveSealer.UnderPassword(password()),
+                )
         }
     }
 
