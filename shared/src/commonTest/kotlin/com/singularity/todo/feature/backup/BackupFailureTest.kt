@@ -7,6 +7,7 @@ import com.singularity.todo.core.error.AppError
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.Tag
 
 /**
  * The failures the backup layer reports, said the way a person can act on.
@@ -17,6 +18,7 @@ import kotlin.test.assertTrue
  * broken chain and for a device that is not allowed to push — three different
  * actions behind one sentence.
  */
+@Tag("fast")
 class BackupFailureTest {
 
     /** The fallback is what a failure that is not the backup's own says. */

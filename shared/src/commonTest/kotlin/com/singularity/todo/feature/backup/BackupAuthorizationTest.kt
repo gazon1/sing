@@ -3,6 +3,7 @@ package com.singularity.todo.feature.backup
 import com.singularity.todo.core.backup.ScheduledAuthorization
 import kotlin.test.Test
 import kotlin.test.assertTrue
+import org.junit.jupiter.api.Tag
 
 /**
  * What the screen says after the device was authorized.
@@ -12,6 +13,7 @@ import kotlin.test.assertTrue
  * own" would leave the case where the archive in the cloud still needs the old
  * password looking like the case where it does not.
  */
+@Tag("fast")
 class BackupAuthorizationTest {
 
     @Test
