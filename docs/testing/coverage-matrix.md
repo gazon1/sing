@@ -101,7 +101,7 @@ the table carries the one-line version so a row is readable in a diff.
 |---|---|---|---|---|
 | `MENU-01` | The menu shows projects as an expandable tree with children indented | ● | ● | A and C are listed at the top level of the Projects section. Expanding A reveals B indented under it, so B reads as a… |
 | `MENU-02` | Tapping a project in the tree opens the project detail screen | ● | ● | The project's own screen opens, showing that project's name and its tasks. The menu closes on the way in, so the… |
-| `MENU-03` | The project tree reflects creations and renames made elsewhere | ● | ● | The tree shows the new name and shows the newly created project. Neither change needed the menu to be closed and… |
+| `MENU-03` | The project tree reflects creations and renames made elsewhere | ● | ● | The tree shows the new name and shows the newly created project, and neither change needed the app to be restarted. On… |
 | `MENU-04` | The Calendar is an entry of the menu on Android and Desktop | ● | ● | Calendar is listed in the menu on both platforms, and choosing it opens the calendar. The menu closes on the way in,… |
 | `MENU-05` | A project without children shows no expander, and a closed project is absent from the tree | ● | ● | The childless project shows no expander control, so nothing in the tree invites an expansion that cannot happen. The… |
 | `MENU-06` | The full project list stays reachable from the Projects section of the menu | ● | ● | The full project list opens with its search and its sorting, so the tree is not the only way to work with projects. |

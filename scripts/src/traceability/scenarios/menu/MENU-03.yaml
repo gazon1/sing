@@ -4,6 +4,14 @@
 # projects looked like when the app started would be wrong more often than
 # right. The rename is the sharper half: a stale tree shows the old name
 # under the new project.
+#
+# The platforms differ in what can be *seen* while the menu is open: the
+# Desktop drawer and the app share one window, so the tree can be watched
+# while the change happens. The Android menu is a modal sheet — a surface the
+# user cannot reach past — so a change made elsewhere closes it, and the tree
+# is read through the next opening. The tree itself is live on both: it is
+# drawn from the profile as it is now, not from a snapshot taken when the menu
+# was first opened.
 
 id: MENU-03
 title: "The project tree reflects creations and renames made elsewhere"
@@ -15,8 +23,11 @@ preconditions: >-
   A project exists and the menu has been opened at least once.
 steps:
   - "Open the menu and note the project's name."
-  - "Rename the project in the project's own screen and create a second project."
+  - "Rename the project elsewhere and create a second project elsewhere."
   - "Open the menu again."
 expected: >-
-  The tree shows the new name and shows the newly created project. Neither
-  change needed the menu to be closed and reopened before it could be seen.
+  The tree shows the new name and shows the newly created project, and neither
+  change needed the app to be restarted. On Desktop the tree is watched while
+  the change happens, because the drawer and the app share one window; on
+  Android the menu is a modal sheet, so the change made elsewhere closes it
+  and the tree is read through the next opening.

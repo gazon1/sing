@@ -608,10 +608,10 @@ Steps:
 Steps:
 
 1. Open the menu and note the project's name.
-2. Rename the project in the project's own screen and create a second project.
+2. Rename the project elsewhere and create a second project elsewhere.
 3. Open the menu again.
 
-**Expected:** The tree shows the new name and shows the newly created project. Neither change needed the menu to be closed and reopened before it could be seen.
+**Expected:** The tree shows the new name and shows the newly created project, and neither change needed the app to be restarted. On Desktop the tree is watched while the change happens, because the drawer and the app share one window; on Android the menu is a modal sheet, so the change made elsewhere closes it and the tree is read through the next opening.
 
 #### `MENU-04` — The Calendar is an entry of the menu on Android and Desktop
 
