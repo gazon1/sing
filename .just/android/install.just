@@ -3,7 +3,7 @@
 # ==============================================================================
 
 [group('install')]
-[doc('Install debug APK on SERIAL')]
+[doc('Install debug APK on SERIAL (the debug build starts signed in)')]
 [working-directory(justfile_directory())]
 install serial="":
     #!/bin/bash
@@ -16,7 +16,7 @@ install serial="":
     adb -s {{serial}} install -r "${PWD}/androidApp/build/outputs/apk/debug/androidApp-debug.apk"
 
 [group('install')]
-[doc('assembleDebug + install + launch MainActivity on SERIAL')]
+[doc('assembleDebug + install + launch MainActivity on SERIAL (starts signed in)')]
 [working-directory(justfile_directory())]
 run serial="":
     #!/bin/bash

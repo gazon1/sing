@@ -166,11 +166,25 @@ val supabaseAnonKey: String = run {
 //
 // When true, the app bypasses the auth screen using in-memory stubs.
 // For E2E smoke tests only; never set in production builds.
+//
+// A DEBUG build carries it BY DEFAULT. A debug build that opens on the
+// sign-in screen cannot run a single flow — every flow then waits 45 seconds
+// for a shell that is behind it, and the suite looks broken while it is
+// really measuring the wrong binary. So the binary that cannot be tested
+// must not be the one a build produces by accident: the default is the one
+// that can.
+//
+// A release build never carries it unless somebody asks for it in so many
+// words. `-PTEST_AUTH_BYPASS=false` is the way to ask for the real auth
+// stack; it is the only way to turn the bypass off.
+//
+// The field is declared per build type rather than once in `defaultConfig`,
+// because the two types disagree about it: a debug build starts signed in, a
+// release build does not, and one declaration for both cannot say that.
 // ---------------------------------------------------------------------------
-val testAuthBypass: Boolean = providers.gradleProperty("TEST_AUTH_BYPASS")
-    .orElse("false")
-    .map { it.toBoolean() }
-    .get()
+val testAuthBypass: Boolean? = providers.gradleProperty("TEST_AUTH_BYPASS")
+    .orNull
+    ?.toBoolean()
 
 // Escaped for embedding in a generated Java string literal.
 //
@@ -216,11 +230,6 @@ android {
         // The values come from local.properties (CI: injected, dev: personal project).
         buildConfigField("String", "SUPABASE_URL", "\"" + supabaseUrl + "\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"" + supabaseAnonKey + "\"")
-
-        // When true, SingularityApp loads test stubs that bypass Supabase auth entirely.
-        // The app starts with a fake signed-in session, no network calls are made, and the
-        // auth screen is never shown. For E2E smoke tests only; never set in production.
-        buildConfigField("boolean", "TEST_AUTH_BYPASS", testAuthBypass.toString())
     }
     packaging {
         resources {
@@ -234,6 +243,10 @@ android {
             // before it runs a single flow. Gradle accepts `+` in versionName;
             // the character survives into the manifest unchanged.
             versionNameSuffix = "+g${gitShaProvider.get()}"
+            // When true, SingularityApp loads test stubs that bypass Supabase auth entirely.
+            // The app starts with a fake signed-in session, no network calls are made, and the
+            // auth screen is never shown. For E2E smoke tests only; never set in production.
+            buildConfigField("boolean", "TEST_AUTH_BYPASS", (testAuthBypass ?: true).toString())
             // A debug build normally replaces the installed app in place. When the
             // installed app carries a different signature — a release build signed
             // with the key from the CI secrets — Android refuses the update, and
@@ -251,6 +264,9 @@ android {
         }
         release {
             isMinifyEnabled = true
+            // A release build never bypasses the auth screen unless somebody
+            // asks for it in so many words.
+            buildConfigField("boolean", "TEST_AUTH_BYPASS", (testAuthBypass ?: false).toString())
             // Signing is driven by GitHub Actions secrets (ANDROID_KEYSTORE_BASE64 etc.)
             // set as env vars by release.yml.  The workflow fails-closed if any secret
             // is absent, so a missing key never silently produces an unsigned APK.

@@ -414,7 +414,7 @@ coverage-markdown:
 # ui-maestro — Maestro UI flows on a connected device/emulator
 # ---------------------------------------------------------------------------
 [group('tests')]
-[doc('Run Maestro UI flows: just ui-maestro [flow] [tags] [serial]')]
+[doc('Run Maestro UI flows: just ui-maestro [flow] [tags] (SERIAL=<id> picks the device)')]
 ui-maestro flow="Maestro/flows" tags="":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -431,10 +431,18 @@ gate-maestro tags="agenda" serial="":
     # SKIP_INSTALL=1 to save a minute, the emulator dying mid-run, the
     # relaunched device holding a snapshot from before your fix — and the
     # journeys going green against a binary that does not contain it.
+    #
+    # The property is on the install for the same reason: a binary without it
+    # opens on the sign-in screen, and every flow then waits for a shell that
+    # is behind it. The debug build carries the bypass by default, and the
+    # flag says so at the call site too — a build that stops carrying it by
+    # default must not silently produce a suite that measures a sign-in
+    # screen.
     if [[ -n "{{serial}}" ]]; then
-        ./gradlew :androidApp:installDebug -Pandroid.device="{{serial}}" --quiet
+        ./gw :androidApp:installDebug -Pandroid.device="{{serial}}" \
+            -PTEST_AUTH_BYPASS=true --quiet
     else
-        ./gradlew :androidApp:installDebug --quiet
+        ./gw :androidApp:installDebug -PTEST_AUTH_BYPASS=true --quiet
     fi
     SERIAL="{{serial}}" TAGS="{{tags}}" SKIP_INSTALL=1 \
         run-maestro
