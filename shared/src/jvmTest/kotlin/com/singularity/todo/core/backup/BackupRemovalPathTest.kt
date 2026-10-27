@@ -120,11 +120,17 @@ class BackupRemovalPathTest {
         // One kind per restore, in the order the kinds are declared.
         val removed = mutableSetOf<BackupEntityKind>()
         for (kind in BackupEntityKind.entries) {
+            val keys = index.getValue(kind).keys.toList()
+            assertTrue(
+                keys.isNotEmpty(),
+                "the fixture holds no row of $kind — the removal below would remove nothing, " +
+                    "and the test would pass without ever removing a $kind",
+            )
             restore(
                 writeArchive(
                     BackupPayload(
                         schemaVersion = BackupFormat.SCHEMA_VERSION,
-                        removals = mapOf(kind to index.getValue(kind).keys.toList()),
+                        removals = mapOf(kind to keys),
                     ),
                     "removal-${kind.name}.zip",
                 ),
