@@ -98,8 +98,11 @@ import com.singularity.todo.core.security.ArchiveCrypto
  * - [ArchiveFrame] and [ArchiveHead] — the framing;
  * - [ArchiveContainer] — the version routing;
  * - [ArchiveChainReader] — the reading of a chain's changes;
+ * - [ArchiveChainOpener] — the reading of a container, from the head down;
+ * - [ArchiveChainWriter] — the writing of a chain;
+ * - [ArchiveChainLimit] — the bound a chain has to fit;
  * - [ArchiveCryptoSession] — the key and the cipher calls;
- * - [ArchiveErrors] — what a failure means.
+ * - [ArchiveErrorMapping] — what a failure means.
  */
 class EncryptedArchive(private val crypto: ArchiveCrypto) {
 
@@ -156,7 +159,7 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
      */
     fun sealChain(base: ByteSource, entries: List<ByteSource>, sink: ByteSink, password: CharArray) {
         requirePassword(password)
-        sealChainWith(
+        ArchiveChainWriter(crypto).write(
             base = base,
             entries = entries,
             sink = sink,
@@ -189,7 +192,7 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
         deviceKey: ByteArray,
         keyBlock: ArchiveKeyBlock,
     ) {
-        sealChainWith(
+        ArchiveChainWriter(crypto).write(
             base = base,
             entries = entries,
             sink = sink,
@@ -289,8 +292,8 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
      * **The sink is written before the password is proven.** The cipher can only
      * check the tag when it has read everything, so what arrives in the sink may be
      * garbage when the password was wrong. A caller that cares writes into a
-     * temporary file and moves it into place only after this call returned
-     * without throwing.
+     * temporary file and moves it into place only after this call returned without
+     * throwing.
      *
      * @throws ArchiveEnvelopeError.NotEncrypted when the bytes are not an encrypted archive.
      * @throws ArchiveEnvelopeError.UnsupportedArchiveVersion when no version this build reads
@@ -310,169 +313,8 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
         onEntry: (index: Int, plain: ByteArray) -> Unit,
     ) {
         requirePassword(password)
-        val container = archiveErrors { ArchiveContainerReader.read(source) }
-        requireChainFits(container.head.count, "reads")
-        val session = contentSession(container, password)
-        try {
-            val consumed = ArchiveChainReader.read(source, container, session, onEntry)
-
-            if (consumed != container.head.entriesLength) {
-                throw ArchiveEnvelopeError.BrokenChain(
-                    "its head says ${container.head.entriesLength} bytes of changes and $consumed were there",
-                )
-            }
-
-            archiveErrors { session.openBase(source, sink, container.nonce, container.header) }
-        } finally {
-            session.close()
-        }
+        ArchiveChainOpener(crypto).open(source, sink, password, onEntry)
     }
-
-    /**
-     * The chain, written to [sink].
-     *
-     * The one place that writes a container, whatever the version: the differences
-     * between the versions are the version byte, the key the content is sealed
-     * under, and the key block in the header — and each of those three is a
-     * parameter here, so the framing is written once.
-     */
-    private fun sealChainWith(
-        base: ByteSource,
-        entries: List<ByteSource>,
-        sink: ByteSink,
-        version: Int,
-        contentKey: () -> ContentKey,
-        keyBlock: ArchiveKeyBlock?,
-    ) {
-        requireChainFits(entries.size, "writes")
-
-        val salt = crypto.randomBytes(ArchiveFormat.SALT_BYTES)
-        val nonce = crypto.randomBytes(ArchiveFormat.NONCE_BYTES)
-        val prefix = headerPrefix(version, salt, nonce)
-        val session = sessionFor(contentKey(), salt)
-        try {
-            val frames = mutableListOf<ArchiveFrame>()
-            var sealedBytes = 0L
-            entries.forEachIndexed { index, entry ->
-                val frame = sealFrame(session, entry, index, prefix)
-                sealedBytes += frame.frameSize()
-                if (sealedBytes > ArchiveFormat.MAX_CHAIN_BYTES) {
-                    throw ArchiveEnvelopeError.ChainTooLong(
-                        "$sealedBytes bytes of changes, more than the ${ArchiveFormat.MAX_CHAIN_BYTES} this build writes",
-                    )
-                }
-                frames.add(frame)
-            }
-            val head = ChainHead(count = frames.size, entriesLength = frames.sumOf { it.frameSize() })
-            val header = prefix + head.toBytes() + (keyBlock?.toBytes() ?: ByteArray(0))
-
-            sink.write(header, 0, header.size)
-            for (frame in frames) {
-                frame.writeTo(sink)
-            }
-            // The base goes last and runs to the end of the stream: it is the part
-            // whose sealed length nobody knows until it is sealed.
-            session.sealBase(base, sink, nonce, header)
-        } finally {
-            // The derived key is the archive's key in the only form it ever takes.
-            // It is not the password — the password is wiped by whoever owns it —
-            // but this one is ours, and ours is what we clean up after ourselves.
-            session.close()
-        }
-    }
-
-    /**
-     * One change, sealed and framed.
-     *
-     * The changes are sealed into memory before the head can say how long they
-     * are, so this is where the chain's size bound is enforced: an export that
-     * writes a chain past the bound has produced an archive this very build calls
-     * broken, and it finds out at restore time instead of at export time.
-     */
-    private fun sealFrame(
-        session: ArchiveCryptoSession,
-        entry: ByteSource,
-        index: Int,
-        prefix: ByteArray,
-    ): ArchiveFrame {
-        val entryNonce = crypto.randomBytes(ArchiveFormat.NONCE_BYTES)
-        val body = ByteArraySink()
-        session.sealEntry(index, entry, body, prefix, entryNonce)
-        val sealed = body.bytes()
-        if (sealed.size > ArchiveFormat.MAX_ENTRY_BYTES) {
-            throw ArchiveEnvelopeError.BrokenChain(
-                "a change is ${sealed.size} bytes, more than this build reads",
-            )
-        }
-        return ArchiveFrame(index = index, length = sealed.size, nonce = entryNonce, body = sealed)
-    }
-
-    /**
-     * The chain has to fit its bound.
-     *
-     * The count is what a restore reads: a chain of a thousand changes is a
-     * restore that is slower than the snapshot it replaced. The size is what the
-     * writer holds: the changes are sealed into memory before the head can say
-     * how long they are, so an unbounded chain is an unbounded allocation.
-     *
-     * Both are refused **by name**. At export time, because the export re-seals a
-     * fresh base instead. At restore time, because the count in the head is read
-     * before the password is proven — a count nobody has proven yet must not
-     * become a loop that allocates.
-     *
-     * @param count how many changes the chain claims to carry.
-     * @param direction what this build does with that many — `writes` at export
-     *   time, `reads` at restore time. The message says it, because "more than
-     *   this build writes" would be a lie to a person reading a restore.
-     */
-    private fun requireChainFits(count: Int, direction: String) {
-        if (count < 0 || count > ArchiveFormat.MAX_CHAIN_ENTRIES) {
-            throw ArchiveEnvelopeError.ChainTooLong(
-                "it promises $count changes, and this build $direction at most " +
-                    ArchiveFormat.MAX_CHAIN_ENTRIES,
-            )
-        }
-    }
-
-    /**
-     * The session that reads the container's content.
-     *
-     * A version-1 or version-2 container is sealed under the password. A version-3
-     * one is sealed under the device key, which the password unwraps out of the
-     * key block the header carries.
-     */
-    private fun contentSession(container: ArchiveContainer, password: CharArray): ArchiveCryptoSession =
-        when (container.version) {
-            ArchiveFormat.DEVICE_KEY_VERSION -> {
-                val block = container.keyBlock
-                    ?: throw ArchiveEnvelopeError.BrokenChain("it says it carries a key block, and it does not")
-                val wrapping = ArchiveCryptoSession.forPassword(crypto, password, block.salt)
-                val deviceKey = try {
-                    archiveErrors { wrapping.unwrapDeviceKey(block) }
-                } finally {
-                    wrapping.close()
-                }
-                ArchiveCryptoSession.forDeviceKey(crypto, deviceKey, container.salt)
-            }
-
-            else -> ArchiveCryptoSession.forPassword(crypto, password, container.salt)
-        }
-
-    /** The session for a container this build is writing. */
-    private fun sessionFor(key: ContentKey, salt: ByteArray): ArchiveCryptoSession =
-        when (key) {
-            is ContentKey.Password -> ArchiveCryptoSession.forPassword(crypto, key.password, salt)
-            is ContentKey.Device -> ArchiveCryptoSession.forDeviceKey(crypto, key.deviceKey, salt)
-        }
-
-    /**
-     * The magic, the version, the salt and the nonce.
-     */
-    private fun headerPrefix(version: Int, salt: ByteArray, nonce: ByteArray): ByteArray =
-        ArchiveFormat.MAGIC.encodeToByteArray() +
-            byteArrayOf(version.toByte()) +
-            salt +
-            nonce
 
     /**
      * A password is not optional.
@@ -486,14 +328,5 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
      */
     private fun requirePassword(password: CharArray) {
         if (password.isEmpty()) throw ArchiveEnvelopeError.MissingPassword()
-    }
-
-    /** What the content of a container is sealed under. */
-    private sealed interface ContentKey {
-        /** The person's password — versions 1 and 2. */
-        class Password(val password: CharArray) : ContentKey
-
-        /** The device key — version 3. */
-        class Device(val deviceKey: ByteArray) : ContentKey
     }
 }

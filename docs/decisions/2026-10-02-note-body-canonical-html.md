@@ -116,7 +116,7 @@ body = bodyHtml?.let(::NoteBody)
 ### 6. `NoteDto` (бэкап): оба поля заполняются из `NoteBody`
 
 ```kotlin
-// BackupDtos.kt
+// BackupNoteDtos.kt
 fun Note.toDto() = NoteDto(
     // ...
     bodyMarkdown = body.toMarkdown(),   // projection, not storage
