@@ -107,9 +107,12 @@ class ChatTurnReplayTest {
         ChatTurn(agent, screen, emptyList()).run("show my chart").collect { }
 
         assertTrue(agent.calls >= 2, "An unusable answer is corrected, not taken")
+        // What the model was told — not what the screen holds afterwards. The screen
+        // clears its errors when the correction attempt begins, so the reason the
+        // first attempt was refused is only in the request the model received.
         assertTrue(
-            screen.readerFeedback().contains("UNKNOWN_COMPONENT"),
-            "and the model is told why: ${screen.readerFeedback()}",
+            agent.requests.any { it.contains("UNKNOWN_COMPONENT") },
+            "and the model is told why: ${agent.requests.lastOrNull()}",
         )
     }
 
@@ -158,12 +161,21 @@ private open class ReplayingTextGen(responses: List<String>) : TextGenPort {
     var calls: Int = 0
         private set
 
+    /**
+     * The message of every call, in order — what the model was asked, each time.
+     *
+     * The correction the model receives is the only place the reason a first attempt
+     * was refused survives: the screen clears its errors when the next attempt begins.
+     */
+    val requests: MutableList<String> = mutableListOf()
+
     private val responses: List<String> = responses
 
     override suspend fun generate(prompt: String, systemPrompt: String?, model: String?): Result<String> =
         Result.success("unused")
 
     override fun streamChat(message: String, instructions: String): Flow<AgentEvent> = flow {
+        requests += message
         val answer: List<String> = if (calls++ == 0) responses else emptyList()
         answer.forEach { emit(AgentEvent.TextDelta("$it\n")) }
         emit(AgentEvent.TurnCompleted)
