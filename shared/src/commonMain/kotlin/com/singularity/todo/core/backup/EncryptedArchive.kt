@@ -148,6 +148,9 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
                 }
                 SealedEntry(index = index, nonce = entryNonce, body = sealed)
             }
+            if (sealedEntries.sumOf { it.body.size } > MAX_CHAIN_BYTES) {
+                throw BackupError.BrokenChain("its changes together exceed the size this build seals")
+            }
             val head = ChainHead(count = sealedEntries.size, entriesLength = sealedEntries.sumOf { it.frameSize() })
             val header = prefix + head.toBytes()
 
@@ -255,6 +258,11 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
         // at all is `Unusable` wherever it happens, a tag that does not match is the
         // password, and the chain's own refusals pass through untouched.
         val container = said { readContainer(source) }
+        if (container.head.count < 0 || container.head.count > MAX_CHAIN_ENTRIES) {
+            throw BackupError.BrokenChain(
+                "its head promises ${container.head.count} changes, more than this build reads",
+            )
+        }
         val key = crypto.deriveKey(password, container.salt)
         try {
             var consumed = 0L
@@ -495,6 +503,29 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
          * refusing it is what keeps a damaged archive from taking the process down.
          */
         const val MAX_ENTRY_BYTES = 64 * 1024 * 1024
+
+        /**
+         * The largest number of deltas a chain may carry.
+         *
+         * A chain is a base and the deltas that follow it, and the count is part
+         * of the authenticated header — but it is read before the password is
+         * proven, so a corrupt or hostile count must not become a loop that
+         * allocates. Refusing a chain longer than this keeps a damaged archive
+         * from taking the process down, the same way [MAX_ENTRY_BYTES] keeps a
+         * damaged length from doing so.
+         */
+        const val MAX_CHAIN_ENTRIES = 1024
+
+        /**
+         * The largest total size of a chain's entries, in bytes.
+         *
+         * A chain is a base and the deltas that follow it; the deltas are
+         * small, and a chain whose entries together exceed this bound is not
+         * a chain of deltas but a full snapshot wearing a chain's clothes.
+         * Refusing it keeps a pathological input from exhausting memory while
+         * the entries are sealed.
+         */
+        const val MAX_CHAIN_BYTES = 256 * 1024 * 1024
     }
 }
 

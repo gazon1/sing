@@ -24,10 +24,9 @@ import kotlinx.coroutines.flow.map
  * their personal one. The scoped id (`"{profileId}/{userId}"`) is the app's own
  * per-profile identity, so the key needs no second notion of "profile".
  */
-class DataStoreProjectsTreeSettingsRepository(
-    dataStore: DataStore<Preferences>,
-    private val userId: Flow<UserId>,
-) : BaseSettingsRepository(dataStore), ProjectsTreeSettingsRepository {
+class DataStoreProjectsTreeSettingsRepository(dataStore: DataStore<Preferences>, private val userId: Flow<UserId>) :
+    BaseSettingsRepository(dataStore),
+    ProjectsTreeSettingsRepository {
 
     /** The preference of one profile. */
     private fun collapsedPref(profileUserId: UserId) =

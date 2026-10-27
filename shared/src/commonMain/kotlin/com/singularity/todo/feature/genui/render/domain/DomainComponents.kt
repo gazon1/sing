@@ -20,12 +20,15 @@ import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.core.ui.components.formatDueChip
 import com.singularity.todo.core.ui.components.formatRussianDueDate
 import com.singularity.todo.feature.genui.catalog.UiNode
+import com.singularity.todo.feature.tasks.domain.model.TaskMarking
+import com.singularity.todo.feature.tasks.presentation.components.list.TaskMarkingsRow
 import com.singularity.todo.feature.genui.render.ComponentRegistry
 import com.singularity.todo.feature.genui.render.DataContext
 import com.singularity.todo.feature.genui.render.genuiTag
 import com.singularity.todo.feature.genui.render.resolveText
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -77,6 +80,9 @@ private fun TaskCardView(card: UiNode.TaskCard, ctx: DataContext, modifier: Modi
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
                 textDecoration = if (card.done) TextDecoration.LineThrough else null,
+            )
+            TaskMarkingsRow(
+                markings = if (card.done) persistentSetOf(TaskMarking.Completed) else persistentSetOf(),
             )
             if (dueText != null || projectName != null) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

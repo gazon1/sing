@@ -89,14 +89,20 @@ class ProjectsTreeViewModelTest {
         advanceUntilIdle()
         first.vm.onIntent(ProjectsTreeIntent.ToggleExpanded(ProjectId("root")))
         advanceUntilIdle()
-        assertEquals(listOf("root"), (first.vm.stateFlow.value as ProjectsTreeUiState.Loaded).nodes.map { it.id.value })
+        assertEquals(
+            listOf("root"),
+            (first.vm.stateFlow.value as ProjectsTreeUiState.Loaded).nodes.map { it.id.value },
+        )
         first.close()
 
         // The menu is opened again: the tree is built anew, over the same settings.
         val second = newHarness(repo, settings)
         advanceUntilIdle()
 
-        assertEquals(listOf("root"), (second.vm.stateFlow.value as ProjectsTreeUiState.Loaded).nodes.map { it.id.value })
+        assertEquals(
+            listOf("root"),
+            (second.vm.stateFlow.value as ProjectsTreeUiState.Loaded).nodes.map { it.id.value },
+        )
         second.close()
     }
 
