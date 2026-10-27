@@ -42,8 +42,8 @@ class SuggestTagsTool(private val promptExecutor: PromptExecutor, private val mo
             logger.w(e) { "failed" }
             val tags = runCatching {
                 kotlinx.serialization.json.Json.decodeFromString<List<String>>(
-                text,
-            )
+                    text,
+                )
             }.getOrNull() ?: emptyList()
             kotlinx.serialization.json.Json.encodeToString(
                 SuggestTagsOutput.serializer(),
