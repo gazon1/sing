@@ -330,6 +330,7 @@ fun TagDto.toEntity(userId: String): TagEntity =
         id = id,
         userId = userId,
         name = name,
+        nameNormalized = name.trim().lowercase(),
         color = color,
         createdAt = createdAt,
         updatedAt = updatedAt,

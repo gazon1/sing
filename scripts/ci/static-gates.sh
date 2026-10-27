@@ -300,6 +300,8 @@ gate blocking "the recorded CI jobs are still jobs" python3 scripts/check-record
 # test task in the tree with it.
 gate blocking "the memory budget is one record" python3 scripts/check-memory-budget.py
 gate blocking "room schema integrity" sgate room_schema_integrity
+gate blocking "tag entity constructions include nameNormalized" python3 scripts/ci/check-tag-entity-normalized.py
+gate blocking "migration index names follow convention" python3 scripts/ci/check-migration-naming.py
 # The skill that tells an agent which transformation to use for which text
 # field carries a table of the transformations and the rule each one applies.
 # Nothing held it to the code: a transformation could be added, renamed, or

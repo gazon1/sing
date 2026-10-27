@@ -24,6 +24,7 @@ widgets, and every shared widget should be readable in 30 seconds.
 | A component takes 4+ callbacks, or you need a "header + body" seam | [`content-slot-api.md`](content-slot-api.md) |
 | Dropdown menu vs modal bottom sheet vs alert dialog | [`menus-and-dialogs.md`](menus-and-dialogs.md) |
 | Document-style task detail layout (4-section rule) | [`document-style-layout.md`](document-style-layout.md) |
+| TaskCard marking visibility (blocked set, TaskMarkingsRow) | [`task-card-markings.md`](task-card-markings.md) |
 
 Two rules that apply to every one of them:
 

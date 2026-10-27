@@ -172,6 +172,7 @@ class FtsSearchJvmTest {
                 id = "g1",
                 userId = "u1",
                 name = "Deep work",
+                nameNormalized = "deep work",
                 color = 0,
                 createdAt = 1_000L,
                 updatedAt = 1_000L,

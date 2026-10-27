@@ -321,3 +321,12 @@ The Room KSP plugin exports the new schema to `schemas/com.singularity.todo.core
 | `shared/schemas/<db-class>/<version>.json` | Auto-exported by Room 3 KSP plugin |
 | `shared/src/androidMain/.../core/di/PlatformModule.android.kt` | Use `Context.getDatabasePath`, `enableMultiInstanceInvalidation()` |
 | `shared/src/jvmMain/.../core/di/PlatformModule.jvm.kt` | Uses `JdbcNotesStore` (raw JDBC, no Room) |
+
+## Retro notes (migration gotchas)
+
+- A hand-written partial index must be named `index_<table>_<cols>` to match what
+  Room generates, otherwise the schema diff flags a mismatch.
+- A column added with `DEFAULT ''` must declare `defaultValue = "''"` in
+  `@ColumnInfo`, otherwise Room's exported schema omits the default and the
+  round-trip check fails.
+- Migration tests are `@Tag("slow")`; run them with `-Ptest.tags=slow`.

@@ -480,6 +480,18 @@ _REGISTERED: tuple[GateSpec, ...] = (
         script=Path("scripts/check-room-schema-integrity.py"),
     ),
     GateSpec(
+        name="tag entity constructions include nameNormalized",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/ci/check-tag-entity-normalized.py"),
+    ),
+    GateSpec(
+        name="migration index names follow convention",
+        mode=GateMode.BLOCKING,
+        cmd_type=CmdType.PYTHON3,
+        script=Path("scripts/ci/check-migration-naming.py"),
+    ),
+    GateSpec(
         name="gates are alive",
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,

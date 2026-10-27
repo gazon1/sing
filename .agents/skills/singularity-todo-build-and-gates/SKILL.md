@@ -50,6 +50,14 @@ a full run on a broken compilation costs forty minutes of waiting, and the
 diagnosis "the tests failed" points the wrong way: the compilation fails
 first, and it fails with a different line.
 
+### Stale `shared-jvm.jar`
+
+`compileTestKotlinJvm` must depend on `jvmJar` (see `shared/build.gradle.kts`):
+an entity change that never reaches the test classpath reads as "the tests
+still pass", because the jar on the path is the previous build's. If a test
+references a field that exists in source but the compiler says it does not,
+rebuild `:shared:jvmJar` first rather than editing the test.
+
 ### `just <recipe> name=value` does not work
 
 just 1.57.0 parses `tags=agenda` as an environment variable, not as a

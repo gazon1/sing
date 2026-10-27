@@ -1063,7 +1063,10 @@ interface TagDao {
     suspend fun getByIdForUser(id: String, userId: String): TagEntity?
 
     /** Case-insensitive lookup by name, used to resolve tag names in query conditions. */
-    @Query("SELECT * FROM tags WHERE user_id = :userId AND deleted_at IS NULL AND lower(name) = lower(:name) LIMIT 1")
+    @Query(
+        "SELECT * FROM tags WHERE user_id = :userId AND deleted_at IS NULL " +
+            "AND name_normalized = lower(trim(:name)) LIMIT 1",
+    )
     suspend fun findByNameForUser(userId: String, name: String): TagEntity?
 
     @Upsert
