@@ -28,11 +28,6 @@ jobs:
       # the LAST detekt task of an invocation, so a task list would silently
       # correct one module and skip the rest.
       - name: Run detekt --auto-correct
-        run: |
-          set +e
-          mapfile -t DETEKT_TASKS < <(python3 scripts/changed-modules.py --detekt-tasks)
-          for task in "${DETEKT_TASKS[@]}"; do
-            ./gradlew "${task}" --auto-correct --rerun-tasks --console=plain || true
-          done
+        run: bash scripts/lint-autofix.sh
 
       - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a
