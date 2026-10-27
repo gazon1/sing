@@ -83,11 +83,14 @@ interface TaskDao {
      * is a new statement on an existing table: `recurrence_rule` is indexed, and
      * nothing about the schema changes.
      *
-     * Only the live rows are read: a trashed legacy task is not something to
-     * materialise, and the active list is what the user sees.
+     * Trashed rows are included: a legacy repeating task that was trashed before
+     * the repair ran still carries a rule and no series id, and leaving it
+     * unadopted means a restore would resurrect a rule without a series. The
+     * repair adopts the row (stamping the series id) but does not materialise its
+     * window — trashed work stays trashed.
      */
     @Query(
-        "SELECT * FROM tasks WHERE user_id = :userId AND archived_at IS NULL " +
+        "SELECT * FROM tasks WHERE user_id = :userId " +
             "AND recurrence_rule IS NOT NULL AND series_id IS NULL ORDER BY due_date ASC",
     )
     suspend fun legacyRecurringForUser(userId: String): List<TaskEntity>
