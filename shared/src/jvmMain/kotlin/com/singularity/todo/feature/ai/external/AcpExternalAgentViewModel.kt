@@ -176,6 +176,9 @@ class AcpExternalAgentViewModel(
      */
     private val conversation = AcpAgentConversation(vmScope, launcher)
 
+    /** The permission request on screen, and the answer the reader gives. */
+    private val permissions = AcpPermissionBroker()
+
     /**
      * The turn that is running, and the rules about when it may write to the screen.
      *
@@ -186,10 +189,9 @@ class AcpExternalAgentViewModel(
         scope = vmScope,
         onActivity = { assistantId, event -> applyActivity(assistantId, event) },
         onOutcome = { outcome -> setOutcome(outcome) },
+        onSessionLost = { reason -> onSessionLost(reason) },
+        awaitingReader = { permissions.hasPending },
     )
-
-    /** The permission request on screen, and the answer the reader gives. */
-    private val permissions = AcpPermissionBroker()
 
     sealed interface Intent : MviIntent {
         /** The user picked a different agent. */
@@ -367,9 +369,10 @@ class AcpExternalAgentViewModel(
             )
         }
 
-        turnRunner.start(assistantId) { sink ->
-            openSession.prompt(text).collect { event -> sink(event) }
-        }
+        // The stream is built inside the turn, not here: a client that is no longer connected
+        // throws when the flow is built, and that throw is an outcome the reader is told
+        // about — not an exception escaping the intent that started the turn.
+        turnRunner.start(assistantId) { openSession.prompt(text) }
     }
 
     /**
@@ -380,6 +383,37 @@ class AcpExternalAgentViewModel(
      */
     private fun setOutcome(outcome: AgentTurnOutcome) {
         updateState { it.copy(isRunning = false, turnOutcome = outcome) }
+    }
+
+    /**
+     * The session the last turn was talking to is gone.
+     *
+     * The turn already ended as a failure with the reason; what is left is the connection.
+     * A dead session that still reads *connected* offers a Disconnect button and an input
+     * that cannot work, and leaves the reader with no way back — so the connection becomes
+     * failed, which is the state that shows the reason and the Connect control (FR-040: an
+     * error and a way to reconnect). The session is closed so nothing holds a dead process,
+     * and the tool access goes unavailable, because a session that is gone cannot reach the
+     * reader's tasks and a stale *granted* would be a false claim.
+     *
+     * The answer produced so far is left alone: it is what the reader saw, and the failure is
+     * reported next to it rather than instead of it.
+     */
+    private fun onSessionLost(reason: String) {
+        // A request that was on screen belongs to a session that is gone: it is refused, and it
+        // leaves the screen. A live sheet under a "connection failed" banner is a question the
+        // reader can answer but nothing will hear.
+        permissions.decline()
+        vmScope.launch { conversation.close() }
+        updateState {
+            it.copy(
+                connection = AcpConnection.Failed(reason),
+                toolAccess = AcpToolAccess.Unavailable(
+                    "The connection was lost, so the agent cannot reach your tasks.",
+                ),
+                permission = null,
+            )
+        }
     }
 
     /**
@@ -426,6 +460,12 @@ class AcpExternalAgentViewModel(
     private fun cancel() {
         val openSession = conversation.openSession ?: return
         val turn = turnRunner.captureRunningTurn()
+        // The outcome is recorded *before* anything suspends. It is also the flag that tells
+        // the turn this stop was the reader's, so it must be set before the agent is asked to
+        // stop: an agent that obeys quickly closes its stream, and a turn that ended between
+        // the ask and the record must not be mistaken for a session that died.
+        turnRunner.recordOutcome(turn.turnId, AgentTurnOutcome.Cancelled)
+
         vmScope.launch {
             openSession.cancel()
             // The outstanding request is refused, and the refusal is allowed to reach
@@ -437,7 +477,6 @@ class AcpExternalAgentViewModel(
             // The job is cancelled in [closeSession], where tearing it down is the
             // point.
             permissions.decline()
-            turnRunner.recordOutcome(turn.turnId, AgentTurnOutcome.Cancelled)
             updateState { it.copy(permission = null) }
 
             turnRunner.endTurnThatOutlivedTheRequest(openSession, turn.job)

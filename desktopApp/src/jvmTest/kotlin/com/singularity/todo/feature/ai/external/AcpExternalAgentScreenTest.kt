@@ -2,6 +2,7 @@ package com.singularity.todo.feature.ai.external
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.llm.AgentEvent
 import com.singularity.todo.core.mcp.McpServerCommandProvider
 import com.singularity.todo.core.mcp.ToolServerEnvironment
 import com.singularity.todo.core.ui.TestTags
@@ -155,6 +156,31 @@ class AcpExternalAgentScreenTest {
             vm.onIntent(AcpExternalAgentViewModel.Intent.Disconnect)
         }
 
+    /**
+     * A session that dies mid-turn is shown as failed, and the reader can connect again.
+     *
+     * FR-040: "a session whose process tree dies is marked disconnected rather than connected",
+     * and the reader sees "an error and a way to reconnect". The Connect control is what the
+     * screen shows for a failed connection; this drives the screen to that state and asserts it.
+     */
+    @Test
+    fun `a session that dies mid-turn is shown as failed and offers to connect again`() =
+        runIsolatedComposeTest {
+            val vm = viewModel(launcher = CrashingLauncher)
+
+            setContent { AcpExternalAgentScreenContent(vm = vm) }
+
+            vm.onIntent(AcpExternalAgentViewModel.Intent.Connect)
+            waitUntil { vm.stateFlow.value.connection is AcpConnection.Connected }
+
+            vm.onIntent(AcpExternalAgentViewModel.Intent.InputChanged("hello"))
+            vm.onIntent(AcpExternalAgentViewModel.Intent.Send)
+            waitUntil { vm.stateFlow.value.connection is AcpConnection.Failed }
+
+            assertTagDisplayed(TestTags.ACP_CONNECTION_ERROR)
+            assertTagExists(TestTags.ACP_CONNECT_BUTTON)
+        }
+
     // ── Fixtures ───────────────────────────────────────────────────────────────
 
     private fun viewModel(
@@ -220,6 +246,37 @@ class AcpExternalAgentScreenTest {
         override suspend fun connect(): AcpAgentInfo = AcpAgentInfo("running-agent", "1.0", 1)
 
         override fun prompt(message: String): Flow<AcpTurnEvent> = flow { awaitCancellation() }
+
+        override suspend fun cancel() = Unit
+
+        override suspend fun close() = Unit
+
+        override fun terminate() = Unit
+    }
+
+    /**
+     * A launcher whose session says one thing and then dies without completing the turn.
+     *
+     * The stream ending with no completion is exactly how the client reports an agent whose
+     * process went away mid-turn.
+     */
+    private object CrashingLauncher : AcpAgentLauncher {
+        override fun launch(
+            profile: AcpAgentProfile,
+            scope: kotlinx.coroutines.CoroutineScope,
+            permissions: AcpSessionPermissions,
+            toolServer: com.singularity.todo.core.mcp.ToolServerCommand.Available?,
+            sessionEvents: AcpLifecycleSink,
+        ): AcpAgentLaunch = AcpAgentLaunch.Started(CrashingSession)
+    }
+
+    private object CrashingSession : AcpAgentSession {
+        override suspend fun connect(): AcpAgentInfo = AcpAgentInfo("crashing-agent", "1.0", 1)
+
+        override fun prompt(message: String): Flow<AcpTurnEvent> = flow {
+            emit(AcpTurnEvent.Activity(AgentEvent.TextDelta("half an answer")))
+            // No Finished: the agent died mid-turn.
+        }
 
         override suspend fun cancel() = Unit
 

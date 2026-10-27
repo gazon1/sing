@@ -141,8 +141,12 @@ internal class AcpAgentConversation(private val scope: CoroutineScope, private v
      * third-party process that ignores the request is ended by [terminate].
      */
     suspend fun close() {
-        session?.let { open -> runCatchingCancellable { open.close() } }
-        session = null
+        val open = session ?: return
+        runCatchingCancellable { open.close() }
+        // Only if this is still the session that was closed: a connect that landed while the
+        // close was in flight has installed a new one, and clearing it would leave the state
+        // saying "connected" with nothing behind it.
+        if (session === open) session = null
     }
 
     /**
