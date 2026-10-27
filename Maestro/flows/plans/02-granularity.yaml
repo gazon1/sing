@@ -21,9 +21,11 @@ tags:
 # The week granularity replaces the day sections with the week they belong to.
 - tapOn:
     id: plans_granularity_week
-- extendedWaitUntil:
-    visible:
-      id: "${output.PLANS_WEEK_SECTION}"
-    timeout: 8000
-- assertNotVisible:
-    id: "${output.PLANS_TODAY_SECTION}"
+- runFlow:
+    file: ../../helpers/plans-section.yaml
+    env:
+      PLANS_SECTION: ${output.PLANS_WEEK_SECTION}
+- runFlow:
+    file: ../../helpers/plans-section-gone.yaml
+    env:
+      PLANS_SECTION: ${output.PLANS_TODAY_SECTION}

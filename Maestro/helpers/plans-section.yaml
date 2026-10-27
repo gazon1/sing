@@ -1,0 +1,20 @@
+# Waits for a timeline section to be on the screen.
+#
+# Usage:
+#   env:
+#     PLANS_SECTION: plans_section_day_2026_10_20
+#
+# The section's testTag carries the date it covers, so the id is computed by
+# helpers/scripts/date.js and handed over as an environment variable. A flow
+# that named the section itself would have to write a date down, and a date
+# written down is a flow that fails tomorrow.
+#
+# The wait is on the section's own id, not on its header's copy: the header's
+# wording is the app's to change, the date it names is not.
+appId: com.singularity.todo
+name: plans-section
+---
+- extendedWaitUntil:
+    visible:
+      id: "${PLANS_SECTION}"
+    timeout: 8000

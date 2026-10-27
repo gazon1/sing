@@ -29,10 +29,10 @@ tags:
 # The user chooses the week.
 - tapOn:
     id: plans_granularity_week
-- extendedWaitUntil:
-    visible:
-      id: "${output.PLANS_WEEK_SECTION}"
-    timeout: 8000
+- runFlow:
+    file: ../../helpers/plans-section.yaml
+    env:
+      PLANS_SECTION: ${output.PLANS_WEEK_SECTION}
 # Leaving the tab and coming back: the choice is still in effect.
 - tapOn:
     id: nav_tab_today
@@ -42,9 +42,9 @@ tags:
     timeout: 30000
 - tapOn:
     id: nav_tab_plans
-- extendedWaitUntil:
-    visible:
-      id: "${output.PLANS_WEEK_SECTION}"
-    timeout: 8000
+- runFlow:
+    file: ../../helpers/plans-section.yaml
+    env:
+      PLANS_SECTION: ${output.PLANS_WEEK_SECTION}
 - assertVisible:
     id: plans_granularity_week

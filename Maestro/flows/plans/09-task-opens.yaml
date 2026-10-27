@@ -22,10 +22,10 @@ tags:
       QUERY: "task=Due%20today&due=today"
 - tapOn:
     id: nav_tab_plans
-- extendedWaitUntil:
-    visible:
-      id: "${output.PLANS_TODAY_SECTION}"
-    timeout: 8000
+- runFlow:
+    file: ../../helpers/plans-section.yaml
+    env:
+      PLANS_SECTION: ${output.PLANS_TODAY_SECTION}
 # Tapping the row reaches that task's own screen.
 - tapOn:
     id: task_item_due_today

@@ -23,11 +23,11 @@ tags:
 - tapOn:
     id: nav_tab_plans
 # A section for today, and a section for tomorrow — two days, two sections.
-- extendedWaitUntil:
-    visible:
-      id: "${output.PLANS_TODAY_SECTION}"
-    timeout: 8000
-- extendedWaitUntil:
-    visible:
-      id: "${output.PLANS_TOMORROW_SECTION}"
-    timeout: 8000
+- runFlow:
+    file: ../../helpers/plans-section.yaml
+    env:
+      PLANS_SECTION: ${output.PLANS_TODAY_SECTION}
+- runFlow:
+    file: ../../helpers/plans-section.yaml
+    env:
+      PLANS_SECTION: ${output.PLANS_TOMORROW_SECTION}

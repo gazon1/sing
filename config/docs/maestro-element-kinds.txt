@@ -17,10 +17,7 @@
 #
 # Sorted by id, one mapping per line, no blank lines.
 ${DAY_CELL} item
-${PLANS_MONTH_SECTION} item
-${PLANS_TODAY_SECTION} item
-${PLANS_TOMORROW_SECTION} item
-${PLANS_WEEK_SECTION} item
+${PLANS_SECTION} item
 agenda_save_current_button button
 agenda_saved_views_button button
 agenda_section_blocked item
@@ -72,6 +69,7 @@ menu_calendar menu
 menu_notes menu
 menu_profiles menu
 menu_project_node_childless item
+menu_project_node_latecomer item
 menu_project_node_roadmap item
 menu_projects_section item
 menu_quick_search menu

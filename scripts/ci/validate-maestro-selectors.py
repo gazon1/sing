@@ -197,6 +197,7 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     # addressable by that id.
     "menu_project_node_roadmap",
     "menu_project_node_childless",
+    "menu_project_node_latecomer",
     "menu_project_expander_roadmap",
     "menu_project_expander_childless",
     # plansSection("overdue") — the overdue section's id is a constant of the

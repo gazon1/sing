@@ -22,24 +22,26 @@ tags:
 - tapOn:
     id: nav_tab_plans
 # The day section holds it.
-- extendedWaitUntil:
-    visible:
-      id: "${output.PLANS_TODAY_SECTION}"
-    timeout: 8000
+- runFlow:
+    file: ../../helpers/plans-section.yaml
+    env:
+      PLANS_SECTION: ${output.PLANS_TODAY_SECTION}
 - assertVisible:
     id: task_item_only_once
 # The week section holds the same task, and the day section is gone: the task
 # moved sections, it did not appear twice.
 - tapOn:
     id: plans_granularity_week
-- extendedWaitUntil:
-    visible:
-      id: "${output.PLANS_WEEK_SECTION}"
-    timeout: 8000
+- runFlow:
+    file: ../../helpers/plans-section.yaml
+    env:
+      PLANS_SECTION: ${output.PLANS_WEEK_SECTION}
 - assertVisible:
     id: task_item_only_once
-- assertNotVisible:
-    id: "${output.PLANS_TODAY_SECTION}"
+- runFlow:
+    file: ../../helpers/plans-section-gone.yaml
+    env:
+      PLANS_SECTION: ${output.PLANS_TODAY_SECTION}
 # The month section holds it too.
 - tapOn:
     id: plans_granularity_month

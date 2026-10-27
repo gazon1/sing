@@ -20,21 +20,21 @@ tags:
 - tapOn:
     id: nav_tab_plans
 # The day section names its day.
-- extendedWaitUntil:
-    visible:
-      id: "${output.PLANS_TODAY_SECTION}"
-    timeout: 8000
+- runFlow:
+    file: ../../helpers/plans-section.yaml
+    env:
+      PLANS_SECTION: ${output.PLANS_TODAY_SECTION}
 # The week section names the week it covers.
 - tapOn:
     id: plans_granularity_week
-- extendedWaitUntil:
-    visible:
-      id: "${output.PLANS_WEEK_SECTION}"
-    timeout: 8000
+- runFlow:
+    file: ../../helpers/plans-section.yaml
+    env:
+      PLANS_SECTION: ${output.PLANS_WEEK_SECTION}
 # The month section names the calendar month.
 - tapOn:
     id: plans_granularity_month
-- extendedWaitUntil:
-    visible:
-      id: "${output.PLANS_MONTH_SECTION}"
-    timeout: 8000
+- runFlow:
+    file: ../../helpers/plans-section.yaml
+    env:
+      PLANS_SECTION: ${output.PLANS_MONTH_SECTION}
