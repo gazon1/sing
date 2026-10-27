@@ -37,7 +37,10 @@ class PlansProjectsMovedFlowTest {
 
     @Test
     @DisplayName("PLANS-06 the Plans tab no longer shows a project list")
-    fun the_tab_shows_tasks_and_the_menu_shows_the_projects() = runDesktopAppTest(clock = CLOCK) { koin ->
+    fun the_tab_shows_tasks_and_the_menu_shows_the_projects() = runDesktopAppTest(
+        clock = CLOCK,
+        checkA11y = true,
+    ) { koin ->
         seedProject(koin, "robot-root", "Product")
         tasks(koin).given(due = TODAY, title = "Due today")
 

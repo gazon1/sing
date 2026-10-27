@@ -404,6 +404,12 @@ class HarnessConventionTest {
             "ChatInputFieldTest.kt" to "the chat Send button is not a drawer item and has no scrollable parent",
             // Same: HAMBURGER and FAB_ADD_TASK are shell chrome, not drawer items.
             "ShellTestTagReachabilityTest.kt" to "HAMBURGER and FAB_ADD_TASK are shell chrome, not drawer items",
+            // The FAB on the project list is the shell's own floating action
+            // button — pinned bottom-right, visible whatever the list shows.
+            // The scroll-aware helper would fail on it: it has no scrollable parent.
+            "ProjectsFlowTest.kt" to "FAB_ADD_PROJECT is shell chrome, not a drawer item; always visible",
+            // The same FAB, reached from the same list — only the flow differs.
+            "TextFieldBridgeFlowTest.kt" to "FAB_ADD_PROJECT is shell chrome, not a drawer item; always visible",
         )
 
         /**

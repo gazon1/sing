@@ -1,8 +1,7 @@
 package com.singularity.todo.feature.flows.plans
 
+import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.getUnclippedBoundsInRoot
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.fakes.FakeClock
@@ -12,10 +11,12 @@ import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitTagGone
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.clickTagScrolled
+import com.singularity.todo.test.helpers.countNodes
 import com.singularity.todo.test.helpers.goBack
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.tasks
+import com.singularity.todo.test.helpers.unclippedBoundsOfTag
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.minus
@@ -44,7 +45,7 @@ class PlansSectionsFlowTest {
 
     @Test
     @DisplayName("PLANS-01 days appear in chronological order, each with that day's tasks")
-    fun days_in_chronological_order() = runDesktopAppTest(clock = CLOCK) { koin ->
+    fun days_in_chronological_order() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
         // One robot for all three: a fresh robot starts its id counter again,
         // and two tasks with the same id are one task.
         tasks(koin)
@@ -67,8 +68,8 @@ class PlansSectionsFlowTest {
 
         // The sections are in date order: the header of the later day sits lower
         // on the screen than the header of the earlier one.
-        val first = onNodeWithTag(TestTags.plansSection("day:2026-09-16")).getUnclippedBoundsInRoot().top
-        val last = onNodeWithTag(TestTags.plansSection("day:2026-09-22")).getUnclippedBoundsInRoot().top
+        val first = unclippedBoundsOfTag(TestTags.plansSection("day:2026-09-16")).top
+        val last = unclippedBoundsOfTag(TestTags.plansSection("day:2026-09-22")).top
         kotlin.test.assertTrue(
             first < last,
             "the sections are not in chronological order: $first is not above $last",
@@ -77,7 +78,7 @@ class PlansSectionsFlowTest {
 
     @Test
     @DisplayName("PLANS-02 a task appears in exactly one section at every granularity")
-    fun a_task_appears_once_at_every_granularity() = runDesktopAppTest(clock = CLOCK) { koin ->
+    fun a_task_appears_once_at_every_granularity() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
         tasks(koin).given(due = TODAY, title = "Only once")
 
         tapTab("Plans")
@@ -95,7 +96,7 @@ class PlansSectionsFlowTest {
 
     @Test
     @DisplayName("PLANS-05 overdue work leads the timeline and is not dated twice")
-    fun overdue_leads_and_is_not_dated_twice() = runDesktopAppTest(clock = CLOCK) { koin ->
+    fun overdue_leads_and_is_not_dated_twice() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
         tasks(koin).given(due = YESTERDAY, title = "Late task")
             .given(due = TODAY, title = "Due today")
 
@@ -104,8 +105,8 @@ class PlansSectionsFlowTest {
         assertTagDisplayed(TestTags.plansSection(TimelineGrouperIds.OVERDUE))
         assertTagDisplayed(TestTags.plansSection("day:2026-09-16"))
 
-        val overdue = onNodeWithTag(TestTags.plansSection(TimelineGrouperIds.OVERDUE)).getUnclippedBoundsInRoot().top
-        val today = onNodeWithTag(TestTags.plansSection("day:2026-09-16")).getUnclippedBoundsInRoot().top
+        val overdue = unclippedBoundsOfTag(TestTags.plansSection(TimelineGrouperIds.OVERDUE)).top
+        val today = unclippedBoundsOfTag(TestTags.plansSection("day:2026-09-16")).top
         kotlin.test.assertTrue(
             overdue < today,
             "the overdue section must come before today's: $overdue is not above $today",
@@ -117,7 +118,7 @@ class PlansSectionsFlowTest {
 
     @Test
     @DisplayName("PLANS-08 a section header names the period it covers")
-    fun a_header_names_its_period() = runDesktopAppTest(clock = CLOCK) { koin ->
+    fun a_header_names_its_period() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
         tasks(koin).given(due = TODAY, title = "Due today")
 
         tapTab("Plans")
@@ -135,7 +136,7 @@ class PlansSectionsFlowTest {
 
     @Test
     @DisplayName("PLANS-10 an empty horizon says so and undated work stays out")
-    fun an_empty_horizon_says_so() = runDesktopAppTest(clock = CLOCK) { koin ->
+    fun an_empty_horizon_says_so() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
         tasks(koin).givenUndated(title = "Undated task")
 
         tapTab("Plans")
@@ -147,7 +148,7 @@ class PlansSectionsFlowTest {
 
     @Test
     @DisplayName("PLANS-09 a task opens from its section and a new task inherits the section's date")
-    fun a_task_opens_and_a_new_one_inherits_the_date() = runDesktopAppTest(clock = CLOCK) { koin ->
+    fun a_task_opens_and_a_new_one_inherits_the_date() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
         tasks(koin).given(due = TODAY, title = "Due today")
 
         tapTab("Plans")
@@ -185,13 +186,7 @@ private object TimelineGrouperIds {
  * list, and a duplicated row is the failure this scenario is about.
  */
 @OptIn(ExperimentalTestApi::class)
-private fun androidx.compose.ui.test.DesktopComposeUiTest.assertOneRow(title: String) {
-    val rows = onAllNodesWithTagCount(TestTags.taskItem(title))
+private fun DesktopComposeUiTest.assertOneRow(title: String) {
+    val rows = countNodes(TestTags.taskItem(title))
     kotlin.test.assertEquals(1, rows, "the task \"$title\" is listed $rows times, not once")
 }
-
-/** How many nodes carry [tag]. */
-@OptIn(ExperimentalTestApi::class)
-private fun androidx.compose.ui.test.DesktopComposeUiTest.onAllNodesWithTagCount(
-    tag: String,
-): Int = onAllNodes(androidx.compose.ui.test.hasTestTag(tag)).fetchSemanticsNodes().size

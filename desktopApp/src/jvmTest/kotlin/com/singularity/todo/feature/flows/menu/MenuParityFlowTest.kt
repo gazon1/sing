@@ -61,7 +61,7 @@ class MenuParityFlowTest {
 
     @Test
     @DisplayName("the drawer offers the entries of the shared menu model")
-    fun the_drawer_offers_the_model() = runDesktopAppTest(clock = CLOCK) {
+    fun the_drawer_offers_the_model() = runDesktopAppTest(clock = CLOCK, checkA11y = true) {
         openDrawer()
 
         // Every entry of the model is on the screen. The drawer's column is

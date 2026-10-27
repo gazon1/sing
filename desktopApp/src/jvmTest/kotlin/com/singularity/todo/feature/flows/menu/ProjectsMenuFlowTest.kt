@@ -1,7 +1,6 @@
 package com.singularity.todo.feature.flows.menu
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.singularity.todo.core.ui.TestTags
@@ -20,6 +19,7 @@ import com.singularity.todo.test.helpers.countNodes
 import com.singularity.todo.test.helpers.openDrawer
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.scrollToTag
+import com.singularity.todo.test.helpers.unclippedBoundsOfTag
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -44,7 +44,7 @@ class ProjectsMenuFlowTest {
 
     @Test
     @DisplayName("MENU-01 the menu shows projects as a tree with children indented")
-    fun the_menu_shows_a_tree() = runDesktopAppTest(clock = CLOCK) { koin ->
+    fun the_menu_shows_a_tree() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
         seedProject(koin, "robot-root", "Product")
         seedProject(koin, "robot-child", "Website", parent = "robot-root")
 
@@ -57,8 +57,8 @@ class ProjectsMenuFlowTest {
 
         // The indentation is the assertion: a child sits under its parent, and
         // a flat list of names would lose the one thing a tree shows.
-        val parentLeft = parent.getUnclippedBoundsInRoot().left
-        val childLeft = child.getUnclippedBoundsInRoot().left
+        val parentLeft = unclippedBoundsOfTag(TestTags.menuProjectNode("robot-root")).left
+        val childLeft = unclippedBoundsOfTag(TestTags.menuProjectNode("robot-child")).left
         assertTrue(
             childLeft > parentLeft,
             "the child is not indented under its parent: $childLeft is not to the right of $parentLeft",
@@ -67,7 +67,7 @@ class ProjectsMenuFlowTest {
 
     @Test
     @DisplayName("MENU-02 tapping a project in the tree opens the project detail screen")
-    fun tapping_a_project_opens_it() = runDesktopAppTest(clock = CLOCK) { koin ->
+    fun tapping_a_project_opens_it() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
         seedProject(koin, "robot-root", "Product")
 
         openDrawer()
@@ -82,7 +82,7 @@ class ProjectsMenuFlowTest {
 
     @Test
     @DisplayName("MENU-03 the project tree reflects creations made elsewhere")
-    fun the_tree_is_live() = runDesktopAppTest(clock = CLOCK) { koin ->
+    fun the_tree_is_live() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
         openDrawer()
 
         // Created while the menu is open: the tree has to show it without the
@@ -94,7 +94,7 @@ class ProjectsMenuFlowTest {
 
     @Test
     @DisplayName("MENU-04 the Calendar is an entry of the menu")
-    fun the_calendar_is_an_entry_of_the_menu() = runDesktopAppTest(clock = CLOCK) {
+    fun the_calendar_is_an_entry_of_the_menu() = runDesktopAppTest(clock = CLOCK, checkA11y = true) {
         openDrawer()
 
         assertTextDisplayed("Calendar")
@@ -102,7 +102,7 @@ class ProjectsMenuFlowTest {
 
     @Test
     @DisplayName("MENU-05 a project without children shows no expander and a closed project is absent")
-    fun a_childless_project_has_no_expander() = runDesktopAppTest(clock = CLOCK) { koin ->
+    fun a_childless_project_has_no_expander() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
         seedProject(koin, "robot-childless", "Childless")
         seedProject(koin, "robot-closed", "Closed", closed = true)
 
@@ -122,7 +122,7 @@ class ProjectsMenuFlowTest {
 
     @Test
     @DisplayName("MENU-06 the full project list stays reachable from the menu")
-    fun the_full_project_list_stays_reachable() = runDesktopAppTest(clock = CLOCK) { koin ->
+    fun the_full_project_list_stays_reachable() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
         seedProject(koin, "robot-root", "Product")
 
         openDrawer()

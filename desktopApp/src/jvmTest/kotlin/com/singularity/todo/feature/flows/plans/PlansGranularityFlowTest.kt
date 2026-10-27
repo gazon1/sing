@@ -1,11 +1,10 @@
 package com.singularity.todo.feature.flows.plans
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.onNodeWithTag
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.helpers.assertTagDisplayed
+import com.singularity.todo.test.helpers.assertTagSelected
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitTagGone
 import com.singularity.todo.test.helpers.clickTag
@@ -36,7 +35,7 @@ class PlansGranularityFlowTest {
 
     @Test
     @DisplayName("PLANS-03 the granularity control switches the grouping and names the selection")
-    fun the_control_switches_and_names() = runDesktopAppTest(clock = CLOCK) { koin ->
+    fun the_control_switches_and_names() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
         // One robot for both: a fresh robot starts its id counter again, and
         // two tasks with the same id are one task.
         tasks(koin)
@@ -46,16 +45,16 @@ class PlansGranularityFlowTest {
         tapTab("Plans")
 
         // The control names the granularity that is in effect.
-        onNodeWithTag(TestTags.PLANS_GRANULARITY_DAY).assertIsSelected()
+        assertTagSelected(TestTags.PLANS_GRANULARITY_DAY)
         awaitTag(TestTags.plansSection("day:2026-09-16"))
 
         clickTag(TestTags.PLANS_GRANULARITY_WEEK)
-        onNodeWithTag(TestTags.PLANS_GRANULARITY_WEEK).assertIsSelected()
+        assertTagSelected(TestTags.PLANS_GRANULARITY_WEEK)
         // A week header is a range running Monday to Sunday.
         awaitTag(TestTags.plansSection("week:2026-09-14"))
 
         clickTag(TestTags.PLANS_GRANULARITY_MONTH)
-        onNodeWithTag(TestTags.PLANS_GRANULARITY_MONTH).assertIsSelected()
+        assertTagSelected(TestTags.PLANS_GRANULARITY_MONTH)
         // A month header is the calendar month.
         awaitTag(TestTags.plansSection("month:2026-9"))
         assertTagDisplayed(TestTags.taskItem("Due in two months"))
@@ -63,24 +62,24 @@ class PlansGranularityFlowTest {
 
     @Test
     @DisplayName("PLANS-04 the chosen granularity is restored the next time Plans is opened")
-    fun the_choice_survives_leaving() = runDesktopAppTest(clock = CLOCK) { koin ->
+    fun the_choice_survives_leaving() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
         tasks(koin).given(due = TODAY, title = "Due today")
 
         tapTab("Plans")
         clickTag(TestTags.PLANS_GRANULARITY_WEEK)
-        onNodeWithTag(TestTags.PLANS_GRANULARITY_WEEK).assertIsSelected()
+        assertTagSelected(TestTags.PLANS_GRANULARITY_WEEK)
 
         // Leave for another tab and come back.
         tapTab("Inbox")
         tapTab("Plans")
 
-        onNodeWithTag(TestTags.PLANS_GRANULARITY_WEEK).assertIsSelected()
+        assertTagSelected(TestTags.PLANS_GRANULARITY_WEEK)
         awaitTag(TestTags.plansSection("week:2026-09-14"))
     }
 
     @Test
     @DisplayName("PLANS-07 the horizon follows the granularity")
-    fun the_horizon_follows_the_granularity() = runDesktopAppTest(clock = CLOCK) { koin ->
+    fun the_horizon_follows_the_granularity() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
         // One robot for both: a fresh robot starts its id counter again, and
         // two tasks with the same id are one task.
         tasks(koin)
