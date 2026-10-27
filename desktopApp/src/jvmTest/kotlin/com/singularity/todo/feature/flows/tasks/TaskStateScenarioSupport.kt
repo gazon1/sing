@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.flows.tasks
 
 import androidx.compose.ui.test.DesktopComposeUiTest
+import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
@@ -36,6 +37,7 @@ import kotlin.time.Instant
  * state is read back from the database where the claim is about storage, and
  * from the screen where the claim is about what the user is told.
  */
+@OptIn(ExperimentalTestApi::class)
 internal object TaskStateScenarioSupport {
 
     const val TITLE = "Plan sprint"

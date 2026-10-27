@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.flows.agenda
 
 import androidx.compose.ui.test.DesktopComposeUiTest
+import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
@@ -37,6 +38,7 @@ import kotlin.time.Instant
  * Mid-month on purpose, so no assertion in either scenario straddles a
  * boundary.
  */
+@OptIn(ExperimentalTestApi::class)
 internal object AgendaStateScenarioSupport {
 
     const val VIEW_NAME = "In progress"
