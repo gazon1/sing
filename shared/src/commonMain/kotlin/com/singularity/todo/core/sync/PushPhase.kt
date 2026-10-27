@@ -280,7 +280,7 @@ internal class PushPhase(
             activeScope
                 ?.let { s ->
                     phases.localStorage("sync.outbox.read", "read the pending changes") {
-                        outboxDao.getPending(nowMillis, s.ownerId)
+                        outboxDao.getPending(nowMillis, s.ownerId, s.profileId)
                     }
                 }?.getOrElse { error ->
                     phases.pushFailed(error.toAppError(), 0)

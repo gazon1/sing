@@ -22,6 +22,7 @@ import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.serialization.StableJson
+import androidx.room3.withWriteTransaction
 import com.singularity.todo.core.tasks.TasksSettingsRepository
 import com.singularity.todo.feature.timetracking.data.TimeEntryDao
 import kotlinx.coroutines.CancellationException
@@ -64,8 +65,12 @@ class BackupImporter(
     private val clock: Clock,
     private val createFileSource: FileSourceFactory,
     private val tasksSettings: TasksSettingsRepository,
+    private val database: com.singularity.todo.core.database.AppDatabase? = null,
 ) : ArchiveImporter {
     private val json = StableJson
+
+    private suspend fun <T> runTransaction(block: suspend () -> T): T =
+        if (database != null) database.withWriteTransaction { block() } else block()
 
     /**
      * Restores the archive, and the changes that follow it.
@@ -110,14 +115,19 @@ class BackupImporter(
             // The base goes in first and the changes go in after it, in order.
             // Both go in through the same path: a change carries whole rows, and
             // whole rows are what the base carries too.
-            var merged = migrated
-            val outcome = applyPayload(migrated, options.targetUserId, now, read.attachments)
-            for (change in options.entries) {
-                val delta = json.decodeFromString(BackupDelta.serializer(), change.decodeToString())
-                val changePayload = migrate(delta.payload, json.encodeToString(delta.payload).encodeToByteArray())
-                applyPayload(changePayload, options.targetUserId, now, emptyMap())
-                merged = merge(merged, changePayload)
-            }
+            val (outcome, merged) =
+                runTransaction {
+                    var merged = migrated
+                    val outcome = applyPayload(migrated, options.targetUserId, now, read.attachments)
+                    for (change in options.entries) {
+                        val delta = json.decodeFromString(BackupDelta.serializer(), change.decodeToString())
+                        val changePayload =
+                            migrate(delta.payload, json.encodeToString(delta.payload).encodeToByteArray())
+                        applyPayload(changePayload, options.targetUserId, now, emptyMap())
+                        merged = merge(merged, changePayload)
+                    }
+                    outcome to merged
+                }
 
             // A restored archive can contain rows from before the series model: a
             // rule with no series id. The launch repair is gated by a per-profile

@@ -1,6 +1,5 @@
 package com.singularity.todo.core.attachments
 
-import com.singularity.todo.core.files.FileChecksum
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.error.runCatchingCancellable
 
@@ -25,11 +24,25 @@ class AttachmentStorage(private val fs: FileSystem, private val dir: String) {
         ext: String,
     ): Result<String> = runCatchingCancellable {
         val target = AttachmentDomain.buildLocalPath(dir, taskId, id, ext)
-        val data = fs.readBytes(sourcePath)
         fs.ensureDir("$dir/$taskId")
-        fs.writeBytes(target, data)
+        val source = fs.openRead(sourcePath)
+        val sink = fs.openWrite(target)
+        try {
+            val buffer = ByteArray(8192)
+            while (true) {
+                val read = source.read(buffer, 0, buffer.size)
+                if (read < 0) break
+                sink.write(buffer, 0, read)
+            }
+        } finally {
+            source.close()
+            sink.close()
+        }
         target
     }
+
+    /** Returns the size in bytes of the file at [path], or 0 if it does not exist. */
+    suspend fun fileSize(path: String): Long = fs.stat(path)?.sizeBytes ?: 0L
 
     /**
      * Saves raw bytes directly into attachment storage.
@@ -52,7 +65,22 @@ class AttachmentStorage(private val fs: FileSystem, private val dir: String) {
      * Used for deduplication and integrity verification.
      */
     suspend fun computeChecksum(localPath: String): Result<String> = runCatchingCancellable {
-        FileChecksum.sha256(fs.readBytes(localPath))
+        val source = fs.openRead(localPath)
+        val hashingSink = okio.HashingSink.sha256(okio.blackholeSink())
+        try {
+            val buffer = ByteArray(8192)
+            while (true) {
+                val read = source.read(buffer, 0, buffer.size)
+                if (read < 0) break
+                val okioBuffer = okio.Buffer()
+                okioBuffer.write(buffer, 0, read)
+                hashingSink.write(okioBuffer, read.toLong())
+            }
+        } finally {
+            source.close()
+            hashingSink.close()
+        }
+        hashingSink.hash.hex()
     }
 
     /** Deletes the file at `path`. Returns `true` if the file existed. */
