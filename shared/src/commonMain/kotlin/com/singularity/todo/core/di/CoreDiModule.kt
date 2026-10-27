@@ -186,6 +186,7 @@ fun coreModule(): org.koin.core.module.Module =
                     savedSearchDao = get(),
                     attachmentDao = get(),
                     annotationDao = get(),
+                    attachmentStorage = get(),
                     proposalDao = get(),
                     proposalItemDao = get(),
                     calendarImportEventDao = get(),

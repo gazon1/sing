@@ -753,8 +753,20 @@ class TaskRepositoryImpl(
             val existingTagIds = existingTagStrings.map { TagId.fromString(it) }.toSet() // Set<TagId>
             val newTagIds = tagIds.toSet() // Set<TagId>
 
-            val removed = existingTagIds - newTagIds
-            val added = newTagIds - existingTagIds
+            val currentSuppressed = StableJson.decodeFromString(
+                SetSerializer(String.serializer()),
+                entity.aiSuppressedTagIds,
+            ).toMutableSet()
+
+            // Honour suppressions on the AI path: a tag the user removed by hand must not
+            // come back through an AI proposal, even if the proposal names it.
+            val effectiveNewTagIds = if (actor == TagEditActor.AiProposal) {
+                newTagIds.filterNot { it.value in currentSuppressed }.toSet()
+            } else {
+                newTagIds
+            }
+            val removed = existingTagIds - effectiveNewTagIds
+            val added = effectiveNewTagIds - existingTagIds
 
             // Nothing changed: the tags the row carries are the tags the caller
             // asked for. Nothing is written and nothing is pushed — a write that
@@ -765,14 +777,9 @@ class TaskRepositoryImpl(
 
             // Apply cross-ref changes
             existingTagStrings.forEach { tagId -> taskDao.removeTagRefForUser(taskId.value, tagId, uid) }
-            newTagIds.forEach { tagId -> taskDao.upsertTagCrossRefForUser(taskId.value, tagId.value, uid) }
+            effectiveNewTagIds.forEach { tagId -> taskDao.upsertTagCrossRefForUser(taskId.value, tagId.value, uid) }
 
             // Suppression logic only for User actor; AiProposal never touches suppressions
-            val currentSuppressed = StableJson.decodeFromString(
-                SetSerializer(String.serializer()),
-                entity.aiSuppressedTagIds,
-            ).toMutableSet()
-
             if (actor == TagEditActor.User) {
                 // User removing a tag → record as suppressed
                 currentSuppressed.addAll(removed.map { it.value })

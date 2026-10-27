@@ -152,7 +152,8 @@ class ProposalPlanner(private val clock: Clock) {
             }
 
             is ProposalItemKind.SetTaskTags -> {
-                ProposalPlan.SetTaskTags(taskId, kind.tagIds.map(TagId::fromString).toSet())
+                require(resolvedTagIds.isNotEmpty()) { "The tags this change names could not be resolved" }
+                ProposalPlan.SetTaskTags(taskId, resolvedTagIds)
             }
 
             is ProposalItemKind.AddTags -> {
