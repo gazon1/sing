@@ -42,8 +42,8 @@ class ExtractActionsTool(private val promptExecutor: PromptExecutor, private val
             logger.w(e) { "failed" }
             val actions = runCatching {
                 kotlinx.serialization.json.Json.decodeFromString<List<String>>(
-                text,
-            )
+                    text,
+                )
             }.getOrNull() ?: emptyList()
             kotlinx.serialization.json.Json.encodeToString(
                 ExtractActionsOutput.serializer(),
