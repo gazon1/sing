@@ -264,6 +264,7 @@ internal class PushPhase(
     /**
      * Assembles what to send, or reports why it could not be assembled.
      */
+    @Suppress("ReturnCount")
     private suspend fun planPush(): Result<PushPlan?> {
         val nowMillis = now()
 
@@ -293,6 +294,15 @@ internal class PushPhase(
 
         val batched = pending.take(PUSH_BATCH_SIZE)
         if (batched.isEmpty()) return Result.success(null)
+
+        // Claim the rows before pushing so a second engine over the same SQLite
+        // file cannot push the same patch and trigger a lost race.
+        phases.localStorage("sync.outbox.claim", "claim the pending patches for push") {
+            outboxDao.claim(batched.map { it.patchId }, nowMillis)
+        }.getOrElse { error ->
+            phases.pushFailed(error.toAppError(), batched.size)
+            return Result.failure(error)
+        }
 
         return phases
             .localStorage("sync.outbox.decode", "assemble the queued changes") {
