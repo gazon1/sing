@@ -95,7 +95,7 @@ turbine = "1.2.0"
 # atomicfu — aligned via resolutionStrategy when transitive conflict occurs
 atomicfu = "0.23.1"
 # kotlinx-collections-immutable — transitive from markdown-renderer:0.43.0
-kotlinxCollectionsImmutable = "0.5.0"
+kotlinxCollectionsImmutable = "0.5.2"
 
 # FileKit
 filekit = "0.15.0"
