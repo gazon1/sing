@@ -10,8 +10,21 @@ object AttachmentDomain {
 
     fun generateAttachmentId(): AttachmentId = AttachmentId.generate()
 
-    fun buildLocalPath(dir: String, taskId: String, id: String, ext: String): String =
-        "$dir/$taskId/$id${if (ext.isNotBlank()) ".$ext" else ""}"
+    fun buildLocalPath(dir: String, taskId: String, id: String, ext: String): String {
+        require(!taskId.contains('/') && !taskId.contains('\\') && !taskId.contains("..")) {
+            "taskId must not contain path separators or '..': $taskId"
+        }
+        require(!id.contains('/') && !id.contains('\\') && !id.contains("..")) {
+            "id must not contain path separators or '..': $id"
+        }
+        require(!ext.contains('/') && !ext.contains('\\') && !ext.contains("..")) {
+            "ext must not contain path separators or '..': $ext"
+        }
+        val target = "$dir/$taskId/$id${if (ext.isNotBlank()) ".$ext" else ""}"
+        val base = dir.trimEnd('/')
+        require(target.startsWith("$base/")) { "resolved path escapes attachment dir: $target" }
+        return target
+    }
 
     fun extractExtension(filename: String): String = filename.substringAfterLast('.', "").lowercase()
 }
