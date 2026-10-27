@@ -1,0 +1,30 @@
+# The menu: the full project list stays reachable from the menu's Projects section.
+#
+# The tree is a way into the projects, not the only way: the list with its
+# search and its sorting is still one tap away.
+appId: com.singularity.todo
+name: menu-all-projects
+tags:
+  - smoke
+  - menu
+  - scenario:MENU-06
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "project=Roadmap&id=roadmap"
+- runFlow: ../../helpers/open-app-menu.yaml
+# The Projects section sits at the end of the menu, so it is scrolled to.
+- scrollUntilVisible:
+    element:
+      id: menu_all_projects
+    direction: DOWN
+    timeout: 5000
+- tapOn:
+    id: menu_all_projects
+# The list opens — and the project the tree held is in it.
+- extendedWaitUntil:
+    visible:
+      id: project_card_roadmap
+    timeout: 8000

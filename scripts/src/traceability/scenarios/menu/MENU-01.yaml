@@ -1,0 +1,24 @@
+# Scenario MENU-01 — the projects in the menu are a tree, not a flat list.
+#
+# The indentation is the assertion. A flat list of project names would satisfy
+# a check that only counts the names, and it would lose the one thing the
+# project list had that a flat menu cannot show: which project sits under
+# which.
+
+id: MENU-01
+title: "The menu shows projects as an expandable tree with children indented"
+area: feature.menu
+priority: P1
+status: confirmed
+targets: [android, desktop]
+preconditions: >-
+  Project A has a child project B, and project C has no children.
+steps:
+  - "Open the app menu and look at the Projects section."
+  - "Expand project A."
+  - "Look at project C."
+expected: >-
+  A and C are listed at the top level of the Projects section. Expanding A
+  reveals B indented under it, so B reads as a child of A rather than as
+  another project beside it. C shows no expander control, because C has
+  nothing to expand.

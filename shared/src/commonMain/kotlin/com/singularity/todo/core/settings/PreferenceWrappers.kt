@@ -76,6 +76,26 @@ value class FloatPref internal constructor(private val spec: PrefSpec<Float>) {
 }
 
 /**
+ * A set of strings.
+ *
+ * The set is stored as DataStore's own string set, so the order is not kept —
+ * a set of ids has no order to keep. An empty set is stored as an empty set
+ * rather than as an absent key, so a read and a write of the same value leave
+ * the file in the same state.
+ */
+@JvmInline
+value class StringSetPref internal constructor(private val spec: PrefSpec<Set<String>>) {
+    val flow: Flow<Set<String>>
+        get() = spec.dataStore.data
+            .catchDataStoreIoError()
+            .map { it[spec.key] ?: spec.default }
+
+    suspend fun set(value: Set<String>) {
+        spec.dataStore.edit { it[spec.key] = value }
+    }
+}
+
+/**
  * Nullable string preference. Null value removes the key from DataStore (consistent with
  * [DefaultAgendaViewSettingsRepository] behavior).
  */

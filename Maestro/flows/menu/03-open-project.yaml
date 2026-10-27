@@ -1,0 +1,34 @@
+# The menu: tapping a project in the tree opens that project's own screen.
+#
+# The tree is a way into the project, not a summary of it.
+#
+# The seed is given the project's id, so the node in the tree is addressed by
+# that id rather than by the name the user reads — a name is copy, and an id is
+# not.
+appId: com.singularity.todo
+name: menu-open-project
+tags:
+  - smoke
+  - menu
+  - scenario:MENU-02
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "project=Roadmap&id=roadmap"
+- runFlow: ../../helpers/open-app-menu.yaml
+# The tree sits at the end of the menu, below the fold.
+- scrollUntilVisible:
+    element:
+      id: menu_project_node_roadmap
+    direction: DOWN
+    timeout: 8000
+- tapOn:
+    id: menu_project_node_roadmap
+# The project's own screen opens: its detail screen, which has its own task
+# list and nothing else.
+- extendedWaitUntil:
+    visible:
+      id: project_detail_quick_add
+    timeout: 5000

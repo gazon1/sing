@@ -108,22 +108,24 @@ ensure-emulator                                  # the repo's single recovery pr
 ANDROID_SERIAL=emulator-5554 python3 scripts/run-android-ui-tests.py
 ```
 
-The auth bypass is not optional. Without `-PTEST_AUTH_BYPASS=true` the app opens
-on the sign-in screen, and every assertion about the shell is made against a
-screen in front of the one it describes:
+The auth bypass is not optional. Without it the app opens on the sign-in
+screen, and every assertion about the shell is made against a screen in front
+of the one it describes. A debug build carries it by default now — ADR
+`2026-10-27-the-debug-build-starts-signed-in` — so the local run needs nothing
+extra:
 
 ```bash
-GRADLE_ARGS="-PTEST_AUTH_BYPASS=true" python3 scripts/run-android-ui-tests.py
+python3 scripts/run-android-ui-tests.py
 ```
 
-The same property has to reach the *build* as well as the test, which is why the
-script appends `GRADLE_ARGS` to both halves of the run instead of letting the
-caller pass them separately.
+The property still has to reach the *build* as well as the test when it is
+passed, which is why the script appends `GRADLE_ARGS` to both halves of the
+run instead of letting the caller pass them separately.
 
 To run one class — the smoke tier, locally:
 
 ```bash
-GRADLE_ARGS="-PTEST_AUTH_BYPASS=true -Pandroid.testInstrumentationRunnerArguments.class=com.singularity.todo.ui.AppStartupTest" \
+GRADLE_ARGS="-Pandroid.testInstrumentationRunnerArguments.class=com.singularity.todo.ui.AppStartupTest" \
   python3 scripts/run-android-ui-tests.py
 ```
 
@@ -154,22 +156,26 @@ so its report is below the floor by construction.
   An empty artifact set is a measurement of "nothing ran", not of "everything
   passed".
 
-## Real-device Maestro run with auth bypass
+## Real-device Maestro run
 
-For running Maestro flows on a physical device with `TEST_AUTH_BYPASS=true`:
+One command, on the phone:
 
-1. Build & install the bypass APK:
-   `./gw :androidApp:assembleDebug -PTEST_AUTH_BYPASS=true` then
-   `adb install -r androidApp/build/outputs/apk/debug/androidApp-debug.apk`.
-2. Wipe stale state (safe on a bypass build — no real session needed):
-   `adb shell pm clear com.singularity.todo`.
-3. Seed content: `adb shell am start -a android.intent.action.VIEW -d "todo-debug://seed?reset=content" com.singularity.todo`.
-4. Unlock the screen (`adb shell input keyevent 82`) — the lock screen / notification
-   shade otherwise covers the app and uiautomator/Maestro see only system UI.
-5. Run: `maestro test <flow> --env RUN_ID=<id>`.
+```bash
+SERIAL=<device-serial> just tm Maestro/flows/<flow>.yaml
+```
+
+The runner installs the debug APK — and a debug build carries the auth bypass
+by default now (ADR `2026-10-27-the-debug-build-starts-signed-in`), so the app
+opens on the agenda and not on the sign-in screen. It restarts the app between
+the flows and wipes the content the previous flow left. Nothing is built or
+installed by hand, and the binary cannot be the wrong one by accident.
+
+The phone must be unlocked: the runner wakes and unlocks emulators, and a
+physical device belongs to a person.
 
 Gotcha: `launch-clean.yaml` uses `clearState: false` (for real-auth runs). On a bypass
-build the persisted session is unnecessary and can mask the bypass, hence the `pm clear`.
+build the persisted session is unnecessary and can mask the bypass, hence the session
+reset the runner does between flows.
 
 ## Links
 - `docs/decisions/2026-10-07-the-instrumentation-tier-ran-in-no-ci-job.md` — why

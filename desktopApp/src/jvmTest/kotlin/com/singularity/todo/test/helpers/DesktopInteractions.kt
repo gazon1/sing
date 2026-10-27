@@ -3,7 +3,9 @@ package com.singularity.todo.test.helpers
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.DesktopComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
+
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -21,6 +23,21 @@ import com.singularity.todo.core.ui.TestTags
 @OptIn(ExperimentalTestApi::class)
 fun DesktopComposeUiTest.clickContentDescription(desc: String) {
     awaitContentDescription(desc).performClick()
+}
+
+/**
+ * Clicks the first node with contentDescription [desc].
+ *
+ * Two screens can offer the same description — the shell's back button and a
+ * nested screen's own — and [clickContentDescription] refuses to choose
+ * between them ("Expected exactly '1' node but found '2'"). The shell's is
+ * composed first, so "first" is the shell's: the one that leaves the screen
+ * that was pushed onto the app's stack.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.clickContentDescriptionFirst(desc: String) {
+    awaitContentDescription(desc)
+    onAllNodes(hasContentDescription(desc)).onFirst().performClick()
 }
 
 /**

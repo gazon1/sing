@@ -20,14 +20,6 @@ import com.singularity.todo.feature.projects.presentation.nav.ProjectsNavGraph
  * @param stacks the stacks the platform hoists.
  */
 fun EntryProviderScope<AppDestination>.projectsEntries(nav: NavCallbacks, stacks: AppNavStacks) {
-    entry<AppDestination.Plans>(clazzContentKey = { it.stableContentKey() }) {
-        ProjectsNavGraph(
-            start = ProjectsRoute.List,
-            onExitGraph = nav.graphExit,
-            backStack = stacks.projects,
-        )
-    }
-
     entry<AppDestination.ProjectEditor>(clazzContentKey = { it.stableContentKey() }) { route ->
         ProjectsNavGraph(
             start = ProjectsRoute.Editor(route.projectId),
@@ -46,6 +38,12 @@ fun EntryProviderScope<AppDestination>.projectsEntries(nav: NavCallbacks, stacks
         ProjectsNavGraph(
             start = route.start.toProjectsRoute(),
             onExitGraph = nav.graphExit,
+            // The list is hoisted on the desktop, so the graph keeps its place
+            // when a task is opened from a project and the graph leaves the
+            // screen. An entry that starts somewhere else — the editor — gets
+            // a stack of its own, or it would show the hoisted stack's top
+            // instead of the route it was opened for.
+            backStack = if (route.start == AppDestination.ProjectsStartRoute.List) stacks.projects else null,
         )
     }
 }

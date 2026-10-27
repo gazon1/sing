@@ -1,0 +1,19 @@
+# Asserts that a timeline section is not on the screen.
+#
+# Usage:
+#   env:
+#     PLANS_SECTION: plans_section_day_2026_10_20
+#
+# The counterpart of plans-section.yaml: a task shown twice is a duplicated
+# row, and a task shown nowhere is work the user believes is scheduled and is
+# not — so the flows that change the granularity have to see the section they
+# replaced go away.
+#
+# The id is handed over as an environment variable for the same reason the
+# visible helper takes one: the section's tag carries the date it covers, and
+# a flow that wrote the date down would be a flow that fails tomorrow.
+appId: com.singularity.todo
+name: plans-section-gone
+---
+- assertNotVisible:
+    id: "${PLANS_SECTION}"

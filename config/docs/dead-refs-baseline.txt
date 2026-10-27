@@ -407,3 +407,38 @@ specs/013-gate-probe-cost/spec.md:check-adr-immutable.py
 specs/013-gate-probe-cost/spec.md:scripts/check-adr-immutable.py
 specs/013-gate-probe-cost/tasks.md:check-adr-immutable.py
 specs/013-gate-probe-cost/tasks.md:scripts/check-adr-immutable.py
+
+# Added 2026-10-26 for feature 016 (Plans timeline and Projects menu). The task list
+# names the files the implementation will create, so every one of them is a dead
+# reference until the work lands. A task list that could not name the file it creates
+# would not be a task list — the same reason 013's removed script is accepted above.
+# Each line is removed by the gate itself once the file exists.
+specs/016-plans-timeline-projects-menu/tasks.md: 32 DEAD (new) reference(s)
+specs/016-plans-timeline-projects-menu/tasks.md:PlansDiModule.kt
+specs/016-plans-timeline-projects-menu/tasks.md:desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/menu/ProjectsTreeFlowTest.kt
+specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonMain/kotlin/com/singularity/todo/core/settings/SettingsNamespace.kt
+specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonMain/kotlin/com/singularity/todo/feature/plans/data/DataStorePlansSettingsRepository.kt
+specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonMain/kotlin/com/singularity/todo/feature/plans/domain/logic/TimelineGrouper.kt
+specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonMain/kotlin/com/singularity/todo/feature/plans/domain/logic/TimelinePeriods.kt
+specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonMain/kotlin/com/singularity/todo/feature/plans/domain/model/PlansGranularity.kt
+specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonMain/kotlin/com/singularity/todo/feature/plans/domain/model/TimelinePeriod.kt
+specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonMain/kotlin/com/singularity/todo/feature/plans/domain/model/TimelineSection.kt
+specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonMain/kotlin/com/singularity/todo/feature/plans/domain/port/PlansSettingsRepository.kt
+specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonMain/kotlin/com/singularity/todo/feature/plans/presentation/components/PlansSectionList.kt
+specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonMain/kotlin/com/singularity/todo/feature/plans/presentation/screen/PlansContent.kt
+specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonMain/kotlin/com/singularity/todo/feature/plans/presentation/screen/PlansScreen.kt
+specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonMain/kotlin/com/singularity/todo/feature/plans/presentation/viewmodel/PlansViewModel.kt
+specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/domain/logic/ProjectTreeBuilder.kt
+specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/domain/model/ProjectTreeNode.kt
+specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/presentation/components/ProjectTreeSection.kt
+specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonMain/kotlin/com/singularity/todo/feature/projects/presentation/viewmodel/ProjectsTreeViewModel.kt
+specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/logic/TaskBadgePolicy.kt
+specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/model/TaskBadge.kt
+specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/domain/model/TaskRowItem.kt
+specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonTest/kotlin/com/singularity/todo/feature/plans/domain/PlansGranularityTest.kt
+specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonTest/kotlin/com/singularity/todo/feature/plans/domain/PlansSettingsRepositoryTest.kt
+specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonTest/kotlin/com/singularity/todo/feature/plans/domain/TimelineGrouperTest.kt
+specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonTest/kotlin/com/singularity/todo/feature/plans/domain/TimelinePeriodsTest.kt
+specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonTest/kotlin/com/singularity/todo/feature/plans/presentation/viewmodel/PlansViewModelTest.kt
+specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonTest/kotlin/com/singularity/todo/feature/projects/domain/ProjectTreeBuilderTest.kt
+specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonTest/kotlin/com/singularity/todo/feature/projects/presentation/viewmodel/ProjectsTreeViewModelTest.kt

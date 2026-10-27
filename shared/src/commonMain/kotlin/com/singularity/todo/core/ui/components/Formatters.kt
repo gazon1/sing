@@ -4,6 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
+import com.singularity.todo.core.ui.monthAbbreviation
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.minus
@@ -89,21 +90,6 @@ internal fun formatDueChip(date: LocalDate?, time: String?, today: LocalDate): D
     return DueChipModel(text = fullText, state = state)
 }
 
-private fun shortMonth(month: kotlinx.datetime.Month): String = when (month) {
-    kotlinx.datetime.Month.JANUARY -> "Jan"
-    kotlinx.datetime.Month.FEBRUARY -> "Feb"
-    kotlinx.datetime.Month.MARCH -> "Mar"
-    kotlinx.datetime.Month.APRIL -> "Apr"
-    kotlinx.datetime.Month.MAY -> "May"
-    kotlinx.datetime.Month.JUNE -> "Jun"
-    kotlinx.datetime.Month.JULY -> "Jul"
-    kotlinx.datetime.Month.AUGUST -> "Aug"
-    kotlinx.datetime.Month.SEPTEMBER -> "Sep"
-    kotlinx.datetime.Month.OCTOBER -> "Oct"
-    kotlinx.datetime.Month.NOVEMBER -> "Nov"
-    kotlinx.datetime.Month.DECEMBER -> "Dec"
-}
-
 /**
  * Formats `createdAt` and `updatedAt` timestamps for display in the task detail footer.
  *
@@ -120,7 +106,7 @@ internal data class TimestampsModel(val created: String, val updated: String)
 
 private fun formatCreatedDate(instant: Instant): String {
     val local = instant.toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
-    return "Created ${shortMonth(local.month)} ${local.day}"
+    return "Created ${monthAbbreviation(local.month)} ${local.day}"
 }
 
 private fun formatUpdatedRelative(instant: Instant, now: Instant): String {
@@ -140,7 +126,7 @@ private fun formatUpdatedRelative(instant: Instant, now: Instant): String {
 
         else -> {
             val local = instant.toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
-            "Updated ${shortMonth(local.month)} ${local.day}"
+            "Updated ${monthAbbreviation(local.month)} ${local.day}"
         }
     }
 }

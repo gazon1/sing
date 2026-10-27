@@ -37,6 +37,7 @@ local-storage-failure-classification
 log-export-surface
 notification-routing-must-be-total
 observe-the-provider-session
+plans-timeline-and-projects-menu
 projects-flow-test-flake
 replace-auth-with-kmpauth
 scenario-results-are-authoritative-in-ci

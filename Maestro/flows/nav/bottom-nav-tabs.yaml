@@ -2,8 +2,10 @@
 #
 # The FAB expectations encode the real contract from `FabActionResolver`:
 # Inbox/Today/Upcoming are `AgendaGraph` routes, but only Inbox and Today get
-# "Add task" — Upcoming deliberately has none. Plans gets "Add project".
-# Pomodoro and Calendar are non-agenda destinations and get nothing.
+# "Add task" — Upcoming deliberately has none. Plans gets "Add task" too: the
+# plan tab creates the work that is due, not a project.
+# Pomodoro is a non-agenda destination and gets nothing. The Calendar is not a
+# tab any more — it is an entry of the app menu, and it is checked there.
 # Getting this wrong made this flow fail on Upcoming, so the assertions are
 # written to match the resolver rather than to match a guess.
 #
@@ -48,7 +50,7 @@ tags:
 - assertVisible:
     id: tasks_fab
 
-# Plans — the FAB switches to "Add project".
+# Plans — the FAB stays "Add task": the plan tab creates the work that is due.
 - tapOn:
     id: nav_tab_plans
 - assertVisible:
@@ -64,10 +66,7 @@ tags:
 - assertVisible:
     id: nav_tab_pomodoro
 
-# Calendar — no shell FAB.
-- tapOn:
-    id: nav_tab_calendar
-- assertNotVisible:
-    id: tasks_fab
+# Calendar — it left the bottom bar and is an entry of the app menu.
+- runFlow: ../../helpers/open-app-menu.yaml
 - assertVisible:
-    id: nav_tab_calendar
+    id: menu_calendar

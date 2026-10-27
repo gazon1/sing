@@ -1,5 +1,6 @@
 package com.singularity.todo.core.ui
 
+import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.Month
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -123,6 +124,25 @@ fun formatFileSize(bytes: Long): String = when {
  */
 fun monthAbbreviation(month: Month): String =
     month.name.take(3).lowercase().replaceFirstChar { it.uppercase() }
+
+/**
+ * [month] as its full English name: "January" … "December".
+ *
+ * The full name is what a heading needs — "September 2026" reads as a heading,
+ * "Sep 2026" reads as a chip. Derived from the enum constant's name for the same
+ * reason [monthAbbreviation] is: a month added to the enum cannot be missing here.
+ */
+fun monthName(month: Month): String =
+    month.name.lowercase().replaceFirstChar { it.uppercase() }
+
+/**
+ * [day] as a short English name: "Mon" … "Sun".
+ *
+ * Derived from the enum constant's own name, like [monthAbbreviation], so the
+ * table cannot fall behind the calendar it names.
+ */
+fun weekdayAbbreviation(day: DayOfWeek): String =
+    day.name.take(3).lowercase().replaceFirstChar { it.uppercase() }
 
 /**
  * [instant] as "Nov 5, 14:30" in [zone] — the shape a time-tracking entry list

@@ -1,0 +1,35 @@
+# Plans: a task opens from its section, and a new one inherits the section's date.
+#
+# The two ways a user acts on a section both have to land inside it: tapping a
+# row reaches that task, and adding a task to a section opens the editor with
+# the date already set, so the work is scheduled where the user put it.
+#
+# The section's add control is addressed by its own id, which carries the date
+# the section covers — so the flow does not write a date down and fail
+# tomorrow.
+appId: com.singularity.todo
+name: plans-task-opens
+tags:
+  - smoke
+  - plans
+  - scenario:PLANS-09
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- runScript: ../../helpers/scripts/date.js
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=Due%20today&due=today"
+- tapOn:
+    id: nav_tab_plans
+- runFlow:
+    file: ../../helpers/plans-section.yaml
+    env:
+      PLANS_SECTION: ${output.PLANS_TODAY_SECTION}
+# Tapping the row reaches that task's own screen.
+- tapOn:
+    id: task_item_due_today
+- extendedWaitUntil:
+    visible:
+      id: task_editor_title_input
+    timeout: 5000

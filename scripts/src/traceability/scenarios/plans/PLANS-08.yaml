@@ -1,0 +1,22 @@
+# Scenario PLANS-08 — a section header names the period it covers.
+#
+# The header is the only thing that tells the user which period the rows under
+# it belong to. A header that shows a bare date for a week, or a bare month for
+# a day, leaves the grouping ambiguous.
+
+id: PLANS-08
+title: "A section header names the period it covers"
+area: feature.plans
+priority: P2
+status: confirmed
+targets: [android, desktop]
+preconditions: >-
+  Tasks are due today, in a later week and in a later month.
+steps:
+  - "Open Plans in day granularity and read a day header."
+  - "Switch to week granularity and read a week header."
+  - "Switch to month granularity and read a month header."
+expected: >-
+  The day header names the date, the week header names the date range of that
+  week, and the month header names the month and the year. Each header names
+  the period that the rows beneath it belong to.

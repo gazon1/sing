@@ -6,7 +6,6 @@ import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.DesktopShell
 import com.singularity.todo.test.helpers.assertContentDescriptionDisplayed
-import com.singularity.todo.test.helpers.assertCurrentTab
 import com.singularity.todo.test.helpers.assertNodeDisplayed
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
@@ -15,8 +14,8 @@ import com.singularity.todo.test.helpers.awaitTagGone
 import com.singularity.todo.test.helpers.clickContentDescription
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.clickText
+import com.singularity.todo.test.helpers.openAllProjects
 import com.singularity.todo.test.helpers.runDesktopAppTest
-import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.typeIntoTag
 import kotlin.test.Test
 import org.junit.jupiter.api.Tag
@@ -24,10 +23,13 @@ import org.junit.jupiter.api.Tag
 /**
  * Desktop mirror of `Maestro/flows/projects/01-open-detail.yaml`.
  *
+ * The project list is no longer a tab — it is reached from the drawer's Projects
+ * section — so the flow opens it from the menu.
+ *
  * The Android flow taps `TestTags.TASKS_FAB` — the shell's extended FAB. The
  * desktop shell renders a plain `FloatingActionButton` with no testTag, only the
  * `Add project` contentDescription, so the selector differs while the flow is the
- * same: Plans → create → name → save → card → detail.
+ * same: menu → list → create → name → save → card → detail.
  */
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
@@ -35,17 +37,19 @@ import org.junit.jupiter.api.Tag
 class ProjectsFlowTest {
 
     @Test
-    fun plans_starts_empty() = runDesktopAppTest(checkA11y = true) {
-        tapTab("Plans")
+    fun the_project_list_starts_empty() = runDesktopAppTest(checkA11y = true) {
+        openAllProjects()
 
-        assertCurrentTab("Plans")
+        // The project list is not a tab any more — it is a screen the menu
+        // opens — so there is no tab to be "current"; the screen's own empty
+        // state is the assertion.
         assertTextDisplayed("No projects yet")
         assertContentDescriptionDisplayed(DesktopShell.FAB_ADD_PROJECT)
     }
 
     @Test
     fun creating_a_project_puts_a_card_in_the_list() = runDesktopAppTest {
-        tapTab("Plans")
+        openAllProjects()
         clickContentDescription(DesktopShell.FAB_ADD_PROJECT)
 
         typeIntoTag(TestTags.PROJECT_EDITOR_NAME_INPUT, "Project Alpha")
@@ -58,7 +62,7 @@ class ProjectsFlowTest {
 
     @Test
     fun opening_a_project_reaches_its_detail_screen() = runDesktopAppTest(checkA11y = true) {
-        tapTab("Plans")
+        openAllProjects()
         clickContentDescription(DesktopShell.FAB_ADD_PROJECT)
         typeIntoTag(TestTags.PROJECT_EDITOR_NAME_INPUT, "Project Alpha")
         clickTag(TestTags.PROJECT_EDITOR_SAVE)
@@ -88,7 +92,7 @@ class ProjectsFlowTest {
      */
     @Test
     fun closing_a_project_asks_what_the_cascade_will_close() = runDesktopAppTest(checkA11y = true) {
-        tapTab("Plans")
+        openAllProjects()
         clickContentDescription(DesktopShell.FAB_ADD_PROJECT)
         typeIntoTag(TestTags.PROJECT_EDITOR_NAME_INPUT, "Project Alpha")
         clickTag(TestTags.PROJECT_EDITOR_SAVE)

@@ -67,6 +67,8 @@ import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewKey
 import com.singularity.todo.feature.agenda.domain.port.DefaultAgendaViewSettingsRepository
+import com.singularity.todo.feature.plans.domain.model.PlansGranularity
+import com.singularity.todo.feature.plans.domain.port.PlansSettingsRepository
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
 import com.singularity.todo.feature.calendarSync.auth.GoogleAuthorizationException
 import com.singularity.todo.feature.calendarSync.auth.GoogleAuthorizationRequest
@@ -89,6 +91,7 @@ import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectDocument
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.projects.domain.port.ProjectsTreeSettingsRepository
 import com.singularity.todo.feature.reminders.ProjectReminder
 import com.singularity.todo.feature.reminders.ProjectReminderId
 import com.singularity.todo.feature.reminders.Reminder
@@ -235,6 +238,26 @@ class FakeSettingsRepository(initialUserId: String = TestUsers.DEFAULT.value) : 
         override val defaultViewId: Flow<SavedAgendaViewId?> = _id
         override suspend fun setDefaultViewId(id: SavedAgendaViewId?) {
             _id.value = id
+        }
+    }
+
+    /**
+     * The plans' granularity, keyed by the profile it belongs to.
+     *
+     * The production repository keys it by the profile-scoped user id, because
+     * the settings file is shared by the profiles; the fake keeps the same
+     * shape, so a test that switches profiles sees what production shows.
+     */
+    override val plans: PlansSettingsRepository = object : PlansSettingsRepository {
+        private val granularities = mutableMapOf<String, MutableStateFlow<PlansGranularity>>()
+
+        private fun forUser(userId: String): MutableStateFlow<PlansGranularity> =
+            granularities.getOrPut(userId) { MutableStateFlow(PlansGranularity.Default) }
+
+        override val granularity: Flow<PlansGranularity> = forUser(initialUserId)
+
+        override suspend fun setGranularity(granularity: PlansGranularity) {
+            forUser(initialUserId).value = granularity
         }
     }
 
@@ -2066,6 +2089,28 @@ class FakeProjectsRepository(
                 updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt),
             ),
         )
+    }
+}
+
+// ─── ProjectsTreeSettingsRepository ──────────────────────────────────────────
+
+/**
+ * In-memory [ProjectsTreeSettingsRepository]: the folding of the menu's project tree.
+ *
+ * The folding is a toggle and not a setter here too, so a fake cannot drift from
+ * the contract the production repository keeps: the caller asks to fold or unfold,
+ * and the state decides which it is.
+ */
+class FakeProjectsTreeSettingsRepository : ProjectsTreeSettingsRepository {
+
+    private val _collapsedProjectIds = MutableStateFlow<Set<ProjectId>>(emptySet())
+
+    override val collapsedProjectIds: Flow<Set<ProjectId>> = _collapsedProjectIds.asStateFlow()
+
+    override suspend fun toggleCollapsed(projectId: ProjectId) {
+        _collapsedProjectIds.update { collapsed ->
+            if (projectId in collapsed) collapsed - projectId else collapsed + projectId
+        }
     }
 }
 

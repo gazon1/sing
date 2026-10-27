@@ -1,0 +1,20 @@
+# Scenario NAV-01 — the Calendar is no longer one of the tabs.
+#
+# The bottom navigation bar is the app's fixed frame, and the Calendar was the
+# item that left it. The other tabs are asserted as well, because a bar that
+# lost an entry by accident is still a bar that lost an entry.
+
+id: NAV-01
+title: "The bottom navigation bar no longer holds a Calendar button"
+area: feature.nav
+priority: P2
+status: confirmed
+targets: [android, desktop]
+preconditions: >-
+  The app is running.
+steps:
+  - "Look at the bottom navigation bar on Android."
+  - "Look at the tab list in the navigation drawer on Desktop."
+expected: >-
+  There is no Calendar item among the tabs on either platform. The other tabs
+  are still there, so the bar lost exactly one entry.

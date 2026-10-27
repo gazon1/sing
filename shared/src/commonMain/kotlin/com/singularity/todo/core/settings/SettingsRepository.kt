@@ -17,6 +17,7 @@ import com.singularity.todo.core.schedule.WorkScheduleSettingsRepository
 import com.singularity.todo.core.tasks.TasksSettingsRepository
 import com.singularity.todo.feature.agenda.DataStoreDefaultAgendaViewSettingsRepository
 import com.singularity.todo.feature.agenda.domain.port.DefaultAgendaViewSettingsRepository
+import com.singularity.todo.feature.plans.domain.port.PlansSettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -37,6 +38,8 @@ object SettingsNamespace {
     const val ONBOARDING = "onboarding"
     const val BACKUP = "backup"
     const val TASKS = "tasks"
+    const val PLANS = "plans"
+    const val PROJECTS = "projects"
 
     fun key(ns: String, name: String): String = "$ns.$name"
 }
@@ -67,6 +70,7 @@ interface SettingsRepository :
     val workSchedule: WorkScheduleSettingsRepository
     val greeting: GreetingSettingsRepository
     val defaultAgendaView: DefaultAgendaViewSettingsRepository
+    val plans: PlansSettingsRepository
     val onboarding: com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
 
     // ── AI (flat — AiSettingsStore depends on these) ─────────────────────────
@@ -102,7 +106,17 @@ interface SettingsRepository :
 /**
  * Production [SettingsRepository] backed by DataStore.
  */
-class DataStoreSettingsRepository(private val dataStore: DataStore<Preferences>) : SettingsRepository {
+class DataStoreSettingsRepository(
+    private val dataStore: DataStore<Preferences>,
+    /**
+     * The profile-scoped user id, for the settings that belong to a profile.
+     *
+     * The settings file is one file for the whole app and the profiles share
+     * it, so a setting that belongs to a profile keys itself by this id. Only
+     * the plans' granularity needs it today.
+     */
+    private val scopedUserId: Flow<com.singularity.todo.core.ids.UserId>,
+) : SettingsRepository {
 
     companion object {
         // ── Appearance ────────────────────────────────────────────────────────────
@@ -201,6 +215,8 @@ class DataStoreSettingsRepository(private val dataStore: DataStore<Preferences>)
         DataStoreGreetingSettingsRepository(dataStore)
     override val defaultAgendaView: DefaultAgendaViewSettingsRepository =
         DataStoreDefaultAgendaViewSettingsRepository(dataStore)
+    override val plans: PlansSettingsRepository =
+        com.singularity.todo.feature.plans.data.DataStorePlansSettingsRepository(dataStore, scopedUserId)
     override val onboarding: com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository =
         com.singularity.todo.core.ui.onboarding.DataStoreOnboardingSettingsRepository(dataStore)
 

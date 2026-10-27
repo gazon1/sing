@@ -14,6 +14,7 @@ package com.singularity.todo.feature.nav
  */
 sealed interface ScreenFamily {
     data object Agenda : ScreenFamily
+    data object Plans : ScreenFamily
     data object Tasks : ScreenFamily
     data object Projects : ScreenFamily
     data object Notes : ScreenFamily
@@ -71,7 +72,6 @@ fun familyOf(key: AppNavKey): ScreenFamily = when (key) {
 
 /** Classifies an [AppDestination] — see [familyOf]. Split out for method complexity. */
 private fun familyOfDestination(key: AppDestination): ScreenFamily = when (key) {
-    AppDestination.Plans,
     is AppDestination.ProjectEditor,
     is AppDestination.ProjectDetail,
     is AppDestination.ProjectsGraph,
@@ -85,6 +85,10 @@ private fun familyOfDestination(key: AppDestination): ScreenFamily = when (key) 
     // family would add a case to every consumer of this function and buy nothing.
     is AppDestination.AttachmentViewer,
     -> ScreenFamily.Tasks
+
+    // The timeline is its own feature: it is the plan of the work ahead, not a
+    // list of projects that happens to be arranged by date.
+    AppDestination.Plans -> ScreenFamily.Plans
 
     AppDestination.Pomodoro -> ScreenFamily.Pomodoro
 

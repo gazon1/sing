@@ -1,0 +1,50 @@
+# Plans: the chosen granularity is restored the next time Plans is opened.
+#
+# The round trip is the point: a setting that resets every time the user leaves
+# the tab is a setting the user has to set again every time, which is a
+# different feature from the one that was asked for.
+#
+# The week section is addressed by its own id, which carries the date of the
+# Monday it starts on — so the flow does not write a date down and fail
+# tomorrow.
+appId: com.singularity.todo
+name: plans-granularity-restored
+tags:
+  - smoke
+  - plans
+  - scenario:PLANS-04
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- runScript: ../../helpers/scripts/date.js
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=Due%20today&due=today"
+- tapOn:
+    id: nav_tab_plans
+- extendedWaitUntil:
+    visible:
+      id: plans_granularity_day
+    timeout: 8000
+# The user chooses the week.
+- tapOn:
+    id: plans_granularity_week
+- runFlow:
+    file: ../../helpers/plans-section.yaml
+    env:
+      PLANS_SECTION: ${output.PLANS_WEEK_SECTION}
+# Leaving the tab and coming back: the choice is still in effect.
+- tapOn:
+    id: nav_tab_today
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_today
+    timeout: 30000
+- tapOn:
+    id: nav_tab_plans
+- runFlow:
+    file: ../../helpers/plans-section.yaml
+    env:
+      PLANS_SECTION: ${output.PLANS_WEEK_SECTION}
+- assertVisible:
+    id: plans_granularity_week

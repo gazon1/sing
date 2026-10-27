@@ -25,12 +25,15 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.sheet.BottomSheetHost
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.feature.nav.AppDestination
-import com.singularity.todo.feature.nav.DestinationKind
-import com.singularity.todo.feature.nav.Search
-import com.singularity.todo.feature.nav.icon
+import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTreeUiState
 
 /**
  * Bottom-sheet menu shown when the user taps the "Menu" bottom-bar item.
+ *
+ * It carries the destinations, the projects as a tree, and the way to the full
+ * project list. The tree is drawn by [ProjectTreeSection], which the Desktop
+ * drawer draws too — one tree, two drawings.
  *
  * Why a sheet and not a navigation destination (see reference plan §9):
  * - The user expects "today" to remain visible underneath the menu.
@@ -40,14 +43,21 @@ import com.singularity.todo.feature.nav.icon
  * Stateless: receives `onDismiss` and `onSelect` callbacks from the caller.
  * The caller (`AndroidShell`) owns `menuVisible` as `rememberSaveable` state.
  *
- * Sections are declarative — adding a new section means adding one entry
+ * Sections are declarative — adding a new section means adding one entry.
  *
- * To add new menu items
- * to the "Destinations" group, just append to [DestinationKind.menuEntries].
+ * The entries themselves come from [AppMenu], the model the Desktop drawer
+ * draws too: to add a menu item, add it to `DestinationKind.menuEntries` and
+ * it appears on both platforms.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MenuBottomSheet(onDismiss: () -> Unit, onSelect: (AppDestination) -> Unit) {
+fun MenuBottomSheet(
+    onDismiss: () -> Unit,
+    onSelect: (AppDestination) -> Unit,
+    treeState: ProjectsTreeUiState,
+    onToggleExpanded: (ProjectId) -> Unit,
+    onOpenProject: (ProjectId) -> Unit,
+) {
     // The partial state is skipped, and that is the fix for a real defect, not
     // a preference.
     //
@@ -79,10 +89,10 @@ fun MenuBottomSheet(onDismiss: () -> Unit, onSelect: (AppDestination) -> Unit) {
             // The sheet renders into its own window, so the app-root
             // testTagsAsResourceId never reaches the menu items.
             //
-            // The column scrolls because the menu has eight entries and three
-            // headers, and a screen shorter than that would clip the last ones
-            // again — the same defect the settings rail had, and the reason the
-            // rail scrolls on every form factor.
+            // The column scrolls because the menu holds ten entries, the
+            // projects tree and three headers, and a screen shorter than that
+            // would clip the last ones again — the same defect the settings
+            // rail had, and the reason the rail scrolls on every form factor.
             modifier = Modifier.mapTestTagsAsResourceIds()
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
@@ -109,6 +119,18 @@ fun MenuBottomSheet(onDismiss: () -> Unit, onSelect: (AppDestination) -> Unit) {
                 }
                 HorizontalDivider()
             }
+
+            // ─── Projects ─────────────────────────────────────────────────────
+            // The projects as a tree, and the way to the full list. The section
+            // is drawn by the composable the Desktop drawer draws too.
+            ProjectsMenuSection(
+                state = treeState,
+                onToggleExpanded = onToggleExpanded,
+                onOpenProject = onOpenProject,
+                onOpenAllProjects = { onSelect(AppDestination.ProjectsGraph()) },
+                headerModifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp),
+            )
+            HorizontalDivider()
             Spacer(Modifier.height(16.dp))
         }
     }
@@ -127,86 +149,24 @@ private fun SectionHeader(title: String) {
  * Declarative section definition. Each item either has a [destination]
  * to navigate to (via `onSelect`) or [icon] to display.
  *
- * When you add a new destination to `AppDestination`, append it to
- * [DestinationKind.menuEntries] and it shows up automatically.
+ * The sections are built from [AppMenu], the model both platforms draw, so the
+ * sheet and the drawer offer the same entries.
  */
-private data class MenuSection(val title: String, val items: List<MenuItem>)
+private data class MenuSection(val title: String, val items: List<MenuEntry>)
 
-private data class MenuItem(
-    val id: String,
-    val label: String,
-    val destination: AppDestination,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
-) {
-    /**
-     * Returns a non-null composable lambda for the [NavigationDrawerItem.icon]
-     * slot, or `null` if the item has no icon. Returning `null` hides the
-     * icon slot — same as Compose's own nullable-content convention.
-     */
-    fun iconContent(): (@Composable () -> Unit)? = icon?.let { icon -> { Icon(icon, contentDescription = null) } }
-}
+/**
+ * The icon of the entry, or nothing.
+ *
+ * `null` hides the icon slot — the same convention Compose's own nullable
+ * content uses.
+ */
+@Composable
+private fun MenuEntry.iconContent(): (@Composable () -> Unit)? =
+    icon?.let { icon -> { Icon(icon, contentDescription = null) } }
 
-/** Static menu structure — Account/Search are placeholder sections for now. */
+/** The sheet's sections, built from the shared [AppMenu]. */
 private val MenuSections: List<MenuSection> = listOf(
-    MenuSection(
-        title = "Account",
-        items = listOf(
-            MenuItem(
-                id = TestTags.MENU_SETTINGS,
-                label = "Profile & sync",
-                destination = AppDestination.Settings,
-            ),
-            MenuItem(
-                id = TestTags.MENU_PROFILES,
-                label = AppDestination.ProfileSwitcher.title,
-                destination = AppDestination.ProfileSwitcher,
-                icon = AppDestination.ProfileSwitcher.icon,
-            ),
-        ),
-    ),
-    MenuSection(
-        title = "Search",
-        items = listOf(
-            MenuItem(
-                id = TestTags.MENU_QUICK_SEARCH,
-                label = "Quick search",
-                destination = AppDestination.Search,
-            ),
-        ),
-    ),
-    MenuSection(
-        title = "Destinations",
-        items = listOf(
-            MenuItem(
-                id = TestTags.MENU_STATISTICS,
-                label = AppDestination.Statistics.title,
-                destination = AppDestination.Statistics,
-                icon = AppDestination.Statistics.icon,
-            ),
-            MenuItem(
-                id = TestTags.MENU_NOTES,
-                label = AppDestination.Notes.title,
-                destination = AppDestination.Notes,
-                icon = AppDestination.Notes.icon,
-            ),
-            MenuItem(
-                id = TestTags.MENU_AI_CHAT,
-                label = AppDestination.AiChat.title,
-                destination = AppDestination.AiChat,
-                icon = AppDestination.AiChat.icon,
-            ),
-            MenuItem(
-                id = TestTags.MENU_SEARCH,
-                label = AppDestination.Search.title,
-                destination = AppDestination.Search,
-                icon = AppDestination.Search.icon,
-            ),
-            MenuItem(
-                id = TestTags.MENU_ARCHIVE,
-                label = AppDestination.Archive.title,
-                destination = AppDestination.Archive,
-                icon = AppDestination.Archive.icon,
-            ),
-        ),
-    ),
+    MenuSection(title = "Account", items = AppMenu.account),
+    MenuSection(title = "Search", items = AppMenu.search),
+    MenuSection(title = "Destinations", items = AppMenu.sheetDestinations),
 )

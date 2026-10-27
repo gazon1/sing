@@ -11,7 +11,10 @@ import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
@@ -337,6 +340,34 @@ fun DesktopComposeUiTest.assertTagDisplayed(tag: String) = step("assertTagDispla
 fun DesktopComposeUiTest.assertTagNotExists(tag: String) {
     onNodeWithTag(tag).assertDoesNotExist()
 }
+
+/**
+ * Waits for the node with [tag] and asserts it is the selected one.
+ *
+ * A control that shows which of its options is in effect carries that in its
+ * semantics (`Selected`). Reading it is how a test says "the grouping on screen
+ * is the one the user chose" rather than "the control was pressed" — the second
+ * claim is about the click, the first about what the screen now shows.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.assertTagSelected(tag: String) = step("assertTagSelected", tag) {
+    awaitTag(tag).assertIsSelected()
+}
+
+/**
+ * The unclipped bounds of the node with [tag], in root coordinates.
+ *
+ * Order assertions need a number, not a handle: "the child sits to the right of
+ * its parent" and "today's section is above tomorrow's" are statements about
+ * *where* two nodes are, and the bounds are the only place that says so.
+ *
+ * Unclipped, not clipped: a node below the fold still has a position, and the
+ * comparison a tree or a timeline makes is about the arrangement, not about what
+ * happens to fit on the screen.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.unclippedBoundsOfTag(tag: String): DpRect =
+    awaitTag(tag).getUnclippedBoundsInRoot()
 
 /**
  * One-shot assertion that no node with [text] exists. Same rule as

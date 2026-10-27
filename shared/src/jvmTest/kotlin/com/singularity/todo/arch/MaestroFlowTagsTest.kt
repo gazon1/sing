@@ -530,6 +530,13 @@ class MaestroFlowTagsTest {
     }
 
     private companion object {
+        // The horizontal whitespace is `[ \t]` and not `\s`: `\s` matches the
+        // newline, so a flow that uses the mapping form — `- runFlow:` with
+        // `when:` and `commands:` underneath it — was read as a runFlow of
+        // "when:", and the collector reported a path that resolves to nothing.
+        //
+        // The path may not hold a colon either, which is the same case seen from
+        // the other side: `when:` is a YAML key, not a file name.
         val RUN_FLOW = Regex("""^[ \t]*-?[ \t]*runFlow:[ \t]*([^\s:]+)[ \t]*$""", RegexOption.MULTILINE)
 
         /** The `file:` key of a `runFlow:` that carries its path in a mapping. */

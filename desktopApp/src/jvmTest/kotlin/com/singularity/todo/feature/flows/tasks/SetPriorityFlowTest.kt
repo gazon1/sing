@@ -12,7 +12,9 @@ import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.assertTextNotExists
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.clickTag
+import com.singularity.todo.test.helpers.clickTagScrolled
 import com.singularity.todo.test.helpers.runDesktopAppTest
+import com.singularity.todo.test.helpers.scrollToTag
 import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.tasks
 import org.junit.jupiter.api.Tag
@@ -47,6 +49,9 @@ class SetPriorityFlowTest {
         tasks(koin).given(due = today)
         openEditor("Buy milk")
 
+        // The attribute rows sit below the fold on a 1024x768 window: the row is
+        // composed, but "displayed" is a claim about the screen, not the tree.
+        scrollToTag(TestTags.TASK_EDITOR_PRIORITY_ROW)
         assertTagDisplayed(TestTags.TASK_EDITOR_PRIORITY_ROW)
     }
 
@@ -55,8 +60,9 @@ class SetPriorityFlowTest {
         tasks(koin).given(due = today)
         openEditor("Buy milk")
 
+        scrollToTag(TestTags.TASK_EDITOR_PRIORITY_ROW)
         assertTextDisplayed("No priority")
-        clickTag(TestTags.TASK_EDITOR_PRIORITY_ROW)
+        clickTagScrolled(TestTags.TASK_EDITOR_PRIORITY_ROW)
         clickTag(TestTags.PRIORITY_OPTION_HIGH)
 
         // The row relabels; the editor autosaves, so there is no save button here.
@@ -68,7 +74,9 @@ class SetPriorityFlowTest {
     fun every_priority_option_is_addressable() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
         tasks(koin).given(due = today)
         openEditor("Buy milk")
-        clickTag(TestTags.TASK_EDITOR_PRIORITY_ROW)
+        // The row is below the fold: a click on it would land outside the window
+        // and open nothing.
+        clickTagScrolled(TestTags.TASK_EDITOR_PRIORITY_ROW)
 
         // The sheet renders TaskPriority.entries, so all five need an id —
         // including Urgent, which the registry had no constant for until this MR.

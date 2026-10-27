@@ -16,13 +16,16 @@ import com.singularity.todo.test.helpers.assertCurrentTab
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.awaitTag
-import com.singularity.todo.test.helpers.clickContentDescription
+import com.singularity.todo.test.helpers.clickContentDescriptionFirst
 import com.singularity.todo.test.helpers.openDrawer
+import com.singularity.todo.test.helpers.openAllProjects
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.tasks
+import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 /**
@@ -71,6 +74,24 @@ class NavigationFlowTest {
     }
 
     @Test
+    @DisplayName("NAV-01 the bottom navigation bar no longer holds a Calendar button")
+    fun the_calendar_is_not_a_tab() = runDesktopAppTest(clock = CLOCK, checkA11y = true) {
+        openDrawer()
+
+        // The bar lost exactly one entry: the Calendar is not among the tabs,
+        // and the tabs that are left are still there.
+        assertTrue(
+            "Calendar" !in DesktopShell.TABS,
+            "the Calendar is a tab again: ${DesktopShell.TABS}",
+        )
+        assertContentDescriptionReachable("Plans")
+
+        // And it did not disappear — it moved to the menu, which is where the
+        // rest of the app's destinations live.
+        assertContentDescriptionReachable("Calendar")
+    }
+
+    @Test
     fun inbox_is_reachable_from_the_default_today_tab() = runDesktopAppTest(clock = CLOCK, checkA11y = true) {
         // Both agendas are empty on a fresh database and the title text is
         // ambiguous, so the drawer's own Selected semantics is what proves the
@@ -82,8 +103,16 @@ class NavigationFlowTest {
         assertCurrentTab("Inbox")
     }
 
+    /**
+     * The project list is no longer a tab: it is a screen the menu opens. The
+     * round trip it used to make — a tab holding the list, a tab switch, and
+     * back — is now a round trip through the menu.
+     */
     @Test
-    fun plans_detail_survives_tab_roundtrip() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
+    fun project_detail_survives_a_round_trip_through_the_menu() = runDesktopAppTest(
+        clock = CLOCK,
+        checkA11y = true,
+    ) { koin ->
         val epoch = Instant.fromEpochMilliseconds(0)
         koin.get<ProjectsRepository>().upsert(
             ProjectDocument(
@@ -100,28 +129,34 @@ class NavigationFlowTest {
             ),
         )
 
-        tapTab("Plans")
+        openAllProjects()
         awaitTag(TestTags.projectCard("Roadmap")).performClick()
-        assertTagDisplayed(TestTags.PROJECT_DETAIL_QUICK_ADD)
+        awaitTag(TestTags.PROJECT_DETAIL_QUICK_ADD)
 
-        tapTab("Today")
-        tapTab("Plans")
+        // Leave the project (the shell's back leaves the graph the menu
+        // opened) and come back through the menu: the project is still there.
+        // The shell's own back arrow: the project's own arrow would only go
+        // from the project back to the list, still inside the graph.
+        awaitTag(TestTags.SHELL_BACK_BUTTON).performClick()
+        openAllProjects()
+        awaitTag(TestTags.projectCard("Roadmap")).performClick()
 
-        assertTagDisplayed(TestTags.PROJECT_DETAIL_QUICK_ADD)
+        awaitTag(TestTags.PROJECT_DETAIL_QUICK_ADD)
     }
 
     /**
      * REQ-NAV-002 — a cross-feature open must not degrade into back-navigation.
      *
-     * Before the open policy, the Plans entry's `onExitGraph` allow-list was
+     * Before the open policy, the project list entry's `onExitGraph` allow-list was
      * `{ nav.goBack() }`, so `ProjectsNavigator.openTask` from the project detail
-     * opened underneath Plans was silently swallowed: the app fell back to the
-     * project list instead of opening the task. The uniform policy callback makes
-     * the same request resolve to `ExitAndOpen` and push the tasks graph on top of
-     * the Plans stack — the project staying underneath for Back.
+     * opened underneath the project list was silently swallowed: the app fell
+     * back to the project list instead of opening the task. The uniform policy
+     * callback makes the same request resolve to `ExitAndOpen` and push the
+     * tasks graph on top of the project list — the project staying underneath
+     * for Back.
      */
     @Test
-    fun project_detail_task_opens_from_plans_instead_of_falling_back() = runDesktopAppTest(
+    fun project_detail_task_opens_from_the_project_list_instead_of_falling_back() = runDesktopAppTest(
         clock = CLOCK,
         checkA11y = true,
     ) { koin ->
@@ -142,9 +177,9 @@ class NavigationFlowTest {
         )
         tasks(koin).given(due = today, title = "Ship the policy", projectId = project.id)
 
-        tapTab("Plans")
+        openAllProjects()
         awaitTag(TestTags.projectCard("Roadmap")).performClick()
-        assertTagDisplayed(TestTags.PROJECT_DETAIL_QUICK_ADD)
+        awaitTag(TestTags.PROJECT_DETAIL_QUICK_ADD)
 
         // The open that used to be swallowed → task detail must appear.
         awaitTag(TestTags.taskItem("Ship the policy")).performClick()
@@ -152,7 +187,7 @@ class NavigationFlowTest {
         assertTextDisplayed("Ship the policy")
 
         // Back returns to the project — the origin stayed underneath (REQ-NAV-001).
-        clickContentDescription("Back")
+        clickContentDescriptionFirst("Back")
         assertTagDisplayed(TestTags.PROJECT_DETAIL_QUICK_ADD)
     }
 

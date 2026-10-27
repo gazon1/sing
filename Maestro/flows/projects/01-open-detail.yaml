@@ -1,4 +1,4 @@
-# Projects: open a project's detail screen from the Plans tab.
+# Projects: open a project's detail screen from the project list in the menu.
 appId: com.singularity.todo
 name: projects-open-detail
 tags:
@@ -6,8 +6,16 @@ tags:
   - projects
 ---
 - runFlow: ../../helpers/launch-clean.yaml
+# The project list is reached from the menu's Projects section.
+- runFlow: ../../helpers/open-app-menu.yaml
+# The Projects section sits at the end of the menu, so it is scrolled to.
+- scrollUntilVisible:
+    element:
+      id: menu_all_projects
+    direction: DOWN
+    timeout: 5000
 - tapOn:
-    id: nav_tab_plans
+    id: menu_all_projects
 - extendedWaitUntil:
     visible:
       id: tasks_fab

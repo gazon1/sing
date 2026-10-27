@@ -1,0 +1,22 @@
+# Scenario MENU-04 — the Calendar is reached from the menu.
+#
+# The Calendar left the bottom navigation bar, so the menu is the way in. Both
+# platforms are asserted because the two menus are drawn by different code,
+# and a change to one of them is not a change to the other.
+
+id: MENU-04
+title: "The Calendar is an entry of the menu on Android and Desktop"
+area: feature.menu
+priority: P2
+status: confirmed
+targets: [android, desktop]
+preconditions: >-
+  The app is running.
+steps:
+  - "On Android, open the menu and look for Calendar."
+  - "On Desktop, open the navigation drawer and look for Calendar."
+  - "Choose the Calendar entry."
+expected: >-
+  Calendar is listed in the menu on both platforms, and choosing it opens the
+  calendar. The menu closes on the way in, and the calendar can be left with
+  the usual back action.

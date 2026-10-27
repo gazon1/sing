@@ -106,6 +106,24 @@ object TestTags {
     const val NAV_MENU_BUTTON = "nav_menu_button"
 
     /**
+     * The back arrow of the desktop shell's own top bar.
+     *
+     * It is not [TOP_BAR_BACK_BUTTON]: that one belongs to the shared
+     * `BackTopAppBar` a screen draws inside itself, and a screen can be open
+     * underneath the shell's arrow — two arrows, two meanings, two ids.
+     */
+    const val SHELL_BACK_BUTTON = "shell_back_button"
+
+    /**
+     * The desktop shell's drawer sheet.
+     *
+     * The sheet is the thing that slides in, so it is the thing to ask about
+     * when a flow needs to know whether the drawer is open — not one of its
+     * entries, which scroll out of view.
+     */
+    const val DESKTOP_DRAWER = "desktop_drawer"
+
+    /**
      * Back arrow of the shared `BackTopAppBar`. Maestro cannot select on
      * contentDescription, and several screens route back through this component
      * with their own dirty-state confirmation, so the arrow needs a stable id.
@@ -135,6 +153,32 @@ object TestTags {
     const val MENU_AI_CHAT = "menu_aichat"
     const val MENU_SEARCH = "menu_search"
     const val MENU_ARCHIVE = "menu_archive"
+
+    /** The Calendar's entry in the menu — it left the tab bar for the menu. */
+    const val MENU_CALENDAR = "menu_calendar"
+
+    /** The proposals' entry in the menu. */
+    const val MENU_PROPOSALS = "menu_proposals"
+
+    /** The "connect an account" entry in the menu. */
+    const val MENU_ATTACH_ACCOUNT = "menu_attach_account"
+
+    /** The Projects section of the menu — the tree and the way to the full list. */
+    const val MENU_PROJECTS_SECTION = "menu_projects_section"
+
+    /** The entry at the end of the Projects section: the full project list. */
+    const val MENU_ALL_PROJECTS = "menu_all_projects"
+
+    /**
+     * A project in the menu's tree, by the project's id.
+     *
+     * The id, not the name: a renamed project must stay reachable by the tag it
+     * was first given.
+     */
+    fun menuProjectNode(projectId: String) = "menu_project_node_${slug(projectId)}"
+
+    /** The expander of a project in the menu's tree, by the project's id. */
+    fun menuProjectExpander(projectId: String) = "menu_project_expander_${slug(projectId)}"
 
     // ─── Tasks ───────────────────────────────────────────────────────────────
     const val TASKS_LIST = "tasks_list"
@@ -435,6 +479,37 @@ object TestTags {
 
     /** Agenda section header, e.g. "Today", "No Date". */
     fun agendaSection(name: String) = "agenda_section_${slug(name)}"
+
+    // ─── Plans timeline ───────────────────────────────────────────────────
+
+    /** The screen itself — the root of the timeline. */
+    const val PLANS_SCREEN = "plans_screen"
+
+    /** The granularity control: the day option. */
+    const val PLANS_GRANULARITY_DAY = "plans_granularity_day"
+
+    /** The granularity control: the week option. */
+    const val PLANS_GRANULARITY_WEEK = "plans_granularity_week"
+
+    /** The granularity control: the month option. */
+    const val PLANS_GRANULARITY_MONTH = "plans_granularity_month"
+
+    /** The empty state — nothing is scheduled inside the horizon. */
+    const val PLANS_EMPTY_STATE = "plans_empty_state"
+
+    /** The message the screen shows when the plan could not be loaded. */
+    const val PLANS_ERROR = "plans_error"
+
+    /**
+     * A timeline section header, by the section's id.
+     *
+     * The id, not the label: the label of a day section changes with the date,
+     * and a tag that moves every morning is a tag no automation can rely on.
+     */
+    fun plansSection(id: String) = "plans_section_${slug(id)}"
+
+    /** The "add a task to this section" control of a section header. */
+    fun plansSectionAdd(id: String) = "plans_section_add_${slug(id)}"
 
     // ─── Pomodoro ───────────────────────────────────────────────────────────
 
