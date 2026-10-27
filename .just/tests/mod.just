@@ -422,28 +422,16 @@ ui-maestro flow="Maestro/flows" tags="":
         run-maestro
 
 [group('tests')]
-[doc('Maestro gate: install the APK, then run every flow carrying a tag (positional args!)')]
+[doc('Maestro gate: run every flow carrying a tag (positional args!)')]
 [working-directory(justfile_directory())]
 gate-maestro tags="agenda" serial="":
     #!/usr/bin/env bash
     set -euo pipefail
-    # Install first, by construction. The trap this avoids: passing
-    # SKIP_INSTALL=1 to save a minute, the emulator dying mid-run, the
-    # relaunched device holding a snapshot from before your fix — and the
-    # journeys going green against a binary that does not contain it.
-    #
-    # The property is on the install for the same reason: a binary without it
-    # opens on the sign-in screen, and every flow then waits for a shell that
-    # is behind it. The debug build carries the bypass by default, and the
-    # flag says so at the call site too — a build that stops carrying it by
-    # default must not silently produce a suite that measures a sign-in
-    # screen.
-    if [[ -n "{{serial}}" ]]; then
-        ./gw :androidApp:installDebug -Pandroid.device="{{serial}}" \
-            -PTEST_AUTH_BYPASS=true --quiet
-    else
-        ./gw :androidApp:installDebug -PTEST_AUTH_BYPASS=true --quiet
-    fi
-    SERIAL="{{serial}}" TAGS="{{tags}}" SKIP_INSTALL=1 \
+    # The runner installs the APK itself, before the first flow: with the auth
+    # bypass, against the pinned device, and with the recovery a dying device
+    # needs. Installing here as well bought a second build — `SKIP_INSTALL=1`
+    # was never read by the runner (it knows the `--skip-install` flag), so
+    # every run paid for two installs and measured the second one.
+    SERIAL="{{serial}}" TAGS="{{tags}}" \
         run-maestro
 
