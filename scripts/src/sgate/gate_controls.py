@@ -906,6 +906,29 @@ SCRIPT_GATES = [
                 "a dismissal that precedes the input saves an empty draft and closes the editor — the flow passes and the user's words are gone"
             ),
         ),
+        # The sabotage is in the registry (`_registry.GATE_CONTROLS`), and this
+        # entry is its twin: the harness fills the edit from there, and Part J
+        # fails when the two disagree about the file or the command.
+    ScriptGate(
+        name="tag-entity-normalized",
+        cmd=[sys.executable, "scripts/ci/check-tag-entity-normalized.py"],
+        why=(
+            "a tag row that carries no normalized name cannot be found by the "
+            "name a person typed, and the lookup goes by the normalized form"
+        ),
+    ),
+    # The sabotage is in the registry (`_registry.GATE_CONTROLS`), and this
+    # entry is its twin: the harness fills the edit from there, and Part J
+    # fails when the two disagree about the file or the command.
+    ScriptGate(
+        name="migration-index-naming",
+        cmd=[sys.executable, "scripts/ci/check-migration-naming.py"],
+        why=(
+            "an index whose name does not say what it indexes is a name nobody "
+            "can reason about later: the convention is the only map from a query "
+            "plan to an index"
+        ),
+    ),
 ]
 
 @dataclass(frozen=True)
