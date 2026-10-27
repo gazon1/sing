@@ -75,6 +75,10 @@ class AlarmManagerReminderScheduler(
     ): PendingIntent {
         val intent = Intent(context, AlarmReceiver::class.java).apply {
             action = AlarmReceiver.ACTION_REMINDER_FIRE
+            // Data URI makes each reminder's PendingIntent unique even when the
+            // 32-bit request code (hashCode) collides, so a collision can no
+            // longer overwrite another reminder's alarm.
+            data = android.net.Uri.parse("reminder:${userId.value}:${id.value}")
             if (includeExtras) {
                 putExtra(AlarmContract.EXTRA_REMINDER_ID, id.value)
                 putExtra(AlarmContract.EXTRA_USER_ID, userId.value)
