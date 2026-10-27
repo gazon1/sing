@@ -79,6 +79,9 @@ class DataStoreSessionStore(private val dataStore: DataStore<Preferences>, priva
         .catchDataStoreIoError()
         .map { it[USER_EMAIL] }
 
+    // Per-process nonce so two processes sharing one SQLite file mint distinct node ids.
+    private val processNonce: String = java.util.UUID.randomUUID().toString().take(8)
+
     // Lazily initialized on first getOrInitDeviceId() call — not blocking at construction.
     private var _deviceId: String? = null
 
@@ -91,8 +94,9 @@ class DataStoreSessionStore(private val dataStore: DataStore<Preferences>, priva
         val id = stored ?: idGenerator.next().also { newId ->
             dataStore.edit { it[DEVICE_ID] = newId }
         }
-        _deviceId = id
-        return id
+        val nodeId = "$id:$processNonce"
+        _deviceId = nodeId
+        return nodeId
     }
 
     /**

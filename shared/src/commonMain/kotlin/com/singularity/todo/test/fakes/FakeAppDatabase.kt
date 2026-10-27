@@ -1300,6 +1300,7 @@ private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, 
     override suspend fun getPending(now: Long, ownerId: String, profileId: String): List<SyncOutboxEntity> =
         store.value.values
             .filter { it.ownerId == ownerId && it.profileId == profileId }
+            .filter { it.claimedAt == null }
             .filter { it.nextAttemptAt == null || it.nextAttemptAt <= now }
             .sortedBy { it.createdAt }
 
@@ -1320,11 +1321,20 @@ private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, 
                     attempts = existing.attempts + 1,
                     lastError = error,
                     nextAttemptAt = nextAttemptAt,
+                    claimedAt = null,
                 )
             )
         }
     }
     override suspend fun attemptsOf(id: String): Int? = store.value[id]?.attempts
+
+    override suspend fun claim(ids: List<String>, now: Long) {
+        store.update { current ->
+            current.mapValues { (k, v) ->
+                if (k in ids && v.claimedAt == null) v.copy(claimedAt = now) else v
+            }
+        }
+    }
 
     override suspend fun deleteByEntity(ownerId: String, profileId: String, entityId: String) {
         store.update {
