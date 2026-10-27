@@ -3,6 +3,7 @@ package com.singularity.todo.core.seed
 import com.singularity.todo.core.links.InternalLinkSchemes
 import com.singularity.todo.core.links.InternalLinks
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
@@ -140,6 +141,48 @@ class SeedWriterTest {
     }
 
     @Test
+    fun `a project seed that names an id owns it`() = runTest {
+        val result = writer.writeProject(
+            ProjectSeed(
+                name = "Work",
+                color = 0xFF2196F3.toInt(),
+                stamp = stamp,
+                id = ProjectId.fromString("fixed01"),
+            ),
+        )
+
+        assertEquals(ProjectId.fromString("fixed01"), result.id)
+        assertEquals(ProjectId.fromString("fixed01"), liveProjects("Work").single().id)
+    }
+
+    @Test
+    fun `a project seed that names the id of a project renames it`() = runTest {
+        writer.writeProject(
+            ProjectSeed(
+                name = "Work",
+                color = 0xFF2196F3.toInt(),
+                stamp = stamp,
+                id = ProjectId.fromString("fixed01"),
+            ),
+        )
+
+        val renamed = writer.writeProject(
+            ProjectSeed(
+                name = "Play",
+                color = 0xFF2196F3.toInt(),
+                stamp = stamp,
+                id = ProjectId.fromString("fixed01"),
+            ),
+        )
+
+        assertEquals(SeedOutcome.Updated, renamed.outcome)
+        assertEquals(ProjectId.fromString("fixed01"), renamed.id)
+        // The row is the same row: a rename changes the copy, not the row.
+        assertEquals(listOf(ProjectId.fromString("fixed01")), liveProjects("Play").map { it.id })
+        assertEquals(emptyList(), liveProjects("Work"))
+    }
+
+    @Test
     fun `a task seed that names an id owns it`() = runTest {
         val result = writer.writeTask(
             TaskSeed(title = "Link target", stamp = stamp, id = TaskId.fromString("fixed01")),
@@ -190,4 +233,8 @@ class SeedWriterTest {
     /** The rows the task list shows: the ones that are neither trashed nor completed. */
     private suspend fun liveTasks(title: String) =
         tasks.observeAll().first().filter { it.title == title && !it.isTrashed }
+
+    /** The rows the projects list shows: the ones that are not deleted. */
+    private suspend fun liveProjects(name: String) =
+        projects.observeAll().first().filter { it.name == name && !it.isDeleted }
 }

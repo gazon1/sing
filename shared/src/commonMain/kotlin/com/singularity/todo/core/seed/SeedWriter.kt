@@ -206,15 +206,20 @@ class SeedWriter(
     }
 
     /**
-     * Makes the profile hold exactly one live project named [ProjectSeed.name].
+     * Makes the profile hold exactly one live project for this seed.
      *
-     * An existing project with that name is updated — name, colour, description
-     * and timestamps become what the seed says — and the other projects with that
-     * name leave the live set.
+     * A seed that names an id owns that row: the row is addressed by its id and
+     * the name the seed carries is the copy the row ends up with — so a seed that
+     * names an id that is already there renames it. A seed that names only a name
+     * owns the row with that name; an existing project with that name is updated
+     * — name, colour, description and timestamps become what the seed says — and
+     * the other projects with that name leave the live set.
      */
     suspend fun writeProject(spec: ProjectSeed): SeedResult<ProjectId> {
-        val existing = projects.observeAll().first().filter { it.name == spec.name && !it.isDeleted }
-        val keeper = existing.firstOrNull()
+        val live = projects.observeAll().first().filter { !it.isDeleted }
+        val byId = spec.id?.let { id -> live.firstOrNull { it.id == id } }
+        val byName = live.filter { it.name == spec.name }
+        val keeper = byId ?: byName.firstOrNull()
         if (keeper == null) {
             val created = projects.create(
                 Project(
@@ -240,7 +245,12 @@ class SeedWriter(
                 updatedAt = spec.stamp,
             ),
         ).getOrThrow()
-        existing.filter { it.id != updated.id }.forEach { projects.delete(it.id).getOrThrow() }
+        // A seed that named only a name owns the *name*: the other rows carrying
+        // it leave the live set. A seed that named an id owns the *row*, and the
+        // rows that happen to share its new name are none of its business.
+        if (byId == null) {
+            byName.filter { it.id != updated.id }.forEach { projects.delete(it.id).getOrThrow() }
+        }
         return SeedResult(id = updated.id, outcome = SeedOutcome.Updated)
     }
 

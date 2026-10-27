@@ -54,10 +54,12 @@ import kotlinx.datetime.toLocalDateTime
  *   the link machinery reads it as a link. The target is named rather than
  *   addressed by id, because the caller cannot know the id the app gave the task
  *   it seeded a moment earlier.
- * - `id=<id>` — the id the seeded task carries. A seed that names an id owns it:
+ * - `id=<id>` — the id the seeded row carries. A seed that names an id owns it:
  *   the row the flow addresses by that id is the row the seed writes. It is what
  *   makes a deep link addressable — `singularity://task/<id>` names an id, and a
- *   flow cannot know the id the app generated.
+ *   flow cannot know the id the app generated. A project named by that id is
+ *   updated in place, so a seed that names an id that is already there renames
+ *   it: a rename is a seed that owns the row and gives it another name.
  * - `project=<name>`         — seeds a project (one project with that name)
  * - `profile=<name>`         — creates and switches to a profile
  * - `due=today|tomorrow|-1d|+1d|<YYYY-MM-DD>` — sets dueDate on the seeded task
