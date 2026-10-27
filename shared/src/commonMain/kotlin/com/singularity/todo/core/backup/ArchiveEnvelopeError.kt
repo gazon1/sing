@@ -47,7 +47,10 @@ sealed class ArchiveEnvelopeError(message: String, cause: Throwable? = null) : B
      * only true half of the time.
      */
     class UnsupportedArchiveVersion(val version: Int, val readableVersions: Set<Int>) :
-        ArchiveEnvelopeError("The archive's version is $version, and this build reads $readableVersions")
+        ArchiveEnvelopeError(
+            "The archive's version is $version, and this build reads versions " +
+                readableVersions.sorted().joinToString(" and "),
+        )
 
     /**
      * The archive's bytes could not be moved — read from the source, or written to

@@ -299,6 +299,9 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
      * @throws ArchiveEnvelopeError.BrokenChain when the chain does not hold together: an
      *   entry out of place, or a chain shorter than its own head says — a dropped
      *   tail.
+     * @throws ArchiveEnvelopeError.ChainTooLong when the head promises more changes
+     *   than this build reads. The count is read before the password is proven, so
+     *   it is refused before it can become a loop.
      */
     fun openChain(
         source: ByteSource,
@@ -308,6 +311,7 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
     ) {
         requirePassword(password)
         val container = archiveErrors { ArchiveContainerReader.read(source) }
+        requireChainFits(container.head.count, "reads")
         val session = contentSession(container, password)
         try {
             val consumed = ArchiveChainReader.read(source, container, session, onEntry)
@@ -340,7 +344,7 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
         contentKey: () -> ContentKey,
         keyBlock: ArchiveKeyBlock?,
     ) {
-        requireChainFits(entries.size)
+        requireChainFits(entries.size, "writes")
 
         val salt = crypto.randomBytes(ArchiveFormat.SALT_BYTES)
         val nonce = crypto.randomBytes(ArchiveFormat.NONCE_BYTES)
@@ -411,13 +415,21 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
      * writer holds: the changes are sealed into memory before the head can say
      * how long they are, so an unbounded chain is an unbounded allocation.
      *
-     * Both are refused **by name**, at export time — the export re-seals a fresh
-     * base instead.
+     * Both are refused **by name**. At export time, because the export re-seals a
+     * fresh base instead. At restore time, because the count in the head is read
+     * before the password is proven — a count nobody has proven yet must not
+     * become a loop that allocates.
+     *
+     * @param count how many changes the chain claims to carry.
+     * @param direction what this build does with that many — `writes` at export
+     *   time, `reads` at restore time. The message says it, because "more than
+     *   this build writes" would be a lie to a person reading a restore.
      */
-    private fun requireChainFits(count: Int) {
-        if (count > ArchiveFormat.MAX_CHAIN_ENTRIES) {
+    private fun requireChainFits(count: Int, direction: String) {
+        if (count < 0 || count > ArchiveFormat.MAX_CHAIN_ENTRIES) {
             throw ArchiveEnvelopeError.ChainTooLong(
-                "$count changes, more than the ${ArchiveFormat.MAX_CHAIN_ENTRIES} this build writes",
+                "it promises $count changes, and this build $direction at most " +
+                    ArchiveFormat.MAX_CHAIN_ENTRIES,
             )
         }
     }
