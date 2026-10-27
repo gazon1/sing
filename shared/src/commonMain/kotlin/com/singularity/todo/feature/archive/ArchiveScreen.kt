@@ -36,6 +36,7 @@ import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.LocalAppNavigator
+import com.singularity.todo.core.platform.systemToday
 import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import kotlinx.collections.immutable.toImmutableSet
 import com.singularity.todo.feature.tasks.presentation.components.TaskCard
@@ -99,6 +100,7 @@ fun ArchiveScreen(viewModel: ArchiveViewModel = koinViewModel(), onBack: () -> U
                                 items(s.tasks, key = { it.id.value }) { task ->
                                     TaskCard(
                                         task = task,
+                                        today = systemToday(),
                                         blockedTaskIds = blockedTaskIds,
                                         onClick = {
                                             navigator.navigate(
@@ -175,6 +177,7 @@ private fun ArchiveContentPreview(state: ArchiveUiState) {
                             items(state.tasks, key = { it.id.value }) { task ->
                                 TaskCard(
                                     task = task,
+                                    today = systemToday(),
                                     blockedTaskIds = blockedTaskIds,
                                     onClick = noopClick,
                                     actions = TaskCardActions(),
