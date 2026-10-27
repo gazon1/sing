@@ -131,7 +131,4 @@ enum class A2uiErrorCode {
 
     /** A line exceeded the size bound and was skipped to the next line. */
     LINE_TOO_LONG,
-
-    /** The model provider failed. Not a contract violation; reported to the user, not the model. */
-    TRANSPORT_FAILED,
 }

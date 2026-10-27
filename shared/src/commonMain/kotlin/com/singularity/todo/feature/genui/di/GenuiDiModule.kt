@@ -7,7 +7,6 @@ import com.singularity.todo.feature.genui.core.A2uiValidator
 import com.singularity.todo.feature.genui.core.GenuiRejectionCounter
 import com.singularity.todo.feature.genui.core.GenuiUsageCounter
 import com.singularity.todo.feature.genui.engine.SurfaceTurnFactory
-import com.singularity.todo.feature.genui.function.A2uiFunctionRegistry
 import com.singularity.todo.feature.genui.parser.A2uiParser
 import com.singularity.todo.feature.genui.render.ComponentRegistry
 import com.singularity.todo.feature.genui.render.material3.Material3Catalog
@@ -28,7 +27,6 @@ fun genuiModule(): Module = module {
     // registered as the concrete type leaves the graph with a definition nobody can resolve by the
     // type they actually hold. The koin compiler plugin catches this at compile time.
     single<A2uiCatalog> { SingularityCatalog }
-    single { A2uiFunctionRegistry() }
     single { A2uiValidator(get()) }
     single { SurfaceController() }
     // The usage tally is the parser's to own: it is the only thing that sees every kind.
