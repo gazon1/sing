@@ -52,9 +52,10 @@ open class FakeSyncOutboxDao : SyncOutboxDao {
     override suspend fun getPending(
         now: Long,
         ownerId: String,
+        profileId: String,
     ): List<SyncOutboxEntity> =
         snapshot()
-            .filter { it.ownerId == ownerId }
+            .filter { it.ownerId == ownerId && it.profileId == profileId }
             .filter { it.nextAttemptAt == null || it.nextAttemptAt <= now }
 
     override suspend fun countPendingFor(ownerId: String): Int = rows.count { it.ownerId == ownerId }
@@ -88,9 +89,10 @@ open class FakeSyncOutboxDao : SyncOutboxDao {
 
     override suspend fun deleteByEntity(
         ownerId: String,
+        profileId: String,
         entityId: String,
     ) {
-        rows.removeAll { it.ownerId == ownerId && it.entityId == entityId }
+        rows.removeAll { it.ownerId == ownerId && it.profileId == profileId && it.entityId == entityId }
     }
 
     override suspend fun deleteForOwner(ownerId: String): Int {

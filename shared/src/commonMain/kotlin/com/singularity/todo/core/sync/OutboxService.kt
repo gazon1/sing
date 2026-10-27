@@ -82,7 +82,7 @@ internal class OutboxService(
         entity: SyncableEntity,
     ): Result<Unit> =
         phases.localStorage("sync.outbox.delete", "coalesce the outbox row before insert") {
-            outboxDao.deleteByEntity(active.ownerId, entity.syncId)
+            outboxDao.deleteByEntity(active.ownerId, active.profileId, entity.syncId)
         }
 
     private suspend fun insertRow(
@@ -103,6 +103,7 @@ internal class OutboxService(
         return SyncOutboxEntity(
             patchId = patch.patchId,
             ownerId = active.ownerId,
+            profileId = active.profileId,
             entityId = entity.syncId,
             entityType = entity.docType.key,
             payload = payload,
