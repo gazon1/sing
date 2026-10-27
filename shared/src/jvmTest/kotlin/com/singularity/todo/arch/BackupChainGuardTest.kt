@@ -48,10 +48,12 @@ class BackupChainGuardTest {
 
         assertTrue(
             holders.isNotEmpty(),
-            "The guard is gone: `$GUARD` is not in core/backup any more.\n\n" +
+            "The guard is not there: `$GUARD` is in no file of core/backup any more.\n\n" +
                 "The count in the chain's head is read before the password is checked, so a " +
                 "corrupt or hostile count becomes a loop that allocates. Put the guard back — " +
-                "and put it back before the session that needs the password, not after it.",
+                "and put it back before the session that needs the password, not after it.\n\n" +
+                "This test matches the guard literally: a rename or a line broken in two is not " +
+                "the guard any more either, and the message says so.",
         )
         assertEquals(
             1,

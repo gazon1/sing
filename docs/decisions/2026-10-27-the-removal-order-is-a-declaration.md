@@ -52,6 +52,13 @@ order of the lines was the order, because there was nothing else that said so.
   removals is one list, in one place. The two orders are not two facts: the
   phase says which group a kind is in, and the list says where in the group it
   goes.
+- **The order is pinned by a test.** A declaration nobody checks is a
+  convention, and a convention is one careless edit away from being wrong: an
+  annotation that goes after the attachment it belongs to leaves an annotation
+  behind, because the annotations are not cascaded either. The test names the
+  order, so a kind that is added, moved or swapped cannot change it quietly —
+  and whoever changes it on purpose changes the test with it, where a reader
+  sees both.
 - **The importer reads the declaration.** `applyRemovals` walks the phases and
   the kinds of each phase; the per-kind delete stays where it was, in one
   `when` over the kind, which is exhaustive — a kind this build does not know
@@ -95,8 +102,10 @@ is this kind deleted, and *how* — and the second one was already answered well
   longer have to explain it.
 - The phases are three names to learn, and they say what the order is for: the
   children, the rows, the parents.
-- The architecture test that says every kind has a removal path reads the same
-  declaration, so the rule and the declaration cannot drift apart.
+- The architecture test that says every kind has a removal path reads the kinds
+  out of the same declaration, so a kind that is added cannot drift away from
+  the dispatch; a second test pins the order the kinds are removed in, so the
+  order cannot be reshuffled quietly either.
 - The order is now visible in one file, which is what the ADR is for: a reader
   who wants to know what is removed before what reads
   `BackupEntityKind.kt`, and this record.
