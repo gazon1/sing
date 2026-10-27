@@ -33,6 +33,7 @@ class PruneLlmUsageJob(
 ) : BackgroundJob {
 
     override val id: String = ID
+    override val requiresNetwork: Boolean = false
 
     /**
      * No `try`/`catch` here, and that is deliberate.

@@ -18,6 +18,7 @@ class ArchiveJob(
     private val clock: Clock,
 ) : BackgroundJob {
     override val id: String = ID
+    override val requiresNetwork: Boolean = false
 
     override suspend fun run(): JobOutcome =
         runCatchingCancellable {
