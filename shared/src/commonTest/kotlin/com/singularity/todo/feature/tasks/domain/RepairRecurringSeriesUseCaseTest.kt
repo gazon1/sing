@@ -147,6 +147,24 @@ class RepairRecurringSeriesUseCaseTest {
     }
 
     @Test
+    fun `the marker is keyed by the scoped user id, not the profile`() = runTest {
+        // The rows live in the scoped user's namespace, and two accounts on the
+        // same profile id hold different rows. A marker keyed by the profile alone
+        // would be stale for the second account, which is the one failure the gate
+        // must not have.
+        repo.seed(legacy(dueDate = today, completedAt = null))
+        settings.setRecurringSeriesRepairVersion(
+            currentUser.scopedUserId.value.value,
+            RepairRecurringSeriesUseCase.VERSION,
+        )
+
+        val result = useCase()()
+
+        assertEquals(0, result.getOrNull(), "the marker for this namespace skips the pass")
+        assertEquals(0, repo.legacyRecurringQueries, "and no candidate query is made")
+    }
+
+    @Test
     fun `a row that already belongs to a series is not touched`() = runTest {
         repo.seed(legacy().copy(seriesId = com.singularity.todo.feature.tasks.domain.model.TaskSeriesId("existing")))
 

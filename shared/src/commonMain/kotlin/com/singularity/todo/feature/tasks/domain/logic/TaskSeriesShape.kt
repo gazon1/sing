@@ -12,10 +12,9 @@ import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
  * one answers "is this batch one series", "is this row allowed to carry a rule",
  * and "which row is the work's source when a batch is written".
  *
- * The two moved apart when the object reached the function ceiling the detekt
- * rule sets: the two questions change for different reasons — a new shared
- * field touches one, a new kind of write touches the other — and keeping them in
- * one object made every addition a reason to raise the ceiling.
+ * The two are separate because they change for different reasons — a new shared
+ * field touches one, a new kind of write touches the other — and an object that
+ * answers both invites a caller to reach for the wrong answer.
  */
 object TaskSeriesShape {
 

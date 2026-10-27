@@ -100,7 +100,6 @@ class UpdateTaskSeriesUseCase(
             ?: members.mapNotNull { it.dueDate }.maxOrNull()
             ?: fallback.dueDate
             ?: clock.now().toLocalDateTime(TimeZone.UTC).date
-            ?: error("A series with no date anywhere cannot be re-planned")
     }
 
     /**

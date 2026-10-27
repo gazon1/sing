@@ -44,12 +44,12 @@ repair the row immediately must not pretend they did.**
 - A pull that receives such a document **skips** it with a named outcome instead
   of failing the event. The cursor advances, nothing is stored, and the sender's
   next push — after its own repair — carries the series.
-- The launch repair keeps its per-profile marker, and any path that can restore
-  legacy rows clears the marker for the profile it wrote into.
+- The launch repair keeps its marker per profile namespace — the scoped user id
+  the rows carry — and any path that can restore legacy rows clears that marker.
 
 ## Decision
 
-1. `TaskSeriesInvariants.requireRuleLivesInSeries` is the single statement of the
+1. `TaskSeriesShape.requireRuleLivesInSeries` is the single statement of the
    invariant. The repository calls it for every row it is asked to store, and the
    sync writer reads the same predicate to decide that a document is
    inadmissible.
@@ -57,12 +57,13 @@ repair the row immediately must not pretend they did.**
    task document whose merged row would carry a rule outside a series.
    `PullEventHandler.classify` maps that exception to `ApplyOutcome.Skipped`: the
    cursor advances and the event is recorded as dropped.
-3. `RepairRecurringSeriesUseCase` stores a version per profile and returns before
+3. `RepairRecurringSeriesUseCase` stores a version per profile namespace (the
+   scoped user id) and returns before
    the candidate query when the stored version is current. A failed pass leaves
    the marker unset, so the next launch retries.
-4. `BackupImporter` clears the marker for the profile it restored into, so the
-   next launch visits the restored rows. Both restore entry points funnel through
-   the importer and stamp the active profile id on the options.
+4. `BackupImporter` clears the marker for the scoped user id it restored into,
+   so the next launch visits the restored rows. Both restore entry points funnel
+   through the importer with `currentUser.scopedUserId` as the target.
 
 ## Rationale
 
@@ -76,8 +77,11 @@ working, and the upgraded sender is the one that owns the repair.
 
 The marker is a performance decision, not a correctness one. The repair is
 idempotent; the marker only keeps a repaired profile from paying for a query on
-every launch. That is why the failure mode of a missing marker is "one extra
-query", while the failure mode of a stale marker is "legacy rows never visited".
+every launch. The key is the data namespace rather than the profile alone: two
+accounts on the same profile id hold different rows, so a marker shared between
+them would be stale for one of them. That is why the failure mode of a missing
+marker is "one extra query", while the failure mode of a stale marker is "legacy
+rows never visited".
 The restore hook exists because the second is recoverable and the first is not.
 
 ## Consequences
@@ -90,9 +94,10 @@ The restore hook exists because the second is recoverable and the first is not.
   The task is absent, not corrupt, for that window.
 - A backup restore costs one repair pass on the next launch, even when the
   archive held no legacy rows.
-- The repair marker is a per-profile settings value, not user-visible state. It
+- The repair marker is a per-namespace settings value, not user-visible state. It
   is not exported with the settings snapshot and does not travel between
-  profiles.
+  profiles. An anonymous session whose user id changes loses the marker and pays
+  one extra query; that direction is the harmless one.
 - The observable behaviour is already described by the archived change
   `a-repeating-task-is-a-series-of-occurrences` (`tasks` and `task-series`
   capabilities), so this record changes no spec delta. It records where the
@@ -103,6 +108,6 @@ The restore hook exists because the second is recoverable and the first is not.
 - ADR `2026-10-25-a-recurring-series-carries-the-rule-on-every-row` — the model.
 - ADR `2026-10-23-the-row-keeps-what-the-document-does-not-say` — why the sync
   writer merges a document against the local row before judging it.
-- Issues #1192, #1197, #1198; PRs #1167 and #1201.
+- Issues #1192, #1197, #1198; PRs #1167, #1201 and #1202.
 - Specs: `openspec/specs/task-series/spec.md` REQ-TS-010,
   `openspec/specs/tasks/spec.md` (a rule behind every occurrence).

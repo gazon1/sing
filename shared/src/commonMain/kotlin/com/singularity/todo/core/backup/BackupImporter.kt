@@ -328,7 +328,7 @@ class BackupImporter(
             // marker — a backup restored after the upgrade would otherwise leave
             // the legacy rows unvisited forever. The marker is cleared here, so
             // the next launch repairs the restored rows.
-            val scope = options.targetProfileId?.value ?: options.targetUserId.value
+            val scope = options.targetUserId.value
             runCatchingCancellable { tasksSettings.setRecurringSeriesRepairVersion(scope, 0) }
                 .onFailure { error ->
                     // The rows are already committed. A settings write that failed
