@@ -15,8 +15,8 @@ import com.singularity.todo.test.helpers.awaitTagGone
 import com.singularity.todo.test.helpers.clearTag
 import com.singularity.todo.test.helpers.clickContentDescription
 import com.singularity.todo.test.helpers.clickTag
+import com.singularity.todo.test.helpers.openAllProjects
 import com.singularity.todo.test.helpers.runDesktopAppTest
-import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.typeIntoTag
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -90,7 +90,7 @@ class TextFieldBridgeFlowTest {
      */
     @Test
     fun the_project_name_reaches_the_draft_and_clearing_it_disables_save() = runDesktopAppTest(checkA11y = true) {
-        tapTab("Plans")
+        openAllProjects()
         clickContentDescription(DesktopShell.FAB_ADD_PROJECT)
 
         typeIntoTag(TestTags.PROJECT_EDITOR_NAME_INPUT, "Project Alpha")
@@ -128,7 +128,7 @@ class TextFieldBridgeFlowTest {
      */
     @Test
     fun the_project_search_query_filters_the_list() = runDesktopAppTest(checkA11y = true) {
-        tapTab("Plans")
+        openAllProjects()
         clickContentDescription(DesktopShell.FAB_ADD_PROJECT)
         typeIntoTag(TestTags.PROJECT_EDITOR_NAME_INPUT, "Project Alpha")
         // The name has to reach the draft before Save means anything: the button is
