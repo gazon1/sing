@@ -128,6 +128,7 @@ class SyncEngineStorageFailureTest {
             SyncOutboxEntity(
                 patchId = "patch-storage-1",
                 ownerId = "owner-storage",
+                profileId = "profile-1",
                 entityId = "task-1",
                 entityType = "task",
                 payload = json.encodeToString(
@@ -233,6 +234,7 @@ class SyncEngineStorageFailureTest {
             SyncOutboxEntity(
                 patchId = "patch-corrupt-1",
                 ownerId = "owner-storage",
+                profileId = "profile-1",
                 entityId = "task-2",
                 entityType = "task",
                 payload = "{ this is not a DeltaPatch",

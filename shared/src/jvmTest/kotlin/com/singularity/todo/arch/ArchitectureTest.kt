@@ -136,18 +136,17 @@ class ArchitectureTest {
         /**
          * Whether the package is in the feature's `layer` layer.
          *
-         * The layer is the segment right after the feature's area: `feature.tasks.domain.logic`
-         * is in the domain layer, `feature.tasks.presentation.screen` is in the presentation
-         * layer. A package that merely carries the word is not a layer —
-         * `feature.genui.render.domain` holds the components that render the app's own
-         * vocabulary, and reading it as the domain layer reports a package for the name it
-         * has.
+         * The layer is a segment of the package: `feature.tasks.domain.logic` is in the
+         * domain layer, `feature.tasks.presentation.screen` is in the presentation layer,
+         * and so is `feature.ai.chat.domain` — one level deeper, and the rule still sees
+         * it.
+         *
+         * A package that renders the app's own vocabulary is not a domain layer, and it
+         * does not claim to be one: the components that draw a task card live in
+         * `feature.genui.render.app`.
          */
-        private fun isInLayer(packageName: String, layer: String): Boolean {
-            if (!packageName.startsWith("$PKG.feature.")) return false
-            // com.singularity.todo.feature.<area>.<layer> — the layer is the sixth segment.
-            return packageName.split('.').getOrNull(5) == layer
-        }
+        private fun isInLayer(packageName: String, layer: String): Boolean =
+            packageName.startsWith("$PKG.feature.") && packageName.contains(".$layer")
 
         /**
          * Whether the source builds the question the index is asked by hand.
@@ -359,6 +358,16 @@ class ArchitectureTest {
             """\b\w*[Dd]ao(?:\(\))?\.\w*(?:upsert|insert|update|delete|softDelete|restore|clear)\w*\s*\(""",
         )
 
+        /**
+         * A DAO the file holds, by the name it is held under.
+         *
+         * The name a DAO is given says nothing: `private val tasks: TaskDao` is a DAO
+         * whatever it is called, and a rule that only recognises `taskDao` misses it.
+         * So the names come from the declarations — a property whose type is a DAO —
+         * and the receiver of a write call is compared against those.
+         */
+        private val DAO_DECLARATION = Regex("""\b(?:val|var)\s+(\w+)\s*:\s*\w*Dao\b""")
+
         /** Packages whose DAOs are legitimately written by the class that owns them. */
         private val CORE_DAO_OWNER_PACKAGES =
             listOf("$PKG.core.database", "$PKG.core.sync", "$PKG.core.llm")
@@ -461,15 +470,25 @@ class ArchitectureTest {
             "the rule found nothing in a domain file that imports a presentation type — the " +
                 "rule has stopped detecting, so the rule above is vacuous",
         )
-        assertFalse(
+        assertTrue(
             breaksTheLayerRule(
-                "com.singularity.todo.feature.genui.render.domain",
+                "com.singularity.todo.feature.ai.chat.domain",
                 listOf(presentationImport),
                 "domain",
                 forbidsPresentation,
             ),
-            "the rule read a package that merely carries the word 'domain' as the domain " +
-                "layer — the layer is the segment after the area, not any segment",
+            "the rule found nothing in a domain package one level deeper than the area — the " +
+                "layer is a segment of the package, wherever it sits in it",
+        )
+        assertFalse(
+            breaksTheLayerRule(
+                "com.singularity.todo.feature.genui.render.app",
+                listOf(presentationImport),
+                "domain",
+                forbidsPresentation,
+            ),
+            "the rule read a package that renders the app's own vocabulary as the domain " +
+                "layer — that package is presentation, and it no longer says 'domain'",
         )
     }
 
@@ -723,11 +742,23 @@ class ArchitectureTest {
      * and the exporter was reported for it — a defect that is not there, in a rule that
      * cannot tell a row from a file.
      *
-     * The receiver may be the DAO itself or a call that hands it over
-     * (`taskDao.deleteForUser(...)`, `db.taskDao().deleteForUser(...)`); both are the same
-     * write.
+     * The receiver is the DAO in either of two ways: it is named like one
+     * (`taskDao.deleteForUser(...)`, `db.taskDao().deleteForUser(...)`), or the file
+     * declares it as one (`private val tasks: TaskDao`, then `tasks.deleteForUser(...)`).
+     * The name alone is not enough — a DAO is a DAO whatever it is called — and the
+     * declaration alone is not enough either, because the DAO may be handed over by a
+     * call rather than held.
      */
-    private fun writesADao(code: String): Boolean = DAO_WRITE.containsMatchIn(code)
+    private fun writesADao(code: String): Boolean {
+        if (DAO_WRITE.containsMatchIn(code)) return true
+        // A DAO under a name of its own: the declaration says what it is.
+        val daos = DAO_DECLARATION.findAll(code).map { it.groupValues[1] }.toSet()
+        return daos.any { dao ->
+            Regex(
+                """\b$dao\s*\.\s*\w*(?:upsert|insert|update|delete|softDelete|restore|clear)\w*\s*\(""",
+            ).containsMatchIn(code)
+        }
+    }
 
     /**
      * Positive control: the rule above is proven able to fail, and proven to leave the
@@ -754,6 +785,15 @@ class ArchitectureTest {
                 fs.delete(path)
             }
         """.trimIndent()
+        val daoUnderAnotherName = """
+            package com.singularity.todo.core.whatever
+
+            class Purger(private val tasks: TaskDao) {
+                fun purge(userId: String) {
+                    tasks.deleteForUser("t-1", userId)
+                }
+            }
+        """.trimIndent()
 
         assertTrue(
             writesADao(daoWrite),
@@ -764,6 +804,11 @@ class ArchitectureTest {
             writesADao(fileSystemDelete),
             "the rule read a file being deleted as a row being deleted — the receiver is the " +
                 "thing that says which one it is",
+        )
+        assertTrue(
+            writesADao(daoUnderAnotherName),
+            "the rule found nothing in a file that deletes a row through a DAO it holds under " +
+                "another name — the name says nothing, the declaration says what it is",
         )
     }
 

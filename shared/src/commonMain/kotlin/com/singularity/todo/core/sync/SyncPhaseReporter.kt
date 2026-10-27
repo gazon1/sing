@@ -158,9 +158,21 @@ internal class SyncPhaseReporter(
      *
      * Used by [PushPhase] to transition the status at phase entry and exit.
      * [pushFailed] handles the failure transition separately.
+     *
+     * Leaving the push does not overwrite a failure that is already recorded. The
+     * phase calls this on the way out of a failed push as well, and a status that
+     * went back to Idle after [pushFailed] had landed the error took the error off
+     * the screen: the engine read as idle while the last push had failed, which is
+     * the one state a user must not be shown for a failed sync.
      */
     fun setPushStatus(isPushing: Boolean) {
-        status.value = if (isPushing) SyncEngineStatus.Pushing else SyncEngineStatus.Idle
+        if (isPushing) {
+            status.value = SyncEngineStatus.Pushing
+            return
+        }
+        if (status.value !is SyncEngineStatus.Failure) {
+            status.value = SyncEngineStatus.Idle
+        }
     }
 
     /**
