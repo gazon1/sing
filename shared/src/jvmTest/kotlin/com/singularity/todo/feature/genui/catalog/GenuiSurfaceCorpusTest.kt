@@ -76,8 +76,8 @@ class GenuiSurfaceCorpusTest {
     }
 
     @Test
-    fun theCorpusCoversTheDomainComponents() {
-        // The domain components are the ones a model is most likely to reach for, and the ones most
+    fun theCorpusCoversTheAppComponents() {
+        // The app components are the ones a model is most likely to reach for, and the ones most
         // likely to be renamed in a refactor. Their absence from the corpus is how that would go
         // unnoticed.
         val corpus: String = CORPUS.joinToString("\n") {

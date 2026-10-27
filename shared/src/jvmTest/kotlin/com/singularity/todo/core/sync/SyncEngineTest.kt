@@ -247,6 +247,7 @@ class SyncEngineTest {
                 SyncOutboxEntity(
                     patchId = "p1",
                     ownerId = "owner-1",
+                    profileId = "profile-1",
                     entityId = "e1",
                     entityType = DocType.Task.key,
                     payload =
@@ -287,6 +288,7 @@ class SyncEngineTest {
                 SyncOutboxEntity(
                     patchId = "p1",
                     ownerId = "owner-1",
+                    profileId = "profile-1",
                     entityId = "e1",
                     entityType = DocType.Task.key,
                     payload = "{}",

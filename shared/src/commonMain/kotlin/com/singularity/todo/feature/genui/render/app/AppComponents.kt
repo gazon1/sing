@@ -1,4 +1,4 @@
-package com.singularity.todo.feature.genui.render.domain
+package com.singularity.todo.feature.genui.render.app
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -34,7 +34,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
 /**
- * The three domain components, registered into the same registry as the Material3 set.
+ * The app's own three components, registered into the same registry as the Material3 set.
  *
  * They read the surface's own data model and never a repository, which is what keeps this layer
  * free of task and project dependencies: the agent sends the data, the surface renders it, and
@@ -45,7 +45,7 @@ import kotlinx.serialization.json.contentOrNull
  * agent asked to show three tasks builds exactly that unless the vocabulary offers the shape the
  * app already uses, and the difference is visible to the user.
  */
-internal fun ComponentRegistry.registerDomainComponents() {
+internal fun ComponentRegistry.registerAppComponents() {
     register("task_card") { node, ctx, modifier -> TaskCardView(node as UiNode.TaskCard, ctx, modifier) }
     register("due_date") { node, ctx, modifier -> DueDateView(node as UiNode.DueDate, ctx, modifier) }
     register("project_chip") { node, ctx, modifier -> ProjectChipView(node as UiNode.ProjectChip, ctx, modifier) }

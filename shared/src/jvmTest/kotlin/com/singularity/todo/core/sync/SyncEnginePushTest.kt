@@ -114,11 +114,13 @@ class SyncEnginePushTest {
         attempts: Int = 0,
         createdAt: Long = 1L,
         ownerId: String = "owner-push",
+        profileId: String = "profile-1",
     ) {
         insert(
             SyncOutboxEntity(
                 patchId = patchId,
                 ownerId = ownerId,
+                profileId = profileId,
                 entityId = "entity-$patchId",
                 entityType = DocType.Task.key,
                 payload = StableJson.encodeToString(
