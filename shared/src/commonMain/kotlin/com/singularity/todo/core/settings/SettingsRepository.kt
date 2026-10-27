@@ -39,6 +39,7 @@ object SettingsNamespace {
     const val BACKUP = "backup"
     const val TASKS = "tasks"
     const val PLANS = "plans"
+    const val PROJECTS = "projects"
 
     fun key(ns: String, name: String): String = "$ns.$name"
 }

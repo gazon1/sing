@@ -8,6 +8,7 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.test.fakes.FakeProjectsRepository
+import com.singularity.todo.test.fakes.FakeProjectsTreeSettingsRepository
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -78,6 +79,44 @@ class ProjectsTreeViewModelTest {
         h.close()
     }
 
+    @Test
+    fun `the folding survives a new tree built over the same settings`() = runTest {
+        val repo = FakeProjectsRepository()
+        repo.seed(project("root", "Product"), project("child", "Website", parent = "root"))
+        val settings = FakeProjectsTreeSettingsRepository()
+
+        val first = newHarness(repo, settings)
+        advanceUntilIdle()
+        first.vm.onIntent(ProjectsTreeIntent.ToggleExpanded(ProjectId("root")))
+        advanceUntilIdle()
+        assertEquals(listOf("root"), (first.vm.stateFlow.value as ProjectsTreeUiState.Loaded).nodes.map { it.id.value })
+        first.close()
+
+        // The menu is opened again: the tree is built anew, over the same settings.
+        val second = newHarness(repo, settings)
+        advanceUntilIdle()
+
+        assertEquals(listOf("root"), (second.vm.stateFlow.value as ProjectsTreeUiState.Loaded).nodes.map { it.id.value })
+        second.close()
+    }
+
+    @Test
+    fun `unfolding a project shows its children again`() = runTest {
+        val repo = FakeProjectsRepository()
+        repo.seed(project("root", "Product"), project("child", "Website", parent = "root"))
+        val h = newHarness(repo)
+        advanceUntilIdle()
+
+        h.vm.onIntent(ProjectsTreeIntent.ToggleExpanded(ProjectId("root")))
+        advanceUntilIdle()
+        h.vm.onIntent(ProjectsTreeIntent.ToggleExpanded(ProjectId("root")))
+        advanceUntilIdle()
+
+        val state = h.vm.stateFlow.value as ProjectsTreeUiState.Loaded
+        assertEquals(listOf("root", "child"), state.nodes.map { it.id.value })
+        h.close()
+    }
+
     private fun project(id: String, name: String, parent: String? = null): Project = Project(
         id = ProjectId(id),
         name = name,
@@ -93,10 +132,13 @@ class ProjectsTreeViewModelTest {
         override fun close() = scope.close()
     }
 
-    private fun TestScope.newHarness(repo: FakeProjectsRepository): Harness {
+    private fun TestScope.newHarness(
+        repo: FakeProjectsRepository,
+        settings: FakeProjectsTreeSettingsRepository = FakeProjectsTreeSettingsRepository(),
+    ): Harness {
         val scope = testScope(this)
         return Harness(
-            vm = ProjectsTreeViewModel(repo = repo, scope = scope),
+            vm = ProjectsTreeViewModel(repo = repo, settings = settings, scope = scope),
             scope = scope,
         )
     }

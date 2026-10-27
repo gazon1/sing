@@ -11,10 +11,10 @@ import com.singularity.todo.feature.projects.domain.logic.ProjectTreeBuilder
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.model.ProjectTreeNode
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.projects.domain.port.ProjectsTreeSettingsRepository
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
@@ -62,9 +62,18 @@ sealed interface ProjectsTreeUiEvent : MviEvent {
  * The tree is drawn from a flat list of nodes rather than from a nested
  * structure — a `LazyColumn` cannot scroll a nested list, and the menu's
  * column scrolls on both platforms.
+ *
+ * ## The folding is kept, not just remembered
+ *
+ * Which projects the user has folded away is theirs: a tree that folds itself
+ * back open every time the menu is opened cannot be arranged. The folding is
+ * therefore read from and written to [ProjectsTreeSettingsRepository], which
+ * keeps it per profile — the arrangement of a work profile and of a personal
+ * one are two arrangements.
  */
 class ProjectsTreeViewModel(
     private val repo: ProjectsRepository,
+    private val settings: ProjectsTreeSettingsRepository,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<ProjectsTreeUiState, ProjectsTreeIntent, ProjectsTreeUiEvent>(
@@ -73,12 +82,11 @@ class ProjectsTreeViewModel(
         scope = scope,
     ) {
 
-    /** The projects whose children the user has folded away. */
-    private val collapsedIds = MutableStateFlow<Set<ProjectId>>(emptySet())
-
     init {
         vmScope.launch {
-            combine(repo.observeAll(), collapsedIds) { projects, collapsed -> projects to collapsed }
+            combine(repo.observeAll(), settings.collapsedProjectIds) { projects, collapsed ->
+                projects to collapsed
+            }
                 .catch { throwable ->
                     crashReporter.report(throwable, LOAD_FAILED)
                     setState(ProjectsTreeUiState.Loaded(persistentListOf()))
@@ -101,12 +109,8 @@ class ProjectsTreeViewModel(
     override fun onIntent(intent: ProjectsTreeIntent) {
         when (intent) {
             is ProjectsTreeIntent.ToggleExpanded -> {
-                collapsedIds.value = collapsedIds.value.let { collapsed ->
-                    if (intent.projectId in collapsed) {
-                        collapsed - intent.projectId
-                    } else {
-                        collapsed + intent.projectId
-                    }
+                vmScope.launch {
+                    settings.toggleCollapsed(intent.projectId)
                 }
             }
         }

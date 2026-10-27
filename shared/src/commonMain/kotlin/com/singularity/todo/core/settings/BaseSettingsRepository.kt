@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import kotlin.enums.EnumEntries
 
 /**
@@ -37,6 +38,9 @@ abstract class BaseSettingsRepository(internal val dataStore: DataStore<Preferen
 
     protected fun nullableStringPref(name: String): NullableStringPref =
         NullableStringPref(dataStore, stringPreferencesKey(name))
+
+    protected fun stringSetPref(name: String, default: Set<String> = emptySet()): StringSetPref =
+        StringSetPref(PrefSpec(dataStore, stringSetPreferencesKey(name), default))
 
     protected fun <T : Enum<T>> enumPref(
         name: String,

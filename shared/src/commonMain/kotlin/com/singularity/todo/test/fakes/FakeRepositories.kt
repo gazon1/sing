@@ -90,6 +90,7 @@ import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectDocument
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.projects.domain.port.ProjectsTreeSettingsRepository
 import com.singularity.todo.feature.reminders.ProjectReminder
 import com.singularity.todo.feature.reminders.ProjectReminderId
 import com.singularity.todo.feature.reminders.Reminder
@@ -2043,6 +2044,28 @@ class FakeProjectsRepository(
                 updatedAt = kotlin.time.Instant.fromEpochMilliseconds(updatedAt),
             ),
         )
+    }
+}
+
+// ─── ProjectsTreeSettingsRepository ──────────────────────────────────────────
+
+/**
+ * In-memory [ProjectsTreeSettingsRepository]: the folding of the menu's project tree.
+ *
+ * The folding is a toggle and not a setter here too, so a fake cannot drift from
+ * the contract the production repository keeps: the caller asks to fold or unfold,
+ * and the state decides which it is.
+ */
+class FakeProjectsTreeSettingsRepository : ProjectsTreeSettingsRepository {
+
+    private val _collapsedProjectIds = MutableStateFlow<Set<ProjectId>>(emptySet())
+
+    override val collapsedProjectIds: Flow<Set<ProjectId>> = _collapsedProjectIds.asStateFlow()
+
+    override suspend fun toggleCollapsed(projectId: ProjectId) {
+        _collapsedProjectIds.update { collapsed ->
+            if (projectId in collapsed) collapsed - projectId else collapsed + projectId
+        }
     }
 }
 

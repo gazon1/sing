@@ -1,8 +1,11 @@
 package com.singularity.todo.core.di
 
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.projects.data.DataStoreProjectsTreeSettingsRepository
 import com.singularity.todo.feature.projects.data.ProjectsRepositoryImpl
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.projects.domain.port.ProjectsTreeSettingsRepository
 import com.singularity.todo.feature.projects.domain.usecase.CloseProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.CreateProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
@@ -84,9 +87,20 @@ fun projectsModule(): org.koin.core.module.Module = module {
     // compositions that have to meet.
     single { ProjectsOpener() }
 
+    // Which projects the user has folded away. The folding is theirs, so it is
+    // kept per profile — see the repository's own note on why the key carries
+    // the scoped user id.
+    single<ProjectsTreeSettingsRepository> {
+        DataStoreProjectsTreeSettingsRepository(
+            dataStore = get(),
+            userId = get<ProfileAwareCurrentUser>().scopedUserId,
+        )
+    }
+
     viewModel {
         ProjectsTreeViewModel(
             repo = get(),
+            settings = get(),
             crashReporter = get(),
         )
     }
