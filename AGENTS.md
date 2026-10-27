@@ -72,7 +72,14 @@ notes, pomodoro, profile, projects, reminders, search, settings, statistics, tag
 `test/fakes/` (Fake-реализации, без моков). **iOS нет** — только Android + JVM.
 
 Экспорты схемы Room — каталог `shared/schemas/com.singularity.todo.core.database.AppDatabase/` (файл на версию).
-В `jvmTest` их читает **один** владелец: `MigrationRoundTripSupport.applyExportedSchema(N, connection)`
+
+## Навигация по частым точкам
+
+- AI tool inputs: `feature/ai/tools/*Tool.kt`, nested `*Input` data classes. Allow-list: `core/llm/ToolCallSummary.kt` (`IDENTIFYING_FIELDS` / `FREE_TEXT_FIELDS`).
+- Maestro flows: `Maestro/flows/`. Helpers: `Maestro/helpers/`. Конвенции: `Maestro/CONVENTIONS.md`.
+- Supabase локально: `docs/architecture/local-stack.md`. Ключи из `.env` стека.
+- Тесты arch: `shared/src/jvmTest/kotlin/com/singularity/todo/arch/`.
+ В `jvmTest` их читает **один** владелец: `MigrationRoundTripSupport.applyExportedSchema(N, connection)`
 (и `schemaFile(N)` — путь к экспорту). Тест миграции пишет «посади вот это — проверь вот это»,
 а не SQL; свой экземпляр фикстуры — это copy-paste, который ловит `MigrationFixtureHasOneOwnerTest`.
 
