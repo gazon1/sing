@@ -3,7 +3,7 @@
 agp = "9.4.1"
 kotlin = "2.4.10"
 ksp = "2.3.12"
-kotlin-serialization = "1.11.0"
+kotlin-serialization = "1.12.0"
 
 # Android SDK — "android" prefix avoided: library keys like androidx-android-* would shadow
 # the version accessor. Using "sdk" prefix so accessor is libs.versions.sdk.compile.
