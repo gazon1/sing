@@ -1570,11 +1570,6 @@ private class FakeSyncShadowDao(private val store: MutableStateFlow<Map<SyncShad
 
 private class FakeAttachmentDao(private val store: MutableStateFlow<Map<String, AttachmentEntity>>) : AttachmentDao {
 
-    override fun watchByTask(taskId: String): Flow<List<AttachmentEntity>> = store.map {
-        it.values.filter { a -> a.taskId == taskId && a.deletedAt == null }
-            .sortedByDescending { it.createdAt }
-    }
-
     // ─── UserId-scoped reads (Phase 2.8 fix) ──────────────────────────────────
     override fun watchByTaskForUser(taskId: String, userId: String): Flow<List<AttachmentEntity>> = store.map {
         it.values.filter { a -> a.taskId == taskId && a.userId == userId && a.deletedAt == null }
@@ -1596,8 +1591,6 @@ private class FakeAttachmentDao(private val store: MutableStateFlow<Map<String, 
         store.map { it.values.filter { a -> a.syncStatus == status && a.userId == userId && a.deletedAt == null } }
 
     // ─── Legacy ────────────────────────────────────────────────────────────────
-    override fun watchById(id: String): Flow<AttachmentEntity?> = store.map { it[id] }
-
     override suspend fun upsert(entity: AttachmentEntity) {
         store.update { it + (entity.id to entity) }
     }
@@ -1614,9 +1607,6 @@ private class FakeAttachmentDao(private val store: MutableStateFlow<Map<String, 
         store.update { it - id }
         return 1
     }
-
-    override fun watchBySyncStatus(status: String): Flow<List<AttachmentEntity>> =
-        store.map { it.values.filter { a -> a.syncStatus == status && a.deletedAt == null } }
 
     override suspend fun listAllForUser(userId: String): List<AttachmentEntity> =
         store.value.values.filter { it.userId == userId }
