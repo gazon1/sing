@@ -1,1 +1,0 @@
-{"uuid":"b713fcfb-2bbb-4723-887d-8aedb827d99e","name":"catchTo converts a thrown exception into an error state instead of crashing the coroutine()","children":["80b7cb35-11de-49d0-917e-9ccf74ab8ef0"],"befores":[],"afters":[],"start":1792174019025,"stop":1792174019039}
