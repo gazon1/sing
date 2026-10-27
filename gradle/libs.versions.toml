@@ -22,7 +22,7 @@ androidx-testExt = "1.3.0"
 # Compose
 composeMultiplatform = "1.12.0"
 # Material3 — alpha; stable channel should be used when available
-material3 = "1.12.0-alpha03"
+material3 = "1.13.0-beta01"
 
 # Coroutines / DateTime
 coroutines = "1.11.0"
