@@ -60,9 +60,9 @@ tags:
     visible:
       id: note_editor_title_input
     timeout: 5000
-# Nothing is typed here, so the keyboard was never raised: a `hideKeyboard`
-# would be a BACK press and would dismiss the editor. One `back` closes the
-# editor, which is the abandon this scenario is about.
+# The editor is pushed on top of the task detail, and where "back" lands depends
+# on the graph it was pushed on: the task detail or the agenda. One more back —
+# but only when the detail is still there — brings the flow to a known place.
 - back
 - runFlow:
     when:

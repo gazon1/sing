@@ -396,6 +396,8 @@ class FakeBackupRepository : BackupRepository {
         private set
     var lastImportOptions: ImportOptions? = null
         private set
+    var lastImportSourcePath: String? = null
+        private set
     var lastDeletedId: BackupId? = null
         private set
     var lastPushedId: BackupId? = null
@@ -438,6 +440,7 @@ class FakeBackupRepository : BackupRepository {
     fun clearRecordings() {
         lastExportOptions = null
         lastImportOptions = null
+        lastImportSourcePath = null
         lastDeletedId = null
         lastPushedId = null
         lastPushedPassword = null
@@ -449,8 +452,9 @@ class FakeBackupRepository : BackupRepository {
         return exportResult
     }
 
-    override suspend fun import(options: ImportOptions): Result<RestoreResult> {
-        lastImportOptions = options
+    override suspend fun import(sourcePath: String): Result<RestoreResult> {
+        lastImportSourcePath = sourcePath
+        lastImportOptions = ImportOptions(sourcePath, UserId("test"))
         return importResult
     }
 

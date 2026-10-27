@@ -42,8 +42,8 @@ interface BackupRepository {
      */
     suspend fun export(options: ExportOptions): Result<BackupResult>
 
-    /** Imports a backup zip, restoring all entities. */
-    suspend fun import(options: ImportOptions): Result<RestoreResult>
+    /** Imports a backup zip, restoring all entities into the active profile. */
+    suspend fun import(sourcePath: String): Result<RestoreResult>
 
     /** Deletes the local backup file with the given [BackupId]. */
     suspend fun delete(backupId: BackupId): Result<Unit>
@@ -149,9 +149,14 @@ class BackupRepositoryImpl(
             }
         }
 
-    override suspend fun import(options: ImportOptions): Result<RestoreResult> =
+    override suspend fun import(sourcePath: String): Result<RestoreResult> =
         withContext(ioDispatcher) {
-            importer.import(options.copy(targetUserId = currentUser.scopedUserId.value))
+            importer.import(
+                ImportOptions(
+                    sourcePath = sourcePath,
+                    targetUserId = currentUser.scopedUserId.value,
+                ),
+            )
         }
 
     override suspend fun delete(backupId: BackupId): Result<Unit> =

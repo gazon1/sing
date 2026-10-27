@@ -91,10 +91,15 @@ class LineFramer(private val maxLineLength: Int = MAX_LINE_LENGTH) {
         buffer.clear()
         insideFence = false
         if (remainder.isEmpty()) return produced
-        produced += if (remainder.startsWith("{")) {
-            FramedLine.Dropped("Response ended mid-message; ${remainder.length} characters discarded")
+        if (remainder.startsWith("{")) {
+            val depth = JsonMessageDepth()
+            if (depth.accept(remainder) <= 0) {
+                produced += FramedLine.Message(remainder)
+            } else {
+                produced += FramedLine.Dropped("Response ended mid-message; ${remainder.length} characters discarded")
+            }
         } else {
-            FramedLine.Prose(remainder)
+            produced += FramedLine.Prose(remainder)
         }
         return produced
     }

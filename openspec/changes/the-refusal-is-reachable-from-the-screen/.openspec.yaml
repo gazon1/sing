@@ -17,4 +17,4 @@ schema: spec-driven
 # Invariant: if this change ever needs to alter the requirement's own words — as opposed to
 # making them true — delete `skip_specs` and write the delta in the change that owns the
 # capability, not this one.
-skip_specs: true
+# skip_specs removed: acp-external-agent-desktop is now archived.

@@ -7,7 +7,6 @@ import com.singularity.todo.core.backup.BackupRepository
 import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.RemoteBackup
 import com.singularity.todo.core.backup.exportOptions
-import com.singularity.todo.core.backup.importOptions
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.observability.CrashReportingPort
@@ -139,11 +138,7 @@ class BackupViewModel(
 
     private suspend fun runRestore(sourcePath: String) {
         updateState { it.copy(isWorking = true) }
-        val opts = importOptions {
-            this.sourcePath = sourcePath
-            this.targetUserId = effectiveUserId
-        }
-        repository.import(opts)
+        repository.import(sourcePath)
             .onSuccess {
                 updateState { it.copy(isWorking = false) }
                 tryEmit(BackupUiEvent.ShowSnackbar("Restore complete"))

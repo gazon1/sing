@@ -29,7 +29,6 @@
 .agents/skills/singularity-todo-kmp-platform-specific/SKILL.md:shared/src/commonMain/.../feature/projects/ProjectsViewModel.kt
 .agents/skills/singularity-todo-kmp-platform-specific/SKILL.md:shared/src/commonMain/.../feature/tasks/TasksViewModel.kt
 .agents/skills/singularity-todo-kmp-platform-specific/SKILL.md:shared/src/jvmMain/.../core/di/JvmPromptExecutorPort.kt
-.agents/skills/singularity-todo-mcp-server/SKILL.md:mcp-server/src/test/kotlin/.../mcp/ChannelTransportTest.kt
 .agents/skills/singularity-todo-multi-profile/SKILL.md:mcp-server/src/main/kotlin/.../mcp/Args.kt
 .agents/skills/singularity-todo-quality-tools/SKILL.md:XxxRule.kt
 .agents/skills/singularity-todo-rich-editor/SKILL.md:NotesScreen.kt
