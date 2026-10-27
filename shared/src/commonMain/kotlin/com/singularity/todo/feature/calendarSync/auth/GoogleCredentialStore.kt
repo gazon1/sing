@@ -81,8 +81,10 @@ internal fun googleCredentialKey(userId: String): String = "google_calendar:$use
  * Secure-storage-backed [GoogleCredentialStore].
  *
  * The refresh token lands in the platform keystore on Android (EncryptedSharedPreferences)
- * and in libsecret on desktop, which is the point of doing the token exchange here rather
- * than accepting the library's own storage.
+ * and in the desktop keyring where there is one. Where there is not — no libsecret — it lands
+ * in the AES-GCM fallback file, which is obfuscation rather than protection; see ADR
+ * `2026-10-27-jvm-secure-storage-fallback-is-not-a-secret-store`. The token exchange still
+ * belongs here: one store, one place to fix.
  *
  * Built on [SecureStorage] — the narrow three-method slice — rather than
  * [com.singularity.todo.core.security.SecureStoragePort], so a test can supply a map
