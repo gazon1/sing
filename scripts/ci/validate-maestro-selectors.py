@@ -415,6 +415,13 @@ ALLOWLIST: Set[str] = {
 # ---------------------------------------------------------------------------
 TEMPLATE_VAR_PATTERN = re.compile(r'\$\{[A-Z_][A-Z0-9_]*\}')
 
+# A template that is NOT the uppercase env form: `${output.stamp}` and the
+# like. The uppercase form is what a flow receives through `runFlow … env:`,
+# and the runner substitutes it before the flow runs. The `output.` form is
+# what a flow's OWN script produced — it only exists inside the flow that
+# computed it, so a selector that holds it can never resolve.
+COMPUTED_VALUE_PATTERN = re.compile(r'\$\{(?![A-Z_][A-Z0-9_]*\})[^}]*\}')
+
 
 # ---------------------------------------------------------------------------
 # Collect all id: values from a YAML file
@@ -536,11 +543,25 @@ def main() -> int:
             # through and was reported as unknown; search() catches the embedded form.
             if TEMPLATE_VAR_PATTERN.search(id_val):
                 continue
+            location = f"{flow_path}"
+            if line_no:
+                location += f":{line_no}"
+            computed = COMPUTED_VALUE_PATTERN.search(id_val)
+            if computed:
+                # The id holds a value the flow computed for itself. Maestro
+                # cannot resolve it there, and the flow would wait for an
+                # element that does not exist — the rule that a computed value
+                # reaches a flow through `runFlow … env:` is what stops that.
+                errors.append(
+                    f"  {location}: a computed value cannot be an id: "
+                    f"{id_val!r} — {computed.group(0)} only exists inside the "
+                    "flow that computed it. Pass it to the helper instead: "
+                    "`runFlow: … env: {NAME}: ${output.…}`, and let the helper "
+                    "wait for ${NAME}."
+                )
+                continue
             ids_used_in_flows.add(id_val)
             if id_val not in all_valid_ids:
-                location = f"{flow_path}"
-                if line_no:
-                    location += f":{line_no}"
                 errors.append(f"  {location}: unknown id: {id_val!r}")
 
         # A selector on `inputText` is ignored by Maestro, so the text goes to
