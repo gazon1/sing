@@ -64,21 +64,21 @@ class UpdateTaskSeriesUseCase(
         if (members.isEmpty()) {
             return Result.failure(IllegalStateException("Series $seriesId has no members"))
         }
-        val previousRule = members.first().recurrence
+        val previousRules = members.map { it.recurrence }.toSet()
         val written = repo.updateAll(members.map(transform))
         val updated = written.getOrNull() ?: return written
 
         // A recurring series whose rule changed is re-planned: the dates the new
         // rule gives are materialised and the ones it does not give are removed,
-        // while the closed occurrences stay closed (REQ-TS-010). The comparison is
-        // against the rule the members carried *before* the write, so renaming or
-        // re-tagging a recurring series does not move or detach an occurrence for
-        // no reason. A picked-dates series carries no rule, so nothing is
-        // re-planned for it, and a use case without a materializer leaves it
+        // while the closed occurrences stay closed (REQ-TS-010). "Changed" means
+        // the members did not all already carry the written rule — a series that
+        // had drifted is re-planned, and a rename or a re-tag, which leaves the
+        // rule alone, is not. A picked-dates series carries no rule, so nothing
+        // is re-planned for it, and a use case without a materializer leaves it
         // exactly as it was.
         val rule = updated.first().recurrence
         val materializer = materialize
-        return if (rule != null && rule != previousRule && materializer != null) {
+        return if (rule != null && previousRules != setOf(rule) && materializer != null) {
             val template = updated.first()
             materializer(template = template, rule = rule, anchor = anchorOf(updated, template))
                 .map { repo.getSeries(seriesId) }
