@@ -4,34 +4,6 @@ import com.singularity.todo.core.serialization.StableJson
 import kotlinx.serialization.KSerializer
 
 /**
- * The kinds of row a payload carries.
- *
- * The kind is what a row's key is looked up under: the index of the previous
- * export is a map from the kind to the rows of that kind, and a row is "the same
- * row" when it has the same key **within the same kind**. A task and a note can
- * share an id without being each other.
- */
-enum class BackupEntityKind {
-    TASKS,
-    NOTES,
-    PROJECTS,
-    TAGS,
-    ATTACHMENTS,
-    ATTACHMENT_ANNOTATIONS,
-    TASK_TAGS,
-    TASK_DEPENDENCIES,
-    AGENDA_VIEWS,
-    TASK_REMINDERS,
-    PROJECT_REMINDERS,
-    CHECKLIST_ITEMS,
-    TAG_GROUPS,
-    PROJECT_TAG_GROUPS,
-    SAVED_SEARCHES,
-    TIME_ENTRIES,
-    PROFILES,
-}
-
-/**
  * What the previous export's rows looked like: the kind, the row's key, and a
  * fingerprint of what the row held.
  */
