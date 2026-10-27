@@ -115,10 +115,24 @@ catches the mechanics; the review catches the meaning.
 ## autofix.ci (PR auto-fix)
 
 `.github/workflows/autofix.yml` (workflow **name must be `autofix.ci`**) runs detekt
-`--auto-correct` per module on pull requests and hands the diff to
-`autofix-ci/action@…`, which pushes a fix commit via the autofix.ci GitHub App.
-The App must be installed on the repo or nothing is pushed. It is not part of the
-`CI gate` job graph — it is a convenience, not a verdict.
+`--auto-correct` per module on pull requests (plus `workflow_dispatch`) and hands the
+diff to `autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a`, which pushes a
+fix commit via the autofix.ci GitHub App. The App must be installed on the repo or
+nothing is pushed. It is not part of the `CI gate` job graph — it is a convenience,
+not a verdict.
+
+The loop must stay per-module, same as `just detekt-fix` — `--auto-correct` only
+reaches the last detekt task of an invocation:
+
+```bash
+mapfile -t DETEKT_TASKS < <(python3 scripts/changed-modules.py --detekt-tasks)
+for task in "${DETEKT_TASKS[@]}"; do
+  ./gradlew "${task}" --auto-correct --rerun-tasks --console=plain || true
+done
+```
+
+ktlint is bundled via detekt-formatting, so this single loop covers both. Do not add
+a push-to-main trigger: it would commit to the trunk and risk a run loop.
 
 ## The review verdict is a file, not a recollection
 
