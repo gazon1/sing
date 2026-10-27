@@ -26,6 +26,8 @@
 работай в своём worktree, а не в этом.
 
 Замер за одну сессию (2026-10-05): два ребейза, и fetch в начале сэкономил один.
+
+Автоматизация: `scripts/session-start-check.sh` выполняет fetch + checkout-state; `scripts/gw-progress.sh` оборачивает `./gw` с отчётом прогресса.
 `main` двигается параллельными траншами — чужие изменения принимай как данность и
 перепроверяй, а не откатывай. `git fetch origin && git log --oneline HEAD..origin/main`.
 
