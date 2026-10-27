@@ -39,12 +39,11 @@ internal class SyncPatchBuilder(
         val typeKey = entity.docType.key
         val shadow = shadowDao.get(scope.ownerId, scope.profileId, typeKey, entity.syncId)
 
-        // Base is the in-flight state when there is one: the server does not have
-        // the confirmed state plus this patch's fields yet, it will have them once
-        // the patch lands, and a diff against the older state would re-send them.
-        // No shadow at all means the server has never been told about this entity, so
-        // the base is the empty object and the first patch carries every field.
-        val base = decode(shadow?.inFlightJson ?: shadow?.confirmedJson ?: EMPTY_STATE)
+        // Diff against what the server actually holds (confirmed), never the
+        // in-flight state: the in-flight patch has not landed yet, so a base built
+        // on it drops the fields the first patch carried. A new entity has no
+        // confirmed state, so the base is empty and the patch carries every field.
+        val base = decode(shadow?.confirmedJson ?: EMPTY_STATE)
         val ops = diff(base, state)
 
         val patch = DeltaPatch(

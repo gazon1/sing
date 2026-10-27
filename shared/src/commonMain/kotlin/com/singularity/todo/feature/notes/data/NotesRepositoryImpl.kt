@@ -58,7 +58,7 @@ class NotesRepositoryImpl(
         unitOfWork.write {
             currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
             noteDao.upsert(item.toEntity())
-            item.also { syncRepository.enqueue(it) }
+            item.also { syncRepository.enqueue(it).getOrThrow() }
         }
     }
 
@@ -75,13 +75,13 @@ class NotesRepositoryImpl(
             // caller's anonymous id verbatim would orphan the row.
             val toUpdate = item.copy(userId = currentUser.scopedUserId.value)
             noteDao.upsert(toUpdate.toEntity())
-            toUpdate.also { syncRepository.enqueue(it) }
+            toUpdate.also { syncRepository.enqueue(it).getOrThrow() }
         }
     }
 
     private suspend fun enqueueFresh(id: NoteId) {
         val row = noteDao.getByIdForUser(id.value, currentUser.scopedUserId.value.value) ?: return
-        syncRepository.enqueue(row.toNote())
+        syncRepository.enqueue(row.toNote()).getOrThrow()
     }
 
     // ─── Remote apply (pull handler) ────────────────────────────────────────────
@@ -129,7 +129,7 @@ class NotesRepositoryImpl(
             val removed = noteDao.deleteAllForUser(uid)
             doomed.forEach { row ->
                 val note = row.toNote()
-                syncRepository.enqueue(note.copy(deletedAt = note.deletedAt ?: now))
+                syncRepository.enqueue(note.copy(deletedAt = note.deletedAt ?: now)).getOrThrow()
             }
             removed
         }

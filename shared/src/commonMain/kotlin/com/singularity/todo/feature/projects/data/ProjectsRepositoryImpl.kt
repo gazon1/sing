@@ -63,7 +63,7 @@ class ProjectsRepositoryImpl(
             // statements scope themselves through `projects.user_id`, so an upsert
             // that has not landed yet would silently write nothing.
             replaceInheritedTagGroups(inheritedTagGroupDao, item)
-            item.also { syncRepository.enqueue(it) }
+            item.also { syncRepository.enqueue(it).getOrThrow() }
         }
     }
 
@@ -77,7 +77,7 @@ class ProjectsRepositoryImpl(
             val toUpdate = item.copy(userId = currentUser.scopedUserId.value)
             projectDao.upsert(toUpdate.toEntity())
             replaceInheritedTagGroups(inheritedTagGroupDao, toUpdate)
-            toUpdate.also { syncRepository.enqueue(it) }
+            toUpdate.also { syncRepository.enqueue(it).getOrThrow() }
         }
     }
 
@@ -101,7 +101,7 @@ class ProjectsRepositoryImpl(
             id.value,
             currentUser.scopedUserId.value.value,
         ) ?: return
-        syncRepository.enqueue(project)
+        syncRepository.enqueue(project).getOrThrow()
     }
 
     // ── Remote apply (pull handler) ────────────────────────────────────────────
@@ -180,7 +180,7 @@ class ProjectsRepositoryImpl(
                 )
                 syncRepository.enqueue(
                     project.copy(isDeleted = true, deletedAt = project.deletedAt ?: now),
-                )
+                ).getOrThrow()
             }
             removed
         }

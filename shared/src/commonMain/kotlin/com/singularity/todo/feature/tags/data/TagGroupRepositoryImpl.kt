@@ -74,7 +74,7 @@ class TagGroupRepositoryImpl(
                 userId = uid,
             )
             tagGroupDao.upsert(tagGroup.toEntity())
-            syncRepository.enqueue(tagGroup)
+            syncRepository.enqueue(tagGroup).getOrThrow()
             tagGroup
         }
     }
@@ -96,7 +96,7 @@ class TagGroupRepositoryImpl(
                 updatedAt = clock.now(),
             )
             tagGroupDao.upsert(updated.toEntity())
-            syncRepository.enqueue(updated)
+            syncRepository.enqueue(updated).getOrThrow()
             updated
         }
     }
@@ -112,7 +112,7 @@ class TagGroupRepositoryImpl(
             // has to be pushed to sync or the server keeps the tags in the dead group.
             val releasedTags = tagDao.listByGroupForUser(id.value, uid.value)
             tagDao.clearGroupForUser(id.value, ts, uid.value)
-            releasedTags.forEach { tag -> syncRepository.enqueue(tag.toTag()) }
+            releasedTags.forEach { tag -> syncRepository.enqueue(tag.toTag()).getOrThrow() }
 
             // The join table has no deleted_at of its own and watchByProject does not
             // filter deleted groups, so a leftover row would keep resolving this group
@@ -126,7 +126,7 @@ class TagGroupRepositoryImpl(
             // propagates as state (`deletedAt`), same as every other entity.
             val row = tagGroupDao.getByIdForUser(id.value, uid.value)
                 ?: throw IllegalStateException("TagGroup $id vanished between soft delete and sync")
-            syncRepository.enqueue(row.toTagGroup())
+            syncRepository.enqueue(row.toTagGroup()).getOrThrow()
         }
     }
 
@@ -174,7 +174,7 @@ class TagGroupRepositoryImpl(
                 // server would apply, erasing the change made a line above.
                 val project = projectWithInheritance(projectDao, inheritedTagGroupDao, projectId.value, uid)
                 if (project != null) {
-                    syncRepository.enqueue(project)
+                    syncRepository.enqueue(project).getOrThrow()
                 }
             }
         }
@@ -203,7 +203,7 @@ class TagGroupRepositoryImpl(
             val removed = tagGroupDao.deleteAllForUser(uid)
             val now = clock.now()
             doomed.forEach { row ->
-                syncRepository.enqueue(row.toTagGroup().copy(deletedAt = now))
+                syncRepository.enqueue(row.toTagGroup().copy(deletedAt = now)).getOrThrow()
             }
             removed
         }
