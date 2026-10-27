@@ -80,7 +80,6 @@ class JvmBackupCodec : BackupCodec {
         decodeZip(ByteArrayInputStream(bytes))
     }
 
-    @Suppress("ThrowsCount")
     private fun decodeZip(stream: java.io.InputStream): BackupCodec.CodecReadResult {
         var manifest: ByteArray? = null
         var payload: ByteArray? = null
@@ -92,14 +91,10 @@ class JvmBackupCodec : BackupCodec {
             var totalBytes = 0L
             while (entry != null) {
                 entryCount++
-                if (entryCount > MAX_ENTRIES) {
-                    throw IllegalStateException("backup archive has too many entries: $entryCount")
-                }
+                checkBudget(entryCount, totalBytes)
                 val data = readEntryBounded(zis, MAX_TOTAL_BYTES - totalBytes)
                 totalBytes += data.size
-                if (totalBytes > MAX_TOTAL_BYTES) {
-                    throw IllegalStateException("backup archive decompressed size exceeds limit: $totalBytes")
-                }
+                checkBudget(entryCount, totalBytes)
                 when (entry.name) {
                     BackupFormat.ENTRY_MANIFEST -> manifest = data
 
@@ -136,8 +131,18 @@ class JvmBackupCodec : BackupCodec {
         override fun close() = this@asInputStream.close()
     }
 
+    /** Enforces the archive's entry-count and decompressed-size budgets. */
+    private fun checkBudget(entryCount: Int, totalBytes: Long) {
+        if (entryCount > MAX_ENTRIES || totalBytes > MAX_TOTAL_BYTES) {
+            throw IllegalStateException("backup archive exceeds limits: entries=$entryCount bytes=$totalBytes")
+        }
+    }
+
     /** Reads a zip entry into memory, refusing to exceed [limit] bytes. */
     private fun readEntryBounded(zis: ZipInputStream, limit: Long): ByteArray {
+        if (limit < 0) {
+            throw IllegalStateException("backup archive entry exceeds remaining byte budget")
+        }
         val out = ByteArrayOutputStream()
         val buffer = ByteArray(8192)
         var total = 0L
