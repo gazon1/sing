@@ -62,7 +62,7 @@ class CreateTaskFromDraftUseCase(
     private val checklistRepository: ChecklistRepository,
     private val attachmentRepository: AttachmentRepository,
     private val unitOfWork: UnitOfWork,
-    private val materialize: MaterializeRecurringSeriesUseCase? = null,
+    private val materialize: MaterializeRecurringSeriesUseCase,
 ) {
     suspend operator fun invoke(draft: TaskDraft): Either<AppError, TaskId> {
         // `today` once, then used by both resolutions below. The class already
@@ -124,7 +124,6 @@ class CreateTaskFromDraftUseCase(
                 val userId = currentUser.scopedUserId.value
                 val now = clock.now()
                 val rule = validated.value.recurrence
-                val materializer = materialize
                 // A single date with a rule is a recurring series: the row becomes
                 // the current occurrence and the rule's future dates become further
                 // members. This is the door the create screen goes through, and it
@@ -133,7 +132,7 @@ class CreateTaskFromDraftUseCase(
                 //
                 // A rule together with picked dates drops the rule instead (FR-048),
                 // which is what the create screen already tells the user.
-                if (dates.size == 1 && rule != null && materializer != null) {
+                if (dates.size == 1 && rule != null) {
                     return createRecurringSeries(
                         input = validated.value,
                         date = dates.single(),
@@ -141,7 +140,7 @@ class CreateTaskFromDraftUseCase(
                         draft = draft,
                         userId = userId,
                         now = now,
-                        materializer = materializer,
+                        materializer = materialize,
                     )
                 }
                 // One id for the whole series — but only when there is a series.

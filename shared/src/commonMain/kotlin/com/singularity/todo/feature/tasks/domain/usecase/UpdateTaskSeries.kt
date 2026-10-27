@@ -46,7 +46,7 @@ import kotlin.time.Clock
 class UpdateTaskSeriesUseCase(
     private val repo: TaskRepository,
     private val materialize: MaterializeRecurringSeriesUseCase? = null,
-    private val clock: Clock? = null,
+    private val clock: Clock,
 ) {
     /**
      * Applies [transform] to every member of [seriesId] and writes them in one
@@ -99,7 +99,7 @@ class UpdateTaskSeriesUseCase(
         return open.mapNotNull { it.dueDate }.minOrNull()
             ?: members.mapNotNull { it.dueDate }.maxOrNull()
             ?: fallback.dueDate
-            ?: clock?.now()?.toLocalDateTime(TimeZone.UTC)?.date
+            ?: clock.now().toLocalDateTime(TimeZone.UTC).date
             ?: error("A series with no date anywhere cannot be re-planned")
     }
 
