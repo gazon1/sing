@@ -1,6 +1,7 @@
 ---
 title: Repair includes trashed legacy recurring rows
 date: 2026-10-27
+status: accepted
 ---
 
 ## Context
