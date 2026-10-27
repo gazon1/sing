@@ -28,7 +28,7 @@ tags:
 # The day horizon is thirty days: the distant task is not in it.
 - extendedWaitUntil:
     visible:
-      id: "${PLANS_TOMORROW_SECTION}"
+      id: "${output.PLANS_TOMORROW_SECTION}"
     timeout: 8000
 - assertVisible:
     id: task_item_due_tomorrow

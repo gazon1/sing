@@ -25,9 +25,9 @@ tags:
 # A section for today, and a section for tomorrow — two days, two sections.
 - extendedWaitUntil:
     visible:
-      id: "${PLANS_TODAY_SECTION}"
+      id: "${output.PLANS_TODAY_SECTION}"
     timeout: 8000
 - extendedWaitUntil:
     visible:
-      id: "${PLANS_TOMORROW_SECTION}"
+      id: "${output.PLANS_TOMORROW_SECTION}"
     timeout: 8000

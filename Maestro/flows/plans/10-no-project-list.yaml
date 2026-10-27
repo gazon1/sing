@@ -30,7 +30,7 @@ tags:
 # The tab is the timeline: a task, in a section that names its day.
 - extendedWaitUntil:
     visible:
-      id: "${PLANS_TODAY_SECTION}"
+      id: "${output.PLANS_TODAY_SECTION}"
     timeout: 8000
 - assertVisible:
     id: task_item_due_today

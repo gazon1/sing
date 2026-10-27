@@ -23,7 +23,7 @@ tags:
     id: plans_granularity_week
 - extendedWaitUntil:
     visible:
-      id: "${PLANS_WEEK_SECTION}"
+      id: "${output.PLANS_WEEK_SECTION}"
     timeout: 8000
 - assertNotVisible:
-    id: "${PLANS_TODAY_SECTION}"
+    id: "${output.PLANS_TODAY_SECTION}"

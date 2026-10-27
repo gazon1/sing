@@ -1,4 +1,8 @@
 # The menu carries the projects as a tree, and the way to the full list.
+#
+# The project is seeded with the id it carries, so the node in the tree is
+# addressed by that id rather than by the name the user reads — a name is copy,
+# and an id is not.
 appId: com.singularity.todo
 name: menu-projects-tree
 tags:
@@ -10,12 +14,18 @@ tags:
 - runFlow:
     file: ../../helpers/seed.yaml
     env:
-      QUERY: "project=Roadmap"
+      QUERY: "project=Roadmap&id=roadmap"
 - runFlow: ../../helpers/open-app-menu.yaml
-# The project is in the menu, and the way to the full list is under it.
-- extendedWaitUntil:
-    visible: "Roadmap"
+# The tree sits at the end of the menu, below the fold — a row that is drawn
+# but off-screen is not a row the user can see.
+- scrollUntilVisible:
+    element:
+      id: menu_project_node_roadmap
+    direction: DOWN
     timeout: 8000
+- assertVisible:
+    id: menu_project_node_roadmap
+# And the way to the full list is under it.
 - scrollUntilVisible:
     element:
       id: menu_all_projects

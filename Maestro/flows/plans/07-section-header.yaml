@@ -22,19 +22,19 @@ tags:
 # The day section names its day.
 - extendedWaitUntil:
     visible:
-      id: "${PLANS_TODAY_SECTION}"
+      id: "${output.PLANS_TODAY_SECTION}"
     timeout: 8000
 # The week section names the week it covers.
 - tapOn:
     id: plans_granularity_week
 - extendedWaitUntil:
     visible:
-      id: "${PLANS_WEEK_SECTION}"
+      id: "${output.PLANS_WEEK_SECTION}"
     timeout: 8000
 # The month section names the calendar month.
 - tapOn:
     id: plans_granularity_month
 - extendedWaitUntil:
     visible:
-      id: "${PLANS_MONTH_SECTION}"
+      id: "${output.PLANS_MONTH_SECTION}"
     timeout: 8000

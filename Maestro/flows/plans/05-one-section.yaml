@@ -24,7 +24,7 @@ tags:
 # The day section holds it.
 - extendedWaitUntil:
     visible:
-      id: "${PLANS_TODAY_SECTION}"
+      id: "${output.PLANS_TODAY_SECTION}"
     timeout: 8000
 - assertVisible:
     id: task_item_only_once
@@ -34,12 +34,12 @@ tags:
     id: plans_granularity_week
 - extendedWaitUntil:
     visible:
-      id: "${PLANS_WEEK_SECTION}"
+      id: "${output.PLANS_WEEK_SECTION}"
     timeout: 8000
 - assertVisible:
     id: task_item_only_once
 - assertNotVisible:
-    id: "${PLANS_TODAY_SECTION}"
+    id: "${output.PLANS_TODAY_SECTION}"
 # The month section holds it too.
 - tapOn:
     id: plans_granularity_month

@@ -31,7 +31,7 @@ tags:
     id: plans_granularity_week
 - extendedWaitUntil:
     visible:
-      id: "${PLANS_WEEK_SECTION}"
+      id: "${output.PLANS_WEEK_SECTION}"
     timeout: 8000
 # Leaving the tab and coming back: the choice is still in effect.
 - tapOn:
@@ -44,7 +44,7 @@ tags:
     id: nav_tab_plans
 - extendedWaitUntil:
     visible:
-      id: "${PLANS_WEEK_SECTION}"
+      id: "${output.PLANS_WEEK_SECTION}"
     timeout: 8000
 - assertVisible:
     id: plans_granularity_week
