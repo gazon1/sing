@@ -161,7 +161,9 @@ class BackupImporter(
      * payload of this build's own schema is left alone.
      */
     private fun migrate(payload: BackupPayload, payloadBytes: ByteArray): BackupPayload =
-        if (payload.schemaVersion < BackupFormat.SCHEMA_VERSION) {
+        if (payload.schemaVersion > BackupFormat.SCHEMA_VERSION) {
+            throw BackupPayloadError.UnsupportedSchemaVersion(payload.schemaVersion)
+        } else if (payload.schemaVersion < BackupFormat.SCHEMA_VERSION) {
             val jsonObj = json.parseToJsonElement(payloadBytes.decodeToString()).jsonObject
             val migrated = BackupMigrations.migrate(jsonObj, payload.schemaVersion)
             val migratedBytes = json.encodeToString(migrated).encodeToByteArray()

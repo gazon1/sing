@@ -6,6 +6,7 @@ import com.singularity.todo.core.files.ByteSource
 import com.singularity.todo.core.files.FileSource
 import com.singularity.todo.core.files.FileSystem
 import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.zip.ZipEntry
@@ -79,6 +80,7 @@ class JvmBackupCodec : BackupCodec {
         decodeZip(ByteArrayInputStream(bytes))
     }
 
+    @Suppress("ThrowsCount")
     private fun decodeZip(stream: java.io.InputStream): BackupCodec.CodecReadResult {
         var manifest: ByteArray? = null
         var payload: ByteArray? = null
@@ -86,8 +88,18 @@ class JvmBackupCodec : BackupCodec {
 
         ZipInputStream(stream).use { zis ->
             var entry: ZipEntry? = zis.nextEntry
+            var entryCount = 0
+            var totalBytes = 0L
             while (entry != null) {
-                val data = zis.readBytes()
+                entryCount++
+                if (entryCount > MAX_ENTRIES) {
+                    throw IllegalStateException("backup archive has too many entries: $entryCount")
+                }
+                val data = readEntryBounded(zis, MAX_TOTAL_BYTES - totalBytes)
+                totalBytes += data.size
+                if (totalBytes > MAX_TOTAL_BYTES) {
+                    throw IllegalStateException("backup archive decompressed size exceeds limit: $totalBytes")
+                }
                 when (entry.name) {
                     BackupFormat.ENTRY_MANIFEST -> manifest = data
 
@@ -124,6 +136,23 @@ class JvmBackupCodec : BackupCodec {
         override fun close() = this@asInputStream.close()
     }
 
+    /** Reads a zip entry into memory, refusing to exceed [limit] bytes. */
+    private fun readEntryBounded(zis: ZipInputStream, limit: Long): ByteArray {
+        val out = ByteArrayOutputStream()
+        val buffer = ByteArray(8192)
+        var total = 0L
+        while (true) {
+            val read = zis.read(buffer)
+            if (read < 0) break
+            total += read
+            if (total > limit) {
+                throw IllegalStateException("backup archive entry exceeds remaining byte budget")
+            }
+            out.write(buffer, 0, read)
+        }
+        return out.toByteArray()
+    }
+
     /** Copies everything [source] yields into [out], in pieces, and closes it. */
     private fun copyInto(out: OutputStream, source: ByteSource) {
         try {
@@ -157,5 +186,11 @@ class JvmBackupCodec : BackupCodec {
     private companion object {
         /** How much of an attachment is copied at a time. */
         const val COPY_CHUNK_BYTES = 64 * 1024
+
+        /** Maximum number of entries in a backup archive. */
+        const val MAX_ENTRIES = 100_000
+
+        /** Maximum total decompressed bytes in a backup archive (64 MB). */
+        const val MAX_TOTAL_BYTES = 64L * 1024 * 1024
     }
 }
