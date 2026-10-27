@@ -49,6 +49,32 @@ class LineFramerTest {
     }
 
     @Test
+    fun aMessageClosesOnItsClosingBraceWithoutWaitingForANewline() {
+        // The transport does not promise a newline after the closing brace, and a
+        // chunk that ends there used to hold the whole message until the next
+        // chunk happened to carry one.
+        val framer = LineFramer()
+        assertEquals(emptyList(), framer.accept("{\n\"a\": 1"))
+        assertEquals(
+            listOf(FramedLine.Message("{\n\"a\": 1}")),
+            framer.accept("}"),
+            "the balanced brace is the end of the message, not the newline",
+        )
+    }
+
+    @Test
+    fun aPrettyPrintedMessageSplitIntoCharactersIsOneMessage() {
+        // A pretty-printed message is still one message. Feeding it one character
+        // at a time is the worst case the transport can produce, and the lines it
+        // spans are trimmed the way the whole-line path trims them.
+        val pretty = "{\n  \"a\": 1\n}"
+        val framer = LineFramer()
+        val produced = pretty.map { framer.accept(it.toString()) }.flatten()
+
+        assertEquals(listOf(FramedLine.Message("{\n\"a\": 1\n}")), produced)
+    }
+
+    @Test
     fun windowsAndUnixLineEndingsBothSplit() {
         val framer = LineFramer()
         val produced = framer.accept("first\r\n$message\r\n")

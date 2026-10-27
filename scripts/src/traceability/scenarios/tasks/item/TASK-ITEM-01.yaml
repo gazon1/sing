@@ -33,7 +33,7 @@ expected: >-
   having opened.
 
 # Claimed on `desktop` by
-# desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/tasks/TaskItemScenarioTest.kt.
+# desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/tasks/TaskItemListScenarioTest.kt.
 # Android is not claimed: the Maestro flow that covers the inline checklist is
 # `scenario:TASK-CHECK-01`, which is a different question — the persistence of
 # the item, not the shape of the two lists.

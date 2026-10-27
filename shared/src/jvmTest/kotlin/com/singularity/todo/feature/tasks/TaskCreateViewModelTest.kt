@@ -21,7 +21,9 @@ import com.singularity.todo.test.fakes.FakeAttachmentRepository
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeChecklistRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.feature.tasks.domain.usecase.MaterializeRecurringSeriesUseCase
 import com.singularity.todo.test.fakes.FakeTaskRepository
+import com.singularity.todo.test.fakes.FakeUnitOfWork
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
@@ -81,6 +83,8 @@ class TaskCreateViewModelTest {
                 fakeCurrentUser,
                 fakeChecklistRepository,
                 fakeAttachmentRepository,
+                FakeUnitOfWork(),
+                MaterializeRecurringSeriesUseCase(fakeTaskRepo, FakeUnitOfWork(), FakeClock(taskNow)),
             ),
             logger = Logger.withTag("TaskCreateTest"),
             draftStore = fakeDraftStore,

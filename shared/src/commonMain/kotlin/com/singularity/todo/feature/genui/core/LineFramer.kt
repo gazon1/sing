@@ -61,7 +61,7 @@ class LineFramer(private val maxLineLength: Int = MAX_LINE_LENGTH) {
             when {
                 skippingOversizedLine -> if (character == '\n') finishSkipped(produced)
                 character == '\n' -> endOfLine(produced)
-                else -> appendToBuffer(character)
+                else -> appendToBuffer(character, produced)
             }
         }
         return produced
@@ -99,13 +99,26 @@ class LineFramer(private val maxLineLength: Int = MAX_LINE_LENGTH) {
         return produced
     }
 
-    private fun appendToBuffer(character: Char) {
+    private fun appendToBuffer(character: Char, produced: MutableList<FramedLine>) {
         if (buffer.length >= maxLineLength) {
             buffer.clear()
             skippingOversizedLine = true
             return
         }
         buffer.append(character)
+        val open = message ?: return
+        // A message carried across lines closes the moment its braces balance —
+        // not at the next newline. Waiting for the newline made the result depend
+        // on where the transport split the stream: a chunk that ended on the
+        // closing brace held the whole message until the next chunk happened to
+        // carry a newline, and a message with no newline after it was never
+        // emitted at all.
+        if (depth.accept(character) <= 0) {
+            open.append('\n').append(buffer.toString().trim())
+            buffer.clear()
+            message = null
+            produced += FramedLine.Message(open.toString())
+        }
     }
 
     private fun endOfLine(produced: MutableList<FramedLine>) {
@@ -119,7 +132,13 @@ class LineFramer(private val maxLineLength: Int = MAX_LINE_LENGTH) {
             if (line.isNotEmpty()) insideFence = !insideFence
             return
         }
-        if (continueMessage(line, produced)) return
+        // The depth was already advanced character by character as the line
+        // arrived, so the continuation is just an append.
+        val open = message
+        if (open != null) {
+            open.append('\n').append(line)
+            return
+        }
         if (looksLikeMessage(line)) {
             if (depth.accept(line) > 0) {
                 // The message is not closed yet: it continues on the next line.
@@ -130,22 +149,6 @@ class LineFramer(private val maxLineLength: Int = MAX_LINE_LENGTH) {
             return
         }
         produced += FramedLine.Prose(line)
-    }
-
-    /**
-     * Extends the message being assembled with [line], if there is one.
-     *
-     * @return whether the line was consumed as a continuation; false when no message is
-     *   open, so the caller decides what the line is on its own.
-     */
-    private fun continueMessage(line: String, produced: MutableList<FramedLine>): Boolean {
-        val open = message ?: return false
-        open.append('\n').append(line)
-        if (depth.accept(line) <= 0) {
-            message = null
-            produced += FramedLine.Message(open.toString())
-        }
-        return true
     }
 
     private fun finishSkipped(produced: MutableList<FramedLine>) {

@@ -163,6 +163,18 @@ internal class PullEventHandler(
         event: SyncEvent,
         e: Throwable,
     ): ApplyOutcome {
+        if (e is InadmissibleTaskDocumentException) {
+            // The document arrived from a device that predates the series model:
+            // a rule with no series id. The same bytes will arrive on every
+            // delivery, so holding the cursor would wedge the account forever.
+            // The row is not stored; the sender's next push, after its own
+            // launch repair, carries the series.
+            log.w {
+                "Pull event [${event.entityId}][${event.eventType}][lsn=${event.serverLsn}]: " +
+                    "${e.message}, skipping"
+            }
+            return ApplyOutcome.Skipped(e.message ?: "the document predates the series model")
+        }
         if (e is SerializationException) {
             // The bytes on the wire will be identical on every later delivery, so
             // waiting cannot make this decode. It is the same class as the payload that

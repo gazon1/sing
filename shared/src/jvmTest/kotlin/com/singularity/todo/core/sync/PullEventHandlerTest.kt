@@ -3,6 +3,13 @@ package com.singularity.todo.core.sync
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
+import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.RecurrenceBase
+import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.test.fakes.FakeTaskRepository
+import com.singularity.todo.test.fakes.testTask
+import kotlinx.coroutines.flow.first
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.SerializationException
@@ -170,6 +177,28 @@ class PullEventHandlerTest {
 
         assertIs<ApplyOutcome.Skipped>(outcome)
         assertEquals("the event payload does not decode: Unrecognisable format", outcome.reason)
+    }
+
+    @Test
+    fun `a task document with a rule and no series id → Skipped, not Failed`() = runTest {
+        // A document from a device that predates the series model. The row is the
+        // forbidden shape (FR-001), and the same bytes arrive on every delivery —
+        // so retrying it would wedge the account's pull forever. The event is
+        // skipped and nothing is stored; the sender's repaired series arrives on
+        // its next push.
+        val tasks = FakeTaskRepository()
+        val writer = fakeSyncDocumentWriter(tasks = tasks)
+        val weekly = RecurrenceSpec.Interval(RecurrenceBase.FROM_DUE, 1, DateTimeUnit.WEEK)
+        val legacy = testTask(id = TaskId("legacy"), title = "Buy bread").copy(recurrence = weekly)
+
+        val h = handler()
+        val outcome = h.handleEvent(event(SyncEventType.CREATED, data = legacy.toJson())) {
+            writer.upsert(DocType.Task, legacy.toJson())
+        }
+
+        assertIs<ApplyOutcome.Skipped>(outcome)
+        assertTrue(outcome.reason.contains("series id"), outcome.reason)
+        assertTrue(tasks.observeAll().first().isEmpty(), "the forbidden shape was not stored")
     }
 
     @Test

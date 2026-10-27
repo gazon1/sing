@@ -70,7 +70,7 @@ class EnvironmentSelectsTheRunTest(unittest.TestCase):
 
     def test_flow_env_selects_a_directory(self):
         out = _dry_run({"FLOW": "Maestro/flows/tasks"})
-        self.assertIn("Total discovered: 20", out)
+        self.assertIn("Total discovered: 22", out)
 
     def test_tags_env_selects_by_tag(self):
         out = _dry_run({"TAGS": "agenda"})

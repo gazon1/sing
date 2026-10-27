@@ -8,7 +8,7 @@ slug: a-repeating-task-is-a-series-of-occurrences
 date: '2026-10-25'
 title: a-repeating-task-is-a-series-of-occurrences
 status: accepted
-change_type: active
+change_type: archived
 speckit_imported: false
 adr_refs:
 - sequence: '20261025'
@@ -22,10 +22,10 @@ tags:
 - agenda
 - ui
 documents:
-  proposal: openspec/changes/a-repeating-task-is-a-series-of-occurrences/proposal.md
-  design: openspec/changes/a-repeating-task-is-a-series-of-occurrences/design.md
+  proposal: openspec/changes/archive/2026-10-26-a-repeating-task-is-a-series-of-occurrences/proposal.md
+  design: openspec/changes/archive/2026-10-26-a-repeating-task-is-a-series-of-occurrences/design.md
   adr: docs/decisions/2026-10-25-a-recurring-series-carries-the-rule-on-every-row.md
-  tasks: openspec/changes/a-repeating-task-is-a-series-of-occurrences/tasks.md
-specs_dir: openspec/changes/a-repeating-task-is-a-series-of-occurrences/specs
+  tasks: openspec/changes/archive/2026-10-26-a-repeating-task-is-a-series-of-occurrences/tasks.md
+specs_dir: openspec/changes/archive/2026-10-26-a-repeating-task-is-a-series-of-occurrences/specs
 is_stub: false
-openspec_path: openspec/changes/a-repeating-task-is-a-series-of-occurrences
+openspec_path: openspec/changes/archive/2026-10-26-a-repeating-task-is-a-series-of-occurrences

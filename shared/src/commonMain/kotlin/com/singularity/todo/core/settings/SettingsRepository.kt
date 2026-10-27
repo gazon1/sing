@@ -191,6 +191,17 @@ class DataStoreSettingsRepository(
         val STALENESS_THRESHOLD_DAYS = intPreferencesKey(
             SettingsNamespace.key(SettingsNamespace.TASKS, "staleness_threshold_days"),
         )
+
+        /**
+         * The key of a profile's recurring-series repair marker.
+         *
+         * The profile scope is part of the key rather than a value beside it: each
+         * profile is repaired on its own first launch, and one profile's marker
+         * must not stand for another's.
+         */
+        fun recurringSeriesRepairVersionKey(profileScope: String) = intPreferencesKey(
+            SettingsNamespace.key(SettingsNamespace.TASKS, "recurring_series_repair_version.$profileScope"),
+        )
     }
 
     // ── Per-section repositories ───────────────────────────────────────────
@@ -252,5 +263,12 @@ class DataStoreSettingsRepository(
 
     override suspend fun setStalenessThresholdDays(value: Int) {
         dataStore.edit { it[STALENESS_THRESHOLD_DAYS] = value }
+    }
+
+    override fun recurringSeriesRepairVersion(profileScope: String): Flow<Int> =
+        dataStore.data.map { it[recurringSeriesRepairVersionKey(profileScope)] ?: 0 }
+
+    override suspend fun setRecurringSeriesRepairVersion(profileScope: String, version: Int) {
+        dataStore.edit { it[recurringSeriesRepairVersionKey(profileScope)] = version }
     }
 }

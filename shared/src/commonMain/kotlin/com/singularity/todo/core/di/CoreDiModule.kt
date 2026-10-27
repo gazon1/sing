@@ -420,6 +420,7 @@ fun coreModule(): org.koin.core.module.Module =
                 get(), // codec
                 get(), // clock
                 createFileSource = get(),
+                tasksSettings = get(),
             )
         }
         single<BackupRepository> {

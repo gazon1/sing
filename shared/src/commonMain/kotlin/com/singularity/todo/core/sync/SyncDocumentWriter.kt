@@ -17,6 +17,7 @@ import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.feature.tags.domain.model.TagGroup
 import com.singularity.todo.feature.tags.domain.model.TagGroupId
 import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
+import com.singularity.todo.feature.tasks.domain.logic.TaskSeriesShape
 import com.singularity.todo.feature.tasks.domain.model.BLOCKED_BY_WIRE_NAME
 import com.singularity.todo.feature.tasks.domain.model.TAGS_WIRE_NAME
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -96,8 +97,24 @@ internal class SyncDocumentWriter(
      */
     suspend fun upsert(type: DocType, document: JsonObject) {
         when (type) {
-            DocType.Task ->
-                taskRepo.upsert(taskDocument(document))
+            DocType.Task -> {
+                val taskDocument = taskDocument(document)
+                // A rule implies a series (FR-001). A document from a device that
+                // predates the series model carries a rule and no series id, and on
+                // a device that has no local row to merge it against there is
+                // nothing to keep. Writing it would store the forbidden shape;
+                // failing the event would hold the cursor forever, because the same
+                // bytes arrive every cycle. The event is skipped instead — the
+                // upgraded sender's next push carries the repaired series — which
+                // is the pull path's version of "never store the bare shape".
+                if (TaskSeriesShape.ruleLivesOutsideSeries(taskDocument.task)) {
+                    throw InadmissibleTaskDocumentException(
+                        "the task ${taskDocument.task.id.value} carries a repeat rule without " +
+                            "a series id; the document predates the series model",
+                    )
+                }
+                taskRepo.upsert(taskDocument)
+            }
 
             DocType.Note ->
                 noteRepo.upsert(noteDocument(document))
@@ -301,6 +318,16 @@ internal class SyncDocumentWriter(
         DocType.TimeEntry -> timeTrackingRepo.delete(TimeEntryId.fromString(id))
     }
 }
+
+/**
+ * A task document whose row the write path must not store.
+ *
+ * The pull path has one of these: a rule on a row with no series id. It is not a
+ * storage failure and not a decode failure — the document is readable, and the
+ * same bytes will arrive again on every delivery. [PullEventHandler] turns it
+ * into a skip, so the cursor advances; retrying it would wedge the account.
+ */
+internal class InadmissibleTaskDocumentException(message: String) : RuntimeException(message)
 
 /**
  * The keys of the parts of a task document that live outside the row.
