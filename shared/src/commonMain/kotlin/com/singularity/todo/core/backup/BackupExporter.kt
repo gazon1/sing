@@ -204,10 +204,10 @@ class BackupExporter(
      * ## What it writes
      *
      * The rows that changed — the new ones and the ones whose content changed —
-     * as a [BackupDelta] beside the snapshot. When the change cannot be carried
-     * that way, **nothing** is written and the chain starts again from this
-     * snapshot: a removal is not a row, and an attachment carries bytes that an
-     * entry does not.
+     * together with the rows that are gone, as a [BackupDelta] beside the
+     * snapshot. When the change cannot be carried that way, **nothing** is written
+     * and the chain starts again from this snapshot: an attachment carries bytes
+     * that an entry does not.
      *
      * ## When the chain starts again
      *
@@ -230,7 +230,7 @@ class BackupExporter(
             is BackupDeltaPlan.FreshBase -> restartChain(options, state, index, now)
 
             is BackupDeltaPlan.Entry -> {
-                if (plan.payload.hasNoRows()) {
+                if (plan.payload.hasNoChanges()) {
                     // Nothing changed: there is no change to write, and an empty
                     // entry would only make the chain longer than the account.
                     cursors.save(

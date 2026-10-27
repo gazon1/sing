@@ -15,13 +15,16 @@ import kotlinx.serialization.Serializable
  * carried whole — the same shape the base carries — and applying a delta is an
  * upsert and nothing else.
  *
- * ## What a delta does not hold
+ * ## What a delta holds about removals
  *
- * It does not hold **removals**. A row that is gone cannot be carried by a set of
- * rows that are here: the delta would have to say "this row is not here", which is
- * a statement about the base, not a row. So the export that notices a removal does
- * not write a delta at all — it re-seals a fresh base, and the base is the snapshot
- * that has the removal in it. That is the whole reason a chain has a base.
+ * It holds the **keys** of the rows that are gone (see
+ * [BackupPayload.removals]). A removal has no row to carry — a row that is not
+ * there cannot be sent — so what travels is the statement "this key is not here
+ * any more", and the restore takes the row out.
+ *
+ * The alternative used to be that a removal ended the chain: the export wrote a
+ * fresh base instead of a change, so one deleted task cost the whole snapshot.
+ * A removal is a change like any other, and a change can carry it.
  *
  * ## The cursor
  *
@@ -59,35 +62,95 @@ data class BackupDelta(
  * [delta] says nothing about is **kept** — that is what makes a delta a delta and
  * not a snapshot.
  *
- * ## What it does not do
+ * ## The removals
  *
- * It does not remove anything. A removal is not a row, and a chain that could
- * remove rows would need the removals to travel; the export that notices one writes
- * a fresh base instead.
+ * A row whose key [delta] lists as removed is **taken out**. The removal is
+ * applied after the upserts of the same delta, so a delta that both carries a row
+ * and says it is gone ends with the row gone — the two never overlap in practice,
+ * because a row that is gone cannot also have changed.
+ *
+ * ## What the merged payload does not hold
+ *
+ * The removals. A merged payload is a **state**, and a state says what is there —
+ * the removal has already been applied to it. That is also what keeps a chain
+ * honest: merging the next change on top of a merged payload must not carry the
+ * earlier removals along, or a row that came back would be taken out again.
  */
 fun merge(base: BackupPayload, delta: BackupPayload): BackupPayload = BackupPayload(
     schemaVersion = maxOf(base.schemaVersion, delta.schemaVersion),
-    tasks = mergeRows(base.tasks, delta.tasks) { it.id },
-    notes = mergeRows(base.notes, delta.notes) { it.id },
-    projects = mergeRows(base.projects, delta.projects) { it.id },
-    tags = mergeRows(base.tags, delta.tags) { it.id },
-    attachments = mergeRows(base.attachments, delta.attachments) { it.id },
-    attachmentAnnotations = mergeRows(base.attachmentAnnotations, delta.attachmentAnnotations) { it.id },
-    taskTags = mergeRows(base.taskTags, delta.taskTags) { it.taskId.link(it.tagId) },
-    taskDependencies = mergeRows(base.taskDependencies, delta.taskDependencies) {
+    tasks = mergeRows(base.tasks, delta.tasks, delta.removed(BackupEntityKind.TASKS)) { it.id },
+    notes = mergeRows(base.notes, delta.notes, delta.removed(BackupEntityKind.NOTES)) { it.id },
+    projects = mergeRows(base.projects, delta.projects, delta.removed(BackupEntityKind.PROJECTS)) { it.id },
+    tags = mergeRows(base.tags, delta.tags, delta.removed(BackupEntityKind.TAGS)) { it.id },
+    attachments = mergeRows(
+        base.attachments,
+        delta.attachments,
+        delta.removed(BackupEntityKind.ATTACHMENTS),
+    ) { it.id },
+    attachmentAnnotations = mergeRows(
+        base.attachmentAnnotations,
+        delta.attachmentAnnotations,
+        delta.removed(BackupEntityKind.ATTACHMENT_ANNOTATIONS),
+    ) { it.id },
+    taskTags = mergeRows(
+        base.taskTags,
+        delta.taskTags,
+        delta.removed(BackupEntityKind.TASK_TAGS),
+    ) { it.taskId.link(it.tagId) },
+    taskDependencies = mergeRows(
+        base.taskDependencies,
+        delta.taskDependencies,
+        delta.removed(BackupEntityKind.TASK_DEPENDENCIES),
+    ) {
         it.taskId.link(it.dependsOnTaskId)
     },
-    agendaViews = mergeRows(base.agendaViews, delta.agendaViews) { it.id },
-    taskReminders = mergeRows(base.taskReminders, delta.taskReminders) { it.id },
-    projectReminders = mergeRows(base.projectReminders, delta.projectReminders) { it.id },
-    checklistItems = mergeRows(base.checklistItems, delta.checklistItems) { it.id },
-    tagGroups = mergeRows(base.tagGroups, delta.tagGroups) { it.id },
-    projectTagGroups = mergeRows(base.projectTagGroups, delta.projectTagGroups) {
+    agendaViews = mergeRows(
+        base.agendaViews,
+        delta.agendaViews,
+        delta.removed(BackupEntityKind.AGENDA_VIEWS),
+    ) { it.id },
+    taskReminders = mergeRows(
+        base.taskReminders,
+        delta.taskReminders,
+        delta.removed(BackupEntityKind.TASK_REMINDERS),
+    ) { it.id },
+    projectReminders = mergeRows(
+        base.projectReminders,
+        delta.projectReminders,
+        delta.removed(BackupEntityKind.PROJECT_REMINDERS),
+    ) { it.id },
+    checklistItems = mergeRows(
+        base.checklistItems,
+        delta.checklistItems,
+        delta.removed(BackupEntityKind.CHECKLIST_ITEMS),
+    ) { it.id },
+    tagGroups = mergeRows(
+        base.tagGroups,
+        delta.tagGroups,
+        delta.removed(BackupEntityKind.TAG_GROUPS),
+    ) { it.id },
+    projectTagGroups = mergeRows(
+        base.projectTagGroups,
+        delta.projectTagGroups,
+        delta.removed(BackupEntityKind.PROJECT_TAG_GROUPS),
+    ) {
         it.projectId.link(it.tagGroupId)
     },
-    savedSearches = mergeRows(base.savedSearches, delta.savedSearches) { it.id },
-    timeEntries = mergeRows(base.timeEntries, delta.timeEntries) { it.id },
-    profiles = mergeRows(base.profiles, delta.profiles) { it.id },
+    savedSearches = mergeRows(
+        base.savedSearches,
+        delta.savedSearches,
+        delta.removed(BackupEntityKind.SAVED_SEARCHES),
+    ) { it.id },
+    timeEntries = mergeRows(
+        base.timeEntries,
+        delta.timeEntries,
+        delta.removed(BackupEntityKind.TIME_ENTRIES),
+    ) { it.id },
+    profiles = mergeRows(
+        base.profiles,
+        delta.profiles,
+        delta.removed(BackupEntityKind.PROFILES),
+    ) { it.id },
 )
 
 /**
@@ -103,6 +166,23 @@ internal fun BackupPayload.hasNoRows(): Boolean =
         projectReminders.isEmpty() && checklistItems.isEmpty() && tagGroups.isEmpty() &&
         projectTagGroups.isEmpty() && savedSearches.isEmpty() && timeEntries.isEmpty() &&
         profiles.isEmpty()
+
+/**
+ * Whether the payload says nothing at all: no rows, and no removals.
+ *
+ * A change that only removes rows carries no rows of its own, and it is still a
+ * change — so "no rows" is not enough to decide that there is nothing to write.
+ */
+internal fun BackupPayload.hasNoChanges(): Boolean = hasNoRows() && removals.isEmpty()
+
+/**
+ * The keys of the rows this payload says are gone, of one kind.
+ *
+ * The empty set when the kind is not mentioned: a change that says nothing about
+ * a kind removes nothing of it.
+ */
+private fun BackupPayload.removed(kind: BackupEntityKind): Set<String> =
+    removals[kind].orEmpty().toSet()
 
 /**
  * What an export has to write beside its snapshot: a fresh base, or an entry.
@@ -125,9 +205,6 @@ internal sealed interface BackupDeltaPlan {
         /** There was no previous export: the snapshot is the beginning of the chain. */
         FIRST_EXPORT,
 
-        /** A row is gone since the last export, and a delta cannot carry a removal. */
-        ROW_REMOVED,
-
         /**
          * An attachment changed, and a delta carries no bytes.
          *
@@ -136,6 +213,9 @@ internal sealed interface BackupDeltaPlan {
          * previous file under the attachment's name is a lie about the account.
          * The snapshot that has the new file in it is the base, and the chain
          * restarts.
+         *
+         * A removed attachment lands here too: the file is in the snapshot, and a
+         * delta cannot take a file back out of it.
          */
         ATTACHMENT_CHANGED,
     }
@@ -146,11 +226,10 @@ internal sealed interface BackupDeltaPlan {
  *
  * The rules are short, and each of them is a thing a delta cannot express:
  *
- * - a **removal** — a row that was there and is not — is not a row, so it cannot
- *   travel in a set of rows: the snapshot becomes the base;
  * - an **attachment** carries bytes, and an entry carries rows: the snapshot that
  *   has the bytes in it becomes the base;
- * - everything else is a row that is new or that changed, and travels whole.
+ * - everything else is a row that is new, that changed, or that is gone, and all
+ *   three travel: a removal travels as the key of the row that is not there.
  */
 internal object BackupDeltaPlanner {
 
@@ -167,29 +246,27 @@ internal object BackupDeltaPlanner {
     ): BackupDeltaPlan {
         if (previous == null) return BackupDeltaPlan.FreshBase(BackupDeltaPlan.Reason.FIRST_EXPORT)
 
-        for (kind in BackupEntityKind.entries) {
-            val before = previous[kind].orEmpty()
-            val now = current[kind].orEmpty()
-            if (before.keys.any { it !in now }) {
-                return BackupDeltaPlan.FreshBase(BackupDeltaPlan.Reason.ROW_REMOVED)
-            }
-        }
-
         if (previous[BackupEntityKind.ATTACHMENTS] != current[BackupEntityKind.ATTACHMENTS]) {
             return BackupDeltaPlan.FreshBase(BackupDeltaPlan.Reason.ATTACHMENT_CHANGED)
         }
 
-        return BackupDeltaPlan.Entry(payload = changedRows(previous, payload))
+        return BackupDeltaPlan.Entry(
+            payload = changedRows(previous, payload, removedRows(previous, current)),
+        )
     }
 
     /**
      * The rows that changed: the new ones and the ones whose content changed.
      *
      * The link tables are carried **whole**: they are small, and their rows are
-     * pairs rather than records, so a row that changed is a pair that is not there
-     * any more — which is a removal, and a removal cannot travel.
+     * pairs rather than records. A pair that is not there any more is a removal,
+     * and a removal travels as a key — see [removedRows].
      */
-    private fun changedRows(previous: BackupRowIndex, current: BackupPayload): BackupPayload = BackupPayload(
+    private fun changedRows(
+        previous: BackupRowIndex,
+        current: BackupPayload,
+        removals: Map<BackupEntityKind, List<String>>,
+    ): BackupPayload = BackupPayload(
         schemaVersion = BackupFormat.SCHEMA_VERSION,
         tasks = changed(previous, BackupEntityKind.TASKS, current.tasks, TaskDto.serializer()) { it.id },
         notes = changed(previous, BackupEntityKind.NOTES, current.notes, NoteDto.serializer()) { it.id },
@@ -248,7 +325,30 @@ internal object BackupDeltaPlanner {
             TimeEntryDto.serializer(),
         ) { it.id },
         profiles = changed(previous, BackupEntityKind.PROFILES, current.profiles, ProfileDto.serializer()) { it.id },
+        removals = removals,
     )
+
+    /**
+     * The rows that are gone: the keys [previous] held and [current] does not.
+     *
+     * The key is the whole of it — a removed row has no content to carry, and the
+     * index never held one: it holds a fingerprint per row, and the fingerprint of
+     * a row that is not there is nothing. So what the change says is "this key is
+     * not here any more", and the restore takes it out.
+     *
+     * The kinds are the ones the index uses, so a removal is looked up under the
+     * same key the row itself would have been — including the link tables, whose
+     * key is the pair of ids the row joins.
+     */
+    private fun removedRows(
+        previous: BackupRowIndex,
+        current: BackupRowIndex,
+    ): Map<BackupEntityKind, List<String>> = BackupEntityKind.entries.mapNotNull { kind ->
+        val before = previous[kind].orEmpty()
+        val now = current[kind].orEmpty()
+        val removed = before.keys.filter { it !in now }
+        if (removed.isEmpty()) null else kind to removed
+    }.toMap()
 
     /** The rows of [current] of one kind that are not the rows [previous] held. */
     private fun <T> changed(
@@ -261,16 +361,26 @@ internal object BackupDeltaPlanner {
 }
 
 /**
- * The rows of [base] with the rows of [delta] upserted into them.
+ * The rows of [base] with the rows of [delta] upserted into them, and the rows
+ * whose keys [removed] names taken out.
  *
  * The order is the base's order, with the new rows at the end: a restore that
  * reorders the rows it writes is a restore that makes a diff of its own.
+ *
+ * The removals are applied last: they are the last word about a row, and a delta
+ * that both carries a row and says it is gone ends with the row gone.
  */
-private fun <T> mergeRows(base: List<T>, delta: List<T>, key: (T) -> String): List<T> {
-    if (delta.isEmpty()) return base
+private fun <T> mergeRows(
+    base: List<T>,
+    delta: List<T>,
+    removed: Set<String>,
+    key: (T) -> String,
+): List<T> {
+    if (delta.isEmpty() && removed.isEmpty()) return base
     val merged = LinkedHashMap<String, T>(base.size + delta.size)
     base.forEach { merged[key(it)] = it }
     delta.forEach { merged[key(it)] = it }
+    removed.forEach { merged.remove(it) }
     return merged.values.toList()
 }
 
@@ -282,6 +392,20 @@ private fun <T> mergeRows(base: List<T>, delta: List<T>, key: (T) -> String): Li
  * id *pair*, so that the key of one pair cannot be mistaken for the key of another.
  */
 private fun String.link(other: String): String = "$this$KEY_SEPARATOR$other"
+
+/**
+ * The two ids a link table's key joins, as they were joined.
+ *
+ * The separator is the same one the row index joins its link keys with, so a key
+ * that came from the index comes apart here. A key that was not joined — a key
+ * that never came from a link table — comes apart into the key and nothing, so
+ * the caller deletes nothing rather than something it did not mean.
+ */
+internal fun String.linkParts(): Pair<String, String> {
+    val separator = indexOf(KEY_SEPARATOR)
+    if (separator < 0) return this to ""
+    return substring(0, separator) to substring(separator + 1)
+}
 
 /** The character that joins the two halves of a link table's key. */
 private const val KEY_SEPARATOR = "\u0000"

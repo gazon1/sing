@@ -187,7 +187,96 @@ class BackupImporter(
         applyReminders(payload, targetUserId, now)
         applyChecklistItems(payload.checklistItems, now)
         applyTimeEntries(payload.timeEntries, targetUserId, now)
-        return applyAttachments(payload.attachments, targetUserId, now, attachmentBytes)
+        val attachments = applyAttachments(payload.attachments, targetUserId, now, attachmentBytes)
+
+        // The removals go last, and they go last for the same reason the merge
+        // puts them after the upserts: everything this payload carries is written
+        // before anything is taken out. The link tables have no `user_id` of their
+        // own, so their statements reach their row through the parent that owns
+        // it — and a parent this payload has just written is alive, while one this
+        // payload is about to remove would take the statement's guard with it and
+        // leave the link behind.
+        applyRemovals(payload.removals, targetUserId)
+
+        return attachments
+    }
+
+    /**
+     * The rows the payload says are gone, taken out of the database.
+     *
+     * ## Why the restore deletes rows
+     *
+     * Everywhere else a restore is additive: the rows the archive holds are
+     * written, and the rows the account already had are left alone. A removal is
+     * the one statement that cannot be additive — the row has to go, or the
+     * account keeps a task the person deleted on the other device.
+     *
+     * ## One kind, one statement
+     *
+     * Every kind is taken out of the table it belongs to, under the profile being
+     * restored, by the statement that knows that table. There is no generic
+     * "delete a row" here: a removal names a key, and only the table's own
+     * statement knows what the key means.
+     *
+     * ## The keys
+     *
+     * A removal travels as a key — the key of the row that is not there any more
+     * — so the link tables' keys, which are the pair of ids they join, are taken
+     * apart again here.
+     *
+     * ## The order: the children go first
+     *
+     * The link tables carry no `user_id` of their own: a row of `task_tags`
+     * belongs to whoever owns the task it joins, and the statement that removes
+     * it reaches its row through that task. So a removal of a task and a removal
+     * of one of its links cannot be taken out in any order but one — the link
+     * first, while the task is still there. The other order leaves the link
+     * behind, pointing at a task that is not there any more, and nothing ever
+     * comes to clean it up: the tables have no foreign key to cascade.
+     */
+    private suspend fun applyRemovals(
+        removals: Map<BackupEntityKind, List<String>>,
+        userId: UserId,
+    ) {
+        // The links first: they are the rows that need their parent alive.
+        removals[BackupEntityKind.TASK_TAGS]?.forEach { key ->
+            val (taskId, tagId) = key.linkParts()
+            taskDao.removeTagRefForUser(taskId, tagId, userId.value)
+        }
+        removals[BackupEntityKind.TASK_DEPENDENCIES]?.forEach { key ->
+            val (taskId, dependsOnTaskId) = key.linkParts()
+            taskDao.removeDependencyForUser(taskId, dependsOnTaskId, userId.value)
+        }
+        removals[BackupEntityKind.CHECKLIST_ITEMS]?.forEach { checklistDao.deleteForUser(it, userId.value) }
+        removals[BackupEntityKind.PROJECT_TAG_GROUPS]?.forEach { key ->
+            val (projectId, tagGroupId) = key.linkParts()
+            projectTagGroupDao.delete(projectId, tagGroupId, userId.value)
+        }
+
+        // Then the rows themselves, the ones that hold no link of their own.
+        removals[BackupEntityKind.ATTACHMENT_ANNOTATIONS]?.forEach {
+            annotationDao.deleteForUser(it, userId.value)
+        }
+        removals[BackupEntityKind.ATTACHMENTS]?.forEach { attachmentDao.deleteForUser(it, userId.value) }
+        removals[BackupEntityKind.AGENDA_VIEWS]?.forEach { agendaViewDao.delete(userId.value, it) }
+        removals[BackupEntityKind.SAVED_SEARCHES]?.forEach { savedSearchDao.delete(userId.value, it) }
+        removals[BackupEntityKind.TASK_REMINDERS]?.forEach { reminderDao.delete(it, userId.value) }
+        removals[BackupEntityKind.PROJECT_REMINDERS]?.forEach {
+            projectReminderDao.delete(it, userId.value)
+        }
+        removals[BackupEntityKind.TIME_ENTRIES]?.forEach { timeEntryDao.delete(it, userId.value) }
+
+        // The rows the links hang off, last.
+        removals[BackupEntityKind.TAGS]?.forEach { tagDao.deleteForUser(it, userId.value) }
+        removals[BackupEntityKind.TAG_GROUPS]?.forEach { tagGroupDao.deleteForUser(it, userId.value) }
+        removals[BackupEntityKind.TASKS]?.forEach { taskDao.deleteForUser(it, userId.value) }
+        removals[BackupEntityKind.NOTES]?.forEach { noteDao.deleteForUser(it, userId.value) }
+        removals[BackupEntityKind.PROJECTS]?.forEach { projectDao.deleteForUser(it, userId.value) }
+
+        // A profile belongs to the account it was made in, so the restore may
+        // only take out the profile of the account it is restoring — the same
+        // scope every other removal is under.
+        removals[BackupEntityKind.PROFILES]?.forEach { profileDao.deleteForUser(it, userId.value) }
     }
 
     /** The rows that carry the account itself: tasks, notes, projects and tags. */

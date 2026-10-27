@@ -65,4 +65,16 @@ interface AttachmentAnnotationDao {
      */
     @Query("DELETE FROM attachment_annotations WHERE user_id = :userId")
     suspend fun deleteAllForUser(userId: String): Int
+
+    /**
+     * Hard-deletes one annotation row of [userId].
+     *
+     * The single-row counterpart of [deleteAllForUser]: a change in a backup that
+     * says an annotation is gone says **which** one, and a statement that cannot
+     * be aimed at one row would take the rest of the profile with it.
+     *
+     * @return the number of rows removed.
+     */
+    @Query("DELETE FROM attachment_annotations WHERE id = :id AND user_id = :userId")
+    suspend fun deleteForUser(id: String, userId: String): Int
 }

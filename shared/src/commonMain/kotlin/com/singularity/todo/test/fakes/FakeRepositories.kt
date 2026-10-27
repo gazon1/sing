@@ -741,6 +741,8 @@ internal class InMemoryTaskDao(private val clock: Clock = FakeClock()) : TaskDao
     // statements above answer "not implemented".
     override suspend fun deleteAllForUser(userId: String): Int = error("not implemented")
 
+    override suspend fun deleteForUser(id: String, userId: String): Int = error("not implemented")
+
     override suspend fun deleteTagRefsForUser(userId: String): Int = error("not implemented")
 
     override suspend fun deleteDependenciesForUser(userId: String): Int = error("not implemented")

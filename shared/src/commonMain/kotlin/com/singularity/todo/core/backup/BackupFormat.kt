@@ -21,8 +21,17 @@ object BackupFormat {
      * not. The shape changed, so the version changed too, for the same reason
      * v5 changed: an older client refuses a v6 backup rather than restoring a
      * record whose fields mean something else.
+     *
+     * v7: a payload can say which rows were **removed** (see
+     * [BackupPayload.removals]). A v6 payload has no such field, so restoring one
+     * into a v7 client restores the rows it holds and nothing else — which is
+     * exactly what a v6 payload means, because a v6 change could not carry a
+     * removal. The new field is optional, so the old archives still read; the
+     * version moved because a payload that *can* say a row is gone is a shape the
+     * older client does not know, and an older client that met one would restore
+     * a row that the backup says is not there any more.
      */
-    const val SCHEMA_VERSION = 6 // entity shape version — full field parity for TaskDto and NoteDto
+    const val SCHEMA_VERSION = 7 // entity shape version — full field parity for TaskDto and NoteDto
 
     /** Oldest schema version this client can restore. Backups with schemaVersion < this are rejected. */
     const val MIN_SUPPORTED_SCHEMA_VERSION = 1
