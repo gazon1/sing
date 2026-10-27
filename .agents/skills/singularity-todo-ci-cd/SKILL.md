@@ -126,6 +126,11 @@ The correction runs via `bash scripts/lint-autofix.sh`, which discovers modules 
 reports the changed files. Do not inline a task list and do not collapse it into one
 invocation — `--auto-correct` only reaches the last detekt task of an invocation.
 
+On a pull request it corrects only the modules whose files changed (all modules when
+build/config/settings change; exits 0 when no module files changed), so a typical PR
+is fast. `BASE_REF` (`github.base_ref`) and `fetch-depth: 0` are required for the base
+comparison; without them it falls back to correcting every module.
+
 ktlint is bundled via detekt-formatting, so this single loop covers both. Do not add
 a push-to-main trigger: it would commit to the trunk and risk a run loop.
 
