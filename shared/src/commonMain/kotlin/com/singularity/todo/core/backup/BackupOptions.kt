@@ -13,9 +13,8 @@ class ExportOptionsBuilder {
     var includeAttachments: Boolean = true
     var appVersion: String = appVersion().name
     fun build(): ExportOptions {
-        val u = userId ?: error("userId required")
         val d = destPath ?: error("destPath required")
-        return ExportOptions(u, d, includeAttachments, appVersion)
+        return ExportOptions(userId, d, includeAttachments, appVersion)
     }
 }
 
@@ -32,7 +31,7 @@ class ImportOptionsBuilder {
 }
 
 data class ExportOptions(
-    val userId: UserId,
+    val userId: UserId?,
     /**
      * **File name** of the archive, not a path.
      *

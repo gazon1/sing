@@ -441,6 +441,7 @@ fun coreModule(): org.koin.core.module.Module =
                 get(), // clock
                 createFileSource = get(),
                 tasksSettings = get(),
+                database = get(),
             )
         }
         single<BackupRepository> {

@@ -125,6 +125,7 @@ class AttachmentRepositoryImpl(
         // Logger in this class, which has no DI logger today; tracked in
         // docs/decisions/2026-09-27-write-layer-soundness.md (ledger #15).
         val checksum = storage.computeChecksum(localPath).getOrNull()
+        val fileSizeBytes = storage.fileSize(localPath)
 
         val attachment = Attachment(
             id = id,
@@ -132,7 +133,7 @@ class AttachmentRepositoryImpl(
             userId = uid,
             type = if (MimeTypes.isImage(detectedMime)) AttachmentType.Image else AttachmentType.File,
             localPath = localPath,
-            fileSizeBytes = 0L,
+            fileSizeBytes = fileSizeBytes,
             mimeType = detectedMime,
             checksum = checksum,
             syncStatus = AttachmentSyncStatus.Pending,

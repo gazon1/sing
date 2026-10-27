@@ -1482,6 +1482,10 @@ interface ProfileDao {
     /** Full-table export — all profiles. */
     @Query("SELECT * FROM profiles")
     suspend fun listAll(): List<ProfileEntity>
+
+    /** Profiles owned by [userId], for scoped export. */
+    @Query("SELECT * FROM profiles WHERE user_id = :userId ORDER BY created_at ASC")
+    suspend fun listAllForUser(userId: String): List<ProfileEntity>
 }
 
 // ─── Tag Group DAO ─────────────────────────────────────────────────────────────
