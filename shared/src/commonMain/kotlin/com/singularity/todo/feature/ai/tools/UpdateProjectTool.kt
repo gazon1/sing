@@ -18,6 +18,7 @@ data class UpdateProjectInput(
     val projectId: String,
     val name: String? = null,
     val color: Int? = null,
+    /** Material icon key (e.g. "Work") or a single emoji; null leaves unchanged. */
     val icon: String? = null,
     val description: String? = null,
 )

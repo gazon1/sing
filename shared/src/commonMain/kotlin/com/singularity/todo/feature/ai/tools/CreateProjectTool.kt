@@ -16,6 +16,7 @@ data class CreateProjectInput(
     val name: String,
     /** ARGB integer color. Prefer [colorHex] for cross-client MCP callers. */
     val color: Int = 0xFF2196F3.toInt(), // ARGB blue default
+    /** Material icon key (e.g. "Work") or a single emoji; null = default folder. */
     val icon: String? = null,
     val description: String? = null,
     /**

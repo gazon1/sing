@@ -144,7 +144,11 @@ class SyncEngineIntegrationTest {
         runTest {
             val throwingApi =
                 object : FakeSyncApiClient() {
-                    override suspend fun getEventsSince(sinceLsn: Long, limit: Int): List<SyncEvent> =
+                    override suspend fun getEventsSince(
+                        sinceLsn: Long,
+                        limit: Int,
+                        profileId: String,
+                    ): List<SyncEvent> =
                         throw IllegalStateException("network failure during pull")
                 }
             val stateRepo = FakeSyncStateRepository()
@@ -180,7 +184,11 @@ class SyncEngineIntegrationTest {
             // Override to throw, which is the only way to make pull() return Failed.
             val throwingApi =
                 object : FakeSyncApiClient() {
-                    override suspend fun getEventsSince(sinceLsn: Long, limit: Int): List<SyncEvent> =
+                    override suspend fun getEventsSince(
+                        sinceLsn: Long,
+                        limit: Int,
+                        profileId: String,
+                    ): List<SyncEvent> =
                         throw IllegalStateException("server error")
                 }
             val stateRepo = FakeSyncStateRepository()

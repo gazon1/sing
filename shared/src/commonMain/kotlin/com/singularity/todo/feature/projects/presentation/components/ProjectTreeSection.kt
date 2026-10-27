@@ -124,6 +124,14 @@ private fun ProjectTreeRow(
             Spacer(modifier = Modifier.width(48.dp))
         }
 
+        ProjectIcon(
+            icon = node.project.icon,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            size = 18.dp,
+            contentDescription = node.name,
+            modifier = Modifier.padding(start = 4.dp),
+        )
+
         Text(
             text = node.name,
             style = MaterialTheme.typography.bodyMedium,

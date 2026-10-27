@@ -38,7 +38,7 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.presentation.components.ProjectDetailActions
 import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
-import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegistry
+import com.singularity.todo.feature.projects.presentation.components.ProjectIcon
 import com.singularity.todo.feature.tags.domain.model.TagGroupId
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
@@ -96,9 +96,12 @@ fun ProjectHeroSection(
                     ),
                 contentAlignment = Alignment.Center,
             ) {
-                val icon = ProjectIconRegistry.iconByKey(ui.project.icon)
-                    ?: Icons.Filled.Folder
-                Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
+                ProjectIcon(
+                    icon = ui.project.icon,
+                    tint = Color.White,
+                    size = 28.dp,
+                    contentDescription = ui.project.name,
+                )
             }
             Spacer(Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
