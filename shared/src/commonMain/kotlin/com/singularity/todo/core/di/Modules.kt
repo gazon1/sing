@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.appearance.di.appearanceSettingsModule
 import com.singularity.todo.core.settings.settingsContributorsModule
 import com.singularity.todo.feature.agenda.agendaModule
+import com.singularity.todo.feature.plans.plansModule
 import com.singularity.todo.feature.ai.di.aiSettingsModule
 import com.singularity.todo.feature.calendarSync.di.calendarSyncModule
 import com.singularity.todo.core.work.backgroundWorkModule
@@ -51,6 +52,7 @@ fun domainModule(fixedProfileId: ProfileId? = null): List<Module> = buildList {
     add(searchModule())
     add(calendarModule())
     add(agendaModule())
+    add(plansModule())
     add(deepLinkModule())
     add(proposalModule())
     add(calendarSyncModule())

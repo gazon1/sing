@@ -1,0 +1,24 @@
+# Scenario PLANS-03 — the granularity control switches the grouping and names it.
+#
+# The control is read as well as used: a switch that changed the grouping
+# without saying which grouping was in effect would leave the user guessing what
+# the screen is showing them.
+
+id: PLANS-03
+title: "The granularity control switches between day, week and month and names the selection"
+area: feature.plans
+priority: P1
+status: confirmed
+targets: [android, desktop]
+preconditions: >-
+  Tasks are due in more than one calendar month, and at least one of them falls
+  in the current week.
+steps:
+  - "Open Plans and read the granularity control."
+  - "Switch the control to week and read the section headers."
+  - "Switch the control to month and read the section headers again."
+expected: >-
+  The control names the granularity that is in effect. In week granularity the
+  headers are date ranges running Monday to Sunday; in month granularity they
+  are calendar months. A task stays in the section that contains it in each
+  granularity, and the sections remain in chronological order throughout.

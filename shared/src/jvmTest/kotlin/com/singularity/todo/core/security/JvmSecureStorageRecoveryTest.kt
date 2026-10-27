@@ -3,10 +3,13 @@ package com.singularity.todo.core.security
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.io.TempDir
+import java.io.DataOutputStream
+import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.writeBytes
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 
 /**
@@ -97,6 +100,19 @@ class JvmSecureStorageRecoveryTest {
         }
         // If we get here within a reasonable time, the recovery policy worked
         // (exactly one retry, then propagate — no infinite loop)
+    }
+
+    @Test
+    fun `an out-of-range entry count is treated as corruption, not an allocation`() = runTest {
+        val storage = makeStorage()
+        storage.write("key", "value")
+
+        // A hostile or truncated header can claim billions of entries. The read must
+        // reject the count before allocating anything, and land in normal recovery.
+        DataOutputStream(Files.newOutputStream(secureBin)).use { it.writeInt(Int.MAX_VALUE) }
+
+        assertNull(storage.read("key"), "an out-of-range count must erase, not allocate")
+        assertFalse(Files.exists(secureBin), "recovery should have erased the corrupt file")
     }
 
     @Test

@@ -110,6 +110,7 @@ class AndroidNotifier(
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
             .setContentText(body)
+            .setStyle(android.app.Notification.BigTextStyle().bigText(body))
             .setAutoCancel(true)
             .setContentIntent(pending)
             .build()

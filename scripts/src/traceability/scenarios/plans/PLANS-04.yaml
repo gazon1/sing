@@ -1,0 +1,20 @@
+# Scenario PLANS-04 — the chosen granularity survives leaving the screen.
+#
+# The round trip is the point: a setting that resets every time the user leaves
+# the tab is a setting the user has to set again every time, which is a
+# different feature from the one that was asked for.
+
+id: PLANS-04
+title: "The chosen granularity is restored the next time Plans is opened"
+area: feature.plans
+priority: P1
+status: confirmed
+targets: [android, desktop]
+preconditions: >-
+  Plans has been opened and its granularity switched to week.
+steps:
+  - "Leave Plans for another tab."
+  - "Open Plans again."
+expected: >-
+  Plans opens in week granularity. The choice made before the round trip is
+  still in effect, so the user does not have to set it again.

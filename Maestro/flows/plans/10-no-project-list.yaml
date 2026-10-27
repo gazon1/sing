@@ -1,0 +1,46 @@
+# Plans: the tab stopped being the project list, and the projects are in the menu.
+#
+# Both halves are asserted. The tab must show the timeline, and the projects
+# must have gone somewhere rather than disappeared: they are in the menu, as a
+# tree. A screen that simply stopped listing projects would pass a check on the
+# tab alone and lose a feature.
+#
+# The seed is given the project's id, so the node in the tree is addressed by
+# that id rather than by the name the user reads — a name is copy, and an id is
+# not.
+appId: com.singularity.todo
+name: plans-no-project-list
+tags:
+  - smoke
+  - plans
+  - scenario:PLANS-06
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- runScript: ../../helpers/scripts/date.js
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=Due%20today&due=today"
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "project=Roadmap&id=roadmap"
+- tapOn:
+    id: nav_tab_plans
+# The tab is the timeline: a task, in a section that names its day.
+- runFlow:
+    file: ../../helpers/plans-section.yaml
+    env:
+      PLANS_SECTION: ${output.PLANS_TODAY_SECTION}
+- assertVisible:
+    id: task_item_due_today
+# And no project list: the project is not on the tab any more.
+- assertNotVisible:
+    id: project_card_roadmap
+# The project is not lost — it is in the menu, as a tree.
+- runFlow: ../../helpers/open-app-menu.yaml
+- scrollUntilVisible:
+    element:
+      id: menu_project_node_roadmap
+    direction: DOWN
+    timeout: 8000

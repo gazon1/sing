@@ -240,17 +240,24 @@ class NavigationPolicyTest {
         // SettingsNavigator: openProfileSwitcher — the target is a menu entry,
         // so rule 2 (activation) wins over the same-family Push.
         Emission(Settings, AppDestination.ProfileSwitcher, OpenAction.SwitchTab),
-        // FabActionResolver: create task (cross-family) / new project (Plans IS
-        // the Projects family — same-family non-tab push).
+        // FabActionResolver: the plan tab creates a task (cross-family), and the
+        // project list creates a project (same family — a non-tab push).
         Emission(
             AppDestination.Plans,
             AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()),
             OpenAction.ExitAndOpen,
         ),
         Emission(
-            AppDestination.Plans,
+            AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.List),
             AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor()),
             OpenAction.Push,
+        ),
+        // The menu's projects section opens the project list from whichever tab
+        // the user is on — cross-family, so the tab stays underneath.
+        Emission(
+            AppDestination.Plans,
+            AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.List),
+            OpenAction.ExitAndOpen,
         ),
         // ArchiveScreen: LocalAppNavigator.navigate → Navigator.open.
         Emission(

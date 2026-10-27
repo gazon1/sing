@@ -34,8 +34,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavKey
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.core.ui.menu.ComposeTopMenuBar
 import com.singularity.todo.core.ui.menu.MenuNode
@@ -50,8 +52,14 @@ import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.Navigator
 import com.singularity.todo.feature.nav.Settings
 import com.singularity.todo.feature.nav.createJvmEntryProvider
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.nav.icon
+import com.singularity.todo.feature.projects.presentation.nav.ProjectsOpener
+import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTreeIntent
+import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTreeViewModel
 import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 import java.net.URI
 import kotlin.system.exitProcess
 
@@ -96,6 +104,12 @@ fun DesktopShellNav3Root(
     val canGoBack = currentStack.size > 1
 
     val appEntryProvider = createJvmEntryProvider(navCallbacks, today)
+
+    // The projects the drawer shows as a tree — the same tree the Android sheet
+    // shows, drawn by the same composable.
+    val projectsTreeViewModel: ProjectsTreeViewModel = koinViewModel()
+    val projectsTreeState by projectsTreeViewModel.stateFlow.collectAsStateWithLifecycle()
+    val projectsOpener: ProjectsOpener = koinInject()
 
     // About dialog state
     var showAbout by remember { mutableStateOf(false) }
@@ -183,7 +197,11 @@ fun DesktopShellNav3Root(
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            ModalDrawerSheet(modifier = Modifier.fillMaxSize()) {
+            ModalDrawerSheet(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag(TestTags.DESKTOP_DRAWER),
+            ) {
                 // Five tabs + a divider + eight menu entries is a fixed column that is
                 // taller than a 1024x768 window, so without a scroll the trailing entries —
                 // Settings last of all — are clipped and unreachable. The drawer looked
@@ -224,24 +242,58 @@ fun DesktopShellNav3Root(
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-                    DestinationKind.menuEntries.forEach { destination ->
-                        val selected = current == destination
+                    // The same entries the Android sheet offers — one model,
+                    // two drawings.
+                    AppMenu.destinations.forEach { entry ->
+                        val selected = current == entry.destination
                         NavigationDrawerItem(
-                            label = { Text(destination.title) },
+                            label = { Text(entry.label) },
                             selected = selected,
                             onClick = {
                                 scope.launch { drawerState.close() }
-                                navigator.open(destination)
+                                navigator.open(entry.destination)
                             },
                             icon = {
                                 Icon(
-                                    destination.icon,
-                                    contentDescription = destination.title,
+                                    entry.icon ?: Icons.Default.Menu,
+                                    contentDescription = entry.label,
                                 )
                             },
-                            modifier = Modifier.padding(horizontal = 12.dp),
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp)
+                                .testTag(entry.id),
                         )
                     }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                    // ─── Projects ───────────────────────────────────────────────
+                    // The tree, and the way to the full list. The section is
+                    // drawn by the composable the Android sheet draws too.
+                    ProjectsMenuSection(
+                        state = projectsTreeState,
+                        onToggleExpanded = { projectId ->
+                            projectsTreeViewModel.onIntent(ProjectsTreeIntent.ToggleExpanded(projectId))
+                        },
+                        onOpenProject = { projectId ->
+                            scope.launch { drawerState.close() }
+                            // The request is a piece of app state, not a
+                            // destination: the project id stays out of the
+                            // navigation key space.
+                            projectsOpener.requestOpen(projectId)
+                            navigator.open(AppDestination.ProjectsGraph())
+                        },
+                        onOpenAllProjects = {
+                            scope.launch { drawerState.close() }
+                            // The hoisted stack survives the graph leaving the
+                            // screen, so the list is asked for explicitly.
+                            projectsOpener.requestList()
+                            navigator.open(AppDestination.ProjectsGraph())
+                        },
+                        headerModifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        treeModifier = Modifier.padding(horizontal = 12.dp),
+                        itemModifier = Modifier.padding(horizontal = 12.dp),
+                    )
                 }
             }
         },
@@ -276,6 +328,7 @@ fun DesktopShellNav3Root(
                                             }
                                         }
                                     },
+                                    modifier = Modifier.testTag(TestTags.SHELL_BACK_BUTTON),
                                 ) {
                                     Icon(
                                         imageVector = if (canGoBack) {

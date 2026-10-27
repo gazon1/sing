@@ -38,9 +38,9 @@ polymorphic saved-state module) but are never valid app-level open targets.
 | Key | Inner content | Opened from (sources) |
 |---|---|---|
 | `AgendaGraph(Inbox / Today / Upcoming)` | `AgendaNavGraph(start = …)` | bottom bar tabs (3 instances), desktop drawer/menu, back-at-root returns to previous |
-| `Plans` | `ProjectsNavGraph(List)` | bottom bar tab, desktop drawer/menu |
+| `Plans` | `PlansScreen` (the timeline) | bottom bar tab, desktop drawer |
 | `Pomodoro` | `PomodoroScreen` | bottom bar tab, desktop drawer/menu |
-| `Calendar` | `CalendarNavGraph(Month(today))` | bottom bar tab, desktop drawer/menu |
+| `Calendar` | `CalendarNavGraph(Month(today))` | menu sheet, desktop drawer — it left the tab bar |
 | `Statistics` | `StatisticsScreen` | menu sheet / desktop menu |
 | `Notes` | `NotesNavGraph(List)` | menu sheet / desktop menu |
 | `AiChat` | `ChatScreen` | menu sheet / desktop menu |
@@ -60,8 +60,8 @@ Tab reselect emits `Nav3State.reselectEvents`; reselect never mutates a stack
 | `TasksGraph(start, initialDueDate?)` | `TasksNavGraph(start.toTasksRoute(initialDueDate))` | FAB "add task" (`FabActionResolver`), `AgendaNavigator.openTask`, `ProjectsNavigator.openTask`, `SearchNavigator.openTask`, `NotesNavigator.openTask` (wikilink), task deep link `singularity://task/{id}` | the deep link names the tab too — see *Deep links* below |
 | `TasksByProject(projectId)` | *(no `entry<>` declared)* | **no production opener — unwired surface** (see `ProjectDetailUi` "see all") | candidate for follow-up issue |
 | `ProjectDetail(projectId)` | `ProjectsNavGraph(Detail)` | `TasksNavigator.openProject`, `SearchNavigator.openProject` | allow-list previously permitted from Tasks/Agenda contexts only |
-| `ProjectEditor(projectId?)` | `ProjectsNavGraph(Editor)` | plans FAB, project detail edit | |
-| `ProjectsGraph(start)` | `ProjectsNavGraph(start.toProjectsRoute())` | *(no production opener — there is no projects deep link)* | |
+| `ProjectEditor(projectId?)` | `ProjectsNavGraph(Editor)` | the project list's FAB, project detail edit | |
+| `ProjectsGraph(start)` | `ProjectsNavGraph(start.toProjectsRoute())` | the menu's "All projects" entry, the menu's project tree | the tree opens a project through `ProjectsOpener`, not through a destination — a project id is not a destination |
 | `NotesGraph(start)` | `NotesNavGraph(start.toNotesRoute())` | `TasksNavigator.openNote*`, `SearchNavigator.openNote`, task→linked-note | previously **swallowed** by the Tasks allow-list (REQ-NAV-002) |
 | `CalendarGraph(start)` | `CalendarNavGraph` | *(no production opener — there is no calendar deep link)* | |
 | `AgendaGraph(start ≠ tab starts)` | `AgendaNavGraph(start)` | `ProjectsNavigator.openAgendaForProject`, `SearchNavigator.openTag`, saved-view deep link `deeplinkViewId` | tab instances are top-level; `Project`/`Tag`/saved-view starts are pushed |

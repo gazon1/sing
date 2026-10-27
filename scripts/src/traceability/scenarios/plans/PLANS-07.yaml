@@ -1,0 +1,23 @@
+# Scenario PLANS-07 — the horizon follows the granularity.
+#
+# The horizon is what makes "upcoming" mean something, and it differs per
+# granularity. A task at 45 days is therefore visible in month granularity and
+# invisible in day granularity — which is the intended behaviour, not a missing
+# task.
+
+id: PLANS-07
+title: "The horizon follows the granularity"
+area: feature.plans
+priority: P1
+status: confirmed
+targets: [android, desktop]
+preconditions: >-
+  One task is due tomorrow and one task is due 45 days from today.
+steps:
+  - "Open Plans in day granularity and look for both tasks."
+  - "Switch to week granularity and look for both tasks."
+  - "Switch to month granularity and look for both tasks."
+expected: >-
+  The task due tomorrow is listed in every granularity. The task due in 45 days
+  is absent in day granularity, whose horizon ends after thirty days, and is
+  listed in week and month granularity, whose horizons reach further.

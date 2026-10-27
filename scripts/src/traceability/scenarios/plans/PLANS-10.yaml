@@ -1,0 +1,21 @@
+# Scenario PLANS-10 — an empty horizon says so, and undated work stays out.
+#
+# The two halves are one rule seen from both sides: the timeline shows dated
+# work, so a task with no date has no period to belong to and is not listed,
+# and when there is no dated work at all the screen says that instead of
+# showing nothing.
+
+id: PLANS-10
+title: "An empty horizon shows an empty state, and undated tasks are absent from the timeline"
+area: feature.plans
+priority: P2
+status: confirmed
+targets: [android, desktop]
+preconditions: >-
+  No task has a due date inside the current horizon, and one task exists with
+  no due date at all.
+steps:
+  - "Open Plans."
+expected: >-
+  The screen shows a message that there is nothing scheduled rather than a blank
+  list, and the undated task is not listed anywhere on the timeline.

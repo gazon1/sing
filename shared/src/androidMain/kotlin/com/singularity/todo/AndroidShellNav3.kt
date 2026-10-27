@@ -27,6 +27,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.navigation3.ui.NavDisplay
+import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
@@ -38,6 +40,10 @@ import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.Navigator
 import com.singularity.todo.feature.nav.createAppEntryProvider
 import com.singularity.todo.feature.nav.icon
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.feature.projects.presentation.nav.ProjectsOpener
+import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTreeIntent
+import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTreeViewModel
 import com.singularity.todo.shell.MenuBottomSheet
 import com.singularity.todo.shell.fabActionForNav3
 
@@ -68,6 +74,13 @@ fun androidShellNav3Root(
 ) {
     var menuVisible by rememberSaveable { mutableStateOf(false) }
 
+    // The projects the menu shows as a tree. The ViewModel lives in the shell,
+    // not in the sheet: the sheet is a separate window, and the tree has to be
+    // the same tree whichever way the menu is opened.
+    val projectsTreeViewModel: ProjectsTreeViewModel = koinViewModel()
+    val projectsTreeState by projectsTreeViewModel.stateFlow.collectAsStateWithLifecycle()
+    val projectsOpener: ProjectsOpener = koinInject()
+
     // topLevelRoute is MutableState<NavKey>, getValue triggers recomposition on change
     val current: AppDestination = state.topLevelRoute as? AppDestination
         ?: AppDestination.AgendaGraph(AgendaStartRoute.Today)
@@ -76,41 +89,11 @@ fun androidShellNav3Root(
 
     Scaffold(
         bottomBar = {
-            NavigationBar(
-                modifier = Modifier.windowInsetsPadding(
-                    WindowInsets.systemBars.only(WindowInsetsSides.Bottom),
-                ),
-            ) {
-                DestinationKind.tabs.forEach { destination ->
-                    val selected = current == destination
-                    NavigationBarItem(
-                        selected = selected,
-                        onClick = { navigator.open(destination) },
-                        icon = {
-                            Icon(
-                                destination.icon,
-                                contentDescription = destination.title,
-                            )
-                        },
-                        label = { Text(destination.title) },
-                        // On the item, not the icon: a tag on a decorative child is merged
-                        // into the clickable node and never surfaces as a resource-id.
-                        modifier = Modifier.testTag(TestTags.navTab(destination.title)),
-                    )
-                }
-                NavigationBarItem(
-                    selected = false,
-                    onClick = { menuVisible = true },
-                    icon = {
-                        Icon(
-                            Icons.Default.Menu,
-                            contentDescription = MenuButtonTitle,
-                        )
-                    },
-                    label = { Text(MenuButtonTitle) },
-                    modifier = Modifier.testTag(TestTags.NAV_MENU_BUTTON),
-                )
-            }
+            AndroidBottomBar(
+                current = current,
+                onSelectTab = { destination -> navigator.open(destination) },
+                onOpenMenu = { menuVisible = true },
+            )
         },
         floatingActionButton = {
             val action = fabAction ?: return@Scaffold
@@ -153,8 +136,78 @@ fun androidShellNav3Root(
             onDismiss = { menuVisible = false },
             onSelect = { dest ->
                 menuVisible = false
+                if (dest == AppDestination.ProjectsGraph()) {
+                    // The list is asked for explicitly: the graph's stack is
+                    // hoisted, so it would otherwise keep the last project.
+                    projectsOpener.requestList()
+                }
                 navigator.open(dest)
             },
+            treeState = projectsTreeState,
+            onToggleExpanded = { projectId ->
+                projectsTreeViewModel.onIntent(ProjectsTreeIntent.ToggleExpanded(projectId))
+            },
+            onOpenProject = { projectId ->
+                menuVisible = false
+                // The request is a piece of app state, not a destination: the
+                // project id stays out of the navigation key space.
+                projectsOpener.requestOpen(projectId)
+                navigator.open(AppDestination.ProjectsGraph())
+            },
+        )
+    }
+}
+
+/**
+ * The bottom bar of the Android shell: the tabs and the menu button.
+ *
+ * The menu is a bar item rather than an overflow icon in a top bar because the
+ * app menu is a first-class surface — it holds the project tree, the calendar
+ * and the destinations — and a bar item gives it a place a thumb can reach.
+ *
+ * @param current the destination the shell is on.
+ * @param onSelectTab called with the tab the user tapped.
+ * @param onOpenMenu called when the user taps the menu button.
+ */
+@Composable
+private fun AndroidBottomBar(
+    current: AppDestination,
+    onSelectTab: (AppDestination) -> Unit,
+    onOpenMenu: () -> Unit,
+) {
+    NavigationBar(
+        modifier = Modifier.windowInsetsPadding(
+            WindowInsets.systemBars.only(WindowInsetsSides.Bottom),
+        ),
+    ) {
+        DestinationKind.tabs.forEach { destination ->
+            val selected = current == destination
+            NavigationBarItem(
+                selected = selected,
+                onClick = { onSelectTab(destination) },
+                icon = {
+                    Icon(
+                        destination.icon,
+                        contentDescription = destination.title,
+                    )
+                },
+                label = { Text(destination.title) },
+                // On the item, not the icon: a tag on a decorative child is merged
+                // into the clickable node and never surfaces as a resource-id.
+                modifier = Modifier.testTag(TestTags.navTab(destination.title)),
+            )
+        }
+        NavigationBarItem(
+            selected = false,
+            onClick = onOpenMenu,
+            icon = {
+                Icon(
+                    Icons.Default.Menu,
+                    contentDescription = MenuButtonTitle,
+                )
+            },
+            label = { Text(MenuButtonTitle) },
+            modifier = Modifier.testTag(TestTags.NAV_MENU_BUTTON),
         )
     }
 }

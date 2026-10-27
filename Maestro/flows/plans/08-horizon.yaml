@@ -1,0 +1,43 @@
+# Plans: the horizon follows the granularity.
+#
+# "Upcoming" has to mean something. The horizon is what makes it mean something,
+# and it is a property of the period size: a month is asked about further out
+# than a day.
+#
+# The task is due in forty-five days: outside the thirty-day horizon, inside
+# the twelve-month one.
+appId: com.singularity.todo
+name: plans-horizon
+tags:
+  - smoke
+  - plans
+  - scenario:PLANS-07
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- runScript: ../../helpers/scripts/date.js
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=Due%20tomorrow&due=tomorrow"
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=Due%20in%2045%20days&due=%2B45d"
+- tapOn:
+    id: nav_tab_plans
+# The day horizon is thirty days: the distant task is not in it.
+- runFlow:
+    file: ../../helpers/plans-section.yaml
+    env:
+      PLANS_SECTION: ${output.PLANS_TOMORROW_SECTION}
+- assertVisible:
+    id: task_item_due_tomorrow
+- assertNotVisible:
+    id: task_item_due_in_45_days
+# The week horizon is twelve weeks, and forty-five days is inside it.
+- tapOn:
+    id: plans_granularity_week
+- extendedWaitUntil:
+    visible:
+      id: task_item_due_in_45_days
+    timeout: 8000

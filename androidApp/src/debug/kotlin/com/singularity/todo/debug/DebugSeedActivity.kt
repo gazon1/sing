@@ -16,6 +16,7 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.test.stubs.TestAuthStubs
 import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.profile.domain.port.ProfileRepository
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
@@ -53,10 +54,12 @@ import kotlinx.datetime.toLocalDateTime
  *   the link machinery reads it as a link. The target is named rather than
  *   addressed by id, because the caller cannot know the id the app gave the task
  *   it seeded a moment earlier.
- * - `id=<id>` — the id the seeded task carries. A seed that names an id owns it:
+ * - `id=<id>` — the id the seeded row carries. A seed that names an id owns it:
  *   the row the flow addresses by that id is the row the seed writes. It is what
  *   makes a deep link addressable — `singularity://task/<id>` names an id, and a
- *   flow cannot know the id the app generated.
+ *   flow cannot know the id the app generated. A project named by that id is
+ *   updated in place, so a seed that names an id that is already there renames
+ *   it: a rename is a seed that owns the row and gives it another name.
  * - `project=<name>`         — seeds a project (one project with that name)
  * - `profile=<name>`         — creates and switches to a profile
  * - `due=today|tomorrow|-1d|+1d|<YYYY-MM-DD>` — sets dueDate on the seeded task
@@ -239,6 +242,9 @@ class DebugSeedActivity :
                     name = params["project"]!!,
                     color = 0xFF2196F3.toInt(), // blue ARGB — deterministic default
                     stamp = Clock.System.now(),
+                    // A flow that has to tap a project in the menu's tree asks
+                    // for its id: a generated id is one a flow cannot write down.
+                    id = params["id"]?.let { ProjectId.fromString(it) },
                 ),
             )
 

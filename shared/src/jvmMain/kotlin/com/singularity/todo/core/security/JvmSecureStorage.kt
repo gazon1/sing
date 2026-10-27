@@ -97,6 +97,9 @@ open class JvmSecureStorage : SecureStoragePort {
     private val rng = SecureRandom()
 
     private fun deriveKey(): SecretKeySpec {
+        // shortcut: key derived from public user.home with a fixed salt; real
+        // protection needs an OS keyring or a user-supplied secret, upgrade when
+        // the fallback stops being a last resort.
         val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
         val spec = PBEKeySpec(
             System.getProperty("user.home")!!.toCharArray(),
@@ -131,26 +134,27 @@ open class JvmSecureStorage : SecureStoragePort {
 
     private fun fallbackRead(key: String): String? {
         if (!Files.exists(fallbackFile)) return null
-        return runCatching {
-            DataInputStream(Files.newInputStream(fallbackFile)).use { dis ->
-                val count = dis.readInt()
-                repeat(count) {
-                    val k = dis.readUTF()
-                    val ivLen = dis.readInt()
-                    val iv = ByteArray(ivLen)
-                    dis.readFully(iv)
-                    val ctLen = dis.readInt()
-                    val ct = ByteArray(ctLen)
-                    dis.readFully(ct)
-                    if (k == key) {
-                        val cipher = Cipher.getInstance(AES_TRANSFORM)
-                        cipher.init(Cipher.DECRYPT_MODE, deriveKey(), GCMParameterSpec(TAG_BITS, iv))
-                        return@runCatching String(cipher.doFinal(ct), Charsets.UTF_8)
-                    }
+        return DataInputStream(Files.newInputStream(fallbackFile)).use { dis ->
+            val count = dis.readInt()
+            require(count in 0..MAX_ENTRIES) { "entry count out of range: $count" }
+            repeat(count) {
+                val k = dis.readUTF()
+                val ivLen = dis.readInt()
+                require(ivLen in 0..MAX_IV_BYTES) { "iv length out of range: $ivLen" }
+                val iv = ByteArray(ivLen)
+                dis.readFully(iv)
+                val ctLen = dis.readInt()
+                require(ctLen in 0..MAX_CT_BYTES) { "ciphertext length out of range: $ctLen" }
+                val ct = ByteArray(ctLen)
+                dis.readFully(ct)
+                if (k == key) {
+                    val cipher = Cipher.getInstance(AES_TRANSFORM)
+                    cipher.init(Cipher.DECRYPT_MODE, deriveKey(), GCMParameterSpec(TAG_BITS, iv))
+                    return String(cipher.doFinal(ct), Charsets.UTF_8)
                 }
-                null
             }
-        }.getOrNull()
+            null
+        }
     }
 
     /**
@@ -173,19 +177,20 @@ open class JvmSecureStorage : SecureStoragePort {
     private fun fallbackWrite(key: String, value: String) {
         val entries = mutableMapOf<String, Pair<ByteArray, ByteArray>>() // iv to ct
         if (Files.exists(fallbackFile)) {
-            runCatching {
-                DataInputStream(Files.newInputStream(fallbackFile)).use { dis ->
-                    val count = dis.readInt()
-                    repeat(count) {
-                        val k = dis.readUTF()
-                        val ivLen = dis.readInt()
-                        val iv = ByteArray(ivLen)
-                        dis.readFully(iv)
-                        val ctLen = dis.readInt()
-                        val ct = ByteArray(ctLen)
-                        dis.readFully(ct)
-                        if (k != key) entries[k] = iv to ct
-                    }
+            DataInputStream(Files.newInputStream(fallbackFile)).use { dis ->
+                val count = dis.readInt()
+                require(count in 0..MAX_ENTRIES) { "entry count out of range: $count" }
+                repeat(count) {
+                    val k = dis.readUTF()
+                    val ivLen = dis.readInt()
+                    require(ivLen in 0..MAX_IV_BYTES) { "iv length out of range: $ivLen" }
+                    val iv = ByteArray(ivLen)
+                    dis.readFully(iv)
+                    val ctLen = dis.readInt()
+                    require(ctLen in 0..MAX_CT_BYTES) { "ciphertext length out of range: $ctLen" }
+                    val ct = ByteArray(ctLen)
+                    dis.readFully(ct)
+                    if (k != key) entries[k] = iv to ct
                 }
             }
         }
@@ -194,6 +199,9 @@ open class JvmSecureStorage : SecureStoragePort {
         val cipher = Cipher.getInstance(AES_TRANSFORM)
         cipher.init(Cipher.ENCRYPT_MODE, deriveKey(), GCMParameterSpec(TAG_BITS, iv))
         val ct = cipher.doFinal(value.toByteArray(Charsets.UTF_8))
+        // The read side bounds a ciphertext length; a value that exceeds it would write
+        // successfully and then make every key unreadable, so refuse it here instead.
+        require(ct.size <= MAX_CT_BYTES) { "value too large for the fallback store: ${ct.size} bytes" }
         entries[key] = iv to ct
 
         DataOutputStream(Files.newOutputStream(fallbackFile)).use { dos ->
@@ -210,24 +218,30 @@ open class JvmSecureStorage : SecureStoragePort {
     }
 
     private fun fallbackDelete(key: String) {
+        if (!Files.exists(fallbackFile)) return
         val entries = mutableMapOf<String, Pair<ByteArray, ByteArray>>()
-        if (Files.exists(fallbackFile)) {
-            runCatching {
-                DataInputStream(Files.newInputStream(fallbackFile)).use { dis ->
-                    val count = dis.readInt()
-                    repeat(count) {
-                        val k = dis.readUTF()
-                        val ivLen = dis.readInt()
-                        val iv = ByteArray(ivLen)
-                        dis.readFully(iv)
-                        val ctLen = dis.readInt()
-                        val ct = ByteArray(ctLen)
-                        dis.readFully(ct)
-                        if (k != key) entries[k] = iv to ct
-                    }
+        val parsed = runCatching {
+            DataInputStream(Files.newInputStream(fallbackFile)).use { dis ->
+                val count = dis.readInt()
+                require(count in 0..MAX_ENTRIES) { "entry count out of range: $count" }
+                repeat(count) {
+                    val k = dis.readUTF()
+                    val ivLen = dis.readInt()
+                    require(ivLen in 0..MAX_IV_BYTES) { "iv length out of range: $ivLen" }
+                    val iv = ByteArray(ivLen)
+                    dis.readFully(iv)
+                    val ctLen = dis.readInt()
+                    require(ctLen in 0..MAX_CT_BYTES) { "ciphertext length out of range: $ctLen" }
+                    val ct = ByteArray(ctLen)
+                    dis.readFully(ct)
+                    if (k != key) entries[k] = iv to ct
                 }
             }
-        }
+        }.isSuccess
+        // A file that cannot be parsed is left exactly as it is. Rewriting it from a partial
+        // parse would launder a truncated file into a valid shorter one, silently dropping
+        // every entry after the break point.
+        if (!parsed) return
         DataOutputStream(Files.newOutputStream(fallbackFile)).use { dos ->
             dos.writeInt(entries.size)
             for ((k, pair) in entries) {
@@ -246,8 +260,20 @@ open class JvmSecureStorage : SecureStoragePort {
             .lowercase().contains("linux")
         private const val AES_TRANSFORM = "AES/GCM/NoPadding"
         private const val TAG_BITS = 128
+
+        // Fixed at 100_000 on purpose: the key derives from public `user.home`, so a
+        // higher cost buys no attacker resistance but does re-derive a different key —
+        // which would make every existing secure.bin entry undecryptable and take the
+        // backup device key with it. Change only together with a stored KDF version.
         private const val ITERATIONS = 100_000
         private const val KEY_BITS = 256
         private val SALT = "singularity-v1".toByteArray()
+
+        // Bounds for the fallback file's untrusted lengths. A corrupted or hostile file must
+        // not be able to drive an allocation; exceeding these is treated as corruption, which
+        // read/write turn into a single erase-and-retry and delete leaves alone.
+        private const val MAX_ENTRIES = 1024
+        private const val MAX_IV_BYTES = 16
+        private const val MAX_CT_BYTES = 64 * 1024
     }
 }

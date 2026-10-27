@@ -25,7 +25,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-android-release-workflow` | 224 | Android release build workflow for Singularity Todo — signing configuration, version injection, R8/ProGuard minification (not yet enabled), iterative rule fixing, APK verification, and the release checklist. |
 | `singularity-todo-attachments` | 406 | Attachment feature pattern for the Singularity Todo KMP app. |
 | `singularity-todo-auth-seam` | 115 | The auth seam of this KMP app: the AuthGateway port the domain speaks, the Supabase (KMPAuth) binding behind it, the SecureSessionManager that is the one session store, the provider session observation, and the E2E stub that replaces the whole seam in the debug build. |
-| `singularity-todo-backup` | 177 | Backup/restore pattern for the Singularity Todo KMP app. |
+| `singularity-todo-backup` | 182 | Backup/restore pattern for the Singularity Todo KMP app. |
 | `singularity-todo-build-and-gates` | 165 | How to build, test and lint the Singularity Todo KMP project, and how to run its gate suite. |
 | `singularity-todo-ci-cd` | 127 | How the gate suite, the CI workflows and the review verdicts fit together in the Singularity Todo repository. |
 | `singularity-todo-clean-architecture-audit` | 213 | Audit tool to verify that a feature follows clean architecture: presentation depends only on domain (via interfaces), data depends only on domain, no cross-layer imports. |
@@ -68,7 +68,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-nav3-savedstate` | 153 | Nav3 back stack persistence in this KMP project. |
 | `singularity-todo-note-ai-multi-op` | 324 | Note AI multi-operation implementation guide for Singularity Todo. |
 | `singularity-todo-notes-ux-patterns` | 421 | Complete collection of Notes-specific UX patterns for the Singularity Todo KMP app. |
-| `singularity-todo-openspec-workflow` | 160 | OpenSpec spec-driven workflow for this project. |
+| `singularity-todo-openspec-workflow` | 178 | OpenSpec spec-driven workflow for this project. |
 | `singularity-todo-preview-with-koin` | 160 | Use when writing @Preview composables in this KMP project and the preview crashes with "KoinApplication has not been started". |
 | `singularity-todo-pure-formatters` | 195 | How to extract user-facing string formatting out of Composables and into pure-Kotlin helpers that can be unit-tested without a Compose runtime. |
 | `singularity-todo-quality-tools` | 513 | Run detekt, ktlint, and kover on the Singularity Todo KMP project. |
@@ -91,7 +91,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-test-helpers` | 349 | Standardized test helpers and patterns for ViewModel tests in this project. |
 | `singularity-todo-test-tag-strategy` | 270 | Decide which JUnit tag a test class carries, and how the fast/slow split is applied in Gradle, CI and local runs. |
 | `singularity-todo-testable-vm` | 469 | Testable ViewModel pattern for Singularity Todo KMP app. |
-| `singularity-todo-text-field-states` | 589 | How to add or change a text field in Singularity Todo. |
+| `singularity-todo-text-field-states` | 590 | How to add or change a text field in Singularity Todo. |
 | `singularity-todo-top-bar-entry` | 158 | Use when adding an IconButton to the TopAppBar that opens a nested screen (Saved Views, Search, Filters). |
 | `singularity-todo-ui-event-vs-state` | 62 | How to model one-shot UI events, routing state and continuous state separately in Singularity Todo ViewModels. |
 | `singularity-todo-unwired-surface-audit` | 113 | Find code that is fully implemented but wired to nothing — a screen no graph composes, a callback whose empty default defeats its own fallback, a DAO no Koin module binds, a UI affordance with no control. |

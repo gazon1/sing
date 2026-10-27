@@ -1,0 +1,20 @@
+# Scenario MENU-05 — the tree shows what is being worked on.
+#
+# Two rules about what the tree contains. A childless project must not offer an
+# expander it has nothing to put behind, and a closed project has left the work
+# — it belongs to the full list, not to the tree the user reads every day.
+
+id: MENU-05
+title: "A project without children shows no expander, and a closed project is absent from the tree"
+area: feature.menu
+priority: P2
+status: confirmed
+targets: [android, desktop]
+preconditions: >-
+  One project has no children, and one project has been closed.
+steps:
+  - "Open the app menu and look at the Projects section."
+expected: >-
+  The childless project shows no expander control, so nothing in the tree
+  invites an expansion that cannot happen. The closed project is not in the
+  tree at all.

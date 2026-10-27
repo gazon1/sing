@@ -7,9 +7,12 @@ import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
 import io.modelcontextprotocol.kotlin.sdk.types.TextContent
 import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 
 /**
@@ -84,8 +87,11 @@ class ToolboxTool(private val snapshot: ToolsetSnapshot) {
     )
 
     private fun describe(request: CallToolRequest): CallToolResult {
-        val domain = (request.arguments?.get("domain") as? String)?.takeIf { it.isNotBlank() }
-        val includeDisabled = request.arguments?.get("includeDisabled") as? Boolean ?: false
+        // Arguments arrive as JsonElement: `as? String` / `as? Boolean` never matched, and
+        // `jsonPrimitive` throws on an object and reads JsonNull as the string "null".
+        val domain = request.arguments?.get("domain").argumentString()?.takeIf { it.isNotBlank() }
+        val includeDisabled =
+            request.arguments?.get("includeDisabled").argumentString()?.toBooleanStrictOrNull() ?: false
 
         val registered = snapshot.registered.filter { domain == null || it.domain == domain }
         val disabled = snapshot.disabled.filter { domain == null || it.domain == domain }
@@ -206,3 +212,12 @@ class ToolboxTool(private val snapshot: ToolsetSnapshot) {
         const val MAX_UNMATCHED_LISTED = 20
     }
 }
+
+/**
+ * A call argument's text, or null when it is absent, JSON `null`, or not a primitive.
+ *
+ * `as? String` never matches a `JsonElement`, `jsonPrimitive` throws on an object or an
+ * array, and a `JsonNull` reads as the string "null" — so `{"domain": null}`, which is what
+ * a generated client sends for an omitted optional, would have filtered every domain out.
+ */
+internal fun JsonElement?.argumentString(): String? = (this as? JsonPrimitive)?.contentOrNull

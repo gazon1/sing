@@ -58,9 +58,14 @@ non-alphanumeric characters with `_`.
 | Constant | Value | Where |
 |---|---|---|
 | `MENU_AI_CHAT` | `menu_aichat` | |
+| `MENU_ALL_PROJECTS` | `menu_all_projects` | |
 | `MENU_ARCHIVE` | `menu_archive` | |
+| `MENU_ATTACH_ACCOUNT` | `menu_attach_account` | |
+| `MENU_CALENDAR` | `menu_calendar` | |
 | `MENU_NOTES` | `menu_notes` | |
 | `MENU_PROFILES` | `menu_profiles` | |
+| `MENU_PROJECTS_SECTION` | `menu_projects_section` | |
+| `MENU_PROPOSALS` | `menu_proposals` | |
 | `MENU_QUICK_SEARCH` | `menu_quick_search` | |
 | `MENU_SEARCH` | `menu_search` | |
 | `MENU_SETTINGS` | `menu_settings` | |
@@ -152,6 +157,16 @@ non-alphanumeric characters with `_`.
 | `SAVED_AGENDA_NAME_INPUT` | `saved_agenda_name_input` | |
 | `SAVED_AGENDA_OVERFLOW_BUTTON` | `saved_agenda_overflow_button` | |
 | `SAVED_AGENDA_SAVE_BUTTON` | `saved_agenda_save_button` | |
+
+### Plans
+| Constant | Value | Where |
+|---|---|---|
+| `PLANS_EMPTY_STATE` | `plans_empty_state` | |
+| `PLANS_ERROR` | `plans_error` | |
+| `PLANS_GRANULARITY_DAY` | `plans_granularity_day` | |
+| `PLANS_GRANULARITY_MONTH` | `plans_granularity_month` | |
+| `PLANS_GRANULARITY_WEEK` | `plans_granularity_week` | |
+| `PLANS_SCREEN` | `plans_screen` | |
 
 ### Pomodoro
 | Constant | Value | Where |
@@ -377,6 +392,7 @@ non-alphanumeric characters with `_`.
 | `Calendar.CREATE_ON_SELECTED` | `calendar_create_on_selected` | |
 | `Calendar.SELECTION_BAR` | `calendar_selection_bar` | |
 | `DEPENDENCY_PICKER_EMPTY` | `dependency_picker_empty` | |
+| `DESKTOP_DRAWER` | `desktop_drawer` | |
 | `EDITOR_SHEET_CLOSE` | `editor_sheet_close` | |
 | `LOADING_INDICATOR` | `loading_indicator` | |
 | `MultiDatePicker.CANCEL` | `multi_date_picker_cancel` | |
@@ -390,6 +406,7 @@ non-alphanumeric characters with `_`.
 | `PROJECTS_SEARCH_INPUT` | `projects_search_input` | |
 | `REFRESH_INDICATOR` | `refresh_indicator` | |
 | `RESULT_DIALOG` | `result_dialog` | |
+| `SHELL_BACK_BUTTON` | `shell_back_button` | |
 | `STATISTICS_OPEN_SAVED_VIEWS` | `statistics_open_saved_views` | |
 | `STATISTICS_TAB_HEALTH` | `statistics_tab_health` | |
 | `STATISTICS_TAB_TASKS` | `statistics_tab_tasks` | |
@@ -418,6 +435,8 @@ use the expanded string directly).
 | `Settings.themeModeButton("Dark")` | `"Dark"` | `settings_theme_mode_dark` | Theme-mode radio buttons |
 | `Settings.workingDaySwitch("MONDAY")` | `"MONDAY"` | `settings_working_day_monday` | Working-day toggles in the work schedule section |
 | `settingsTab("Interface")` | `"Interface"` | `settings_tab_interface` | Settings nav rail tabs |
+| `menuProjectExpander("p1")` | `"p1"` | `menu_project_expander_p1` | The expander of a project in the menu's tree |
+| `menuProjectNode("p1")` | `"p1"` | `menu_project_node_p1` | A project in the menu's project tree |
 | `checklistItem("Item")` | `"Item"` | `checklist_item_item` | Checklist item rows |
 | `checklistItemCheckbox("Item")` | `"Item"` | `checklist_item_checkbox_item` | Checklist item checkboxes |
 | `checklistItemDelete("Item")` | `"Item"` | `checklist_item_delete_item` | Checklist item delete buttons |
@@ -437,6 +456,8 @@ use the expanded string directly).
 | `agendaSectionTemplate("By tag")` | `"By tag"` | `agenda_section_template_by_tag` | Section *types* in the add-section sheet |
 | `agendaSelectorOption("work")` | `"work"` | `agenda_selector_option_work` | Values in the section parameter picker |
 | `savedAgendaCard("Work")` | `"Work"` | `saved_agenda_card_work` | Saved agenda cards |
+| `plansSection("day:2026-09-16")` | `"day:2026-09-16"` | `plans_section_day_2026_09_16` | Timeline section headers |
+| `plansSectionAdd("day:2026-09-16")` | `"day:2026-09-16"` | `plans_section_add_day_2026_09_16` | The add control of a timeline section |
 | `projectCard("Project Alpha")` | `"Project Alpha"` | `project_card_project_alpha` | Project cards |
 | `pomodoroTaskChip("Buy milk")` | `"Buy milk"` | `pomodoro_task_chip_buy_milk` | Pomodoro focus-task chips |
 | `Dialog.title("discard")` | `"discard"` | `dialog_title_discard` | Dialog title |

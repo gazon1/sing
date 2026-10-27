@@ -97,7 +97,10 @@ class OpenTaskFromAgendaFlowTest {
         awaitTag(TestTags.taskItem("High priority task")).performClick()
 
         awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
-        // Priority row shows the label for High priority
+        // Priority row shows the label for High priority.
+        // The attribute rows sit below the fold on a 1024x768 window, so scroll
+        // before asserting display — the same reason the due-date test above does.
+        scrollToTag(TestTags.TASK_EDITOR_PRIORITY_ROW)
         assertTagDisplayed(TestTags.TASK_EDITOR_PRIORITY_ROW)
         assertTextDisplayed("High priority")
     }

@@ -1,0 +1,36 @@
+# Both platforms offer the same menu.
+#
+# The Android sheet and the Desktop drawer draw one model, so the entries they
+# offer are the same. This flow reads the sheet's entries: the Calendar, the
+# projects' section and the way to the full list are what moved between the
+# platforms, and the Desktop drawer reads the same model.
+#
+# The project's id is given to the seed, so the node in the tree is addressed by
+# that id rather than by the name the user reads — a name is copy, and an id is
+# not.
+appId: com.singularity.todo
+name: nav-menu-parity
+tags:
+  - smoke
+  - nav
+  - scenario:NAV-02
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "project=Roadmap&id=roadmap"
+- runFlow: ../../helpers/open-app-menu.yaml
+# The Calendar is an entry of the menu, on both platforms.
+- extendedWaitUntil:
+    visible:
+      id: menu_calendar
+    timeout: 5000
+# And so are the projects, as a tree, with the way to the full list under it.
+- scrollUntilVisible:
+    element:
+      id: menu_project_node_roadmap
+    direction: DOWN
+    timeout: 8000
+- assertVisible:
+    id: menu_all_projects

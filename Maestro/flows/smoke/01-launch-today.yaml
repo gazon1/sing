@@ -22,7 +22,5 @@ tags:
 - assertVisible:
     id: nav_tab_pomodoro
 - assertVisible:
-    id: nav_tab_calendar
-- assertVisible:
     id: nav_menu_button
 - takeScreenshot: smoke/01-launch-today

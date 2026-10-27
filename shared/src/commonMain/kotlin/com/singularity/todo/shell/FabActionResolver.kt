@@ -70,9 +70,14 @@ internal fun fabActionForNav3(
             )
         }
 
+        // The plan tab creates a *task*, not a project: the timeline shows the
+        // work that is ahead, and a task due today is the piece that belongs in
+        // the first section of it.
         AppDestination.Plans -> FabAction(
-            label = "Add project",
-            onClick = { navigate(AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor())) },
+            label = "Add task",
+            onClick = {
+                navigate(AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create(), today))
+            },
         )
 
         // NotesNavGraph has its own note creation button — no shell FAB needed here.

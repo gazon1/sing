@@ -1,0 +1,25 @@
+# Scenario PLANS-09 — a task opens from its section, and a new one inherits the
+# section's date.
+#
+# Two actions, because they are the two ways a user acts on a section. Tapping
+# a row has to reach that task's own screen, and adding to a section has to
+# produce a task that belongs to that section — otherwise the new task lands
+# outside the period the user was looking at.
+
+id: PLANS-09
+title: "A task is opened from a section and a new task inherits that section's date"
+area: feature.plans
+priority: P2
+status: confirmed
+targets: [android, desktop]
+preconditions: >-
+  A task with a due date inside the horizon exists, and Plans is open.
+steps:
+  - "Tap the task and read what opens."
+  - "Go back to Plans and tap the add control on that section's header."
+  - "Read the due date in the editor that opens."
+expected: >-
+  Tapping the task opens that task's own screen. The editor for a new task
+  opens with the due date prefilled with the section's date — the day itself in
+  day granularity, and the first day of the period in week and month
+  granularity.

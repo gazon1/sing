@@ -188,13 +188,14 @@ def ensure_device(serial: str | None) -> str | None:
 def gradle(*args: str) -> subprocess.CompletedProcess:
     """Run Gradle with `GRADLE_ARGS` appended.
 
-    GRADLE_ARGS is how the caller states what kind of build it wants — most
-    importantly `-PTEST_AUTH_BYPASS=true`, without which the app opens on the
-    auth screen and every UI assertion fails because there is no agenda to
-    assert about. The build is assembled twice over (assembleDebug, then
-    connectedDebugAndroidTest), so the property has to reach both; putting it in
-    one place here is what stops the APK under test and the assertions about it
-    being built from different flags.
+    GRADLE_ARGS is how the caller states what kind of build it wants — a class
+    filter for the instrumentation run, most often. The auth bypass is not one
+    of them: a debug build carries it by default (ADR
+    2026-10-27-the-debug-build-starts-signed-in), so the APK under test opens
+    on the agenda rather than on the auth screen. The build is assembled twice
+    over (assembleDebug, then connectedDebugAndroidTest), so whatever is passed
+    has to reach both; putting it in one place here is what stops the APK under
+    test and the assertions about it being built from different flags.
     """
     extra = shlex.split(os.environ.get("GRADLE_ARGS", ""))
     return subprocess.run(

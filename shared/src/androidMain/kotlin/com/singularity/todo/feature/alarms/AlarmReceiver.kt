@@ -71,7 +71,8 @@ class AlarmReceiver :
                 when (intent.action) {
                     ACTION_REMINDER_FIRE -> handleReminderFire(intent)
                     ACTION_POMODORO_PHASE_END -> handlePomodoroPhaseEnd(intent)
-                    ACTION_BOOT_COMPLETED, ACTION_REMINDER_DATA_CHANGED -> rescheduleAll()
+                    ACTION_BOOT_COMPLETED -> enqueueCatchUp(context)
+                    ACTION_REMINDER_DATA_CHANGED -> rescheduleAll()
                 }
             } finally {
                 pendingResult.finish()
@@ -101,6 +102,19 @@ class AlarmReceiver :
      * happened, which is the one fact only a `BroadcastReceiver` can supply.
      */
     private suspend fun rescheduleAll() = handler.catchUp()
+
+    /**
+     * Defer the boot catch-up to WorkManager so it is not bound by the broadcast's
+     * ~10s window. The receiver returns immediately.
+     */
+    private fun enqueueCatchUp(context: Context) {
+        val request = androidx.work.OneTimeWorkRequestBuilder<ReminderCatchUpWorker>().build()
+        androidx.work.WorkManager.getInstance(context).enqueueUniqueWork(
+            "reminder-catchup",
+            androidx.work.ExistingWorkPolicy.KEEP,
+            request,
+        )
+    }
 
     // ─── Intent helpers ─────────────────────────────────────────────────────────
 

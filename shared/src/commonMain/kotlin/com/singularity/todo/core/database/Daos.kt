@@ -1256,8 +1256,24 @@ interface ProjectReminderDao {
 
 @Dao
 interface ChecklistDao {
+    /**
+     * Reads every item on [taskId], whoever owns the task.
+     *
+     * @deprecated Use [watchByTaskForUser]. Kept for the two tests that assert on the raw
+     *   table; production reads must be scoped or they can return another profile's rows.
+     */
     @Query("SELECT * FROM checklist_items WHERE task_id = :taskId ORDER BY sort_order ASC")
     fun watchByTask(taskId: String): Flow<List<ChecklistItemEntity>>
+
+    @Query(
+        """
+        SELECT * FROM checklist_items
+        WHERE task_id = :taskId
+          AND task_id IN (SELECT id FROM tasks WHERE user_id = :userId)
+        ORDER BY sort_order ASC
+        """,
+    )
+    fun watchByTaskForUser(taskId: String, userId: String): Flow<List<ChecklistItemEntity>>
 
     @Upsert
     suspend fun upsert(item: ChecklistItemEntity)

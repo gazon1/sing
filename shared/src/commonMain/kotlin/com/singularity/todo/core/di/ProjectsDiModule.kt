@@ -1,14 +1,19 @@
 package com.singularity.todo.core.di
 
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.projects.data.DataStoreProjectsTreeSettingsRepository
 import com.singularity.todo.feature.projects.data.ProjectsRepositoryImpl
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.projects.domain.port.ProjectsTreeSettingsRepository
 import com.singularity.todo.feature.projects.domain.usecase.CloseProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.CreateProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
+import com.singularity.todo.feature.projects.presentation.nav.ProjectsOpener
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectDetailViewModel
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectEditorViewModel
+import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTreeViewModel
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
@@ -71,6 +76,31 @@ fun projectsModule(): org.koin.core.module.Module = module {
             projectReminders = get(),
             notificationsSettings = get(),
             clock = get(),
+            crashReporter = get(),
+        )
+    }
+
+    // ─── The menu's project tree ─────────────────────────────────────────────
+
+    // The rendezvous between the menu's tree and this graph. A singleton,
+    // because it is app state: the tree and the graph are two different
+    // compositions that have to meet.
+    single { ProjectsOpener() }
+
+    // Which projects the user has folded away. The folding is theirs, so it is
+    // kept per profile — see the repository's own note on why the key carries
+    // the scoped user id.
+    single<ProjectsTreeSettingsRepository> {
+        DataStoreProjectsTreeSettingsRepository(
+            dataStore = get(),
+            userId = get<ProfileAwareCurrentUser>().scopedUserId,
+        )
+    }
+
+    viewModel {
+        ProjectsTreeViewModel(
+            repo = get(),
+            settings = get(),
             crashReporter = get(),
         )
     }

@@ -77,33 +77,33 @@ internal class PushPhase(
         var batches = 0
         while (batches < 1000) {
             batches++
-                val plan = planPush().getOrElse { error ->
-                    phases.pushFailed(error.toAppError(), 0)
-                    phases.setPushStatus(isPushing = false)
-                    return PhaseResult.Failed(error.toAppError())
-                }
-                val ready = (plan as? PushPlan.Ready) ?: break
-
-                val result = pushWithPlan(ready, session)
-                when (result) {
-                    is PhaseResult.Ok -> {
-                        val s = result.getOrThrow()
-                        succeeded += s.succeeded
-                        failed += s.failed
-                        lost += s.lost
-                        superseded += s.superseded
-                        discarded += s.discarded
-                        processed += s.processed
-                    }
-
-                    is PhaseResult.Failed -> {
-                        phases.setPushStatus(isPushing = false)
-                        return result
-                    }
-
-                    else -> {}
-                }
+            val plan = planPush().getOrElse { error ->
+                phases.pushFailed(error.toAppError(), 0)
+                phases.setPushStatus(isPushing = false)
+                return PhaseResult.Failed(error.toAppError())
             }
+            val ready = (plan as? PushPlan.Ready) ?: break
+
+            val result = pushWithPlan(ready, session)
+            when (result) {
+                is PhaseResult.Ok -> {
+                    val s = result.getOrThrow()
+                    succeeded += s.succeeded
+                    failed += s.failed
+                    lost += s.lost
+                    superseded += s.superseded
+                    discarded += s.discarded
+                    processed += s.processed
+                }
+
+                is PhaseResult.Failed -> {
+                    phases.setPushStatus(isPushing = false)
+                    return result
+                }
+
+                else -> {}
+            }
+        }
 
         val summary = PushSummary(
             processed = processed,
@@ -280,7 +280,7 @@ internal class PushPhase(
             activeScope
                 ?.let { s ->
                     phases.localStorage("sync.outbox.read", "read the pending changes") {
-                        outboxDao.getPending(nowMillis, s.ownerId, s.profileId)
+                        outboxDao.getPending(nowMillis, s.ownerId)
                     }
                 }?.getOrElse { error ->
                     phases.pushFailed(error.toAppError(), 0)

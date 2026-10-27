@@ -1,0 +1,20 @@
+# Scenario MENU-06 — the full project list is still reachable.
+#
+# Moving the list out of the tab bar must not cost the user the things only the
+# list can do: searching across projects, sorting them, and reopening a closed
+# one. The tree is the default way in; the list is still there.
+
+id: MENU-06
+title: "The full project list stays reachable from the Projects section of the menu"
+area: feature.menu
+priority: P2
+status: confirmed
+targets: [android, desktop]
+preconditions: >-
+  Several projects exist.
+steps:
+  - "Open the app menu and look at the Projects section."
+  - "Open the entry that leads to the full list."
+expected: >-
+  The full project list opens with its search and its sorting, so the tree is
+  not the only way to work with projects.

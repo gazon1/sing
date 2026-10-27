@@ -6,9 +6,11 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import com.singularity.todo.core.ui.TestTags
 
 /**
  * Content descriptions of the desktop shell's own controls.
@@ -26,11 +28,23 @@ object DesktopShell {
     const val FAB_ADD_TASK = "Add task"
     const val FAB_ADD_PROJECT = "Add project"
 
-    /** The six top-level tabs, in drawer order. */
-    val TABS = listOf("Inbox", "Today", "Upcoming", "Plans", "Pomodoro", "Calendar")
+    /** The five top-level tabs, in drawer order. */
+    val TABS = listOf("Inbox", "Today", "Upcoming", "Plans", "Pomodoro")
 
-    /** The seven destinations behind the drawer's second group. */
-    val MENU_ENTRIES = listOf("Statistics", "Notes", "AI Chat", "Search", "Archive", "Profiles", "Settings")
+    /** The entry at the end of the drawer's Projects section. */
+    const val ALL_PROJECTS_ENTRY = "All projects"
+
+    /** The destinations behind the drawer's second group, the menu proper. */
+    val MENU_ENTRIES = listOf(
+        "Statistics",
+        "Notes",
+        "AI Chat",
+        "Search",
+        "Archive",
+        "Calendar",
+        "Profiles",
+        "Settings",
+    )
 }
 
 /**
@@ -44,10 +58,17 @@ object DesktopShell {
 private fun drawerEntry(label: String): SemanticsMatcher =
     hasContentDescription(label) and SemanticsMatcher.keyIsDefined(SemanticsProperties.Role)
 
-/** True once the drawer sheet has slid in — its first entry is on-screen. */
+/**
+ * True once the drawer sheet has slid in.
+ *
+ * The sheet itself is the thing that slides, so it is the thing to ask about.
+ * An entry would be the wrong probe: the drawer is a scrollable column, and a
+ * flow that scrolled to the trailing entries leaves the first tab above the
+ * fold — the drawer is open, and the tab is not on screen.
+ */
 @OptIn(ExperimentalTestApi::class)
 private fun DesktopComposeUiTest.isDrawerOpen(): Boolean =
-    onAllNodes(drawerEntry(DesktopShell.TABS.first()))
+    onAllNodes(hasTestTag(TestTags.DESKTOP_DRAWER))
         .fetchSemanticsNodes()
         .any { it.boundsInRoot.right > 0 }
 
@@ -116,6 +137,24 @@ fun DesktopComposeUiTest.goBack() = step("goBack") {
             .fetchSemanticsNodes()
             .isNotEmpty()
     }
+    waitForIdle()
+}
+
+/**
+ * Opens the full project list from the drawer's Projects section.
+ *
+ * The project list is not a tab any more — it left the bottom bar with the rest
+ * of the projects — so a flow that needs it goes through the menu, the same way
+ * the user does.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.openAllProjects() = step("openAllProjects") {
+    openDrawer()
+    onNode(drawerEntry(DesktopShell.ALL_PROJECTS_ENTRY)).performScrollTo().performClick()
+    waitUntil(
+        conditionDescription = "drawer closes after selecting '${DesktopShell.ALL_PROJECTS_ENTRY}'",
+        timeoutMillis = TIMEOUT_MS,
+    ) { !isDrawerOpen() }
     waitForIdle()
 }
 

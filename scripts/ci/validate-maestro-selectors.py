@@ -147,7 +147,8 @@ FINITE_DYNAMIC_SPACES: List[tuple[str, str, str]] = [
     ("navTab", "Upcoming", "nav_tab_"),
     ("navTab", "Plans", "nav_tab_"),
     ("navTab", "Pomodoro", "nav_tab_"),
-    ("navTab", "Calendar", "nav_tab_"),
+    # The Calendar left the tab bar for the app menu — there is no
+    # `nav_tab_calendar` any more, and the menu entry is `menu_calendar`.
     # themeModeButton — 3 ThemeMode values (prefix: theme_mode_button_)
     ("themeModeButton", "System", "theme_mode_button_"),
     ("themeModeButton", "Light", "theme_mode_button_"),
@@ -181,11 +182,27 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "nav_tab_upcoming",
     "nav_tab_plans",
     "nav_tab_pomodoro",
+    # The Calendar is not a tab any more. The id stays in the known set because
+    # the NAV-01 flow asserts its *absence* from the bottom bar, and an id the
+    # validator has never heard of cannot be asserted to be missing.
     "nav_tab_calendar",
     # menuItem(...) — menu sheet items
     "menu_archive",
     "menu_profiles",
     "menu_settings",
+    "menu_calendar",
+    "menu_all_projects",
+    # menuProjectNode(...) / menuProjectExpander(...) — the menu's project tree.
+    # The seed is given the project's id, so the node and its expander are
+    # addressable by that id.
+    "menu_project_node_roadmap",
+    "menu_project_node_childless",
+    "menu_project_node_latecomer",
+    "menu_project_expander_roadmap",
+    "menu_project_expander_childless",
+    # plansSection("overdue") — the overdue section's id is a constant of the
+    # grouper, so the expansion is finite.
+    "plans_section_overdue",
     # taskItem(...) — from seed flows
     "task_item_buy_milk",
     "task_item_uniquesearchabletask2026",
@@ -202,6 +219,15 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "task_item_write_spec",
     "task_item_worktask",
     "task_item_grocery_run",
+    # taskItem(...) — from the Plans flows: the timeline's rows
+    "task_item_only_once",
+    "task_item_due_today",
+    "task_item_due_tomorrow",
+    "task_item_due_in_45_days",
+    # projectCard(...) — from the menu's flows: the full project list's rows
+    "project_card_roadmap",
+    "project_card_childless",
+    "project_card_latecomer",
     # taskCheckbox(...) — from seed flows
     "task_checkbox_buy_milk",
     # subtaskItem(...) — from TASK-SUB-01 flow
