@@ -75,32 +75,31 @@ internal class PushPhase(
         var processed = 0
 
         while (true) {
-                val plan = planPush().getOrElse { error ->
-                    phases.pushFailed(error.toAppError(), 0)
+            val plan = planPush().getOrElse { error ->
+                phases.pushFailed(error.toAppError(), 0)
+                phases.setPushStatus(isPushing = false)
+                return PhaseResult.Failed(error.toAppError())
+            }
+            val ready = (plan as? PushPlan.Ready) ?: break
+
+            val result = pushWithPlan(ready, session)
+            when (result) {
+                is PhaseResult.Ok -> {
+                    val s = result.getOrThrow()
+                    succeeded += s.succeeded
+                    failed += s.failed
+                    lost += s.lost
+                    superseded += s.superseded
+                    discarded += s.discarded
+                    processed += s.processed
+                }
+
+                is PhaseResult.Failed -> {
                     phases.setPushStatus(isPushing = false)
-                    return PhaseResult.Failed(error.toAppError())
+                    return result
                 }
-                val ready = (plan as? PushPlan.Ready) ?: break
 
-                val result = pushWithPlan(ready, session)
-                when (result) {
-                    is PhaseResult.Ok -> {
-                        val s = result.getOrThrow()
-                        succeeded += s.succeeded
-                        failed += s.failed
-                        lost += s.lost
-                        superseded += s.superseded
-                        discarded += s.discarded
-                        processed += s.processed
-                    }
-
-                    is PhaseResult.Failed -> {
-                        phases.setPushStatus(isPushing = false)
-                        return result
-                    }
-
-                    else -> {}
-                }
+                else -> {}
             }
         }
 
