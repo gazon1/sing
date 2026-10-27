@@ -104,6 +104,7 @@ import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
 import com.singularity.todo.feature.tasks.domain.TaskDomain
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.logic.Blocking
+import com.singularity.todo.feature.tasks.domain.logic.TaskSeriesShape
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDocument
 import com.singularity.todo.feature.tasks.domain.model.TaskFilter
@@ -826,6 +827,7 @@ open class FakeTaskRepository(
         createOverride?.let { return it }
         createCallOverride?.invoke(item.title)?.let { return it }
         return runCatchingCancellable {
+            TaskSeriesShape.requireRuleLivesInSeries(item)
             store.upsert(item)
             afterCreate?.invoke(item)
             item
@@ -850,13 +852,17 @@ open class FakeTaskRepository(
             val uid = currentUserId()
             store[item.id.value]?.takeIf { it.userId == uid }
                 ?: throw IllegalArgumentException("Task not found or not owned: ${item.id.value}")
+            TaskSeriesShape.requireRuleLivesInSeries(item)
             store.upsert(item)
             item
         }
     }
 
     override suspend fun createSeries(tasks: List<Task>): Result<List<Task>> = runCatchingCancellable {
-        tasks.forEach { store.upsert(it) }
+        tasks.forEach {
+            TaskSeriesShape.requireRuleLivesInSeries(it)
+            store.upsert(it)
+        }
         tasks
     }
 
@@ -865,6 +871,7 @@ open class FakeTaskRepository(
         tasks.forEach { item ->
             store[item.id.value]?.takeIf { it.userId == uid }
                 ?: throw IllegalArgumentException("Task not found or not owned: ${item.id.value}")
+            TaskSeriesShape.requireRuleLivesInSeries(item)
             store.upsert(item)
         }
         tasks
@@ -926,6 +933,7 @@ open class FakeTaskRepository(
             tags = document.tags ?: stored?.tags.orEmpty(),
             blockedBy = document.blockedBy ?: stored?.blockedBy.orEmpty(),
         )
+        TaskSeriesShape.requireRuleLivesInSeries(task)
         store.upsert(task)
         return task
     }
