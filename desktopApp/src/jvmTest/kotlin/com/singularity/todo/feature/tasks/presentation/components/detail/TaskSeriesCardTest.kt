@@ -5,6 +5,8 @@ package com.singularity.todo.feature.tasks.presentation.components.detail
 import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.core.ids.UserId
+import kotlin.time.Instant
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import kotlinx.collections.immutable.toImmutableList
@@ -24,8 +26,8 @@ class TaskSeriesCardTest {
     @Test
     fun `a series card lists every member's date`() = runIsolatedComposeTest {
         val members = listOf(
-            Task(id = TaskId("t1"), title = "Buy milk", dueDate = LocalDate(2026, 10, 5)),
-            Task(id = TaskId("t2"), title = "Buy milk", dueDate = LocalDate(2026, 10, 12)),
+            Task(id = TaskId("t1"), title = "Buy milk", dueDate = LocalDate(2026, 10, 5), createdAt = Instant.fromEpochMilliseconds(1_760_000_000_000), updatedAt = Instant.fromEpochMilliseconds(1_760_000_000_000), userId = UserId("u1")),
+            Task(id = TaskId("t2"), title = "Buy milk", dueDate = LocalDate(2026, 10, 12), createdAt = Instant.fromEpochMilliseconds(1_760_000_000_000), updatedAt = Instant.fromEpochMilliseconds(1_760_000_000_000), userId = UserId("u1")),
         ).toImmutableList()
 
         setContent {
@@ -38,6 +40,6 @@ class TaskSeriesCardTest {
             )
         }
 
-        assertTextDisplayed("Серия · 2 дат", "series header")
+        assertTextDisplayed("Серия · 2 дат")
     }
 }
