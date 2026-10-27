@@ -89,11 +89,24 @@ object BackupMigrations {
         )
     }
 
+    /**
+     * v6 → v7: a payload can carry the rows that were removed.
+     *
+     * The new field is optional and defaults to empty, so a v6 payload says
+     * everything it always said: the rows it holds are the whole account, and
+     * nothing was removed. All this migration does is bump the version, so that
+     * the payload that comes out of it is the payload this build writes.
+     */
+    private val v6ToV7: (JsonObject) -> JsonObject = { payload ->
+        JsonObject(payload + mapOf("schemaVersion" to JsonPrimitive(7)))
+    }
+
     // Map<fromVersion, transform>
     private val migrations: Map<Int, (JsonObject) -> JsonObject> = mapOf(
         1 to v1ToV2,
         3 to v3ToV4,
         4 to v4ToV5,
+        6 to v6ToV7,
     )
 
     /**

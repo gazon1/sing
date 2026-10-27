@@ -2,7 +2,9 @@ package com.singularity.todo.core.backup
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.attachments.AttachmentStorage
+import com.singularity.todo.core.database.TagEntity
 import com.singularity.todo.core.database.TaskEntity
+import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.files.ByteSink
 import com.singularity.todo.core.files.ByteSource
 import com.singularity.todo.core.files.JvmFileSourceFactory
@@ -21,6 +23,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.time.Clock
@@ -104,28 +107,122 @@ class BackupChainTest {
     }
 
     /**
-     * A removal re-seals the base instead of writing a change.
+     * A removal travels in the change, and the chain keeps going.
      *
-     * A change is a set of rows, and a row that is gone is not a row: the only
-     * way to say "this is not here any more" is to write the whole snapshot
-     * again. So the chain starts again from the snapshot that has the removal in
-     * it.
+     * A removal is a change like any other: the change says which row is gone,
+     * and the chain does not start again over it. The old behaviour — a fresh
+     * base — cost the whole snapshot for one deleted task, and the person who
+     * deleted a task could not back up without starting over.
      */
     @Test
-    fun `a removal starts the chain again instead of writing a change`() = runTest {
+    fun `a removal travels in the change instead of starting the chain again`() = runTest {
         seedTask("t-1", "before")
         export("a.zip")
         sourceDb.taskDao().deleteAllForUser(owner.value)
 
         export("b.zip")
 
-        assertFalse(
+        assertTrue(
             File("$backupDir/b.zip.delta").exists(),
-            "a removal cannot travel in a change, so no change is written",
+            "a removal is a change: it must be written beside the snapshot",
+        )
+        val change = readChange("b.zip")
+        assertEquals(
+            listOf("t-1"),
+            change.payload.removals[BackupEntityKind.TASKS],
+            "the change must name the row that is gone",
         )
         val state = cursors.load(owner)
-        assertEquals("$backupDir/b.zip", state.baseArchivePath, "the chain starts again from the snapshot")
-        assertTrue(state.entries.isEmpty(), "the old chain's changes are dropped")
+        assertEquals("$backupDir/a.zip", state.baseArchivePath, "the chain does not start again")
+        assertEquals(1, state.entries.size, "the change joins the chain")
+    }
+
+    /**
+     * A restore of a change that says a row is gone leaves the row out.
+     *
+     * The base is restored first — it holds the row — and the change is applied
+     * on top of it. If the removal did not travel, the row would come back, and
+     * the account on the other device would keep a task the person deleted.
+     */
+    @Test
+    fun `a restore of a removal leaves the row out`() = runTest {
+        seedTask("t-1", "before")
+        export("a.zip")
+        sourceDb.taskDao().deleteAllForUser(owner.value)
+        export("b.zip")
+
+        val bucket = InMemoryBucket()
+        val repository = repository(bucket)
+        val pushed = repository.push(BackupId.fromPath("$backupDir/b.zip"), "horse".toCharArray())
+        assertTrue(pushed.isSuccess, "the push must succeed: ${pushed.exceptionOrNull()}")
+
+        val restored = repository.restoreFromCloud(pushed.getOrThrow(), "horse".toCharArray())
+        assertTrue(restored.isSuccess, "the restore must succeed: ${restored.exceptionOrNull()}")
+
+        val tasks = targetDb.taskDao().listAllForUser(owner.value)
+        assertTrue(
+            tasks.isEmpty(),
+            "the row the change says is gone must not come back: ${tasks.map { it.id }}",
+        )
+        assertEquals(
+            0,
+            restored.getOrThrow().entityCounts.tasks,
+            "the restore reports the merged account, and the merged account has no task",
+        )
+    }
+
+    /**
+     * A removal takes the task's links with it.
+     *
+     * The link tables carry no `user_id` of their own: a row of `task_tags`
+     * belongs to whoever owns the task it joins, and the statement that removes it
+     * reaches its row through that task. So the removal of a task and the removal
+     * of one of its links can only be taken out in one order — the link first,
+     * while the task is still there. The other order leaves the link behind,
+     * pointing at a task that is not there any more, and nothing ever cleans it
+     * up: the tables have no foreign key to cascade.
+     */
+    @Test
+    fun `a removal takes the task's links with it`() = runTest {
+        seedTask("t-1", "before")
+        seedTag("g-1")
+        sourceDb.seedTagRefs(listOf(TaskTagCrossRef(taskId = "t-1", tagId = "g-1")))
+        export("a.zip")
+
+        // The task is erased on the other device. The row is gone from the table,
+        // and the link it had goes with it — the export reads the links through
+        // the tasks that are still there.
+        sourceDb.taskDao().deleteForUser("t-1", owner.value)
+        export("b.zip")
+
+        val change = readChange("b.zip")
+        assertEquals(
+            listOf("t-1"),
+            change.payload.removals[BackupEntityKind.TASKS],
+            "the change must name the task that is gone",
+        )
+        assertEquals(
+            listOf("t-1\u0000g-1"),
+            change.payload.removals[BackupEntityKind.TASK_TAGS],
+            "the link of a task that is gone is gone too",
+        )
+
+        val bucket = InMemoryBucket()
+        val repository = repository(bucket)
+        val pushed = repository.push(BackupId.fromPath("$backupDir/b.zip"), "horse".toCharArray())
+        assertTrue(pushed.isSuccess, "the push must succeed: ${pushed.exceptionOrNull()}")
+
+        val restored = repository.restoreFromCloud(pushed.getOrThrow(), "horse".toCharArray())
+        assertTrue(restored.isSuccess, "the restore must succeed: ${restored.exceptionOrNull()}")
+
+        assertTrue(
+            targetDb.taskDao().listAllForUser(owner.value).none { it.id == "t-1" },
+            "the task the change says is gone must not come back",
+        )
+        assertTrue(
+            targetDb.taskDao().getTagIdsForTask("t-1").first().isEmpty(),
+            "the link must go with the task: an orphan points at a task that is not there",
+        )
     }
 
     /**
@@ -230,6 +327,23 @@ class BackupChainTest {
     /** Writes a task into the source database. */
     private suspend fun seedTask(id: String, title: String) {
         sourceDb.taskDao().upsert(task(id, title))
+    }
+
+    /** Writes a tag into the source database. */
+    private fun seedTag(id: String) {
+        sourceDb.seedTags(
+            listOf(
+                TagEntity(
+                    id = id,
+                    userId = owner.value,
+                    name = id,
+                    color = 0,
+                    createdAt = 1L,
+                    updatedAt = 1L,
+                    deletedAt = null,
+                ),
+            ),
+        )
     }
 
     /** Changes the title of a task — a row that changed. */

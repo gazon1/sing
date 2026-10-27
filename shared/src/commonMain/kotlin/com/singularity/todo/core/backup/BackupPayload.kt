@@ -26,4 +26,25 @@ data class BackupPayload(
     val savedSearches: List<SavedSearchDto> = emptyList(),
     val timeEntries: List<TimeEntryDto> = emptyList(),
     val profiles: List<ProfileDto> = emptyList(),
+    /**
+     * The rows that were removed, by kind.
+     *
+     * ## Keys, not rows
+     *
+     * A removal is the **absence** of a row, so there is nothing to carry: what
+     * travels is the row's key, and the key is what says which row is not there
+     * any more. The kinds are the ones the row index uses, so a removal is looked
+     * up under the same key the row itself would have been.
+     *
+     * ## Empty in a snapshot
+     *
+     * A base is the state, and a state says what is there — not what used to be.
+     * Only a change carries removals.
+     *
+     * ## Optional
+     *
+     * The field has a default, so an archive written before it existed still
+     * reads: the rows it holds are the whole story, and nothing was removed.
+     */
+    val removals: Map<BackupEntityKind, List<String>> = emptyMap(),
 )
