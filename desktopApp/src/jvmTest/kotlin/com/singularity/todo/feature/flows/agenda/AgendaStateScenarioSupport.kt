@@ -30,9 +30,9 @@ import kotlin.time.Instant
  * by one file. The scenarios therefore live in
  * `AgendaStateFilterScenarioTest` and `AgendaStateFollowScenarioTest`, and
  * everything they both need — the seeded view, the clock, the helpers — lives
- * here, where no scenario id is claimed. It is an object rather than top-level
- * members because the traceability scanner expects a Kotlin file to declare a
- * type named after the file.
+ * here, where no scenario id is claimed. The file names no scenario and carries
+ * no display-name annotation, so the traceability scanner does not read it as a
+ * claimant.
  *
  * Mid-month on purpose, so no assertion in either scenario straddles a
  * boundary.

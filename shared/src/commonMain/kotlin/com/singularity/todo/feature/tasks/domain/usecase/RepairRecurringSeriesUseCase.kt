@@ -86,9 +86,11 @@ class RepairRecurringSeriesUseCase(
      * Repairs every legacy repeating task of the active profile, unless this
      * profile has already been repaired at [VERSION].
      *
-     * @return the number of rows adopted, or a failure. A single row that cannot
-     *   be repaired does not stop the others: the pass is best-effort and its
-     *   failures are reported by the count, not by throwing.
+     * @return the number of rows adopted, or a failure. A failure aborts the
+     *   pass before the marker is written, so the next launch tries again
+     *   rather than declaring the profile clean. The candidate read and the
+     *   writes are the whole pass; a row that cannot be repaired is a failure
+     *   of the pass, not a row to skip silently.
      */
     suspend operator fun invoke(): Result<Int> = runCatchingCancellable {
         val scope = currentUser.scopedUserId.value.value
