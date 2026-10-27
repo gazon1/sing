@@ -220,6 +220,14 @@ test task in the tree with it.""",
         kind=PlacementKind.STATIC,
         command='sgate room_schema_integrity',
     ),
+    "tag entity constructions include nameNormalized": Placement(
+        kind=PlacementKind.STATIC,
+        command='python3 scripts/ci/check-tag-entity-normalized.py',
+    ),
+    "migration index names follow convention": Placement(
+        kind=PlacementKind.STATIC,
+        command='python3 scripts/ci/check-migration-naming.py',
+    ),
     "the text-field transformation table is true": Placement(
         kind=PlacementKind.STATIC,
         command='python3 scripts/check-text-field-transformations-table.py',
