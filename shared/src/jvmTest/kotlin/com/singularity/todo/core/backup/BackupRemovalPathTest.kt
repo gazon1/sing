@@ -35,17 +35,25 @@ import kotlin.time.Clock
  * names the wrong DAO, or the right DAO with the wrong key, or the right statement in
  * the wrong order, is a branch that exists.
  *
- * This test is the other half. It writes one row of every kind, says every one of
- * those rows is gone, and then looks at every table: a row that is still there is a
- * row the restore did not remove, and a row of *another* kind that is gone is a row it
- * removed by mistake.
+ * This test is the other half. It writes one row of every kind and then takes the
+ * kinds out **one at a time**, in the order the kinds are declared, and after each
+ * one it looks at every table.
+ *
+ * One at a time is what makes the difference visible. A restore that removed every
+ * kind at once could delete the wrong table and still leave every table empty: the
+ * row it deleted by mistake was going to be deleted anyway. With one kind per
+ * restore, the rows of the kinds that have not been removed yet are still there —
+ * so a branch that reaches into another table empties a table it should not have
+ * touched, and the test sees it.
  *
  * ## The order is in this test too
  *
- * The link tables carry no user id of their own, so the statement that removes a link
- * reaches its row through the parent that owns it — `removeDependencyForUser` deletes
- * only where the task still exists. A restore that took the parents out first would
- * leave the links behind, and this test would see it: the links are still there.
+ * The kinds are removed in the order they are declared — the children before the
+ * parents — because the link tables carry no user id of their own: the statement
+ * that removes a link reaches its row through the parent that owns it, and
+ * `removeDependencyForUser` deletes only where the task still exists. A restore
+ * that took the parents out first would leave the links behind, and this test would
+ * see it: the links are still there.
  *
  * ## The keys are the index's keys
  *
@@ -94,29 +102,51 @@ class BackupRemovalPathTest {
                 "and the removals below would prove nothing about them",
         )
 
-        // And now the payload that says every one of them is gone.
-        val removals = BackupRows.index(seed).mapValues { (_, rows) -> rows.keys.toList() }
+        // The keys the index gives the rows, and the rows themselves.
+        val index = BackupRows.index(seed)
         assertEquals(
             BackupEntityKind.entries.toSet(),
-            removals.keys,
+            index.keys,
             "the fixture must hold a row of every kind, or a kind is not covered",
         )
-        restore(
-            writeArchive(
-                BackupPayload(
-                    schemaVersion = BackupFormat.SCHEMA_VERSION,
-                    removals = removals,
-                ),
-                "removals.zip",
-            ),
-        )
-
+        val seeded = survivors()
         assertEquals(
             emptyMap(),
-            survivors().filterValues { it > 0 },
-            "these kinds still hold rows the restore was told to remove — the branch for " +
-                "one of them does not delete what it says it deletes",
+            seeded.filterValues { it == 0 },
+            "these kinds hold no row after the seed — the fixture does not cover every kind, " +
+                "and the removals below would prove nothing about them",
         )
+
+        // One kind per restore, in the order the kinds are declared.
+        val removed = mutableSetOf<BackupEntityKind>()
+        for (kind in BackupEntityKind.entries) {
+            restore(
+                writeArchive(
+                    BackupPayload(
+                        schemaVersion = BackupFormat.SCHEMA_VERSION,
+                        removals = mapOf(kind to index.getValue(kind).keys.toList()),
+                    ),
+                    "removal-${kind.name}.zip",
+                ),
+            )
+            removed += kind
+
+            // Every kind removed so far is empty, and every kind that is not is
+            // untouched. A branch that reaches into another table empties a table
+            // that should still be full.
+            assertEquals(
+                seeded.filterKeys { it in removed }.mapValues { 0 },
+                survivors().filterKeys { it in removed },
+                "the restore of $kind left rows behind — the branch for $kind does not " +
+                    "delete what it says it deletes",
+            )
+            assertEquals(
+                seeded.filterKeys { it !in removed },
+                survivors().filterKeys { it !in removed },
+                "the restore of $kind changed the rows of a kind it was not told to touch — " +
+                    "the branch for $kind reaches into another table",
+            )
+        }
     }
 
     // ── the fixture ───────────────────────────────────────────────────────────

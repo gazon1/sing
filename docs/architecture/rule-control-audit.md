@@ -132,12 +132,12 @@ For contrast, the controls that exist in the other two types:
 | A (sabotage) | `DiFacadeTest.kt:100` (`positiveControlDetectsLooseBinding`), `SingleOfKotlinDefaultsTest.kt:106`, `UnannotatedTestMemberTest.kt:114-132` (+ fixture `shared/src/jvmTest/fixtures/arch/UnannotatedMemberFixtureSource.kt`), `FieldOwnedTextSeedContractTest.kt:61,119,145`, `SyncTransportIdentityTest.kt:86`, `CommonMainJvmApiTest.kt:182`, `CachedIdentityReadArchitectureTest.kt:39` |
 | B (corpus guard only) | `CrashReportingWiringTest.kt:70,93,98` (guard `:113`), `ViewModelTestCoverageTest.kt:127`, `MaestroFlowTagsTest.kt:116`, `ViewModelInitOrderTest.kt:77`, `TextFieldRewriteContractTest.kt:111` |
 
-`ArchitectureTest` is `@Tag("slow")` (`ArchitectureTest.kt:24`) and CI runs it
+`ArchitectureTest` is `@Tag("slow")` (`ArchitectureTest.kt:25`) and CI runs it
 (`.github/workflows/ci.yml:406`), so it does execute — the gap is that it cannot
 *distinguish* "clean" from "scanner broken".
 
 **One assertion has left this class since the audit.** The rule *the question
-asked of the index is built by the rule* (`ArchitectureTest.kt:330`) was added on
+asked of the index is built by the rule* (`ArchitectureTest.kt:395`) was added on
 2026-10-23 and shipped without a control; it gained one the same day —
 `positiveControlDetectsAQuestionBuiltByHand` runs the scan over a synthetic
 file that builds the question by hand, outside `core/search`, and fails if the
