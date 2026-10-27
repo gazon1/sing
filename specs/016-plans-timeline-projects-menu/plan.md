@@ -192,7 +192,7 @@ constitution's workflow puts them before the implementation rather than inside i
       as a feature of its own, the row vocabulary promoted into the tasks feature, the menu gaining
       an entry that is not a destination, the Calendar leaving the tab list.
 - [x] Run `singularity-adr validate` — non-zero exit is a broken contract.
-- [x] Write `openspec/changes/plans-timeline-and-projects-menu/proposal.md`, `design.md`, `adr.md`
+- [x] Write `openspec/changes/archive/2026-10-27-plans-timeline-and-projects-menu/proposal.md`, `design.md`, `adr.md`
       (referencing the ADR slug), `tasks.md`, and the two capability specs under `specs/`.
 - [x] Import the change into the registry: `python3 scripts/openspec-import-all.py`, which writes
       `.specify/issues/plans-timeline-and-projects-menu.yaml`.
