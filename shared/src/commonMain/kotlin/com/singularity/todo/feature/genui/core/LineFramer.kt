@@ -113,7 +113,7 @@ class LineFramer(private val maxLineLength: Int = MAX_LINE_LENGTH) {
         // closing brace held the whole message until the next chunk happened to
         // carry a newline, and a message with no newline after it was never
         // emitted at all.
-        if (depth.accept(character.toString()) <= 0) {
+        if (depth.accept(character) <= 0) {
             open.append('\n').append(buffer.toString().trim())
             buffer.clear()
             message = null
