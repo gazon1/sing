@@ -570,7 +570,10 @@ def scan(root: pathlib.Path | None = None) -> list[dict]:
                         "detail": (
                             f"{wait['file']} waits for {element}, and no kind "
                             "prices it — an element nobody budgeted is a budget "
-                            "nobody keeps in step"
+                            "nobody keeps in step. Add "
+                            f"`{element} <kind>` to "
+                            f"{ELEMENT_KINDS.relative_to(ROOT)} "
+                            f"(the kinds are: {', '.join(sorted(kinds))})"
                         ),
                     }
                 )
