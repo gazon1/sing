@@ -3,6 +3,7 @@
 package com.singularity.todo.feature.tasks.presentation.components.detail
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.helpers.assertTextDisplayed
@@ -11,6 +12,7 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
+import kotlin.time.Instant
 
 /**
  * FR-019: the task detail screen shows the dates of the series.
@@ -21,11 +23,13 @@ import kotlin.test.Test
 @Tag("fast")
 class TaskSeriesCardTest {
 
+    private val epoch = Instant.fromEpochMilliseconds(0)
+
     @Test
     fun `a series card lists every member's date`() = runIsolatedComposeTest {
         val members = listOf(
-            Task(id = TaskId("t1"), title = "Buy milk", dueDate = LocalDate(2026, 10, 5)),
-            Task(id = TaskId("t2"), title = "Buy milk", dueDate = LocalDate(2026, 10, 12)),
+            member("t1", LocalDate(2026, 10, 5)),
+            member("t2", LocalDate(2026, 10, 12)),
         ).toImmutableList()
 
         setContent {
@@ -38,6 +42,15 @@ class TaskSeriesCardTest {
             )
         }
 
-        assertTextDisplayed("Серия · 2 дат", "series header")
+        assertTextDisplayed("Серия · 2 дат")
     }
+
+    private fun member(id: String, dueDate: LocalDate) = Task(
+        id = TaskId(id),
+        title = "Buy milk",
+        dueDate = dueDate,
+        createdAt = epoch,
+        updatedAt = epoch,
+        userId = UserId("test-user"),
+    )
 }
