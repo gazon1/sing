@@ -57,7 +57,7 @@ class BackgroundJobWorker(context: Context, params: WorkerParameters) :
         // Re-arm before returning, so a retry does not stack a second copy of the schedule.
         val encoded = inputData.getString(KEY_SCHEDULE)
         if (encoded != null) {
-            scheduler.schedule(jobId, JobScheduleCodec.decode(encoded))
+            scheduler.scheduleNext(jobId, JobScheduleCodec.decode(encoded))
         }
 
         return when (outcome) {

@@ -40,6 +40,15 @@ interface BackgroundWorkScheduler {
      */
     fun schedule(jobId: String, schedule: JobSchedule)
 
+    /**
+     * Re-arm [jobId] after it has just finished running.
+     *
+     * Differs from [schedule] only in policy: the successor is appended to the (now
+     * finishing) chain instead of being dropped by KEEP, which is what happens when a
+     * re-arm is issued while the current run is still in the RUNNING state.
+     */
+    fun scheduleNext(jobId: String, schedule: JobSchedule) = schedule(jobId, schedule)
+
     /** Cancel pending and running work for [jobId]. A no-op if it is not scheduled. */
     fun cancel(jobId: String)
 

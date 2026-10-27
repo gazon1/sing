@@ -45,6 +45,7 @@ class RecordingSyncApiClient(
     override suspend fun getEventsSince(
         sinceLsn: Long,
         limit: Int,
+        profileId: String,
     ): List<SyncEvent> {
         pullCalls.add(authenticatedAs to sinceLsn)
         return pullEvents
