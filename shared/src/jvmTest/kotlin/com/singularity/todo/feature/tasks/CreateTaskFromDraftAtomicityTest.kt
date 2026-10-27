@@ -12,6 +12,7 @@ import com.singularity.todo.core.error.Either
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.sync.FakeSyncRepository
 import com.singularity.todo.core.text.FieldOwnedText
+import com.singularity.todo.feature.checklist.data.ChecklistRepositoryImpl
 import com.singularity.todo.feature.tasks.data.TaskRepositoryImpl
 import com.singularity.todo.feature.tasks.domain.logic.DependencyValidatorImpl
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
@@ -20,11 +21,11 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.MaterializeRecurringSeriesUseCase
+import com.singularity.todo.feature.tasks.presentation.state.DraftChecklistItem
 import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
 import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
 import com.singularity.todo.test.fakes.FakeAttachmentRepository
 import com.singularity.todo.test.fakes.FakeAuthRepository
-import com.singularity.todo.test.fakes.FakeChecklistRepository
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.TEST_TZ
@@ -85,9 +86,14 @@ class CreateTaskFromDraftAtomicityTest {
         var seriesWrites: Int = 0
             private set
 
+        /** The id of the row the create door wrote before the window fill failed. */
+        var writtenTaskId: String? = null
+            private set
+
         override suspend fun createSeries(tasks: List<Task>): Result<List<Task>> {
             seriesWrites++
             return if (seriesWrites == 1) {
+                writtenTaskId = tasks.first().id.value
                 delegate.createSeries(tasks)
             } else {
                 Result.failure(IllegalStateException("window fill failed"))
@@ -96,7 +102,7 @@ class CreateTaskFromDraftAtomicityTest {
     }
 
     @Test
-    fun `a failed window fill leaves no row behind`() = runTest {
+    fun `a failed window fill leaves neither a row nor its checklist behind`() = runTest {
         val auth = FakeAuthRepository(Session.Anonymous(alice))
         val currentUser = FakeProfileAwareCurrentUser(auth)
         val unitOfWork = RoomUnitOfWork(db)
@@ -115,7 +121,7 @@ class CreateTaskFromDraftAtomicityTest {
             clock = clock,
             timeZone = TEST_TZ,
             currentUser = currentUser,
-            checklistRepository = FakeChecklistRepository(),
+            checklistRepository = ChecklistRepositoryImpl(db.checklistDao(), clock, currentUser),
             attachmentRepository = FakeAttachmentRepository(),
             unitOfWork = unitOfWork,
             materialize = MaterializeRecurringSeriesUseCase(repo, unitOfWork, clock),
@@ -127,6 +133,7 @@ class CreateTaskFromDraftAtomicityTest {
                 title = FieldOwnedText.empty().seeded("Buy bread"),
                 dueDate = DueDateOption.Custom(today, today.toString()),
                 recurrence = weekly,
+                checklist = listOf(DraftChecklistItem(id = "milk", text = "Milk")),
             ),
         )
 
@@ -136,6 +143,11 @@ class CreateTaskFromDraftAtomicityTest {
         assertTrue(
             real.observeAll().first().isEmpty(),
             "nothing was committed: a transaction that swallowed the failure would leave the series of one",
+        )
+        val writtenId = requireNotNull(repo.writtenTaskId) { "the first write did not happen" }
+        assertTrue(
+            db.checklistDao().watchByTask(writtenId).first().isEmpty(),
+            "the checklist copy is in the same transaction: the failure rolls it back too",
         )
     }
 }

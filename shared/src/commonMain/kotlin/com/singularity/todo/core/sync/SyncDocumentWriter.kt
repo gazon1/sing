@@ -17,6 +17,7 @@ import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.feature.tags.domain.model.TagGroup
 import com.singularity.todo.feature.tags.domain.model.TagGroupId
 import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
+import com.singularity.todo.feature.tasks.domain.logic.TaskSeriesShape
 import com.singularity.todo.feature.tasks.domain.model.BLOCKED_BY_WIRE_NAME
 import com.singularity.todo.feature.tasks.domain.model.TAGS_WIRE_NAME
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -106,7 +107,7 @@ internal class SyncDocumentWriter(
                 // bytes arrive every cycle. The event is skipped instead — the
                 // upgraded sender's next push carries the repaired series — which
                 // is the pull path's version of "never store the bare shape".
-                if (taskDocument.task.recurrence != null && taskDocument.task.seriesId == null) {
+                if (TaskSeriesShape.ruleLivesOutsideSeries(taskDocument.task)) {
                     throw InadmissibleTaskDocumentException(
                         "the task ${taskDocument.task.id.value} carries a repeat rule without " +
                             "a series id; the document predates the series model",

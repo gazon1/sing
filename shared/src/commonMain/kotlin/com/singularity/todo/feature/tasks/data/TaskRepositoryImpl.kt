@@ -22,6 +22,7 @@ import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tags.domain.model.TagEditActor
 import com.singularity.todo.feature.tasks.domain.TaskDomain
 import com.singularity.todo.feature.tasks.domain.logic.TaskSeriesInvariants
+import com.singularity.todo.feature.tasks.domain.logic.TaskSeriesShape
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -202,7 +203,7 @@ class TaskRepositoryImpl(
             // A rule implies a series (FR-001). Every writer passes here — the two
             // UI doors, an AI tool, the MCP server — so the refusal lives here
             // rather than in the doors.
-            TaskSeriesInvariants.requireRuleLivesInSeries(item)
+            TaskSeriesShape.requireRuleLivesInSeries(item)
             val toInsert = item.copy(userId = currentUid)
             taskDao.upsert(toInsert.toEntity())
             saveOutgoingLinks(toInsert.id, toInsert.description)
@@ -225,7 +226,7 @@ class TaskRepositoryImpl(
             // Prevents silent data loss from upsert-on-missing.
             taskDao.getByIdForUser(item.id.value, currentUser.scopedUserId.value.value)
                 ?: throw IllegalArgumentException("Task not found: ${item.id.value}")
-            TaskSeriesInvariants.requireRuleLivesInSeries(item)
+            TaskSeriesShape.requireRuleLivesInSeries(item)
             // Re-stamp after the guard, exactly as `create` does: the guard has just
             // established that userId is either current or anonymous, so normalising
             // anonymous -> current cannot lose information, whereas upserting the
@@ -267,13 +268,13 @@ class TaskRepositoryImpl(
             // or a batch of tasks that stand alone. A batch that claims to be
             // one series and carries two ids is two stories in one write, and
             // the write path cannot know which of the two was meant.
-            require(TaskSeriesInvariants.isOneSeriesOrStandalone(tasks)) {
+            require(TaskSeriesShape.isOneSeriesOrStandalone(tasks)) {
                 "A series is written with one series id, not several: ${tasks.map { it.seriesId }}"
             }
             // The alignment belongs to a series: a batch of tasks that stand
             // alone keeps what each row says about itself.
-            val aligned = TaskSeriesInvariants.alignedIfOneSeries(tasks)
-            aligned.forEach(TaskSeriesInvariants::requireRuleLivesInSeries)
+            val aligned = TaskSeriesShape.alignedIfOneSeries(tasks)
+            aligned.forEach(TaskSeriesShape::requireRuleLivesInSeries)
             aligned.map { item ->
                 currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
                 val toInsert = item.copy(userId = currentUid)
@@ -299,11 +300,11 @@ class TaskRepositoryImpl(
             // cannot be described. The members are aligned to the first one before
             // they are written, so a batch that drifted apart is repaired rather than
             // written as two stories.
-            require(TaskSeriesInvariants.isOneSeriesOrStandalone(tasks)) {
+            require(TaskSeriesShape.isOneSeriesOrStandalone(tasks)) {
                 "A series write carries more than one series id: ${tasks.map { it.seriesId }}"
             }
-            val aligned = TaskSeriesInvariants.alignedIfOneSeries(tasks)
-            aligned.forEach(TaskSeriesInvariants::requireRuleLivesInSeries)
+            val aligned = TaskSeriesShape.alignedIfOneSeries(tasks)
+            aligned.forEach(TaskSeriesShape::requireRuleLivesInSeries)
             val written = aligned.map { item ->
                 currentUser.assertCanWrite(entityId = item.syncId, entityUserId = item.userId)
                 // The same guard the single-row update has: an upsert onto a missing
@@ -574,7 +575,7 @@ class TaskRepositoryImpl(
             // A pulled document is a write like any other: a rule that arrived
             // without a series id is the forbidden shape (FR-001), and adopting it
             // would leave the launch repair to clean up after the network.
-            TaskSeriesInvariants.requireRuleLivesInSeries(task)
+            TaskSeriesShape.requireRuleLivesInSeries(task)
             if (task.userId == currentUser.scopedUserId.value) {
                 // The row that arrived.
                 taskDao.upsert(task.toEntity())

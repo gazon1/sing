@@ -73,7 +73,7 @@ class UpdateTaskSeriesUseCaseTest {
             member("s2", dueDate = LocalDate(2026, 10, 12)),
             member("s3", dueDate = LocalDate(2026, 10, 19)),
         )
-        val useCase = UpdateTaskSeriesUseCase(repo)
+        val useCase = UpdateTaskSeriesUseCase(repo, clock = FakeClock(fixedInstant))
 
         val result = useCase.updateSeries(seriesId) { it.copy(title = "Pay the rent in full") }
         advanceUntilIdle()
@@ -96,7 +96,7 @@ class UpdateTaskSeriesUseCaseTest {
             member("s1", dueDate = LocalDate(2026, 10, 5)),
             member("s2", dueDate = LocalDate(2026, 10, 12)),
         )
-        val useCase = UpdateTaskSeriesUseCase(repo)
+        val useCase = UpdateTaskSeriesUseCase(repo, clock = FakeClock(fixedInstant))
 
         useCase.updateSeries(seriesId) { it.copy(title = "Changed") }
         advanceUntilIdle()
@@ -116,7 +116,7 @@ class UpdateTaskSeriesUseCaseTest {
             member("s2"),
             member("b1", title = "Bob's rent", user = bob),
         )
-        val useCase = UpdateTaskSeriesUseCase(repo)
+        val useCase = UpdateTaskSeriesUseCase(repo, clock = FakeClock(fixedInstant))
 
         useCase.updateSeries(seriesId) { it.copy(title = "Changed") }
         advanceUntilIdle()
@@ -133,7 +133,7 @@ class UpdateTaskSeriesUseCaseTest {
     @Test
     fun `a series with no members is a failure`() = runTest {
         val repo = repoFor(alice)
-        val useCase = UpdateTaskSeriesUseCase(repo)
+        val useCase = UpdateTaskSeriesUseCase(repo, clock = FakeClock(fixedInstant))
 
         val result = useCase.updateSeries(TaskSeriesId("missing")) { it }
 
@@ -144,7 +144,7 @@ class UpdateTaskSeriesUseCaseTest {
     fun `archiving a series archives every member`() = runTest {
         val repo = repoFor(alice)
         repo.seed(member("s1"), member("s2"))
-        val useCase = UpdateTaskSeriesUseCase(repo)
+        val useCase = UpdateTaskSeriesUseCase(repo, clock = FakeClock(fixedInstant))
 
         val archived = useCase.archiveSeries(seriesId)
         advanceUntilIdle()
@@ -164,7 +164,7 @@ class UpdateTaskSeriesUseCaseTest {
     @Test
     fun `archiving a series that is not there is a failure`() = runTest {
         val repo = repoFor(alice)
-        val useCase = UpdateTaskSeriesUseCase(repo)
+        val useCase = UpdateTaskSeriesUseCase(repo, clock = FakeClock(fixedInstant))
 
         val result = useCase.archiveSeries(TaskSeriesId("missing"))
 
@@ -202,6 +202,30 @@ class UpdateTaskSeriesUseCaseTest {
         assertTrue(
             repo.tasks.value.values.all { it.title == "Pay the rent in full" },
             "the rename still reaches every member",
+        )
+    }
+
+    @Test
+    fun `a drifted series is re-planned even when the first member already carries the rule`() = runTest {
+        // A pull or a backup can leave the members disagreeing about the rule. The
+        // old comparison read only the first member and would skip the re-plan;
+        // the series would stay drifted and the dates would never be reconciled.
+        val repo = repoFor(alice)
+        val monthly = RecurrenceSpec.Monthly(RecurrenceBase.FROM_DUE, 5)
+        repo.seed(
+            recurring(member("s1", dueDate = LocalDate(2026, 10, 5))),
+            member("s2", dueDate = LocalDate(2026, 10, 6)).copy(recurrence = monthly),
+        )
+        val useCase = UpdateTaskSeriesUseCase(repo, materialize(repo), FakeClock(fixedInstant))
+
+        useCase.updateSeries(seriesId) { it.copy(title = "Renamed") }
+        advanceUntilIdle()
+
+        val s2 = repo.tasks.value.values.first { it.id.value == "s2" }
+        assertEquals(
+            LocalDate(2026, 10, 12),
+            s2.dueDate,
+            "the drifted member is moved onto the series' window, not left where it was",
         )
     }
 

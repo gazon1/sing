@@ -93,7 +93,7 @@ class RepairRecurringSeriesUseCase(
      *   of the pass, not a row to skip silently.
      */
     suspend operator fun invoke(): Result<Int> = runCatchingCancellable {
-        val scope = currentUser.scopedUserId.value.value
+        val scope = currentUser.liveScopedUserId.first().value
         if (settings.recurringSeriesRepairVersion(scope).first() >= VERSION) {
             return@runCatchingCancellable 0
         }

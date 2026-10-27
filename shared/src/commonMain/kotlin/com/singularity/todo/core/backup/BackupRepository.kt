@@ -150,7 +150,9 @@ class BackupRepositoryImpl(
         }
 
     override suspend fun import(options: ImportOptions): Result<RestoreResult> =
-        withContext(ioDispatcher) { importer.import(options) }
+        withContext(ioDispatcher) {
+            importer.import(options.copy(targetUserId = currentUser.scopedUserId.value))
+        }
 
     override suspend fun delete(backupId: BackupId): Result<Unit> =
         runCatchingCancellable {
