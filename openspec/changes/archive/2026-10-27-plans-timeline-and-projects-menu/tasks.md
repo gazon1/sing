@@ -38,8 +38,9 @@ matches the code.
       that changes date moves between them.
 - [x] shared/ — Add the screen: the section list, the granularity control, the per-section add
       control, the empty state.
-      *Test:* `PlansSectionsFlowTest` and `PlansGranularityFlowTest` — the control names the
-      selection, a header names its period, and the empty state appears when the horizon is empty.
+      *Test:* `PlansGranularityControlScenarioTest`, `PlansSectionHeaderScenarioTest` and
+      `PlansEmptyHorizonScenarioTest` — the control names the selection, a header names its
+      period, and the empty state appears when the horizon is empty.
 - [x] shared/ — Bind the tab: the Plans destination renders the timeline, the screen family is
       registered, and the action button creates a task due today.
       *Test:* `FabActionResolverTest` — the Plans action creates a task with today's date.
@@ -56,13 +57,13 @@ matches the code.
       *Test:* `ProjectsTreeViewModelTest` — the tree is live against the repository.
 - [x] shared/ — Give the menu an entry that is not a destination, and render the projects section
       from the shared composable.
-      *Test:* `ProjectsMenuFlowTest` — the section is present and its nodes are nested.
+      *Test:* `ProjectsMenuTreeScenarioTest` — the section is present and its nodes are nested.
 - [x] shared/ — Move the Calendar out of the tab list and into the menu list, and into the
       Android sheet's own section list.
       *Test:* `DestinationKindTest` — the tab list no longer holds the Calendar and the menu list
       does.
 - [x] shared/ — Keep the full project list reachable from the menu's projects section.
-      *Test:* `ProjectsMenuFlowTest` — the entry opens the list.
+      *Test:* `ProjectsMenuAllProjectsScenarioTest` — the entry opens the list.
 - [x] desktopApp/ — Render the same tree and the same entries in the navigation drawer.
       *Test:* `MenuParityFlowTest` — the same entries and the same tree as the sheet.
 - [x] androidApp/ — Write the carriers for MENU-01 … MENU-06 and NAV-01, NAV-02.

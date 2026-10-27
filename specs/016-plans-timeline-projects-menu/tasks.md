@@ -70,7 +70,7 @@ All paths are relative to the repository root.
 
 - [x] T017 [US1] Write `shared/src/commonTest/kotlin/com/singularity/todo/feature/plans/domain/TimelineGrouperTest.kt` — a task lands in exactly one section; overdue comes first and appears in no dated section; a period with no tasks is not a section; a completed task is in no section; a task without a due date is in no section
 - [x] T018 [US1] Write `shared/src/commonTest/kotlin/com/singularity/todo/feature/plans/presentation/viewmodel/PlansViewModelTest.kt` — the sections follow the tasks, and a task whose date changes moves between sections
-- [x] T019 [US1] Write the screen test `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/plans/PlansSectionsFlowTest.kt` — the headers read as days in order, and a header with no task is absent
+- [x] T019 [US1] Write the screen test `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/plans/PlansDaysChronologicalScenarioTest.kt` — the headers read as days in order, and a header with no task is absent
 
 ### Implementation for User Story 1
 
@@ -97,7 +97,7 @@ All paths are relative to the repository root.
 
 - [x] T028 [US2] Write `shared/src/commonTest/kotlin/com/singularity/todo/feature/plans/domain/PlansSettingsRepositoryTest.kt` — the granularity round-trips through the store, and a stored value that cannot be read back yields the day
 - [x] T029 [US2] Extend `shared/src/commonTest/kotlin/com/singularity/todo/feature/plans/presentation/viewmodel/PlansViewModelTest.kt` — a change of granularity re-groups the sections, and the sections the user was looking at are rebuilt from the same tasks
-- [x] T030 [US2] Write the screen test `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/plans/PlansGranularityFlowTest.kt` — the control names the granularity in effect, and the headers change with it
+- [x] T030 [US2] Write the screen test `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/plans/PlansGranularityControlScenarioTest.kt` — the control names the granularity in effect, and the headers change with it
 
 ### Implementation for User Story 2
 
@@ -122,7 +122,7 @@ All paths are relative to the repository root.
 
 - [x] T037 [US3] Write `shared/src/commonTest/kotlin/com/singularity/todo/feature/projects/domain/logic/ProjectTreeBuilderTest.kt` — the nesting, a project whose parent is gone landing at the top level, a closed project being absent, and a cycle being caught rather than looped over
 - [x] T038 [US3] Write `shared/src/commonTest/kotlin/com/singularity/todo/feature/projects/presentation/viewmodel/ProjectsTreeViewModelTest.kt` — the tree follows the repository without the menu being reopened
-- [x] T039 [US3] Write the menu test `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/menu/ProjectsMenuFlowTest.kt` — the section is present, the children are indented, and tapping a node opens the project
+- [x] T039 [US3] Write the menu tests `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/menu/ProjectsMenuTreeScenarioTest.kt` and `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/menu/ProjectsMenuOpenScenarioTest.kt` — the section is present, the children are indented, and tapping a node opens the project
 
 ### Implementation for User Story 3
 

@@ -416,8 +416,6 @@ specs/013-gate-probe-cost/tasks.md:scripts/check-adr-immutable.py
 specs/016-plans-timeline-projects-menu/tasks.md: 32 DEAD (new) reference(s)
 specs/016-plans-timeline-projects-menu/tasks.md:PlansDiModule.kt
 specs/016-plans-timeline-projects-menu/tasks.md:desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/menu/ProjectsTreeFlowTest.kt
-specs/016-plans-timeline-projects-menu/tasks.md:desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/plans/PlansGranularityFlowTest.kt
-specs/016-plans-timeline-projects-menu/tasks.md:desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/plans/PlansSectionsFlowTest.kt
 specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonMain/kotlin/com/singularity/todo/core/settings/SettingsNamespace.kt
 specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonMain/kotlin/com/singularity/todo/feature/plans/data/DataStorePlansSettingsRepository.kt
 specs/016-plans-timeline-projects-menu/tasks.md:shared/src/commonMain/kotlin/com/singularity/todo/feature/plans/domain/logic/TimelineGrouper.kt
