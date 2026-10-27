@@ -124,6 +124,8 @@ KOIN-W003 (graph unverifiable). Используй list composition:
 (`build/diagnostics/<TestClass>/coroutines.txt`), BAN list, каталог тегов
 `Maestro/TAGS.md`, сканер тестов `scripts/scanning.py`. Иди туда, когда пишешь
 тест или разбираешь падение.
+
+Миграционные тесты помечены `@Tag("slow")`; запуск: `./gw :shared:jvmTest -Ptest.tags=slow`.
 ## expect/actual порты
 
 Порт — интерфейс в `commonMain`, два actual, `single<Port>` в обоих
