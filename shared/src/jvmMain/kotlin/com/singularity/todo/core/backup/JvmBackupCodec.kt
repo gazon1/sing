@@ -63,7 +63,7 @@ class JvmBackupCodec : BackupCodec {
         sourcePath: String,
         fs: FileSystem,
     ): Result<BackupCodec.CodecReadResult> = runCatchingCancellable {
-        if (!fs.exists(sourcePath)) throw BackupError.FileNotFound(sourcePath)
+        if (!fs.exists(sourcePath)) throw BackupStorageError.FileNotFound(sourcePath)
         val source = fs.openRead(sourcePath)
         try {
             decodeZip(source.asInputStream())
@@ -103,9 +103,9 @@ class JvmBackupCodec : BackupCodec {
 
         return BackupCodec.CodecReadResult(
             manifestBytes = manifest
-                ?: throw BackupError.MalformedManifest("missing manifest.json"),
+                ?: throw BackupPayloadError.MalformedManifest("missing manifest.json"),
             payloadBytes = payload
-                ?: throw BackupError.MalformedManifest("missing payload.json"),
+                ?: throw BackupPayloadError.MalformedManifest("missing payload.json"),
             attachments = attachments,
         )
     }

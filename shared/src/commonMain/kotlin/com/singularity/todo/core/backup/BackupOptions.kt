@@ -45,7 +45,19 @@ data class ExportOptions(
     val appVersion: String = appVersion().name,
 )
 
-data class ImportOptions(val sourcePath: String, val targetUserId: UserId, val overwriteExisting: Boolean = true)
+data class ImportOptions(
+    val sourcePath: String,
+    val targetUserId: UserId,
+    val overwriteExisting: Boolean = true,
+    /**
+     * The changes that follow the archive, in order.
+     *
+     * Each one is a whole delta — a set of rows — and it has to be applied
+     * whole, because a delta is not a patch. An archive from before the chain
+     * existed carries none, and is restored exactly as it always was.
+     */
+    val entries: List<ByteArray> = emptyList(),
+)
 
 fun exportOptions(block: ExportOptionsBuilder.() -> Unit): ExportOptions = ExportOptionsBuilder().apply(block).build()
 

@@ -1,6 +1,7 @@
 package com.singularity.todo.core.security
 
-import com.singularity.todo.core.backup.BackupError
+import com.singularity.todo.core.backup.ArchiveEnvelopeError
+import com.singularity.todo.core.backup.ArchiveFormat
 import com.singularity.todo.core.backup.EncryptedArchive
 import com.singularity.todo.core.files.ByteArraySink
 import com.singularity.todo.core.files.ByteArraySource
@@ -59,7 +60,7 @@ class JvmArchiveCryptoTest {
             "the container must not carry the archive in the clear",
         )
         assertTrue(
-            sealed.copyOfRange(0, EncryptedArchive.MAGIC.length).decodeToString() == EncryptedArchive.MAGIC,
+            sealed.copyOfRange(0, ArchiveFormat.MAGIC.length).decodeToString() == ArchiveFormat.MAGIC,
             "the container must say what it is",
         )
     }
@@ -69,7 +70,7 @@ class JvmArchiveCryptoTest {
     fun `the real cipher refuses a wrong password`() {
         val sealed = archive.seal(plaintext, password)
 
-        assertFailsWith<BackupError.WrongPassword> {
+        assertFailsWith<ArchiveEnvelopeError.WrongPassword> {
             archive.open(sealed, "wrong horse".toCharArray())
         }
     }
@@ -97,11 +98,11 @@ class JvmArchiveCryptoTest {
     fun `the real cipher refuses a tampered header`() {
         val sealed = archive.seal(plaintext, password)
         val tampered = sealed.copyOf().also { copy ->
-            val last = EncryptedArchive.HEADER_BYTES - 1
+            val last = ArchiveFormat.HEADER_BYTES - 1
             copy[last] = (copy[last] + 1).toByte()
         }
 
-        assertFailsWith<BackupError.WrongPassword> {
+        assertFailsWith<ArchiveEnvelopeError.WrongPassword> {
             archive.open(tampered, password)
         }
     }

@@ -1,9 +1,9 @@
 [versions]
 # Kotlin / Build
 agp = "9.4.1"
-kotlin = "2.4.10"
+kotlin = "2.4.21"
 ksp = "2.3.12"
-kotlin-serialization = "1.11.0"
+kotlin-serialization = "1.12.0"
 
 # Android SDK — "android" prefix avoided: library keys like androidx-android-* would shadow
 # the version accessor. Using "sdk" prefix so accessor is libs.versions.sdk.compile.
@@ -15,14 +15,14 @@ androidx-activity = "1.13.0"
 androidx-appcompat = "1.8.0"
 androidx-core = "1.19.0"
 androidx-espresso = "3.7.0"
-androidx-uiautomator = "2.3.0"
-androidx-lifecycle = "2.8.0"
+androidx-uiautomator = "2.4.0"
+androidx-lifecycle = "2.11.0"
 androidx-testExt = "1.3.0"
 
 # Compose
-composeMultiplatform = "1.12.0"
+composeMultiplatform = "1.12.2"
 # Material3 — alpha; stable channel should be used when available
-material3 = "1.12.0-alpha03"
+material3 = "1.13.0-beta01"
 
 # Coroutines / DateTime
 coroutines = "1.11.0"
@@ -30,12 +30,12 @@ datetime = "0.8.0"
 
 # Database / SQLDelight
 postgrestKt = "3.8.0"
-room = "3.0.0"
+room = "3.0.3"
 sqlite = "2.7.0"
 sqliteJdbc = "3.47.0.0"
 
 # Networking / Ktor
-ktor = "3.5.2"
+ktor = "3.6.0"
 
 # DI / Koin
 koin = "4.2.2"
@@ -43,20 +43,20 @@ koin-annotations = "4.2.2"
 koin-compiler-plugin = "1.2.1"
 
 # Persistence / DataStore
-datastore = "1.2.1"
+datastore = "1.3.0"
 
 # WorkManager (Android background jobs)
-androidx-work = "2.10.0"
+androidx-work = "2.12.0"
 
 # Logging / Kermit
-kermit = "2.1.0"
+kermit = "2.2.0"
 
 # AppTracer (ru.ok.tracer) — crash / ANR / non-fatal reporting, Android only.
 # BOM-aligned: modules below carry no version of their own.
-tracer = "1.4.0"
+tracer = "1.5.1"
 
 # Markdown
-markdown-renderer = "0.43.0"
+markdown-renderer = "0.46.0"
 
 # AI / OpenAI
 openai-client = "4.1.0"
@@ -72,7 +72,7 @@ nav3 = "1.2.0"
 # androidx line has no desktop variant at all, so the JetBrains root is the only
 # artifact that can put `NavDisplay` into commonMain: on Android it redirects to
 # `androidx.navigation3:navigation3-ui`, on Desktop it carries the port.
-nav3-ui = "1.2.0-rc01"
+nav3-ui = "1.2.0"
 nav3-lifecycle-vm = "2.11.0"
 
 # Supabase
@@ -88,29 +88,29 @@ kmpauth = "3.0.6"
 playServicesAuth = "21.6.0"
 
 # Okio — for FileLogWriter rolling file logs (Square, KMP-native)
-okio = "3.10.0"
+okio = "3.18.2"
 
 # Utils
-turbine = "1.2.0"
+turbine = "1.2.1"
 # atomicfu — aligned via resolutionStrategy when transitive conflict occurs
 atomicfu = "0.23.1"
 # kotlinx-collections-immutable — transitive from markdown-renderer:0.43.0
-kotlinxCollectionsImmutable = "0.5.0"
+kotlinxCollectionsImmutable = "0.5.2"
 
 # FileKit
-filekit = "0.15.0"
+filekit = "0.16.0"
 
 # Rich Text Editor
 rich-editor = "1.2.0"
 
 # Security
-security-crypto = "1.1.0-alpha06"
+security-crypto = "1.1.0"
 
 # Play In-App Updates
 play-app-update = "2.1.0"
 
 # AI Agent Framework (JetBrains Koog)
-koog = "1.1.1"
+koog = "1.3.0"
 
 # Agent Client Protocol — the client half of the ACP protocol.
 #
@@ -124,7 +124,7 @@ koog = "1.1.1"
 acp = "0.34.0"
 
 # Coil
-coil = "3.6.1"
+coil = "3.6.3"
 
 # Testing
 junit = "4.13.2"
@@ -136,7 +136,7 @@ kotest-assertions = "5.9.1"
 konsist = "0.17.3"
 
 # Allure test reporting
-allure = "2.17.3"
+allure = "2.35.5"
 
 # Lint / Quality tools
 detekt = "2.0.0-alpha.6"

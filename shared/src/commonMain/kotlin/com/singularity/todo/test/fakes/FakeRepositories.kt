@@ -34,6 +34,7 @@ import com.singularity.todo.core.backup.ExportOptions
 import com.singularity.todo.core.backup.ImportOptions
 import com.singularity.todo.core.backup.RemoteBackup
 import com.singularity.todo.core.backup.RestoreResult
+import com.singularity.todo.core.backup.ScheduledAuthorization
 import com.singularity.todo.core.database.ProjectEntity
 import com.singularity.todo.core.database.ProjectWithCountRow
 import com.singularity.todo.core.database.SyncColumns
@@ -304,6 +305,11 @@ class FakeSettingsRepository(initialUserId: String = TestUsers.DEFAULT.value) : 
     private val _autoBackupEnabled = MutableStateFlow(false)
     override val autoBackupEnabled: Flow<Boolean> = _autoBackupEnabled
 
+    /** Whether the daily backup runs at all. */
+    suspend fun setAutoBackupEnabled(value: Boolean) {
+        _autoBackupEnabled.value = value
+    }
+
     // ── Tasks ────────────────────────────────────────────────────────────────
 
     private val _autoArchiveRetentionDays = MutableStateFlow(0)
@@ -422,6 +428,18 @@ class FakeBackupRepository : BackupRepository {
     var lastRestoredPassword: String? = null
         private set
 
+    /** The password the last device authorization was given, as text. */
+    var lastAuthorizedPassword: String? = null
+        private set
+
+    /** How many times the scheduled push was asked for. */
+    var scheduledPushCount: Int = 0
+        private set
+
+    /** How many times an export was asked for. */
+    var exportCount: Int = 0
+        private set
+
     // ─── Configurable results (set in tests) ─────────────────────────────────
     var exportResult: Result<BackupResult> = Result.failure(NotImplementedError("export not configured"))
     var importResult: Result<RestoreResult> = Result.failure(NotImplementedError("import not configured"))
@@ -433,6 +451,12 @@ class FakeBackupRepository : BackupRepository {
     var listRemoteResult: Result<List<RemoteBackup>> = Result.success(emptyList())
     var restoreFromCloudResult: Result<RestoreResult> =
         Result.failure(NotImplementedError("restoreFromCloud not configured"))
+    var authorizeScheduledBackupResult: Result<ScheduledAuthorization> =
+        Result.success(ScheduledAuthorization.Authorized())
+    var pushScheduledResult: Result<String> = Result.success("https://remote/scheduled.zip")
+
+    /** Whether the fake pretends this device may seal archives on its own. */
+    var scheduledBackupAuthorized: Boolean = false
 
     fun addBackup(backup: BackupMetadata) {
         backupsStore.value += backup
@@ -446,9 +470,13 @@ class FakeBackupRepository : BackupRepository {
         lastPushedId = null
         lastPushedPassword = null
         lastRestoredPassword = null
+        lastAuthorizedPassword = null
+        scheduledPushCount = 0
+        exportCount = 0
     }
 
     override suspend fun export(options: ExportOptions): Result<BackupResult> {
+        exportCount++
         lastExportOptions = options
         return exportResult
     }
@@ -479,7 +507,22 @@ class FakeBackupRepository : BackupRepository {
         return restoreFromCloudResult
     }
 
-    override suspend fun createBackup(): Result<BackupResult> = exportResult
+    override suspend fun createBackup(): Result<BackupResult> {
+        exportCount++
+        return exportResult
+    }
+
+    override suspend fun authorizeScheduledBackup(password: CharArray): Result<ScheduledAuthorization> {
+        lastAuthorizedPassword = password.concatToString()
+        return authorizeScheduledBackupResult
+    }
+
+    override suspend fun isScheduledBackupAuthorized(): Boolean = scheduledBackupAuthorized
+
+    override suspend fun pushScheduled(): Result<String> {
+        scheduledPushCount++
+        return pushScheduledResult
+    }
 }
 
 // ─── FileSystem (in-memory) — already exists as MapFileSystem ─────────────────
@@ -741,6 +784,8 @@ internal class InMemoryTaskDao(private val clock: Clock = FakeClock()) : TaskDao
     // side of it is not exercised here — the same reason the other unused
     // statements above answer "not implemented".
     override suspend fun deleteAllForUser(userId: String): Int = error("not implemented")
+
+    override suspend fun deleteForUser(id: String, userId: String): Int = error("not implemented")
 
     override suspend fun deleteTagRefsForUser(userId: String): Int = error("not implemented")
 

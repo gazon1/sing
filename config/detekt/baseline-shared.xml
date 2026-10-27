@@ -148,7 +148,6 @@
     <ID>TooGenericExceptionCaught:WeeklyPlanTool.kt:WeeklyPlanTool$e: Exception</ID>
     <ID>TooManyFunctions:AppDatabase.kt:AppDatabase : RoomDatabase</ID>
     <ID>TooManyFunctions:AttachmentDao.kt:AttachmentDao</ID>
-    <ID>TooManyFunctions:BackupDtos.kt:com.singularity.todo.core.backup.BackupDtos.kt</ID>
     <ID>TooManyFunctions:Daos.kt:NoteDao</ID>
     <ID>TooManyFunctions:Daos.kt:ProjectDao</ID>
     <ID>TooManyFunctions:Daos.kt:ReminderDao</ID>

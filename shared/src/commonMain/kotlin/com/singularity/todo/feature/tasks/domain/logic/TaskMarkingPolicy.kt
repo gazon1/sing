@@ -57,7 +57,9 @@ fun computeTaskMarkings(
         val dueDate = task.dueDate
         if (dueDate == null) {
             markings += TaskMarking.NoDate
-        } else if (dueDate < today) {
+        } else if (TaskComputed.isOverdue(task, today)) {
+            // The overdue rule has one owner — TaskComputed.isOverdue — so that
+            // the marking and the predicate cannot answer differently.
             markings += TaskMarking.Overdue
         }
     }

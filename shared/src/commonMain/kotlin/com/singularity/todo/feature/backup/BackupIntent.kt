@@ -45,6 +45,18 @@ sealed interface BackupIntent : MviIntent {
     data object LoadRemoteBackups : BackupIntent
 
     /**
+     * Lets this device push backups on its own, without a person at the keyboard.
+     *
+     * The password is asked **once**. It does not stay on the device: it wraps a
+     * device key, and the wrapped key is what travels in every archive the device
+     * seals from then on. The person who restores the archive still needs the
+     * password to unwrap that key.
+     *
+     * A plain class and not a `data class`, for the reason [Push] gives.
+     */
+    class AuthorizeScheduledBackup(val password: CharArray) : BackupIntent
+
+    /**
      * Restores an archive that lives in the cloud, opening it under the person's password.
      *
      * The archive is downloaded and imported in one step — the download lands in the

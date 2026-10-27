@@ -13,6 +13,23 @@ class JvmFileSystem : FileSystem {
         File(path).writeBytes(data)
     }
 
+    /**
+     * The rename, which is atomic within one filesystem.
+     *
+     * A rename across two filesystems cannot be done by a rename, and a copy is
+     * not atomic — but the app's own files are all in one place, so the copy is
+     * the exception rather than the rule.
+     */
+    override suspend fun move(from: String, to: String) {
+        val source = File(from)
+        val target = File(to)
+        target.parentFile?.mkdirs()
+        if (!source.renameTo(target)) {
+            source.copyTo(target, overwrite = true)
+            source.delete()
+        }
+    }
+
     override suspend fun delete(path: String): Boolean = File(path).delete()
 
     override suspend fun exists(path: String): Boolean = File(path).exists()

@@ -112,6 +112,28 @@ has no pressure of implementation context — so it catches what the gate does
 not (the state contract, an alias, an entry in the issues registry). The gate
 catches the mechanics; the review catches the meaning.
 
+## autofix.ci (PR auto-fix)
+
+`.github/workflows/autofix.yml` (workflow **name must be `autofix.ci`**) runs detekt
+`--auto-correct` per module on pull requests (plus `workflow_dispatch`) and hands the
+diff to `autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a`, which pushes a
+fix commit via the autofix.ci GitHub App. The App must be installed on the repo or
+nothing is pushed. It is not part of the `CI gate` job graph — it is a convenience,
+not a verdict.
+
+The correction runs via `bash scripts/lint-autofix.sh`, which discovers modules from
+`changed-modules.py --detekt-tasks`, runs detekt `--auto-correct` once per module, and
+reports the changed files. Do not inline a task list and do not collapse it into one
+invocation — `--auto-correct` only reaches the last detekt task of an invocation.
+
+On a pull request it corrects only the modules whose files changed (all modules when
+build/config/settings change; exits 0 when no module files changed), so a typical PR
+is fast. `BASE_REF` (`github.base_ref`) and `fetch-depth: 0` are required for the base
+comparison; without them it falls back to correcting every module.
+
+ktlint is bundled via detekt-formatting, so this single loop covers both. Do not add
+a push-to-main trigger: it would commit to the trunk and risk a run loop.
+
 ## The review verdict is a file, not a recollection
 
 Every change that is not in the baseline has `.specify/reviews/<slug>.md`:

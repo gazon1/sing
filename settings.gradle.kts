@@ -53,7 +53,7 @@ plugins {
     // `scripts/build-version-catalog-gate.py` fails the build if the two drift.
     // The `.aggregation` id is the settings-level variant: the plain id resolves to the
     // project plugin, which Gradle refuses to apply to a Settings object.
-    id("org.jetbrains.kotlinx.kover.aggregation") version "0.9.9"
+    id("org.jetbrains.kotlinx.kover.aggregation") version "0.9.11"
 }
 
 // Coverage is measured across every test JVM in the build, not per project.

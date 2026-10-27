@@ -11,6 +11,23 @@ class AndroidFileSystem(private val context: Context) : FileSystem {
         File(path).writeBytes(data)
     }
 
+    /**
+     * The rename, which is atomic within one filesystem.
+     *
+     * The app's files are all under the app's own directory, so the rename is
+     * the whole story; the copy is the exception, for a path that is somehow on
+     * another filesystem.
+     */
+    override suspend fun move(from: String, to: String) {
+        val source = File(from)
+        val target = File(to)
+        target.parentFile?.mkdirs()
+        if (!source.renameTo(target)) {
+            source.copyTo(target, overwrite = true)
+            source.delete()
+        }
+    }
+
     override suspend fun delete(path: String): Boolean = File(path).delete()
 
     override suspend fun exists(path: String): Boolean = File(path).exists()

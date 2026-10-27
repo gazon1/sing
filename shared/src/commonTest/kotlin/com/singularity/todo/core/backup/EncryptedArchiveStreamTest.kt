@@ -59,12 +59,12 @@ class EncryptedArchiveStreamTest {
 
         assertEquals(byBytes.size, streamed.size, "the two shapes must produce the same container")
         assertContentEquals(
-            byBytes.copyOfRange(0, EncryptedArchive.MAGIC.length + 1),
-            streamed.copyOfRange(0, EncryptedArchive.MAGIC.length + 1),
+            byBytes.copyOfRange(0, ArchiveFormat.MAGIC.length + 1),
+            streamed.copyOfRange(0, ArchiveFormat.MAGIC.length + 1),
             "the magic and the version must be the same",
         )
         assertTrue(
-            streamed.decodeToString().startsWith(EncryptedArchive.MAGIC),
+            streamed.decodeToString().startsWith(ArchiveFormat.MAGIC),
             "the container must say what it is",
         )
     }
@@ -75,7 +75,7 @@ class EncryptedArchiveStreamTest {
         val sealed = ByteArraySink()
         archive.seal(ByteArraySource("the-archive-bytes".encodeToByteArray()), sealed, password)
 
-        assertFailsWith<BackupError.WrongPassword> {
+        assertFailsWith<ArchiveEnvelopeError.WrongPassword> {
             archive.open(ByteArraySource(sealed.bytes()), ByteArraySink(), "wrong horse".toCharArray())
         }
     }
@@ -83,7 +83,7 @@ class EncryptedArchiveStreamTest {
     /** Bytes that are too short to be a container are refused by name. */
     @Test
     fun `the streaming path refuses bytes that are not an archive`() {
-        assertFailsWith<BackupError.NotEncrypted> {
+        assertFailsWith<ArchiveEnvelopeError.NotEncrypted> {
             archive.open(ByteArraySource("too short".encodeToByteArray()), ByteArraySink(), password)
         }
     }
@@ -91,7 +91,7 @@ class EncryptedArchiveStreamTest {
     /** An empty password is refused in both directions. */
     @Test
     fun `the streaming path refuses an empty password`() {
-        assertFailsWith<BackupError.MissingPassword> {
+        assertFailsWith<ArchiveEnvelopeError.MissingPassword> {
             archive.seal(ByteArraySource("the-archive-bytes".encodeToByteArray()), ByteArraySink(), CharArray(0))
         }
     }
@@ -108,7 +108,7 @@ class EncryptedArchiveStreamTest {
         val sealed = ByteArraySink()
         archive.seal(ByteArraySource("the-archive-bytes".encodeToByteArray()), sealed, password)
 
-        val error = assertFailsWith<BackupError.Unusable> {
+        val error = assertFailsWith<ArchiveEnvelopeError.Unusable> {
             archive.open(brokenAfterHeader(sealed.bytes()), ByteArraySink(), password)
         }
         assertTrue(
@@ -128,7 +128,7 @@ class EncryptedArchiveStreamTest {
      */
     @Test
     fun `a source that breaks before the header is read is unreadable`() {
-        val error = assertFailsWith<BackupError.Unusable> {
+        val error = assertFailsWith<ArchiveEnvelopeError.Unusable> {
             archive.open(failingOnFirstRead(), ByteArraySink(), password)
         }
         assertTrue(

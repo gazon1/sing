@@ -534,6 +534,18 @@ interface TaskDao {
     suspend fun deleteAllForUser(userId: String): Int
 
     /**
+     * Hard-deletes one task row of [userId].
+     *
+     * The single-row counterpart of [deleteAllForUser]: a change in a backup that
+     * says a task is gone says **which** task, and a statement that cannot be
+     * aimed at one row would take the rest of the profile with it.
+     *
+     * @return the number of rows removed.
+     */
+    @Query("DELETE FROM tasks WHERE id = :id AND user_id = :userId")
+    suspend fun deleteForUser(id: String, userId: String): Int
+
+    /**
      * Removes the tag cross-references of every task owned by [userId].
      *
      * The references live in their own table and carry no owner column, so
@@ -716,6 +728,18 @@ interface NoteDao {
      */
     @Query("DELETE FROM notes WHERE user_id = :userId")
     suspend fun deleteAllForUser(userId: String): Int
+
+    /**
+     * Hard-deletes one note row of [userId].
+     *
+     * The single-row counterpart of [deleteAllForUser]: a change in a backup that
+     * says a note is gone says **which** note, and a statement that cannot be
+     * aimed at one row would take the rest of the profile with it.
+     *
+     * @return the number of rows removed.
+     */
+    @Query("DELETE FROM notes WHERE id = :id AND user_id = :userId")
+    suspend fun deleteForUser(id: String, userId: String): Int
 
     @Query("UPDATE notes SET outgoing_links = :linksJson, updated_at = :updatedAt WHERE id = :id AND user_id = :userId")
     suspend fun setOutgoingLinksForUser(id: String, linksJson: String, updatedAt: Long, userId: String): Int
@@ -1006,6 +1030,18 @@ interface ProjectDao {
      */
     @Query("DELETE FROM projects WHERE user_id = :userId")
     suspend fun deleteAllForUser(userId: String): Int
+
+    /**
+     * Hard-deletes one project row of [userId].
+     *
+     * The single-row counterpart of [deleteAllForUser]: a change in a backup that
+     * says a project is gone says **which** project, and a statement that cannot
+     * be aimed at one row would take the rest of the profile with it.
+     *
+     * @return the number of rows removed.
+     */
+    @Query("DELETE FROM projects WHERE id = :id AND user_id = :userId")
+    suspend fun deleteForUser(id: String, userId: String): Int
 }
 
 // The profile reset needs a bulk delete from this DAO, and the DAO was already at
@@ -1057,6 +1093,18 @@ interface TagDao {
      */
     @Query("DELETE FROM tags WHERE user_id = :userId")
     suspend fun deleteAllForUser(userId: String): Int
+
+    /**
+     * Hard-deletes one tag row of [userId].
+     *
+     * The single-row counterpart of [deleteAllForUser]: a change in a backup that
+     * says a tag is gone says **which** tag, and a statement that cannot be aimed
+     * at one row would take the rest of the profile with it.
+     *
+     * @return the number of rows removed.
+     */
+    @Query("DELETE FROM tags WHERE id = :id AND user_id = :userId")
+    suspend fun deleteForUser(id: String, userId: String): Int
 
     /**
      * Detaches every live tag from a group being soft-deleted.
@@ -1372,6 +1420,21 @@ interface ProfileDao {
     @Query("DELETE FROM profiles WHERE id = :id")
     suspend fun deleteById(id: String)
 
+    /**
+     * Hard-deletes one profile row of [userId].
+     *
+     * The scoped counterpart of [deleteById]: a change in a backup that says a
+     * profile is gone says **which** profile, and the restore may only take out
+     * what belongs to the account it is restoring.
+     *
+     * A profile with a NULL `user_id` belongs to nobody — see [listOwnedBy] — so
+     * nobody's restore takes it.
+     *
+     * @return the number of rows removed.
+     */
+    @Query("DELETE FROM profiles WHERE id = :id AND user_id = :userId")
+    suspend fun deleteForUser(id: String, userId: String): Int
+
     @Query("SELECT COUNT(*) FROM profiles")
     suspend fun count(): Int
 
@@ -1439,6 +1502,18 @@ interface TagGroupDao {
      */
     @Query("DELETE FROM tag_groups WHERE user_id = :userId")
     suspend fun deleteAllForUser(userId: String): Int
+
+    /**
+     * Hard-deletes one tag group row of [userId].
+     *
+     * The single-row counterpart of [deleteAllForUser]: a change in a backup that
+     * says a group is gone says **which** group, and a statement that cannot be
+     * aimed at one row would take the rest of the profile with it.
+     *
+     * @return the number of rows removed.
+     */
+    @Query("DELETE FROM tag_groups WHERE id = :id AND user_id = :userId")
+    suspend fun deleteForUser(id: String, userId: String): Int
 }
 
 // ─── Project ↔ Tag Group Join DAO ─────────────────────────────────────────────
@@ -1509,6 +1584,24 @@ interface ProjectInheritedTagGroupDao {
         """,
     )
     suspend fun deleteAllForUserProjects(userId: String): Int
+
+    /**
+     * Removes one inheritance row: the link between a project and a tag group.
+     *
+     * The single-row counterpart of [deleteAllForUser]: a change in a backup that
+     * says the link is gone says **which** pair, and a statement that cannot be
+     * aimed at one row would take the project's other links with it.
+     *
+     * @return the number of rows removed.
+     */
+    @Query(
+        """
+        DELETE FROM project_tag_groups
+        WHERE project_id = :projectId AND tag_group_id = :tagGroupId
+        AND project_id IN (SELECT id FROM projects WHERE user_id = :userId)
+        """,
+    )
+    suspend fun delete(projectId: String, tagGroupId: String, userId: String): Int
 
     /**
      * Inserts one inheritance row, scoped to the owning project.

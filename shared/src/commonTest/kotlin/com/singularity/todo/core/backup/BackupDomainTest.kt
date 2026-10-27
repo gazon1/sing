@@ -86,7 +86,7 @@ class BackupDomainTest {
         )
         val result = BackupDomain.validateManifest(manifest, "{}".toByteArray())
         result.onFailure {
-            assertTrue(it is BackupError.UnsupportedFormatVersion)
+            assertTrue(it is BackupPayloadError.UnsupportedFormatVersion)
         }
     }
 
@@ -104,7 +104,7 @@ class BackupDomainTest {
         )
         val result = BackupDomain.validateManifest(manifest, "{}".toByteArray())
         result.onFailure {
-            assertTrue(it is BackupError.UnsupportedSchemaVersion)
+            assertTrue(it is BackupPayloadError.UnsupportedSchemaVersion)
         }
     }
 
@@ -122,7 +122,7 @@ class BackupDomainTest {
         )
         val result = BackupDomain.validateManifest(manifest, "{}".toByteArray())
         result.onFailure {
-            assertTrue(it is BackupError.ChecksumMismatch)
+            assertTrue(it is BackupPayloadError.ChecksumMismatch)
         }
     }
 }

@@ -57,7 +57,7 @@ val emoji: String? = null
 
 ### Backup DTOs
 
-`TaskDto` in `BackupDtos.kt` receives the same six fields.
+`TaskDto` in `BackupTaskDtos.kt` receives the same six fields.
 Both `TaskEntity.toDto()` and `TaskDto.toEntity()` updated accordingly.
 This ensures backup/restore roundtrip preserves the new fields.
 

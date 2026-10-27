@@ -25,19 +25,46 @@ object BackupDomain {
         payloadChecksum = sha256Hex(payloadBytes),
     )
 
+    /**
+     * What a payload holds, counted.
+     *
+     * The counts of the **merged** payload are what a restore reports: the base
+     * alone says what the snapshot held, and a chain's whole point is that the
+     * account moved on since the snapshot was written.
+     */
+    fun countsOf(payload: BackupPayload): EntityCounts = EntityCounts(
+        tasks = payload.tasks.size,
+        notes = payload.notes.size,
+        projects = payload.projects.size,
+        tags = payload.tags.size,
+        attachments = payload.attachments.size,
+        attachmentAnnotations = payload.attachmentAnnotations.size,
+        taskTags = payload.taskTags.size,
+        taskDependencies = payload.taskDependencies.size,
+        agendaViews = payload.agendaViews.size,
+        taskReminders = payload.taskReminders.size,
+        projectReminders = payload.projectReminders.size,
+        checklistItems = payload.checklistItems.size,
+        tagGroups = payload.tagGroups.size,
+        projectTagGroups = payload.projectTagGroups.size,
+        savedSearches = payload.savedSearches.size,
+        timeEntries = payload.timeEntries.size,
+        profiles = payload.profiles.size,
+    )
+
     fun validateManifest(manifest: BackupManifest, payloadBytes: ByteArray): Result<Unit> = runCatching {
         if (manifest.formatVersion > BackupFormat.FORMAT_VERSION) {
-            throw BackupError.UnsupportedFormatVersion(manifest.formatVersion)
+            throw BackupPayloadError.UnsupportedFormatVersion(manifest.formatVersion)
         }
         if (manifest.schemaVersion > BackupFormat.SCHEMA_VERSION) {
-            throw BackupError.UnsupportedSchemaVersion(manifest.schemaVersion)
+            throw BackupPayloadError.UnsupportedSchemaVersion(manifest.schemaVersion)
         }
         if (manifest.schemaVersion < BackupFormat.MIN_SUPPORTED_SCHEMA_VERSION) {
-            throw BackupError.SchemaTooOld(manifest.schemaVersion)
+            throw BackupPayloadError.SchemaTooOld(manifest.schemaVersion)
         }
         val actualChecksum = sha256Hex(payloadBytes)
         if (manifest.payloadChecksum != actualChecksum) {
-            throw BackupError.ChecksumMismatch(manifest.payloadChecksum, actualChecksum)
+            throw BackupPayloadError.ChecksumMismatch(manifest.payloadChecksum, actualChecksum)
         }
     }
 }
