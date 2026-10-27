@@ -74,7 +74,9 @@ internal class PushPhase(
         var discarded = 0
         var processed = 0
 
-        while (true) {
+        var batches = 0
+        while (batches < 1000) {
+            batches++
                 val plan = planPush().getOrElse { error ->
                     phases.pushFailed(error.toAppError(), 0)
                     phases.setPushStatus(isPushing = false)
