@@ -18,4 +18,4 @@ schema: spec-driven
 #
 # Invariant: if this change ever needs to move FR-040's own words — as opposed to making them
 # true — delete `skip_specs` and write the delta in the change that owns the capability.
-skip_specs: true
+# skip_specs removed: acp-external-agent-desktop is now archived.

@@ -26,7 +26,7 @@ anything, so keep the file short by hand.
 | Detekt | 17 custom rules, all registered **and** all with a `detekt.yml` block. `:shared:detekt` passes with 0 findings. |
 | Arch tests | 11 Konsist rules, 18 allowlist entries, every one ADR-annotated. |
 | Tests | `:shared:jvmTest` passes: 326 classes / 2672 tests, 0 skipped. |
-| OpenSpec | `openspec/specs/` holds the folded capabilities; 41 change directories remain in `openspec/changes/` (13 archived). **The count is not the state** — several are finished with unticked boxes, which is what the 2026-10-07 sweep measured. |
+| OpenSpec | `openspec/specs/` holds the folded capabilities; 53 change directories remain in `openspec/changes/` (78 total). **The count is not the state** — several are finished with unticked boxes, which is what the 2026-10-07 sweep measured. |
 | Docs | 396 accepted / 9 deferred / 6 superseded ADRs; 14 findings docs archived. DIGEST 1215/1250. |
 | Gates | One registry (`scripts/ci/static-gates.sh`), called by both CI's `static` job and `check.sh`. The `requirement identifiers are unique` gate was removed on 2026-10-19, so a reused requirement identifier is no longer reported by anything. |
 

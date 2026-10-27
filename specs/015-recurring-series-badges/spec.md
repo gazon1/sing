@@ -194,7 +194,32 @@
 - **FR-041**: Upcoming MUST NOT показывать закрытое вхождение как открытую будущую задачу.
 - **FR-042**: Экспорт в календарь MUST следовать действующему правилу «одна строка — одно событие»: каждое открытое вхождение MUST экспортироваться отдельным событием, а повторяющиеся серии MUST NOT получать особого обращения.
 
-### Key Entities
+### Requirement traceability
+
+Every functional requirement is exercised by at least one acceptance scenario or automated check.
+
+| Requirements | Exercised by |
+|---|---|
+| FR-001 – FR-005 | User Story 1, scenarios 1–4 (materialization, closure keeps future) |
+| FR-006 – FR-008 | User Story 1, scenario 3; `RecurringSeriesWindowTest`, `TaskSeriesPlannerTest` |
+| FR-009 – FR-011 | User Story 1, scenarios 3, 6; `TaskSeriesInvariantsTest` |
+| FR-012 | User Story 1, scenario 7; `MaterializeRecurringSeriesUseCaseTest` |
+| FR-013 | `TaskSeriesWritePathTest` (atomicity) |
+| FR-014 | User Story 1, edge case "missed occurrences"; `MaterializeRecurringSeriesUseCaseTest` |
+| FR-015 – FR-018 | User Story 1, scenarios 5–6; `UpdateTaskSeriesUseCaseTest` |
+| FR-019 | `TaskSeriesCardTest` — series card renders member dates on the task detail screen |
+| FR-020 | `TaskSeriesInvariantsTest` |
+| FR-021 – FR-026 | User Story 2, scenarios 1–6; `TaskMetaRowBadgeTest` |
+| FR-027 – FR-033 | User Story 3, scenarios 1–7; `TaskMetaRowBadgeTest`, `AgendaSeriesCountTest` |
+| FR-034 – FR-038 | User Story 1, Part D; `RepairRecurringSeriesUseCaseTest` |
+| FR-039 – FR-041 | User Story 1, scenarios 1–2; `AgendaSeriesCountTest` |
+| FR-042 | `GoogleTaskApplierTest` — "a recurring series is one event per open occurrence, and no rule" (SC-010) |
+| FR-043 – FR-047 | User Story 1, scenarios 3, 6; `RecurringSeriesWindowTest` |
+| FR-048 | User Story 1, scenario 4; `TaskSeriesPlannerTest` |
+| FR-049 | `DetachTaskFromSeriesUseCaseTest` |
+| FR-050 | `MergeTaskSeriesUseCaseTest` |
+
+## Key Entities
 
 - **Вхождение** — задача со своей датой, являющаяся одним исполнением правила. Атрибуты: дата, состояние, идентификатор серии, правило.
 - **Серия** — набор вхождений одного правила. Атрибуты: правило, горизонт, состав вхождений, текущее вхождение.

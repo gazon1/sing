@@ -47,7 +47,7 @@ private val summaryJson = Json { ignoreUnknownKeys = true }
  * to be re-derived when a tool gains a string argument: a new free-text argument is elided by
  * default, and a new identifying one has to be added here.
  */
-private val IDENTIFYING_FIELDS: Set<String> = setOf(
+internal val IDENTIFYING_FIELDS: Set<String> = setOf(
     // Identifiers: the name of a row, which is all a card needs to say what was touched.
     "id", "taskId", "noteId", "projectId", "tagId", "tagGroupId", "parentId", "parentNoteId",
     "parentTaskId", "itemId", "attachmentId", "seriesId", "proposalId", "callId", "userId",
@@ -61,6 +61,31 @@ private val IDENTIFYING_FIELDS: Set<String> = setOf(
     // A colour is a hex string in some tools and a number in others; the number is quoted by
     // shape, the string needs its name here.
     "colorHex",
+)
+
+/**
+ * The field names whose values are free text and must never be quoted in a summary.
+ *
+ * ## Why this list exists
+ *
+ * [IDENTIFYING_FIELDS] is the allow-list: a value is quoted only when its field
+ * identifies. Everything else is free text by default. That default is safe but
+ * invisible: a new string field added to an `*Input` model is silently elided,
+ * which is the right behaviour, but nobody is told it happened. This list makes
+ * the default explicit, so that a field added without classification trips a
+ * structural test instead of slipping through.
+ *
+ * ## Maintenance
+ *
+ * When a tool gains a string argument, it lands here if it is free text, or in
+ * [IDENTIFYING_FIELDS] if it identifies. The structural test
+ * `ToolCallSummaryAllowListTest` fails otherwise.
+ */
+internal val FREE_TEXT_FIELDS: Set<String> = setOf(
+    "action", "body", "bodyHtml", "bodyMarkdown", "content", "createdAt", "currentTitle",
+    "cursor", "cursorWarning", "description", "doneWhen", "error", "health", "message",
+    "newTitle", "nextCursor", "planSource", "query", "rationale", "rawIdea", "reason",
+    "selection", "suggestedTime", "summary", "text", "updatedAt", "value", "warning",
 )
 
 /**

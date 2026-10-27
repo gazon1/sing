@@ -15,4 +15,6 @@ schema: spec-driven
 # Invariant: if this change ever needs an openspec-level requirement of its own — a capability
 # that exists in `openspec/specs/` — delete `skip_specs` and write the delta instead of
 # amending the feature spec alone.
-skip_specs: true
+# skip_specs removed: acp-external-agent-desktop is now archived and the
+# ai/external-agent capability lives in openspec/specs/. A delta can be
+# written here if this change needs an openspec-level requirement.
