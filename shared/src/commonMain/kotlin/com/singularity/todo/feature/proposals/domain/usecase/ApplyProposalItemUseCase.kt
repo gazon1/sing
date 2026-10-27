@@ -5,6 +5,8 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.proposals.domain.model.DecidedActor
+import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
+import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
 import com.singularity.todo.feature.proposals.domain.model.isDecided
@@ -253,6 +255,16 @@ class ApplyProposalItemUseCase(
 
             is ProposalTarget.OnTask -> {
                 val task = tasks.get(TaskId(item.targetId))
+                // Resolve project ids against the projects table so a hallucinated id
+                // is refused here, before the claim, instead of corrupting the task.
+                if (kind is ProposalItemKind.SetTaskField) {
+                    val v = kind.value
+                    if (v is TaskValue.Project && v.value.isNotBlank()) {
+                        check(projects.get(ProjectId.fromString(v.value.trim())) != null) {
+                            "Project ${v.value} not found"
+                        }
+                    }
+                }
                 val resolvedTagIds = resolveTagIds(kind.tagNames)
                 planner.planTaskItem(item, target.kind, task, resolvedTagIds)
             }

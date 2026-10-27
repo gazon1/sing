@@ -90,7 +90,9 @@ class DecomposeAndCreateTool(
         val userId = currentUser.scopedUserId.value
 
         // 1) plan via LLM
-        val (subTitles, planSource) = planSubtitles(args)
+        val (rawSubTitles, planSource) = planSubtitles(args)
+        val dropped = (rawSubTitles.size - 20).coerceAtLeast(0)
+        val subTitles = rawSubTitles.take(20)
 
         // 2) propose each sub-task. The ids are the ids the tasks *will* have, so
         // the proposal and the tasks agree on what they are.
@@ -155,7 +157,8 @@ class DecomposeAndCreateTool(
                 proposalId = result.getOrNull()?.id?.value.orEmpty(),
                 proposedTaskCount = items.size,
                 planSource = planSource,
-                error = result.exceptionOrNull()?.message,
+                error = result.exceptionOrNull()?.message
+                    ?: if (dropped > 0) "Dropped $dropped subtasks (cap 20)." else null,
             ),
         )
     }

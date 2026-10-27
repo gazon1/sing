@@ -174,6 +174,7 @@ sealed interface ProposalItemKind {
     val tagNames: Set<String>
         get() = when (this) {
             is AddTags -> names.toSet()
+            is SetTaskTags -> tagIds.toSet()
             else -> emptySet()
         }
 
