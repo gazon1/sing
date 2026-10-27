@@ -140,7 +140,7 @@ allure = "2.17.3"
 
 # Lint / Quality tools
 detekt = "2.0.0-alpha.6"
-kover = "0.9.9"
+kover = "0.9.11"
 
 # MCP server
 kotlinSdk = "0.15.0"
