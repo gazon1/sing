@@ -17,6 +17,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - uses: ./.github/actions/setup-jvm-gradle
         with:
@@ -28,6 +30,8 @@ jobs:
       # the LAST detekt task of an invocation, so a task list would silently
       # correct one module and skip the rest.
       - name: Run detekt --auto-correct
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: bash scripts/lint-autofix.sh
 
       - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a
