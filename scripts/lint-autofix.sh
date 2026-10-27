@@ -14,6 +14,10 @@
 # which is indistinguishable from "the flag does nothing" unless the files are
 # read afterwards. See docs/decisions/2026-10-17-detekt-auto-correct-works-use-it.md.
 #
+# Speed: on a pull request only the modules whose files changed are corrected
+# (plus all modules when build/config files changed). On a manual run with no
+# base to diff against, every module is corrected.
+#
 # What this script does NOT do:
 #
 #   * It does not decide whether the tree is acceptable. `detekt` remains the
@@ -24,10 +28,9 @@
 #
 # Exit code:
 #
-#   0 — the linters ran. Findings that no rule can correct are reported, not
-#       raised: the caller decides what to do with them.
-#   1 — a linter could not run at all (the task is missing, the build failed
-#       before the task, Gradle could not start).
+#   0 — the linters ran (or there was nothing to correct). Findings that no
+#       rule can correct are reported, not raised.
+#   1 — a linter could not run at all.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -35,9 +38,7 @@ cd "$ROOT"
 
 GRADLE=(--no-daemon --console=plain)
 
-# Modules are discovered, not listed. `changed-modules.py --detekt-tasks` reads
-# them from settings.gradle.kts (including conditional ones), so a module added
-# to the build is corrected without anyone editing this file.
+# All detekt-capable modules, read from the build.
 mapfile -t TASKS < <(python3 "$ROOT/scripts/changed-modules.py" --detekt-tasks)
 
 if [[ ${#TASKS[@]} -eq 0 ]]; then
@@ -45,12 +46,57 @@ if [[ ${#TASKS[@]} -eq 0 ]]; then
     exit 1
 fi
 
-MODULES=()
+ALL_MODULES=()
 for t in "${TASKS[@]}"; do
     mod="${t%:detekt}"
     mod="${mod#:}"
-    MODULES+=("$mod")
+    ALL_MODULES+=("$mod")
 done
+
+# Determine the base to diff against. BASE_REF is set by CI (github.base_ref);
+# fall back to origin/main when present.
+BASE=""
+if [[ -n "${BASE_REF:-}" ]]; then
+    git fetch --no-tags --depth=1 origin "$BASE_REF" >/dev/null 2>&1 || true
+    if git rev-parse --verify --quiet "origin/$BASE_REF" >/dev/null 2>&1; then
+        BASE="origin/$BASE_REF"
+    fi
+elif git rev-parse --verify --quiet origin/main >/dev/null 2>&1; then
+    BASE="origin/main"
+fi
+
+MODULES=("${ALL_MODULES[@]}")
+
+if [[ -n "$BASE" ]] && git merge-base --is-ancestor "$BASE" HEAD 2>/dev/null; then
+    mapfile -t CHANGED_FILES < <(git diff --name-only "$(git merge-base "$BASE" HEAD)" HEAD)
+
+    BUILD_CHANGED=false
+    CHANGED_KOTLIN_MODULES=()
+    for f in "${CHANGED_FILES[@]}"; do
+        case "$f" in
+            settings.gradle.kts|build.gradle.kts|*/build.gradle.kts|config/*|gradle/*)
+                BUILD_CHANGED=true
+                ;;
+        esac
+        # Map the file to the module whose directory contains it.
+        for m in "${ALL_MODULES[@]}"; do
+            dir="${m//:/\/}"
+            if [[ "$f" == "$dir"/* ]]; then
+                CHANGED_KOTLIN_MODULES+=("$m")
+            fi
+        done
+    done
+
+    if $BUILD_CHANGED; then
+        : # keep all modules
+    elif [[ ${#CHANGED_KOTLIN_MODULES[@]} -gt 0 ]]; then
+        # unique
+        mapfile -t MODULES < <(printf '%s\n' "${CHANGED_KOTLIN_MODULES[@]}" | sort -u)
+    else
+        echo "lint auto-fix: no module files changed — nothing to correct"
+        exit 0
+    fi
+fi
 
 # run_task <module> <task> [extra gradle args...]
 run_task() {
