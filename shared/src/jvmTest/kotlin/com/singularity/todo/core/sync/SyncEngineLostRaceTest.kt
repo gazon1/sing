@@ -157,6 +157,7 @@ class SyncEngineLostRaceTest {
             SyncOutboxEntity(
                 patchId = patchId,
                 ownerId = SCOPE.ownerId,
+                profileId = SCOPE.profileId,
                 entityId = ENTITY_ID.value,
                 entityType = DocType.Task.key,
                 payload =

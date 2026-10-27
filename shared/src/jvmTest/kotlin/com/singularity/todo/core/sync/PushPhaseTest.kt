@@ -84,12 +84,14 @@ class PushPhaseTest {
     private suspend fun outboxRow(
         patchId: String,
         ownerId: String = "owner-push",
+        profileId: String = "profile-1",
         entityId: String = "entity-$patchId",
         attempts: Int = 0,
     ): SyncOutboxEntity =
         SyncOutboxEntity(
             patchId = patchId,
             ownerId = ownerId,
+            profileId = profileId,
             entityId = entityId,
             entityType = DocType.Task.key,
             payload =
