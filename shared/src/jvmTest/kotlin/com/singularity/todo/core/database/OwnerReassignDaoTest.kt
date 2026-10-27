@@ -137,7 +137,7 @@ class OwnerReassignDaoTest {
      * for "it moved" and "it did not move" to be distinguishable at all.
      */
     private suspend fun ownerOf(patchId: String, under: String): String =
-        db.syncOutboxDao().getPending(now = Long.MAX_VALUE, ownerId = under)
+        db.syncOutboxDao().getPending(now = Long.MAX_VALUE, ownerId = under, profileId = "")
             .single { it.patchId == patchId }.ownerId
 
     private suspend fun seedTasks(tasks: List<TaskEntity>) {

@@ -87,7 +87,7 @@ class UnitOfWorkIsAtomicTest {
         }
 
         assertEquals(1, db.noteDao().getByIdForUser("n1", "u1")?.let { 1 } ?: 0, "the row did not land")
-        assertEquals(1, db.syncOutboxDao().getPending(now = 1L, ownerId = "u1").size, "the patch did not land")
+        assertEquals(1, db.syncOutboxDao().getPending(now = 1L, ownerId = "u1", profileId = "").size, "the patch did not land")
     }
 
     @Test
@@ -117,7 +117,7 @@ class UnitOfWorkIsAtomicTest {
         }
 
         assertNull(
-            db.syncOutboxDao().getPending(now = 1L, ownerId = "u1").singleOrNull(),
+            db.syncOutboxDao().getPending(now = 1L, ownerId = "u1", profileId = "").singleOrNull(),
             "a patch outlived the row it describes",
         )
         assertNull(db.noteDao().getByIdForUser("n1", "u1"), "the row survived the rollback")
@@ -144,7 +144,7 @@ class UnitOfWorkIsAtomicTest {
         }
 
         val noteLanded = db.noteDao().getByIdForUser("n1", "u1") != null
-        val patchLanded = db.syncOutboxDao().getPending(now = 1L, ownerId = "u1").singleOrNull() != null
+        val patchLanded = db.syncOutboxDao().getPending(now = 1L, ownerId = "u1", profileId = "").singleOrNull() != null
         assertTrue(
             noteLanded && patchLanded,
             "a nested write did not join the outer transaction",

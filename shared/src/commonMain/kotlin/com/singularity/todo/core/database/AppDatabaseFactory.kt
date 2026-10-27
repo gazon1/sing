@@ -95,6 +95,9 @@ object AppDatabaseFactory {
                 // Tag name uniqueness: normalized column, duplicate merge,
                 // re-pointed task_tags, partial unique index. See Migration47To48.
                 Migration47To48(),
+                // Adds profile_id to sync_outbox so a queued patch keeps the profile
+                // it was edited under. See Migration48To49.
+                Migration48To49(),
                 // Creates the full-text indexes — virtual tables, which an
                 // AutoMigrationSpec cannot describe. See Migration42To43.
                 Migration42To43(),

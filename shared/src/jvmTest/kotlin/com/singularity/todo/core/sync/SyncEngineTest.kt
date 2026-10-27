@@ -474,6 +474,7 @@ class SyncEngineTest {
                 object : FakeSyncOutboxDao() {
                     override suspend fun deleteByEntity(
                         ownerId: String,
+                        profileId: String,
                         entityId: String,
                     ): Unit = throw IllegalStateException("outbox delete failed")
                 }

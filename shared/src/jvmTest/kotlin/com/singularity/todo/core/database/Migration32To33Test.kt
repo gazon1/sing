@@ -125,7 +125,7 @@ class Migration32To33Test {
         try {
             seedAfterUpgrade(db, OWNER)
 
-            val pending = db.syncOutboxDao().getPending(now = Long.MAX_VALUE, ownerId = OWNER)
+            val pending = db.syncOutboxDao().getPending(now = Long.MAX_VALUE, ownerId = OWNER, profileId = "")
             assertEquals(
                 listOf("new-p1", "new-p2"),
                 pending.map { it.patchId },
@@ -198,12 +198,12 @@ class Migration32To33Test {
 
             val now = System.currentTimeMillis()
             assertTrue(
-                db.syncOutboxDao().getPending(now, OWNER).none { it.patchId == "new-p1" },
+                db.syncOutboxDao().getPending(now, OWNER, "").none { it.patchId == "new-p1" },
                 "a deferred patch must not be returned as pending",
             )
             assertEquals(
                 listOf("new-p1", "new-p2"),
-                db.syncOutboxDao().getPending(future + 1, OWNER).map { it.patchId },
+                db.syncOutboxDao().getPending(future + 1, OWNER, "").map { it.patchId },
                 "the patch returns once the window has passed",
             )
         } finally {

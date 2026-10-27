@@ -144,7 +144,7 @@ class OutboxServiceTest {
     fun `delete failure propagates as Result-failure`() = runTest {
         val outbox =
             object : FakeSyncOutboxDao() {
-                override suspend fun deleteByEntity(ownerId: String, entityId: String) =
+                override suspend fun deleteByEntity(ownerId: String, profileId: String, entityId: String) =
                     throw IllegalStateException("delete failed")
             }
         val svc = service(outbox = outbox)
