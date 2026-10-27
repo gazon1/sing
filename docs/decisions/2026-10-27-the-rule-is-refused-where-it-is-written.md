@@ -63,7 +63,8 @@ repair the row immediately must not pretend they did.**
    the marker unset, so the next launch retries.
 4. `BackupImporter` clears the marker for the scoped user id it restored into,
    so the next launch visits the restored rows. Both restore entry points funnel
-   through the importer with `currentUser.scopedUserId` as the target.
+   through the importer with the active scope's user id as the target: the
+   repository stamps it on the local path, and the cloud path passes it.
 
 ## Rationale
 
