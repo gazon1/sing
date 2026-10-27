@@ -98,6 +98,7 @@ object AppDatabaseFactory {
                 // Adds profile_id to sync_outbox so a queued patch keeps the profile
                 // it was edited under. See Migration48To49.
                 Migration48To49(),
+                Migration49To50(),
                 // Creates the full-text indexes — virtual tables, which an
                 // AutoMigrationSpec cannot describe. See Migration42To43.
                 Migration42To43(),

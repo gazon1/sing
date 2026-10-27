@@ -5,6 +5,7 @@ import androidx.room3.Dao
 import androidx.room3.Entity
 import androidx.room3.Insert
 import androidx.room3.OnConflictStrategy
+import androidx.room3.Index
 import androidx.room3.PrimaryKey
 import androidx.room3.Query
 import kotlinx.coroutines.flow.Flow
@@ -18,7 +19,10 @@ import kotlinx.coroutines.flow.Flow
  * deadline — the worst possible retry policy against a server that is already
  * struggling, and a guaranteed amplifier of whatever was wrong.
  */
-@Entity(tableName = "sync_outbox")
+@Entity(
+    tableName = "sync_outbox",
+    indices = [Index(value = ["owner_id", "profile_id", "next_attempt_at", "created_at"])],
+)
 data class SyncOutboxEntity(
     @PrimaryKey @ColumnInfo("patch_id") val patchId: String,
     /**
@@ -46,6 +50,7 @@ data class SyncOutboxEntity(
      * Backoff writes it; the push query filters on it.
      */
     @ColumnInfo("next_attempt_at") val nextAttemptAt: Long? = null,
+    @ColumnInfo("claimed_at") val claimedAt: Long? = null,
 )
 
 /**
@@ -73,10 +78,15 @@ interface SyncOutboxDao {
         "SELECT * FROM sync_outbox " +
             "WHERE owner_id = :ownerId " +
             "AND profile_id = :profileId " +
+            "AND claimed_at IS NULL " +
             "AND (next_attempt_at IS NULL OR next_attempt_at <= :now) " +
             "ORDER BY created_at ASC",
     )
     suspend fun getPending(now: Long, ownerId: String, profileId: String): List<SyncOutboxEntity>
+
+    /** Claims rows for pushing: sets claimed_at where it is still null. */
+    @Query("UPDATE sync_outbox SET claimed_at = :now WHERE patch_id IN (:ids) AND claimed_at IS NULL")
+    suspend fun claim(ids: List<String>, now: Long)
 
     /**
      * How many patches an account still owes the server.
@@ -119,7 +129,7 @@ interface SyncOutboxDao {
      */
     @Query(
         "UPDATE sync_outbox SET attempts = attempts + 1, last_error = :error, " +
-            "next_attempt_at = :nextAttemptAt WHERE patch_id = :id",
+            "next_attempt_at = :nextAttemptAt, claimed_at = NULL WHERE patch_id = :id",
     )
     suspend fun markFailed(id: String, error: String, nextAttemptAt: Long)
 

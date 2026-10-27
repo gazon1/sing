@@ -58,6 +58,8 @@ open class FakeSyncOutboxDao : SyncOutboxDao {
             .filter { it.ownerId == ownerId && it.profileId == profileId }
             .filter { it.nextAttemptAt == null || it.nextAttemptAt <= now }
 
+    override suspend fun claim(ids: List<String>, now: Long) = Unit
+
     override suspend fun countPendingFor(ownerId: String): Int = rows.count { it.ownerId == ownerId }
 
     override suspend fun insert(entity: SyncOutboxEntity) {
