@@ -208,14 +208,18 @@ val patchDebPostinst = tasks.register<DefaultTask>("patchDebPostinst") {
     // by name string rather than a typed reference.
     dependsOn("packageDeb")
 
+    // Resolve at configuration time so the doLast closure captures a plain File
+    // (config-cache serializable) instead of a Gradle script object reference.
+    val buildDir = layout.buildDirectory.asFile.get()
+
     doLast {
-        val buildDir = layout.buildDirectory.asFile.get()
         val debDir = buildDir.resolve("compose/binaries/main/deb")
         val debFiles = debDir.listFiles { _, name -> name.endsWith(".deb") }
             ?: error("No .deb files found in $debDir — packageDeb must run first")
 
         for (debFile in debFiles) {
             val tmpDir = buildDir.resolve("tmp-deb-patch/${debFile.nameWithoutExtension}")
+            tmpDir.mkdirs()
             try {
                 // Use ProcessBuilder directly — avoids any Gradle DSL scope issues inside doLast.
                 val run = { cmd: List<String> ->
@@ -257,6 +261,9 @@ esac
 
 // patchDebPostinst dependsOn "packageDeb" directly, so running
 // `packageDeb` automatically runs the patch too.
+afterEvaluate {
+    tasks.findByName("packageDeb")?.finalizedBy(patchDebPostinst)
+}
 
 
 
