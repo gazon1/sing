@@ -13,7 +13,7 @@ tags:
     element:
       id: menu_all_projects
     direction: DOWN
-    timeout: 8000
+    timeout: 5000
 - tapOn:
     id: menu_all_projects
 - extendedWaitUntil:

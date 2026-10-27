@@ -74,6 +74,9 @@ creates a task due today.
    the timeline.
 10. **The actions reach the real screens.** Tapping a row opens that task's screen. The add
     controls open the task editor with the date prefilled. None of them leads to a placeholder.
+    The prefilled date is inside the section it came from: the section's first date, or today when
+    the section holds today — a task added to the current week is due today, not on the Monday
+    that has already passed.
 
 ---
 

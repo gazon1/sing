@@ -69,7 +69,8 @@ one month and read the section headers each time.
 5. **Given** the user last worked in week granularity, **When** the user opens Plans again later,
    **Then** Plans opens in week granularity.
 6. **Given** a task due in 45 days, **When** the user switches between granularities, **Then** the
-   task appears in month granularity and in neither day nor week granularity.
+   task appears in week and in month granularity and in no day granularity — the day horizon is 30
+   days, the week horizon 12 weeks and the month horizon 12 months (FR-009).
 7. **Given** the timeline in any granularity, **When** a section header is read, **Then** it names
    the period it covers — the date for a day, the date range for a week, the month and year for a
    month.
@@ -299,8 +300,10 @@ scenarios:
 - **FR-014**: The chosen granularity MUST be remembered for the current user profile and restored
   the next time Plans is opened.
 - **FR-015**: Opening a task from a timeline section MUST open that task's detail screen.
-- **FR-016**: Creating a task from a timeline section MUST prefill the due date with the section's
-  date in day granularity and with the first date of the section in week and month granularity.
+- **FR-016**: Creating a task from a timeline section MUST prefill the due date with a date inside
+  that section — the section's date in day granularity and the first date of the section in week
+  and month granularity, except when the section holds today, in which case today's date is used,
+  so that the new task lands in the section it was added from and is not born overdue.
 - **FR-017**: The task-row interactions available on task lists MUST remain available on the
   timeline, including completing a task and swiping a task away.
 - **FR-018**: Plans MUST show an explicit empty state when no task falls inside the current horizon.

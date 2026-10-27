@@ -129,20 +129,27 @@ screen — the defence the skill prescribes.
 
 ### D-03 — The row model is shared, not copied
 
-**Decision**: `AgendaRowItem` and `AgendaBadge` move out of the agenda feature into a shared
-package, and both screens use them.
+**Decision**: the timeline's row is `TimelineTask`, and the vocabulary it carries — the markings —
+is the tasks feature's, computed by the shared policy (`computeTaskMarkings`). Both screens use it.
 
-**Rationale**: `AgendaBadge` is a vocabulary — Overdue, Recurring, Pinned, Completed, NoDate,
-Blocked. Two copies of that enum would be two vocabularies that drift, and the badge a user sees on
-a row would depend on which screen they happened to be on. The types are used in nine files, all
-inside the agenda feature and its tests, so the move is contained.
+**Rationale**: the markings are a vocabulary — blocked, follow-up, next up, in progress, overdue,
+no date, pinned, repeating, completed. Two copies would be two vocabularies that drift, and what a
+user sees on a row would depend on which screen they happened to be on.
+
+**What changed while the work was in flight**: this decision was first written for a single badge
+(`AgendaBadge`, six cases) that this change promoted out of the agenda feature. The upstream work
+that landed in `origin/main` on 2026-10-26 replaced the badge with the markings — a set, and a
+superset of the badge's cases — and moved the policy into the tasks feature on the way. The
+timeline was adapted to the markings rather than keeping the badge alive: `TimelineTask` carries
+the markings the agenda shows, and the timeline's grouper asks the same policy the agenda's
+evaluator asks. The decision did not change; the vocabulary it names did.
 
 **Alternatives considered**:
 - *The timeline imports the agenda's types directly.* Allowed by the architecture rules, and
   cross-feature imports are common in this codebase (`feature.agenda` imports `feature.tasks` in 54
   places). Rejected because the names would keep saying "Agenda" on a screen that is not the
   agenda, and because the next feature that wants a task row would make the same choice again.
-- *The timeline writes its own row and its own badge.* Rejected: two badge vocabularies.
+- *The timeline writes its own row and its own markings.* Rejected: two vocabularies.
 
 ### D-04 — The timeline shows open work only
 

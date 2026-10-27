@@ -93,24 +93,28 @@ A period, its label, and the tasks that belong to it.
 
 ---
 
-## TaskRowItem and TaskBadge
+## TimelineTask and the markings
 
-The row wrapper and the badge vocabulary, promoted out of the agenda feature so that both screens
-speak one language about a task.
+The row the timeline draws, and the vocabulary it shares with the agenda.
+
+The vocabulary is the **tasks feature's** — a set of markings, computed by one policy
+(`computeTaskMarkings`), and the timeline asks that policy rather than deciding anything itself.
+While this change was being written, the vocabulary was a single badge owned by the agenda; the
+upstream work that landed in `origin/main` on 2026-10-26 replaced it with the markings
+(`TaskMarking`), which is a superset: a task that is both blocked and overdue shows both.
 
 | Field | Type | Meaning |
 |---|---|---|
 | `task` | `Task` | The underlying task |
-| `badge` | `TaskBadge?` | The badge shown on the row: `Overdue`, `Recurring`, `Pinned`, `Completed`, `NoDate`, `Blocked` |
-| `isBlocked` | `Boolean` | The task has incomplete prerequisites |
+| `markings` | `ImmutableSet<TaskMarking>` | What the task is marked with: blocked, follow-up, next up, in progress, overdue, no date, pinned, repeating, completed |
 | `seriesDates` | `Int?` | How many dates the task's series has; null when it stands alone |
 
 **Validation**
 
-- The badge vocabulary is the six cases above and nothing else. A new case is a change to the
-  vocabulary both screens render.
-- The badge is computed, never assigned by a screen: one policy decides what a task's badge is, and
-  both the agenda and the timeline call it.
+- The markings are a set, not a single value: a task can carry several, and the screen renders all
+  of them.
+- The markings are computed, never assigned by a screen: one policy decides what a task is marked
+  with, and both the agenda and the timeline call it.
 
 **Relationships**
 

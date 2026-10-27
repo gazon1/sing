@@ -18,7 +18,7 @@ the table carries the one-line version so a row is readable in a diff.
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-**128 scenarios · 62/169 claimed cells automated · 107 holes**
+**128 scenarios · 63/169 claimed cells automated · 106 holes**
 
 ## feature.agenda
 
@@ -234,7 +234,7 @@ the table carries the one-line version so a row is readable in a diff.
 | `TASK-ITEM-02` | A checklist item and a subtask do not change each other | — | ● | Ticking the checklist item leaves the subtask unfinished and the task unfinished, and ticking the subtask leaves the… |
 | `TASK-LOG-01` | A note written from the task logbook stays attached to the task | ● | — | The task's logbook shows the note under the title the user typed. The note is still there after the navigation… |
 | `TASK-LOG-02` | Abandoning the logbook's note editor leaves no note behind | ● | — | The task's logbook is still empty — the same empty state it showed before the editor was opened. No note row was… |
-| `TASK-MARK-01` | A task row shows every marking that applies, and counts the ones it hides | — | ○ | The blocked and overdue task shows both the blocked and the overdue marking at the same time; the follow-up task shows… |
+| `TASK-MARK-01` | A task row shows every marking that applies, and counts the ones it hides | — | ● | The blocked and overdue task shows both the blocked and the overdue marking at the same time; the follow-up task shows… |
 | `TASK-REC-01` | Create a daily recurring task | ● | ● | The task list shows the next occurrence dated one day after the completion date, and the original instance is gone… |
 | `TASK-STATE-01` | Set a task's workflow state from the task screen | — | ● | The control shows the current state before it is opened, offers the states a task can be in, applies the chosen one,… |
 | `TASK-STATE-02` | A workflow state survives leaving and reopening the task | — | ● | The control shows "In progress" after the task is reopened, and the stored task still carries that state — the state… |
@@ -352,5 +352,4 @@ Claimed but not automated:
 - `TASK-15` / android
 - `TASK-16` / android
 - `TASK-17` / android
-- `TASK-MARK-01` / desktop
 - `TASK-TIME-01` / android

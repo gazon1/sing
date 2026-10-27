@@ -124,13 +124,13 @@ shared/src/commonMain/kotlin/com/singularity/todo/
 │
 ├── feature/tasks/domain/                  # CHANGED — the shared row vocabulary
 │   ├── model/TaskRowItem.kt               # NEW — promoted from AgendaRowItem
-│   ├── model/TaskBadge.kt                 # NEW — promoted from AgendaBadge
-│   └── logic/TaskBadgePolicy.kt           # NEW — promoted from AgendaBadgePolicy
+│   ├── model/TaskMarking.kt               # the shared vocabulary (upstream)
+│   └── logic/TaskMarkingPolicy.kt         # the shared policy (upstream)
 │
 ├── feature/agenda/                        # CHANGED — consumes the promoted vocabulary
 │   ├── domain/model/AgendaUiState.kt      # RenderedSection now holds TaskRowItem
-│   ├── domain/logic/AgendaBadgePolicy.kt  # deleted, moved
-│   ├── domain/selector/SelectorBadge.kt   # updated to the promoted enum
+│   ├── domain/logic/AgendaBadgePolicy.kt  # deleted upstream (markings)
+│   ├── domain/selector/SelectorBadge.kt   # deleted upstream (markings)
 │   └── presentation/screen/AgendaContent.kt
 │
 ├── feature/projects/                      # CHANGED — the tree
@@ -170,9 +170,16 @@ agenda's screen also cannot express the timeline's two moving parts: its definit
 the ViewModel is constructed, and the timeline's definition changes with the granularity and with
 the day.
 
-The row model is promoted rather than copied. `AgendaBadge` is an enum of six cases; two copies
-would be two vocabularies, and the badge a user sees would depend on which screen they were on.
-The badge policy already depends only on the tasks feature, so promoting it creates no cycle.
+The row model is shared rather than copied. The vocabulary is a set of markings — blocked, overdue,
+pinned and the rest — and two copies would be two vocabularies that drift, so the badge a user
+sees would depend on which screen they were on. The policy that computes the markings depends only
+on the tasks feature, so the timeline can call it without a cycle.
+
+While this plan was written, the vocabulary was a single badge owned by the agenda
+(`AgendaBadge`, `AgendaBadgePolicy`). The upstream work that landed in `origin/main` on 2026-10-26
+replaced it with the markings — a superset, and a set rather than a single value — and moved the
+policy into the tasks feature. The timeline was adapted to that vocabulary rather than keeping the
+badge alive: `TimelineTask` carries the markings the agenda shows.
 
 ## Part sequencing
 
@@ -199,8 +206,8 @@ any code is written.
 **Merged when**: the Plans tab shows the timeline; the granularity switches and persists; the
 scenarios PLANS-01 … PLANS-10 are carried.
 
-- [ ] Promote the row vocabulary: `AgendaRowItem` → `TaskRowItem`, `AgendaBadge` → `TaskBadge`,
-      the badge policy → `computeTaskBadge`, all into `feature/tasks/domain/`. Update the nine files
+- [x] Share the row vocabulary: the timeline's row is `TimelineTask`, and it carries the markings
+      the shared policy computes (`computeTaskMarkings`, upstream's `TaskMarking`)
       that use them. The enum keeps its six cases and their meanings.
 - [ ] Add `PlansGranularity` with its horizon, `TimelinePeriod`, `TimelineSection`.
 - [ ] Add `TimelinePeriods`: the periods for a granularity, from today. Week periods run Monday to

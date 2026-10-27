@@ -24,9 +24,12 @@ The module owns:
 
 ### The row vocabulary
 
-The badge enum and the row wrapper move from the agenda feature into the tasks feature. The
-promotion is mechanical and changes no behaviour; it exists so that two screens cannot end up with
-two badge vocabularies.
+The vocabulary a row carries — the markings, computed by the shared policy — belongs to the tasks
+feature, and both screens read it. The timeline's row is `TimelineTask`, which carries the markings
+the agenda shows. This change was written against a single badge owned by the agenda feature; the
+upstream work that landed in `origin/main` on 2026-10-26 replaced that badge with the markings and
+moved the policy into the tasks feature, and the timeline was adapted to it. The point did not
+change: two screens cannot end up with two vocabularies.
 
 ### The menu
 

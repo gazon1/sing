@@ -11,6 +11,6 @@ tags:
 - extendedWaitUntil:
     visible:
       id: menu_calendar
-    timeout: 8000
+    timeout: 5000
 - tapOn:
     id: menu_calendar

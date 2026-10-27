@@ -14,8 +14,9 @@ the authority, and this file says which record applies.
 - The timeline is a feature of its own, not a mode of the agenda and not a saved agenda view.
 - The sections are generated from the granularity and today's date, and are disjoint by
   construction.
-- The row and badge vocabulary moves from the agenda feature into the tasks feature, so that both
-  screens speak one language about a task.
+- The row vocabulary — the markings, computed by the shared policy — is the tasks feature's, so
+  that both screens speak one language about a task. (Written against a single badge; upstream
+  replaced it with the markings on 2026-10-26, and the timeline follows them.)
 - The menu grows an entry kind that is not a destination, and both platforms draw the projects
   tree from one composable.
 - The Calendar leaves the tab list and joins the menu list; the Calendar screen itself is

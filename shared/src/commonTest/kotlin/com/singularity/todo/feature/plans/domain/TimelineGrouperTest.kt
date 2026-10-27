@@ -54,6 +54,26 @@ class TimelineGrouperTest {
     }
 
     @Test
+    fun `a section prefills today when it holds today, and its first date otherwise`() {
+        val sections = TimelineGrouper.group(
+            tasks = listOf(
+                task("now", "Now", due = today),
+                task("later", "Later", due = inSixDays),
+            ),
+            granularity = PlansGranularity.Week,
+            today = today,
+        )
+
+        // The week that holds today prefills today: the task added from it has
+        // to land in it, and a date already past would make it overdue.
+        assertEquals(today, sections.first { it.period?.contains(today) == true }.prefillDate)
+
+        // A week further out prefills its first day.
+        val later = sections.first { it.period?.contains(inSixDays) == true }
+        assertEquals(later.period?.start, later.prefillDate)
+    }
+
+    @Test
     fun `a task lands in exactly one section`() {
         val sections = TimelineGrouper.group(
             tasks = listOf(task("one", "One", due = tomorrow)),

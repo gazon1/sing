@@ -238,11 +238,23 @@ class FakeSettingsRepository(initialUserId: String = TestUsers.DEFAULT.value) : 
         }
     }
 
+    /**
+     * The plans' granularity, keyed by the profile it belongs to.
+     *
+     * The production repository keys it by the profile-scoped user id, because
+     * the settings file is shared by the profiles; the fake keeps the same
+     * shape, so a test that switches profiles sees what production shows.
+     */
     override val plans: PlansSettingsRepository = object : PlansSettingsRepository {
-        private val _granularity = MutableStateFlow(PlansGranularity.Default)
-        override val granularity: Flow<PlansGranularity> = _granularity
+        private val granularities = mutableMapOf<String, MutableStateFlow<PlansGranularity>>()
+
+        private fun forUser(userId: String): MutableStateFlow<PlansGranularity> =
+            granularities.getOrPut(userId) { MutableStateFlow(PlansGranularity.Default) }
+
+        override val granularity: Flow<PlansGranularity> = forUser(initialUserId)
+
         override suspend fun setGranularity(granularity: PlansGranularity) {
-            _granularity.value = granularity
+            forUser(initialUserId).value = granularity
         }
     }
 

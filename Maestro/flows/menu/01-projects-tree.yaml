@@ -20,4 +20,4 @@ tags:
     element:
       id: menu_all_projects
     direction: DOWN
-    timeout: 8000
+    timeout: 5000

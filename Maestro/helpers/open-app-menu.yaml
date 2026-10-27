@@ -9,4 +9,4 @@ appId: com.singularity.todo
 - extendedWaitUntil:
     visible:
       id: menu_sheet
-    timeout: 8000
+    timeout: 5000

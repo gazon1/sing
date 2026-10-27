@@ -78,6 +78,7 @@ import com.singularity.todo.feature.auth.OwnerCountsCalculator
 import com.singularity.todo.feature.auth.OwnerScopedEraser
 import com.singularity.todo.feature.auth.OwnerScopedReassigner
 import com.singularity.todo.feature.backup.BackupViewModel
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.reminders.AlarmHandler
 import com.singularity.todo.feature.reminders.ReminderDelivery
 import com.singularity.todo.feature.reminders.data.ProjectRemindersRepositoryImpl
@@ -122,7 +123,9 @@ fun coreModule(): org.koin.core.module.Module =
 
         // DataStore<Preferences> is bound per-platform in PlatformModule.{android,jvm}.kt
         // (real file on Android, in-memory stub on JVM).
-        single<SettingsRepository> { DataStoreSettingsRepository(get()) }
+        single<SettingsRepository> {
+            DataStoreSettingsRepository(get(), get<ProfileAwareCurrentUser>().scopedUserId)
+        }
 
         // The spotlight tour's "have I seen this yet" record, on the same DataStore and for
         // the same reason as `SettingsRepository` above — a second store would need its own

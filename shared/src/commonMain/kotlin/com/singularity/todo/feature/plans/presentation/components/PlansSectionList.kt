@@ -76,8 +76,8 @@ fun PlansSectionList(
             item(key = "header-${section.id}") {
                 PlansSectionHeader(
                     section = section,
-                    onAddClick = section.period?.let { period ->
-                        { onAddInSection(period.start) }
+                    onAddClick = section.prefillDate?.let { date ->
+                        { onAddInSection(date) }
                     },
                 )
             }

@@ -27,8 +27,9 @@ The pieces the app already had, read against the working tree:
 - The agenda's sections are a **fixed, ordered list**, each with one selector, evaluated in order
   by a collector that honours a `discard` flag. The list is what a saved view *is* — it is
   something the user stores, names and edits. It is not a function of the calendar.
-- The agenda's row wrapper and its badge vocabulary live inside the agenda feature, and the badge
-  policy depends on nothing but the tasks feature.
+- The agenda's row wrapper and its badge vocabulary lived inside the agenda feature, and the badge
+  policy depended on nothing but the tasks feature. (Upstream has since replaced the badge with
+  the markings and moved the policy into the tasks feature; see the decision below.)
 - The task repository can already be asked for a date range. The query excludes trashed tasks and
   does not exclude completed ones. It also cannot answer "is this task blocked?" on its own: the
   blocking rule reads the loaded set, and a prerequisite that is missing from it does not block.
@@ -60,11 +61,17 @@ periods for a granularity are disjoint, so "a task is in exactly one section" is
 than a rule to remember. The renderer still keys a row as the section and the task together, so a
 future mistake renders a duplicate row instead of crashing the screen.
 
-**The row vocabulary moves out of the agenda feature and into the tasks feature.** `AgendaRowItem`
-becomes a task's row, `AgendaBadge` becomes its badge, and the badge policy moves with them. The
-badge policy already depends only on the tasks feature, so the move creates no cycle. Two copies
-of a six-case badge enum would be two vocabularies, and the badge a user sees would depend on
-which screen they happened to be on.
+**The row vocabulary is the tasks feature's, and both screens read it.** The timeline's row is
+`TimelineTask`; it carries the markings — the set of things a task is marked with — that the shared
+policy computes. Two copies of that vocabulary would be two vocabularies, and what a user sees on a
+row would depend on which screen they happened to be on.
+
+While this decision was being written, the vocabulary was a single badge (`AgendaBadge`, six
+cases) owned by the agenda feature, and this change moved it out. The upstream work that landed in
+`origin/main` on 2026-10-26 replaced the badge with the markings — a set, and a superset of the
+badge's cases — and moved the policy into the tasks feature on the way. The timeline was adapted to
+the markings rather than keeping the badge alive: the decision is unchanged, the vocabulary it names
+is upstream's, and the timeline asks the same policy the agenda asks.
 
 **The menu grows an entry that is not a destination, and both platforms render the same tree
 composable.** The projects tree is not a destination, so the menu model becomes a hierarchy of
@@ -124,9 +131,12 @@ hang.
   standing in for the list, and the tree replacing that entry in the second part. Each part is a
   coherent app on its own.
 - The Plans tab's FAB creates a task rather than a project, with the due date prefilled, and each
-  section header carries its own add control that prefills that section's date.
-- The agenda's public surface changes — the row and badge types move packages. The change is
-  mechanical and the behaviour is identical.
+  section header carries its own add control that prefills that section's date — today when the
+  section holds today, the section's first date otherwise, so the new task lands in the section it
+  was added from.
+- The agenda's public surface changed — the row and badge types left the agenda feature. The
+  change was mechanical and the behaviour was identical; upstream's markings then replaced the
+  badge, and the timeline followed them.
 - The Calendar is one interaction away instead of one tap away: the menu is a sheet that opens, on
   both platforms.
 - A screen that a user opens every day now has a preference of its own, stored per profile in the

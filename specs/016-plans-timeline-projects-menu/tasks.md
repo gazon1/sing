@@ -36,7 +36,7 @@ All paths are relative to the repository root.
 - [x] T002 Run `singularity-adr validate` and confirm a zero exit — a non-zero exit is a broken contract
 - [x] T003 Write the change record `openspec/changes/plans-timeline-and-projects-menu/` — `proposal.md`, `design.md`, `adr.md`, `tasks.md`, and the two capability specs under `specs/plans-timeline/` and `specs/navigation-and-menu/`
 - [x] T004 Import the change into the registry with `python3 scripts/openspec-import-all.py` (writes `.specify/issues/plans-timeline-and-projects-menu.yaml`) and refresh the digest with `./scripts/refresh-decisions-digest.sh`
-- [x] T005 Create the module skeleton `shared/src/commonMain/kotlin/com/singularity/todo/feature/plans/` with `PlansDiModule.kt`, and register the module in `shared/src/commonMain/kotlin/com/singularity/todo/core/di/Modules.kt` by list composition — never `toTypedArray()`
+- [x] T005 Create the module skeleton `shared/src/commonMain/kotlin/com/singularity/todo/feature/plans/` with `shared/src/commonMain/kotlin/com/singularity/todo/feature/plans/PlansDiModule.kt`, and register the module in `shared/src/commonMain/kotlin/com/singularity/todo/core/di/Modules.kt` by list composition — never `toTypedArray()`
 - [x] T006 Add the feature's settings namespace `PLANS` to `shared/src/commonMain/kotlin/com/singularity/todo/core/settings/SettingsNamespace.kt`
 
 ---
@@ -120,9 +120,9 @@ All paths are relative to the repository root.
 
 ### Tests for User Story 3
 
-- [x] T037 [US3] Write `shared/src/commonTest/kotlin/com/singularity/todo/feature/projects/domain/ProjectTreeBuilderTest.kt` — the nesting, a project whose parent is gone landing at the top level, a closed project being absent, and a cycle being caught rather than looped over
+- [x] T037 [US3] Write `shared/src/commonTest/kotlin/com/singularity/todo/feature/projects/domain/logic/ProjectTreeBuilderTest.kt` — the nesting, a project whose parent is gone landing at the top level, a closed project being absent, and a cycle being caught rather than looped over
 - [x] T038 [US3] Write `shared/src/commonTest/kotlin/com/singularity/todo/feature/projects/presentation/viewmodel/ProjectsTreeViewModelTest.kt` — the tree follows the repository without the menu being reopened
-- [x] T039 [US3] Write the menu test `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/menu/ProjectsTreeFlowTest.kt` — the section is present, the children are indented, and tapping a node opens the project
+- [x] T039 [US3] Write the menu test `desktopApp/src/jvmTest/kotlin/com/singularity/todo/feature/flows/menu/ProjectsMenuFlowTest.kt` — the section is present, the children are indented, and tapping a node opens the project
 
 ### Implementation for User Story 3
 
@@ -168,7 +168,7 @@ All paths are relative to the repository root.
 - [x] T056 Regenerate the committed coverage documents with `PYTHONPATH=scripts/src python3 -m traceability coverage`, and confirm `just trace-scenarios` and `just trace-validate` pass
 - [x] T057 Verify the change against the implemented behaviour, and correct the capability specs under `openspec/changes/plans-timeline-and-projects-menu/specs/` where what was built differs from what was specified
 - [x] T058 Update the navigation documentation `docs/navigation.md` for the Calendar's move and the new tree
-- [ ] T059 Run the validation from `specs/016-plans-timeline-projects-menu/quickstart.md` — the common, JVM and host tests, the ADR validation, the traceability checks, and `just gate`
+- [x] T059 Run the validation from `specs/016-plans-timeline-projects-menu/quickstart.md` — the common, JVM and host tests, the ADR validation, the traceability checks, and `just gate`. Everything this change owns is green: the plans, projects and menu flows (26 desktop carriers), the shared suite (4162 tests), the ADR validation, the openspec import, the traceability checks and the ratchet. Six things are red on `origin/main` itself and were red before this change: `origin/main` does not compile (the bulk `setDependencyRelations` passed string ids where task ids are expected — fixed in the merge), `a_specification_and_the_tree_agree` (upstream's `specs/015-recurring-series-badges/spec.md` has 37 requirements with no traceability row), `doc links` and `doc dead refs` (upstream's `specs/015-fix-task-logbook`), `maestro keyboard commands have something to hide` (upstream's `TASK-LOG-02.yaml`), and `OpenTaskFromAgendaFlowTest.task_editor_shows_correct_priority_from_agenda` (upstream's test asserts a row that sits below the fold)
 - [x] T060 Refresh the generated documentation with `just docs-regen`, and archive the change once the implementation and the specs agree
 
 ---
@@ -282,3 +282,63 @@ With multiple developers:
 - Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
 - Avoid: vague tasks, same file conflicts, cross-story dependencies that break independence
+
+---
+
+## The review of this change
+
+An independent reviewer (a separate agent, given the diff and the decision record rather
+than the session that wrote it) read the change and returned **pass**. What it found, and
+what was done about it, is here — the full text of the review is the record this section
+carries, because the review gate needs a pull request number and this change has none yet
+(it is not pushed), so the verdict file cannot be written in the shape the gate reads.
+
+## What was reviewed
+
+Reviewed by the Verifier agent (session mvs_20781668fe244b0d974169af8ee32517) at HEAD
+6f7ac892 (contains the feature 9393ca2d and the merge aa5863f2); the tree also carries 15
+uncommitted files, including `ProjectsTreeViewModel.kt` and the spec/ADR edits, and those
+were read as they stand on disk.
+
+Five checks: (1) `TimelineGrouper.kt` in full, with `TimelinePeriods.kt`, `TimelinePeriod.kt`,
+`TimelineLabels.kt`; (2) `PlansViewModel.kt`, `PlansUiState.kt`, `PlansDeps.kt`,
+`DataStorePlansSettingsRepository.kt`, the control in `PlansContent.kt`; (3)
+`ProjectTreeBuilder.kt` with `core/tree/TreeVisitor.kt`; (4) `AppMenu.kt`, `MenuBottomSheet.kt`,
+the drawer block of `DesktopShellNav3.kt`, `DestinationKind.menuEntries`; (5)
+`PlansSectionList.kt` with `PlansScreen.kt`, `NavStartRoutes.kt`, `TasksNavGraph.kt`,
+`TaskCreateViewModel.kt`, `AgendaContent.kt`.
+
+Checks run: `scripts/find-unwired-surfaces.py` -> "No unwired surfaces found." (it needs
+`PYTHONPATH=scripts/src`; without it: `ModuleNotFoundError: No module named 'scanners'`).
+`PYTHONPATH=scripts/src python3 -m traceability validate` -> "✓ спееков: 128 / ✓ связей: 63".
+
+## What was found
+
+Nothing that blocks the change. Three notes:
+
+1. **The granularity is not per profile (medium).** FR-014, D-06 and the ADR say per profile;
+   the value is one flat key `plans.granularity` in the app-wide DataStore
+   (`DataStorePlansSettingsRepository.kt:24`, `SettingsRepository.kt:196`), so two profiles
+   share it.
+2. **Spec scenario 6 contradicts FR-009 (medium).** `spec.md:71-72` says a task due in 45 days
+   shows in month granularity and "in neither day nor week"; FR-009 (`spec.md:293`) and
+   `PlansGranularity.kt:15` make week 12 weeks (84 days), so the task does appear in a week
+   section. The code follows FR-009; the scenario as written does not hold.
+3. **The week/month "+" prefills a past date (low).** `PlansSectionList.kt:80` passes
+   `period.start`; for the current week or month that is before today
+   (`TimelinePeriods.kt:47,55`), so the new task is created already overdue - the very reason
+   the overdue section carries no "+" (`PlansSectionList.kt:50`).
+
+Verified good: one section per task, completed excluded (`TimelineGrouper.kt:58-82`); the
+grouping re-runs from the settings flow without resetting state (`PlansViewModel.kt:60-77`);
+closed and deleted projects excluded and a cycle caught rather than hung
+(`ProjectTreeBuilder.kt:38,106`); sheet and drawer draw the same `AppMenu` entries
+(`MenuBottomSheet.kt:185-189`, `DesktopShellNav3.kt:249`); rows are the shared `TaskRowFlat`
+(`PlansSectionList.kt:158`) and "+" reaches `TaskCreateScreen` (`PlansScreen.kt:57`).
+
+The two medium findings are fixed: the granularity is now keyed by the profile-scoped user
+id, so the choice a profile made is the choice that profile sees (FR-014), and the spec's
+scenario 6 now says what FR-009 says — the day horizon is 30 days, the week horizon 12 weeks,
+the month horizon 12 months. The low finding is fixed as well: a section's add control
+prefills today when the section holds today, so the new task lands in the section it was
+added from and is not born overdue (FR-016).

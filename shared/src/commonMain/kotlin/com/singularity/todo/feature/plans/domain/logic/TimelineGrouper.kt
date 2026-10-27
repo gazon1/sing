@@ -77,6 +77,12 @@ object TimelineGrouper {
                 id = period.id,
                 label = TimelineLabels.forPeriod(granularity, period, today),
                 period = period,
+                // The date a task added from this section carries. It has to be
+                // inside the period, or the task lands in another section than
+                // the one it was added from — and it must not be in the past,
+                // or the task is born overdue. So: today when the period holds
+                // it, and the period's first day otherwise.
+                prefillDate = if (period.contains(today)) today else period.start,
                 tasks = inPeriod.map { it.toRow(today, blockedIds, seriesCount) }.toImmutableList(),
             )
         }

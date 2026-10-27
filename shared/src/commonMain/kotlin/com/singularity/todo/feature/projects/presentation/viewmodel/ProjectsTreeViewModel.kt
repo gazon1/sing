@@ -11,6 +11,9 @@ import com.singularity.todo.feature.projects.domain.logic.ProjectTreeBuilder
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.model.ProjectTreeNode
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -28,7 +31,7 @@ sealed interface ProjectsTreeUiState {
      *
      * @param nodes The rows, each with its depth.
      */
-    data class Loaded(val nodes: List<ProjectTreeNode>) : ProjectsTreeUiState
+    data class Loaded(val nodes: ImmutableList<ProjectTreeNode>) : ProjectsTreeUiState
 }
 
 /** What the user can ask the tree to do. */
@@ -78,7 +81,7 @@ class ProjectsTreeViewModel(
             combine(repo.observeAll(), collapsedIds) { projects, collapsed -> projects to collapsed }
                 .catch { throwable ->
                     crashReporter.report(throwable, LOAD_FAILED)
-                    setState(ProjectsTreeUiState.Loaded(emptyList()))
+                    setState(ProjectsTreeUiState.Loaded(persistentListOf()))
                     emit(
                         ProjectsTreeUiEvent.ShowError(
                             throwable.message ?: "Could not load the projects",
@@ -88,7 +91,7 @@ class ProjectsTreeViewModel(
                 .collect { (projects, collapsed) ->
                     setState(
                         ProjectsTreeUiState.Loaded(
-                            ProjectTreeBuilder.build(projects, collapsed),
+                            ProjectTreeBuilder.build(projects, collapsed).toImmutableList(),
                         ),
                     )
                 }

@@ -17,6 +17,9 @@
 #
 # Sorted by id, one mapping per line, no blank lines.
 ${DAY_CELL} item
+${PLANS_TODAY_SECTION} item
+${PLANS_TOMORROW_SECTION} item
+${PLANS_WEEK_SECTION} item
 agenda_save_current_button button
 agenda_saved_views_button button
 agenda_section_blocked item
@@ -62,7 +65,9 @@ logbook_empty item
 logbook_note_by_title_${RUN_ID}_logbook_note item
 logbook_section item
 menu_aichat menu
+menu_all_projects menu
 menu_archive menu
+menu_calendar menu
 menu_notes menu
 menu_profiles menu
 menu_quick_search menu
@@ -83,6 +88,9 @@ notes_quick_add_input field
 overflow_archive menu
 overflow_delete menu
 overflow_restore menu
+plans_empty_state text
+plans_granularity_day button
+plans_section_overdue item
 pomodoro_focus_chip button
 pomodoro_phase_label text
 pomodoro_play_button button
