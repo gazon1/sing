@@ -1,0 +1,28 @@
+# spec-kit issue record — hand-written at change creation.
+# The registry gate fails on a change with no record, so this file is created
+# in the same step as the change itself.
+---
+version: '1.0'
+type: openspec-change
+slug: the-refusal-is-reachable-from-the-screen
+date: '2026-10-26'
+title: the-refusal-is-reachable-from-the-screen
+status: accepted
+change_type: active
+speckit_imported: false
+adr_refs:
+- sequence: '20261023'
+  slug: acp-client-and-agent-activity
+  title: External agent in the app (ACP client) and agent activity visibility
+  status: accepted
+  notes: The feature whose REQ-EXTAG-007 this change delivers; the requirement text does not move, the screen stops pre-empting it.
+tags:
+- acp
+- ui
+- refusal
+documents:
+  proposal: openspec/changes/the-refusal-is-reachable-from-the-screen/proposal.md
+  tasks: openspec/changes/the-refusal-is-reachable-from-the-screen/tasks.md
+specs_dir: null
+is_stub: false
+openspec_path: openspec/changes/the-refusal-is-reachable-from-the-screen

@@ -1,0 +1,29 @@
+# spec-kit issue record — hand-written at change creation.
+# The registry gate fails on a change with no record, so this file is created
+# in the same step as the change itself.
+---
+version: '1.0'
+type: openspec-change
+slug: the-summary-names-only-what-identifies
+date: '2026-10-26'
+title: the-summary-names-only-what-identifies
+status: accepted
+change_type: active
+speckit_imported: false
+adr_refs:
+- sequence: '20261023'
+  slug: acp-client-and-agent-activity
+  title: External agent in the app (ACP client) and agent activity visibility
+  status: accepted
+  notes: The feature whose FR-020 this change makes true; the rule is one function shared by both agent surfaces.
+tags:
+- ai
+- activity
+- privacy
+- summary
+documents:
+  proposal: openspec/changes/the-summary-names-only-what-identifies/proposal.md
+  tasks: openspec/changes/the-summary-names-only-what-identifies/tasks.md
+specs_dir: null
+is_stub: false
+openspec_path: openspec/changes/the-summary-names-only-what-identifies

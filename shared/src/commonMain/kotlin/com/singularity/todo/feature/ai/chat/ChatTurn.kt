@@ -102,9 +102,10 @@ internal class ChatTurn(
     /**
      * The conversation so far, in a form a model can use.
      *
-     * Only the user's words and whether an answer had a screen: replaying whole screens would put
-     * a JSON document into the conversation that the model might copy from, which is exactly how a
-     * surface starts repeating the last one instead of being built for the new question.
+     * The user's words, and the answer's words. An answer that drew only a screen has no words,
+     * and it is named as "(showed a screen)": replaying whole screens would put a JSON document
+     * into the conversation that the model might copy from, which is exactly how a surface
+     * starts repeating the last one instead of being built for the new question.
      */
     private fun historyBlock(): String {
         if (history.isEmpty()) return ""
@@ -147,8 +148,8 @@ internal class ChatTurn(
  * One turn of the conversation, as the next turn needs to hear it.
  *
  * @param user what the reader asked.
- * @param answer what the agent answered, in words.
- * @param drewScreen whether the answer drew a screen, which the next turn is told about as
- *   "showed a screen" rather than as the screen itself.
+ * @param answer what the agent answered, in words. An answer that drew only a screen has no
+ *   words: it is told about as "showed a screen" rather than as the screen itself, so the
+ *   model is not handed a JSON document it might copy from.
  */
-internal data class ChatTurnRecord(val user: String, val answer: String, val drewScreen: Boolean)
+internal data class ChatTurnRecord(val user: String, val answer: String)

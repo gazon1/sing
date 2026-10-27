@@ -1,0 +1,35 @@
+# spec-kit issue record — hand-written at change creation.
+# The registry gate fails on a change with no record, so this file is created
+# in the same step as the change itself.
+---
+version: '1.0'
+type: openspec-change
+slug: a-turn-that-hangs-has-ended
+date: '2026-10-26'
+title: a-turn-that-hangs-has-ended
+status: accepted
+change_type: active
+speckit_imported: false
+adr_refs:
+- sequence: '20261026'
+  slug: a-turn-that-hangs-has-ended
+  title: A turn that hangs has ended, and a session that died is not connected
+  status: accepted
+  notes: FR-040 delivered — an inactivity bound on the turn, and a session that ends without a completion marked failed so the reader can reconnect.
+- sequence: '20261023'
+  slug: acp-client-and-agent-activity
+  title: External agent in the app (ACP client) and agent activity visibility
+  status: accepted
+  notes: The feature whose FR-040 this change delivers.
+tags:
+- acp
+- external-agent
+- turn
+- timeout
+documents:
+  proposal: openspec/changes/a-turn-that-hangs-has-ended/proposal.md
+  design: openspec/changes/a-turn-that-hangs-has-ended/design.md
+  tasks: openspec/changes/a-turn-that-hangs-has-ended/tasks.md
+specs_dir: null
+is_stub: false
+openspec_path: openspec/changes/a-turn-that-hangs-has-ended

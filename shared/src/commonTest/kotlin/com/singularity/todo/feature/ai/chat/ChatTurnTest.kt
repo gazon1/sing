@@ -293,7 +293,7 @@ class ChatTurnTest {
     @Test
     fun aFollowUpCarriesWhatCameBefore() = runTest {
         val agent = ScriptedTextGen(fragments(validSurface(), 9))
-        val history = listOf(ChatTurnRecord("show my tasks", "Here are your tasks", true))
+        val history = listOf(ChatTurnRecord("show my tasks", "Here are your tasks"))
 
         turn(agent, screen(SurfaceId("second")), history).run("now only overdue").collect { }
 
@@ -305,7 +305,7 @@ class ChatTurnTest {
     @Test
     fun anAnswerThatDrewAScreenIsRememberedAsSuch() = runTest {
         val agent = ScriptedTextGen(fragments(validSurface(), 9))
-        val history = listOf(ChatTurnRecord("show my tasks", "", true))
+        val history = listOf(ChatTurnRecord("show my tasks", ""))
 
         turn(agent, screen(SurfaceId("second")), history).run("now only overdue").collect { }
 
@@ -316,7 +316,7 @@ class ChatTurnTest {
     fun historyIsBoundedSoAConversationCannotGrowWithoutLimit() = runTest {
         val agent = ScriptedTextGen(fragments(validSurface(), 9))
         val history = (0 until 12).map { index: Int ->
-            ChatTurnRecord("question $index", "answer $index", false)
+            ChatTurnRecord("question $index", "answer $index")
         }
 
         turn(agent, screen(surface), history).run("now").collect { }

@@ -2,22 +2,30 @@ package com.singularity.todo.feature.ai.external
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.llm.AgentEvent
 import com.singularity.todo.core.mcp.McpServerCommandProvider
 import com.singularity.todo.core.mcp.ToolServerEnvironment
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.feature.ai.acp.AcpAgentInfo
 import com.singularity.todo.feature.ai.acp.AcpAgentLaunch
 import com.singularity.todo.feature.ai.acp.AcpAgentLauncher
 import com.singularity.todo.feature.ai.acp.AcpAgentProfile
+import com.singularity.todo.feature.ai.acp.AcpAgentSession
 import com.singularity.todo.feature.ai.acp.AcpLifecycleSink
 import com.singularity.todo.feature.ai.acp.AcpSessionPermissions
+import com.singularity.todo.feature.ai.acp.AcpTurnEvent
 import com.singularity.todo.test.fakes.FakeProfileRepository
 import com.singularity.todo.test.fakes.SequenceIdGenerator
 import com.singularity.todo.test.helpers.assertTagDisplayed
+import com.singularity.todo.test.helpers.assertTagEnabled
 import com.singularity.todo.test.helpers.assertTagExists
 import com.singularity.todo.test.helpers.clickTag
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertTrue
@@ -111,14 +119,79 @@ class AcpExternalAgentScreenTest {
         assertTrue(left, "the back button hands the reader back to where they came from")
     }
 
+    /**
+     * The input stays enabled while a turn runs, and the refusal reaches the reader.
+     *
+     * Disabling the field would stop the second message before the ViewModel ever sees it, and
+     * the refusal the screen owes the reader — a turn is already running, said in words — would
+     * never be reachable from the screen (REQ-EXTAG-007). So the field and its send button stay
+     * enabled, the Stop control beside them ends the turn, and a second message produces the
+     * refusal as a dialog the reader can see.
+     */
+    @Test
+    fun `the input stays enabled while a turn is running, and the refusal is shown`() =
+        runIsolatedComposeTest {
+            val vm = viewModel(launcher = RunningLauncher)
+
+            setContent { AcpExternalAgentScreenContent(vm = vm) }
+
+            vm.onIntent(AcpExternalAgentViewModel.Intent.Connect)
+            waitUntil { vm.stateFlow.value.connection is AcpConnection.Connected }
+
+            vm.onIntent(AcpExternalAgentViewModel.Intent.InputChanged("hello"))
+            vm.onIntent(AcpExternalAgentViewModel.Intent.Send)
+            waitUntil { vm.stateFlow.value.isRunning }
+
+            assertTagEnabled(TestTags.CHAT_INPUT)
+            assertTagExists(TestTags.ACP_CANCEL_BUTTON)
+
+            // A second message, sent from a screen whose input is enabled, is refused — and the
+            // reason is on screen. This is the half of REQ-EXTAG-007 the disabled field hid.
+            vm.onIntent(AcpExternalAgentViewModel.Intent.InputChanged("and another thing"))
+            vm.onIntent(AcpExternalAgentViewModel.Intent.Send)
+            assertTagDisplayed(TestTags.RESULT_DIALOG)
+
+            // The turn is still running; end it through the screen so the test leaves nothing
+            // behind for the harness to wait for.
+            vm.onIntent(AcpExternalAgentViewModel.Intent.Disconnect)
+        }
+
+    /**
+     * A session that dies mid-turn is shown as failed, and the reader can connect again.
+     *
+     * FR-040: "a session whose process tree dies is marked disconnected rather than connected",
+     * and the reader sees "an error and a way to reconnect". The Connect control is what the
+     * screen shows for a failed connection; this drives the screen to that state and asserts it.
+     */
+    @Test
+    fun `a session that dies mid-turn is shown as failed and offers to connect again`() =
+        runIsolatedComposeTest {
+            val vm = viewModel(launcher = CrashingLauncher)
+
+            setContent { AcpExternalAgentScreenContent(vm = vm) }
+
+            vm.onIntent(AcpExternalAgentViewModel.Intent.Connect)
+            waitUntil { vm.stateFlow.value.connection is AcpConnection.Connected }
+
+            vm.onIntent(AcpExternalAgentViewModel.Intent.InputChanged("hello"))
+            vm.onIntent(AcpExternalAgentViewModel.Intent.Send)
+            waitUntil { vm.stateFlow.value.connection is AcpConnection.Failed }
+
+            assertTagDisplayed(TestTags.ACP_CONNECTION_ERROR)
+            assertTagExists(TestTags.ACP_CONNECT_BUTTON)
+        }
+
     // ── Fixtures ───────────────────────────────────────────────────────────────
 
-    private fun viewModel(toolServerAvailable: Boolean = true): AcpExternalAgentViewModel =
+    private fun viewModel(
+        toolServerAvailable: Boolean = true,
+        launcher: AcpAgentLauncher = FailingLauncher,
+    ): AcpExternalAgentViewModel =
         AcpExternalAgentViewModel(
             idGen = SequenceIdGenerator(),
             profileRepository = FakeProfileRepository(),
             commandProvider = commandProvider(toolServerAvailable),
-            launcher = FailingLauncher,
+            launcher = launcher,
             // Unconfined so that the intent's work runs before the assertion: the screen
             // shows what the state says, and a state that arrives a frame later is a
             // flake, not a fact.
@@ -151,5 +224,64 @@ class AcpExternalAgentScreenTest {
             toolServer: com.singularity.todo.core.mcp.ToolServerCommand.Available?,
             sessionEvents: AcpLifecycleSink,
         ): AcpAgentLaunch = AcpAgentLaunch.Failed("${profile.displayName} is not installed on this machine.")
+    }
+
+    /**
+     * A launcher whose session connects and then holds a turn open.
+     *
+     * The turn never finishes on its own: the screen is showing a running turn, which is the
+     * state the enabled-input rule is about.
+     */
+    private object RunningLauncher : AcpAgentLauncher {
+        override fun launch(
+            profile: AcpAgentProfile,
+            scope: kotlinx.coroutines.CoroutineScope,
+            permissions: AcpSessionPermissions,
+            toolServer: com.singularity.todo.core.mcp.ToolServerCommand.Available?,
+            sessionEvents: AcpLifecycleSink,
+        ): AcpAgentLaunch = AcpAgentLaunch.Started(RunningSession)
+    }
+
+    private object RunningSession : AcpAgentSession {
+        override suspend fun connect(): AcpAgentInfo = AcpAgentInfo("running-agent", "1.0", 1)
+
+        override fun prompt(message: String): Flow<AcpTurnEvent> = flow { awaitCancellation() }
+
+        override suspend fun cancel() = Unit
+
+        override suspend fun close() = Unit
+
+        override fun terminate() = Unit
+    }
+
+    /**
+     * A launcher whose session says one thing and then dies without completing the turn.
+     *
+     * The stream ending with no completion is exactly how the client reports an agent whose
+     * process went away mid-turn.
+     */
+    private object CrashingLauncher : AcpAgentLauncher {
+        override fun launch(
+            profile: AcpAgentProfile,
+            scope: kotlinx.coroutines.CoroutineScope,
+            permissions: AcpSessionPermissions,
+            toolServer: com.singularity.todo.core.mcp.ToolServerCommand.Available?,
+            sessionEvents: AcpLifecycleSink,
+        ): AcpAgentLaunch = AcpAgentLaunch.Started(CrashingSession)
+    }
+
+    private object CrashingSession : AcpAgentSession {
+        override suspend fun connect(): AcpAgentInfo = AcpAgentInfo("crashing-agent", "1.0", 1)
+
+        override fun prompt(message: String): Flow<AcpTurnEvent> = flow {
+            emit(AcpTurnEvent.Activity(AgentEvent.TextDelta("half an answer")))
+            // No Finished: the agent died mid-turn.
+        }
+
+        override suspend fun cancel() = Unit
+
+        override suspend fun close() = Unit
+
+        override fun terminate() = Unit
     }
 }
