@@ -58,6 +58,8 @@ internal val IDENTIFYING_FIELDS: Set<String> = setOf(
     "kind", "status", "priority", "tone", "verb", "operation", "field", "mode", "scope",
     // Dates.
     "dueDate", "dueTime", "startDate", "endDate", "startsAt", "endsAt", "date", "time",
+    // The ISO date that names the daily note a call touched — the row's name, like a title.
+    "dateKey",
     // A colour is a hex string in some tools and a number in others; the number is quoted by
     // shape, the string needs its name here.
     "colorHex",
