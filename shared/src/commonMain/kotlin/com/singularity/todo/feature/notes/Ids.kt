@@ -10,6 +10,7 @@ import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.core.text.OwnedText
 import com.singularity.todo.core.text.Revisioned
 import com.singularity.todo.core.text.StaticText
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
@@ -117,6 +118,7 @@ data class Note(
      * here — that link lives in [outgoingLinks] and surfaces in the task's "Linked" card.
      */
     val taskId: TaskId? = null,
+    val projectId: ProjectId? = null,
     val createdAt: Instant,
     val updatedAt: Instant,
     val deletedAt: Instant? = null,

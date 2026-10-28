@@ -852,6 +852,19 @@ interface NoteDao {
     )
     suspend fun getDailyNote(userId: String, dateKey: String): NoteEntity?
 
+    @Query(
+        """
+        SELECT * FROM notes
+        WHERE user_id = :userId
+        AND kind = 'Daily'
+        AND title = :dateKey
+        AND project_id IS :projectId
+        AND deleted_at IS NULL
+        LIMIT 1
+        """,
+    )
+    suspend fun getDailyNoteForProject(userId: String, dateKey: String, projectId: String?): NoteEntity?
+
     /**
      * Daily notes for a month (for calendar navigation).
      * Matches notes where title is a date string between from..to.

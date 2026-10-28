@@ -120,12 +120,19 @@ data class TaskDependencyCrossRef(
         Index("archived_at"),
         Index("sort_order"),
         Index("task_id"),
+        Index("project_id"),
     ],
     foreignKeys = [
         ForeignKey(
             entity = TaskEntity::class,
             parentColumns = ["id"],
             childColumns = ["task_id"],
+            onDelete = ForeignKey.SET_NULL,
+        ),
+        ForeignKey(
+            entity = ProjectEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["project_id"],
             onDelete = ForeignKey.SET_NULL,
         ),
     ],
@@ -152,6 +159,8 @@ data class NoteEntity(
     @ColumnInfo("outgoing_links", defaultValue = "[]") val outgoingLinks: String = "[]",
     /** Structural note-to-task linkage. Nullable — notes not attached to any task have NULL. */
     @ColumnInfo("task_id") val taskId: String? = null,
+    /** Structural note-to-project linkage. Nullable — notes not attached to any project have NULL. */
+    @ColumnInfo("project_id") val projectId: String? = null,
     @ColumnInfo("created_at") val createdAt: Long,
     @ColumnInfo("updated_at") val updatedAt: Long,
     @ColumnInfo("deleted_at") val deletedAt: Long?,

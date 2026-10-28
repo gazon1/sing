@@ -1,0 +1,7 @@
+schema: spec-driven
+# Engineering work usually changes no observable capability contract, so the
+# marker starts here. speckit-engineering-specify removes it if the change does
+# alter one, and must state its reason either way.
+#
+# Invariant: this marker and a specs/ directory are mutually exclusive.
+skip_specs: true

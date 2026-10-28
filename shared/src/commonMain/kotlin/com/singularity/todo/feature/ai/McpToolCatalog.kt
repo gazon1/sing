@@ -17,6 +17,7 @@ import com.singularity.todo.feature.ai.tools.ExtractActionsTool
 import com.singularity.todo.feature.ai.tools.FirstStepTool
 import com.singularity.todo.feature.ai.tools.GenerateChecklistTool
 import com.singularity.todo.feature.ai.tools.GenerateDescriptionTool
+import com.singularity.todo.feature.ai.tools.GetDailyNoteTool
 import com.singularity.todo.feature.ai.tools.GetNoteTool
 import com.singularity.todo.feature.ai.tools.GetProjectTool
 import com.singularity.todo.feature.ai.tools.GetTaskTool
@@ -319,6 +320,13 @@ object McpToolCatalog {
             name = "get_note",
             writeBehavior = WriteBehavior.READ_ONLY,
             toolClass = GetNoteTool::class,
+            domain = "notes",
+            annotations = ToolAnnotations(readOnlyHint = true),
+        ),
+        ToolEntry(
+            name = "get_daily_note",
+            writeBehavior = WriteBehavior.READ_ONLY,
+            toolClass = GetDailyNoteTool::class,
             domain = "notes",
             annotations = ToolAnnotations(readOnlyHint = true),
         ),
