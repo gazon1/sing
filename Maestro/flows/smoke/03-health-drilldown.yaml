@@ -1,0 +1,123 @@
+# Smoke: health buckets in Statistics (Blocked / Stagnant / Overdue) each
+# navigate to their agenda drill-down.
+#
+# Merged from former 03/04/05 flows: one cold start instead of three.
+# Each bucket is exercised in sequence; back navigation returns to Statistics.
+appId: com.singularity.todo
+name: smoke-health-drilldown
+tags:
+  - smoke
+  - statistics
+---
+- runFlow: ../../helpers/launch-clean.yaml
+
+# ── Seed all fixtures (app ends on Today tab) ──────────────────────────────
+# Blocker + blocked task (dependency by title).
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=${RUN_ID}%20Blocker"
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=${RUN_ID}%20Blocked%20Task&dependsOn=${RUN_ID}%20Blocker"
+
+# Stagnant task: undated, not touched for 22 days.
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=${RUN_ID}%20Stagnant%20Task&updatedAt=-22d"
+
+# Overdue task.
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=${RUN_ID}%20Overdue%20Task&due=-1d"
+- scrollUntilVisible:
+    element:
+      id: "task_item_${RUN_ID}_overdue_task"
+    direction: DOWN
+    timeout: 8000
+
+# ── Open Statistics (shared scaffold) ──────────────────────────────────────
+- tapOn:
+    id: nav_menu_button
+- extendedWaitUntil:
+    visible:
+      id: menu_sheet
+    timeout: 5000
+- swipe:
+    start: "50%, 80%"
+    end: "50%, 30%"
+    duration: 1000
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: menu_statistics
+    timeout: 5000
+- tapOn:
+    id: menu_statistics
+- extendedWaitUntil:
+    visible:
+      id: statistics_tab_tasks
+    timeout: 10000
+- tapOn:
+    id: statistics_tab_health
+
+# ── BLOCKED ────────────────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      id: health_bucket_blocked
+    timeout: 8000
+- tapOn:
+    id: health_bucket_blocked
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_blocked
+    timeout: 8000
+- assertVisible:
+    id: agenda_section_blocked
+# Back to Statistics via system back (agenda screen has no in-app back button).
+- back
+- extendedWaitUntil:
+    visible:
+      id: statistics_tab_tasks
+    timeout: 10000
+- tapOn:
+    id: statistics_tab_health
+
+# ── STAGNANT ───────────────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      id: health_bucket_stagnant
+    timeout: 8000
+- tapOn:
+    id: health_bucket_stagnant
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_not_touched_in_a_while
+    timeout: 8000
+- assertVisible:
+    id: agenda_section_not_touched_in_a_while
+# Back to Statistics via system back (agenda screen has no in-app back button).
+- back
+- extendedWaitUntil:
+    visible:
+      id: statistics_tab_tasks
+    timeout: 10000
+- tapOn:
+    id: statistics_tab_health
+
+# ── OVERDUE ────────────────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      id: health_bucket_overdue
+    timeout: 8000
+- tapOn:
+    id: health_bucket_overdue
+- extendedWaitUntil:
+    visible:
+      id: agenda_section_overdue
+    timeout: 8000
+- assertVisible:
+    id: agenda_section_overdue
