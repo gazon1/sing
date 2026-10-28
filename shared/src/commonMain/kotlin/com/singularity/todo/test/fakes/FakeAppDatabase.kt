@@ -1038,6 +1038,10 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
         it.userId == userId && it.kind.name == "Daily" && it.title == dateKey && it.deletedAt == null
     }
 
+    override suspend fun getDailyNoteForProject(userId: String, dateKey: String, projectId: String?): NoteEntity? = store.value.values.find {
+        it.userId == userId && it.kind.name == "Daily" && it.title == dateKey && it.projectId == projectId && it.deletedAt == null
+    }
+
     override fun watchDailyNotesInRange(userId: String, from: String, to: String): Flow<List<NoteEntity>> =
         store.map { map ->
             map.values.filter { n ->
