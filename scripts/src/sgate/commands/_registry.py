@@ -259,6 +259,16 @@ GRADLE_TASK_PARITY: dict[str, GradleTaskParity] = {
             "CI's `pro` matrix leg passes the flag."
         ),
     ),
+    ":detekt-rules:koverLog": GradleTaskParity(
+        scope="local",
+        why=(
+            "check.sh prints the measured branch coverage before "
+            ":detekt-rules:koverVerify judges it, so a local run shows the number "
+            "it is about to be held to. CI runs the verify task alone: the line it "
+            "would print is for a reader of the log, and nothing acts on it, so "
+            "naming it there would be a second job step that buys no verdict."
+        ),
+    ),
     ":pro:testDebugUnitTest": GradleTaskParity(
         scope="ci",
         why=(
@@ -1572,7 +1582,7 @@ GATE_CONTROLS: dict[str, Control] = {
             "the JVM job stayed green through 109 detekt findings for that reason "
             "(measured on run 38902346697, green, containing ':shared:detekt FAILED')"
         ),
-        tracked_by='.github/workflows/ci.yml#Gradle (coverage)',
+        tracked_by='.github/workflows/ci.yml#Gradle (tests)',
     ),
     'build-output-readers': Control(kind='sabotage', proves='scripts/check-build-output-readers.py', argv=('{python}', 'scripts/check-build-output-readers.py'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='      - name: Coverage floors\n        if: env.COVERAGE_ENABLED == \'true\'\n        run: ./gradlew :koverVerify -Ptest.population="$TEST_POPULATION"\n', new='      - name: Coverage floors\n        if: env.COVERAGE_ENABLED == \'true\'\n        run: ./gradlew :koverVerify -Ptest.population="$TEST_POPULATION"\n      - name: Late flake pass\n        run: |\n          python3 scripts/check-flaky-tests.py \\\n            --current shared/build/test-results/jvmTest \\\n            --previous /tmp/prev\n', count=1), why="a step that reads build output and runs after a second Gradle invocation may be reading a directory that invocation re-ran: the traceability step failed this way on run 38933517902, and the flake step would have done it silently. The probe reproduces exactly that ordering — a build/test-results reader placed after the job's second test-capable invocation — and nothing else. The previous probe appended a bare `./gradlew :koverVerify` to the end of the file, which landed in `nightly-alert`, a job with one test-capable invocation and no readers: the gate ignores such a job by design, so the probe passed a sabotaged input and certified nothing. Both halves of that probe need the parser to read a backslash-continued command as one command — the producing invocation's tasks and the reader's path each sit on continuation lines — so the probe also pins the parser fix.", tracked_by='.github/workflows/ci.yml#Coverage floors'),
     'gradle-test-population': Control(kind='sabotage', proves='scripts/check-gradle-test-population.py', argv=('{python}', 'scripts/check-gradle-test-population.py'), path='.github/workflows/ci.yml', edit=Edit(kind='replace', old='run: ./gradlew :koverVerify -Ptest.population="$TEST_POPULATION"', new='run: ./gradlew :koverVerify', count=1), why="a Gradle invocation that follows the test run without -Ptest.tags measures Gradle's default, excludeTags('slow'): the slow scenario classes are skipped rather than executed, the suite stays green, and every gate that reads build/test-results/ afterwards is measuring a population nobody ran (run 38933517902)", tracked_by='.github/workflows/ci.yml#Coverage floors'),
