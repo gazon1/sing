@@ -3,6 +3,7 @@ package com.singularity.todo.feature.proposals.domain.usecase
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.proposals.domain.model.ProposedTimeEntry
+import com.singularity.todo.feature.proposals.domain.model.TaskValue
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.Tag
@@ -23,7 +24,7 @@ sealed interface ProposalPlan {
     val taskId: TaskId?
 
     /** A fully-resolved task write. Every parse already happened in `ProposalPlanner`. */
-    data class WriteTask(val task: Task) : ProposalPlan {
+    data class WriteTask(val task: Task, val value: TaskValue) : ProposalPlan {
         override val taskId: TaskId get() = task.id
     }
 
