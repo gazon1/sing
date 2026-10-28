@@ -89,8 +89,8 @@ class BackupExporter(
             val savedSearches = savedSearchDao.listAllForUser(userId.value)
             val timeEntries = timeEntryDao.listAllForUser(userId.value)
             val ownerId = (options.ownerId ?: options.ownerUserId)?.value
-            val profiles = if (ownerId != null) profileDao.listAllForUser(ownerId) else profileDao.listAll()
-
+            val profiles = if (ownerId != null) profileDao.listAllForUser(ownerId) else profileDao.listAllForUser(userId.value)
+92d69028 (fix(profile): claim ownerless profiles on account attach and scope backup export by owner)
             // 2. Map to DTOs
             val payload =
                 BackupPayload(

@@ -89,8 +89,9 @@ class OwnerScopedReassigner(private val database: AppDatabase, private val log: 
         val shadows = dao.reassignShadows(mapping.fromOwnerId, mapping.toOwnerId)
 
         // ── Ownership, last ─────────────────────────────────────────────────────
-        val profiles = dao.reassignProfiles(mapping.fromOwnerId, mapping.toOwnerId)
-
+        // Claim ownerless profiles so the account's export has an owner to scope by.
+        val profiles = dao.reassignProfiles(mapping.fromOwnerId, mapping.toOwnerId) +
+            database.profileDao().claimUnowned(mapping.toOwnerId)
         val counts = ReassignCounts(
             tasks = tasks,
             notes = notes,
