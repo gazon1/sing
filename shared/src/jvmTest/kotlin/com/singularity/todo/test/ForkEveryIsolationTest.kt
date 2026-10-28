@@ -7,6 +7,7 @@ import kotlin.io.path.exists
 import kotlin.io.path.readText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
  * `forkEvery = 1` is a build setting that other things silently depend on.
@@ -38,7 +39,7 @@ import kotlin.test.assertEquals
 class ForkEveryIsolationTest {
 
     @Test
-    fun `jvmTest forks a fresh JVM per class, which is what keeps Koin graph state per class`() {
+    fun `jvmTest does not fork a JVM per class`() {
         val configured = System.getProperty("jvmTest.forkEvery")
             ?: error(
                 "jvmTest.forkEvery is not published as a system property — " +
@@ -46,11 +47,26 @@ class ForkEveryIsolationTest {
             )
 
         assertEquals(
-            "1",
+            "0",
             configured,
-            "Koin's graph is process-wide state. Without per-class forking, a module loaded by " +
-                "one class is visible to every class running concurrently, and a test that " +
-                "asserts on 'no definition is bound' becomes a coin flip.",
+            "Per-class forking is off; Koin global state is cleaned up per class by " +
+                "KoinIsolationExtension, so forkEvery=1 is no longer load-bearing.",
+        )
+    }
+
+    @Test
+    fun `KoinIsolationExtension is registered as a global JUnit extension`() {
+        val commonMain = System.getProperty("commonMain.root")
+            ?: error("commonMain.root system property is not set")
+        val moduleDir = Path.of(commonMain).toAbsolutePath().normalize().parent?.parent?.parent
+            ?: error("Could not derive module directory")
+        val servicesFile = moduleDir.resolve(
+            "src/jvmTest/resources/META-INF/services/org.junit.jupiter.api.extension.Extension",
+        )
+        assertTrue(servicesFile.exists(), "JUnit extension service file is missing")
+        assertTrue(
+            servicesFile.readText().contains("KoinIsolationExtension"),
+            "KoinIsolationExtension must be registered globally",
         )
     }
 
