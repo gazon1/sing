@@ -62,6 +62,35 @@ class LocalAccountClaimerTest {
     }
 
     @Test
+    fun `keeping the data claims ownerless profiles for the account`() = runTest {
+        val db = FakeAppDatabase()
+        db.seedProfiles(
+            listOf(
+                ProfileEntity(
+                    id = "prof-u",
+                    name = "Unowned",
+                    emoji = "",
+                    colorIdx = 0,
+                    isDefault = false,
+                    createdAt = 0L,
+                    updatedAt = 0L,
+                    userId = null,
+                ),
+            ),
+        )
+        val repository = ScriptedAuth(local)
+        val claimer = claimer(repository, db)
+
+        claimer.claim(
+            "alice@example.com",
+            "password123",
+            LocalDataDisposition.Keep(ReassignCounts(), LocalDataSummary(0, 0)),
+        ).toList()
+
+        assertEquals("acct-1", db.profileDao().getById("prof-u")?.userId, "ownerless profile is claimed by the account")
+    }
+
+    @Test
     fun `discarding the data erases it and leaves the account empty`() = runTest {
         val db = FakeAppDatabase()
         db.seedTasks(listOf(task("t1", local.value)))
