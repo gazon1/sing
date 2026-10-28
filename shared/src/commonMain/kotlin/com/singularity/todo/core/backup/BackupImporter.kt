@@ -118,12 +118,13 @@ class BackupImporter(
             val (outcome, merged) =
                 runTransaction {
                     var merged = migrated
-                    val outcome = applyPayload(migrated, options.targetUserId, now, read.attachments)
+                    val ownerId = options.ownerId ?: options.ownerUserId
+                    val outcome = applyPayload(migrated, options.targetUserId, ownerId, now, read.attachments)
                     for (change in options.entries) {
                         val delta = json.decodeFromString(BackupDelta.serializer(), change.decodeToString())
                         val changePayload =
                             migrate(delta.payload, json.encodeToString(delta.payload).encodeToByteArray())
-                        applyPayload(changePayload, options.targetUserId, now, emptyMap())
+                        applyPayload(changePayload, options.targetUserId, ownerId, now, emptyMap())
                         merged = merge(merged, changePayload)
                     }
                     outcome to merged
@@ -207,6 +208,7 @@ class BackupImporter(
     private suspend fun applyPayload(
         payload: BackupPayload,
         targetUserId: UserId,
+        ownerId: UserId?,
         now: Long,
         attachmentBytes: Map<String, ByteArray>,
     ): AttachmentOutcome {
@@ -227,7 +229,7 @@ class BackupImporter(
         // it — and a parent this payload has just written is alive, while one this
         // payload is about to remove would take the statement's guard with it and
         // leave the link behind.
-        applyRemovals(payload.removals, targetUserId)
+        applyRemovals(payload.removals, targetUserId, ownerId)
 
         return attachments
     }
@@ -254,10 +256,11 @@ class BackupImporter(
     private suspend fun applyRemovals(
         removals: Map<BackupEntityKind, List<String>>,
         userId: UserId,
+        ownerId: UserId?,
     ) {
         for (phase in BackupRemovalPhase.entries) {
             for (kind in phase.kinds) {
-                removals[kind]?.forEach { key -> removeRow(kind, key, userId) }
+                removals[kind]?.forEach { key -> removeRow(kind, key, userId, ownerId) }
             }
         }
     }
@@ -287,6 +290,7 @@ class BackupImporter(
         kind: BackupEntityKind,
         key: String,
         userId: UserId,
+        ownerId: UserId?,
     ) {
         when (kind) {
             BackupEntityKind.TASK_TAGS -> {
@@ -330,7 +334,10 @@ class BackupImporter(
 
             BackupEntityKind.PROJECTS -> projectDao.deleteForUser(key, userId.value)
 
-            BackupEntityKind.PROFILES -> profileDao.deleteForUser(key, userId.value)
+            BackupEntityKind.PROFILES -> {
+                val owner = ownerId ?: return
+                profileDao.deleteForUser(key, owner.value)
+            }
         }
     }
 
