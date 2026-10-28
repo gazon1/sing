@@ -65,12 +65,39 @@ internal object SourceScan {
         return File(root)
     }
 
-    /** Every production `.kt` file: `commonMain`, excluding the shared test doubles. */
-    fun productionFiles(): List<File> =
+    /**
+     * Every production `.kt` file: `commonMain`, excluding the shared test doubles.
+     *
+     * The list is cached. The tree cannot change while the test run is going,
+     * and six call sites each re-walked 1,238 files to find out the same thing.
+     * The *reading* of those files is a separate cost and is cached separately
+     * — see [productionSources].
+     */
+    fun productionFiles(): List<File> = productionFileList
+
+    private val productionFileList: List<File> by lazy {
         commonMainRoot().walkTopDown()
             .filter { it.isFile && it.name.endsWith(".kt") }
             .filterNot { it.isTestDouble() }
             .toList()
+    }
+
+    /**
+     * Every production file, with its comments stripped.
+     *
+     * Reading the tree and stripping its comments is the expensive half of a
+     * scan, and three rules in `DroppedResultIsReportedTest` each needed the
+     * whole tree: three reads of 1,238 files and 152,493 lines for one set of
+     * facts. One read, one strip, three rules.
+     */
+    val productionSources: List<StrippedSource> by lazy {
+        productionFileList.map {
+            StrippedSource(it, KotlinText.stripComments(it.readText()))
+        }
+    }
+
+    /** One production file and its comment-stripped source. */
+    data class StrippedSource(val file: File, val text: String)
 
     fun File.isTestDouble(): Boolean {
         val path = path.replace(File.separatorChar, '/')
