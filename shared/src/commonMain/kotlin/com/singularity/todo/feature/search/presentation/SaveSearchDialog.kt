@@ -10,6 +10,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
 
@@ -41,6 +43,7 @@ fun SaveSearchDialog(initialName: String, onDismiss: () -> Unit, onSave: (String
             TextButton(
                 onClick = { onSave(nameState.text.toString().trim()) },
                 enabled = nameState.text.toString().trim().isNotBlank(),
+                modifier = Modifier.testTag(TestTags.SavedSearches.SAVE_DIALOG_CONFIRM),
             ) {
                 Text("Save")
             }

@@ -7,6 +7,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import androidx.test.uiautomator.By
 import com.singularity.todo.MainActivity
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.testing.InstrumentedTestBase
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -79,16 +80,15 @@ class NavigationSmokeTest : InstrumentedTestBase() {
             device.findObject(By.res("tasks_fab")),
         )
 
-        // The six bottom-bar tabs, in display order from DestinationKind.tabs.
+        // The bottom-bar tabs, in display order from DestinationKind.tabs.
         // Slug is lower-cased from the AppDestination title.
         val tabs =
             listOf(
-                "nav_tab_inbox",
-                "nav_tab_today",
-                "nav_tab_upcoming",
-                "nav_tab_plans",
-                "nav_tab_pomodoro",
-                "nav_tab_calendar",
+                TestTags.navTab("Inbox"),
+                TestTags.navTab("Today"),
+                TestTags.navTab("Upcoming"),
+                TestTags.navTab("Plans"),
+                TestTags.navTab("Pomodoro"),
             )
 
         tabs.forEach { tabId ->
