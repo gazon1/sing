@@ -23,14 +23,19 @@ import androidx.room3.Query
  * ## Two columns, not one, and why
  *
  * `confirmed_json` is what the server has. `in_flight_json` is what a queued patch
- * will bring it to. They differ while a patch is in the outbox, and a diff must be
- * taken against `in_flight_json` — diffing against `confirmed_json` would re-send
- * fields an earlier pending patch is already carrying, which is the duplicate-write
- * problem the in-flight column exists to prevent.
+ * will bring it to. They differ while a patch is in the outbox, and the diff is
+ * taken against `confirmed_json` — the state the server really holds. A patch
+ * built against `in_flight_json` would drop the fields the queued patch carries:
+ * coalescing replaces that patch's row in the outbox, so the fields it carried
+ * have to be carried by its replacement.
  *
- * A single "last uploaded" column cannot express this, and the bug it produces is
- * invisible: every patch is applied correctly, and the payload is quietly twice the
- * size it needs to be for as long as the outbox is non-empty.
+ * The in-flight column earns its place anyway: it is what a push response promotes
+ * to confirmed, and the patch id beside it is the guard that tells a stale response
+ * from the current one.
+ *
+ * A single "last uploaded" column cannot express the two, and the bug it produces is
+ * invisible: every patch is applied correctly, and the fields only the queued patch
+ * carried are quietly gone.
  */
 @Entity(tableName = "sync_shadow", primaryKeys = ["owner_id", "profile_id", "entity_type", "entity_id"])
 data class SyncShadowEntity(

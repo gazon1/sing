@@ -149,6 +149,26 @@ class MapTest(unittest.TestCase):
                 'arch',
                 body='class GraphTest { val y = TaskRepositoryImpl() }',
             ),
+            test_class(
+                'com.singularity.todo.arch.TreeWideGateTest',
+                '',
+                body=(
+                    'class TreeWideGateTest {'
+                    ' private fun kotlinFiles(): List<File> = commonMain.walkTopDown()'
+                    ' }'
+                ),
+            ),
+            test_class(
+                'com.singularity.todo.feature.agenda.MentionTest',
+                'feature.agenda',
+                body='class MentionTest { val y = TaskRepositoryImpl() }',
+            ),
+            test_class(
+                'com.singularity.todo.feature.genui.CorpusTest',
+                'feature.genui',
+                body='class CorpusTest { val z = UNIT }',
+                source='class CorpusTest { val z = Files.walk(corpus).count() }',
+            ),
         ]
 
     def map(self, paths):
@@ -165,8 +185,17 @@ class MapTest(unittest.TestCase):
         selected, reasons = self.map(
             ['shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/data/TaskRepositoryImpl.kt'],
         )
-        self.assertIn('com.singularity.todo.arch.GraphTest', selected)
+        self.assertIn('com.singularity.todo.feature.agenda.MentionTest', selected)
         self.assertTrue(any('mentions it' in reason for reason in reasons))
+
+    def test_a_tree_walk_outside_the_arch_suite_is_mapped_by_any_change(self):
+        # A fixture-corpus test reads a directory without living in `arch/`.
+        # The call in its FILE is what says so — not a mention of a class.
+        selected, reasons = self.map(
+            ['shared/src/commonMain/kotlin/com/singularity/todo/core/llm/X.kt'],
+        )
+        self.assertIn('com.singularity.todo.feature.genui.CorpusTest', selected)
+        self.assertTrue(any('reads the whole tree' in reason for reason in reasons))
 
     def test_a_changed_test_maps_itself(self):
         selected, reasons = self.map(
@@ -179,6 +208,49 @@ class MapTest(unittest.TestCase):
         selected, reasons = self.map(['scripts/check-something.py'])
         self.assertEqual([], selected)
         self.assertTrue(any('gates' in reason for reason in reasons))
+
+    def test_a_gate_that_reads_the_whole_tree_is_mapped_by_any_change(self):
+        # The gate reads every file of the root, so it can break because of any
+        # change in it — a change whose scope it belongs to neither, and whose
+        # classes it does not mention.
+        selected, reasons = self.map(
+            ['shared/src/commonMain/kotlin/com/singularity/todo/feature/tasks/data/X.kt'],
+        )
+        self.assertIn('com.singularity.todo.arch.TreeWideGateTest', selected)
+        self.assertTrue(any('reads the whole tree' in reason for reason in reasons))
+
+    def test_a_gate_that_reads_the_whole_tree_is_mapped_by_a_change_outside_its_scope(self):
+        selected, _ = self.map(
+            ['shared/src/commonMain/kotlin/com/singularity/todo/core/llm/X.kt'],
+        )
+        self.assertIn('com.singularity.todo.arch.TreeWideGateTest', selected)
+
+    def test_a_gate_that_only_names_a_class_is_not_treated_as_tree_wide(self):
+        # Naming a class is coupling, and the mention rule already covers it.
+        # Treating every mention as a tree-wide read would put every test in
+        # the map of every change.
+        selected, _ = self.map(
+            ['shared/src/commonMain/kotlin/com/singularity/todo/core/llm/X.kt'],
+        )
+        self.assertNotIn('com.singularity.todo.feature.agenda.MentionTest', selected)
+
+    def test_a_non_kotlin_file_in_a_tree_a_gate_reads_maps_that_gate(self):
+        # `MaestroFlowTagsTest` walks every flow and fails on one without
+        # `tags:`. The Kotlin rules never see a `.yaml` change, so the gate has
+        # to be selected by the tree itself.
+        selected, reasons = self.map(['Maestro/flows/new-thing.yaml'])
+        self.assertIn('com.singularity.todo.arch.TreeWideGateTest', selected)
+        self.assertTrue(any('a tree a gate reads' in reason for reason in reasons))
+
+    def test_a_changed_test_maps_the_gates_that_read_the_whole_test_tree(self):
+        # A gate that asserts every test class carries a @Tag is broken by a
+        # test class that does not — and the class that broke it is the one
+        # that changed, so the gate has to run too.
+        selected, reasons = self.map(
+            ['shared/src/jvmTest/kotlin/com/singularity/todo/arch/SomeTest.kt'],
+        )
+        self.assertIn('com.singularity.todo.arch.TreeWideGateTest', selected)
+        self.assertTrue(any('reads the whole tree' in reason for reason in reasons))
 
     def test_a_doc_change_maps_no_app_test(self):
         selected, _ = self.map(['docs/decisions/2026-10-22-something.md'])
@@ -374,6 +446,53 @@ class CommandTest(unittest.TestCase):
 
     def test_no_tests_means_no_command(self):
         self.assertEqual([], impact.gradle_commands([], 'fast'))
+
+    def test_the_run_path_switches_the_coverage_agent_off(self):
+        """A run of a SUBSET of the suite must not measure coverage.
+
+        The agent multiplies the run by about 1.6 on this tree (1241 s
+        instrumented against 771 s not), and a coverage number over a subset
+        describes the subset rather than the app — a number nobody can act on.
+        The coverage job is where the measurement belongs.
+
+        So the flag is added on the path that RUNS the command. The path that
+        PRINTS the command leaves the decision to its caller, which is why the
+        CI `quick` job adds the same flag to the command it evaluates.
+        """
+        ran = []
+
+        def fake_run(command, cwd, check):
+            ran.append(command)
+            return type('Result', (), {'returncode': 0})()
+
+        original = impact.subprocess.run
+        impact.subprocess.run = fake_run
+        try:
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                # A path in THIS repository's tree, so the selection is a real
+                # one: the map reads the tree, and a synthetic path names no
+                # class and the run would be empty.
+                impact.main(['--run'], paths=['shared/src/commonMain/kotlin/com/singularity/todo/App.kt'])
+        finally:
+            impact.subprocess.run = original
+
+        self.assertTrue(ran, 'nothing was run')
+        for command in ran:
+            self.assertIn(impact.COVERAGE_OFF, command)
+
+    def test_the_printed_command_leaves_the_coverage_decision_to_its_caller(self):
+        """`--command` prints the selection; the caller decides what to run it with.
+
+        The CI `quick` job evaluates the printed command with the coverage
+        agent off, and a caller that WANTS the measurement can keep it on. The
+        flag therefore belongs on the run path, not on the printed command.
+        """
+        commands = impact.gradle_commands(
+            [test_class('com.singularity.todo.feature.tasks.TaskTest', 'feature.tasks')],
+            'fast',
+        )
+        for command in commands:
+            self.assertNotIn(impact.COVERAGE_OFF, command)
 
     def test_each_task_gets_its_own_command(self):
         tests = [

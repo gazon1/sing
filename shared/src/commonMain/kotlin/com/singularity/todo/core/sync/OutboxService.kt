@@ -15,10 +15,14 @@ import kotlinx.coroutines.flow.first
  * ## Coalescing
  *
  * Inserts are preceded by a delete of any existing row for the same `(ownerId, entityId)`.
- * A new patch is built against the previous in-flight state, so it carries every field
- * the one it replaces carried — replacing loses nothing. Without this the outbox grows
- * without bound under fast editing, and the shadow's "promote only if this patch still
- * owns the marker" guard could never fire.
+ * Without this the outbox grows without bound under fast editing, and the shadow's
+ * "promote only if this patch still owns the marker" guard could never fire.
+ *
+ * Because the replaced row is deleted rather than merged into, the new patch has to
+ * carry everything the old one did. That is why the patch is built against the
+ * confirmed state — what the server really holds — and not against the in-flight
+ * one: diffing against the in-flight state would leave the fields only the replaced
+ * patch carried with the row that is being deleted.
  */
 internal class OutboxService(
     private val outboxDao: SyncOutboxDao,

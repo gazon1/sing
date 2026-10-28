@@ -129,24 +129,23 @@ The uninstrumented `:shared:jvmTest` in the table above is a different run: the 
 
 ### The recorded run of `main`
 
-The CI loop is the one that blocks merges, so it is priced too — 2026-10-24T10:12:52Z — https://github.com/gazon1/sing/actions/runs/40085015804.
+The CI loop is the one that blocks merges, so it is priced too — 2026-10-28T19:07:23Z — https://github.com/gazon1/sing/actions/runs/40751424731.
 
 The record need not be the newest run: it is the run it names. It is stale when the workflow's jobs change: a job renamed, added or removed turns it into a price of a loop that no longer exists. It is not stale when `main` moves — a later run with the same jobs is another sample of the same loop, so re-recording it would move the numbers without making the page truer. A gate says so when it happens: `scripts/check-recorded-ci-jobs.py` names the recorded job the workflow no longer declares — a rename or a removal. An addition is not visible to it: a job the record does not name is indistinguishable from a job the run did not run.
 
 | Job | Duration |
 |------|----------|
-| Android (free) | 2 min 09 s |
-| Android (pro) | 3 min 40 s |
-| CI gate | 4.0 s |
-| Coverage | 26 min 52 s |
-| Gate tooling | 5 min 52 s |
-| JVM tests | 19 min 39 s |
-| Static gates | 7 min 54 s |
-| adr-gate | 1 min 43 s |
-| changes | 6.0 s |
-| detekt | 4 min 25 s |
+| Android (free) | 1 min 53 s |
+| Android (pro) | 1 min 42 s |
+| CI gate | 2.0 s |
+| Gate tooling | 3 min 44 s |
+| JVM tests | 6 min 13 s |
+| Static gates | 7 min 43 s |
+| adr-gate | 1 min 52 s |
+| changes | 8.0 s |
+| detekt | 4 min 31 s |
 
-The run finished as **success**.
+The run finished as **failure**.
 
 ### The price of the pre-push verdict
 

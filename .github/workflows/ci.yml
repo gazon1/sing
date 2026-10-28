@@ -1142,13 +1142,14 @@ jobs:
       - name: Post-rebase DI compile
         run: python3 scripts/check-rebase-compiles.py
 
-      # The app coverage floors, the coverage table and the coverage report are
-      # NOT here any more: they moved to the `coverage` job, which runs the
-      # suite under the Kover agent. A pull request runs the suite WITHOUT the
-      # agent, so a coverage number measured on that run would be a number
-      # about a different build than the one the floor is declared against —
-      # and a pull request that failed a coverage floor would be failing on a
-      # measurement it never took.
+      # The app coverage floors are NOT on the pull-request path: they are the
+      # conditional steps below, gated on `COVERAGE_ENABLED`, which this job
+      # measures only on a push, the schedule, a manual run or a labelled pull
+      # request. An ordinary pull request runs the suite WITHOUT the agent, so a
+      # coverage number measured on that run would be a number about a different
+      # build than the one the floor is declared against — and a pull request
+      # that failed a coverage floor would be failing on a measurement it never
+      # took.
       #
       # The detekt-rules floor stays HERE, and it is not an oversight: it is a
       # gate about the custom rules, not about the app's coverage, and it is
