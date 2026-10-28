@@ -44,7 +44,7 @@ abstract class FileSystemContract<F : FileSystem>(private val makeSut: () -> F) 
     private val sut: F by lazy { makeSut() }
 
     private companion object {
-        /** Unique per JVM: forkEvery = 1 gives each test class its own, but do not rely on it. */
+        /** Unique per JVM; not relied upon for cross-class uniqueness (forkEvery is now 0). */
         val RUN_ID: String = java.util.UUID.randomUUID().toString().take(8)
 
         val CALLS = java.util.concurrent.atomic.AtomicInteger(0)
