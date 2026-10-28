@@ -2255,20 +2255,20 @@ open class FakeAttachmentRepository(
 
     override fun observeAll(): Flow<List<com.singularity.todo.core.attachments.Attachment>> =
         currentUser.observeForCurrentUser { uid ->
-            store.state.map { list -> list.values.filter { it.userId == uid } }
+            store.state.map { list -> list.values.filter { it.userId == uid && it.deletedAt == null } }
         }
 
     override fun observe(
         id: com.singularity.todo.core.attachments.AttachmentId,
     ): Flow<com.singularity.todo.core.attachments.Attachment?> = currentUser.observeForCurrentUser { uid ->
-        store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid } }
+        store.state.map { list -> list.values.firstOrNull { it.id == id && it.userId == uid && it.deletedAt == null } }
     }
 
     override suspend fun get(
         id: com.singularity.todo.core.attachments.AttachmentId,
     ): com.singularity.todo.core.attachments.Attachment? {
         val uid = currentUser.scopedUserId.value
-        return store.state.value.values.firstOrNull { it.id == id && it.userId == uid }
+        return store.state.value.values.firstOrNull { it.id == id && it.userId == uid && it.deletedAt == null }
     }
 
     override suspend fun create(
@@ -2276,15 +2276,20 @@ open class FakeAttachmentRepository(
     ): Result<com.singularity.todo.core.attachments.Attachment> {
         createOverride?.let { return it }
         return runCatchingCancellable {
-            store.upsert(attachment)
-            attachment
+            val owned = attachment.copy(userId = currentUser.scopedUserId.value)
+            store.upsert(owned)
+            owned
         }
     }
 
     override suspend fun delete(id: com.singularity.todo.core.attachments.AttachmentId): Result<Unit> {
         deleteOverride?.let { return it }
         return runCatchingCancellable {
-            store.remove(id.value)
+            val uid = currentUser.scopedUserId.value
+            val existing = store.state.value.values.firstOrNull { it.id == id && it.userId == uid && it.deletedAt == null }
+                ?: throw IllegalArgumentException("Attachment $id not found or not owned by current user")
+            val ts = clock.now()
+            store.upsert(existing.copy(deletedAt = ts))
         }
     }
 
@@ -2292,7 +2297,7 @@ open class FakeAttachmentRepository(
 
     override fun watchByTask(taskId: TaskId): Flow<List<com.singularity.todo.core.attachments.Attachment>> =
         currentUser.observeForCurrentUser { uid ->
-            store.state.map { list -> list.values.filter { it.taskId == taskId && it.userId == uid } }
+            store.state.map { list -> list.values.filter { it.taskId == taskId && it.userId == uid && it.deletedAt == null } }
         }
 
     // ─── Domain methods (ambient user) ────────────────────────────────────
