@@ -48,8 +48,8 @@ one feature pays for the whole suite.
   loop, and the loop says so rather than pretending to measure it:
   `:koverVerify` at the root is only meaningful against a measurement, and the
   local loop takes none. The floor stays enforced where the measurement is
-  taken — the `coverage` job in CI, and the `just ci::coverage` recipe, which
-  already exists and already does exactly that.
+  taken — the coverage steps of CI's `tests` job, and the `just ci::coverage`
+  recipe, which already exists and already does exactly that.
 - The detekt-rules branch floor is unaffected and still runs locally: it is
   measured by that module's own `kover` plugin, not by the root agent, so
   `-Pcoverage.enabled=false` does not silence it. Measured on 2026-10-28 with
@@ -78,7 +78,7 @@ makes true locally as well.
   `:shared:jvmTest` from about 1241 s to about 771 s on this tree — and the
   loop stops attaching an agent it does not read.
 - A developer who wants the coverage floor runs `just ci::coverage`, which is
-  the recipe that mirrors the CI `coverage` job.
+  the recipe that mirrors the coverage steps of CI's `tests` job.
 - The timings in `docs/testing/gate-costs.md` are regenerated from the next
   recorded cycle, because a published cost that no longer describes the loop
   is a wrong number. Until then the page still prices the step this change

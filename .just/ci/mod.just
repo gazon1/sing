@@ -13,7 +13,8 @@
 #   ci::quick     -> the `quick` job      (the affected tests)
 #   ci::tests     -> the `tests` job      (the suite, no coverage agent)
 #   ci::detekt    -> the `detekt` job     (the eight modules CI judges)
-#   ci::coverage  -> the `coverage` job   (the suite under the agent, and the floors)
+#   ci::coverage  -> the coverage steps of the `tests` job (the suite under the
+#                    agent, and the floors)
 #
 # A recipe that drifts from its job is a recipe that answers a question
 # nobody asked, so each one names the workflow step it mirrors. If the
@@ -137,13 +138,15 @@ detekt:
         -Pcoverage.enabled=false
 
 [group('ci')]
-[doc('The suite under the coverage agent, and the floors — the CI coverage job')]
+[doc('The suite under the coverage agent, and the floors — the coverage steps of the CI `tests` job')]
 [working-directory(justfile_directory())]
 coverage:
     #!/bin/bash
     set -euo pipefail
-    # Mirrors the `coverage` job (`.github/workflows/ci.yml`, steps "Gradle
-    # (coverage)", "Coverage floors", "Coverage table" and "Coverage report").
+    # Mirrors the coverage steps of the `tests` job (`.github/workflows/ci.yml`,
+    # "Gradle (coverage)" and "Coverage floors"): one run carries both verdicts,
+    # and the measurement is a conditional step there, taken on a push, the
+    # schedule or a labelled pull request.
     #
     # Not `just coverage` — that one (`tests::coverage`) renders the report
     # from whatever a previous run left behind, and runs no suite. This one
@@ -171,9 +174,8 @@ coverage:
     # The floor, checked against the measurement the run above produced.
     ./gw :koverVerify -Ptest.population="$population"
     # The table and the log: advisory, and rendered from the same numbers.
-    # The job's "Coverage report" step renders TWO of them — the app's
-    # instruction coverage (`:koverLog`) and the detekt rules' branch coverage
-    # (`:detekt-rules:koverLog`) — so both are here. `|| true` declares them
+    # CI renders neither in this job any more; they stay here because a local
+    # reader wants the numbers without opening the XML. `|| true` declares them
     # advisory: the blocking check is `:koverVerify` above.
     ./gw :koverMarkdownTable -Ptest.population="$population" || true
     ./gw -q :koverLog -Ptest.population="$population" || true

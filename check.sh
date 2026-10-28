@@ -76,7 +76,7 @@ TOTAL=11
 
 # The coverage agent multiplies every test class and nothing in this loop reads the
 # report it produces, so every test step switches it off. The floor is measured and
-# judged where the measurement is taken: the `coverage` job in CI, and
+# judged where the measurement is taken: the coverage steps of CI's `tests` job, and
 # `just ci::coverage` here. See
 # docs/decisions/2026-10-28-the-local-loop-measures-nothing-it-does-not-use.md
 COVERAGE_OFF="-Pcoverage.enabled=false"
