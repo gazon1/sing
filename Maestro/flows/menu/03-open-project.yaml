@@ -8,7 +8,6 @@
 appId: com.singularity.todo
 name: menu-open-project
 tags:
-  - smoke
   - menu
   - scenario:MENU-02
 ---

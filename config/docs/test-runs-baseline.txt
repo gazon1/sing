@@ -124,5 +124,5 @@
 desktopApp:test 26 0
 shared:jvmTest 2785 0
 mcp-server:test 0 0
-shared:testAndroidHostTest 1614 0
+shared:testAndroidHostTest 13 0
 # GENERATED:END
