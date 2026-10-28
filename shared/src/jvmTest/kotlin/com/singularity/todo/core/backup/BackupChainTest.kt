@@ -311,6 +311,57 @@ class BackupChainTest {
     }
 
     /**
+     * A removed profile stays removed.
+     *
+     * Export, delete the profile, export again, restore: the profile must be gone.
+     */
+    @Test
+    fun `a removed profile stays removed`() = runTest {
+        sourceDb.profileDao().upsert(
+            ProfileEntity(
+                id = "p-mine",
+                name = "p-mine",
+                emoji = "",
+                colorIdx = 0,
+                isDefault = false,
+                createdAt = 1L,
+                updatedAt = 1L,
+                userId = null,
+            ),
+        )
+        export("a.zip")
+
+        sourceDb.profileDao().deleteById("p-mine")
+        export("b.zip")
+
+        targetDb.profileDao().upsert(
+            ProfileEntity(
+                id = "p-mine",
+                name = "p-mine",
+                emoji = "",
+                colorIdx = 0,
+                isDefault = false,
+                createdAt = 1L,
+                updatedAt = 1L,
+                userId = null,
+            ),
+        )
+
+        val bucket = InMemoryBucket()
+        val repository = repository(bucket)
+        val pushed = repository.push(BackupId.fromPath("$backupDir/b.zip"), "horse".toCharArray())
+        assertTrue(pushed.isSuccess, "the push must succeed: ${pushed.exceptionOrNull()}")
+
+        val restored = repository.restoreFromCloud(pushed.getOrThrow(), "horse".toCharArray())
+        assertTrue(restored.isSuccess, "the restore must succeed: ${restored.exceptionOrNull()}")
+
+        assertTrue(
+            targetDb.profileDao().getById("p-mine") == null,
+            "the profile the change says is gone must not come back",
+        )
+    }
+
+    /**
      * A chain past its bound starts again.
      *
      * A chain that only grows is a restore that gets slower every time it runs,

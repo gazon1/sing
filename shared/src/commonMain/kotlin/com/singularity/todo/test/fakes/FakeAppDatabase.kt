@@ -2193,7 +2193,7 @@ private class FakeProfileDao(private val store: MutableStateFlow<Map<String, Pro
 
     override suspend fun deleteForUser(id: String, userId: String): Int {
         val existing = store.value[id] ?: return 0
-        if (existing.userId != userId) return 0
+        if (existing.userId != null && existing.userId != userId) return 0
         store.update { it - id }
         return 1
     }
@@ -2219,9 +2219,6 @@ private class FakeProfileDao(private val store: MutableStateFlow<Map<String, Pro
     }
 
     override suspend fun listAll(): List<ProfileEntity> = store.value.values.toList()
-
-    override suspend fun listAllForUser(userId: String): List<ProfileEntity> =
-        store.value.values.filter { it.userId == userId }.sortedBy { it.createdAt }
 }
 
 // ─── AgendaViewDao ────────────────────────────────────────────────────────────
