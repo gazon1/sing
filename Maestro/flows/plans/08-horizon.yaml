@@ -9,7 +9,6 @@
 appId: com.singularity.todo
 name: plans-horizon
 tags:
-  - smoke
   - plans
   - scenario:PLANS-07
 ---

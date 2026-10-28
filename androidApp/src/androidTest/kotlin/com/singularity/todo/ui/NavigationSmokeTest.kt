@@ -12,6 +12,7 @@ import com.singularity.todo.feature.nav.DestinationKind
 import com.singularity.todo.testing.InstrumentedTestBase
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -53,7 +54,10 @@ class NavigationSmokeTest : InstrumentedTestBase() {
             )
         val scenario = ActivityScenario.launch<MainActivity>(intent)
         scenario.onActivity { activity ->
-            assertNotNull("Activity should be created", activity)
+            // ActivityScenario.launch throws if the activity fails to create; reaching
+            // here is the smoke signal. Asserting the non-null lambda parameter would
+            // be tautological.
+            assertTrue(activity.window != null)
         }
         scenario.close()
     }

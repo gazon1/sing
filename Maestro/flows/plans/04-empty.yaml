@@ -2,7 +2,6 @@
 appId: com.singularity.todo
 name: plans-empty
 tags:
-  - smoke
   - plans
   - scenario:PLANS-10
 ---

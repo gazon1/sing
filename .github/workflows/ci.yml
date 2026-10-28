@@ -412,153 +412,6 @@ jobs:
       - name: Gates are alive
         run: python3 scripts/check-gate-liveness.py
 
-  # ── The coverage job ─────────────────────────────────────────────────────
-  #
-  # The suite under the Kover agent, with the floor it is measured against,
-  # the table and the report. It runs where a coverage measurement is wanted:
-  # a push to the trunk, the schedule, a manual run, and a pull request that
-  # asks for the full population.
-  #
-  # It does NOT run on an ordinary pull request. A pull request that failed a
-  # coverage floor would be failing on a measurement it never took: the
-  # pull-request path runs the suite WITHOUT the agent, so the number would be
-  # about a different build than the one the floor is declared against.
-  #
-  # DECLARED BEFORE `tests`, and the order is part of the contract.
-  # `scripts/check-coverage-timeout.py` resolves "the coverage job" by taking
-  # the FIRST job in the file whose step runs `:koverVerify`, and the
-  # `coverage-timeout` control replaces the file's FIRST `timeout-minutes: 75`.
-  # A control that hits a line other than the one it names proves nothing
-  # while reporting green.
-  coverage:
-    name: Coverage
-    runs-on: ubuntu-24.04
-    # 75 minutes, and the number is measured: the instrumented run — the one
-    # the Kover agent multiplies — takes 37 min 25 s for the fast population
-    # and 33 min 23 s for the full one on the 16-vCPU development host. The
-    # gate recomputes it from the published measurement, so a stale ceiling
-    # fails the build instead of quietly truncating a slow run.
-    timeout-minutes: 75
-    needs: [changes]
-    # A push to the trunk, the schedule, a manual run, or a pull request that
-    # asks for the full population. The label arrives two ways — the `labeled`
-    # event carries it in `github.event.label.name`, every later push carries
-    # it in the PR's label list — and reading only one of them means the label
-    # works until the next commit and then silently stops working.
-    if: >
-      (
-        github.event_name == 'push'
-        || github.event_name == 'schedule'
-        || github.event_name == 'workflow_dispatch'
-        || (
-          github.event_name == 'pull_request'
-          && (
-            github.event.label.name == 'run-full-tests'
-            || contains(github.event.pull_request.labels.*.name, 'run-full-tests')
-          )
-        )
-      )
-    permissions:
-      actions: read
-      contents: read
-    env:
-      # The population, decided once by the `changes` job and read here. The
-      # literal `-Ptest.population="$TEST_POPULATION"` stays, so the parity
-      # gate reads it as an opaque token and the decision lives in one place.
-      TEST_POPULATION: ${{ needs.changes.outputs.population }}
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: ./.github/actions/setup-jvm-gradle
-        with:
-          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
-
-      # The suite, under the agent, with the coverage entry point that pulls
-      # the test tasks in and renders the report. The test tasks are NOT
-      # named here: `koverReport` IS the aggregate, and naming them again
-      # would be a second copy of the list that has to stay in step with
-      # kover's — which is exactly how kover silently stops measuring a
-      # module.
-      #
-      # `:mcp-server:jar` is REQUIRED in this same invocation.
-      # McpServerEndToEndTest resolves build/libs/mcp-server.jar and skips
-      # itself when the jar is absent — a silent pass, not a failure.
-      #
-      # `-Pcoverage.enabled=true` is the explicit opt-in. The property defaults
-      # to on, because the local loop measures the floors against an
-      # instrumented build; saying it here makes the job's intent legible from
-      # the job, and a job that opts in explicitly cannot be opted out of by a
-      # default that changes.
-      - name: Gradle (coverage)
-        run: |
-          set -o pipefail
-          ./gradlew --continue \
-            --no-parallel \
-            :mcp-server:jar \
-            :shared:verifyToolSurface \
-            koverReport \
-            koverHtml \
-            :detekt-rules:test \
-            -Ptest.population="$TEST_POPULATION" \
-            -Pcoverage.enabled=true \
-            2>&1 | tee build.log
-
-      # App coverage floors (INSTRUCTION 27% / BRANCH 23% / LINE 31%), declared in
-      # settings.gradle.kts and enforced by Kover's own verify task. Blocking.
-      # Runs here because it needs Gradle; static-gates.sh has no Gradle.
-      #
-      # The floors themselves depend on the population: a fast-only run measures
-      # less coverage than a full one, so settings.gradle.kts declares two sets and
-      # picks the one that matches the population. See
-      # docs/decisions/2026-10-22-ci-fast-only-pr-full-on-schedule.md.
-      #
-      # `-Ptest.population="$TEST_POPULATION"` is repeated on every Gradle
-      # invocation in this job, not only the test run above, and it is not
-      # redundancy. An absent population maps to `excludeTags("slow")` in every
-      # module's `useJUnitPlatform` block, so an invocation that re-runs a test
-      # task without it re-measures a *narrower* population while reporting green
-      # — measured in run 38933517902, where the advisory kover table step re-ran
-      # `:desktopApp:test` and dropped every `@Tag("slow")` scenario class. Same
-      # population, whichever invocation ends up executing the task.
-      - name: Coverage floors
-        run: ./gradlew :koverVerify -Ptest.population="$TEST_POPULATION"
-
-      # Markdown table from the kover XML report. Parses build/reports/kover/report.xml
-      # (generated by koverReport above) and renders per-module LINE / BRANCH /
-      # INSTRUCTION coverage. Advisory: the blocking coverage check is :koverVerify above.
-      - name: Coverage table (advisory, CI summary)
-        if: ${{ !cancelled() }}
-        run: ./gw :koverMarkdownTable -Ptest.population="$TEST_POPULATION" >> "$GITHUB_STEP_SUMMARY" || true
-
-      # Advisory by construction, and declared so: this step only *renders* the two
-      # numbers into the job summary. Both are enforced as blocking steps elsewhere —
-      # `Coverage floors` above, `Kover verify (detekt-rules)` in the suite job —
-      # so the `|| true` on each pipeline cannot hide a real regression; it only
-      # stops a rendering hiccup from failing a run whose gates already ran. The
-      # name says "advisory" because a soft step nobody declared is a step that
-      # reads as a gate (scripts/check-gate-wiring.py, Part F).
-      - name: Coverage report (advisory, CI summary)
-        if: ${{ !cancelled() }}
-        run: |
-          # Render app instruction coverage into the job summary. koverLog, not a
-          # second parser: the number comes from the same kover block that declares
-          # the floor (settings.gradle.kts). grep keeps a failed Gradle run out of
-          # the summary; `|| true` is what declares this half advisory.
-          {
-            echo ""
-            echo "### Code coverage"
-          } >> "$GITHUB_STEP_SUMMARY"
-          ./gradlew -q :koverLog -Ptest.population="$TEST_POPULATION" 2>&1 | \
-            grep "^app instruction coverage" >> "$GITHUB_STEP_SUMMARY" || true
-          # Render detekt-rules branch coverage into the job summary. Same pattern
-          # as above: koverLog reads the block that declares the floor.
-          {
-            echo ""
-            echo "**detekt-rules branch coverage**"
-          } >> "$GITHUB_STEP_SUMMARY"
-          ./gradlew -q :detekt-rules:koverLog -Ptest.population="$TEST_POPULATION" 2>&1 | \
-            grep "^detekt-rules branch coverage" >> "$GITHUB_STEP_SUMMARY" || true
-
   # ── The detekt job ───────────────────────────────────────────────────────
   #
   # Detekt's verdict, and nothing else. It runs wherever the suite job runs —
@@ -782,6 +635,9 @@ jobs:
       # parity gate reads that as an opaque token, which is what lets the
       # decision live in one place instead of in every job.
       TEST_POPULATION: ${{ needs.changes.outputs.population }}
+      # Coverage is measured only where it is wanted (push/schedule/dispatch/full PR).
+      # A single run carries both verdicts: tests always, coverage conditionally.
+      COVERAGE_ENABLED: ${{ (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (github.event.label.name == 'run-full-tests' || contains(github.event.pull_request.labels.*.name, 'run-full-tests')))) && 'true' || 'false' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -1334,6 +1190,14 @@ jobs:
           GATE_WIRING_GRADLE: "1"
         run: python3 scripts/check-gate-wiring.py --except-can-fail
 
+      - name: Gradle (coverage)
+        if: env.COVERAGE_ENABLED == 'true'
+        run: |
+          set -o pipefail
+          ./gradlew --continue --no-parallel :mcp-server:jar koverReport koverHtml -Ptest.population="$TEST_POPULATION" -Pcoverage.enabled=true 2>&1 | tee coverage.log
+      - name: Coverage floors
+        if: env.COVERAGE_ENABLED == 'true'
+        run: ./gradlew :koverVerify -Ptest.population="$TEST_POPULATION"
       - name: Upload JUnit results
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
@@ -1547,7 +1411,7 @@ jobs:
   ci-gate:
     name: CI gate
     if: ${{ always() }}
-    needs: [static, meta, tests, android, changes, agent-review, quick, detekt, coverage]
+    needs: [static, meta, tests, android, changes, agent-review, quick, detekt]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:

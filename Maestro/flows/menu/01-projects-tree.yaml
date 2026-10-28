@@ -6,7 +6,6 @@
 appId: com.singularity.todo
 name: menu-projects-tree
 tags:
-  - smoke
   - menu
   - scenario:MENU-01
 ---

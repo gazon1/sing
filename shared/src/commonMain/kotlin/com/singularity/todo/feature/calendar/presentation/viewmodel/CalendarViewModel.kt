@@ -91,6 +91,9 @@ class CalendarViewModel(
         ),
     )
 
+    /** Public read access to the calendar's internal state (anchor, mode, mini panel). */
+    val calendarState: StateFlow<CalendarState> = _calendarState.asStateFlow()
+
     init {
         vmScope.launch {
             combine(
@@ -234,8 +237,8 @@ class CalendarViewModel(
         emit(CalendarUiEvent.NavigateToCreateWithDates(TaskDraftKeys.CALENDAR_MULTI_DATE))
     }
 
-    /** Internal calendar state (anchor, mode, mini panel, date selection). */
-    private data class CalendarState(val anchor: LocalDate, val viewMode: CalendarViewMode, val isMiniOpen: Boolean) {
+    /** Calendar state (anchor, mode, mini panel). */
+    data class CalendarState(val anchor: LocalDate, val viewMode: CalendarViewMode, val isMiniOpen: Boolean) {
         fun toLoadedState(
             tasksByDate: Map<LocalDate, List<CalendarTaskUi>>,
             today: LocalDate,

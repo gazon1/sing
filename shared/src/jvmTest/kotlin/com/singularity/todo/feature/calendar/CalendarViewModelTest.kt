@@ -165,70 +165,72 @@ class CalendarViewModelTest {
     // ─── intent handlers (smoke tests — no crash) ─────────────────────────
 
     @Test
-    fun `ViewModeChanged does not crash`() = runTest {
+    fun `ViewModeChanged changes mode`() = runTest {
         val vm = createVm(scope = backgroundScope, initialMode = CalendarViewMode.MONTH)
         vm.onIntent(CalendarIntent.ViewModeChanged(CalendarViewMode.WEEK))
-        assertIs<CalendarUiState.Loading>(vm.stateFlow.value)
+        assertEquals(CalendarViewMode.WEEK, vm.calendarState.value.viewMode)
     }
 
     @Test
-    fun `GoNext does not crash for MONTH mode`() = runTest {
+    fun `GoNext moves anchor forward one month`() = runTest {
         val vm = createVm(scope = backgroundScope, initialDate = anchor, initialMode = CalendarViewMode.MONTH)
         vm.onIntent(CalendarIntent.GoNext)
-        assertIs<CalendarUiState.Loading>(vm.stateFlow.value)
+        assertEquals(LocalDate(2026, Month.OCTOBER, 1), vm.calendarState.value.anchor)
     }
 
     @Test
-    fun `GoPrevious does not crash for MONTH mode`() = runTest {
+    fun `GoPrevious moves anchor back one month`() = runTest {
         val vm = createVm(scope = backgroundScope, initialDate = anchor, initialMode = CalendarViewMode.MONTH)
         vm.onIntent(CalendarIntent.GoPrevious)
-        assertIs<CalendarUiState.Loading>(vm.stateFlow.value)
+        assertEquals(LocalDate(2026, Month.AUGUST, 1), vm.calendarState.value.anchor)
     }
 
     @Test
-    fun `GoNext does not crash for DAY mode`() = runTest {
+    fun `GoNext moves anchor forward one day in DAY mode`() = runTest {
         val dayAnchor = LocalDate(2026, Month.SEPTEMBER, 16)
         val vm = createVm(scope = backgroundScope, initialDate = dayAnchor, initialMode = CalendarViewMode.DAY)
         vm.onIntent(CalendarIntent.GoNext)
-        assertIs<CalendarUiState.Loading>(vm.stateFlow.value)
+        assertEquals(LocalDate(2026, Month.SEPTEMBER, 17), vm.calendarState.value.anchor)
     }
 
     @Test
-    fun `GoToday does not crash`() = runTest {
+    fun `GoToday resets anchor to today`() = runTest {
         val otherDate = LocalDate(2025, Month.JANUARY, 1)
         val vm = createVm(scope = backgroundScope, initialDate = otherDate, initialMode = CalendarViewMode.MONTH)
         vm.onIntent(CalendarIntent.GoToday)
-        assertIs<CalendarUiState.Loading>(vm.stateFlow.value)
+        assertEquals(anchor, vm.calendarState.value.anchor)
     }
 
     @Test
-    fun `DayClicked does not crash in MONTH mode`() = runTest {
+    fun `DayClicked in MONTH mode switches to DAY on clicked date`() = runTest {
         val vm = createVm(scope = backgroundScope, initialMode = CalendarViewMode.MONTH)
         vm.onIntent(CalendarIntent.DayClicked(LocalDate(2026, Month.SEPTEMBER, 22)))
-        assertIs<CalendarUiState.Loading>(vm.stateFlow.value)
+        assertEquals(CalendarViewMode.DAY, vm.calendarState.value.viewMode)
+        assertEquals(LocalDate(2026, Month.SEPTEMBER, 22), vm.calendarState.value.anchor)
     }
 
     @Test
-    fun `DayClicked does not crash in DAY mode`() = runTest {
+    fun `DayClicked in DAY mode moves anchor to clicked date`() = runTest {
         val vm = createVm(scope = backgroundScope, initialMode = CalendarViewMode.DAY)
         vm.onIntent(CalendarIntent.DayClicked(LocalDate(2026, Month.SEPTEMBER, 22)))
-        assertIs<CalendarUiState.Loading>(vm.stateFlow.value)
+        assertEquals(LocalDate(2026, Month.SEPTEMBER, 22), vm.calendarState.value.anchor)
     }
 
     @Test
-    fun `ToggleMiniCalendar does not crash twice`() = runTest {
+    fun `ToggleMiniCalendar toggles open state`() = runTest {
         val vm = createVm(scope = backgroundScope)
         vm.onIntent(CalendarIntent.ToggleMiniCalendar)
+        assertTrue(vm.calendarState.value.isMiniOpen)
         vm.onIntent(CalendarIntent.ToggleMiniCalendar)
-        assertIs<CalendarUiState.Loading>(vm.stateFlow.value)
+        assertFalse(vm.calendarState.value.isMiniOpen)
     }
 
     @Test
-    fun `DismissMiniCalendar does not crash`() = runTest {
+    fun `DismissMiniCalendar closes mini calendar`() = runTest {
         val vm = createVm(scope = backgroundScope)
         vm.onIntent(CalendarIntent.ToggleMiniCalendar) // open first
         vm.onIntent(CalendarIntent.DismissMiniCalendar) // then dismiss
-        assertIs<CalendarUiState.Loading>(vm.stateFlow.value)
+        assertFalse(vm.calendarState.value.isMiniOpen)
     }
 
     // ─── TaskClicked emits NavigateToTask event ──────────────────────────────

@@ -6,7 +6,6 @@
 appId: com.singularity.todo
 name: plans-days-in-order
 tags:
-  - smoke
   - plans
   - scenario:PLANS-01
 ---

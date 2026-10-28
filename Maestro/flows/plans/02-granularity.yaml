@@ -2,7 +2,6 @@
 appId: com.singularity.todo
 name: plans-granularity
 tags:
-  - smoke
   - plans
   - scenario:PLANS-03
 ---

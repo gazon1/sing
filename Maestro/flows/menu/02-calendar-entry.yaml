@@ -2,7 +2,6 @@
 appId: com.singularity.todo
 name: menu-calendar-entry
 tags:
-  - smoke
   - menu
   - scenario:MENU-04
 ---
