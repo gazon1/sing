@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import com.singularity.todo.core.database.ProfileDao
 import com.singularity.todo.core.database.ProfileEntity
+import com.singularity.todo.core.wipe.ContentResetter
 import com.singularity.todo.feature.profile.domain.port.ProfileRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -40,6 +41,8 @@ class ProfileRepositoryImpl(
     private val scope: CoroutineScope,
     private val fixedProfileId: ProfileId? = null,
     legacyProfileStateStore: DataStore<Preferences>? = null,
+    private val contentResetterProvider: () -> ContentResetter? = { null },
+    private val currentUserProvider: () -> ProfileAwareCurrentUser? = { null },
 ) : ProfileRepository {
 
     /**
@@ -107,6 +110,19 @@ class ProfileRepositoryImpl(
         }
         if (profileDao.count() <= 1) {
             return Result.failure(IllegalStateException("Cannot delete the last remaining profile"))
+        }
+        // Cascade the profile's content first, so the rows do not orphan under
+        // the profile's scoped userId. The resetter is active-profile scoped, so
+        // point the current user at the profile being deleted for the duration.
+        val currentUser = currentUserProvider()
+        val previousProfileId = currentUser?.profileId?.value
+        try {
+            currentUser?.switchToProfileNow(id)
+            contentResetterProvider()?.resetContent()
+        } finally {
+            if (previousProfileId != null && previousProfileId != id) {
+                currentUser?.switchToProfileNow(previousProfileId)
+            }
         }
         profileDao.deleteById(id.value)
         // If we deleted the active profile, switch to default. A process with a fixed

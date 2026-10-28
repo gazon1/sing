@@ -86,6 +86,15 @@ open class ProfileAwareCurrentUser(
     )
     open val scopedUserId: StateFlow<UserId> = _scopedUserId
 
+    /**
+     * Synchronously retargets the scoped userId to [profileId], so a one-shot
+     * operation (such as a profile delete) can run against a profile that is
+     * not the active one. Does not touch the active-profile store.
+     */
+    fun switchToProfileNow(profileId: ProfileId) {
+        _scopedUserId.value = scopedUserIdFor(profileId, userId.value)
+    }
+
     init {
         scope.launch {
             combine(
