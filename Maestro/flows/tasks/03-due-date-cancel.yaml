@@ -45,4 +45,4 @@ tags:
       id: task_editor_due_date_row_label
     timeout: 8000
 - assertVisible:
-    id: priority_option_none
+    id: task_editor_due_date_row_label

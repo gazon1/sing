@@ -76,6 +76,7 @@ fun SavedSearchesRow(
             FilterChip(
                 selected = false,
                 onClick = onSaveClick,
+                modifier = Modifier.testTag(TestTags.SavedSearches.SAVE_CHIP),
                 label = { Text("Save") },
                 leadingIcon = {
                     Icon(
