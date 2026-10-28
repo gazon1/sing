@@ -56,9 +56,15 @@ open class FakeSyncOutboxDao : SyncOutboxDao {
     ): List<SyncOutboxEntity> =
         snapshot()
             .filter { it.ownerId == ownerId && it.profileId == profileId }
+            .filter { it.claimedAt == null }
             .filter { it.nextAttemptAt == null || it.nextAttemptAt <= now }
 
-    override suspend fun claim(ids: List<String>, now: Long) = Unit
+    override suspend fun claim(ids: List<String>, now: Long) {
+        ids.forEach { id ->
+            val index = rows.indexOfFirst { it.patchId == id }
+            if (index >= 0) rows[index] = rows[index].copy(claimedAt = now)
+        }
+    }
 
     override suspend fun countPendingFor(ownerId: String): Int = rows.count { it.ownerId == ownerId }
 
@@ -83,6 +89,7 @@ open class FakeSyncOutboxDao : SyncOutboxDao {
                     attempts = rows[index].attempts + 1,
                     lastError = error,
                     nextAttemptAt = nextAttemptAt,
+                    claimedAt = null,
                 )
         }
     }
