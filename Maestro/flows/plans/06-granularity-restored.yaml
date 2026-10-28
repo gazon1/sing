@@ -10,7 +10,6 @@
 appId: com.singularity.todo
 name: plans-granularity-restored
 tags:
-  - smoke
   - plans
   - scenario:PLANS-04
 ---

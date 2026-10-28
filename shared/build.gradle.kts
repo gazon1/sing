@@ -1051,6 +1051,16 @@ afterEvaluate {
     tasks.named<Test>("testAndroidHostTest") {
         jvmArgs("-Djava.library.path=${sqliteNativesDir.get().asFile.absolutePath}")
         dependsOn(extractSqliteNatives)
+        // commonTest is inherited by androidHostTest by default and would re-run
+        // ~2600 tests already covered by :shared:jvmTest. Narrow to this source
+        // set's own classes only (Robolectric platform seams).
+        include(
+            "com/singularity/todo/mcp/ToolSurfaceWiringTest.class",
+            "com/singularity/todo/core/di/AndroidGraphResolutionTest.class",
+            "com/singularity/todo/core/notifications/AndroidNotifierTest.class",
+            "com/singularity/todo/core/observability/AndroidRecordRetentionTest.class",
+            "com/singularity/todo/core/security/ArchiveCryptoGoldenAndroidTest.class",
+        )
     }
 }
 

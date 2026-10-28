@@ -11,7 +11,6 @@
 appId: com.singularity.todo
 name: plans-no-project-list
 tags:
-  - smoke
   - plans
   - scenario:PLANS-06
 ---

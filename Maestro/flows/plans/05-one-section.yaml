@@ -9,7 +9,6 @@
 appId: com.singularity.todo
 name: plans-one-section
 tags:
-  - smoke
   - plans
   - scenario:PLANS-02
 ---

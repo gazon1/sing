@@ -5,7 +5,6 @@
 appId: com.singularity.todo
 name: menu-all-projects
 tags:
-  - smoke
   - menu
   - scenario:MENU-06
 ---

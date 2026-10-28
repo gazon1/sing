@@ -10,7 +10,6 @@
 appId: com.singularity.todo
 name: plans-task-opens
 tags:
-  - smoke
   - plans
   - scenario:PLANS-09
 ---
