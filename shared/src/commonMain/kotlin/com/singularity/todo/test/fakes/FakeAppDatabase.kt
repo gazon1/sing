@@ -1039,7 +1039,8 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
     }
 
     override suspend fun getDailyNoteForProject(userId: String, dateKey: String, projectId: String?): NoteEntity? = store.value.values.find {
-        it.userId == userId && it.kind.name == "Daily" && it.title == dateKey && it.projectId == projectId && it.deletedAt == null
+        it.userId == userId && it.kind.name == "Daily" && it.title == dateKey && it.projectId == projectId &&
+            it.deletedAt == null
     }
 
     override fun watchDailyNotesInRange(userId: String, from: String, to: String): Flow<List<NoteEntity>> =
