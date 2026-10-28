@@ -18,7 +18,6 @@
 appId: com.singularity.todo
 name: menu-tree-live
 tags:
-  - smoke
   - menu
   - scenario:MENU-03
 ---

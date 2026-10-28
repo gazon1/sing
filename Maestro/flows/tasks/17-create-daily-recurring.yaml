@@ -27,7 +27,6 @@ appId: com.singularity.todo
 name: tasks-create-daily-recurring
 tags:
   - scenario:TASK-REC-01
-  - smoke
   - tasks
 ---
 - runFlow: ../../helpers/launch-clean.yaml
