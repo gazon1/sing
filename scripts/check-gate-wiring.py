@@ -1198,7 +1198,7 @@ def check_fixture_gates() -> list[str]:
 # settings.gradle.kts and re-runs `:detekt-rules:koverVerify`. It is the only
 # control in this file that runs Gradle, and it is affordable for a reason
 # worth stating: the module's tests run before it in both surfaces that call
-# this script (ci.yml's Gradle step, and check.sh step 9, whose run the baseline
+# this script (ci.yml's Gradle step, and check.sh step 8b, whose run the baseline
 # merely moves earlier), so it buys a configuration pass and a verify pass
 # rather than a test suite.
 
