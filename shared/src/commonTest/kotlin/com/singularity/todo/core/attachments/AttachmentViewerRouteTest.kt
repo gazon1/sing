@@ -3,7 +3,10 @@ package com.singularity.todo.core.attachments
 import com.singularity.todo.core.files.FileCategory
 import com.singularity.todo.core.files.MimeTypes
 import org.junit.jupiter.api.Tag
-import kotlin.test.Test
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 
@@ -19,162 +22,68 @@ class AttachmentViewerRouteTest {
     private fun targetFor(fileName: String?, mimeType: String?): ViewerTarget =
         AttachmentViewerRoute.routeFor(fileName, mimeType).target
 
-    // ── In-app image ────────────────────────────────────────────────────────────
+    companion object {
+        private const val DOCX =
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
-    @Test
-    fun `a png opens in the image viewer`() {
-        assertEquals(ViewerTarget.InAppImage, targetFor("photo.png", "image/png"))
-    }
+        @JvmStatic
+        fun targetCases(): List<Arguments> = listOf(
+            // ── In-app image ─────────────────────────────────────────────────
+            Arguments.of("photo.png", "image/png", ViewerTarget.InAppImage),
+            Arguments.of("holiday.JPG", "image/jpeg", ViewerTarget.InAppImage),
+            Arguments.of("loop.gif", "image/gif", ViewerTarget.InAppImage),
+            // ── The SVG asymmetry: no SVG renderer, so it goes out even though image/* ──
+            // (the mime-typed case is asserted in `svg goes out even though its mime type says image`)
+            Arguments.of("logo.svg", null, ViewerTarget.External),
+            // ── In-app text ──────────────────────────────────────────────────
+            Arguments.of("notes.txt", "text/plain", ViewerTarget.InAppText),
+            Arguments.of("README.md", "text/markdown", ViewerTarget.InAppText),
+            Arguments.of("data.json", "application/json", ViewerTarget.InAppText),
+            // A restored-from-backup attachment often carries octet-stream; the extension keeps it visible.
+            Arguments.of("export.csv", "application/octet-stream", ViewerTarget.InAppText),
+            Arguments.of("Main.kt", "application/octet-stream", ViewerTarget.InAppText),
+            Arguments.of("app.ts", "application/octet-stream", ViewerTarget.InAppText),
+            Arguments.of("script.py", "application/octet-stream", ViewerTarget.InAppText),
+            Arguments.of("query.sql", "application/octet-stream", ViewerTarget.InAppText),
+            Arguments.of("conf.toml", "application/octet-stream", ViewerTarget.InAppText),
+            // ── External ─────────────────────────────────────────────────────
+            Arguments.of("contract.pdf", "application/pdf", ViewerTarget.External),
+            Arguments.of("memo.docx", DOCX, ViewerTarget.External),
+            Arguments.of("archive.zip", "application/zip", ViewerTarget.External),
+            Arguments.of("memo.mp3", "audio/mpeg", ViewerTarget.External),
+            // ── Missing and unknown inputs ───────────────────────────────────
+            Arguments.of("photo.png", null, ViewerTarget.InAppImage),
+            Arguments.of("notes.txt", null, ViewerTarget.InAppText),
+            Arguments.of("archive.zip", null, ViewerTarget.External),
+            Arguments.of("photo.png", "", ViewerTarget.InAppImage),
+            Arguments.of("photo.png", "   ", ViewerTarget.InAppImage),
+            Arguments.of("thing.qqq", "application/x-unknown", ViewerTarget.External),
+            Arguments.of(null, null, ViewerTarget.External),
+            Arguments.of("", null, ViewerTarget.External),
+            Arguments.of("Makefile", "application/octet-stream", ViewerTarget.External),
+            Arguments.of(".gitignore", null, ViewerTarget.External),
+        )
 
-    @Test
-    fun `a jpeg opens in the image viewer`() {
-        assertEquals(ViewerTarget.InAppImage, targetFor("holiday.JPG", "image/jpeg"))
-    }
-
-    @Test
-    fun `a gif opens in the image viewer`() {
-        assertEquals(ViewerTarget.InAppImage, targetFor("loop.gif", "image/gif"))
-    }
-
-    // ── The SVG asymmetry ───────────────────────────────────────────────────────
-
-    @Test
-    fun `svg goes out even though its mime type says image`() {
-        // The one case where "starts with image/" is not enough. There is no SVG
-        // renderer in this project, so routing it in-app would promise a viewer that
-        // does not exist and show the user an error where a working file handler could
-        // have opened it.
-        assertEquals(ViewerTarget.External, targetFor("logo.svg", "image/svg+xml"))
-        assertEquals(FileCategory.External, MimeTypes.classifyMime("image/svg+xml"))
-    }
-
-    @Test
-    fun `svg by extension alone also goes out`() {
-        assertEquals(ViewerTarget.External, targetFor("logo.svg", null))
-    }
-
-    // ── In-app text ─────────────────────────────────────────────────────────────
-
-    @Test
-    fun `a txt opens in the text viewer`() {
-        assertEquals(ViewerTarget.InAppText, targetFor("notes.txt", "text/plain"))
-    }
-
-    @Test
-    fun `a markdown file opens in the text viewer`() {
-        assertEquals(ViewerTarget.InAppText, targetFor("README.md", "text/markdown"))
-    }
-
-    @Test
-    fun `a json file opens in the text viewer`() {
-        assertEquals(ViewerTarget.InAppText, targetFor("data.json", "application/json"))
-    }
-
-    @Test
-    fun `a csv file opens in the text viewer by extension when the mime is generic`() {
-        // `application/octet-stream` is what a restored-from-backup attachment often
-        // carries. Falling back to the extension is what keeps a CSV visible instead of
-        // being sent to a program that does not exist.
-        assertEquals(ViewerTarget.InAppText, targetFor("export.csv", "application/octet-stream"))
-    }
-
-    @Test
-    fun `a source file opens in the text viewer`() {
-        for (name in listOf("Main.kt", "app.ts", "script.py", "query.sql", "conf.toml")) {
-            assertEquals(
-                ViewerTarget.InAppText,
-                targetFor(name, "application/octet-stream"),
-                "$name should be text",
-            )
-        }
-    }
-
-    // ── External ────────────────────────────────────────────────────────────────
-
-    @Test
-    fun `a pdf goes to the platform`() {
-        assertEquals(ViewerTarget.External, targetFor("contract.pdf", "application/pdf"))
-    }
-
-    @Test
-    fun `a docx goes to the platform`() {
-        assertEquals(
-            ViewerTarget.External,
-            targetFor(
-                "memo.docx",
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            ),
+        @JvmStatic
+        fun reportedMimeCases(): List<Arguments> = listOf(
+            Arguments.of("a.png", "image/png", "image/png"),
+            // The fallback screens explain why a file went out, and that needs a type to name.
+            Arguments.of("a.png", null, "image/png"),
+            Arguments.of(null, null, "application/octet-stream"),
         )
     }
 
-    @Test
-    fun `a zip goes to the platform`() {
-        assertEquals(ViewerTarget.External, targetFor("archive.zip", "application/zip"))
+    @ParameterizedTest
+    @MethodSource("targetCases")
+    fun `a file routes to the right viewer`(fileName: String?, mimeType: String?, expected: ViewerTarget) {
+        assertEquals(expected, targetFor(fileName, mimeType), "routeFor($fileName, $mimeType)")
     }
 
-    @Test
-    fun `an audio file goes to the platform`() {
-        assertEquals(ViewerTarget.External, targetFor("memo.mp3", "audio/mpeg"))
+    @ParameterizedTest
+    @MethodSource("reportedMimeCases")
+    fun `the route reports the mime type it decided on`(fileName: String?, stored: String?, expected: String) {
+        assertEquals(expected, AttachmentViewerRoute.routeFor(fileName, stored).mimeType)
     }
-
-    // ── Missing and unknown inputs ──────────────────────────────────────────────
-
-    @Test
-    fun `a null mime type falls back to the extension`() {
-        assertEquals(ViewerTarget.InAppImage, targetFor("photo.png", null))
-        assertEquals(ViewerTarget.InAppText, targetFor("notes.txt", null))
-        assertEquals(ViewerTarget.External, targetFor("archive.zip", null))
-    }
-
-    @Test
-    fun `a blank mime type is treated as absent`() {
-        assertEquals(ViewerTarget.InAppImage, targetFor("photo.png", ""))
-        assertEquals(ViewerTarget.InAppImage, targetFor("photo.png", "   "))
-    }
-
-    @Test
-    fun `an unknown extension goes out rather than being dropped`() {
-        // Exhaustiveness: an unrecognised type still has a destination. There is no
-        // "nothing happens" outcome here.
-        assertEquals(ViewerTarget.External, targetFor("thing.qqq", "application/x-unknown"))
-    }
-
-    @Test
-    fun `an empty file name with no mime type goes out`() {
-        assertEquals(ViewerTarget.External, targetFor(null, null))
-        assertEquals(ViewerTarget.External, targetFor("", null))
-    }
-
-    @Test
-    fun `a file name with no extension and a generic mime goes out`() {
-        assertEquals(ViewerTarget.External, targetFor("Makefile", "application/octet-stream"))
-    }
-
-    @Test
-    fun `a dotfile is not treated as having an extension`() {
-        assertEquals(ViewerTarget.External, targetFor(".gitignore", null))
-    }
-
-    // ── The reported type ───────────────────────────────────────────────────────
-
-    @Test
-    fun `the route reports the mime type it decided on`() {
-        assertEquals("image/png", AttachmentViewerRoute.routeFor("a.png", "image/png").mimeType)
-    }
-
-    @Test
-    fun `the route derives a mime type when none was stored`() {
-        // The fallback screens explain *why* a file went out, and that explanation
-        // needs a type to name.
-        assertEquals("image/png", AttachmentViewerRoute.routeFor("a.png", null).mimeType)
-    }
-
-    @Test
-    fun `a route with nothing known reports the octet-stream fallback`() {
-        assertEquals("application/octet-stream", AttachmentViewerRoute.routeFor(null, null).mimeType)
-    }
-
-    // ── No branch may be unreachable ────────────────────────────────────────────
 
     @Test
     fun `every viewer target is reachable`() {
@@ -187,13 +96,18 @@ class AttachmentViewerRouteTest {
     }
 
     @Test
+    fun `svg goes out even though its mime type says image`() {
+        // There is no SVG renderer in this project, so routing it in-app would promise a
+        // viewer that does not exist.
+        assertEquals(ViewerTarget.External, targetFor("logo.svg", "image/svg+xml"))
+        assertEquals(FileCategory.External, MimeTypes.classifyMime("image/svg+xml"))
+    }
+
+    @Test
     fun `routing is stable for the same input`() {
         val first = AttachmentViewerRoute.routeFor("a.png", "image/png")
         val second = AttachmentViewerRoute.routeFor("a.png", "image/png")
         assertEquals(first, second)
-        assertNotEquals(
-            first,
-            AttachmentViewerRoute.routeFor("a.txt", "text/plain"),
-        )
+        assertNotEquals(first, AttachmentViewerRoute.routeFor("a.txt", "text/plain"))
     }
 }

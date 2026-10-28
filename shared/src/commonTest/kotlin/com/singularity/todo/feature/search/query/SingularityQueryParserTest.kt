@@ -3,6 +3,7 @@ package com.singularity.todo.feature.search.query
 import com.singularity.todo.feature.search.query.Condition.And
 import com.singularity.todo.feature.search.query.Condition.Due
 import com.singularity.todo.feature.search.query.Condition.HasAllTags
+import com.singularity.todo.feature.search.query.Condition.HasDescription
 import com.singularity.todo.feature.search.query.Condition.HasPriority
 import com.singularity.todo.feature.search.query.Condition.HasStatus
 import com.singularity.todo.feature.search.query.Condition.HasTag
@@ -12,342 +13,172 @@ import com.singularity.todo.feature.search.query.Condition.IsArchived
 import com.singularity.todo.feature.search.query.Condition.IsPinned
 import com.singularity.todo.feature.search.query.Condition.Not
 import com.singularity.todo.feature.search.query.Condition.Or
-import com.singularity.todo.feature.search.query.QueryInterval
+import com.singularity.todo.feature.search.query.Condition.Scheduled
 import com.singularity.todo.feature.search.query.Relation.GT
 import com.singularity.todo.feature.search.query.Relation.LE
 import com.singularity.todo.feature.search.query.SortOrder
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
 import org.junit.jupiter.api.Tag
-import kotlin.test.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import kotlin.test.assertEquals
-import kotlin.test.assertIs
-import kotlin.test.assertTrue
 
 @Tag("fast")
 class SingularityQueryParserTest {
 
     private fun parse(input: String): Query = SingularityQueryParser(input).parse()
 
-    // ─── Bare text ─────────────────────────────────────────────────────────
+    companion object {
+        @JvmStatic
+        fun conditionCases(): List<Arguments> = listOf(
+            // ── Bare text ────────────────────────────────────────────────────
+            Arguments.of("", null),
+            Arguments.of("   ", null),
+            Arguments.of("meeting", HasText("meeting")),
+            Arguments.of("\"quarterly review\"", HasText("quarterly review")),
+            // ── Status ───────────────────────────────────────────────────────
+            Arguments.of("state:active", HasStatus(TaskStatus.Active)),
+            Arguments.of("state:completed", HasStatus(TaskStatus.Completed)),
+            Arguments.of("state:all", HasStatus(TaskStatus.All)),
+            Arguments.of("STATE:DONE", HasStatus(TaskStatus.Completed)),
+            Arguments.of("-state:completed", Not(HasStatus(TaskStatus.Completed))),
+            // ── Priority ─────────────────────────────────────────────────────
+            Arguments.of("priority:none", HasPriority(TaskPriority.None)),
+            Arguments.of("priority:low", HasPriority(TaskPriority.Low)),
+            Arguments.of("priority:medium", HasPriority(TaskPriority.Medium)),
+            Arguments.of("priority:high", HasPriority(TaskPriority.High)),
+            Arguments.of("priority:urgent", HasPriority(TaskPriority.Urgent)),
+            Arguments.of("-priority:high", Not(HasPriority(TaskPriority.High))),
+            // ── Tags ─────────────────────────────────────────────────────────
+            Arguments.of("tag:work", HasTag("work")),
+            Arguments.of("-tag:work", Not(HasTag("work"))),
+            Arguments.of("tags:work,urgent,home", HasAllTags(setOf("work", "urgent", "home"))),
+            Arguments.of("-tags:work,urgent", Not(HasAllTags(setOf("work", "urgent")))),
+            // ── Project ──────────────────────────────────────────────────────
+            Arguments.of("project:Plans", InProject("Plans")),
+            // ── Due date ─────────────────────────────────────────────────────
+            Arguments.of("due:today", Due(QueryInterval(0), LE)),
+            Arguments.of("due:3d", Due(QueryInterval(3), LE)),
+            Arguments.of("due:-1w", Due(QueryInterval(-7), LE)),
+            Arguments.of("due:>3d", Due(QueryInterval(3), GT)),
+            Arguments.of("due:tomorrow", Due(QueryInterval(1), LE)),
+            Arguments.of("due:yesterday", Due(QueryInterval(-1), LE)),
+            // ── Scheduled ────────────────────────────────────────────────────
+            Arguments.of("scheduled:today", Scheduled(QueryInterval(0), LE)),
+            Arguments.of("scheduled:-2d", Scheduled(QueryInterval(-2), LE)),
+            // ── Has description ──────────────────────────────────────────────
+            Arguments.of("has:description", HasDescription),
+            // ── Special flags ────────────────────────────────────────────────
+            Arguments.of("pinned", IsPinned),
+            Arguments.of("archived", IsArchived),
+            // ── Boolean combinators ──────────────────────────────────────────
+            Arguments.of(
+                "priority:high tag:work",
+                And(listOf(HasPriority(TaskPriority.High), HasTag("work"))),
+            ),
+            Arguments.of(
+                "priority:high AND tag:work",
+                And(listOf(HasPriority(TaskPriority.High), HasTag("work"))),
+            ),
+            Arguments.of(
+                "a AND b OR c",
+                Or(listOf(And(listOf(HasText("a"), HasText("b"))), HasText("c"))),
+            ),
+            Arguments.of(
+                "a OR b AND c",
+                Or(listOf(HasText("a"), And(listOf(HasText("b"), HasText("c"))))),
+            ),
+            Arguments.of("NOT tag:archived", Not(HasTag("archived"))),
+            Arguments.of(
+                "(priority:high OR priority:urgent) AND tag:work",
+                And(
+                    listOf(
+                        Or(listOf(HasPriority(TaskPriority.High), HasPriority(TaskPriority.Urgent))),
+                        HasTag("work"),
+                    ),
+                ),
+            ),
+        )
 
-    @Test
-    fun `empty string returns empty query`() {
-        assertTrue(parse("").isEmpty)
-        assertTrue(parse("   ").isEmpty)
+        @JvmStatic
+        fun sortCases(): List<Arguments> = listOf(
+            Arguments.of("priority:high sort:priority", SortOrder.PRIORITY, false),
+            Arguments.of("sort:due desc", SortOrder.DUE, true),
+            Arguments.of("tag:work sort:title", SortOrder.TITLE, false),
+            Arguments.of("meeting", SortOrder.DUE, false),
+        )
+
+        @JvmStatic
+        fun limitCases(): List<Arguments> = listOf(
+            Arguments.of("limit:20", 20),
+            Arguments.of("limit:5000", 1000),
+            Arguments.of("meeting", 50),
+        )
+
+        @JvmStatic
+        fun wholeQueryCases(): List<Arguments> = listOf(
+            Arguments.of(
+                "priority:high tag:work project:Plans due:today sort:priority",
+                Query(
+                    condition = And(
+                        listOf(
+                            HasPriority(TaskPriority.High),
+                            HasTag("work"),
+                            InProject("Plans"),
+                            Due(QueryInterval(0), LE),
+                        ),
+                    ),
+                    sortOrder = SortOrder.PRIORITY,
+                    options = Options(limit = 50),
+                ),
+            ),
+            Arguments.of(
+                "-tag:archived pinned",
+                Query(
+                    condition = And(listOf(Not(HasTag("archived")), IsPinned)),
+                ),
+            ),
+        )
+
+        @JvmStatic
+        fun emptyCases(): List<Arguments> = listOf(
+            Arguments.of("", true),
+            Arguments.of("   ", true),
+            Arguments.of("meeting", false),
+        )
     }
 
-    @Test
-    fun `single bare word becomes HasText`() {
-        val q = parse("meeting")
-        assertIs<HasText>(q.condition)
-        assertEquals("meeting", q.condition.text)
+    @ParameterizedTest
+    @MethodSource("conditionCases")
+    fun `input parses to condition`(input: String, expected: Condition?) {
+        assertEquals(expected, parse(input).condition, input)
     }
 
-    @Test
-    fun `quoted phrase becomes HasText`() {
-        val q = parse("\"quarterly review\"")
-        assertIs<HasText>(q.condition)
-        assertEquals("quarterly review", q.condition.text)
+    @ParameterizedTest
+    @MethodSource("sortCases")
+    fun `sort directive is parsed`(input: String, expectedOrder: SortOrder, expectedDescending: Boolean) {
+        val q = parse(input)
+        assertEquals(expectedOrder, q.sortOrder, input)
+        assertEquals(expectedDescending, q.sortDescending, input)
     }
 
-    // ─── Status ─────────────────────────────────────────────────────────────
-
-    @Test
-    fun `state active`() {
-        val q = parse("state:active")
-        assertIs<HasStatus>(q.condition)
-        assertEquals(TaskStatus.Active, q.condition.status)
+    @ParameterizedTest
+    @MethodSource("limitCases")
+    fun `limit option is parsed`(input: String, expectedLimit: Int) {
+        assertEquals(expectedLimit, parse(input).options.limit, input)
     }
 
-    @Test
-    fun `state completed`() {
-        val q = parse("state:completed")
-        assertIs<HasStatus>(q.condition)
-        assertEquals(TaskStatus.Completed, q.condition.status)
+    @ParameterizedTest
+    @MethodSource("wholeQueryCases")
+    fun `whole query is parsed`(input: String, expected: Query) {
+        assertEquals(expected, parse(input), input)
     }
 
-    @Test
-    fun `state all`() {
-        val q = parse("state:all")
-        assertIs<HasStatus>(q.condition)
-        assertEquals(TaskStatus.All, q.condition.status)
-    }
-
-    @Test
-    fun `state case insensitive`() {
-        val q = parse("STATE:DONE")
-        assertIs<HasStatus>(q.condition)
-        assertEquals(TaskStatus.Completed, q.condition.status)
-    }
-
-    @Test
-    fun `negated state`() {
-        val q = parse("-state:completed")
-        assertIs<Not>(q.condition)
-        val inner = q.condition.inner as HasStatus
-        assertEquals(TaskStatus.Completed, inner.status)
-    }
-
-    // ─── Priority ──────────────────────────────────────────────────────────
-
-    @Test
-    fun `priority values`() {
-        for ((str, expected) in listOf(
-            "priority:none" to TaskPriority.None,
-            "priority:low" to TaskPriority.Low,
-            "priority:medium" to TaskPriority.Medium,
-            "priority:high" to TaskPriority.High,
-            "priority:urgent" to TaskPriority.Urgent,
-        )) {
-            val q = parse(str)
-            assertIs<HasPriority>(q.condition, str)
-            assertEquals(expected, q.condition.priority, str)
-        }
-    }
-
-    @Test
-    fun `negated priority`() {
-        val q = parse("-priority:high")
-        assertIs<Not>(q.condition)
-        assertEquals(TaskPriority.High, (q.condition.inner as HasPriority).priority)
-    }
-
-    // ─── Tags ──────────────────────────────────────────────────────────────
-
-    @Test
-    fun `tag single`() {
-        val q = parse("tag:work")
-        assertIs<HasTag>(q.condition)
-        assertEquals("work", q.condition.tagName)
-    }
-
-    @Test
-    fun `negated tag`() {
-        val q = parse("-tag:work")
-        assertIs<Not>(q.condition)
-        assertEquals("work", (q.condition.inner as HasTag).tagName)
-    }
-
-    @Test
-    fun `tags multi AND`() {
-        val q = parse("tags:work,urgent,home")
-        assertIs<HasAllTags>(q.condition)
-        assertEquals(setOf("work", "urgent", "home"), q.condition.tagNames)
-    }
-
-    @Test
-    fun `negated tags multi`() {
-        val q = parse("-tags:work,urgent")
-        assertIs<Not>(q.condition)
-        assertEquals(setOf("work", "urgent"), (q.condition.inner as HasAllTags).tagNames)
-    }
-
-    // ─── Project ────────────────────────────────────────────────────────────
-
-    @Test
-    fun `project by name`() {
-        val q = parse("project:Plans")
-        assertIs<InProject>(q.condition)
-        assertEquals("Plans", q.condition.name)
-    }
-
-    // ─── Due date ───────────────────────────────────────────────────────────
-
-    @Test
-    fun `due today`() {
-        val q = parse("due:today")
-        assertIs<Due>(q.condition)
-        // TODAY = NOW = 0 days; default relation for "due:" is LE ("within today")
-        assertEquals(QueryInterval(0), q.condition.interval)
-        assertEquals(LE, q.condition.relation)
-    }
-
-    @Test
-    fun `due relative numeric`() {
-        val q = parse("due:3d")
-        assertIs<Due>(q.condition)
-        assertEquals(QueryInterval(3), q.condition.interval)
-        assertEquals(LE, q.condition.relation)
-    }
-
-    @Test
-    fun `due past numeric`() {
-        val q = parse("due:-1w")
-        assertIs<Due>(q.condition)
-        assertEquals(QueryInterval(-7), q.condition.interval)
-        assertEquals(LE, q.condition.relation)
-    }
-
-    @Test
-    fun `due with GT relation`() {
-        val q = parse("due:>3d")
-        assertIs<Due>(q.condition)
-        assertEquals(QueryInterval(3), q.condition.interval)
-        assertEquals(GT, q.condition.relation)
-    }
-
-    @Test
-    fun `due tomorrow alias`() {
-        val q = parse("due:tomorrow")
-        assertIs<Due>(q.condition)
-        assertEquals(QueryInterval(1), q.condition.interval)
-    }
-
-    @Test
-    fun `due yesterday alias`() {
-        val q = parse("due:yesterday")
-        assertIs<Due>(q.condition)
-        assertEquals(QueryInterval(-1), q.condition.interval)
-    }
-
-    // ─── Scheduled ─────────────────────────────────────────────────────────
-
-    @Test
-    fun `scheduled today`() {
-        val q = parse("scheduled:today")
-        assertIs<com.singularity.todo.feature.search.query.Condition.Scheduled>(q.condition)
-        assertEquals(QueryInterval(0), q.condition.interval)
-    }
-
-    @Test
-    fun `scheduled relative`() {
-        val q = parse("scheduled:-2d")
-        assertIs<com.singularity.todo.feature.search.query.Condition.Scheduled>(q.condition)
-        assertEquals(QueryInterval(-2), q.condition.interval)
-    }
-
-    // ─── Has description ───────────────────────────────────────────────────
-
-    @Test
-    fun `has description`() {
-        val q = parse("has:description")
-        assertIs<com.singularity.todo.feature.search.query.Condition.HasDescription>(q.condition)
-    }
-
-    // ─── Boolean combinators ────────────────────────────────────────────────
-
-    @Test
-    fun `implicit AND between two conditions`() {
-        val q = parse("priority:high tag:work")
-        assertIs<And>(q.condition)
-        assertEquals(2, q.condition.parts.size)
-    }
-
-    @Test
-    fun `explicit AND`() {
-        val q = parse("priority:high AND tag:work")
-        assertIs<And>(q.condition)
-    }
-
-    @Test
-    fun `OR has lower precedence than AND`() {
-        val q = parse("a AND b OR c")
-        assertIs<Or>(q.condition)
-        // Parsed as: OR(AND(a, b), c)
-        assertEquals(2, q.condition.parts.size)
-        assertIs<And>(q.condition.parts[0])
-        assertIs<HasText>(q.condition.parts[1])
-    }
-
-    @Test
-    fun `OR without parens`() {
-        val q = parse("a OR b AND c")
-        assertIs<Or>(q.condition)
-        // Without parens, AND binds tighter: OR(a, AND(b, c))
-        assertEquals(2, q.condition.parts.size)
-    }
-
-    @Test
-    fun `NOT wraps next atom`() {
-        val q = parse("NOT tag:archived")
-        assertIs<Not>(q.condition)
-        assertIs<HasTag>(q.condition.inner)
-    }
-
-    @Test
-    fun `complex nested`() {
-        val q = parse("(priority:high OR priority:urgent) AND tag:work")
-        assertIs<And>(q.condition)
-        assertIs<Or>(q.condition.parts[0])
-        assertIs<HasTag>(q.condition.parts[1])
-    }
-
-    // ─── Special flags ─────────────────────────────────────────────────────
-
-    @Test
-    fun `pinned`() {
-        val q = parse("pinned")
-        assertIs<IsPinned>(q.condition)
-    }
-
-    @Test
-    fun `archived`() {
-        val q = parse("archived")
-        assertIs<IsArchived>(q.condition)
-    }
-
-    // ─── Sort order ─────────────────────────────────────────────────────────
-
-    @Test
-    fun `sort by priority`() {
-        val q = parse("priority:high sort:priority")
-        assertEquals(SortOrder.PRIORITY, q.sortOrder)
-    }
-
-    @Test
-    fun `sort by due descending`() {
-        val q = parse("sort:due desc")
-        assertEquals(SortOrder.DUE, q.sortOrder)
-        assertTrue(q.sortDescending)
-    }
-
-    @Test
-    fun `sort by title`() {
-        val q = parse("tag:work sort:title")
-        assertEquals(SortOrder.TITLE, q.sortOrder)
-    }
-
-    @Test
-    fun `default sort is DUE`() {
-        val q = parse("meeting")
-        assertEquals(SortOrder.DUE, q.sortOrder)
-    }
-
-    // ─── Limit ─────────────────────────────────────────────────────────────
-
-    @Test
-    fun `limit option`() {
-        val q = parse("limit:20")
-        assertEquals(20, q.options.limit)
-    }
-
-    @Test
-    fun `limit coerced to 1000`() {
-        val q = parse("limit:5000")
-        assertEquals(1000, q.options.limit)
-    }
-
-    @Test
-    fun `default limit is 50`() {
-        assertEquals(50, parse("meeting").options.limit)
-    }
-
-    // ─── Combined queries ───────────────────────────────────────────────────
-
-    @Test
-    fun `realistic query`() {
-        val q = parse("priority:high tag:work project:Plans due:today sort:priority")
-        assertIs<And>(q.condition)
-        assertEquals(SortOrder.PRIORITY, q.sortOrder)
-        assertEquals(50, q.options.limit)
-    }
-
-    @Test
-    fun `query with negative tag and pinned`() {
-        val q = parse("-tag:archived pinned")
-        assertIs<And>(q.condition)
-        assertIs<Not>(q.condition.parts[0])
-        assertIs<IsPinned>(q.condition.parts[1])
+    @ParameterizedTest
+    @MethodSource("emptyCases")
+    fun `query emptiness is reported`(input: String, expected: Boolean) {
+        assertEquals(expected, parse(input).isEmpty, input)
     }
 }

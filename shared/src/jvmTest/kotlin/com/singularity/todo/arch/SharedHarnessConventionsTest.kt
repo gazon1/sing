@@ -39,19 +39,19 @@ import kotlin.test.fail
  *    handles `assertIs<UiState.Content>()` in one call. Hand-rolled patterns tend to
  *    miss the clock advance or the scope cleanup.
  *
- * 3. **`runBlocking` is prohibited in production test code.**
- *    `runBlocking` blocks the calling thread and risks deadlock in coroutine-heavy code.
- *    Tests must use `runTest` (or `runVmTest`) which uses a virtual thread.
+ * 3. **`runBlocking` is prohibited in test code.**
+ *    Enforced by detekt `NoRunBlocking`. `runBlocking` blocks the calling thread and
+ *    risks deadlock in coroutine-heavy code; tests must use `runTest` (or `runVmTest`).
  *
  * 4. **Every test class must carry `@Tag("fast")` or `@Tag("slow")`.**
  *    A test without `@Tag` is invisible to the `fast` / `slow` filter that gates CI.
  *    Tagging is enforced for all test classes in both `jvmTest` and `commonTest`.
  *
- * 5. **`kotlinx.coroutines.delay` is prohibited in test code.**
- *    Real-time `delay` cannot be controlled by virtual time. Tests must use
- *    `advanceTimeBy(N)` on the TestScope, or `awaitState { }` which manages
- *    virtual time internally. Integration tests that intentionally test wall-clock
- *    behaviour (e.g. timeout boundaries) are exempt if tagged `slow` with a comment.
+ * 5. **`kotlinx.coroutines.delay` over 500 ms is prohibited in test code.**
+ *    Enforced by detekt `NoRealDelayInTest` (which also bans `Thread.sleep`). A long
+ *    real-time delay cannot be controlled by virtual time; use `advanceTimeBy(N)` on the
+ *    TestScope, or `awaitState { }`. Short delays inside `runTest` are virtual time and
+ *    are deliberately allowed.
  *
  * 6. **`stateIn` is prohibited in ViewModel tests.**
  *    `stateIn` holds its upstream flow active for 5 seconds after the last subscriber
@@ -333,21 +333,6 @@ class SharedHarnessConventionsTest {
                     }
                 }
             """,
-            "runBlocking<T>" to """
-                class BadTest {
-                    fun test() = runBlocking<Unit> { }
-                }
-            """,
-            "runBlocking { }" to """
-                class BadTest {
-                    fun test() = runBlocking { println("real thread") }
-                }
-            """,
-            "real-time delay" to """
-                class BadTest {
-                    fun test() = kotlinx.coroutines.delay(1000L)
-                }
-            """,
             "AutoCloseableCoroutineScope" to """
                 class BadTest {
                     fun test() = runTest {
@@ -361,8 +346,6 @@ class SharedHarnessConventionsTest {
             """while\s*\(\s*!\s*\w+\s*\)\s*\{[^}]*?advanceUntilIdle\s*\(\s*\)""",
             RegexOption.DOT_MATCHES_ALL,
         )
-        val runBlockingPattern = Regex("""runBlocking\s*(?:<[^>]+>|\{)""")
-        val delayPattern = Regex("""\bdelay\s*\(""")
         val scopePattern = Regex(
             """runTest\s*\{[^}]*?val\s+\w+Scope\s*=\s*AutoCloseableCoroutineScope""",
             RegexOption.DOT_MATCHES_ALL,
@@ -372,15 +355,6 @@ class SharedHarnessConventionsTest {
 
         if (advanceUntilIdlePattern.find(syntheticSources["advanceUntilIdle loop"]!!) == null) {
             failures.add("advanceUntilIdle loop scanner missed its synthetic target")
-        }
-        if (runBlockingPattern.find(syntheticSources["runBlocking<T>"]!!) == null) {
-            failures.add("runBlocking<T> scanner missed its synthetic target")
-        }
-        if (runBlockingPattern.find(syntheticSources["runBlocking { }"]!!) == null) {
-            failures.add("runBlocking { } scanner missed its synthetic target")
-        }
-        if (delayPattern.find(syntheticSources["real-time delay"]!!) == null) {
-            failures.add("delay scanner missed its synthetic target")
         }
         if (scopePattern.find(syntheticSources["AutoCloseableCoroutineScope"]!!) == null) {
             failures.add("AutoCloseableCoroutineScope scanner missed its synthetic target")
@@ -392,100 +366,6 @@ class SharedHarnessConventionsTest {
                 failures.joinToString("\n") { "  - $it" } +
                 "\n\nThe violation scanners have stopped detecting their targets. " +
                 "Fix the regex pattern before merging.",
-        )
-    }
-
-    @Test
-    fun `Thread sleep is not used in test code`() {
-        // `Thread.sleep` blocks the real clock and cannot be controlled by virtual time.
-        // Tests using it become flaky on slow CI runners and slow down the suite.
-        val VIOLATION_PATTERN = Regex("""Thread\.sleep\s*\(""")
-
-        val violations = allTestSources
-            .mapNotNull { file ->
-                val body = file.readLines().filterNot { line ->
-                    val t = line.trimStart()
-                    t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")
-                }.joinToString("\n")
-                val matches = VIOLATION_PATTERN.findAll(body).toList()
-                if (matches.isEmpty()) {
-                    null
-                } else {
-                    "${file.name}: ${matches.size} Thread.sleep call(s)"
-                }
-            }
-
-        if (violations.isEmpty()) return
-        fail(
-            "Test files using Thread.sleep (real time, blocks the clock):\n" +
-                violations.joinToString("\n") { "  - $it" } +
-                "\n\nUse `advanceTimeBy(N)` on the TestScope instead, or use `awaitState { }` " +
-                "which advances virtual time automatically.",
-        )
-    }
-
-    @Test
-    fun `runBlocking is not used in test code`() {
-        // `runBlocking` blocks the thread and can deadlock coroutine-heavy code.
-        // Tests must use `runTest` (or `runVmTest`).
-        // Catches both `runBlocking<T>` (typed form) and `runBlocking { }` (bare block form).
-        val VIOLATION_PATTERN = Regex("""runBlocking\s*(?:<[^>]+>|\{)""")
-
-        val violations = allTestSources
-            .mapNotNull { file ->
-                // Filter out comment lines that mention runBlocking (e.g. in KDoc)
-                val body = file.readLines().filterNot { line ->
-                    val t = line.trimStart()
-                    t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")
-                }.joinToString("\n")
-                val matches = VIOLATION_PATTERN.findAll(body).toList()
-                if (matches.isEmpty()) {
-                    null
-                } else {
-                    "${file.name}: ${matches.size} runBlocking call(s)"
-                }
-            }
-
-        if (violations.isEmpty()) return
-        fail(
-            "Test files using runBlocking (blocks the thread, can deadlock):\n" +
-                violations.joinToString("\n") { "  - $it" } +
-                "\n\nUse `runTest { }` or `runVmTest { }` instead — they use a virtual " +
-                "thread and integrate with the test dispatcher.",
-        )
-    }
-
-    @Test
-    fun `kotlinxcoroutines delay is not used in test code`() {
-        // Real-time `delay(N)` cannot be controlled by virtual time. Tests must use
-        // `advanceTimeBy(N)` on the TestScope, or `awaitState { }` which manages
-        // virtual time internally. Integration tests that intentionally test wall-clock
-        // behaviour are exempt if they are tagged `slow` — but a `slow`-tagged test
-        // that uses `delay` without a comment explaining why is still a problem.
-        val VIOLATION_PATTERN = Regex("""\bdelay\s*\(""")
-
-        val violations = allTestSources
-            .mapNotNull { file ->
-                val body = file.readLines().filterNot { line ->
-                    val t = line.trimStart()
-                    t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")
-                }.joinToString("\n")
-                val matches = VIOLATION_PATTERN.findAll(body).toList()
-                if (matches.isEmpty()) {
-                    null
-                } else {
-                    "${file.name}: ${matches.size} real-time delay() call(s)"
-                }
-            }
-
-        if (violations.isEmpty()) return
-        fail(
-            "Test files using kotlinx.coroutines.delay (real time, not virtual time):\n" +
-                violations.joinToString("\n") { "  - $it" } +
-                "\n\nUse `advanceTimeBy(N)` on the TestScope instead, or refactor to use " +
-                "`awaitState { predicate() }` which advances virtual time automatically. " +
-                "If wall-clock time is intentionally tested, tag the test @Tag(\"slow\") and " +
-                "add a comment explaining why real-time delay is required.",
         )
     }
 
