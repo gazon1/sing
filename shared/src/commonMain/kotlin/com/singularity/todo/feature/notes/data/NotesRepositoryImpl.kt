@@ -15,6 +15,7 @@ import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteColor
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.NoteKind
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.notes.toEntity
 import com.singularity.todo.feature.notes.toLinksJson
@@ -395,9 +396,9 @@ class NotesRepositoryImpl(
             noteDao.watchDailyNotesInRange(uid.value, from, to).map { list -> list.map { it.toNote() } }
         }
 
-    override suspend fun getDailyNote(dateKey: String): Note? {
+    override suspend fun getDailyNote(dateKey: String, projectId: ProjectId?): Note? {
         val uid = currentUser.scopedUserId.value
-        return noteDao.getDailyNote(uid.value, dateKey)?.toNote()
+        return noteDao.getDailyNoteForProject(uid.value, dateKey, projectId?.value)?.toNote()
     }
 
     override suspend fun createFromTemplate(
@@ -454,14 +455,14 @@ class NotesRepositoryImpl(
 
     override suspend fun getOrCreateDailyNote(
         dateKey: String,
+        projectId: ProjectId?,
         fromTemplateId: NoteId?,
     ): Result<NoteId> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         // Read before the transaction opens. This branch returns without writing
         // anything, and an early return from inside the unit of work would have to
-        // cross a non-inline boundary — so the check stays out here, where it also
-        // says plainly that the common path does no work at all.
-        val existing = noteDao.getDailyNote(uid.value, dateKey)
+        // cross a non-inline boundary — so the check stays out here.
+        val existing = noteDao.getDailyNoteForProject(uid.value, dateKey, projectId?.value)
         if (existing != null) {
             return@runCatchingCancellable NoteId.fromString(existing.id)
         }
@@ -485,6 +486,7 @@ class NotesRepositoryImpl(
                     sortOrder = 0,
                     wordCount = template?.bodyMarkdown?.split(Regex("\\s+"))?.count { it.isNotBlank() } ?: 0,
                     charCount = template?.bodyMarkdown?.length ?: 0,
+                    projectId = projectId?.value,
                     createdAt = now,
                     updatedAt = now,
                     deletedAt = null,

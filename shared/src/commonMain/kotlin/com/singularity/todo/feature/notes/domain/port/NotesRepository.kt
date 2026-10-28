@@ -6,6 +6,7 @@ import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteColor
 import com.singularity.todo.feature.notes.NoteId
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -105,8 +106,8 @@ interface NotesRepository :
     /** Watches all daily notes within a date range (for calendar navigation). */
     fun watchDailyNotesInRange(from: String, to: String): Flow<List<Note>>
 
-    /** Returns the daily note for [dateKey] (ISO date string), or null if none exists. */
-    suspend fun getDailyNote(dateKey: String): Note?
+    /** Returns the daily note for [dateKey] (ISO date string), optionally scoped to [projectId], or null if none exists. */
+    suspend fun getDailyNote(dateKey: String, projectId: ProjectId? = null): Note?
 
     /**
      * Creates a new note from a template.
@@ -124,7 +125,7 @@ interface NotesRepository :
      * Creates a daily note for [dateKey], optionally seeded from [fromTemplateId].
      * If a daily note for that date already exists, returns its id.
      */
-    suspend fun getOrCreateDailyNote(dateKey: String, fromTemplateId: NoteId?): Result<NoteId>
+    suspend fun getOrCreateDailyNote(dateKey: String, projectId: ProjectId? = null, fromTemplateId: NoteId? = null): Result<NoteId>
 
     // ─── Task-linked notes ────────────────────────────────────────────────────
 

@@ -26,6 +26,7 @@ data class NoteDto(
     val charCount: Int = 0,
     val outgoingLinks: List<String> = emptyList(),
     val taskId: String? = null,
+    val projectId: String? = null,
     val createdAt: Long,
     val updatedAt: Long,
     val deletedAt: Long? = null,
@@ -49,6 +50,7 @@ fun NoteEntity.toDto(): NoteDto =
         charCount = charCount,
         outgoingLinks = decodeLinkList(outgoingLinks), // JSON string → List
         taskId = taskId,
+        projectId = projectId,
         createdAt = createdAt,
         updatedAt = updatedAt,
         deletedAt = deletedAt,
@@ -75,6 +77,7 @@ fun NoteDto.toEntity(userId: String): NoteEntity =
         charCount = charCount,
         outgoingLinks = encodeLinkList(outgoingLinks), // List → JSON string
         taskId = taskId,
+        projectId = projectId,
         createdAt = createdAt,
         updatedAt = updatedAt,
         deletedAt = deletedAt,

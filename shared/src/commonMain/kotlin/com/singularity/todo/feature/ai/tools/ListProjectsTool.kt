@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class ListProjectsInput(val limit: Int = 50)
+data class ListProjectsInput(val limit: Int = 50, val includeArchived: Boolean = false)
 
 @Serializable
 data class ListProjectsOutput(val projects: List<ProjectSummary>)
@@ -28,6 +28,7 @@ class ListProjectsTool(private val projectsRepository: ProjectsRepository) :
 
     override suspend fun execute(args: ListProjectsInput): String {
         val rows = projectsRepository.observeProjectsWithCounts().first()
+            .filter { args.includeArchived || (!it.project.isDeleted && it.project.closedAt == null) }
             .take(args.limit)
             .map { row ->
                 ProjectSummary(

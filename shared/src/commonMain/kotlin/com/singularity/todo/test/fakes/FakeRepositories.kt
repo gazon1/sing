@@ -2711,11 +2711,11 @@ open class FakeNotesRepository(
         }
     }
 
-    override suspend fun getDailyNote(dateKey: String): com.singularity.todo.feature.notes.Note? {
+    override suspend fun getDailyNote(dateKey: String, projectId: com.singularity.todo.feature.projects.domain.model.ProjectId?): com.singularity.todo.feature.notes.Note? {
         val uid = currentUser.scopedUserId.value
         return store.state.value.values.firstOrNull {
             it.userId == uid && it.kind == com.singularity.todo.feature.notes.NoteKind.Daily && it.title == dateKey &&
-                it.deletedAt == null
+                it.projectId == projectId && it.deletedAt == null
         }
     }
 
@@ -2765,12 +2765,13 @@ open class FakeNotesRepository(
 
     override suspend fun getOrCreateDailyNote(
         dateKey: String,
+        projectId: com.singularity.todo.feature.projects.domain.model.ProjectId?,
         fromTemplateId: com.singularity.todo.feature.notes.NoteId?,
     ): Result<com.singularity.todo.feature.notes.NoteId> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
         val existing = store.state.value.values.firstOrNull {
             it.userId == uid && it.kind == com.singularity.todo.feature.notes.NoteKind.Daily && it.title == dateKey &&
-                it.deletedAt == null
+                it.projectId == projectId && it.deletedAt == null
         }
         if (existing != null) return@runCatchingCancellable existing.id
         val now = clock.now()
@@ -2785,6 +2786,7 @@ open class FakeNotesRepository(
             bodyMarkdown = template?.bodyMarkdown,
             bodyHtml = template?.bodyHtml,
             kind = com.singularity.todo.feature.notes.NoteKind.Daily,
+            projectId = projectId,
             color = template?.color,
             wordCount = template?.bodyMarkdown?.split(Regex("\\s+"))
                 ?.count { it.isNotBlank() }

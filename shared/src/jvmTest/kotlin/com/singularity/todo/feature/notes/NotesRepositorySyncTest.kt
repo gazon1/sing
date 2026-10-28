@@ -199,12 +199,12 @@ class NotesRepositorySyncTest {
 
     @Test
     fun `getOrCreateDailyNote enqueues only when it actually creates`() = runTest {
-        val first = repo.getOrCreateDailyNote("2026-09-27", null)
+        val first = repo.getOrCreateDailyNote("2026-09-27", fromTemplateId = null)
         assertTrue(first.isSuccess, "create failed: ${first.exceptionOrNull()}")
         assertEquals(1, sync.enqueuedEntities.size, "the creating call must enqueue")
 
         sync.enqueuedEntities.clear()
-        val second = repo.getOrCreateDailyNote("2026-09-27", null)
+        val second = repo.getOrCreateDailyNote("2026-09-27", fromTemplateId = null)
         assertTrue(second.isSuccess)
         assertEquals(first.getOrThrow(), second.getOrThrow(), "must return the same note")
         assertTrue(
