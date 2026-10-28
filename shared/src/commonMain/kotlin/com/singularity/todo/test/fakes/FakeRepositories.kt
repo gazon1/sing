@@ -2286,7 +2286,8 @@ open class FakeAttachmentRepository(
         deleteOverride?.let { return it }
         return runCatchingCancellable {
             val uid = currentUser.scopedUserId.value
-            val existing = store.state.value.values.firstOrNull { it.id == id && it.userId == uid && it.deletedAt == null }
+            val existing =
+                store.state.value.values.firstOrNull { it.id == id && it.userId == uid && it.deletedAt == null }
                 ?: throw IllegalArgumentException("Attachment $id not found or not owned by current user")
             val ts = clock.now()
             store.upsert(existing.copy(deletedAt = ts))
@@ -2297,7 +2298,12 @@ open class FakeAttachmentRepository(
 
     override fun watchByTask(taskId: TaskId): Flow<List<com.singularity.todo.core.attachments.Attachment>> =
         currentUser.observeForCurrentUser { uid ->
-            store.state.map { list -> list.values.filter { it.taskId == taskId && it.userId == uid && it.deletedAt == null } }
+            store.state.map { list ->
+                list.values.filter {
+                    it.taskId == taskId && it.userId == uid &&
+                it.deletedAt == null
+                }
+            }
         }
 
     // ─── Domain methods (ambient user) ────────────────────────────────────
