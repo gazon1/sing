@@ -1,11 +1,10 @@
 package com.singularity.todo.core.ui.textfields
 
 import org.junit.jupiter.api.Tag
-import kotlin.test.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 /**
  * The filtering rules the text fields apply to what the user types.
@@ -16,144 +15,97 @@ import kotlin.test.assertTrue
 @Tag("fast")
 class TextFieldTransformationsTest {
 
-    @Test
-    fun filterDigitsKeepsOnlyDigits() {
-        assertEquals("123", filterDigits("1a2b3c"))
+    companion object {
+        @JvmStatic
+        fun filterDigitsCases(): List<Arguments> = listOf(
+            Arguments.of("1a2b3c", Int.MAX_VALUE, "123"),
+            Arguments.of("abc-!@#", Int.MAX_VALUE, ""),
+            Arguments.of("2026-10-19", Int.MAX_VALUE, "20261019"),
+            Arguments.of("123456", 3, "123"),
+            // Five characters but three digits, so the third digit survives the limit of three.
+            Arguments.of("1a2b3", 3, "123"),
+            Arguments.of("123456789", Int.MAX_VALUE, "123456789"),
+        )
+
+        @JvmStatic
+        fun withinLengthCases(): List<Arguments> = listOf(
+            Arguments.of("abc", 3, true),
+            Arguments.of("abcd", 3, false),
+            Arguments.of("", 3, true),
+        )
+
+        @JvmStatic
+        fun recurrenceIntervalCases(): List<Arguments> = listOf(
+            Arguments.of("1", true),
+            Arguments.of("14", true),
+            Arguments.of("0", false),
+            Arguments.of("-3", false),
+            Arguments.of("every week", false),
+            Arguments.of("", false),
+        )
+
+        @JvmStatic
+        fun dayOfMonthCases(): List<Arguments> = listOf(
+            Arguments.of("1", true),
+            Arguments.of("31", true),
+            Arguments.of("0", false),
+            Arguments.of("32", false),
+            Arguments.of("monday", false),
+        )
+
+        // The digit filter runs first and the range check runs on the truncated text, so a
+        // stray sign or letter costs the user nothing while "007"/"0031" truncate to "00".
+        @JvmStatic
+        fun filterRecurrenceIntervalCases(): List<Arguments> = listOf(
+            Arguments.of("-3", "3"),
+            Arguments.of("100", "10"),
+            Arguments.of("0", null),
+            Arguments.of("", null),
+            Arguments.of("007", null),
+        )
+
+        @JvmStatic
+        fun filterDayOfMonthCases(): List<Arguments> = listOf(
+            Arguments.of("1a", "1"),
+            Arguments.of("199", "19"),
+            Arguments.of("32", null),
+            Arguments.of("0031", null),
+        )
     }
 
-    @Test
-    fun filterDigitsDropsEveryNonDigit() {
-        assertEquals("", filterDigits("abc-!@#"))
+    @ParameterizedTest
+    @MethodSource("filterDigitsCases")
+    fun filterDigitsKeepsDigits(input: String, maxDigits: Int, expected: String) {
+        assertEquals(expected, filterDigits(input, maxDigits = maxDigits))
     }
 
-    @Test
-    fun filterDigitsKeepsTheOrderOfTheDigits() {
-        assertEquals("20261019", filterDigits("2026-10-19"))
+    @ParameterizedTest
+    @MethodSource("withinLengthCases")
+    fun isWithinLengthDecides(input: String, maxLength: Int, expected: Boolean) {
+        assertEquals(expected, isWithinLength(input, maxLength = maxLength))
     }
 
-    @Test
-    fun filterDigitsTruncatesToTheMaximum() {
-        assertEquals("123", filterDigits("123456", maxDigits = 3))
+    @ParameterizedTest
+    @MethodSource("recurrenceIntervalCases")
+    fun recurrenceIntervalIsValid(input: String, expected: Boolean) {
+        assertEquals(expected, isValidRecurrenceInterval(input))
     }
 
-    @Test
-    fun filterDigitsCountsDigitsNotCharacters() {
-        // "1a2b3" is five characters but three digits, so the third digit is still within
-        // the limit of three.
-        assertEquals("123", filterDigits("1a2b3", maxDigits = 3))
+    @ParameterizedTest
+    @MethodSource("dayOfMonthCases")
+    fun dayOfMonthIsValid(input: String, expected: Boolean) {
+        assertEquals(expected, isValidDayOfMonth(input))
     }
 
-    @Test
-    fun filterDigitsKeepsEverythingWhenNoLimitIsGiven() {
-        assertEquals("123456789", filterDigits("123456789"))
+    @ParameterizedTest
+    @MethodSource("filterRecurrenceIntervalCases")
+    fun filterRecurrenceIntervalKeeps(input: String, expected: String?) {
+        assertEquals(expected, filterRecurrenceInterval(input))
     }
 
-    @Test
-    fun withinLengthAcceptsTheLimit() {
-        assertTrue(isWithinLength("abc", maxLength = 3))
-    }
-
-    @Test
-    fun withinLengthRejectsOneCharacterTooMany() {
-        assertFalse(isWithinLength("abcd", maxLength = 3))
-    }
-
-    @Test
-    fun withinLengthAcceptsAnEmptyValue() {
-        assertTrue(isWithinLength("", maxLength = 3))
-    }
-
-    @Test
-    fun recurrenceIntervalAcceptsAPositiveWholeNumber() {
-        assertTrue(isValidRecurrenceInterval("1"))
-        assertTrue(isValidRecurrenceInterval("14"))
-    }
-
-    @Test
-    fun recurrenceIntervalRejectsZero() {
-        assertFalse(isValidRecurrenceInterval("0"))
-    }
-
-    @Test
-    fun recurrenceIntervalRejectsANegativeNumber() {
-        assertFalse(isValidRecurrenceInterval("-3"))
-    }
-
-    @Test
-    fun recurrenceIntervalRejectsText() {
-        assertFalse(isValidRecurrenceInterval("every week"))
-    }
-
-    @Test
-    fun recurrenceIntervalRejectsAnEmptyValue() {
-        assertFalse(isValidRecurrenceInterval(""))
-    }
-
-    @Test
-    fun dayOfMonthAcceptsTheFirstAndTheLast() {
-        assertTrue(isValidDayOfMonth("1"))
-        assertTrue(isValidDayOfMonth("31"))
-    }
-
-    @Test
-    fun dayOfMonthRejectsZero() {
-        assertFalse(isValidDayOfMonth("0"))
-    }
-
-    @Test
-    fun dayOfMonthRejectsThe32nd() {
-        assertFalse(isValidDayOfMonth("32"))
-    }
-
-    @Test
-    fun dayOfMonthRejectsText() {
-        assertFalse(isValidDayOfMonth("monday"))
-    }
-
-    @Test
-    fun filterRecurrenceIntervalDropsTheNonDigitsInsteadOfRejectingThem() {
-        // The digit filter runs first, so the range check sees "3" and not "-3":
-        // a stray sign costs the user nothing.
-        assertEquals("3", filterRecurrenceInterval("-3"))
-    }
-
-    @Test
-    fun filterRecurrenceIntervalTruncatesToTwoDigits() {
-        assertEquals("10", filterRecurrenceInterval("100"))
-    }
-
-    @Test
-    fun filterRecurrenceIntervalRejectsAValueThatIsNotAPositiveNumber() {
-        assertNull(filterRecurrenceInterval("0"))
-        assertNull(filterRecurrenceInterval(""))
-    }
-
-    @Test
-    fun filterRecurrenceIntervalChecksTheRangeOnTheTruncatedText() {
-        // "007" is seven, a valid interval, but the two-digit filter leaves "00" —
-        // and zero is not an interval, so the edit is rejected.
-        assertNull(filterRecurrenceInterval("007"))
-    }
-
-    @Test
-    fun filterDayOfMonthDropsTheNonDigitsInsteadOfRejectingThem() {
-        assertEquals("1", filterDayOfMonth("1a"))
-    }
-
-    @Test
-    fun filterDayOfMonthTruncatesToTwoDigits() {
-        assertEquals("19", filterDayOfMonth("199"))
-    }
-
-    @Test
-    fun filterDayOfMonthRejectsThe32nd() {
-        assertNull(filterDayOfMonth("32"))
-    }
-
-    @Test
-    fun filterDayOfMonthChecksTheRangeOnTheTruncatedText() {
-        // "0031" is the 31st, a valid day, but the two-digit filter leaves "00" —
-        // and zero is not a day of the month, so the edit is rejected.
-        assertNull(filterDayOfMonth("0031"))
+    @ParameterizedTest
+    @MethodSource("filterDayOfMonthCases")
+    fun filterDayOfMonthKeeps(input: String, expected: String?) {
+        assertEquals(expected, filterDayOfMonth(input))
     }
 }
