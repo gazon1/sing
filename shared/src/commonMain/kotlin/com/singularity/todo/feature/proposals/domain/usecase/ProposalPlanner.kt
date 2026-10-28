@@ -148,7 +148,7 @@ class ProposalPlanner(private val clock: Clock) {
                 // Validation here, not in dispatch: a value the task cannot hold must fail
                 // *before* the claim, or the item burns its one decision on a write that throws.
                 val t = task ?: error("Task ${item.targetId} not found")
-                ProposalPlan.WriteTask(withTaskValue(t, kind.value))
+                ProposalPlan.WriteTask(ProposalPlanner.withTaskValue(t, kind.value, clock), kind.value)
             }
 
             is ProposalItemKind.SetTaskTags -> {
@@ -207,42 +207,44 @@ class ProposalPlanner(private val clock: Clock) {
      * Pure: reads nothing and writes nothing, so every rejection reason is
      * reachable from a unit test without a repository.
      */
-    fun withTaskValue(task: Task, value: TaskValue): Task = when (value) {
-        is TaskValue.Title -> {
-            val title = value.value.trim()
-            require(title.isNotEmpty()) { "Proposed title is blank" }
-            task.copy(title = title)
+    companion object {
+        fun withTaskValue(task: Task, value: TaskValue, clock: kotlin.time.Clock): Task = when (value) {
+            is TaskValue.Title -> {
+                val title = value.value.trim()
+                require(title.isNotEmpty()) { "Proposed title is blank" }
+                task.copy(title = title)
+            }
+
+            is TaskValue.Description -> task.copy(description = value.value.trim().takeIf(String::isNotEmpty))
+
+            is TaskValue.Priority -> task.copy(priority = value.value)
+
+            is TaskValue.DueDate -> task.copy(dueDate = value.value)
+
+            is TaskValue.Status -> {
+                task.copy(completedAt = if (value.value == TaskStatus.Completed) clock.now() else null)
+            }
+
+            is TaskValue.EstimateMinutes -> task.copy(estimateMinutes = value.value)
+
+            is TaskValue.Kind -> task.copy(kind = value.value)
+
+            is TaskValue.DueTime -> task.copy(dueTime = value.value)
+
+            is TaskValue.Project -> {
+                val projectId = value.value.trim().takeIf { it.isNotEmpty() }
+                task.copy(projectId = projectId?.let { ProjectId.fromString(it) })
+            }
+
+            is TaskValue.Someday -> task.copy(someday = value.value)
+
+            // A value this build cannot read. The change stays on the card with the
+            // reason it cannot be applied, and the user can type a value that does
+            // read. It cannot be applied as it stands — and saying so is the point:
+            // the plan is built before the claim, so the change is neither decided
+            // nor lost.
+            is TaskValue.Unreadable -> error(value.readFailure ?: "This value cannot be read.")
         }
-
-        is TaskValue.Description -> task.copy(description = value.value.trim().takeIf(String::isNotEmpty))
-
-        is TaskValue.Priority -> task.copy(priority = value.value)
-
-        is TaskValue.DueDate -> task.copy(dueDate = value.value)
-
-        is TaskValue.Status -> {
-            task.copy(completedAt = if (value.value == TaskStatus.Completed) clock.now() else null)
-        }
-
-        is TaskValue.EstimateMinutes -> task.copy(estimateMinutes = value.value)
-
-        is TaskValue.Kind -> task.copy(kind = value.value)
-
-        is TaskValue.DueTime -> task.copy(dueTime = value.value)
-
-        is TaskValue.Project -> {
-            val projectId = value.value.trim().takeIf { it.isNotEmpty() }
-            task.copy(projectId = projectId?.let { ProjectId.fromString(it) })
-        }
-
-        is TaskValue.Someday -> task.copy(someday = value.value)
-
-        // A value this build cannot read. The change stays on the card with the
-        // reason it cannot be applied, and the user can type a value that does
-        // read. It cannot be applied as it stands — and saying so is the point:
-        // the plan is built before the claim, so the change is neither decided
-        // nor lost.
-        is TaskValue.Unreadable -> error(value.readFailure ?: "This value cannot be read.")
     }
 
     /**
