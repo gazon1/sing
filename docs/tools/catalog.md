@@ -10,7 +10,6 @@ A gate script that no registry entry names is not a gate — it is run by a surf
 |---|---|
 | `scripts/check-gate-tooling-origin.py` | check-gate-tooling-origin.py — the gate CLI must serve THIS checkout. |
 | `scripts/check-gate-wiring.py` | check-gate-wiring.py — prove the gates exist AND that they can fail. |
-| `scripts/check-maestro-hidekeyboard.py` | check-maestro-hidekeyboard.py — hideKeyboard must follow an input, not precede one. |
 | `scripts/check-openspec-stale.py` | Warn when an active OpenSpec change is older than 14 days. |
 | `scripts/check-slow-tests-ran.py` | check-slow-tests-ran.py — every `@Tag("slow")` class ran in the full suite. |
 

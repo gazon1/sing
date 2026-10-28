@@ -29,13 +29,18 @@
 #   full  — every flow in the catalogue (config/docs/maestro-flows.txt); the
 #           nightly's four shards together.
 #   smoke — the flows that declare the `smoke` tag; the suite a pull request
-#           runs. The tag, not the directory: 22 of the 29 smoke flows live
-#           outside Maestro/flows/smoke/, and the runner filters on the tag.
+#           runs. The tag, not the directory: most smoke flows live outside
+#           Maestro/flows/smoke/, and the runner filters on the tag.
 #
 # Measured 2026-10-22 by a full run of all 94 flows on the device
 # (RMX3938, API 35): 64 passed, 30 failed, 7 of the failures in the smoke
 # subset. The numbers below are that run's failure counts, so the gate passes
 # today and fails the first time the debt grows.
+#
+# The smoke set has changed since that run — the floor is a count of failures,
+# not a fraction of the suite — so a flow that joins the tag and fails is
+# debt the floor does not know about until it is re-measured and the number
+# below is raised deliberately.
 
 full 30
 smoke 7

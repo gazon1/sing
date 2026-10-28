@@ -124,9 +124,9 @@ SCOPE_SMOKE = "smoke"
 SCOPES = (SCOPE_FULL, SCOPE_SMOKE)
 
 #: The tag the runner filters the smoke suite on. The directory
-#: `Maestro/flows/smoke/` is not the selection — 22 of the 29 smoke flows
-#: live elsewhere — so a scope built from the directory would measure a
-#: different suite than the one that ran.
+#: `Maestro/flows/smoke/` is not the selection — most smoke flows live
+#: elsewhere — so a scope built from the directory would measure a different
+#: suite than the one that ran.
 SMOKE_TAG = "smoke"
 
 #: How many distinct messages a group prints before it says "and N more".

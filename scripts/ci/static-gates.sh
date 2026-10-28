@@ -881,6 +881,8 @@ gate blocking "the mobile build carries no external-agent code" sgate the_mobile
 gate blocking "a specification and the tree agree" sgate a_specification_and_the_tree_agree
 # The flows are in Maestro/flows; the lint was added with the hideKeyboard fix.
 gate blocking "hideKeyboard follows an input" sgate hidekeyboard_follows_an_input
+# The conventions carry the number; this gate holds it to the tag, and holds a smoke shard to costing no more than a full-suite shard.
+gate blocking "maestro smoke suite matches the doc" sgate maestro_smoke_suite_matches_the_doc
 # <<< END GENERATED: sgate render-static-gates >>>
 
 # ─── Collect all results and report ─────────────────────────────────────────

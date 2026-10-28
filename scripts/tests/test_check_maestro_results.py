@@ -350,7 +350,7 @@ class ScopeTest(unittest.TestCase):
         self.assertEqual(findings, [])
 
     def test_smoke_is_the_tagged_subset_not_the_directory(self):
-        """The tag is the selection: 22 of the 29 smoke flows live elsewhere."""
+        """The tag is the selection: most smoke flows live outside the directory."""
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             catalogue = self._tree(root)
