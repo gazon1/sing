@@ -55,6 +55,8 @@ fun profileModule(fixedProfileId: ProfileId? = null): Module = module {
                 clock = clock,
                 scope = scope,
                 fixedProfileId = fixedProfileId,
+                contentResetterProvider = { get<com.singularity.todo.core.wipe.ContentResetter>() },
+                currentUserProvider = { get<ProfileAwareCurrentUser>() },
             )
         } else {
             ProfileRepositoryImpl(
@@ -66,6 +68,8 @@ fun profileModule(fixedProfileId: ProfileId? = null): Module = module {
                 legacyProfileStateStore = get(named("user_settings")),
                 clock = clock,
                 scope = scope,
+                contentResetterProvider = { get<com.singularity.todo.core.wipe.ContentResetter>() },
+                currentUserProvider = { get<ProfileAwareCurrentUser>() },
             )
         }
     }
