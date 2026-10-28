@@ -53,6 +53,7 @@ class MimeTypesTest {
     fun isImageReturnsFalseForNonImageMimeTypes() {
         assertEquals(false, MimeTypes.isImage("text/plain"))
         assertEquals(false, MimeTypes.isImage("application/pdf"))
+        assertEquals(false, MimeTypes.isImage("image/svg+xml"))
     }
 
     @Test

@@ -23,8 +23,11 @@ data class Attachment(
     val serverVersion: Long = 0L,
     val hlc: String? = null,
 ) {
-    val isImage: Boolean get() =
-        type == AttachmentType.Image || mimeType?.startsWith("image/") == true
+    val isImage: Boolean get() {
+        val mime = mimeType?.lowercase()
+        return (type == AttachmentType.Image || mime?.startsWith("image/") == true) &&
+            mime != "image/svg+xml"
+    }
 
     val isUrl: Boolean get() = type == AttachmentType.Url
 
