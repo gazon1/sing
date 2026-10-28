@@ -1442,7 +1442,7 @@ jobs:
     # expression rather than where a reader looks for it.
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # The runner's default JRE is 17; :adr-cli:installDist builds with the
       # Gradle toolchain (21) and the installed script then dies with
@@ -1512,7 +1512,7 @@ jobs:
     needs: [changes]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Java
         uses: actions/setup-java@v4

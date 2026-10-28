@@ -102,7 +102,7 @@ jobs:
       # reads a file needs the checkout. It ran without one until the plan
       # moved out of the workflow: the old plan was a literal in a shell line,
       # and the new one is a file the repository owns.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           sparse-checkout: |
             config/docs/e2e-shards.txt
