@@ -6,9 +6,10 @@ its cost decides whether a reviewer waits. This file reads
 `.github/workflows/ci.yml` as TEXT — the way the repository's gates do — and
 pins the shape of that path:
 
-* the pull-request path runs its tests WITHOUT the Kover agent, and names no
-  APP coverage task: a coverage verdict on a pull request would be a verdict
-  about a measurement the pull request never took;
+* the pull-request path runs its tests WITHOUT the Kover agent, and no ordinary
+  pull request carries an APP coverage verdict: coverage is measured in the
+  suite job's OWN conditional steps, on a push, the schedule or a labelled
+  pull request, so a verdict is never about a measurement nobody took;
 * the suite job names every test task it runs, so what a pull request proves
   is written down rather than implied by an aggregate;
 * detekt is judged in exactly one job: two analyses of the same tree are two
@@ -110,6 +111,26 @@ def _coverage_tasks(text: str) -> set[str]:
     return {name for name in APP_COVERAGE_TASKS if name in without_rules}
 
 
+#: The job-level switch that decides, per run, whether the suite job measures
+#: coverage. It is one job and one run now: the tests always run, the
+#: measurement is a conditional step.
+COVERAGE_FLAG = "COVERAGE_ENABLED"
+
+
+def _coverage_gated_steps(job: dict) -> list[dict]:
+    """The steps of a job that run only where a coverage measurement is wanted.
+
+    A step is gated when its `if:` reads the switch the job's `env` sets. An
+    ordinary pull request runs none of them, which is what keeps a coverage
+    verdict off a run that was not instrumented.
+    """
+    return [
+        step
+        for step in job.get("steps", []) or []
+        if isinstance(step, dict) and COVERAGE_FLAG in str(step.get("if", ""))
+    ]
+
+
 def _declared_populations() -> dict[str, list[str]]:
     """The populations the repository declares, and the tags each selects."""
     declared: dict[str, list[str]] = {}
@@ -153,17 +174,23 @@ def _matrix_legs(job: dict) -> list[dict]:
 
 
 def _effective_runs(job: dict) -> list[str]:
-    """The run texts of a job, one per matrix leg.
+    """The run texts of a job that an ordinary pull request executes.
 
     A matrix leg is a real invocation: `${{ matrix.tasks }}` names the tasks
     that leg runs, and a reader that cannot see them cannot say what the job
     runs. So the expression is replaced with the leg's own value — a task
     hidden behind a matrix is still a task the job runs.
+
+    A step gated on the coverage switch is NOT on the pull-request path: it
+    runs on a push, the schedule or a labelled pull request. Counting it would
+    read the coverage measurement as an ordinary pull request's verdict.
     """
     legs = _matrix_legs(job)
     texts: list[str] = []
     for step in job.get("steps", []) or []:
         if not isinstance(step, dict):
+            continue
+        if COVERAGE_FLAG in str(step.get("if", "")):
             continue
         run = step.get("run")
         if not isinstance(run, str):
@@ -227,7 +254,7 @@ class PrPathHasNoCoverage(unittest.TestCase):
 
         So the switch lives in the build, and this file pins three facts: the
         build HAS a switch, the pull-request path asks for it, and the coverage
-        job asks for the other side of it.
+        steps ask for the other side of it.
         """
         settings = SETTINGS.read_text(encoding="utf-8")
 
@@ -257,8 +284,16 @@ class PrPathHasNoCoverage(unittest.TestCase):
         quick_text = _job_text(jobs["quick"])
         self.assertIn("-Pcoverage.enabled=false", quick_text)
 
-        # The coverage job opts IN, explicitly.
-        self.assertIn("-Pcoverage.enabled=true", _job_text(jobs["coverage"]))
+        # The coverage steps of the SAME job opt IN, explicitly, and they run
+        # only where the measurement is wanted: one run carries both verdicts.
+        coverage_steps = _coverage_gated_steps(jobs["tests"])
+        self.assertTrue(
+            coverage_steps,
+            "the suite job has no coverage-gated step — the measurement has "
+            "nowhere to run that is not an ordinary pull request",
+        )
+        coverage_text = "\n".join(str(step.get("run", "")) for step in coverage_steps)
+        self.assertIn("-Pcoverage.enabled=true", coverage_text)
 
     def test_every_pr_path_test_invocation_opts_out_of_the_coverage_agent(self):
         """Every pull-request job that runs a test task asks for no agent.
@@ -301,40 +336,51 @@ class PrPathHasNoCoverage(unittest.TestCase):
         )
 
     def test_no_pr_path_job_names_a_coverage_task(self):
-        """Only the coverage job names an app coverage task.
+        """Only the suite job names an app coverage task, and only in gated steps.
 
         The app's coverage tasks are the ROOT ones — `koverReport`,
         `koverHtml`, `:koverVerify`. A pull request that failed a coverage
-        floor would be failing on a measurement it never took.
+        floor would be failing on a measurement it never took, so the steps
+        that name them run only where the switch says coverage is wanted.
 
         The rules' own floor (`:detekt-rules:koverVerify`) is the exception,
         and it is a deliberate one: the custom rules apply the Kover plugin
         themselves, and their branch-coverage floor is a gate the pull-request
         path enforces.
         """
+        jobs = _jobs()
         naming = {
-            name for name, job in _jobs().items() if _coverage_tasks(_job_text(job))
+            name for name, job in jobs.items() if _coverage_tasks(_job_text(job))
         }
-        self.assertEqual({"coverage"}, naming)
+        self.assertEqual({"tests"}, naming)
+
+        # And no step that runs on an ordinary pull request names one.
+        ungated = "\n".join(
+            str(step.get("run", ""))
+            for step in jobs["tests"].get("steps", []) or []
+            if isinstance(step, dict) and COVERAGE_FLAG not in str(step.get("if", ""))
+        )
+        self.assertEqual(set(), _coverage_tasks(ungated))
 
         # And the exception is still there: the rules' floor is enforced on
         # the pull-request path, so the path carries a measurement it DOES
         # enforce.
-        self.assertIn(RULES_FLOOR_TASK, _job_text(_jobs()["tests"]))
+        self.assertIn(RULES_FLOOR_TASK, _job_text(jobs["tests"]))
 
     def test_a_pull_request_reports_no_coverage_verdict(self):
         """An ordinary pull request gets no coverage verdict; a labelled one does.
 
-        The coverage job's own condition IS the verdict's condition: it runs
-        where a coverage measurement is wanted — a push to the trunk, the
+        The job's switch (`COVERAGE_ENABLED`) IS the verdict's condition: the
+        measurement runs where it is wanted — a push to the trunk, the
         schedule, a manual run, or a pull request that asks for the full
         population — and not on an ordinary pull request.
         """
         jobs = _jobs()
-        condition = str(jobs["coverage"].get("if", ""))
+        switch = str((jobs["tests"].get("env") or {}).get(COVERAGE_FLAG, ""))
+        self.assertTrue(switch, "the suite job does not set the coverage switch")
 
-        self.assertIn("github.event_name == 'push'", condition)
-        self.assertIn("github.event_name == 'schedule'", condition)
+        self.assertIn("github.event_name == 'push'", switch)
+        self.assertIn("github.event_name == 'schedule'", switch)
 
         # The pull request case exists, and the label is what it asks for. The
         # label arrives two ways — the `labeled` event carries it in
@@ -342,16 +388,16 @@ class PrPathHasNoCoverage(unittest.TestCase):
         # label list — and reading only one of them means the label works
         # until the next commit and then silently stops working.
         self.assertRegex(
-            condition,
+            switch,
             r"(?s)github\.event_name\s*==\s*'pull_request'.{0,400}run-full-tests",
         )
-        self.assertIn("github.event.label.name", condition)
-        self.assertIn("github.event.pull_request.labels", condition)
+        self.assertIn("github.event.label.name", switch)
+        self.assertIn("github.event.pull_request.labels", switch)
 
         # The job that carries the verdict is one the merge gate waits for —
         # otherwise a coverage breach on a labelled pull request would report
         # green.
-        self.assertIn("coverage", _needs(jobs["ci-gate"]))
+        self.assertIn("tests", _needs(jobs["ci-gate"]))
 
 
 class PrPathRunsTheWholeSuite(unittest.TestCase):

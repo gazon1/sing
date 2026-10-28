@@ -125,7 +125,10 @@ class BackupViewModelTest {
         testScheduler.runCurrent()
 
         assertNotNull(repo.lastExportOptions)
-        assertEquals(testUserId, repo.lastExportOptions?.userId)
+        // The identity is the repository's to fill — it is the one that knows the
+        // signed-in user. The ViewModel owns the destination and the attachments.
+        assertEquals("test_backup.zip", repo.lastExportOptions?.destPath)
+        assertEquals(true, repo.lastExportOptions?.includeAttachments)
     }
 
     @Test
