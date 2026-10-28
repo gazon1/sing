@@ -70,9 +70,16 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-# The numbered steps are 1..12; the lettered ones (2b, 3b, 7b, 7c, 8b, 12b, 12c) are
-# extra checks that hang off a numbered step and are not counted here.
-TOTAL=12
+# The numbered steps are 1..11; the lettered ones (2b, 2c, 3b, 4b, 7b, 7c, 8a, 8b, 11b, 11c)
+# are extra checks that hang off a numbered step and are not counted here.
+TOTAL=11
+
+# The coverage agent multiplies every test class and nothing in this loop reads the
+# report it produces, so every test step switches it off. The floor is measured and
+# judged where the measurement is taken: the coverage steps of CI's `tests` job, and
+# `just ci::coverage` here. See
+# docs/decisions/2026-10-28-the-local-loop-measures-nothing-it-does-not-use.md
+COVERAGE_OFF="-Pcoverage.enabled=false"
 
 echo -e "${YELLOW}=== [1/$TOTAL] static gates (the shared registry) ===${NC}"
 # Every script gate that needs no JVM and no build output lives in
@@ -152,7 +159,12 @@ timed "shared:verifySyncFieldAllowlist" ./gw :shared:verifySyncFieldAllowlist --
 echo -e "${GREEN}the derived field lists are current${NC}"
 
 echo -e "${YELLOW}=== [3/$TOTAL] shared:jvmTest ===${NC}"
-timed "shared:jvmTest" ./gw :shared:jvmTest --quiet || {
+# `-Pcoverage.enabled=false` — the local loop takes no coverage measurement, so it
+# does not attach the agent that produces one. Measured 2026-10-28 on this tree:
+# 1241 s with the agent, 771 s without it, for the same tests. The agent is a
+# multiplier on every class, and nothing here reads the report it produces;
+# producing it is `koverReport`'s job and this script does not run it.
+timed "shared:jvmTest" ./gw :shared:jvmTest --quiet "${COVERAGE_OFF}" || {
     echo -e "${RED}shared:jvmTest FAILED${NC}"
     scripts/ci/print-test-failures.sh shared/build/test-results || true
     exit 1
@@ -167,7 +179,7 @@ echo -e "${GREEN}shared:jvmTest passed${NC}"
 # The host test is a Robolectric test — no emulator, no device — so it belongs in the
 # local loop, not only in CI.
 echo -e "${YELLOW}=== [3b/$TOTAL] shared:testAndroidHostTest ===${NC}"
-timed "shared:testAndroidHostTest" ./gw :shared:testAndroidHostTest --quiet || {
+timed "shared:testAndroidHostTest" ./gw :shared:testAndroidHostTest --quiet "${COVERAGE_OFF}" || {
     echo -e "${RED}shared:testAndroidHostTest FAILED — the Android source set does not compile, " \
         "and nothing else in this script would have said so${NC}"
     exit 1
@@ -175,7 +187,7 @@ timed "shared:testAndroidHostTest" ./gw :shared:testAndroidHostTest --quiet || {
 echo -e "${GREEN}shared:testAndroidHostTest passed${NC}"
 
 echo -e "${YELLOW}=== [4/$TOTAL] desktopApp:test ===${NC}"
-timed "desktopApp:test" ./gw :desktopApp:test --quiet || {
+timed "desktopApp:test" ./gw :desktopApp:test --quiet "${COVERAGE_OFF}" || {
     echo -e "${RED}desktopApp:test FAILED${NC}"
     exit 1
 }
@@ -188,7 +200,7 @@ echo -e "${GREEN}desktopApp:test passed${NC}"
 # the parity gate insists on that: a task CI runs and this script does not is
 # how a local loop stays green on a module CI would fail.
 echo -e "${YELLOW}=== [4b/$TOTAL] adr-cli:test + adr-core:jvmTest ===${NC}"
-timed "adr-cli:test" ./gw :adr-cli:test :adr-core:jvmTest --quiet || {
+timed "adr-cli:test" ./gw :adr-cli:test :adr-core:jvmTest --quiet "${COVERAGE_OFF}" || {
     echo -e "${RED}adr-cli:test / adr-core:jvmTest FAILED${NC}"
     exit 1
 }
@@ -294,7 +306,7 @@ echo -e "${YELLOW}=== [8a/$TOTAL] the unwritten-properties tool's own tests ===$
 #
 # The tests are plain JUnit over the analysis, with no compiler — they run in
 # milliseconds, which is why they belong in the loop and not only in CI.
-timed "tools:unwritten-properties:test" ./gw :tools:unwritten-properties:test --quiet || {
+timed "tools:unwritten-properties:test" ./gw :tools:unwritten-properties:test --quiet "${COVERAGE_OFF}" || {
     echo -e "${RED}the unwritten-properties tool's tests FAILED${NC}"
     exit 1
 }
@@ -306,9 +318,9 @@ echo -e "${YELLOW}=== [8b/$TOTAL] detekt-rule branch coverage floor ===${NC}"
 # check-gate-wiring.py Part I fails a Gradle task that only one of the two
 # surfaces names.
 #
-# koverLog first, so a local run shows the number it is about to be judged by —
-# the same line ci.yml's advisory summary renders. It exits non-zero when the
-# measurement itself could not happen, which is a failure, not a missing number.
+# koverLog first, so a local run shows the number it is about to be judged by.
+# It exits non-zero when the measurement itself could not happen, which is a
+# failure, not a missing number.
 ./gw -q :detekt-rules:koverLog || {
     echo -e "${RED}could not measure detekt-rule branch coverage${NC}"
     exit 1
@@ -319,40 +331,14 @@ timed "detekt-rules:koverVerify" ./gw :detekt-rules:koverVerify || {
 }
 echo -e "${GREEN}detekt-rule branch coverage floor met${NC}"
 
-echo -e "${YELLOW}=== [9/$TOTAL] coverage floors (app + detekt-rules) ===${NC}"
-# :koverVerify enforces INSTRUCTION 27% / BRANCH 20% / LINE 27% from settings.gradle.kts.
-# :detekt-rules:koverVerify enforces BRANCH 60% from the floor declared in settings.gradle.kts.
-#
-# `:koverVerify` measures what is in the task graph, and the aggregation plugin never
-# depends on the test tasks itself — so the task carries `dependsOn("koverReport")`
-# (build.gradle.kts) and pulls in the tests it verifies. Before that, a standalone
-# `:koverVerify` measured 0.000000 and the floor could not be satisfied by anything.
-#
-# Skipped when no report exists (same reason as the --if-present it replaces: koverReport
-# instruments every test task and roughly triples the local loop; CI runs it on every push).
-# With the dependency above, a report that exists but is stale is re-measured rather
-# than trusted — the floor is then checked against the current code.
-if [ -f build/reports/kover/report.xml ]; then
-    timed "koverVerify" ./gw :koverVerify || {
-        echo -e "${RED}app coverage below the recorded floor${NC}"
-        exit 1
-    }
-    ./gw :detekt-rules:koverVerify || {
-        echo -e "${RED}detekt-rules branch coverage below the recorded floor${NC}"
-        exit 1
-    }
-else
-    echo "    no Kover report — run ./gw koverReport (skipped)"
-fi
-
-echo -e "${YELLOW}=== [10/$TOTAL] mcp-server:compileKotlin (DI graph validation) ===${NC}"
+echo -e "${YELLOW}=== [9/$TOTAL] mcp-server:compileKotlin (DI graph validation) ===${NC}"
 timed "mcp-server:compileKotlin" ./gw :mcp-server:compileKotlin --quiet || {
     echo -e "${RED}mcp-server:compileKotlin FAILED${NC}"
     exit 1
 }
 echo -e "${GREEN}mcp-server DI graph validated${NC}"
 
-echo -e "${GREEN}=== [11/$TOTAL] detekt (enforcing, ignoreFailures=false) ===${NC}"
+echo -e "${GREEN}=== [10/$TOTAL] detekt (enforcing, ignoreFailures=false) ===${NC}"
 # Detekt has failed the build since PR 3.3 (ignoreFailures = false in both modules).
 # The `|| { echo }` fallback that used to be here swallowed real violations, so a
 # green ./check.sh did not imply a clean detekt run.
@@ -368,7 +354,7 @@ timed "detekt" ./gw :shared:detekt :desktopApp:detekt :androidApp:detekt :detekt
     exit 1
 }
 
-echo -e "${GREEN}=== [12/$TOTAL] mcp-server:detekt ===${NC}"
+echo -e "${GREEN}=== [11/$TOTAL] mcp-server:detekt ===${NC}"
 # This task was invoked by ci.yml with `ignoreFailures = true`, so it could not
 # fail there, and it was not in check.sh at all, so it did not run here either.
 # Both halves mattered: nothing enforced it and nothing ran it.
@@ -377,7 +363,7 @@ timed "mcp-server:detekt" ./gw :mcp-server:detekt --quiet || {
     exit 1
 }
 
-echo -e "${GREEN}=== [12b/$TOTAL] adr-cli:detekt ===${NC}"
+echo -e "${GREEN}=== [11b/$TOTAL] adr-cli:detekt ===${NC}"
 # `:adr-cli` declares `detekt` with `ignoreFailures = false`. A configured detekt task
 # that no surface invokes reports success forever, which is the exact defect the block
 # above was written for — applied one module over.
@@ -386,7 +372,7 @@ timed "adr-cli:detekt" ./gw :adr-cli:detekt --quiet || {
     exit 1
 }
 
-echo -e "${GREEN}=== [12c/$TOTAL] adr-core + core-base:detekt ===${NC}"
+echo -e "${GREEN}=== [11c/$TOTAL] adr-core + core-base:detekt ===${NC}"
 # The two modules the CLI was refactored onto (#542). Their baselines are empty, so a
 # finding here is a finding about code written today — which is the only state a new
 # module should ever be in. Left uninvoked they would report success forever.

@@ -111,10 +111,11 @@ The tiers above are test tiers. There is a third question a pull request used
 to answer and no longer does: **how much of the application is covered?**
 
 The app coverage floor (INSTRUCTION / BRANCH / LINE) is proved by the
-**coverage tier**, which is the trunk's job: the `coverage` job in `ci.yml`
-runs the suite under the Kover agent, on a push to the trunk, on the schedule,
-and on a pull request that asks for the full population. It does not run on an
-ordinary pull request.
+**coverage tier**, which is the trunk's job: the conditional coverage steps of
+the `tests` job in `ci.yml` (gated on `COVERAGE_ENABLED`) run the suite under
+the Kover agent, on a push to the trunk, on the schedule, and on a pull request
+that asks for the full population. They do not run on an ordinary pull
+request.
 
 The reason is the order of the two facts: a floor describes a measurement, and
 a pull request does not take that measurement. The pull-request path runs the

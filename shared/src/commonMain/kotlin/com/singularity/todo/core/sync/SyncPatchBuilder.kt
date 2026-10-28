@@ -29,9 +29,11 @@ internal class SyncPatchBuilder(
      * Builds the patch for [entity] and marks [scope] as having it in flight.
      *
      * The in-flight marker is written here rather than after the push, because the
-     * next edit to the same entity has to diff against *this* state to avoid
-     * re-sending these fields. It is cleared again on success (promoted to confirmed)
-     * or on abandonment (released).
+     * push response promotes exactly this state to confirmed — guarded by the patch
+     * id beside it, so a stale response cannot promote another patch's state. It is
+     * cleared on success (promoted to confirmed) or on abandonment (released).
+     *
+     * The diff base is the CONFIRMED state, not this one: see the comment on `base`.
      */
     suspend fun build(entity: SyncableEntity, scope: SyncScope, nowMillis: Long): DeltaPatch {
         val state = entity.toJson()

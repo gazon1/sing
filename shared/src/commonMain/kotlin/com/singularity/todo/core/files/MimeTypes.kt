@@ -159,7 +159,12 @@ object MimeTypes {
         return fileName.substring(dot + 1).lowercase().takeIf { it.isNotBlank() }
     }
 
-    fun isImage(mime: String): Boolean { val m = mime.lowercase(); return m.startsWith("image/") && m != "image/svg+xml" }
+    fun isImage(mime: String): Boolean {
+        val m = mime.lowercase()
+        return m.startsWith(
+            "image/",
+        ) && m != "image/svg+xml"
+    }
     fun isDocument(mime: String): Boolean = mime == "application/pdf" ||
         mime.startsWith("application/msword") ||
         mime.startsWith("application/vnd.openxmlformats")

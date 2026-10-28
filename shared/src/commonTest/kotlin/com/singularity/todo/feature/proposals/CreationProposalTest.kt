@@ -215,6 +215,11 @@ class CreationProposalTest {
             updatedAt = clock.now(),
         )
         tasks.seed(task)
+        // The change names tags, not ids, and a name that names no tag resolves to
+        // nothing — so the tag has to exist before the change can be applied.
+        tags.seed(
+            tag(id = "new", name = "new"),
+        )
 
         val itemId = seedProposal(
             kind = ProposalItemKind.SetTaskTags(listOf("new")),
@@ -252,6 +257,25 @@ class CreationProposalTest {
     }
 
     // ── Fixtures ──────────────────────────────────────────────────────────────
+
+    /**
+     * A tag fixture.
+     *
+     * The domain `Tag` and JUnit's `@Tag` are different types with the same
+     * name, so the domain one is not imported: `org.junit.jupiter.api.Tag`
+     * above is the annotation this class carries, and the class it names is
+     * spelled out where it is needed. The neighbouring
+     * `ApplyProposalItemUseCaseTest` resolves the same collision the same way.
+     */
+    private fun tag(id: String, name: String) =
+        com.singularity.todo.feature.tags.Tag(
+            id = TagId(id),
+            name = name,
+            color = 0,
+            userId = user,
+            createdAt = clock.now(),
+            updatedAt = clock.now(),
+        )
 
     /** Seeds a one-item proposal for [kind] and returns the item id. */
     private suspend fun seedProposal(kind: ProposalItemKind, target: String): ProposalItemId {

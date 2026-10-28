@@ -1142,13 +1142,14 @@ jobs:
       - name: Post-rebase DI compile
         run: python3 scripts/check-rebase-compiles.py
 
-      # The app coverage floors, the coverage table and the coverage report are
-      # NOT here any more: they moved to the `coverage` job, which runs the
-      # suite under the Kover agent. A pull request runs the suite WITHOUT the
-      # agent, so a coverage number measured on that run would be a number
-      # about a different build than the one the floor is declared against —
-      # and a pull request that failed a coverage floor would be failing on a
-      # measurement it never took.
+      # The app coverage floors are NOT on the pull-request path: they are the
+      # conditional steps below, gated on `COVERAGE_ENABLED`, which this job
+      # measures only on a push, the schedule, a manual run or a labelled pull
+      # request. An ordinary pull request runs the suite WITHOUT the agent, so a
+      # coverage number measured on that run would be a number about a different
+      # build than the one the floor is declared against — and a pull request
+      # that failed a coverage floor would be failing on a measurement it never
+      # took.
       #
       # The detekt-rules floor stays HERE, and it is not an oversight: it is a
       # gate about the custom rules, not about the app's coverage, and it is
@@ -1404,10 +1405,9 @@ jobs:
   # `quick` and `detekt` are in the list because they now carry verdicts: the
   # affected-test job is the pull request's fast signal, and detekt is judged
   # in its own job. A gate that does not wait for them reports green while
-  # their verdicts are still missing. `coverage` is in the list for the same
-  # reason, and it is SKIPPED on an ordinary pull request — a skipped job is a
-  # valid outcome below, and the coverage job runs where a coverage measurement
-  # is wanted.
+  # their verdicts are still missing. The coverage measurement needs no entry:
+  # it is two conditional steps of `tests`, which is already in the list, and a
+  # skipped step is not a job the gate waits for.
   ci-gate:
     name: CI gate
     if: ${{ always() }}

@@ -56,6 +56,24 @@ class BuildPatchDiffTest {
 
     private fun opsOf(patch: DeltaPatch) = patch.ops.associate { it.field to it.op }
 
+    /**
+     * Promotes the entity's in-flight state to confirmed, as a push response does.
+     *
+     * The diff base is the confirmed state — what the server is known to hold — so a
+     * test that wants a base other than "the server has nothing" has to say the
+     * server has the state first.
+     */
+    private suspend fun confirmPending(shadowDao: FakeSyncShadowDao, patch: DeltaPatch) {
+        val inFlight = assertNotNull(
+            shadowDao.state("owner-1", "profile-a", DocType.Task.key, patch.entityId),
+        ).inFlightJson
+        assertEquals(
+            1,
+            shadowDao.confirm("owner-1", "profile-a", DocType.Task.key, patch.entityId, patch.patchId, inFlight!!),
+            "the patch still owns the in-flight state, so the promotion has to go through",
+        )
+    }
+
     // ─── The diff itself ──────────────────────────────────────────────────────
 
     @Test
@@ -64,7 +82,10 @@ class BuildPatchDiffTest {
         val builder = builder(shadowDao)
 
         // First upload: the server has nothing, so it needs everything.
-        builder.build(entity("title" to "Buy milk", "dueDate" to "2026-10-05"), scope, NOW)
+        val first = builder.build(entity("title" to "Buy milk", "dueDate" to "2026-10-05"), scope, NOW)
+        // The server confirms it. Only now does it hold the title, and only now can
+        // the next patch leave the title out.
+        confirmPending(shadowDao, first)
         // Second: the user moves the due date. The title did not change.
         val patch = builder.build(entity("title" to "Buy milk", "dueDate" to "2026-10-06"), scope, NOW)
 
@@ -109,7 +130,9 @@ class BuildPatchDiffTest {
         val shadowDao = FakeSyncShadowDao()
         val builder = builder(shadowDao)
 
-        builder.build(entity("title" to "Buy milk", "legacy" to "x"), scope, NOW)
+        val first = builder.build(entity("title" to "Buy milk", "legacy" to "x"), scope, NOW)
+        // The server holds the field now, so its removal has to be said out loud.
+        confirmPending(shadowDao, first)
         val patch = builder.build(entity("title" to "Buy milk"), scope, NOW)
 
         // Silence would be indistinguishable from "this client never knew the field",
@@ -122,7 +145,9 @@ class BuildPatchDiffTest {
         val shadowDao = FakeSyncShadowDao()
         val builder = builder(shadowDao)
 
-        builder.build(entity("title" to "Buy milk"), scope, NOW)
+        val first = builder.build(entity("title" to "Buy milk"), scope, NOW)
+        // The server has the entity, so re-saving it has nothing to say.
+        confirmPending(shadowDao, first)
         val patch = builder.build(entity("title" to "Buy milk"), scope, NOW)
 
         assertTrue(patch.ops.isEmpty(), "re-saving without editing must send nothing")
@@ -131,18 +156,23 @@ class BuildPatchDiffTest {
     // ─── The base the diff is taken against ───────────────────────────────────
 
     @Test
-    fun `the diff is taken against the in-flight state, not the confirmed one`() = runTest {
+    fun `the diff is taken against the confirmed state, not the in-flight state`() = runTest {
         val shadowDao = FakeSyncShadowDao()
         val builder = builder(shadowDao)
 
         builder.build(entity("title" to "A", "note" to "n"), scope, NOW) // patch 1, in flight
-        val patch2 = builder.build(entity("title" to "B", "note" to "n"), scope, NOW) // title only
+        val patch2 = builder.build(entity("title" to "B", "note" to "n"), scope, NOW)
 
-        // Patch 1 has not been pushed, so the server does not have "note" from *this*
-        // client yet. If patch 2 re-sent it, both patches would write it and the
-        // payload would be twice the necessary size for as long as the outbox is
-        // non-empty — with no counter anywhere to show it.
-        assertEquals(listOf("title"), patch2.ops.map { it.field })
+        // Patch 1 has not been pushed, so the server holds nothing from this client
+        // yet — and coalescing deletes the queued row before inserting the new one,
+        // so the fields only patch 1 carried have to be carried by patch 2. A diff
+        // against the in-flight state would drop "note" along with the row it was in.
+        assertEquals(listOf("note", "title"), patch2.ops.map { it.field })
+        assertEquals(
+            null,
+            jsonTitle(shadowDao, "owner-1", "profile-a"),
+            "building a patch confirms nothing, so the base is still what the server holds",
+        )
     }
 
     @Test

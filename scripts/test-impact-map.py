@@ -18,6 +18,9 @@ The answer is computed, not guessed:
   tests are the ones that know its rules;
 * a change in a named class can break every test that *mentions* that class, and
   a test that mentions a class is the test that can break because of it;
+* a change can break every gate that READS THE WHOLE TREE it is in — a gate
+  that walks `commonMain` reads every file in it, so it can break because of
+  any change in that root, whatever the change is about;
 * a changed test is a test that has to run — it may now say something different
   about the code it checks;
 * a change in the gates is not a change to the app, and the gate suite is what
@@ -85,6 +88,72 @@ if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 
 import scanning  # noqa: E402 — the path entry above is the reason for the late import
+
+#: The directory the arch suite lives in. A test there is a statement about the
+#: TREE, not about one class: `CommonMainJvmApiTest` walks every file of
+#: `commonMain`, `TestTagCoverageTest` walks every test root, and the Konsist and
+#: `SourceScan` gates read their whole source set the same way.
+#:
+#: The map's other rules are name-shaped: a scope owns its tests, and a mention
+#: is a coupling. A tree-wide gate has neither — its scope is empty (it belongs
+#: to no feature), and it mentions a class only in the sense that it reads every
+#: class. So neither rule can select it, and a change that breaks it selects
+#: nothing: the map says "these first", the developer runs them, and the gate
+#: that would have said "this is broken" is not among them.
+#:
+#: That is not hypothetical. A change that replaced `java.util.UUID` with the
+#: multiplatform `nextId()` in `DataStoreSessionStore` broke
+#: `CommonMainJvmApiTest` — the gate that forbids JVM-only APIs in `commonMain`
+#: — and the map did not select it.
+#:
+#: The DIRECTORY is the marker, not a list of calls. The first version of this
+#: rule named four calls (`walkTopDown()` and friends), and it missed
+#: `DroppedResultIsReportedTest` (`SourceScan.productionFiles()`),
+#: `SingleOfKotlinDefaultsTest` (`Konsist.scopeFromExternalDirectory`) and the
+#: `TextField*` scans: about ten fast gates still absent from the map of a
+#: `commonMain` change, and each of them reads the tree as literally as the one
+#: the rule was written for. A list of calls is a list the next helper escapes.
+ARCH_SUITE = '/arch/'
+
+#: Calls that read a whole tree, for a test that is NOT in the arch suite — a
+#: fixture-corpus test, for example. Matched against the FILE and not against
+#: the class body: the walk usually sits in a top-level or companion helper, so
+#: the class that calls it does not contain the call.
+#:
+#: These are the CALLS, not the names of the classes under test: a gate that
+#: names `java.io.File` in a list of forbidden imports mentions `File` without
+#: reading every file that uses it.
+TREE_WIDE_MARKERS: tuple[str, ...] = (
+    'walkTopDown()',
+    'Files.walk',
+    'Files.list',
+    'commonMainRoot()',
+    'jvmTestSourcesRoot()',
+    'SourceScan.',
+    'Konsist.scopeFromExternalDirectory',
+    'TextFieldShapeScan.',
+    'SelectableTextScan.',
+)
+
+#: Trees whose files a gate reads, and which the Kotlin rules below never see:
+#: `MaestroFlowTagsTest` walks every flow and fails on one without `tags:`, and
+#: `BackupRulesTest` reads the Android backup rules. A change to a file in one
+#: of these can break such a gate, so it selects the tree-wide gates too.
+#:
+#: `shared/schemas/` is NOT here, and the omission is deliberate rather than an
+#: oversight: the migration tests that read the exports reach them through
+#: `applyExportedSchema(N, …)`, a helper in another file, and they are
+#: `@Tag("slow")` — so no rule here selects them, and listing the directory
+#: would select only gates that never open it. That gap is recorded in the ADR.
+READ_TREES: tuple[str, ...] = (
+    'Maestro/',
+    'androidApp/src/main/res/',
+)
+
+#: The Gradle property that switches the coverage agent off. The property
+#: DEFAULTS to on (`settings.gradle.kts`), so a run that does not name it is
+#: instrumented.
+COVERAGE_OFF = '-Pcoverage.enabled=false'
 
 #: The source sets that hold tests, and the module each belongs to.
 TEST_SOURCE_DIRS: dict[str, str] = {
@@ -275,6 +344,19 @@ def population_tags(population: str) -> list[str]:
     return declared[population]
 
 
+def _is_tree_wide(test: TestClass) -> bool:
+    """Does this test read a source tree, rather than one class?
+
+    A gate in the arch suite decides what the tree is allowed to contain, so any
+    change to a tree it reads can break it. Outside that suite, the CALL that
+    reads a root is the marker — matched against the file, because the walk
+    usually sits in a helper above the class.
+    """
+    if ARCH_SUITE in test.path.as_posix():
+        return True
+    return any(marker in test.source for marker in TREE_WIDE_MARKERS)
+
+
 def _scope_from_tail(tail: str) -> str:
     """The scope of a path below a source root — `feature.tasks`, `core.database`.
 
@@ -433,6 +515,7 @@ def map_tests(paths: list[str], tests: list[TestClass]) -> tuple[list[str], list
     """The test classes the change can break, and why each one is in the map."""
     selected: dict[str, str] = {}
     reasons: list[str] = []
+    tree_wide = [test for test in tests if _is_tree_wide(test)]
 
     for path in paths:
         if path.startswith(GATE_AREAS):
@@ -445,9 +528,34 @@ def map_tests(paths: list[str], tests: list[TestClass]) -> tuple[list[str], list
             for test in tests:
                 if _relative(test.path) == path:
                     selected.setdefault(test.qualified_name, f'{path} — the test itself changed')
+            # And it can break a gate that reads the whole test tree — a gate
+            # that asserts every test class carries a @Tag is broken by a test
+            # class that does not, and the class that broke it is the one that
+            # changed.
+            for test in tree_wide:
+                selected.setdefault(
+                    test.qualified_name,
+                    f'{path} — the gate reads the whole tree the change is in',
+                )
             continue
 
-        if not _is_production(path) or not path.endswith('.kt'):
+        if not path.endswith('.kt'):
+            if path.startswith(READ_TREES):
+                # A gate reads this tree and the Kotlin rules below never see
+                # the file: `MaestroFlowTagsTest` walks every flow, and a flow
+                # with no `tags:` breaks it. The class that broke it is the
+                # changed file, so the gate has to run.
+                for test in tree_wide:
+                    selected.setdefault(
+                        test.qualified_name,
+                        f'{path} — the gate reads the whole tree the change is in',
+                    )
+                reasons.append(f'{path} — a tree a gate reads, not a Kotlin source')
+            else:
+                reasons.append(f'{path} — no test class claims it')
+            continue
+
+        if not _is_production(path):
             reasons.append(f'{path} — no test class claims it')
             continue
 
@@ -456,6 +564,12 @@ def map_tests(paths: list[str], tests: list[TestClass]) -> tuple[list[str], list
         for test in tests:
             if scope and test.scope == scope:
                 selected.setdefault(test.qualified_name, f'{path} — the {scope} scope')
+                continue
+            if _is_tree_wide(test):
+                selected.setdefault(
+                    test.qualified_name,
+                    f'{path} — the gate reads the whole tree the change is in',
+                )
                 continue
             if not names:
                 continue
@@ -602,8 +716,22 @@ def main(argv: list[str], paths: list[str] | None = None) -> int:
             report_empty_selection()
             return 0
         for command in commands:
-            print(' '.join(command), file=sys.stderr)
-            result = subprocess.run(command, cwd=ROOT, check=False)
+            # `-Pcoverage.enabled=false`: this is the FAST LANE, and the Kover
+            # agent is the difference between a signal and a wait — measured on
+            # this tree, the instrumented suite is 1241 s and the uninstrumented
+            # one 771 s. A run of a SUBSET of the suite measures a coverage
+            # number that describes the subset, which is not a measurement
+            # anybody can act on; the coverage job is where the measurement
+            # belongs.
+            #
+            # The flag is added HERE and not to the emitted command: `--command`
+            # prints the selection for a caller to run, and the caller decides
+            # what to run it with (the CI `quick` job adds the same flag). This
+            # path RUNS the command, so it decides for itself.
+            print(' '.join([*command, COVERAGE_OFF]), file=sys.stderr)
+            result = subprocess.run(
+                [*command, COVERAGE_OFF], cwd=ROOT, check=False,
+            )
             if result.returncode != 0:
                 return result.returncode
         return 0

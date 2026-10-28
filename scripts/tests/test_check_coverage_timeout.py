@@ -127,7 +127,7 @@ class CoverageTimeoutTest(unittest.TestCase):
         required = math.ceil(measured * 2 / 60000)
 
         job = mod._coverage_job(workflow)
-        self.assertEqual('coverage', job.job_id)
+        self.assertEqual('tests', job.job_id)
         self.assertEqual(required, job.timeout_minutes)
 
         # And the gate agrees with the arithmetic on the real tree.

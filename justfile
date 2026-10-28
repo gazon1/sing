@@ -60,6 +60,10 @@ alias tcheck := tests::check
 alias tclean := tests::clean
 alias tm     := tests::ui-maestro
 alias gm     := tests::gate-maestro
+# `ti` = the test impact map: "what does this change require?".
+# The ADR that owns the map names this command, and a command a document
+# names but the repository does not have is a command nobody runs.
+alias ti     := tests::impact
 
 # `gma` = gate-maestro with agenda (the common case).
 # Just does not support named-arg style `gm tags=agenda`; this recipe

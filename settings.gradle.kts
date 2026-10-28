@@ -87,9 +87,11 @@ plugins {
 //                              not measure coverage cannot name a coverage task
 //   -Pcoverage.enabled=true    today's behaviour, and the default
 //
-// The default is ON, because the local rehearsal is the one that measures the
-// floors: a local run that silently stopped instrumenting would report a
-// coverage number against nothing.
+// The default is ON, because the measurement is the exception and a property
+// that defaulted to OFF would silently stop instrumenting a run that asked for
+// nothing: the coverage report step passes `-Pcoverage.enabled=true`
+// explicitly, the verify step relies on the default, and the fast surfaces pass
+// `false`.
 //
 // `KoverSettingsExtensionImpl.coverageIsEnabled` is `convention(false)`, and
 // nothing in the settings DSL flips it: `KoverSettingsGradlePlugin` reads it
