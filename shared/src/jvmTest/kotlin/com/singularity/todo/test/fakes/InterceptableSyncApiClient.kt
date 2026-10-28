@@ -63,9 +63,7 @@ class InterceptableSyncApiClient(private val delegate: SyncApiClient, val authen
     override suspend fun getEventsSince(
         sinceLsn: Long,
         limit: Int,
-    ): List<SyncEvent> {
-        return delegate.getEventsSince(sinceLsn, limit)
-    }
+    ): List<SyncEvent> = delegate.getEventsSince(sinceLsn, limit)
 
     override suspend fun testConnection(): Result<Unit> {
         failWith?.let { throw it }
