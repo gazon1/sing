@@ -6,6 +6,7 @@
 appId: com.singularity.todo
 name: negative-empty-tags
 tags:
+  - scenario:NEGATIVE-06
   - regression
   - negative
 ---

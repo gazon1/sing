@@ -8,6 +8,7 @@
 appId: com.singularity.todo
 name: search-finds-task
 tags:
+  - scenario:SEARCH-01
   - system
   - smoke
 ---

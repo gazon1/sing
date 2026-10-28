@@ -1,4 +1,7 @@
 # Scenario specification for SEARCH-01.
+#
+# Claimed on `android` and carried by Maestro flow
+# `Maestro/flows/system/search-finds-task.yaml` (`scenario:SEARCH-01`).
 
 id: SEARCH-01
 title: Searching for a task's title finds the task
