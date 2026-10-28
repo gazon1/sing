@@ -87,7 +87,11 @@ class UnitOfWorkIsAtomicTest {
         }
 
         assertEquals(1, db.noteDao().getByIdForUser("n1", "u1")?.let { 1 } ?: 0, "the row did not land")
-        assertEquals(1, db.syncOutboxDao().getPending(now = 1L, ownerId = "u1", profileId = "").size, "the patch did not land")
+        assertEquals(
+            1,
+            db.syncOutboxDao().getPending(now = 1L, ownerId = "u1", profileId = "").size,
+            "the patch did not land",
+        )
     }
 
     @Test
