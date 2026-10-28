@@ -89,8 +89,9 @@ plugins {
 //
 // The default is ON, because the measurement is the exception and a property
 // that defaulted to OFF would silently stop instrumenting a run that asked for
-// nothing: the coverage surfaces pass `-Pcoverage.enabled=true` explicitly, and
-// the fast surfaces pass `false`.
+// nothing: the coverage report step passes `-Pcoverage.enabled=true`
+// explicitly, the verify step relies on the default, and the fast surfaces pass
+// `false`.
 //
 // `KoverSettingsExtensionImpl.coverageIsEnabled` is `convention(false)`, and
 // nothing in the settings DSL flips it: `KoverSettingsGradlePlugin` reads it

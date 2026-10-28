@@ -56,7 +56,7 @@ hand then is not allowed.
 
 ## The job graph — where each verdict is produced
 
-`ci.yml` carries five jobs that produce verdicts, and each one answers a
+`ci.yml` carries four jobs that produce verdicts, and each one answers a
 different question:
 
 | job | what it answers | when it runs |
@@ -64,16 +64,18 @@ different question:
 | `static` | do the gates pass, and can they still fail? | a change to the gates, or on the trunk |
 | `detekt` | is the code clean? | wherever the suite runs |
 | `quick` | do the tests THIS change can break pass? | a pull request |
-| `tests` | is the suite green, and (where asked) is the coverage floor met? | wherever app code changed; the coverage steps only on the trunk, the schedule or a pull request labelled `run-full-tests` |
+| `tests` | is the suite green, and (where asked) is the coverage floor met? | wherever app code changed; the coverage steps only on the trunk, the schedule, a manual run or a pull request labelled `run-full-tests` |
 
 Three facts about them are not obvious from the file:
 
 - **The pull-request path runs no coverage measurement.** The Kover agent is
   attached by `enableCoverage()` in `settings.gradle.kts`, and the
-  pull-request path passes `-Pcoverage.enabled=false`; the `tests` job's two
-  coverage steps pass `-Pcoverage.enabled=true` and are gated on the job's own
-  `COVERAGE_ENABLED` switch. The agent is a property of the CONFIGURATION, so
-  dropping a coverage task from an invocation does not drop the cost.
+  pull-request path passes `-Pcoverage.enabled=false`; the `tests` job's
+  coverage steps are gated on the job's own `COVERAGE_ENABLED` switch, the
+  report step passes `-Pcoverage.enabled=true`, and the verify step measures
+  because the property defaults to ON. The agent is a property of the
+  CONFIGURATION, so dropping a coverage task from an invocation does not drop
+  the cost.
 - **The control phase is conditional.** The harness that proves each gate can
   fail runs when the gate corpus changed (`scripts/**`, `config/**`,
   `.github/**`) or on the schedule — the `changes` job computes that and the

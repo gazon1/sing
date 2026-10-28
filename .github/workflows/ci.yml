@@ -1405,10 +1405,9 @@ jobs:
   # `quick` and `detekt` are in the list because they now carry verdicts: the
   # affected-test job is the pull request's fast signal, and detekt is judged
   # in its own job. A gate that does not wait for them reports green while
-  # their verdicts are still missing. `coverage` is in the list for the same
-  # reason, and it is SKIPPED on an ordinary pull request — a skipped job is a
-  # valid outcome below, and the coverage job runs where a coverage measurement
-  # is wanted.
+  # their verdicts are still missing. The coverage measurement needs no entry:
+  # it is two conditional steps of `tests`, which is already in the list, and a
+  # skipped step is not a job the gate waits for.
   ci-gate:
     name: CI gate
     if: ${{ always() }}
