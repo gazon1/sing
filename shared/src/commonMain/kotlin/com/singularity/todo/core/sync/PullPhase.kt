@@ -198,7 +198,7 @@ internal class PullPhase(
 
         var keepGoing = true
         while (keepGoing) {
-            val page = api.getEventsSince(readFrom, limit = PULL_PAGE_SIZE, profileId = scope.profileId)
+            val page = api.getEventsSince(readFrom, limit = PULL_PAGE_SIZE)
             if (page.isEmpty()) {
                 keepGoing = false
             } else {
