@@ -1,10 +1,8 @@
 package com.singularity.todo.feature.notes
 
-import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeNotesRepository
-import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
