@@ -2,7 +2,6 @@ package com.singularity.todo.feature.ai.tools
 
 import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
-import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import kotlinx.serialization.Serializable
