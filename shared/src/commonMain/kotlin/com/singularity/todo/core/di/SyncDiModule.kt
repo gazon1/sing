@@ -6,6 +6,8 @@ import com.singularity.todo.core.coroutines.loggingBackgroundFailureHandler
 import com.singularity.todo.core.platform.monoClockMillis
 import com.singularity.todo.core.sync.DataStoreSyncPrefs
 import com.singularity.todo.core.sync.HlcFactory
+import com.singularity.todo.core.sync.DataStoreHlcStore
+import com.singularity.todo.core.sync.HlcStore
 import com.singularity.todo.core.sync.OutboxService
 import com.singularity.todo.core.sync.PatchRetryPolicy
 import com.singularity.todo.core.sync.PostgrestSyncRpc
@@ -77,8 +79,11 @@ fun syncModule(): org.koin.core.module.Module = module {
             deviceIdProvider = get(),
             clock = get(),
             scope = get(),
+            hlcStore = get(),
         )
     }
+
+    single<HlcStore> { DataStoreHlcStore(get()) }
 
     // The transport is built over the RPC port rather than over the vendor client,
     // so the parsing — where a 64-bit log position is read, and where a malformed
