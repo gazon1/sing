@@ -7,8 +7,10 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import com.singularity.todo.MainActivity
 import com.singularity.todo.testing.InstrumentedTestBase
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -145,11 +147,11 @@ class CreateTaskFlowTest : InstrumentedTestBase() {
 
         // Input should be empty initially.
         val initialText = titleInput.text
-        assertNotNull("Title input should have text content", initialText)
+        assertTrue("Title input should be empty initially", initialText.isEmpty())
 
         // After typing, the field contains the typed text.
         titleInput.typeText("Editor smoke test")
-        assertNotNull(titleInput.text)
+        assertEquals("Editor smoke test", titleInput.text)
 
         scenario.close()
     }
