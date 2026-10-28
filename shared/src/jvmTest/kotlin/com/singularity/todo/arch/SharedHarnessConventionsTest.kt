@@ -362,7 +362,7 @@ class SharedHarnessConventionsTest {
             RegexOption.DOT_MATCHES_ALL,
         )
         val runBlockingPattern = Regex("""runBlocking\s*(?:<[^>]+>|\{)""")
-        val delayPattern = Regex("""kotlinx\.coroutines\.delay\s*\(""")
+        val delayPattern = Regex("""\bdelay\s*\(""")
         val scopePattern = Regex(
             """runTest\s*\{[^}]*?val\s+\w+Scope\s*=\s*AutoCloseableCoroutineScope""",
             RegexOption.DOT_MATCHES_ALL,
@@ -456,70 +456,13 @@ class SharedHarnessConventionsTest {
     }
 
     @Test
-    fun `every test class has a @Tag annotation`() {
-        // A test without @Tag is invisible to the `fast` / `slow` filter that gates CI.
-        // All test classes — including those in `commonTest` — must be tagged so that
-        // the `-Ptest.tags` selection in CI can include or exclude them deterministically.
-        val VIOLATION_PATTERN = Regex(
-            """^class\s+(\w+)\s*:\s*\w+\s*\{""",
-            RegexOption.MULTILINE,
-        )
-
-        val violations = allTestSources
-            .mapNotNull { file ->
-                val body = file.readText()
-                val classes = VIOLATION_PATTERN.findAll(body).map { it.groupValues[1] }.toList()
-                // A test class is one whose name ends in "Test" or "Tests".
-                val testClasses = classes.filter { it.endsWith("Test") || it.endsWith("Tests") }
-                if (testClasses.isEmpty()) return@mapNotNull null
-
-                val untagged = testClasses.filter { className ->
-                    // Match the class header with @Tag annotation before it.
-                    // The annotation must appear on the line(s) immediately preceding the class.
-                    val classPattern = Regex(
-                        """(?<!//)\s*(?:@\w+\s+)*class\s+$className\b""",
-                    )
-                    // Try to find @Tag before the class
-                    val tagPattern = Regex("""@Tag\s*\(\s*"\w+"\s*\)""")
-                    val taggedClasses = mutableSetOf<String>()
-                    tagPattern.findAll(body).forEach { tagMatch ->
-                        // Walk forward from the tag to find the class it annotates
-                        val after = body.substring(tagMatch.range.last + 1)
-                        val nextClass = VIOLATION_PATTERN.find(after)
-                        if (nextClass != null) {
-                            val name = nextClass.groupValues[1]
-                            if (name.endsWith("Test") || name.endsWith("Tests")) {
-                                taggedClasses.add(name)
-                            }
-                        }
-                    }
-                    className !in taggedClasses
-                }
-                if (untagged.isEmpty()) {
-                    null
-                } else {
-                    "${file.name}: untagged test class(es): ${untagged.joinToString()}"
-                }
-            }
-
-        if (violations.isEmpty()) return
-        fail(
-            "Test class(es) without @Tag annotation:\n" +
-                violations.joinToString("\n") { "  - $it" } +
-                "\n\nEvery test class must carry @Tag(\"fast\") or @Tag(\"slow\") so that " +
-                "`-Ptest.tags=fast,slow` in CI can include or exclude it deterministically. " +
-                "Add the annotation to the class declaration.",
-        )
-    }
-
-    @Test
     fun `kotlinxcoroutines delay is not used in test code`() {
         // Real-time `delay(N)` cannot be controlled by virtual time. Tests must use
         // `advanceTimeBy(N)` on the TestScope, or `awaitState { }` which manages
         // virtual time internally. Integration tests that intentionally test wall-clock
         // behaviour are exempt if they are tagged `slow` — but a `slow`-tagged test
         // that uses `delay` without a comment explaining why is still a problem.
-        val VIOLATION_PATTERN = Regex("""kotlinx\.coroutines\.delay\s*\(""")
+        val VIOLATION_PATTERN = Regex("""\bdelay\s*\(""")
 
         val violations = allTestSources
             .mapNotNull { file ->

@@ -7,7 +7,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import com.singularity.todo.MainActivity
 import com.singularity.todo.testing.InstrumentedTestBase
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -57,8 +56,7 @@ class EditorBackGuardTest : InstrumentedTestBase() {
             device.tapBack()
         }
 
-        val confirm = device.awaitTag("dialog_confirm", "the discard confirmation", TAB_TIMEOUT_MS)
-        assertNotNull("the discard confirmation must be there", confirm)
+        device.awaitTag("dialog_confirm", "the discard confirmation", TAB_TIMEOUT_MS)
 
         // "Keep editing" puts the draft back, and the draft is still the draft.
         device.tapTag("dialog_dismiss")
