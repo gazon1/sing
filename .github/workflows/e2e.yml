@@ -5,8 +5,13 @@ name: E2E (Maestro)
 #
 #   PR labelled `run-maestro` -> smoke  (re-runs on every new push while labelled)
 #   push to main               -> smoke
-#   nightly cron               -> full, 4 shards
+#   nightly cron               -> full
 #   manual                     -> either
+#
+# Both suites run on the shard count config/docs/e2e-shards.txt gives them: the
+# smoke suite is the tag-selected subset, and one shard of it used to cost more
+# than one shard of the full suite — the pull-request path was the slowest
+# thing in the workflow, and it was called the minimal one.
 #
 # The APK is built ONCE here and shared by every shard. Before this, the debug APK
 # was assembled about six times across ci.yml and the four nightly shards.
@@ -18,7 +23,7 @@ on:
   workflow_dispatch:
     inputs:
       suite:
-        description: "smoke = tagged subset, full = every flow in 4 shards"
+        description: "smoke = the tagged subset, full = every flow; shards per config/docs/e2e-shards.txt"
         type: choice
         options: [smoke, full]
         default: smoke

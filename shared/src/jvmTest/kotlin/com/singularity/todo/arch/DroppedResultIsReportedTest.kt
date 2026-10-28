@@ -103,10 +103,10 @@ class DroppedResultIsReportedTest {
                 "violating.",
         )
 
-        val offenders = SourceScan.productionFiles().flatMap { file ->
-            droppedCallsIn(KotlinText.stripComments(file.readText()), declarations, selfReporting)
+        val offenders = SourceScan.productionSources.flatMap { source ->
+            droppedCallsIn(source.text, declarations, selfReporting)
                 .map {
-                    "${file.name}:${it.line} ${it.receiver}.${it.method}() " +
+                    "${source.file.name}:${it.line} ${it.receiver}.${it.method}() " +
                         "returns a Result and nothing looks at it"
                 }
         }
@@ -398,7 +398,7 @@ class DroppedResultIsReportedTest {
      * question of the one place that must answer it.
      */
     private fun selfReportingMethods(): Set<MethodKey> {
-        val sources = SourceScan.productionFiles().map { KotlinText.stripComments(it.readText()) }
+        val sources = SourceScan.productionSources.map { it.text }
         val direct = sources.flatMapTo(mutableSetOf()) { capturesAndReports(it) }
         return closeOver(direct, declaredMethods(), sources)
     }
@@ -666,8 +666,8 @@ class DroppedResultIsReportedTest {
 
     /** declaring type -> (method -> does it return Result?). */
     private fun declaredMethods(): Map<String, Map<String, Boolean>> =
-        SourceScan.productionFiles().fold(mutableMapOf<String, Map<String, Boolean>>()) { acc, file ->
-            acc += declaredMethodsIn(KotlinText.stripComments(file.readText()))
+        SourceScan.productionSources.fold(mutableMapOf<String, Map<String, Boolean>>()) { acc, source ->
+            acc += declaredMethodsIn(source.text)
             acc
         }
 

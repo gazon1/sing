@@ -3,6 +3,7 @@
 appId: com.singularity.todo
 name: negative-empty-projects
 tags:
+  - scenario:NEGATIVE-03
   - regression
   - negative
 ---

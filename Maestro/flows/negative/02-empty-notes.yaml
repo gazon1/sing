@@ -2,6 +2,7 @@
 appId: com.singularity.todo
 name: negative-empty-notes
 tags:
+  - scenario:NEGATIVE-02
   - regression
   - negative
 ---

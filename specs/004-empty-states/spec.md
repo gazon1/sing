@@ -20,7 +20,7 @@ A new user opens a screen that has nothing in it yet. Every list in the app star
 
 1. **Given** no tasks exist, **When** the user opens Inbox, **Then** the empty state names what is missing rather than showing a blank list.
 2. **Given** no notes exist, **When** the user opens the notes list, **Then** the empty state is shown.
-3. **Given** no projects exist, **When** the user opens the Plans tab, **Then** the empty state is shown.
+3. **Given** no projects exist, **When** the user opens the projects list, **Then** the empty state is shown.
 4. **Given** nothing is archived, **When** the user opens the Archive screen, **Then** the empty state is shown.
 5. **Given** no tags exist, **When** the user opens the Tags tab of Settings, **Then** the empty state is shown.
 
@@ -61,7 +61,7 @@ scenarios:
     status: confirmed
     targets: [android]
   - id: NEGATIVE-03
-    title: The Plans tab shows an empty state with no projects
+    title: The projects list shows an empty state with no projects
     area: feature.negative
     priority: P1
     status: confirmed

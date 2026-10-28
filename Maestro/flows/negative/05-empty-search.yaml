@@ -2,6 +2,7 @@
 appId: com.singularity.todo
 name: negative-empty-search
 tags:
+  - scenario:NEGATIVE-05
   - regression
   - negative
 ---
