@@ -589,19 +589,17 @@ tasks.withType<Test>().configureEach {
     )
 }
 
-// Force jvmTest to fork a new JVM for each test class.
-// This prevents KoinPlatform global state from leaking between tests that
-// call startKoin()/stopKoin() vs koinApplication().
+// Per-class JVM forking is disabled (forkEvery = 0).
 //
-// It is also load-bearing for a second reason that is easy to lose: this task runs
-// BackgroundFailureHandlerTest, and that handler is process-wide mutable state. A
-// fresh JVM per class is what stops one class's installed target from receiving a
-// failure raised in another class that happens to run at the same moment. Raising
-// forkEvery for build speed would silently make that test order-dependent, so the
-// value is published as a system property and asserted by ForkEveryIsolationTest
-// rather than left as a comment here.
+// It used to be 1 for three reasons, all of which no longer hold:
+//   - Koin global state: cleaned up per class by KoinIsolationExtension
+//     (stopKoin() in @AfterAll).
+//   - BackgroundFailureHandler: now a value, not process-wide mutable state.
+//   - FileSystemContract temp paths: unique via RUN_ID (UUID) + atomic counter.
+//
+// The value is published as a system property and asserted by ForkEveryIsolationTest.
 tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
-    forkEvery = 1
+    forkEvery = 0
 
     // The run manifest is written by the ROOT build script, for every module.
     // It used to be written here, by this module alone, and the gate that asks
@@ -612,9 +610,8 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     // manifest is a convention, not a copy in one module.
 
     // Published so `ForkEveryIsolationTest` can assert the invariant instead of trusting a
-    // comment here. It is load-bearing twice over: KoinPlatform state between classes, and —
-    // as of the background-handler migration — the `FileSystemContract` temp paths, which
-    // rely on one class per process for their uniqueness.
+    // comment here. Per-class forking is now off; Koin state is cleaned up per class by
+    // KoinIsolationExtension.
     systemProperty("jvmTest.forkEvery", forkEvery.toString())
 
     // mergeReruns=true: retry attempts (when -Dretry.maxAttempts > 1 is passed) merge
@@ -630,9 +627,9 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     //
     // Scaled to the machine, not fixed: CI runners have 2-4 cores, and four forks
     // there oversubscribe rather than speed anything up. Half the cores, capped at
-    // four, because each fork reserves `maxHeapSize` and four of them is already
-    // 12 GB reserved.
-    maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, 4)
+    // eight: each fork reserves `maxHeapSize` (1.5 GB), so eight forks reserve
+    // ~12 GB. Raise the cap further only after re-checking the heap budget.
+    maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, 8)
     // Apply heap directly to the jvmTest fork — the global configureEach above
     // also sets this, but being explicit avoids ordering ambiguity.
     maxHeapSize = testTaskHeap

@@ -35,9 +35,9 @@ useJUnitPlatform {
 | `FakeClock` | Safe | Immutable `Instant` field, updated by single coroutine in test |
 | `SequenceIdGenerator` | Safe | `AtomicInteger.incrementAndGet()` |
 | `FakeAuthRepository._currentSession` | Safe | Single writer (test setup), many readers |
-| Koin DI graph | Unsafe | `forkEvery=1` isolates each jvmTest class in its own JVM |
+| Koin DI graph | Unsafe in-process | Cleaned up per class by `KoinIsolationExtension` (`stopKoin()` in `@AfterAll`); `forkEvery=0` |
 
-`forkEvery = 1` on `jvmTest` prevents Koin global state from leaking between test classes.
+`forkEvery = 0` on `jvmTest`: Koin global state is cleaned up per class by `KoinIsolationExtension` instead of per-JVM forking.
 
 ### D3: No `@Execution(SAME_THREAD)` required
 
