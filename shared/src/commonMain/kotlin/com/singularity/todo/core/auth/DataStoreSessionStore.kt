@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.singularity.todo.core.datastore.catchDataStoreIoError
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.sync.DeviceIdProvider
+import kotlin.uuid.Uuid
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -80,7 +81,7 @@ class DataStoreSessionStore(private val dataStore: DataStore<Preferences>, priva
         .map { it[USER_EMAIL] }
 
     // Per-process nonce so two processes sharing one SQLite file mint distinct node ids.
-    private val processNonce: String = java.util.UUID.randomUUID().toString().take(8)
+    private val processNonce: String = Uuid.random().toString().take(8)
 
     // Lazily initialized on first getOrInitDeviceId() call — not blocking at construction.
     private var _deviceId: String? = null

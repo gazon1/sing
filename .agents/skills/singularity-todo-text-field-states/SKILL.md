@@ -297,6 +297,7 @@ Paths are relative to `shared/src/commonMain/kotlin/com/singularity/todo/`.
 | `feature/notes/presentation/screen/NotesListScreen.kt` | local, bridged | the quick-add row (local) and the search query (bridged) |
 | `feature/profile/ProfileSwitcherScreen.kt` | local | the profile's name |
 | `feature/profile/presentation/ChangePasswordScreen.kt` | local | the password field |
+| `feature/projects/presentation/components/IconPickerSheet.kt` | local | the custom emoji |
 | `feature/projects/presentation/screen/ProjectDetailBody.kt` | local | the two fields of the body |
 | `feature/projects/presentation/screen/ProjectDetailHero.kt` | bridged | the name, the description |
 | `feature/projects/presentation/screen/ProjectEditorScreen.kt` | bridged | the name, the description |

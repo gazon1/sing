@@ -192,7 +192,7 @@ open class FakeSyncApiClient(
         return if (pushResponses.isNotEmpty()) pushResponses.removeFirst() else pushResponse
     }
 
-    override suspend fun getEventsSince(sinceLsn: Long, limit: Int, profileId: String): List<SyncEvent> {
+    override suspend fun getEventsSince(sinceLsn: Long, limit: Int): List<SyncEvent> {
         pullCalls.add(authenticatedAs to sinceLsn)
         failWith?.let { throw it }
         return pullEvents

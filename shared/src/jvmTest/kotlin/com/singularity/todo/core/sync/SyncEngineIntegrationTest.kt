@@ -147,7 +147,6 @@ class SyncEngineIntegrationTest {
                     override suspend fun getEventsSince(
                         sinceLsn: Long,
                         limit: Int,
-                        profileId: String,
                     ): List<SyncEvent> =
                         throw IllegalStateException("network failure during pull")
                 }
@@ -187,7 +186,6 @@ class SyncEngineIntegrationTest {
                     override suspend fun getEventsSince(
                         sinceLsn: Long,
                         limit: Int,
-                        profileId: String,
                     ): List<SyncEvent> =
                         throw IllegalStateException("server error")
                 }

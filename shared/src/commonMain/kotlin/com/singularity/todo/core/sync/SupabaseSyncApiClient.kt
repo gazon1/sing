@@ -60,14 +60,13 @@ class SupabaseSyncApiClient(private val rpc: SyncRpc) : SyncApiClient {
         )
     }
 
-    override suspend fun getEventsSince(sinceLsn: Long, limit: Int, profileId: String): List<SyncEvent> {
+    override suspend fun getEventsSince(sinceLsn: Long, limit: Int): List<SyncEvent> {
         val body = callRpc("sync_events_since") { function ->
             rpc.call(
                 function,
                 buildJsonObject {
                     put("p_since_lsn", JsonPrimitive(sinceLsn))
                     put("p_limit", JsonPrimitive(limit))
-                    put("p_profile", JsonPrimitive(profileId))
                 },
             )
         }
