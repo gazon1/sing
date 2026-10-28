@@ -125,7 +125,11 @@ interface NotesRepository :
      * Creates a daily note for [dateKey], optionally seeded from [fromTemplateId].
      * If a daily note for that date already exists, returns its id.
      */
-    suspend fun getOrCreateDailyNote(dateKey: String, projectId: ProjectId? = null, fromTemplateId: NoteId? = null): Result<NoteId>
+    suspend fun getOrCreateDailyNote(
+        dateKey: String,
+        projectId: ProjectId? = null,
+        fromTemplateId: NoteId? = null,
+    ): Result<NoteId>
 
     // ─── Task-linked notes ────────────────────────────────────────────────────
 
