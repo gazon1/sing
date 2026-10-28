@@ -13,8 +13,28 @@ class SyncOutboxClaimFakeTest {
     fun getPending_excludesClaimedRows() = runTest {
         val dao = FakeSyncOutboxDao()
         val now = 1000L
-        dao.insert(SyncOutboxEntity(patchId = "p1", ownerId = "o", profileId = "pr", entityId = "e", entityType = "t", payload = "{}", createdAt = 1L))
-        dao.insert(SyncOutboxEntity(patchId = "p2", ownerId = "o", profileId = "pr", entityId = "e2", entityType = "t", payload = "{}", createdAt = 2L))
+        dao.insert(
+            SyncOutboxEntity(
+                patchId = "p1",
+                ownerId = "o",
+                profileId = "pr",
+                entityId = "e",
+                entityType = "t",
+                payload = "{}",
+                createdAt = 1L,
+            ),
+        )
+        dao.insert(
+            SyncOutboxEntity(
+                patchId = "p2",
+                ownerId = "o",
+                profileId = "pr",
+                entityId = "e2",
+                entityType = "t",
+                payload = "{}",
+                createdAt = 2L,
+            ),
+        )
         dao.claim(listOf("p1"), now)
         val pending = dao.getPending(now, "o", "pr")
         assertEquals(listOf("p2"), pending.map { it.patchId })
@@ -24,7 +44,17 @@ class SyncOutboxClaimFakeTest {
     fun claim_setsClaimedAt() = runTest {
         val dao = FakeSyncOutboxDao()
         val now = 1000L
-        dao.insert(SyncOutboxEntity(patchId = "p1", ownerId = "o", profileId = "pr", entityId = "e", entityType = "t", payload = "{}", createdAt = 1L))
+        dao.insert(
+            SyncOutboxEntity(
+                patchId = "p1",
+                ownerId = "o",
+                profileId = "pr",
+                entityId = "e",
+                entityType = "t",
+                payload = "{}",
+                createdAt = 1L,
+            ),
+        )
         dao.claim(listOf("p1"), now)
         assertTrue(dao.rows.first().claimedAt == now)
     }
@@ -33,7 +63,18 @@ class SyncOutboxClaimFakeTest {
     fun markFailed_clearsClaimedAt() = runTest {
         val dao = FakeSyncOutboxDao()
         val now = 1000L
-        dao.insert(SyncOutboxEntity(patchId = "p1", ownerId = "o", profileId = "pr", entityId = "e", entityType = "t", payload = "{}", createdAt = 1L, claimedAt = now))
+        dao.insert(
+            SyncOutboxEntity(
+                patchId = "p1",
+                ownerId = "o",
+                profileId = "pr",
+                entityId = "e",
+                entityType = "t",
+                payload = "{}",
+                createdAt = 1L,
+                claimedAt = now,
+            ),
+        )
         dao.markFailed("p1", "err", now + 100)
         assertEquals(null, dao.rows.first().claimedAt)
     }
