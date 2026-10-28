@@ -211,6 +211,8 @@ non-alphanumeric characters with `_`.
 | `SEARCH_MODE_CONTAINS` | `search_mode_contains` | |
 | `SEARCH_MODE_CONTAINS_NOTE` | `search_mode_contains_note` | |
 | `SEARCH_MODE_WORD` | `search_mode_word` | |
+| `SavedSearches.SAVE_CHIP` | `search_save_chip` | |
+| `SavedSearches.SAVE_DIALOG_CONFIRM` | `search_save_dialog_confirm` | |
 | `SavedSearches.SEARCH_MENU_DELETE` | `search_menu_delete` | |
 | `SavedSearches.SEARCH_MENU_RENAME` | `search_menu_rename` | |
 
