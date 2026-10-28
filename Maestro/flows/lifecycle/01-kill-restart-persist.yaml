@@ -9,9 +9,9 @@ tags:
   - lifecycle
 ---
 - runFlow: ../../helpers/seed-task.yaml
-- stopApp
-- launchApp:
-    appId: com.singularity.todo
+# The sanctioned restart: the process is stopped, so the row can only be there
+# if it was persisted.
+- runFlow: ../../helpers/relaunch.yaml
 - extendedWaitUntil:
     visible:
       id: nav_tab_today

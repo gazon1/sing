@@ -47,11 +47,8 @@ tags:
       text: "https://example.com/persist"
     timeout: 5000
 
-# Force restart the app.
-- launchApp:
-    appId: com.singularity.todo
-    clearState: false
-    stopApp: true
+# Force restart the app — the sanctioned restart, which keeps the database.
+- runFlow: ../../helpers/relaunch.yaml
 - extendedWaitUntil:
     visible:
       id: nav_tab_today

@@ -5,6 +5,7 @@
 appId: com.singularity.todo
 name: pomodoro-start-focus-task
 tags:
+  - scenario:POMODORO-02
   - regression
   - pomodoro
 ---
@@ -22,6 +23,10 @@ tags:
     visible:
       id: pomodoro_focus_chip
     timeout: 8000
-# Tapping the chip both selects and starts, so the phase is already running.
+# Tapping the chip both selects and starts. The pause control only exists while
+# the timer runs, so this is what proves the start — the phase label is visible
+# either way.
+- assertVisible:
+    id: pomodoro_pause_button
 - assertVisible:
     id: pomodoro_phase_label

@@ -1,7 +1,9 @@
 package com.singularity.todo.core.ui.text
 
 import org.junit.jupiter.api.Tag
-import kotlin.test.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -21,138 +23,101 @@ class TextLinkDetectorTest {
     private fun internalUrls(text: String): List<String> =
         TextLinkDetector.detect(text).mapNotNull { (it.link as? TextLink.Internal)?.target?.url }
 
-    // ─── web links ───────────────────────────────────────────────────────────
+    /** Every detected link as its URL, whether web or internal. */
+    private fun allUrls(text: String): List<String> =
+        TextLinkDetector.detect(text).map { span ->
+            (span.link as? TextLink.Web)?.url ?: (span.link as TextLink.Internal).target.url
+        }
 
-    @Test
-    fun `finds an https link`() {
-        assertEquals(listOf("https://example.com"), webUrls("https://example.com"))
-    }
+    companion object {
+        @JvmStatic
+        fun webCases(): List<Arguments> = listOf(
+            Arguments.of("https://example.com", listOf("https://example.com")),
+            Arguments.of("http://example.com", listOf("http://example.com")),
+            Arguments.of("www.example.com", listOf("https://www.example.com")),
+            // ── Not links ────────────────────────────────────────────────────
+            Arguments.of("3.14", emptyList<String>()),
+            Arguments.of("2.5.6", emptyList<String>()),
+            Arguments.of("file.txt", emptyList<String>()),
+            Arguments.of("just a sentence", emptyList<String>()),
+            Arguments.of("", emptyList<String>()),
+            // ── Inside a sentence ────────────────────────────────────────────
+            Arguments.of("see https://example.com for more", listOf("https://example.com")),
+            // ── Trailing punctuation ─────────────────────────────────────────
+            Arguments.of("https://example.com.", listOf("https://example.com")),
+            Arguments.of("https://example.com, then more", listOf("https://example.com")),
+            // A bracket the address itself opened stays.
+            Arguments.of(
+                "https://en.wikipedia.org/wiki/Foo_(bar)",
+                listOf("https://en.wikipedia.org/wiki/Foo_(bar)"),
+            ),
+            // A bracket the sentence opened, or one with no partner, is dropped.
+            Arguments.of("(https://example.com)", listOf("https://example.com")),
+            Arguments.of("https://example.com)", listOf("https://example.com")),
+            Arguments.of("https://example.com!", listOf("https://example.com")),
+            Arguments.of("https://example.com;", listOf("https://example.com")),
+            Arguments.of("https://example.com:", listOf("https://example.com")),
+            Arguments.of("https://example.com?", listOf("https://example.com")),
+        )
 
-    @Test
-    fun `finds an http link`() {
-        assertEquals(listOf("http://example.com"), webUrls("http://example.com"))
-    }
+        @JvmStatic
+        fun internalCases(): List<Arguments> = listOf(
+            Arguments.of("note://abc", listOf("note://abc")),
+            Arguments.of("task://xyz", listOf("task://xyz")),
+            // A foreign scheme is not one of ours.
+            Arguments.of("xnote://abc", emptyList<String>()),
+            Arguments.of("notask://abc", emptyList<String>()),
+            // The scheme is matched as the app writes it.
+            Arguments.of("NOTE://abc", emptyList<String>()),
+            Arguments.of("Note://abc", emptyList<String>()),
+        )
 
-    @Test
-    fun `finds a www link and gives it a scheme`() {
-        assertEquals(listOf("https://www.example.com"), webUrls("www.example.com"))
-    }
-
-    @Test
-    fun `finds nothing in a version number`() {
-        assertTrue(TextLinkDetector.detect("3.14").isEmpty())
-        assertTrue(TextLinkDetector.detect("2.5.6").isEmpty())
-    }
-
-    @Test
-    fun `finds nothing in a file name`() {
-        assertTrue(TextLinkDetector.detect("file.txt").isEmpty())
-    }
-
-    @Test
-    fun `finds a link inside a sentence`() {
-        assertEquals(listOf("https://example.com"), webUrls("see https://example.com for more"))
-    }
-
-    // ─── trailing punctuation ─────────────────────────────────────────────────
-
-    @Test
-    fun `drops the full stop that ends the sentence`() {
-        assertEquals(listOf("https://example.com"), webUrls("https://example.com."))
-    }
-
-    @Test
-    fun `drops the comma that ends the clause`() {
-        assertEquals(listOf("https://example.com"), webUrls("https://example.com, then more"))
-    }
-
-    @Test
-    fun `keeps a bracket that the address itself opened`() {
-        assertEquals(
-            listOf("https://en.wikipedia.org/wiki/Foo_(bar)"),
-            webUrls("https://en.wikipedia.org/wiki/Foo_(bar)"),
+        @JvmStatic
+        fun structureCases(): List<Arguments> = listOf(
+            Arguments.of(
+                "see https://example.com and note://abc and task://xyz",
+                listOf("https://example.com", "note://abc", "task://xyz"),
+            ),
+            Arguments.of(
+                "https://example.com/x note://abc",
+                listOf("https://example.com/x", "note://abc"),
+            ),
+            // A web address that contains something link-shaped stays one link.
+            Arguments.of(
+                "https://example.com/?ref=note://abc",
+                listOf("https://example.com/?ref=note://abc"),
+            ),
+            Arguments.of("go note://abc now", listOf("note://abc")),
         )
     }
 
-    @Test
-    fun `drops a bracket that the sentence opened`() {
-        assertEquals(listOf("https://example.com"), webUrls("(https://example.com)"))
+    @ParameterizedTest
+    @MethodSource("webCases")
+    fun `web links are detected with the right bounds`(text: String, expected: List<String>) {
+        assertEquals(expected, webUrls(text))
     }
 
-    @Test
-    fun `drops a bracket that has no partner`() {
-        assertEquals(listOf("https://example.com"), webUrls("https://example.com)"))
+    @ParameterizedTest
+    @MethodSource("internalCases")
+    fun `internal links are detected only for the app's own schemes`(text: String, expected: List<String>) {
+        assertEquals(expected, internalUrls(text))
     }
 
-    @Test
-    fun `drops trailing punctuation that is not a bracket`() {
-        assertEquals(listOf("https://example.com"), webUrls("https://example.com!"))
-        assertEquals(listOf("https://example.com"), webUrls("https://example.com;"))
-        assertEquals(listOf("https://example.com"), webUrls("https://example.com:"))
-        assertEquals(listOf("https://example.com"), webUrls("https://example.com?"))
-    }
-
-    // ─── internal links ──────────────────────────────────────────────────────
-
-    @Test
-    fun `finds an internal note link`() {
-        assertEquals(listOf("note://abc"), internalUrls("note://abc"))
-    }
-
-    @Test
-    fun `finds an internal task link`() {
-        assertEquals(listOf("task://xyz"), internalUrls("task://xyz"))
-    }
-
-    @Test
-    fun `does not take a foreign scheme for one of ours`() {
-        assertTrue(internalUrls("xnote://abc").isEmpty())
-        assertTrue(internalUrls("notask://abc").isEmpty())
-    }
-
-    @Test
-    fun `the scheme is matched as the app writes it`() {
-        assertTrue(internalUrls("NOTE://abc").isEmpty())
-        assertTrue(internalUrls("Note://abc").isEmpty())
-    }
-
-    // ─── several links ───────────────────────────────────────────────────────
-
-    @Test
-    fun `finds several links in one line`() {
-        val text = "see https://example.com and note://abc and task://xyz"
+    @ParameterizedTest
+    @MethodSource("structureCases")
+    fun `several links are ordered, disjoint and cover exactly their text`(text: String, expected: List<String>) {
         val links = TextLinkDetector.detect(text)
-        assertEquals(3, links.size)
-        assertEquals(
-            listOf("https://example.com", "note://abc", "task://xyz"),
-            links.map { it.link.let { l -> (l as? TextLink.Web)?.url ?: (l as TextLink.Internal).target.url } },
-        )
-    }
-
-    @Test
-    fun `the links do not overlap`() {
-        val links = TextLinkDetector.detect("https://example.com/x note://abc")
-        assertEquals(2, links.size)
-        assertTrue(links[0].range.last < links[1].range.first)
-    }
-
-    @Test
-    fun `a web address that contains something link-shaped is one link`() {
-        val links = TextLinkDetector.detect("https://example.com/?ref=note://abc")
-        assertEquals(1, links.size)
-        assertEquals("https://example.com/?ref=note://abc", (links.single().link as TextLink.Web).url)
-    }
-
-    @Test
-    fun `the range of a link covers the link and nothing else`() {
-        val text = "go note://abc now"
-        val span = TextLinkDetector.detect(text).single()
-        assertEquals("note://abc", text.substring(span.range.first, span.range.last + 1))
-    }
-
-    @Test
-    fun `finds nothing in plain text`() {
-        assertTrue(TextLinkDetector.detect("just a sentence").isEmpty())
-        assertTrue(TextLinkDetector.detect("").isEmpty())
+        assertEquals(expected, allUrls(text))
+        assertEquals(expected.size, links.size)
+        links.forEachIndexed { index, span ->
+            assertEquals(
+                expected[index],
+                text.substring(span.range.first, span.range.last + 1),
+                "span $index must cover exactly its link",
+            )
+            if (index > 0) {
+                assertTrue(links[index - 1].range.last < span.range.first, "spans must not overlap")
+            }
+        }
     }
 }

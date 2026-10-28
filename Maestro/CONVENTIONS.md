@@ -107,7 +107,17 @@ A flow does not inherit a session from the flow before it, and it does not
 leave one behind for the flow after it: the runner restarts the app before
 every flow, and the E2E build keeps the session in the process. A flow that
 needs a *signed-out* app says so itself, with the `session-signedout.yaml`
-helper — never with `clearState: true`, which takes the app's data with it.
+helper.
+
+`clearState: true` takes the app's data with it, and the data belongs to the
+runner, which wipes the active profile before every flow — so no flow may
+clear state to get a clean start. The two that do,
+`auth/08-signup-network-error.yaml` and `auth/09-signin-network-error.yaml`,
+need it: the server-configuration screen only appears when no server is
+configured, and a first-run app is the only way to reach it. They carry
+`manual` and are not tagged `smoke`; the nightly full suite runs every flow in
+`config/docs/maestro-flows.txt`, these two included. A flow that clears state
+says so in its header.
 
 ### Dates and locale
 
@@ -194,15 +204,29 @@ budget; it is a fallback for animations, and its timeout is its own.
 
 ## Smoke Subset
 
-The `smoke` tag marks the minimal regression suite run on every PR. Keep it fast and reliable.
+The `smoke` tag marks the suite a pull request runs. The tag is the
+selection, not a directory: every flow that declares `smoke` is in the suite,
+wherever the flow lives. `scripts/src/emulator/maestro/_flow.py` reads the
+tag, `scripts/ci/check-maestro-results.py` measures the same set, and
+`scripts/check-maestro-smoke-suite.py` holds this number to the tag.
 
-Current smoke flows (6):
-1. `smoke/01-launch-today.yaml` — app launches, Today tab visible
-2. `smoke/tasks/04-delete.yaml` — task delete via overflow menu
-3. `smoke/tasks/05-archive-via-menu.yaml` — long-press opens context menu + archive
-4. `smoke/settings/03-cycle-tabs.yaml` — Settings opens and all 11 tabs cycle without crash
-5. `smoke/settings/02-menu-settings.yaml` — menu → Settings → back
-6. `smoke/system/menu-sheet.yaml` — menu sheet opens (may be same as 05)
+Current smoke flows (27):
+
+The flows are not written out here on purpose. A written-out list is a second
+place for the suite to be wrong, and this one was wrong for months: it said
+six, four of the six paths it named did not exist, and the tag had meanwhile
+spread to dozens of flows. Nobody noticed, because the tag is what selects and
+the prose is what people plan against. To see the flows:
+
+    python3 scripts/check-maestro-smoke-suite.py --list
+
+The suite runs on the shard count `config/docs/e2e-shards.txt` gives it, so a
+pull request pays well under half of what one full-suite shard pays. It used to
+run on one, and by the time the tag had spread, that single shard was doing
+nearly a full-suite shard's work on one runner — the pull-request path was the
+longest thing in the workflow, and it was called the minimal one. The gate
+holds that too: a smoke shard that costs more than a full-suite shard is a
+finding, so the tag cannot quietly grow past the shard count.
 
 ---
 

@@ -18,7 +18,7 @@ the table carries the one-line version so a row is readable in a diff.
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-**128 scenarios · 76/169 claimed cells automated · 93 holes**
+**128 scenarios · 86/169 claimed cells automated · 83 holes**
 
 ## feature.agenda
 
@@ -117,12 +117,12 @@ the table carries the one-line version so a row is readable in a diff.
 
 | Scenario | Title | android | desktop | What we verify |
 |---|---|---|---|---|
-| `NEGATIVE-01` | The Inbox empty state names what is missing | ○ | — | An empty state is shown saying what the screen is empty of, rather than a blank list that is indistinguishable from a… |
-| `NEGATIVE-02` | The notes list shows an empty state | ○ | — | The list shows its empty state instead of rendering as an empty area with no message. |
-| `NEGATIVE-03` | The Plans tab shows an empty state with no projects | ○ | — | The tab shows its empty state rather than an unexplained blank area — a tab with nothing to show still has to say so. |
-| `NEGATIVE-04` | The Archive screen shows an empty state | ○ | — | The screen shows an empty state rather than being blank, so a user who arrives there by accident is told the archive… |
-| `NEGATIVE-05` | Search distinguishes an idle prompt from no matches | ○ | — | The empty query shows a prompt asking the user to search, and the failed search says that nothing matched — so the… |
-| `NEGATIVE-06` | The Tags tab shows an empty state | ○ | — | The tab shows its empty state. The assertion is on the screen rather than on the list container, because the… |
+| `NEGATIVE-01` | The Inbox empty state names what is missing | ● | — | An empty state is shown saying what the screen is empty of, rather than a blank list that is indistinguishable from a… |
+| `NEGATIVE-02` | The notes list shows an empty state | ● | — | The list shows its empty state instead of rendering as an empty area with no message. |
+| `NEGATIVE-03` | The projects list shows an empty state with no projects | ● | — | The list shows its empty state rather than an unexplained blank area — a list with nothing to show still has to say so. |
+| `NEGATIVE-04` | The Archive screen shows an empty state | ● | — | The screen shows an empty state rather than being blank, so a user who arrives there by accident is told the archive… |
+| `NEGATIVE-05` | Search distinguishes an idle prompt from no matches | ● | — | The empty query shows a prompt asking the user to search, and the failed search says that nothing matched — so the… |
+| `NEGATIVE-06` | The Tags tab shows an empty state | ● | — | The tab shows its empty state. The assertion is on the screen rather than on the list container, because the… |
 
 ## feature.notes
 
@@ -152,10 +152,10 @@ the table carries the one-line version so a row is readable in a diff.
 | Scenario | Title | android | desktop | What we verify |
 |---|---|---|---|---|
 | `POMODORO-01` | A fresh Pomodoro timer sits paused on work cycle 1 | ○ | — | The phase reads Work, the cycle counter reads Cycle 1, and the remaining duration shows the full work block — the… |
-| `POMODORO-02` | Selecting a task chip starts the timer on that task | ○ | — | The timer names the selected task as the focus, and the work phase is already running — selection starts the timer, so… |
-| `POMODORO-03` | Pause and resume survive the phase and cycle state | ○ | — | The timer and the Work phase are still shown after both transitions, so a pause suspends the countdown rather than… |
+| `POMODORO-02` | Selecting a task chip starts the timer on that task | ● | — | The timer names the selected task as the focus, and the work phase is already running — selection starts the timer, so… |
+| `POMODORO-03` | Pause and resume survive the phase and cycle state | ● | — | The timer and the Work phase are still shown after both transitions, so a pause suspends the countdown rather than… |
 | `POMODORO-04` | Skipping a work block starts a break and advances the cycle | ○ | — | A break phase begins, the cycle counter advances from Cycle 1 to Cycle 2, and the completed-work count reads one —… |
-| `POMODORO-05` | Stopping the session releases the focus task | ○ | — | The timer returns to an idle, paused state with the play control showing again, and the previously focused task is no… |
+| `POMODORO-05` | Stopping the session releases the focus task | ● | — | The timer returns to an idle, paused state with the play control showing again, and the previously focused task is no… |
 
 ## feature.profile
 
@@ -175,7 +175,7 @@ the table carries the one-line version so a row is readable in a diff.
 
 | Scenario | Title | android | desktop | What we verify |
 |---|---|---|---|---|
-| `SEARCH-01` | Searching for a task's title finds the task | ○ | — | The seeded task appears in the results, so the user can get back to something they stopped thinking about weeks ago… |
+| `SEARCH-01` | Searching for a task's title finds the task | ● | — | The seeded task appears in the results, so the user can get back to something they stopped thinking about weeks ago… |
 | `SEARCH-02` | Cyrillic query text is rendered and matched correctly | ● | — | The task with the Cyrillic title appears correctly in the results with its Cyrillic characters rendered as Cyrillic,… |
 | `SEARCH-03` | Clearing the search query returns to the idle prompt | ● | — | The results disappear and the idle prompt "Enter a search query" returns. The idle prompt is shown when the query is… |
 | `SEARCH-04` | Filter by has-description toggles task results | ● | — | Only the task that has a description is shown; the task without a description is filtered out. Toggling the filter off… |
@@ -283,25 +283,15 @@ Claimed but not automated:
 - `CALENDAR-03` / android
 - `LIFECYCLE-01` / android
 - `LIFECYCLE-02` / android
-- `NEGATIVE-01` / android
-- `NEGATIVE-02` / android
-- `NEGATIVE-03` / android
-- `NEGATIVE-04` / android
-- `NEGATIVE-05` / android
-- `NEGATIVE-06` / android
 - `NOTES-01` / android
 - `NOTES-02` / android
 - `NOTES-03` / android
 - `POMODORO-01` / android
-- `POMODORO-02` / android
-- `POMODORO-03` / android
 - `POMODORO-04` / android
-- `POMODORO-05` / android
 - `PROFILE-01` / android
 - `PROFILE-02` / android
 - `PROJECTS-01` / android
 - `PROJECTS-02` / android
-- `SEARCH-01` / android
 - `SETTINGS-01` / android
 - `SETTINGS-02` / android
 - `SETTINGS-03` / android

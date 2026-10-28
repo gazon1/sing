@@ -1,10 +1,10 @@
 package com.singularity.todo.core.search
 
 import org.junit.jupiter.api.Tag
-import kotlin.test.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
 
 /**
  * The word-prefix rule of the search — the semantics the full-text index
@@ -18,96 +18,82 @@ import kotlin.test.assertTrue
 @Tag("fast")
 class TextMatchTest {
 
-    @Test
-    fun `a term matches the word that starts with it`() {
-        assertTrue(TextMatch.matches("Write the quarterly report", "quarterly"))
-        assertTrue(TextMatch.matches("Write the quarterly report", "quarter"))
-        assertTrue(TextMatch.matches("Write the quarterly report", "quar"))
+    companion object {
+        @JvmStatic
+        fun matchesCases(): List<Arguments> = listOf(
+            // ── Word prefix, not "contains" ──────────────────────────────────
+            Arguments.of("Write the quarterly report", "quarterly", true),
+            Arguments.of("Write the quarterly report", "quarter", true),
+            Arguments.of("Write the quarterly report", "quar", true),
+            Arguments.of("airport logistics", "port", false),
+            // ── Case folding ─────────────────────────────────────────────────
+            Arguments.of("Quarterly Report", "quarterly", true),
+            Arguments.of("quarterly report", "QUARTERLY", true),
+            // ── Phrases ──────────────────────────────────────────────────────
+            Arguments.of("Write the quarterly report today", "quarterly report", true),
+            Arguments.of("Write the report of the quarter", "quarterly report", false),
+            // Only the last word of a phrase may be unfinished.
+            Arguments.of("Write the quarterly report today", "quarterly rep", true),
+            Arguments.of("Write the quarterly report today", "quarterly quar", false),
+            // ── Degenerate terms and text ────────────────────────────────────
+            Arguments.of("Buy milk", "!!!", false),
+            Arguments.of("Buy milk", "   ", false),
+            Arguments.of("", "milk", false),
+            Arguments.of(null, "milk", false),
+            // ── Non-ASCII is tokenized like the index does ───────────────────
+            Arguments.of("Купить молоко", "мол", true),
+            Arguments.of("Купить молоко", "МОЛОКО", true),
+            // ── Diacritics fold the way the index folds them ─────────────────
+            Arguments.of("Café au lait", "cafe", true),
+            Arguments.of("café au lait", "café", true),
+            Arguments.of("Café au lait", "CAFÉ", true),
+            // "ß" is not "ss": a character folds to one base letter or not at all.
+            Arguments.of("straße", "strasse", false),
+            Arguments.of("straße", "straße", true),
+        )
+
+        @JvmStatic
+        fun containsCases(): List<Arguments> = listOf(
+            Arguments.of("Café au lait", "cafe", true),
+            Arguments.of("Café au lait", "Lait", true),
+            Arguments.of("Café au lait", "milk", false),
+        )
+
+        @JvmStatic
+        fun matchesAnyCases(): List<Arguments> = listOf(
+            Arguments.of(listOf("Title", "Description"), "desc", true),
+            Arguments.of(listOf("Title", "Description"), "missing", false),
+        )
+
+        @JvmStatic
+        fun tokensCases(): List<Arguments> = listOf(
+            Arguments.of("Buy milk!", listOf("buy", "milk")),
+            Arguments.of("task42_x", listOf("task42", "x")),
+            Arguments.of("---", emptyList<String>()),
+        )
     }
 
-    @Test
-    fun `a term does not match a word that does not start with it`() {
-        // The word-prefix rule, and not "contains": the index stores words, so
-        // it can only find the beginning of one.
-        assertFalse(TextMatch.matches("airport logistics", "port"))
+    @ParameterizedTest
+    @MethodSource("matchesCases")
+    fun `matches applies the word-prefix rule`(text: String?, term: String, expected: Boolean) {
+        assertEquals(expected, TextMatch.matches(text, term), "matches($text, $term)")
     }
 
-    @Test
-    fun `matching ignores case`() {
-        assertTrue(TextMatch.matches("Quarterly Report", "quarterly"))
-        assertTrue(TextMatch.matches("quarterly report", "QUARTERLY"))
+    @ParameterizedTest
+    @MethodSource("containsCases")
+    fun `contains folds diacritics in both modes`(text: String, term: String, expected: Boolean) {
+        assertEquals(expected, TextMatch.contains(text, term), "contains($text, $term)")
     }
 
-    @Test
-    fun `a phrase matches when its words follow each other`() {
-        assertTrue(TextMatch.matches("Write the quarterly report today", "quarterly report"))
-        assertFalse(TextMatch.matches("Write the report of the quarter", "quarterly report"))
+    @ParameterizedTest
+    @MethodSource("matchesAnyCases")
+    fun `matchesAny answers for a choice of surfaces`(surfaces: List<String>, term: String, expected: Boolean) {
+        assertEquals(expected, TextMatch.matchesAny(surfaces, term))
     }
 
-    @Test
-    fun `the last word of a phrase may be unfinished`() {
-        assertTrue(TextMatch.matches("Write the quarterly report today", "quarterly rep"))
-        assertFalse(TextMatch.matches("Write the quarterly report today", "quarterly quar"))
-    }
-
-    @Test
-    fun `a term with no letters or digits matches nothing`() {
-        assertFalse(TextMatch.matches("Buy milk", "!!!"))
-        assertFalse(TextMatch.matches("Buy milk", "   "))
-    }
-
-    @Test
-    fun `an empty text matches nothing`() {
-        assertFalse(TextMatch.matches("", "milk"))
-        assertFalse(TextMatch.matches(null, "milk"))
-    }
-
-    @Test
-    fun `letters outside ascii are token characters`() {
-        // The index is tokenized with `unicode61`, which keeps letters of every
-        // script. A matcher that only knew ascii would find nothing in a
-        // Russian title.
-        assertTrue(TextMatch.matches("Купить молоко", "мол"))
-        assertTrue(TextMatch.matches("Купить молоко", "МОЛОКО"))
-    }
-
-    @Test
-    fun `the diacritics are folded the way the index folds them`() {
-        // The index folds "café" to "cafe", so the rule has to fold it too: the
-        // two halves of one rule have to answer the same question the same way.
-        assertTrue(TextMatch.matches("Café au lait", "cafe"))
-        assertTrue(TextMatch.matches("café au lait", "café"))
-        assertTrue(TextMatch.matches("Café au lait", "CAFÉ"))
-    }
-
-    @Test
-    fun `a letter without a single base letter is not folded`() {
-        // The index folds a character to one letter or not at all: "ß" is not
-        // "ss" and "æ" is not "ae". A rule that folded them would answer a
-        // question the index answers differently.
-        assertFalse(TextMatch.matches("straße", "strasse"))
-        assertTrue(TextMatch.matches("straße", "straße"))
-    }
-
-    @Test
-    fun `the contains rule folds the diacritics too`() {
-        // The two modes are two questions about the same text, and they have to
-        // find the same text: a mode that found less would be a trapdoor.
-        assertTrue(TextMatch.contains("Café au lait", "cafe"))
-        assertTrue(TextMatch.contains("Café au lait", "Lait"))
-        assertFalse(TextMatch.contains("Café au lait", "milk"))
-    }
-
-    @Test
-    fun `matchesAny answers for a choice of surfaces`() {
-        assertTrue(TextMatch.matchesAny(listOf("Title", "Description"), "desc"))
-        assertFalse(TextMatch.matchesAny(listOf("Title", "Description"), "missing"))
-    }
-
-    @Test
-    fun `tokens are runs of letters and digits`() {
-        assertEquals(listOf("buy", "milk"), TextMatch.tokens("Buy milk!"))
-        assertEquals(listOf("task42", "x"), TextMatch.tokens("task42_x"))
-        assertEquals(emptyList(), TextMatch.tokens("---"))
+    @ParameterizedTest
+    @MethodSource("tokensCases")
+    fun `tokens are runs of letters and digits`(input: String, expected: List<String>) {
+        assertEquals(expected, TextMatch.tokens(input))
     }
 }

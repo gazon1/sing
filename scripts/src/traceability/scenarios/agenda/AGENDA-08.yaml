@@ -3,9 +3,9 @@
 # Claimed on `android`, carried by Maestro flow
 # `Maestro/flows/agenda/08-persistence-restart.yaml` (`scenario:AGENDA-08`).
 #
-# Restart without clearState, per the flow's header: `stopApp` then `launchApp`
-# reloads the process but keeps the Room database, unlike `launch-clean.yaml`
-# which wipes it. That distinction is the whole scenario — a restart test that
+# Restart without clearState, per the flow's header: the `relaunch.yaml` helper
+# stops the app and starts it again, which reloads the process but keeps the
+# Room database. That distinction is the whole scenario — a restart test that
 # used a clean launch would assert nothing about persistence, and a view held in
 # memory would look identical from inside the app.
 #

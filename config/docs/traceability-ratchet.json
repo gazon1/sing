@@ -1,26 +1,26 @@
 {
   "measurement": "python3 -m traceability validate — specs + links only, no stand, no network, no test run (scripts/check-traceability-ratchet.py recomputes both numbers from the same package that renders the matrix)",
-  "measured_at": "2026-10-27",
-  "commit": "origin/main merged, feature 016's android carriers landed",
+  "measured_at": "2026-10-28",
+  "commit": "the six negative empty-state flows, the three pomodoro timer flows and the search-finds-task flow declare the scenario their own spec names as their carrier",
   "corpus": {
     "specs": 128,
     "claimed_cells": 254,
-    "carriers": 76
+    "carriers": 86
   },
   "floors": [
     {
       "metric": "holes",
-      "max": 93,
-      "measured": 93,
+      "max": 83,
+      "measured": 83,
       "label": "claimed (scenario, target) cells with no automation",
-      "note": "Lowered 107 -> 93 on 2026-10-27 when feature 016's android carriers landed: the Maestro flows under Maestro/flows/{plans,menu,nav}/ now cover every one of the feature's eighteen scenarios on Android as well as on the desktop, and the desktop flow tests under desktopApp/src/jvmTest/.../flows/{plans,menu,desktop}/ carry the desktop tier. Before, the feature's eleven android cells were holes; they are carriers now. The two android cells that remain dark across the matrix are upstream's."
+      "note": "Lowered 107 -> 93 on 2026-10-27 when feature 016's android carriers landed: the Maestro flows under Maestro/flows/{plans,menu,nav}/ now cover every one of the feature's eighteen scenarios on Android as well as on the desktop, and the desktop flow tests under desktopApp/src/jvmTest/.../flows/{plans,menu,desktop}/ carry the desktop tier. Before, the feature's eleven android cells were holes; they are carriers now. The two android cells that remain dark across the matrix are upstream's. Lowered 93 -> 83 on 2026-10-28 when ten Maestro flows declared the scenario their own spec header named as their carrier: the six `negative/` empty-state flows (NEGATIVE-01..06), `pomodoro/02`, `pomodoro/03` and `pomodoro/05` (POMODORO-02, -03, -05) and `system/search-finds-task` (SEARCH-01). The specs named those flows as their carriers and the flows did not carry the tag, so ten scenarios the repository had already written down read as uncovered. The claims are the flows' own behaviour — the empty states, the chip that starts the timer, the pause and resume, the stop that resets, the search that finds a task by its title."
     },
     {
       "metric": "dark_scenarios",
-      "max": 70,
-      "measured": 70,
+      "max": 60,
+      "measured": 60,
       "label": "declared scenarios with a claimed target and no automation on any target",
-      "note": "Lowered 72 -> 70 on 2026-10-27 with the same carriers: every one of feature 016's eighteen scenarios now has automation on at least one target. The two that remain dark are upstream's."
+      "note": "Lowered 72 -> 70 on 2026-10-27 with the same carriers: every one of feature 016's eighteen scenarios now has automation on at least one target. The two that remain dark are upstream's. Lowered 70 -> 60 on 2026-10-28 with the same ten carriers: each of the ten scenarios now has automation on at least one target, and its flow says so in a tag rather than only in the spec's header."
     },
     {
       "metric": "unreachable_cells",

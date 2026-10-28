@@ -18,15 +18,15 @@ import kotlin.io.path.readText
 import kotlin.test.assertTrue
 
 /**
- * Every `id:` selector in a Maestro flow must resolve to an entry in
- * [TestTagsCatalog]. This is the blocking JVM equivalent of the shell-script
- * check in `scripts/ci/validate-maestro-selectors.py`.
+ * Every literal `id:` in `Maestro/helpers` must resolve to an entry in
+ * [TestTagsCatalog], plus the flow-level checks below.
  *
- * The two assertions:
- * 1. Every `id:` in a flow is derivable from `TestTags.kt` (static const or
- *    dynamic function prefix).
- * 2. At least 40 ids are scanned — guards against a broken collector giving
- *    a vacuous green result.
+ * The shell check in `scripts/ci/validate-maestro-selectors.py` covers flows but
+ * explicitly skips helpers (`if "helpers" in flow_path.parts: continue`). Helpers
+ * carry real literal ids — `nav_tab_today`, `nav_menu_button`, `menu_sheet` — so
+ * removing the id check here would leave those unchecked. This test keeps the
+ * helper half; the shell gate keeps the flow half. At least 5 ids are scanned (the
+ * helpers hold 7) to guard against a broken collector giving a vacuous green result.
  *
  * [calendarDay] ids (`calendar_day_YYYY_MM_DD`) and [profileItem] ids
  * (`profile_item_<slug>`) are accepted as known exceptions: neither function
@@ -108,12 +108,10 @@ class MaestroFlowTagsTest {
     }
 
     @Test
-    fun `every id in a Maestro flow resolves to TestTagsCatalog`() {
-        val flows = workspaceRoot.resolve("Maestro/flows")
-        val helpers = workspaceRoot.resolve("Maestro/helpers")
-        val ids = collectIds(flows) + collectIds(helpers)
+    fun `every literal id in a Maestro helper resolves to TestTagsCatalog`() {
+        val ids = collectIds(workspaceRoot.resolve("Maestro/helpers"))
 
-        assertTrue(ids.size > 40, "scanned ${ids.size} ids — collector likely broken (expected > 40)")
+        assertTrue(ids.size >= 5, "scanned ${ids.size} ids — collector likely broken (expected >= 5)")
 
         val staticValues = TestTagsCatalog.staticTags().map { it.second }.toSet()
         val dynamicPrefixes = TestTagsCatalog.dynamicFunctions()
@@ -130,7 +128,7 @@ class MaestroFlowTagsTest {
         val failureMessage = if (unknown.isEmpty()) {
             ""
         } else {
-            "Unknown Maestro flow ids (${unknown.size}/${ids.size}): " +
+            "Unknown Maestro helper ids (${unknown.size}/${ids.size}): " +
                 unknown.take(5).joinToString(", ") { "$it (e.g. ${ids[it]})" } +
                 if (unknown.size > 5) {
                     " ... and ${unknown.size - 5} more"

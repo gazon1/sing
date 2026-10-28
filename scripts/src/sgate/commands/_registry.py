@@ -1101,6 +1101,16 @@ _REGISTERED: tuple[GateSpec, ...] = (
             # dry-run exits zero whatever it found. A gate invoked that way
             # reports success forever.
         ),
+        # The conventions carry the number; this gate holds it to the tag, and holds a smoke shard to costing no more than a full-suite shard.
+        GateSpec(
+            name="maestro smoke suite matches the doc",
+            mode=GateMode.BLOCKING,
+            cmd_type=CmdType.PYTHON3,
+            script=Path("scripts/check-maestro-smoke-suite.py"),
+            # No `--check`: the flag this script carries is a dry-run, and a
+            # dry-run exits zero whatever it found. A gate invoked that way
+            # reports success forever.
+        ),
 )
 
 
@@ -1822,6 +1832,22 @@ GATE_CONTROLS: dict[str, Control] = {
                 'an index whose name does not say what it indexes is a name nobody '
                 'can reason about later: the convention is the only map from a query '
                 'plan to an index'
+            ),
+        ),
+        # the size of the suite a pull request runs was fiction: the conventions said six flows, four of them did not exist, and the tag had spread to 45 — and nobody noticed, because the tag is what selects and the prose is what people plan against
+        'maestro-smoke-suite': Control(
+            kind='sabotage',
+            proves='scripts/check-maestro-smoke-suite.py',
+            argv=('{python}', 'scripts/check-maestro-smoke-suite.py',),
+            path='Maestro/CONVENTIONS.md',
+            edit=Edit(
+                kind='replace',
+                old='Current smoke flows (45):',
+                new='Current smoke flows (0):',
+                count=1,
+            ),
+            why=(
+                'the size of the suite a pull request runs was fiction: the conventions said six flows, four of them did not exist, and the tag had spread to 45 — and nobody noticed, because the tag is what selects and the prose is what people plan against'
             ),
         ),
 }

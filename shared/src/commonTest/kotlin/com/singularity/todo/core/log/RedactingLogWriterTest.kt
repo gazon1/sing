@@ -3,7 +3,10 @@ package com.singularity.todo.core.log
 import co.touchlab.kermit.LogWriter
 import co.touchlab.kermit.Severity
 import org.junit.jupiter.api.Tag
-import kotlin.test.Test
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import kotlin.test.assertContains
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -33,99 +36,85 @@ class RedactingLogWriterTest {
         return fake.messages.single()
     }
 
-    @Test
-    fun `redacts JWT tokens from message`() {
-        val result = redact("User authenticated with $JWT")
-        assertFalse(result.contains("eyJ"), "JWT should be redacted")
-        assertContains(result, "[JWT]")
-    }
-
-    @Test
-    fun `redacts email addresses from message`() {
-        val result = redact("Sending to user@example.com")
-        assertFalse(result.contains("user@example.com"), "Email should be redacted")
-        assertContains(result, "[email]")
-    }
-
-    @Test
-    fun `redacts sk-API keys from message`() {
-        val result = redact("API key $SK_KEY")
-        assertFalse(result.contains("sk-12345"), "API key should be redacted")
-        assertContains(result, "[sk-redacted]")
-    }
-
-    @Test
-    fun `redacts bearer tokens from message`() {
-        val result = redact("Authorization: Bearer $JWT")
-        assertFalse(result.contains("Bearer"), "Bearer token should be redacted")
-        assertContains(result, "[bearer token]")
-    }
-
-    @Test
-    fun `redacts Supabase anonKey from message`() {
-        val result = redact("Supabase init: anonKey=$JWT")
-        assertFalse(result.contains(JWT), "anonKey value should be redacted")
-        assertContains(result, "[anonKey=redacted]")
-    }
-
-    @Test
-    fun `redacts Supabase service_role from message`() {
-        val result = redact("Bootstrapping with service_role=$JWT")
-        assertFalse(result.contains(JWT), "service_role value should be redacted")
-        assertContains(result, "[service_role=redacted]")
-    }
-
-    @Test
-    fun `redacts credentials embedded in a Supabase URL`() {
-        val result = redact("Connecting to https://user:s3cr3t@abc123.supabase.co/rest/v1/tasks")
-        assertFalse(result.contains("s3cr3t"), "Embedded password should be redacted")
-        assertContains(result, "[supabase url=redacted]")
-    }
-
-    @Test
-    fun `preserves safe content`() {
-        val result = redact("Task created with title 'Buy milk' assigned to user-123")
-        assertContains(result, "Buy milk")
-        assertContains(result, "user-123")
-        assertContains(result, "Task created")
-    }
-
-    @Test
-    fun `redacts multiple credentials in same message`() {
-        val result = redact("Login for john@example.com using $SK_KEY and JWT $JWT")
-        assertFalse(result.contains("john@example.com"), "Email redacted")
-        assertFalse(result.contains("sk-12345"), "API key redacted")
-        assertFalse(result.contains("eyJ"), "JWT redacted")
-        assertContains(result, "[email]")
-        assertContains(result, "[sk-redacted]")
-        assertContains(result, "[JWT]")
-    }
-
-    @Test
-    fun `redacts throwable message`() {
+    private fun delegatedThrowable(throwable: Throwable): Throwable {
         val fake = FakeLogWriter()
-        val cause = RuntimeException("Failed for user@secret.com")
-        RedactingLogWriter(fake).log(Severity.Error, "Request failed", "TestTag", cause)
-        val delegated = fake.throwables.single()
-        assertTrue(delegated != null, "Throwable should be delegated")
-        assertFalse(delegated.toString().contains("user@secret.com"), "Email redacted in throwable toString")
+        RedactingLogWriter(fake).log(Severity.Error, "msg", "TestTag", throwable)
+        return fake.throwables.single()!!
     }
 
-    @Test
-    fun `redacts throwable message even when log message is clean`() {
-        val fake = FakeLogWriter()
-        val cause = IllegalStateException("key $SK_KEY rejected")
-        RedactingLogWriter(fake).log(Severity.Error, "auth rejected", "TestTag", cause)
-        assertContains(fake.throwables.single().toString(), "[sk-redacted]")
+    companion object {
+        @JvmStatic
+        fun messageCases(): List<Arguments> = listOf(
+            Arguments.of("User authenticated with $JWT", listOf("eyJ"), listOf("[JWT]")),
+            Arguments.of("Sending to user@example.com", listOf("user@example.com"), listOf("[email]")),
+            Arguments.of("API key $SK_KEY", listOf("sk-12345"), listOf("[sk-redacted]")),
+            Arguments.of("Authorization: Bearer $JWT", listOf("Bearer"), listOf("[bearer token]")),
+            Arguments.of("Supabase init: anonKey=$JWT", listOf(JWT), listOf("[anonKey=redacted]")),
+            Arguments.of("Bootstrapping with service_role=$JWT", listOf(JWT), listOf("[service_role=redacted]")),
+            Arguments.of(
+                "Connecting to https://user:s3cr3t@abc123.supabase.co/rest/v1/tasks",
+                listOf("s3cr3t"),
+                listOf("[supabase url=redacted]"),
+            ),
+            // Safe content is left untouched.
+            Arguments.of(
+                "Task created with title 'Buy milk' assigned to user-123",
+                emptyList<String>(),
+                listOf("Buy milk", "user-123", "Task created"),
+            ),
+            // Several credentials in one message are all redacted.
+            Arguments.of(
+                "Login for john@example.com using $SK_KEY and JWT $JWT",
+                listOf("john@example.com", "sk-12345", "eyJ"),
+                listOf("[email]", "[sk-redacted]", "[JWT]"),
+            ),
+        )
+
+        @JvmStatic
+        fun throwableCases(): List<Arguments> = listOf(
+            Arguments.of(RuntimeException("Failed for user@secret.com"), listOf("user@secret.com"), listOf("[email]")),
+            Arguments.of(IllegalStateException("key $SK_KEY rejected"), listOf("sk-12345"), listOf("[sk-redacted]")),
+            // A credential nested in the cause chain.
+            Arguments.of(
+                IllegalStateException("upload failed", IllegalArgumentException("rejected for $EMAIL")),
+                listOf(EMAIL),
+                listOf("[email]"),
+            ),
+            // A self-referential cause must not make the redaction recurse forever.
+            Arguments.of(SelfCausedException("cycle for $EMAIL"), listOf(EMAIL), listOf("[email]")),
+        )
+    }
+
+    @ParameterizedTest
+    @MethodSource("messageCases")
+    fun `redacts credentials in the message and preserves safe content`(
+        message: String,
+        forbidden: List<String>,
+        markers: List<String>,
+    ) {
+        val result = redact(message)
+        forbidden.forEach { assertFalse(result.contains(it), "'$it' should be redacted in: $result") }
+        markers.forEach { assertContains(result, it) }
+    }
+
+    @ParameterizedTest
+    @MethodSource("throwableCases")
+    fun `redacts a credential in the throwable and its cause chain`(
+        throwable: Throwable,
+        forbidden: List<String>,
+        markers: List<String>,
+    ) {
+        val delegated = delegatedThrowable(throwable)
+        val rendered = generateSequence(delegated as Throwable?) { it.cause }
+            .joinToString(" | ") { it.toString() }
+        forbidden.forEach { assertFalse(rendered.contains(it), "'$it' leaked in: $rendered") }
+        markers.forEach { assertContains(rendered, it) }
     }
 
     @Test
     fun `preserves the originating stack trace`() {
-        val fake = FakeLogWriter()
         val thrown = originatingIllegalStateException()
-        RedactingLogWriter(fake).log(Severity.Error, "boom", "TestTag", thrown)
-
-        val frames = fake.throwables.single()!!.stackTrace.map { "${it.className}.${it.methodName}" }
+        val frames = delegatedThrowable(thrown).stackTrace.map { "${it.className}.${it.methodName}" }
         assertTrue(
             frames.any { it.endsWith("originatingIllegalStateException") },
             "Delegated throwable must carry the frames of the throwing site, " +
@@ -134,36 +123,8 @@ class RedactingLogWriterTest {
     }
 
     @Test
-    fun `redacts a credential nested in the cause chain`() {
-        val fake = FakeLogWriter()
-        val root = IllegalArgumentException("rejected for $EMAIL")
-        val wrapper = IllegalStateException("upload failed", root)
-        RedactingLogWriter(fake).log(Severity.Error, "upload failed", "TestTag", wrapper)
-
-        val delegated = fake.throwables.single()!!
-        val rendered = generateSequence(delegated as Throwable?) { it.cause }
-            .joinToString(" | ") { it.toString() }
-        assertFalse(rendered.contains(EMAIL), "Cause-chain email leaked: $rendered")
-        assertContains(rendered, "[email]")
-    }
-
-    @Test
-    fun `redacts a self-referential cause without recursing forever`() {
-        val fake = FakeLogWriter()
-        val looping = SelfCausedException("cycle for $EMAIL")
-        RedactingLogWriter(fake).log(Severity.Error, "loop", "TestTag", looping)
-
-        val rendered = generateSequence(fake.throwables.single() as Throwable?) { it.cause }
-            .joinToString(" | ") { it.toString() }
-        assertFalse(rendered.contains(EMAIL), "Cause-chain email leaked: $rendered")
-    }
-
-    @Test
     fun `preserves the original class name in the rendered throwable`() {
-        val fake = FakeLogWriter()
-        RedactingLogWriter(fake).log(Severity.Error, "boom", "TestTag", SelfCausedException("plain"))
-        val rendered = fake.throwables.single()!!.toString()
-        assertContains(rendered, "SelfCausedException")
+        assertContains(delegatedThrowable(SelfCausedException("plain")).toString(), "SelfCausedException")
     }
 }
 
