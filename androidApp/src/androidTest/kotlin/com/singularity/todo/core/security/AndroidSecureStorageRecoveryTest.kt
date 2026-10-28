@@ -88,7 +88,7 @@ class AndroidSecureStorageRecoveryTest : InstrumentedTestBase() {
      * for a reason that has nothing to do with what it asserts.
      */
     private fun wipePrefs() {
-        prefsDir.listFiles()?.forEach { it.delete() }
+        File(prefsDir, "singularity_secure_prefs.xml").delete()
     }
 
     /**
