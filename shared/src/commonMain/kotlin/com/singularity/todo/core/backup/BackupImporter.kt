@@ -335,7 +335,7 @@ class BackupImporter(
             BackupEntityKind.PROJECTS -> projectDao.deleteForUser(key, userId.value)
 
             BackupEntityKind.PROFILES -> {
-                val owner = ownerId ?: return
+                val owner = ownerId ?: throw IllegalStateException("ownerId required to remove profile")
                 profileDao.deleteForUser(key, owner.value)
             }
         }

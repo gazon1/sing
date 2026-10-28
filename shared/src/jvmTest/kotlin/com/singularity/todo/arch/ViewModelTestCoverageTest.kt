@@ -83,10 +83,8 @@ private fun productionFiles(): List<File> = File(commonMainRoot)
 private val KNOWN_UNCOVERED = setOf(
     "AccountSettingsViewModel",
     "AiUsageViewModel",
-    "AppVersionGateViewModel",
     "ArchiveViewModel",
     "AttachmentsViewModel",
-    "AuthViewModel",
     "CalendarSyncViewModel",
     "ProfileSwitcherViewModel",
 )
@@ -127,10 +125,11 @@ class ViewModelTestCoverageTest {
             found.size >= 20,
             "expected the project's ViewModels, found ${found.size}: ${found.sorted()}",
         )
-        val stale = KNOWN_UNCOVERED.filterNot { it in found }
+        val tests = declaredTestClasses()
+        val stale = KNOWN_UNCOVERED.filter { it !in found || "${it}Test" in tests }
         assertTrue(
             stale.isEmpty(),
-            "KNOWN_UNCOVERED lists classes that no longer exist: ${stale.joinToString()}. " +
+            "KNOWN_UNCOVERED lists classes that no longer exist or now have a test: ${stale.joinToString()}. " +
                 "Remove them — a stale entry means the rule stopped checking something real.",
         )
     }

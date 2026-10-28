@@ -2716,7 +2716,10 @@ open class FakeNotesRepository(
         }
     }
 
-    override suspend fun getDailyNote(dateKey: String, projectId: com.singularity.todo.feature.projects.domain.model.ProjectId?): com.singularity.todo.feature.notes.Note? {
+    override suspend fun getDailyNote(
+        dateKey: String,
+        projectId: com.singularity.todo.feature.projects.domain.model.ProjectId?,
+    ): com.singularity.todo.feature.notes.Note? {
         val uid = currentUser.scopedUserId.value
         return store.state.value.values.firstOrNull {
             it.userId == uid && it.kind == com.singularity.todo.feature.notes.NoteKind.Daily && it.title == dateKey &&
