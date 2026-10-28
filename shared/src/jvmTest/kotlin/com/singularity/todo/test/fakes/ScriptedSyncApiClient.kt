@@ -65,7 +65,6 @@ class ScriptedSyncApiClient(
     override suspend fun getEventsSince(
         sinceLsn: Long,
         limit: Int,
-        profileId: String,
     ): List<SyncEvent> =
         pullEvents
             .filter { _ignoreSinceLsn || it.serverLsn > sinceLsn }

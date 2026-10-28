@@ -8,6 +8,7 @@ import androidx.test.filters.LargeTest
 import androidx.test.uiautomator.By
 import com.singularity.todo.MainActivity
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.feature.nav.DestinationKind
 import com.singularity.todo.testing.InstrumentedTestBase
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -82,14 +83,7 @@ class NavigationSmokeTest : InstrumentedTestBase() {
 
         // The bottom-bar tabs, in display order from DestinationKind.tabs.
         // Slug is lower-cased from the AppDestination title.
-        val tabs =
-            listOf(
-                TestTags.navTab("Inbox"),
-                TestTags.navTab("Today"),
-                TestTags.navTab("Upcoming"),
-                TestTags.navTab("Plans"),
-                TestTags.navTab("Pomodoro"),
-            )
+        val tabs = DestinationKind.tabs.map { TestTags.navTab(it.title) }
 
         tabs.forEach { tabId ->
             device.tapTag(tabId)
