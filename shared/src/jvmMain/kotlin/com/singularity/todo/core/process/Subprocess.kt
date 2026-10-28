@@ -1,7 +1,6 @@
 package com.singularity.todo.core.process
 
 import co.touchlab.kermit.Logger
-import java.io.BufferedReader
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
@@ -80,7 +79,6 @@ class DuplexProcess internal constructor(
             runCatching { reader.close() }
         }
     }.flowOn(Dispatchers.IO)
-
 
     /**
      * Waits for the child to exit, up to [timeoutMillis].
