@@ -2288,7 +2288,7 @@ open class FakeAttachmentRepository(
             val uid = currentUser.scopedUserId.value
             val existing =
                 store.state.value.values.firstOrNull { it.id == id && it.userId == uid && it.deletedAt == null }
-                ?: throw IllegalArgumentException("Attachment $id not found or not owned by current user")
+                    ?: throw IllegalArgumentException("Attachment $id not found or not owned by current user")
             val ts = clock.now()
             store.upsert(existing.copy(deletedAt = ts))
         }
@@ -2301,7 +2301,7 @@ open class FakeAttachmentRepository(
             store.state.map { list ->
                 list.values.filter {
                     it.taskId == taskId && it.userId == uid &&
-                it.deletedAt == null
+                        it.deletedAt == null
                 }
             }
         }
