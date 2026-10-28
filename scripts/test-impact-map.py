@@ -126,6 +126,7 @@ ARCH_SUITE = '/arch/'
 TREE_WIDE_MARKERS: tuple[str, ...] = (
     'walkTopDown()',
     'Files.walk',
+    'Files.list',
     'commonMainRoot()',
     'jvmTestSourcesRoot()',
     'SourceScan.',
@@ -136,11 +137,16 @@ TREE_WIDE_MARKERS: tuple[str, ...] = (
 
 #: Trees whose files a gate reads, and which the Kotlin rules below never see:
 #: `MaestroFlowTagsTest` walks every flow and fails on one without `tags:`, and
-#: the Room gates read the committed schema exports. A change to a file in one
+#: `BackupRulesTest` reads the Android backup rules. A change to a file in one
 #: of these can break such a gate, so it selects the tree-wide gates too.
+#:
+#: `shared/schemas/` is NOT here, and the omission is deliberate rather than an
+#: oversight: the migration tests that read the exports reach them through
+#: `applyExportedSchema(N, …)`, a helper in another file, and they are
+#: `@Tag("slow")` — so no rule here selects them, and listing the directory
+#: would select only gates that never open it. That gap is recorded in the ADR.
 READ_TREES: tuple[str, ...] = (
     'Maestro/',
-    'shared/schemas/',
     'androidApp/src/main/res/',
 )
 

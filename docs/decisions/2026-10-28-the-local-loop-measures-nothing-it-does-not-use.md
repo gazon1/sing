@@ -7,8 +7,8 @@ tags: [ci, testing, coverage, performance]
 
 # Context
 
-`check.sh` is the local rehearsal of CI: eleven steps, every one timed, and
-the timings published in `docs/testing/gate-costs.md`. It is the loop a
+`check.sh` is the local rehearsal of CI: eleven steps, each Gradle step timed,
+and the timings published in `docs/testing/gate-costs.md`. It is the loop a
 developer runs before pushing.
 
 Two of its steps cost more than they are worth, and both costs were measured
@@ -79,11 +79,14 @@ makes true locally as well.
   loop stops attaching an agent it does not read.
 - A developer who wants the coverage floor runs `just ci::coverage`, which is
   the recipe that mirrors the coverage steps of CI's `tests` job.
-- The timings in `docs/testing/gate-costs.md` are regenerated from the next
-  recorded cycle, because a published cost that no longer describes the loop
-  is a wrong number. Until then the page still prices the step this change
-  removed: the page is a render of a record, and editing it by hand would
-  publish a number nobody measured.
+- The timings in `docs/testing/gate-costs.md` describe the loop that ran them,
+  so the step this change removed (`koverVerify`) is gone from the page: its
+  baseline entry was deleted and the page re-rendered. Deleting an entry is a
+  deliberate edit, not something a recording does — `gate_costs._record` keeps
+  the union of the baseline and the measurement, so a step that stops running
+  would otherwise be priced forever. The remaining samples still carry the
+  date they were recorded on, and a fresh recording comes from a local
+  `./check.sh`.
 
 # Links
 

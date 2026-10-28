@@ -75,7 +75,6 @@ Recorded on 2026-10-21T15:00:39Z — cpus=16, javaHome=/usr/lib/jvm/java-25-open
 | Step: gate liveness | 1 min 10 s |
 | Step: gate script tests | 1 min 45 s |
 | Step: gate wiring | 2 min 27 s |
-| Step: koverVerify | 1.4 s |
 | Step: mcp-server:compileKotlin | 3.4 s |
 | Step: mcp-server:detekt | 969 ms |
 | Step: shared:jvmTest | 6 min 44 s |

@@ -242,6 +242,18 @@ class MapTest(unittest.TestCase):
         self.assertIn('com.singularity.todo.arch.TreeWideGateTest', selected)
         self.assertTrue(any('a tree a gate reads' in reason for reason in reasons))
 
+    def test_a_schema_export_maps_nothing_here(self):
+        # The migration tests read the exports through `applyExportedSchema(N, …)`
+        # in another file and are `@Tag("slow")`, so no rule reaches them. The gap
+        # is recorded in the ADR; this test keeps the omission deliberate rather
+        # than letting `shared/schemas/` creep back into READ_TREES and select
+        # gates that never open the file.
+        selected, reasons = self.map(
+            ['shared/schemas/com.singularity.todo.core.database.AppDatabase/47.json'],
+        )
+        self.assertEqual([], selected)
+        self.assertTrue(any('no test class claims it' in reason for reason in reasons))
+
     def test_a_changed_test_maps_the_gates_that_read_the_whole_test_tree(self):
         # A gate that asserts every test class carries a @Tag is broken by a
         # test class that does not — and the class that broke it is the one

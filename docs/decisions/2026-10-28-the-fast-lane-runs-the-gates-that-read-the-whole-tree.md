@@ -97,10 +97,12 @@ A gate that reads the whole tree has no opinion about which file caused the
 violation: `CommonMainJvmApiTest` reports the file and the line, not the
 change. Asking "does this gate mention the changed class?" is the wrong
 question for it, and the answer is usually no. The cost of the rule is that
-the fast lane now runs more classes than it did: 68 tests are tree-wide in
-this tree, of which 54 are in the fast population (35 before the rule covered
-the whole arch suite). They are a few seconds each, and they are the gates
-that were red on `main` while the map reported a clean selection.
+the fast lane now runs more classes than it did: 69 tests are tree-wide in
+this tree (measured 2026-10-28), of which 55 are in the fast population (35
+before the rule covered the whole arch suite). They are gates, not unit tests:
+the 54 with a recorded duration took 140 s between them, the slowest
+(`DroppedResultIsReportedTest`) 13.9 s. They are also the gates that were red
+on `main` while the map reported a clean selection.
 
 **Why the coverage flag belongs on the run path and not on the printed
 command.** `--command` prints the selection so a caller can run it; the
@@ -113,10 +115,18 @@ caller — so it decides for itself. Two spellings of one decision would drift.
 - The map no longer reports a selection that omits a gate the change can
   break. The tree-wide gates are in the map for every change in the tree
   they read, and the reason each one is there says so.
-- The fast lane runs more classes than before: 54 fast-tagged gates for a
-  change in `commonMain`, against 35 when the rule named four calls. They are
-  the cheapest classes in the suite, and they are the ones that catch a
-  violation the moment it is written.
+- The fast lane runs more classes than before: 55 fast-tagged gates for a
+  change in `commonMain`, against 35 when the rule named four calls. They cost
+  about 140 s of test time between them (measured from the `jvmTest` result
+  XMLs, 2026-10-28), so the map's floor for ANY change is a couple of minutes
+  of arch gates — including a one-line test edit that used to select one
+  class. `just ti` is still several times cheaper than the loop it replaces.
+- The Room schema exports are NOT covered: `shared/schemas/` is deliberately
+  absent from the trees the rule triggers on, because the migration tests that
+  read the exports reach them through `applyExportedSchema(N, …)` in another
+  file and are `@Tag("slow")`. A schema change still maps no test class. That
+  is a gap, recorded here rather than papered over with a directory that the
+  selected gates never open.
 - `just tests::impact` no longer pays the Kover agent: the run path passes
   `-Pcoverage.enabled=false`, so the selection runs at the uninstrumented
   cost. The whole uninstrumented suite is 771 s on this tree; the selection is

@@ -70,8 +70,8 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-# The numbered steps are 1..11; the lettered ones (2b, 3b, 7b, 7c, 8b, 11b, 11c) are
-# extra checks that hang off a numbered step and are not counted here.
+# The numbered steps are 1..11; the lettered ones (2b, 2c, 3b, 4b, 7b, 7c, 8a, 8b, 11b, 11c)
+# are extra checks that hang off a numbered step and are not counted here.
 TOTAL=11
 
 # The coverage agent multiplies every test class and nothing in this loop reads the
@@ -318,9 +318,9 @@ echo -e "${YELLOW}=== [8b/$TOTAL] detekt-rule branch coverage floor ===${NC}"
 # check-gate-wiring.py Part I fails a Gradle task that only one of the two
 # surfaces names.
 #
-# koverLog first, so a local run shows the number it is about to be judged by —
-# the same line ci.yml's advisory summary renders. It exits non-zero when the
-# measurement itself could not happen, which is a failure, not a missing number.
+# koverLog first, so a local run shows the number it is about to be judged by.
+# It exits non-zero when the measurement itself could not happen, which is a
+# failure, not a missing number.
 ./gw -q :detekt-rules:koverLog || {
     echo -e "${RED}could not measure detekt-rule branch coverage${NC}"
     exit 1

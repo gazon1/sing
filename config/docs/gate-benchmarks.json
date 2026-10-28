@@ -297,12 +297,6 @@
         147398
       ]
     },
-    "koverVerify": {
-      "medianMs": 1406,
-      "samples": [
-        1406
-      ]
-    },
     "mcp-server:compileKotlin": {
       "medianMs": 3421,
       "samples": [
