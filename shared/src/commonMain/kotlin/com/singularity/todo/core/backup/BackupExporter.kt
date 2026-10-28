@@ -88,7 +88,7 @@ class BackupExporter(
             val projectTagGroups = projectTagGroupDao.listAllForUser(userId.value)
             val savedSearches = savedSearchDao.listAllForUser(userId.value)
             val timeEntries = timeEntryDao.listAllForUser(userId.value)
-            val profiles = profileDao.listAll().filter { it.userId == null || it.userId == userId.value }
+            val profiles = profileDao.listAll()
 
             // 2. Map to DTOs
             val payload =
