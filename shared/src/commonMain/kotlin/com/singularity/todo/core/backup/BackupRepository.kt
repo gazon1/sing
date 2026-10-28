@@ -206,7 +206,7 @@ class BackupRepositoryImpl(
         val timestamp = clock.now().toEpochMilliseconds()
         val fileName = "singularity_backup_$timestamp.zip"
         val userId = currentUser.scopedUserId.value
-        return export(ExportOptions(userId = userId, destPath = fileName))
+        return export(ExportOptions(userId = userId, ownerId = currentUser.userId.value, destPath = fileName))
     }
 
     private suspend fun scanBackups(): List<BackupMetadata> {
@@ -234,7 +234,14 @@ class BackupRepositoryImpl(
             runCatchingCancellable {
                 fs.ensureDir(backupDir)
                 val destPath = resolveBackupDestination(backupDir, options.destPath)
-                exporter.export(options.copy(destPath = destPath, userId = currentUser.scopedUserId.value)).getOrThrow()
+                exporter.export(
+                    options.copy(
+                        destPath = destPath,
+                        userId = currentUser.scopedUserId.value,
+                        ownerId = currentUser.userId.value,
+                        ownerUserId = currentUser.userId.value,
+                    ),
+                ).getOrThrow()
             }
         }
 
@@ -244,6 +251,8 @@ class BackupRepositoryImpl(
                 ImportOptions(
                     sourcePath = sourcePath,
                     targetUserId = currentUser.scopedUserId.value,
+                    ownerId = currentUser.userId.value,
+                    ownerUserId = currentUser.userId.value,
                 ),
             )
         }
@@ -346,6 +355,8 @@ class BackupRepositoryImpl(
                         ImportOptions(
                             sourcePath = destPath,
                             targetUserId = currentUser.scopedUserId.value,
+                            ownerId = currentUser.userId.value,
+                            ownerUserId = currentUser.userId.value,
                             entries = downloaded.entries,
                         ),
                     ).getOrThrow()
