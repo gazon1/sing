@@ -23,6 +23,7 @@ open class HlcFactory(
     private val deviceIdProvider: DeviceIdProvider,
     private val clock: Clock,
     private val scope: AutoCloseableCoroutineScope,
+    private val hlcStore: HlcStore? = null,
 ) {
     /**
      * Always reaches a terminal state — completed or completed-exceptionally.
@@ -50,8 +51,17 @@ open class HlcFactory(
         }
     }
 
-    // Initialize with a placeholder node ID — will be updated on first tick() call
-    private var _lastHlc: Hlc = Hlc.zero("pending")
+    // Last HLC, restored from storage if available.
+    private var _lastHlc: Hlc? = null
+
+    private val lastHlcDeferred: Deferred<Hlc> = CompletableDeferred<Hlc>().also { deferred ->
+        scope.launch {
+            runCatchingCancellable {
+                hlcStore?.load() ?: Hlc.zero("pending")
+            }.onSuccess(deferred::complete)
+                .onFailure(deferred::completeExceptionally)
+        }
+    }
 
     /**
      * Creates a new tick HLC for a local event.
@@ -83,8 +93,10 @@ open class HlcFactory(
     @OptIn(ExperimentalCoroutinesApi::class)
     fun tick(): Hlc = synchronized(this) {
         val node = nodeIdDeferred.getCompleted()
-        Hlc.tick(last = _lastHlc, node = node, nowMillis = currentTimeMillis()).also {
+        val last = _lastHlc ?: lastHlcDeferred.getCompleted()
+        Hlc.tick(last = last, node = node, nowMillis = currentTimeMillis()).also {
             _lastHlc = it
+            persist(it)
         }
     }
 
@@ -97,13 +109,25 @@ open class HlcFactory(
     @OptIn(ExperimentalCoroutinesApi::class)
     fun tock(remote: Hlc): Hlc = synchronized(this) {
         val node = nodeIdDeferred.getCompleted()
-        Hlc.tock(local = _lastHlc, remote = remote, node = node, nowMillis = currentTimeMillis()).also {
+        val local = _lastHlc ?: lastHlcDeferred.getCompleted()
+        Hlc.tock(local = local, remote = remote, node = node, nowMillis = currentTimeMillis()).also {
             _lastHlc = it
+            persist(it)
         }
     }
 
     /** Returns the last generated HLC. Guarded for the reason given on [tick]. */
-    fun current(): Hlc = synchronized(this) { _lastHlc }
+    fun current(): Hlc = synchronized(this) {
+        _lastHlc ?: runCatching { lastHlcDeferred.getCompleted() }
+            .getOrElse { Hlc.zero("pending") }
+    }
+
+    private fun persist(hlc: Hlc) {
+        val store = hlcStore ?: return
+        scope.launch {
+            store.save(hlc)
+        }
+    }
 
     private fun currentTimeMillis(): Long = clock.now().toEpochMilliseconds()
 }

@@ -39,7 +39,7 @@ interface HlcClock {
 }
 ```
 
-**HlcFactory** (`HlcFactory.kt`) creates HLC timestamps using `nodeId = deviceId` from `SettingsRepository.userId`.
+**HlcFactory** (`HlcFactory.kt`) creates HLC timestamps using `nodeId = deviceId` from `SettingsRepository.userId`. Persists the last HLC via `HlcStore` so it survives restarts.
 
 **Important**: `HlcFactory` is constructed with `runBlocking { settings.userId.first() }` — this is a performance issue. It should be replaced with a lazy `nodeId: String` passed at construction time.
 
