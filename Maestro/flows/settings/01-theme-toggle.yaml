@@ -24,16 +24,16 @@ tags:
       id: settings_tab_interface
     timeout: 10000
 - assertVisible:
-    id: settings_theme_mode_System
+    id: settings_theme_mode_system
 - assertVisible:
-    id: settings_theme_mode_Light
+    id: settings_theme_mode_light
 - assertVisible:
-    id: settings_theme_mode_Dark
+    id: settings_theme_mode_dark
 - assertVisible:
     id: settings_accent_swatch_blue
 # Select Dark mode; screen must stay navigable.
 - tapOn:
-    id: settings_theme_mode_Dark
+    id: settings_theme_mode_dark
 # Still interactive, and the rest of the tab is intact.
 - assertVisible:
     id: settings_font_size_slider

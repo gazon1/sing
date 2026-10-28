@@ -149,10 +149,10 @@ FINITE_DYNAMIC_SPACES: List[tuple[str, str, str]] = [
     ("navTab", "Pomodoro", "nav_tab_"),
     # The Calendar left the tab bar for the app menu — there is no
     # `nav_tab_calendar` any more, and the menu entry is `menu_calendar`.
-    # themeModeButton — 3 ThemeMode values (prefix: theme_mode_button_)
-    ("themeModeButton", "System", "theme_mode_button_"),
-    ("themeModeButton", "Light", "theme_mode_button_"),
-    ("themeModeButton", "Dark", "theme_mode_button_"),
+    # themeModeButton — 3 ThemeMode values (prefix: settings_theme_mode_)
+    ("themeModeButton", "System", "settings_theme_mode_"),
+    ("themeModeButton", "Light", "settings_theme_mode_"),
+    ("themeModeButton", "Dark", "settings_theme_mode_"),
     # noteFilterChip — filter names from NoteFilter enum
     ("noteFilterChip", "All", "note_filter_chip_"),
     ("noteFilterChip", "Archived", "note_filter_chip_"),
@@ -295,6 +295,18 @@ DYNAMIC_EXPANSIONS: Set[str] = {
     "settings_tab_taggroups",
     "settings_tab_tags",
     "settings_tab_workschedule",
+    "settings_tab_interface",
+    "settings_tab_sync",
+    "settings_tab_agenda",
+    "settings_tab_notifications",
+    # Note filter chips (noteFilterChip function — slug of filter name)
+    "note_filter_chip_all",
+    "note_filter_chip_archived",
+    "note_filter_chip_pinned",
+    # Theme-mode segmented buttons (themeModeButton function — slug of mode name)
+    "settings_theme_mode_system",
+    "settings_theme_mode_light",
+    "settings_theme_mode_dark",
     # Menu items (menuItem function — slug of the label)
     "menu_notes",
     "menu_search",
@@ -392,19 +404,8 @@ ALLOWLIST: Set[str] = {
     "task_item_yesterdaytask",
     # Dynamic checklist item from seed data
     "checklist_item_milk",
-    # Settings tab IDs used in sync flows but not yet in TestTags.kt (pre-existing gap)
-    "settings_tab_interface",
-    "settings_tab_sync",
+    # Settings content (not yet a TestTags function)
     "settings_content_sync",
-    "settings_tab_agenda",
-    "settings_tab_notifications",
-    "settings_theme_mode_System",
-    "settings_theme_mode_Light",
-    "settings_theme_mode_Dark",
-    # Note filter chips used in flows but not in TestTags.kt (pre-existing gap)
-    "note_filter_chip_all",
-    "note_filter_chip_archived",
-    "note_filter_chip_pinned",
     # Note actions used in flows but not in TestTags.kt (pre-existing gap)
     "note_action_edit",
     # Add more as discovered

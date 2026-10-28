@@ -74,24 +74,29 @@ tags:
       id: snackbar_message
     timeout: 8000
 
-# 4. Clear app data (wiping all tasks), then relaunch.
-#
-# One command, not three. This said `- stopApp` / `- clearState:` /
-# `- launchApp: clearState: false`, and `clearState` is not a Maestro command —
-# it is an argument of `launchApp`. The step therefore wiped nothing, and the
-# flow went on to assert an empty inbox that still held the task it had just
-# created. It could not have passed.
-- launchApp:
-    appId: com.singularity.todo
-    clearState: true
+# 4. Remove the task (simulating a wipe) without clearing app data — clearState
+# would also delete the backup stored under filesDir/backups.
+- tapOn:
+    id: task_item_${RUN_ID}_backuproundtriptask
 - extendedWaitUntil:
     visible:
-      id: nav_tab_today
-    timeout: 30000
+      id: task_editor_title_input
+    timeout: 5000
+- tapOn:
+    id: task_editor_more_menu
+- extendedWaitUntil:
+    visible:
+      id: overflow_delete
+    timeout: 5000
+- tapOn:
+    id: overflow_delete
+- back
+- extendedWaitUntil:
+    visible:
+      id: nav_tab_inbox
+    timeout: 10000
 
 # 5. The task must be gone.
-- tapOn:
-    id: nav_tab_inbox
 - extendedWaitUntil:
     notVisible:
       id: task_item_${RUN_ID}_backuproundtriptask

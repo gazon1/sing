@@ -762,6 +762,8 @@ object TestTags {
     object SavedSearches {
         const val SEARCH_MENU_RENAME = "search_menu_rename"
         const val SEARCH_MENU_DELETE = "search_menu_delete"
+        const val SAVE_CHIP = "search_save_chip"
+        const val SAVE_DIALOG_CONFIRM = "search_save_dialog_confirm"
     }
 
     // ─── Calendar sync ───────────────────────────────────────────────────────

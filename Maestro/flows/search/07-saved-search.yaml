@@ -43,17 +43,18 @@ tags:
       id: task_item_savedalpha2026
     timeout: 8000
 
-# Open save dialog via the save icon in the top bar.
+# Open save dialog via the "Save" chip.
 - tapOn:
-    text: "Save search"
+    id: search_save_chip
 - extendedWaitUntil:
     visible:
       text: "Search name"
     timeout: 5000
 
-# Type a name and submit via IME action (no testTag on the confirm button).
+# Type a name and submit via the dialog's "Save" button (no keyboardActions).
 - inputText: "${RUN_ID} My Saved Query"
-- pressKey: "Enter"
+- tapOn:
+    id: search_save_dialog_confirm
 
 # Snackbar confirms save.
 - extendedWaitUntil:
