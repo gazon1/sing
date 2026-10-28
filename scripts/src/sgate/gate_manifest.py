@@ -1103,6 +1103,13 @@ the same gesture on every display.""",
                 'The flows are in Maestro/flows; the lint was added with the hideKeyboard fix.'
             ),
         ),
+        'maestro smoke suite matches the doc': Placement(
+            kind=PlacementKind.STATIC,
+            command="sgate maestro_smoke_suite_matches_the_doc",
+            note=(
+                'The conventions carry the number; this gate holds it to the tag, and holds a smoke shard to costing no more than a full-suite shard.'
+            ),
+        ),
 }
 
 #: The gates that are deliberately NOT a line in ``scripts/ci/static-gates.sh``.

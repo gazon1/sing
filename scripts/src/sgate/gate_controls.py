@@ -929,6 +929,14 @@ SCRIPT_GATES = [
             "plan to an index"
         ),
     ),
+        # the size of the suite a pull request runs was fiction: the conventions said six flows, four of them did not exist, and the tag had spread to 45 — and nobody noticed, because the tag is what selects and the prose is what people plan against
+        ScriptGate(
+            name="maestro-smoke-suite",
+            cmd=[sys.executable, "scripts/check-maestro-smoke-suite.py"],
+            why=(
+                'the size of the suite a pull request runs was fiction: the conventions said six flows, four of them did not exist, and the tag had spread to 45 — and nobody noticed, because the tag is what selects and the prose is what people plan against'
+            ),
+        ),
 ]
 
 @dataclass(frozen=True)

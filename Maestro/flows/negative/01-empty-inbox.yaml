@@ -2,6 +2,7 @@
 appId: com.singularity.todo
 name: negative-empty-inbox
 tags:
+  - scenario:NEGATIVE-01
   - regression
   - negative
 ---

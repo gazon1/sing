@@ -2,6 +2,7 @@
 appId: com.singularity.todo
 name: pomodoro-stop-resets
 tags:
+  - scenario:POMODORO-05
   - regression
   - pomodoro
 ---

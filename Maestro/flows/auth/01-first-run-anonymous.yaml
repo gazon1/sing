@@ -44,10 +44,10 @@ tags:
     timeout: 8000
 
 # Go offline and restart the app. The task must still be visible — local-first.
+# The restart is the sanctioned one: `launchApp` on a running app only brings
+# it to the front, so the process that has to die is stopped explicitly.
 - setAirplaneMode: enabled
-- launchApp:
-    appId: com.singularity.todo
-    clearState: false
+- runFlow: ../../helpers/relaunch.yaml
 - extendedWaitUntil:
     visible:
       id: nav_tab_today

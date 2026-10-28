@@ -100,3 +100,4 @@ sche... | — | — |
 | the mobile build carries no external-agent code | blocking | `scripts/check-mobile-isolation.py` | check-mobile-isolation.py — the mobile build carries no external-agent code. | — | — |
 | a specification and the tree agree | blocking | `scripts/check-spec-requirement-traceability.py` | check-spec-requirement-traceability.py — every requirement in a spec is trace... | — | — |
 | hideKeyboard follows an input | blocking | `scripts/check-maestro-hidekeyboard.py` | check-maestro-hidekeyboard.py — hideKeyboard must follow an input, not preced... | — | — |
+| maestro smoke suite matches the doc | blocking | `scripts/check-maestro-smoke-suite.py` | check-maestro-smoke-suite.py — the smoke suite is what the doc says it is. | — | — |

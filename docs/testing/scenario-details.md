@@ -707,7 +707,7 @@ Steps:
 
 **Expected:** The list shows its empty state instead of rendering as an empty area with no message.
 
-#### `NEGATIVE-03` — The Plans tab shows an empty state with no projects
+#### `NEGATIVE-03` — The projects list shows an empty state with no projects
 
 **confirmed** · P1 · `#NEGATIVE`
 
@@ -715,9 +715,9 @@ Steps:
 
 Steps:
 
-1. Open the Plans tab with nothing in it.
+1. Open the projects list with nothing in it.
 
-**Expected:** The tab shows its empty state rather than an unexplained blank area — a tab with nothing to show still has to say so.
+**Expected:** The list shows its empty state rather than an unexplained blank area — a list with nothing to show still has to say so.
 
 #### `NEGATIVE-04` — The Archive screen shows an empty state
 

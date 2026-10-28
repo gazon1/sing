@@ -5,6 +5,7 @@
 appId: com.singularity.todo
 name: pomodoro-pause-resume
 tags:
+  - scenario:POMODORO-03
   - regression
   - pomodoro
 ---
