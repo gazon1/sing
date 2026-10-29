@@ -179,6 +179,92 @@ instead of about the change — in one session two of three reviewers sat on a s
 forty minutes and said nothing about the diff. Reading the diff, the git history and
 the Python gates is the reviewer's job; the build is yours and CI's.
 
+### The review brief
+
+The brief has a fixed shape. Copy it, fill the four slots — branch, repo, base, and
+what to check — and change nothing else. A reviewer left to its own devices spends its
+time where the change is least interesting: one reviewer spent an hour and a half on two
+sentences of an ADR, and the two sentences were worth fixing — but the same hour would
+have gone unread on the code.
+
+```
+You are reviewing <branch> in <repo>. You did not write it and you did not write any
+of its commits. This is a READ-ONLY review: do not modify any project file, do not
+commit, do not push, do not merge.
+
+## Method
+
+Load the `ponytail-review` skill and use it as your checklist. It ships with the
+agent's own skills, not with this repository, so a reviewer on a bare checkout that
+cannot load it falls back on the rule stated here: every finding needs a concrete case
+("this input or situation leads to this wrong result") — no case, no finding — and no
+style taste, no "consider", no vague worries.
+
+Three of its rules are overridden here, and a fourth is restated for the record:
+
+- The verdict is the repository's, not the skill's. End with exactly one line,
+  `**Verdict:** pass` or `**Verdict:** fail`, and nothing else on it.
+- The skill's closing lines are the skill's, not yours. Its `Lean:` line goes above
+  the verdict, and its `Not checked:` line becomes the one line of scope in the
+  Deliverable below — so the body carries both, and the verdict stays the last thing
+  in the review.
+- The skill's "read the diff, then the code it touches" applies to this branch's
+  changes. Not to the repository.
+- Restated, not changed: the findings go in the skill's three groups — must fix,
+  should fix, nice to have — and the verdict line is separate from them.
+
+## Scope — what counts as a finding
+
+A blocking defect is a problem **this branch introduces, or leaves broken in the code
+it changed**. Two rules follow, and they are the ones reviewers get wrong:
+
+- A problem that already exists on <base> unchanged is not a blocking defect of this
+  branch. <base> is the merge-base — `git merge-base origin/main HEAD` — not the tip of
+  `origin/main`: a defect today's main carries and the branch point did not is a defect
+  this branch carries too. Say it in one line and move on. If it matters, name it as
+  something to file. The author is not fixing the repository in this branch.
+- A file the branch touched does not make every stale sentence in it a blocking
+  defect. The question is what the branch's diff changed, and whether the branch's own
+  text is wrong because of it.
+
+## Time budget — 25 minutes of reading and thinking
+
+Note the start time in your first line of output (`date`), so that "when you reach
+it" is a fact and not a guess. When you reach it, do not keep exploring silently.
+Write a short interim note into your output:
+
+    **Status at the budget:** <what you have found so far, one line>
+    **Proposing to go deeper into:** <the one thing, one line>
+    **Could it change the verdict?** <yes / no>
+
+Then keep reading the single highest-value remaining check. The parent can read your
+output while you run and can tell you to go deeper or to stop — if that answer comes,
+act on it.
+
+If you are unsure whether a deeper check is worth the time, say so instead of
+spending the time. An honest "I could check X" is a better outcome than a review
+that spent an hour on two sentences of an ADR.
+
+## What not to do
+
+- Do not run Gradle. The build is the author's and CI's job.
+- Do not re-check what a previous round already found, unless the brief names the
+  previous findings as the subject.
+- Do not report a finding without naming the concrete case it breaks.
+- Do not sweep the repository for problems the branch did not touch.
+
+## Deliverable
+
+<what to check, as a short list — the findings of the previous round, the contract
+that changed, the callers the change breaks>
+
+Report the findings in the skill's three groups, each with `file:line` and the concrete
+case, blocking defects first. Then one line on what you did not reach — an honest scope
+statement is worth more than silence.
+
+End with exactly one line: `**Verdict:** pass` or `**Verdict:** fail`.
+```
+
 ### The review is a comment on the pull request
 
 The review is written down **on the pull request**, as a comment that **opens** with the
@@ -305,3 +391,5 @@ REVIEWER SEES PR
 3. **Missing ADR review** — an ADR reviewer focuses on the decision quality, not just the code. If you review an ADR, use the `writer-reviewer-pattern` ADR.
 4. **Style-only comments** — minor naming/style issues are nice-to-have. Mark as "nit:" so author knows it's non-blocking.
 5. **Rubber-stamping** — if you approve, you take equal responsibility for the code. Read the diff.
+6. **An unbounded review** — a reviewer with no time budget spends its hours where the change is least interesting, and a report that arrives after two hours reads as thorough whether or not it is. The brief carries the budget and the interim note that lets the parent call it; without them the review is unbounded, and unbounded is not thorough.
+7. **Auditing the repository instead of the branch** — a finding that predates the branch is not a blocking defect of the branch. It is an issue to file.

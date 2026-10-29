@@ -107,7 +107,7 @@ state *which tasks need the skill*, not summarise its contents.
 
 | Skill | Lines | Description |
 |---|---:|---|
-| `code-review-pr-workflow` | 306 | Author and review a pull request in this project. |
+| `code-review-pr-workflow` | 394 | Author and review a pull request in this project. |
 | `codebase-design` | 113 | Shared vocabulary for designing deep modules. |
 | `debugging-investigation` | 334 | Step-by-step incident diagnosis for production issues — log retrieval, trace filtering, crash analysis — and for failing or hanging tests: diagnostics bundle, thread dumps, frozen frame clock, headless DI-graph probe, DebugProbes for silent coroutine death. |
 | `diagnosing-bugs` | 137 | Diagnosis loop for hard bugs and performance regressions. |
