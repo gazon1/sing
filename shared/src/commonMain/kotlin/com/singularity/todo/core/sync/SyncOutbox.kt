@@ -139,9 +139,10 @@ interface SyncOutboxDao {
      */
     @Query(
         "UPDATE sync_outbox SET attempts = attempts + 1, last_error = :error, " +
-            "next_attempt_at = :nextAttemptAt, claimed_at = NULL WHERE patch_id = :id",
+            "next_attempt_at = :nextAttemptAt, claimed_at = NULL " +
+            "WHERE patch_id = :id AND (claimed_at IS NULL OR claimed_at = :claimedAt)",
     )
-    suspend fun markFailed(id: String, error: String, nextAttemptAt: Long)
+    suspend fun markFailed(id: String, error: String, nextAttemptAt: Long, claimedAt: Long? = null)
 
     /** Current attempt count for a patch. */
     @Query("SELECT attempts FROM sync_outbox WHERE patch_id = :id")

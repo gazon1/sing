@@ -1322,9 +1322,10 @@ private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, 
     override suspend fun delete(id: String) {
         store.update { it - id }
     }
-    override suspend fun markFailed(id: String, error: String, nextAttemptAt: Long) {
+    override suspend fun markFailed(id: String, error: String, nextAttemptAt: Long, claimedAt: Long?) {
         store.update { current ->
             val existing = current[id] ?: return@update current
+            if (existing.claimedAt != null && existing.claimedAt != claimedAt) return@update current
             current + (
                 id to existing.copy(
                     attempts = existing.attempts + 1,

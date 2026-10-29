@@ -75,7 +75,28 @@ class SyncOutboxClaimFakeTest {
                 claimedAt = now,
             ),
         )
-        dao.markFailed("p1", "err", now + 100)
+        dao.markFailed("p1", "err", now + 100, now)
         assertEquals(null, dao.rows.first().claimedAt)
+    }
+
+    @Test
+    fun claim_doesNotOverwriteAnExistingClaim() = runTest {
+        val dao = FakeSyncOutboxDao()
+        val first = 1000L
+        val second = 2000L
+        dao.insert(
+            SyncOutboxEntity(
+                patchId = "p1",
+                ownerId = "o",
+                profileId = "pr",
+                entityId = "e",
+                entityType = "t",
+                payload = "{}",
+                createdAt = 1L,
+            ),
+        )
+        dao.claim(listOf("p1"), first)
+        dao.claim(listOf("p1"), second)
+        assertEquals(first, dao.rows.first().claimedAt)
     }
 }
