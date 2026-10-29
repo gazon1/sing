@@ -9,9 +9,13 @@ package com.singularity.todo.core.version
  * class reference that resolves at runtime.
  */
 actual fun appVersion(): AppVersion {
-    val name = Class.forName("com.singularity.todo.BuildConfig")
-        .getField("VERSION_NAME").get(null) as String
-    val code = Class.forName("com.singularity.todo.BuildConfig")
-        .getField("VERSION_CODE").getInt(null)
-    return AppVersion(name, code)
+    val name = runCatching {
+        Class.forName("com.singularity.todo.BuildConfig")
+            .getField("VERSION_NAME").get(null) as? String
+    }.getOrNull()
+    val code = runCatching {
+        Class.forName("com.singularity.todo.BuildConfig")
+            .getField("VERSION_CODE").getInt(null)
+    }.getOrNull()
+    return AppVersion(name = name ?: "0.0.0-dev", code = code ?: 0)
 }
