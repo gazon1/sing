@@ -20,11 +20,12 @@
 # The smoke suite runs on 4 shards, not 1. It used to run on 1: one runner did
 # the whole tag-selected suite while the nightly split every flow over four, so
 # the "minimal regression suite" cost nearly a full-suite shard on a single
-# runner and was the longest thing in the workflow. Sharding the tag-selected
-# suite is the same split the full suite already uses — the shard is taken over
-# every flow and the tag is applied afterwards, so the four shards hold the
-# same 27 flows between them and each holds about a third of a full-suite
-# shard.
+# runner and was the longest thing in the workflow. The shard is taken over the
+# tag-selected flows and not over every flow, so the four shards hold the same
+# 27 flows between them in shares of 7, 7, 7 and 6 — each about a third of a
+# full-suite shard. Sharding over every flow and filtering afterwards gave
+# shares of 7, 9, 4 and 7, and the runner waiting on the largest one set the
+# wall clock for every pull request.
 #
 # Both suites therefore cost the same number of runners, and the pull-request
 # path finishes in a third of the wall clock it used to take.

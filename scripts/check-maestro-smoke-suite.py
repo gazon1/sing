@@ -108,20 +108,17 @@ def actual_count() -> int:
 def smoke_shard_size(shards: int) -> int:
     """The largest shard the smoke suite produces.
 
-    The runner shards over *every* flow and applies the tag afterwards, so a
-    shard's load is the number of selected flows whose index lands on it. The
-    largest of those is the one a runner waits for, and it is what the
-    comparison has to be about.
+    The runner filters by tag first and shards afterwards, so a shard's load
+    is the number of selected flows whose index lands on it. The largest of
+    those is the one a runner waits for, and it is what the comparison has to
+    be about.
     """
     from emulator.maestro._flow import SMOKE_TAG, collect_flows, filter_flows_by_tag
 
     flows = collect_flows(FLOWS_ROOT)
+    selected = filter_flows_by_tag(flows, [SMOKE_TAG])
     return max(
-        len(
-            filter_flows_by_tag(
-                [f for i, f in enumerate(flows) if (i % shards) == (s - 1)], [SMOKE_TAG]
-            )
-        )
+        len([f for i, f in enumerate(selected) if (i % shards) == (s - 1)])
         for s in range(1, shards + 1)
     )
 

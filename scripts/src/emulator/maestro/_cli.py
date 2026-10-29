@@ -272,21 +272,26 @@ def main(
         flow_target = (ROOT / flow).resolve()
         all_flows = collect_flows(flow_target)
         tag_list = [t.strip() for t in tags.split(",") if t.strip()]
-        if shards is not None and shard is not None and 1 <= shard <= shards:
-            flows = [f for i, f in enumerate(all_flows) if (i % shards) == (shard - 1)]
+        selected = filter_flows_by_tag(all_flows, tag_list) if tag_list else list(all_flows)
+        # An out-of-range shard is refused here as it is in a real run: a dry run
+        # that quietly showed every flow under the heading "Shard 9 of 4" would
+        # report a shard that cannot exist.
+        if shards is not None and shard is not None and not (1 <= shard <= shards):
+            logger.error(f"--shard must be between 1 and --shards (got {shard}, {shards})")
+            return ctx.exit(EXIT_FAIL)
+        if shards is not None and shard is not None:
+            flows = [f for i, f in enumerate(selected) if (i % shards) == (shard - 1)]
             logger.info(f"Dry run — shard {shard}/{shards}")
         else:
-            flows = all_flows
-        if tag_list:
-            flows = filter_flows_by_tag(flows, tag_list) if flows else []
+            flows = selected
         tag_desc = f"tag filter ({tag_list or 'none'})" if tag_list else "no tag filter"
 
         logger.info("Dry run — no device or APK required")
         logger.info(f"Flow target  : {flow_target.relative_to(ROOT)}")
         logger.info(f"Total discovered: {len(all_flows)}")
+        logger.info(f"After {tag_desc}: {len(selected)}")
         if shards is not None and shard is not None:
-            logger.info(f"Shard {shard}/{shards}: {len(flows)} flows")
-        logger.info(f"After {tag_desc}: {len(flows)}")
+            logger.info(f"Shard {shard}/{shards}: {len(flows)} of {len(selected)} flows")
         logger.info("\nFlows that would run:")
         for f in flows:
             logger.info(f"  {f.relative_to(ROOT)}")
@@ -398,27 +403,34 @@ def main(
         logger.error(f"No flow files matched '{flow_target}'")
         return ctx.exit(EXIT_FAIL)
 
-    # Sharding: apply before tag filtering, matching e2e-shard.sh behaviour
-    # (shard of full list, not of filtered list).
-    if shards is not None and shard is not None:
-        if not (1 <= shard <= shards):
-            logger.error(f"--shard must be between 1 and --shards (got {shard}, {shards})")
-            return ctx.exit(EXIT_FAIL)
-        sharded: list[Path] = [
-            f for i, f in enumerate(all_flows)
-            if (i % shards) == (shard - 1)
-        ]
-        logger.info(f"Shard {shard}/{shards}: {len(sharded)} of {len(all_flows)} flows")
-        flows = sharded
-    else:
-        flows = all_flows
+    # Sharding: apply AFTER the tag filter, so a shard holds an equal share of
+    # the flows the suite actually runs.
+    #
+    # Sharding the whole list first and filtering afterwards gave the smoke
+    # suite shards of 7, 9, 4 and 7 flows: the runner that waits for the
+    # largest one set the wall clock for every pull request, and the shard that
+    # held four finished long before the others. Filtering first gives 7, 7, 7
+    # and 6 — the same twenty-seven flows, twenty-two percent off the slowest
+    # runner. The full suite selects no tag, so its shards are unchanged.
+    if shards is not None and shard is not None and not (1 <= shard <= shards):
+        logger.error(f"--shard must be between 1 and --shards (got {shard}, {shards})")
+        return ctx.exit(EXIT_FAIL)
 
     tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+    flows = all_flows
     if tag_list:
         flows = filter_flows_by_tag(flows, tag_list)
         if not flows:
             logger.error(f"No flow files carry tag(s): {tags}")
             return ctx.exit(EXIT_FAIL)
+
+    if shards is not None and shard is not None:
+        sharded: list[Path] = [
+            f for i, f in enumerate(flows)
+            if (i % shards) == (shard - 1)
+        ]
+        logger.info(f"Shard {shard}/{shards}: {len(sharded)} of {len(flows)} flows")
+        flows = sharded
 
     if not flows:
         logger.error("No flows remain after sharding and tag filtering")

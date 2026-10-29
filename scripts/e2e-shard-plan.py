@@ -24,9 +24,12 @@ readers, no guess.
 The flow list is the runner's own list, and the shard is the runner's own
 rule: the flows are collected by the runner's `collect_flows`, the suite's
 selection by the runner's `suite_selection`, and shard N holds the flows
-whose index modulo the shard count is N-1. Sharding happens *before* the
-tag filter, so a shard of the `full` suite is a shard of every flow, and the
-tag-selected flows are marked as such.
+whose index modulo the shard count is N-1. The tag filter is applied
+*before* the shard, so a shard holds an equal share of the flows the suite
+actually runs — sharding the whole list first gave the smoke suite shards of
+7, 9, 4 and 7 flows, and the runner waiting on the largest one set the wall
+clock for every pull request. The `full` suite selects no tag, so its shards
+are the same either way.
 
 Nothing here is re-implemented on purpose. A plan that repeated the runner's
 rules would be a second place for them to be wrong, and the disagreement
@@ -209,8 +212,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     target, tags = suite_selection(FLOWS_ROOT, suite)
     flows = collect_flows(target)
-    mine = shard_flows(flows, shard, shards)
-    selected = set(filter_flows_by_tag(mine, tags)) if tags else set(mine)
+    selected = filter_flows_by_tag(flows, tags) if tags else list(flows)
+    mine = shard_flows(selected, shard, shards)
     commands = local_commands(suite, shard, shards)
 
     if emit_json:
@@ -222,8 +225,9 @@ def main(argv: list[str] | None = None) -> int:
                     "shards": shards,
                     "tags": tags,
                     "total_flows": len(flows),
+                    "selected_flows": len(selected),
                     "flows": [str(f.relative_to(ROOT)) for f in mine],
-                    "selected": [str(f.relative_to(ROOT)) for f in mine if f in selected],
+                    "selected": [str(f.relative_to(ROOT)) for f in mine],
                     "commands": commands,
                 },
                 indent=2,
@@ -231,13 +235,12 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
 
-    print(f"{suite} shard {shard} of {shards} — {len(mine)} of {len(flows)} flows")
+    print(f"{suite} shard {shard} of {shards} — {len(mine)} of {len(selected)} flows")
     if tags:
-        print(f"The {suite} suite selects {len(selected)} of them by tag {tags}.")
+        print(f"The {suite} suite selects {len(selected)} flow(s) by tag {tags}.")
     print()
     for flow in mine:
-        marker = "  " if flow in selected else "- "
-        print(f"{marker}{flow.relative_to(ROOT)}")
+        print(f"  {flow.relative_to(ROOT)}")
     print()
     print("Reproduce it locally:")
     for command in commands:
