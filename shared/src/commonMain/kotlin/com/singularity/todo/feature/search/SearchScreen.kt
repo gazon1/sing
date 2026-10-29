@@ -4,7 +4,11 @@
 
 package com.singularity.todo.feature.search
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -266,7 +270,7 @@ private fun SearchResultsList(
     ) {
         if (results.tasks.isNotEmpty()) {
             item { SectionHeader("Tasks") }
-            items(results.tasks.take(5), key = { it.record.id.value }) { hit ->
+            items(results.tasks, key = { it.record.id.value }) { hit ->
                 TaskCard(
                     task = hit.record,
                     onClick = { navigator.openTask(hit.record.id) },
@@ -282,7 +286,7 @@ private fun SearchResultsList(
         }
         if (results.notes.isNotEmpty()) {
             item { SectionHeader("Notes") }
-            items(results.notes.take(5), key = { it.record.id.value }) { hit ->
+            items(results.notes, key = { it.record.id.value }) { hit ->
                 SimpleResultCard(
                     title = hit.record.title.ifBlank { "Untitled" },
                     onClick = { navigator.openNote(hit.record.id) },
@@ -292,7 +296,7 @@ private fun SearchResultsList(
         }
         if (results.projects.isNotEmpty()) {
             item { SectionHeader("Projects") }
-            items(results.projects.take(5), key = { it.record.id.value }) { hit ->
+            items(results.projects, key = { it.record.id.value }) { hit ->
                 SimpleResultCard(
                     title = hit.record.name,
                     onClick = { navigator.openProject(hit.record.id) },
@@ -302,7 +306,7 @@ private fun SearchResultsList(
         }
         if (results.tags.isNotEmpty()) {
             item { SectionHeader("Tags") }
-            items(results.tags.take(5), key = { it.record.id.value }) { hit ->
+            items(results.tags, key = { it.record.id.value }) { hit ->
                 SimpleResultCard(
                     title = hit.record.name,
                     onClick = { navigator.openTag(hit.record.id) },
@@ -332,8 +336,18 @@ private fun SimpleResultCard(
     onClick: () -> Unit,
     matchRanges: ImmutableList<TextMatchRange> = persistentListOf(),
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val focused by interactionSource.collectIsFocusedAsState()
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                width = if (focused) 2.dp else 0.dp,
+                color = MaterialTheme.colorScheme.primary,
+                shape = MaterialTheme.shapes.medium,
+            )
+            .clickable(interactionSource = interactionSource, onClick = onClick)
+            .focusable(interactionSource = interactionSource),
     ) {
         SelectableText(
             text = highlightedText(title, matchRanges),

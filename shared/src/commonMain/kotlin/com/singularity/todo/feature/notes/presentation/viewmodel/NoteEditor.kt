@@ -139,11 +139,22 @@ internal class NoteEditor(
     /** Watches the open note for rewrites that come from outside this editor. */
     private val rewriteWatcher = NoteRewriteWatcher(repo, vmScope)
 
+    /** True when openEditor could not find the note; blocks autosave. */
+    private var _noteNotFound: Boolean = false
+
+    /** Exposed for the screen to render an empty state. */
+    val noteNotFound: Boolean get() = _noteNotFound
+
     /** Opens an existing note for editing. */
     fun openEditor(noteId: String) {
+        _noteNotFound = false
         vmScope.launch {
             val note = repo.get(NoteId.fromString(noteId))
-                ?: return@launch
+            if (note == null) {
+                _noteNotFound = true
+                emit(NotesUiEvent.Error("Note not found"))
+                return@launch
+            }
             val html = note.bodyHtml
                 ?: note.bodyMarkdown?.let { NoteContentMapper.toHtml(it) }
                 ?: ""
@@ -190,6 +201,7 @@ internal class NoteEditor(
      * written row all speak about the same note.
      */
     fun createNote(): String {
+        _noteNotFound = false
         val id = NoteId.fromString(idGen.next())
         val draft = Editing(
             id = id.value,
@@ -227,7 +239,8 @@ internal class NoteEditor(
         emit(NotesUiEvent.SavedPulse)
     }
 
-    override suspend fun persist(draft: Editing): Either<AppError, Unit> = autosaveContext.writeNote(draft)
+    override suspend fun persist(draft: Editing): Either<AppError, Unit> =
+        if (_noteNotFound) Either.Right(Unit) else autosaveContext.writeNote(draft)
 
     override fun onAutosaveError(e: Throwable) {
         log.e(e) { "autosave failed: ${e.message}" }
@@ -406,6 +419,7 @@ internal class NoteEditor(
 
     fun closeEditor() {
         // The watcher must not re-seed an editor that is on its way out.
+        _noteNotFound = false
         rewriteWatcher.stop()
         discard()
     }
