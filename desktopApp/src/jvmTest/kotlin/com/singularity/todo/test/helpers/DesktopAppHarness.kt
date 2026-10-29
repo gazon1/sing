@@ -33,6 +33,24 @@ private const val RELEASES_URL = "https://github.com/singularity-todo/singularit
 private fun fakeModelModule(): Module = module { single<TextGenPort> { FakeTextGen() } }
 
 /**
+ * Assembles the desktop app Koin graph for a test, reused by [runDesktopAppTest]
+ * and by multi-instance harnesses so the module list is defined once.
+ */
+fun buildDesktopAppKoin(clock: Clock? = null, overrides: Module = module {}): KoinApplication =
+    koinApplication {
+        modules(
+            listOf(coreLoggingModule()) +
+                domainModule() +
+                // Loaded after domainModule() on purpose: last-wins means coreModule()'s
+                // SupabaseAuthRepository would otherwise override the fake here.
+                listOf(testPlatformModule(), testKermitModule(), gateModule(RELEASES_URL)) +
+                fakeModelModule() +
+                listOfNotNull(clock?.let { fixed -> module { single<Clock> { fixed } } }) +
+                listOf(overrides),
+        )
+    }
+
+/**
  * The semantics tree at the moment of failure, as an exception to suppress.
  *
  * Bounded, like the bundle: the dump waits for the scene to go idle, and a scene that
@@ -119,23 +137,7 @@ fun runDesktopAppTest(
     // clearing the list would double-add writers within the same JVM.
     resetKermitWriters()
 
-    val app: KoinApplication = koinApplication {
-        modules(
-            listOf(coreLoggingModule()) +
-                domainModule() +
-                // Loaded after domainModule() on purpose. Koin resolves duplicate
-                // definitions last-wins, so coreModule()'s SupabaseAuthRepository
-                // would otherwise override the fake here — and its userId resolves
-                // from "anonymous" to a generated ULID a moment after startup, which
-                // orphans anything written in that window and makes the row invisible
-                // to every subsequent read.
-                listOf(testPlatformModule(), testKermitModule(), gateModule(RELEASES_URL)) +
-                fakeModelModule() +
-                // Last, so a test's clock beats coreModule()'s `Clock.System`.
-                listOfNotNull(clock?.let { fixed -> module { single<Clock> { fixed } } }) +
-                listOf(overrides),
-        )
-    }
+    val app: KoinApplication = buildDesktopAppKoin(clock, overrides)
 
     // Install the per-test ring buffer into Kermit before the test body runs so
     // all log entries from the entire test (including Compose boot) are captured.
