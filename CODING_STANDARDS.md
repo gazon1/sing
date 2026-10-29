@@ -266,6 +266,27 @@ A reviewing agent watches for the path that writes the row and stops:
 
 ---
 
+## An invalid payload leaves the previous data untouched
+
+An untrusted payload (a backup archive, a sync delta, an imported document) is
+verified in full — decoded, migrated, schema-checked — before any row is
+written. If any part of that fails, the whole import fails and the previous data
+stays intact: no partial apply, no crash.
+
+- Validation happens outside the write transaction. A decode or migration
+  failure throws before the transaction opens.
+- The transaction is all-or-nothing: a failure inside it rolls back every write
+  made by that import.
+- A payload that does not verify is ignored, never half-applied.
+
+A reviewing agent watches for:
+
+- A write that starts before the payload is fully validated.
+- A partial apply that catches an exception mid-loop and continues.
+- A fallback that silently substitutes empty data for a missing or invalid part.
+
+---
+
 ## A push carries what the database holds
 
 A device that sends a part says what the part is. On the wire an empty tag
