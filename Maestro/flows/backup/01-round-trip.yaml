@@ -60,22 +60,15 @@ tags:
 
 # 3. Create a backup.
 #
-# The result is a snackbar, not a dialog — the ViewModel emits
-# `BackupUiEvent.ShowSnackbar("Backup created")`. The flow used to wait for a
-# `result_dialog` that the screen has never shown, so it could not pass; and
-# it used to wait for the message text, which is the translator's and reads
-# "Резервная копия создана" on this device. The snackbar's message is
-# addressed by its tag, which says "a snackbar was shown" without saying what
-# it said.
-- tapOn:
-    id: backup_create_button
-- extendedWaitUntil:
-    visible:
-      id: snackbar_message
-    timeout: 8000
+# Backup creation now opens the system save dialog (SAF): tapping the button
+# launches the picker, the archive is written to the location the user
+# confirms. The flow handles the dialog by confirming "Save", then waits for
+# the snackbar the ViewModel emits (`BackupUiEvent.ShowSnackbar("Backup created")`).
+- runFlow: ../../helpers/backup-create-via-saf.yaml
 
-# 4. Remove the task (simulating a wipe) without clearing app data — clearState
-# would also delete the backup stored under filesDir/backups.
+# 4. Remove the task (simulating a wipe). The backup now lives outside the app
+# (SAF), so clearState would no longer delete it; we still delete the task by
+# hand to keep the round trip focused on restore.
 - tapOn:
     id: task_item_${RUN_ID}_backuproundtriptask
 - extendedWaitUntil:
@@ -132,6 +125,15 @@ tags:
     timeout: 8000
 - tapOn:
     id: backup_restore_button
+# The restore now goes through the system file picker (SAF): the archive lives
+# where the user saved it, not in the app's hidden backupDir. Pick the backup
+# we just created by its file-name prefix, then wait for the snackbar.
+- extendedWaitUntil:
+    visible:
+      text: "singularity_backup"
+    timeout: 8000
+- tapOn:
+    text: "singularity_backup"
 # The restore reports itself in a snackbar too. The text the flow used to wait
 # for ("Restore completed") is not the text the app emits ("Restore complete"),
 # and it is translated on this device besides — so the tag is what the flow

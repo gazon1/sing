@@ -1,0 +1,17 @@
+# Create a backup through the system save dialog (SAF).
+#
+# Backup creation no longer writes to the app's hidden backupDir: it opens the
+# platform save dialog, and the archive lands where the user confirms. This
+# helper drives that dialog and waits for the snackbar the ViewModel emits.
+- tapOn:
+    id: backup_create_button
+- extendedWaitUntil:
+    visible:
+      text: "Save"
+    timeout: 8000
+- tapOn:
+    text: "Save"
+- extendedWaitUntil:
+    visible:
+      id: snackbar_message
+    timeout: 8000
