@@ -1,6 +1,5 @@
 package com.singularity.todo.arch
 
-import com.lemonappdev.konsist.api.Konsist
 import com.lemonappdev.konsist.api.declaration.KoFileDeclaration
 import com.lemonappdev.konsist.api.declaration.KoImportDeclaration
 import org.junit.jupiter.api.Tag
@@ -68,15 +67,8 @@ class ProposalLifecycleStaysInTheDomainTest {
          */
         private fun KoImportDeclaration.shortName(): String = name.substringAfterLast('.')
 
-        /** Injected by the jvmTest task config in `shared/build.gradle.kts`. */
-        private val commonMainRoot: String = System.getProperty("commonMain.root")
-            ?: error(
-                "commonMain.root system property is not set — " +
-                    "see the jvmTest task config in shared/build.gradle.kts",
-            )
-
         private val files: List<KoFileDeclaration> =
-            Konsist.scopeFromExternalDirectory(commonMainRoot).files
+            CommonMainKonsistScope.scope.files
 
         /** A surface: a file under a `presentation` package directory. */
         private fun KoFileDeclaration.isSurface(): Boolean =

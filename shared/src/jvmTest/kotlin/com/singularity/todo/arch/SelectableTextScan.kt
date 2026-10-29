@@ -1,6 +1,5 @@
 package com.singularity.todo.arch
 
-import com.lemonappdev.konsist.api.Konsist
 import com.lemonappdev.konsist.api.declaration.KoFileDeclaration
 
 /**
@@ -47,10 +46,7 @@ internal object SelectableTextScan {
      * A property rather than a relative path: the test JVM's working directory is a
      * build output directory, so a relative path would resolve against the wrong tree.
      */
-    private val commonMainRoot: String = System.getProperty("commonMain.root")
-        ?: error("commonMain.root system property is not set — see the jvmTest task config")
-
-    private val scope = Konsist.scopeFromExternalDirectory(commonMainRoot)
+    private val scope = CommonMainKonsistScope.scope
 
     /** Every file of `commonMain`, keyed by its path relative to `com/singularity/todo/`. */
     private val files: Map<String, KoFileDeclaration> by lazy {
@@ -88,7 +84,7 @@ internal object SelectableTextScan {
      * The tree mirrors the packages, so the path *is* the name.
      */
     private fun relativePath(file: KoFileDeclaration): String {
-        val normalizedRoot = commonMainRoot.replace('\\', '/').trimEnd('/')
+        val normalizedRoot = CommonMainKonsistScope.commonMainRoot.replace('\\', '/').trimEnd('/')
         val under = file.path.replace('\\', '/').removePrefix("$normalizedRoot/")
         return under.removePrefix("$PACKAGE_PREFIX/")
     }

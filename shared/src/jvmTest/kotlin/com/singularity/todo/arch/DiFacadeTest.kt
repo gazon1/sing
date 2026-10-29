@@ -1,6 +1,5 @@
 package com.singularity.todo.arch
 
-import com.lemonappdev.konsist.api.Konsist
 import com.lemonappdev.konsist.api.declaration.KoFileDeclaration
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -36,14 +35,7 @@ class DiFacadeTest {
     companion object {
         private const val PKG = "com.singularity.todo"
 
-        /** Injected by the jvmTest task config in `shared/build.gradle.kts`. */
-        private val commonMainRoot: String = System.getProperty("commonMain.root")
-            ?: error(
-                "commonMain.root system property is not set — " +
-                    "see the jvmTest task config in shared/build.gradle.kts",
-            )
-
-        private val scope = Konsist.scopeFromExternalDirectory(commonMainRoot)
+        private val scope = CommonMainKonsistScope.scope
 
         /**
          * Functions in [Modules.kt] that are allowed to declare bindings.
@@ -60,7 +52,7 @@ class DiFacadeTest {
         /** Package name derived from the file path, as [ArchitectureTest] does. */
         private fun KoFileDeclaration.packageName(): String {
             val normalizedPath = path.replace('\\', '/')
-            val normalizedRoot = commonMainRoot.replace('\\', '/').trimEnd('/')
+            val normalizedRoot = CommonMainKonsistScope.commonMainRoot.replace('\\', '/').trimEnd('/')
             return normalizedPath
                 .removePrefix("$normalizedRoot/")
                 .substringBeforeLast('/')
