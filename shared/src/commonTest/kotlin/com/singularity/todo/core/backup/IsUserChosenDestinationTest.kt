@@ -1,9 +1,11 @@
 package com.singularity.todo.core.backup
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
+@Tag("fast")
 class IsUserChosenDestinationTest {
     @Test
     fun bareFileNameIsNotUserChosen() {

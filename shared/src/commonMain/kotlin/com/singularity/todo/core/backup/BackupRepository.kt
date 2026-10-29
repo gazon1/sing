@@ -232,7 +232,8 @@ class BackupRepositoryImpl(
     override suspend fun export(options: ExportOptions): Result<BackupResult> =
         withContext(ioDispatcher) {
             runCatchingCancellable {
-                val destPath = if (isUserChosenDestination(options.destPath)) {
+                val userChosen = isUserChosenDestination(options.destPath)
+                val destPath = if (userChosen) {
                     options.destPath
                 } else {
                     fs.ensureDir(backupDir)
@@ -244,6 +245,7 @@ class BackupRepositoryImpl(
                         userId = currentUser.scopedUserId.value,
                         ownerId = currentUser.userId.value,
                         ownerUserId = currentUser.userId.value,
+                        userChosenDestination = userChosen,
                     ),
                 ).getOrThrow()
             }

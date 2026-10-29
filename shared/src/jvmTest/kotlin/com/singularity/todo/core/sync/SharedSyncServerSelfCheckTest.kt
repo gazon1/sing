@@ -5,8 +5,10 @@ package com.singularity.todo.core.sync
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 
+@Tag("fast")
 class SharedSyncServerSelfCheckTest {
     @Test
     fun `push on one client is visible to another client pull`() = runTest {
