@@ -66,6 +66,15 @@ open class FakeSyncOutboxDao : SyncOutboxDao {
         }
     }
 
+    override suspend fun release(ids: List<String>, claimedAt: Long) {
+        ids.forEach { id ->
+            val index = rows.indexOfFirst { it.patchId == id }
+            if (index >= 0 && rows[index].claimedAt == claimedAt) {
+                rows[index] = rows[index].copy(claimedAt = null)
+            }
+        }
+    }
+
     override suspend fun countPendingFor(ownerId: String): Int = rows.count { it.ownerId == ownerId }
 
     override suspend fun insert(entity: SyncOutboxEntity) {
