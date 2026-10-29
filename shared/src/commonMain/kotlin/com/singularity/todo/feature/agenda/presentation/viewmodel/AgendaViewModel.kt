@@ -2,6 +2,7 @@ package com.singularity.todo.feature.agenda.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.runCatchingCancellable
+import com.singularity.todo.core.error.toMessage
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
@@ -35,6 +36,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
@@ -180,6 +182,9 @@ class AgendaViewModel(
      */
     private val latestTasks = MutableStateFlow<List<Task>>(emptyList())
 
+    /** Increments to re-run the collection in [init] after a failure or a retry. */
+    private val _reloadTrigger = MutableStateFlow(0)
+
     init {
         // Greeting is computed once at load from greetingSettings and the current clock hour.
         // It does not change during the lifetime of this ViewModel instance.
@@ -192,29 +197,34 @@ class AgendaViewModel(
         }
 
         scope.launch {
-            todayFlow(deps.clock, deps.timeZone.current()).flatMapLatest { today ->
-                // The projects are observed alongside the tasks: the row needs its
-                // project's name and colour, and the lookup includes closed projects
-                // so a badge never vanishes because the project was finished. The
-                // projects are resolved here — once per list build — and ride on the
-                // row item, so no row looks a project up.
-                combine(
-                    deps.taskRepo.observeByFilter(TaskFilter.All)
-                        .distinctUntilChanged(), // skip recompute when task list unchanged (e.g. midnight today tick)
-                    deps.projectsRepository.observeAllIncludingClosed(),
-                ) { tasks, projects -> tasks to projects }
-                    .onEach { (tasks, _) -> latestTasks.value = tasks }
-                    .map { (tasks, projects) ->
-                        val projectsById = projects.associateBy { it.id.value }
-                        AgendaUiState.Loaded(
-                            sections = AgendaEvaluator
-                                .evaluate(tasks, definition, today, deps.clock.now(), projectsById)
-                                .toImmutableList(),
-                            today = today,
-                            greeting = _greeting.value,
-                        )
-                    }
+            _reloadTrigger.flatMapLatest { _ ->
+                todayFlow(deps.clock, deps.timeZone.current()).flatMapLatest { today ->
+                    // The projects are observed alongside the tasks: the row needs its
+                    // project's name and colour, and the lookup includes closed projects
+                    // so a badge never vanishes because the project was finished. The
+                    // projects are resolved here — once per list build — and ride on the
+                    // row item, so no row looks a project up.
+                    combine(
+                        deps.taskRepo.observeByFilter(TaskFilter.All)
+                            .distinctUntilChanged(), // skip recompute when task list unchanged
+                        deps.projectsRepository.observeAllIncludingClosed(),
+                    ) { tasks, projects -> tasks to projects }
+                        .onEach { (tasks, _) -> latestTasks.value = tasks }
+                        .map { (tasks, projects) ->
+                            val projectsById = projects.associateBy { it.id.value }
+                            AgendaUiState.Loaded(
+                                sections = AgendaEvaluator
+                                    .evaluate(tasks, definition, today, deps.clock.now(), projectsById)
+                                    .toImmutableList(),
+                                today = today,
+                                greeting = _greeting.value,
+                            )
+                        }
+                }
             }
+                .catch { cause ->
+                    setState(AgendaUiState.Error(message = cause.toMessage("Could not load agenda")))
+                }
                 .collect { fresh ->
                     // Reconciliation goes through `updateState`, which is CAS-backed,
                     // because this collector and the selection handlers both write and
@@ -353,6 +363,11 @@ class AgendaViewModel(
 
             is AgendaIntent.MergeSelectedSeries -> with(intent) {
                 scope.launch { handleMergeSeries() }
+            }
+
+            is AgendaIntent.Retry, is AgendaIntent.Reload -> {
+                setState(AgendaUiState.Loading)
+                _reloadTrigger.value = _reloadTrigger.value + 1
             }
         }
     }
