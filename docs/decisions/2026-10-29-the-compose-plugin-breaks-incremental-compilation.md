@@ -107,9 +107,14 @@ place. The candidates that remain, in order:
 
 ## Consequences
 
-- `ADR 2026-10-22-gradle-memory-budget` and the comment in `gradle.properties`
-  claim the in-process strategy costs no incremental compilation. It costs all
-  of it. The claim is corrected here rather than in two places at once.
+- The claim in `ADR 2026-10-22-gradle-memory-budget` and in the comment in
+  `gradle.properties` — that the in-process strategy costs no incremental
+  compilation — is **correct**, and stays. The strategy is not the cause: the
+  `daemon` strategy recompiles too, only faster. What a reader of that comment
+  concludes from it is what is wrong: the compilation *is* incremental in
+  principle and is *not* incremental in practice, because the Compose compiler
+  plugin marks the task non-incremental. Two independent facts, and the comment
+  gave only the first.
 - A narrow run is expected to cost about two minutes, and the expectation is
   written down so that a future change to the build is measured against it
   rather than assumed.
