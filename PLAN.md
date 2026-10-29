@@ -45,35 +45,10 @@ requires the snackbar to become a state-driven component rather than `Indefinite
 ---
 
 ## Issue #107 — Regexp / DateRange selector templates missing from editor
-**Status: OPEN — decision required before implementing**
+**Status: CLOSED ✅** — `ByRegexp` and `ByDateRange` already exist in `SelectorTemplate.kt` (lines 101, 115) and are in the catalogue. No further work.
 
-`Selector.kt` has `Selector.Regexp` and `Selector.DateRange` with full serializer
-coverage. `SelectorTemplate.kt` has 11 templates but no Regexp and no DateRange.
-The `SavedAgendaScreen` `AddSection` sheet exposes the 7 fixed templates only.
-
-Two decisions are needed:
-
-### Decision 1: Should Regexp/DateRange be editor-accessible?
-| Option | Implication |
-|---|---|
-| **A — Yes, add templates** | Add `ByRegexp` and `ByDateRange` to `SelectorTemplate`, add parameter
-picker sheets, wire to `Selector.Regexp`/`Selector.DateRange` |
-| **B — No, engine-only** | Leave as-is; document in `SelectorTemplate.kt` KDoc that these two
-types have no editor entry point |
-
-### Decision 2: What picker sheet shape?
-If A above, choose picker UX:
-
-| Option | Implication |
-|---|---|
-| **A1 — Free-text input** | Regexp: `TextField` with regex; DateRange: two `DatePicker` fields.
-Simple but no validation |
-| **A2 — Constrained options** | DateRange: preset buckets (`Yesterday`, `This month`, …) +
-custom range; Regexp: predefined common patterns. More work, better UX |
-| **A3 — Hybrid** | DateRange uses presets + custom; Regexp uses patterns + free-text |
-
-**Recommended:** A1 for regexp (power users), A3 for date range (preset buckets
-cover 80% of cases, custom for the rest).
+Already implemented: `ByRegexp` and `ByDateRange` exist in `SelectorTemplate.kt`
+(lines 101, 115) and are in the catalogue. No decision needed.
 
 ---
 
@@ -120,30 +95,12 @@ desired, `Notification.Undo` routed to `SnackbarHost` is the correct path per
 | Screen | Delete behavior | Needs |
 |---|---|---|
 | `NotesList` | `softDelete` + undo snackbar | ✅ Done (PR #274) |
-| `TagsScreen` | Fire-and-forget hard delete | `Notification.Undo` — **but Tags do not
-support `restore`** (`TagsRepository` is not `SoftDeletable`) |
-| `ProjectsScreen` | Fire-and-forget hard delete | `ConfirmActionDialog` |
+| `TagsScreen` | Soft-delete + undo snackbar (restore implemented) | ✅ Done |
+| `ProjectsScreen` | Fire-and-forget hard delete | `ConfirmActionDialog` (still open) |
 
-### Tags: two-path problem
-`TagsRepository` (line 72) calls `unitOfWork.write { …DELETE… }` — a hard delete.
-`GenericUserScopedRepository` comment (line 97–98) says: *"Soft-delete is implied when
-the entity supports `SoftDeletable`"*. Tags do not implement `SoftDeletable`, so
-undo is impossible without first making tags soft-deletable.
-
-**Proposed fix path for Tags (in two commits):**
-
-1. **Commit 1 — Make Tag soft-deletable:**
-   - Add `deletedAt: Instant?` field to `Tag` domain model
-   - Add `SoftDeletable<Tag, TagId>` to `TagsRepository`
-   - Implement `restore(id)` in `TagsRepositoryImpl` (flip `deletedAt` back to null)
-   - Change `TagsRepositoryImpl.delete` to set `deletedAt` instead of hard-deleting
-   - Room migration (add `deleted_at` column)
-   - Update `TagDao` to filter out soft-deleted tags in `observeAll` / `get`
-
-2. **Commit 2 — Add undo snackbar to TagsViewModel:**
-   - Mirror the `NotesListViewModel.handleDelete` pattern:
-     `delete` → `emit(TagsUiEvent.UndoDelete)` → `_pendingDelete` marker → timer → clear
-   - `handleUndoDeleteTapped` calls `tagRepo.restore`
+### Tags: DONE
+Tags are now soft-deletable with `restore()` and an undo snackbar in `TagsScreen`.
+The steps above are already implemented; kept for history only.
 
 ### Projects: add ConfirmActionDialog
 `ProjectsViewModel.delete` (line 122) emits `ProjectsUiEvent.Error` on failure.
@@ -168,7 +125,7 @@ Projects needs UI dialog wiring.
 | #253 | CLOSED ✅ | None |
 | #78 | CLOSED ✅ | None |
 | #80 | OPEN | Custom animated snackbar (design + impl) |
-| #107 | OPEN | Decision needed (editor access + picker shape) |
+| #107 | CLOSED ✅ | Already implemented (ByRegexp/ByDateRange exist) |
 | #108 | CLOSED ✅ | None |
 | #110 | PARTIALLY OPEN | Remove 4 dead-code artifacts |
-| #104 | OPEN | Tags: soft-delete + restore + undo; Projects: confirm dialog |
+| #104 | PARTIALLY OPEN | Tags done; Projects: confirm dialog (only remaining) |

@@ -8,7 +8,7 @@ Kotlin Multiplatform task manager with AI assistance. Targets Android and JVM De
   <a href="https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html"><img src="https://shieldcn.dev/badge/Kotlin-Multiplatform.svg?variant=branded&theme=violet&logo=kotlin" alt="Kotlin Multiplatform" /></a>
   <img src="https://shieldcn.dev/badge/Android-JVM%20Desktop.svg?variant=secondary&logo=android" alt="Android and JVM Desktop" />
   <img src="https://shieldcn.dev/badge/Compose%20Multiplatform.svg?variant=secondary&logo=jetbrainscompose" alt="Compose Multiplatform" />
-  <img src="https://shieldcn.dev/badge/MCP%20Server-39%20tools.svg?variant=secondary" alt="MCP server, 39 tools" />
+  <img src="https://shieldcn.dev/badge/MCP%20Server-44%20tools.svg?variant=secondary" alt="MCP server, 44 tools" />
 </p>
 
 <p align="center">
@@ -26,10 +26,10 @@ Kotlin Multiplatform task manager with AI assistance. Targets Android and JVM De
 | **Projects** | Folder-like grouping, color + icon, task counts |
 | **Tags** | Global tags, per-profile isolation |
 | **Agenda** | Calendar view, daily/weekly schedule |
-| **AI Assistant** | 39 Koog-powered tools: refine, decompose, cluster, generate descriptions, weekly planning |
+| **AI Assistant** | 44 Koog-powered tools: refine, decompose, cluster, generate descriptions, weekly planning |
 | **Sync** | Supabase backend, HLC conflict resolution, offline-first |
 | **Backup** | JSON export/import, per-profile |
-| **MCP Server** | AI agent control via stdio (39 read/write/list tools) |
+| **MCP Server** | AI agent control via stdio (44 read/write/list tools) |
 | **Multi-profile** | Isolated data per profile (Personal, AI Agent, etc.) |
 
 ---
