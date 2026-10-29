@@ -266,7 +266,7 @@ private fun SearchResultsList(
     ) {
         if (results.tasks.isNotEmpty()) {
             item { SectionHeader("Tasks") }
-            items(results.tasks.take(5), key = { it.record.id.value }) { hit ->
+            items(results.tasks, key = { it.record.id.value }) { hit ->
                 TaskCard(
                     task = hit.record,
                     onClick = { navigator.openTask(hit.record.id) },
@@ -282,7 +282,7 @@ private fun SearchResultsList(
         }
         if (results.notes.isNotEmpty()) {
             item { SectionHeader("Notes") }
-            items(results.notes.take(5), key = { it.record.id.value }) { hit ->
+            items(results.notes, key = { it.record.id.value }) { hit ->
                 SimpleResultCard(
                     title = hit.record.title.ifBlank { "Untitled" },
                     onClick = { navigator.openNote(hit.record.id) },
@@ -292,7 +292,7 @@ private fun SearchResultsList(
         }
         if (results.projects.isNotEmpty()) {
             item { SectionHeader("Projects") }
-            items(results.projects.take(5), key = { it.record.id.value }) { hit ->
+            items(results.projects, key = { it.record.id.value }) { hit ->
                 SimpleResultCard(
                     title = hit.record.name,
                     onClick = { navigator.openProject(hit.record.id) },
@@ -302,7 +302,7 @@ private fun SearchResultsList(
         }
         if (results.tags.isNotEmpty()) {
             item { SectionHeader("Tags") }
-            items(results.tags.take(5), key = { it.record.id.value }) { hit ->
+            items(results.tags, key = { it.record.id.value }) { hit ->
                 SimpleResultCard(
                     title = hit.record.name,
                     onClick = { navigator.openTag(hit.record.id) },

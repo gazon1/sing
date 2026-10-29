@@ -14,8 +14,6 @@ import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.search.domain.port.InternalLinkRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
@@ -55,9 +53,11 @@ class NotePreview(
     private fun loadNote(noteId: String) {
         loadNoteJob?.cancel()
         loadNoteJob = vmScope.launch {
-            val note = repo.observe(NoteId.fromString(noteId))
-                .filterNotNull()
-                .first()
+            val note = repo.get(NoteId.fromString(noteId))
+            if (note == null) {
+                updateState { NotePreviewState.NotFound }
+                return@launch
+            }
             val backlinks = try {
                 linkRepo.getBacklinkNotes(noteId)
             } catch (e: CancellationException) {
@@ -80,6 +80,7 @@ class NotePreview(
 
 sealed interface NotePreviewState {
     data object Loading : NotePreviewState
+    data object NotFound : NotePreviewState
     data class Loaded(val note: Note, val backlinks: ImmutableList<Note>) : NotePreviewState {
         val backlinkCount: Int get() = backlinks.size
     }

@@ -5,6 +5,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -98,6 +100,7 @@ fun InterfaceSettingsScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AccentColorPicker(selected: SingularityAccents, onSelect: (SingularityAccents) -> Unit) {
     SettingsSection(title = "Accent Color") {
@@ -130,7 +133,7 @@ private fun AccentColorPicker(selected: SingularityAccents, onSelect: (Singulari
             }
         }
         // Swatches row
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             SingularityAccents.entries.forEach { accent ->
                 AccentSwatch(
                     accent = accent,

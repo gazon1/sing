@@ -33,6 +33,7 @@ import com.mohamedrejeb.richeditor.ui.material3.RichTextEditor
 import com.mohamedrejeb.richeditor.ui.material3.RichTextEditorDefaults
 import com.singularity.todo.core.ui.DraftUiState
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.ImeAwareBackHandler
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
@@ -118,6 +119,7 @@ internal fun NoteEditorScreen(route: NotesRoute.Editor, viewModel: NoteEditor = 
     ImeAwareBackHandler { onBack() }
     NoteEditorScreenContent(
         editorState = editorState,
+        noteNotFound = viewModel.noteNotFound,
         onTitleChange = { title -> viewModel.onIntent(NotesEditorIntent.EditTitle(title)) },
         onBodyChange = { html -> viewModel.onIntent(NotesEditorIntent.EditBody(html)) },
         onSaveNow = { viewModel.onIntent(NotesEditorIntent.SaveNow) },
@@ -180,6 +182,7 @@ fun NoteEditorScreenContent(
     onSaveNow: () -> Unit,
     onBack: () -> Unit,
     onShowAiSheet: () -> Unit,
+    noteNotFound: Boolean = false,
     savedVisible: Boolean = false,
     searchNotesForLink: (suspend (String) -> List<LinkResult>)? = null,
     searchTasksForLink: (suspend (String) -> List<LinkResult>)? = null,
@@ -195,6 +198,10 @@ fun NoteEditorScreenContent(
     proposalFailures: ImmutableMap<ProposalItemId, String> = persistentMapOf(),
 ) {
     val linkOverlay = rememberOverlayState<NoteLinkSheet>()
+
+    if (noteNotFound) {
+        return EmptyState(title = "Note not found")
+    }
 
     val draft = editorState.draft
     val session = rememberEditorSession(draft) { _, html -> onBodyChange(html) }

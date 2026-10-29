@@ -62,8 +62,9 @@ import com.mohamedrejeb.richeditor.ui.material3.RichText
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.platform.TimeConstants
 import com.singularity.todo.core.refresh.RefreshableContent
-import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.links.InternalLinkSchemes
+import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.text.SelectableTextGroup
 import com.singularity.todo.core.ui.text.rememberAppUriHandler
@@ -183,37 +184,39 @@ fun NotePreviewScreenContent(
             )
         },
         bottomBar = {
-            BottomAppBar {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    FilledTonalButton(
-                        onClick = onEdit,
+            if (state is NotePreviewState.Loaded) {
+                BottomAppBar {
+                    Row(
                         modifier = Modifier
-                            .weight(1f)
-                            .testTag(TestTags.noteAction("edit")),
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Edit")
-                    }
-                    OutlinedButton(
-                        onClick = onDelete,
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag(TestTags.noteAction("delete")),
-                    ) {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.error,
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text("Delete", color = MaterialTheme.colorScheme.error)
+                        FilledTonalButton(
+                            onClick = onEdit,
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag(TestTags.noteAction("edit")),
+                        ) {
+                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Edit")
+                        }
+                        OutlinedButton(
+                            onClick = onDelete,
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag(TestTags.noteAction("delete")),
+                        ) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.error,
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text("Delete", color = MaterialTheme.colorScheme.error)
+                        }
                     }
                 }
             }
@@ -229,6 +232,17 @@ fun NotePreviewScreenContent(
                         contentAlignment = Alignment.Center,
                     ) {
                         CircularProgressIndicator()
+                    }
+                }
+
+                NotePreviewState.NotFound -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(padding),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        EmptyState(title = "Note not found")
                     }
                 }
 
