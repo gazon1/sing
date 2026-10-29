@@ -14,8 +14,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
  *
  * Usage:
  * ```
- * val ctx = rememberDataContext(surfaceId, controller, registry, onAction, onDataChange)
- * GenuiSurface(ctx, modifier = Modifier)
+ * val ctx = rememberDataContext(surfaceId, controller, registry, onDataChange)
+ * CompositionLocalProvider(LocalGenuiOnAction provides { _, name, data -> onAction(name, data) }) {
+ *     GenuiSurface(ctx, modifier = Modifier)
+ * }
  * ```
  */
 @Composable
