@@ -333,8 +333,13 @@ private val subprocessLog = co.touchlab.kermit.Logger.withTag("subprocess")
  * each line to a suspending collector as it arrives, and the thread that drains
  * the child's standard error hands each line to a plain callback. One reader,
  * and neither caller needs a coroutine to call it.
+ *
+ * `internal` and not `private`, so the reader is testable without a child
+ * process: the case that matters — a last line the child did not terminate —
+ * was reachable only through a spawned process, and a test that needs a spawn
+ * belongs to the slow population, which the pull request does not run.
  */
-private fun readCappedLines(reader: java.io.Reader, maxLine: Int): Sequence<String> = sequence {
+internal fun readCappedLines(reader: java.io.Reader, maxLine: Int): Sequence<String> = sequence {
     val buf = CharArray(8192)
     val line = StringBuilder()
     while (true) {
@@ -344,7 +349,11 @@ private fun readCappedLines(reader: java.io.Reader, maxLine: Int): Sequence<Stri
             subprocessLog.d(e) { "The child's output ended while it was being read." }
             -1
         }
-        if (n == -1) return@sequence
+        // `break`, not `return@sequence`: the return leaves the builder and the
+        // trailing line below is never reached — and the child's last line is
+        // not newline-terminated whenever it is not, so it is exactly the line
+        // that gets dropped.
+        if (n == -1) break
         for (i in 0 until n) {
             val c = buf[i]
             if (c == '\n') {
