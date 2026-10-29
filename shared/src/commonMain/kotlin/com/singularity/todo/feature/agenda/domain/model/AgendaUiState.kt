@@ -43,7 +43,6 @@ sealed interface AgendaUiState {
         val selectedTaskIds: ImmutableSet<TaskId> = persistentSetOf(),
         val pendingBlockedClose: BlockedCloseRequest? = null,
         val pendingBlockedBulkClose: BlockedBulkCloseRequest? = null,
-        val pendingBulkDelete: Boolean = false,
     ) : AgendaUiState
     data class Error(val message: String) : AgendaUiState
 }

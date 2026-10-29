@@ -18,7 +18,6 @@ import kotlinx.collections.immutable.persistentSetOf
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.BlockedBulkCompletionDialog
-import com.singularity.todo.core.ui.components.ConfirmActionDialog
 import com.singularity.todo.core.ui.components.BlockedCompletionDialog
 import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.components.sheet.MultiDatePickerSheet
@@ -153,9 +152,6 @@ fun AgendaScreen(
             // so it asks too.
             BlockedBulkCloseDialog(state = state, vm = vm)
 
-            // Bulk delete of selected tasks requires confirmation.
-            BulkDeleteDialog(state = state, vm = vm)
-
             if (showMultiDatePicker) {
                 MultiDateTaskPicker(
                     today = vm.today,
@@ -186,19 +182,6 @@ private fun BlockedBulkCloseDialog(state: AgendaUiState, vm: AgendaViewModel) {
         totalCount = request.taskIds.size,
         onConfirm = { vm.onIntent(AgendaIntent.ConfirmBlockedBulkClose) },
         onDismiss = { vm.onIntent(AgendaIntent.DismissBlockedBulkClose) },
-    )
-}
-
-@Composable
-private fun BulkDeleteDialog(state: AgendaUiState, vm: AgendaViewModel) {
-    val pending = (state as? AgendaUiState.Loaded)?.pendingBulkDelete == true
-    if (!pending) return
-    ConfirmActionDialog(
-        title = "Delete selected tasks?",
-        text = "Selected tasks will be moved to trash.",
-        confirmButtonText = "Delete",
-        onConfirm = { vm.onIntent(AgendaIntent.ConfirmBulkDelete) },
-        onDismiss = { vm.onIntent(AgendaIntent.DismissBulkDelete) },
     )
 }
 
@@ -315,7 +298,7 @@ private fun UndoSnackbar(
             return@LaunchedEffect
         }
         val result = snackbarHostState.showSnackbar(
-            message = "\"${pending.taskTitle}\" deleted",
+            message = "\"${pending.label}\" deleted",
             actionLabel = "Undo",
             duration = SnackbarDuration.Indefinite,
         )

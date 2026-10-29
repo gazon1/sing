@@ -90,12 +90,6 @@ sealed interface AgendaIntent : MviIntent {
     /** Delete all selected tasks via [com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase.bulkDelete]. */
     data object DeleteSelected : AgendaIntent
 
-    /** Confirmed bulk delete of selected tasks. */
-    data object ConfirmBulkDelete : AgendaIntent
-
-    /** Dismissed bulk delete confirmation. */
-    data object DismissBulkDelete : AgendaIntent
-
     /** Complete all selected tasks via [com.singularity.todo.feature.tasks.domain.usecase.TaskMutationsUseCase.bulkComplete]. */
     data object CompleteSelected : AgendaIntent
 

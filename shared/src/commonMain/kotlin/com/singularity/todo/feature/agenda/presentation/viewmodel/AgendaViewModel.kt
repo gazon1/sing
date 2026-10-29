@@ -223,7 +223,6 @@ class AgendaViewModel(
                     // is a read-modify-write that can drop a concurrent selection.
                     updateState { current ->
                         val previous = (current as? AgendaUiState.Loaded)?.selectedTaskIds ?: persistentSetOf()
-                        val pendingBulkDelete = (current as? AgendaUiState.Loaded)?.pendingBulkDelete ?: false
                         // A task that has left the agenda — completed or deleted
                         // elsewhere — must not stay selected: the id would otherwise
                         // ride along into a later bulk delete.
@@ -231,7 +230,6 @@ class AgendaViewModel(
                         fresh.copy(
                             isSelectionMode = kept.isNotEmpty(),
                             selectedTaskIds = kept,
-                            pendingBulkDelete = pendingBulkDelete,
                         )
                     }
                 }
@@ -346,18 +344,7 @@ class AgendaViewModel(
             }
 
             is AgendaIntent.DeleteSelected -> with(intent) {
-                setPendingBulkDelete(true)
-            }
-
-            is AgendaIntent.ConfirmBulkDelete -> {
-                scope.launch {
-                    setPendingBulkDelete(false)
-                    handleBulkDelete()
-                }
-            }
-
-            is AgendaIntent.DismissBulkDelete -> with(intent) {
-                setPendingBulkDelete(false)
+                scope.launch { handleBulkDelete() }
             }
 
             is AgendaIntent.CompleteSelected -> with(intent) {
@@ -437,12 +424,8 @@ class AgendaViewModel(
         loaded.copy(pendingBlockedBulkClose = request)
     }
 
-    private fun setPendingBulkDelete(value: Boolean) = updateState { current ->
-        val loaded = current as? AgendaUiState.Loaded ?: return@updateState current
-        loaded.copy(pendingBulkDelete = value)
-    }
-
     // ── Selection handlers ──────────────────────────────────────────────────────
+
     //
     // Every one of these is a single `updateState`, so the selection has exactly one
     // home and one writer path. They used to write a pair of `MutableStateFlow`s and
@@ -534,25 +517,35 @@ class AgendaViewModel(
     }
 
     /**
-     * Delete all selected tasks via [TaskMutationsUseCase.bulkDelete].
-     * Exits selection mode on completion.
+     * Delete all selected tasks via soft-delete, then offer a single Undo that
+     * restores every one of them. Exits selection mode on completion.
      */
     private suspend fun handleBulkDelete() {
         val ids = selectedIds().toList()
         if (ids.isEmpty()) return
 
         val result = deps.taskMutations.bulkDelete(ids)
+        if (result.isFailure) {
+            crashReporter.report(
+                result.exceptionOrNull() ?: IllegalStateException("bulk delete failed"),
+                BULK_DELETE_FAILED,
+            )
+            emit(
+                AgendaUiEvent.BulkOperationDone(
+                    count = 0,
+                    operation = "deleted",
+                    error = result.exceptionOrNull()?.message,
+                ),
+            )
+            return
+        }
+
         updateSelection(emptySet())
 
-        result.fold(
-            onSuccess = {
-                emit(AgendaUiEvent.BulkOperationDone(count = ids.size, operation = "deleted"))
-            },
-            onFailure = { error ->
-                crashReporter.report(error, BULK_DELETE_FAILED)
-                emit(AgendaUiEvent.BulkOperationDone(count = 0, operation = "deleted", error = error.message))
-            },
-        )
+        // Offer a single undo covering all deleted tasks.
+        val generation = undoSlot.incrementAndFetch()
+        _pendingDelete.value = PendingDelete(ids, "${ids.size} task${if (ids.size != 1) "s" else ""}")
+        countdown.start { undoSlot.load() == generation }
     }
 
     /**
@@ -682,7 +675,7 @@ class AgendaViewModel(
 
             // Claimed only now — a failed delete must not evict a good pending undo.
             val generation = undoSlot.incrementAndFetch()
-            _pendingDelete.value = PendingDelete(taskId, taskTitle)
+            _pendingDelete.value = PendingDelete(listOf(taskId), taskTitle)
             countdown.start { undoSlot.load() == generation }
         }
     }
@@ -701,12 +694,18 @@ class AgendaViewModel(
      */
     private fun handleUndoDeleteTapped() = scope.launch {
         val pending = _pendingDelete.value ?: return@launch
-        deps.taskRepo.restore(pending.taskId)
-            .onSuccess {
-                countdown.cancel()
-                _pendingDelete.value = null
-            }
-            .onFailure { report(it, RESTORE_FAILED, "Could not restore") }
+        var failed = false
+        pending.taskIds.forEach { id ->
+            deps.taskRepo.restore(id)
+                .onFailure {
+                    failed = true
+                    report(it, RESTORE_FAILED, "Could not restore")
+                }
+        }
+        if (!failed) {
+            countdown.cancel()
+            _pendingDelete.value = null
+        }
     }
 
     /** Reports a failure to the crash reporter and to the user. */
@@ -797,9 +796,9 @@ class AgendaViewModel(
 }
 
 /**
- * A task that has been soft-deleted and is pending an undo window.
+ * One or more tasks that have been soft-deleted and are pending an undo window.
  *
- * @param taskId The deleted task id.
- * @param taskTitle Short label for the snackbar.
+ * @param taskIds The deleted task ids (one for a single delete, many for a bulk delete).
+ * @param label Short label for the snackbar.
  */
-data class PendingDelete(val taskId: TaskId, val taskTitle: String)
+data class PendingDelete(val taskIds: List<TaskId>, val label: String)

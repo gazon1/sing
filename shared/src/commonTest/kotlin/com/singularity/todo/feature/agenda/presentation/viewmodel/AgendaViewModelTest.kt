@@ -434,11 +434,11 @@ class AgendaViewModelTest {
 
         vm.onIntent(AgendaIntent.TaskDeleteClicked(TaskId("t1")))
         runCurrent()
-        assertEquals(TaskId("t1"), vm.pendingDelete.value?.taskId)
+        assertEquals(TaskId("t1"), vm.pendingDelete.value?.taskIds?.singleOrNull())
 
         vm.onIntent(AgendaIntent.TaskDeleteClicked(TaskId("t2")))
         runCurrent()
-        assertEquals(TaskId("t2"), vm.pendingDelete.value?.taskId, "the newer delete owns the offer")
+        assertEquals(TaskId("t2"), vm.pendingDelete.value?.taskIds?.singleOrNull(), "the newer delete owns the offer")
 
         vm.onIntent(AgendaIntent.UndoDeleteTapped)
         runCurrent()
@@ -481,7 +481,7 @@ class AgendaViewModelTest {
 
         assertEquals(
             TaskId("t2"),
-            vm.pendingDelete.value?.taskId,
+            vm.pendingDelete.value?.taskIds?.singleOrNull(),
             "the newer offer must survive the older window's expiry",
         )
     }
