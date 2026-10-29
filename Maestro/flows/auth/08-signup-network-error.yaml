@@ -25,7 +25,7 @@ appId: com.singularity.todo
 name: auth-signup-network-error
 tags:
   - auth-live
-  - AUTH-FAIL-01
+  - scenario:AUTH-FAIL-01
   - manual
 ---
 # Enable airplane mode — blocks all network, forcing a timeout on sign-up.

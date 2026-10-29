@@ -48,7 +48,7 @@ onFlowComplete:
 tags:
   - regression
   - auth
-  - AUTH-SIGNUP-01
+  - scenario:AUTH-SIGNUP-01
 ---
 - runFlow: ../../helpers/launch-clean.yaml
 # A signed-out app: the sign-in screen is what the app shows.

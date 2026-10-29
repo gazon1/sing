@@ -15,7 +15,7 @@ name: calendar-sync-provider-toggle
 tags:
   - regression
   - calendar_sync
-  - CAL-SYNC-PROVIDER-01
+  - scenario:CAL-SYNC-PROVIDER-01
 ---
 - runFlow: ../../helpers/launch-clean.yaml
 

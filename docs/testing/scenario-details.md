@@ -256,6 +256,49 @@ Steps:
 
 **Expected:** The existing data stays visible throughout and ends up belonging to the new account. A failure part way through is reported and can be retried without losing or duplicating data. Proposed rather than confirmed: the transfer's own shape depends on an open question in the plan, and the provider may attach the identity without moving any rows at all.
 
+#### `AUTH-FAIL-01` — Sign-up with no network shows a user-facing error
+
+**confirmed** · P2 · `#AUTH-FAIL`
+
+**Given:** An emulator is running and the app is built against the real auth provider; the stubbed repository cannot reach this state.
+
+Steps:
+
+1. Enable airplane mode, so the device has no network.
+2. Attempt to sign up.
+3. Wait for the error message.
+
+**Expected:** The sign-up attempt fails with an error the user can read on screen, and the app does not enter a signed-in session.
+
+#### `AUTH-FAIL-02` — Sign-in with no network shows a user-facing error
+
+**confirmed** · P2 · `#AUTH-FAIL`
+
+**Given:** An emulator is running and the app is built against the real auth provider; the stubbed repository cannot reach this state.
+
+Steps:
+
+1. Enable airplane mode, so the device has no network.
+2. Attempt to sign in to an existing account.
+3. Wait for the error message.
+
+**Expected:** The sign-in attempt fails with an error the user can read on screen, the address stays in the form, and the app does not enter a signed-in session.
+
+#### `AUTH-FAIL-03` — Attach-account form validation rejects empty credentials before submission
+
+**confirmed** · P1 · `#AUTH-FAIL`
+
+**Given:** The app is in a local (anonymous) session, because the attach affordance exists only for anonymous sessions.
+
+Steps:
+
+1. Open Settings, then the Account tab.
+2. Tap "Attach account".
+3. Submit the form with empty credentials.
+4. Observe that the submission does not go through.
+
+**Expected:** The empty form is refused with a message that says what is missing, and no attach request is sent.
+
 #### `AUTH-FIRSTRUN-01` — Use the app on a first launch, with no account
 
 **confirmed** · P1 · `#AUTH-FIRSTRUN`

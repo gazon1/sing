@@ -44,7 +44,7 @@ name: auth-first-run-login-visible
 tags:
   - regression
   - auth
-  - AUTH-FIRSTRUN-04
+  - scenario:AUTH-FIRSTRUN-04
 ---
 - runFlow: ../../helpers/launch-clean.yaml
 

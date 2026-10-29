@@ -1,26 +1,26 @@
 {
   "measurement": "python3 -m traceability validate — specs + links only, no stand, no network, no test run (scripts/check-traceability-ratchet.py recomputes both numbers from the same package that renders the matrix)",
-  "measured_at": "2026-10-28",
-  "commit": "the six negative empty-state flows, the three pomodoro timer flows and the search-finds-task flow declare the scenario their own spec names as their carrier",
+  "measured_at": "2026-10-29",
+  "commit": "fourteen Maestro flows carried their scenario id as a bare tag — `AUTH-FIRSTRUN-01` and friends instead of `scenario:AUTH-FIRSTRUN-01` — so the traceability layer never saw them; the eleven whose specs already existed are linked now, and the three AUTH-FAIL scenarios got the specs their flow headers had already written down",
   "corpus": {
-    "specs": 128,
-    "claimed_cells": 254,
-    "carriers": 86
+    "specs": 131,
+    "claimed_cells": 260,
+    "carriers": 99
   },
   "floors": [
     {
       "metric": "holes",
-      "max": 82,
-      "measured": 82,
+      "max": 73,
+      "measured": 73,
       "label": "claimed (scenario, target) cells with no automation",
-      "note": "Lowered 107 -> 93 on 2026-10-27 when feature 016's android carriers landed: the Maestro flows under Maestro/flows/{plans,menu,nav}/ now cover every one of the feature's eighteen scenarios on Android as well as on the desktop, and the desktop flow tests under desktopApp/src/jvmTest/.../flows/{plans,menu,desktop}/ carry the desktop tier. Before, the feature's eleven android cells were holes; they are carriers now. The two android cells that remain dark across the matrix are upstream's. Lowered 93 -> 83 on 2026-10-28 when ten Maestro flows declared the scenario their own spec header named as their carrier: the six `negative/` empty-state flows (NEGATIVE-01..06), `pomodoro/02`, `pomodoro/03` and `pomodoro/05` (POMODORO-02, -03, -05) and `system/search-finds-task` (SEARCH-01). The specs named those flows as their carriers and the flows did not carry the tag, so ten scenarios the repository had already written down read as uncovered. The claims are the flows' own behaviour — the empty states, the chip that starts the timer, the pause and resume, the stop that resets, the search that finds a task by its title."
+      "note": "Lowered 107 -> 93 on 2026-10-27 when feature 016's android carriers landed: the Maestro flows under Maestro/flows/{plans,menu,nav}/ now cover every one of the feature's eighteen scenarios on Android as well as on the desktop, and the desktop flow tests under desktopApp/src/jvmTest/.../flows/{plans,menu,desktop}/ carry the desktop tier. Before, the feature's eleven android cells were holes; they are carriers now. The two android cells that remain dark across the matrix are upstream's. Lowered 93 -> 83 on 2026-10-28 when ten Maestro flows declared the scenario their own spec header named as their carrier: the six `negative/` empty-state flows (NEGATIVE-01..06), `pomodoro/02`, `pomodoro/03` and `pomodoro/05` (POMODORO-02, -03, -05) and `system/search-finds-task` (SEARCH-01). The specs named those flows as their carriers and the flows did not carry the tag, so ten scenarios the repository had already written down read as uncovered. The claims are the flows' own behaviour — the empty states, the chip that starts the timer, the pause and resume, the stop that resets, the search that finds a task by its title. Lowered 83 -> 74 on 2026-10-29 when twelve more flows carried the id their own headers already named: the tag was written bare (`- AUTH-FIRSTRUN-01`) instead of prefixed (`- scenario:AUTH-FIRSTRUN-01`), so the scanner skipped them and the scenarios read as uncovered. Eleven of them (AUTH-FIRSTRUN-01/04/05, AUTH-SIGNIN-01, AUTH-SIGNUP-01, AUTH-ATTACH-01, CAL-SYNC-PROVIDER-01, SYNC-SETTINGS-01, TASK-TIME-01) had specs already; the three AUTH-FAIL scenarios got theirs now, transcribed from the preconditions and steps their flow headers had written down. Lowered 74 -> 73 when the desktop carrier for SYNC-SETTINGS-01 landed (#1394): the scenario now has a carrier on both tiers, and the android cell it had opened is covered again."
     },
     {
       "metric": "dark_scenarios",
-      "max": 59,
-      "measured": 59,
+      "max": 54,
+      "measured": 54,
       "label": "declared scenarios with a claimed target and no automation on any target",
-      "note": "Lowered 72 -> 70 on 2026-10-27 with the same carriers: every one of feature 016's eighteen scenarios now has automation on at least one target. The two that remain dark are upstream's. Lowered 70 -> 60 on 2026-10-28 with the same ten carriers: each of the ten scenarios now has automation on at least one target, and its flow says so in a tag rather than only in the spec's header."
+      "note": "Lowered 72 -> 70 on 2026-10-27 with the same carriers: every one of feature 016's eighteen scenarios now has automation on at least one target. The two that remain dark are upstream's. Lowered 70 -> 60 on 2026-10-28 with the same ten carriers: each of the ten scenarios now has automation on at least one target, and its flow says so in a tag rather than only in the spec's header. Lowered 60 -> 54 on 2026-10-29 with the twelve bare-tag flows: six scenarios that had a spec, a claim and a flow that exercised it were dark only because the tag was missing its `scenario:` prefix."
     },
     {
       "metric": "unreachable_cells",

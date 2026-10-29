@@ -57,7 +57,7 @@ name: auth-unreadable-store-recovers
 tags:
   - regression
   - auth
-  - AUTH-FIRSTRUN-05
+  - scenario:AUTH-FIRSTRUN-05
 ---
 # A session in the store, so there is something to invalidate. The launch does
 # not wipe the app's data: clearing would remove the very file this flow goes
