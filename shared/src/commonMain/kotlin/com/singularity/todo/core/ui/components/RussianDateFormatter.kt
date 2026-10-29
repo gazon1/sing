@@ -21,20 +21,10 @@ internal fun formatRussianDueDate(date: LocalDate?): String? {
 }
 
 /**
- * Says a number of dates the way a person says it: "1 дата", "2 даты", "5 дат".
- *
- * Russian counts the last two digits differently from the last one, and a label
- * that says "2 дат" is the kind of detail a person notices.
+ * Says a number of dates the way a person says it: "1 date", "2 dates".
  */
 internal fun formatDateCount(count: Int): String {
-    val mod100 = count % 100
-    val mod10 = count % 10
-    val word = when {
-        mod100 in 11..14 -> "дат"
-        mod10 == 1 -> "дата"
-        mod10 in 2..4 -> "даты"
-        else -> "дат"
-    }
+    val word = if (count == 1) "date" else "dates"
     return "$count $word"
 }
 

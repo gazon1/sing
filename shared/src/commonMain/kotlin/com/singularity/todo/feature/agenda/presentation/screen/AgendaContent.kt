@@ -168,7 +168,7 @@ fun AgendaContent(
                                 ) {
                                     Icon(
                                         Icons.Outlined.CallMerge,
-                                        contentDescription = "Объединить серии",
+                                        contentDescription = "Merge series",
                                     )
                                 }
                             }
@@ -207,7 +207,7 @@ fun AgendaContent(
                                 ) {
                                     Icon(
                                         Icons.Outlined.DateRange,
-                                        contentDescription = "Задача на несколько дат",
+                                        contentDescription = "Task on several dates",
                                     )
                                 }
                             }

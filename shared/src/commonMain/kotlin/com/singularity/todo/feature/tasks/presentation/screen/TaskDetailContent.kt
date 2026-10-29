@@ -138,8 +138,8 @@ fun TaskDetailContent(
 
                 is TaskDetailUiEvent.UndoDeleteSeries -> notifications.send(
                     Notification.Undo(
-                        title = "Серия удалена · ${formatDateCount(event.dates)}",
-                        actionLabel = "Вернуть",
+                        title = "Series deleted · ${formatDateCount(event.dates)}",
+                        actionLabel = "Undo",
                         onAction = {
                             coordinator.onIntent(TaskDetailIntent.Domain.RestoreSeries(event.taskIds))
                         },

@@ -85,7 +85,7 @@ fun TaskEditorPriorityRow(
             IconButton(onClick = onPriorityClear) {
                 Icon(
                     imageVector = Icons.Filled.Close,
-                    contentDescription = "Сбросить приоритет",
+                    contentDescription = "Reset priority",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

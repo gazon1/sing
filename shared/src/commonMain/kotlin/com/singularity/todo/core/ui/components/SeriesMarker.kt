@@ -42,9 +42,9 @@ fun SeriesMarker(
 ) {
     if (!isSeries) return
     val label = when {
-        compact -> "Серия"
-        dates == null -> "серия"
-        else -> "серия · ${formatDateCount(dates)}"
+        compact -> "Series"
+        dates == null -> "series"
+        else -> "series · ${formatDateCount(dates)}"
     }
     Row(
         modifier = modifier.testTag(TestTags.TaskSeries.MARKER),

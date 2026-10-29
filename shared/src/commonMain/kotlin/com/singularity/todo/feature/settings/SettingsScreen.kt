@@ -337,48 +337,63 @@ private fun SettingsNavRail(
                 .padding(vertical = 8.dp)
                 .testTag(TestTags.Settings.NAV_RAIL_SCROLL),
     ) {
-        SettingsTab.entries.forEach { tab ->
-            val isSelected = tab == selectedTab
-            Column(
-                modifier =
-                    Modifier
-                        .clickable(role = Role.Tab) { onSelect(tab) }
-                        .semantics { selected = isSelected }
-                        .padding(vertical = 12.dp, horizontal = 8.dp)
-                        .testTag(TestTags.settingsTab(tab.name)),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Box(
+        val groups = listOf(
+            "Appearance" to listOf(SettingsTab.Interface),
+            "Productivity" to listOf(SettingsTab.Agenda, SettingsTab.WorkSchedule, SettingsTab.Tasks),
+            "Notifications" to listOf(SettingsTab.Notifications, SettingsTab.Calendar),
+            "Data" to listOf(SettingsTab.Files, SettingsTab.Backup, SettingsTab.Sync, SettingsTab.Tags, SettingsTab.TagGroups),
+            "AI & Account" to listOf(SettingsTab.AIProvider, SettingsTab.Account),
+        )
+        groups.forEach { (group, tabs) ->
+            Text(
+                text = group,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+            tabs.forEach { tab ->
+                val isSelected = tab == selectedTab
+                Column(
                     modifier =
                         Modifier
-                            .size(48.dp)
-                            .background(
-                                shape = CircleShape,
-                                color =
-                                    if (isSelected) {
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    } else {
-                                        MaterialTheme.colorScheme.surface
-                                    },
-                            ),
-                    contentAlignment = Alignment.Center,
+                            .clickable(role = Role.Tab) { onSelect(tab) }
+                            .semantics { selected = isSelected }
+                            .padding(vertical = 12.dp, horizontal = 8.dp)
+                            .testTag(TestTags.settingsTab(tab.name)),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Icon(tab.icon, contentDescription = tab.label)
-                    if (tab == SettingsTab.AIProvider) {
-                        AiStatusBadge(
-                            aiTestResult = aiTestResult,
-                            modifier =
-                                Modifier
-                                    .align(Alignment.TopEnd)
-                                    .offset(x = 2.dp, y = (-2).dp),
-                        )
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(48.dp)
+                                .background(
+                                    shape = CircleShape,
+                                    color =
+                                        if (isSelected) {
+                                            MaterialTheme.colorScheme.primaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.surface
+                                        },
+                                ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(tab.icon, contentDescription = tab.label)
+                        if (tab == SettingsTab.AIProvider) {
+                            AiStatusBadge(
+                                aiTestResult = aiTestResult,
+                                modifier =
+                                    Modifier
+                                        .align(Alignment.TopEnd)
+                                        .offset(x = 2.dp, y = (-2).dp),
+                            )
+                        }
                     }
+                    Text(
+                        tab.label,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
                 }
-                Text(
-                    tab.label,
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
             }
         }
     }
