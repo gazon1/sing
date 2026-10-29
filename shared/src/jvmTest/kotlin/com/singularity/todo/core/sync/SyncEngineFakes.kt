@@ -61,7 +61,7 @@ open class FakeSyncOutboxDao : SyncOutboxDao {
 
     override suspend fun claim(ids: List<String>, now: Long) {
         ids.forEach { id ->
-            val index = rows.indexOfFirst { it.patchId == id }
+            val index = rows.indexOfFirst { it.patchId == id && it.claimedAt == null }
             if (index >= 0) rows[index] = rows[index].copy(claimedAt = now)
         }
     }
@@ -90,9 +90,10 @@ open class FakeSyncOutboxDao : SyncOutboxDao {
         id: String,
         error: String,
         nextAttemptAt: Long,
+        claimedAt: Long?,
     ) {
         val index = rows.indexOfFirst { it.patchId == id }
-        if (index >= 0) {
+        if (index >= 0 && (rows[index].claimedAt == null || rows[index].claimedAt == claimedAt)) {
             rows[index] =
                 rows[index].copy(
                     attempts = rows[index].attempts + 1,

@@ -185,7 +185,7 @@ internal class PushPhase(
 
         return try {
             val response = api.batchPush(ready.request)
-            val counts = processResponses(response, pending, activeScope, session)
+            val counts = processResponses(response, pending, activeScope, session, ready.claimedAt)
             PhaseResult.Ok(counts.toSummary())
         } catch (e: CancellationException) {
             throw e
@@ -212,6 +212,7 @@ internal class PushPhase(
         pending: List<SyncOutboxEntity>,
         activeScope: SyncScope,
         session: Session,
+        claimedAt: Long,
     ): PushCounts {
         // REQ-UA-018: is the account that authorised this request still the one
         // signed in? Compared by account, not by session.
@@ -277,7 +278,14 @@ internal class PushPhase(
                     // an UPDATE, not an upsert — so the patch vanished from the outbox
                     // with no retry and no dead letter. A user's edit was destroyed by
                     // a server that merely said "busy".
-                    deferOrDeadLetter(pending.firstOrNull { row -> row.patchId == result.patchId }, result, activeScope)
+                    deferOrDeadLetter(
+                        pending.firstOrNull { row ->
+                            row.patchId == result.patchId
+                        },
+                        result,
+                        activeScope,
+                        claimedAt,
+                    )
                     failed++
                 }
 
@@ -406,6 +414,7 @@ internal class PushPhase(
         entity: SyncOutboxEntity?,
         result: PatchResult,
         activeScope: SyncScope,
+        claimedAt: Long,
     ) {
         if (entity == null) return
 
@@ -454,6 +463,7 @@ internal class PushPhase(
             id = entity.patchId,
             error = reason,
             nextAttemptAt = now() + delay,
+            claimedAt = claimedAt,
         )
         log.w { "Patch ${entity.patchId} failed (attempt $attempts); retrying in ${delay}ms" }
     }
