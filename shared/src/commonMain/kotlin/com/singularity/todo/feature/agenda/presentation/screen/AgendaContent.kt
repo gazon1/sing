@@ -350,8 +350,7 @@ private fun AgendaSectionHeader(name: String, badge: Int?, onAddClick: (() -> Un
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .testTag(TestTags.agendaSection(name)),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         androidx.compose.foundation.layout.Row(
             modifier = Modifier.fillMaxWidth(),
@@ -363,6 +362,8 @@ private fun AgendaSectionHeader(name: String, badge: Int?, onAddClick: (() -> Un
                 text = label,
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
+                // Tag on the leaf Text so it survives in the accessibility tree.
+                modifier = Modifier.testTag(TestTags.agendaSection(name)),
             )
             if (onAddClick != null) {
                 IconButton(onClick = onAddClick) {
