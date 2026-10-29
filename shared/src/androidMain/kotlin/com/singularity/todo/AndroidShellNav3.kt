@@ -1,21 +1,19 @@
 package com.singularity.todo
 
-import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.systemBars
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScaffoldDefaults
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -60,6 +58,9 @@ import com.singularity.todo.shell.fabActionForNav3
  * - [Navigator] class handles navigation events (navigate + goBack)
  * - [NavDisplay] renders all active stacks
  *
+ * Adaptive: [NavigationSuiteScaffold] switches between bottom bar and nav rail based
+ * on window size, so no manual adaptive logic is needed.
+ *
  * [Nav3State] and [Navigator] are owned by [App] and passed in as parameters.
  * The [rememberNav3State] factory lives in commonMain as an expect/actual pair
  * (see [Nav3StateFactory.kt]).
@@ -69,6 +70,7 @@ import com.singularity.todo.shell.fabActionForNav3
  *   date the shell computes for itself is a date a test's fixed `Clock` cannot reach.
  */
 @OptIn(ExperimentalMaterial3Api::class)
+@Suppress("LongMethod")
 @Composable
 fun androidShellNav3Root(
     state: Nav3State,
@@ -96,131 +98,97 @@ fun androidShellNav3Root(
 
     val fabAction = fabActionForNav3(fabCurrent, today) { navigator.open(it) }
 
-    Scaffold(
-        bottomBar = {
-            AndroidBottomBar(
-                current = current,
-                onSelectTab = { destination -> navigator.open(destination) },
-                onOpenMenu = { menuVisible = true },
-            )
-        },
-        floatingActionButton = {
-            val action = fabAction ?: return@Scaffold
-            ExtendedFloatingActionButton(
-                onClick = action.onClick,
-                icon = { Icon(Icons.Default.Add, contentDescription = action.label) },
-                text = { Text(action.label) },
-                modifier = Modifier.testTag(TestTags.TASKS_FAB),
-            )
-        },
-        contentWindowInsets = ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Horizontal),
-    ) { padding ->
-        // The same `today` the FAB uses, so the calendar anchor and the task
-        // prefill agree (#91).
-        val appEntryProvider = createAppEntryProvider(navCallbacks, today)
-
-        // #445 blank-screen diagnostic — TEMPORARY: to be replaced with proper CI alerting.
-        // toDecoratedEntries is composable so compute it once above, then check in LaunchedEffect.
-        val navDisplayEntries = state.toDecoratedEntries(appEntryProvider)
-        LaunchedEffect(state.topLevelRoute) {
-            if (navDisplayEntries.isEmpty()) {
-                println(
-                    "WARNING [blank-screen] topLevelRoute=${state.topLevelRoute} has 0 entries. " +
-                        "Check that the entryProvider covers this route.",
+    NavigationSuiteScaffold(
+        navigationSuiteItems = {
+            DestinationKind.tabs.forEach { destination ->
+                val selected = current == destination
+                item(
+                    selected = selected,
+                    onClick = { navigator.open(destination) },
+                    icon = {
+                        Icon(
+                            destination.icon,
+                            contentDescription = destination.title,
+                        )
+                    },
+                    label = { Text(destination.title) },
+                    modifier = Modifier.testTag(TestTags.navTab(destination.title)),
                 )
+            }
+            item(
+                selected = false,
+                onClick = { menuVisible = true },
+                icon = {
+                    Icon(
+                        Icons.Default.Menu,
+                        contentDescription = MenuButtonTitle,
+                    )
+                },
+                label = { Text(MenuButtonTitle) },
+                modifier = Modifier.testTag(TestTags.NAV_MENU_BUTTON),
+            )
+        },
+    ) {
+        Scaffold(
+            floatingActionButton = {
+                val action = fabAction ?: return@Scaffold
+                ExtendedFloatingActionButton(
+                    onClick = action.onClick,
+                    icon = { Icon(Icons.Default.Add, contentDescription = action.label) },
+                    text = { Text(action.label) },
+                    modifier = Modifier.testTag(TestTags.TASKS_FAB),
+                )
+            },
+            contentWindowInsets = ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Horizontal),
+        ) { padding ->
+            Box(Modifier.fillMaxSize().padding(padding)) {
+                val appEntryProvider = createAppEntryProvider(navCallbacks, today)
+
+                // #445 blank-screen diagnostic — TEMPORARY: to be replaced with proper CI alerting.
+                val navDisplayEntries = state.toDecoratedEntries(appEntryProvider)
+                LaunchedEffect(state.topLevelRoute) {
+                    if (navDisplayEntries.isEmpty()) {
+                        println(
+                            "WARNING [blank-screen] topLevelRoute=${state.topLevelRoute} has 0 entries. " +
+                                "Check that the entryProvider covers this route.",
+                        )
+                    }
+                }
+
+                CompositionLocalProvider(LocalNav3State provides state) {
+                    NavDisplay(
+                        entries = navDisplayEntries,
+                        onBack = {
+                            val stack = state.requireBackStackFor(state.topLevelRoute)
+                            if (stack.size > 1) navigator.goBack() else (context as? Activity)?.finish()
+                        },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
             }
         }
 
-        CompositionLocalProvider(LocalNav3State provides state) {
-            NavDisplay(
-                entries = navDisplayEntries,
-                onBack = {
-                    val stack = state.requireBackStackFor(state.topLevelRoute)
-                    if (stack.size > 1) navigator.goBack() else (context as? Activity)?.finish()
+        if (menuVisible) {
+            MenuBottomSheet(
+                onDismiss = { menuVisible = false },
+                currentDestination = current,
+                onSelect = { dest ->
+                    menuVisible = false
+                    if (dest == AppDestination.ProjectsGraph()) {
+                        projectsOpener.requestList()
+                    }
+                    navigator.open(dest)
                 },
-                modifier = Modifier.padding(padding),
+                treeState = projectsTreeState,
+                onToggleExpanded = { projectId ->
+                    projectsTreeViewModel.onIntent(ProjectsTreeIntent.ToggleExpanded(projectId))
+                },
+                onOpenProject = { projectId ->
+                    menuVisible = false
+                    projectsOpener.requestOpen(projectId)
+                    navigator.open(AppDestination.ProjectsGraph())
+                },
             )
         }
-    }
-
-    if (menuVisible) {
-        MenuBottomSheet(
-            onDismiss = { menuVisible = false },
-            currentDestination = current,
-            onSelect = { dest ->
-                menuVisible = false
-                if (dest == AppDestination.ProjectsGraph()) {
-                    // The list is asked for explicitly: the graph's stack is
-                    // hoisted, so it would otherwise keep the last project.
-                    projectsOpener.requestList()
-                }
-                navigator.open(dest)
-            },
-            treeState = projectsTreeState,
-            onToggleExpanded = { projectId ->
-                projectsTreeViewModel.onIntent(ProjectsTreeIntent.ToggleExpanded(projectId))
-            },
-            onOpenProject = { projectId ->
-                menuVisible = false
-                // The request is a piece of app state, not a destination: the
-                // project id stays out of the navigation key space.
-                projectsOpener.requestOpen(projectId)
-                navigator.open(AppDestination.ProjectsGraph())
-            },
-        )
-    }
-}
-
-/**
- * The bottom bar of the Android shell: the tabs and the menu button.
- *
- * The menu is a bar item rather than an overflow icon in a top bar because the
- * app menu is a first-class surface — it holds the project tree, the calendar
- * and the destinations — and a bar item gives it a place a thumb can reach.
- *
- * @param current the destination the shell is on.
- * @param onSelectTab called with the tab the user tapped.
- * @param onOpenMenu called when the user taps the menu button.
- */
-@Composable
-private fun AndroidBottomBar(
-    current: AppDestination,
-    onSelectTab: (AppDestination) -> Unit,
-    onOpenMenu: () -> Unit,
-) {
-    NavigationBar(
-        modifier = Modifier.windowInsetsPadding(
-            WindowInsets.systemBars.only(WindowInsetsSides.Bottom),
-        ),
-    ) {
-        DestinationKind.tabs.forEach { destination ->
-            val selected = current == destination
-            NavigationBarItem(
-                selected = selected,
-                onClick = { onSelectTab(destination) },
-                icon = {
-                    Icon(
-                        destination.icon,
-                        contentDescription = destination.title,
-                    )
-                },
-                label = { Text(destination.title) },
-                // On the item, not the icon: a tag on a decorative child is merged
-                // into the clickable node and never surfaces as a resource-id.
-                modifier = Modifier.testTag(TestTags.navTab(destination.title)),
-            )
-        }
-        NavigationBarItem(
-            selected = false,
-            onClick = onOpenMenu,
-            icon = {
-                Icon(
-                    Icons.Default.Menu,
-                    contentDescription = MenuButtonTitle,
-                )
-            },
-            label = { Text(MenuButtonTitle) },
-            modifier = Modifier.testTag(TestTags.NAV_MENU_BUTTON),
-        )
     }
 }
