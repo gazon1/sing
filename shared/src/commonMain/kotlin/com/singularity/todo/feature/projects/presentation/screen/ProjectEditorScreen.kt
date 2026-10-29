@@ -50,6 +50,7 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.DiscardChangesDialog
 import com.singularity.todo.core.ui.components.ImeAwareBackHandler
 import com.singularity.todo.core.ui.components.LoadingIndicator
+import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.ResultDialog
@@ -117,8 +118,7 @@ fun ProjectEditorScreen(projectId: ProjectId?, modifier: Modifier = Modifier) {
 @Composable
 fun ProjectEditorContent(viewModel: ProjectEditorViewModel, modifier: Modifier = Modifier, onBack: () -> Unit) {
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
-    var showIconPicker by remember { mutableStateOf(false) }
-    var showParentPicker by remember { mutableStateOf(false) }
+    val overlay = rememberOverlayState<EditorSheet>()
 
     NotificationHost(
         events = viewModel.events,
@@ -165,13 +165,13 @@ fun ProjectEditorContent(viewModel: ProjectEditorViewModel, modifier: Modifier =
                 selectedColor = state.color,
                 selectedIcon = state.icon,
                 onColorSelected = { viewModel.onIntent(ProjectEditorIntent.ColorChanged(it)) },
-                onIconPickerRequested = { showIconPicker = true },
+                onIconPickerRequested = { overlay.show(EditorSheet.Icon) },
             )
 
             // ── Organization: parent project ────────────────────────────
             OrganizationSection(
                 hasParent = state.parentId != null,
-                onParentPickerRequested = { showParentPicker = true },
+                onParentPickerRequested = { overlay.show(EditorSheet.Parent) },
             )
         }
     }
@@ -183,24 +183,33 @@ fun ProjectEditorContent(viewModel: ProjectEditorViewModel, modifier: Modifier =
         )
     }
 
-    IconPickerSheetHost(
-        visible = showIconPicker,
-        currentIcon = state.icon,
-        onPick = { icon ->
-            viewModel.onIntent(ProjectEditorIntent.IconChanged(icon))
-            showIconPicker = false
-        },
-        onDismiss = { showIconPicker = false },
-    )
+    when (val sheet = overlay.sheet) {
+        is EditorSheet.Icon -> IconPickerSheetHost(
+            visible = true,
+            currentIcon = state.icon,
+            onPick = { icon ->
+                viewModel.onIntent(ProjectEditorIntent.IconChanged(icon))
+                overlay.dismissSheet()
+            },
+            onDismiss = { overlay.dismissSheet() },
+        )
 
-    ParentPickerSheetHost(
-        visible = showParentPicker,
-        onPick = {
-            viewModel.onIntent(ProjectEditorIntent.ParentChanged(it))
-            showParentPicker = false
-        },
-        onDismiss = { showParentPicker = false },
-    )
+        is EditorSheet.Parent -> ParentPickerSheetHost(
+            visible = true,
+            onPick = {
+                viewModel.onIntent(ProjectEditorIntent.ParentChanged(it))
+                overlay.dismissSheet()
+            },
+            onDismiss = { overlay.dismissSheet() },
+        )
+
+        null -> Unit
+    }
+}
+
+private sealed interface EditorSheet {
+    data object Icon : EditorSheet
+    data object Parent : EditorSheet
 }
 
 // ─── Sheet hosts ─────────────────────────────────────────────────────────────────

@@ -54,6 +54,7 @@ import com.singularity.todo.core.backup.BackupMetadata
 import com.singularity.todo.core.backup.RemoteBackup
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.TaggedSnackbarHost
+import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.components.ButtonSpinner
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
@@ -131,22 +132,7 @@ fun BackupScreen(
     onAuthorizeScheduledBackup: (CharArray) -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
-    var pendingSettingsJson by remember { mutableStateOf<String?>(null) }
-
-    // The archive the person is about to upload, and the question that has to be
-    // answered before it leaves the device: the archive is encrypted with the
-    // person's password, and the server never sees it.
-    var pendingPush by remember { mutableStateOf<BackupId?>(null) }
-
-    // The archive the person is about to restore from the cloud. The import
-    // overwrites the rows it finds, so an archive from last month can undo this
-    // afternoon's work without ever asking — and the archive is sealed, so the
-    // password is asked in the same breath.
-    var pendingCloudRestore by remember { mutableStateOf<RemoteBackup?>(null) }
-
-    // The daily run needs no person only when the device holds a key of its own.
-    // The password that wraps that key is asked here, once, and never again.
-    var pendingAuthorize by remember { mutableStateOf(false) }
+    val overlay = rememberOverlayState<BackupDialog>()
 
     // The screen owns the single collection of the event bus. The bus is a
     // channel, and a channel has one consumer: a second collector on `events`
@@ -162,7 +148,6 @@ fun BackupScreen(
         events.collect { event ->
             when (event) {
                 is BackupUiEvent.SettingsSnapshotExported -> {
-                    pendingSettingsJson = event.json
                     val launched = snackbarHostState.showSnackbar(
                         message = "Settings snapshot ready",
                         actionLabel = "Share",
@@ -170,7 +155,6 @@ fun BackupScreen(
                     // If user tapped "Share", trigger share.
                     if (launched == SnackbarResult.ActionPerformed) {
                         onShareSettingsJson(event.json)
-                        pendingSettingsJson = null
                     }
                 }
 
@@ -304,7 +288,7 @@ fun BackupScreen(
                         BackupListItem(
                             backup = backup,
                             onRestore = { onRestore(backup.path) },
-                            onPush = { pendingPush = backup.id },
+                            onPush = { overlay.show(BackupDialog.Push(backup.id)) },
                             onSaveToFile = { onSaveToFile(backup.id) },
                             onDelete = { onDelete(backup.id) },
                         )
@@ -334,7 +318,7 @@ fun BackupScreen(
                 )
             } else {
                 OutlinedButton(
-                    onClick = { pendingAuthorize = true },
+                    onClick = { overlay.show(BackupDialog.Authorize) },
                     modifier = Modifier.testTag(TestTags.BACKUP_AUTHORIZE_SCHEDULED_BUTTON),
                     enabled = !state.isWorking,
                 ) {
@@ -389,7 +373,7 @@ fun BackupScreen(
                                 }
                             }
                             OutlinedButton(
-                                onClick = { pendingCloudRestore = remote },
+                                onClick = { overlay.show(BackupDialog.CloudRestore(remote)) },
                                 modifier = Modifier.testTag(
                                     TestTags.backupRestoreFromCloud(remote.ref),
                                 ),
@@ -404,36 +388,32 @@ fun BackupScreen(
         }
     }
 
-    pendingPush?.let { id ->
-        BackupPasswordDialog(
+    when (val dialog = overlay.sheet) {
+        is BackupDialog.Push -> BackupPasswordDialog(
             title = "Push to cloud",
             text = "The archive is encrypted with this password before it leaves the device. " +
                 "The server never sees it, and nobody can open the archive without it.",
             confirmLabel = "Push",
             onConfirm = { password ->
-                pendingPush = null
-                onPush(id, password)
+                overlay.dismissSheet()
+                onPush(dialog.backupId, password)
             },
-            onDismiss = { pendingPush = null },
+            onDismiss = { overlay.dismissSheet() },
         )
-    }
 
-    pendingCloudRestore?.let { remote ->
-        BackupPasswordDialog(
+        is BackupDialog.CloudRestore -> BackupPasswordDialog(
             title = "Restore from cloud",
-            text = "Restore overwrites the current data with the archive ${remote.name}. " +
+            text = "Restore overwrites the current data with the archive ${dialog.remote.name}. " +
                 "The archive is encrypted — enter the password it was pushed with.",
             confirmLabel = "Restore",
             onConfirm = { password ->
-                pendingCloudRestore = null
-                onRestoreFromCloud(remote.ref, password)
+                overlay.dismissSheet()
+                onRestoreFromCloud(dialog.remote.ref, password)
             },
-            onDismiss = { pendingCloudRestore = null },
+            onDismiss = { overlay.dismissSheet() },
         )
-    }
 
-    if (pendingAuthorize) {
-        BackupPasswordDialog(
+        is BackupDialog.Authorize -> BackupPasswordDialog(
             title = "Back up on its own",
             // The honest sentence about what the password does: it wraps the key
             // this device uses from now on. The archives that are already in the
@@ -446,11 +426,13 @@ fun BackupScreen(
                 "keep the password they were made with.",
             confirmLabel = "Authorize",
             onConfirm = { password ->
-                pendingAuthorize = false
+                overlay.dismissSheet()
                 onAuthorizeScheduledBackup(password)
             },
-            onDismiss = { pendingAuthorize = false },
+            onDismiss = { overlay.dismissSheet() },
         )
+
+        null -> Unit
     }
 }
 
@@ -641,6 +623,12 @@ private fun BackupPasswordDialog(
             }
         },
     )
+}
+
+private sealed interface BackupDialog {
+    data class Push(val backupId: BackupId) : BackupDialog
+    data class CloudRestore(val remote: RemoteBackup) : BackupDialog
+    data object Authorize : BackupDialog
 }
 
 private fun formatDate(epochMillis: Long): String = formatBackupDate(epochMillis, TimeZone.currentSystemDefault())
