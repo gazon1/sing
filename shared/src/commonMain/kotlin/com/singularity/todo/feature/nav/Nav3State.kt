@@ -178,9 +178,21 @@ class Nav3State internal constructor(
                 },
             )
         }
-        return getTopLevelRoutesInUse().flatMap {
+        val result = getTopLevelRoutesInUse().flatMap {
             decoratedEntries[it]
                 ?: emptyList()
+        }
+        // Fallback: never yield an empty entry list, which would render a blank
+        // shell. If every resolved stack is empty, reseed the start stack and
+        // return its entries.
+        return if (result.isEmpty()) {
+            val startStack = backStackFor(startRoute)
+            if (startStack != null && startStack.isEmpty()) {
+                startStack.add(startRoute)
+            }
+            decoratedEntries[startRoute] ?: emptyList()
+        } else {
+            result
         }
     }
 
@@ -283,12 +295,25 @@ class Navigator(private val state: Nav3State) {
     fun goBack() {
         val currentStack = state.requireBackStackFor(state.topLevelRoute)
         val currentRoute = currentStack.lastOrNull()
-            ?: return
+            ?: run {
+                // Fallback: an empty stack would leave the shell blank; reseed.
+                currentStack.add(state.topLevelRoute)
+                return
+            }
 
         if (currentRoute == state.topLevelRoute) {
             state.topLevelRoute = state.previousTopLevelRoute
+            // Fallback: never activate an empty stack.
+            val previousStack = state.requireBackStackFor(state.topLevelRoute)
+            if (previousStack.isEmpty()) {
+                previousStack.add(state.topLevelRoute)
+            }
         } else {
             currentStack.removeLastOrNull()
+        }
+        // Fallback: never leave the active stack empty.
+        if (currentStack.isEmpty()) {
+            currentStack.add(state.topLevelRoute)
         }
     }
 }
