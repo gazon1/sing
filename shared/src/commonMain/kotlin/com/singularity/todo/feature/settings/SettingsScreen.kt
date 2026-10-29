@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -18,6 +19,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.CloudUpload
@@ -112,11 +115,11 @@ private val SettingsTab.icon
             SettingsTab.Agenda -> Icons.Filled.Schedule
             SettingsTab.Notifications -> Icons.Filled.Notifications
             SettingsTab.AIProvider -> Icons.Filled.SmartToy
-            SettingsTab.WorkSchedule -> Icons.Filled.Schedule
+            SettingsTab.WorkSchedule -> Icons.Filled.DateRange
             SettingsTab.Calendar -> Icons.Filled.CalendarMonth
             SettingsTab.Sync -> Icons.Filled.CloudSync
             SettingsTab.Tags -> Icons.AutoMirrored.Filled.Label
-            SettingsTab.TagGroups -> Icons.AutoMirrored.Filled.Label
+            SettingsTab.TagGroups -> Icons.Filled.Category
             SettingsTab.Tasks -> Icons.Filled.CheckCircle
             SettingsTab.Files -> Icons.Filled.Folder
             SettingsTab.Backup -> Icons.Filled.CloudUpload
@@ -206,7 +209,9 @@ private fun SettingsContent(
             modifier =
                 Modifier
                     .weight(1f)
-                    .fillMaxHeight(),
+                    .fillMaxHeight()
+                    .widthIn(max = 720.dp),
+            contentAlignment = Alignment.TopCenter,
         ) {
             previewOverrides[selectedTab]?.invoke()
                 ?: when (selectedTab) {

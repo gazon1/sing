@@ -31,6 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
@@ -120,7 +121,7 @@ private fun TopMenuBarItem(
     if (isOpen && node.children.isNotEmpty()) {
         Popup(
             alignment = Alignment.TopStart,
-            offset = IntOffset(0, 36),
+            offset = IntOffset(0, (36 * LocalDensity.current.density).toInt()),
             onDismissRequest = onDismiss,
             properties = PopupProperties(focusable = true),
         ) {
@@ -285,7 +286,7 @@ private fun DropdownSubMenuRow(node: MenuNode.SubMenu, onDismiss: () -> Unit) {
     if (openSub && node.children.isNotEmpty()) {
         Popup(
             alignment = Alignment.TopStart,
-            offset = IntOffset(220, 0),
+            offset = IntOffset((220 * LocalDensity.current.density).toInt(), 0),
             onDismissRequest = { openSub = false },
             properties = PopupProperties(focusable = true),
         ) {

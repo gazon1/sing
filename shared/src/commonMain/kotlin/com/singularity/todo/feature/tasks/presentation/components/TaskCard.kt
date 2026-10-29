@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -150,7 +150,7 @@ private fun ToggleButton(isCompleted: Boolean, onClick: () -> Unit, taskTitle: S
         modifier = Modifier.testTag(TestTags.taskCheckbox(taskTitle)),
     ) {
         Icon(
-            imageVector = if (isCompleted) Icons.Filled.Check else Icons.Filled.Star,
+            imageVector = if (isCompleted) Icons.Filled.Check else Icons.Filled.RadioButtonUnchecked,
             contentDescription = "Toggle complete",
             tint = if (isCompleted) {
                 MaterialTheme.colorScheme.primary

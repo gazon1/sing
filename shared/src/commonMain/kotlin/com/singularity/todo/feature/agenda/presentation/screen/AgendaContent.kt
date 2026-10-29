@@ -43,6 +43,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.formatRussianDueDate
 import com.singularity.todo.core.ui.menu.onSecondaryClick
 import com.singularity.todo.core.ui.preview.PreviewSamples
@@ -269,18 +270,11 @@ fun AgendaContent(
 
                 is AgendaUiState.Loaded -> {
                     if (state.sections.isEmpty()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(paddingValues),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = "No tasks",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                        EmptyState(
+                            title = "No tasks",
+                            subtitle = "Your agenda is empty",
+                            modifier = Modifier.padding(paddingValues),
+                        )
                     } else {
                         AgendaList(
                             sections = state.sections,
