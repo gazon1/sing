@@ -53,6 +53,7 @@ import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectsTree
 @Composable
 fun MenuBottomSheet(
     onDismiss: () -> Unit,
+    currentDestination: AppDestination? = null,
     onSelect: (AppDestination) -> Unit,
     treeState: ProjectsTreeUiState,
     onToggleExpanded: (ProjectId) -> Unit,
@@ -104,7 +105,7 @@ fun MenuBottomSheet(
                 section.items.forEach { item ->
                     NavigationDrawerItem(
                         label = { Text(item.label) },
-                        selected = false,
+                        selected = item.destination == currentDestination,
                         onClick = { onSelect(item.destination) },
                         icon = item.iconContent(),
                         // Ensure testTagsAsResourceId reaches this item individually.

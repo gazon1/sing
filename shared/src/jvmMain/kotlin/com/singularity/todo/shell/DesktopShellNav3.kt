@@ -34,6 +34,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavKey
@@ -48,6 +55,7 @@ import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.DestinationKind
 import com.singularity.todo.feature.nav.LocalNav3State
 import com.singularity.todo.feature.nav.Nav3State
+import com.singularity.todo.feature.nav.topMostRoute
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.Navigator
 import com.singularity.todo.feature.nav.Settings
@@ -95,8 +103,7 @@ fun DesktopShellNav3Root(
 
     // Topmost route in the current stack — determines the FAB and back arrow.
     // When a nested screen (e.g. SavedAgendaEdit) is on top, use it instead of the tab.
-    val topMostRoute: NavKey = state.requireBackStackFor(state.topLevelRoute).lastOrNull()
-        ?: state.topLevelRoute
+    val topMostRoute: NavKey = state.topMostRoute()
     val fabCurrent: AppDestination = topMostRoute as? AppDestination
         ?: current
 
@@ -147,9 +154,6 @@ fun DesktopShellNav3Root(
                 "edit",
                 "Edit",
                 children = buildMenuNodes {
-                    item("undo", "Undo", enabled = false, shortcut = "Ctrl+Z") {}
-                    item("redo", "Redo", enabled = false, shortcut = "Ctrl+Y") {}
-                    divider()
                     item("find", "Find", shortcut = "Ctrl+F") {
                         navigator.open(AppDestination.Search)
                     }
@@ -299,6 +303,10 @@ fun DesktopShellNav3Root(
         },
         content = {
             Scaffold(
+                modifier = Modifier.onPreviewKeyEvent { event ->
+                    // shortcut: hotkey dispatch has no automated test yet; covered by manual smoke.
+                    handleDesktopShortcut(event, navigator)
+                },
                 floatingActionButton = {
                     // One `today` for the shell, as on Android (#91): the prefill and
                     // the tab it was tapped from must not disagree across a midnight.
@@ -385,5 +393,32 @@ private fun openGitHub() {
     } catch (_: Throwable) {
         // Desktop browsing not supported on this platform (including HeadlessException
         // which is an Error in headless CI environments with no display)
+    }
+}
+
+internal fun handleDesktopShortcut(event: KeyEvent, navigator: Navigator): Boolean {
+    if (event.type != KeyEventType.KeyDown || !event.isCtrlPressed) return false
+    return when (event.key) {
+        Key.N -> {
+            navigator.open(AppDestination.TasksGraph(start = AppDestination.TasksStartRoute.Create()))
+            true
+        }
+
+        Key.Comma -> {
+            navigator.open(AppDestination.Settings)
+            true
+        }
+
+        Key.Q -> {
+            exitProcess(0)
+            true
+        }
+
+        Key.F -> {
+            navigator.open(AppDestination.Search)
+            true
+        }
+
+        else -> false
     }
 }
