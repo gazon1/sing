@@ -81,7 +81,12 @@ internal class PushPhase(
         // so a row that keeps it is a row that is never sent again — and the
         // claim is taken *before* the request, so only the outcome can take it
         // back.
-        var claimed: List<String> = emptyList()
+        //
+        // The list accumulates rather than being replaced: a cycle sends as
+        // many batches as the queue holds, and the batch before the last one
+        // is just as claimed as the last one. Overwriting the list left every
+        // earlier batch claimed for good.
+        val claimed = mutableListOf<String>()
         try {
             while (batches < 1000) {
                 batches++
@@ -91,7 +96,12 @@ internal class PushPhase(
                     return PhaseResult.Failed(error.toAppError())
                 }
                 val ready = (plan as? PushPlan.Ready) ?: break
-                claimed = ready.pending.map { it.patchId }
+
+                // The rows are already claimed — [planPush] claims them before it
+                // hands the plan over, and hands the plan over only when the
+                // claim succeeded. This is where the cycle learns which rows it
+                // holds.
+                claimed += ready.pending.map { it.patchId }
 
                 val result = pushWithPlan(ready, session)
                 when (result) {
@@ -143,10 +153,13 @@ internal class PushPhase(
             // its failure does not replace the push's own result: a push that
             // was delivered must not be reported as failed because the queue
             // could not be tidied.
-            if (claimed.isNotEmpty()) {
+            //
+            // In pieces, because the list is a query with one bind variable per
+            // id and SQLite refuses a statement with too many of them.
+            claimed.chunked(PUSH_BATCH_SIZE).forEach { chunk ->
                 withContext(NonCancellable) {
-                    runCatchingCancellable { outboxDao.release(claimed) }
-                        .onFailure { log.w(it) { "the outbox rows stay claimed: $claimed" } }
+                    runCatchingCancellable { outboxDao.release(chunk) }
+                        .onFailure { log.w(it) { "the outbox rows stay claimed: $chunk" } }
                 }
             }
         }
@@ -331,36 +344,43 @@ internal class PushPhase(
         val batched = pending.take(PUSH_BATCH_SIZE)
         if (batched.isEmpty()) return Result.success(null)
 
-        // Claim the rows before pushing so a second engine over the same SQLite
-        // file cannot push the same patch and trigger a lost race.
-        phases.localStorage("sync.outbox.claim", "claim the pending patches for push") {
-            outboxDao.claim(batched.map { it.patchId }, nowMillis)
-        }.getOrElse { error ->
-            phases.pushFailed(error.toAppError(), batched.size)
-            return Result.failure(error)
-        }
-
-        return phases
-            .localStorage("sync.outbox.decode", "assemble the queued changes") {
-                val patches = batched.map { entity -> StableJson.decodeFromString<DeltaPatch>(entity.payload) }
-                PushPlan.Ready(
-                    scope = activeScope!!,
-                    pending = batched,
-                    patches = patches,
-                    request =
-                        BatchPushRequest(
-                            deviceId = idGenerator.next(),
-                            profileId = activeScope.profileId,
-                            patches = patches,
-                        ),
-                )
-            }.fold(
-                onSuccess = { Result.success(it as PushPlan?) },
-                onFailure = { error ->
+        val plan =
+            phases
+                .localStorage("sync.outbox.decode", "assemble the queued changes") {
+                    val patches = batched.map { entity -> StableJson.decodeFromString<DeltaPatch>(entity.payload) }
+                    PushPlan.Ready(
+                        scope = activeScope!!,
+                        pending = batched,
+                        patches = patches,
+                        request =
+                            BatchPushRequest(
+                                deviceId = idGenerator.next(),
+                                profileId = activeScope.profileId,
+                                patches = patches,
+                            ),
+                    )
+                }.getOrElse { error ->
                     phases.pushFailed(error.toAppError(), batched.size)
-                    Result.failure(error.toAppError())
-                },
-            )
+                    return Result.failure(error.toAppError())
+                }
+
+        // The claim is taken here, after the payloads decoded: a plan that could
+        // not be assembled has claimed nothing, so there is nothing to give
+        // back. Claiming before the decode stranded up to a whole batch of the
+        // user's edits on a payload nobody can read.
+        //
+        // A plan comes back only when the claim succeeded, so the caller always
+        // knows which rows it holds — and a claim the caller does not know about
+        // is a claim nobody gives back.
+        phases
+            .localStorage("sync.outbox.claim", "claim the pending patches for push") {
+                outboxDao.claim(batched.map { it.patchId }, nowMillis)
+            }.getOrElse { error ->
+                phases.pushFailed(error.toAppError(), batched.size)
+                return Result.failure(error.toAppError())
+            }
+
+        return Result.success(plan)
     }
 
     /**

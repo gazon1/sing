@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -473,6 +474,80 @@ class PushPhaseTest {
 
             val failed = assertIs<PhaseResult.Failed<PushSummary>>(result)
             assertIs<AppError.Unknown>(failed.error)
+        }
+
+    // ─── The claim ──────────────────────────────────────────────────────────
+
+    /**
+     * A queued payload that no longer decodes must not strand the row.
+     *
+     * The claim is what `getPending` filters on, so a row that keeps it is a row
+     * the next cycle never offers. The claim used to be taken while the plan was
+     * built — before the payload was decoded — so a payload that no longer
+     * decoded left up to a whole batch of the user's edits claimed for good.
+     */
+    @Test
+    fun `a payload that cannot be decoded leaves the row on the queue`() =
+        runTest {
+            val api = FakeSyncApiClient()
+            val outbox = FakeSyncOutboxDao()
+            val (p, phaseScope) = phase(api, outbox = outbox)
+
+            // A field's type changed across an upgrade, so the queued payload is
+            // not a patch any more.
+            outbox.insert(outboxRow("p1").copy(payload = "not a patch at all"))
+
+            val result = p.push()
+            advanceUntilIdle()
+            phaseScope.close()
+
+            assertIs<PhaseResult.Failed<PushSummary>>(result)
+            assertNull(
+                outbox.rows.single().claimedAt,
+                "the row was never claimed, so there is nothing to give back",
+            )
+            assertEquals(
+                listOf("p1"),
+                outbox.getPending(Long.MAX_VALUE, "owner-push", "profile-1").map { it.patchId },
+                "the row stays on the queue",
+            )
+        }
+
+    /**
+     * Every row the cycle claimed goes back onto the queue — not only the last
+     * batch's.
+     *
+     * A cycle sends as many batches as the queue holds, and the list of claimed
+     * rows used to be replaced rather than accumulated: the batch before the
+     * last one kept its claim, and a claim is what `getPending` filters on.
+     *
+     * The server here answers for nothing, so every row is one the server did
+     * not resolve — and every one of them has to go back.
+     */
+    @Test
+    fun `every claimed row goes back onto the queue, not only the last batch`() =
+        runTest {
+            val api = FakeSyncApiClient()
+            val outbox = FakeSyncOutboxDao()
+            val (p, phaseScope) = phase(api, outbox = outbox)
+
+            // One row more than a batch holds, so the cycle sends two batches.
+            repeat(PUSH_BATCH_SIZE + 1) { index -> outbox.insert(outboxRow("p$index")) }
+
+            val result = p.push()
+            advanceUntilIdle()
+            phaseScope.close()
+
+            assertIs<PhaseResult.Ok<PushSummary>>(result)
+            assertEquals(
+                PUSH_BATCH_SIZE + 1,
+                outbox.rows.size,
+                "the server answered for nothing, so nothing was deleted",
+            )
+            assertTrue(
+                outbox.rows.none { it.claimedAt != null },
+                "every claimed row goes back onto the queue — the batch before the last one included",
+            )
         }
 
     // ─── Phase status transitions ───────────────────────────────────────────
