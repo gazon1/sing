@@ -1,0 +1,24 @@
+# Scenario specification for AUTH-FAIL-02.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/auth/09-signin-network-error.yaml` (`scenario:AUTH-FAIL-02`).
+#
+# Like AUTH-FAIL-01, this needs the real auth provider: a stubbed repository
+# always succeeds, so the failure this scenario is about cannot happen there.
+# The flow carries `auth-live` and `manual` and runs by hand.
+
+id: AUTH-FAIL-02
+title: Sign-in with no network shows a user-facing error
+priority: P2
+status: confirmed
+targets: [android]
+preconditions: >-
+  An emulator is running and the app is built against the real auth provider;
+  the stubbed repository cannot reach this state.
+steps:
+  - Enable airplane mode, so the device has no network.
+  - Attempt to sign in to an existing account.
+  - Wait for the error message.
+expected: >-
+  The sign-in attempt fails with an error the user can read on screen, the
+  address stays in the form, and the app does not enter a signed-in session.

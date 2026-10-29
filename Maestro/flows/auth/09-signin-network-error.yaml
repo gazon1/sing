@@ -21,7 +21,7 @@ appId: com.singularity.todo
 name: auth-signin-network-error
 tags:
   - auth-live
-  - AUTH-FAIL-02
+  - scenario:AUTH-FAIL-02
   - manual
 ---
 - setAirplaneMode:

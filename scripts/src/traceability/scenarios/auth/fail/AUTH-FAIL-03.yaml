@@ -1,0 +1,26 @@
+# Scenario specification for AUTH-FAIL-03.
+#
+# Claimed on `android`, carried by Maestro flow
+# `Maestro/flows/auth/10-attach-account-validation-error.yaml`
+# (`scenario:AUTH-FAIL-03`).
+#
+# Unlike AUTH-FAIL-01 and -02, this one runs in the normal `auth` suite: the
+# guard it checks is client-side form validation, so the stubbed repository
+# cannot hide it.
+
+id: AUTH-FAIL-03
+title: Attach-account form validation rejects empty credentials before submission
+priority: P1
+status: confirmed
+targets: [android]
+preconditions: >-
+  The app is in a local (anonymous) session, because the attach affordance
+  exists only for anonymous sessions.
+steps:
+  - Open Settings, then the Account tab.
+  - Tap "Attach account".
+  - Submit the form with empty credentials.
+  - Observe that the submission does not go through.
+expected: >-
+  The empty form is refused with a message that says what is missing, and no
+  attach request is sent.

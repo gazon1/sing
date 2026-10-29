@@ -225,7 +225,10 @@ class ProposalPlanner(private val clock: Clock) {
                 task.copy(completedAt = if (value.value == TaskStatus.Completed) clock.now() else null)
             }
 
-            is TaskValue.EstimateMinutes -> task.copy(estimateMinutes = value.value)
+            is TaskValue.EstimateMinutes -> {
+                require(value.value >= 0) { "Proposed estimate is negative" }
+                task.copy(estimateMinutes = value.value)
+            }
 
             is TaskValue.Kind -> task.copy(kind = value.value)
 

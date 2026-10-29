@@ -20,25 +20,19 @@ This means: **you cannot import `sh.calvin.reorderable.*` from `commonMain`** in
 
 ## Current state in this project (MR4 result)
 
-`shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/presentation/components/ReorderableSectionList.kt` is a **plain `LazyColumn` stub** — no drag-and-drop. The TODO:
+There is no drag-and-drop in the agenda's section list, and there is no stub
+waiting for one either. The `ReorderableSectionList` that MR4 left behind — a
+plain `LazyColumn` with a `DragHandle` icon that did nothing when tapped — was
+removed with the other dead UI components, and the screen reorders its
+sections with **buttons**: `SectionEditorCard` renders an explicit move-up and
+move-down control per row. The deferral decision and the reasons are in ADR
+`2026-09-30-section-reorder-via-buttons`; the short version is that a
+long-press drag handle is neither operable by a screen reader nor from a
+keyboard, while the buttons are both.
 
-```kotlin
-@Composable
-fun ReorderableSectionList(
-    sections: List<Section>,
-    onReorder: (List<Section>) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    LazyColumn(modifier = modifier) {
-        items(sections, key = { "${it.name}#${it.order}" }) { section ->
-            SectionRow(section = section, dragHandle = { /* static icon, no DnD */ })
-        }
-    }
-    // TODO: wire up sh.calvin.reorderable OR MultiplatformDragAndDrop
-}
-```
-
-The `DragHandle` icon is rendered but is not interactive — users can see the affordance, but tapping it does nothing. The on-screen instruction was deferred to a future MR.
+So the question this skill answers is no longer "which library would the stub
+use" but "what would a drag-and-drop implementation have to do to be worth it
+here" — and the answer has to clear the bar the buttons already cleared.
 
 ---
 
@@ -221,7 +215,8 @@ fun ReorderableSectionList(
 
 ## Reference
 
-- `shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/presentation/components/ReorderableSectionList.kt` — current stub
+- `shared/src/commonMain/kotlin/com/singularity/todo/feature/agenda/presentation/components/SectionEditorCard.kt` — the screen that reorders, with buttons
+- `docs/decisions/2026-09-30-section-reorder-via-buttons.md` — why buttons, and what a drag handle would have to beat
 - `docs/decisions/2026-09-16-agenda-mr4-saved-views-create-reorder.md` — MR4 ADR with the deferral decision
 - [sh.calvin.reorderable GitHub](https://github.com/Calvin-LL/Reorderable) — official library, monitor for multiplatform artifact
 - [Compose Material3 1.8 release notes](https://developer.android.com/jetpack/androidx/releases/compose-material3) — monitor for stable `MultiplatformDragAndDrop`

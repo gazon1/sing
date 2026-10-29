@@ -21,7 +21,7 @@ name: auth-attach-account
 tags:
   - regression
   - auth
-  - AUTH-ATTACH-01
+  - scenario:AUTH-ATTACH-01
 ---
 # Launch. The auth guard lets a session through to the agenda (no auth screen
 # shown). The launch does not wipe the app's data: clearing the state would

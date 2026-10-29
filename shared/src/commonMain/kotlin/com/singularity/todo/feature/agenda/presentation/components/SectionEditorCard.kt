@@ -34,9 +34,9 @@ import com.singularity.todo.feature.agenda.domain.selector.typeDescription
  * though [SavedAgendaIntent.SectionsReordered] and the whole reorder pipeline already
  * existed. Explicit buttons fix that *and* are operable by screen readers and from a
  * keyboard, which a long-press drag handle is not. The drag-based
- * [ReorderableSectionList] is the better desktop gesture but nests its own
- * `LazyColumn` and so cannot be used inside this screen's; it remains unused. See ADR
- * 2026-09-30-section-reorder-via-buttons.
+ * `ReorderableSectionList` was the better desktop gesture but nested its own
+ * `LazyColumn` and so could not be used inside this screen's; it was removed with
+ * the other dead UI components. See ADR 2026-09-30-section-reorder-via-buttons.
  *
  * @param section The section to display.
  * @param index The section's position in the list.

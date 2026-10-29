@@ -1017,6 +1017,7 @@ reports it under `unmatchedFlags`.
 | docs | `search_docs` |
 | notes | `create_note` |
 | notes | `delete_note` |
+| notes | `get_daily_note` |
 | notes | `get_note` |
 | notes | `update_note` |
 | projects | `create_project` |

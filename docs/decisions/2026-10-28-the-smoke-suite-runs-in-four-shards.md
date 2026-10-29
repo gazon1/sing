@@ -100,6 +100,28 @@ for.
   measures anything. The number allowed to fail did not change because the
   number of shards did.
 
+## Amended 2026-10-29 — the tag selects first, and the shard follows
+
+The Decision above says the shard is taken over every flow and the tag is
+applied afterwards, and it puts the four shards at "roughly 7/9/4/7". Both
+statements described the runner as it was, and both are wrong now.
+
+The runner filters by tag **first** and shards what the filter selected. The
+same 27 flows are in the four shards either way — but the division is even
+now, 7/7/7/6, where it was 7/9/4/7. The unevenness was the price of drawing
+the shard boundaries over the whole suite and then dropping what the tag did
+not select: a shard that mostly held filtered-out flows was a shard that ran
+fast, and four shards that run at different speeds cost the wall clock of the
+slowest one. Dividing the selected suite directly is the same work in the same
+time with none of the imbalance.
+
+The full suite selects nothing, so the order makes no difference to it: the
+117 flows divide exactly as they did, and the smoke shard count in
+`config/docs/e2e-shards.txt` is unchanged.
+
+The gate above is unaffected — it reads the count and the cost from the same
+two sources it read before.
+
 ## Links
 
 - `config/docs/e2e-shards.txt` — the shard counts

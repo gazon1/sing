@@ -1,13 +1,11 @@
 package com.singularity.todo.feature.flows.sync
 
-import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.onNodeWithTag
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.clickContentDescriptionScrolled
 import com.singularity.todo.test.helpers.clickTag
+import com.singularity.todo.test.helpers.textOfTag
 import com.singularity.todo.test.helpers.openDrawer
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import org.junit.jupiter.api.DisplayName
@@ -33,13 +31,9 @@ class SyncSettings01ScenarioTest {
 
             // Interval row is reachable, and tapping cycles its value.
             assertTagDisplayed(TestTags.Sync.INTERVAL_ROW)
-            val before =
-                onNodeWithTag(TestTags.Sync.INTERVAL_ROW).fetchSemanticsNode()
-                    .config.getOrNull(SemanticsProperties.Text)?.firstOrNull()?.text
+            val before = textOfTag(TestTags.Sync.INTERVAL_ROW)
             clickTag(TestTags.Sync.INTERVAL_ROW)
-            val after =
-                onNodeWithTag(TestTags.Sync.INTERVAL_ROW).fetchSemanticsNode()
-                    .config.getOrNull(SemanticsProperties.Text)?.firstOrNull()?.text
+            val after = textOfTag(TestTags.Sync.INTERVAL_ROW)
             check(before != null && before != after) { "interval value did not change after tap: $before" }
 
             // Auto-sync switch reachable.

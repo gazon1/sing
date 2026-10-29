@@ -454,6 +454,41 @@ change conceptually, and was rejected: it needs a Develocity server, and its
 sample is not deterministic — which collides with the requirement that one job
 measures one population.
 
+# Amended 2026-10-29 — the fork count moved into the record, and the record is a ceiling
+
+Two statements above are out of date, and one of them is out of date in the
+direction that costs memory.
+
+**`maxParallelForks` was "not touched either — 4 on a 16-core machine, 2 on a
+4-core CI runner".** It was not true: the code capped at *eight*, so a
+16-core host ran eight forks — 12 GB of forks beside the 6144 MB daemon, half
+again over the 12 GB ceiling this ADR records. The cap now comes from the
+record: `config/docs/gradle-memory-budget.properties` holds
+`test.forks.module.shared=4`, beside the heap it multiplies, and the build
+reads it.
+
+The number in the record is a **ceiling**, not a floor. The build takes the
+smaller of it and half the machine's cores: a two-core CI runner runs one fork,
+a four-core runner runs two, and a sixteen-core host runs four. The promise
+this ADR made about the small runners still holds; what moved is where the
+ceiling is written down.
+
+The arithmetic that fixes the ceiling is the one the record carries: `./gw`
+holds one of three machine-wide build slots and each slot has its own daemon,
+so three builds at once reserve
+
+    3 × (6144 MB daemon + forks × 1536 MB)
+
+which is 36 GB at four forks and 54 GB at eight. The second is 87% of the
+machine's RAM with the IDE, the OS and the other worktrees still to come — so
+eight forks was never affordable, whatever the core count said.
+
+**D1's claim about incremental compilation is still correct** — the in-process
+strategy does not cost it — but it is not the reason the build recompiles.
+The Compose compiler plugin marks the compile task non-incremental, and every
+module that carries the plugin recompiles from scratch on every build. See
+`2026-10-29-the-compose-plugin-breaks-incremental-compilation.md`.
+
 # Links
 
 - `docs/decisions/2026-10-04-gradle-daemon-isolation.md` — the isolation this

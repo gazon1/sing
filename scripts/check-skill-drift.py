@@ -290,6 +290,16 @@ def toolbox_problems() -> list[str]:
     return problems
 
 
+def _display(path: pathlib.Path) -> str:
+    """The path as the reader should see it.
+
+    Relative to the repository when it is inside it, absolute when it is not —
+    a path outside the root is a path the repository does not have, and
+    `relative_to` raises on it rather than producing something readable.
+    """
+    return str(path.relative_to(ROOT) if path.is_relative_to(ROOT) else path)
+
+
 @click.command()
 @click.pass_context
 def cli(ctx: click.Context) -> None:
@@ -328,11 +338,11 @@ def cli(ctx: click.Context) -> None:
             flag_drifted.append(path)
 
     for path in missing:
-        click.echo(f'ERROR: {path.relative_to(ROOT)} does not exist — the generated section has '
+        click.echo(f'ERROR: {_display(path)} does not exist — the generated section has '
               f'nowhere to live')
 
     for path in drifted:
-        rel = path.relative_to(ROOT)
+        rel = _display(path)
         current = renderer.current_block(path)
         if current is None:
             click.echo(f'ERROR: {rel} has no "{renderer.BEGIN}" block. The ADR tool surface is '
@@ -343,11 +353,11 @@ def cli(ctx: click.Context) -> None:
         click.echo(f'  fix with: python3 scripts/render-adr-tools-section.py')
 
     for path in flag_missing:
-        click.echo(f'ERROR: {path.relative_to(ROOT)} does not exist — the flag key space has '
+        click.echo(f'ERROR: {_display(path)} does not exist — the flag key space has '
               f'nowhere to live')
 
     for path in flag_drifted:
-        rel = path.relative_to(ROOT)
+        rel = _display(path)
         current = renderer.current_flag_block(path)
         if current is None:
             click.echo(f'ERROR: {rel} has no "{renderer.FLAG_BEGIN}" block. The flag key space is '

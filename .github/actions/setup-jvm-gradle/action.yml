@@ -51,3 +51,30 @@ runs:
           caches/jars-3
           caches/jars-9
           caches/instrumented-jars-2
+
+    # Robolectric does not come through Gradle: it resolves its
+    # `android-all-instrumented` jars from Maven Central into ~/.m2 on the
+    # first test run. setup-gradle caches the Gradle home and nothing else, so
+    # every CI run downloaded the jar again — a network round trip in the
+    # androidHostTest job, on the critical path of every PR.
+    #
+    # The jar is content-addressed by version, so the key is the version
+    # catalog rather than the commit: a new Robolectric release invalidates
+    # the cache, and nothing else does.
+    #
+    # Same policy as the Gradle cache above: main saves, PRs and tags restore
+    # read-only, so a PR cannot evict the copy main depends on.
+    - name: Restore the Robolectric android-all jars
+      uses: actions/cache/restore@v4
+      with:
+        path: ~/.m2/repository/org/robolectric
+        key: robolectric-android-all-${{ hashFiles('gradle/libs.versions.toml') }}
+        restore-keys: |
+          robolectric-android-all-
+
+    - name: Save the Robolectric android-all jars
+      if: github.ref == 'refs/heads/main'
+      uses: actions/cache/save@v4
+      with:
+        path: ~/.m2/repository/org/robolectric
+        key: robolectric-android-all-${{ hashFiles('gradle/libs.versions.toml') }}

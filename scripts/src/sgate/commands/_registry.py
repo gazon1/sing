@@ -1850,11 +1850,17 @@ GATE_CONTROLS: dict[str, Control] = {
             proves='scripts/check-maestro-smoke-suite.py',
             argv=('{python}', 'scripts/check-maestro-smoke-suite.py',),
             path='Maestro/CONVENTIONS.md',
+            # By pattern, never by the number the doc happens to carry. The
+            # literal it named — 45 — stopped matching the day the suite was
+            # re-tagged, and the control became a no-op: the gate was handed
+            # an unmodified file, reported a pass it did not earn, and the
+            # required `CI gate` went red on a tree that was clean. A control
+            # that quietly stops sabotaging is worse than no control. The same
+            # rule is written down at `check-gate-wiring.py` for the floors.
             edit=Edit(
-                kind='replace',
-                old='Current smoke flows (45):',
-                new='Current smoke flows (0):',
-                count=1,
+                kind='regex',
+                pattern=r'Current smoke flows \(\d+\):',
+                repl='Current smoke flows (0):',
             ),
             why=(
                 'the size of the suite a pull request runs was fiction: the conventions said six flows, four of them did not exist, and the tag had spread to 45 — and nobody noticed, because the tag is what selects and the prose is what people plan against'

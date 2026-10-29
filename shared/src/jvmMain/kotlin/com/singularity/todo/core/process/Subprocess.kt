@@ -9,6 +9,7 @@ import java.io.OutputStream
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 
@@ -74,7 +75,7 @@ class DuplexProcess internal constructor(
     fun stdoutLines(): Flow<String> = flow<String> {
         val reader = InputStreamReader(stdout, Charsets.UTF_8)
         try {
-            readCappedLines(reader, 1_048_576) { emit(it) }
+            readCappedLines(reader, 1_048_576).asFlow().collect { emit(it) }
         } finally {
             runCatching { reader.close() }
         }
@@ -231,19 +232,26 @@ object Subprocess {
         }
 
         // Read to EOF *before* waiting. Reversing these two is the deadlock above.
+        //
+        // One exit, not two: a loop with more than one `break` is a loop whose
+        // exits nobody holds in their head at once, and the linter says so. The
+        // flag says it instead.
         val maxOutput = 16 * 1024 * 1024
         val buf = CharArray(8192)
         val out = StringBuilder()
         InputStreamReader(process.inputStream, Charsets.UTF_8).use { reader ->
-            while (true) {
+            var done = false
+            while (!done) {
                 val n = reader.read(buf)
-                if (n == -1) break
-                if (out.length + n > maxOutput) {
+                if (n == -1) {
+                    done = true
+                } else if (out.length + n > maxOutput) {
                     out.append(buf, 0, (maxOutput - out.length).coerceAtLeast(0))
                     subprocessLog.w { "subprocess output truncated at $maxOutput bytes" }
-                    break
+                    done = true
+                } else {
+                    out.append(buf, 0, n)
                 }
-                out.append(buf, 0, n)
             }
         }
         if (process.waitFor() != 0) null else out.toString()
@@ -305,9 +313,7 @@ object Subprocess {
         Thread({
             runCatching {
                 val reader = InputStreamReader(stream, Charsets.UTF_8)
-                kotlinx.coroutines.runBlocking<Unit> {
-                    readCappedLines(reader, 1_048_576) { sink(it) }
-                }
+                readCappedLines(reader, 1_048_576).forEach { sink(it) }
                 runCatching { reader.close() }
             }
         }, "subprocess-stderr-drain").apply {
@@ -319,7 +325,21 @@ object Subprocess {
 
 private val subprocessLog = co.touchlab.kermit.Logger.withTag("subprocess")
 
-private suspend fun readCappedLines(reader: java.io.Reader, maxLine: Int, emit: suspend (String) -> Unit) {
+/**
+ * The child's output, line by line, each line capped at [maxLine] characters.
+ *
+ * A [Sequence] and not a suspending function, because there are two callers
+ * with two different needs: the flow over the child's standard output hands
+ * each line to a suspending collector as it arrives, and the thread that drains
+ * the child's standard error hands each line to a plain callback. One reader,
+ * and neither caller needs a coroutine to call it.
+ *
+ * `internal` and not `private`, so the reader is testable without a child
+ * process: the case that matters — a last line the child did not terminate —
+ * was reachable only through a spawned process, and a test that needs a spawn
+ * belongs to the slow population, which the pull request does not run.
+ */
+internal fun readCappedLines(reader: java.io.Reader, maxLine: Int): Sequence<String> = sequence {
     val buf = CharArray(8192)
     val line = StringBuilder()
     while (true) {
@@ -329,14 +349,18 @@ private suspend fun readCappedLines(reader: java.io.Reader, maxLine: Int, emit: 
             subprocessLog.d(e) { "The child's output ended while it was being read." }
             -1
         }
+        // `break`, not `return@sequence`: the return leaves the builder and the
+        // trailing line below is never reached — and the child's last line is
+        // not newline-terminated whenever it is not, so it is exactly the line
+        // that gets dropped.
         if (n == -1) break
         for (i in 0 until n) {
             val c = buf[i]
             if (c == '\n') {
-                emit(line.toString())
+                yield(line.toString())
                 line.setLength(0)
             } else if (line.length >= maxLine) {
-                emit(line.toString())
+                yield(line.toString())
                 line.setLength(0)
                 if (c != '\r') line.append(c)
             } else {
@@ -344,5 +368,5 @@ private suspend fun readCappedLines(reader: java.io.Reader, maxLine: Int, emit: 
             }
         }
     }
-    if (line.isNotEmpty()) emit(line.toString())
+    if (line.isNotEmpty()) yield(line.toString())
 }

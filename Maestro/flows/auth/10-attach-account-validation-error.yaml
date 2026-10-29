@@ -15,7 +15,7 @@ name: auth-attach-account-validation-error
 tags:
   - regression
   - auth
-  - AUTH-FAIL-03
+  - scenario:AUTH-FAIL-03
 ---
 # Launch. The launch does not wipe the app's data: clearing the state would
 # take the app's rows with it, and deleting data is the runner's fixture

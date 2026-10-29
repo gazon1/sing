@@ -834,6 +834,13 @@ jobs:
       # `scripts/check-waiver-references.py` requires an anchor to resolve to a
       # STEP NAME — not to a name this file used to carry.
       - name: Gradle (tests)
+        # `:androidApp:test` is NO-SOURCE and runs zero tests: the module has
+        # no JVM unit-test source set — its suite is `src/androidTest/`, which
+        # needs a device and cannot run here. The task stays in this list so the
+        # list stays a copy of `koverReport`'s (build.gradle.kts:388-399), and
+        # `scripts/check-coverage-task-list.py` is the gate that answers the
+        # real question — does a project in the coverage denominator have a
+        # test source set with files in it.
         run: |
           set -o pipefail
           ./gradlew --continue \

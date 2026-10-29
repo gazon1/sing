@@ -27,6 +27,7 @@ insert into sync_field_allowlist (entity_type, field, writable) values
     ('note', 'charCount', true),
     ('note', 'outgoingLinks', true),
     ('note', 'taskId', true),
+    ('note', 'projectId', true),
     ('note', 'createdAt', true),
     ('note', 'updatedAt', true),
     ('note', 'deletedAt', true),

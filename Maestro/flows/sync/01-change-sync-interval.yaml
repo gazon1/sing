@@ -11,7 +11,7 @@ name: sync-change-interval
 tags:
   - regression
   - sync
-  - SYNC-SETTINGS-01
+  - scenario:SYNC-SETTINGS-01
 ---
 - runFlow: ../../helpers/launch-clean.yaml
 

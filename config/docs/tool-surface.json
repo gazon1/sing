@@ -179,6 +179,17 @@
             "exceptionReason": null
         },
         {
+            "name": "get_daily_note",
+            "toolClass": "GetDailyNoteTool",
+            "domain": "notes",
+            "description": "Fetch the daily standup note for a date (ISO YYYY-MM-DD), if one exists.",
+            "readOnly": true,
+            "destructive": false,
+            "idempotent": false,
+            "writeBehavior": "READ_ONLY",
+            "exceptionReason": null
+        },
+        {
             "name": "get_note",
             "toolClass": "GetNoteTool",
             "domain": "notes",
@@ -493,6 +504,7 @@
         "first_step",
         "generate_checklist",
         "generate_description",
+        "get_daily_note",
         "get_note",
         "get_project",
         "get_task",

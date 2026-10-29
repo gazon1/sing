@@ -65,7 +65,7 @@ Maestro/
 │   ├── launch-clean.yaml       # clean launch + wait for the shell (8s budget)
 │   └── seed-task.yaml          # create one task titled "Buy milk"
 └── flows/
-    ├── smoke/                  # must-pass subset (12 flows, ~4 min)
+    ├── smoke/                  # 5 of the 27 must-pass flows; the tag `smoke` selects all 27
     ├── nav/                    # bottom-bar navigation
     ├── tasks/                  # task CRUD and the task editor attribute rows
     ├── agenda/                 # smart lists (Inbox buckets) + saved agenda views

@@ -537,6 +537,25 @@ fun DesktopComposeUiTest.assertTagTextEquals(tag: String, expected: String) {
 }
 
 /**
+ * The text the node with [testTag] holds right now, or null when it holds none.
+ *
+ * The reader behind [assertTagTextEquals]: that one answers "does it hold this",
+ * this one answers "what does it hold" — which is what a test needs when a
+ * control cycles through values (an interval that steps, a counter that ticks)
+ * and the assertion is that the value *changed*.
+ *
+ * A tagged node has no "its text" property on the node — its text is the `Text`
+ * the semantics carries — so the answer is read from the semantics of the first
+ * node carrying the tag.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun DesktopComposeUiTest.textOfTag(testTag: String): String? =
+    onAllNodesWithTag(testTag)
+        .fetchSemanticsNodes()
+        .firstOrNull()
+        ?.let { node -> node.config.getOrNull(SemanticsProperties.Text)?.firstOrNull()?.text }
+
+/**
  * Waits until the node with [tag] holds exactly [expected], then returns.
  *
  * The wait counterpart of [assertTagTextEquals], and the one a test wants when the

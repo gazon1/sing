@@ -16,7 +16,7 @@ onFlowComplete:
 tags:
   - regression
   - auth
-  - AUTH-FIRSTRUN-01
+  - scenario:AUTH-FIRSTRUN-01
 ---
 - runFlow: ../../helpers/launch-clean.yaml
 

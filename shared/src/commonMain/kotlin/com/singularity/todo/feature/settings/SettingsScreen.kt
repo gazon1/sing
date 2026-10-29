@@ -341,7 +341,14 @@ private fun SettingsNavRail(
             "Appearance" to listOf(SettingsTab.Interface),
             "Productivity" to listOf(SettingsTab.Agenda, SettingsTab.WorkSchedule, SettingsTab.Tasks),
             "Notifications" to listOf(SettingsTab.Notifications, SettingsTab.Calendar),
-            "Data" to listOf(SettingsTab.Files, SettingsTab.Backup, SettingsTab.Sync, SettingsTab.Tags, SettingsTab.TagGroups),
+            "Data" to
+                listOf(
+                    SettingsTab.Files,
+                    SettingsTab.Backup,
+                    SettingsTab.Sync,
+                    SettingsTab.Tags,
+                    SettingsTab.TagGroups,
+                ),
             "AI & Account" to listOf(SettingsTab.AIProvider, SettingsTab.Account),
         )
         groups.forEach { (group, tabs) ->

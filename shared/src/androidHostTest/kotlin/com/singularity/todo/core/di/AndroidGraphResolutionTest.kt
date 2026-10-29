@@ -33,7 +33,6 @@ import com.singularity.todo.feature.calendarSync.work.GoogleSyncPeriodicTrigger
 import com.singularity.todo.feature.gate.gateModule
 import com.singularity.todo.feature.pomodoro.PomodoroScheduler
 import org.junit.Test
-import org.junit.jupiter.api.Tag
 import org.junit.runner.RunWith
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.KoinApplication
@@ -93,8 +92,10 @@ import kotlin.test.assertTrue
  * does not create, and a new Android binding is expected to be either resolvable here
  * or listed.
  */
-@Tag("slow")
-@Tag("slow:data")
+// No `fast`/`slow` tag: this is a JUnit4 class under the Vintage engine, and
+// Jupiter's `@Tag` does not reach it — a tag here would read as "this can be
+// selected" and select nothing. `testAndroidHostTest` is exempt from the tag
+// filter for exactly that reason (shared/build.gradle.kts:519-543).
 @RunWith(RobolectricTestRunner::class)
 class AndroidGraphResolutionTest {
 
