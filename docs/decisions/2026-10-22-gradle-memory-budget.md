@@ -468,9 +468,10 @@ record: `config/docs/gradle-memory-budget.properties` holds
 reads it.
 
 The number in the record is a **ceiling**, not a floor. The build takes the
-smaller of it and half the machine's cores, so a two-core CI runner runs two
-forks and a sixteen-core host runs four. The promise this ADR made about the
-small runners still holds; what moved is where the ceiling is written down.
+smaller of it and half the machine's cores: a two-core CI runner runs one fork,
+a four-core runner runs two, and a sixteen-core host runs four. The promise
+this ADR made about the small runners still holds; what moved is where the
+ceiling is written down.
 
 The arithmetic that fixes the ceiling is the one the record carries: `./gw`
 holds one of three machine-wide build slots and each slot has its own daemon,

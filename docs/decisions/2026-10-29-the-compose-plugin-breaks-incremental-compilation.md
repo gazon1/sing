@@ -26,8 +26,10 @@ Caching disabled for task ':shared:compileKotlinJvm' because:
 
 `ADR 2026-10-22-gradle-memory-budget` explains that `kotlin.compiler.execution.strategy=in-process`
 was chosen so the Kotlin compilation fits inside the 6 GB daemon, and states that
-**"Incremental compilation is NOT lost by this"**. That claim is wrong, and the
-comment next to it in `gradle.properties` repeats it.
+**"Incremental compilation is NOT lost by this"**. That claim is **correct** — the
+strategy is not the cause, as the measurement below shows — but it is easy to read
+as "the build is incremental", and it is not: the comment next to it in
+`gradle.properties` says the same thing and stops one sentence short.
 
 ## Idea
 
