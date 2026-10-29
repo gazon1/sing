@@ -13,6 +13,7 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.feature.ai.prompts.Prompts
 import kotlinx.serialization.Serializable
 import kotlinx.coroutines.CancellationException
+import com.singularity.todo.core.error.runCatchingCancellable
 
 @Serializable
 data class SuggestTagsInput(val title: String, val body: String)
@@ -40,7 +41,7 @@ class SuggestTagsTool(private val promptExecutor: PromptExecutor, private val mo
             throw e
         } catch (e: Exception) {
             logger.w(e) { "failed" }
-            val tags = runCatching {
+            val tags = runCatchingCancellable {
                 kotlinx.serialization.json.Json.decodeFromString<List<String>>(
                     text,
                 )

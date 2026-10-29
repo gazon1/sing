@@ -163,7 +163,7 @@ class TaskAiSlot(
                 pick(task.title, task.description).getOrThrow()
             }
             if (suggestion.trim() == "no-time") error("No time could be determined")
-            val start = runCatching { kotlin.time.Instant.parse(suggestion.trim()).toEpochMilliseconds() }
+            val start = runCatchingCancellable { kotlin.time.Instant.parse(suggestion.trim()).toEpochMilliseconds() }
                 .getOrDefault(context.clock.now().toEpochMilliseconds())
             listOf(
                 newItem(

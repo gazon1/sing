@@ -13,6 +13,7 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.feature.ai.prompts.Prompts
 import kotlinx.serialization.Serializable
 import kotlinx.coroutines.CancellationException
+import com.singularity.todo.core.error.runCatchingCancellable
 
 @Serializable
 data class ExtractActionsInput(val title: String, val body: String)
@@ -40,7 +41,7 @@ class ExtractActionsTool(private val promptExecutor: PromptExecutor, private val
             throw e
         } catch (e: Exception) {
             logger.w(e) { "failed" }
-            val actions = runCatching {
+            val actions = runCatchingCancellable {
                 kotlinx.serialization.json.Json.decodeFromString<List<String>>(
                     text,
                 )

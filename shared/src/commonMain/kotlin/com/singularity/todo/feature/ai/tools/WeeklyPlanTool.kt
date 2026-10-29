@@ -18,6 +18,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.coroutines.CancellationException
 import kotlin.time.Clock
+import com.singularity.todo.core.error.runCatchingCancellable
 
 @Serializable
 data class WeeklyPlanInput(
@@ -59,7 +60,7 @@ class WeeklyPlanTool(
             throw e
         } catch (e: Exception) {
             logger.w(e) { "failed" }
-            val items = runCatching { Json.decodeFromString<List<String>>(text) }.getOrNull() ?: emptyList()
+            val items = runCatchingCancellable { Json.decodeFromString<List<String>>(text) }.getOrNull() ?: emptyList()
             Json.encodeToString(WeeklyPlanOutput.serializer(), WeeklyPlanOutput(items))
         }
     }

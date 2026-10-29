@@ -137,24 +137,13 @@ class ProposalDispatch(
             userId = userId,
         )
 
-        is ProposalPlan.WriteTask -> writeRow(plan.task.id) {
-            // Re-read the task in the dispatch and apply only the changed field,
-            // so a concurrent edit (another device, or the user) is not reverted
-            // by writing a stale snapshot back.
-            val current = tasks.get(plan.task.id)
-            val toWrite = if (current != null) {
-                ProposalPlanner.withTaskValue(current, plan.value, clock)
-            } else {
-                plan.task
-            }
-            tasks.update(toWrite).getOrThrow()
-        }
-
         is ProposalPlan.WriteNote -> writeRow(plan.note.id) { notes.upsert(plan.note) }
 
         is ProposalPlan.WriteProject -> writeRow(plan.project.id) { projects.update(plan.project).getOrThrow() }
 
         is ProposalPlan.WriteTag -> writeRow(plan.tag.id) { tags.update(plan.tag).getOrThrow() }
+
+        is ProposalPlan.WriteTask -> writeTaskRow(plan)
 
         is ProposalPlan.CreateTask -> createRow(
             id = plan.task.id,
@@ -191,6 +180,28 @@ class ProposalDispatch(
         is ProposalPlan.DeleteProject -> deleteRow(plan.projectId) { deleteProject(plan.projectId).getOrThrow() }
 
         is ProposalPlan.DeleteTag -> deleteRow(plan.tagId) { tags.delete(plan.tagId).getOrThrow() }
+    }
+
+    /**
+     * The row of a task update.
+     *
+     * The one branch of [rowsOf] that decides something: it re-reads the task
+     * in the dispatch and applies only the changed field, so a concurrent edit
+     * (another device, or the user) is not reverted by writing a stale snapshot
+     * back.
+     *
+     * It is a helper of its own so that [rowsOf]'s `when` can stay exhaustive.
+     * A plan type added later has to be handled there, and the compiler has to
+     * say so — an `else` would move that from the build to a runtime error.
+     */
+    private suspend fun writeTaskRow(plan: ProposalPlan.WriteTask): List<ProposedRow> = writeRow(plan.task.id) {
+        val current = tasks.get(plan.task.id)
+        val toWrite = if (current != null) {
+            ProposalPlanner.withTaskValue(current, plan.value, clock)
+        } else {
+            plan.task
+        }
+        tasks.update(toWrite).getOrThrow()
     }
 
     /**

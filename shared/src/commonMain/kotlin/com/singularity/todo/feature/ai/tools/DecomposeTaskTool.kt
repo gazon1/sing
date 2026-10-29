@@ -14,6 +14,7 @@ import com.singularity.todo.feature.ai.prompts.Prompts
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.coroutines.CancellationException
+import com.singularity.todo.core.error.runCatchingCancellable
 
 @Serializable
 data class DecomposeTaskInput(val title: String, val description: String? = null)
@@ -40,7 +41,7 @@ class DecomposeTaskTool(private val promptExecutor: PromptExecutor, private val 
             throw e
         } catch (e: Exception) {
             logger.w(e) { "failed" }
-            val items = runCatching { Json.decodeFromString<List<String>>(text) }.getOrNull() ?: emptyList()
+            val items = runCatchingCancellable { Json.decodeFromString<List<String>>(text) }.getOrNull() ?: emptyList()
             Json.encodeToString(DecomposeTaskOutput.serializer(), DecomposeTaskOutput(items))
         }
     }
