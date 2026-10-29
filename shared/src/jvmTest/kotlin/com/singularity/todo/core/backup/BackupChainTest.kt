@@ -445,6 +445,33 @@ class BackupChainTest {
     }
 
     /**
+     * A corrupt change entry fails the whole import and leaves the database untouched.
+     *
+     * The contract: an invalid payload (here, a change entry that does not decode)
+     * is rejected before any row is written, so the previous data survives.
+     */
+    @Test
+    fun `a corrupt change entry fails the whole import and leaves the database untouched`() = runTest {
+        seedTask("t-1", "before")
+        export("a.zip")
+
+        targetDb.taskDao().upsert(task("sentinel", "sentinel"))
+        val before = targetDb.taskDao().listAllForUser(owner.value).size
+
+        val restored = importer().import(
+            ImportOptions(
+                sourcePath = "$backupDir/a.zip",
+                targetUserId = owner,
+                entries = listOf("this is not a valid delta".toByteArray()),
+            ),
+        )
+
+        assertFalse(restored.isSuccess, "a corrupt change entry must fail the import: ${restored.exceptionOrNull()}")
+        val after = targetDb.taskDao().listAllForUser(owner.value).size
+        assertEquals(before, after, "no row may be written when the chain is invalid")
+    }
+
+    /**
      * A change that says nothing is not written.
      *
      * An export of an account that did not move writes no change: a change with
