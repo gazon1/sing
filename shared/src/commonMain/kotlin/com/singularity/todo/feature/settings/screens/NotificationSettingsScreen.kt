@@ -1,20 +1,11 @@
 package com.singularity.todo.feature.settings.screens
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -65,63 +56,6 @@ fun NotificationSettingsScreen(
                     onCheckedChange = { onIntent(SettingsIntent.Notifications.UpdateVibration(it)) },
                 )
             }
-        }
-
-        ReminderDefaultsSection(
-            selected = state.notifications.reminderDefault,
-            onSelect = { onIntent(SettingsIntent.Notifications.UpdateReminderDefault(it)) },
-        )
-    }
-}
-
-@Composable
-private fun ReminderDefaultsSection(
-    selected: ReminderOffset,
-    onSelect: (ReminderOffset) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    SettingsSection(
-        title = "Default Reminder",
-        modifier = modifier.testTag(TestTags.Settings.REMINDER_DEFAULTS_SECTION),
-    ) {
-        ReminderOffset.entries.forEach { offset ->
-            ReminderRadioRow(
-                label = offset.label,
-                selected = selected == offset,
-                onClick = { onSelect(offset) },
-                testTag = TestTags.Settings.reminderOffsetRadioRow(offset),
-            )
-        }
-    }
-}
-
-@Composable
-private fun ReminderRadioRow(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    testTag: String,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth()
-            .testTag(testTag)
-            .clickable(onClick = onClick)
-            .padding(vertical = 2.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (selected) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-            } else {
-                MaterialTheme.colorScheme.surface
-            },
-        ),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            RadioButton(selected = selected, onClick = onClick)
-            Text(text = label, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }

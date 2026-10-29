@@ -101,6 +101,7 @@ fun TaskCreateScreen(initialDueDate: LocalDate?, draftKey: String? = null) {
         visible = showDiscard,
         onDiscard = {
             showDiscard = false
+            vm.onIntent(TaskCreateIntent.Discard)
             navigator.back()
         },
         onKeepEditing = { showDiscard = false },

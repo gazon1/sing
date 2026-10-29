@@ -35,6 +35,7 @@ import kotlinx.datetime.Month
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -413,6 +414,21 @@ class TaskCreateViewModelTest {
             "whitespace is blank: save must disable without the draft being reverted to pristine",
         )
         assertTrue(vm.state.value.isDirty, "still dirty — the user did edit, then cleared it")
+    }
+
+    @Test
+    fun `Discard clears the autosaved draft`() = runTest {
+        val vm = createVm(backgroundScope)
+        advanceTimeBy(1_000)
+        runCurrent()
+        vm.onIntent(TaskCreateIntent.TitleChanged("To be discarded"))
+        advanceTimeBy(1_000)
+        runCurrent()
+        // make sure it was autosaved
+        assertNotNull(fakeDraftStore.load(draftKey, TaskDraft.serializer()))
+        vm.onIntent(TaskCreateIntent.Discard)
+        runCurrent()
+        assertNull(fakeDraftStore.load(draftKey, TaskDraft.serializer()))
     }
 
     @Test
