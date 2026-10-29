@@ -625,18 +625,19 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     // Parallel forks keep the isolation exactly — each fork is still its own
     // process, re-created per class — and only overlap the startup cost.
     //
-    // Scaled to the machine, not fixed: CI runners have 2-4 cores, and four forks
-    // there oversubscribe rather than speed anything up. Half the cores, capped at
-    // the budget's number: each fork reserves `maxHeapSize` (1.5 GB), so the
-    // forks and the heap are one reservation and the record holds both.
+    // Scaled to the machine AND capped by the budget: CI runners have 2-4 cores,
+    // and four forks there oversubscribe rather than speed anything up. Half the
+    // cores, and never more than the budget's count — the budget is the ceiling
+    // the memory arithmetic fixes, and the core count is what the machine can
+    // actually run at once. Taking only the budget's number oversubscribed the
+    // small runners, which is what the ADR promised they would not do.
     //
     // It used to be `availableProcessors / 2` capped at eight, which on a
     // 16-core host made it eight — 12 GB of forks plus the 6144 MB daemon, half
     // again over the ceiling `config/docs/gradle-memory-budget.properties`
     // records. The count belongs there, beside the heap it multiplies.
-    val testForks = memoryBudget.getProperty("test.forks.module.shared")?.toIntOrNull()
-        ?: (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, 4)
-    maxParallelForks = testForks
+    val budgetForks = memoryBudget.getProperty("test.forks.module.shared")?.toIntOrNull() ?: 4
+    maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, budgetForks)
     // Apply heap directly to the jvmTest fork — the global configureEach above
     // also sets this, but being explicit avoids ordering ambiguity.
     maxHeapSize = testTaskHeap
