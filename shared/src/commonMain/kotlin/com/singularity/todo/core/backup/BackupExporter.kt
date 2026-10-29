@@ -189,7 +189,7 @@ class BackupExporter(
             // failed half way through leaves the chain where it was, and the next
             // export carries the change again — which costs a few rows and is
             // wrong in no direction.
-            if (!isUserChosenDestination(options.destPath)) {
+            if (!options.userChosenDestination) {
                 writeChange(options, payload, now)
             }
 
