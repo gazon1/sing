@@ -68,6 +68,11 @@ class ProjectEditorViewModel(
                     color = project.color,
                     icon = project.icon,
                     parentId = project.parentId,
+                    baselineName = project.name,
+                    baselineDescription = project.description ?: "",
+                    baselineColor = project.color,
+                    baselineIcon = project.icon,
+                    baselineParentId = project.parentId,
                 )
             }
         } else {
@@ -122,7 +127,9 @@ class ProjectEditorViewModel(
                 "Failed to create project",
                 { msg -> updateState { it.copy(saving = false, errorMessage = msg) } },
             ) {
-                createProject(input).onSuccess { emit(ProjectEditorUiEvent.NavigateBack) }
+                createProject(input).onSuccess {
+                    emit(ProjectEditorUiEvent.NavigateBack)
+                }
             }
         } else {
             // Edit mode
@@ -138,7 +145,9 @@ class ProjectEditorViewModel(
                         icon = current.icon,
                         parentId = current.parentId,
                     )
-                }.onSuccess { emit(ProjectEditorUiEvent.NavigateBack) }
+                }.onSuccess {
+                    emit(ProjectEditorUiEvent.NavigateBack)
+                }
             }
         }
     }

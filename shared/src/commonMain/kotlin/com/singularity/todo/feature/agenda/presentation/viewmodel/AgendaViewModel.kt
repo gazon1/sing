@@ -223,11 +223,16 @@ class AgendaViewModel(
                     // is a read-modify-write that can drop a concurrent selection.
                     updateState { current ->
                         val previous = (current as? AgendaUiState.Loaded)?.selectedTaskIds ?: persistentSetOf()
+                        val pendingBulkDelete = (current as? AgendaUiState.Loaded)?.pendingBulkDelete ?: false
                         // A task that has left the agenda — completed or deleted
                         // elsewhere — must not stay selected: the id would otherwise
                         // ride along into a later bulk delete.
                         val kept = previous.intersect(fresh.taskIds()).toImmutableSet()
-                        fresh.copy(isSelectionMode = kept.isNotEmpty(), selectedTaskIds = kept)
+                        fresh.copy(
+                            isSelectionMode = kept.isNotEmpty(),
+                            selectedTaskIds = kept,
+                            pendingBulkDelete = pendingBulkDelete,
+                        )
                     }
                 }
         }
@@ -341,7 +346,18 @@ class AgendaViewModel(
             }
 
             is AgendaIntent.DeleteSelected -> with(intent) {
-                scope.launch { handleBulkDelete() }
+                setPendingBulkDelete(true)
+            }
+
+            is AgendaIntent.ConfirmBulkDelete -> {
+                scope.launch {
+                    setPendingBulkDelete(false)
+                    handleBulkDelete()
+                }
+            }
+
+            is AgendaIntent.DismissBulkDelete -> with(intent) {
+                setPendingBulkDelete(false)
             }
 
             is AgendaIntent.CompleteSelected -> with(intent) {
@@ -419,6 +435,11 @@ class AgendaViewModel(
     private fun setBlockedBulkClose(request: BlockedBulkCloseRequest?) = updateState { current ->
         val loaded = current as? AgendaUiState.Loaded ?: return@updateState current
         loaded.copy(pendingBlockedBulkClose = request)
+    }
+
+    private fun setPendingBulkDelete(value: Boolean) = updateState { current ->
+        val loaded = current as? AgendaUiState.Loaded ?: return@updateState current
+        loaded.copy(pendingBulkDelete = value)
     }
 
     // ── Selection handlers ──────────────────────────────────────────────────────

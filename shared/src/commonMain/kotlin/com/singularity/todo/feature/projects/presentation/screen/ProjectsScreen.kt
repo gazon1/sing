@@ -25,6 +25,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -35,6 +38,7 @@ import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ReopenActionButton
 import com.singularity.todo.core.ui.components.EmptyState
+import com.singularity.todo.core.ui.components.ConfirmActionDialog
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
@@ -69,6 +73,8 @@ fun ProjectsScreen() {
     val searchQuerySource = state.searchQuerySource
     val sortOrder = state.sortOrder
 
+    var pendingDeleteId by remember { mutableStateOf<ProjectId?>(null) }
+
     Scaffold(
         topBar = {
             Column {
@@ -87,9 +93,22 @@ fun ProjectsScreen() {
             modifier = Modifier.padding(padding),
             onNavigateToProject = { nav.openDetail(it) },
             onCreateProject = { nav.openEditor(null) },
-            onDelete = { id -> viewModel.onIntent(ProjectsIntent.Delete(id)) },
+            onDelete = { id -> pendingDeleteId = id },
             onReviewClick = { project -> viewModel.onIntent(ProjectsIntent.ReviewProject(project)) },
             onReopen = { id -> viewModel.onIntent(ProjectsIntent.Reopen(id)) },
+        )
+    }
+
+    pendingDeleteId?.let { id ->
+        ConfirmActionDialog(
+            title = "Delete project?",
+            text = "This action cannot be undone.",
+            confirmButtonText = "Delete",
+            onConfirm = {
+                viewModel.onIntent(ProjectsIntent.Delete(id))
+                pendingDeleteId = null
+            },
+            onDismiss = { pendingDeleteId = null },
         )
     }
 
