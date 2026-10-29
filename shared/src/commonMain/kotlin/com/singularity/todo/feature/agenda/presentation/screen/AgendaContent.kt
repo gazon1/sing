@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.outlined.CallMerge
 import androidx.compose.material.icons.outlined.DateRange
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -261,10 +262,15 @@ fun AgendaContent(
                             .padding(paddingValues),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(
-                            text = state.message,
-                            color = MaterialTheme.colorScheme.error,
-                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = state.message,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                            Button(onClick = { onIntent(AgendaIntent.Retry) }) {
+                                Text("Retry")
+                            }
+                        }
                     }
                 }
 
@@ -272,7 +278,7 @@ fun AgendaContent(
                     if (state.sections.isEmpty()) {
                         EmptyState(
                             title = "No tasks",
-                            subtitle = "Your agenda is empty",
+                            subtitle = "You're all caught up — nothing due in this agenda",
                             modifier = Modifier.padding(paddingValues),
                         )
                     } else {

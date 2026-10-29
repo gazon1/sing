@@ -102,4 +102,10 @@ sealed interface AgendaIntent : MviIntent {
      * question.
      */
     data object MergeSelectedSeries : AgendaIntent
+
+    /** Re-runs the agenda collection after a load failure. */
+    data object Retry : AgendaIntent
+
+    /** Alias for [Retry]; reloads the agenda collection. */
+    data object Reload : AgendaIntent
 }
