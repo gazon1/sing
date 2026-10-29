@@ -346,7 +346,7 @@ private fun SimpleResultCard(
                 color = MaterialTheme.colorScheme.primary,
                 shape = MaterialTheme.shapes.medium,
             )
-            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+            .clickable(interactionSource = interactionSource, onClick = onClick)
             .focusable(interactionSource = interactionSource),
     ) {
         SelectableText(
