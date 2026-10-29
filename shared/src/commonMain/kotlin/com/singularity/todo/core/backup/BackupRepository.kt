@@ -232,8 +232,12 @@ class BackupRepositoryImpl(
     override suspend fun export(options: ExportOptions): Result<BackupResult> =
         withContext(ioDispatcher) {
             runCatchingCancellable {
-                fs.ensureDir(backupDir)
-                val destPath = resolveBackupDestination(backupDir, options.destPath)
+                val destPath = if (isUserChosenDestination(options.destPath)) {
+                    options.destPath
+                } else {
+                    fs.ensureDir(backupDir)
+                    resolveBackupDestination(backupDir, options.destPath)
+                }
                 exporter.export(
                     options.copy(
                         destPath = destPath,
@@ -432,17 +436,12 @@ class BackupRepositoryImpl(
 }
 
 /**
- * Resolves a backup **file name** to its full path inside [backupDir].
- *
- * The repository owns the backup directory, so no caller can aim the archive
- * outside it: a path that arrives here is rejected rather than followed. That
- * rejection is what turns "the export silently wrote to the filesystem root" —
- * which on Android is a read-only `/`, and fails with `EROFS` — into a loud,
- * explainable failure.
- *
- * @throws IllegalArgumentException when [fileName] is blank or carries a path
- *   separator.
+ * A destination the user picked (SAF URI or absolute path) is not a bare file
+ * name inside [backupDir], and must be used verbatim rather than joined.
  */
+internal fun isUserChosenDestination(destPath: String): Boolean =
+    "://" in destPath || destPath.startsWith("content:") || '/' in destPath || '\\' in destPath
+
 internal fun resolveBackupDestination(backupDir: String, fileName: String): String {
     require(fileName.isNotBlank()) { "a backup needs a file name" }
     require('/' !in fileName && '\\' !in fileName) {

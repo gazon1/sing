@@ -16,6 +16,9 @@ sealed interface BackupIntent : MviIntent {
     /** Export to a timestamped default path derived from the clock. */
     data object CreateBackup : BackupIntent
 
+    /** Export to a user-chosen destination (SAF URI or absolute path). */
+    data class CreateBackupTo(val destPath: String) : BackupIntent
+
     /** Restore from an archive on disk. */
     data class Restore(val sourcePath: String) : BackupIntent
 

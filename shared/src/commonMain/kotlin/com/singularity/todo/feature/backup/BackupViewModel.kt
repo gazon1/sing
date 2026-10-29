@@ -97,6 +97,7 @@ class BackupViewModel(
     override fun onIntent(intent: BackupIntent) {
         when (intent) {
             BackupIntent.CreateBackup -> vmScope.launch { runCreateBackup() }
+            is BackupIntent.CreateBackupTo -> vmScope.launch { runCreateBackupTo(intent.destPath) }
             is BackupIntent.Restore -> vmScope.launch { runRestore(intent.sourcePath) }
             is BackupIntent.Delete -> vmScope.launch { runDelete(intent.id) }
             is BackupIntent.Push -> vmScope.launch { runPush(intent.id, intent.password) }
@@ -111,14 +112,15 @@ class BackupViewModel(
     }
 
     private suspend fun runCreateBackup() {
-        // A file name, not a path: the repository owns the backup directory and
-        // joins the two. Passing a path here would aim the archive outside that
-        // directory — on Android that is the read-only root.
         val fileName = backupFileNamer.nextBackupName(clock.now().toEpochMilliseconds())
+        runCreateBackupTo(fileName)
+    }
+
+    private suspend fun runCreateBackupTo(destPath: String) {
         updateState { it.copy(isWorking = true) }
         repository.export(
             exportOptions {
-                this.destPath = fileName
+                this.destPath = destPath
                 includeAttachments = true
             },
         )
