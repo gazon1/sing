@@ -189,7 +189,9 @@ class BackupExporter(
             // failed half way through leaves the chain where it was, and the next
             // export carries the change again — which costs a few rows and is
             // wrong in no direction.
-            writeChange(options, payload, now)
+            if (!isUserChosenDestination(options.destPath)) {
+                writeChange(options, payload, now)
+            }
 
             BackupResult(
                 manifest = manifest,

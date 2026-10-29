@@ -55,6 +55,9 @@ import com.singularity.todo.core.files.FilePickPurpose
 import com.singularity.todo.core.files.FileRevealer
 import com.singularity.todo.core.files.SharePort
 import com.singularity.todo.core.files.rememberAppFilePicker
+import com.singularity.todo.core.files.toFilePickerResult
+import io.github.vinceglb.filekit.dialogs.FileKitDialogSettings
+import io.github.vinceglb.filekit.dialogs.compose.rememberFileSaverLauncher
 import com.singularity.todo.core.llm.AiTestResult
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.ui.TestTags
@@ -286,6 +289,11 @@ private fun BackupScreenWrapper(onBack: () -> Unit) {
             val path = picked?.path ?: return@rememberAppFilePicker
             backupVm.onIntent(BackupIntent.Restore(path))
         }
+    val saveBackup =
+        rememberFileSaverLauncher(FileKitDialogSettings()) { file ->
+            val path = file?.toFilePickerResult()?.path ?: return@rememberFileSaverLauncher
+            backupVm.onIntent(BackupIntent.CreateBackupTo(path))
+        }
     val pickSettings =
         rememberAppFilePicker(FilePickPurpose.SettingsJson) { picked ->
             val source = picked?.path ?: return@rememberAppFilePicker
@@ -297,7 +305,12 @@ private fun BackupScreenWrapper(onBack: () -> Unit) {
         state = backupState,
         events = backupVm.events,
         onBack = onBack,
-        onCreateBackup = { backupVm.onIntent(BackupIntent.CreateBackup) },
+        onCreateBackup = {
+            saveBackup.launch(
+                "singularity_backup_${System.currentTimeMillis()}.zip",
+                "zip",
+            )
+        },
         onSelectRestoreFile = pickBackup,
         onRestore = { path -> backupVm.onIntent(BackupIntent.Restore(path)) },
         onDelete = { id -> backupVm.onIntent(BackupIntent.Delete(id)) },
@@ -341,14 +354,13 @@ private fun SettingsNavRail(
             "Appearance" to listOf(SettingsTab.Interface),
             "Productivity" to listOf(SettingsTab.Agenda, SettingsTab.WorkSchedule, SettingsTab.Tasks),
             "Notifications" to listOf(SettingsTab.Notifications, SettingsTab.Calendar),
-            "Data" to
-                listOf(
-                    SettingsTab.Files,
-                    SettingsTab.Backup,
-                    SettingsTab.Sync,
-                    SettingsTab.Tags,
-                    SettingsTab.TagGroups,
-                ),
+            "Data" to listOf(
+                SettingsTab.Files,
+                SettingsTab.Backup,
+                SettingsTab.Sync,
+                SettingsTab.Tags,
+                SettingsTab.TagGroups,
+            ),
             "AI & Account" to listOf(SettingsTab.AIProvider, SettingsTab.Account),
         )
         groups.forEach { (group, tabs) ->
