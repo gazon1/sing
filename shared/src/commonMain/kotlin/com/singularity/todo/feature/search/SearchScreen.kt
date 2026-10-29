@@ -34,9 +34,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
@@ -46,6 +44,7 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
+import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -82,34 +81,32 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     val navigator = LocalSearchNavigator.current
     val snackbarHostState = remember { SnackbarHostState() }
-    var showFilterSheet by remember { mutableStateOf(false) }
-    var showSaveDialog by remember { mutableStateOf(false) }
-    var searchToRename by remember { mutableStateOf<Pair<SavedSearchId, String>?>(null) }
+    val overlay = rememberOverlayState<SearchDialog>()
 
     SearchEventsHandler(viewModel = viewModel, snackbarHostState = snackbarHostState)
 
     SearchSheetHosts(
-        showFilterSheet = showFilterSheet,
-        showSaveDialog = showSaveDialog,
-        searchToRename = searchToRename,
+        showFilterSheet = overlay.sheet is SearchDialog.Filter,
+        showSaveDialog = overlay.sheet is SearchDialog.Save,
+        searchToRename = (overlay.sheet as? SearchDialog.Rename)?.pair,
         activeFilter = state.activeFilter,
         query = state.query.text,
-        onDismissFilterSheet = { showFilterSheet = false },
+        onDismissFilterSheet = { overlay.dismissSheet() },
         onApplyFilter = { filter ->
             viewModel.onIntent(SearchIntent.OnApplyFilter(filter))
-            showFilterSheet = false
+            overlay.dismissSheet()
         },
-        onDismissSaveDialog = { showSaveDialog = false },
+        onDismissSaveDialog = { overlay.dismissSheet() },
         onSaveSearch = { name ->
             viewModel.onIntent(SearchIntent.OnSaveCurrentSearch(name))
-            showSaveDialog = false
+            overlay.dismissSheet()
         },
-        onDismissRename = { searchToRename = null },
+        onDismissRename = { overlay.dismissSheet() },
         onRename = { id, newName ->
             viewModel.onIntent(
                 SearchIntent.OnRenameSavedSearch(id, newName),
             )
-            searchToRename = null
+            overlay.dismissSheet()
         },
     )
 
@@ -118,7 +115,7 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
             TopAppBar(
                 title = { Text("Search") },
                 actions = {
-                    IconButton(onClick = { showFilterSheet = true }) {
+                    IconButton(onClick = { overlay.show(SearchDialog.Filter) }) {
                         Icon(Icons.Filled.Tune, contentDescription = "Filter")
                     }
                 },
@@ -143,8 +140,8 @@ fun SearchScreen(viewModel: SearchViewModel = koinViewModel()) {
                         savedSearches = state.savedSearches,
                         activeSavedSearchId = state.activeSavedSearchId,
                         onLoadSearch = { id -> viewModel.onIntent(SearchIntent.OnLoadSavedSearch(id)) },
-                        onSaveClick = { showSaveDialog = true },
-                        onRename = { id, newName -> searchToRename = id to newName },
+                        onSaveClick = { overlay.show(SearchDialog.Save) },
+                        onRename = { id, newName -> overlay.show(SearchDialog.Rename(id to newName)) },
                         onDelete = { id -> viewModel.onIntent(SearchIntent.OnDeleteSavedSearch(id)) },
                     )
                 }
@@ -395,6 +392,12 @@ private fun SavedSearchesRowPreview() = PreviewThemed(darkTheme = false) {
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
+
+private sealed interface SearchDialog {
+    data object Filter : SearchDialog
+    data object Save : SearchDialog
+    data class Rename(val pair: Pair<SavedSearchId, String>) : SearchDialog
+}
 
 @Composable
 private fun SearchEventsHandler(

@@ -26,10 +26,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,6 +42,7 @@ import com.singularity.todo.core.ui.components.ContentStateMapper
 import com.singularity.todo.core.ui.components.DeleteActionButton
 import com.singularity.todo.core.ui.components.StatefulContent
 import com.singularity.todo.core.ui.components.TaggedSnackbarHost
+import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tags.components.AddTagDialog
 import com.singularity.todo.test.fakes.FakeClock
@@ -77,8 +76,7 @@ fun TagsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    var showAddDialog by remember { mutableStateOf(false) }
-    var tagBeingRenamed by remember { mutableStateOf<Tag?>(null) }
+    val overlay = rememberOverlayState<TagDialog>()
 
     // Show undo-delete snackbar and drive countdown via LaunchedEffect.
     LaunchedEffect(pendingDelete?.tagId) {
@@ -107,11 +105,11 @@ fun TagsScreen(
                     TagList(
                         tags = tags,
                         onDelete = { id -> viewModel.onIntent(TagsIntent.Delete(id)) },
-                        onRename = { tag -> tagBeingRenamed = tag },
+                        onRename = { tag -> overlay.show(TagDialog.Rename(tag)) },
                         onOpen = onOpenTag,
                     )
                     FloatingActionButton(
-                        onClick = { showAddDialog = true },
+                        onClick = { overlay.show(TagDialog.Add) },
                         modifier = Modifier
                             .testTag(TestTags.TAGS_FAB)
                             .align(Alignment.BottomEnd)
@@ -124,29 +122,34 @@ fun TagsScreen(
         }
     }
 
-    if (showAddDialog) {
-        AddTagDialog(
+    when (val dialog = overlay.sheet) {
+        is TagDialog.Add -> AddTagDialog(
             onConfirm = { name, color ->
                 viewModel.onIntent(TagsIntent.Create(name, color))
-                showAddDialog = false
+                overlay.dismissSheet()
             },
-            onDismiss = { showAddDialog = false },
+            onDismiss = { overlay.dismissSheet() },
         )
-    }
 
-    tagBeingRenamed?.let { tag ->
-        AddTagDialog(
+        is TagDialog.Rename -> AddTagDialog(
             onConfirm = { name, color ->
-                viewModel.onIntent(TagsIntent.Rename(tag.id, name, color))
-                tagBeingRenamed = null
+                viewModel.onIntent(TagsIntent.Rename(dialog.tag.id, name, color))
+                overlay.dismissSheet()
             },
-            onDismiss = { tagBeingRenamed = null },
+            onDismiss = { overlay.dismissSheet() },
             title = "Rename Tag",
-            initialName = tag.name,
-            initialColor = tag.color,
+            initialName = dialog.tag.name,
+            initialColor = dialog.tag.color,
             confirmLabel = "Save",
         )
+
+        null -> Unit
     }
+}
+
+private sealed interface TagDialog {
+    data object Add : TagDialog
+    data class Rename(val tag: Tag) : TagDialog
 }
 
 private fun TagsUiState.toContentState() = ContentStateMapper.tags(this)

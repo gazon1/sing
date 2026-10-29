@@ -22,10 +22,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
 import kotlinx.collections.immutable.toImmutableList
 import androidx.compose.ui.Modifier
@@ -40,6 +38,8 @@ import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
+import com.singularity.todo.core.ui.components.OverlayState
+import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.components.sheet.ListPickerItem
 import com.singularity.todo.core.ui.components.sheet.ListPickerSheet
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -74,9 +74,7 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    var pendingCopyViewId by remember { mutableStateOf<SavedAgendaViewId?>(null) }
-    var pendingDeleteViewId by remember { mutableStateOf<SavedAgendaViewId?>(null) }
-    var pendingDeleteViewName by remember { mutableStateOf<String?>(null) }
+    val overlay = rememberOverlayState<SavedAgendaDialog>()
 
     NotificationHost<SavedAgendaListEvent>(
         events = viewModel.events,
@@ -129,26 +127,18 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
                 state = state,
                 onViewSelected = { viewId -> navigator.openSavedAgendaResults(viewId) },
                 onDelete = { viewId ->
-                    pendingDeleteViewId = viewId
-                    pendingDeleteViewName = viewNameFor(state, viewId)
+                    overlay.show(SavedAgendaDialog.Delete(viewId, viewNameFor(state, viewId)))
                 },
                 onEdit = { viewId -> navigator.openSavedAgendaEdit(viewId) },
-                onCopyToProfile = { viewId -> pendingCopyViewId = viewId },
+                onCopyToProfile = { viewId -> overlay.show(SavedAgendaDialog.Copy(viewId)) },
                 modifier = Modifier.padding(paddingValues),
             )
         }
     }
 
     DialogsOverlay(
-        pendingCopyViewId = pendingCopyViewId,
-        pendingDeleteViewId = pendingDeleteViewId,
-        pendingDeleteViewName = pendingDeleteViewName,
+        overlay = overlay,
         viewModel = viewModel,
-        onCopyDismissed = { pendingCopyViewId = null },
-        onDeleteDismissed = {
-            pendingDeleteViewId = null
-            pendingDeleteViewName = null
-        },
     )
 }
 
@@ -156,35 +146,40 @@ fun SavedAgendaListScreen(modifier: Modifier = Modifier) {
 
 @Composable
 private fun DialogsOverlay(
-    pendingCopyViewId: SavedAgendaViewId?,
-    pendingDeleteViewId: SavedAgendaViewId?,
-    pendingDeleteViewName: String?,
+    overlay: OverlayState<SavedAgendaDialog>,
     viewModel: SavedAgendaListViewModel,
-    onCopyDismissed: () -> Unit,
-    onDeleteDismissed: () -> Unit,
 ) {
-    pendingCopyViewId?.let { viewId ->
-        ProfilePickerSheetHost(
-            viewId = viewId,
-            onDismiss = onCopyDismissed,
-            onPick = { profileId ->
-                viewModel.onIntent(SavedAgendaListIntent.CopyToProfile(viewId, profileId))
-                onCopyDismissed()
-            },
-        )
-    }
+    when (val dialog = overlay.sheet) {
+        is SavedAgendaDialog.Copy -> {
+            ProfilePickerSheetHost(
+                viewId = dialog.viewId,
+                onDismiss = { overlay.dismissSheet() },
+                onPick = { profileId ->
+                    viewModel.onIntent(SavedAgendaListIntent.CopyToProfile(dialog.viewId, profileId))
+                    overlay.dismissSheet()
+                },
+            )
+        }
 
-    pendingDeleteViewId?.let { viewId ->
-        DeleteViewConfirmationDialog(
-            viewId = viewId,
-            viewName = pendingDeleteViewName,
-            onConfirm = {
-                viewModel.onIntent(SavedAgendaListIntent.Delete(viewId))
-                onDeleteDismissed()
-            },
-            onDismiss = onDeleteDismissed,
-        )
+        is SavedAgendaDialog.Delete -> {
+            DeleteViewConfirmationDialog(
+                viewId = dialog.viewId,
+                viewName = dialog.viewName,
+                onConfirm = {
+                    viewModel.onIntent(SavedAgendaListIntent.Delete(dialog.viewId))
+                    overlay.dismissSheet()
+                },
+                onDismiss = { overlay.dismissSheet() },
+            )
+        }
+
+        null -> Unit
     }
+}
+
+private sealed interface SavedAgendaDialog {
+    data class Copy(val viewId: SavedAgendaViewId) : SavedAgendaDialog
+    data class Delete(val viewId: SavedAgendaViewId, val viewName: String?) : SavedAgendaDialog
 }
 
 private fun viewNameFor(state: SavedAgendaListState, viewId: SavedAgendaViewId): String =
