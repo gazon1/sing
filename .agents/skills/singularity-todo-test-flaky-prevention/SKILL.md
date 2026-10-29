@@ -252,6 +252,42 @@ print the states you observed rather than a bare `TimeoutCancellationException`.
 See ADR `2026-10-04-measurement-integrity` and the addendum in
 `2026-10-04-test-execution-integrity`.
 
+## Rule 7: `advanceTimeBy` Runs Strictly *Before* the Boundary
+
+`advanceTimeBy(ms)` advances virtual time by `ms` and runs coroutines scheduled
+strictly **before** that point — a coroutine scheduled to fire at exactly `ms`
+does **not** run. This is the same trap as `advanceTimeBy(2.seconds)` for a
+2-second delay that never fires.
+
+```kotlin
+// ❌ WRONG — the undo-window coroutine fires AT UNDO_WINDOW_MS; this never runs it
+advanceTimeBy(AgendaViewModel.UNDO_WINDOW_MS)
+
+// ✅ CORRECT — +1 pushes past the boundary so the scheduled coroutine runs
+advanceTimeBy(AgendaViewModel.UNDO_WINDOW_MS + 1)
+```
+
+When asserting a time-boundary ("the undo expires after 5s"), always add a
+small epsilon (`+ 1` ms or `+ 1`) so the scheduled work actually executes before
+the assertion.
+
+## Rule 8: Use Thread-Safe Collections for Multi-Coroutine Accumulators
+
+A plain `mutableListOf`/`ArrayList` written to from two or more coroutines has
+the wrong size in ~98% of trials (Touchlab measurement). Whenever a test
+collects from multiple coroutines into one accumulator, wrap it:
+
+```kotlin
+// ✅ CORRECT
+val received = Collections.synchronizedList(mutableListOf<Int>())
+
+// ❌ WRONG — races when two collectors append concurrently
+val received = mutableListOf<Int>()
+```
+
+Single-collector accumulators (one `launch { flow.collect { received += it } }`)
+are fine as-is.
+
 ## See Also
 
 - `singularity-todo-test-helpers` — `testScope`, `assertIs`, `awaitState`
