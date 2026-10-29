@@ -9,6 +9,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,6 +27,7 @@ import com.singularity.todo.feature.genui.core.A2uiSeverity
 import com.singularity.todo.feature.genui.parser.A2uiParser
 import com.singularity.todo.feature.genui.render.ComponentRegistry
 import com.singularity.todo.feature.genui.render.GenuiSurface
+import com.singularity.todo.feature.genui.render.LocalGenuiOnAction
 import com.singularity.todo.feature.genui.render.rememberDataContext
 import com.singularity.todo.feature.genui.surface.SurfaceController
 import com.singularity.todo.feature.genui.surface.SurfaceId
@@ -102,9 +104,6 @@ fun WhatsNewScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
         surfaceId = currentSurfaceId,
         controller = controller,
         registry = registry,
-        onAction = { _, action, _ ->
-            if (action == "dismiss" || action == "close") handleDismiss()
-        },
         // WhatsNew surfaces are read-only, so there is no one to notify.
         onDataChange = null,
         clock = koinInject(),
@@ -122,7 +121,13 @@ fun WhatsNewScreen(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
-            GenuiSurface(ctx = ctx)
+            CompositionLocalProvider(
+                LocalGenuiOnAction provides { _, action, _ ->
+                    if (action == "dismiss" || action == "close") handleDismiss()
+                },
+            ) {
+                GenuiSurface(ctx = ctx)
+            }
             if (droppedLines > 0) {
                 SelectableText(
                     text = "$droppedLines release note line(s) couldn't be rendered.",

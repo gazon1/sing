@@ -22,6 +22,7 @@ import com.singularity.todo.feature.genui.parser.UiEvent
 import com.singularity.todo.feature.genui.render.ComponentRegistry
 import com.singularity.todo.feature.genui.render.DefaultDataContext
 import com.singularity.todo.feature.genui.render.GenuiSurface
+import com.singularity.todo.feature.genui.render.LocalGenuiOnAction
 import com.singularity.todo.feature.genui.render.material3.Material3Catalog
 import com.singularity.todo.feature.genui.schema.UiPath
 import com.singularity.todo.feature.genui.surface.SurfaceController
@@ -105,7 +106,6 @@ fun runGenuiRenderTest(
         surfaceId = GenuiSurfaceId,
         controller = controller,
         registry = registry,
-        onAction = { surfaceId, name, data -> presses += GenuiPress(surfaceId, name, data) },
         onDataChange = { surfaceId, path, value -> writes += GenuiWrite(surfaceId, path, value) },
         // A fixed date, so "Today" and `formatRelative` mean something the test can assert. Reading
         // the wall clock here would make every date-bearing assertion depend on the day it runs.
@@ -114,7 +114,12 @@ fun runGenuiRenderTest(
 
     val owner: TestLifecycleOwner = TestLifecycleOwner()
     setContent {
-        CompositionLocalProvider(LocalLifecycleOwner provides owner) {
+        CompositionLocalProvider(
+            LocalLifecycleOwner provides owner,
+            LocalGenuiOnAction provides { surfaceId, name, data ->
+                presses += GenuiPress(surfaceId, name, data)
+            },
+        ) {
             MaterialTheme { GenuiSurface(context) }
         }
     }

@@ -66,10 +66,12 @@ open class FakeSyncOutboxDao : SyncOutboxDao {
         }
     }
 
-    override suspend fun release(ids: List<String>) {
+    override suspend fun release(ids: List<String>, claimedAt: Long) {
         ids.forEach { id ->
             val index = rows.indexOfFirst { it.patchId == id }
-            if (index >= 0) rows[index] = rows[index].copy(claimedAt = null)
+            if (index >= 0 && rows[index].claimedAt == claimedAt) {
+                rows[index] = rows[index].copy(claimedAt = null)
+            }
         }
     }
 

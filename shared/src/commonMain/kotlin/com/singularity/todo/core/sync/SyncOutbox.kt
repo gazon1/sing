@@ -57,6 +57,7 @@ data class SyncOutboxEntity(
  * DAO for sync outbox operations.
  */
 @Dao
+@Suppress("TooManyFunctions")
 interface SyncOutboxDao {
     /** Watch all pending patches ordered by creation time */
     @Query("SELECT * FROM sync_outbox ORDER BY created_at ASC")
@@ -89,16 +90,13 @@ interface SyncOutboxDao {
     suspend fun claim(ids: List<String>, now: Long)
 
     /**
-     * Releases rows back onto the queue: clears `claimed_at` so they can be pushed again.
-     *
-     * The claim is what `getPending` filters on, so a row that keeps it is a row
-     * that is never sent again. A push answered under an account that is no
-     * longer signed in leaves its rows queued — and it has to leave them
-     * *pushable*, or the edit is stranded in the outbox with the server's
-     * answer thrown away and nothing to show for it.
+     * Releases rows back onto the queue: clears `claimed_at` so they can be pushed again,
+     * but only where the claim is still the one this cycle took. A row whose claim was
+     * taken over by another cycle (after this one deferred it via markFailed) is left
+     * untouched, so this cycle's release cannot strip another cycle's claim.
      */
-    @Query("UPDATE sync_outbox SET claimed_at = NULL WHERE patch_id IN (:ids)")
-    suspend fun release(ids: List<String>)
+    @Query("UPDATE sync_outbox SET claimed_at = NULL WHERE patch_id IN (:ids) AND claimed_at = :claimedAt")
+    suspend fun release(ids: List<String>, claimedAt: Long)
 
     /**
      * How many patches an account still owes the server.

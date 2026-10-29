@@ -77,16 +77,20 @@ internal class PushPhase(
         var processed = 0
 
         var batches = 0
-        // The rows this cycle claimed. A claim is what `getPending` filters on,
-        // so a row that keeps it is a row that is never sent again — and the
-        // claim is taken *before* the request, so only the outcome can take it
-        // back.
+        // The rows this cycle claimed, and the moment each batch was claimed.
+        // A claim is what `getPending` filters on, so a row that keeps it is a
+        // row that is never sent again — and the claim is taken *before* the
+        // request, so only the outcome can take it back.
         //
         // The list accumulates rather than being replaced: a cycle sends as
         // many batches as the queue holds, and the batch before the last one
         // is just as claimed as the last one. Overwriting the list left every
         // earlier batch claimed for good.
-        val claimed = mutableListOf<String>()
+        //
+        // The moment travels with the rows because it is the guard: the release
+        // clears a row only where the claim is still this cycle's, so a row
+        // another cycle took over is left alone.
+        val claimed = mutableListOf<Pair<List<String>, Long>>()
         try {
             while (batches < 1000) {
                 batches++
@@ -101,7 +105,7 @@ internal class PushPhase(
                 // hands the plan over, and hands the plan over only when the
                 // claim succeeded. This is where the cycle learns which rows it
                 // holds.
-                claimed += ready.pending.map { it.patchId }
+                claimed += ready.pending.map { it.patchId } to ready.claimedAt
 
                 val result = pushWithPlan(ready, session)
                 when (result) {
@@ -154,12 +158,15 @@ internal class PushPhase(
             // was delivered must not be reported as failed because the queue
             // could not be tidied.
             //
-            // In pieces, because the list is a query with one bind variable per
-            // id and SQLite refuses a statement with too many of them.
-            claimed.chunked(PUSH_BATCH_SIZE).forEach { chunk ->
-                withContext(NonCancellable) {
-                    runCatchingCancellable { outboxDao.release(chunk) }
-                        .onFailure { log.w(it) { "the outbox rows stay claimed: $chunk" } }
+            // One call per batch, with the moment that batch was claimed: the
+            // release clears a row only where the claim is still this cycle's,
+            // so a row another cycle took over after this one deferred it keeps
+            // that cycle's claim. A batch is one query with one bind variable
+            // per id, and SQLite refuses a statement with too many of them.
+            withContext(NonCancellable) {
+                claimed.forEach { (ids, claimedAt) ->
+                    runCatchingCancellable { outboxDao.release(ids, claimedAt) }
+                        .onFailure { log.w(it) { "the outbox rows stay claimed: $ids" } }
                 }
             }
         }
@@ -358,6 +365,7 @@ internal class PushPhase(
                                 profileId = activeScope.profileId,
                                 patches = patches,
                             ),
+                        claimedAt = nowMillis,
                     )
                 }.getOrElse { error ->
                     phases.pushFailed(error.toAppError(), batched.size)
@@ -527,12 +535,17 @@ private sealed class PushPlan {
      * The [scope] is non-null and was validated at plan-building time. It is the
      * authoritative owner of all patches in this plan and is used throughout response
      * processing rather than re-reading the current scope.
+     *
+     * The [claimedAt] is the moment the batch was claimed, and it is the guard
+     * that gives the claim back: the release clears a row only where the claim
+     * is still this one, so a row another cycle took over is left alone.
      */
     data class Ready(
         val scope: SyncScope,
         val pending: List<SyncOutboxEntity>,
         val patches: List<DeltaPatch>,
         val request: BatchPushRequest,
+        val claimedAt: Long,
     ) : PushPlan() {
         init {
             require(scope.profileId.isNotBlank()) {

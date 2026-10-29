@@ -1345,10 +1345,10 @@ private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, 
         }
     }
 
-    override suspend fun release(ids: List<String>) {
+    override suspend fun release(ids: List<String>, claimedAt: Long) {
         store.update { current ->
             current.mapValues { (k, v) ->
-                if (k in ids) v.copy(claimedAt = null) else v
+                if (k in ids && v.claimedAt == claimedAt) v.copy(claimedAt = null) else v
             }
         }
     }

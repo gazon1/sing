@@ -24,6 +24,7 @@ import com.singularity.todo.feature.tasks.domain.model.TaskMarking
 import com.singularity.todo.feature.tasks.presentation.components.list.TaskMarkingsRow
 import com.singularity.todo.feature.genui.render.ComponentRegistry
 import com.singularity.todo.feature.genui.render.DataContext
+import com.singularity.todo.feature.genui.render.LocalGenuiOnAction
 import com.singularity.todo.feature.genui.render.genuiTag
 import com.singularity.todo.feature.genui.render.resolveText
 import kotlinx.datetime.LocalDate
@@ -54,6 +55,7 @@ internal fun ComponentRegistry.registerAppComponents() {
 @Composable
 private fun TaskCardView(card: UiNode.TaskCard, ctx: DataContext, modifier: Modifier) {
     val title: String = ctx.resolveText(card.title)
+    val onAction = LocalGenuiOnAction.current
     val today = remember(ctx.clock) { todayAt(ctx.clock, TimeZone.currentSystemDefault()) }
     val dueText: String? = if (card.duePath != null) {
         ctx.valueWithoutCount(card.duePath).collectAsStateWithLifecycle(initialValue = null).value.text()
@@ -70,7 +72,9 @@ private fun TaskCardView(card: UiNode.TaskCard, ctx: DataContext, modifier: Modi
         modifier = modifier
             .fillMaxWidth()
             .genuiTag("task_card_${title.take(16).replace(" ", "_")}", "Task: $title")
-            .tapWhen(card.action != null) { ctx.onAction(ctx.surfaceId, card.action.orEmpty(), null) },
+            .tapWhen(card.action != null) {
+                onAction(ctx.surfaceId, card.action.orEmpty(), null)
+            },
     ) {
         Column(
             modifier = Modifier.padding(12.dp),

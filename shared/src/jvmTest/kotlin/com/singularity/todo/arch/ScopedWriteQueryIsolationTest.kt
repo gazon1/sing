@@ -267,9 +267,8 @@ class ScopedWriteQueryIsolationTest {
                 "sync_outbox is a transport queue with no user_id column; patch_id is a UUID",
             "UPDATE sync_outbox SET claimed_at = :now WHERE patch_id IN (:ids) AND claimed_at" to
                 "claiming rows for a push — patch_id is a UUID, rows already scoped by getPending",
-            "UPDATE sync_outbox SET claimed_at = NULL WHERE patch_id IN (:ids)" to
-                "releasing a claimed row back onto the queue — patch_id is a UUID, " +
-                "and the rows were scoped by getPending before they were claimed",
+            "UPDATE sync_outbox SET claimed_at = NULL WHERE patch_id IN (:ids) AND claimed_at" to
+                "releasing rows back onto the queue — patch_id is a UUID, guarded by the claim timestamp",
             // Exactly the 80-character normalised prefix the gate compares against.
             "UPDATE sync_outbox SET attempts = attempts + 1, last_error = :error, next_attemp" to
                 "retry bookkeeping on a transport row keyed by a UUID",
