@@ -47,6 +47,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.DiscardChangesDialog
 import com.singularity.todo.core.ui.components.ImeAwareBackHandler
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
@@ -78,13 +79,35 @@ import org.koin.core.parameter.parametersOf
 fun ProjectEditorScreen(projectId: ProjectId?, modifier: Modifier = Modifier) {
     val nav = LocalProjectsNavigator.current
     val viewModel: ProjectEditorViewModel = koinViewModel { parametersOf(projectId) }
-    // The system back press means what the header's back button means — and
-    // with the keyboard open it means "close the keyboard" first.
-    ImeAwareBackHandler { nav.back() }
+    val state by viewModel.stateFlow.collectAsStateWithLifecycle()
+
+    var showDiscard by remember { mutableStateOf(false) }
+
+    val guardedBack: () -> Unit = {
+        when {
+            state.saving -> nav.back()
+            state.isDirty -> showDiscard = true
+            else -> nav.back()
+        }
+    }
+
+    // The system back press goes through the same guard as the header's button.
+    ImeAwareBackHandler { guardedBack() }
+
+    if (showDiscard) {
+        DiscardChangesDialog(
+            onDiscard = {
+                showDiscard = false
+                nav.back()
+            },
+            onKeepEditing = { showDiscard = false },
+        )
+    }
+
     ProjectEditorContent(
         viewModel = viewModel,
         modifier = modifier,
-        onBack = { nav.back() },
+        onBack = guardedBack,
     )
 }
 

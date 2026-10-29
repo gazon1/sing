@@ -161,7 +161,10 @@ fun TaskDetailContent(
     // with the keyboard open it means "close the keyboard" first. The task
     // detail edits its title and its description in place, so a back press
     // that leaves the screen while the keyboard is up throws the edit away.
-    ImeAwareBackHandler { navigator.back() }
+    ImeAwareBackHandler {
+        coordinator.flushDraft()
+        navigator.back()
+    }
 
     NotificationHost(
         events = notifications.receiveAsFlow(),
@@ -237,7 +240,10 @@ fun TaskDetailContent(
                                 coordinator.onIntent(TaskDetailIntent.Domain.DescriptionChanged(it))
                             },
                             callbacks = TaskEditorCallbacks(
-                                onBack = { navigator.back() },
+                                onBack = {
+                                    coordinator.flushDraft()
+                                    navigator.back()
+                                },
                                 onCheckToggle = { coordinator.onIntent(TaskDetailIntent.Domain.ToggleComplete) },
                                 workflowState = RowCallbacks(
                                     onChange = {

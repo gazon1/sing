@@ -150,6 +150,9 @@ class TaskDetailCoordinator(
 
     private val draft = TaskDraftSlot(deps.core, deps.context, vmScope, taskFlow, ::reportError)
 
+    /** Flushes any pending debounced title/description edits before navigation. */
+    fun flushDraft() = draft.flush()
+
     private val entity = TaskEntitySlot(taskId, deps.core, deps.children, vmScope, taskFlow, ::reportError)
 
     private val completion = TaskCompletionSlot(

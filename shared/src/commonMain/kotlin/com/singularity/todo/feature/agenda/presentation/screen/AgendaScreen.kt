@@ -298,7 +298,7 @@ private fun UndoSnackbar(
             return@LaunchedEffect
         }
         val result = snackbarHostState.showSnackbar(
-            message = "\"${pending.taskTitle}\" deleted",
+            message = "\"${pending.label}\" deleted",
             actionLabel = "Undo",
             duration = SnackbarDuration.Indefinite,
         )

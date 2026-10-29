@@ -23,7 +23,21 @@ data class ProjectEditorUiState(
     val saving: Boolean = false,
     val loading: Boolean = false,
     val errorMessage: String? = null,
+    // Baseline captured when the project was loaded (edit mode) or at creation
+    // (create mode). [isDirty] compares the live fields against this baseline,
+    // so reverting a change clears the dirty flag instead of leaving a phantom.
+    val baselineName: String = "",
+    val baselineDescription: String = "",
+    val baselineColor: Int = DEFAULT_COLOR,
+    val baselineIcon: String? = null,
+    val baselineParentId: ProjectId? = null,
 ) {
+    val isDirty: Boolean
+        get() = name.text != baselineName ||
+            description.text != baselineDescription ||
+            color != baselineColor ||
+            icon != baselineIcon ||
+            parentId != baselineParentId
     companion object {
         const val DEFAULT_COLOR = 0xFF1976D2.toInt() // blue
     }
