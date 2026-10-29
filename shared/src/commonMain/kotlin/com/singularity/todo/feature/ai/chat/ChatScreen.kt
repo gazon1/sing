@@ -20,6 +20,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -44,6 +45,7 @@ import com.singularity.todo.feature.ai.ui.AgentPlanCard
 import com.singularity.todo.feature.ai.ui.AgentToolCallCard
 import kotlinx.serialization.json.JsonElement
 import com.singularity.todo.feature.genui.render.GenuiSurface
+import com.singularity.todo.feature.genui.render.LocalGenuiOnAction
 import com.singularity.todo.feature.genui.render.rememberDataContext
 import com.singularity.todo.feature.genui.surface.SurfaceController
 import com.singularity.todo.feature.genui.surface.SurfaceId
@@ -154,17 +156,17 @@ private fun GenuiMessageSurface(
         surfaceId = surfaceId,
         controller = controller,
         registry = registry,
-        // A press inside a rendered screen is the next turn of this conversation, not a call out to
-        // a tool: the model is already in context and the user is already in a flow. Swallowing it
-        // here would leave every button on every generated screen decorative.
-        onAction = { _, name, data -> onSurfaceAction(name, data) },
         // A generated screen's own data model is the source of truth here, so there is
         // nothing to notify. Stated as null rather than `{ _, _, _ -> }`: the parameter
         // means "tell someone", and there is no someone.
         onDataChange = null,
         clock = koinInject(),
     )
-    GenuiSurface(ctx, Modifier.fillMaxWidth().padding(vertical = 4.dp))
+    CompositionLocalProvider(
+        LocalGenuiOnAction provides { _, name, data -> onSurfaceAction(name, data) },
+    ) {
+        GenuiSurface(ctx, Modifier.fillMaxWidth().padding(vertical = 4.dp))
+    }
 }
 
 @Composable
