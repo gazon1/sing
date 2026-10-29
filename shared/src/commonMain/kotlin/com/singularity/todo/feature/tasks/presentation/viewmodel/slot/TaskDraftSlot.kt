@@ -122,6 +122,27 @@ class TaskDraftSlot(
      */
     fun seed(title: String, description: String) = draftState.seed(title, description)
 
+    /**
+     * Forces a write of the current draft if it differs from the original, bypassing
+     * the debounce. Used on back/navigation so a pending keystroke is not lost.
+     */
+    fun flush() {
+        val task = taskFlow.value ?: return
+        val draft = draftState.state.value
+        if (draft.title.value != task.title) {
+            scope.launch {
+                write(task, TaskDetailIntent.Domain.TitleChanged(draft.title.value)) { copy(title = draft.title.value) }
+            }
+        }
+        if (draft.description.value != (task.description ?: "")) {
+            scope.launch {
+                write(task, TaskDetailIntent.Domain.DescriptionChanged(draft.description.value)) {
+                    copy(description = draft.description.value.ifBlank { null })
+                }
+            }
+        }
+    }
+
     override fun onIntent(intent: TaskDraftIntent) {
         when (intent) {
             is TaskDetailIntent.Domain.TitleChanged -> {
