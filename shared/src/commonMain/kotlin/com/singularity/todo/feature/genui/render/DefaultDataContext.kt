@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.genui.render
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.remember
 import com.singularity.todo.core.text.OwnedText
 import com.singularity.todo.core.text.Revisioned
@@ -37,7 +38,6 @@ import kotlinx.serialization.json.JsonPrimitive
  *   a surface that cannot be rendered for a known date cannot be tested against one, and a due
  *   chip that reads the wall clock at draw time is a component whose test has to be written
  *   around the day it happens to run.
- * @param onAction called when the user activates a control
  * @param onDataChange called when the user edits a form field. The value is already written to the
  *   surface's data model by then; this is a notification, not the write itself, so a read-only
  *   surface can ignore it and nothing is persisted.
@@ -46,7 +46,6 @@ class DefaultDataContext(
     val surfaceId: SurfaceId,
     private val controller: SurfaceController,
     val registry: ComponentRegistry,
-    val onAction: (SurfaceId, String, JsonObject?) -> Unit,
     /**
      * Nullable, and `null` is what a read-only surface passes.
      *
@@ -170,16 +169,24 @@ fun rememberDataContext(
     surfaceId: SurfaceId,
     controller: SurfaceController,
     registry: ComponentRegistry,
-    onAction: (SurfaceId, String, JsonObject?) -> Unit,
     onDataChange: ((SurfaceId, UiPath, JsonElement) -> Unit)? = null,
     clock: Clock,
-): DefaultDataContext = remember(surfaceId, controller, registry, onAction, onDataChange, clock) {
+): DefaultDataContext = remember(surfaceId, controller, registry, onDataChange, clock) {
     DefaultDataContext(
         surfaceId = surfaceId,
         controller = controller,
         registry = registry,
-        onAction = onAction,
         onDataChange = onDataChange,
         clock = clock,
     )
+}
+
+/**
+ * Dispatches a GenUI action (button press, card tap) to the host screen.
+ *
+ * Provided once per surface via [androidx.compose.runtime.CompositionLocalProvider],
+ * so renderers reach it without it being threaded through [DefaultDataContext].
+ */
+val LocalGenuiOnAction = staticCompositionLocalOf<(SurfaceId, String, kotlinx.serialization.json.JsonObject?) -> Unit> {
+    { _, _, _ -> }
 }
