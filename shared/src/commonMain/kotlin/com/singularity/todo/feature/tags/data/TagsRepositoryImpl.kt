@@ -73,9 +73,9 @@ class TagsRepositoryImpl(
 
     // ── Remote apply (pull handler) ────────────────────────────────────────────
 
-    override suspend fun upsert(tag: Tag): Tag {
+    override suspend fun upsert(tag: Tag): Tag = unitOfWork.write {
         tagDao.upsert(tag.toEntity())
-        return tag
+        tag
     }
 
     override suspend fun delete(id: TagId): Result<Unit> = runCatchingCancellable {

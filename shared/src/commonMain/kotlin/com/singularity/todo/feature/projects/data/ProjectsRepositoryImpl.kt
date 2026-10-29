@@ -106,7 +106,7 @@ class ProjectsRepositoryImpl(
 
     // ── Remote apply (pull handler) ────────────────────────────────────────────
 
-    override suspend fun upsert(document: ProjectDocument): Project {
+    override suspend fun upsert(document: ProjectDocument): Project = unitOfWork.write {
         projectDao.upsert(document.project.toEntity())
         // The inheritance is not a column of the row: it lives in a
         // cross-reference table, and the table is replaced only when the
@@ -128,7 +128,7 @@ class ProjectsRepositoryImpl(
             document.project.id.value,
             document.project.userId.value,
         ).map(TagGroupId::fromString).toSet()
-        return document.project.copy(inheritedTagGroupIds = inherited)
+        document.project.copy(inheritedTagGroupIds = inherited)
     }
 
     override suspend fun delete(id: ProjectId): Result<Unit> = runCatchingCancellable {

@@ -87,9 +87,9 @@ class NotesRepositoryImpl(
 
     // ─── Remote apply (pull handler) ────────────────────────────────────────────
 
-    override suspend fun upsert(note: Note): Note {
+    override suspend fun upsert(note: Note): Note = unitOfWork.write {
         noteDao.upsert(note.toEntity())
-        return note
+        note
     }
 
     override suspend fun delete(id: NoteId): Result<Unit> = runCatchingCancellable {

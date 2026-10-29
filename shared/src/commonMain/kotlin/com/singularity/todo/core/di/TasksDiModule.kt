@@ -138,6 +138,7 @@ fun tasksModule(): org.koin.core.module.Module = module {
             get(),
             get(),
             get<ProfileAwareCurrentUser>(),
+            get(),
         )
     }
 

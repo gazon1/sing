@@ -181,9 +181,9 @@ class TagGroupRepositoryImpl(
 
     // ─── Sync ───────────────────────────────────────────────────────────────────
 
-    override suspend fun upsert(tagGroup: TagGroup): TagGroup {
+    override suspend fun upsert(tagGroup: TagGroup): TagGroup = unitOfWork.write {
         tagGroupDao.upsert(tagGroup.toEntity())
-        return tagGroup
+        tagGroup
     }
 
     // ─── Profile wipe ────────────────────────────────────────────────────────────

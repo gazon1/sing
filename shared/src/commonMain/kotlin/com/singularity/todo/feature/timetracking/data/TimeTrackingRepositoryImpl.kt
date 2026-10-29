@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.timetracking.data
 
 import com.singularity.todo.core.database.SyncColumns
+import com.singularity.todo.core.database.UnitOfWork
 import com.singularity.todo.core.ids.TimeEntryId
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
@@ -27,6 +28,7 @@ class TimeTrackingRepositoryImpl(
     private val dao: TimeEntryDao,
     private val clock: Clock,
     private val currentUser: ProfileAwareCurrentUser,
+    private val unitOfWork: UnitOfWork,
 ) : TimeTrackingRepository {
 
     override fun watchEntries(taskId: TaskId): Flow<List<TimeEntry>> =
@@ -134,7 +136,7 @@ class TimeTrackingRepositoryImpl(
      * rewrite the owner to whoever happens to be signed in.
      */
     override suspend fun upsert(entry: TimeEntry): Result<Unit> = runCatchingCancellable {
-        dao.upsert(entry.toEntity())
+        unitOfWork.write { dao.upsert(entry.toEntity()) }
     }
 
     override fun watchEntriesInRange(startMs: Long, endMs: Long): Flow<List<TimeEntry>> =
