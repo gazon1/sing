@@ -1038,7 +1038,11 @@ private class FakeNoteDao(private val store: MutableStateFlow<Map<String, NoteEn
         it.userId == userId && it.kind.name == "Daily" && it.title == dateKey && it.deletedAt == null
     }
 
-    override suspend fun getDailyNoteForProject(userId: String, dateKey: String, projectId: String?): NoteEntity? = store.value.values.find {
+    override suspend fun getDailyNoteForProject(
+        userId: String,
+        dateKey: String,
+        projectId: String?,
+    ): NoteEntity? = store.value.values.find {
         it.userId == userId && it.kind.name == "Daily" && it.title == dateKey && it.projectId == projectId &&
             it.deletedAt == null
     }
@@ -1337,6 +1341,14 @@ private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, 
         store.update { current ->
             current.mapValues { (k, v) ->
                 if (k in ids && v.claimedAt == null) v.copy(claimedAt = now) else v
+            }
+        }
+    }
+
+    override suspend fun release(ids: List<String>, claimedAt: Long) {
+        store.update { current ->
+            current.mapValues { (k, v) ->
+                if (k in ids && v.claimedAt == claimedAt) v.copy(claimedAt = null) else v
             }
         }
     }
