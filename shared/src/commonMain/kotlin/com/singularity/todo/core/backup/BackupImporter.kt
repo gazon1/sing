@@ -110,7 +110,21 @@ class BackupImporter(
             // 4. Apply migrations if needed
             val migrated = migrate(payload, read.payloadBytes)
 
-            // 5. The base, and the changes that follow it.
+            // 5. Fail-closed validation of the whole chain BEFORE any write.
+            //
+            // The base is already decoded and migrated above. The changes are
+            // decoded and migrated here, outside the transaction, so a corrupt
+            // or schema-incompatible entry fails the whole import before a single
+            // row is touched — the previous data stays intact (no partial apply).
+            // shortcut: validation is structural/decode only; per-row constraints
+            // are still enforced at apply time, upgrade when per-row pre-checks
+            // become a requirement.
+            val decodedChanges = options.entries.map { entry ->
+                val delta = json.decodeFromString(BackupDelta.serializer(), entry.decodeToString())
+                migrate(delta.payload, json.encodeToString(delta.payload).encodeToByteArray())
+            }
+
+            // 6. The base, and the changes that follow it.
             //
             // The base goes in first and the changes go in after it, in order.
             // Both go in through the same path: a change carries whole rows, and
@@ -120,10 +134,7 @@ class BackupImporter(
                     var merged = migrated
                     val ownerId = options.ownerId ?: options.ownerUserId
                     val outcome = applyPayload(migrated, options.targetUserId, ownerId, now, read.attachments)
-                    for (change in options.entries) {
-                        val delta = json.decodeFromString(BackupDelta.serializer(), change.decodeToString())
-                        val changePayload =
-                            migrate(delta.payload, json.encodeToString(delta.payload).encodeToByteArray())
+                    for (changePayload in decodedChanges) {
                         applyPayload(changePayload, options.targetUserId, ownerId, now, emptyMap())
                         merged = merge(merged, changePayload)
                     }
