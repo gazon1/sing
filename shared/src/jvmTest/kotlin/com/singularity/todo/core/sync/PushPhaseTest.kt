@@ -564,5 +564,15 @@ class PushPhaseTest {
             phaseScope.close()
 
             assertIs<SyncEngineStatus.Failure>(state.status.value)
+
+            // The work is still there to do. The claim was taken before the
+            // request, and `getPending` filters on it — so a row that keeps its
+            // claim is a row the next cycle never offers. The user's edit would
+            // sit in the outbox and never be delivered.
+            assertEquals(
+                listOf("p1"),
+                outbox.getPending(Long.MAX_VALUE, "owner-push", "profile-1").map { it.patchId },
+                "the row must be pushable again after a failed request",
+            )
         }
 }

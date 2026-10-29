@@ -10,7 +10,9 @@ import com.singularity.todo.core.error.toAppError
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.serialization.StableJson
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.jsonObject
 
 /**
@@ -75,50 +77,79 @@ internal class PushPhase(
         var processed = 0
 
         var batches = 0
-        while (batches < 1000) {
-            batches++
-            val plan = planPush().getOrElse { error ->
-                phases.pushFailed(error.toAppError(), 0)
-                phases.setPushStatus(isPushing = false)
-                return PhaseResult.Failed(error.toAppError())
-            }
-            val ready = (plan as? PushPlan.Ready) ?: break
-
-            val result = pushWithPlan(ready, session)
-            when (result) {
-                is PhaseResult.Ok -> {
-                    val s = result.getOrThrow()
-                    succeeded += s.succeeded
-                    failed += s.failed
-                    lost += s.lost
-                    superseded += s.superseded
-                    discarded += s.discarded
-                    processed += s.processed
-                }
-
-                is PhaseResult.Failed -> {
+        // The rows this cycle claimed. A claim is what `getPending` filters on,
+        // so a row that keeps it is a row that is never sent again — and the
+        // claim is taken *before* the request, so only the outcome can take it
+        // back.
+        var claimed: List<String> = emptyList()
+        try {
+            while (batches < 1000) {
+                batches++
+                val plan = planPush().getOrElse { error ->
+                    phases.pushFailed(error.toAppError(), 0)
                     phases.setPushStatus(isPushing = false)
-                    return result
+                    return PhaseResult.Failed(error.toAppError())
                 }
+                val ready = (plan as? PushPlan.Ready) ?: break
+                claimed = ready.pending.map { it.patchId }
 
-                else -> {}
+                val result = pushWithPlan(ready, session)
+                when (result) {
+                    is PhaseResult.Ok -> {
+                        val s = result.getOrThrow()
+                        succeeded += s.succeeded
+                        failed += s.failed
+                        lost += s.lost
+                        superseded += s.superseded
+                        discarded += s.discarded
+                        processed += s.processed
+                    }
+
+                    is PhaseResult.Failed -> {
+                        phases.setPushStatus(isPushing = false)
+                        return result
+                    }
+
+                    else -> {}
+                }
+            }
+
+            if (batches >= 1000) {
+                log.w { "push loop reached the batch cap; unsent patches remain queued for the next cycle" }
+            }
+            val summary = PushSummary(
+                processed = processed,
+                succeeded = succeeded,
+                failed = failed,
+                lost = lost,
+                superseded = superseded,
+                discarded = discarded,
+            )
+            phases.recordPushResult(Result.success(summary))
+            phases.setPushStatus(isPushing = false)
+            return PhaseResult.Ok(summary)
+        } finally {
+            // The rows this cycle claimed go back onto the queue.
+            //
+            // Every path out of the cycle needs it: an answer that was discarded
+            // because the account changed under the request, and a request that
+            // failed and never came back. A row that keeps its claim is a row
+            // `getPending` never offers again — the user's edit sits in the
+            // outbox and is never delivered. Releasing a row the server already
+            // answered for is not a mistake: the server reports the duplicate as
+            // a lost race, and that path is built for it.
+            //
+            // The release runs in a context that is not cancelled any more, and
+            // its failure does not replace the push's own result: a push that
+            // was delivered must not be reported as failed because the queue
+            // could not be tidied.
+            if (claimed.isNotEmpty()) {
+                withContext(NonCancellable) {
+                    runCatchingCancellable { outboxDao.release(claimed) }
+                        .onFailure { log.w(it) { "the outbox rows stay claimed: $claimed" } }
+                }
             }
         }
-
-        if (batches >= 1000) {
-            log.w { "push loop reached the batch cap; unsent patches remain queued for the next cycle" }
-        }
-        val summary = PushSummary(
-            processed = processed,
-            succeeded = succeeded,
-            failed = failed,
-            lost = lost,
-            superseded = superseded,
-            discarded = discarded,
-        )
-        phases.recordPushResult(Result.success(summary))
-        phases.setPushStatus(isPushing = false)
-        return PhaseResult.Ok(summary)
     }
 
     /**
@@ -172,6 +203,11 @@ internal class PushPhase(
                 "Push response discarded: requested under [$requestedBy], " +
                     "now [$nowSignedInAs]. ${pending.size} row(s) stay queued."
             }
+            // The rows stay queued, and they go back onto the queue when the
+            // cycle ends — see the `finally` in [push]. Releasing them here
+            // would be wrong twice over: the next round of this cycle would
+            // pick them up again and send them under the same stale session,
+            // and the count of what the server answered would be lost.
             phases.recordPushResult(Result.success(PushSummary(0, 0, 0, discarded = response.results.size)))
             return PushCounts(succeeded = 0, failed = 0, lost = 0, superseded = 0, discarded = response.results.size)
         }

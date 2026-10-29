@@ -89,6 +89,18 @@ interface SyncOutboxDao {
     suspend fun claim(ids: List<String>, now: Long)
 
     /**
+     * Releases rows back onto the queue: clears `claimed_at` so they can be pushed again.
+     *
+     * The claim is what `getPending` filters on, so a row that keeps it is a row
+     * that is never sent again. A push answered under an account that is no
+     * longer signed in leaves its rows queued — and it has to leave them
+     * *pushable*, or the edit is stranded in the outbox with the server's
+     * answer thrown away and nothing to show for it.
+     */
+    @Query("UPDATE sync_outbox SET claimed_at = NULL WHERE patch_id IN (:ids)")
+    suspend fun release(ids: List<String>)
+
+    /**
      * How many patches an account still owes the server.
      *
      * The switch needs this to know whether a delivery can be attempted at all, and

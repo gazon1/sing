@@ -264,6 +264,11 @@ class SyncEnginePushIdentityTest {
         h.api.onPushInFlight = { h.auth.set(Session.SignedOut) }
         h.engine.push()
         assertEquals(1, h.outbox.rows.size)
+        // One push, and no more: the answer was discarded, so the cycle ended
+        // rather than sending the same row again under the same stale session.
+        // Without that, the row goes back onto the queue, the next round plans
+        // it again, and the cycle runs to the batch cap.
+        assertEquals(1, h.api.pushCalls.size)
 
         h.api.onPushInFlight = null
         h.api.pushResponses.addLast(
