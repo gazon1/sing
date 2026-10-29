@@ -24,8 +24,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import android.app.Activity
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.ui.NavDisplay
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -36,6 +39,7 @@ import com.singularity.todo.feature.nav.DestinationKind
 import com.singularity.todo.feature.nav.LocalNav3State
 import com.singularity.todo.feature.nav.MenuButtonTitle
 import com.singularity.todo.feature.nav.Nav3State
+import com.singularity.todo.feature.nav.topMostRoute
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.Navigator
 import com.singularity.todo.feature.nav.createAppEntryProvider
@@ -73,6 +77,7 @@ fun androidShellNav3Root(
     today: kotlinx.datetime.LocalDate,
 ) {
     var menuVisible by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
 
     // The projects the menu shows as a tree. The ViewModel lives in the shell,
     // not in the sheet: the sheet is a separate window, and the tree has to be
@@ -85,7 +90,11 @@ fun androidShellNav3Root(
     val current: AppDestination = state.topLevelRoute as? AppDestination
         ?: AppDestination.AgendaGraph(AgendaStartRoute.Today)
 
-    val fabAction = fabActionForNav3(current, today) { navigator.open(it) }
+    // Topmost route in the current stack — determines the FAB, mirroring desktop.
+    val topMostRoute: NavKey = state.topMostRoute()
+    val fabCurrent: AppDestination = topMostRoute as? AppDestination ?: current
+
+    val fabAction = fabActionForNav3(fabCurrent, today) { navigator.open(it) }
 
     Scaffold(
         bottomBar = {
@@ -125,7 +134,10 @@ fun androidShellNav3Root(
         CompositionLocalProvider(LocalNav3State provides state) {
             NavDisplay(
                 entries = navDisplayEntries,
-                onBack = { navigator.goBack() },
+                onBack = {
+                    val stack = state.requireBackStackFor(state.topLevelRoute)
+                    if (stack.size > 1) navigator.goBack() else (context as? Activity)?.finish()
+                },
                 modifier = Modifier.padding(padding),
             )
         }
@@ -134,6 +146,7 @@ fun androidShellNav3Root(
     if (menuVisible) {
         MenuBottomSheet(
             onDismiss = { menuVisible = false },
+            currentDestination = current,
             onSelect = { dest ->
                 menuVisible = false
                 if (dest == AppDestination.ProjectsGraph()) {

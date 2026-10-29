@@ -96,9 +96,16 @@ private fun TopMenuBarItem(
         isOpen = isOpen,
         onOpen = { onOpenChange(true) },
     )
+    val clickSource = remember { MutableInteractionSource() }
 
     Box(
         modifier = Modifier
+            .clickable(
+                interactionSource = clickSource,
+                indication = null,
+                enabled = node.enabled,
+                onClick = { onOpenChange(true) },
+            )
             .hoverable(interactionSource = hover.interactionSource, enabled = node.enabled)
             .clip(RoundedCornerShape(4.dp))
             .background(

@@ -228,6 +228,13 @@ data class NavCallbacks(val navigate: (AppDestination) -> Unit, val goBack: () -
     }
 }
 
+/**
+ * Topmost route in the current stack — the deepest screen the user is on.
+ * Used by both shells to decide the FAB and back behavior.
+ */
+fun Nav3State.topMostRoute(): NavKey =
+    requireBackStackFor(topLevelRoute).lastOrNull() ?: topLevelRoute
+
 class Navigator(private val state: Nav3State) {
     /**
      * Open [target] — the single facade every request goes through (REQ-NAV-001).
