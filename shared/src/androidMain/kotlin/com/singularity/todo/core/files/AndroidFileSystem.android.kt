@@ -81,8 +81,6 @@ class AndroidFileSystem(private val context: Context) : FileSystem {
 
     override suspend fun delete(path: String): Boolean = File(path).delete()
 
-    override suspend fun exists(path: String): Boolean = File(path).exists()
-
     override suspend fun ensureDir(dir: String) {
         File(dir).mkdirs()
     }
@@ -93,15 +91,6 @@ class AndroidFileSystem(private val context: Context) : FileSystem {
             f.listFiles()?.map { it.absolutePath } ?: emptyList()
         } else {
             emptyList()
-        }
-    }
-
-    override suspend fun stat(path: String): FileStat? {
-        val f = File(path)
-        return if (f.exists()) {
-            FileStat(f.absolutePath, f.lastModified(), f.length(), f.isDirectory)
-        } else {
-            null
         }
     }
 
