@@ -18,6 +18,7 @@ import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateUiEvent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
 import com.singularity.todo.core.error.runCatchingCancellable
+import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 
 /**
@@ -198,6 +199,15 @@ class TaskCreateViewModel(
             TaskCreateIntent.SaveClicked -> save()
 
             TaskCreateIntent.DismissError -> dismissError()
+
+            TaskCreateIntent.Discard -> {
+                vmScope.launch {
+                    listOfNotNull(draftKey, TaskCreateDeps.DRAFT_KEY).distinct().forEach { key ->
+                        runCatchingCancellable { deps.draftStore.clear(key) }
+                            .onFailure { deps.logger.e(it, tag = "TaskCreate") { "draft clear failed" } }
+                    }
+                }
+            }
         }
     }
 

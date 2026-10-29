@@ -239,6 +239,7 @@ class Registry:
 
     path: pathlib.Path
     environment: dict[str, object]
+    environments: list[dict[str, object]]
     causes: dict[str, Cause]
 
 
@@ -336,6 +337,12 @@ def read_registry(path: pathlib.Path) -> Registry:
     environment = data.get("environment") or {}
     if not isinstance(environment, dict):
         raise ValueError(f"{path}: the environment block is not a mapping")
+    environments = data.get("environments")
+    if environments is None:
+        environments = [environment] if environment else []
+    if not isinstance(environments, list):
+        raise ValueError(f"{path}: the environments block is not a list")
+    environments = [dict(e) for e in environments if isinstance(e, dict)]
 
     causes: dict[str, Cause] = {}
     for entry in data.get("causes") or []:
@@ -354,7 +361,8 @@ def read_registry(path: pathlib.Path) -> Registry:
             flows=int(flows) if isinstance(flows, int) else 0,
             note=str(entry.get("note") or ""),
         )
-    return Registry(path=path, environment=dict(environment), causes=causes)
+    primary = environments[0] if environments else environment
+    return Registry(path=path, environment=dict(primary), environments=environments, causes=causes)
 
 
 def read_environment(path: pathlib.Path) -> tuple[RunEnvironment | None, list[Finding]]:
@@ -421,10 +429,8 @@ def compare_environment(
     failures are two different quantities, and calling them the same one is
     how a gate starts lying.
     """
-    calibrated = registry.environment or {}
-    kind = calibrated.get("kind")
-    api = calibrated.get("api")
-    if kind is None or api is None:
+    calibrated_list = registry.environments or [registry.environment or {}]
+    if not calibrated_list:
         return [
             Finding(
                 "environment unknown",
@@ -437,6 +443,16 @@ def compare_environment(
         # `read_environment` already said where the run failed to say.
         return []
 
+    # Match against any calibrated environment.
+    for calibrated in calibrated_list:
+        kind = calibrated.get("kind")
+        api = calibrated.get("api")
+        if kind is not None and api is not None and run.kind == kind and run.api == api:
+            return []
+    # No match: report mismatch against the first calibrated environment.
+    calibrated = calibrated_list[0]
+    kind = calibrated.get("kind")
+    api = calibrated.get("api")
     findings: list[Finding] = []
     if run.kind != kind:
         findings.append(
@@ -684,9 +700,19 @@ def _cause_line(key: str, flows: int, cause: Cause | None) -> str:
     return f"  {flows:>3}  {key}  {issue}  {owner}  {status}"
 
 
+def _matched_environment(registry: Registry, run: RunEnvironment | None) -> dict[str, object]:
+    """The calibrated environment this run was judged against."""
+    calibrated_list = registry.environments or [registry.environment or {}]
+    if run is not None:
+        for calibrated in calibrated_list:
+            if calibrated.get("kind") == run.kind and calibrated.get("api") == run.api:
+                return calibrated
+    return calibrated_list[0] if calibrated_list else (registry.environment or {})
+
+
 def _environment_line(measurement: Measurement, registry: Registry) -> str:
     """One line: where the run happened, and where the floor was calibrated."""
-    calibrated = registry.environment or {}
+    calibrated = _matched_environment(registry, measurement.environment)
     kind = calibrated.get("kind", "?")
     api = calibrated.get("api", "?")
     run = measurement.environment
@@ -785,7 +811,7 @@ def build_payload(
             }
         )
 
-    calibrated = registry.environment or {}
+    calibrated = _matched_environment(registry, measurement.environment)
     run = measurement.environment
     return {
         "scope": measurement.scope,

@@ -44,4 +44,7 @@ sealed interface TaskCreateIntent : MviIntent {
 
     /** Clear the current inline / snackbar error emitted via [TaskCreateUiState.error]. */
     data object DismissError : TaskCreateIntent
+
+    /** Discard the draft: clear the autosaved draft store entries. */
+    data object Discard : TaskCreateIntent
 }
