@@ -1,6 +1,5 @@
 package com.singularity.todo.arch
 
-import com.lemonappdev.konsist.api.Konsist
 import com.lemonappdev.konsist.api.declaration.KoFileDeclaration
 import com.lemonappdev.konsist.api.declaration.KoFunctionDeclaration
 import com.lemonappdev.konsist.api.declaration.KoPropertyDeclaration
@@ -100,23 +99,13 @@ internal fun KoFunctionDeclaration.returnsSourceOf(kind: String): Boolean {
 internal object TextFieldShapeScan {
 
     /**
-     * Root of `commonMain`'s sources, as set by the `jvmTest` task.
-     *
-     * A property rather than a relative path: the test JVM's working directory is
-     * a build output directory (the Allure listener writes there), so a relative
-     * path would resolve against the wrong tree.
-     */
-    private val commonMainRoot: String = System.getProperty("commonMain.root")
-        ?: error("commonMain.root system property is not set — see the jvmTest task config")
-
-    /**
      * The whole of `commonMain`, read by Konsist.
      *
      * Absolute path — hence `scopeFromExternalDirectory` (`scopeFromDirectory`
      * resolves against Konsist's detected project root and would double the
      * prefix).
      */
-    private val scope = Konsist.scopeFromExternalDirectory(commonMainRoot)
+    private val scope = CommonMainKonsistScope.scope
 
     /** Every file of `commonMain`, keyed by its path relative to `com/singularity/todo/`. */
     private val files: Map<String, KoFileDeclaration> by lazy {
@@ -241,7 +230,7 @@ internal object TextFieldShapeScan {
      * needed, and no need to believe Konsist's package resolution.
      */
     private fun relativePath(file: KoFileDeclaration): String {
-        val normalizedRoot = commonMainRoot.replace('\\', '/').trimEnd('/')
+        val normalizedRoot = CommonMainKonsistScope.commonMainRoot.replace('\\', '/').trimEnd('/')
         val under = file.path.replace('\\', '/').removePrefix("$normalizedRoot/")
         return under.removePrefix("$PACKAGE_PREFIX/")
     }

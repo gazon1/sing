@@ -2,7 +2,6 @@
 
 package com.singularity.todo.arch
 
-import com.lemonappdev.konsist.api.Konsist
 import com.lemonappdev.konsist.api.declaration.KoFileDeclaration
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -29,16 +28,9 @@ class ArchitectureTest {
     companion object {
         private const val PKG = "com.singularity.todo"
 
-        /** Injected by the jvmTest task config in `shared/build.gradle.kts`. */
-        private val commonMainRoot: String = System.getProperty("commonMain.root")
-            ?: error(
-                "commonMain.root system property is not set — " +
-                    "see the jvmTest task config in shared/build.gradle.kts",
-            )
-
         // Absolute path — hence scopeFromExternalDirectory (scopeFromDirectory resolves
         // relative to Konsist's detected project root and would double the prefix).
-        private val scope = Konsist.scopeFromExternalDirectory(commonMainRoot)
+        private val scope = CommonMainKonsistScope.scope
 
         /**
          * Package name derived from the file path (the directory layout mirrors
@@ -46,7 +38,7 @@ class ArchitectureTest {
          */
         private fun KoFileDeclaration.packageName(): String {
             val normalizedPath = path.replace('\\', '/')
-            val normalizedRoot = commonMainRoot.replace('\\', '/').trimEnd('/')
+            val normalizedRoot = CommonMainKonsistScope.commonMainRoot.replace('\\', '/').trimEnd('/')
             return normalizedPath
                 .removePrefix("$normalizedRoot/")
                 .substringBeforeLast('/')
@@ -67,7 +59,7 @@ class ArchitectureTest {
          * every file that happens to share a base name.
          */
         private fun relativePath(file: KoFileDeclaration): String {
-            val normalizedRoot = commonMainRoot.replace('\\', '/').trimEnd('/')
+            val normalizedRoot = CommonMainKonsistScope.commonMainRoot.replace('\\', '/').trimEnd('/')
             val under = file.path.replace('\\', '/').removePrefix("$normalizedRoot/")
             return under.substringAfter("/kotlin/").ifEmpty { under }
         }

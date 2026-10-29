@@ -1,6 +1,5 @@
 package com.singularity.todo.arch
 
-import com.lemonappdev.konsist.api.Konsist
 import com.lemonappdev.konsist.api.declaration.KoFileDeclaration
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -43,15 +42,8 @@ import kotlin.test.assertTrue
 class CrashReportingWiringTest {
 
     companion object {
-        /** Injected by the jvmTest task config in `shared/build.gradle.kts`. */
-        private val commonMainRoot: String = System.getProperty("commonMain.root")
-            ?: error(
-                "commonMain.root system property is not set — " +
-                    "see the jvmTest task config in shared/build.gradle.kts",
-            )
-
         private val files: List<KoFileDeclaration> =
-            Konsist.scopeFromExternalDirectory(commonMainRoot).files
+            CommonMainKonsistScope.scope.files
 
         private fun KoFileDeclaration.codeOnly(): String = KotlinText.stripComments(text)
 
