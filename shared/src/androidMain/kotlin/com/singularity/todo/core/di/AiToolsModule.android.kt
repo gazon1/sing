@@ -27,6 +27,7 @@ import com.singularity.todo.feature.ai.tools.ExtractActionsTool
 import com.singularity.todo.feature.ai.tools.FirstStepTool
 import com.singularity.todo.feature.ai.tools.GenerateChecklistTool
 import com.singularity.todo.feature.ai.tools.GenerateDescriptionTool
+import com.singularity.todo.feature.ai.tools.GetDailyNoteTool
 import com.singularity.todo.feature.ai.tools.GetNoteTool
 import com.singularity.todo.feature.ai.tools.GetProjectTool
 import com.singularity.todo.feature.ai.tools.GetTaskTool
@@ -181,6 +182,7 @@ actual fun aiToolsModule(): Module = module {
     factoryOf(::RewriteNoteTool)
     factoryOf(::SuggestTagsTool)
     factoryOf(::GetNoteTool)
+    factoryOf(::GetDailyNoteTool)
     factoryOf(::GetProjectTool)
     factoryOf(::GetTaskTool)
     factoryOf(::ListLinkedTasksTool)
@@ -238,6 +240,7 @@ actual fun aiToolsModule(): Module = module {
             get<RewriteNoteTool>(),
             get<SuggestTagsTool>(),
             get<GetNoteTool>(),
+            get<GetDailyNoteTool>(),
             get<GetProjectTool>(),
             get<GetTaskTool>(),
             get<ListLinkedTasksTool>(),
