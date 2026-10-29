@@ -26,8 +26,8 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-attachments` | 406 | Attachment feature pattern for the Singularity Todo KMP app. |
 | `singularity-todo-auth-seam` | 115 | The auth seam of this KMP app: the AuthGateway port the domain speaks, the Supabase (KMPAuth) binding behind it, the SecureSessionManager that is the one session store, the provider session observation, and the E2E stub that replaces the whole seam in the debug build. |
 | `singularity-todo-backup` | 182 | Backup/restore pattern for the Singularity Todo KMP app. |
-| `singularity-todo-build-and-gates` | 165 | How to build, test and lint the Singularity Todo KMP project, and how to run its gate suite. |
-| `singularity-todo-ci-cd` | 127 | How the gate suite, the CI workflows and the review verdicts fit together in the Singularity Todo repository. |
+| `singularity-todo-build-and-gates` | 173 | How to build, test and lint the Singularity Todo KMP project, and how to run its gate suite. |
+| `singularity-todo-ci-cd` | 152 | How the gate suite, the CI workflows and the review verdicts fit together in the Singularity Todo repository. |
 | `singularity-todo-clean-architecture-audit` | 213 | Audit tool to verify that a feature follows clean architecture: presentation depends only on domain (via interfaces), data depends only on domain, no cross-layer imports. |
 | `singularity-todo-cli-tool-surface` | 396 | Write-tool surface contract for Singularity Todo KMP MCP server. |
 | `singularity-todo-compose-overview` | 52 | Router skill — index to all Compose UI skills. |
@@ -37,7 +37,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-decisions-workflow` | 309 | Lightweight decision-log workflow for this project. |
 | `singularity-todo-desktop-compose-ui-tests` | 451 | Write and debug JVM Desktop Compose UI tests in desktopApp/src/jvmTest. |
 | `singularity-todo-detekt-rules-authoring` | 489 | How to write and register custom detekt rules in the Singularity Todo project. |
-| `singularity-todo-detekt-workflow` | 85 | Run detekt and ktlint in this KMP project: format, auto-fix, baseline rebuild, and the project's custom rules. |
+| `singularity-todo-detekt-workflow` | 105 | Run detekt and ktlint in this KMP project: format, auto-fix, baseline rebuild, and the project's custom rules. |
 | `singularity-todo-di-graph-testing` | 152 | Validate Koin DI graph at compile time via koin-compiler-plugin. |
 | `singularity-todo-document-style-detail` | 214 | Generic document-style UX pattern for any read-only detail screen (Task, Project, Note, etc.). |
 | `singularity-todo-domain-logic-pattern` | 176 | Documents the pattern for pure business-logic classes placed in feature/X/domain/logic/. |
@@ -49,7 +49,7 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-icon-registry` | 273 | KMP-native pattern for user-facing icon selection registries (project icons, tag emoji, priority icons, note color icons). |
 | `singularity-todo-inline-edit-saved-feedback` | 240 | Debounced inline-edit pattern for document-style detail screens. |
 | `singularity-todo-jvm-inline-value-class` | 103 | JvmInline value class patterns for Singularity Todo. |
-| `singularity-todo-kmp-reorderable` | 226 | Why `sh.calvin.reorderable` has no KMP multiplatform artifact and what to use instead. |
+| `singularity-todo-kmp-reorderable` | 221 | Why `sh.calvin.reorderable` has no KMP multiplatform artifact and what to use instead. |
 | `singularity-todo-koin-defaults` | 111 | Use when fixing, auditing, or registering a new Koin binding (singleOf/factoryOf/viewModelOf) and the target class has constructor parameters with Kotlin default arguments. |
 | `singularity-todo-koin-dsl` | 162 | Canonical Koin 4.x pure-DSL patterns for this project: viewModelOf vs viewModel {}, singleOf / factoryOf, koinBridge for suspend factories, and where bindings live (per-domain *DiModule.kt, with core/di/Modules.kt as an aggregator). |
 | `singularity-todo-koin-overview` | 41 | Router skill — index to all Koin DI skills. |
@@ -75,23 +75,23 @@ state *which tasks need the skill*, not summarise its contents.
 | `singularity-todo-relational-counts` | 216 | How to display aggregate counts (task count per project, note count per tag) in list screens. |
 | `singularity-todo-repository-architecture` | 261 | Canonical repository-architecture invariants in this KMP project. |
 | `singularity-todo-rich-editor` | 352 | Rich-text (WYSIWYG) editor pattern for Kotlin Multiplatform notes using com.mohamedrejeb.richeditor:richeditor-compose 1.2.0. |
-| `singularity-todo-room-migration` | 322 | Room 3 (androidx.room3:3.0.0) setup for KMP with the specific gotchas this project hit: EROFS when name is treated as relative path (must use Context.getDatabasePath), missing @ColumnInfo causes SQL validation failures, no autoMigrations needs fallbackToDestructiveMigration for dev. |
+| `singularity-todo-room-migration` | 331 | Room 3 (androidx.room3:3.0.0) setup for KMP with the specific gotchas this project hit: EROFS when name is treated as relative path (must use Context.getDatabasePath), missing @ColumnInfo causes SQL validation failures, no autoMigrations needs fallbackToDestructiveMigration for dev. |
 | `singularity-todo-room-multi-instance` | 149 | Cross-process SQLite access for Singularity Todo KMP. |
 | `singularity-todo-scheduled-maintenance` | 74 | Runtime measurement and periodic health checks for the Singularity Todo desktop (JVM) app. |
 | `singularity-todo-secure-storage` | 173 | Secure storage port pattern for KMP using expect/actual with libsecret shell-out on JVM, AES-GCM encrypted file fallback, and EncryptedSharedPreferences on Android. |
 | `singularity-todo-selectable-text` | 214 | How to render text a person can copy, and how to make the links in it tappable, in Singularity Todo. |
-| `singularity-todo-shared-ui-components` | 45 | Screen decomposition and the shared widget library for Singularity Todo Compose screens. |
+| `singularity-todo-shared-ui-components` | 46 | Screen decomposition and the shared widget library for Singularity Todo Compose screens. |
 | `singularity-todo-sheet-extraction` | 395 | Sheet extraction workflow for Singularity Todo. |
 | `singularity-todo-stable-json` | 169 | When adding kotlinx.serialization to a KMP project, always use StableJson instead of local `Json { . |
 | `singularity-todo-swipe-actions` | 259 | Swipe-to-dismiss pattern for Compose Multiplatform using Material3 SwipeToDismissBox. |
 | `singularity-todo-task-callback-groups` | 321 | Decision tree for grouping callbacks in Composable function signatures — when to use raw lambdas (≤3 params), when to use a @JvmInline value class Action hierarchy (outgoing events), and when to avoid data class "parameter objects" that group unrelated callbacks. |
 | `singularity-todo-task-detail-ux` | 272 | Document-style vs form-style UX pattern for task detail screens. |
 | `singularity-todo-tech-debt-refactor` | 141 | High-level plan for the tech-debt refactor epic (3 epics x 10 PRs), with per-PR pointers to the skill that carries the detail. |
-| `singularity-todo-test-flaky-prevention` | 260 | Rules to prevent test flakiness in the Singularity Todo project. |
+| `singularity-todo-test-flaky-prevention` | 296 | Rules to prevent test flakiness in the Singularity Todo project. |
 | `singularity-todo-test-helpers` | 349 | Standardized test helpers and patterns for ViewModel tests in this project. |
 | `singularity-todo-test-tag-strategy` | 270 | Decide which JUnit tag a test class carries, and how the fast/slow split is applied in Gradle, CI and local runs. |
 | `singularity-todo-testable-vm` | 469 | Testable ViewModel pattern for Singularity Todo KMP app. |
-| `singularity-todo-text-field-states` | 590 | How to add or change a text field in Singularity Todo. |
+| `singularity-todo-text-field-states` | 591 | How to add or change a text field in Singularity Todo. |
 | `singularity-todo-top-bar-entry` | 158 | Use when adding an IconButton to the TopAppBar that opens a nested screen (Saved Views, Search, Filters). |
 | `singularity-todo-ui-event-vs-state` | 62 | How to model one-shot UI events, routing state and continuous state separately in Singularity Todo ViewModels. |
 | `singularity-todo-unwired-surface-audit` | 113 | Find code that is fully implemented but wired to nothing — a screen no graph composes, a callback whose empty default defeats its own fallback, a DAO no Koin module binds, a UI affordance with no control. |
