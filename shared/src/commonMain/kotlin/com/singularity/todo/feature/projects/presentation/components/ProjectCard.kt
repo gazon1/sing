@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import com.singularity.todo.core.ui.contrastingForeground
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
@@ -100,7 +101,7 @@ private fun ColorCircle(color: Color, iconKey: String?, contentDescription: Stri
     ) {
         ProjectIcon(
             icon = iconKey,
-            tint = Color.White,
+            tint = color.contrastingForeground(),
             size = 20.dp,
             contentDescription = contentDescription,
         )
