@@ -1,6 +1,7 @@
 package com.singularity.todo.core.ui.components
 
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TopAppBarColors
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
@@ -10,7 +11,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
-import com.singularity.todo.core.ui.isAndroidPlatform
 
 /**
  * Platform-aware TopAppBar: no-op on Android (shell owns the only bar),
@@ -29,8 +29,8 @@ fun TopAppBar(
     expandedHeight: Dp = TopAppBarDefaults.TopAppBarExpandedHeight,
     overrideShell: Boolean = false, // selection-mode bars override the Android shell bar by design
 ) {
-    if (isAndroidPlatform) {
-        val holder = LocalScreenActions.current
+    val holder = LocalScreenActions.current
+    if (holder != null) {
         if (overrideShell) {
             // Selection mode: publish title/back/colors as an override for the
             // single Android shell bar instead of rendering a duplicate bar.
@@ -56,7 +56,9 @@ fun TopAppBar(
         }
         return
     }
-    val resolvedColors = colors ?: TopAppBarDefaults.topAppBarColors()
+    val resolvedColors = colors ?: TopAppBarDefaults.topAppBarColors(
+        containerColor = MaterialTheme.colorScheme.surface,
+    )
     androidx.compose.material3.TopAppBar(
         title = title,
         modifier = modifier,

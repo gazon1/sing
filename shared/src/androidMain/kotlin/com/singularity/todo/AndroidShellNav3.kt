@@ -195,7 +195,9 @@ fun androidShellNav3Root(
                             }
                         }
                     },
-                    colors = screenActions.colors ?: TopAppBarDefaults.topAppBarColors(),
+                    colors = screenActions.colors ?: TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                    ),
                 )
             },
             floatingActionButton = {
