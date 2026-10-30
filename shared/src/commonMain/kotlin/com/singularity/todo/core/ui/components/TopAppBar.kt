@@ -27,11 +27,11 @@ fun TopAppBar(
     colors: TopAppBarColors? = null,
     scrollBehavior: TopAppBarScrollBehavior? = null,
     expandedHeight: Dp = TopAppBarDefaults.TopAppBarExpandedHeight,
-    forceShow: Boolean = false, // selection-mode bars keep a real bar on Android (duplicate of shell) by design
+    overrideShell: Boolean = false, // selection-mode bars override the Android shell bar by design
 ) {
     if (isAndroidPlatform) {
         val holder = LocalScreenActions.current
-        if (forceShow) {
+        if (overrideShell) {
             // Selection mode: publish title/back/colors as an override for the
             // single Android shell bar instead of rendering a duplicate bar.
             SideEffect {
