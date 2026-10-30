@@ -9,13 +9,26 @@
 # `some avg10=48.79` on 2026-10-22 — roughly half of the time, tasks were
 # waiting for a CPU rather than running on one.
 #
-# WHAT THIS DOES NOT DO
+# WHAT THE SLOT DOES NOT DO
 #
-# The slot does NOT limit memory. It is released when the build's client
-# process exits; the Gradle daemon it started lives on for
-# `org.gradle.daemon.idletimeout` afterwards. Memory is held by the heap, not
-# by this semaphore — the heap budget lives in gradle.properties and in the
-# `maxHeapSize` of each test task (ADR 2026-10-22-gradle-memory-budget).
+# The slot is released when the build's client process exits; the Gradle daemon
+# it started lives on for `org.gradle.daemon.idletimeout` afterwards. The heap
+# budget lives in gradle.properties and in the `maxHeapSize` of each test task
+# (ADR 2026-10-22-gradle-memory-budget).
+#
+# WHAT THE SLOT DOES ABOUT MEMORY
+#
+# The slot counts builds; the memory is what a build costs. One worktree costs
+# a 6 GiB daemon plus 4 × 1.5 GiB of test forks — about 12 GiB — so three of
+# them are 36 GiB on a 62 GiB host, before the emulator and the IDE. A fourth
+# one does not fit, and a build that starts without room does not fail at the
+# start: it fails halfway, when the forks cannot get their heap.
+#
+# So a free slot is only taken when the machine can still hold the build that
+# is about to start. Below the threshold the pool waits, exactly as it waits
+# for a busy slot. The threshold is the free memory a build needs before it
+# starts, and it lives in the budget record beside the heaps it is derived
+# from.
 #
 # HOW THE SLOT IS HELD
 #
@@ -46,6 +59,33 @@ slot_count="${SINGULARITY_GRADLE_SLOT_COUNT:-3}"
 wait_secs="${SINGULARITY_GRADLE_SLOT_WAIT_SECS:-1800}"
 readonly SLOT_TIMEOUT=97
 
+# The repository root, for the budget record the memory threshold is read from.
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# The free memory a build needs before it may start, in GiB. Read from the
+# budget record, so the number lives beside the heaps it is derived from: a
+# daemon of `gradle.daemon.heap` plus `test.forks.module.shared` forks of
+# `test.heap.module.shared`, with room for the rest of the daemon.
+#
+# `SINGULARITY_GRADLE_MIN_FREE_GIB` overrides it for a machine that is not
+# this one.
+min_free_gib() {
+    local recorded
+    recorded="$(awk -F= '/^gradle\.slot\.min\.free\.gib=/ {print $2}' \
+        "$root/config/docs/gradle-memory-budget.properties" 2>/dev/null | tr -d '[:space:]')"
+    local value="${SINGULARITY_GRADLE_MIN_FREE_GIB:-${recorded:-16}}"
+    # A threshold that is not a number would make the arithmetic below fail and
+    # the pool wait forever. 16 GiB is the recorded default either way.
+    [[ "$value" =~ ^[0-9]+$ ]] || value=16
+    echo "$value"
+}
+
+# The free memory of this machine, in GiB.
+mem_available_gib() {
+    awk '/^MemAvailable:/ {printf "%d", $2/1048576; found=1; exit}
+         END {if (!found) print 0}' /proc/meminfo 2>/dev/null || echo 0
+}
+
 # ── status ──────────────────────────────────────────────────────────────────
 # Reports what the pool looks like right now: which slots are held, how many
 # Gradle/Kotlin daemons are alive and how much RSS they hold. Read-only — it
@@ -68,6 +108,7 @@ if [[ "${1:-}" == "--status" ]]; then
             fi
         done
         echo "gradle-slot: $held of $slot_count slots held"
+        echo "  free memory:    $(mem_available_gib) GiB (a build needs $(min_free_gib) GiB)"
     fi
     daemons="$(pgrep -f 'GradleDaemon' 2>/dev/null | wc -l || true)"
     kotlin="$(pgrep -f 'KotlinCompileDaemon' 2>/dev/null | wc -l || true)"
@@ -104,11 +145,22 @@ fi
 mkdir -p "$slots_dir"
 deadline=$(( SECONDS + wait_secs ))
 announced=0
+need_free_gib="$(min_free_gib)"
 
 while :; do
+    memory_blocked=0
     for i in $(seq 1 "$slot_count"); do
         exec 9>"$slots_dir/slot-$i.lock"
         if flock --nonblock 9; then
+            # A free slot is not a free machine. The build that is about to start
+            # needs its daemon and its forks, and a build that starts without
+            # room for them dies halfway instead of at the start.
+            available="$(mem_available_gib)"
+            if (( available < need_free_gib )); then
+                exec 9>&-
+                memory_blocked=1
+                continue
+            fi
             rc=0
             # The child's exit code IS the result. flock is not part of it: a
             # command that exits 75 (its own "busy" code) must not be mistaken
@@ -127,7 +179,11 @@ while :; do
     # One message, not one every five seconds: a per-iteration notice turns a
     # two-minute wait into a wall of identical lines.
     if (( announced == 0 )); then
-        echo "gradle-slot: all $slot_count slots are busy, waiting for a free one (up to ${wait_secs}s)" >&2
+        if (( memory_blocked == 1 )); then
+            echo "gradle-slot: a slot is free, but only ${available} GiB of memory is available and a build needs ${need_free_gib} GiB — waiting (up to ${wait_secs}s)" >&2
+        else
+            echo "gradle-slot: all $slot_count slots are busy, waiting for a free one (up to ${wait_secs}s)" >&2
+        fi
         announced=1
     fi
     sleep 5
