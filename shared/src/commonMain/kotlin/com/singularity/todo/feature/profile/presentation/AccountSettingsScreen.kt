@@ -20,6 +20,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.ConfirmActionDialog
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -49,6 +53,7 @@ fun AccountSettingsScreen(
     val activeProfile by vm.activeProfile.collectAsStateWithLifecycle(initialValue = null)
     val session by authVm.session.collectAsStateWithLifecycle(initialValue = Session.Loading)
     val settingsNavigator = LocalSettingsNavigator.current
+    var showSignOutConfirm by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -72,7 +77,20 @@ fun AccountSettingsScreen(
             AttachAccountSection(onAttachAccount = { settingsNavigator.openAttachAccount() })
         }
 
-        SignOutSection(onSignOut = { authVm.onIntent(AuthIntent.SignOut) })
+        SignOutSection(onSignOut = { showSignOutConfirm = true })
+    }
+
+    if (showSignOutConfirm) {
+        ConfirmActionDialog(
+            title = "Sign out",
+            text = "You will be signed out of this account on this device.",
+            confirmButtonText = "Sign out",
+            onConfirm = {
+                showSignOutConfirm = false
+                authVm.onIntent(AuthIntent.SignOut)
+            },
+            onDismiss = { showSignOutConfirm = false },
+        )
     }
 }
 
