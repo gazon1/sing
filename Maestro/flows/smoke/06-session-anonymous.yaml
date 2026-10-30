@@ -42,13 +42,13 @@ tags:
 - tapOn:
     id: menu_settings
 
-# Switch to the Account tab. The settings nav rail is a scrollable column of
-# thirteen rows, so the trailing tabs are below the fold on a phone viewport.
-#
-# The scroll lives in a helper: the gesture that moves the rail is not the
-# obvious one, and two recipes that looked right turned out to do nothing on a
-# device. See Maestro/helpers/settings-rail-scroll.yaml.
-- runFlow: ../../helpers/settings-rail-scroll.yaml
+# Switch to the Account tab via the narrow-screen dropdown.
+- extendedWaitUntil:
+    visible:
+      id: settings_tab_dropdown
+    timeout: 10000
+- tapOn:
+    id: settings_tab_dropdown
 - extendedWaitUntil:
     visible:
       id: settings_tab_account
