@@ -71,6 +71,7 @@ import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ConfirmActionDialog
 import com.singularity.todo.core.ui.components.TaggedSnackbarHost
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -523,6 +524,7 @@ private fun SettingsTabDropdown(
         ExposedDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
+            modifier = Modifier.mapTestTagsAsResourceIds(),
         ) {
             SettingsTab.entries.forEach { tab ->
                 DropdownMenuItem(

@@ -1,10 +1,12 @@
 package com.singularity.todo.core.ui.components
 
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertNull
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
+@Tag("fast")
 class ScreenActionsHolderTest {
     @Test
     fun actions_default_to_null() {

@@ -196,6 +196,7 @@ non-alphanumeric characters with `_`.
 | Constant | Value | Where |
 |---|---|---|
 | `NOTES_BACKLINKS_BUTTON` | `notes_backlinks_button` | |
+| `NOTES_DELETE_SELECTED_BUTTON` | `notes_delete_selected_button` | |
 | `NOTES_LIST` | `notes_list` | |
 | `NOTES_LIST_EMPTY` | `notes_list_empty` | |
 | `NOTES_QUICK_ADD_INPUT` | `notes_quick_add_input` | |
@@ -414,6 +415,7 @@ non-alphanumeric characters with `_`.
 | `REFRESH_INDICATOR` | `refresh_indicator` | |
 | `RESULT_DIALOG` | `result_dialog` | |
 | `SHELL_BACK_BUTTON` | `shell_back_button` | |
+| `SHELL_SEARCH_BUTTON` | `shell_search_button` | |
 | `STATISTICS_OPEN_SAVED_VIEWS` | `statistics_open_saved_views` | |
 | `STATISTICS_TAB_HEALTH` | `statistics_tab_health` | |
 | `STATISTICS_TAB_TASKS` | `statistics_tab_tasks` | |

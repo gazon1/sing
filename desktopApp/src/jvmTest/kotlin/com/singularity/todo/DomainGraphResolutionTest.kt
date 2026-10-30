@@ -7,6 +7,7 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.presentation.viewmodel.AgendaViewModel
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaScreenMode
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaViewModel
+import com.singularity.todo.feature.attachments.AttachmentsViewModel
 import com.singularity.todo.feature.attachments.annotation.AttachmentAnnotationViewModel
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
 import com.singularity.todo.feature.calendar.presentation.viewmodel.CalendarViewModel
@@ -206,6 +207,8 @@ private val runtimeParameters: Map<KClass<*>, List<Any>> = mapOf(
     CalendarViewModel::class to listOf(2026, Month.SEPTEMBER, CalendarViewMode.MONTH),
     // AttachmentAnnotationViewModel(attachmentId) — one panel per open attachment
     AttachmentAnnotationViewModel::class to listOf(AttachmentId("attachment-1")),
+    // AttachmentsViewModel(taskId) — the panel of one task's attachments
+    AttachmentsViewModel::class to listOf(TaskId("task-1")),
     // ProjectDetailViewModel(projectId)
     ProjectDetailViewModel::class to listOf(ProjectId("project-1")),
     // ProjectEditorViewModel(id)
