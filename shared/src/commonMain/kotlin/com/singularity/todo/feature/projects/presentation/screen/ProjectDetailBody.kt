@@ -40,6 +40,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
@@ -63,9 +67,7 @@ import com.singularity.todo.feature.tasks.presentation.components.TaskCardAction
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 import kotlinx.collections.immutable.ImmutableList
-
-/**
- * Task list section of [ProjectDetailScreen]: quick-add input, task cards, and
+/** Task list section of [ProjectDetailScreen]: quick-add input, task cards, and
  * "See all N tasks" link.
  *
  * Exposed as public to support preview providers and unit tests without a VM.
@@ -107,7 +109,12 @@ fun ProjectBodySection(
                             if (hideCompleted) "Show completed" else "Hide completed",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.clickable(onClick = actions::onToggleHideCompleted),
+                            modifier = Modifier
+                                .clickable(onClick = actions::onToggleHideCompleted)
+                                .semantics {
+                                    role = Role.Button
+                                    stateDescription = if (hideCompleted) "Completed hidden" else "Completed shown"
+                                },
                         )
                         Text(
                             "  ·  ",
@@ -118,7 +125,12 @@ fun ProjectBodySection(
                             if (hideBlocked) "Show blocked" else "Hide blocked",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.clickable(onClick = actions::onToggleHideBlocked),
+                            modifier = Modifier
+                                .clickable(onClick = actions::onToggleHideBlocked)
+                                .semantics {
+                                    role = Role.Button
+                                    stateDescription = if (hideBlocked) "Blocked hidden" else "Blocked shown"
+                                },
                         )
                     }
                 }
@@ -161,7 +173,6 @@ fun ProjectBodySection(
         }
     }
 }
-
 /**
  * Whether project reminders can actually fire.
  *

@@ -78,6 +78,7 @@ fun SingularityTheme(
     val colorScheme = rememberDynamicColorScheme(
         seedColor = accent.color,
         isDark = isDark,
+        contrastLevel = 0.5,
     )
 
     val typography = remember(fontSizeScale) {

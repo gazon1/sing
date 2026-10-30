@@ -64,13 +64,14 @@ import com.singularity.todo.feature.projects.presentation.components.ProjectIcon
 import com.singularity.todo.feature.projects.presentation.nav.LocalProjectsNavigator
 import com.singularity.todo.feature.projects.presentation.state.ProjectEditorIntent
 import com.singularity.todo.feature.projects.presentation.state.ProjectEditorUiEvent
+import com.singularity.todo.core.ui.components.ColorSwatch
 import com.singularity.todo.feature.projects.presentation.theme.ProjectColorPalette
 import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegistry
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectEditorViewModel
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
-// ─── Screen ───────────────────────────────────────────────────────────────────
 
+// ─── Screen ───────────────────────────────────────────────────────────────────
 /**
  * Shell that creates [ProjectEditorViewModel] via Koin and delegates to
  * [ProjectEditorContent]. This is the navigation-entry composable.
@@ -350,27 +351,12 @@ private fun AppearanceSection(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             ProjectColorPalette.all.forEach { color ->
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(Color(color))
-                        // The swatch is a button that a screen reader has to be able to
-                        // name: it carries no text, and its only visual is a circle of
-                        // colour. "Blue" is the name of the thing, and "selected" says
-                        // which one is in use.
-                        .semantics {
-                            contentDescription = "Colour ${ProjectColorPalette.nameOf(color)}" +
-                                if (selectedColor == color) ", selected" else ""
-                        }
-                        .then(
-                            if (selectedColor == color) {
-                                Modifier.border(2.dp, MaterialTheme.colorScheme.outline, CircleShape)
-                            } else {
-                                Modifier
-                            },
-                        )
-                        .clickable { onColorSelected(color) },
+                ColorSwatch(
+                    color = Color(color),
+                    name = "Colour ${ProjectColorPalette.nameOf(color)}",
+                    selected = selectedColor == color,
+                    onClick = { onColorSelected(color) },
+                    size = 32.dp,
                 ) {
                     if (selectedColor == color) {
                         Icon(
