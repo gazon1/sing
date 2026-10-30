@@ -220,7 +220,17 @@ else
 fi
 echo -e "${GREEN}shared:jvmTest passed${NC}"
 
- The Android source set is compiled by neither the JVM tests nor detekt: detekt runs
+echo -e "${YELLOW}=== [3b/$TOTAL] shared:archTest ===${NC}"
+# The architecture gates have a task of their own: they read the whole tree, and
+# the Konsist scope they build is per-JVM — four forks built it four times. One
+# fork here builds it once.
+timed "shared:archTest" ./gw :shared:archTest --quiet "${COVERAGE_OFF}" || {
+    echo -e "${RED}shared:archTest FAILED${NC}"
+    scripts/ci/print-test-failures.sh shared/build/test-results/archTest || true
+    exit 1
+}
+echo -e "${GREEN}shared:archTest passed${NC}"
+# The Android source set is compiled by neither the JVM tests nor detekt: detekt runs
 # without type resolution, and `:shared:jvmTest` never touches `src/androidMain`. A
 # call that does not exist in `kotlinx-datetime 0.8` passed a green detekt and 3266
 # green JVM tests in this repository, and was caught only by the Android build.
@@ -279,7 +289,7 @@ else
     # lost coverage. One message for both sent the reader to re-run the tests when
     # the suite had actually lost coverage.
     set +e
-    python3 scripts/check-test-runs.py --require shared:jvmTest,desktopApp:test \
+    python3 scripts/check-test-runs.py --require shared:jvmTest,shared:archTest,desktopApp:test \
         --max-age 21600
     TEST_RUNS_EXIT=$?
     set -e

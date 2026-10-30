@@ -159,6 +159,7 @@ BASELINE = ROOT / "config" / "docs" / "test-runs-baseline.txt"
 #: source set label -> JUnit XML directory, relative to the repo root.
 SOURCE_SETS = {
     "shared:jvmTest": "shared/build/test-results/jvmTest",
+    "shared:archTest": "shared/build/test-results/archTest",
     "shared:testAndroidHostTest": "shared/build/test-results/testAndroidHostTest",
     "desktopApp:test": "desktopApp/build/test-results/test",
     "mcp-server:test": "mcp-server/build/test-results/test",
@@ -169,6 +170,7 @@ SUITE_RE = re.compile(r'tests="(\d+)"')
 # Reverse index: Gradle task path -> SOURCE_SETS label (built from SOURCE_SETS below).
 _TASK_PATH_TO_LABEL: dict[str, str] = {
     ":shared:jvmTest": "shared:jvmTest",
+    ":shared:archTest": "shared:archTest",
     ":shared:testAndroidHostTest": "shared:testAndroidHostTest",
     ":desktopApp:test": "desktopApp:test",
     ":mcp-server:test": "mcp-server:test",
@@ -277,8 +279,30 @@ EXPECTED_CLASS_SOURCES = {
         "shared/src/commonTest/kotlin",
         "shared/src/jvmTest/kotlin",
     ),
+    "shared:archTest": (
+        "shared/src/jvmTest/kotlin",
+    ),
     "desktopApp:test": ("desktopApp/src/jvmTest/kotlin",),
     "mcp-server:test": ("mcp-server/src/test/kotlin",),
+}
+
+#: The path fragments whose classes do NOT belong to a label.
+#:
+#: The architecture gates have a task of their own (`archTest`), so the classes
+#: under `com/singularity/todo/arch/` are expected to run THERE and not in
+#: `jvmTest`. Without this, the `jvmTest` floor asks for classes that its own
+#: results directory does not have — the floor would report every architecture
+#: gate as "did not run", for the sake of a run in which they did.
+EXCLUDED_PATHS: dict[str, tuple[str, ...]] = {
+    "shared:jvmTest": ("com/singularity/todo/arch/",),
+}
+
+#: The path fragments a label keeps, when it does not keep all of them.
+#:
+#: `archTest` runs the architecture gates and nothing else, so the label names
+#: the package it keeps — the same split the build makes, in the same place.
+INCLUDED_PATHS: dict[str, tuple[str, ...]] = {
+    "shared:archTest": ("com/singularity/todo/arch/",),
 }
 
 
@@ -352,6 +376,8 @@ def expected_classes_with_tag(label: str, tag: str):
     roots = EXPECTED_CLASS_SOURCES.get(label)
     if not roots:
         return None
+    excluded = EXCLUDED_PATHS.get(label, ())
+    included = INCLUDED_PATHS.get(label)
     sync = _load_sync()
     names = set()
     for rel in roots:
@@ -359,6 +385,12 @@ def expected_classes_with_tag(label: str, tag: str):
         if not root.is_dir():
             continue
         for kt in root.rglob("*Test.kt"):
+            if any(fragment in kt.as_posix() for fragment in excluded):
+                continue
+            if included is not None and not any(
+                fragment in kt.as_posix() for fragment in included
+            ):
+                continue
             source = kt.read_text(encoding="utf-8", errors="replace")
             for name in sync.test_classes_in(source):
                 if sync.read_tag(source, name) == tag:

@@ -526,5 +526,113 @@ class CommandTest(unittest.TestCase):
             self.assertIn(test.qualified_name, carrying[0])
 
 
+class TreeReadingTest(unittest.TestCase):
+    """A gate that reads one tree is not selected by a change to another.
+
+    The tree-wide rule used to be a single rule: any change to any tree
+    selected every gate that reads a tree. That is safe and it is slow — 55
+    classes for a change to a Maestro flow, most of which read `commonMain`
+    and cannot be broken by a YAML file.
+
+    The narrowing is only allowed in the safe direction: a gate that reads an
+    unnamed tree reads everything, and a gate that names a tree is selected
+    when THAT tree changes.
+    """
+
+    def _gate(self, name: str, source: str) -> impact.TestClass:
+        return test_class(
+            f'com.singularity.todo.arch.{name}',
+            'arch',
+            source=source,
+            task=':shared:archTest',
+        )
+
+    def test_a_gate_that_names_no_tree_reads_everything(self):
+        """The safe default: an unnamed tree is every tree."""
+        gate = self._gate('UnnamedGate', 'class UnnamedGate { }')
+        self.assertIsNone(impact.roots_read_by(gate))
+
+    def test_a_gate_that_names_a_tree_reads_that_tree(self):
+        gate = self._gate('FlowGate', 'val root = System.getProperty("maestro.root")')
+        self.assertEqual({'maestro'}, impact.roots_read_by(gate))
+
+    def test_a_change_to_a_flow_selects_the_gate_that_reads_the_flows(self):
+        gate = self._gate('FlowGate', 'val root = System.getProperty("maestro.root")')
+        selected, _ = impact.map_tests(
+            ['Maestro/flows/tasks/create-task.yaml'], [gate]
+        )
+        self.assertIn(gate.qualified_name, selected)
+
+    def test_a_change_to_a_flow_does_not_select_a_gate_that_reads_common_main(self):
+        """A YAML file cannot break a gate that never opens it."""
+        gate = self._gate(
+            'MainGate',
+            'val root = System.getProperty("commonMain.root")',
+        )
+        selected, _ = impact.map_tests(
+            ['Maestro/flows/tasks/create-task.yaml'], [gate]
+        )
+        self.assertNotIn(gate.qualified_name, selected)
+
+    def test_a_change_to_a_test_file_selects_the_gate_that_reads_the_tests(self):
+        gate = self._gate(
+            'TestTreeGate',
+            'val root = System.getProperty("jvmTestSources.root")',
+        )
+        selected, _ = impact.map_tests(
+            ['shared/src/jvmTest/kotlin/com/singularity/todo/arch/DiFacadeTest.kt'],
+            [gate],
+        )
+        self.assertIn(gate.qualified_name, selected)
+
+    def test_a_change_to_production_selects_every_tree_wide_gate(self):
+        """The narrowing never applies to a change in the code.
+
+        A gate can depend on production code through an IMPORT — without
+        reading its source — so a change in `commonMain` selects every
+        tree-wide gate, exactly as before.
+        """
+        gate = self._gate('MainGate', 'val root = System.getProperty("commonMain.root")')
+        selected, _ = impact.map_tests(
+            ['shared/src/commonMain/kotlin/com/singularity/todo/core/di/DiFacade.kt'],
+            [gate],
+        )
+        self.assertIn(gate.qualified_name, selected)
+
+    def test_a_gate_that_names_no_tree_is_selected_for_a_flow_change(self):
+        """The narrow direction must not lose a gate that reads everything."""
+        gate = self._gate('UnnamedGate', 'class UnnamedGate { }')
+        selected, _ = impact.map_tests(
+            ['Maestro/flows/tasks/create-task.yaml'], [gate]
+        )
+        self.assertIn(gate.qualified_name, selected)
+
+
+class ArchTaskTest(unittest.TestCase):
+    """The architecture gates run in a task of their own."""
+
+    def test_an_arch_class_is_run_by_the_arch_task(self):
+        """The split is by package, so the map has to know it.
+
+        A command that names `:shared:jvmTest` for an arch class runs nothing:
+        the class is excluded from that task, and the command reports green.
+        """
+        self.assertEqual(
+            ':shared:archTest',
+            impact._task_for('shared/src/jvmTest', 'com.singularity.todo.arch.DiFacadeTest'),
+        )
+
+    def test_a_class_outside_the_arch_package_keeps_its_source_set_task(self):
+        self.assertEqual(
+            ':shared:jvmTest',
+            impact._task_for('shared/src/jvmTest', 'com.singularity.todo.feature.tasks.TaskTest'),
+        )
+
+    def test_the_build_declares_the_arch_task(self):
+        """The map and the build cannot disagree about the task's name."""
+        build = (impact.ROOT / 'shared/build.gradle.kts').read_text(encoding='utf-8')
+        self.assertIn('archTest', build)
+
+
 if __name__ == '__main__':
     unittest.main()

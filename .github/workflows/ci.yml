@@ -848,6 +848,7 @@ jobs:
             :mcp-server:jar \
             :shared:verifyToolSurface \
             :shared:jvmTest \
+            :shared:archTest \
             :shared:testAndroidHostTest \
             :desktopApp:test \
             :mcp-server:test \
@@ -912,7 +913,7 @@ jobs:
           jvm=0
           host=0
           mcp=0
-          python3 scripts/check-test-runs.py --require shared:jvmTest,desktopApp:test --since "$RUN_STARTED" --gradle-log build.log || jvm=$?
+          python3 scripts/check-test-runs.py --require shared:jvmTest,shared:archTest,desktopApp:test --since "$RUN_STARTED" --gradle-log build.log || jvm=$?
           python3 scripts/check-test-runs.py --require shared:testAndroidHostTest --since "$RUN_STARTED" --gradle-log build.log || host=$?
           # The mcp-server module keeps ONE test: the end-to-end one, which spawns the
           # jar. It is slow, so the fast population has nothing to run in that module —

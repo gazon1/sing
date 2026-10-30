@@ -118,8 +118,12 @@ internal object TextFieldShapeScan {
      * The keys are paths relative to `com/singularity/todo/`, the same shape the
      * registries use. The helpers' own package is left out: it holds the
      * helpers, not fields.
+     *
+     * Computed once: the scan reads every file of `commonMain`, and three of
+     * the gates ask for it. Recomputing it per call was 24 seconds of a
+     * 3-minute suite, paid again by every caller.
      */
-    fun shapes(): Map<String, Set<FieldShape>> =
+    private val shapesByPath: Map<String, Set<FieldShape>> by lazy {
         files.entries.mapNotNull { (path, file) ->
             if (path.startsWith(HELPERS_PACKAGE)) return@mapNotNull null
             val imports = file.imports.map { it.name }
@@ -130,6 +134,9 @@ internal object TextFieldShapeScan {
             }
             if (shapes.isEmpty()) null else path to shapes
         }.toMap()
+    }
+
+    fun shapes(): Map<String, Set<FieldShape>> = shapesByPath
 
     /**
      * The file at [path], relative to `com/singularity/todo/`.

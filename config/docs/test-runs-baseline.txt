@@ -121,8 +121,9 @@
 # and they run in every population.
 #
 # GENERATED:BEGIN — rewritten by --update-baseline; do not hand-edit
-desktopApp:test 26 0
-shared:jvmTest 2785 0
+desktopApp:test 62 0
+shared:archTest 219 0
+shared:jvmTest 4148 0
 mcp-server:test 0 0
 shared:testAndroidHostTest 13 0
 # GENERATED:END
