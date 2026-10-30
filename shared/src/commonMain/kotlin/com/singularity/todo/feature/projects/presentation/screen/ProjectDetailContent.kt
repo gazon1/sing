@@ -40,6 +40,7 @@ import kotlinx.collections.immutable.persistentSetOf
 // ─── Content ─────────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
+@Suppress("LongMethod")
 @Composable
 fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier = Modifier) {
     val nav = LocalProjectsNavigator.current
@@ -85,6 +86,11 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
     ) { padding ->
         when (val s = state) {
             ProjectDetailUiState.Loading -> LoadingIndicator(Modifier.padding(padding))
+
+            is ProjectDetailUiState.Error -> EmptyState(
+                title = s.message,
+                modifier = Modifier.padding(padding),
+            )
 
             ProjectDetailUiState.NotFound -> EmptyState(
                 title = "Project not found",

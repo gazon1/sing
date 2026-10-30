@@ -2,6 +2,7 @@ package com.singularity.todo.feature.tasks.presentation.components.detail
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -36,12 +37,12 @@ fun TaskDetailTagsSection(tags: ImmutableList<Tag>, onDeleteTag: (TagId) -> Unit
         icon = { Icon(Icons.AutoMirrored.Filled.Label, contentDescription = null) },
         label = "Tags",
         content = {
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                tags.take(5).forEach { tag ->
+                tags.forEach { tag ->
                     Card(
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer,

@@ -124,6 +124,9 @@ class ProjectDetailViewModel(
     /** Emits null on start (loading placeholder), then the project flow. */
     private val _projectFlow = MutableStateFlow<Project?>(null)
 
+    /** Set when loading the project fails, so the screen can leave the loading branch. */
+    private val _loadErrorFlow = MutableStateFlow<String?>(null)
+
     /**
      * Reactive list of parent-picker options, derived from [projectFlow] and
      * [ProjectsRepository.watchProjects]. Excludes the current project (cycle prevention)
@@ -192,18 +195,23 @@ class ProjectDetailViewModel(
         // All other streams derive from [projectFlow] instead of re-subscribing to the
         // repository (one Room observer, not five).
         vmScope.launch {
-            projectRepo.observe(projectId)
-                .onStart { emit(null) }
-                .collect { project ->
-                    _projectFlow.value = project
-                    if (project != null && !project.isDeleted) {
-                        draftState.seed(
-                            project.name,
-                            project.description
-                                ?: "",
-                        )
+            @Suppress("TooGenericExceptionCaught")
+            try {
+                projectRepo.observe(projectId)
+                    .onStart { emit(null) }
+                    .collect { project ->
+                        _projectFlow.value = project
+                        if (project != null && !project.isDeleted) {
+                            draftState.seed(
+                                project.name,
+                                project.description
+                                    ?: "",
+                            )
+                        }
                     }
-                }
+            } catch (e: Exception) {
+                _loadErrorFlow.value = e.toMessage("Load failed")
+            }
         }
 
         // The configured default offset — preselects the picker, creates nothing.
@@ -269,7 +277,7 @@ class ProjectDetailViewModel(
         // subscription — `flatMapLatest` restarts its upstream on every trigger emission.
         vmScope.launch {
             val hasProject = _projectFlow.map { it != null }.distinctUntilChanged()
-            val projectState = combine(
+            val projectStateRaw = combine(
                 _projectFlow,
                 hasProject.flatMapLatest { loaded ->
                     if (!loaded) flowOf(emptyList()) else taskRepo.observeByFilter(TaskFilter.ByProject(projectId))
@@ -315,6 +323,13 @@ class ProjectDetailViewModel(
                             tagGroups = persistentListOf(),
                         )
                     }
+                }
+            }
+            val projectState = projectStateRaw.combine(_loadErrorFlow) { state, err ->
+                if (err != null && state is ProjectDetailUiState.Loading) {
+                    ProjectDetailUiState.Error(err)
+                } else {
+                    state
                 }
             }
             combine(

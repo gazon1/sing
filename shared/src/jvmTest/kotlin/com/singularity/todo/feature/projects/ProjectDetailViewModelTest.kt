@@ -7,6 +7,7 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.projects.domain.usecase.CloseProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.DeleteProjectUseCase
 import com.singularity.todo.feature.projects.domain.usecase.UpdateProjectUseCase
@@ -32,6 +33,7 @@ import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeUnitOfWork
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -99,12 +101,13 @@ class ProjectDetailViewModelTest {
     private fun createVm(
         scope: CoroutineScope,
         taskRepo: TaskRepository = fakeTaskRepo,
+        projectRepo: com.singularity.todo.feature.projects.domain.port.ProjectsRepository = fakeProjectsRepo,
         fakeProjectReminders: FakeProjectRemindersRepository = this.fakeProjectReminders,
         notificationsSettings: FakeNotificationsSettingsRepository = this.fakeNotificationSettings,
     ): ProjectDetailViewModel {
         val vm = ProjectDetailViewModel(
             projectId = ProjectId("p1"),
-            projectRepo = fakeProjectsRepo,
+            projectRepo = projectRepo,
             taskRepo = taskRepo,
             tagGroupRepo = fakeTagGroupRepo,
             deleteProject = DeleteProjectUseCase(fakeProjectsRepo, fakeTaskRepo),
@@ -572,5 +575,17 @@ class ProjectDetailViewModelTest {
             "a completed dependency is not blocked work, and it stays visible — " +
                 "hiding completed tasks is a separate filter",
         )
+    }
+
+    @Test
+    fun `a failed load surfaces an Error state`() = runTest {
+        val failingRepo = object : ProjectsRepository by fakeProjectsRepo {
+            override fun observe(id: ProjectId): Flow<Project?> =
+                flow { throw IllegalStateException("boom") }
+        }
+        val vm = createVm(backgroundScope, projectRepo = failingRepo)
+        advanceUntilIdle()
+        runCurrent()
+        assertTrue(vm.stateFlow.value is ProjectDetailUiState.Error, "expected Error, got ${vm.stateFlow.value}")
     }
 }
