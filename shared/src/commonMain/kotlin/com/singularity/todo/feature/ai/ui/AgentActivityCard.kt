@@ -73,7 +73,7 @@ fun AgentToolCallCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = name,
+                    text = humanToolName(name),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f, fill = false),
                 )
@@ -198,4 +198,32 @@ private fun PlanStepStatus.color() = when (this) {
     PlanStepStatus.PENDING -> MaterialTheme.colorScheme.onSurfaceVariant
     PlanStepStatus.IN_PROGRESS -> MaterialTheme.colorScheme.primary
     PlanStepStatus.COMPLETED -> MaterialTheme.colorScheme.primary
+}
+
+/** Maps a raw tool name (snake_case) to a human-readable label. */
+fun humanToolName(name: String): String {
+    val parts = name.split('_')
+    val verb = parts.firstOrNull()?.lowercase().orEmpty()
+    val noun = parts.drop(1).joinToString(" ")
+    val ing = when (verb) {
+        "create" -> "Creating"
+        "update" -> "Updating"
+        "delete" -> "Deleting"
+        "list" -> "Listing"
+        "get" -> "Getting"
+        "search" -> "Searching"
+        "refine" -> "Refining"
+        "generate" -> "Generating"
+        "decompose" -> "Decomposing"
+        "cluster" -> "Clustering"
+        "suggest" -> "Suggesting"
+        "improve" -> "Improving"
+        "summarize" -> "Summarizing"
+        "extract" -> "Extracting"
+        "rewrite" -> "Rewriting"
+        "pick" -> "Picking"
+        "write" -> "Writing"
+        else -> verb.replaceFirstChar { it.uppercase() }
+    }
+    return if (noun.isBlank()) ing else "$ing $noun"
 }
