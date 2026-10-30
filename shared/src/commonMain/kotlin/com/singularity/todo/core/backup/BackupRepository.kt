@@ -245,7 +245,6 @@ class BackupRepositoryImpl(
                         userId = currentUser.scopedUserId.value,
                         ownerId = currentUser.userId.value,
                         ownerUserId = currentUser.userId.value,
-                        userChosenDestination = userChosen,
                     ),
                 ).getOrThrow()
             }
