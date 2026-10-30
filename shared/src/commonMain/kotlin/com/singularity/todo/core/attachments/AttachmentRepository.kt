@@ -43,6 +43,12 @@ interface AttachmentRepository {
     /** Restores a soft-deleted attachment by [id]. */
     suspend fun restore(id: AttachmentId): Result<Unit>
 
+    /** Hard-deletes soft-deleted attachments (and their files) to reclaim space. */
+    suspend fun cleanupDeleted(olderThanMillis: Long = 0L): Result<Int>
+
+    /** Alias for [cleanupDeleted]. */
+    suspend fun purgeDeletedAttachments(olderThanMillis: Long = 0L): Result<Int> = cleanupDeleted(olderThanMillis)
+
     // ─── Domain methods ─────────────────────────────────────────────────────
 
     /** Emits all (non-deleted) attachments for the given task, scoped to the current user. */
@@ -110,6 +116,21 @@ class AttachmentRepositoryImpl(
         val ts = clock.now().toEpochMilliseconds()
         val rows = dao.restoreForUser(id.value, ts, uid.value)
         require(rows > 0) { "Attachment $id not found or not owned by current user" }
+    }
+
+    override suspend fun cleanupDeleted(olderThanMillis: Long): Result<Int> = runCatchingCancellable {
+        val uid = currentUser.scopedUserId.value
+        val rows = dao.listDeletedForUser(uid.value)
+        var count = 0
+        for (row in rows) {
+            val deletedAt = row.deletedAt
+            if (deletedAt != null && !(olderThanMillis > 0 && deletedAt >= olderThanMillis)) {
+                row.localPath?.takeIf { it.isNotBlank() }?.let { storage.deleteFile(it) }
+                dao.deleteForUser(row.id, uid.value)
+                count++
+            }
+        }
+        count
     }
 
     // ─── Domain methods ─────────────────────────────────────────────────────
