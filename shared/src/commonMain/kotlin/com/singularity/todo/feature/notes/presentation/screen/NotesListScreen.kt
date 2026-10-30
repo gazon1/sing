@@ -192,7 +192,10 @@ fun NotesScreenContent(
                             }
                         },
                         actions = {
-                            IconButton(onClick = { actions.onDeleteSelected() }) {
+                            IconButton(
+                                onClick = { actions.onDeleteSelected() },
+                                modifier = Modifier.testTag(TestTags.NOTES_DELETE_SELECTED_BUTTON),
+                            ) {
                                 Icon(
                                     Icons.Default.Delete,
                                     contentDescription = "Delete selected",
@@ -203,6 +206,7 @@ fun NotesScreenContent(
                         colors = TopAppBarDefaults.topAppBarColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
                         ),
+                        forceShow = true,
                     )
                 } else {
                     TopAppBar(
