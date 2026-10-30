@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
-import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
 import com.singularity.todo.feature.tasks.domain.logic.Blocking
@@ -44,7 +43,6 @@ class TaskChildrenSlot(
     private val allTasks: StateFlow<List<Task>>,
     private val onError: (String) -> Unit,
     private val onSaved: (String) -> Unit,
-    private val onUndoDeleteAttachment: (AttachmentId) -> Unit = {},
     /** Raised when a close is refused until the user confirms. */
     private val onBlockedClose: (BlockedCloseRequest) -> Unit,
 ) : FeatureSlot<TaskChildrenState, TaskChildrenIntent> {
@@ -59,9 +57,8 @@ class TaskChildrenSlot(
             combine(
                 children.checklistRepository.watchByTask(taskId.value),
                 core.taskRepo.observeSubtasks(taskId),
-                children.attachmentsRepo.watchByTask(taskId),
-            ) { checklist, subtasks, attachments ->
-                TaskChildrenState(checklist = checklist, subtasks = subtasks, attachments = attachments)
+            ) { checklist, subtasks ->
+                TaskChildrenState(checklist = checklist, subtasks = subtasks)
             }.collect { _state.value = it }
         }
     }
@@ -86,14 +83,6 @@ class TaskChildrenSlot(
             }
 
             is TaskDetailIntent.Domain.DeleteSubtask -> deleteSubtask(intent.task)
-
-            is TaskDetailIntent.Domain.AddUrlAttachment -> addAttachment(intent)
-
-            is TaskDetailIntent.Domain.AddFileAttachment -> addFileAttachment(intent)
-
-            is TaskDetailIntent.Domain.DeleteAttachment -> deleteAttachment(intent)
-
-            is TaskDetailIntent.Domain.RestoreAttachment -> restoreAttachment(intent)
         }
     }
 
@@ -161,31 +150,5 @@ class TaskChildrenSlot(
     private fun deleteSubtask(subtask: Task) = scope.launch {
         core.taskRepo.softDelete(subtask.id)
             .onFailure { onError("Delete subtask failed") }
-    }
-
-    // ── Attachments ─────────────────────────────────────────────────────────
-
-    private fun addAttachment(intent: TaskDetailIntent.Domain.AddUrlAttachment) = scope.launch {
-        children.attachmentsRepo.addUrlAttachment(taskId, intent.url, intent.title)
-            .onSuccess { onSaved("Attachment added") }
-            .onFailure { onError("Failed to add attachment") }
-    }
-
-    private fun addFileAttachment(intent: TaskDetailIntent.Domain.AddFileAttachment) = scope.launch {
-        children.attachmentsRepo.saveFileAttachment(taskId, intent.sourcePath, intent.mimeType)
-            .onSuccess { onSaved("File attached") }
-            .onFailure { onError("Failed to attach file: ${it.message}") }
-    }
-
-    private fun deleteAttachment(intent: TaskDetailIntent.Domain.DeleteAttachment) = scope.launch {
-        children.attachmentsRepo.delete(intent.id)
-            .onSuccess { onUndoDeleteAttachment(intent.id) }
-            .onFailure { onError("Failed to delete attachment") }
-    }
-
-    private fun restoreAttachment(intent: TaskDetailIntent.Domain.RestoreAttachment) = scope.launch {
-        children.attachmentsRepo.restore(intent.id)
-            .onSuccess { onSaved("Attachment restored") }
-            .onFailure { onError("Failed to restore attachment") }
     }
 }

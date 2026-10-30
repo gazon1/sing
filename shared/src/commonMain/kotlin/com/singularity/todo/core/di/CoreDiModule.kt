@@ -575,7 +575,9 @@ fun coreModule(): org.koin.core.module.Module =
             )
         }
 
-        viewModel { AttachmentsViewModel(repository = get(), crashReporter = get()) }
+        viewModel { (taskId: com.singularity.todo.feature.tasks.domain.model.TaskId) ->
+            AttachmentsViewModel(repository = get(), taskId = taskId, crashReporter = get())
+        }
     }
 
 /**

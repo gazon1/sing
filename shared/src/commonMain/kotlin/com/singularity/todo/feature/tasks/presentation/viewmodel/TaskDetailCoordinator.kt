@@ -400,7 +400,6 @@ class TaskDetailCoordinator(
             tags = entityState.tags.toImmutableList(),
             checklist = childrenState.checklist.toImmutableList(),
             reminders = reminderState.reminders.toImmutableList(),
-            attachments = childrenState.attachments.toImmutableList(),
             subtasks = childrenState.subtasks.toImmutableList(),
             blockedBy = task.blockedBy.toImmutableSet(),
             followsUp = task.followsUp.toImmutableSet(),
@@ -492,10 +491,6 @@ class TaskDetailCoordinator(
             is TaskDetailIntent.Domain.ToggleSubtask,
             is TaskDetailIntent.Domain.DeleteSubtask,
             is TaskDetailIntent.Domain.AddSubtask,
-            is TaskDetailIntent.Domain.AddUrlAttachment,
-            is TaskDetailIntent.Domain.AddFileAttachment,
-            is TaskDetailIntent.Domain.DeleteAttachment,
-            is TaskDetailIntent.Domain.RestoreAttachment,
             -> children.onIntent(intent)
 
             is TaskDetailIntent.Domain.SetReminder,
