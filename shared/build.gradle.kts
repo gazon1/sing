@@ -391,6 +391,9 @@ kotlin {
             implementation(libs.acp)
             implementation(libs.acp.model)
 
+            // OS keyring access (replaces the secret-tool CLI shell-out).
+            implementation(libs.java.keyring)
+
             // The MCP tool server. It lives here rather than in the `:mcp-server`
             // module because the desktop application hands an external agent its tool
             // access by running *this* server in its own `--mcp-server` mode: the agent

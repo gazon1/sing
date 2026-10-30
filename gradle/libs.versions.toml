@@ -109,6 +109,7 @@ rich-editor = "1.2.1"
 
 # Security
 security-crypto = "1.1.0"
+java-keyring = "1.0.4"
 
 # Play In-App Updates
 play-app-update = "2.1.0"
@@ -315,6 +316,7 @@ rich-editor-compose = { module = "com.mohamedrejeb.richeditor:richeditor-compose
 
 # Security
 android-security-crypto = { module = "androidx.security:security-crypto", version.ref = "security-crypto" }
+java-keyring = { module = "com.github.javakeyring:java-keyring", version.ref = "java-keyring" }
 
 # Play In-App Updates
 play-app-update = { module = "com.google.android.play:app-update", version.ref = "play-app-update" }
