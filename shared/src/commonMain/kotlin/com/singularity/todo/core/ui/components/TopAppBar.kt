@@ -6,6 +6,8 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import com.singularity.todo.core.ui.isAndroidPlatform
@@ -27,7 +29,12 @@ fun TopAppBar(
     expandedHeight: Dp = TopAppBarDefaults.TopAppBarExpandedHeight,
     forceShow: Boolean = false,
 ) {
-    if (isAndroidPlatform && !forceShow) return
+    if (isAndroidPlatform && !forceShow) {
+        val holder = LocalScreenActions.current
+        SideEffect { holder?.actions = actions }
+        DisposableEffect(holder) { onDispose { holder?.actions = null } }
+        return
+    }
     val resolvedColors = colors ?: TopAppBarDefaults.topAppBarColors()
     androidx.compose.material3.TopAppBar(
         title = title,
