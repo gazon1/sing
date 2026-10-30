@@ -125,11 +125,13 @@ object AppMenu {
 
         AppDestination.Archive -> TestTags.MENU_ARCHIVE
 
-        AppDestination.Calendar -> TestTags.MENU_CALENDAR
-
         AppDestination.Proposals -> TestTags.MENU_PROPOSALS
 
-        AppDestination.AttachAccount -> TestTags.MENU_ATTACH_ACCOUNT
+        AppDestination.Plans -> TestTags.MENU_PLANS
+
+        AppDestination.Pomodoro -> TestTags.MENU_POMODORO
+
+        AppDestination.AiUsage -> TestTags.MENU_AI_USAGE
 
         AppDestination.ProfileSwitcher -> TestTags.MENU_PROFILES
 
