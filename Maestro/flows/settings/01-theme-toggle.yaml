@@ -21,7 +21,7 @@ tags:
     id: menu_settings
 - extendedWaitUntil:
     visible:
-      id: settings_tab_interface
+      id: settings_tab_dropdown
     timeout: 10000
 - assertVisible:
     id: settings_theme_mode_system
@@ -38,7 +38,11 @@ tags:
 - assertVisible:
     id: settings_font_size_slider
 - tapOn:
+    id: settings_tab_dropdown
+- tapOn:
     id: settings_tab_agenda
+- tapOn:
+    id: settings_tab_dropdown
 - extendedWaitUntil:
     visible:
       id: settings_tab_interface

@@ -244,6 +244,7 @@ non-alphanumeric characters with `_`.
 | `Settings.NOTIFICATIONS_SOUND_SWITCH` | `settings_notifications_sound_switch` | |
 | `Settings.NOTIFICATIONS_VIBRATION_SWITCH` | `settings_notifications_vibration_switch` | |
 | `Settings.REMINDER_DEFAULTS_SECTION` | `reminder_defaults_section` | |
+| `Settings.TAB_DROPDOWN` | `settings_tab_dropdown` | |
 | `Settings.VALUE_ROW` | `settings_value_row` | |
 
 ### Onboarding
