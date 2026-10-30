@@ -336,7 +336,7 @@ fun DesktopShellNav3Root(
                 },
                 floatingActionButtonPosition = FabPosition.End,
                 topBar = {
-ComposeTopMenuBar(entries = menuEntries)
+                    ComposeTopMenuBar(entries = menuEntries)
                 },
             ) { padding ->
                 CompositionLocalProvider(LocalNav3State provides state) {
