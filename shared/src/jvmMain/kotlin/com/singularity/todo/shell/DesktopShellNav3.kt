@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.AlertDialog
@@ -15,7 +14,6 @@ import androidx.compose.material3.FabPosition
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
@@ -23,7 +21,6 @@ import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -106,8 +103,6 @@ fun DesktopShellNav3Root(
     val topMostRoute: NavKey = state.topMostRoute()
     val fabCurrent: AppDestination = topMostRoute as? AppDestination
         ?: current
-
-    val canGoBack = navigator.canGoBack()
 
     val appEntryProvider = createJvmEntryProvider(navCallbacks, today)
 
@@ -341,37 +336,7 @@ fun DesktopShellNav3Root(
                 },
                 floatingActionButtonPosition = FabPosition.End,
                 topBar = {
-                    Column {
-                        ComposeTopMenuBar(entries = menuEntries)
-                        TopAppBar(
-                            title = { Text(current.title) },
-                            navigationIcon = {
-                                IconButton(
-                                    onClick = {
-                                        scope.launch {
-                                            if (canGoBack) {
-                                                navigator.goBack()
-                                            } else if (drawerState.isClosed) {
-                                                drawerState.open()
-                                            } else {
-                                                drawerState.close()
-                                            }
-                                        }
-                                    },
-                                    modifier = Modifier.testTag(TestTags.SHELL_BACK_BUTTON),
-                                ) {
-                                    Icon(
-                                        imageVector = if (canGoBack) {
-                                            Icons.AutoMirrored.Filled.ArrowBack
-                                        } else {
-                                            Icons.Default.Menu
-                                        },
-                                        contentDescription = if (canGoBack) "Back" else "Menu",
-                                    )
-                                }
-                            },
-                        )
-                    }
+                    ComposeTopMenuBar(entries = menuEntries)
                 },
             ) { padding ->
                 CompositionLocalProvider(LocalNav3State provides state) {
