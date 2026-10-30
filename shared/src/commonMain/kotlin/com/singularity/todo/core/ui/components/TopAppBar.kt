@@ -27,7 +27,7 @@ fun TopAppBar(
     colors: TopAppBarColors? = null,
     scrollBehavior: TopAppBarScrollBehavior? = null,
     expandedHeight: Dp = TopAppBarDefaults.TopAppBarExpandedHeight,
-    forceShow: Boolean = false,
+    forceShow: Boolean = false, // selection-mode bars keep a real bar on Android (duplicate of shell) by design
 ) {
     if (isAndroidPlatform && !forceShow) {
         val holder = LocalScreenActions.current
