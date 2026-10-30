@@ -44,7 +44,7 @@ class AttachmentsViewModelTest {
 
         vm.onIntent(AttachmentsIntent.Delete(attachment.id))
         runCurrent()
-        assertTrue(events.any { it is AttachmentsUiEvent.UndoDeleteAttachment })
+        assertTrue(events.any { it is AttachmentsUiEvent.UndoDelete })
 
         vm.onIntent(AttachmentsIntent.Restore(attachment.id))
         runCurrent()
