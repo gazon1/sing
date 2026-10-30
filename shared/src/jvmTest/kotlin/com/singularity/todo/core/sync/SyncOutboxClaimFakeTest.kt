@@ -35,15 +35,15 @@ class SyncOutboxClaimFakeTest {
                 createdAt = 2L,
             ),
         )
-        dao.claim(listOf("p1"), now)
+        dao.claim(listOf("p1"), "token-1")
         val pending = dao.getPending(now, "o", "pr")
         assertEquals(listOf("p2"), pending.map { it.patchId })
     }
 
     @Test
-    fun claim_setsClaimedAt() = runTest {
+    fun claim_setsClaimToken() = runTest {
         val dao = FakeSyncOutboxDao()
-        val now = 1000L
+        val token = "token-1"
         dao.insert(
             SyncOutboxEntity(
                 patchId = "p1",
@@ -55,12 +55,12 @@ class SyncOutboxClaimFakeTest {
                 createdAt = 1L,
             ),
         )
-        dao.claim(listOf("p1"), now)
-        assertTrue(dao.rows.first().claimedAt == now)
+        dao.claim(listOf("p1"), token)
+        assertTrue(dao.rows.first().claimToken == token)
     }
 
     @Test
-    fun markFailed_clearsClaimedAt() = runTest {
+    fun markFailed_clearsClaimToken() = runTest {
         val dao = FakeSyncOutboxDao()
         val now = 1000L
         dao.insert(
@@ -72,18 +72,18 @@ class SyncOutboxClaimFakeTest {
                 entityType = "t",
                 payload = "{}",
                 createdAt = 1L,
-                claimedAt = now,
+                claimToken = "token-1",
             ),
         )
-        dao.markFailed("p1", "err", now + 100, now)
-        assertEquals(null, dao.rows.first().claimedAt)
+        dao.markFailed("p1", "err", now + 100, "token-1")
+        assertEquals(null, dao.rows.first().claimToken)
     }
 
     @Test
     fun claim_doesNotOverwriteAnExistingClaim() = runTest {
         val dao = FakeSyncOutboxDao()
-        val first = 1000L
-        val second = 2000L
+        val first = "token-1"
+        val second = "token-2"
         dao.insert(
             SyncOutboxEntity(
                 patchId = "p1",
@@ -97,6 +97,6 @@ class SyncOutboxClaimFakeTest {
         )
         dao.claim(listOf("p1"), first)
         dao.claim(listOf("p1"), second)
-        assertEquals(first, dao.rows.first().claimedAt)
+        assertEquals(first, dao.rows.first().claimToken)
     }
 }

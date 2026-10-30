@@ -1309,7 +1309,7 @@ private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, 
     override suspend fun getPending(now: Long, ownerId: String, profileId: String): List<SyncOutboxEntity> =
         store.value.values
             .filter { it.ownerId == ownerId && it.profileId == profileId }
-            .filter { it.claimedAt == null }
+            .filter { it.claimToken == null }
             .filter { it.nextAttemptAt == null || it.nextAttemptAt <= now }
             .sortedBy { it.createdAt }
 
@@ -1322,34 +1322,34 @@ private class FakeSyncOutboxDao(private val store: MutableStateFlow<Map<String, 
     override suspend fun delete(id: String) {
         store.update { it - id }
     }
-    override suspend fun markFailed(id: String, error: String, nextAttemptAt: Long, claimedAt: Long?) {
+    override suspend fun markFailed(id: String, error: String, nextAttemptAt: Long, claimToken: String?) {
         store.update { current ->
             val existing = current[id] ?: return@update current
-            if (existing.claimedAt != null && existing.claimedAt != claimedAt) return@update current
+            if (existing.claimToken != null && existing.claimToken != claimToken) return@update current
             current + (
                 id to existing.copy(
                     attempts = existing.attempts + 1,
                     lastError = error,
                     nextAttemptAt = nextAttemptAt,
-                    claimedAt = null,
+                    claimToken = null,
                 )
             )
         }
     }
     override suspend fun attemptsOf(id: String): Int? = store.value[id]?.attempts
 
-    override suspend fun claim(ids: List<String>, now: Long) {
+    override suspend fun claim(ids: List<String>, token: String) {
         store.update { current ->
             current.mapValues { (k, v) ->
-                if (k in ids && v.claimedAt == null) v.copy(claimedAt = now) else v
+                if (k in ids && v.claimToken == null) v.copy(claimToken = token) else v
             }
         }
     }
 
-    override suspend fun release(ids: List<String>, claimedAt: Long) {
+    override suspend fun release(ids: List<String>, token: String) {
         store.update { current ->
             current.mapValues { (k, v) ->
-                if (k in ids && v.claimedAt == claimedAt) v.copy(claimedAt = null) else v
+                if (k in ids && v.claimToken == token) v.copy(claimToken = null) else v
             }
         }
     }
