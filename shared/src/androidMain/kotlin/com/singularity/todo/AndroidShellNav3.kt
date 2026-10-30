@@ -6,12 +6,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.Text
@@ -132,6 +135,26 @@ fun androidShellNav3Root(
         },
     ) {
         Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text(current.title) },
+                    navigationIcon = {
+                        IconButton(
+                            onClick = {
+                                if (!navigator.goBack()) {
+                                    (context as? Activity)?.finish()
+                                }
+                            },
+                            modifier = Modifier.testTag(TestTags.SHELL_BACK_BUTTON),
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                            )
+                        }
+                    },
+                )
+            },
             floatingActionButton = {
                 val action = fabAction ?: return@Scaffold
                 ExtendedFloatingActionButton(
