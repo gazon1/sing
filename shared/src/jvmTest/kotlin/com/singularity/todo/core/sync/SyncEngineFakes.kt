@@ -56,21 +56,21 @@ open class FakeSyncOutboxDao : SyncOutboxDao {
     ): List<SyncOutboxEntity> =
         snapshot()
             .filter { it.ownerId == ownerId && it.profileId == profileId }
-            .filter { it.claimedAt == null }
+            .filter { it.claimToken == null }
             .filter { it.nextAttemptAt == null || it.nextAttemptAt <= now }
 
-    override suspend fun claim(ids: List<String>, now: Long) {
+    override suspend fun claim(ids: List<String>, token: String) {
         ids.forEach { id ->
-            val index = rows.indexOfFirst { it.patchId == id && it.claimedAt == null }
-            if (index >= 0) rows[index] = rows[index].copy(claimedAt = now)
+            val index = rows.indexOfFirst { it.patchId == id && it.claimToken == null }
+            if (index >= 0) rows[index] = rows[index].copy(claimToken = token)
         }
     }
 
-    override suspend fun release(ids: List<String>, claimedAt: Long) {
+    override suspend fun release(ids: List<String>, token: String) {
         ids.forEach { id ->
             val index = rows.indexOfFirst { it.patchId == id }
-            if (index >= 0 && rows[index].claimedAt == claimedAt) {
-                rows[index] = rows[index].copy(claimedAt = null)
+            if (index >= 0 && rows[index].claimToken == token) {
+                rows[index] = rows[index].copy(claimToken = null)
             }
         }
     }
@@ -90,16 +90,16 @@ open class FakeSyncOutboxDao : SyncOutboxDao {
         id: String,
         error: String,
         nextAttemptAt: Long,
-        claimedAt: Long?,
+        claimToken: String?,
     ) {
         val index = rows.indexOfFirst { it.patchId == id }
-        if (index >= 0 && (rows[index].claimedAt == null || rows[index].claimedAt == claimedAt)) {
+        if (index >= 0 && (rows[index].claimToken == null || rows[index].claimToken == claimToken)) {
             rows[index] =
                 rows[index].copy(
                     attempts = rows[index].attempts + 1,
                     lastError = error,
                     nextAttemptAt = nextAttemptAt,
-                    claimedAt = null,
+                    claimToken = null,
                 )
         }
     }

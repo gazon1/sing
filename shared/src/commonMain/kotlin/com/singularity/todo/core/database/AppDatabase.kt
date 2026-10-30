@@ -48,7 +48,7 @@ import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
  * The tests now read this. A migration that forgot to bump the annotation still
  * fails them, which is the behaviour worth keeping.
  */
-const val SCHEMA_VERSION = 51
+const val SCHEMA_VERSION = 53
 
 /**
  * Room database for Android.

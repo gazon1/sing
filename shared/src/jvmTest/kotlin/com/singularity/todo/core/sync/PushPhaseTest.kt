@@ -503,7 +503,7 @@ class PushPhaseTest {
 
             assertIs<PhaseResult.Failed<PushSummary>>(result)
             assertNull(
-                outbox.rows.single().claimedAt,
+                outbox.rows.single().claimToken,
                 "the row was never claimed, so there is nothing to give back",
             )
             assertEquals(
@@ -545,7 +545,7 @@ class PushPhaseTest {
                 "the server answered for nothing, so nothing was deleted",
             )
             assertTrue(
-                outbox.rows.none { it.claimedAt != null },
+                outbox.rows.none { it.claimToken != null },
                 "every claimed row goes back onto the queue — the batch before the last one included",
             )
         }

@@ -50,7 +50,7 @@ data class SyncOutboxEntity(
      * Backoff writes it; the push query filters on it.
      */
     @ColumnInfo("next_attempt_at") val nextAttemptAt: Long? = null,
-    @ColumnInfo("claimed_at") val claimedAt: Long? = null,
+    @ColumnInfo("claim_token") val claimToken: String? = null,
 )
 
 /**
@@ -79,24 +79,24 @@ interface SyncOutboxDao {
         "SELECT * FROM sync_outbox " +
             "WHERE owner_id = :ownerId " +
             "AND profile_id = :profileId " +
-            "AND claimed_at IS NULL " +
+            "AND claim_token IS NULL " +
             "AND (next_attempt_at IS NULL OR next_attempt_at <= :now) " +
             "ORDER BY created_at ASC",
     )
     suspend fun getPending(now: Long, ownerId: String, profileId: String): List<SyncOutboxEntity>
 
-    /** Claims rows for pushing: sets claimed_at where it is still null. */
-    @Query("UPDATE sync_outbox SET claimed_at = :now WHERE patch_id IN (:ids) AND claimed_at IS NULL")
-    suspend fun claim(ids: List<String>, now: Long)
+    /** Claims rows for pushing: sets claim_token where it is still null. */
+    @Query("UPDATE sync_outbox SET claim_token = :token WHERE patch_id IN (:ids) AND claim_token IS NULL")
+    suspend fun claim(ids: List<String>, token: String)
 
     /**
-     * Releases rows back onto the queue: clears `claimed_at` so they can be pushed again,
+     * Releases rows back onto the queue: clears `claim_token` so they can be pushed again,
      * but only where the claim is still the one this cycle took. A row whose claim was
      * taken over by another cycle (after this one deferred it via markFailed) is left
      * untouched, so this cycle's release cannot strip another cycle's claim.
      */
-    @Query("UPDATE sync_outbox SET claimed_at = NULL WHERE patch_id IN (:ids) AND claimed_at = :claimedAt")
-    suspend fun release(ids: List<String>, claimedAt: Long)
+    @Query("UPDATE sync_outbox SET claim_token = NULL WHERE patch_id IN (:ids) AND claim_token = :token")
+    suspend fun release(ids: List<String>, token: String)
 
     /**
      * How many patches an account still owes the server.
@@ -139,10 +139,10 @@ interface SyncOutboxDao {
      */
     @Query(
         "UPDATE sync_outbox SET attempts = attempts + 1, last_error = :error, " +
-            "next_attempt_at = :nextAttemptAt, claimed_at = NULL " +
-            "WHERE patch_id = :id AND (claimed_at IS NULL OR claimed_at = :claimedAt)",
+            "next_attempt_at = :nextAttemptAt, claim_token = NULL " +
+            "WHERE patch_id = :id AND (claim_token IS NULL OR claim_token = :claimToken)",
     )
-    suspend fun markFailed(id: String, error: String, nextAttemptAt: Long, claimedAt: Long? = null)
+    suspend fun markFailed(id: String, error: String, nextAttemptAt: Long, claimToken: String? = null)
 
     /** Current attempt count for a patch. */
     @Query("SELECT attempts FROM sync_outbox WHERE patch_id = :id")

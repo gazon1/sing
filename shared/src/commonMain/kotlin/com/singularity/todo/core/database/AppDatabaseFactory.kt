@@ -100,6 +100,10 @@ object AppDatabaseFactory {
                 Migration48To49(),
                 // Adds claimed_at to sync_outbox. See Migration49To50.
                 Migration49To50(),
+                // Adds claim_token to sync_outbox. See Migration51To52.
+                Migration51To52(),
+                // Drops claimed_at from sync_outbox. See Migration52To53.
+                Migration52To53(),
                 // Creates the full-text indexes — virtual tables, which an
                 // AutoMigrationSpec cannot describe. See Migration42To43.
                 Migration42To43(),

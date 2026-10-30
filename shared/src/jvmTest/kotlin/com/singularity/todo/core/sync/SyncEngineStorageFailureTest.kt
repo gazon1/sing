@@ -61,7 +61,7 @@ class SyncEngineStorageFailureTest {
         override suspend fun getPending(now: Long, ownerId: String, profileId: String): List<SyncOutboxEntity> =
             throw failure
 
-        override suspend fun claim(ids: List<String>, now: Long) = Unit
+        override suspend fun claim(ids: List<String>, token: String) = Unit
     }
 
     /**
@@ -76,7 +76,7 @@ class SyncEngineStorageFailureTest {
     private class SwitchableOutbox(private val delegate: FakeSyncOutboxDao) : SyncOutboxDao by delegate {
         var readable: Boolean = true
 
-        override suspend fun claim(ids: List<String>, now: Long) = Unit
+        override suspend fun claim(ids: List<String>, token: String) = Unit
         override suspend fun getPending(now: Long, ownerId: String, profileId: String): List<SyncOutboxEntity> =
             if (readable) {
                 delegate.getPending(now, ownerId, profileId)
