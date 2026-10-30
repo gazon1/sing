@@ -98,6 +98,11 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
         when (val s = state) {
             ProjectDetailUiState.Loading -> LoadingIndicator(Modifier.padding(padding))
 
+            is ProjectDetailUiState.Error -> EmptyState(
+                title = s.message,
+                modifier = Modifier.padding(padding),
+            )
+
             ProjectDetailUiState.NotFound -> EmptyState(
                 title = "Project not found",
                 modifier = Modifier.padding(padding),

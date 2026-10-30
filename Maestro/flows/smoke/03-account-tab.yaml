@@ -49,7 +49,8 @@ tags:
 # The scroll lives in a helper: the gesture that moves the rail is not the
 # obvious one, and two recipes that looked right turned out to do nothing on a
 # device. See Maestro/helpers/settings-rail-scroll.yaml.
-- runFlow: ../../helpers/settings-rail-scroll.yaml
+- tapOn:
+    id: settings_tab_dropdown
 - extendedWaitUntil:
     visible:
       id: settings_tab_account

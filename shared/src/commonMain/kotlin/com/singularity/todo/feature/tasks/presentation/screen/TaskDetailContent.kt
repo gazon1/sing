@@ -136,6 +136,16 @@ fun TaskDetailContent(
                     ),
                 )
 
+                is TaskDetailUiEvent.UndoDeleteAttachment -> notifications.send(
+                    Notification.Undo(
+                        title = "Attachment deleted",
+                        actionLabel = "Undo",
+                        onAction = {
+                            coordinator.onIntent(TaskDetailIntent.Domain.RestoreAttachment(event.attachmentId))
+                        },
+                    ),
+                )
+
                 is TaskDetailUiEvent.UndoArchive -> notifications.send(
                     Notification.Undo(
                         title = "Task archived",

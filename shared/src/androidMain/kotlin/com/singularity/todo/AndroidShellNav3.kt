@@ -6,13 +6,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
 import com.singularity.todo.shell.ShellSearchButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -90,6 +93,8 @@ fun androidShellNav3Root(
     val projectsTreeState by projectsTreeViewModel.stateFlow.collectAsStateWithLifecycle()
     val projectsOpener: ProjectsOpener = koinInject()
 
+    val showAttachAccount = com.singularity.todo.shell.rememberIsAnonymousSession()
+
     // topLevelRoute is MutableState<NavKey>, getValue triggers recomposition on change
     val current: AppDestination = state.topLevelRoute as? AppDestination
         ?: AppDestination.AgendaGraph(AgendaStartRoute.Today)
@@ -135,6 +140,36 @@ fun androidShellNav3Root(
             topBar = {
                 TopAppBar(
                     title = { Text(current.title) },
+navigationIcon = {
+                        // Toggle between Back (nested screen or previous tab) and Menu
+                        // (ultimate root tab), mirroring Desktop.
+                        val showBack = navigator.canGoBack()
+                        if (showBack) {
+                            IconButton(
+                                onClick = {
+                                    if (!navigator.goBack()) {
+                                        (context as? Activity)?.finish()
+                                    }
+                                },
+                                modifier = Modifier.testTag(TestTags.SHELL_BACK_BUTTON),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back",
+                                )
+                            }
+                        } else {
+                            IconButton(
+                                onClick = { menuVisible = true },
+                                modifier = Modifier.testTag(TestTags.NAV_MENU_BUTTON),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Menu,
+                                    contentDescription = MenuButtonTitle,
+                                )
+                            }
+                        }
+                    },
                     actions = {
                         if (current != AppDestination.Search) {
                             ShellSearchButton(navigator = navigator)
@@ -201,6 +236,7 @@ fun androidShellNav3Root(
                     projectsOpener.requestOpen(projectId)
                     navigator.open(AppDestination.ProjectsGraph())
                 },
+                showAttachAccount = showAttachAccount,
             )
         }
     }

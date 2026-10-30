@@ -58,11 +58,14 @@ non-alphanumeric characters with `_`.
 | Constant | Value | Where |
 |---|---|---|
 | `MENU_AI_CHAT` | `menu_aichat` | |
+| `MENU_AI_USAGE` | `menu_ai_usage` | |
 | `MENU_ALL_PROJECTS` | `menu_all_projects` | |
 | `MENU_ARCHIVE` | `menu_archive` | |
 | `MENU_ATTACH_ACCOUNT` | `menu_attach_account` | |
 | `MENU_CALENDAR` | `menu_calendar` | |
 | `MENU_NOTES` | `menu_notes` | |
+| `MENU_PLANS` | `menu_plans` | |
+| `MENU_POMODORO` | `menu_pomodoro` | |
 | `MENU_PROFILES` | `menu_profiles` | |
 | `MENU_PROJECTS_SECTION` | `menu_projects_section` | |
 | `MENU_PROPOSALS` | `menu_proposals` | |
@@ -241,6 +244,7 @@ non-alphanumeric characters with `_`.
 | `Settings.NOTIFICATIONS_SOUND_SWITCH` | `settings_notifications_sound_switch` | |
 | `Settings.NOTIFICATIONS_VIBRATION_SWITCH` | `settings_notifications_vibration_switch` | |
 | `Settings.REMINDER_DEFAULTS_SECTION` | `reminder_defaults_section` | |
+| `Settings.TAB_DROPDOWN` | `settings_tab_dropdown` | |
 | `Settings.VALUE_ROW` | `settings_value_row` | |
 
 ### Onboarding
@@ -406,6 +410,7 @@ non-alphanumeric characters with `_`.
 | `MultiDatePicker.PREV_MONTH` | `multi_date_picker_prev_month` | |
 | `PROJECTS_LIST_EMPTY` | `projects_list_empty` | |
 | `PROJECTS_SEARCH_INPUT` | `projects_search_input` | |
+| `PROPOSALS_EMPTY` | `proposals_empty` | |
 | `REFRESH_INDICATOR` | `refresh_indicator` | |
 | `RESULT_DIALOG` | `result_dialog` | |
 | `SHELL_BACK_BUTTON` | `shell_back_button` | |

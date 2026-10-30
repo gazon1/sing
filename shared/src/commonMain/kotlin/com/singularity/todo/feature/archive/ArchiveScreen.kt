@@ -32,6 +32,9 @@ import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.LoadingIndicator
+import com.singularity.todo.core.ui.components.StatefulContent
+import com.singularity.todo.core.ui.components.ContentState
+import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.preview.PreviewSamples
@@ -87,7 +90,12 @@ fun ArchiveScreen(viewModel: ArchiveViewModel = koinViewModel(), onBack: () -> U
                 when (val s = state) {
                     ArchiveUiState.Loading -> LoadingIndicator()
 
-                    is ArchiveUiState.Error -> EmptyState(title = "Error", subtitle = s.message)
+                    is ArchiveUiState.Error -> StatefulContent(
+                        state = ContentState.Error(AppError.Unknown(s.message, code = "archive.load_failed")),
+                        emptyTitle = "",
+                        onRetry = { viewModel.onIntent(ArchiveIntent.Retry) },
+                        modifier = Modifier.fillMaxSize(),
+                    ) { _, _ -> }
 
                     is ArchiveUiState.Content -> {
                         if (s.tasks.isEmpty()) {

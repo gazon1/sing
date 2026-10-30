@@ -41,6 +41,7 @@ sealed interface ProjectsIntent : MviIntent {
     data class SetSearchQuery(val query: String) : ProjectsIntent
     data class SetSortOrder(val order: ProjectSortOrder) : ProjectsIntent
     data class Delete(val id: ProjectId) : ProjectsIntent
+    data object Retry : ProjectsIntent
 
     /**
      * The user opened a closed project again: its work is not finished after all.
@@ -92,6 +93,10 @@ class ProjectsViewModel(
     private val _sortOrder = MutableStateFlow(ProjectSortOrder.Name)
 
     init {
+        reload()
+    }
+
+    private fun reload() {
         vmScope.launch {
             combine(_searchQuery, _sortOrder) { query, sort -> query to sort }.flatMapLatest { (query, sort) ->
                 combine(
@@ -175,6 +180,7 @@ class ProjectsViewModel(
             is ProjectsIntent.Delete -> delete(intent.id)
             is ProjectsIntent.Reopen -> reopen(intent.id)
             is ProjectsIntent.ReviewProject -> reviewProject(intent.project)
+            ProjectsIntent.Retry -> reload()
         }
     }
 

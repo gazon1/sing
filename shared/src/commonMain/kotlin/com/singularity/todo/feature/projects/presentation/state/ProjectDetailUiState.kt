@@ -8,6 +8,7 @@ import kotlinx.collections.immutable.ImmutableList
 sealed interface ProjectDetailUiState {
     data object Loading : ProjectDetailUiState
     data object NotFound : ProjectDetailUiState
+    data class Error(val message: String) : ProjectDetailUiState
 
     /**
      * Everything the screen renders, in one snapshot.

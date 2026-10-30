@@ -1,5 +1,6 @@
 package com.singularity.todo.shell
 
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.DestinationKind
 import org.junit.jupiter.api.Tag
@@ -59,5 +60,11 @@ class AppMenuTest {
         // stayed a tab: the two facts are what the menu's shape is made of.
         assertTrue(AppDestination.Calendar in AppMenu.allDestinations)
         assertTrue(AppDestination.Plans !in AppMenu.allDestinations)
+    }
+
+    @Test
+    fun attachAccountEntryPointsToAttachAccountDestination() {
+        assertEquals(TestTags.MENU_ATTACH_ACCOUNT, AppMenu.attachAccount.id)
+        assertEquals(AppDestination.AttachAccount, AppMenu.attachAccount.destination)
     }
 }

@@ -77,7 +77,15 @@ private fun iconSchema(): A2uiComponentSchema = A2uiComponentSchema(
     name = "icon",
     description = "A small pictogram, for decoration only.",
     properties = listOf(
-        A2uiProperty("name", A2uiType.STRING, true, "Icon name, e.g. check, star, clock."),
+        A2uiProperty(
+            "name",
+            A2uiType.STRING,
+            true,
+            "Icon name. One of: star, check, close, add, delete, edit, settings, search, " +
+                "info, warning, home, work, folder, note, calendar, date, cart, flight, hospital, " +
+                "school, fitness, pets, music, code, build, anchor, favorite. Unknown names render " +
+                "a neutral glyph.",
+        ),
     ),
 )
 
@@ -212,7 +220,7 @@ private fun tabsSchema(): A2uiComponentSchema = A2uiComponentSchema(
  */
 private fun modalSchema(): A2uiComponentSchema = A2uiComponentSchema(
     name = "modal",
-    description = "A panel shown over the surface, opened by a data-model path.",
+    description = "An inline panel shown while a data-model path is true.",
     properties = listOf(
         A2uiProperty("child", A2uiType.NODE_REF, true, "Id of the component to show."),
         A2uiProperty("openPath", A2uiType.PATH, true, "Data-model path; the panel shows while it is true."),

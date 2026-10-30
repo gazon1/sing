@@ -48,6 +48,7 @@ fun ProjectDetailTopBar(
     val title = when (state) {
         ProjectDetailUiState.Loading -> "Project"
         ProjectDetailUiState.NotFound -> "Not found"
+        is ProjectDetailUiState.Error -> "Project"
         is ProjectDetailUiState.Content -> state.ui.project.name
     }
 

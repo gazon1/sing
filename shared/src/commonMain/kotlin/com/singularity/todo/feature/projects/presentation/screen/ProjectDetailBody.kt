@@ -125,7 +125,7 @@ fun ProjectBodySection(
             }
             if (ui.tasks.isEmpty()) {
                 EmptyState(
-                    title = "No tasks yet",
+                    title = if (ui.totalCount == 0) "No tasks yet" else "No tasks match filters",
                     testTag = TestTags.PROJECT_DETAIL_EMPTY,
                     modifier = Modifier.padding(32.dp),
                 )

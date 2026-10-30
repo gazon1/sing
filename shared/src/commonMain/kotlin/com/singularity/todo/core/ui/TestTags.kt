@@ -165,6 +165,15 @@ object TestTags {
     /** The proposals' entry in the menu. */
     const val MENU_PROPOSALS = "menu_proposals"
 
+    /** The Plans entry in the menu. */
+    const val MENU_PLANS = "menu_plans"
+
+    /** The Pomodoro entry in the menu. */
+    const val MENU_POMODORO = "menu_pomodoro"
+
+    /** The AI usage entry in the menu. */
+    const val MENU_AI_USAGE = "menu_ai_usage"
+
     /** Empty state of the proposals screen. */
     const val PROPOSALS_EMPTY = "proposals_empty"
 
@@ -692,6 +701,9 @@ object TestTags {
 
         /** The NavRail scroll container — allows Maestro to scroll clipped tabs into view. */
         const val NAV_RAIL_SCROLL = "settings_nav_rail_scroll"
+
+        /** The tab selector shown on narrow screens (below 600dp) instead of the nav rail. */
+        const val TAB_DROPDOWN = "settings_tab_dropdown"
 
         /** The accent-color swatch picker — one per [SingularityAccents]. */
         fun accentSwatch(accentName: String) = "settings_accent_swatch_${slug(accentName)}"

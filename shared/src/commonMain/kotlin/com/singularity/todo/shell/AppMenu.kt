@@ -56,6 +56,10 @@ object AppMenu {
         ),
     )
 
+    /** Account entries, including Attach account when the session is anonymous. */
+    fun accountEntries(anonymous: Boolean): List<MenuEntry> =
+        if (anonymous) account + attachAccount else account
+
     /** The entry that opens the quick search. */
     val search: List<MenuEntry> = listOf(
         MenuEntry(
@@ -63,6 +67,14 @@ object AppMenu {
             label = "Quick search",
             destination = AppDestination.Search,
         ),
+    )
+
+    /** The entry that attaches the current anonymous session to an account. Only shown for anonymous sessions. */
+    val attachAccount: MenuEntry = MenuEntry(
+        id = TestTags.MENU_ATTACH_ACCOUNT,
+        label = AppDestination.AttachAccount.title,
+        destination = AppDestination.AttachAccount,
+        icon = AppDestination.AttachAccount.icon,
     )
 
     /**
@@ -125,11 +137,13 @@ object AppMenu {
 
         AppDestination.Archive -> TestTags.MENU_ARCHIVE
 
-        AppDestination.Calendar -> TestTags.MENU_CALENDAR
-
         AppDestination.Proposals -> TestTags.MENU_PROPOSALS
 
-        AppDestination.AttachAccount -> TestTags.MENU_ATTACH_ACCOUNT
+        AppDestination.Plans -> TestTags.MENU_PLANS
+
+        AppDestination.Pomodoro -> TestTags.MENU_POMODORO
+
+        AppDestination.AiUsage -> TestTags.MENU_AI_USAGE
 
         AppDestination.ProfileSwitcher -> TestTags.MENU_PROFILES
 

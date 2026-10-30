@@ -31,6 +31,12 @@ interface AttachmentDao {
     @Query("UPDATE attachments SET deleted_at = :ts, updated_at = :ts WHERE id = :id AND user_id = :userId")
     suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int
 
+    @Query(
+        "UPDATE attachments SET deleted_at = NULL, updated_at = :ts " +
+            "WHERE id = :id AND user_id = :userId AND deleted_at IS NOT NULL",
+    )
+    suspend fun restoreForUser(id: String, ts: Long, userId: String): Int
+
     @Query("DELETE FROM attachments WHERE id = :id AND user_id = :userId")
     suspend fun deleteForUser(id: String, userId: String): Int
 

@@ -80,7 +80,6 @@ class ShellTestTagReachabilityTest {
             // top-left, the FAB bottom-right — so neither can be below the fold.
             assertContentDescriptionDisplayed(DesktopShell.HAMBURGER)
             assertContentDescriptionDisplayed(DesktopShell.FAB_ADD_TASK)
-            assertContentDescriptionDisplayed(DesktopShell.SEARCH)
             assertCurrentTab("Today")
 
             // The tags reached the tree.

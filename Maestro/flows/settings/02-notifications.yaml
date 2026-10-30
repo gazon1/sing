@@ -16,6 +16,12 @@ tags:
     id: menu_settings
 - extendedWaitUntil:
     visible:
+      id: settings_tab_dropdown
+    timeout: 10000
+- tapOn:
+    id: settings_tab_dropdown
+- extendedWaitUntil:
+    visible:
       id: settings_tab_notifications
     timeout: 10000
 - tapOn:

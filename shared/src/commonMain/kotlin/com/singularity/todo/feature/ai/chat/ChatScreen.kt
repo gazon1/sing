@@ -18,6 +18,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -30,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.llm.AgentPlanStep
 import com.singularity.todo.core.llm.AgentToolCall
+import com.singularity.todo.core.llm.ToolCallStatus
 import com.singularity.todo.core.llm.AgentTurnOutcome
 import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
@@ -42,7 +44,7 @@ import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.genui.render.ComponentRegistry
 import com.singularity.todo.feature.ai.ui.AgentPlanCard
-import com.singularity.todo.feature.ai.ui.AgentToolCallCard
+import com.singularity.todo.feature.ai.ui.humanToolName
 import kotlinx.serialization.json.JsonElement
 import com.singularity.todo.feature.genui.render.GenuiSurface
 import com.singularity.todo.feature.genui.render.LocalGenuiOnAction
@@ -111,6 +113,25 @@ fun ChatScreenContent(
                     calls = state.activity.calls,
                     outcome = state.turnOutcome,
                 )
+                state.surfaceError?.let { err ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = err,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = { vm.onIntent(ChatViewModel.Intent.DismissSurfaceError) }) {
+                            Text("Dismiss")
+                        }
+                    }
+                }
                 HorizontalDivider()
                 ChatInputBar(
                     state = inputState,
@@ -177,8 +198,9 @@ private fun ChatMessagesList(
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
-    LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
+    val lastContentLength = messages.lastOrNull()?.content?.length ?: 0
+    LaunchedEffect(messages.size, lastContentLength, isLoading) {
+        if (messages.isNotEmpty()) listState.scrollToItem(messages.lastIndex)
     }
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
@@ -229,11 +251,18 @@ private fun AgentActivitySection(
         if (plan.isNotEmpty()) {
             AgentPlanCard(steps = plan)
         }
-        calls.forEach { call ->
-            AgentToolCallCard(
-                name = call.name,
-                status = call.status,
-                summary = call.summary,
+        if (calls.isNotEmpty()) {
+            val failed = calls.any { it.status == ToolCallStatus.FAILED }
+            val last = calls.last()
+            val statusText = when {
+                failed -> "failed"
+                calls.all { it.status == ToolCallStatus.COMPLETED } -> "done"
+                else -> "running"
+            }
+            Text(
+                text = "${calls.size} call(s) · ${humanToolName(last.name)} · $statusText",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         when (outcome) {
