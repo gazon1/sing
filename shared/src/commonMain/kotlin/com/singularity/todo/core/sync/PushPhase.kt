@@ -546,7 +546,7 @@ private sealed class PushPlan {
      * authoritative owner of all patches in this plan and is used throughout response
      * processing rather than re-reading the current scope.
      *
-     * The [claimedAt] is the moment the batch was claimed, and it is the guard
+     * The [claimToken] is the token the batch was claimed under, and it is the guard
      * that gives the claim back: the release clears a row only where the claim
      * is still this one, so a row another cycle took over is left alone.
      */
