@@ -583,6 +583,7 @@ class BackupChainTest {
         clock = Clock.System,
         fs = fs,
         cursors = cursors,
+        backupDir = backupDir,
     )
 
     /** The importer, writing into the target database. */
