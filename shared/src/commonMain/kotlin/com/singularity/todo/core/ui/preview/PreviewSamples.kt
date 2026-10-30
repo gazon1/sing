@@ -235,7 +235,6 @@ internal object PreviewSamples {
         tags: List<Tag> = emptyList(),
         checklist: List<ChecklistItem> = emptyList(),
         reminders: List<Reminder> = emptyList(),
-        attachments: List<Attachment> = emptyList(),
         subtasks: List<Task> = emptyList(),
     ): TaskDetailUi = TaskDetailUi(
         task = task,
@@ -243,7 +242,6 @@ internal object PreviewSamples {
         tags = tags.toImmutableList(),
         checklist = checklist.toImmutableList(),
         reminders = reminders.toImmutableList(),
-        attachments = attachments.toImmutableList(),
         subtasks = subtasks.toImmutableList(),
     )
 }

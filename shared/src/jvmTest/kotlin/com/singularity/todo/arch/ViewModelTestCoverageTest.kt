@@ -84,7 +84,6 @@ private val KNOWN_UNCOVERED = setOf(
     "AccountSettingsViewModel",
     "AiUsageViewModel",
     "ArchiveViewModel",
-    "AttachmentsViewModel",
     "CalendarSyncViewModel",
     "ProfileSwitcherViewModel",
 )

@@ -30,7 +30,6 @@ class TaskChildrenSlotTest {
         allTasks: List<Task> = emptyList(),
         onBlockedClose: (BlockedCloseRequest) -> Unit = {},
         onSaved: (String) -> Unit = {},
-        onUndoDeleteAttachment: (com.singularity.todo.core.attachments.AttachmentId) -> Unit = {},
     ) = TaskChildrenSlot(
         taskId = TaskId("t1"),
         core = fakes.core(),
@@ -41,7 +40,6 @@ class TaskChildrenSlotTest {
         allTasks = MutableStateFlow(allTasks),
         onError = {},
         onSaved = onSaved,
-        onUndoDeleteAttachment = onUndoDeleteAttachment,
         onBlockedClose = onBlockedClose,
     )
 
@@ -147,35 +145,6 @@ class TaskChildrenSlotTest {
         runCurrent()
 
         assertNotNull(fakes.taskRepo.tasks.value["c1"]?.archivedAt)
-    }
-
-    @Test
-    fun `delete then restore attachment brings it back`() = runTest {
-        val fakes = SlotFakes()
-        val source = TaskSource(task("t1"))
-        val undone = mutableListOf<com.singularity.todo.core.attachments.AttachmentId>()
-        val slot = slot(fakes, source, backgroundScope, onUndoDeleteAttachment = { undone += it })
-        runCurrent()
-
-        val attachment = com.singularity.todo.core.attachments.Attachment(
-            id = com.singularity.todo.core.attachments.AttachmentId.fromString("a1"),
-            taskId = TaskId("t1"),
-            userId = com.singularity.todo.core.ids.UserId("test-user"),
-            type = com.singularity.todo.core.attachments.AttachmentType.Url,
-            url = "https://example.com",
-            title = "Example",
-            createdAt = kotlin.time.Clock.System.now(),
-            updatedAt = kotlin.time.Clock.System.now(),
-        )
-        fakes.attachmentsRepo.seed(attachment)
-        runCurrent()
-
-        slot.onIntent(TaskDetailIntent.Domain.DeleteAttachment(attachment.id))
-        runCurrent()
-        assertEquals(listOf(attachment.id), undone)
-
-        slot.onIntent(TaskDetailIntent.Domain.RestoreAttachment(attachment.id))
-        runCurrent()
     }
 
     // ─── The blocked-completion guard ─────────────────────────────────────────
