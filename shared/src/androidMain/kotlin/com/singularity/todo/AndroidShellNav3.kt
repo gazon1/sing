@@ -88,6 +88,8 @@ fun androidShellNav3Root(
     val projectsTreeState by projectsTreeViewModel.stateFlow.collectAsStateWithLifecycle()
     val projectsOpener: ProjectsOpener = koinInject()
 
+    val showAttachAccount = com.singularity.todo.shell.rememberIsAnonymousSession()
+
     // topLevelRoute is MutableState<NavKey>, getValue triggers recomposition on change
     val current: AppDestination = state.topLevelRoute as? AppDestination
         ?: AppDestination.AgendaGraph(AgendaStartRoute.Today)
@@ -189,6 +191,7 @@ fun androidShellNav3Root(
                     projectsOpener.requestOpen(projectId)
                     navigator.open(AppDestination.ProjectsGraph())
                 },
+                showAttachAccount = showAttachAccount,
             )
         }
     }

@@ -58,6 +58,7 @@ fun MenuBottomSheet(
     treeState: ProjectsTreeUiState,
     onToggleExpanded: (ProjectId) -> Unit,
     onOpenProject: (ProjectId) -> Unit,
+    showAttachAccount: Boolean = false,
 ) {
     // The partial state is skipped, and that is the fix for a real defect, not
     // a preference.
@@ -100,7 +101,13 @@ fun MenuBottomSheet(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            MenuSections.forEach { section ->
+            val accountItems = AppMenu.accountEntries(showAttachAccount)
+            val sections = listOf(
+                MenuSection(title = "Account", items = accountItems),
+                MenuSection(title = "Search", items = AppMenu.search),
+                MenuSection(title = "Destinations", items = AppMenu.sheetDestinations),
+            )
+            sections.forEach { section ->
                 SectionHeader(section.title)
                 section.items.forEach { item ->
                     NavigationDrawerItem(
@@ -164,10 +171,3 @@ private data class MenuSection(val title: String, val items: List<MenuEntry>)
 @Composable
 private fun MenuEntry.iconContent(): (@Composable () -> Unit)? =
     icon?.let { icon -> { Icon(icon, contentDescription = null) } }
-
-/** The sheet's sections, built from the shared [AppMenu]. */
-private val MenuSections: List<MenuSection> = listOf(
-    MenuSection(title = "Account", items = AppMenu.account),
-    MenuSection(title = "Search", items = AppMenu.search),
-    MenuSection(title = "Destinations", items = AppMenu.sheetDestinations),
-)

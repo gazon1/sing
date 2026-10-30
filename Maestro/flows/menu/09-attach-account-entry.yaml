@@ -1,0 +1,13 @@
+# Attach account is a menu entry only for anonymous (local) sessions.
+appId: com.singularity.todo
+name: menu-attach-account-entry
+tags:
+  - menu
+  - scenario:MENU-10
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- runFlow: ../../helpers/open-app-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: menu_attach_account
+    timeout: 5000

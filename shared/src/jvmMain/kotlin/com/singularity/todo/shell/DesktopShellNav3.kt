@@ -117,6 +117,8 @@ fun DesktopShellNav3Root(
     val projectsTreeState by projectsTreeViewModel.stateFlow.collectAsStateWithLifecycle()
     val projectsOpener: ProjectsOpener = koinInject()
 
+    val showAttachAccount = rememberIsAnonymousSession()
+
     // About dialog state
     var showAbout by remember { mutableStateOf(false) }
 
@@ -252,6 +254,27 @@ fun DesktopShellNav3Root(
                         NavigationDrawerItem(
                             label = { Text(entry.label) },
                             selected = selected,
+                            onClick = {
+                                scope.launch { drawerState.close() }
+                                navigator.open(entry.destination)
+                            },
+                            icon = {
+                                Icon(
+                                    entry.icon ?: Icons.Default.Menu,
+                                    contentDescription = entry.label,
+                                )
+                            },
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp)
+                                .testTag(entry.id),
+                        )
+                    }
+
+                    if (showAttachAccount) {
+                        val entry = AppMenu.attachAccount
+                        NavigationDrawerItem(
+                            label = { Text(entry.label) },
+                            selected = current == entry.destination,
                             onClick = {
                                 scope.launch { drawerState.close() }
                                 navigator.open(entry.destination)
