@@ -151,10 +151,10 @@ internal fun ChangePasswordScreenContent(
 ) {
     androidx.compose.material3.Scaffold(
         topBar = {
-            androidx.compose.material3.TopAppBar(
+            TopAppBar(
                 title = { Text("Change Password") },
                 navigationIcon = {
-                    androidx.compose.material3.IconButton(
+                    IconButton(
                         onClick = onBack,
                         modifier = Modifier.testTag(TestTags.AUTH_ATTACH_BACK_BUTTON),
                     ) {
