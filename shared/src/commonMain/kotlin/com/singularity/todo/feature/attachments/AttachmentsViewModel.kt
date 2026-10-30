@@ -72,7 +72,6 @@ class AttachmentsViewModel(
             repository.delete(intent.attachmentId).fold(
                 onSuccess = {
                     tryEmit(AttachmentsUiEvent.UndoDeleteAttachment(intent.attachmentId))
-                    tryEmit(AttachmentsUiEvent.UndoDelete(intent.attachmentId))
                 },
                 onFailure = {
                     tryEmit(AttachmentsUiEvent.ShowError("Delete failed"))
