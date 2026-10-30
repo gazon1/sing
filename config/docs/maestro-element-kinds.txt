@@ -47,6 +47,7 @@ calendar_sync_system_unavailable text
 calendar_view_mode_month button
 calendar_view_mode_week button
 calendar_weekday_mon text
+chat_input field
 checklist_item_${RUN_ID}_milk item
 checklist_item_checkbox_${RUN_ID}_milk item
 checklist_item_milk item
@@ -67,6 +68,7 @@ menu_all_projects menu
 menu_archive menu
 menu_calendar menu
 menu_notes menu
+menu_proposals menu
 menu_profiles menu
 menu_project_node_childless item
 menu_project_node_latecomer item
@@ -95,6 +97,7 @@ plans_granularity_day button
 plans_granularity_month button
 plans_granularity_week button
 plans_section_overdue item
+proposals_empty text
 pomodoro_focus_chip button
 pomodoro_phase_label text
 pomodoro_play_button button
