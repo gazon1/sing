@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="back">Назад</string>
+    <string name="menu">Меню</string>
+    <string name="ai_actions">AI Actions</string>
+    <string name="reset_date">Сбросить дату</string>
+    <string name="reset_priority">Сбросить приоритет</string>
+    <string name="task_title_placeholder">Название задачи</string>
+    <string name="add_date">Добавить дату</string>
+    <string name="good_evening">Добрый вечер</string>
+    <plurals name="date_count">
+        <item quantity="one">%d дата</item>
+        <item quantity="few">%d даты</item>
+        <item quantity="many">%d дат</item>
+        <item quantity="other">%d дат</item>
+    </plurals>
+</resources>

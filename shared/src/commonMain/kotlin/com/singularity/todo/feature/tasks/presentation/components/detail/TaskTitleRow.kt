@@ -25,6 +25,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
+import org.jetbrains.compose.resources.stringResource
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.task_title_placeholder
 import com.singularity.todo.core.ui.celebration.Celebration
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
@@ -103,7 +106,7 @@ fun TaskTitleRow(
             decorator = { innerTextField ->
                 if (titleState.text.isEmpty()) {
                     Text(
-                        text = "Название задачи",
+                        text = stringResource(Res.string.task_title_placeholder),
                         color = placeholderTextColor(),
                         fontSize = 22.sp,
                         fontWeight = FontWeight.SemiBold,
