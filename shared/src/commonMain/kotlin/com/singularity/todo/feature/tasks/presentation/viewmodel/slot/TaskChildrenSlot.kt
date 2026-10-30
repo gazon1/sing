@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
+import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
 import com.singularity.todo.feature.tasks.domain.logic.Blocking
@@ -43,6 +44,7 @@ class TaskChildrenSlot(
     private val allTasks: StateFlow<List<Task>>,
     private val onError: (String) -> Unit,
     private val onSaved: (String) -> Unit,
+    private val onUndoDeleteAttachment: (AttachmentId) -> Unit = {},
     /** Raised when a close is refused until the user confirms. */
     private val onBlockedClose: (BlockedCloseRequest) -> Unit,
 ) : FeatureSlot<TaskChildrenState, TaskChildrenIntent> {
@@ -90,6 +92,8 @@ class TaskChildrenSlot(
             is TaskDetailIntent.Domain.AddFileAttachment -> addFileAttachment(intent)
 
             is TaskDetailIntent.Domain.DeleteAttachment -> deleteAttachment(intent)
+
+            is TaskDetailIntent.Domain.RestoreAttachment -> restoreAttachment(intent)
         }
     }
 
@@ -175,7 +179,13 @@ class TaskChildrenSlot(
 
     private fun deleteAttachment(intent: TaskDetailIntent.Domain.DeleteAttachment) = scope.launch {
         children.attachmentsRepo.delete(intent.id)
-            .onSuccess { onSaved("Attachment deleted") }
+            .onSuccess { onUndoDeleteAttachment(intent.id) }
             .onFailure { onError("Failed to delete attachment") }
+    }
+
+    private fun restoreAttachment(intent: TaskDetailIntent.Domain.RestoreAttachment) = scope.launch {
+        children.attachmentsRepo.restore(intent.id)
+            .onSuccess { onSaved("Attachment restored") }
+            .onFailure { onError("Failed to restore attachment") }
     }
 }

@@ -40,6 +40,9 @@ interface AttachmentRepository {
     /** Deletes an attachment by [id]. */
     suspend fun delete(id: AttachmentId): Result<Unit>
 
+    /** Restores a soft-deleted attachment by [id]. */
+    suspend fun restore(id: AttachmentId): Result<Unit>
+
     // ─── Domain methods ─────────────────────────────────────────────────────
 
     /** Emits all (non-deleted) attachments for the given task, scoped to the current user. */
@@ -93,13 +96,20 @@ class AttachmentRepositoryImpl(
 
     override suspend fun delete(id: AttachmentId): Result<Unit> = runCatchingCancellable {
         val uid = currentUser.scopedUserId.value
-        val existing = dao.getById(id.value, uid.value)
         val ts = clock.now().toEpochMilliseconds()
         val rows = dao.softDeleteForUser(id.value, ts, uid.value)
         require(rows > 0) { "Attachment $id not found or not owned by current user" }
-        // Best-effort: the DB row is already gone, so a disk failure must not
-        // resurrect it. storage.deleteFile never throws (it returns a Result).
-        existing?.localPath?.takeIf { it.isNotBlank() }?.let { storage.deleteFile(it) }
+        // Keep the file on disk so an undo can restore the row; eventual
+        // cleanup is handled by the profile wipe / sync job.
+        // shortcut: orphaned file remains after the undo window; delete it on
+        // a timer or when the row is hard-deleted to reclaim space.
+    }
+
+    override suspend fun restore(id: AttachmentId): Result<Unit> = runCatchingCancellable {
+        val uid = currentUser.scopedUserId.value
+        val ts = clock.now().toEpochMilliseconds()
+        val rows = dao.restoreForUser(id.value, ts, uid.value)
+        require(rows > 0) { "Attachment $id not found or not owned by current user" }
     }
 
     // ─── Domain methods ─────────────────────────────────────────────────────

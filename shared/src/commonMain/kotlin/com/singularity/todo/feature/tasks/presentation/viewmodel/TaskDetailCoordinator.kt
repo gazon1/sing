@@ -176,6 +176,7 @@ class TaskDetailCoordinator(
         allTasks = allTasks,
         onError = ::reportError,
         onSaved = ::reportSaved,
+        onUndoDeleteAttachment = { tryEmit(TaskDetailUiEvent.UndoDeleteAttachment(it)) },
         onBlockedClose = ::raiseBlockedClose,
     )
 
@@ -495,6 +496,7 @@ class TaskDetailCoordinator(
             is TaskDetailIntent.Domain.AddUrlAttachment,
             is TaskDetailIntent.Domain.AddFileAttachment,
             is TaskDetailIntent.Domain.DeleteAttachment,
+            is TaskDetailIntent.Domain.RestoreAttachment,
             -> children.onIntent(intent)
 
             is TaskDetailIntent.Domain.SetReminder,

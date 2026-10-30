@@ -2294,6 +2294,16 @@ open class FakeAttachmentRepository(
         }
     }
 
+    override suspend fun restore(
+        id: com.singularity.todo.core.attachments.AttachmentId,
+    ): Result<Unit> = runCatchingCancellable {
+        val uid = currentUser.scopedUserId.value
+        val existing =
+            store.state.value.values.firstOrNull { it.id == id && it.userId == uid && it.deletedAt != null }
+                ?: throw IllegalArgumentException("Attachment $id not found or not owned by current user")
+        store.upsert(existing.copy(deletedAt = null))
+    }
+
     // ─── Domain methods ─────────────────────────────────────────────────────
 
     override fun watchByTask(taskId: TaskId): Flow<List<com.singularity.todo.core.attachments.Attachment>> =

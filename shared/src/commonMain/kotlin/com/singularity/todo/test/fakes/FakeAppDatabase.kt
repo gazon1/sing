@@ -1633,6 +1633,13 @@ private class FakeAttachmentDao(private val store: MutableStateFlow<Map<String, 
         return 1
     }
 
+    override suspend fun restoreForUser(id: String, ts: Long, userId: String): Int {
+        val entity = store.value[id]
+        if (entity == null || entity.userId != userId || entity.deletedAt == null) return 0
+        mutate(id) { it.copy(deletedAt = null, updatedAt = ts) }
+        return 1
+    }
+
     override suspend fun deleteForUser(id: String, userId: String): Int {
         val entity = store.value[id]
         if (entity == null || entity.userId != userId) return 0

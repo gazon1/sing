@@ -263,6 +263,10 @@ sealed interface TaskDetailIntent : MviIntent {
             Domain,
             TaskChildrenIntent
 
+        data class RestoreAttachment(val id: AttachmentId) :
+            Domain,
+            TaskChildrenIntent
+
         // ── AI ────────────────────────────────────────────────────────────────
 
         /** Run an AI action (RefineTitle, GenerateDescription, etc.) and apply the result. */
