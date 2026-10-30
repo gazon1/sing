@@ -18,10 +18,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,6 +36,8 @@ import androidx.navigation3.ui.NavDisplay
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.LocalScreenActions
+import com.singularity.todo.core.ui.components.ScreenActionsHolder
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.DestinationKind
@@ -105,6 +107,8 @@ fun androidShellNav3Root(
 
     val fabAction = fabActionForNav3(fabCurrent, today) { navigator.open(it) }
 
+    val screenActions = remember { ScreenActionsHolder() }
+
     NavigationSuiteScaffold(
         navigationSuiteItems = {
             DestinationKind.tabs.forEach { destination ->
@@ -140,7 +144,7 @@ fun androidShellNav3Root(
             topBar = {
                 TopAppBar(
                     title = { Text(current.title) },
-navigationIcon = {
+                    navigationIcon = {
                         // Toggle between Back (nested screen or previous tab) and Menu
                         // (ultimate root tab), mirroring Desktop.
                         val showBack = navigator.canGoBack()
@@ -171,6 +175,7 @@ navigationIcon = {
                         }
                     },
                     actions = {
+                        screenActions.actions?.invoke(this)
                         if (current != AppDestination.Search) {
                             ShellSearchButton(navigator = navigator)
                         }
@@ -194,6 +199,9 @@ navigationIcon = {
                 // #445 blank-screen diagnostic — TEMPORARY: to be replaced with proper CI alerting.
                 val navDisplayEntries = state.toDecoratedEntries(appEntryProvider)
                 LaunchedEffect(state.topLevelRoute) {
+                    // A screen without its own TopAppBar never publishes actions, so clear the
+                    // slot on every navigation to avoid stale buttons from the previous screen.
+                    screenActions.actions = null
                     if (navDisplayEntries.isEmpty()) {
                         println(
                             "WARNING [blank-screen] topLevelRoute=${state.topLevelRoute} has 0 entries. " +
@@ -202,7 +210,7 @@ navigationIcon = {
                     }
                 }
 
-                CompositionLocalProvider(LocalNav3State provides state) {
+                CompositionLocalProvider(LocalNav3State provides state, LocalScreenActions provides screenActions) {
                     NavDisplay(
                         entries = navDisplayEntries,
                         onBack = {
