@@ -1,6 +1,5 @@
 package com.singularity.todo.core.security
 
-import com.singularity.todo.core.process.Subprocess
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.DataInputStream
@@ -10,9 +9,7 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import java.security.SecureRandom
 import javax.crypto.Cipher
-import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.GCMParameterSpec
-import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 
 /**
@@ -25,6 +22,7 @@ import javax.crypto.spec.SecretKeySpec
  *
  * The AES-GCM fallback derives a key from `user.home` via PBKDF2 — no external deps.
  */
+@Suppress("TooManyFunctions")
 open class JvmSecureStorage : SecureStoragePort {
 
     /** Open so test subclasses can direct the fallback file to a test-specific path. */
@@ -67,54 +65,98 @@ open class JvmSecureStorage : SecureStoragePort {
     // very hard to reproduce.
 
     /** Open so test subclasses can force the fallback path. */
-    protected open fun secretToolAvailable(): Boolean =
-        IS_LINUX && Subprocess.runQuietly(listOf("which", "secret-tool")) == 0
-
-    private fun secretToolRead(key: String): String? {
-        if (!secretToolAvailable()) return null
-        return Subprocess.runCapturing(listOf("secret-tool", "lookup", "key=$key"))
-            ?.trim()
-            ?.takeIf { it.isNotEmpty() }
+    private val keyring: com.github.javakeyring.Keyring? by lazy {
+        try {
+            com.github.javakeyring.Keyring.create()
+        } catch (_: com.github.javakeyring.BackendNotSupportedException) {
+            null
+        }
     }
 
-    private fun secretToolWrite(key: String, value: String): Boolean {
-        if (!IS_LINUX || !secretToolAvailable()) return false
-        // The secret goes on stdin, never in the command line: an argument is visible in
-        // `ps` output to every process on the machine for as long as it runs.
-        return Subprocess.runCapturing(
-            argv = listOf(
-                "secret-tool",
-                "store",
-                "--label=singularity:$key",
-                "key",
-                key,
-            ),
-            stdin = value,
-        ) != null
+    protected open fun secretToolAvailable(): Boolean = keyring != null
+
+    protected open fun secretToolRead(key: String): String? {
+        val kr = keyring ?: return null
+        return try {
+            kr.getPassword(SERVICE_NAME, key)?.trim()?.takeIf { it.isNotEmpty() }
+        } catch (_: com.github.javakeyring.PasswordAccessException) {
+            null
+        }
     }
 
-    private fun secretToolDelete(key: String) {
-        if (!IS_LINUX || !secretToolAvailable()) return
-        Subprocess.runQuietly(listOf("secret-tool", "delete", "key=$key"))
+    protected open fun secretToolWrite(key: String, value: String): Boolean {
+        val kr = keyring ?: return false
+        return try {
+            kr.setPassword(SERVICE_NAME, key, value)
+            true
+        } catch (_: com.github.javakeyring.PasswordAccessException) {
+            false
+        }
+    }
+
+    protected open fun secretToolDelete(key: String) {
+        val kr = keyring ?: return
+        try {
+            kr.deletePassword(SERVICE_NAME, key)
+        } catch (_: com.github.javakeyring.PasswordAccessException) {
+            // ignore
+        }
     }
 
     // ─── AES-GCM file fallback ───────────────────────────────────────────────
 
     private val rng = SecureRandom()
 
+    private val keyLock = Any()
+
+    /** Overridable so tests can isolate their keyring entries. */
+    protected open val fallbackKeyName: String = "__singularity_fallback_aes_key__"
+
     private fun deriveKey(): SecretKeySpec {
-        // shortcut: key derived from public user.home with a fixed salt; real
-        // protection needs an OS keyring or a user-supplied secret, upgrade when
-        // the fallback stops being a last resort.
-        val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
-        val spec = PBEKeySpec(
+        if (!secretToolAvailable()) {
+            // Last resort: no keyring. Weak derivation retained for hosts/tests
+            // without a keyring; data loss acceptable on rotation.
+            return legacyDerivedKey()
+        }
+        synchronized(keyLock) {
+            val stored = secretToolRead(fallbackKeyName)
+            if (stored != null) {
+                return try {
+                    SecretKeySpec(java.util.Base64.getDecoder().decode(stored), "AES")
+                } catch (_: IllegalArgumentException) {
+                    null
+                } ?: regenerateKey()
+            }
+            return regenerateKey()
+        }
+    }
+
+    private fun legacyDerivedKey(): SecretKeySpec {
+        val factory = javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+        val spec = javax.crypto.spec.PBEKeySpec(
             System.getProperty("user.home")!!.toCharArray(),
-            SALT,
-            ITERATIONS,
-            KEY_BITS,
+            "singularity-v1".toByteArray(),
+            100_000,
+            256,
         )
         val key = factory.generateSecret(spec)
-        return SecretKeySpec(key.encoded, "AES")
+        return javax.crypto.spec.SecretKeySpec(key.encoded, "AES")
+    }
+
+    private fun regenerateKey(): SecretKeySpec {
+        val bytes = ByteArray(32)
+        rng.nextBytes(bytes)
+        val encoded = java.util.Base64.getEncoder().encodeToString(bytes)
+        if (!secretToolWrite(fallbackKeyName, encoded)) {
+            throw IllegalStateException("could not persist fallback AES key")
+        }
+        return SecretKeySpec(bytes, "AES")
+    }
+
+    /** Invalidates the fallback key and its file; next use regenerates. */
+    fun rotateFallbackKey() {
+        secretToolDelete(fallbackKeyName)
+        Files.deleteIfExists(fallbackFile)
     }
 
     /**
@@ -141,7 +183,14 @@ open class JvmSecureStorage : SecureStoragePort {
     private fun fallbackRead(key: String): String? {
         if (!Files.exists(fallbackFile)) return null
         return DataInputStream(Files.newInputStream(fallbackFile)).use { dis ->
-            val count = dis.readInt()
+            val first = dis.readInt()
+            val count = if (first == MAGIC) {
+                val version = dis.readInt()
+                require(version == FORMAT_VERSION) { "unsupported format version: $version" }
+                dis.readInt()
+            } else {
+                first
+            }
             require(count in 0..MAX_ENTRIES) { "entry count out of range: $count" }
             repeat(count) {
                 val k = dis.readUTF()
@@ -184,7 +233,14 @@ open class JvmSecureStorage : SecureStoragePort {
         val entries = mutableMapOf<String, Pair<ByteArray, ByteArray>>() // iv to ct
         if (Files.exists(fallbackFile)) {
             DataInputStream(Files.newInputStream(fallbackFile)).use { dis ->
-                val count = dis.readInt()
+                val first = dis.readInt()
+                val count = if (first == MAGIC) {
+                    val version = dis.readInt()
+                    require(version == FORMAT_VERSION) { "unsupported format version: $version" }
+                    dis.readInt()
+                } else {
+                    first
+                }
                 require(count in 0..MAX_ENTRIES) { "entry count out of range: $count" }
                 repeat(count) {
                     val k = dis.readUTF()
@@ -211,6 +267,8 @@ open class JvmSecureStorage : SecureStoragePort {
         entries[key] = iv to ct
 
         DataOutputStream(Files.newOutputStream(fallbackFile)).use { dos ->
+            dos.writeInt(MAGIC)
+            dos.writeInt(FORMAT_VERSION)
             dos.writeInt(entries.size)
             for ((k, pair) in entries) {
                 val (iv2, ct2) = pair
@@ -232,7 +290,14 @@ open class JvmSecureStorage : SecureStoragePort {
         val entries = mutableMapOf<String, Pair<ByteArray, ByteArray>>()
         val parsed = runCatching {
             DataInputStream(Files.newInputStream(fallbackFile)).use { dis ->
-                val count = dis.readInt()
+                val first = dis.readInt()
+                val count = if (first == MAGIC) {
+                    val version = dis.readInt()
+                    require(version == FORMAT_VERSION) { "unsupported format version: $version" }
+                    dis.readInt()
+                } else {
+                    first
+                }
                 require(count in 0..MAX_ENTRIES) { "entry count out of range: $count" }
                 repeat(count) {
                     val k = dis.readUTF()
@@ -253,6 +318,8 @@ open class JvmSecureStorage : SecureStoragePort {
         // every entry after the break point.
         if (!parsed) return
         DataOutputStream(Files.newOutputStream(fallbackFile)).use { dos ->
+            dos.writeInt(MAGIC)
+            dos.writeInt(FORMAT_VERSION)
             dos.writeInt(entries.size)
             for ((k, pair) in entries) {
                 val (iv2, ct2) = pair
@@ -270,18 +337,13 @@ open class JvmSecureStorage : SecureStoragePort {
     }
 
     private companion object {
+        private const val SERVICE_NAME = "singularity"
+        private const val MAGIC = 0x53494E47 // "SING"
+        private const val FORMAT_VERSION = 1
         private val IS_LINUX = System.getProperty("os.name", "")
             .lowercase().contains("linux")
         private const val AES_TRANSFORM = "AES/GCM/NoPadding"
         private const val TAG_BITS = 128
-
-        // Fixed at 100_000 on purpose: the key derives from public `user.home`, so a
-        // higher cost buys no attacker resistance but does re-derive a different key —
-        // which would make every existing secure.bin entry undecryptable and take the
-        // backup device key with it. Change only together with a stored KDF version.
-        private const val ITERATIONS = 100_000
-        private const val KEY_BITS = 256
-        private val SALT = "singularity-v1".toByteArray()
 
         // Bounds for the fallback file's untrusted lengths. A corrupted or hostile file must
         // not be able to drive an allocation; exceeding these is treated as corruption, which
