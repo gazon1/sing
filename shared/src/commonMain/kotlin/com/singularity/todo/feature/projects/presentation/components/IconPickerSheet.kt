@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -53,6 +54,7 @@ fun IconPickerSheet(currentIcon: String?, onPick: (String?) -> Unit, onDismiss: 
                     },
                     modifier = Modifier
                         .size(40.dp)
+                        .minimumInteractiveComponentSize()
                         .clip(CircleShape)
                         .clickable { onPick(key) }
                         .background(
@@ -92,6 +94,7 @@ private fun EmojiSection(currentIcon: String?, onPick: (String?) -> Unit) {
                 text = emoji,
                 modifier = Modifier
                     .size(40.dp)
+                    .minimumInteractiveComponentSize()
                     .clip(CircleShape)
                     .clickable { onPick(emoji) }
                     .background(

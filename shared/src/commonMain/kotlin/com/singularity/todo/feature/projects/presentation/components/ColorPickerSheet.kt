@@ -22,8 +22,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.components.ColorSwatch
 import com.singularity.todo.feature.projects.presentation.theme.ProjectColorPalette
-
 /**
  * Color picker sheet for project color selection.
  * Shows a grid of color circles; selected color shows a checkmark overlay.
@@ -39,24 +39,12 @@ fun ColorPickerSheet(currentColor: Int, onPick: (Int) -> Unit, onDismiss: () -> 
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             ProjectColorPalette.all.forEach { color ->
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(Color(color))
-                        .clickable { onPick(color) },
-                ) {
-                    if (color == currentColor) {
-                        Icon(
-                            Icons.Filled.Folder, // check icon placeholder
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier
-                                .size(40.dp)
-                                .padding(8.dp),
-                        )
-                    }
-                }
+                ColorSwatch(
+                    color = Color(color),
+                    name = ProjectColorPalette.nameOf(color),
+                    selected = color == currentColor,
+                    onClick = { onPick(color) },
+                )
             }
         }
         Spacer(Modifier.height(24.dp))

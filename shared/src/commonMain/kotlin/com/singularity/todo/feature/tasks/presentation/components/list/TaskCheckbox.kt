@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -108,6 +109,7 @@ fun TaskCheckbox(
     Box(
         modifier = modifier
             .size(TaskListSizes.Checkbox)
+            .minimumInteractiveComponentSize()
             .scale(popScale.value * pressScale)
             // toggleable, not clickable: clickable alone leaves the node without a
             // ToggleableState, so assistive tech (and UI automation) cannot read whether
