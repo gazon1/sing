@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -45,13 +46,13 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
-import com.singularity.todo.core.ui.components.formatRussianDueDate
 import com.singularity.todo.core.ui.menu.onSecondaryClick
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaRowItem
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
+import com.singularity.todo.feature.agenda.domain.model.toTaskUi
 import com.singularity.todo.feature.agenda.domain.model.RenderedSection
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskMarking
@@ -62,7 +63,6 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
-import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
@@ -318,9 +318,12 @@ private fun AgendaList(
 ) {
     LazyColumn(
         state = listState,
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .widthIn(max = 640.dp),
         contentPadding = PaddingValues(vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(0.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         for (section in sections) {
             item(key = "header-${section.name}") {
@@ -339,12 +342,41 @@ private fun AgendaList(
                 // "Key ... was already used" — a crash, not a wrong-looking row.
                 key = { "${section.name}/${it.task.id.value}" },
             ) { rowItem ->
-                AgendaTaskRow(
-                    rowItem = rowItem,
+                val task = rowItem.task
+                val isSelected = task.id in selectedTaskIds
+                val taskUi = remember(task, rowItem, isSelected) {
+                    rowItem.toTaskUi(isSelected)
+                }
+                val rightClickModifier = if (!isSelectionMode) {
+                    Modifier.onSecondaryClick { offset ->
+                        onOpenContextMenu(taskUi, offset)
+                    }
+                } else {
+                    Modifier
+                }
+                SwipeableTaskRow(
+                    onDelete = { onIntent(AgendaIntent.TaskDeleteClicked(task.id)) },
+                    secondaryClickModifier = rightClickModifier,
                     isSelectionMode = isSelectionMode,
-                    selectedTaskIds = selectedTaskIds,
-                    onIntent = onIntent,
-                    onOpenContextMenu = onOpenContextMenu,
+                    content = {
+                        TaskRowFlat(
+                            task = taskUi,
+                            onToggleCompleted = { onIntent(AgendaIntent.TaskCheckClicked(task.id)) },
+                            onClick = {
+                                if (isSelectionMode) {
+                                    onIntent(AgendaIntent.ToggleSelection(task.id))
+                                } else {
+                                    onIntent(AgendaIntent.TaskClicked(task.id))
+                                }
+                            },
+                            onLongClick = if (!isSelectionMode) {
+                                { onOpenContextMenu(taskUi, DpOffset.Zero) }
+                            } else {
+                                null
+                            },
+                            showDivider = true,
+                        )
+                    },
                 )
             }
         }
@@ -382,75 +414,6 @@ private fun AgendaSectionHeader(name: String, badge: Int?, onAddClick: (() -> Un
             }
         }
     }
-}
-
-@Composable
-private fun AgendaTaskRow(
-    rowItem: AgendaRowItem,
-    isSelectionMode: Boolean,
-    selectedTaskIds: ImmutableSet<TaskId>,
-    onIntent: (AgendaIntent) -> Unit,
-    onOpenContextMenu: (TaskUi, DpOffset) -> Unit,
-) {
-    val task = rowItem.task
-    val isSelected = task.id in selectedTaskIds
-    val taskUi = remember(task, rowItem, isSelected) {
-        TaskUi(
-            id = task.id,
-            title = task.title,
-            project = rowItem.project,
-            projectColor = rowItem.projectColor,
-            dueLabel = formatRussianDueDate(task.dueDate),
-            parentId = task.parentTaskId?.value,
-            indentLevel = if (task.parentTaskId != null) 1 else 0,
-            isPinned = task.isPinned,
-            priority = task.priority,
-            isCompleted = task.completedAt != null,
-            isSelected = isSelected,
-            blockedBy = task.blockedBy.toImmutableSet(),
-            markings = rowItem.markings,
-            seriesDates = rowItem.seriesDates,
-        )
-    }
-
-    // Right-click handler — uses onSecondaryClick (expect/actual, jvmMain actual).
-    // Passed via secondaryClickModifier so SwipeToDismissBox doesn't intercept the event.
-    // Disabled in selection mode: context menu is suppressed during selection.
-    val rightClickModifier = if (!isSelectionMode) {
-        Modifier.onSecondaryClick { offset ->
-            onOpenContextMenu(taskUi, offset)
-        }
-    } else {
-        Modifier
-    }
-
-    SwipeableTaskRow(
-        onDelete = { onIntent(AgendaIntent.TaskDeleteClicked(task.id)) },
-        secondaryClickModifier = rightClickModifier,
-        isSelectionMode = isSelectionMode,
-        content = {
-            TaskRowFlat(
-                task = taskUi,
-                onToggleCompleted = { onIntent(AgendaIntent.TaskCheckClicked(task.id)) },
-                // Click: in selection mode toggles selection; otherwise navigates.
-                onClick = {
-                    if (isSelectionMode) {
-                        onIntent(AgendaIntent.ToggleSelection(task.id))
-                    } else {
-                        onIntent(AgendaIntent.TaskClicked(task.id))
-                    }
-                },
-                // Long-press: in selection mode is ignored (click handles selection);
-                // otherwise opens context menu.
-                onLongClick = if (!isSelectionMode) {
-                    { onOpenContextMenu(taskUi, DpOffset.Zero) }
-                } else {
-                    null
-                },
-                showDivider = true,
-            )
-        },
-    )
 }
 
 @Preview

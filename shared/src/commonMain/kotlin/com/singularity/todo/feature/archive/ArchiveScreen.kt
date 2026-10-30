@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -21,6 +22,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
@@ -96,7 +98,11 @@ fun ArchiveScreen(viewModel: ArchiveViewModel = koinViewModel(), onBack: () -> U
                             )
                         } else {
                             val blockedTaskIds = remember(s.tasks) { Blocking.blockedTaskIds(s.tasks).toImmutableSet() }
-                            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            LazyColumn(
+                                modifier = Modifier.widthIn(max = 640.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
                                 items(s.tasks, key = { it.id.value }) { task ->
                                     TaskCard(
                                         task = task,
@@ -173,7 +179,11 @@ private fun ArchiveContentPreview(state: ArchiveUiState) {
                         val blockedTaskIds = remember(state.tasks) {
                             Blocking.blockedTaskIds(state.tasks).toImmutableSet()
                         }
-                        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        LazyColumn(
+                            modifier = Modifier.widthIn(max = 640.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
                             items(state.tasks, key = { it.id.value }) { task ->
                                 TaskCard(
                                     task = task,

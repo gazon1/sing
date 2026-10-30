@@ -1,11 +1,14 @@
 package com.singularity.todo.feature.agenda.domain.model
 import com.singularity.todo.feature.tasks.domain.model.BlockedBulkCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
+import com.singularity.todo.core.ui.components.formatRussianDueDate
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskMarking
+import com.singularity.todo.feature.tasks.presentation.model.TaskUi
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.datetime.LocalDate
 
 /**
@@ -110,4 +113,21 @@ data class AgendaRowItem(
      */
     val project: String? = null,
     val projectColor: Int? = null,
+)
+
+fun AgendaRowItem.toTaskUi(isSelected: Boolean): TaskUi = TaskUi(
+    id = task.id,
+    title = task.title,
+    project = project,
+    projectColor = projectColor,
+    dueLabel = formatRussianDueDate(task.dueDate),
+    parentId = task.parentTaskId?.value,
+    indentLevel = if (task.parentTaskId != null) 1 else 0,
+    isPinned = task.isPinned,
+    priority = task.priority,
+    isCompleted = task.completedAt != null,
+    isSelected = isSelected,
+    blockedBy = task.blockedBy.toImmutableSet(),
+    markings = markings,
+    seriesDates = seriesDates,
 )
