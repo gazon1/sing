@@ -323,8 +323,10 @@ class BackupExporter(
         )
     }
 
-    private fun isAppResolvedDestination(destPath: String): Boolean =
-        destPath == backupDir || destPath.startsWith("$backupDir/")
+    private fun isAppResolvedDestination(destPath: String): Boolean {
+        val dir = backupDir.trimEnd('/', '\\')
+        return destPath == dir || destPath.startsWith("$dir/") || destPath.startsWith("$dir\\")
+    }
 
     private companion object {
         /** The suffix of the file the change is written to, beside the snapshot. */
