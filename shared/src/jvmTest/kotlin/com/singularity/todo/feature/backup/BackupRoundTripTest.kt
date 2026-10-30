@@ -288,6 +288,7 @@ class BackupRoundTripTest {
         clock = Clock.System,
         fs = fs,
         cursors = BackupCursorStore(fs = fs, dir = File(tempDir, "cursor").absolutePath),
+        backupDir = tempDir.absolutePath,
     )
 
     /** The importer writes into the empty target database. */

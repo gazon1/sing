@@ -417,7 +417,30 @@ fun coreModule(): org.koin.core.module.Module =
 
         // The repository talks to the archive through the two ports, not to the
         // concrete classes: the ports are what a test can replace.
-        singleOf(::BackupExporter)
+        single {
+            BackupExporter(
+                taskDao = get(),
+                noteDao = get(),
+                projectDao = get(),
+                tagDao = get(),
+                reminderDao = get(),
+                projectReminderDao = get(),
+                checklistDao = get(),
+                tagGroupDao = get(),
+                projectTagGroupDao = get(),
+                savedSearchDao = get(),
+                timeEntryDao = get(),
+                profileDao = get(),
+                attachmentDao = get(),
+                annotationDao = get(),
+                agendaViewDao = get(),
+                codec = get(),
+                clock = get(),
+                fs = get(),
+                cursors = get(),
+                backupDir = get(BackupDirQualifier),
+            )
+        }
         single<ArchiveExporter> { get<BackupExporter>() }
         single<ArchiveImporter> {
             BackupImporter(

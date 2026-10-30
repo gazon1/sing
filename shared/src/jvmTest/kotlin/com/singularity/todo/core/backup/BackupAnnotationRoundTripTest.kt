@@ -105,6 +105,7 @@ class BackupAnnotationRoundTripTest {
         clock = clock,
         fs = fs,
         cursors = BackupCursorStore(fs = fs, dir = File(tempDir, "cursor").absolutePath),
+        backupDir = tempDir.absolutePath,
     )
 
     private fun importer(db: AppDatabase) = BackupImporter(
