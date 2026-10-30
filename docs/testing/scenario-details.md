@@ -695,6 +695,20 @@ Steps:
 
 **Expected:** The full project list opens with its search and its sorting, so the tree is not the only way to work with projects.
 
+#### `MENU-10` — The menu offers Attach account to an anonymous session
+
+**confirmed** · P1 · `#MENU`
+
+**Given:** The app runs a local session: no account is attached, and the session was never signed in.
+
+Steps:
+
+1. Launch the app clean, so the session is local and anonymous.
+2. Open the app menu.
+3. Look at the entries the menu offers.
+
+**Expected:** The menu carries an "Attach account" entry. It is the way out of the local session, so an anonymous session has to be offered it.
+
 ### feature.nav
 
 #### `NAV-01` — The bottom navigation bar no longer holds a Calendar button

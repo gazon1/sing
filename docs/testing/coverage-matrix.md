@@ -18,7 +18,7 @@ the table carries the one-line version so a row is readable in a diff.
 | ● | automated |
 | ⊘ | scenario is deprecated — retired deliberately, not an obligation |
 
-**131 scenarios · 99/172 claimed cells automated · 73 holes**
+**132 scenarios · 101/173 claimed cells automated · 72 holes**
 
 ## feature.agenda
 
@@ -108,6 +108,7 @@ the table carries the one-line version so a row is readable in a diff.
 | `MENU-04` | The Calendar is an entry of the menu on Android and Desktop | ● | ● | Calendar is listed in the menu on both platforms, and choosing it opens the calendar. The menu closes on the way in,… |
 | `MENU-05` | A project without children shows no expander, and a closed project is absent from the tree | ● | ● | The childless project shows no expander control, so nothing in the tree invites an expansion that cannot happen. The… |
 | `MENU-06` | The full project list stays reachable from the Projects section of the menu | ● | ● | The full project list opens with its search and its sorting, so the tree is not the only way to work with projects. |
+| `MENU-10` | The menu offers Attach account to an anonymous session | ● | — | The menu carries an "Attach account" entry. It is the way out of the local session, so an anonymous session has to be… |
 
 ## feature.nav
 
@@ -209,7 +210,7 @@ the table carries the one-line version so a row is readable in a diff.
 | `SYNC-PROTO-01` | Meet a server the app is too old for | ○ | ○ | The user is told to update the app to keep syncing. Local work is not blocked and no data is damaged. Proposed rather… |
 | `SYNC-SETTINGS-01` | Change how often sync runs | ● | ● | The new interval takes effect without a restart and survives one. |
 | `SYNC-SIGNOUT-01` | Sign out and sign back in as somebody else | ○ | ○ | The first sign-out confirms briefly and leaves no way back into the signed-in state. With unsent changes the user is… |
-| `SYNC-STATUS-01` | See what sync is doing, and start it by hand | ○ | ○ | Each state reads as what it is: no account and no network are calm states rather than red errors, and an error names… |
+| `SYNC-STATUS-01` | See what sync is doing, and start it by hand | ○ | ● | Each state reads as what it is: no account and no network are calm states rather than red errors, and an error names… |
 
 ## feature.tasks
 
@@ -305,7 +306,6 @@ Claimed but not automated:
 - `SYNC-SIGNOUT-01` / android
 - `SYNC-SIGNOUT-01` / desktop
 - `SYNC-STATUS-01` / android
-- `SYNC-STATUS-01` / desktop
 - `TASK-01` / android
 - `TASK-02` / android
 - `TASK-03` / android
