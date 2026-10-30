@@ -8,13 +8,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
+import com.singularity.todo.shell.ShellSearchButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScaffoldDefaults
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -130,6 +132,16 @@ fun androidShellNav3Root(
         },
     ) {
         Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text(current.title) },
+                    actions = {
+                        if (current != AppDestination.Search) {
+                            ShellSearchButton(navigator = navigator)
+                        }
+                    },
+                )
+            },
             floatingActionButton = {
                 val action = fabAction ?: return@Scaffold
                 ExtendedFloatingActionButton(

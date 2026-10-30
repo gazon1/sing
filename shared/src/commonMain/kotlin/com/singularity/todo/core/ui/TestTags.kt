@@ -115,6 +115,11 @@ object TestTags {
     const val SHELL_BACK_BUTTON = "shell_back_button"
 
     /**
+     * Global search action in the shell app bar (Android + Desktop).
+     */
+    const val SHELL_SEARCH_BUTTON = "shell_search_button"
+
+    /**
      * The desktop shell's drawer sheet.
      *
      * The sheet is the thing that slides in, so it is the thing to ask about

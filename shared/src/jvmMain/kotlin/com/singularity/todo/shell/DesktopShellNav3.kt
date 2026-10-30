@@ -347,6 +347,11 @@ fun DesktopShellNav3Root(
                                     )
                                 }
                             },
+                            actions = {
+                                if (current != AppDestination.Search) {
+                                    ShellSearchButton(navigator = navigator)
+                                }
+                            },
                         )
                     }
                 },
