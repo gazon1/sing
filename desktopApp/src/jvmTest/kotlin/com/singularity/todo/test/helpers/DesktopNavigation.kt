@@ -27,6 +27,7 @@ object DesktopShell {
     const val BACK = "Back"
     const val FAB_ADD_TASK = "Add task"
     const val FAB_ADD_PROJECT = "Add project"
+    const val SEARCH = "Search"
 
     /** The five top-level tabs, in drawer order. */
     val TABS = listOf("Inbox", "Today", "Upcoming", "Plans", "Pomodoro")
