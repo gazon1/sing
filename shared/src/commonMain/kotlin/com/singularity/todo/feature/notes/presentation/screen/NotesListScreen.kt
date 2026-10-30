@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -430,8 +431,11 @@ private fun NoteList(
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
-        modifier = modifier.testTag(TestTags.NOTES_LIST),
+        modifier = modifier
+            .testTag(TestTags.NOTES_LIST)
+            .widthIn(max = 640.dp),
         contentPadding = PaddingValues(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         // Daily notes section (shown first, above all other notes)
