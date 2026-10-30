@@ -3,10 +3,9 @@ package com.singularity.todo.core.graph
 /**
  * Result returned when a cycle is detected during a graph mutation.
  *
- * Three distinct cases allow callers to handle each scenario differently:
+ * Two distinct cases allow callers to handle each scenario differently:
  * - [SelfLoop]: node references itself directly
  * - [Cycle]: node participates in a cycle reachable through its edges
- * - [MissingNode]: the `node` itself does not exist in the graph (edge case for validation)
  */
 sealed class CycleError : Exception() {
     /** The node that directly references itself. */
@@ -23,9 +22,6 @@ sealed class CycleError : Exception() {
      * @property edge The node that caused the revisit (completes the cycle back to the first node in [path]).
      */
     data class Cycle(val path: List<String>, val edge: String) : CycleError()
-
-    /** The [node] does not exist in the graph. */
-    data class MissingNode(val node: String) : CycleError()
 }
 
 /**
@@ -61,11 +57,10 @@ sealed class CycleError : Exception() {
  *     edges = { id -> taskDao.getDirectDependents(TaskId(id)) }
  *         .map { it.value },
  * )
- * result.onFailure { return when (it) {
- *     is CycleError.SelfLoop -> "Task cannot depend on itself"
- *     is CycleError.Cycle -> "Circular dependency: ${it.path.joinToString(" → ")} → ${it.edge}"
- *     is CycleError.MissingNode -> "Task not found"
- * }}
+ *     result.onFailure { return when (it) {
+ *         is CycleError.SelfLoop -> "Task cannot depend on itself"
+ *         is CycleError.Cycle -> "Circular dependency: ${it.path.joinToString(" → ")} → ${it.edge}"
+ *     }}
  * ```
  *
  * @param node The node whose outgoing edges will be traversed (starting point of BFS).
@@ -74,7 +69,7 @@ sealed class CycleError : Exception() {
  *   The [String] parameter and return type make this function type-erased for simplicity;
  *   callers convert their `Id` types to/from `String` as needed.
  *
- * @see CycleError for the three failure cases.
+ * @see CycleError for the two failure cases.
  */
 object CycleDetector {
 
