@@ -21,6 +21,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -111,6 +112,7 @@ fun TaskDetailChecklistSection(
                         },
                         modifier = Modifier
                             .size(40.dp)
+                            .minimumInteractiveComponentSize()
                             .testTag(TestTags.CHECKLIST_INLINE_ADD_BUTTON),
                     ) {
                         Icon(
@@ -119,7 +121,6 @@ fun TaskDetailChecklistSection(
                         )
                     }
                 }
-
                 // No cap: a task with fourteen checklist items shows fourteen of
                 // them. The list used to show ten and say "+4 more", which is a
                 // truncation the user cannot act on from the screen they are on.

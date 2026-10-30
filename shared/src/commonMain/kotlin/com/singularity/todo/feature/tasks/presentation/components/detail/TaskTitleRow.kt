@@ -18,6 +18,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -28,7 +30,6 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.placeholderTextColor
-
 /**
  * Заголовок задачи: чекбокс завершения + инлайн-редактируемое поле названия.
  * Клик по чекбоксу — отдельный target от поля ввода (не пересекаются).
@@ -97,7 +98,8 @@ fun TaskTitleRow(
                 // *value* needs no second name: the field publishes it as the
                 // node's text (measured on the device, 2026-10-28), so a flow
                 // asserts it with `text:`.
-                .testTag(TestTags.TASK_EDITOR_TITLE_INPUT),
+                .testTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+                .semantics { contentDescription = "Task title" },
             decorator = { innerTextField ->
                 if (titleState.text.isEmpty()) {
                     Text(
