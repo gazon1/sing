@@ -14,6 +14,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import com.singularity.todo.core.ui.TestTags
+import org.jetbrains.compose.resources.stringResource
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.back
+import singularity_todo.shared.generated.resources.ai_actions
+import singularity_todo.shared.generated.resources.menu
 
 /**
  * Top bar for TaskDetail screen (View mode).
@@ -34,7 +39,7 @@ fun TaskDetailTopBar(onBackClick: () -> Unit, onMoreClick: (() -> Unit)? = null,
             IconButton(onClick = onBackClick) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Назад",
+                    contentDescription = stringResource(Res.string.back),
                     tint = MaterialTheme.colorScheme.onSurface,
                 )
             }
@@ -47,7 +52,7 @@ fun TaskDetailTopBar(onBackClick: () -> Unit, onMoreClick: (() -> Unit)? = null,
                 ) {
                     Icon(
                         imageVector = Icons.Filled.AutoAwesome,
-                        contentDescription = "AI Actions",
+                        contentDescription = stringResource(Res.string.ai_actions),
                         tint = MaterialTheme.colorScheme.primary,
                     )
                 }
@@ -56,7 +61,7 @@ fun TaskDetailTopBar(onBackClick: () -> Unit, onMoreClick: (() -> Unit)? = null,
                 IconButton(onClick = onMoreClick, modifier = Modifier.testTag(TestTags.TASK_EDITOR_MORE_MENU)) {
                     Icon(
                         imageVector = Icons.Default.MoreVert,
-                        contentDescription = "Меню",
+                        contentDescription = stringResource(Res.string.menu),
                         tint = MaterialTheme.colorScheme.onSurface,
                     )
                 }

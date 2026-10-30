@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="back">Back</string>
+    <string name="menu">Menu</string>
+    <string name="ai_actions">AI Actions</string>
+    <string name="reset_date">Reset date</string>
+    <string name="reset_priority">Reset priority</string>
+    <string name="task_title_placeholder">Task title</string>
+    <string name="add_date">Add date</string>
+    <string name="good_evening">Good evening</string>
+    <plurals name="date_count">
+        <item quantity="one">%d date</item>
+        <item quantity="other">%d dates</item>
+    </plurals>
+</resources>
