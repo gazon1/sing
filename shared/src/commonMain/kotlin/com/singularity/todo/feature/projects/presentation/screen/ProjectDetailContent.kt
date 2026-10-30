@@ -8,6 +8,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -40,6 +41,7 @@ import kotlinx.collections.immutable.persistentSetOf
 // ─── Content ─────────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
+@Suppress("LongMethod")
 @Composable
 fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier = Modifier) {
     val nav = LocalProjectsNavigator.current
@@ -59,6 +61,16 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
 
             is ProjectDetailUiEvent.ShowError -> scope.launch {
                 snackbarHostState.showSnackbar(event.message)
+            }
+
+            is ProjectDetailUiEvent.UndoDeleteTask -> scope.launch {
+                val result = snackbarHostState.showSnackbar(
+                    message = "Task deleted",
+                    actionLabel = "Undo",
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    viewModel.onIntent(ProjectDetailIntent.Domain.RestoreTask(event.taskId))
+                }
             }
         }
     }

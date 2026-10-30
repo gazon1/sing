@@ -36,6 +36,7 @@ class TaskLifecycleSlot(
     private val taskFlow: StateFlow<Task?>,
     private val onError: (String) -> Unit,
     private val onUndoDelete: (Task) -> Unit,
+    private val onUndoArchive: (Task) -> Unit = {},
     private val onUndoDeleteSeries: (List<TaskId>) -> Unit,
     private val onNavigateBack: () -> Unit,
     private val onSaved: (String) -> Unit,
@@ -69,12 +70,13 @@ class TaskLifecycleSlot(
 
     private fun archive() = scope.launch {
         val task = taskFlow.value ?: return@launch
+        _state.update { it.copy(recentlyDeleted = task) }
         core.taskRepo.softDelete(task.id)
-            .onSuccess {
-                onSaved("Task archived")
-                onNavigateBack()
+            .onSuccess { onUndoArchive(task) }
+            .onFailure {
+                _state.update { it.copy(recentlyDeleted = null) }
+                onError("Archive failed")
             }
-            .onFailure { onError("Archive failed") }
     }
 
     private fun restore() = scope.launch {

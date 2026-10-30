@@ -111,5 +111,6 @@ sealed interface ProjectDetailIntent : MviIntent {
         data class MoveTaskToProject(val taskId: TaskId) : Domain
         data class ToggleTaskPin(val taskId: TaskId) : Domain
         data class DeleteTask(val taskId: TaskId) : Domain
+        data class RestoreTask(val taskId: TaskId) : Domain
     }
 }

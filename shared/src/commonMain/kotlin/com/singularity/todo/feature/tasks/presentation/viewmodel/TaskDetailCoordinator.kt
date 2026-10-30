@@ -197,6 +197,7 @@ class TaskDetailCoordinator(
         taskFlow = taskFlow,
         onError = ::reportError,
         onUndoDelete = { tryEmit(TaskDetailUiEvent.UndoDelete(it.id)) },
+        onUndoArchive = { tryEmit(TaskDetailUiEvent.UndoArchive(it.id)) },
         onUndoDeleteSeries = { ids ->
             tryEmit(TaskDetailUiEvent.UndoDeleteSeries(ids, dates = ids.size))
         },

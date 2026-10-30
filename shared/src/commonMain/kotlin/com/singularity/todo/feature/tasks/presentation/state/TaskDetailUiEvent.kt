@@ -10,6 +10,7 @@ sealed interface TaskDetailUiEvent : MviEvent {
     data class Error(val message: String) : TaskDetailUiEvent
     data class Saved(val message: String) : TaskDetailUiEvent
     data class UndoDelete(val taskId: TaskId) : TaskDetailUiEvent
+    data class UndoArchive(val taskId: TaskId) : TaskDetailUiEvent
 
     /**
      * The whole series was deleted, and the user may want it back.

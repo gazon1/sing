@@ -477,10 +477,15 @@ class ProjectDetailViewModel(
                     taskRepo.togglePinned(intent.taskId)
                 }
 
-            is ProjectDetailIntent.Domain.DeleteTask ->
-                emitError("Delete task failed", ProjectDetailUiEvent::ShowError) {
-                    taskRepo.softDelete(intent.taskId)
-                }
+            is ProjectDetailIntent.Domain.DeleteTask -> vmScope.launch {
+                taskRepo.softDelete(intent.taskId)
+                    .onSuccess { vmScope.launch { emit(ProjectDetailUiEvent.UndoDeleteTask(intent.taskId)) } }
+                    .onFailure { tryEmit(ProjectDetailUiEvent.ShowError(it.toMessage("Delete task failed"))) }
+            }
+
+            is ProjectDetailIntent.Domain.RestoreTask -> vmScope.launch {
+                taskRepo.restore(intent.taskId)
+            }
         }
     }
 

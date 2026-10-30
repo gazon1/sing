@@ -136,6 +136,15 @@ fun TaskDetailContent(
                     ),
                 )
 
+                is TaskDetailUiEvent.UndoArchive -> notifications.send(
+                    Notification.Undo(
+                        title = "Task archived",
+                        actionLabel = "Undo",
+                        onAction = { coordinator.onIntent(TaskDetailIntent.Domain.Restore) },
+                        onDeclined = { navigator.back() },
+                    ),
+                )
+
                 is TaskDetailUiEvent.UndoDeleteSeries -> notifications.send(
                     Notification.Undo(
                         title = "Series deleted · ${formatDateCount(event.dates)}",
