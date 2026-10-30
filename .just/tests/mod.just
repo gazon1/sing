@@ -166,6 +166,18 @@ check:
     SKIP_ADB={{SKIP_ADB}} ./check.sh
 
 [group('tests')]
+[doc('Run the affected lane: the tests this change can break, and the detekt of the files it touches')]
+[working-directory(justfile_directory())]
+check-affected:
+    #!/bin/bash
+    set -euo pipefail
+    # A *lane*, not a smaller loop: every gate still runs, and `just tests::check`
+    # is still the full one. The tests come from scripts/test-impact-map.py — the
+    # same selection CI's "Affected tests" job asks — and the detekt from
+    # scripts/lint-changed.py.
+    SKIP_ADB={{SKIP_ADB}} ./check.sh --affected
+
+[group('tests')]
 [doc('Clean build artifacts')]
 [working-directory(justfile_directory())]
 clean:
