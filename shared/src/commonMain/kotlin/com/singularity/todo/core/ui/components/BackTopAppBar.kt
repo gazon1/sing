@@ -11,12 +11,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBar as MaterialTopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.isAndroidPlatform
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
 
@@ -41,9 +42,15 @@ fun BackTopAppBar(
     actions: @Composable () -> Unit = {},
     content: @Composable (PaddingValues) -> Unit = { },
 ) {
+    if (isAndroidPlatform) {
+        // Shell owns the only TopAppBar on Android; render content with no scaffold padding
+        // so the shell bar's padding (already applied by the shell) is not doubled.
+        content(PaddingValues())
+        return
+    }
     Scaffold(
         topBar = {
-            TopAppBar(
+            MaterialTopAppBar(
                 title = { Text(title) },
                 modifier = modifier,
                 navigationIcon = {
