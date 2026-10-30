@@ -1,0 +1,18 @@
+# Smoke: the shell app bar's global search action opens the search screen.
+appId: com.singularity.todo
+name: system-shell-search-button
+tags:
+  - smoke
+  - system
+  - search
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- tapOn:
+    id: shell_search_button
+- extendedWaitUntil:
+    visible:
+      id: search_input
+    timeout: 5000
+- assertVisible:
+    id: search_input
+- takeScreenshot: system/shell-search-button
