@@ -45,9 +45,6 @@ import com.singularity.todo.core.ui.components.TaggedSnackbarHost
 import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tags.components.AddTagDialog
-import com.singularity.todo.feature.tags.domain.usecase.CreateTagUseCase
-import com.singularity.todo.feature.tags.domain.usecase.UpdateTagUseCase
-import kotlinx.collections.immutable.ImmutableList
 
 /**
  * Tags list screen.
@@ -214,4 +211,3 @@ fun TagCard(tag: Tag, onDelete: () -> Unit, onRename: () -> Unit, onOpen: () -> 
         }
     }
 }
-
