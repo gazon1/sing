@@ -139,18 +139,33 @@ fun androidShellNav3Root(
                 TopAppBar(
                     title = { Text(current.title) },
                     navigationIcon = {
-                        IconButton(
-                            onClick = {
-                                if (!navigator.goBack()) {
-                                    (context as? Activity)?.finish()
-                                }
-                            },
-                            modifier = Modifier.testTag(TestTags.SHELL_BACK_BUTTON),
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                            )
+                        // Toggle between Back (nested screen or previous tab) and Menu
+                        // (ultimate root tab), mirroring Desktop.
+                        val showBack = navigator.canGoBack()
+                        if (showBack) {
+                            IconButton(
+                                onClick = {
+                                    if (!navigator.goBack()) {
+                                        (context as? Activity)?.finish()
+                                    }
+                                },
+                                modifier = Modifier.testTag(TestTags.SHELL_BACK_BUTTON),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back",
+                                )
+                            }
+                        } else {
+                            IconButton(
+                                onClick = { menuVisible = true },
+                                modifier = Modifier.testTag(TestTags.NAV_MENU_BUTTON),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Menu,
+                                    contentDescription = MenuButtonTitle,
+                                )
+                            }
                         }
                     },
                 )
