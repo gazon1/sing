@@ -116,6 +116,7 @@ Maestro/flows/sync/01-change-sync-interval.yaml
 Maestro/flows/sync/01-offline-create-survives-reconnect.yaml
 Maestro/flows/system/menu-sheet.yaml
 Maestro/flows/system/search-finds-task.yaml
+Maestro/flows/system/shell-search-button.yaml
 Maestro/flows/tasks/01-set-priority.yaml
 Maestro/flows/tasks/02-set-due-date.yaml
 Maestro/flows/tasks/03-due-date-cancel.yaml
