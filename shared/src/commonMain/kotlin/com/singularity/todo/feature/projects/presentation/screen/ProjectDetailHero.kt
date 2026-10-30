@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import com.singularity.todo.core.ui.contrastingForeground
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.text.OwnedText
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
@@ -79,6 +80,8 @@ fun ProjectHeroSection(
         onTextChanged = actions::onUpdateDescription,
     )
 
+    val projectColor = Color(ui.project.color)
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -89,7 +92,7 @@ fun ProjectHeroSection(
                 modifier = Modifier
                     .size(56.dp)
                     .clip(CircleShape)
-                    .background(Color(ui.project.color))
+                    .background(projectColor)
                     .clickable(
                         onClickLabel = "Change project icon and color",
                         onClick = actions::onOpenColorSheet,
@@ -98,7 +101,7 @@ fun ProjectHeroSection(
             ) {
                 ProjectIcon(
                     icon = ui.project.icon,
-                    tint = Color.White,
+                    tint = projectColor.contrastingForeground(),
                     size = 28.dp,
                     contentDescription = ui.project.name,
                 )
