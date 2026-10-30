@@ -159,8 +159,9 @@ fun androidShellNav3Root(
                     NavDisplay(
                         entries = navDisplayEntries,
                         onBack = {
-                            val stack = state.requireBackStackFor(state.topLevelRoute)
-                            if (stack.size > 1) navigator.goBack() else (context as? Activity)?.finish()
+                            if (!navigator.goBack()) {
+                                (context as? Activity)?.finish()
+                            }
                         },
                         modifier = Modifier.fillMaxSize(),
                     )

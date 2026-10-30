@@ -107,8 +107,7 @@ fun DesktopShellNav3Root(
     val fabCurrent: AppDestination = topMostRoute as? AppDestination
         ?: current
 
-    val currentStack = state.requireBackStackFor(state.topLevelRoute)
-    val canGoBack = currentStack.size > 1
+    val canGoBack = navigator.canGoBack()
 
     val appEntryProvider = createJvmEntryProvider(navCallbacks, today)
 

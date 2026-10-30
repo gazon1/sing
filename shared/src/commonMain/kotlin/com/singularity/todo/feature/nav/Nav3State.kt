@@ -282,7 +282,14 @@ class Navigator(private val state: Nav3State) {
      * graph's `onExitGraph`. Same mechanics as [goBack]: pop the graph's entry, or at a
      * top-level root return to the previously active destination.
      */
-    fun close() = goBack()
+    fun close() {
+        goBack()
+    }
+
+    /** True when [goBack] would perform a navigation instead of signalling "at root". */
+    fun canGoBack(): Boolean =
+        state.requireBackStackFor(state.topLevelRoute).size > 1 ||
+            state.previousTopLevelRoute != state.topLevelRoute
 
     /**
      * Go back in the current stack.
@@ -291,17 +298,25 @@ class Navigator(private val state: Nav3State) {
      * - If at the tab root: return to the previously active tab ([previousTopLevelRoute]).
      *   This prevents silent teleportation to [startRoute] when the user presses Back
      *   at the root of a non-default tab (e.g., Upcoming).
+     *
+     * Returns `true` when a back navigation was performed, `false` when already at
+     * the ultimate root (no nested screen, no previous tab to return to) — callers
+     * that own a window/activity can then close it.
      */
-    fun goBack() {
+    fun goBack(): Boolean {
         val currentStack = state.requireBackStackFor(state.topLevelRoute)
         val currentRoute = currentStack.lastOrNull()
             ?: run {
                 // Fallback: an empty stack would leave the shell blank; reseed.
                 currentStack.add(state.topLevelRoute)
-                return
+                return false
             }
 
         if (currentRoute == state.topLevelRoute) {
+            // At a tab root: only switch tabs when there is a distinct previous tab.
+            if (state.previousTopLevelRoute == state.topLevelRoute) {
+                return false
+            }
             state.topLevelRoute = state.previousTopLevelRoute
             // Fallback: never activate an empty stack.
             val previousStack = state.requireBackStackFor(state.topLevelRoute)
@@ -315,5 +330,6 @@ class Navigator(private val state: Nav3State) {
         if (currentStack.isEmpty()) {
             currentStack.add(state.topLevelRoute)
         }
+        return true
     }
 }
