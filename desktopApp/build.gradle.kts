@@ -384,6 +384,19 @@ tasks.withType<Test>().configureEach {
     // The number itself is READ, not written here: `config/docs/gradle-memory-budget.properties`
     // holds it, and the gate checks that this module's heap is the recorded one.
     maxHeapSize = testTaskHeap
+
+    // Parallelism across PROCESSES, not within one.
+    //
+    // Jupiter stays in `same_thread` mode above: the desktop harness mounts the
+    // whole app per test and the Koin graph is per-JVM state, so two classes
+    // sharing a JVM is a race. Gradle's forks are separate JVMs with separate
+    // graphs, so the classes that used to run one after another now run at the
+    // same time without sharing anything.
+    //
+    // The count is the recorded one, beside the heap it multiplies: four forks
+    // of 1536 MB is 6 GB, which is what the budget allows.
+    val budgetForks = memoryBudget.getProperty("test.forks.module.desktopApp")?.toIntOrNull() ?: 4
+    maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, budgetForks)
     jvmArgs(
         "-XX:+HeapDumpOnOutOfMemoryError",
         "-XX:HeapDumpPath=build/test-heap-dumps",
