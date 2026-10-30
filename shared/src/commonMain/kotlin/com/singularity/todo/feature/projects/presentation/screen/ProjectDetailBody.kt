@@ -173,6 +173,7 @@ fun ProjectBodySection(
         }
     }
 }
+
 /**
  * Whether project reminders can actually fire.
  *
