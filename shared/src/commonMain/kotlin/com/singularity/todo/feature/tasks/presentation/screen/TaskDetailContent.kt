@@ -35,6 +35,7 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import org.koin.compose.viewmodel.koinViewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -50,6 +51,9 @@ import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.attachments.AttachmentsIntent
+import com.singularity.todo.feature.attachments.AttachmentsUiEvent
+import com.singularity.todo.feature.attachments.AttachmentsViewModel
 import com.singularity.todo.feature.tasks.presentation.components.TaskAiBottomSheet
 import com.singularity.todo.feature.tasks.presentation.components.detail.AttachmentsCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.DateRowCallbacks
@@ -102,6 +106,7 @@ fun TaskDetailContent(
     // would mean every call site names a state it does not own.
     var showTimeEntrySheet by rememberSaveable { mutableStateOf(false) }
     val sheets = rememberDialogState<TaskEditorSheet>()
+    val attachmentsVm: AttachmentsViewModel = koinViewModel()
 
     // One collector, one owner.
     //
@@ -115,6 +120,26 @@ fun TaskDetailContent(
     //
     // So the screen collects once and hands the notifications over.
     val notifications = remember { Channel<Notification>(Channel.BUFFERED) }
+
+    LaunchedEffect(attachmentsVm.events) {
+        attachmentsVm.events.collect { event ->
+            when (event) {
+                is AttachmentsUiEvent.UndoDeleteAttachment -> {
+                    notifications.send(
+                        Notification.Undo(
+                            title = "Attachment deleted",
+                            actionLabel = "Undo",
+                            onAction = {
+                                attachmentsVm.onIntent(AttachmentsIntent.RestoreAttachment(event.attachmentId))
+                            },
+                        ),
+                    )
+                }
+
+                else -> {}
+            }
+        }
+    }
 
     LaunchedEffect(coordinator.events) {
         coordinator.events.collect { event ->
@@ -217,10 +242,11 @@ fun TaskDetailContent(
                         // same identity, and so the card stays a presentational component.
                         val pickAttachment = rememberAppFilePicker(FilePickPurpose.Attachment) { picked ->
                             if (picked != null) {
-                                coordinator.onIntent(
-                                    TaskDetailIntent.Domain.AddFileAttachment(
+                                attachmentsVm.onIntent(
+                                    AttachmentsIntent.SaveFile(
                                         sourcePath = picked.path,
                                         mimeType = picked.mimeType,
+                                        taskId = ui.task.id,
                                     ),
                                 )
                             }
@@ -327,13 +353,13 @@ fun TaskDetailContent(
                                 attachments = AttachmentsCallbacks(
                                     onOpen = { sheets.show(TaskEditorSheet.Attachments) },
                                     onAddUrl = { url, title ->
-                                        coordinator.onIntent(
-                                            TaskDetailIntent.Domain.AddUrlAttachment(url, title),
+                                        attachmentsVm.onIntent(
+                                            AttachmentsIntent.AddUrl(ui.task.id, url, title),
                                         )
                                     },
                                     onAttachFile = { pickAttachment() },
                                     onDelete = {
-                                        coordinator.onIntent(TaskDetailIntent.Domain.DeleteAttachment(it))
+                                        attachmentsVm.onIntent(AttachmentsIntent.Delete(it))
                                     },
                                 ),
                                 onTimeEntryAdd = null,
@@ -457,7 +483,7 @@ fun TaskDetailContent(
                                             attachments = ui.attachments,
                                             onOpenAttachments = { sheets.show(TaskEditorSheet.Attachments) },
                                             onDelete = {
-                                                coordinator.onIntent(TaskDetailIntent.Domain.DeleteAttachment(it))
+                                                attachmentsVm.onIntent(AttachmentsIntent.Delete(it))
                                             },
                                             onOpen = { id -> navigator.openAttachment(id) },
                                         )
