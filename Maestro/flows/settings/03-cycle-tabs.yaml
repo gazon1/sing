@@ -33,40 +33,56 @@ tags:
     id: menu_settings
 - extendedWaitUntil:
     visible:
-      id: settings_tab_interface
+      id: settings_tab_dropdown
     timeout: 10000
 
-# Cycle all 13 tabs. A crash or hang on any tab fails the flow.
-# The NavRail is a fixed 80dp column of thirteen rows — only seven of them fit
-# on a phone viewport, and the trailing ones are not composed at all until the
-# rail is scrolled. So the rail is scrolled once, and the trailing tabs are
-# tapped after it.
+# Cycle all 13 tabs via the narrow-screen dropdown. A crash or hang on any tab
+# fails the flow.
+- tapOn:
+    id: settings_tab_dropdown
 - tapOn:
     id: settings_tab_interface
 - tapOn:
+    id: settings_tab_dropdown
+- tapOn:
     id: settings_tab_agenda
+- tapOn:
+    id: settings_tab_dropdown
 - tapOn:
     id: settings_tab_notifications
 - tapOn:
+    id: settings_tab_dropdown
+- tapOn:
     id: settings_tab_aiprovider
+- tapOn:
+    id: settings_tab_dropdown
 - tapOn:
     id: settings_tab_workschedule
 - tapOn:
+    id: settings_tab_dropdown
+- tapOn:
     id: settings_tab_calendar
 - tapOn:
+    id: settings_tab_dropdown
+- tapOn:
     id: settings_tab_sync
-
-# The rail scroll lives in a helper: the gesture that moves the rail is not
-# the obvious one, and two recipes that looked right turned out to do nothing
-# on a device. See Maestro/helpers/settings-rail-scroll.yaml.
-- runFlow: ../../helpers/settings-rail-scroll.yaml
+- tapOn:
+    id: settings_tab_dropdown
 - tapOn:
     id: settings_tab_tags
 - tapOn:
+    id: settings_tab_dropdown
+- tapOn:
     id: settings_tab_taggroups
+- tapOn:
+    id: settings_tab_dropdown
 - tapOn:
     id: settings_tab_files
 - tapOn:
+    id: settings_tab_dropdown
+- tapOn:
     id: settings_tab_backup
+- tapOn:
+    id: settings_tab_dropdown
 - tapOn:
     id: settings_tab_account

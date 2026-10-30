@@ -62,6 +62,7 @@ Maestro/flows/menu/05-tree-contents.yaml
 Maestro/flows/menu/06-tree-live.yaml
 Maestro/flows/menu/07-ai-chat-entry.yaml
 Maestro/flows/menu/08-proposals-entry.yaml
+Maestro/flows/menu/09-attach-account-entry.yaml
 Maestro/flows/nav/01-no-calendar-tab.yaml
 Maestro/flows/nav/02-menu-parity.yaml
 Maestro/flows/nav/bottom-nav-tabs.yaml

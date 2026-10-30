@@ -512,7 +512,10 @@ private fun SettingsTabDropdown(
     ) {
         Button(
             onClick = { expanded = !expanded },
-            modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
+            modifier = Modifier
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                .fillMaxWidth()
+                .testTag(TestTags.Settings.TAB_DROPDOWN),
         ) {
             Text(selectedTab.label)
             ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
@@ -524,6 +527,7 @@ private fun SettingsTabDropdown(
             SettingsTab.entries.forEach { tab ->
                 DropdownMenuItem(
                     text = { Text(tab.label) },
+                    modifier = Modifier.testTag(TestTags.settingsTab(tab.name)),
                     onClick = {
                         onSelect(tab)
                         expanded = false

@@ -14,7 +14,8 @@
 appId: com.singularity.todo
 name: settings-account-tab
 ---
-- runFlow: settings-rail-scroll.yaml
+- tapOn:
+    id: settings_tab_dropdown
 - extendedWaitUntil:
     visible:
       id: settings_tab_account
