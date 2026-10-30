@@ -176,7 +176,6 @@ class TaskDetailCoordinator(
         allTasks = allTasks,
         onError = ::reportError,
         onSaved = ::reportSaved,
-        onUndoDeleteAttachment = { tryEmit(TaskDetailUiEvent.UndoDeleteAttachment(it)) },
         onBlockedClose = ::raiseBlockedClose,
     )
 
