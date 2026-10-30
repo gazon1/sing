@@ -586,6 +586,7 @@ object TestTags {
 
     // ─── Notes ───────────────────────────────────────────────────────────────
     const val NOTES_LIST = "notes_list"
+    const val NOTES_DELETE_SELECTED_BUTTON = "notes_delete_selected_button"
     const val NOTES_QUICK_ADD_INPUT = "notes_quick_add_input"
 
     /**

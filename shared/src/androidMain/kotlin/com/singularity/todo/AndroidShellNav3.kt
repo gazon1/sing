@@ -16,6 +16,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
@@ -143,43 +144,58 @@ fun androidShellNav3Root(
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text(current.title) },
-                    navigationIcon = {
-                        // Toggle between Back (nested screen or previous tab) and Menu
-                        // (ultimate root tab), mirroring Desktop.
-                        val showBack = navigator.canGoBack()
-                        if (showBack) {
-                            IconButton(
-                                onClick = {
-                                    if (!navigator.goBack()) {
-                                        (context as? Activity)?.finish()
-                                    }
-                                },
-                                modifier = Modifier.testTag(TestTags.SHELL_BACK_BUTTON),
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = "Back",
-                                )
-                            }
+                    title = {
+                        if (screenActions.override && screenActions.title != null) {
+                            screenActions.title?.invoke()
                         } else {
-                            IconButton(
-                                onClick = { menuVisible = true },
-                                modifier = Modifier.testTag(TestTags.NAV_MENU_BUTTON),
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Menu,
-                                    contentDescription = MenuButtonTitle,
-                                )
+                            Text(current.title)
+                        }
+                    },
+                    navigationIcon = {
+                        if (screenActions.override && screenActions.navigationIcon != null) {
+                            screenActions.navigationIcon?.invoke()
+                        } else {
+                            // Toggle between Back (nested screen or previous tab) and Menu
+                            // (ultimate root tab), mirroring Desktop.
+                            val showBack = navigator.canGoBack()
+                            if (showBack) {
+                                IconButton(
+                                    onClick = {
+                                        if (!navigator.goBack()) {
+                                            (context as? Activity)?.finish()
+                                        }
+                                    },
+                                    modifier = Modifier.testTag(TestTags.SHELL_BACK_BUTTON),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = "Back",
+                                    )
+                                }
+                            } else {
+                                IconButton(
+                                    onClick = { menuVisible = true },
+                                    modifier = Modifier.testTag(TestTags.NAV_MENU_BUTTON),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Menu,
+                                        contentDescription = MenuButtonTitle,
+                                    )
+                                }
                             }
                         }
                     },
                     actions = {
-                        screenActions.actions?.invoke(this)
-                        if (current != AppDestination.Search) {
-                            ShellSearchButton(navigator = navigator)
+                        if (screenActions.override) {
+                            screenActions.actions?.invoke(this)
+                        } else {
+                            screenActions.actions?.invoke(this)
+                            if (current != AppDestination.Search) {
+                                ShellSearchButton(navigator = navigator)
+                            }
                         }
                     },
+                    colors = screenActions.colors ?: TopAppBarDefaults.topAppBarColors(),
                 )
             },
             floatingActionButton = {
@@ -202,6 +218,10 @@ fun androidShellNav3Root(
                     // A screen without its own TopAppBar never publishes actions, so clear the
                     // slot on every navigation to avoid stale buttons from the previous screen.
                     screenActions.actions = null
+                    screenActions.title = null
+                    screenActions.navigationIcon = null
+                    screenActions.colors = null
+                    screenActions.override = false
                     if (navDisplayEntries.isEmpty()) {
                         println(
                             "WARNING [blank-screen] topLevelRoute=${state.topLevelRoute} has 0 entries. " +
