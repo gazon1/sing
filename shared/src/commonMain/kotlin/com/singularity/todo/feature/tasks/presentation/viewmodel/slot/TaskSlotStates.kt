@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
-import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.projects.domain.model.Project
@@ -38,11 +37,7 @@ data class TaskCompletionState(
 )
 
 /** The task's child collections. */
-data class TaskChildrenState(
-    val checklist: List<ChecklistItem> = emptyList(),
-    val subtasks: List<Task> = emptyList(),
-    val attachments: List<Attachment> = emptyList(),
-)
+data class TaskChildrenState(val checklist: List<ChecklistItem> = emptyList(), val subtasks: List<Task> = emptyList())
 
 /** Scheduled reminders for the task. */
 data class TaskRemindersState(val reminders: List<Reminder> = emptyList())

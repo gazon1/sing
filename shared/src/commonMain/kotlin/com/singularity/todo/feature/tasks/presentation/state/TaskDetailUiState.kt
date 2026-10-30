@@ -1,5 +1,4 @@
 package com.singularity.todo.feature.tasks.presentation.state
-import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.core.text.OwnedText
 import com.singularity.todo.core.text.Revisioned
 import com.singularity.todo.feature.checklist.ChecklistItem
@@ -48,7 +47,6 @@ data class TaskDetailUi(
     val tags: ImmutableList<Tag> = persistentListOf(),
     val checklist: ImmutableList<ChecklistItem> = persistentListOf(),
     val reminders: ImmutableList<Reminder> = persistentListOf(),
-    val attachments: ImmutableList<Attachment> = persistentListOf(),
     /** Direct child tasks (1-level hierarchy only). */
     val subtasks: ImmutableList<Task> = persistentListOf(),
     /** IDs of tasks this task depends on. Used to populate [DependencyPickerSheet]. */

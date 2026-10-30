@@ -1,6 +1,5 @@
 package com.singularity.todo.feature.tasks.presentation.state
 
-import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.reminders.ReminderOffset
@@ -241,31 +240,6 @@ sealed interface TaskDetailIntent : MviIntent {
          * a series of one is not a series.
          */
         data object DetachFromSeries : Domain, TaskEntityIntent
-
-        // ── Attachments ──────────────────────────────────────────────────────
-
-        data class AddUrlAttachment(val url: String, val title: String?) :
-            Domain,
-            TaskChildrenIntent
-
-        /**
-         * Copy a file the user picked into this task's attachment store.
-         *
-         * [sourcePath] is what the platform picker returned: a plain path on desktop, a
-         * `content://` URI on Android. The copy — and the size check that must precede
-         * it — belongs to `AttachmentStorage`, not to this intent.
-         */
-        data class AddFileAttachment(val sourcePath: String, val mimeType: String?) :
-            Domain,
-            TaskChildrenIntent
-
-        data class DeleteAttachment(val id: AttachmentId) :
-            Domain,
-            TaskChildrenIntent
-
-        data class RestoreAttachment(val id: AttachmentId) :
-            Domain,
-            TaskChildrenIntent
 
         // ── AI ────────────────────────────────────────────────────────────────
 
