@@ -211,7 +211,7 @@ fun TaskDetailContent(
                         LaunchedEffect(attachmentsVm) {
                             attachmentsVm.events.collect { event ->
                                 when (event) {
-                                    is AttachmentsUiEvent.UndoDeleteAttachment -> {
+                                    is AttachmentsUiEvent.UndoDelete -> {
                                         notifications.send(
                                             Notification.Undo(
                                                 title = "Attachment deleted",
