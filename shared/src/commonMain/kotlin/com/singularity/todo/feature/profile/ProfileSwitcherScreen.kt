@@ -370,7 +370,9 @@ private fun ProfileSwitcherScreenPreview() = PreviewThemed {
     val fakeProfileRepo = PreviewProfileRepository
     val vm = ProfileSwitcherViewModel(
         profileRepository = fakeProfileRepo,
-        clock = com.singularity.todo.test.fakes.FakeClock(),
+        clock = object : kotlin.time.Clock {
+            override fun now() = kotlin.time.Instant.fromEpochMilliseconds(0)
+        },
     )
     ProfileSwitcherContent(viewModel = vm)
 }
@@ -381,7 +383,9 @@ private fun ProfileSwitcherScreenPreview() = PreviewThemed {
 private fun ProfileSwitcherScreenDarkPreview() = PreviewThemed(darkTheme = true) {
     val vm = ProfileSwitcherViewModel(
         profileRepository = PreviewProfileRepository,
-        clock = com.singularity.todo.test.fakes.FakeClock(),
+        clock = object : kotlin.time.Clock {
+            override fun now() = kotlin.time.Instant.fromEpochMilliseconds(0)
+        },
     )
     ProfileSwitcherContent(viewModel = vm)
 }

@@ -571,31 +571,7 @@ private fun AiStatusBadge(
 private val previewOverrides: ImmutableMap<SettingsTab, @Composable () -> Unit> =
     mapOf<SettingsTab, @Composable () -> Unit>(
         SettingsTab.Tags to {
-            val fakeTagsRepo =
-                com.singularity.todo.test.fakes
-                    .FakeTagsRepository()
-            val fakeCreateTag =
-                com.singularity.todo.feature.tags.domain.usecase.CreateTagUseCase(
-                    fakeTagsRepo,
-                    com.singularity.todo.test.fakes
-                        .FakeClock(),
-                )
-            val fakeUpdateTag =
-                com.singularity.todo.feature.tags.domain.usecase.UpdateTagUseCase(
-                    fakeTagsRepo,
-                    com.singularity.todo.test.fakes
-                        .FakeClock(),
-                )
-            val vm =
-                TagsViewModel(
-                    tagRepo = fakeTagsRepo,
-                    createTag = fakeCreateTag,
-                    updateTag = fakeUpdateTag,
-                    currentUser =
-                        com.singularity.todo.test.fakes
-                            .FakeProfileAwareCurrentUser(),
-                )
-            TagsScreen(viewModel = vm)
+            Text("Tags", modifier = Modifier.padding(16.dp))
         },
         SettingsTab.TagGroups to {
             TagGroupsScreen(state = TagGroupsUiState.Empty, onDelete = {})
