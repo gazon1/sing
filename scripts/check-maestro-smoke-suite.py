@@ -134,6 +134,46 @@ def full_shard_size(shards: int) -> int:
     )
 
 
+def shard_cost(paths: list[str], shards: int, floors: dict[str, float]) -> float | None:
+    """The largest shard's cost in seconds, or None when no flow has a time.
+
+    A flow with no recorded time counts as the slowest flow that HAS one: a
+    flow that was never measured must not make a shard look cheap. The two
+    suites are measured the same way, so the floor under both sides is a floor
+    under the verdict too.
+    """
+    if not floors:
+        return None
+    unknown = max(floors.values())
+    costs = [
+        sum(floors.get(path, unknown) for i, path in enumerate(paths) if (i % shards) == (s - 1))
+        for s in range(1, shards + 1)
+    ]
+    return max(costs)
+
+
+def _flow_paths(tag: str | None) -> list[str]:
+    """The selected flows' paths, relative to the repository root."""
+    from emulator.maestro._flow import SMOKE_TAG, collect_flows, filter_flows_by_tag
+
+    flows = collect_flows(FLOWS_ROOT)
+    if tag is not None:
+        flows = filter_flows_by_tag(flows, [tag])
+    return [str(f.relative_to(ROOT)) for f in flows]
+
+
+def _timing_floors() -> dict[str, float]:
+    """The recorded per-flow times, from `config/docs/maestro-flow-timings.txt`."""
+    spec = importlib.util.spec_from_file_location(
+        "maestro_flow_timings", ROOT / "scripts" / "maestro-flow-timings.py"
+    )
+    if spec is None or spec.loader is None:
+        return {}
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module._floors()
+
+
 def scan() -> list[dict]:
     """The findings, as a list of dictionaries."""
     findings: list[dict] = []
@@ -189,6 +229,36 @@ def scan() -> list[dict]:
 
     smoke_shard = smoke_shard_size(smoke_shards)
     full_shard = full_shard_size(full_shards)
+
+    # The cost in SECONDS, when the flows have been measured. A shard of seven
+    # flows that each finish in five seconds is not a shard of seven flows that
+    # each hit the 300-second timeout, and the flow count cannot tell the two
+    # apart. The times come from the Maestro runs themselves
+    # (`config/docs/maestro-flow-timings.txt`).
+    floors = _timing_floors()
+    from emulator.maestro._flow import SMOKE_TAG
+
+    smoke_seconds = shard_cost(_flow_paths(SMOKE_TAG), smoke_shards, floors)
+    full_seconds = shard_cost(_flow_paths(None), full_shards, floors)
+
+    if smoke_seconds is not None and full_seconds is not None:
+        if smoke_seconds > full_seconds:
+            findings.append(
+                {
+                    "kind": "smoke shard costs more than a full shard",
+                    "detail": (
+                        f"the smoke suite runs {actual} flow(s) over {smoke_shards} "
+                        f"shard(s), so the largest shard holds {smoke_shard} flow(s) and "
+                        f"costs about {smoke_seconds:.0f}s; the full suite's largest "
+                        f"shard holds {full_shard} flow(s) and costs about "
+                        f"{full_seconds:.0f}s. A pull request would then cost more "
+                        "than the nightly. Raise the smoke shard count in "
+                        f"{_display(PLAN_FILE)}, or narrow the tag."
+                    ),
+                }
+            )
+        return findings
+
     if smoke_shard > full_shard:
         findings.append(
             {
@@ -227,6 +297,16 @@ def cli(ctx: click.Context, list_flows: bool, emit_json: bool, check: bool) -> N
         click.echo(json.dumps({"findings": findings}, indent=2))
     elif not findings:
         click.echo(f"maestro smoke suite: {actual_count()} flow(s), as documented")
+        if not _timing_floors():
+            # The shards are compared by FLOW COUNT, because no flow has a
+            # measured time yet. It says so, because a count is a proxy for a
+            # cost and the reader is the one who plans against it.
+            click.echo(
+                "  note: the shard cost was compared by FLOW COUNT — no Maestro "
+                "flow has a measured time yet. Run a Maestro suite and then "
+                "`python3 scripts/maestro-flow-timings.py --record` to compare "
+                "the real cost."
+            )
     else:
         click.echo(f"maestro smoke suite: {len(findings)} finding(s)")
         for finding in findings:
