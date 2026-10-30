@@ -22,6 +22,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.formatRussianDateList
+import org.jetbrains.compose.resources.stringResource
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.reset_date
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
@@ -97,7 +100,7 @@ fun TaskEditorDueDateRow(
             IconButton(onClick = onDueDateClear) {
                 Icon(
                     imageVector = Icons.Filled.Close,
-                    contentDescription = "Сбросить дату",
+                    contentDescription = stringResource(Res.string.reset_date),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
