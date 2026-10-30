@@ -18,7 +18,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -140,7 +139,7 @@ fun androidShellNav3Root(
             topBar = {
                 TopAppBar(
                     title = { Text(current.title) },
-navigationIcon = {
+                    navigationIcon = {
                         // Toggle between Back (nested screen or previous tab) and Menu
                         // (ultimate root tab), mirroring Desktop.
                         val showBack = navigator.canGoBack()
