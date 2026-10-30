@@ -16,12 +16,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.components.LoadingIndicator
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.core.ui.components.TaggedSnackbarHost
 import com.singularity.todo.feature.proposals.presentation.components.ProposalCardsSection
@@ -73,7 +75,11 @@ fun ProposalsScreen(modifier: Modifier = Modifier) {
                 state.isLoading -> LoadingIndicator(modifier = Modifier.fillMaxSize().padding(paddingValues))
 
                 state.proposals.isEmpty() -> Column(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues).padding(24.dp),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .padding(24.dp)
+                        .testTag(TestTags.PROPOSALS_EMPTY),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     SelectableText(

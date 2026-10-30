@@ -1,0 +1,22 @@
+# The proposals screen opens from the menu.
+#
+# прогон на устройстве: нет (emulator not available in this session)
+appId: com.singularity.todo
+name: menu-proposals-entry
+tags:
+  - menu
+  - proposals
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- runFlow: ../../helpers/open-app-menu.yaml
+- scrollUntilVisible:
+    element:
+      id: menu_proposals
+    direction: DOWN
+    timeout: 5000
+- tapOn:
+    id: menu_proposals
+- extendedWaitUntil:
+    visible:
+      id: proposals_empty
+    timeout: 8000

@@ -160,6 +160,9 @@ object TestTags {
     /** The proposals' entry in the menu. */
     const val MENU_PROPOSALS = "menu_proposals"
 
+    /** Empty state of the proposals screen. */
+    const val PROPOSALS_EMPTY = "proposals_empty"
+
     /** The "connect an account" entry in the menu. */
     const val MENU_ATTACH_ACCOUNT = "menu_attach_account"
 

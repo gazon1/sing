@@ -1,0 +1,22 @@
+# The AI chat screen opens from the menu.
+#
+# прогон на устройстве: нет (emulator not available in this session)
+appId: com.singularity.todo
+name: menu-ai-chat-entry
+tags:
+  - menu
+  - ai
+---
+- runFlow: ../../helpers/launch-clean.yaml
+- runFlow: ../../helpers/open-app-menu.yaml
+- scrollUntilVisible:
+    element:
+      id: menu_aichat
+    direction: DOWN
+    timeout: 5000
+- tapOn:
+    id: menu_aichat
+- extendedWaitUntil:
+    visible:
+      id: chat_input
+    timeout: 5000
