@@ -184,7 +184,7 @@ fun AgendaContent(
                         colors = TopAppBarDefaults.topAppBarColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
                         ),
-                        forceShow = true,
+                        overrideShell = true,
                     )
                 } else {
                     TopAppBar(
