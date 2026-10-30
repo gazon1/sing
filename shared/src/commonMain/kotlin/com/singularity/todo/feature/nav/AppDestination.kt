@@ -30,14 +30,14 @@ import kotlinx.serialization.Serializable
 /**
  * Top-level destinations shown in the Android bottom navigation bar.
  *
- * Five tabs (see [DestinationKind.tabs]) + a separate "Menu" button that opens a
+ * Bottom-bar tabs (see [DestinationKind.tabs]) + a separate "Menu" button that opens a
  * `MenuBottomSheet` overlay (NOT a navigation destination — see `MenuBottomSheet`).
  *
- * Bottom bar (five tabs): [AgendaGraph] with [AgendaStartRoute.Inbox]/[Today]/[Upcoming],
- * [Plans], [Pomodoro] — see [DestinationKind.tabs].
+ * Bottom bar: [AgendaGraph] with [AgendaStartRoute.Inbox]/[Today]/[Upcoming],
+ * [Calendar] — see [DestinationKind.tabs].
  *
- * The [Calendar] is not a tab any more: a bottom bar has no room for it, and it
- * lives in the app menu on both platforms — see [DestinationKind.menuEntries].
+ * [Calendar] is now a tab; [Plans] and [Pomodoro] live in the app menu — see
+ * [DestinationKind.menuEntries].
  *
  * Why a [Serializable] sealed interface and not an enum:
  * - Type-safe payloads (e.g. [TaskDetail.taskId]) without manual route-string plumbing.
@@ -438,8 +438,7 @@ object DestinationKind {
         AppDestination.AgendaGraph(AgendaStartRoute.Inbox),
         AppDestination.AgendaGraph(AgendaStartRoute.Today),
         AppDestination.AgendaGraph(AgendaStartRoute.Upcoming),
-        AppDestination.Plans,
-        AppDestination.Pomodoro,
+        AppDestination.Calendar,
     )
 
     /** Menu destinations in display order. */
@@ -450,13 +449,11 @@ object DestinationKind {
         AppDestination.Proposals,
         AppDestination.Search,
         AppDestination.Archive,
-        // The Calendar left the bottom bar for the menu: a five-tab bar has no
-        // room for a sixth, and the menu is where the rest of the app's
-        // destinations live.
-        AppDestination.Calendar,
+        AppDestination.Plans,
+        AppDestination.Pomodoro,
         AppDestination.ProfileSwitcher,
-        AppDestination.AttachAccount,
         AppDestination.Settings,
+        AppDestination.AiUsage,
     )
 
     private val tabSet: Set<AppDestination> = tabs.toSet()

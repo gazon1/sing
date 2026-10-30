@@ -90,7 +90,7 @@ fun MenuBottomSheet(
             // The sheet renders into its own window, so the app-root
             // testTagsAsResourceId never reaches the menu items.
             //
-            // The column scrolls because the menu holds ten entries, the
+            // The column scrolls because the menu holds many entries, the
             // projects tree and three headers, and a screen shorter than that
             // would clip the last ones again — the same defect the settings
             // rail had, and the reason the rail scrolls on every form factor.

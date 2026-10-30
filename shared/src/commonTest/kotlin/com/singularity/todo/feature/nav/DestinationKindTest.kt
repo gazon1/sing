@@ -18,35 +18,28 @@ import kotlin.test.assertTrue
 class DestinationKindTest {
 
     @Test
-    fun isTabRecognisesAllFiveBottomBarTabs() {
+    fun isTabRecognisesBottomBarTabs() {
         assertTrue(DestinationKind.isTab(AppDestination.AgendaGraph(AgendaStartRoute.Inbox)))
         assertTrue(DestinationKind.isTab(AppDestination.AgendaGraph(AgendaStartRoute.Today)))
         assertTrue(DestinationKind.isTab(AppDestination.AgendaGraph(AgendaStartRoute.Upcoming)))
-        assertTrue(DestinationKind.isTab(AppDestination.Plans))
-        assertTrue(DestinationKind.isTab(AppDestination.Pomodoro))
+        assertTrue(DestinationKind.isTab(AppDestination.Calendar))
     }
 
     @Test
-    fun theCalendarIsNoLongerATab() {
-        // The Calendar left the bottom bar for the menu: a five-tab bar has no
-        // room for a sixth, and the menu is where the rest of the app's
-        // destinations live.
-        assertFalse(DestinationKind.isTab(AppDestination.Calendar))
-        assertFalse(AppDestination.Calendar in DestinationKind.tabs)
-        assertTrue(DestinationKind.isMenuEntry(AppDestination.Calendar))
-        assertTrue(AppDestination.Calendar in DestinationKind.menuEntries)
+    fun theCalendarIsNowATab() {
+        assertTrue(DestinationKind.isTab(AppDestination.Calendar))
+        assertTrue(AppDestination.Calendar in DestinationKind.tabs)
+        assertFalse(DestinationKind.isMenuEntry(AppDestination.Calendar))
     }
 
     @Test
-    fun theOtherTabsAreStillThere() {
-        // The bar lost exactly one entry, not two.
+    fun theTabsAreNow() {
         assertEquals(
             listOf(
                 AppDestination.AgendaGraph(AgendaStartRoute.Inbox),
                 AppDestination.AgendaGraph(AgendaStartRoute.Today),
                 AppDestination.AgendaGraph(AgendaStartRoute.Upcoming),
-                AppDestination.Plans,
-                AppDestination.Pomodoro,
+                AppDestination.Calendar,
             ),
             DestinationKind.tabs,
         )
@@ -69,7 +62,7 @@ class DestinationKindTest {
     }
 
     @Test
-    fun isMenuEntryRecognisesSixSheetDestinations() {
+    fun isMenuEntryRecognisesMenuDestinations() {
         assertTrue(DestinationKind.isMenuEntry(AppDestination.Statistics))
         assertTrue(DestinationKind.isMenuEntry(AppDestination.Notes))
         assertTrue(DestinationKind.isMenuEntry(AppDestination.AiChat))
@@ -113,6 +106,8 @@ class DestinationKindTest {
             AppDestination.Search,
             AppDestination.Archive,
             AppDestination.Settings,
+            AppDestination.Calendar,
+            AppDestination.AiUsage,
             AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()),
             AppDestination.ProjectEditor(),
         )
