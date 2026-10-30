@@ -24,6 +24,7 @@ sealed interface ArchiveUiState {
 
 sealed interface ArchiveIntent : MviIntent {
     data object Refresh : ArchiveIntent
+    data object Retry : ArchiveIntent
 }
 
 /**
@@ -39,7 +40,7 @@ sealed interface ArchiveIntent : MviIntent {
 @OptIn(ExperimentalCoroutinesApi::class)
 class ArchiveViewModel(
     private val archiveRepo: ArchiveRepository,
-    taskRepo: TaskRepository,
+    private val taskRepo: TaskRepository,
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<ArchiveUiState, ArchiveIntent, ArchiveUiEvent>(
@@ -52,6 +53,10 @@ class ArchiveViewModel(
 
     init {
         addCloseable(scope)
+        reload()
+    }
+
+    private fun reload() {
         scope.launch {
             combine(
                 taskRepo.observeByFilter(TaskFilter.Trash),
@@ -78,6 +83,7 @@ class ArchiveViewModel(
     override fun onIntent(intent: ArchiveIntent) {
         when (intent) {
             ArchiveIntent.Refresh -> refresh()
+            ArchiveIntent.Retry -> reload()
         }
     }
 

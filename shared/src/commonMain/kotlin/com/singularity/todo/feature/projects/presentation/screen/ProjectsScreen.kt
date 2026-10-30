@@ -39,6 +39,9 @@ import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ReopenActionButton
 import com.singularity.todo.core.ui.components.EmptyState
+import com.singularity.todo.core.ui.components.StatefulContent
+import com.singularity.todo.core.ui.components.ContentState
+import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.ui.components.ConfirmActionDialog
 import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.ui.components.Notification
@@ -97,6 +100,7 @@ fun ProjectsScreen() {
             onDelete = { id -> pendingDeleteId = id },
             onReviewClick = { project -> viewModel.onIntent(ProjectsIntent.ReviewProject(project)) },
             onReopen = { id -> viewModel.onIntent(ProjectsIntent.Reopen(id)) },
+            onRetry = { viewModel.onIntent(ProjectsIntent.Retry) },
         )
     }
 
@@ -194,6 +198,7 @@ private fun ProjectsContent(
     onDelete: (ProjectId) -> Unit,
     onReviewClick: (Project) -> Unit,
     onReopen: (ProjectId) -> Unit,
+    onRetry: () -> Unit = {},
 ) {
     RefreshableContent {
         when (state) {
@@ -217,7 +222,12 @@ private fun ProjectsContent(
                 ClosedProjectsSection(closedProjects = state.closedProjects, onReopen = onReopen)
             }
 
-            is ProjectsUiState.Error -> EmptyState(title = "Error: ${state.message}", modifier = modifier)
+            is ProjectsUiState.Error -> StatefulContent(
+                state = ContentState.Error(AppError.Unknown(state.message, code = "projects.load_failed")),
+                emptyTitle = "",
+                onRetry = onRetry,
+                modifier = modifier,
+            ) { _, _ -> }
 
             is ProjectsUiState.Content -> ProjectList(
                 projects = state.projects,
