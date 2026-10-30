@@ -40,6 +40,12 @@ interface AttachmentDao {
     @Query("DELETE FROM attachments WHERE id = :id AND user_id = :userId")
     suspend fun deleteForUser(id: String, userId: String): Int
 
+    @Query("SELECT * FROM attachments WHERE user_id = :userId AND deleted_at IS NOT NULL")
+    suspend fun listDeletedForUser(userId: String): List<AttachmentEntity>
+
+    @Query("DELETE FROM attachments WHERE user_id = :userId AND deleted_at IS NOT NULL AND deleted_at < :before")
+    suspend fun deleteDeletedBefore(userId: String, before: Long): Int
+
     @Query("SELECT * FROM attachments WHERE user_id = :userId")
     suspend fun listAllForUser(userId: String): List<AttachmentEntity>
 
