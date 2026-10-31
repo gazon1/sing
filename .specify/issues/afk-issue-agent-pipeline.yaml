@@ -1,0 +1,33 @@
+# spec-kit issue record — hand-written at change creation.
+#
+# Not imported from an OpenSpec change: the importer rebuilds the records it
+# owns from scratch (`scripts/openspec-import-all.py` writes each file
+# wholesale), so this record is written by hand. The importer's own record
+# would carry `is_stub: true` and the slug as its title, because this change
+# has no `proposal.md` — the Engineering SDD pipeline writes `spec.md` instead.
+---
+version: '1.0'
+type: openspec-change
+slug: afk-issue-agent-pipeline
+date: '2026-10-30'
+title: 'The AFK issue→PR runner is a Pi extension'
+status: accepted
+change_type: active
+speckit_imported: false
+adr_refs:
+- 2026-10-30-the-afk-runner-is-a-pi-extension
+tags:
+- process
+- tooling
+- agent
+- github
+documents:
+  design: openspec/changes/afk-issue-agent-pipeline/design.md
+  adr: docs/decisions/2026-10-30-the-afk-runner-is-a-pi-extension.md
+  tasks: openspec/changes/afk-issue-agent-pipeline/tasks.md
+# `null`, not a path: this change carries `skip_specs: true`, so it has no
+# capability specs and no `specs/` directory. The registry gate rejects a
+# record that names a directory which is not there.
+specs_dir: null
+is_stub: false
+openspec_path: openspec/changes/afk-issue-agent-pipeline
