@@ -153,6 +153,8 @@ fun AgendaContent(
                     // Selection mode: count + exit + delete
                     TopAppBar(
                         title = { Text("$selectedCount selected") },
+                        selectionTitle = "$selectedCount selected",
+                        onExitSelection = { onIntent(AgendaIntent.ExitSelectionMode) },
                         navigationIcon = {
                             IconButton(onClick = { onIntent(AgendaIntent.ExitSelectionMode) }) {
                                 Icon(
@@ -184,7 +186,6 @@ fun AgendaContent(
                         colors = TopAppBarDefaults.topAppBarColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
                         ),
-                        overrideShell = true,
                     )
                 } else {
                     TopAppBar(

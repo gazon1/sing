@@ -27,32 +27,22 @@ fun TopAppBar(
     colors: TopAppBarColors? = null,
     scrollBehavior: TopAppBarScrollBehavior? = null,
     expandedHeight: Dp = TopAppBarDefaults.TopAppBarExpandedHeight,
-    overrideShell: Boolean = false, // selection-mode bars override the Android shell bar by design
+    selectionTitle: String? = null,
+    onExitSelection: (() -> Unit)? = null,
 ) {
     val holder = LocalScreenActions.current
     if (holder != null) {
-        if (overrideShell) {
-            // Selection mode: publish title/back/colors as an override for the
-            // single Android shell bar instead of rendering a duplicate bar.
-            SideEffect {
-                holder?.title = title
-                holder?.navigationIcon = navigationIcon
-                holder?.colors = colors
-                holder?.actions = actions
-                holder?.override = true
+        SideEffect {
+            holder?.actions = actions
+            holder?.selectionTitle = selectionTitle
+            holder?.onExitSelection = onExitSelection
+        }
+        DisposableEffect(holder) {
+            onDispose {
+                holder?.actions = null
+                holder?.selectionTitle = null
+                holder?.onExitSelection = null
             }
-            DisposableEffect(holder) {
-                onDispose {
-                    holder?.title = null
-                    holder?.navigationIcon = null
-                    holder?.colors = null
-                    holder?.actions = null
-                    holder?.override = false
-                }
-            }
-        } else {
-            SideEffect { holder?.actions = actions }
-            DisposableEffect(holder) { onDispose { holder?.actions = null } }
         }
         return
     }

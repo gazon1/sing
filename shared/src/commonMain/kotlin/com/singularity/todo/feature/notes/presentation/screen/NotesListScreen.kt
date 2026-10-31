@@ -186,6 +186,8 @@ fun NotesScreenContent(
                     // Selection mode: count + exit + delete
                     TopAppBar(
                         title = { Text("$selectedCount selected") },
+                        selectionTitle = "$selectedCount selected",
+                        onExitSelection = { actions.onExitSelection() },
                         navigationIcon = {
                             IconButton(onClick = { actions.onExitSelection() }) {
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Exit selection")
@@ -206,7 +208,6 @@ fun NotesScreenContent(
                         colors = TopAppBarDefaults.topAppBarColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
                         ),
-                        overrideShell = true,
                     )
                 } else {
                     TopAppBar(

@@ -24,6 +24,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import kotlinx.collections.immutable.ImmutableList
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -33,7 +34,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.refresh.RefreshableContent
@@ -43,7 +43,6 @@ import com.singularity.todo.core.ui.components.DeleteActionButton
 import com.singularity.todo.core.ui.components.StatefulContent
 import com.singularity.todo.core.ui.components.TaggedSnackbarHost
 import com.singularity.todo.core.ui.components.rememberOverlayState
-import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tags.components.AddTagDialog
 
 /**
