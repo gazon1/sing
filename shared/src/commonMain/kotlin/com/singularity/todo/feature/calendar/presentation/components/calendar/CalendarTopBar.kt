@@ -2,6 +2,7 @@ package com.singularity.todo.feature.calendar.presentation.components.calendar
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,8 +28,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ShellOverride
+import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
 import com.singularity.todo.feature.calendar.presentation.state.CalendarIntent
 import com.singularity.todo.feature.calendar.presentation.state.CalendarUiState
+import com.singularity.todo.feature.calendar.presentation.theme.CalendarPalette
 import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
 import kotlinx.datetime.LocalDate
 
@@ -55,6 +58,9 @@ fun CalendarTopBar(
 
     val holder = LocalScreenActions.current
     if (holder != null) {
+        // The shell owns the only bar on Android, so the month belongs to the
+        // shell bar: the shell says which month is on screen instead of saying
+        // the word "Calendar".
         ShellOverride(
             title = {
                 Text(
@@ -76,6 +82,19 @@ fun CalendarTopBar(
             },
 
         )
+        // The controls stay in the screen. The shell's bar has room for a title
+        // and a back button, and not for a view-mode dropdown and a month
+        // pager: a calendar whose month cannot be changed is not a calendar.
+        Row(
+            modifier = modifier
+                .fillMaxWidth()
+                .background(palette.background)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CalendarControls(palette = palette, viewMode = state.viewMode, onIntent = onIntent)
+        }
         return
     }
 
@@ -110,8 +129,28 @@ fun CalendarTopBar(
 
         Spacer(Modifier.weight(1f))
 
+        CalendarControls(palette = palette, viewMode = state.viewMode, onIntent = onIntent)
+    }
+}
+
+/**
+ * The controls of the calendar bar: the view-mode dropdown, the mini-calendar
+ * toggle, and the month pager.
+ *
+ * They are a composable of their own because they are drawn in two places: in
+ * the bar the desktop draws, and in the bar the Android screen keeps while the
+ * shell draws the title. Two copies of these controls would drift — the month
+ * pager is the control a user notices first when it stops working.
+ */
+@Composable
+private fun CalendarControls(
+    palette: CalendarPalette,
+    viewMode: CalendarViewMode,
+    onIntent: (CalendarIntent) -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
         ViewModeDropdown(
-            selected = state.viewMode,
+            selected = viewMode,
             onSelect = { onIntent(CalendarIntent.ViewModeChanged(it)) },
         )
 

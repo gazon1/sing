@@ -15,13 +15,19 @@ import androidx.compose.ui.unit.Dp
 /**
  * Platform-aware TopAppBar: no-op on Android (shell owns the only bar),
  * delegates to Material3 on desktop.
+ *
+ * `overrideShell` is the answer to a screen that draws its own header on a
+ * platform where the shell owns the only bar. The screen publishes its title
+ * (and, optionally, its navigation icon) to the shell and the shell draws them
+ * instead of its own; without it the screen would either draw a second bar or
+ * lose its title entirely.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TopAppBar(
     title: @Composable () -> Unit = {},
     modifier: Modifier = Modifier,
-    navigationIcon: @Composable () -> Unit = {},
+    navigationIcon: (@Composable () -> Unit)? = null,
     actions: @Composable (androidx.compose.foundation.layout.RowScope.() -> Unit) = {},
     windowInsets: WindowInsets = TopAppBarDefaults.windowInsets,
     colors: TopAppBarColors? = null,
@@ -29,6 +35,7 @@ fun TopAppBar(
     expandedHeight: Dp = TopAppBarDefaults.TopAppBarExpandedHeight,
     selectionTitle: String? = null,
     onExitSelection: (() -> Unit)? = null,
+    overrideShell: Boolean = false,
 ) {
     val holder = LocalScreenActions.current
     if (holder != null) {
@@ -36,12 +43,26 @@ fun TopAppBar(
             holder?.actions = actions
             holder?.selectionTitle = selectionTitle
             holder?.onExitSelection = onExitSelection
+            if (overrideShell) {
+                holder?.title = title
+                holder?.navigationIcon = navigationIcon
+                holder?.override = true
+            }
         }
-        DisposableEffect(holder) {
+        DisposableEffect(holder, overrideShell) {
             onDispose {
                 holder?.actions = null
                 holder?.selectionTitle = null
                 holder?.onExitSelection = null
+                // Only the bar that published the override takes it back down.
+                // A screen that has BOTH this bar and a [ShellOverride] must
+                // not have the second one's override cleared by the first one's
+                // disposal.
+                if (overrideShell) {
+                    holder?.title = null
+                    holder?.navigationIcon = null
+                    holder?.override = false
+                }
             }
         }
         return
@@ -52,7 +73,7 @@ fun TopAppBar(
     androidx.compose.material3.TopAppBar(
         title = title,
         modifier = modifier,
-        navigationIcon = navigationIcon,
+        navigationIcon = navigationIcon ?: {},
         actions = actions,
         windowInsets = windowInsets,
         colors = resolvedColors,

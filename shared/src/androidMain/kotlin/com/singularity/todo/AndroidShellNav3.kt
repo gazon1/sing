@@ -144,63 +144,12 @@ fun androidShellNav3Root(
     ) {
         Scaffold(
             topBar = {
-                TopAppBar(
-                    title = {
-                        val st = screenActions.selectionTitle
-                        if (st != null) Text(st) else Text(current.title)
-                    },
-                    navigationIcon = {
-                        val exit = screenActions.onExitSelection
-                        if (exit != null) {
-                            IconButton(
-                                onClick = exit,
-                                modifier = Modifier.testTag(TestTags.SHELL_BACK_BUTTON),
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = "Exit selection",
-                                )
-                            }
-                        } else {
-                            // Toggle between Back (nested screen or previous tab) and Menu
-                            // (ultimate root tab), mirroring Desktop.
-                            val showBack = navigator.canGoBack()
-                            if (showBack) {
-                                IconButton(
-                                    onClick = {
-                                        if (!navigator.goBack()) {
-                                            (context as? Activity)?.finish()
-                                        }
-                                    },
-                                    modifier = Modifier.testTag(TestTags.SHELL_BACK_BUTTON),
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = "Back",
-                                    )
-                                }
-                            } else {
-                                IconButton(
-                                    onClick = { menuVisible = true },
-                                    modifier = Modifier.testTag(TestTags.NAV_MENU_BUTTON),
-                                ) {
-                                    Icon(
-                                        Icons.Default.Menu,
-                                        contentDescription = MenuButtonTitle,
-                                    )
-                                }
-                            }
-                        }
-                    },
-                    actions = {
-                        screenActions.actions?.invoke(this)
-                        if (screenActions.selectionTitle == null && current != AppDestination.Search) {
-                            ShellSearchButton(navigator = navigator)
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                    ),
+                ShellTopBar(
+                    screenActions = screenActions,
+                    destinationTitle = current.title,
+                    isSearch = current == AppDestination.Search,
+                    navigator = navigator,
+                    onMenu = { menuVisible = true },
                 )
             },
             floatingActionButton = {
@@ -225,6 +174,13 @@ fun androidShellNav3Root(
                     screenActions.actions = null
                     screenActions.selectionTitle = null
                     screenActions.onExitSelection = null
+                    // The same is true of a published bar: the screen that owned
+                    // it is gone, and the shell must go back to its own title
+                    // rather than keep naming the month of a screen the user
+                    // has left.
+                    screenActions.title = null
+                    screenActions.navigationIcon = null
+                    screenActions.override = false
                     if (navDisplayEntries.isEmpty()) {
                         println(
                             "WARNING [blank-screen] topLevelRoute=${state.topLevelRoute} has 0 entries. " +
@@ -269,6 +225,122 @@ fun androidShellNav3Root(
                 },
                 showAttachAccount = showAttachAccount,
             )
+        }
+    }
+}
+
+/**
+ * The bar the shell draws at the top of the Android app.
+ *
+ * It is a function of its own because the shell root composes a navigation
+ * suite, a scaffold, a FAB and a menu sheet, and the bar's own decisions —
+ * selection mode, a screen that owns its bar, back or menu — would count
+ * against the root's complexity. The bar is also the part of the shell that
+ * changes most often, and a bar buried in the middle of a scaffold is a bar
+ * nobody dares to change.
+ */
+@Composable
+private fun ShellTopBar(
+    screenActions: ScreenActionsHolder,
+    destinationTitle: String,
+    isSearch: Boolean,
+    navigator: Navigator,
+    onMenu: () -> Unit,
+) {
+    TopAppBar(
+        title = { ShellBarTitle(screenActions = screenActions, destinationTitle = destinationTitle) },
+        navigationIcon = {
+            ShellNavigationIcon(screenActions = screenActions, navigator = navigator, onMenu = onMenu)
+        },
+        actions = {
+            screenActions.actions?.invoke(this)
+            if (screenActions.selectionTitle == null && !isSearch) {
+                ShellSearchButton(navigator = navigator)
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+        ),
+    )
+}
+
+/**
+ * The title of the shell bar.
+ *
+ * A screen that owns its own bar publishes it here, and the shell draws it
+ * instead of the destination's name: the month the calendar is on says more
+ * than the word "Calendar".
+ */
+@Composable
+private fun ShellBarTitle(screenActions: ScreenActionsHolder, destinationTitle: String) {
+    val selection = screenActions.selectionTitle
+    val publishedTitle = screenActions.title
+    when {
+        selection != null -> Text(selection)
+        screenActions.override && publishedTitle != null -> publishedTitle.invoke()
+        else -> Text(destinationTitle)
+    }
+}
+
+/**
+ * The navigation icon of the shell bar.
+ *
+ * The published icon replaces the shell's own only when the screen published
+ * one. A screen that published a title and no icon leaves the shell's back
+ * button alone: the shell's button knows where the shell is.
+ */
+@Composable
+private fun ShellNavigationIcon(
+    screenActions: ScreenActionsHolder,
+    navigator: Navigator,
+    onMenu: () -> Unit,
+) {
+    val context = LocalContext.current
+    val exitSelection = screenActions.onExitSelection
+    val publishedIcon = if (screenActions.override) screenActions.navigationIcon else null
+    when {
+        exitSelection != null -> {
+            IconButton(
+                onClick = exitSelection,
+                modifier = Modifier.testTag(TestTags.SHELL_BACK_BUTTON),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Exit selection",
+                )
+            }
+        }
+
+        publishedIcon != null -> publishedIcon.invoke()
+
+        else -> {
+            // Toggle between Back (nested screen or previous tab) and Menu
+            // (ultimate root tab), mirroring Desktop.
+            if (navigator.canGoBack()) {
+                IconButton(
+                    onClick = {
+                        if (!navigator.goBack()) {
+                            (context as? Activity)?.finish()
+                        }
+                    },
+                    modifier = Modifier.testTag(TestTags.SHELL_BACK_BUTTON),
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                    )
+                }
+            } else {
+                IconButton(
+                    onClick = onMenu,
+                    modifier = Modifier.testTag(TestTags.NAV_MENU_BUTTON),
+                ) {
+                    Icon(
+                        Icons.Default.Menu,
+                        contentDescription = MenuButtonTitle,
+                    )
+                }
+            }
         }
     }
 }
