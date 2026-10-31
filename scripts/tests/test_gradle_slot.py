@@ -28,6 +28,24 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 SCRIPT = ROOT / "scripts" / "gradle-slot.sh"
 
+
+def _pool_env() -> dict[str, str]:
+    """The environment the pool runs in, with its opt-outs taken away.
+
+    The pool has two ways to switch itself off: `SINGULARITY_GRADLE_SLOTS_DIR=0`
+    and `GITHUB_ACTIONS=true` (one checkout per runner, the jobs on it share it).
+    Both are deliberate, and both are in force on a CI runner — where these
+    tests are run too. Without removing them the script never reaches the
+    arithmetic these tests are about: it runs the command and exits 0, and the
+    test says "the guard did not guard" about a guard that was switched off.
+
+    A test that measures the pool has to switch the pool on.
+    """
+    env = dict(os.environ)
+    for opt_out in ("GITHUB_ACTIONS", "SINGULARITY_GRADLE_SLOT_HELD"):
+        env.pop(opt_out, None)
+    return env
+
 #: The kernel's units are kB: 1 GiB is 1048576 of them.
 GIB = 1024 * 1024
 
@@ -43,7 +61,7 @@ class MemoryReadingTest(unittest.TestCase):
     """What the pool does when it knows the memory, and when it does not."""
 
     def _run(self, meminfo: str | None, **env_extra: str) -> subprocess.CompletedProcess:
-        env = dict(os.environ)
+        env = _pool_env()
         env["SINGULARITY_GRADLE_SLOT_WAIT_SECS"] = "2"
         env["SINGULARITY_GRADLE_MIN_FREE_GIB"] = "16"
         with tempfile.TemporaryDirectory() as slots:
@@ -132,7 +150,7 @@ class TimeoutMessageTest(unittest.TestCase):
 
     def test_a_busy_pool_names_the_slots(self):
         with tempfile.TemporaryDirectory() as slots:
-            env = dict(os.environ)
+            env = _pool_env()
             env["SINGULARITY_GRADLE_SLOTS_DIR"] = slots
             env["SINGULARITY_GRADLE_SLOT_COUNT"] = "2"
             env["SINGULARITY_GRADLE_SLOT_WAIT_SECS"] = "1"
