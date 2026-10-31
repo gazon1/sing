@@ -1,0 +1,29 @@
+name: AFK label cleanup
+
+# The AFK runner leaves `agent-in-progress` on an issue it has worked, and it has to:
+# the claim label is what keeps the issue out of the queue while its pull request is
+# open, and an issue with no claim label is back in the queue by the runner's own
+# state derivation. The claim is over when the issue closes — the pull request's
+# `Fixes #N` does that on merge — and this is where the label goes.
+
+on:
+  issues:
+    types: [closed]
+
+permissions:
+  issues: write
+
+jobs:
+  unclaim:
+    if: contains(github.event.issue.labels.*.name, 'agent-in-progress')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.removeLabel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              name: 'agent-in-progress',
+            });
