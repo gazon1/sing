@@ -146,15 +146,21 @@ fun androidShellNav3Root(
             topBar = {
                 TopAppBar(
                     title = {
-                        if (screenActions.override && screenActions.title != null) {
-                            screenActions.title?.invoke()
-                        } else {
-                            Text(current.title)
-                        }
+                        val st = screenActions.selectionTitle
+                        if (st != null) Text(st) else Text(current.title)
                     },
                     navigationIcon = {
-                        if (screenActions.override && screenActions.navigationIcon != null) {
-                            screenActions.navigationIcon?.invoke()
+                        val exit = screenActions.onExitSelection
+                        if (exit != null) {
+                            IconButton(
+                                onClick = exit,
+                                modifier = Modifier.testTag(TestTags.SHELL_BACK_BUTTON),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Exit selection",
+                                )
+                            }
                         } else {
                             // Toggle between Back (nested screen or previous tab) and Menu
                             // (ultimate root tab), mirroring Desktop.
@@ -179,7 +185,7 @@ fun androidShellNav3Root(
                                     modifier = Modifier.testTag(TestTags.NAV_MENU_BUTTON),
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.Menu,
+                                        Icons.Default.Menu,
                                         contentDescription = MenuButtonTitle,
                                     )
                                 }
@@ -187,16 +193,12 @@ fun androidShellNav3Root(
                         }
                     },
                     actions = {
-                        if (screenActions.override) {
-                            screenActions.actions?.invoke(this)
-                        } else {
-                            screenActions.actions?.invoke(this)
-                            if (current != AppDestination.Search) {
-                                ShellSearchButton(navigator = navigator)
-                            }
+                        screenActions.actions?.invoke(this)
+                        if (screenActions.selectionTitle == null && current != AppDestination.Search) {
+                            ShellSearchButton(navigator = navigator)
                         }
                     },
-                    colors = screenActions.colors ?: TopAppBarDefaults.topAppBarColors(
+                    colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.surface,
                     ),
                 )
@@ -221,10 +223,8 @@ fun androidShellNav3Root(
                     // A screen without its own TopAppBar never publishes actions, so clear the
                     // slot on every navigation to avoid stale buttons from the previous screen.
                     screenActions.actions = null
-                    screenActions.title = null
-                    screenActions.navigationIcon = null
-                    screenActions.colors = null
-                    screenActions.override = false
+                    screenActions.selectionTitle = null
+                    screenActions.onExitSelection = null
                     if (navDisplayEntries.isEmpty()) {
                         println(
                             "WARNING [blank-screen] topLevelRoute=${state.topLevelRoute} has 0 entries. " +
