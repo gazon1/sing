@@ -1541,13 +1541,14 @@ class UnreachableCellsTest(unittest.TestCase):
 class CarrierRefusesUnreachableTest(unittest.TestCase):
     """The generator must not write a probe that cannot pass."""
 
-    def test_the_cli_refuses_an_unreachable_target_by_name(self):
+    SCENARIOS_DIR = REPO_ROOT / "scripts/src/traceability/scenarios"
+
+    def _run_carrier(self, scenario: str, *args: str):
         import os
         import subprocess
 
-        result = subprocess.run(
-            [sys.executable, "-m", "traceability", "carrier", "SYNC-OFFLINE-01",
-             "--target", "desktop", "--dry-run"],
+        return subprocess.run(
+            [sys.executable, "-m", "traceability", "carrier", scenario, *args],
             capture_output=True,
             text=True,
             cwd=REPO_ROOT,
@@ -1557,31 +1558,77 @@ class CarrierRefusesUnreachableTest(unittest.TestCase):
             # still exercises the CLI.
             env={**os.environ, "PYTHONPATH": str(_SRC)},
             check=False,
+        )
+
+    def _desktop_split(self) -> tuple[list[str], list[str]]:
+        """Desktop scenarios, split by whether a carrier already exists.
+
+        Read from the specs and the scanned links rather than from a hard-coded
+        id: which scenarios carry a hand-written test changes as the repo moves,
+        and a test pinned to one id stops checking the rule it was written for.
+        """
+        from traceability.links import scan_all
+
+        specs = load_specs(self.SCENARIOS_DIR)
+        links = scan_all(specs, REPO_ROOT)
+        carriers = {(link.scenario, link.target) for link in links}
+        free: list[str] = []
+        carried: list[str] = []
+        for scenario_id, spec in sorted(specs.items()):
+            if not spec.is_claimed:
+                continue
+            if Target.DESKTOP not in spec.targets:
+                continue
+            if Target.DESKTOP in spec.unreachable:
+                continue
+            if (scenario_id, Target.DESKTOP) in carriers:
+                carried.append(scenario_id)
+            else:
+                free.append(scenario_id)
+        return free, carried
+
+    def test_the_cli_refuses_an_unreachable_target_by_name(self):
+        result = self._run_carrier(
+            "SYNC-OFFLINE-01", "--target", "desktop", "--dry-run"
         )
         self.assertEqual(result.returncode, 1)
         self.assertIn("недостижимый", result.stdout)
         self.assertNotIn("dry run, не записан", result.stdout)
 
     def test_a_reachable_neighbour_of_an_unreachable_row_still_generates(self):
-        # The classification is per target, not per scenario: SYNC-STATUS-01
-        # stays fully probe-able while its two-device neighbours do not.
-        import os
-        import subprocess
-
-        result = subprocess.run(
-            [sys.executable, "-m", "traceability", "carrier", "SYNC-STATUS-01", "--dry-run"],
-            capture_output=True,
-            text=True,
-            cwd=REPO_ROOT,
-            # PYTHONPATH mirrors what `pip install -e scripts/src/` provides, so
-            # the suite does not depend on whether the editable install has been
-            # run on this machine. CI installs it; a fresh clone that has not
-            # still exercises the CLI.
-            env={**os.environ, "PYTHONPATH": str(_SRC)},
-            check=False,
+        # The classification is per target, not per scenario: a scenario that
+        # is reachable still produces a probe, even when the rows next to it
+        # in the same family are unreachable.
+        #
+        # The subject is discovered, not named. SYNC-STATUS-01 — the id this
+        # test used to pin — was given a hand-written desktop carrier (#1475),
+        # and the generator rightly refuses to overwrite a carrier a human
+        # wrote. Naming that id here would have made this test a tripwire for
+        # the next hand-written carrier instead of a check of the rule.
+        free, _ = self._desktop_split()
+        self.assertTrue(
+            free,
+            "every reachable desktop scenario already has a carrier — the "
+            "generator has nothing left to prove",
         )
-        self.assertEqual(result.returncode, 0)
+        scenario_id = free[0]
+        result = self._run_carrier(scenario_id, "--dry-run")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("dry run", result.stdout)
+
+    def test_a_carrier_written_by_hand_is_not_overwritten(self):
+        # The other refusal — the one #1475 ran into. A carrier that already
+        # exists is the carrier: the generator must name it and stop, not
+        # overwrite a test a human wrote. And the reason it gives must be the
+        # file, not reachability.
+        _, carried = self._desktop_split()
+        self.assertTrue(carried, "no desktop scenario has a carrier to protect")
+        scenario_id = carried[0]
+        result = self._run_carrier(scenario_id, "--dry-run")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("уже несёт", result.stdout)
+        self.assertIn("Перезапись запрещена", result.stdout)
+        self.assertNotIn("недостижимый", result.stdout)
 
 
 class CellStatePrecedence(unittest.TestCase):
