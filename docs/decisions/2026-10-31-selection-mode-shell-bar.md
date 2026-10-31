@@ -1,6 +1,7 @@
 ---
 title: Selection mode publishes selectionTitle/onExitSelection instead of override slots
 date: 2026-10-31
+status: accepted
 ---
 
 # Selection mode publishes selectionTitle/onExitSelection instead of override slots
