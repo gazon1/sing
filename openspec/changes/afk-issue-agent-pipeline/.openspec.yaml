@@ -1,0 +1,17 @@
+schema: spec-driven
+# Engineering work usually changes no observable capability contract, so the
+# marker starts here. speckit-engineering-specify removes it if the change does
+# alter one, and must state its reason either way.
+#
+# Invariant: this marker and a specs/ directory are mutually exclusive.
+#
+# Reason it stays, for this change: no capability specification in
+# `openspec/specs/` describes the issue-to-pull-request workflow, and this
+# change alters none of the ones it comes closest to. `change-review-integrity`
+# (the verdict file and the CI claim) is consumed by the runner, not modified;
+# `branch-hygiene` governs a different tool; `gate-tooling` governs the gate
+# suite, which the runner does not join; `agent-toolbox-surface` and
+# `ai/external-agent` govern the application's own agent surfaces. The runner
+# introduces a new internal automation surface and changes no externally
+# observable contract.
+skip_specs: true
