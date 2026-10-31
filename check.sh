@@ -91,7 +91,7 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-# The numbered steps are 1..11; the lettered ones (2b, 2c, 3b, 4b, 7b, 7c, 8a, 8b, 11b, 11c)
+# The numbered steps are 1..11; the lettered ones (2b, 2c, 3a, 3b, 4b, 7b, 7c, 8a, 8b, 11b, 11c)
 # are extra checks that hang off a numbered step and are not counted here.
 TOTAL=11
 
@@ -220,7 +220,7 @@ else
 fi
 echo -e "${GREEN}shared:jvmTest passed${NC}"
 
-echo -e "${YELLOW}=== [3b/$TOTAL] shared:archTest ===${NC}"
+echo -e "${YELLOW}=== [3a/$TOTAL] shared:archTest ===${NC}"
 # The architecture gates have a task of their own: they read the whole tree, and
 # the Konsist scope they build is per-JVM — four forks built it four times. One
 # fork here builds it once.
