@@ -267,7 +267,7 @@ jobs:
           distribution: zulu
 
       # TODO(verify): the major must match the `actions/upload-artifact` used above.
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: e2e-apk
           path: apk
@@ -463,7 +463,7 @@ jobs:
           with-action-lint: 'false'
 
       - name: Collect the shards' reports
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: maestro-junit-${{ needs.plan.outputs.suite }}-*
           path: build/maestro-results

@@ -196,7 +196,7 @@ jobs:
       # are in execution order and consecutive-run flips (Flake A) are computed
       # against the right predecessor.
       - name: Download all attempt results
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: flake-junit-attempt-*
           merge-multiple: false
