@@ -150,8 +150,14 @@ import xml.etree.ElementTree as ET
 _SCRIPTS_SRC = str(pathlib.Path(__file__).resolve().parent / "src")
 if _SCRIPTS_SRC not in sys.path:
     sys.path.insert(0, _SCRIPTS_SRC)
+# The architecture suite's declaration lives next to this script, and the
+# reader of it is the one implementation of "what the arch suite is".
+_SCRIPTS_DIR = str(pathlib.Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
 
 from sgate.commands.base import run  # noqa: PLC0415 — scripts are not a package
+import arch_suite  # noqa: PLC0415 — scripts are not a package
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 BASELINE = ROOT / "config" / "docs" / "test-runs-baseline.txt"
@@ -159,7 +165,7 @@ BASELINE = ROOT / "config" / "docs" / "test-runs-baseline.txt"
 #: source set label -> JUnit XML directory, relative to the repo root.
 SOURCE_SETS = {
     "shared:jvmTest": "shared/build/test-results/jvmTest",
-    "shared:archTest": "shared/build/test-results/archTest",
+    "shared:archTest": arch_suite.report_dir(),
     "shared:testAndroidHostTest": "shared/build/test-results/testAndroidHostTest",
     "desktopApp:test": "desktopApp/build/test-results/test",
     "mcp-server:test": "mcp-server/build/test-results/test",
@@ -289,20 +295,26 @@ EXPECTED_CLASS_SOURCES = {
 #: The path fragments whose classes do NOT belong to a label.
 #:
 #: The architecture gates have a task of their own (`archTest`), so the classes
-#: under `com/singularity/todo/arch/` are expected to run THERE and not in
+#: under the architecture package are expected to run THERE and not in
 #: `jvmTest`. Without this, the `jvmTest` floor asks for classes that its own
 #: results directory does not have — the floor would report every architecture
 #: gate as "did not run", for the sake of a run in which they did.
+#:
+#: The fragment is the one the DECLARATION holds
+#: (`config/docs/arch-suite.properties`), not a copy of it: the build filters
+#: its test tasks by the same package, and a copy here is a copy that can
+#: drift.
 EXCLUDED_PATHS: dict[str, tuple[str, ...]] = {
-    "shared:jvmTest": ("com/singularity/todo/arch/",),
+    "shared:jvmTest": (arch_suite.path_fragment(),),
 }
 
 #: The path fragments a label keeps, when it does not keep all of them.
 #:
 #: `archTest` runs the architecture gates and nothing else, so the label names
-#: the package it keeps — the same split the build makes, in the same place.
+#: the package it keeps — the same split the build makes, in the same place,
+#: from the same declaration.
 INCLUDED_PATHS: dict[str, tuple[str, ...]] = {
-    "shared:archTest": ("com/singularity/todo/arch/",),
+    "shared:archTest": (arch_suite.path_fragment(),),
 }
 
 

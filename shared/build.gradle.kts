@@ -496,7 +496,7 @@ val testTaskHeap = memoryBudget.getProperty("test.heap.module.shared")
 
 // ── The architecture suite has a task of its own ─────────────────────────────
 //
-// The gates in `com.singularity.todo.arch` read the WHOLE tree. One of them —
+// The gates in the architecture package read the WHOLE tree. One of them —
 // `CommonMainKonsistScope` — parses 1,238 files of `commonMain` with Konsist,
 // and that scope is built once per JVM. Four forks built it four times: a
 // quarter of the suite's CPU spent parsing the same tree four times over.
@@ -512,13 +512,30 @@ val testTaskHeap = memoryBudget.getProperty("test.heap.module.shared")
 // the `archTask` flag in the block below. A gate that cannot be invalidated by
 // the change it watches reports a verdict about a file it never re-read, and
 // that is worse than no gate at all.
+//
+// The PACKAGE is declared once, in `config/docs/arch-suite.properties`, and
+// read from there by this build and by the gates that have to agree with it
+// (`scripts/check-test-runs.py`, `scripts/check-slow-tests-ran.py`,
+// `scripts/test-impact-map.py`). It used to be written down in four places,
+// and a rename that reached one of them left the others naming a package that
+// no longer existed — each of those gates still reported green, because a
+// gate that looks for a suite that is not there counts nothing instead of
+// failing.
+val archSuite = Properties().apply {
+    rootProject.file("config/docs/arch-suite.properties").inputStream().use { load(it) }
+}
+val archPackage = archSuite.getProperty("arch.package")
+    ?: throw GradleException(
+        "config/docs/arch-suite.properties declares no arch.package — the package the " +
+            "architecture gates live in has to be recorded somewhere."
+    )
 val archTest = tasks.register<Test>("archTest") {
     description = "The architecture gates — the ones that read the whole tree."
     group = "verification"
     val jvmTestSources = sourceSets.getByName("jvmTest")
     testClassesDirs = jvmTestSources.output.classesDirs
     classpath = jvmTestSources.runtimeClasspath
-    filter { includeTestsMatching("com.singularity.todo.arch.*") }
+    filter { includeTestsMatching("$archPackage.*") }
     // The fork count is set in the `jvmTest`/`archTest` block below, where both
     // tasks are configured together: one fork for this one, four for the rest.
     // The merge is the same — a retried class must not be counted twice by the
@@ -663,7 +680,7 @@ tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" 
     // The architecture gates run in `archTest` — they read the whole tree, and the
     // Konsist scope they build is per-JVM. See the `archTest` task above.
     if (!archTask) {
-        filter { excludeTestsMatching("com.singularity.todo.arch.*") }
+        filter { excludeTestsMatching("$archPackage.*") }
     }
     // Forks in parallel, still one JVM per class. `forkEvery = 1` is what isolates
     // KoinPlatform state between classes; it costs a JVM start per class, and at

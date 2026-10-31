@@ -88,6 +88,7 @@ if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 
 import scanning  # noqa: E402 — the path entry above is the reason for the late import
+import arch_suite  # noqa: E402 — the path entry above is the reason for the late import
 
 #: The directory the arch suite lives in. A test there is a statement about the
 #: TREE, not about one class: `CommonMainJvmApiTest` walks every file of
@@ -113,7 +114,12 @@ import scanning  # noqa: E402 — the path entry above is the reason for the lat
 #: `TextField*` scans: about ten fast gates still absent from the map of a
 #: `commonMain` change, and each of them reads the tree as literally as the one
 #: the rule was written for. A list of calls is a list the next helper escapes.
-ARCH_SUITE = '/arch/'
+#:
+#: The directory itself is DECLARED — `config/docs/arch-suite.properties` — and
+#: read from there, because the build filters its test tasks by the same
+#: package. A marker written down twice is a marker that can disagree with the
+#: build about which classes the architecture task owns.
+ARCH_SUITE = arch_suite.directory_marker()
 
 #: Calls that read a whole tree, for a test that is NOT in the arch suite — a
 #: fixture-corpus test, for example. Matched against the FILE and not against
@@ -283,7 +289,7 @@ SOURCE_SET_TASKS: dict[str, str] = {
 ARCH_TASK = ':shared:archTest'
 
 #: The package the architecture gates live in.
-ARCH_PACKAGE = 'com.singularity.todo.arch'
+ARCH_PACKAGE = arch_suite.package()
 
 
 def _task_for(source_dir: str, qualified_name: str) -> str:
