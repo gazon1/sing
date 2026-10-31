@@ -66,6 +66,7 @@ logbook_section item
 menu_aichat menu
 menu_all_projects menu
 menu_archive menu
+menu_attach_account menu
 menu_calendar menu
 menu_notes menu
 menu_proposals menu
@@ -133,6 +134,7 @@ settings_content_sync item
 settings_notifications_enabled_switch button
 settings_tab_account tab
 settings_tab_backup tab
+settings_tab_dropdown tab
 settings_tab_interface tab
 settings_tab_notifications tab
 snackbar_action button

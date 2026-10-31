@@ -210,7 +210,7 @@ wherever the flow lives. `scripts/src/emulator/maestro/_flow.py` reads the
 tag, `scripts/ci/check-maestro-results.py` measures the same set, and
 `scripts/check-maestro-smoke-suite.py` holds this number to the tag.
 
-Current smoke flows (27):
+Current smoke flows (28):
 
 The flows are not written out here on purpose. A written-out list is a second
 place for the suite to be wrong, and this one was wrong for months: it said

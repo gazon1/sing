@@ -35,6 +35,8 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -50,6 +52,9 @@ import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.feature.attachments.AttachmentsIntent
+import com.singularity.todo.feature.attachments.AttachmentsUiEvent
+import com.singularity.todo.feature.attachments.AttachmentsViewModel
 import com.singularity.todo.feature.tasks.presentation.components.TaskAiBottomSheet
 import com.singularity.todo.feature.tasks.presentation.components.detail.AttachmentsCallbacks
 import com.singularity.todo.feature.tasks.presentation.components.detail.DateRowCallbacks
@@ -102,7 +107,6 @@ fun TaskDetailContent(
     // would mean every call site names a state it does not own.
     var showTimeEntrySheet by rememberSaveable { mutableStateOf(false) }
     val sheets = rememberDialogState<TaskEditorSheet>()
-
     // One collector, one owner.
     //
     // The events live in a channel, and a channel has one consumer: two
@@ -133,16 +137,6 @@ fun TaskDetailContent(
                         title = "Task deleted",
                         actionLabel = "Undo",
                         onAction = { coordinator.onIntent(TaskDetailIntent.Domain.Restore) },
-                    ),
-                )
-
-                is TaskDetailUiEvent.UndoDeleteAttachment -> notifications.send(
-                    Notification.Undo(
-                        title = "Attachment deleted",
-                        actionLabel = "Undo",
-                        onAction = {
-                            coordinator.onIntent(TaskDetailIntent.Domain.RestoreAttachment(event.attachmentId))
-                        },
                     ),
                 )
 
@@ -212,15 +206,40 @@ fun TaskDetailContent(
                         val ui = s.ui
                         val extras = s.extras
 
+                        val attachmentsVm: AttachmentsViewModel = koinViewModel { parametersOf(ui.task.id) }
+                        val attachments by attachmentsVm.attachments.collectAsStateWithLifecycle()
+                        LaunchedEffect(attachmentsVm) {
+                            attachmentsVm.events.collect { event ->
+                                when (event) {
+                                    is AttachmentsUiEvent.UndoDelete -> {
+                                        notifications.send(
+                                            Notification.Undo(
+                                                title = "Attachment deleted",
+                                                actionLabel = "Undo",
+                                                onAction = {
+                                                    attachmentsVm.onIntent(
+                                                        AttachmentsIntent.RestoreAttachment(event.attachmentId),
+                                                    )
+                                                },
+                                            ),
+                                        )
+                                    }
+
+                                    else -> {}
+                                }
+                            }
+                        }
+
                         // The attach-file entry point. Declared here rather than inside the
                         // attachments card so the launcher survives recomposition with the
                         // same identity, and so the card stays a presentational component.
                         val pickAttachment = rememberAppFilePicker(FilePickPurpose.Attachment) { picked ->
                             if (picked != null) {
-                                coordinator.onIntent(
-                                    TaskDetailIntent.Domain.AddFileAttachment(
+                                attachmentsVm.onIntent(
+                                    AttachmentsIntent.SaveFile(
                                         sourcePath = picked.path,
                                         mimeType = picked.mimeType,
+                                        taskId = ui.task.id,
                                     ),
                                 )
                             }
@@ -250,7 +269,7 @@ fun TaskDetailContent(
                                 // attachments yet" on a task that had them, and there
                                 // was nothing to delete from the one place that
                                 // deletes.
-                                attachments = ui.attachments,
+                                attachments = remember(attachments) { attachments.toImmutableList() },
                             ),
                             titleSource = ui.titleSource,
                             descriptionSource = ui.descriptionSource,
@@ -327,13 +346,13 @@ fun TaskDetailContent(
                                 attachments = AttachmentsCallbacks(
                                     onOpen = { sheets.show(TaskEditorSheet.Attachments) },
                                     onAddUrl = { url, title ->
-                                        coordinator.onIntent(
-                                            TaskDetailIntent.Domain.AddUrlAttachment(url, title),
+                                        attachmentsVm.onIntent(
+                                            AttachmentsIntent.AddUrl(ui.task.id, url, title),
                                         )
                                     },
                                     onAttachFile = { pickAttachment() },
                                     onDelete = {
-                                        coordinator.onIntent(TaskDetailIntent.Domain.DeleteAttachment(it))
+                                        attachmentsVm.onIntent(AttachmentsIntent.Delete(it))
                                     },
                                 ),
                                 onTimeEntryAdd = null,
@@ -454,10 +473,10 @@ fun TaskDetailContent(
                                         // is also how the user opens the attachments sheet to attach
                                         // the first file — or the first link.
                                         TaskDetailAttachmentsSection(
-                                            attachments = ui.attachments,
+                                            attachments = remember(attachments) { attachments.toImmutableList() },
                                             onOpenAttachments = { sheets.show(TaskEditorSheet.Attachments) },
                                             onDelete = {
-                                                coordinator.onIntent(TaskDetailIntent.Domain.DeleteAttachment(it))
+                                                attachmentsVm.onIntent(AttachmentsIntent.Delete(it))
                                             },
                                             onOpen = { id -> navigator.openAttachment(id) },
                                         )

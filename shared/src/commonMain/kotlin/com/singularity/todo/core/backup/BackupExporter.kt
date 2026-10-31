@@ -62,6 +62,7 @@ class BackupExporter(
      * else's: see [BackupCursorStore].
      */
     private val cursors: BackupCursorStore,
+    private val backupDir: String,
 ) : ArchiveExporter {
     private val json = StableJson
 
@@ -189,7 +190,7 @@ class BackupExporter(
             // failed half way through leaves the chain where it was, and the next
             // export carries the change again — which costs a few rows and is
             // wrong in no direction.
-            if (!options.userChosenDestination) {
+            if (isAppResolvedDestination(options.destPath)) {
                 writeChange(options, payload, now)
             }
 
@@ -320,6 +321,11 @@ class BackupExporter(
                 rows = index,
             ),
         )
+    }
+
+    private fun isAppResolvedDestination(destPath: String): Boolean {
+        val dir = backupDir.trimEnd('/', '\\')
+        return destPath == dir || destPath.startsWith("$dir/") || destPath.startsWith("$dir\\")
     }
 
     private companion object {

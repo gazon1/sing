@@ -24,7 +24,7 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import com.singularity.todo.core.ui.components.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -113,62 +113,35 @@ fun AttachAccountScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Attach Account") },
-                navigationIcon = {
-                    IconButton(
-                        onClick = { navigator.goBack() },
-                        modifier = Modifier.testTag(TestTags.AUTH_ATTACH_BACK_BUTTON),
-                    ) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                        )
-                    }
-                },
-            )
+    AttachAccountScreenContent(
+        emailState = emailState,
+        passwordState = passwordState,
+        disposition = form.value.disposition,
+        isLoading = state is AuthUiState.Loading,
+        errorMessage = errorMessage,
+        message = message,
+        onDispositionChange = { choice -> form.update { copy(disposition = choice) } },
+        onSubmit = {
+            // Unreachable while the choice is null — the button is disabled —
+            // and the fallback is a refusal rather than a silent default, so a
+            // future caller that forgets the guard cannot dispose of anyone's data.
+            val choice = form.value.disposition
+            if (choice == null) {
+                errorMessage = "Choose what should happen to your offline data first."
+            } else {
+                errorMessage = null
+                message = null
+                viewModel.onIntent(
+                    AuthIntent.AttachAccount(
+                        email = emailState.text.toString().trim(),
+                        password = passwordState.text.toString(),
+                        disposition = choice,
+                    ),
+                )
+            }
         },
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 32.dp, vertical = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top,
-        ) {
-            AttachAccountForm(
-                emailState = emailState,
-                passwordState = passwordState,
-                disposition = form.value.disposition,
-                isLoading = state is AuthUiState.Loading,
-                errorMessage = errorMessage,
-                message = message,
-                onDispositionChange = { choice -> form.update { copy(disposition = choice) } },
-                onSubmit = {
-                    // Unreachable while the choice is null — the button is disabled —
-                    // and the fallback is a refusal rather than a silent default, so a
-                    // future caller that forgets the guard cannot dispose of anyone's data.
-                    val choice = form.value.disposition
-                    if (choice == null) {
-                        errorMessage = "Choose what should happen to your offline data first."
-                        return@AttachAccountForm
-                    }
-                    errorMessage = null
-                    message = null
-                    viewModel.onIntent(
-                        AuthIntent.AttachAccount(
-                            email = emailState.text.toString().trim(),
-                            password = passwordState.text.toString(),
-                            disposition = choice,
-                        ),
-                    )
-                },
-            )
-        }
-    }
+        onBack = { navigator.goBack() },
+    )
 }
 
 // ===== Preview =====

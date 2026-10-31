@@ -9,13 +9,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.runtime.Composable
+import androidx.compose.material3.Icon
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import com.singularity.todo.core.ui.components.LocalScreenActions
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -23,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.ShellOverride
 import com.singularity.todo.feature.calendar.presentation.state.CalendarIntent
 import com.singularity.todo.feature.calendar.presentation.state.CalendarUiState
 import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
@@ -36,6 +40,7 @@ import kotlinx.datetime.LocalDate
  *   non-null, replaces [CalendarUiState.Loaded]'s `headerLabel` (used by
  *   [CalendarContent] to render the live pager header without VM round-trips).
  */
+@Suppress("LongMethod")
 @Composable
 fun CalendarTopBar(
     state: CalendarUiState.Loaded,
@@ -43,9 +48,36 @@ fun CalendarTopBar(
     onIntent: (CalendarIntent) -> Unit,
     modifier: Modifier = Modifier,
     headerLabelOverride: String? = null,
+    onBack: (() -> Unit)? = null,
 ) {
     val palette = LocalCalendarPalette.current
     val displayedLabel = headerLabelOverride ?: state.headerLabel
+
+    val holder = LocalScreenActions.current
+    if (holder != null) {
+        ShellOverride(
+            title = {
+                Text(
+                    text = displayedLabel,
+                    color = palette.textPrimary,
+                    fontSize = 20.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                    modifier = Modifier.testTag(TestTags.CALENDAR_MONTH_TITLE),
+                )
+            },
+            navigationIcon = if (onBack != null) {
+                {
+                    IconButton(onClick = onBack, modifier = Modifier.testTag(TestTags.TOP_BAR_BACK_BUTTON)) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            } else {
+                null
+            },
+
+        )
+        return
+    }
 
     Row(
         modifier = modifier

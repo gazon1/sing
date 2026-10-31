@@ -112,6 +112,17 @@
 # convention is already used by `Maestro/TAGS.md`.
 #
 #
+# **4148 -> 4144 was an upstream deletion, not a lost suite.** The keyring commit
+# (`568ec510d`) removed `core/files/FileChecksum.kt` and its test class with it.
+# `FileChecksumTest` was `@Tag("fast")` and carried five `@Test` methods; the
+# replacement `JvmSecureStorageKeyringTest` carries one, and the second new class
+# (`JvmSecureStorageKeyringIntegrationTest`) is `@Tag("slow")`, so the default
+# population does not run it. Five out, one in: 4148 - 5 + 1 = 4144. The JUnit
+# reports on disk confirm it — 476 classes, 4144 tests, and no report for
+# `FileChecksumTest` because the class no longer exists. Recorded with
+# `--allow-drop`, which is the documented override for tests that were genuinely
+# deleted.
+#
 # **mcp-server:test is 0 because the module keeps one slow test.** The server's own
 # tests moved next to the code they test (shared/src/jvmTest/kotlin/.../mcp/) — a test
 # of a payload the code declares `internal` cannot live in another module. The module
@@ -121,8 +132,9 @@
 # and they run in every population.
 #
 # GENERATED:BEGIN — rewritten by --update-baseline; do not hand-edit
-desktopApp:test 26 0
-shared:jvmTest 2785 0
-mcp-server:test 0 0
+desktopApp:test 62 0
+shared:archTest 219 0
+shared:jvmTest 4144 0
 shared:testAndroidHostTest 13 0
+mcp-server:test 0 0
 # GENERATED:END

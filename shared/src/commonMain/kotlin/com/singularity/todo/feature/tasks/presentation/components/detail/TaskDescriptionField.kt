@@ -9,12 +9,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.placeholderTextColor
-
 /**
  * Многострочное поле описания. Реальный текстовый ввод вместо статичного
  * Text — в оригинале это выглядело как кнопка, а не поле ввода.
@@ -38,7 +39,8 @@ fun TaskDescriptionField(
         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = TaskSpacing.sm),
+            .padding(vertical = TaskSpacing.sm)
+            .semantics { contentDescription = "Task description" },
         decorator = { innerTextField ->
             if (descriptionState.text.isEmpty()) {
                 Text(

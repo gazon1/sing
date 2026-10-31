@@ -66,12 +66,12 @@ import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.minimumInteractiveComponentSize
 import kotlin.time.Instant
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
-
 /**
  * Unified task editor Composable for both Create and View modes.
  *
@@ -325,7 +325,10 @@ private fun TaskEditorContent(
                     onClick = cb.onClick ?: { sheets.show(TaskEditorSheet.Project) },
                     trailingContent = if (cb.onClear != null && project != null) {
                         {
-                            IconButton(onClick = cb.onClear, modifier = Modifier.size(24.dp)) {
+                            IconButton(
+                                onClick = cb.onClear,
+                                modifier = Modifier.size(24.dp).minimumInteractiveComponentSize(),
+                            ) {
                                 Icon(
                                     imageVector = Icons.Filled.Close,
                                     contentDescription = "Clear project",
@@ -340,7 +343,6 @@ private fun TaskEditorContent(
                     modifier = Modifier.testTag(TestTags.TASK_EDITOR_PROJECT_ROW),
                 )
             }
-
             // Tags row
             tagsCallbacks?.let { cb ->
                 TaskAttributeCard(

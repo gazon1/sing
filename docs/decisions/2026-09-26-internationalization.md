@@ -27,20 +27,21 @@ Add i18n support when:
 // ❌ WRONG — hardcoded string
 Text("Are you sure?")
 
-// ✅ CORRECT — string resource
-Text(stringResource(R.string.confirmation_dialog_body))
+// ✅ CORRECT — Compose Multiplatform string resource
+Text(stringResource(Res.string.confirmation_dialog_body))
 ```
 
-**String resource file structure:**
+**String resource file structure (Compose Multiplatform resources):**
 
 ```
-res/
-└── values/
-    └── strings.xml          # English (default)
-res/
+shared/src/commonMain/composeResources/
+├── values/
+│   └── strings.xml          # English (default)
 └── values-ru/
     └── strings.xml          # Russian (when added)
 ```
+
+Import: `org.jetbrains.compose.resources.stringResource` and `singularity_todo.shared.generated.resources.Res`.
 
 ### What to internationalize
 

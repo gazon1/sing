@@ -49,7 +49,7 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import com.singularity.todo.core.ui.components.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
@@ -186,13 +186,18 @@ fun NotesScreenContent(
                     // Selection mode: count + exit + delete
                     TopAppBar(
                         title = { Text("$selectedCount selected") },
+                        selectionTitle = "$selectedCount selected",
+                        onExitSelection = { actions.onExitSelection() },
                         navigationIcon = {
                             IconButton(onClick = { actions.onExitSelection() }) {
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Exit selection")
                             }
                         },
                         actions = {
-                            IconButton(onClick = { actions.onDeleteSelected() }) {
+                            IconButton(
+                                onClick = { actions.onDeleteSelected() },
+                                modifier = Modifier.testTag(TestTags.NOTES_DELETE_SELECTED_BUTTON),
+                            ) {
                                 Icon(
                                     Icons.Default.Delete,
                                     contentDescription = "Delete selected",
@@ -261,6 +266,7 @@ fun NotesScreenContent(
                     state = state.toContentState(),
                     emptyTitle = "No notes yet",
                     emptyTestTag = TestTags.NOTES_LIST_EMPTY,
+                    onRetry = { actions.onRetry() },
                     modifier = Modifier.padding(padding),
                 ) { _, contentModifier ->
                     NoteList(

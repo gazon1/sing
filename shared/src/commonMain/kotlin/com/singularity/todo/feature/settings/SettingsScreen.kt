@@ -3,9 +3,11 @@ package com.singularity.todo.feature.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -16,6 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -29,6 +32,12 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -61,7 +70,11 @@ import io.github.vinceglb.filekit.dialogs.compose.rememberFileSaverLauncher
 import com.singularity.todo.core.llm.AiTestResult
 import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.ConfirmActionDialog
 import com.singularity.todo.core.ui.components.TaggedSnackbarHost
+import com.singularity.todo.core.ui.components.TopAppBar
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
+import androidx.compose.material3.IconButton
 import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -152,6 +165,17 @@ fun SettingsScreen(
     }
 
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Settings") },
+                navigationIcon = {
+                    IconButton(onClick = { navCallbacks?.goBack() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                overrideShell = true,
+            )
+        },
         snackbarHost = { TaggedSnackbarHost(snackbarHostState, countdownProgress = tagsCountdownProgress) },
         modifier = modifier,
     ) { paddingValues ->
@@ -199,79 +223,66 @@ private fun SettingsContent(
     previewOverrides: ImmutableMap<SettingsTab, @Composable () -> Unit> = persistentMapOf(),
     navCallbacks: NavCallbacks? = null,
 ) {
-    Row(modifier = modifier.fillMaxSize()) {
-        SettingsNavRail(
-            selectedTab = selectedTab,
-            aiTestResult = state.aiEphemeral.testResult,
-            modifier = Modifier.fillMaxHeight(),
-            onSelect = onSelectTab,
-        )
-        VerticalDivider()
-
-        Box(
-            modifier =
-                Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .widthIn(max = 720.dp),
-            contentAlignment = Alignment.TopCenter,
-        ) {
-            previewOverrides[selectedTab]?.invoke()
-                ?: when (selectedTab) {
-                    SettingsTab.Interface ->
-                        InterfaceSettingsScreen(
-                            state = state,
-                            onIntent = onIntent,
-                            onboarding = onboarding,
-                        )
-
-                    SettingsTab.Agenda -> AgendaSettingsScreen(state = state, onIntent = onIntent)
-
-                    SettingsTab.Notifications -> NotificationSettingsScreen(state = state, onIntent = onIntent)
-
-                    SettingsTab.AIProvider -> AiProviderSettingsScreen(state = state, onIntent = onIntent)
-
-                    SettingsTab.WorkSchedule -> WorkScheduleSettingsScreen(state = state, onIntent = onIntent)
-
-                    SettingsTab.Calendar -> CalendarSyncSettingsScreen()
-
-                    SettingsTab.Sync -> SyncSettingsScreen()
-
-                    SettingsTab.Tags -> {
-                        val tagsVm: TagsViewModel = koinViewModel()
-                        TagsScreen(
-                            viewModel = tagsVm,
-                            onOpenTag = { tagId ->
-                                navCallbacks?.navigate(
-                                    AppDestination.AgendaGraph(AgendaStartRoute.Tag(tagId)),
-                                )
-                            },
-                        )
-                    }
-
-                    SettingsTab.TagGroups -> {
-                        val tagGroupsVm: TagGroupsViewModel = koinViewModel()
-                        val tagGroupsState by tagGroupsVm.stateFlow.collectAsStateWithLifecycle()
-                        TagGroupsScreen(
-                            state = tagGroupsState,
-                            onDelete = { id -> tagGroupsVm.onIntent(TagGroupsIntent.Delete(id)) },
-                        )
-                    }
-
-                    SettingsTab.Tasks -> TasksSettingsScreen(state = state, onIntent = onIntent)
-
-                    SettingsTab.Files ->
-                        FilesSettingsScreen(
-                            attachmentsPath = attachmentsPath,
-                            onOpenAttachmentsFolder = onOpenAttachmentsFolder,
-                            logExportEphemeral = state.logExportEphemeral,
-                            onExportLogs = { onIntent(SettingsIntent.ExportLogs) },
-                        )
-
-                    SettingsTab.Backup -> BackupScreenWrapper(onBack = { onSelectTab(SettingsTab.Interface) })
-
-                    SettingsTab.Account -> AccountSettingsScreen()
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val narrow = maxWidth < 600.dp
+        if (narrow) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                SettingsTabDropdown(
+                    selectedTab = selectedTab,
+                    onSelect = onSelectTab,
+                )
+                Box(
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .widthIn(max = 720.dp),
+                    contentAlignment = Alignment.TopCenter,
+                ) {
+                    SettingsTabBody(
+                        selectedTab = selectedTab,
+                        state = state,
+                        onIntent = onIntent,
+                        onOpenAttachmentsFolder = onOpenAttachmentsFolder,
+                        attachmentsPath = attachmentsPath,
+                        onboarding = onboarding,
+                        previewOverrides = previewOverrides,
+                        navCallbacks = navCallbacks,
+                        onSelectTab = onSelectTab,
+                    )
                 }
+            }
+        } else {
+            Row(modifier = Modifier.fillMaxSize()) {
+                SettingsNavRail(
+                    selectedTab = selectedTab,
+                    aiTestResult = state.aiEphemeral.testResult,
+                    modifier = Modifier.fillMaxHeight(),
+                    onSelect = onSelectTab,
+                )
+                VerticalDivider()
+
+                Box(
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .widthIn(max = 720.dp),
+                    contentAlignment = Alignment.TopCenter,
+                ) {
+                    SettingsTabBody(
+                        selectedTab = selectedTab,
+                        state = state,
+                        onIntent = onIntent,
+                        onOpenAttachmentsFolder = onOpenAttachmentsFolder,
+                        attachmentsPath = attachmentsPath,
+                        onboarding = onboarding,
+                        previewOverrides = previewOverrides,
+                        navCallbacks = navCallbacks,
+                        onSelectTab = onSelectTab,
+                    )
+                }
+            }
         }
     }
 }
@@ -284,10 +295,11 @@ private fun BackupScreenWrapper(onBack: () -> Unit) {
     // The restore / settings-import flows need the *path* the user picked, not just the
     // fact that they picked. `rememberAppFilePicker` hands the path straight to the
     // intent, so the launcher callback and the VM stay in step with no intermediate state.
+    var pendingRestorePath by remember { mutableStateOf<String?>(null) }
     val pickBackup =
         rememberAppFilePicker(FilePickPurpose.Backup) { picked ->
             val path = picked?.path ?: return@rememberAppFilePicker
-            backupVm.onIntent(BackupIntent.Restore(path))
+            pendingRestorePath = path
         }
     val saveBackup =
         rememberFileSaverLauncher(FileKitDialogSettings()) { file ->
@@ -328,6 +340,88 @@ private fun BackupScreenWrapper(onBack: () -> Unit) {
             backupVm.onIntent(BackupIntent.AuthorizeScheduledBackup(password))
         },
     )
+
+    pendingRestorePath?.let { path ->
+        ConfirmActionDialog(
+            title = "Restore backup",
+            text = "Restore will overwrite current data. Are you sure?",
+            confirmButtonText = "Restore",
+            onConfirm = {
+                pendingRestorePath = null
+                backupVm.onIntent(BackupIntent.Restore(path))
+            },
+            onDismiss = { pendingRestorePath = null },
+        )
+    }
+}
+
+@Composable
+private fun SettingsTabBody(
+    selectedTab: SettingsTab,
+    state: SettingsUiState.Content,
+    onIntent: (SettingsIntent) -> Unit,
+    onOpenAttachmentsFolder: () -> Unit,
+    attachmentsPath: String,
+    onboarding: OnboardingSettingsRepository?,
+    previewOverrides: ImmutableMap<SettingsTab, @Composable () -> Unit>,
+    navCallbacks: NavCallbacks?,
+    onSelectTab: (SettingsTab) -> Unit,
+) {
+    previewOverrides[selectedTab]?.invoke() ?: when (selectedTab) {
+        SettingsTab.Interface ->
+            InterfaceSettingsScreen(
+                state = state,
+                onIntent = onIntent,
+                onboarding = onboarding,
+            )
+
+        SettingsTab.Agenda -> AgendaSettingsScreen(state = state, onIntent = onIntent)
+
+        SettingsTab.Notifications -> NotificationSettingsScreen(state = state, onIntent = onIntent)
+
+        SettingsTab.AIProvider -> AiProviderSettingsScreen(state = state, onIntent = onIntent)
+
+        SettingsTab.WorkSchedule -> WorkScheduleSettingsScreen(state = state, onIntent = onIntent)
+
+        SettingsTab.Calendar -> CalendarSyncSettingsScreen()
+
+        SettingsTab.Sync -> SyncSettingsScreen()
+
+        SettingsTab.Tags -> {
+            val tagsVm: TagsViewModel = koinViewModel()
+            TagsScreen(
+                viewModel = tagsVm,
+                onOpenTag = { tagId ->
+                    navCallbacks?.navigate(
+                        AppDestination.AgendaGraph(AgendaStartRoute.Tag(tagId)),
+                    )
+                },
+            )
+        }
+
+        SettingsTab.TagGroups -> {
+            val tagGroupsVm: TagGroupsViewModel = koinViewModel()
+            val tagGroupsState by tagGroupsVm.stateFlow.collectAsStateWithLifecycle()
+            TagGroupsScreen(
+                state = tagGroupsState,
+                onDelete = { id -> tagGroupsVm.onIntent(TagGroupsIntent.Delete(id)) },
+            )
+        }
+
+        SettingsTab.Tasks -> TasksSettingsScreen(state = state, onIntent = onIntent)
+
+        SettingsTab.Files ->
+            FilesSettingsScreen(
+                attachmentsPath = attachmentsPath,
+                onOpenAttachmentsFolder = onOpenAttachmentsFolder,
+                logExportEphemeral = state.logExportEphemeral,
+                onExportLogs = { onIntent(SettingsIntent.ExportLogs) },
+            )
+
+        SettingsTab.Backup -> BackupScreenWrapper(onBack = { onSelectTab(SettingsTab.Interface) })
+
+        SettingsTab.Account -> AccountSettingsScreen()
+    }
 }
 
 @Composable
@@ -353,11 +447,12 @@ private fun SettingsNavRail(
         val groups = listOf(
             "Appearance" to listOf(SettingsTab.Interface),
             "Productivity" to listOf(SettingsTab.Agenda, SettingsTab.WorkSchedule, SettingsTab.Tasks),
-            "Notifications" to listOf(SettingsTab.Notifications, SettingsTab.Calendar),
+            "Notifications" to listOf(SettingsTab.Notifications),
             "Data" to listOf(
                 SettingsTab.Files,
                 SettingsTab.Backup,
                 SettingsTab.Sync,
+                SettingsTab.Calendar,
                 SettingsTab.Tags,
                 SettingsTab.TagGroups,
             ),
@@ -418,6 +513,47 @@ private fun SettingsNavRail(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SettingsTabDropdown(
+    selectedTab: SettingsTab,
+    onSelect: (SettingsTab) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        modifier = Modifier.fillMaxWidth().padding(8.dp),
+    ) {
+        Button(
+            onClick = { expanded = !expanded },
+            modifier = Modifier
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                .fillMaxWidth()
+                .testTag(TestTags.Settings.TAB_DROPDOWN),
+        ) {
+            Text(selectedTab.label)
+            ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+        }
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.mapTestTagsAsResourceIds(),
+        ) {
+            SettingsTab.entries.forEach { tab ->
+                DropdownMenuItem(
+                    text = { Text(tab.label) },
+                    modifier = Modifier.testTag(TestTags.settingsTab(tab.name)),
+                    onClick = {
+                        onSelect(tab)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun AiStatusBadge(
     aiTestResult: AiTestResult,
@@ -451,31 +587,7 @@ private fun AiStatusBadge(
 private val previewOverrides: ImmutableMap<SettingsTab, @Composable () -> Unit> =
     mapOf<SettingsTab, @Composable () -> Unit>(
         SettingsTab.Tags to {
-            val fakeTagsRepo =
-                com.singularity.todo.test.fakes
-                    .FakeTagsRepository()
-            val fakeCreateTag =
-                com.singularity.todo.feature.tags.domain.usecase.CreateTagUseCase(
-                    fakeTagsRepo,
-                    com.singularity.todo.test.fakes
-                        .FakeClock(),
-                )
-            val fakeUpdateTag =
-                com.singularity.todo.feature.tags.domain.usecase.UpdateTagUseCase(
-                    fakeTagsRepo,
-                    com.singularity.todo.test.fakes
-                        .FakeClock(),
-                )
-            val vm =
-                TagsViewModel(
-                    tagRepo = fakeTagsRepo,
-                    createTag = fakeCreateTag,
-                    updateTag = fakeUpdateTag,
-                    currentUser =
-                        com.singularity.todo.test.fakes
-                            .FakeProfileAwareCurrentUser(),
-                )
-            TagsScreen(viewModel = vm)
+            Text("Tags", modifier = Modifier.padding(16.dp))
         },
         SettingsTab.TagGroups to {
             TagGroupsScreen(state = TagGroupsUiState.Empty, onDelete = {})

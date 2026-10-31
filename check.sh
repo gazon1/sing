@@ -21,6 +21,27 @@ set -e
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
+# ── The affected lane ─────────────────────────────────────────────────────────
+#
+# `--affected` runs the tests this change can break and the detekt of the files
+# it touches, instead of the whole suite and the whole module sweep. It is a
+# LANE, not a smaller loop: every gate still runs, and the full loop is still
+# what CI runs and what `just tests::check` runs.
+#
+# The two tools it uses are the ones CI's "Affected tests" job uses — one
+# answer to "what does this change require?", asked once in one place.
+AFFECTED=0
+for arg in "$@"; do
+    case "$arg" in
+        --affected) AFFECTED=1 ;;
+        *)
+            echo "unknown option: $arg" >&2
+            echo "usage: ./check.sh [--affected]" >&2
+            exit 64
+            ;;
+    esac
+done
+
 # Freshness window for the test-run gate below. It is a window, not a run stamp,
 # because an UP-TO-DATE test task does not rewrite its results directory — a strict
 # "produced by this run" check would fail the second consecutive check.sh for reusing
@@ -70,7 +91,7 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-# The numbered steps are 1..11; the lettered ones (2b, 2c, 3b, 4b, 7b, 7c, 8a, 8b, 11b, 11c)
+# The numbered steps are 1..11; the lettered ones (2b, 2c, 3a, 3b, 4b, 7b, 7c, 8a, 8b, 11b, 11c)
 # are extra checks that hang off a numbered step and are not counted here.
 TOTAL=11
 
@@ -164,13 +185,51 @@ echo -e "${YELLOW}=== [3/$TOTAL] shared:jvmTest ===${NC}"
 # 1241 s with the agent, 771 s without it, for the same tests. The agent is a
 # multiplier on every class, and nothing here reads the report it produces;
 # producing it is `koverReport`'s job and this script does not run it.
-timed "shared:jvmTest" ./gw :shared:jvmTest --quiet "${COVERAGE_OFF}" || {
-    echo -e "${RED}shared:jvmTest FAILED${NC}"
-    scripts/ci/print-test-failures.sh shared/build/test-results || true
-    exit 1
-}
+if (( AFFECTED )); then
+    # The affected lane: the classes this change can break, and nothing else.
+    #
+    # The map is the one CI's "Affected tests" job asks, and it names a
+    # POPULATION rather than a tag list, so the command cannot select a
+    # population the repository has not declared. An empty selection is an
+    # ANSWER — "this change claims no test class" — and the map reports it on
+    # stdout, where this step reads it.
+    echo -e "${YELLOW}    (affected lane: only the tests this change can break)${NC}"
+    selection="$(python3 scripts/test-impact-map.py --command --population fast --gradle ./gw)" || {
+        echo -e "${RED}the affected test selection could not be computed — see the message above${NC}"
+        exit 1
+    }
+    if grep -q '^test-impact-map: the change selects no test class$' <<<"$selection"; then
+        echo -e "${GREEN}the change claims no test class — there is nothing to run, and that is an answer${NC}"
+    else
+        while IFS= read -r command; do
+            [ -n "$command" ] || continue
+            echo "running: $command $COVERAGE_OFF"
+            eval "$command $COVERAGE_OFF" || {
+                echo -e "${RED}an affected test FAILED${NC}"
+                scripts/ci/print-test-failures.sh shared/build/test-results || true
+                exit 1
+            }
+        done <<<"$selection"
+    fi
+else
+    timed "shared:jvmTest" ./gw :shared:jvmTest --quiet "${COVERAGE_OFF}" || {
+        echo -e "${RED}shared:jvmTest FAILED${NC}"
+        scripts/ci/print-test-failures.sh shared/build/test-results || true
+        exit 1
+    }
+fi
 echo -e "${GREEN}shared:jvmTest passed${NC}"
 
+echo -e "${YELLOW}=== [3a/$TOTAL] shared:archTest ===${NC}"
+# The architecture gates have a task of their own: they read the whole tree, and
+# the Konsist scope they build is per-JVM — four forks built it four times. One
+# fork here builds it once.
+timed "shared:archTest" ./gw :shared:archTest --quiet "${COVERAGE_OFF}" || {
+    echo -e "${RED}shared:archTest FAILED${NC}"
+    scripts/ci/print-test-failures.sh shared/build/test-results/archTest || true
+    exit 1
+}
+echo -e "${GREEN}shared:archTest passed${NC}"
 # The Android source set is compiled by neither the JVM tests nor detekt: detekt runs
 # without type resolution, and `:shared:jvmTest` never touches `src/androidMain`. A
 # call that does not exist in `kotlinx-datetime 0.8` passed a green detekt and 3266
@@ -217,29 +276,37 @@ echo -e "${GREEN}assembleDebug passed${NC}"
 # class can stop being selected with no error and the task still goes green — which is
 # how CI once ran 16 of 218 classes. Run this after the test steps, never before.
 echo -e "${YELLOW}=== [6/$TOTAL] executed test counts ===${NC}"
-# Two verdicts, two exit codes, two messages (check-test-runs.py documents the
-# boundary): 3 = "no JUnit report at all", so nothing ran and no floor was
-# compared; 1 = "a report exists and is below the floor", so the suite ran and
-# lost coverage. One message for both sent the reader to re-run the tests when
-# the suite had actually lost coverage.
-set +e
-python3 scripts/check-test-runs.py --require shared:jvmTest,desktopApp:test \
-    --max-age 21600
-TEST_RUNS_EXIT=$?
-set -e
-case "$TEST_RUNS_EXIT" in
-    0)
-        echo -e "${GREEN}test run floors met${NC}"
-        ;;
-    3)
-        echo -e "${RED}no JUnit report found — nothing ran, so no floor was compared${NC}"
-        exit 3
-        ;;
-    *)
-        echo -e "${RED}a test source set ran fewer tests than its recorded floor${NC}"
-        exit 1
-        ;;
-esac
+if (( AFFECTED )); then
+    # The floor describes the FULL suite: it is the count of the tests that must
+    # have run, so a run that lost coverage is caught. The affected lane runs a
+    # SUBSET on purpose, so a count below the floor is the lane working, not
+    # coverage lost — comparing the two would fail every affected run.
+    echo -e "${GREEN}the affected lane runs a subset — the full-suite floor does not apply to it${NC}"
+else
+    # Two verdicts, two exit codes, two messages (check-test-runs.py documents the
+    # boundary): 3 = "no JUnit report at all", so nothing ran and no floor was
+    # compared; 1 = "a report exists and is below the floor", so the suite ran and
+    # lost coverage. One message for both sent the reader to re-run the tests when
+    # the suite had actually lost coverage.
+    set +e
+    python3 scripts/check-test-runs.py --require shared:jvmTest,shared:archTest,desktopApp:test \
+        --max-age 21600
+    TEST_RUNS_EXIT=$?
+    set -e
+    case "$TEST_RUNS_EXIT" in
+        0)
+            echo -e "${GREEN}test run floors met${NC}"
+            ;;
+        3)
+            echo -e "${RED}no JUnit report found — nothing ran, so no floor was compared${NC}"
+            exit 3
+            ;;
+        *)
+            echo -e "${RED}a test source set ran fewer tests than its recorded floor${NC}"
+            exit 1
+            ;;
+    esac
+fi
 
 # NOT in the registry either, and for a related reason. Part A asks whether every
 # configured Gradle check task is named by a gate. Part B proves each registered
@@ -349,10 +416,25 @@ echo -e "${GREEN}=== [10/$TOTAL] detekt (enforcing, ignoreFailures=false) ===${N
 # violation in either passed `./check.sh` and failed CI. detekt-rules matters
 # most — it is the module holding the project's own custom rules, and a rule file
 # that does not lint is indistinguishable from one that has no findings.
-timed "detekt" ./gw :shared:detekt :desktopApp:detekt :androidApp:detekt :detekt-rules:detekt --quiet || {
-    echo -e "${RED}detekt reported violations — see config/detekt/ for the active rule set${NC}"
-    exit 1
-}
+if (( AFFECTED )); then
+    # The affected lane lints the files the change touches: the same config, the
+    # same baseline and the same rules as the module's own detekt task, over a
+    # smaller input. A mechanical finding is a finding about the file that was
+    # just written, and the whole-module sweep answers a question about every
+    # file in it.
+    #
+    # The modules that have no changed file are skipped by the tool itself, so
+    # a change in one module does not lint the others.
+    timed "detekt (changed files only)" python3 scripts/lint-changed.py || {
+        echo -e "${RED}detekt reported violations in the changed files — see config/detekt/ for the active rule set${NC}"
+        exit 1
+    }
+else
+    timed "detekt" ./gw :shared:detekt :desktopApp:detekt :androidApp:detekt :detekt-rules:detekt --quiet || {
+        echo -e "${RED}detekt reported violations — see config/detekt/ for the active rule set${NC}"
+        exit 1
+    }
+fi
 
 echo -e "${GREEN}=== [11/$TOTAL] mcp-server:detekt ===${NC}"
 # This task was invoked by ci.yml with `ignoreFailures = true`, so it could not

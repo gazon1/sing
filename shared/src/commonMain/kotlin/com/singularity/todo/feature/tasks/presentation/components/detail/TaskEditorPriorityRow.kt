@@ -20,6 +20,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
+import org.jetbrains.compose.resources.stringResource
+import singularity_todo.shared.generated.resources.Res
+import singularity_todo.shared.generated.resources.reset_priority
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import androidx.compose.material3.MaterialTheme
@@ -85,7 +88,7 @@ fun TaskEditorPriorityRow(
             IconButton(onClick = onPriorityClear) {
                 Icon(
                     imageVector = Icons.Filled.Close,
-                    contentDescription = "Reset priority",
+                    contentDescription = stringResource(Res.string.reset_priority),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

@@ -2304,6 +2304,16 @@ open class FakeAttachmentRepository(
         store.upsert(existing.copy(deletedAt = null))
     }
 
+    override suspend fun cleanupDeleted(olderThanMillis: Long): Result<Int> = runCatchingCancellable {
+        val uid = currentUser.scopedUserId.value
+        val doomed = store.state.value.values.filter { att ->
+            att.userId == uid && att.deletedAt != null &&
+                (olderThanMillis <= 0L || (att.deletedAt as Long) < olderThanMillis)
+        }
+        doomed.forEach { store.remove(it.id.value) }
+        doomed.size
+    }
+
     // ─── Domain methods ─────────────────────────────────────────────────────
 
     override fun watchByTask(taskId: TaskId): Flow<List<com.singularity.todo.core.attachments.Attachment>> =

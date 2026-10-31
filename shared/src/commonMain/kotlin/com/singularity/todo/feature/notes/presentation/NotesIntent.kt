@@ -20,6 +20,7 @@ sealed interface NotesIntent : MviIntent {
     data class ToggleSelection(val id: NoteId) : NotesIntent
     data object ExitSelection : NotesIntent
     data object DeleteSelected : NotesIntent
+    data object Retry : NotesIntent
     data class CreateNote(val title: String) : NotesIntent
     data class DeleteNote(val id: NoteId) : NotesIntent
 

@@ -150,6 +150,73 @@ READ_TREES: tuple[str, ...] = (
     'androidApp/src/main/res/',
 )
 
+#: The tree a gate reads, and the marker in the gate's own source that says so.
+#:
+#: The marker is the NAME of the root the build hands the test — the same name
+#: the build sets as a system property (`commonMain.root`, `maestro.root`,
+#: `skills.root`). A gate that reads the flows asks for `maestro.root`; a gate
+#: that reads the skills asks for `skills.root`. The tree is therefore derived
+#: from the gate's own text, not from a list of calls somebody has to remember
+#: to update: the ADR's objection to a list of CALLS was that the next helper
+#: escapes it, and a root NAME is not a helper — it is the question the gate
+#: asks the build, and a gate that asks for a root says so in its source.
+#:
+#: The helper names are here because the gates reach their roots through them:
+#: `SourceScan.commonMainRoot()` is the `commonMain.root` property behind a
+#: function, and a gate that calls it reads the same tree the property names.
+#:
+#: A gate that names NO root reads a tree this table does not know — and then
+#: it is selected for every change, which is the safe answer. A narrower
+#: selection that leaves out a gate is worse than a wide one: the gate that
+#: would have said "this is broken" is not among the ones that ran.
+ROOT_MARKERS: tuple[tuple[str, str], ...] = (
+    ('commonMain.root', 'commonMain'),
+    ('SourceScan.commonMainRoot', 'commonMain'),
+    ('TextFieldShapeScan', 'commonMain'),
+    ('SelectableTextScan', 'commonMain'),
+    ('CommonMainKonsistScope', 'commonMain'),
+    ('Konsist.scopeFromExternalDirectory', 'commonMain'),
+    ('jvmTestSources.root', 'testSources'),
+    ('SourceScan.jvmTestSourcesRoot', 'testSources'),
+    ('jvmTestResources.root', 'testResources'),
+    ('SourceScan.jvmTestResourcesRoot', 'testResources'),
+    ('maestro.root', 'maestro'),
+    ('skills.root', 'skills'),
+    ('backupBucketPolicy.migration', 'backupMigration'),
+    ('desktopAppJvmTest.root', 'desktopAppTests'),
+    ('mcpServerTestSources', 'mcpServerTests'),
+    ('searchQueryGrammar.spec', 'searchGrammar'),
+    # A gate that names a tree by its PATH reads it too. The root name is how
+    # a gate asks the build for a tree it knows by name; the path is how a gate
+    # that walks it says so.
+    ('Maestro/', 'maestro'),
+    ('.agents/skills', 'skills'),
+    ('desktopApp/src/jvmTest', 'desktopAppTests'),
+    ('mcp-server/src/test', 'mcpServerTests'),
+    ('supabase/migrations', 'backupMigration'),
+    ('docs/specs/search-query-grammar.md', 'searchGrammar'),
+    ('src/commonTest', 'testSources'),
+    ('androidApp/src/main/res', 'androidRes'),
+    ('androidRes()', 'androidRes'),
+    ('build.gradle.kts', 'buildFiles'),
+)
+
+#: The paths each tree is made of. A change touches a tree when it touches one
+#: of its paths.
+TREE_PATHS: dict[str, tuple[str, ...]] = {
+    'commonMain': ('shared/src/commonMain/',),
+    'testSources': ('shared/src/jvmTest/', 'shared/src/commonTest/'),
+    'testResources': ('shared/src/jvmTest/resources/',),
+    'maestro': ('Maestro/',),
+    'skills': ('.agents/skills/',),
+    'backupMigration': ('supabase/migrations/',),
+    'desktopAppTests': ('desktopApp/src/jvmTest/',),
+    'mcpServerTests': ('mcp-server/src/test/',),
+    'searchGrammar': ('docs/specs/search-query-grammar.md',),
+    'androidRes': ('androidApp/src/main/res/',),
+    'buildFiles': ('build.gradle.kts', 'settings.gradle.kts'),
+}
+
 #: The Gradle property that switches the coverage agent off. The property
 #: DEFAULTS to on (`settings.gradle.kts`), so a run that does not name it is
 #: instrumented.
@@ -206,6 +273,24 @@ SOURCE_SET_TASKS: dict[str, str] = {
     'desktopApp/src/jvmTest': ':desktopApp:test',
     'mcp-server/src/test': ':mcp-server:test',
 }
+
+#: The task the architecture gates run in.
+#:
+#: They have a task of their own because they read the whole tree: the Konsist
+#: scope they build is per-JVM, and four forks built it four times. The split
+#: is by package, so the map has to know it — a class that names a task the
+#: build does not have produces a command that fails.
+ARCH_TASK = ':shared:archTest'
+
+#: The package the architecture gates live in.
+ARCH_PACKAGE = 'com.singularity.todo.arch'
+
+
+def _task_for(source_dir: str, qualified_name: str) -> str:
+    """The Gradle task that runs this test class."""
+    if qualified_name.startswith(f'{ARCH_PACKAGE}.'):
+        return ARCH_TASK
+    return SOURCE_SET_TASKS[source_dir]
 
 #: The file that names the populations and the tags each one selects. The same
 #: file the build reads, so the map and the build cannot disagree about what
@@ -357,6 +442,63 @@ def _is_tree_wide(test: TestClass) -> bool:
     return any(marker in test.source for marker in TREE_WIDE_MARKERS)
 
 
+def roots_read_by(test: TestClass) -> set[str] | None:
+    """The trees this test reads, or None when it reads a tree we cannot name.
+
+    None is the answer for a test that names no root: it reads something this
+    table does not know, so it is selected for every change. A selection that
+    leaves a gate out is worse than a wide one — the gate that would have said
+    "this is broken" is not among the ones that ran.
+    """
+    found: set[str] = set()
+    for marker, root in ROOT_MARKERS:
+        if marker in test.source:
+            found.add(root)
+    return found or None
+
+
+def _reads_changed_tree(test: TestClass, paths: list[str]) -> bool:
+    """Does this test read any of the trees the change touches?
+
+    A test that reads an unnamed tree reads everything, so it always qualifies.
+    """
+    roots = roots_read_by(test)
+    if roots is None:
+        return True
+    for path in paths:
+        for root in roots:
+            if any(path.startswith(prefix) for prefix in TREE_PATHS[root]):
+                return True
+    return False
+
+
+def _roots_for_path(path: str) -> set[str] | None:
+    """The trees a change to this file touches, or None when it touches one
+    this map does not name.
+
+    None means "every tree": the map does not know what the file is for, so
+    every gate that reads a tree is a candidate. A file the map knows is read
+    by exactly the gates that read that tree.
+    """
+    for root, prefixes in TREE_PATHS.items():
+        if any(path.startswith(prefix) for prefix in prefixes):
+            return {root}
+    return None
+
+
+def _reads_roots(test: TestClass, roots: set[str] | None) -> bool:
+    """Does this test read one of these trees?
+
+    A test that reads an unnamed tree reads everything, so it always qualifies.
+    """
+    if roots is None:
+        return True
+    read = roots_read_by(test)
+    if read is None:
+        return True
+    return bool(read & roots)
+
+
 def _scope_from_tail(tail: str) -> str:
     """The scope of a path below a source root — `feature.tasks`, `core.database`.
 
@@ -469,7 +611,7 @@ def test_classes() -> list[TestClass]:
                         qualified,
                         path,
                         module,
-                        SOURCE_SET_TASKS[source_dir],
+                        _task_for(source_dir, qualified),
                         scope,
                         body,
                         text,
@@ -531,8 +673,13 @@ def map_tests(paths: list[str], tests: list[TestClass]) -> tuple[list[str], list
             # And it can break a gate that reads the whole test tree — a gate
             # that asserts every test class carries a @Tag is broken by a test
             # class that does not, and the class that broke it is the one that
-            # changed.
+            # changed. A gate that reads a DIFFERENT tree cannot be broken by a
+            # test file: the flows do not move because a test class gained a
+            # line, and the gate that reads the flows is not among the ones that
+            # need to run.
             for test in tree_wide:
+                if not _reads_roots(test, {'testSources', 'testResources'}):
+                    continue
                 selected.setdefault(
                     test.qualified_name,
                     f'{path} — the gate reads the whole tree the change is in',
@@ -540,19 +687,22 @@ def map_tests(paths: list[str], tests: list[TestClass]) -> tuple[list[str], list
             continue
 
         if not path.endswith('.kt'):
-            if path.startswith(READ_TREES):
-                # A gate reads this tree and the Kotlin rules below never see
-                # the file: `MaestroFlowTagsTest` walks every flow, and a flow
-                # with no `tags:` breaks it. The class that broke it is the
-                # changed file, so the gate has to run.
-                for test in tree_wide:
-                    selected.setdefault(
-                        test.qualified_name,
-                        f'{path} — the gate reads the whole tree the change is in',
-                    )
-                reasons.append(f'{path} — a tree a gate reads, not a Kotlin source')
-            else:
+            # A file outside the Kotlin rules: a flow, a skill, a document, a
+            # migration. The gates that read it are the gates whose tree it is
+            # in, and no others — a change to a Maestro flow cannot break a gate
+            # that reads `commonMain` and never opens the flows.
+            roots = _roots_for_path(path)
+            if roots is None:
                 reasons.append(f'{path} — no test class claims it')
+                continue
+            for test in tree_wide:
+                if not _reads_roots(test, roots):
+                    continue
+                selected.setdefault(
+                    test.qualified_name,
+                    f'{path} — the gate reads the whole tree the change is in',
+                )
+            reasons.append(f'{path} — a tree a gate reads, not a Kotlin source')
             continue
 
         if not _is_production(path):

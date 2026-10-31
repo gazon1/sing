@@ -46,13 +46,6 @@ data class ExportOptions(
     val destPath: String,
     val includeAttachments: Boolean = true,
     val appVersion: String = appVersion().name,
-    /**
-     * Whether [destPath] is a destination the user picked (SAF URI, absolute path,
-     * scheme) rather than a bare file name the repository resolves into its backup
-     * directory. Decided from the *original* destPath, before resolution, because
-     * the resolved form always contains a separator and can no longer be told apart.
-     */
-    val userChosenDestination: Boolean = false,
 )
 
 data class ImportOptions(

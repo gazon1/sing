@@ -24,6 +24,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import kotlinx.collections.immutable.ImmutableList
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -33,7 +34,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.refresh.RefreshableContent
@@ -43,13 +43,7 @@ import com.singularity.todo.core.ui.components.DeleteActionButton
 import com.singularity.todo.core.ui.components.StatefulContent
 import com.singularity.todo.core.ui.components.TaggedSnackbarHost
 import com.singularity.todo.core.ui.components.rememberOverlayState
-import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tags.components.AddTagDialog
-import com.singularity.todo.test.fakes.FakeClock
-import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
-import com.singularity.todo.test.fakes.FakeTagsRepository
-import com.singularity.todo.feature.tags.domain.usecase.CreateTagUseCase
-import com.singularity.todo.feature.tags.domain.usecase.UpdateTagUseCase
 import kotlinx.collections.immutable.ImmutableList
 
 /**
@@ -216,51 +210,4 @@ fun TagCard(tag: Tag, onDelete: () -> Unit, onRename: () -> Unit, onOpen: () -> 
             DeleteActionButton(onClick = onDelete)
         }
     }
-}
-
-// ===== Preview =====
-
-@Preview
-@Composable
-private fun TagsScreenContentPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    val fakeTagsRepo = FakeTagsRepository()
-    val fakeCreateTag = CreateTagUseCase(fakeTagsRepo, FakeClock())
-    val fakeUpdateTag = UpdateTagUseCase(fakeTagsRepo, FakeClock())
-    val vm = TagsViewModel(
-        tagRepo = fakeTagsRepo,
-        createTag = fakeCreateTag,
-        updateTag = fakeUpdateTag,
-        currentUser = FakeProfileAwareCurrentUser(),
-    )
-    TagsScreen(viewModel = vm)
-}
-
-@Preview
-@Composable
-private fun TagsScreenEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    val fakeTagsRepo = FakeTagsRepository()
-    val fakeCreateTag = CreateTagUseCase(fakeTagsRepo, FakeClock())
-    val fakeUpdateTag = UpdateTagUseCase(fakeTagsRepo, FakeClock())
-    val vm = TagsViewModel(
-        tagRepo = fakeTagsRepo,
-        createTag = fakeCreateTag,
-        updateTag = fakeUpdateTag,
-        currentUser = FakeProfileAwareCurrentUser(),
-    )
-    TagsScreen(viewModel = vm)
-}
-
-@Preview
-@Composable
-private fun TagsScreenDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
-    val fakeTagsRepo = FakeTagsRepository()
-    val fakeCreateTag = CreateTagUseCase(fakeTagsRepo, FakeClock())
-    val fakeUpdateTag = UpdateTagUseCase(fakeTagsRepo, FakeClock())
-    val vm = TagsViewModel(
-        tagRepo = fakeTagsRepo,
-        createTag = fakeCreateTag,
-        updateTag = fakeUpdateTag,
-        currentUser = FakeProfileAwareCurrentUser(),
-    )
-    TagsScreen(viewModel = vm)
 }

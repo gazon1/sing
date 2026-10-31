@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.attachments
 
+import com.singularity.todo.core.attachments.Attachment
 import com.singularity.todo.core.attachments.AttachmentId
 import com.singularity.todo.core.attachments.AttachmentRepository
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
@@ -9,6 +10,10 @@ import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /** Placeholder state — AttachmentsViewModel only emits events. */
 sealed interface AttachmentsUiState {
@@ -19,6 +24,8 @@ sealed interface AttachmentsIntent : MviIntent {
     data class AddUrl(val taskId: TaskId, val url: String, val title: String?) : AttachmentsIntent
     data class SaveFile(val taskId: TaskId, val sourcePath: String, val mimeType: String?) : AttachmentsIntent
     data class Delete(val attachmentId: AttachmentId) : AttachmentsIntent
+    data class Restore(val attachmentId: AttachmentId) : AttachmentsIntent
+    data class RestoreAttachment(val attachmentId: AttachmentId) : AttachmentsIntent
 }
 
 /**
@@ -34,6 +41,7 @@ sealed interface AttachmentsIntent : MviIntent {
  */
 class AttachmentsViewModel(
     private val repository: AttachmentRepository,
+    val taskId: TaskId,
     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     private val scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<AttachmentsUiState, AttachmentsIntent, AttachmentsUiEvent>(
@@ -42,11 +50,16 @@ class AttachmentsViewModel(
         scope = scope,
     ) {
 
+    val attachments: StateFlow<List<Attachment>> =
+        repository.watchByTask(taskId).stateIn(scope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     override fun onIntent(intent: AttachmentsIntent) {
         when (intent) {
             is AttachmentsIntent.AddUrl -> addUrl(intent)
             is AttachmentsIntent.SaveFile -> saveFile(intent)
             is AttachmentsIntent.Delete -> delete(intent)
+            is AttachmentsIntent.Restore -> restore(intent.attachmentId)
+            is AttachmentsIntent.RestoreAttachment -> restore(intent.attachmentId)
         }
     }
 
@@ -63,8 +76,21 @@ class AttachmentsViewModel(
     }
 
     private fun delete(intent: AttachmentsIntent.Delete) {
-        emitError("Delete failed", AttachmentsUiEvent::ShowError) {
-            repository.delete(intent.attachmentId)
+        vmScope.launch {
+            repository.delete(intent.attachmentId).fold(
+                onSuccess = {
+                    tryEmit(AttachmentsUiEvent.UndoDelete(intent.attachmentId))
+                },
+                onFailure = {
+                    tryEmit(AttachmentsUiEvent.ShowError("Delete failed"))
+                },
+            )
+        }
+    }
+
+    private fun restore(attachmentId: AttachmentId) {
+        emitError("Restore failed", AttachmentsUiEvent::ShowError) {
+            repository.restore(attachmentId)
         }
     }
 }

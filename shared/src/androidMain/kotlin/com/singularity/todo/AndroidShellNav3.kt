@@ -6,17 +6,24 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
+import com.singularity.todo.shell.ShellSearchButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.ScaffoldDefaults
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,6 +38,8 @@ import androidx.navigation3.ui.NavDisplay
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.LocalScreenActions
+import com.singularity.todo.core.ui.components.ScreenActionsHolder
 import com.singularity.todo.feature.nav.AgendaStartRoute
 import com.singularity.todo.feature.nav.AppDestination
 import com.singularity.todo.feature.nav.DestinationKind
@@ -100,6 +109,8 @@ fun androidShellNav3Root(
 
     val fabAction = fabActionForNav3(fabCurrent, today) { navigator.open(it) }
 
+    val screenActions = remember { ScreenActionsHolder() }
+
     NavigationSuiteScaffold(
         navigationSuiteItems = {
             DestinationKind.tabs.forEach { destination ->
@@ -132,6 +143,66 @@ fun androidShellNav3Root(
         },
     ) {
         Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        val st = screenActions.selectionTitle
+                        if (st != null) Text(st) else Text(current.title)
+                    },
+                    navigationIcon = {
+                        val exit = screenActions.onExitSelection
+                        if (exit != null) {
+                            IconButton(
+                                onClick = exit,
+                                modifier = Modifier.testTag(TestTags.SHELL_BACK_BUTTON),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Exit selection",
+                                )
+                            }
+                        } else {
+                            // Toggle between Back (nested screen or previous tab) and Menu
+                            // (ultimate root tab), mirroring Desktop.
+                            val showBack = navigator.canGoBack()
+                            if (showBack) {
+                                IconButton(
+                                    onClick = {
+                                        if (!navigator.goBack()) {
+                                            (context as? Activity)?.finish()
+                                        }
+                                    },
+                                    modifier = Modifier.testTag(TestTags.SHELL_BACK_BUTTON),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = "Back",
+                                    )
+                                }
+                            } else {
+                                IconButton(
+                                    onClick = { menuVisible = true },
+                                    modifier = Modifier.testTag(TestTags.NAV_MENU_BUTTON),
+                                ) {
+                                    Icon(
+                                        Icons.Default.Menu,
+                                        contentDescription = MenuButtonTitle,
+                                    )
+                                }
+                            }
+                        }
+                    },
+                    actions = {
+                        screenActions.actions?.invoke(this)
+                        if (screenActions.selectionTitle == null && current != AppDestination.Search) {
+                            ShellSearchButton(navigator = navigator)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                    ),
+                )
+            },
             floatingActionButton = {
                 val action = fabAction ?: return@Scaffold
                 ExtendedFloatingActionButton(
@@ -149,6 +220,11 @@ fun androidShellNav3Root(
                 // #445 blank-screen diagnostic — TEMPORARY: to be replaced with proper CI alerting.
                 val navDisplayEntries = state.toDecoratedEntries(appEntryProvider)
                 LaunchedEffect(state.topLevelRoute) {
+                    // A screen without its own TopAppBar never publishes actions, so clear the
+                    // slot on every navigation to avoid stale buttons from the previous screen.
+                    screenActions.actions = null
+                    screenActions.selectionTitle = null
+                    screenActions.onExitSelection = null
                     if (navDisplayEntries.isEmpty()) {
                         println(
                             "WARNING [blank-screen] topLevelRoute=${state.topLevelRoute} has 0 entries. " +
@@ -157,7 +233,7 @@ fun androidShellNav3Root(
                     }
                 }
 
-                CompositionLocalProvider(LocalNav3State provides state) {
+                CompositionLocalProvider(LocalNav3State provides state, LocalScreenActions provides screenActions) {
                     NavDisplay(
                         entries = navDisplayEntries,
                         onBack = {

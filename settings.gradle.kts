@@ -305,13 +305,11 @@ kover {
         enableCoverage()
     }
     // Build tooling, not application code. `detekt-rules` is the custom-rule
-    // module; its rules are exercised by 56 tests, but no CI job and no check.sh
-    // step runs them, and 4 of those tests fail on this branch for reasons that
-    // predate it (`:detekt-rules:test` is not part of any gate). Including the
-    // module would put custom-detekt classes into the app coverage denominator —
-    // a different question from the one the floor asks — and would make the
-    // aggregated report depend on a suite that is not currently maintained.
-    // The failing tests are recorded as an open finding, not hidden by this line.
+    // module; its rules are exercised by 56 tests, which CI runs via
+    // `:detekt-rules:test` (ci.yml) and `check.sh`. Including the module would
+    // put custom-detekt classes into the app coverage denominator — a different
+    // question from the one the floor asks — and would make the aggregated
+    // report depend on a suite that is not currently maintained.
     // `:adr-cli` is the ADR toolchain's command line — build tooling, like
     // `:detekt-rules` above. Its classes are not in the app's coverage
     // denominator today (it is not built during the coverage job, so there is

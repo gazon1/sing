@@ -1650,6 +1650,21 @@ private class FakeAttachmentDao(private val store: MutableStateFlow<Map<String, 
     override suspend fun listAllForUser(userId: String): List<AttachmentEntity> =
         store.value.values.filter { it.userId == userId }
 
+    override suspend fun listDeletedForUser(userId: String): List<AttachmentEntity> =
+        store.value.values.filter { it.userId == userId && it.deletedAt != null }
+
+    override suspend fun deleteDeletedBefore(userId: String, before: Long): Int {
+        val doomed = store.value.values.filter {
+            it.userId == userId && it.deletedAt != null && (it.deletedAt ?: 0L) < before
+        }
+        store.update { map ->
+            map.filterValues {
+                !(it.userId == userId && it.deletedAt != null && (it.deletedAt ?: 0L) < before)
+            }
+        }
+        return doomed.size
+    }
+
     /**
      * The profile wipe reaches every row the profile owns, trashed ones included.
      */

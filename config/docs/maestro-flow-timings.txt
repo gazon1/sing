@@ -1,0 +1,17 @@
+# The shortest time each Maestro flow has ever been measured at.
+#
+# A FLOOR, not a snapshot: the shard-cost estimate is a lower bound, and
+# a file a script rewrites on every run is a file that changes by
+# itself. Only `--record` writes this file, and it only ever lowers a
+# number — a flow that got faster keeps the faster number.
+#
+# Recorded by `scripts/maestro-flow-timings.py --record` from the JUnit
+# reports of a Maestro run (`build/maestro-results/`). The seconds are
+# what Maestro wrote in the report's `time` attribute.
+#
+# Format: one `flow <seconds>` per line. `#` starts a comment.
+#
+# A flow with no line here has no measured cost: the shard-cost
+# comparison counts it as the slowest flow that HAS one, so a flow that
+# was never measured cannot make a shard look cheap.
+

@@ -99,4 +99,42 @@ class SyncOutboxClaimFakeTest {
         dao.claim(listOf("p1"), second)
         assertEquals(first, dao.rows.first().claimToken)
     }
+
+    @Test
+    fun markFailed_doesNotClearAnotherCyclesClaim() = runTest {
+        val dao = FakeSyncOutboxDao()
+        dao.insert(
+            SyncOutboxEntity(
+                patchId = "p1",
+                ownerId = "o",
+                profileId = "pr",
+                entityId = "e",
+                entityType = "t",
+                payload = "{}",
+                createdAt = 1L,
+                claimToken = "token-B",
+            ),
+        )
+        dao.markFailed("p1", "err", 2000L, "token-A")
+        assertEquals("token-B", dao.rows.first().claimToken)
+    }
+
+    @Test
+    fun release_doesNotClearAnotherCyclesClaim() = runTest {
+        val dao = FakeSyncOutboxDao()
+        dao.insert(
+            SyncOutboxEntity(
+                patchId = "p1",
+                ownerId = "o",
+                profileId = "pr",
+                entityId = "e",
+                entityType = "t",
+                payload = "{}",
+                createdAt = 1L,
+                claimToken = "token-B",
+            ),
+        )
+        dao.release(listOf("p1"), "token-A")
+        assertEquals("token-B", dao.rows.first().claimToken)
+    }
 }

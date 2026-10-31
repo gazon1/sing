@@ -115,6 +115,11 @@ object TestTags {
     const val SHELL_BACK_BUTTON = "shell_back_button"
 
     /**
+     * Global search action in the shell app bar (Android + Desktop).
+     */
+    const val SHELL_SEARCH_BUTTON = "shell_search_button"
+
+    /**
      * The desktop shell's drawer sheet.
      *
      * The sheet is the thing that slides in, so it is the thing to ask about
@@ -581,6 +586,7 @@ object TestTags {
 
     // ─── Notes ───────────────────────────────────────────────────────────────
     const val NOTES_LIST = "notes_list"
+    const val NOTES_DELETE_SELECTED_BUTTON = "notes_delete_selected_button"
     const val NOTES_QUICK_ADD_INPUT = "notes_quick_add_input"
 
     /**
@@ -696,6 +702,9 @@ object TestTags {
 
         /** The NavRail scroll container — allows Maestro to scroll clipped tabs into view. */
         const val NAV_RAIL_SCROLL = "settings_nav_rail_scroll"
+
+        /** The tab selector shown on narrow screens (below 600dp) instead of the nav rail. */
+        const val TAB_DROPDOWN = "settings_tab_dropdown"
 
         /** The accent-color swatch picker — one per [SingularityAccents]. */
         fun accentSwatch(accentName: String) = "settings_accent_swatch_${slug(accentName)}"

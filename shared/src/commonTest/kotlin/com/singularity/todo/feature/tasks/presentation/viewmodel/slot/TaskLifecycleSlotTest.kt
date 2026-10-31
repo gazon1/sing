@@ -16,7 +16,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** Covers delete-with-undo, archive-without-undo, and restore. */
+/** Covers delete-with-undo, archive-with-undo, and restore. */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
 class TaskLifecycleSlotTest {
@@ -26,6 +26,7 @@ class TaskLifecycleSlotTest {
         source: TaskSource,
         scope: CoroutineScope,
         onUndo: (String) -> Unit = {},
+        onUndoArchive: (String) -> Unit = {},
         onBack: () -> Unit = {},
     ) = TaskLifecycleSlot(
         core = fakes.core(),
@@ -35,6 +36,7 @@ class TaskLifecycleSlotTest {
         onError = {},
         onUndoDelete = { onUndo(it.id.value) },
         onUndoDeleteSeries = { ids -> onUndo(ids.joinToString(",") { id -> id.value }) },
+        onUndoArchive = { onUndoArchive(it.id.value) },
         onNavigateBack = onBack,
         onSaved = {},
     )
@@ -68,7 +70,7 @@ class TaskLifecycleSlotTest {
     }
 
     @Test
-    fun `archive does not keep a snapshot`() = runTest {
+    fun `archive keeps a snapshot for undo`() = runTest {
         val fakes = SlotFakes()
         fakes.taskRepo.seed(task("t1"))
         val slot = slot(fakes, TaskSource(task("t1")), backgroundScope)
@@ -78,21 +80,21 @@ class TaskLifecycleSlotTest {
         runCurrent()
 
         assertNotNull(fakes.taskRepo.tasks.value["t1"]?.archivedAt)
-        assertNull(slot.state.value.recentlyDeleted, "archive must not offer an undo path")
+        assertNotNull(slot.state.value.recentlyDeleted, "archive must offer an undo path")
     }
 
     @Test
-    fun `archive navigates back`() = runTest {
+    fun `archive offers the undo`() = runTest {
         val fakes = SlotFakes()
         fakes.taskRepo.seed(task("t1"))
-        var navigated = false
-        val slot = slot(fakes, TaskSource(task("t1")), backgroundScope, onBack = { navigated = true })
+        var undone: String? = null
+        val slot = slot(fakes, TaskSource(task("t1")), backgroundScope, onUndoArchive = { undone = it })
         runCurrent()
 
         slot.onIntent(TaskDetailIntent.Domain.Archive)
         runCurrent()
 
-        assertTrue(navigated)
+        assertEquals("t1", undone)
     }
 
     @Test

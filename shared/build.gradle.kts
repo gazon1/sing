@@ -391,6 +391,9 @@ kotlin {
             implementation(libs.acp)
             implementation(libs.acp.model)
 
+            // OS keyring access (replaces the secret-tool CLI shell-out).
+            implementation(libs.java.keyring)
+
             // The MCP tool server. It lives here rather than in the `:mcp-server`
             // module because the desktop application hands an external agent its tool
             // access by running *this* server in its own `--mcp-server` mode: the agent
@@ -490,6 +493,38 @@ val testTaskHeap = memoryBudget.getProperty("test.heap.module.shared")
         "config/docs/gradle-memory-budget.properties declares no test.heap.module.shared — " +
             "the heap of this module's test tasks has to be recorded somewhere."
     )
+
+// ── The architecture suite has a task of its own ─────────────────────────────
+//
+// The gates in `com.singularity.todo.arch` read the WHOLE tree. One of them —
+// `CommonMainKonsistScope` — parses 1,238 files of `commonMain` with Konsist,
+// and that scope is built once per JVM. Four forks built it four times: a
+// quarter of the suite's CPU spent parsing the same tree four times over.
+//
+// So the arch suite runs in its own task with ONE fork. The scope is built
+// once, and the classes that do not read the tree keep their four forks.
+//
+// The split is by PACKAGE and not by moving files: both tasks run the same
+// compiled test classes and partition them with a filter, so an `internal`
+// declaration is the same object in both and the shared fixtures stay shared.
+//
+// The arch gates' inputs are declared on THIS task and not on `jvmTest` — see
+// the `archTask` flag in the block below. A gate that cannot be invalidated by
+// the change it watches reports a verdict about a file it never re-read, and
+// that is worse than no gate at all.
+val archTest = tasks.register<Test>("archTest") {
+    description = "The architecture gates — the ones that read the whole tree."
+    group = "verification"
+    val jvmTestSources = sourceSets.getByName("jvmTest")
+    testClassesDirs = jvmTestSources.output.classesDirs
+    classpath = jvmTestSources.runtimeClasspath
+    filter { includeTestsMatching("com.singularity.todo.arch.*") }
+    // The fork count is set in the `jvmTest`/`archTest` block below, where both
+    // tasks are configured together: one fork for this one, four for the rest.
+    // The merge is the same — a retried class must not be counted twice by the
+    // run floor.
+    reports.junitXml.mergeReruns.set(true)
+}
 
 // JUnit Platform (Jupiter) — enables @Tag, @Nested, @ParameterizedTest, @TempDir, @AutoClose
 tasks.withType<Test>().configureEach {
@@ -599,7 +634,11 @@ tasks.withType<Test>().configureEach {
 //   - FileSystemContract temp paths: unique via RUN_ID (UUID) + atomic counter.
 //
 // The value is published as a system property and asserted by ForkEveryIsolationTest.
-tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
+tasks.withType<Test>().matching { it.name == "jvmTest" || it.name == "archTest" }.configureEach {
+    // True for the architecture task and false for the JVM test task. The arch
+    // gates read trees the other tests do not, and their inputs are declared on
+    // their own task — see the `archTest` task above.
+    val archTask = name == "archTest"
     forkEvery = 0
 
     // The run manifest is written by the ROOT build script, for every module.
@@ -620,6 +659,12 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     // a retried shared test produces two <testcase> elements, and check-test-runs.py
     // counts both — the flake-rate aggregator reads the <flakyFailure> signal instead.
     reports.junitXml.mergeReruns.set(true)
+
+    // The architecture gates run in `archTest` — they read the whole tree, and the
+    // Konsist scope they build is per-JVM. See the `archTest` task above.
+    if (!archTask) {
+        filter { excludeTestsMatching("com.singularity.todo.arch.*") }
+    }
     // Forks in parallel, still one JVM per class. `forkEvery = 1` is what isolates
     // KoinPlatform state between classes; it costs a JVM start per class, and at
     // 190 classes that was 7m58s of which the tests themselves were a fraction.
@@ -638,7 +683,14 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     // again over the ceiling `config/docs/gradle-memory-budget.properties`
     // records. The count belongs there, beside the heap it multiplies.
     val budgetForks = memoryBudget.getProperty("test.forks.module.shared")?.toIntOrNull() ?: 4
-    maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, budgetForks)
+    maxParallelForks = if (archTask) {
+        // One fork for the architecture suite. The Konsist scope these gates
+        // build is per-JVM, and building it costs a quarter of the suite's CPU:
+        // four forks built the same scope four times. One fork builds it once.
+        1
+    } else {
+        (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, budgetForks)
+    }
     // Apply heap directly to the jvmTest fork — the global configureEach above
     // also sets this, but being explicit avoids ordering ambiguity.
     maxHeapSize = testTaskHeap
@@ -735,25 +787,35 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     // reported again and again — because nothing had invalidated the task. Only
     // --rerun-tasks produced the new, passing verdict. A gate that can report a stale
     // result is worse than no gate, because the stale result looks like a pass.
-    inputs.dir(layout.projectDirectory.dir("../desktopApp/src/jvmTest/kotlin"))
-        .withPropertyName("desktopAppJvmTestSources")
-        .withPathSensitivity(PathSensitivity.RELATIVE)
-    inputs.dir(layout.projectDirectory.dir("../mcp-server/src/test"))
-        .withPropertyName("mcpServerTestSources")
-        .withPathSensitivity(PathSensitivity.RELATIVE)
+    //
+    // These are the ARCH gates' inputs, and the arch gates have their own task
+    // (`archTest`). Declaring them here would make a change to a desktopApp test
+    // re-run the four hundred classes that do not read it.
+    if (archTask) {
+        inputs.dir(layout.projectDirectory.dir("../desktopApp/src/jvmTest/kotlin"))
+            .withPropertyName("desktopAppJvmTestSources")
+            .withPathSensitivity(PathSensitivity.RELATIVE)
+        inputs.dir(layout.projectDirectory.dir("../mcp-server/src/test"))
+            .withPropertyName("mcpServerTestSources")
+            .withPathSensitivity(PathSensitivity.RELATIVE)
+    }
     // The build files themselves, for `DetektSourceSetsAreAllScannedTest`, which reads
     // each module's `detekt.source` list. Found by being bitten: that test watches for
     // a source set being left out of the list, and editing the list did not re-run the
     // test — `:shared:jvmTest` was UP-TO-DATE and reported a verdict about a file it
     // had not re-read. A gate that cannot be invalidated by the change it watches is
     // worse than no gate, because its silence looks like a pass.
-    inputs.files(
-        rootProject.file("shared/build.gradle.kts"),
-        rootProject.file("androidApp/build.gradle.kts"),
-        rootProject.file("desktopApp/build.gradle.kts"),
-        rootProject.file("mcp-server/build.gradle.kts"),
-    ).withPropertyName("moduleBuildFiles")
-     .withPathSensitivity(PathSensitivity.RELATIVE)
+    // The arch gates read the build files, the flows and the skills — and the
+    // arch gates have their own task, so these inputs are declared on it.
+    if (archTask) {
+        inputs.files(
+            rootProject.file("shared/build.gradle.kts"),
+            rootProject.file("androidApp/build.gradle.kts"),
+            rootProject.file("desktopApp/build.gradle.kts"),
+            rootProject.file("mcp-server/build.gradle.kts"),
+        ).withPropertyName("moduleBuildFiles")
+         .withPathSensitivity(PathSensitivity.RELATIVE)
+    }
     // MaestroFlowTagsTest walks up from commonMain.root to the worktree root and reads
     // Maestro/. That tree is not a compile input of :shared at all, so the gate went
     // UP-TO-DATE on every flow edit and re-reported the previous run's verdict.
@@ -768,9 +830,11 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     // the trees a hit happened to involve. This is the same defect one level over, and
     // the reason the invariant is now enforced by check-test-task-inputs.py rather than
     // by whoever touches it next.
-    inputs.dir(layout.projectDirectory.dir("../Maestro"))
-        .withPropertyName("maestroFlows")
-        .withPathSensitivity(PathSensitivity.RELATIVE)
+    if (archTask) {
+        inputs.dir(layout.projectDirectory.dir("../Maestro"))
+            .withPropertyName("maestroFlows")
+            .withPathSensitivity(PathSensitivity.RELATIVE)
+    }
     // Passed in rather than derived. MaestroFlowTagsTest used to walk up four levels from
     // commonMain.root to find Maestro/, which produced a path no build file mentioned —
     // and an undeclared path is an undeclared path. Declaring it here also makes the
@@ -826,9 +890,11 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     // edit the inventory, leave :shared:jvmTest UP-TO-DATE, and the gate re-reports a
     // verdict about a table it never re-read — the same failure mode as the Maestro
     // flows above.
-    inputs.dir(rootProject.layout.projectDirectory.dir(".agents/skills"))
-        .withPropertyName("agentSkills")
-        .withPathSensitivity(PathSensitivity.RELATIVE)
+    if (archTask) {
+        inputs.dir(rootProject.layout.projectDirectory.dir(".agents/skills"))
+            .withPropertyName("agentSkills")
+            .withPathSensitivity(PathSensitivity.RELATIVE)
+    }
     systemProperty(
         "skills.root",
         rootProject.layout.projectDirectory.dir(".agents/skills").asFile.absolutePath,
@@ -862,12 +928,14 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     // modules. Same staleness hazard as above: edit a platform module, leave
     // :shared:jvmTest UP-TO-DATE, and the gate re-reports a verdict about the
     // binding it was supposed to have caught missing.
-    inputs.dir(layout.projectDirectory.dir("src/androidMain/kotlin"))
-        .withPropertyName("androidMainSources")
-        .withPathSensitivity(PathSensitivity.RELATIVE)
-    inputs.dir(layout.projectDirectory.dir("src/jvmMain/kotlin"))
-        .withPropertyName("jvmMainSources")
-        .withPathSensitivity(PathSensitivity.RELATIVE)
+    if (archTask) {
+        inputs.dir(layout.projectDirectory.dir("src/androidMain/kotlin"))
+            .withPropertyName("androidMainSources")
+            .withPathSensitivity(PathSensitivity.RELATIVE)
+        inputs.dir(layout.projectDirectory.dir("src/jvmMain/kotlin"))
+            .withPropertyName("jvmMainSources")
+            .withPathSensitivity(PathSensitivity.RELATIVE)
+    }
     // Scan roots for ViewModelTestCoverageTest: it matches a production ViewModel
     // against the test classes that mention it, so it needs the commonTest and
     // jvmTest trees as well as commonMain. Absent properties make its top-level
@@ -900,9 +968,11 @@ tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     // broken on purpose, and this tree is on no compile path, so nothing else declares
     // it. Declared here for the same reason as every input above: a gate that cannot be
     // invalidated by the change it watches reports a verdict about a file it never re-read.
-    inputs.dir(layout.projectDirectory.dir("src/jvmTest/fixtures"))
-        .withPropertyName("jvmTestFixtures")
-        .withPathSensitivity(PathSensitivity.RELATIVE)
+    if (archTask) {
+        inputs.dir(layout.projectDirectory.dir("src/jvmTest/fixtures"))
+            .withPropertyName("jvmTestFixtures")
+            .withPathSensitivity(PathSensitivity.RELATIVE)
+    }
     // Per-platform source roots for SyncPeriodicTriggerWiringTest, which checks that
     // each platform module binds exactly one SyncPeriodicTrigger.
     //

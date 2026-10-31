@@ -39,14 +39,10 @@ tags:
     id: menu_settings
 - extendedWaitUntil:
     visible:
-      id: settings_tab_interface
+      id: settings_tab_dropdown
     timeout: 10000
-# The Backup tab is below the fold in the settings nav rail, and the rail is
-# the only thing that has to scroll to reach it. The scroll lives in a helper:
-# the gesture that moves the rail is not the obvious one — see
-# Maestro/helpers/settings-rail-scroll.yaml for the two recipes that turned
-# out to do nothing on a device.
-- runFlow: ../../helpers/settings-rail-scroll.yaml
+- tapOn:
+    id: settings_tab_dropdown
 - extendedWaitUntil:
     visible:
       id: settings_tab_backup
@@ -109,10 +105,11 @@ tags:
     id: menu_settings
 - extendedWaitUntil:
     visible:
-      id: settings_tab_interface
+      id: settings_tab_dropdown
     timeout: 10000
-# Same rail scroll for the second Settings→Backup navigation (after restore).
-- runFlow: ../../helpers/settings-rail-scroll.yaml
+- tapOn:
+    id: settings_tab_dropdown
+# Same dropdown navigation for the second Settings→Backup (after restore).
 - extendedWaitUntil:
     visible:
       id: settings_tab_backup

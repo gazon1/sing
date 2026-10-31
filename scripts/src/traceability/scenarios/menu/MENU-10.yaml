@@ -1,0 +1,26 @@
+# Scenario MENU-10 — the attach-account entry belongs to a local session.
+#
+# The menu entry is the only way out of an anonymous session, so it must be
+# there exactly when the session is anonymous — and the flow that covers it
+# launches a clean app, which is the anonymous session it is about.
+
+id: MENU-10
+title: "The menu offers Attach account to an anonymous session"
+area: feature.menu
+priority: P1
+status: confirmed
+# The android tier: the carrier is the Maestro flow that opens the menu in a
+# clean session. The desktop tier is not claimed here — the attach-account entry
+# is verified there by a unit test, but a scenario that claims a tier without a
+# carrier is a hole, and a hole is a promise the suite does not keep.
+targets: [android]
+preconditions: >-
+  The app runs a local session: no account is attached, and the session was
+  never signed in.
+steps:
+  - "Launch the app clean, so the session is local and anonymous."
+  - "Open the app menu."
+  - "Look at the entries the menu offers."
+expected: >-
+  The menu carries an "Attach account" entry. It is the way out of the local
+  session, so an anonymous session has to be offered it.

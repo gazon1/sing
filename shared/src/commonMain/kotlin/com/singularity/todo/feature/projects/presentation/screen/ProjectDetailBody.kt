@@ -40,6 +40,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
@@ -63,9 +67,7 @@ import com.singularity.todo.feature.tasks.presentation.components.TaskCardAction
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 import kotlinx.collections.immutable.ImmutableList
-
-/**
- * Task list section of [ProjectDetailScreen]: quick-add input, task cards, and
+/** Task list section of [ProjectDetailScreen]: quick-add input, task cards, and
  * "See all N tasks" link.
  *
  * Exposed as public to support preview providers and unit tests without a VM.
@@ -87,42 +89,12 @@ fun ProjectBodySection(
                 actions = actions,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    "Tasks",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.testTag(TestTags.PROJECT_DETAIL_TASKS_HEADER),
-                )
-                if (ui.totalCount > 0) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Same text-link idiom as the completed toggle, so the two
-                        // read as one control rather than two competing styles.
-                        Text(
-                            if (hideCompleted) "Show completed" else "Hide completed",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.clickable(onClick = actions::onToggleHideCompleted),
-                        )
-                        Text(
-                            "  ·  ",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        Text(
-                            if (hideBlocked) "Show blocked" else "Hide blocked",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.clickable(onClick = actions::onToggleHideBlocked),
-                        )
-                    }
-                }
-            }
+            ProjectTasksHeader(
+                totalCount = ui.totalCount,
+                hideCompleted = hideCompleted,
+                hideBlocked = hideBlocked,
+                actions = actions,
+            )
             if (ui.tasks.isEmpty()) {
                 EmptyState(
                     title = if (ui.totalCount == 0) "No tasks yet" else "No tasks match filters",
@@ -157,6 +129,68 @@ fun ProjectBodySection(
                     Text("See all ${ui.totalCount} tasks")
                     Icon(Icons.Filled.ChevronRight, contentDescription = null)
                 }
+            }
+        }
+    }
+}
+
+/**
+ * The "Tasks" header: the title and the two filter toggles.
+ *
+ * Its own composable so that [ProjectBodySection] stays inside the 80-line
+ * budget: the header is the largest block in the body, and naming it makes
+ * the body read as quick-add, header, list.
+ */
+@Composable
+private fun ProjectTasksHeader(
+    totalCount: Int,
+    hideCompleted: Boolean,
+    hideBlocked: Boolean,
+    actions: ProjectDetailActions,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            "Tasks",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.testTag(TestTags.PROJECT_DETAIL_TASKS_HEADER),
+        )
+        if (totalCount > 0) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Same text-link idiom as the completed toggle, so the two
+                // read as one control rather than two competing styles.
+                Text(
+                    if (hideCompleted) "Show completed" else "Hide completed",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .clickable(onClick = actions::onToggleHideCompleted)
+                        .semantics {
+                            role = Role.Button
+                            stateDescription = if (hideCompleted) "Completed hidden" else "Completed shown"
+                        },
+                )
+                Text(
+                    "  ·  ",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    if (hideBlocked) "Show blocked" else "Hide blocked",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .clickable(onClick = actions::onToggleHideBlocked)
+                        .semantics {
+                            role = Role.Button
+                            stateDescription = if (hideBlocked) "Blocked hidden" else "Blocked shown"
+                        },
+                )
             }
         }
     }

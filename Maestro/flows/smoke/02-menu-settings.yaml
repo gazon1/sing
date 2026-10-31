@@ -25,7 +25,7 @@ tags:
     id: menu_settings
 - extendedWaitUntil:
     visible:
-      id: settings_tab_interface
+      id: settings_tab_dropdown
     timeout: 10000
 - back
 - extendedWaitUntil:

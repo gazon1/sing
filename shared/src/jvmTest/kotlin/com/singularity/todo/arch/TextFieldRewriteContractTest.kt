@@ -105,7 +105,7 @@ class TextFieldRewriteContractTest {
 
     @Test
     fun `every bridged field site has a rewrite contract`() {
-        val bridged = bridgedSites()
+        val bridged = bridgedSites
         val unclassified = bridged.filterNot { site -> registry.any { it.site == site } }.sorted()
 
         assertTrue(
@@ -120,7 +120,7 @@ class TextFieldRewriteContractTest {
 
     @Test
     fun `every rewrite contract names a file that still owns a bridged field`() {
-        val bridged = bridgedSites()
+        val bridged = bridgedSites
         val stale = registry.mapNotNull { row ->
             if (row.site in bridged) null else "  - ${row.site} -> ${row.kind.sourceType}"
         }.sorted()
@@ -434,11 +434,16 @@ class TextFieldRewriteContractTest {
      * Derived from the files' imports: a file that uses the bridged helper has to
      * import it, because the helper lives in its own package. The helper's own
      * definition is in that package too, so it is not a field site.
+     *
+     * Computed once: the scan reads every file of `commonMain`, and three of the
+     * gates in this class ask for it. Recomputing it per test method was 24
+     * seconds of a 3-minute suite.
      */
-    private fun bridgedSites(): Set<String> =
+    private val bridgedSites: Set<String> by lazy {
         TextFieldShapeScan.shapes()
             .filterValues { shapes -> FieldShape.BRIDGED in shapes }
             .keys
+    }
 
     // ── the skill's rewrite table ──────────────────────────────────────────────
 

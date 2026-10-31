@@ -66,7 +66,11 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 #: missing file is what this gate is about.
 SOURCES = (
     ('shared/src/commonTest/kotlin', 'shared/build/test-results/jvmTest'),
-    ('shared/src/jvmTest/kotlin', 'shared/build/test-results/jvmTest'),
+    # The architecture gates have a task of their own, so their report lands in
+    # its own directory — and they live inside this source root. Both
+    # directories are read: a slow class ran if a report of it exists in
+    # either.
+    ('shared/src/jvmTest/kotlin', ('shared/build/test-results/jvmTest', 'shared/build/test-results/archTest')),
     ('shared/src/androidHostTest/kotlin', 'shared/build/test-results/testAndroidHostTest'),
     ('desktopApp/src/jvmTest/kotlin', 'desktopApp/build/test-results/test'),
     ('mcp-server/src/test/kotlin', 'mcp-server/build/test-results/test'),
@@ -228,19 +232,22 @@ def find_problems(root: pathlib.Path) -> tuple[list[str], list[str]]:
 
     for source_rel, results_rel in SOURCES:
         source_root = root / source_rel
-        results_dir = root / results_rel
+        results_dirs = results_rel if isinstance(results_rel, tuple) else (results_rel,)
         expected = slow_classes(source_root)
         if not expected:
             continue
 
-        if not results_dir.is_dir():
+        if not any((root / one).is_dir() for one in results_dirs):
             problems.append(
                 f'no report at {results_rel} — the slow classes of {source_rel} '
                 f'({", ".join(sorted(expected))}) cannot be seen'
             )
             continue
 
-        suites = reported_suites(results_dir)
+        suites: dict[str, int] = {}
+        for one in results_dirs:
+            for name, skipped in reported_suites(root / one).items():
+                suites[name] = suites.get(name, 0) + skipped
         for name in sorted(expected):
             checked.append(name)
             if name not in suites:

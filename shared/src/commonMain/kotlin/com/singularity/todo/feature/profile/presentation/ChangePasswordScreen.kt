@@ -21,7 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedSecureTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import com.singularity.todo.core.ui.components.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -83,46 +83,17 @@ fun ChangePasswordScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Change Password") },
-                navigationIcon = {
-                    IconButton(
-                        onClick = { navigator.goBack() },
-                        modifier = Modifier.testTag(TestTags.AUTH_ATTACH_BACK_BUTTON),
-                    ) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                        )
-                    }
-                },
-            )
+    ChangePasswordScreenContent(
+        passwordState = passwordState,
+        isLoading = state is ChangePasswordUiState.Loading,
+        errorMessage = errorMessage,
+        onFieldEdited = { errorMessage = null },
+        onSubmit = {
+            errorMessage = null
+            viewModel.onIntent(ChangePasswordIntent.Submit(passwordState.text.toString()))
         },
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 32.dp, vertical = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top,
-        ) {
-            ChangePasswordForm(
-                passwordState = passwordState,
-                isLoading = state is ChangePasswordUiState.Loading,
-                errorMessage = errorMessage,
-                onFieldEdited = {
-                    errorMessage = null
-                },
-                onSubmit = {
-                    errorMessage = null
-                    viewModel.onIntent(ChangePasswordIntent.Submit(passwordState.text.toString()))
-                },
-            )
-        }
-    }
+        onBack = { navigator.goBack() },
+    )
 }
 
 // ===== Preview =====
@@ -149,12 +120,12 @@ internal fun ChangePasswordScreenContent(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    androidx.compose.material3.Scaffold(
+    Scaffold(
         topBar = {
-            androidx.compose.material3.TopAppBar(
+            TopAppBar(
                 title = { Text("Change Password") },
                 navigationIcon = {
-                    androidx.compose.material3.IconButton(
+                    IconButton(
                         onClick = onBack,
                         modifier = Modifier.testTag(TestTags.AUTH_ATTACH_BACK_BUTTON),
                     ) {

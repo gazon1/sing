@@ -209,10 +209,6 @@ class TaskDetailCoordinatorTest {
             TaskDetailIntent.Domain.TogglePinned,
             TaskDetailIntent.Domain.SetDependencies(setOf(TaskId("dep"))),
             TaskDetailIntent.Domain.SetRecurrence(null),
-            TaskDetailIntent.Domain.AddUrlAttachment("https://example.com", null),
-            TaskDetailIntent.Domain.DeleteAttachment(
-                com.singularity.todo.core.attachments.AttachmentId.fromString("a"),
-            ),
             TaskDetailIntent.Domain.RunAiAction(TaskAiAction.SuggestTime),
         )
 

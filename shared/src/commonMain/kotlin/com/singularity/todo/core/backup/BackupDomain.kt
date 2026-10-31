@@ -1,10 +1,10 @@
 package com.singularity.todo.core.backup
 
-import com.singularity.todo.core.files.FileChecksum
 import com.singularity.todo.core.ids.UserId
+import okio.Buffer
 
 object BackupDomain {
-    fun sha256Hex(bytes: ByteArray): String = FileChecksum.sha256(bytes)
+    fun sha256Hex(bytes: ByteArray): String = Buffer().write(bytes).sha256().hex()
 
     fun extractUserIdHash(userId: UserId): String = sha256Hex(userId.value.encodeToByteArray())
 

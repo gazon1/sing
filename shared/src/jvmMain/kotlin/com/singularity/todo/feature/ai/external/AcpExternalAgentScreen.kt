@@ -39,7 +39,7 @@ import com.singularity.todo.core.ui.components.sheet.BottomSheetHost
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.feature.ai.acp.AcpAgentProfile
 import com.singularity.todo.feature.ai.ui.AgentPlanCard
-import com.singularity.todo.feature.ai.ui.AgentToolCallCard
+import com.singularity.todo.feature.ai.ui.humanToolName
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
@@ -128,12 +128,8 @@ fun AcpExternalAgentScreenContent(
             if (state.activity.plan.isNotEmpty()) {
                 item { AgentPlanCard(steps = state.activity.plan) }
             }
-            items(state.activity.calls, key = { it.id }) { call ->
-                AgentToolCallCard(
-                    name = call.name,
-                    status = call.status,
-                    summary = call.summary,
-                )
+            if (state.activity.calls.isNotEmpty()) {
+                item { ToolCallSummaryLine(state.activity.calls) }
             }
         }
 
@@ -174,6 +170,27 @@ fun AcpExternalAgentScreenContent(
 
 private fun AcpExternalAgentViewModel.UiEvent.toNotification(): Notification = when (this) {
     is AcpExternalAgentViewModel.UiEvent.Error -> Notification.Error(message)
+}
+
+/**
+ * Compact summary of the tool calls made this turn, matching the chat screen.
+ */
+@Composable
+private fun ToolCallSummaryLine(
+    calls: kotlinx.collections.immutable.ImmutableList<com.singularity.todo.core.llm.AgentToolCall>,
+) {
+    val failed = calls.any { it.status == com.singularity.todo.core.llm.ToolCallStatus.FAILED }
+    val last = calls.last()
+    val statusText = when {
+        failed -> "failed"
+        calls.all { it.status == com.singularity.todo.core.llm.ToolCallStatus.COMPLETED } -> "done"
+        else -> "running"
+    }
+    Text(
+        text = "${calls.size} call(s) · ${humanToolName(last.name)} · $statusText",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 /**
