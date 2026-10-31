@@ -543,18 +543,27 @@ jobs:
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
-      # Three outcomes, and the job says which one happened:
+      # Four outcomes, and the job says which one happened:
       #
       #   selected     the map named test classes, and they ran below
       #   empty        the change claims no test class — nothing to run, and
       #                that is an ANSWER, not a failure
+      #   in-base      the change is ALREADY in the base — there is no longer a
+      #                difference to measure, which is not the same answer as
+      #                "the change touches no test"
       #   uncomputable the comparison could not be made — the tool refused, and
       #                the job fails, because a broken map must not read as a
       #                green run that tested nothing
       #
-      # The tool's output contract is what makes the three distinguishable: an
-      # empty selection is reported on stdout, where this step reads it, and a
-      # failed comparison exits non-zero.
+      # The tool's output contract is what makes the four distinguishable: an
+      # empty selection and an in-base change are reported on stdout, where this
+      # step reads them, and a failed comparison exits non-zero.
+      #
+      # The in-base answer is the one that arrives when a pull request that was
+      # merged with a merge commit is re-run: the merge commit is inside
+      # origin/main, so there is nothing left to compare. Treating it as
+      # "selected" would run the answer as a shell command — the marker is a
+      # sentence, not a command — and fail the job with a syntax error.
       #
       # The FAST population, and it is the fast population by contract (R5):
       # this job answers "what is worth running first", and the answer is the
@@ -573,6 +582,8 @@ jobs:
           fi
           if grep -q '^test-impact-map: the change selects no test class$' selection.txt; then
             echo "outcome=empty" >> "$GITHUB_OUTPUT"
+          elif grep -q '^test-impact-map: the change is already contained in the base' selection.txt; then
+            echo "outcome=in-base" >> "$GITHUB_OUTPUT"
           else
             echo "outcome=selected" >> "$GITHUB_OUTPUT"
           fi
@@ -581,6 +592,10 @@ jobs:
       - name: The change selects no test class
         if: steps.selection.outputs.outcome == 'empty'
         run: echo "the change claims no test class — there is nothing to run, and that is an answer"
+
+      - name: The change is already in the base
+        if: steps.selection.outputs.outcome == 'in-base'
+        run: echo "the change is already in the base — there is nothing to compare"
 
       - name: Run the affected tests
         if: steps.selection.outputs.outcome == 'selected'

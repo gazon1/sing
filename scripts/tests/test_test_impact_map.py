@@ -35,7 +35,10 @@ import contextlib
 import importlib.util
 import io
 import pathlib
+import shutil
+import subprocess
 import sys
+import tempfile
 import unittest
 
 SCRIPTS = pathlib.Path(__file__).resolve().parent.parent
@@ -632,6 +635,72 @@ class ArchTaskTest(unittest.TestCase):
         """The map and the build cannot disagree about the task's name."""
         build = (impact.ROOT / 'shared/build.gradle.kts').read_text(encoding='utf-8')
         self.assertIn('archTest', build)
+
+
+class BaseContainsHeadTest(unittest.TestCase):
+    """A change that is already in the base is a THIRD answer.
+
+    After a push the branch IS the base, so there is no difference left to
+    measure. The map used to answer "this change claims no test class", which
+    reads like a verdict about a change that touches no test — and the caller
+    that read it printed a green line about tests it never ran.
+    """
+
+    def _sandbox(self) -> pathlib.Path:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = pathlib.Path(tmp.name)
+        subprocess.run(['git', 'init', '-q'], cwd=root, check=True)
+        (root / 'config').mkdir()
+        shutil.copy(
+            impact.ROOT / 'config' / 'test-populations.properties',
+            root / 'config' / 'test-populations.properties',
+        )
+        (root / 'a.txt').write_text('one\n', encoding='utf-8')
+        subprocess.run(['git', 'add', '-A'], cwd=root, check=True)
+        subprocess.run(
+            ['git', '-c', 'user.email=t@example.com', '-c', 'user.name=test',
+             'commit', '-qm', 'first'],
+            cwd=root, check=True,
+        )
+        return root
+
+    def _map(self, root: pathlib.Path, *args: str) -> tuple[int, str]:
+        old_root = impact.ROOT
+        impact.ROOT = root
+        out = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(out):
+                code = impact.main(['--command', '--population', 'fast', *args])
+        finally:
+            impact.ROOT = old_root
+        return code, out.getvalue()
+
+    def test_a_change_already_in_the_base_is_reported_as_such(self):
+        root = self._sandbox()
+        code, output = self._map(root, '--base', 'HEAD')
+        self.assertEqual(code, 0)
+        self.assertIn(
+            impact.BASE_CONTAINS_HEAD,
+            output,
+            "a change that is already inside the base is not a change that "
+            "claims no test class",
+        )
+
+    def test_a_dirty_tree_is_not_that_answer(self):
+        """An uncommitted change IS a difference, and the map answers about it."""
+        root = self._sandbox()
+        (root / 'b.txt').write_text('two\n', encoding='utf-8')
+        code, output = self._map(root, '--base', 'HEAD')
+        self.assertEqual(code, 0)
+        self.assertNotIn(impact.BASE_CONTAINS_HEAD, output)
+        self.assertIn(impact.EMPTY_SELECTION, output)
+
+    def test_the_two_answers_are_different_lines(self):
+        """A caller reads stdout by its line, so the two must not collide."""
+        self.assertNotEqual(impact.BASE_CONTAINS_HEAD, impact.EMPTY_SELECTION)
+        self.assertTrue(impact.BASE_CONTAINS_HEAD.startswith('test-impact-map:'))
+        self.assertTrue(impact.EMPTY_SELECTION.startswith('test-impact-map:'))
 
 
 if __name__ == '__main__':

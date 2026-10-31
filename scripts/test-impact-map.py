@@ -319,6 +319,17 @@ GRADLE = './gradlew'
 #: nothing used to look the same, and the difference is the whole answer.
 EMPTY_SELECTION = 'test-impact-map: the change selects no test class'
 
+#: What the map prints on stdout when there is nothing to COMPARE — the change
+#: is already inside the base.
+#:
+#: This is a third answer, and it is not the second one. After a push the
+#: branch IS the base, so `base...HEAD` is empty and the map used to answer
+#: "this change claims no test class" — which reads like "your change touches
+#: no test", and is really "your change is already published, there is no
+#: longer a difference to measure". A caller that treats those as the same
+#: thing prints a green line about tests it never ran.
+BASE_CONTAINS_HEAD = 'test-impact-map: the change is already contained in the base'
+
 #: The prefix of the line that names a class the population excludes.
 DROPPED = 'dropped:'
 
@@ -581,6 +592,27 @@ def changed_paths(base: str) -> list[str]:
     return ordered
 
 
+def base_contains_head(base: str) -> bool:
+    """Is HEAD already inside the base?
+
+    The merge base of the base and HEAD is HEAD itself: the branch has been
+    published, and there is no longer a difference to measure. That is a
+    different answer from "this change touches no test", and a caller that
+    cannot tell the two apart prints a green line about tests it never ran.
+    """
+    merge_base = subprocess.run(
+        ['git', 'merge-base', base, 'HEAD'],
+        cwd=ROOT, capture_output=True, text=True, check=False,
+    )
+    head = subprocess.run(
+        ['git', 'rev-parse', 'HEAD'],
+        cwd=ROOT, capture_output=True, text=True, check=False,
+    )
+    if merge_base.returncode != 0 or head.returncode != 0:
+        return False
+    return merge_base.stdout.strip() == head.stdout.strip()
+
+
 def _class_blocks(text: str) -> list[tuple[str, str]]:
     """The top-level classes of a file: their name and their body.
 
@@ -810,6 +842,20 @@ def report_empty_selection() -> None:
     print('nothing to run: the change claims no test class.', file=sys.stderr)
 
 
+def report_base_contains_head(base: str) -> None:
+    """Report that there is nothing to COMPARE, on stdout, where the caller reads it.
+
+    The change is already inside the base — it has been published. The
+    comparison is not empty because the change touches no test; it is empty
+    because there is no difference left between the change and the base.
+    """
+    print(f'{BASE_CONTAINS_HEAD} ({base}) — there is nothing to compare')
+    print(
+        'nothing to run: the change is already inside the base.',
+        file=sys.stderr,
+    )
+
+
 def main(argv: list[str], paths: list[str] | None = None) -> int:
     """The tool's entry point.
 
@@ -848,6 +894,15 @@ def main(argv: list[str], paths: list[str] | None = None) -> int:
     except UnresolvableBaseRef as error:
         print(f'test-impact-map: {error}', file=sys.stderr)
         return 2
+
+    # Nothing changed AND the head is inside the base: there is no difference
+    # to measure. The check comes before the selection, because the selection
+    # would answer a different question — and the answer it would give
+    # ("this change claims no test class") is the one that reads like a
+    # verdict about a change that was already published.
+    if not changed and paths is None and base_contains_head(args.base):
+        report_base_contains_head(args.base)
+        return 0
 
     selected: list[str] = []
     reasons: list[str] = []
