@@ -51,11 +51,10 @@ import kotlin.test.fail
  *
  * ## Why comments and string literals are excluded
  *
- * `core/files/FileChecksum.kt` documents *why* it uses okio by naming the
- * `java.security.MessageDigest` it replaced. Matching raw text would flag that as a
- * violation, and a gate that fires on its own documentation gets switched off. The
- * scan therefore blanks comments and string literals before looking for references,
- * keeping only code.
+ * `core/security/ArchiveCrypto.kt` documents *why* it avoids `javax.crypto` by naming the
+ * type it does not use. Matching raw text would flag that as a violation, and a gate that
+ * fires on its own documentation gets switched off. The scan therefore blanks comments and
+ * string literals before looking for references, keeping only code.
  *
  * ## Why the file field is now checked
  *
