@@ -1,7 +1,15 @@
 package com.singularity.todo.feature.calendar.presentation.screen
 
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.refresh.RefreshableContent
@@ -30,26 +38,38 @@ fun CalendarScreen(anchorDate: LocalDate, modifier: Modifier = Modifier) {
     }
     val state by vm.stateFlow.collectAsStateWithLifecycle()
 
-    // Obtain navigator from the nav graph context
     val navigator = LocalCalendarNavigator.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
-    // Handle NavigateToTask events by opening the task in the outer tasks graph
     CollectEvents(vm.events) { event ->
         when (event) {
             is CalendarUiEvent.NavigateToTask -> navigator.openTask(event.taskId)
+
             is CalendarUiEvent.ShowCreateTaskSheet -> navigator.openCreateTask(event.initialDueDate)
+
             is CalendarUiEvent.NavigateToCreateWithDates -> navigator.openCreateTaskWithDates(event.draftKey)
-            is CalendarUiEvent.ShowError -> { /* handled separately */ }
+
+            is CalendarUiEvent.ShowError -> {
+                scope.launch { snackbarHostState.showSnackbar(event.message) }
+            }
         }
     }
 
     ProvideCalendarPalette {
         RefreshableContent {
-            CalendarContent(
-                state = state,
-                onIntent = vm::onIntent,
-                modifier = modifier,
-            )
+            Box(modifier = modifier.fillMaxSize()) {
+                CalendarContent(
+                    state = state,
+                    onIntent = vm::onIntent,
+                    onBack = { navigator.back() },
+                    modifier = Modifier.fillMaxSize(),
+                )
+                SnackbarHost(
+                    hostState = snackbarHostState,
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                )
+            }
         }
     }
 }

@@ -25,6 +25,7 @@ import com.singularity.todo.feature.calendar.presentation.components.calendar.Mi
 import com.singularity.todo.feature.calendar.presentation.components.calendar.MonthGridView
 import com.singularity.todo.feature.calendar.presentation.components.calendar.TimeGridView
 import com.singularity.todo.feature.calendar.presentation.state.CalendarIntent
+import com.singularity.todo.core.ui.components.StatefulContent
 import com.singularity.todo.feature.calendar.presentation.state.CalendarUiState
 import kotlinx.datetime.LocalDate
 
@@ -52,88 +53,92 @@ fun CalendarContent(
     state: CalendarUiState,
     onIntent: (CalendarIntent) -> Unit,
     onTaskClick: (LocalDate) -> Unit = {},
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     pagerState: PagerState? = null,
 ) {
-    val loadedState: CalendarUiState.Loaded? = (state as? CalendarUiState.Loaded)
-
     Surface(modifier = modifier.fillMaxSize()) {
-        if (loadedState == null) {
-            // Loading state — could add a loading indicator here
-            return@Surface
-        }
-
-        // Top bar derives its header label live from the current pager page —
-        // this avoids a VM round-trip per swipe frame and ensures the label
-        // updates instantly as the user drags, not just on settle.
-        val liveMonth: YearMonth? = pagerState?.let { ps ->
-            val anchorYm = remember(loadedState.anchor) {
-                YearMonth(loadedState.anchor.year, loadedState.anchor.month)
+        StatefulContent(
+            state = when (state) {
+                is CalendarUiState.Loaded -> com.singularity.todo.core.ui.components.ContentState.Ready(state)
+                else -> com.singularity.todo.core.ui.components.ContentState.Loading
+            },
+            emptyTitle = "Calendar",
+            modifier = Modifier.fillMaxSize(),
+        ) { loadedState, contentModifier ->
+            // Top bar derives its header label live from the current pager page —
+            // this avoids a VM round-trip per swipe frame and ensures the label
+            // updates instantly as the user drags, not just on settle.
+            val liveMonth: YearMonth? = pagerState?.let { ps ->
+                val anchorYm = remember(loadedState.anchor) {
+                    YearMonth(loadedState.anchor.year, loadedState.anchor.month)
+                }
+                yearMonthForPage(anchorYm, ps.currentPage)
             }
-            yearMonthForPage(anchorYm, ps.currentPage)
-        }
-        val liveHeaderLabel = liveMonth?.toLocalDate()?.let { anchorDate ->
-            headerLabel(anchorDate, loadedState.viewMode)
-        }
+            val liveHeaderLabel = liveMonth?.toLocalDate()?.let { anchorDate ->
+                headerLabel(anchorDate, loadedState.viewMode)
+            }
 
-        Row(modifier = Modifier.fillMaxSize()) {
-            // Main calendar area: Column carries the weight so child views fill height
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(),
-            ) {
-                CalendarTopBar(
-                    state = loadedState,
-                    today = loadedState.today,
-                    onIntent = onIntent,
-                    headerLabelOverride = liveHeaderLabel,
-                )
-
-                // The grid takes the rest of the height, so the selection bar below
-                // it has room. Without the weight the grid would take all of it and
-                // the bar would be pushed off the screen.
-                Box(
-                    modifier = Modifier.weight(1f),
+            Row(modifier = contentModifier.fillMaxSize()) {
+                // Main calendar area: Column carries the weight so child views fill height
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
                 ) {
-                    CalendarGrid(
-                        loadedState = loadedState,
+                    CalendarTopBar(
+                        state = loadedState,
+                        today = loadedState.today,
                         onIntent = onIntent,
-                        pagerState = pagerState,
+                        headerLabelOverride = liveHeaderLabel,
+                        onBack = onBack,
+                    )
+
+                    // The grid takes the rest of the height, so the selection bar below
+                    // it has room. Without the weight the grid would take all of it and
+                    // the bar would be pushed off the screen.
+                    Box(
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        CalendarGrid(
+                            loadedState = loadedState,
+                            onIntent = onIntent,
+                            pagerState = pagerState,
+                        )
+                    }
+                }
+
+                // Mini calendar side panel (slides in from right).
+                //
+                // Hidden while the days are being picked: two grids whose taps mean
+                // different things — "open this day" and "pick this day" — is a trap
+                // the user walks into without being told.
+                AnimatedVisibility(
+                    visible = loadedState.isMiniCalendarOpen && !loadedState.isDateSelectionMode,
+                    enter = slideInHorizontally(initialOffsetX = { it }),
+                    exit = slideOutHorizontally(targetOffsetX = { it }),
+                ) {
+                    MiniCalendarPanel(
+                        monthAnchor = loadedState.anchor,
+                        selectedDate = loadedState.selectedDate,
+                        today = loadedState.today,
+                        onDateSelected = { date ->
+                            onIntent(CalendarIntent.DayClicked(date))
+                            onIntent(CalendarIntent.DismissMiniCalendar)
+                        },
+                        onClose = { onIntent(CalendarIntent.DismissMiniCalendar) },
                     )
                 }
-            }
 
-            // Mini calendar side panel (slides in from right).
-            //
-            // Hidden while the days are being picked: two grids whose taps mean
-            // different things — "open this day" and "pick this day" — is a trap
-            // the user walks into without being told.
-            AnimatedVisibility(
-                visible = loadedState.isMiniCalendarOpen && !loadedState.isDateSelectionMode,
-                enter = slideInHorizontally(initialOffsetX = { it }),
-                exit = slideOutHorizontally(targetOffsetX = { it }),
-            ) {
-                MiniCalendarPanel(
-                    monthAnchor = loadedState.anchor,
-                    selectedDate = loadedState.selectedDate,
-                    today = loadedState.today,
-                    onDateSelected = { date ->
-                        onIntent(CalendarIntent.DayClicked(date))
-                        onIntent(CalendarIntent.DismissMiniCalendar)
-                    },
-                    onClose = { onIntent(CalendarIntent.DismissMiniCalendar) },
-                )
-            }
-
-            // The bar that offers to turn the picked days into one task. It lives
-            // under the grid, not over it: the grid is what the user is picking in.
-            if (loadedState.isDateSelectionMode) {
-                CalendarSelectionBar(
-                    selectedCount = loadedState.selectedDates.size,
-                    onCreateTask = { onIntent(CalendarIntent.CreateTaskOnSelectedDates) },
-                    onCancel = { onIntent(CalendarIntent.ExitDateSelectionMode) },
-                )
+                // The bar that offers to turn the picked days into one task. It lives
+                // under the grid, not over it: the grid is what the user is picking in.
+                if (loadedState.isDateSelectionMode) {
+                    CalendarSelectionBar(
+                        selectedCount = loadedState.selectedDates.size,
+                        onCreateTask = { onIntent(CalendarIntent.CreateTaskOnSelectedDates) },
+                        onCancel = { onIntent(CalendarIntent.ExitDateSelectionMode) },
+                    )
+                }
             }
         }
     }

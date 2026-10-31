@@ -266,6 +266,7 @@ fun NotesScreenContent(
                     state = state.toContentState(),
                     emptyTitle = "No notes yet",
                     emptyTestTag = TestTags.NOTES_LIST_EMPTY,
+                    onRetry = { actions.onRetry() },
                     modifier = Modifier.padding(padding),
                 ) { _, contentModifier ->
                     NoteList(
