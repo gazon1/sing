@@ -77,13 +77,56 @@ min_free_gib() {
     # A threshold that is not a number would make the arithmetic below fail and
     # the pool wait forever. 16 GiB is the recorded default either way.
     [[ "$value" =~ ^[0-9]+$ ]] || value=16
+    # A machine with less memory than the threshold cannot satisfy it: cap the
+    # threshold at HALF of what the machine has. An 8 GiB laptop asked for
+    # 16 GiB free would wait for memory that can never be free, and the wait
+    # ends as a timeout that names slots — which is the wrong reason.
+    #
+    # Half, and not less: a quarter of the machine's memory would be reachable
+    # on every machine and would quietly weaken the guard everywhere — a 32 GiB
+    # box asked for 16 GiB free would have been let off with 8, and a build
+    # that dies halfway for want of memory is exactly what this gate is for.
+    # Half leaves every machine with 32 GiB or more at the recorded threshold,
+    # and asks a smaller machine only for what it can actually give.
+    local total
+    total="$(mem_total_gib)"
+    if [[ -n "$total" ]] && (( total > 0 )); then
+        local cap=$(( total / 2 ))
+        if (( cap < value )); then
+            value=$cap
+        fi
+    fi
+    # A threshold of zero would let a build start with no room at all, which is
+    # the failure the gate exists to prevent.
+    if (( value < 1 )); then
+        value=1
+    fi
     echo "$value"
 }
 
-# The free memory of this machine, in GiB.
+# The file the memory is read from. Overridable so that the behaviour of this
+# gate can be exercised against a machine that is not this one — the failure
+# this script had (a memory reading that always came back as zero) is not
+# reproducible on a host whose /proc/meminfo is readable.
+meminfo_file="${SINGULARITY_MEMINFO_FILE:-/proc/meminfo}"
+
+# The free memory of this machine, in GiB — or NOTHING when the machine does not
+# say.
+#
+# An unknown amount is NOT zero. The first version of this read
+# `/proc/meminfo` and turned every failure into `0`, and zero is below every
+# threshold: on a machine whose memory the kernel does not report, the pool
+# blocked every build and exited 97 with "the build did not start". A gate that
+# cannot see the constraint must not enforce it.
 mem_available_gib() {
     awk '/^MemAvailable:/ {printf "%d", $2/1048576; found=1; exit}
-         END {if (!found) print 0}' /proc/meminfo 2>/dev/null || echo 0
+         END {if (!found) print ""}' "$meminfo_file" 2>/dev/null || true
+}
+
+# The total memory of this machine, in GiB — or nothing when it is unknown.
+mem_total_gib() {
+    awk '/^MemTotal:/ {printf "%d", $2/1048576; found=1; exit}
+         END {if (!found) print ""}' "$meminfo_file" 2>/dev/null || true
 }
 
 # ── status ──────────────────────────────────────────────────────────────────
@@ -146,6 +189,7 @@ mkdir -p "$slots_dir"
 deadline=$(( SECONDS + wait_secs ))
 announced=0
 need_free_gib="$(min_free_gib)"
+available=""
 
 while :; do
     memory_blocked=0
@@ -155,8 +199,12 @@ while :; do
             # A free slot is not a free machine. The build that is about to start
             # needs its daemon and its forks, and a build that starts without
             # room for them dies halfway instead of at the start.
+            #
+            # A memory reading the machine does not give is NOT a reading of
+            # zero: an unknown amount is not a constraint, and a gate that
+            # cannot see the constraint must not enforce it.
             available="$(mem_available_gib)"
-            if (( available < need_free_gib )); then
+            if [[ -n "$available" ]] && (( available < need_free_gib )); then
                 exec 9>&-
                 memory_blocked=1
                 continue
@@ -172,7 +220,15 @@ while :; do
     done
 
     if (( SECONDS >= deadline )); then
-        echo "gradle-slot: all $slot_count slots were busy for ${wait_secs}s — the build did not start" >&2
+        # The reason the pool waited is the reason the reader needs. A wait for
+        # memory and a wait for a slot are different problems, and the message
+        # used to name the slots in both cases — so a machine that had a free
+        # slot and too little RAM was sent looking for a busy lock.
+        if (( memory_blocked == 1 )); then
+            echo "gradle-slot: a slot was free, but only ${available} GiB of memory was available and a build needs ${need_free_gib} GiB — the build did not start" >&2
+        else
+            echo "gradle-slot: all $slot_count slots were busy for ${wait_secs}s — the build did not start" >&2
+        fi
         exit "$SLOT_TIMEOUT"
     fi
 
