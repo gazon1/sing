@@ -276,6 +276,7 @@ private fun MonthDayCell(
                     TaskChip(
                         task = task,
                         onClick = { onTaskClick(task) },
+                        compact = true,
                     )
                 }
                 if (overflow > 0) {

@@ -2,7 +2,9 @@ package com.singularity.todo.feature.calendar.presentation.components.calendar
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -36,6 +38,7 @@ fun TaskChip(
     task: CalendarTask,
     isSelected: Boolean = false,
     onClick: () -> Unit = {},
+    compact: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val palette = LocalCalendarPalette.current
@@ -45,6 +48,19 @@ fun TaskChip(
         task.status == CalendarTaskStatus.OVERDUE -> palette.taskOverdue
         else -> palette.taskDefault
     }
+
+    if (compact) {
+        // Month grid cells are ~51 dp wide: a chip with a title renders "Re…".
+        // Show a status-colored dot instead; the full title lives in the day view.
+        Box(
+            modifier = modifier
+                .size(8.dp)
+                .background(background, CircleShape)
+                .clickable { onClick() },
+        )
+        return
+    }
+
     val textColor = when {
         isSelected -> Color.White
         task.status == CalendarTaskStatus.DONE -> palette.textMuted
