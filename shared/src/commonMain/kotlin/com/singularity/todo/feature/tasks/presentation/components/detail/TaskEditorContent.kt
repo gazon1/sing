@@ -325,7 +325,10 @@ private fun TaskEditorContent(
                     onClick = cb.onClick ?: { sheets.show(TaskEditorSheet.Project) },
                     trailingContent = if (cb.onClear != null && project != null) {
                         {
-                            IconButton(onClick = cb.onClear, modifier = Modifier.size(24.dp).minimumInteractiveComponentSize()) {
+                            IconButton(
+                                onClick = cb.onClear,
+                                modifier = Modifier.size(24.dp).minimumInteractiveComponentSize(),
+                            ) {
                                 Icon(
                                     imageVector = Icons.Filled.Close,
                                     contentDescription = "Clear project",
