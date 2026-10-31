@@ -89,7 +89,7 @@ kmpauth = "3.0.6"
 # Google's authorization API. Declared directly because KMPAuth declares it as an
 # `implementation` dependency, which puts it on the runtime classpath and not on the
 # compile one — see shared/build.gradle.kts.
-playServicesAuth = "21.6.0"
+playServicesAuth = "22.0.0"
 
 # Okio — for FileLogWriter rolling file logs (Square, KMP-native)
 okio = "3.18.2"
