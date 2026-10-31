@@ -99,6 +99,16 @@ def _measured(results_dir: pathlib.Path) -> dict[str, float]:
     return measured
 
 
+def _has_run(results_dir: pathlib.Path) -> bool:
+    """Does the results directory hold any Maestro report at all?
+
+    The difference between "no run has been measured" and "the run reported
+    no flow" is the difference between an absent floor and an empty one, and
+    the caller has to be able to tell them apart.
+    """
+    return results_dir.is_dir() and any(results_dir.glob("**/*.xml"))
+
+
 def _relative(flow: str) -> str:
     """The flow's path, relative to the repository root."""
     text = flow.replace("\\", "/")
@@ -154,6 +164,23 @@ def main(argv: list[str] | None = None) -> int:
     floors = _floors()
 
     if args.record:
+        if not measured:
+            # Nothing was measured, so nothing is written. Rewriting the file
+            # with what it already holds would look like a recorded run in the
+            # diff, and the file's whole promise is that it changes when
+            # somebody decided it should.
+            where = pathlib.Path(args.results)
+            if _has_run(where):
+                print(
+                    f"the Maestro reports in {where} name no flow with a time — "
+                    "nothing to record"
+                )
+            else:
+                print(
+                    f"there are no Maestro reports in {where} — nothing to record. "
+                    "Run a Maestro suite first."
+                )
+            return 0
         for flow, elapsed in measured.items():
             previous = floors.get(flow)
             if previous is None or elapsed < previous:
@@ -170,8 +197,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if not merged:
+        # The EMPTY state, said out loud. The shard-cost comparison falls back
+        # to counting flows when nothing has been measured, and a reader who
+        # does not know that will take a flow count for a cost.
         print(
-            "no Maestro timings yet — run a Maestro suite and then "
+            "no Maestro timings are recorded — the shard-cost comparison falls "
+            "back to counting flows. Run a Maestro suite and then "
             "`python3 scripts/maestro-flow-timings.py --record`"
         )
         return 0

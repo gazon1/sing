@@ -168,10 +168,22 @@ fun SettingsScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Settings") },
-                navigationIcon = {
-                    IconButton(onClick = { navCallbacks?.goBack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                // The back arrow exists only where there is something to go back
+                // to. `navCallbacks` is null when Settings is opened as a root
+                // destination, and an arrow that goes nowhere is an affordance
+                // that lies.
+                //
+                // On Android the icon is published to the shell, and a null icon
+                // means the shell keeps its own back button — the shell's button
+                // knows where the shell is.
+                navigationIcon = if (navCallbacks != null) {
+                    {
+                        IconButton(onClick = { navCallbacks.goBack() }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
                     }
+                } else {
+                    null
                 },
                 overrideShell = true,
             )

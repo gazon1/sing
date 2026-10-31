@@ -174,6 +174,32 @@ def _timing_floors() -> dict[str, float]:
     return module._floors()
 
 
+def cost_metric(floors: dict[str, float]) -> str:
+    """The metric the shard comparison used: measured SECONDS, or a flow COUNT.
+
+    The comparison falls back to counting flows when no flow has a measured
+    time. That fallback is a proxy, and a reader who does not know which
+    metric produced a verdict takes a count for a cost — so the metric is
+    reported with every verdict, not only with the green one.
+    """
+    return 'seconds' if floors else 'flow count'
+
+
+def _metric_note(metric: str) -> str:
+    """The line that says which metric the comparison used, and why."""
+    if metric == 'seconds':
+        return (
+            "  the shard cost was compared by MEASURED SECONDS "
+            f"({_display(ROOT / 'config' / 'docs' / 'maestro-flow-timings.txt')})"
+        )
+    return (
+        "  the shard cost was compared by FLOW COUNT — no Maestro flow has a "
+        "measured time yet. Run a Maestro suite and then "
+        "`python3 scripts/maestro-flow-timings.py --record` to compare the "
+        "real cost."
+    )
+
+
 def scan() -> list[dict]:
     """The findings, as a list of dictionaries."""
     findings: list[dict] = []
@@ -293,24 +319,21 @@ def cli(ctx: click.Context, list_flows: bool, emit_json: bool, check: bool) -> N
         click.echo(f"maestro smoke suite: {exc}")
         raise ctx.exit(IO_ERROR)
 
+    # The metric is reported with EVERY verdict — the green one and the red
+    # one. A comparison by flow count is a proxy for a comparison by time, and
+    # a finding that does not say which one produced it reads like a verdict
+    # about cost.
+    metric = cost_metric(_timing_floors())
     if emit_json:
-        click.echo(json.dumps({"findings": findings}, indent=2))
+        click.echo(json.dumps({"findings": findings, "cost_metric": metric}, indent=2))
     elif not findings:
         click.echo(f"maestro smoke suite: {actual_count()} flow(s), as documented")
-        if not _timing_floors():
-            # The shards are compared by FLOW COUNT, because no flow has a
-            # measured time yet. It says so, because a count is a proxy for a
-            # cost and the reader is the one who plans against it.
-            click.echo(
-                "  note: the shard cost was compared by FLOW COUNT — no Maestro "
-                "flow has a measured time yet. Run a Maestro suite and then "
-                "`python3 scripts/maestro-flow-timings.py --record` to compare "
-                "the real cost."
-            )
+        click.echo(_metric_note(metric))
     else:
         click.echo(f"maestro smoke suite: {len(findings)} finding(s)")
         for finding in findings:
             click.echo(f"  {finding['kind']}: {finding['detail']}")
+        click.echo(_metric_note(metric))
     if check:
         raise ctx.exit(CLEAN)
     raise ctx.exit(VALIDATION_FAILURE if findings else CLEAN)

@@ -359,6 +359,44 @@ jobs:
             --commit "${{ github.sha }}" \
             --out-dir build/traceability
 
+      # The shard plan compares the shards by TIME when the flows have been
+      # measured, and by COUNT when they have not. The measurements exist in
+      # the JUnit reports this job just produced, so the step folds them into
+      # the floor file and prints that file into the job summary: the floor is
+      # a decision somebody makes, and the decision needs the number in front
+      # of them. Nothing here commits the file — a floor that changed itself
+      # would be a floor nobody decided.
+      #
+      # The file holds the SHORTEST time each flow has ever been measured at,
+      # not the time of this run, and the heading says so: a reader who takes
+      # a floor for this run's number plans against the wrong thing.
+      #
+      # A failed recording does NOT fail the job — the job's work is the flows,
+      # and a job that turns red over a side file blocks a pull request for
+      # nothing. It is not swallowed either: the status goes to the log and to
+      # the summary, where the reader of the summary sees it.
+      - name: Record the flow timings
+        if: ${{ !cancelled() }}
+        run: |
+          set +e
+          python3 scripts/maestro-flow-timings.py --record --results build/maestro-results/
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ]; then
+            echo "the timings could not be recorded (exit $status) — the file below is the one that was committed" >&2
+          fi
+          {
+            echo "### Maestro flow floors (the shortest time each flow has ever been measured at — not this run)"
+            echo
+            echo '```'
+            cat config/docs/maestro-flow-timings.txt
+            echo '```'
+            if [ "$status" -ne 0 ]; then
+              echo
+              echo "the timings could not be recorded (exit $status)"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload JUnit results
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7

@@ -179,7 +179,11 @@ timed "shared:verifySyncFieldAllowlist" ./gw :shared:verifySyncFieldAllowlist --
 }
 echo -e "${GREEN}the derived field lists are current${NC}"
 
-echo -e "${YELLOW}=== [3/$TOTAL] shared:jvmTest ===${NC}"
+if (( AFFECTED )); then
+    echo -e "${YELLOW}=== [3/$TOTAL] affected tests ===${NC}"
+else
+    echo -e "${YELLOW}=== [3/$TOTAL] shared:jvmTest ===${NC}"
+fi
 # `-Pcoverage.enabled=false` — the local loop takes no coverage measurement, so it
 # does not attach the agent that produces one. Measured 2026-10-28 on this tree:
 # 1241 s with the agent, 771 s without it, for the same tests. The agent is a
@@ -193,23 +197,40 @@ if (( AFFECTED )); then
     # population the repository has not declared. An empty selection is an
     # ANSWER — "this change claims no test class" — and the map reports it on
     # stdout, where this step reads it.
+    #
+    # THREE answers, and each of them says what ran. The line "shared:jvmTest
+    # passed" used to stand AFTER this branch, so it was printed whatever the
+    # branch did: a lane that ran four thousand tests and a lane that ran
+    # NOTHING read exactly the same. The line a reader trusts has to name the
+    # tests that ran.
     echo -e "${YELLOW}    (affected lane: only the tests this change can break)${NC}"
     selection="$(python3 scripts/test-impact-map.py --command --population fast --gradle ./gw)" || {
         echo -e "${RED}the affected test selection could not be computed — see the message above${NC}"
         exit 1
     }
-    if grep -q '^test-impact-map: the change selects no test class$' <<<"$selection"; then
-        echo -e "${GREEN}the change claims no test class — there is nothing to run, and that is an answer${NC}"
+    if grep -q '^test-impact-map: the change is already contained in the base' <<<"$selection"; then
+        echo -e "${GREEN}the affected lane: the change is already in the base — there is nothing to compare${NC}"
+    elif grep -q '^test-impact-map: the change selects no test class$' <<<"$selection"; then
+        echo -e "${GREEN}the affected lane: the change claims no test class — there is nothing to run, and that is an answer${NC}"
     else
+        ran=0
         while IFS= read -r command; do
             [ -n "$command" ] || continue
-            echo "running: $command $COVERAGE_OFF"
-            eval "$command $COVERAGE_OFF" || {
+            classes="$(grep -o -- '--tests ' <<<"$command" | wc -l)"
+            ran=$(( ran + classes ))
+            # `--rerun`: a task whose inputs did not change is UP-TO-DATE, and
+            # an UP-TO-DATE test task runs NO test. The line below names the
+            # classes that ran, so they have to run — a second `./check.sh
+            # --affected` over the same tree would otherwise print "N test
+            # class(es) ran" about a run that never happened.
+            echo "running: $command --rerun $COVERAGE_OFF"
+            eval "$command --rerun $COVERAGE_OFF" || {
                 echo -e "${RED}an affected test FAILED${NC}"
                 scripts/ci/print-test-failures.sh shared/build/test-results || true
                 exit 1
             }
         done <<<"$selection"
+        echo -e "${GREEN}the affected lane: $ran test class(es) ran${NC}"
     fi
 else
     timed "shared:jvmTest" ./gw :shared:jvmTest --quiet "${COVERAGE_OFF}" || {
@@ -217,8 +238,8 @@ else
         scripts/ci/print-test-failures.sh shared/build/test-results || true
         exit 1
     }
+    echo -e "${GREEN}shared:jvmTest passed${NC}"
 fi
-echo -e "${GREEN}shared:jvmTest passed${NC}"
 
 echo -e "${YELLOW}=== [3a/$TOTAL] shared:archTest ===${NC}"
 # The architecture gates have a task of their own: they read the whole tree, and

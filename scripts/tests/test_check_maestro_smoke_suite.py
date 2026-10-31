@@ -18,7 +18,10 @@ count without anyone noticing, which is how the suite got into this state.
 """
 
 import importlib.util
+import json
 import pathlib
+import subprocess
+import sys
 import tempfile
 import types
 import unittest
@@ -145,6 +148,65 @@ class ExitCodeTest(unittest.TestCase):
     def test_the_dry_run_exits_zero_whatever_it_found(self):
         """`--check` is a report, and the registry must not invoke it that way."""
         self.assertEqual(self._run("--check"), 0)
+
+
+class CostMetricTest(unittest.TestCase):
+    """The verdict says WHICH metric produced it.
+
+    The shard comparison falls back to counting flows when no flow has a
+    measured time. A count is a proxy for a cost, and a finding that does not
+    say which metric produced it reads like a verdict about cost.
+    """
+
+    def test_the_metric_is_seconds_when_the_floors_exist(self):
+        self.assertEqual(
+            mod.cost_metric({"Maestro/flows/a.yaml": 12.0}), "seconds"
+        )
+
+    def test_the_metric_is_a_count_when_no_floor_exists(self):
+        self.assertEqual(mod.cost_metric({}), "flow count")
+
+    def _run(self, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, str(MODULE_PATH), *args],
+            cwd=mod.ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    def test_the_clean_verdict_names_the_metric(self):
+        result = self._run()
+        self.assertEqual(result.returncode, 0)
+        self.assertIn(
+            "the shard cost was compared by",
+            result.stdout,
+            "the metric belongs to every verdict, not only to the green one",
+        )
+
+    def test_the_json_carries_the_metric(self):
+        result = self._run("--json")
+        self.assertEqual(result.returncode, 0)
+        payload = json.loads(result.stdout)
+        self.assertIn("cost_metric", payload)
+        self.assertEqual(payload["cost_metric"], "flow count")
+
+    def test_a_finding_still_names_the_metric(self):
+        """A red verdict that does not say how it was measured is a verdict
+        about a metric the reader has to guess."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "CONVENTIONS.md"
+            path.write_text("Current smoke flows (0):\n")
+            old = mod.CONVENTIONS
+            mod.CONVENTIONS = path
+            try:
+                findings = mod.scan()
+                metric = mod.cost_metric(mod._timing_floors())
+                note = mod._metric_note(metric)
+            finally:
+                mod.CONVENTIONS = old
+        self.assertTrue(findings)
+        self.assertIn("the shard cost was compared by", note)
 
 
 if __name__ == "__main__":

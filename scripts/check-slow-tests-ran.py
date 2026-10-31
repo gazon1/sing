@@ -53,8 +53,14 @@ import click
 _SCRIPTS_SRC = str(pathlib.Path(__file__).resolve().parent / 'src')
 if _SCRIPTS_SRC not in sys.path:
     sys.path.insert(0, _SCRIPTS_SRC)
+# The architecture suite's declaration lives next to this script, and the
+# reader of it is the one implementation of "what the arch suite is".
+_SCRIPTS_DIR = str(pathlib.Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
 
 from sgate.commands.base import run
+import arch_suite  # noqa: PLC0415 — scripts are not a package
 
 CLEAN = 0
 VALIDATION_FAILURE = 1
@@ -69,8 +75,9 @@ SOURCES = (
     # The architecture gates have a task of their own, so their report lands in
     # its own directory — and they live inside this source root. Both
     # directories are read: a slow class ran if a report of it exists in
-    # either.
-    ('shared/src/jvmTest/kotlin', ('shared/build/test-results/jvmTest', 'shared/build/test-results/archTest')),
+    # either. The architecture directory is the one the DECLARATION holds
+    # (`config/docs/arch-suite.properties`), the same one the build writes to.
+    ('shared/src/jvmTest/kotlin', ('shared/build/test-results/jvmTest', arch_suite.report_dir())),
     ('shared/src/androidHostTest/kotlin', 'shared/build/test-results/testAndroidHostTest'),
     ('desktopApp/src/jvmTest/kotlin', 'desktopApp/build/test-results/test'),
     ('mcp-server/src/test/kotlin', 'mcp-server/build/test-results/test'),
