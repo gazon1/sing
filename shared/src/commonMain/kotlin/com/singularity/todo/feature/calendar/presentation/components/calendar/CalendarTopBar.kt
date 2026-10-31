@@ -28,11 +28,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ShellOverride
+import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
 import com.singularity.todo.feature.calendar.presentation.state.CalendarIntent
 import com.singularity.todo.feature.calendar.presentation.state.CalendarUiState
 import com.singularity.todo.feature.calendar.presentation.theme.CalendarPalette
 import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
+import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import kotlinx.datetime.LocalDate
 
 /**
@@ -161,6 +163,7 @@ private fun CalendarControls(
             contentDescription = "Open mini calendar",
             tint = palette.textSecondary,
             modifier = Modifier
+                .touchTarget(TaskListSizes.MinTouchTarget)
                 .size(20.dp)
                 .clickable { onIntent(CalendarIntent.ToggleMiniCalendar) },
         )
@@ -172,6 +175,7 @@ private fun CalendarControls(
             contentDescription = "Previous",
             tint = palette.textSecondary,
             modifier = Modifier
+                .touchTarget(TaskListSizes.MinTouchTarget)
                 .size(20.dp)
                 .clickable { onIntent(CalendarIntent.GoPrevious) },
         )
@@ -180,7 +184,7 @@ private fun CalendarControls(
             text = "Today",
             color = palette.textSecondary,
             fontSize = 14.sp,
-            modifier = Modifier.clickable { onIntent(CalendarIntent.GoToday) },
+            modifier = Modifier.touchTarget(TaskListSizes.MinTouchTarget).clickable { onIntent(CalendarIntent.GoToday) },
         )
         Spacer(Modifier.width(8.dp))
         Icon(
@@ -188,6 +192,7 @@ private fun CalendarControls(
             contentDescription = "Next",
             tint = palette.textSecondary,
             modifier = Modifier
+                .touchTarget(TaskListSizes.MinTouchTarget)
                 .size(20.dp)
                 .clickable { onIntent(CalendarIntent.GoNext) },
         )

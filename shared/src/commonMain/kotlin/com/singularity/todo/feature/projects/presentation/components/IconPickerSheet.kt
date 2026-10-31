@@ -15,7 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.minimumInteractiveComponentSize
+import com.singularity.todo.core.ui.touchTarget
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegistry
+import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 
 private val COMMON_EMOJIS = listOf(
     "🚀", "🎯", "💡", "🔥", "⭐", "❤️", "✅", "📌", "🏠", "💼",
@@ -53,8 +54,8 @@ fun IconPickerSheet(currentIcon: String?, onPick: (String?) -> Unit, onDismiss: 
                         MaterialTheme.colorScheme.onSurfaceVariant
                     },
                     modifier = Modifier
+                        .touchTarget(TaskListSizes.MinTouchTarget)
                         .size(40.dp)
-                        .minimumInteractiveComponentSize()
                         .clip(CircleShape)
                         .clickable { onPick(key) }
                         .background(
@@ -93,8 +94,8 @@ private fun EmojiSection(currentIcon: String?, onPick: (String?) -> Unit) {
             Text(
                 text = emoji,
                 modifier = Modifier
+                    .touchTarget(TaskListSizes.MinTouchTarget)
                     .size(40.dp)
-                    .minimumInteractiveComponentSize()
                     .clip(CircleShape)
                     .clickable { onPick(emoji) }
                     .background(

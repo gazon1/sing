@@ -44,6 +44,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
+import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.mutedTextColor
@@ -108,8 +109,8 @@ fun TaskCheckbox(
 
     Box(
         modifier = modifier
+            .touchTarget(TaskListSizes.MinTouchTarget)
             .size(TaskListSizes.Checkbox)
-            .minimumInteractiveComponentSize()
             .scale(popScale.value * pressScale)
             // toggleable, not clickable: clickable alone leaves the node without a
             // ToggleableState, so assistive tech (and UI automation) cannot read whether

@@ -38,6 +38,8 @@ object TaskListSpacing {
 }
 
 /** Семантические размеры (не "отступы", а "размер виджета"). */
+import com.singularity.todo.core.ui.TouchTarget
+
 object TaskListSizes {
     val Checkbox = 22.dp
     val CheckIcon = 13.dp
@@ -46,5 +48,5 @@ object TaskListSizes {
     val DividerThickness = 1.dp
     val CardElevation = 1.dp
     val CardElevationHover = 4.dp
-    val MinTouchTarget = 44.dp
+    val MinTouchTarget = TouchTarget.MinSize
 }

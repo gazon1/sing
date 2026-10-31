@@ -29,9 +29,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.calendar.domain.logic.displayName
 import com.singularity.todo.feature.calendar.domain.logic.monthGridDates
 import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
+import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import kotlinx.datetime.LocalDate
 
 /**
@@ -75,6 +77,7 @@ fun MiniCalendarPanel(
                 contentDescription = "Close",
                 tint = palette.textSecondary,
                 modifier = Modifier
+                    .touchTarget(TaskListSizes.MinTouchTarget)
                     .size(20.dp)
                     .clickable { onClose() },
             )
