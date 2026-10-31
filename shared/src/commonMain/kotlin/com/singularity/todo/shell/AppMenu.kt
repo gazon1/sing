@@ -47,6 +47,7 @@ object AppMenu {
             id = TestTags.MENU_SETTINGS,
             label = "Profile & sync",
             destination = AppDestination.Settings,
+            icon = AppDestination.Settings.icon,
         ),
         MenuEntry(
             id = TestTags.MENU_PROFILES,
@@ -54,7 +55,7 @@ object AppMenu {
             destination = AppDestination.ProfileSwitcher,
             icon = AppDestination.ProfileSwitcher.icon,
         ),
-    )
+    ).map { entry -> if (entry.icon == null) entry.copy(icon = entry.destination.icon) else entry }
 
     /** Account entries, including Attach account when the session is anonymous. */
     fun accountEntries(anonymous: Boolean): List<MenuEntry> =
@@ -75,7 +76,7 @@ object AppMenu {
         label = AppDestination.AttachAccount.title,
         destination = AppDestination.AttachAccount,
         icon = AppDestination.AttachAccount.icon,
-    )
+    ).let { if (it.icon == null) it.copy(icon = it.destination.icon) else it }
 
     /**
      * The destinations, in the order the drawer shows them.
@@ -84,12 +85,13 @@ object AppMenu {
      * destinations — with a stable id for each.
      */
     val destinations: List<MenuEntry> = DestinationKind.menuEntries.map { destination ->
-        MenuEntry(
+        val entry = MenuEntry(
             id = menuItemId(destination),
             label = destination.title,
             destination = destination,
             icon = destination.icon,
         )
+        if (entry.icon == null) entry.copy(icon = entry.destination.icon) else entry
     }
 
     /**
