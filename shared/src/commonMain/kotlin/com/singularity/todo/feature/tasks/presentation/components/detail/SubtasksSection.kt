@@ -16,7 +16,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.minimumInteractiveComponentSize
+import com.singularity.todo.core.ui.touchTarget
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,6 +29,7 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.checklist.components.ChecklistItemRow
 import com.singularity.todo.feature.checklist.components.ChecklistRowTags
 import com.singularity.todo.feature.tasks.domain.model.Task
+import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
@@ -93,8 +94,8 @@ fun SubtasksSection(
                             }
                         },
                         modifier = Modifier
+                            .touchTarget(TaskListSizes.MinTouchTarget)
                             .size(40.dp)
-                            .minimumInteractiveComponentSize()
                             .testTag(TestTags.SUBTASK_ADD_BUTTON),
                     ) {
                         Icon(

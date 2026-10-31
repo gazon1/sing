@@ -565,6 +565,27 @@ not one nobody had noticed for a year. That judgement is the review's work.
 
 ---
 
+## Touch targets meet the minimum and the order is correct
+
+Material's minimum interactive size is 48 dp. A fixed visual size applied
+before `minimumInteractiveComponentSize()` caps the hit area — the order is
+the bug.
+
+- **Put `minimumInteractiveComponentSize()` before `size()`.** When a
+  control has a smaller visual size (e.g. 22 dp, 14 dp, 8 dp), call
+  `minimumInteractiveComponentSize()` first, then constrain the visual size
+  with `size(...)`. For controls that must follow the task-list minimum use
+  `minimumInteractiveComponentSize(TaskListSizes.MinTouchTarget)`.
+- **Use the token.** `TaskListSizes.MinTouchTarget = 48.dp` is the source of
+  truth for task-list controls. Prefer passing it explicitly rather than
+  relying on the default when the control is in scope of that token.
+- **A touch target is still a control.** Padding and hit expansion do not
+  replace a real hit area. A `clickable`/`toggleable`/`IconButton` on a small
+  node needs expansion, and the expansion must not be clipped by a
+  fixed-size constraint applied earlier in the modifier chain.
+
+---
+
 These are checked; a reviewer verifies the check was run rather than
 re-deriving them.
 

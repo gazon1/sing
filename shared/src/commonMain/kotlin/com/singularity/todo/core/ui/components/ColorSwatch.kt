@@ -18,6 +18,8 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.touchTarget
+import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 
 @Composable
 fun ColorSwatch(
@@ -31,6 +33,7 @@ fun ColorSwatch(
 ) {
     Box(
         modifier = modifier
+            .touchTarget(TaskListSizes.MinTouchTarget)
             .size(size)
             .clip(CircleShape)
             .background(color)
@@ -39,8 +42,7 @@ fun ColorSwatch(
                 role = Role.Button
             }
             .then(if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.outline, CircleShape) else Modifier)
-            .clickable(onClick = onClick)
-            .minimumInteractiveComponentSize(),
+            .clickable(onClick = onClick),
         contentAlignment = androidx.compose.ui.Alignment.Center,
     ) {
         content()

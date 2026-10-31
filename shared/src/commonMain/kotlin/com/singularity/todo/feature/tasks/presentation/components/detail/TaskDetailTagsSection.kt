@@ -22,9 +22,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import kotlinx.collections.immutable.ImmutableList
+import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 /**
  * Tags section for [com.singularity.todo.feature.tasks.presentation.screen.TaskDetailScreen].
  *
@@ -61,8 +63,8 @@ fun TaskDetailTagsSection(tags: ImmutableList<Tag>, onDeleteTag: (TagId) -> Unit
                                 Icons.Filled.Close,
                                 contentDescription = "Remove tag",
                                 modifier = Modifier
+                                    .touchTarget(TaskListSizes.MinTouchTarget)
                                     .size(14.dp)
-                                    .minimumInteractiveComponentSize()
                                     .clickable { onDeleteTag(tag.id) },
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
                             )

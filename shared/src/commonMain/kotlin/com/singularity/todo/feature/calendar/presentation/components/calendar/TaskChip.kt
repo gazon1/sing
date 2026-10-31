@@ -26,8 +26,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.components.SeriesMarker
+import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskStatus
 import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
+import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 
 /**
  * One task row, used in the all-day strip, month grid cells, and hour grid cells.
@@ -54,6 +56,7 @@ fun TaskChip(
         // Show a status-colored dot instead; the full title lives in the day view.
         Box(
             modifier = modifier
+                .touchTarget(TaskListSizes.MinTouchTarget)
                 .size(8.dp)
                 .background(background, CircleShape)
                 .clickable { onClick() },
