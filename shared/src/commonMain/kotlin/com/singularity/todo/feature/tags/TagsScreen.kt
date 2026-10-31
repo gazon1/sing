@@ -44,7 +44,6 @@ import com.singularity.todo.core.ui.components.StatefulContent
 import com.singularity.todo.core.ui.components.TaggedSnackbarHost
 import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.feature.tags.components.AddTagDialog
-import kotlinx.collections.immutable.ImmutableList
 
 /**
  * Tags list screen.
