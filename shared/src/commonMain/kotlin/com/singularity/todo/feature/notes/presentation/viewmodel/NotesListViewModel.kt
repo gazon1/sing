@@ -121,6 +121,7 @@ class NotesListViewModel(
      * the field's own text coming back.
      */
     private val searchQueryFlow = MutableStateFlow(FieldOwnedText.empty())
+    private val retryTrigger = MutableStateFlow(0)
 
     /**
      * The query actually applied to the repository.
@@ -155,7 +156,7 @@ class NotesListViewModel(
                 val to = today.plus(30, DateTimeUnit.DAY).toString()
                 repo.watchDailyNotesInRange(from, to)
             }
-            val notesFlow = combine(filterFlow, debouncedQueryFlow) { f, query -> f to query }
+            val notesFlow = combine(filterFlow, debouncedQueryFlow, retryTrigger) { f, query, _ -> f to query }
                 .flatMapLatest { (f, query) ->
                     val flow = when {
                         query.text.isNotBlank() -> repo.search(query.text, NOTE_SEARCH_MODE)
@@ -222,18 +223,35 @@ class NotesListViewModel(
     override fun onIntent(intent: NotesIntent) {
         when (intent) {
             is NotesIntent.Delete -> handleDelete(intent.id)
+
             is NotesIntent.TogglePin -> togglePin(intent.id)
+
             is NotesIntent.Archive -> archive(intent.id)
+
             is NotesIntent.Unarchive -> unarchive(intent.id)
+
             is NotesIntent.SetFilter -> setFilter(intent.filter)
+
             is NotesIntent.SetSortOrder -> setSortOrder(intent.order)
+
             is NotesIntent.SearchQueryChanged -> setSearchQuery(intent.query)
+
             is NotesIntent.EnterSelection -> enterSelectionMode(intent.id)
+
             is NotesIntent.ToggleSelection -> toggleSelection(intent.id)
+
             NotesIntent.ExitSelection -> exitSelectionMode()
+
             NotesIntent.DeleteSelected -> deleteSelected()
+
+            NotesIntent.Retry -> {
+                retryTrigger.value += 1
+            }
+
             is NotesIntent.CreateNote -> createNoteWithTitle(intent.title)
+
             is NotesIntent.DeleteNote -> handleDelete(intent.id)
+
             is NotesIntent.UndoDelete -> scope.launch { handleUndoDeleteTapped() }
         }
     }

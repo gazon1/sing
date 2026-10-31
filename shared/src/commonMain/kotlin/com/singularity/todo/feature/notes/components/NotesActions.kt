@@ -44,6 +44,8 @@ value class NotesActions(private val dispatch: (NotesIntent) -> Unit) {
     /** Create a note with [title] and navigate to it. */
     fun onCreateNote(title: String) = dispatch(NotesIntent.CreateNote(title))
 
+    fun onRetry() = dispatch(NotesIntent.Retry)
+
     companion object {
         /** No-op actions — previews/tests only. Internal so external callers must wire real dispatchers. */
         internal val Empty = NotesActions {}

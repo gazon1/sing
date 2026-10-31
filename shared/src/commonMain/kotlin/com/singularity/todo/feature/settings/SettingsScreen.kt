@@ -18,6 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -71,7 +72,9 @@ import com.singularity.todo.core.settings.SettingsIntent
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ConfirmActionDialog
 import com.singularity.todo.core.ui.components.TaggedSnackbarHost
+import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
+import androidx.compose.material3.IconButton
 import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -162,6 +165,17 @@ fun SettingsScreen(
     }
 
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Settings") },
+                navigationIcon = {
+                    IconButton(onClick = { navCallbacks?.goBack() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                overrideShell = true,
+            )
+        },
         snackbarHost = { TaggedSnackbarHost(snackbarHostState, countdownProgress = tagsCountdownProgress) },
         modifier = modifier,
     ) { paddingValues ->
