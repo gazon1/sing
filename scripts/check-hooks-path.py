@@ -122,10 +122,13 @@ def cli(ctx: click.Context, quiet: bool) -> None:
             f'worktree; the name has to match the directory that is committed.'
         )
 
-    hooks_dir = ROOT / (hooks_path if not pathlib.PurePath(hooks_path).is_absolute() else EXPECTED)
+    if pathlib.PurePath(hooks_path).is_absolute():
+        hooks_dir = pathlib.Path(hooks_path)
+    else:
+        hooks_dir = ROOT / hooks_path
     if hooks_path and not hooks_dir.is_dir():
         errors.append(f'core.hooksPath points at {hooks_dir}, which does not exist in this checkout.')
-    elif hooks_dir.is_dir():
+    elif hooks_dir.is_dir() and hooks_dir.is_relative_to(ROOT):
         # A configured hooks path is only worth anything if the hooks are *tracked*.
         # This is #519's actual subject one level in: hooks that exist in the main
         # clone but were never committed are hooks that no worktree, and no CI run,
