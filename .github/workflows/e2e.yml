@@ -238,7 +238,7 @@ jobs:
       # same key each log a misleading "another job is creating it".
       - name: Restore AVD and SDK cache
         id: cache-avd
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: |
             ${{ needs.setup-avd.outputs.sdk_root }}/system-images
