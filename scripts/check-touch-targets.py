@@ -63,8 +63,9 @@ planted against is a filter that can rot unnoticed.
 
 ## What this gate cannot see
 
-* A size that is not a literal (`size(iconSize)`). The gate reads literals; a
-  computed size is a reviewer's job, not a regex's.
+* A size that is not a literal (`size(iconSize)`, `width(iconSize)`, a size
+  carried by a constant). The gate reads literals; a computed size is a
+  reviewer's job, not a regex's.
 * `IconButton` and the other Material controls, which enforce their own
   minimum. A `.size()` on one of them constrains the icon, not the target.
 
@@ -106,8 +107,11 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 #: expansion applied *before* it.
 MIN_DP = 48.0
 
-#: `.size(40.dp)` — a fixed size, in the only form the gate reads.
-SIZE_RE = re.compile(r"\.size\(\s*(\d+(?:\.\d+)?)\s*\.dp\s*\)")
+#: A fixed size, in every form the gate reads: `.size(N.dp)`, `.width(N.dp)`
+#: and `.height(N.dp)`. All three fix the hit area of the node.
+SIZE_RE = re.compile(
+    r"\.(?:size|width|height)\(\s*(\d+(?:\.\d+)?)\s*\.dp\s*\)"
+)
 
 #: The interactive modifiers: a node with one of these is a target a finger
 #: has to hit. The lambda form (`.clickable { … }`) and the parenthesised form

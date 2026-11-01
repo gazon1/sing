@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.tasks.presentation.theme.dividerColor
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSemanticColors
 import androidx.compose.material3.MaterialTheme
@@ -139,6 +140,7 @@ private fun ActionMenuRow(node: MenuNode.Action, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .touchTarget()
             .height(36.dp)
             .clickable(enabled = node.enabled, onClick = onClick)
             .padding(horizontal = 8.dp),
