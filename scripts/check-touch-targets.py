@@ -39,6 +39,28 @@ thing that could have said so was a control that plants a violation and
 watches the gate go red: `scripts/tests/test_check_touch_targets.py` is that
 control, one test per shape the gate claims to catch.
 
+## What this gate reads
+
+The gate reads **production sources**. A target in a test never reaches a
+finger, and a Compose harness test mounts small clickable boxes constantly —
+that is what a harness is — so a violation in a test source set is not a
+defect, it is the shape of a test.
+
+Test source sets are told apart by their **position in the path**
+(`src/<source set>/`): a source set called `test`, and every source set whose
+name ends in `Test` — `jvmTest`, `commonTest`, `androidHostTest`,
+`androidTest`. The name of the source set is the Gradle convention, so the
+name is what the gate asks about. The exclusion is deliberately not a path
+component called `test`: `shared/src/commonMain/kotlin/.../test/` is production
+code in a package that happens to be called `test`, and skipping it would have
+the same blindness as the lowercase `/test/` substring this replaced.
+
+The scope has a control of its own, in
+`scripts/tests/test_check_touch_targets.py`: the same 40dp box is planted in
+every test root of this repository and in every production root, and the gate
+has to be green on the first and red on the second. A filter that is not
+planted against is a filter that can rot unnoticed.
+
 ## What this gate cannot see
 
 * A size that is not a literal (`size(iconSize)`). The gate reads literals; a
