@@ -34,6 +34,7 @@ working tree is never modified and an interrupted run leaves nothing behind.
 """
 from __future__ import annotations
 
+import importlib.util
 import pathlib
 import subprocess
 import sys
@@ -47,6 +48,7 @@ GATE = ROOT / "scripts" / "check-touch-targets.py"
 #: nothing), 2 (the gate could not read the tree), 3 (the gate rejected its
 #: own arguments) — is a different verdict, and the control has to say which.
 FOUND = 1
+
 
 #: The source of a chain that is spread over several lines and uses the
 #: lambda form of the call. `re` does not match a newline with `.` unless it
@@ -151,6 +153,51 @@ private fun ProbeOnlyCorrect(onClick: () -> Unit) {
 #: production sources live in.
 PROBE_PATH = "shared/src/commonMain/kotlin/com/singularity/todo/probe/Probe.kt"
 
+#: The test source sets of this repository. The gate is about production code:
+#: a target in a test never reaches a finger, and a Compose harness test that
+#: mounts a small clickable box is what a harness does constantly. The first
+#: version of this gate skipped the lowercase substring `/test/`, and not one
+#: of these roots is named that way — so the gate read every one of them.
+TEST_ROOTS = (
+    "shared/src/jvmTest",
+    "shared/src/commonTest",
+    "shared/src/androidHostTest",
+    "androidApp/src/androidTest",
+    "desktopApp/src/jvmTest",
+    "mcp-server/src/test",
+)
+
+#: The production source sets of this repository: the same shape of violation
+#: planted in one of these has to be reported.
+PRODUCTION_ROOTS = (
+    "shared/src/commonMain",
+    "shared/src/jvmMain",
+    "shared/src/androidMain",
+    "androidApp/src/main",
+    "desktopApp/src/main",
+)
+
+#: Production code that lives in a package called `test`. It ships to a
+#: device, so the gate has to read it — the exclusion is a source set, not a
+#: path component with a name in it.
+PRODUCTION_IN_A_PACKAGE_NAMED_TEST = (
+    "shared/src/commonMain/kotlin/com/singularity/todo/core/ui/test/Probe.kt"
+)
+
+
+def _load_gate_module():
+    """The gate as a module, so its own predicates can be read directly.
+
+    The gate is a script with a hyphen in its name, so it cannot be imported
+    by name; it is loaded by path. The `if __name__ == "__main__"` guard in the
+    script keeps the load from running the command.
+    """
+    spec = importlib.util.spec_from_file_location("check_touch_targets", GATE)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
 
 class TouchTargetsPositiveControlTest(unittest.TestCase):
     """One test per shape the gate claims to catch."""
@@ -235,6 +282,113 @@ class TouchTargetsPositiveControlTest(unittest.TestCase):
             1,
             f"exactly one chain in the file is a violation:\n{result.stdout}",
         )
+
+
+class TestSourceSetScopeTest(unittest.TestCase):
+    """The scope of the gate: the production sources, and only those.
+
+    The scope is a half of the gate, and the half that used to be wrong. The
+    gate skipped the lowercase substring `/test/`, and none of the repository's
+    test roots is named that way — the roots are `jvmTest`, `commonTest`,
+    `androidHostTest` and `androidTest`. So the gate read every test source of
+    every module, and the first harness test that mounted a 40dp box — which
+    is what a harness does constantly — turned a blocking gate red for a
+    non-defect.
+
+    A filter that is not proved is a filter that can rot: the next reader
+    cannot tell whether the exclusion works or is merely claimed. So each
+    root is planted with the violation and watched.
+    """
+
+    def _run_gate_over(self, files: dict[str, str]) -> subprocess.CompletedProcess[str]:
+        """Point the gate at a temporary tree holding `files`, and run it."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tree = pathlib.Path(tmp)
+            for relative, source in files.items():
+                probe = tree / relative
+                probe.parent.mkdir(parents=True, exist_ok=True)
+                probe.write_text(source, encoding="utf-8")
+            return subprocess.run(
+                [sys.executable, str(GATE), "--root", str(tree)],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=120,
+            )
+
+    def test_a_violation_in_a_test_source_set_is_not_reported(self):
+        """A harness test is not a defect.
+
+        One violation per test root of the repository, all of them the shape a
+        harness composes. The gate has to stay green.
+        """
+        files = {
+            f"{root}/kotlin/com/singularity/todo/probe/Probe.kt": MULTILINE_LAMBDA
+            for root in TEST_ROOTS
+        }
+        result = self._run_gate_over(files)
+        self.assertEqual(
+            result.returncode,
+            0,
+            f"the gate must not read the test source sets; it exited "
+            f"{result.returncode}.\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}",
+        )
+
+    def test_a_violation_in_a_production_source_set_is_reported(self):
+        """The other half of the same scope: production code is still read."""
+        for root in PRODUCTION_ROOTS:
+            with self.subTest(root=root):
+                result = self._run_gate_over(
+                    {f"{root}/kotlin/com/singularity/todo/probe/Probe.kt": MULTILINE_LAMBDA}
+                )
+                self.assertEqual(
+                    result.returncode,
+                    FOUND,
+                    f"the gate must read {root}; it exited {result.returncode}."
+                    f"\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}",
+                )
+                self.assertIn("Probe.kt", result.stdout)
+
+    def test_production_code_in_a_package_named_test_is_reported(self):
+        """The exclusion is a source set, not a name in the path.
+
+        `shared/src/commonMain/kotlin/.../test/` is production code in a
+        package that happens to be called `test`. A filter that skipped it on
+        the strength of its name would have the same blindness as the
+        `/test/` substring it replaced.
+        """
+        result = self._run_gate_over({PRODUCTION_IN_A_PACKAGE_NAMED_TEST: MULTILINE_LAMBDA})
+        self.assertEqual(
+            result.returncode,
+            FOUND,
+            f"production code is production code whatever its package is called; "
+            f"the gate exited {result.returncode}.\nstdout:\n{result.stdout}"
+            f"\nstderr:\n{result.stderr}",
+        )
+        self.assertIn("Probe.kt", result.stdout)
+
+    def test_the_test_roots_of_the_repository_are_the_test_source_sets(self):
+        """The roots above are the ones the gate has to skip.
+
+        Read from the gate itself, so the list above and the gate cannot drift
+        apart: a root that the gate stopped skipping would be a root the
+        previous test would have caught, but a root that the gate started
+        skipping by accident would not be caught by anything else.
+        """
+        gate = _load_gate_module()
+        for root in TEST_ROOTS:
+            with self.subTest(root=root):
+                self.assertTrue(
+                    gate._is_test_source(pathlib.PurePosixPath(root).parts),
+                    f"{root} is a test source set and must not be read",
+                )
+        for root in PRODUCTION_ROOTS:
+            with self.subTest(root=root):
+                self.assertFalse(
+                    gate._is_test_source(pathlib.PurePosixPath(root).parts),
+                    f"{root} is a production source set and must be read",
+                )
 
 
 if __name__ == "__main__":
