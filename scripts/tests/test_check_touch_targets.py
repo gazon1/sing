@@ -153,6 +153,108 @@ private fun ProbeOnlyCorrect(onClick: () -> Unit) {
 #: production sources live in.
 PROBE_PATH = "shared/src/commonMain/kotlin/com/singularity/todo/probe/Probe.kt"
 
+#: An expansion that asks for LESS than the minimum. `touchTarget(24.dp)` does
+#: not expand the target to 48 dp, so the size it precedes is still a
+#: violation — the gate used to accept it because *some* expansion preceded
+#: the size, and it never read the expansion's own argument.
+EXPANSION_BELOW_MINIMUM = """\
+package com.singularity.todo.probe
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.touchTarget
+
+@Composable
+private fun ProbeExpansionBelowMinimum(onClick: () -> Unit) {
+    Icon(modifier = Modifier.touchTarget(24.dp).size(40.dp).clickable { onClick() })
+}
+"""
+
+#: A size carried by `.width()` and by `.height()`. The gate read only
+#: `.size()`, so a row that fixed its height below the minimum and carried a
+#: `clickable` was invisible to it — the row is a target, and its height is
+#: what a finger has to hit.
+WIDTH_AND_HEIGHT = """\
+package com.singularity.todo.probe
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+
+@Composable
+private fun ProbeWidthAndHeight(onClick: () -> Unit) {
+    Icon(modifier = Modifier.width(24.dp).clickable { onClick() })
+    Icon(modifier = Modifier.height(36.dp).clickable { onClick() })
+}
+"""
+
+#: A chain whose size is not a literal, with the expansion AFTER it. The gate
+#: cannot say whether the size is below the minimum, so the chain is UNJUDGED:
+#: the gate did not read it, and it does not count it as one that passed.
+UNJUDGED_COMPUTED_SIZE = """\
+package com.singularity.todo.probe
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.touchTarget
+
+@Composable
+private fun ProbeUnjudgedComputedSize(size: Dp, onClick: () -> Unit) {
+    Icon(modifier = Modifier.size(size).touchTarget().clickable { onClick() })
+}
+"""
+
+#: The same computed size, with the expansion BEFORE it. The order is right, so
+#: the hit area is the minimum whatever the size turns out to be, and the gate
+#: judges the chain — it is not unjudged.
+JUDGED_COMPUTED_SIZE = """\
+package com.singularity.todo.probe
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.touchTarget
+
+@Composable
+private fun ProbeJudgedComputedSize(size: Dp, onClick: () -> Unit) {
+    Icon(modifier = Modifier.touchTarget().size(size).clickable { onClick() })
+}
+"""
+
+#: A chain whose `clickable` sits BEHIND a `semantics` block. The block's body
+#: is on lines that do not start with a dot, so a chain that stopped at the
+#: block ended before the clickable — the size was in one chain and the target
+#: in another, and the gate saw a size that was not a target.
+BEHIND_A_BLOCK = """\
+package com.singularity.todo.probe
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
+
+@Composable
+private fun ProbeBehindABlock(label: String, onClick: () -> Unit) {
+    Icon(
+        modifier = Modifier
+            .size(40.dp)
+            .semantics { contentDescription = label }
+            .clickable { onClick() },
+    )
+}
+"""
+
 #: The test source sets of this repository. The gate is about production code:
 #: a target in a test never reaches a finger, and a Compose harness test that
 #: mounts a small clickable box is what a harness does constantly. The first
@@ -281,6 +383,71 @@ class TouchTargetsPositiveControlTest(unittest.TestCase):
             result.stdout.count("Probe.kt"),
             1,
             f"exactly one chain in the file is a violation:\n{result.stdout}",
+        )
+
+    def test_an_expansion_below_the_minimum_is_not_an_expansion(self):
+        """`touchTarget(24.dp)` does not expand the target to 48 dp.
+
+        The gate used to accept this chain: *some* expansion preceded the size,
+        and the gate never read the expansion's own argument. The size it
+        precedes is therefore still a target below the minimum.
+        """
+        self._assert_reported(EXPANSION_BELOW_MINIMUM)
+
+    def test_a_width_below_the_minimum_is_reported(self):
+        """`.width()` is a size: the gate used to read only `.size()`."""
+        self._assert_reported(WIDTH_AND_HEIGHT)
+
+    def test_a_chain_behind_a_block_is_reported(self):
+        """A chain survives the block its modifiers go through.
+
+        The body of a `.semantics { … }` block is on lines that do not start
+        with a dot, so a chain that stopped at the block ended before the
+        `clickable` — the size was in one chain and the target in another.
+        """
+        self._assert_reported(BEHIND_A_BLOCK)
+
+    def test_a_computed_size_the_gate_cannot_read_is_unjudged(self):
+        """The gate says it did not judge the chain, rather than passing it.
+
+        A size that is not a literal may well be 48 dp or more, so the chain is
+        not a violation. But the gate did not read it either, and a chain it
+        did not judge is not a chain that passed — the blind spot has to be
+        visible instead of silent.
+        """
+        result = self._run_gate(UNJUDGED_COMPUTED_SIZE)
+        self.assertEqual(
+            result.returncode,
+            0,
+            f"an unjudged chain is not a violation; the gate exited "
+            f"{result.returncode}.\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}",
+        )
+        self.assertIn(
+            "could not judge",
+            result.stdout,
+            "the gate must say that it could not judge the chain — a run that "
+            "reports green while holding an unread chain claims it is fine",
+        )
+
+    def test_a_computed_size_with_the_expansion_first_is_judged(self):
+        """The order decides, so the gate judges the chain and finds nothing.
+
+        With the expansion BEFORE the size, the hit area is the minimum
+        whatever the size turns out to be — the chain is decided, and it is
+        not a finding.
+        """
+        result = self._run_gate(JUDGED_COMPUTED_SIZE)
+        self.assertEqual(
+            result.returncode,
+            0,
+            f"the gate must be green on a judged chain; it exited "
+            f"{result.returncode}.\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}",
+        )
+        self.assertNotIn(
+            "could not judge",
+            result.stdout,
+            "the chain was judged — the expansion precedes the size — so it is "
+            "not an unjudged one",
         )
 
 

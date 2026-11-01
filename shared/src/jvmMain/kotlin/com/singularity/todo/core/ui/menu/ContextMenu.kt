@@ -139,7 +139,7 @@ private fun ActionMenuRow(node: MenuNode.Action, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(36.dp)
+            .height(48.dp)
             .clickable(enabled = node.enabled, onClick = onClick)
             .padding(horizontal = 8.dp),
         contentAlignment = Alignment.CenterStart,
@@ -199,7 +199,7 @@ private fun SubMenuRow(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(36.dp)
+            .height(48.dp)
             .hoverable(interactionSource = hover.interactionSource, enabled = node.enabled)
             .padding(horizontal = 8.dp)
             .onGloballyPositioned { rowBounds = it.boundsInWindow() },

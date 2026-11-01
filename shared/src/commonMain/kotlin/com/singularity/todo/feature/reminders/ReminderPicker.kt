@@ -33,7 +33,7 @@ fun ReminderPicker(selected: ReminderOffset, onSelect: (ReminderOffset) -> Unit,
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(40.dp)
+                    .height(48.dp)
                     .selectable(
                         selected = selected == offset,
                         onClick = { onSelect(offset) },
