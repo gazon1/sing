@@ -122,7 +122,7 @@ fun SwipeableTaskRow(
                     contentDescription = "Удалить задачу",
                     tint = Color.White,
                     modifier = Modifier
-                        .size(TaskListSizes.MinTouchTarget - TaskListSpacing.Md) // 32dp
+                        .size(TaskListSizes.SwipeDeleteIconSize)
                         .scale(iconScale),
                 )
             }

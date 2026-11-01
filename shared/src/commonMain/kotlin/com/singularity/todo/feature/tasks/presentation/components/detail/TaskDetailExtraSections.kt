@@ -37,7 +37,6 @@ import com.singularity.todo.feature.checklist.ChecklistItemId
 import com.singularity.todo.feature.checklist.components.ChecklistItemRow
 import com.singularity.todo.feature.checklist.components.ChecklistRowTags
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import kotlinx.collections.immutable.ImmutableList
 
 // ─── Recurrence ────────────────────────────────────────────────────────────────
@@ -112,7 +111,7 @@ fun TaskDetailChecklistSection(
                             }
                         },
                         modifier = Modifier
-                            .touchTarget(TaskListSizes.MinTouchTarget)
+                            .touchTarget()
                             .size(40.dp)
                             .testTag(TestTags.CHECKLIST_INLINE_ADD_BUTTON),
                     ) {
@@ -187,7 +186,7 @@ fun TaskDetailAttachmentsSection(
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier
-                            .touchTarget(TaskListSizes.MinTouchTarget)
+                            .touchTarget()
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                             .clickable(onClick = onOpenAttachments)
                             .testTag(TestTags.ATTACHMENTS_ADD_FILE_ROW),

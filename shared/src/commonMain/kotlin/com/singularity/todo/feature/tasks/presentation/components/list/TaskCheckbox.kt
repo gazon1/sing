@@ -108,7 +108,7 @@ fun TaskCheckbox(
 
     Box(
         modifier = modifier
-            .touchTarget(TaskListSizes.MinTouchTarget)
+            .touchTarget()
             .size(TaskListSizes.Checkbox)
             .scale(popScale.value * pressScale)
             // toggleable, not clickable: clickable alone leaves the node without a

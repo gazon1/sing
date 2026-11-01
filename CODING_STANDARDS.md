@@ -568,17 +568,19 @@ not one nobody had noticed for a year. That judgement is the review's work.
 ## Touch targets meet the minimum and the order is correct
 
 Material's minimum interactive size is 48 dp. A fixed visual size applied
-before `minimumInteractiveComponentSize()` caps the hit area — the order is
-the bug.
+before the expansion caps the hit area — the order is the bug.
 
-- **Put `minimumInteractiveComponentSize()` before `size()`.** When a
-  control has a smaller visual size (e.g. 22 dp, 14 dp, 8 dp), call
-  `minimumInteractiveComponentSize()` first, then constrain the visual size
-  with `size(...)`. For controls that must follow the task-list minimum use
-  `minimumInteractiveComponentSize(TaskListSizes.MinTouchTarget)`.
-- **Use the token.** `TaskListSizes.MinTouchTarget = 48.dp` is the source of
-  truth for task-list controls. Prefer passing it explicitly rather than
-  relying on the default when the control is in scope of that token.
+- **Put the expansion before the size.** When a control has a smaller visual
+  size (e.g. 22 dp, 14 dp, 8 dp), expand the hit area first, then constrain
+  the visual size with `size(...)`. Use the repository's helper —
+  `Modifier.touchTarget()` — which grows the node to the minimum and leaves the
+  content at its own size. `Modifier.touchTarget().size(20.dp)` keeps a 48 dp
+  hit area around a 20 dp icon; `Modifier.size(20.dp).touchTarget()` is capped
+  back to 20 dp, because the outer size modifier constrains the whole chain.
+- **Material 3's `minimumInteractiveComponentSize()` takes no argument.** The
+  minimum is a composition local, not a parameter — a call that passes a size
+  does not compile. The size this repository enforces is
+  `TouchTarget.MinSize` (48 dp), and `touchTarget()` defaults to it.
 - **A touch target is still a control.** Padding and hit expansion do not
   replace a real hit area. A `clickable`/`toggleable`/`IconButton` on a small
   node needs expansion, and the expansion must not be clipped by a

@@ -29,7 +29,6 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.checklist.components.ChecklistItemRow
 import com.singularity.todo.feature.checklist.components.ChecklistRowTags
 import com.singularity.todo.feature.tasks.domain.model.Task
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
@@ -94,7 +93,7 @@ fun SubtasksSection(
                             }
                         },
                         modifier = Modifier
-                            .touchTarget(TaskListSizes.MinTouchTarget)
+                            .touchTarget()
                             .size(40.dp)
                             .testTag(TestTags.SUBTASK_ADD_BUTTON),
                     ) {

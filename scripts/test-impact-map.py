@@ -72,6 +72,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import pathlib
 import re
 import subprocess
@@ -228,24 +229,96 @@ TREE_PATHS: dict[str, tuple[str, ...]] = {
 #: instrumented.
 COVERAGE_OFF = '-Pcoverage.enabled=false'
 
+
+def _production_source_dirs() -> tuple[str, ...]:
+    """The production source roots of every module the build declares.
+
+    Read, not written. The list this replaces was written once and drifted:
+    `:core-base`, `:adr-core` and `:detekt-rules` were missing from it, so a
+    change to `Clock.kt` — the type every timestamp in the app goes through —
+    selected no test class at all, and the CI lane read that as "the change
+    claims no test class" and went green having run nothing.
+
+    Two reads, both from things that already know the answer:
+
+    * the MODULES come from `settings.gradle.kts`, read by the same module
+      graph `scripts/changed-modules.py` reads, so a module the build has and
+      this list does not name cannot be forgotten;
+    * the SOURCE SETS come from the directories on disk, so a source set a
+      module declares and this list does not name cannot be forgotten either.
+
+    A test source set is not a production root: the name of the source set is
+    the Gradle convention, and a source set whose name ends in `Test` (or is
+    `test` itself) holds tests.
+    """
+    modules = _module_directories()
+    roots: list[str] = []
+    for directory in modules:
+        source_root = ROOT / directory / 'src'
+        if not source_root.is_dir():
+            continue
+        for entry in sorted(source_root.iterdir()):
+            if not entry.is_dir():
+                continue
+            name = entry.name
+            if name == 'test' or name.endswith('Test'):
+                continue
+            roots.append(f'{directory}/src/{name}')
+    return tuple(roots)
+
+
+def _module_directories() -> list[str]:
+    """The directories of the modules the build declares, read from the build.
+
+    The module graph is read from `settings.gradle.kts` rather than written
+    here, so this file cannot forget a module the build has. A module the
+    settings file cannot be read from yields no modules: the map then judges
+    nothing, which is the honest answer for a tree without a build.
+    """
+    path = ROOT / 'scripts' / 'changed-modules.py'
+    try:
+        spec = importlib.util.spec_from_file_location('changed_modules', path)
+        if spec is None or spec.loader is None:
+            return []
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        settings = (ROOT / 'settings.gradle.kts').read_text(encoding='utf-8')
+    except (OSError, AttributeError):
+        return []
+    return [m.directory for m in module.parse_modules(settings)]
+
+
 #: The source sets that hold tests, and the module each belongs to.
+#:
+#: The module is derived from the path, not written: `shared/src/jvmTest` is a
+#: source set of `shared` because the path says so. A list that named the module
+#: could name the wrong one, and nothing would say so.
 TEST_SOURCE_DIRS: dict[str, str] = {
     'shared/src/commonTest': 'shared',
     'shared/src/jvmTest': 'shared',
     'shared/src/androidHostTest': 'shared',
     'desktopApp/src/jvmTest': 'desktopApp',
     'mcp-server/src/test': 'mcp-server',
+    'adr-core/src/jvmTest': 'adr-core',
+    'detekt-rules/src/test': 'detekt-rules',
+    'adr-cli/src/test': 'adr-cli',
+    'tools/unwritten-properties/src/test': 'unwritten-properties',
 }
 
 #: The source sets that hold production code.
-PRODUCTION_SOURCE_DIRS: tuple[str, ...] = (
-    'shared/src/commonMain',
-    'shared/src/jvmMain',
-    'shared/src/androidMain',
-    'androidApp/src/main',
-    'desktopApp/src/jvmMain',
-    'mcp-server/src/main',
-)
+#:
+#: DERIVED from the module graph and the filesystem, not written here. The list
+#: was written once and drifted: `:core-base`, `:adr-core` and `:detekt-rules`
+#: were missing, so a change to `Clock.kt` — the type every timestamp in the app
+#: goes through — selected no test class at all, and the CI lane read that as
+#: "the change claims no test class" and went green having run nothing.
+#:
+#: The modules come from `settings.gradle.kts` (read by the same graph
+#: `scripts/changed-modules.py` reads, so a module the build has and this list
+#: does not name cannot be forgotten), and the source sets come from the
+#: directories on disk. A module the build declares and the disk holds a source
+#: set for is a module whose production code this map has to judge.
+PRODUCTION_SOURCE_DIRS: tuple[str, ...] = _production_source_dirs()
 
 #: The areas where a change is a change to the *gates*, not to the app.
 GATE_AREAS: tuple[str, ...] = (
@@ -278,6 +351,10 @@ SOURCE_SET_TASKS: dict[str, str] = {
     'shared/src/androidHostTest': ':shared:testAndroidHostTest',
     'desktopApp/src/jvmTest': ':desktopApp:test',
     'mcp-server/src/test': ':mcp-server:test',
+    'adr-core/src/jvmTest': ':adr-core:jvmTest',
+    'detekt-rules/src/test': ':detekt-rules:test',
+    'adr-cli/src/test': ':adr-cli:test',
+    'tools/unwritten-properties/src/test': ':tools:unwritten-properties:test',
 }
 
 #: The task the architecture gates run in.
@@ -309,7 +386,13 @@ POPULATIONS_FILE = 'config/test-populations.properties'
 #: wrapper (`./gw`) and not the shared `~/.gradle` that the wrapper exists to
 #: avoid — "Parallel git worktrees share `~/.gradle` by default, and sharing it
 #: has two costs that are easy to mistake for something else".
-GRADLE = './gradlew'
+#:
+#: The default IS `./gw` for the same reason. `./gradlew` reaches the shared
+#: home: the daemon registry it shares with every other worktree, and the
+#: module cache lock they all contend for. CI is not an exception — `gw` is a
+#: pass-through when `GRADLE_USER_HOME` is already set, which is what
+#: `gradle/actions/setup-gradle` does on the runner.
+GRADLE = './gw'
 
 #: What the map prints on stdout when the change selects no test class.
 #:

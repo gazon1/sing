@@ -34,7 +34,6 @@ import com.singularity.todo.feature.calendar.presentation.state.CalendarIntent
 import com.singularity.todo.feature.calendar.presentation.state.CalendarUiState
 import com.singularity.todo.feature.calendar.presentation.theme.CalendarPalette
 import com.singularity.todo.feature.calendar.presentation.theme.LocalCalendarPalette
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import kotlinx.datetime.LocalDate
 
 /**
@@ -163,7 +162,7 @@ private fun CalendarControls(
             contentDescription = "Open mini calendar",
             tint = palette.textSecondary,
             modifier = Modifier
-                .touchTarget(TaskListSizes.MinTouchTarget)
+                .touchTarget()
                 .size(20.dp)
                 .clickable { onIntent(CalendarIntent.ToggleMiniCalendar) },
         )
@@ -175,7 +174,7 @@ private fun CalendarControls(
             contentDescription = "Previous",
             tint = palette.textSecondary,
             modifier = Modifier
-                .touchTarget(TaskListSizes.MinTouchTarget)
+                .touchTarget()
                 .size(20.dp)
                 .clickable { onIntent(CalendarIntent.GoPrevious) },
         )
@@ -185,7 +184,7 @@ private fun CalendarControls(
             color = palette.textSecondary,
             fontSize = 14.sp,
             modifier = Modifier
-                .touchTarget(TaskListSizes.MinTouchTarget)
+                .touchTarget()
                 .clickable { onIntent(CalendarIntent.GoToday) },
         )
         Spacer(Modifier.width(8.dp))
@@ -194,7 +193,7 @@ private fun CalendarControls(
             contentDescription = "Next",
             tint = palette.textSecondary,
             modifier = Modifier
-                .touchTarget(TaskListSizes.MinTouchTarget)
+                .touchTarget()
                 .size(20.dp)
                 .clickable { onIntent(CalendarIntent.GoNext) },
         )

@@ -279,6 +279,71 @@ class MapTest(unittest.TestCase):
             self.assertTrue(any(reason.startswith(name) for reason in reasons))
 
 
+class ProductionSourceRootTest(unittest.TestCase):
+    """The production roots are READ, not written — and the read covers the build.
+
+    ## The defect this catches
+
+    The list of production source roots was written out by hand, and it drifted:
+    `:core-base`, `:adr-core` and `:detekt-rules` were missing from it. A change
+    to `core-base/.../Clock.kt` — the type every timestamp in the app goes
+    through — therefore selected NO test class, and the CI lane read that as
+    "the change claims no test class" and went green having run nothing.
+
+    The list was also wrong in the other direction: it named
+    `desktopApp/src/jvmMain`, a directory that does not exist.
+
+    So the roots are derived now: the modules come from `settings.gradle.kts`
+    and the source sets from the directories on disk. The test below is what
+    keeps the derivation honest.
+    """
+
+    def test_every_module_the_build_declares_has_its_production_roots(self):
+        """A module the build declares and the map does not know is a blind spot."""
+        settings = (impact.ROOT / 'settings.gradle.kts').read_text(encoding='utf-8')
+        for module in impact._module_directories():
+            with self.subTest(module=module):
+                self.assertTrue(
+                    any(root.startswith(f'{module}/src/') for root in impact.PRODUCTION_SOURCE_DIRS),
+                    f"the build declares '{module}', but no production source root of it "
+                    f"is known to the map — a change to its production code would "
+                    f"select no test class at all",
+                )
+
+    def test_no_production_root_names_a_directory_that_does_not_exist(self):
+        """A root that names nothing is a root that judges nothing."""
+        for root in impact.PRODUCTION_SOURCE_DIRS:
+            with self.subTest(root=root):
+                self.assertTrue(
+                    (impact.ROOT / root).is_dir(),
+                    f"the map names the production root '{root}', which does not exist — "
+                    f"it was written for a source set the build does not have",
+                )
+
+    def test_a_test_source_set_is_not_a_production_root(self):
+        """The two lists are different lists.
+
+        A test source set in the production roots would make a change to a test
+        file read as a change to production code — and the test would then be
+        selected by the scope rule instead of by the rule that says a changed
+        test runs itself.
+        """
+        for source_dir in impact.TEST_SOURCE_DIRS:
+            with self.subTest(source_dir=source_dir):
+                self.assertNotIn(source_dir, impact.PRODUCTION_SOURCE_DIRS)
+
+    def test_the_modules_come_from_the_build(self):
+        """The modules are read from `settings.gradle.kts`, not written here.
+
+        A module list written in this file is a second list to forget to
+        update — the same mistake in a different file.
+        """
+        directories = impact._module_directories()
+        self.assertIn('core-base', directories)
+        self.assertIn('detekt-rules', directories)
+        self.assertIn('adr-core', directories)
+
+
 class SourceSetTaskTest(unittest.TestCase):
     """The task that runs a class belongs to its SOURCE SET."""
 

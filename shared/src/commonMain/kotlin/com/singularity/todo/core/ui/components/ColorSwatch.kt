@@ -18,7 +18,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.touchTarget
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 
 @Composable
 fun ColorSwatch(
@@ -32,7 +31,7 @@ fun ColorSwatch(
 ) {
     Box(
         modifier = modifier
-            .touchTarget(TaskListSizes.MinTouchTarget)
+            .touchTarget()
             .size(size)
             .clip(CircleShape)
             .background(color)

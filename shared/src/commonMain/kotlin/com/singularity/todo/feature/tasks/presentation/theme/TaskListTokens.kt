@@ -47,5 +47,18 @@ object TaskListSizes {
     val DividerThickness = 1.dp
     val CardElevation = 1.dp
     val CardElevationHover = 4.dp
-    val MinTouchTarget = TouchTarget.MinSize
+
+    /**
+     * Иконка удаления в подложке свайпа — 36 dp.
+     *
+     * Раньше размер считался как `MinTouchTarget - TaskListSpacing.Md`, и комментарий
+     * рядом с ним обещал 32 dp. Токен минимального размера переехал с 44 dp на 48 dp
+     * (см. [TouchTarget.MinSize]), и выражение поехало за ним: иконка стала 36 dp
+     * молча, а комментарий продолжал обещать 32 dp. Никто это не увидел — размер
+     * вычислялся, а не записывался.
+     *
+     * Теперь число записано здесь. Оно НЕ размер касания: строка целиком — цель
+     * свайпа, а иконка внутри подложки — рисунок.
+     */
+    val SwipeDeleteIconSize = 36.dp
 }

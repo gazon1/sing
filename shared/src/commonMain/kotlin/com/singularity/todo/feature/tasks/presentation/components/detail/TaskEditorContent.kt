@@ -67,7 +67,6 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import androidx.compose.material3.MaterialTheme
 import com.singularity.todo.core.ui.touchTarget
-import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import kotlin.time.Instant
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
@@ -329,7 +328,7 @@ private fun TaskEditorContent(
                             IconButton(
                                 onClick = cb.onClear,
                                 modifier = Modifier
-                                    .touchTarget(TaskListSizes.MinTouchTarget)
+                                    .touchTarget()
                                     .size(24.dp),
                             ) {
                                 Icon(
