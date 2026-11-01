@@ -2,6 +2,7 @@ package com.singularity.todo.feature.tasks.presentation.theme
 
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.TouchTarget
 
 /**
  * Design tokens экрана списка задач — геометрия, spacing, размеры.
@@ -38,8 +39,6 @@ object TaskListSpacing {
 }
 
 /** Семантические размеры (не "отступы", а "размер виджета"). */
-import com.singularity.todo.core.ui.TouchTarget
-
 object TaskListSizes {
     val Checkbox = 22.dp
     val CheckIcon = 13.dp
