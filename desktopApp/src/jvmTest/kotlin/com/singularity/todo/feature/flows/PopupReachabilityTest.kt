@@ -161,7 +161,7 @@ class PopupReachabilityTest {
     /** A saved view the agenda's list renders, with its overflow menu. */
     private suspend fun createSavedView(koin: Koin, name: String) {
         val repo = koin.get<SavedAgendaViewsRepository>()
-        val definition = AgendaDefinition(name, AgendaPresets.Inbox.sections)
+        val definition = AgendaDefinition(name, AgendaPresets.All.sections)
         repo.upsert(
             SavedAgendaViewFactory.create(
                 userId = UserId.anonymous,

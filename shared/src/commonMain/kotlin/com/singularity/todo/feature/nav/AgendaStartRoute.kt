@@ -12,7 +12,13 @@ import kotlinx.serialization.Serializable
 @Serializable
 sealed interface AgendaStartRoute : AppNavKey {
 
-    /** Inbox — all active tasks grouped by relative date bucket. */
+    /**
+     * Inbox — the tasks with no due date.
+     *
+     * One of the three bottom-bar agenda tabs, and the three are disjoint:
+     * an undated task is here and nowhere else, today's and the overdue
+     * ones are in [Today], and what is coming is in [Upcoming].
+     */
     @Serializable
     data object Inbox : AgendaStartRoute
 
@@ -20,7 +26,11 @@ sealed interface AgendaStartRoute : AppNavKey {
     @Serializable
     data object Today : AgendaStartRoute
 
-    /** Upcoming — tasks for the next 2 weeks grouped by week. */
+    /**
+     * Upcoming — tomorrow, the rest of this week, and next week.
+     *
+     * Disjoint from [Today]: the overdue and today's tasks belong to that tab.
+     */
     @Serializable
     data object Upcoming : AgendaStartRoute
 

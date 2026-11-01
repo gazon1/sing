@@ -41,13 +41,17 @@ class AgendaSectionTagReachabilityFlowTest {
             assertTagInMergedTree(TestTags.agendaSection("No Date"), "agenda")
         }
 
+    /**
+     * The overdue section belongs to the Today tab — the inbox holds the undated
+     * tasks, and the three tabs are disjoint.
+     */
     @Test
-    fun the_inbox_tab_exposes_the_overdue_section_in_the_merged_tree() =
+    fun the_today_tab_exposes_the_overdue_section_in_the_merged_tree() =
         runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
             val yesterday = TODAY.minus(1, DateTimeUnit.DAY)
             tasks(koin).given(due = yesterday, title = "Pay rent")
 
-            tapTab("Inbox")
+            tapTab("Today")
             assertTagInMergedTree(TestTags.agendaSection("Overdue"), "agenda")
         }
 

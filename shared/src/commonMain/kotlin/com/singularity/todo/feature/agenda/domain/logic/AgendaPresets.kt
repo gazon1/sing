@@ -24,7 +24,7 @@ import kotlinx.datetime.LocalDate
 object AgendaPresets {
 
     /**
-     * All active tasks, grouped by relative date bucket.
+     * All active tasks, grouped by relative date bucket — the full agenda.
      *
      * Sections are ordered narrowest-bucket-first and each one `discard`s what it
      * matches, so a task lands in exactly one section: the most specific bucket that
@@ -33,8 +33,13 @@ object AgendaPresets {
      * `LazyColumn` on duplicate item keys, since `AgendaList` keys rows by task id
      * alone. "This Month" is the final catch-all and deliberately does *not* discard;
      * "No Date" sits after it but is disjoint (`dueDate == null`).
+     *
+     * This is the widest view there is — it holds the tasks of every other preset —
+     * so it is *not* a bottom-bar tab. The three tabs are [Inbox], [Today] and
+     * [Upcoming], and they are disjoint; this one is the seed a new saved view
+     * starts from.
      */
-    val Inbox: AgendaDefinition = agenda("Inbox") {
+    val All: AgendaDefinition = agenda("All") {
         section(
             "overdue",
             "Overdue",
@@ -123,7 +128,35 @@ object AgendaPresets {
         )
     }
 
-    /** Only today's tasks, with overdue shown at the top. */
+    /**
+     * The tasks with no due date — the inbox.
+     *
+     * The tab used to hold every dated task as well, which made it a superset of
+     * [Today] and [Upcoming]: with a single task in the database all three tabs
+     * rendered the same screen. The tab now holds what its name promises — the
+     * tasks that are not dated yet — and the dated ones live in [Today] (today
+     * and the overdue ones) or [Upcoming] (what is coming).
+     *
+     * A task with no due date therefore appears in exactly one bottom-bar tab:
+     * this one.
+     */
+    val Inbox: AgendaDefinition = agenda("Inbox") {
+        section(
+            "no_date",
+            "No Date",
+            Selector.DateBucket(RelativeBucket.NoDate),
+            order = 0,
+            prefill = SectionPrefill("no_date", "No date"),
+        )
+    }
+
+    /**
+     * Only today's tasks, with overdue shown at the top.
+     *
+     * The tab owns the two date buckets that are "now or late": [RelativeBucket.Overdue]
+     * and [RelativeBucket.Today]. [Upcoming] leaves them alone, so a task lands in
+     * exactly one of the two.
+     */
     val Today: AgendaDefinition = agenda("Today") {
         section(
             "overdue",
@@ -147,37 +180,25 @@ object AgendaPresets {
     }
 
     /**
-     * Upcoming tasks for the next 2 weeks, grouped by week.
+     * What is coming up: tomorrow, the rest of this week, and next week.
      *
-     * "This Week" and "Next Week" are disjoint ranges, so the last of them needs no
-     * `discard`; the narrower buckets above them do, for the same reason as [Inbox].
+     * The tab used to open with "Overdue" and "Today" as well, which made it a
+     * superset of the [Today] tab — the two showed the same rows under the same
+     * headers. It no longer repeats them: the overdue and today's tasks belong to
+     * [Today], and the undated ones to [Inbox].
+     *
+     * "This Week" is the week bucket minus the days [Today] owns. The bucket
+     * itself spans Monday to Sunday, so it contains today and the days already
+     * gone — the `Not` is what keeps the two tabs disjoint. "This Week" and "Next
+     * Week" are disjoint ranges, so the last of them needs no `discard`; the
+     * narrower buckets above them do, for the same reason as [All].
      */
     val Upcoming: AgendaDefinition = agenda("Upcoming") {
-        section(
-            "overdue",
-            "Overdue",
-            Selector.DateBucket(RelativeBucket.Overdue),
-            order = 0,
-            discard = true,
-            prefill = SectionPrefill("overdue", "Overdue task"),
-        )
-        section(
-            "today",
-            "Today",
-            Selector.DateBucket(RelativeBucket.Today),
-            order = 1,
-            discard = true,
-            prefill = SectionPrefill(
-                "today",
-                "New task",
-                relativeDueDate = RelativeBucket.Today,
-            ),
-        )
         section(
             "tomorrow",
             "Tomorrow",
             Selector.DateBucket(RelativeBucket.Tomorrow),
-            order = 2,
+            order = 0,
             discard = true,
             prefill = SectionPrefill(
                 "tomorrow",
@@ -188,8 +209,23 @@ object AgendaPresets {
         section(
             "this_week",
             "This Week",
-            Selector.DateBucket(RelativeBucket.ThisWeek),
-            order = 3,
+            Selector.AllOf(
+                listOf(
+                    Selector.DateBucket(RelativeBucket.ThisWeek),
+                    // The week bucket spans Monday to Sunday, so it also holds
+                    // today and the days already gone — the days the Today tab
+                    // owns. Excluding them is what makes the two tabs disjoint.
+                    Selector.Not(
+                        Selector.AnyOf(
+                            listOf(
+                                Selector.DateBucket(RelativeBucket.Today),
+                                Selector.DateBucket(RelativeBucket.Overdue),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            order = 1,
             prefill = SectionPrefill(
                 "this_week",
                 "This week",
@@ -200,7 +236,7 @@ object AgendaPresets {
             "next_week",
             "Next Week",
             Selector.DateBucket(RelativeBucket.NextWeek),
-            order = 4,
+            order = 2,
             prefill = SectionPrefill(
                 "next_week",
                 "Next week",

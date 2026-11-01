@@ -49,7 +49,7 @@ import org.junit.jupiter.api.Tag
  * back detour is not required).
  *
  * The results screen hides empty sections, so the card-tap test seeds an
- * undated task to make the Inbox preset's "No Date" section render.
+ * undated task to make the All preset's "No Date" section render.
  */
 @Tag("slow")
 @Tag("slow:compose")
@@ -58,7 +58,7 @@ class SavedAgendaEditFlowTest {
 
     private suspend fun createView(koin: org.koin.core.Koin, name: String) {
         val repo = koin.get<SavedAgendaViewsRepository>()
-        val def = AgendaDefinition(name, AgendaPresets.Inbox.sections)
+        val def = AgendaDefinition(name, AgendaPresets.All.sections)
         repo.upsert(
             SavedAgendaViewFactory.create(
                 userId = UserId.anonymous,

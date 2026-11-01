@@ -164,6 +164,12 @@ object TaskSelectionResolver {
         // leaves the finished tasks in, because a filter and a screen are not the same
         // question — and the screen the reader is thinking of is the one that shows
         // what is still to do.
+        //
+        // This is the *filter's* inbox, and it is wider than the agenda's Inbox tab:
+        // the tab holds the tasks that are not dated yet, while this selection is
+        // every open task, dated or not. The two answer different questions — "what
+        // has no date" and "what is still to do" — and the tool's description says
+        // which one it answers.
         TaskSelection.INBOX ->
             TaskDomain.matchesFilter(task, TaskFilter.Inbox, context.today) &&
                 TaskDomain.matchesFilter(

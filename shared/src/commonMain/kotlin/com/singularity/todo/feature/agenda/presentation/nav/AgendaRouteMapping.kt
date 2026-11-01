@@ -86,7 +86,7 @@ fun AgendaNavContent(
         )
 
         AgendaStartRoute.SavedAgendaCreate -> SavedAgendaScreen(
-            mode = SavedAgendaScreenMode.Create(AgendaPresets.Inbox),
+            mode = SavedAgendaScreenMode.Create(AgendaPresets.All),
             modeHint = "Create View",
         )
 
@@ -201,16 +201,16 @@ fun AgendaStartRoute.toDefinition(): AgendaDefinition = when (this) {
 
     is AgendaStartRoute.Tags -> AgendaPresets.byTags(tagIds)
 
-    is AgendaStartRoute.SavedAgendaList -> AgendaPresets.Inbox
+    is AgendaStartRoute.SavedAgendaList -> AgendaPresets.All
 
     // Not used — results are loaded by SavedAgendaViewModel and rendered directly
-    is AgendaStartRoute.SavedAgendaResults -> AgendaPresets.Inbox
+    is AgendaStartRoute.SavedAgendaResults -> AgendaPresets.All
 
     // Not used
-    is AgendaStartRoute.SavedAgendaEdit -> AgendaPresets.Inbox
+    is AgendaStartRoute.SavedAgendaEdit -> AgendaPresets.All
 
     // Not used
-    AgendaStartRoute.SavedAgendaCreate -> AgendaPresets.Inbox
+    AgendaStartRoute.SavedAgendaCreate -> AgendaPresets.All
 
     AgendaStartRoute.Blocked -> AgendaPresets.byBlocked()
 

@@ -29,9 +29,10 @@ import org.junit.jupiter.api.Tag
  *
  * Tests:
  * - All presets produce valid AgendaDefinitions
- * - Inbox has the correct 8-section structure (narrowest-first, discard on all but last two)
+ * - All has the correct 8-section structure (narrowest-first, discard on all but last two)
+ * - Inbox holds the undated tasks only
  * - Today has 2 sections
- * - Upcoming has 5 sections
+ * - Upcoming has 3 sections
  * - byProject / byTag / byTags / byDateRange produce single-section definitions
  * - No duplicate section IDs within any preset
  * - StableJson round-trip preserves preset structure
@@ -52,42 +53,58 @@ class AgendaPresetsCatalogTest {
     // ─── Structure ────────────────────────────────────────────────────────
 
     @Test
-    fun `Inbox preset has 8 sections`() {
-        val def = AgendaPresets.Inbox
+    fun `All preset has 8 sections`() {
+        val def = AgendaPresets.All
         assertEquals(8, def.sections.size)
     }
 
     @Test
-    fun `Inbox preset sections are ordered narrowest-first`() {
-        val def = AgendaPresets.Inbox
+    fun `All preset sections are ordered narrowest-first`() {
+        val def = AgendaPresets.All
         val orders = def.sections.map { it.order }
         assertEquals(orders.sorted(), orders, "sections must be sorted by order")
     }
 
     @Test
-    fun `Inbox first section is Overdue`() {
-        val def = AgendaPresets.Inbox
+    fun `All first section is Overdue`() {
+        val def = AgendaPresets.All
         val overdue = def.sections.firstOrNull()
         assertNotNull(overdue)
         assertTrue(overdue.name == "Overdue" || overdue.selector is Selector.DateBucket)
     }
 
     @Test
-    fun `Inbox last two sections have discard false`() {
-        val def = AgendaPresets.Inbox
+    fun `All last two sections have discard false`() {
+        val def = AgendaPresets.All
         val lastTwo = def.sections.takeLast(2)
         assertTrue(lastTwo.none { it.discard }, "Last two sections (ThisMonth/NoDate) must have discard=false")
     }
 
     @Test
-    fun `Inbox sections 0-5 have discard true`() {
-        val def = AgendaPresets.Inbox
+    fun `All sections 0-5 have discard true`() {
+        val def = AgendaPresets.All
         def.sections.take(6).forEach { section ->
             assertTrue(
                 section.discard,
                 "Section '${section.name}' (index ${def.sections.indexOf(section)}) should have discard=true",
             )
         }
+    }
+
+    /**
+     * The inbox is the tab of the tasks that are not dated yet.
+     *
+     * It used to hold every dated task as well, which made it a superset of the
+     * Today and Upcoming tabs — with one task in the database all three tabs
+     * rendered the same screen.
+     */
+    @Test
+    fun `Inbox preset holds the undated tasks only`() {
+        val def = AgendaPresets.Inbox
+        assertEquals(1, def.sections.size)
+        val section = def.sections.single()
+        assertEquals("No Date", section.name)
+        assertEquals(Selector.DateBucket(RelativeBucket.NoDate), section.selector)
     }
 
     @Test
@@ -97,18 +114,18 @@ class AgendaPresetsCatalogTest {
     }
 
     @Test
-    fun `Upcoming preset has 5 sections`() {
+    fun `Upcoming preset has 3 sections`() {
         val def = AgendaPresets.Upcoming
-        assertEquals(5, def.sections.size)
+        assertEquals(3, def.sections.size)
     }
 
     // ─── No duplicate IDs ────────────────────────────────────────────────
 
     @Test
-    fun `Inbox has no duplicate section IDs`() {
-        val def = AgendaPresets.Inbox
+    fun `All has no duplicate section IDs`() {
+        val def = AgendaPresets.All
         val ids = def.sections.map { it.effectiveId }
-        assertEquals(ids.toSet().size, ids.size, "Inbox preset must not have duplicate section IDs")
+        assertEquals(ids.toSet().size, ids.size, "All preset must not have duplicate section IDs")
     }
 
     @Test
@@ -171,6 +188,16 @@ class AgendaPresetsCatalogTest {
     }
 
     // ─── StableJson round-trip ───────────────────────────────────────────
+
+    @Test
+    fun `All round-trips through StableJson`() {
+        val def = AgendaPresets.All
+        val json = StableJson.encodeToString(AgendaDefinition.serializer(), def)
+        val restored = StableJson.decodeFromString(AgendaDefinition.serializer(), json)
+        assertEquals(def.title, restored.title)
+        assertEquals(def.sections.size, restored.sections.size)
+        assertEquals(def.sections.map { it.effectiveId }, restored.sections.map { it.effectiveId })
+    }
 
     @Test
     fun `Inbox round-trips through StableJson`() {

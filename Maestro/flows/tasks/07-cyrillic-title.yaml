@@ -22,9 +22,8 @@ tags:
     visible:
       text: "Купить молоко"
     timeout: 8000
-# Verify it is in the task list.
-- tapOn:
-    id: nav_tab_inbox
+# Verify it is in the task list. It is dated today, so it lives in the Today
+# tab: the three agenda tabs are disjoint, and a dated task is not in the inbox.
 - extendedWaitUntil:
     visible:
       id: task_item_купить_молоко
