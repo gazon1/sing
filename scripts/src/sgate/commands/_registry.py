@@ -893,6 +893,11 @@ _REGISTERED: tuple[GateSpec, ...] = (
         mode=GateMode.BLOCKING,
         cmd_type=CmdType.PYTHON3,
         script=Path("scripts/check-gate-registries.py"),
+        # `--strict` is what turns drift from a warning into a failure. The
+        # shell registry's line for this gate carries it, so a gate dispatched
+        # by name has to carry it too — otherwise the same gate has two
+        # verdicts, and which one a caller gets depends on how it was called.
+        script_args=("--strict",),
     ),
     # The generated catalogue of this registry: which gates exist, and whether
     # each one blocks. `docs/scripts/gate-registry.md` is derived from GATES, so

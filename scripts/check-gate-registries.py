@@ -81,6 +81,7 @@ if str(_SRC) not in sys.path:
 
 import click  # noqa: E402
 from sgate.commands.base import CLEAN, IO_ERROR, VALIDATION_FAILURE, run  # noqa: E402
+from sgate.commands._registry import CmdType  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -108,6 +109,75 @@ def _covered_scripts(shell_gates: list[tuple[str, str, str]]) -> set[str]:
     from sgate import gate_reachability
 
     return gate_reachability.covered_scripts(ROOT, shell_gates, _REGISTRY_BY_NAME)
+
+
+#: The interpreter a shell gate line starts with, when the line names a script.
+#: The registry builds the same command with `sys.executable`, so the two
+#: spellings differ in the interpreter and agree in everything after it.
+_SHELL_INTERPRETERS = ("python3 ", "bash ")
+
+
+def _registry_command_tail(spec) -> str | None:
+    """The command the registry dispatches for one gate, without its interpreter.
+
+    `None` when the registry's command is a spelling the shell registry never
+    uses: `python3 -m <module>` is dispatched as a module, and the shell
+    registry names the `sgate` command that wraps it instead. There is nothing
+    to compare there — the two surfaces spell the same gate in different
+    languages, and the `sgate` rule below skips those lines anyway.
+    """
+    cmd_type = spec.cmd_type
+    if cmd_type in (CmdType.PYTHON3, CmdType.SHELL):
+        parts = [str(spec.script), *spec.script_args]
+        return " ".join(part for part in parts if part)
+    if cmd_type == CmdType.PATH:
+        return " ".join(spec.path_cmd)
+    if cmd_type == CmdType.BASH_C:
+        # The shell line names the function; the registry wraps it in a
+        # `bash -c` that sources the registry file first. The function name is
+        # the part both spellings agree on.
+        return spec.bash_func
+    return None
+
+
+def _shell_command_tail(command: str) -> str | None:
+    """The command a shell gate line runs, without its interpreter.
+
+    `None` for a line that dispatches through the registry (`sgate <name>`):
+    that spelling IS the registry's own command, so the two cannot disagree —
+    comparing them would report the one form that is guaranteed to agree.
+    """
+    stripped = command.strip()
+    if stripped.startswith("sgate "):
+        return None
+    for interpreter in _SHELL_INTERPRETERS:
+        if stripped.startswith(interpreter):
+            return stripped[len(interpreter):].strip()
+    return stripped
+
+
+def _command_drift(name: str, shell_command: str, spec) -> str | None:
+    """The two spellings of one gate's command, when they disagree.
+
+    The shell line is one declaration of what a gate runs; the registry entry
+    is the second. Nothing compared them, so the "gate registries agree" gate
+    was spelled `--strict` in one and not in the other — and a caller that
+    dispatched it by name got a warning where CI got a failure. Same gate,
+    two verdicts, depending on the surface.
+    """
+    registry_tail = _registry_command_tail(spec)
+    shell_tail = _shell_command_tail(shell_command)
+    if registry_tail is None or shell_tail is None:
+        return None
+    if registry_tail == shell_tail:
+        return None
+    return (
+        f"'{name}' runs different commands in the two registries — "
+        f"scripts/ci/static-gates.sh says '{shell_command}' and _registry.GATES "
+        f"dispatches '{registry_tail}'. One surface reads the first, the other "
+        f"reads the second, and which one a caller uses decides what this gate "
+        f"means. Give the two the same command."
+    )
 
 
 def _module_classification_problems() -> list[str]:
@@ -254,6 +324,7 @@ def evaluate(strict: bool) -> tuple[list[str], list[str], str]:
 
     covered = _covered_scripts(shell_gates)
     shell_names = {name for _, name, _ in shell_gates}
+    shell_commands = {name: command for _, name, command in shell_gates}
     registry_names = {spec.name for spec in GATES}
     shell_modes = {name: mode for mode, name, _ in shell_gates}
     registry_modes = {spec.name: spec.mode.value for spec in GATES}
@@ -287,6 +358,9 @@ def evaluate(strict: bool) -> tuple[list[str], list[str], str]:
                 "the other the second, and which one a caller uses decides what a red "
                 "gate means."
             )
+        drift = _command_drift(name, shell_commands[name], _REGISTRY_BY_NAME[name])
+        if drift is not None:
+            report(drift)
 
     for name in sorted(registry_names - shell_names - set(NOT_RUN_IN_STATIC)):
         spec = _REGISTRY_BY_NAME[name]

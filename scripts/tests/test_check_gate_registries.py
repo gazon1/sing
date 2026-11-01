@@ -174,6 +174,141 @@ class DriftTest(unittest.TestCase):
         self.assertIn("Python gate registry", joined)
 
 
+class CommandDriftTest(unittest.TestCase):
+    """The two spellings of one gate's command must be the same command.
+
+    The shell line and the registry entry each declare what a gate runs, and
+    nothing compared them. The gate that checks the registries themselves was
+    spelled `--strict` in the shell file and without it in the registry — so a
+    caller that dispatched it by name got a warning where CI got a failure.
+    Same gate, two verdicts, depending on the surface that ran it.
+    """
+
+    def _violations(self, shell_gates, registry):
+        with _registries(shell_gates, registry):
+            violations, warnings, _summary = registries.evaluate(strict=True)
+        return violations, warnings
+
+    def test_a_gate_whose_two_commands_differ_is_reported(self):
+        """The shell line names `--strict`; the registry dispatches without it."""
+        spec = GateSpec(
+            name="alpha",
+            mode=GateMode("blocking"),
+            cmd_type=CmdType.PYTHON3,
+            script=pathlib.Path(COVERED_SCRIPT),
+        )
+        violations, _ = self._violations(
+            [("blocking", "alpha", f"python3 {COVERED_SCRIPT} --strict")],
+            [spec],
+        )
+        joined = " ".join(violations)
+        self.assertIn("'alpha' runs different commands", joined)
+        self.assertIn("--strict", joined)
+
+    def test_both_commands_are_named_in_the_report(self):
+        """A report that names only one side cannot be acted on."""
+        spec = GateSpec(
+            name="alpha",
+            mode=GateMode("blocking"),
+            cmd_type=CmdType.PYTHON3,
+            script=pathlib.Path(COVERED_SCRIPT),
+        )
+        violations, _ = self._violations(
+            [("blocking", "alpha", f"python3 {COVERED_SCRIPT} --strict")],
+            [spec],
+        )
+        joined = " ".join(violations)
+        self.assertIn(f"python3 {COVERED_SCRIPT} --strict", joined)
+        self.assertIn(COVERED_SCRIPT, joined)
+
+    def test_the_same_command_in_both_registries_is_not_reported(self):
+        """The fix must not make the gate report itself."""
+        spec = GateSpec(
+            name="alpha",
+            mode=GateMode("blocking"),
+            cmd_type=CmdType.PYTHON3,
+            script=pathlib.Path(COVERED_SCRIPT),
+            script_args=("--strict",),
+        )
+        violations, _ = self._violations(
+            [("blocking", "alpha", f"python3 {COVERED_SCRIPT} --strict")],
+            [spec],
+        )
+        joined = " ".join(violations)
+        self.assertNotIn("runs different commands", joined)
+
+    def test_a_line_that_dispatches_through_the_registry_is_not_reported(self):
+        """`sgate <name>` IS the registry's own command — the two cannot differ.
+
+        A gate registered by hand may spell its shell line as the `sgate`
+        command instead of the raw script. Comparing that spelling with the
+        registry entry would report the one form that is guaranteed to agree.
+        """
+        spec = GateSpec(
+            name="alpha",
+            mode=GateMode("blocking"),
+            cmd_type=CmdType.PYTHON3,
+            script=pathlib.Path(COVERED_SCRIPT),
+        )
+        violations, _ = self._violations(
+            [("blocking", "alpha", "sgate alpha")],
+            [spec],
+        )
+        joined = " ".join(violations)
+        self.assertNotIn("runs different commands", joined)
+
+    def test_a_path_command_spelled_the_same_in_both_is_not_reported(self):
+        """A `deno test …` line is compared on the command itself, not on a script.
+
+        The comparison reads the command each side runs — a script path with
+        its arguments, or the argv of a PATH command — so a line that is not
+        a script invocation is still compared, and one that both sides spell
+        the same way is not drift.
+        """
+        spec = GateSpec(
+            name="alpha",
+            mode=GateMode("blocking"),
+            cmd_type=CmdType.PATH,
+            path_cmd=("deno", "test", "somewhere/"),
+        )
+        violations, _ = self._violations(
+            [("blocking", "alpha", "deno test somewhere/")],
+            [spec],
+        )
+        joined = " ".join(violations)
+        self.assertNotIn("runs different commands", joined)
+
+    def test_a_path_command_spelled_differently_is_reported(self):
+        """The same command, spelled two ways, is drift like any other."""
+        spec = GateSpec(
+            name="alpha",
+            mode=GateMode("blocking"),
+            cmd_type=CmdType.PATH,
+            path_cmd=("deno", "test", "somewhere/"),
+        )
+        violations, _ = self._violations(
+            [("blocking", "alpha", "deno test elsewhere/")],
+            [spec],
+        )
+        joined = " ".join(violations)
+        self.assertIn("'alpha' runs different commands", joined)
+
+    def test_a_shell_function_spelled_the_same_in_both_is_not_reported(self):
+        """The shell line names the function; the registry wraps it. Same gate."""
+        spec = GateSpec(
+            name="alpha",
+            mode=GateMode("blocking"),
+            cmd_type=CmdType.BASH_C,
+            bash_func="alpha_function",
+        )
+        violations, _ = self._violations(
+            [("blocking", "alpha", "alpha_function")],
+            [spec],
+        )
+        joined = " ".join(violations)
+        self.assertNotIn("runs different commands", joined)
+
+
 class NoFalsePositiveTest(unittest.TestCase):
     """The shapes that must not be reported as drift."""
 
