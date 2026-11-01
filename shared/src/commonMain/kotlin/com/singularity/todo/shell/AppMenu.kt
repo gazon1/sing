@@ -67,6 +67,10 @@ object AppMenu {
             id = TestTags.MENU_QUICK_SEARCH,
             label = "Quick search",
             destination = AppDestination.Search,
+            // The same icon the search action uses in the shell: an entry
+            // without one is laid out with its label in the icon column and
+            // reads like a section heading.
+            icon = AppDestination.Search.icon,
         ),
     )
 

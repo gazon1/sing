@@ -67,4 +67,20 @@ class AppMenuTest {
         assertEquals(TestTags.MENU_ATTACH_ACCOUNT, AppMenu.attachAccount.id)
         assertEquals(AppDestination.AttachAccount, AppMenu.attachAccount.destination)
     }
+
+    @Test
+    fun everyMenuEntryHasAnIcon() {
+        // An entry without an icon is laid out with its label in the icon
+        // column, so on the phone it reads like a section heading.
+        val entries = AppMenu.accountEntries(anonymous = true) +
+            AppMenu.search +
+            AppMenu.sheetDestinations
+
+        val withoutIcon = entries.filter { it.icon == null }.map { it.id }
+
+        assertTrue(
+            withoutIcon.isEmpty(),
+            "Menu entries without an icon: $withoutIcon",
+        )
+    }
 }
