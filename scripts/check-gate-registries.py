@@ -230,6 +230,7 @@ def evaluate(strict: bool) -> tuple[list[str], list[str], str]:
     """
     try:
         from sgate.commands._registry import GATES, NOT_RUN_IN_STATIC
+        from sgate.gates import _build_command
         from sgate.commands.run_all import _load_static_gates
         from sgate.gates import load_gates
 
@@ -256,6 +257,7 @@ def evaluate(strict: bool) -> tuple[list[str], list[str], str]:
     shell_names = {name for _, name, _ in shell_gates}
     registry_names = {spec.name for spec in GATES}
     shell_modes = {name: mode for mode, name, _ in shell_gates}
+    shell_commands = {name: cmd for _, name, cmd in shell_gates}
     registry_modes = {spec.name: spec.mode.value for spec in GATES}
 
     summary = (
@@ -286,6 +288,21 @@ def evaluate(strict: bool) -> tuple[list[str], list[str], str]:
                 "whether a failing gate stops the build. One surface reads the first, "
                 "the other the second, and which one a caller uses decides what a red "
                 "gate means."
+            )
+
+        shell_command = shell_commands[name]
+        # A shell line that dispatches through the registry (`sgate <command>`)
+        # is the registry's own command by construction — never report it.
+        if shell_command.lstrip().startswith("sgate "):
+            continue
+        registry_command = _build_command(_REGISTRY_BY_NAME[name]).replace(
+            sys.executable, "python3"
+        )
+        if shell_command != registry_command:
+            report(
+                f"'{name}' runs '{shell_command}' in scripts/ci/static-gates.sh and "
+                f"'{registry_command}' in _registry.GATES — the two registries disagree "
+                "about the command a gate runs."
             )
 
     for name in sorted(registry_names - shell_names - set(NOT_RUN_IN_STATIC)):
