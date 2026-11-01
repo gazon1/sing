@@ -1478,7 +1478,7 @@ jobs:
 
       # uv as an action, not `curl … | sh`: the same installer the rest of ci.yml
       # uses, so there is one way this repo gets uv on a runner.
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
         with:
           python-version: '3.11'
 
@@ -1545,7 +1545,7 @@ jobs:
 
       # uv as an action, not `curl … | sh`: the same installer the rest of ci.yml
       # uses, so there is one way this repo gets uv on a runner.
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
         with:
           python-version: '3.11'
 
