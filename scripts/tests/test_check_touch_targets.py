@@ -129,6 +129,56 @@ private fun ProbeCorrectBesideViolating(onClick: () -> Unit) {
 }
 """
 
+#: Two chains on one line. A line is not a chain: the chains are the runs of
+#: calls joined by dots, and two of them can share a line. The correct chain
+#: here does not speak for the violating one beside it — and a gate that
+#: reads the line as one chain lets the correct chain hide the violation.
+TWO_CHAINS_ON_ONE_LINE = """\
+package com.singularity.todo.probe
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.touchTarget
+
+@Composable
+private fun ProbeTwoChainsOnOneLine(onClick: () -> Unit) {
+    Icon(modifier = Modifier.touchTarget().size(40.dp).clickable { onClick() }); Icon(modifier = Modifier.size(40.dp).clickable { onClick() })
+}
+"""
+
+#: A size on an argument that is not interactive, beside a chain that is.
+#: The size is not a target — nothing is hit on it — so it is not a finding.
+#: A gate that reads the whole line as one chain cannot tell the two apart.
+SIZE_BESIDE_AN_INTERACTIVE_ARGUMENT = """\
+package com.singularity.todo.probe
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+
+@Composable
+private fun ProbeSizeBesideAnInteractiveArgument(onClick: () -> Unit) {
+    Row(modifier = Modifier.size(40.dp), content = { Icon(modifier = Modifier.clickable { onClick() }) })
+}
+"""
+
+#: A violation mentioned in a comment and in a string. Neither is a
+#: violation: a KDoc that shows the shape is documentation, and a string is
+#: text.
+VIOLATION_MENTIONED_IN_PROSE = """\
+package com.singularity.todo.probe
+
+/**
+ * The shape this gate looks for: `Modifier.size(40.dp).clickable { }`.
+ */
+private const val DESCRIPTION = "Modifier.size(40.dp).clickable { }"
+
+// Modifier.size(40.dp).clickable { onClick() }
+"""
+
 #: Only correct controls. The gate has to be green on this: a gate that is red
 #: on a clean tree proves nothing about a planted violation.
 ONLY_CORRECT = """\
@@ -265,6 +315,57 @@ class TouchTargetsPositiveControlTest(unittest.TestCase):
         a file because it mentions the helper reports this file as clean.
         """
         self._assert_reported(CORRECT_BESIDE_VIOLATING)
+
+    def test_two_chains_on_one_line_are_two_chains(self):
+        """A line is not a chain.
+
+        The file holds a correct chain and a violating one on the same line.
+        The correct chain does not speak for the other one, and a gate that
+        reads the line as a single chain lets the expansion of the first
+        chain silence the violation of the second.
+        """
+        result = self._run_gate(TWO_CHAINS_ON_ONE_LINE)
+        self.assertEqual(
+            result.returncode,
+            FOUND,
+            f"the gate must report the violating chain of the line; it exited "
+            f"{result.returncode}.\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}",
+        )
+        self.assertEqual(
+            result.stdout.count("Probe.kt"),
+            1,
+            f"exactly one of the two chains is a violation:\n{result.stdout}",
+        )
+
+    def test_a_size_on_a_non_interactive_argument_is_not_reported(self):
+        """The size is not a target: nothing is hit on it.
+
+        The size sits on one argument and the click on another. The gate
+        decides per chain, so the size is not a finding.
+        """
+        result = self._run_gate(SIZE_BESIDE_AN_INTERACTIVE_ARGUMENT)
+        self.assertEqual(
+            result.returncode,
+            0,
+            f"the gate must not read a size on a non-interactive argument as a "
+            f"target; it exited {result.returncode}.\nstdout:\n{result.stdout}"
+            f"\nstderr:\n{result.stderr}",
+        )
+
+    def test_a_violation_mentioned_in_prose_is_not_reported(self):
+        """A violation in a comment or a string is documentation.
+
+        The first version of the gate exempted a whole file because it
+        mentioned the helper — a mention in a KDoc was enough. The gate reads
+        code, and prose about the shape is not the shape.
+        """
+        result = self._run_gate(VIOLATION_MENTIONED_IN_PROSE)
+        self.assertEqual(
+            result.returncode,
+            0,
+            f"the gate must not read prose as code; it exited {result.returncode}."
+            f"\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}",
+        )
 
     def test_the_correct_chain_next_to_the_violation_is_not_reported(self):
         """Only the violating chain is a finding.

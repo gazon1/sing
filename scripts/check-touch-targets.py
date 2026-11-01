@@ -39,6 +39,29 @@ thing that could have said so was a control that plants a violation and
 watches the gate go red: `scripts/tests/test_check_touch_targets.py` is that
 control, one test per shape the gate claims to catch.
 
+## What a chain is
+
+A chain is a run of modifier calls joined by dots — the calls that belong to
+one `Modifier`. The gate cuts the source into chains and decides **per
+chain**, never per file and never per line:
+
+* a chain may span several lines, because the calls are joined by dots and
+  not by line breaks;
+* two chains may share a line, and they are then two chains — a correct
+  chain and a violating one on the same line are two chains, and the correct
+  one does not speak for the other;
+* a chain written inside another call's arguments is its own chain.
+
+The exemption therefore belongs to the chain: a chain that expands the target
+before the size is fine, and the other chains in the same file are not. The
+first version of the gate exempted the *file*, which is why the fourteen
+files that had been migrated were the fourteen files the gate never looked
+at.
+
+Comments and string literals are blanked out before the source is cut, so a
+violation mentioned in a KDoc is not a violation, and a `.dp` inside a string
+is not a size.
+
 ## What this gate reads
 
 The gate reads **production sources**. A target in a test never reaches a
@@ -84,6 +107,7 @@ import json
 import pathlib
 import re
 import sys
+from typing import NamedTuple
 
 import click
 
@@ -106,24 +130,41 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 #: expansion applied *before* it.
 MIN_DP = 48.0
 
-#: `.size(40.dp)` — a fixed size, in the only form the gate reads.
-SIZE_RE = re.compile(r"\.size\(\s*(\d+(?:\.\d+)?)\s*\.dp\s*\)")
-
 #: The interactive modifiers: a node with one of these is a target a finger
 #: has to hit. The lambda form (`.clickable { … }`) and the parenthesised form
 #: (`.clickable(onClick = …)`) are both here — the first version of this gate
 #: matched only the second, which is why the lambda form was invisible.
-INTERACTIVE_RE = re.compile(
-    r"\.(?:clickable|toggleable|combinedClickable|selectable)\s*[({]"
+INTERACTIVE_CALLS = frozenset(
+    {"clickable", "toggleable", "combinedClickable", "selectable"}
 )
 
 #: The expansion. It has to come *before* the size in the chain: applied
 #: after it, the size already caps the node and the expansion grows a target
 #: that is smaller than the minimum.
-EXPANSION_RE = re.compile(r"\.(?:touchTarget|minimumInteractiveComponentSize)\s*\(")
+EXPANSION_CALLS = frozenset({"touchTarget", "minimumInteractiveComponentSize"})
+
+#: A modifier call: the dot, the name, and — separately — the brackets that
+#: carry its arguments.
+CALL = re.compile(r"\.([A-Za-z_][A-Za-z0-9_]*)")
+
+#: The body of a `.size(...)` call: a literal size in dp, and nothing else.
+SIZE_BODY = re.compile(r"^\(\s*(\d+(?:\.\d+)?)\s*\.dp\s*\)$")
 
 #: Build outputs: nothing in them ships to a device.
 SKIPPED_DIRS = frozenset({"build"})
+
+#: The brackets that carry a call's arguments.
+BRACKETS = {"(": ")", "{": "}"}
+
+
+class ModifierCall(NamedTuple):
+    """One modifier call: its name, where it starts, and what it carries."""
+
+    name: str
+    start: int
+    end: int
+    body: str = ""
+
 
 #: Test source sets: a target in a test never reaches a finger. The set is
 #: named by its position in the path (`src/<source set>/`), NOT by any path
@@ -140,63 +181,179 @@ def _is_test_source(parts: tuple[str, ...]) -> bool:
     return source_set == "test" or source_set.endswith("Test")
 
 
-def _chains(lines: list[str]) -> list[tuple[int, str]]:
-    """The modifier chains of a file, as (first line number, chain text).
+def _blank(out: list[str], start: int, end: int) -> None:
+    """Replace the given range with spaces, leaving the newlines in place."""
+    for position in range(start, min(end, len(out))):
+        if out[position] != "\n":
+            out[position] = " "
 
-    A chain is a head line plus the continuation lines that start with a dot —
-    the shape Compose code is written in:
 
-        modifier = Modifier
-            .size(40.dp)
-            .clickable { onClick() }
+def _end_of_block_comment(text: str, start: int) -> int:
+    """The index just after the block comment that starts at ``start``."""
+    depth = 0
+    index = start
+    while index < len(text):
+        if text.startswith("/*", index):
+            depth += 1
+            index += 2
+            continue
+        if text.startswith("*/", index):
+            depth -= 1
+            index += 2
+            if depth == 0:
+                return index
+            continue
+        index += 1
+    return len(text)
 
-    The head line carries the `Modifier` and the continuation lines carry the
-    modifiers, so the chain is read as one piece of text. Reading the file as
-    one piece of text is the point: a chain that spans three lines is three
-    lines of source and one chain of modifiers, and a gate that reads the
-    lines separately sees two unrelated strings.
+
+def _end_of_string(text: str, start: int) -> int:
+    """The index just after the string literal that starts at ``start``."""
+    if text.startswith('"""', start):
+        end = text.find('"""', start + 3)
+        return len(text) if end == -1 else end + 3
+    index = start + 1
+    while index < len(text) and text[index] != '"':
+        index += 2 if text[index] == "\\" else 1
+    return min(index + 1, len(text))
+
+
+def _end_of_char(text: str, start: int) -> int:
+    """The index just after the character literal that starts at ``start``."""
+    index = start + 1
+    while index < len(text) and text[index] != "'":
+        index += 2 if text[index] == "\\" else 1
+    return min(index + 1, len(text))
+
+
+def _end_of_bracket(text: str, start: int) -> int:
+    """The index just after the bracket that closes the one at ``start``."""
+    opener = text[start]
+    closer = BRACKETS[opener]
+    depth = 0
+    index = start
+    while index < len(text):
+        char = text[index]
+        if char == opener:
+            depth += 1
+        elif char == closer:
+            depth -= 1
+            if depth == 0:
+                return index + 1
+        index += 1
+    return len(text)
+
+
+def blank_noncode(text: str) -> str:
+    """Replace comments and literals with spaces, keeping every offset.
+
+    A violation mentioned in a comment or written in a string is not a
+    violation, and a blanked source keeps the line numbers of the findings
+    honest: the blanks are spaces, so every offset in the blanked text is
+    the offset it had in the source.
     """
-    chains: list[tuple[int, str]] = []
+    out = list(text)
     index = 0
-    while index < len(lines):
-        if lines[index].lstrip().startswith("."):
-            # A continuation of a chain whose head was already read.
+    length = len(text)
+    while index < length:
+        char = text[index]
+        if text.startswith("//", index):
+            end = text.find("\n", index)
+            end = length if end == -1 else end
+            _blank(out, index, end)
+            index = end
+        elif text.startswith("/*", index):
+            end = _end_of_block_comment(text, index)
+            _blank(out, index, end)
+            index = end
+        elif char == '"':
+            end = _end_of_string(text, index)
+            _blank(out, index, end)
+            index = end
+        elif char == "'":
+            end = _end_of_char(text, index)
+            _blank(out, index, end)
+            index = end
+        else:
             index += 1
-            continue
-        chunk = [lines[index]]
-        following = index + 1
-        while following < len(lines) and lines[following].lstrip().startswith("."):
-            chunk.append(lines[following])
-            following += 1
-        chains.append((index + 1, "\n".join(chunk)))
-        index = following
-    return chains
+    return "".join(out)
 
 
-def _violations(chain: str) -> list[tuple[int, float]]:
-    """The fixed sizes in a chain that make it a target below the minimum.
+def chains(text: str, start: int = 0, end: int | None = None) -> list[list[ModifierCall]]:
+    """Every modifier chain in the text, each as the list of its calls.
 
-    Each entry is (offset of the size in the chain, the size in dp). A size is
-    a violation when it is below the minimum, when the chain carries an
-    interactive modifier, and when nothing expanded the target before it.
+    Two calls belong to the same chain when nothing but whitespace stands
+    between them — the dot that joins them is the one that opens the next
+    call. A chain may therefore span several lines, and two chains in one
+    line are two chains, whatever the file looks like.
+
+    A chain written inside another call's arguments is its own chain: the
+    modifier of a nested expression is not the modifier of the expression
+    around it.
     """
-    sizes = list(SIZE_RE.finditer(chain))
-    if not sizes:
-        return []
-    if not INTERACTIVE_RE.search(chain):
-        # Nothing to hit: a fixed size on a decorative node is not a target.
-        return []
-    expansions = [match.start() for match in EXPANSION_RE.finditer(chain)]
+    if end is None:
+        end = len(text)
+    found: list[list[ModifierCall]] = []
+    chain: list[ModifierCall] = []
+    position = start
+    while position < end:
+        match = CALL.search(text, position, end)
+        if match is None:
+            break
+        name = match.group(1)
+        cursor = match.end()
+        while cursor < end and text[cursor] in " \t\r\n":
+            cursor += 1
+        body = ""
+        call_end = match.end()
+        if cursor < end and text[cursor] in "({":
+            call_end = _end_of_bracket(text, cursor)
+            body = text[cursor:call_end]
+            if name != "size":
+                # A chain written inside a call's arguments is its own chain.
+                # A size carries a literal, so there is nothing to find in it.
+                found.extend(chains(text, cursor + 1, call_end - 1))
+        if chain and text[chain[-1].end : match.start()].strip():
+            found.append(chain)
+            chain = []
+        chain.append(
+            ModifierCall(name=name, start=match.start(), end=call_end, body=body)
+        )
+        position = max(call_end, match.end())
+    if chain:
+        found.append(chain)
+    return found
+
+
+def violations_in(source: str) -> list[tuple[int, float]]:
+    """The violations in one Kotlin source, as (line, size in dp)."""
     found: list[tuple[int, float]] = []
-    for match in sizes:
-        value = float(match.group(1))
-        if value >= MIN_DP:
+    for chain in chains(source):
+        interactive = any(
+            call.name in INTERACTIVE_CALLS and call.body for call in chain
+        )
+        if not interactive:
+            # Nothing to hit: a fixed size on a decorative node is not a target.
             continue
-        if any(offset < match.start() for offset in expansions):
-            # The target was expanded before the size constrained it, so the
-            # hit area is the minimum and the size only shapes the picture.
-            continue
-        found.append((match.start(), value))
+        expansions = [
+            call.start for call in chain if call.name in EXPANSION_CALLS and call.body
+        ]
+        for call in chain:
+            if call.name != "size":
+                continue
+            match = SIZE_BODY.match(call.body)
+            if match is None:
+                # A size that is not a literal is a reviewer's job.
+                continue
+            value = float(match.group(1))
+            if value >= MIN_DP:
+                continue
+            if any(offset < call.start for offset in expansions):
+                # The target was expanded before the size constrained it, so
+                # the hit area is the minimum and the size only shapes the
+                # picture.
+                continue
+            found.append((source.count("\n", 0, call.start) + 1, value))
     return found
 
 
@@ -213,21 +370,20 @@ def scan(root: pathlib.Path) -> list[dict[str, object]]:
             text = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
-        for first_line, chain in _chains(text.splitlines()):
-            for offset, value in _violations(chain):
-                line = first_line + chain[:offset].count("\n")
-                findings.append(
-                    {
-                        "file": relative.as_posix(),
-                        "line": line,
-                        "dp": value,
-                        "detail": (
-                            f"{value:g}dp is below the {MIN_DP:g}dp minimum, and no "
-                            f"touchTarget()/minimumInteractiveComponentSize() comes "
-                            f"before it in the chain"
-                        ),
-                    }
-                )
+        source = blank_noncode(text)
+        for line, value in violations_in(source):
+            findings.append(
+                {
+                    "file": relative.as_posix(),
+                    "line": line,
+                    "dp": value,
+                    "detail": (
+                        f"{value:g}dp is below the {MIN_DP:g}dp minimum, and no "
+                        f"touchTarget()/minimumInteractiveComponentSize() comes "
+                        f"before it in the chain"
+                    ),
+                }
+            )
     return findings
 
 

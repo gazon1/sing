@@ -50,6 +50,14 @@ size, so the expansion applies to the element that is clicked.
 
 **2. The gate reads modifier chains, not lines.**
 
+The gate cuts the source into chains — the runs of modifier calls joined by
+dots — and decides **per chain**: a chain that expands the target before the
+size is fine, and the other chains in the same file are not. The cut is not a
+line cut: a chain may span several lines, and two chains may share a line.
+Comments and string literals are blanked out before the cut, so a violation
+mentioned in a KDoc is neither a violation nor an exemption for the file it
+sits in.
+
 The gate groups a chain that spans several lines, recognises the interactive
 modifiers (`clickable`, `toggleable`, `combinedClickable`, `selectable`) in both
 the parenthesised and the lambda form, and recognises the expansion
@@ -62,10 +70,10 @@ precede it — an expansion after the size is the shape the standard forbids.
 `scripts/tests/test_check_touch_targets.py` plants each violating shape in a
 temporary copy of the tree and asserts that the gate exits 1 and names the
 planted file: a multi-line chain with a lambda-style `clickable`, a multi-line
-chain with a parenthesised `clickable`, a one-line chain, and a correct chain
-beside a violating one. The registry control in `scripts/src/sgate/gate_controls.py`
-does the same against the real tree, so `check-gate-wiring.py --can-fail` proves
-the gate can still fail.
+chain with a parenthesised `clickable`, a one-line chain, two chains on one
+line, and a correct chain beside a violating one. The registry control in
+`scripts/src/sgate/gate_controls.py` does the same against the real tree, so
+`check-gate-wiring.py --can-fail` proves the gate can still fail.
 
 ## Rationale
 
@@ -98,6 +106,8 @@ unreachable copy of the rule and the illusion of IDE feedback.
 
 ## Links
 
+- Issue #1780 — the file-level exemption that hid the violations in the files
+  that had been migrated
 - Issue #1787
 - `scripts/check-touch-targets.py` — the gate
 - `scripts/tests/test_check_touch_targets.py` — the positive control
