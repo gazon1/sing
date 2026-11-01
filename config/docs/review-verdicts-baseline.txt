@@ -53,3 +53,4 @@ theme-mode-offers-system-light-and-dark
 unwired-detector-test-double-exemption
 usage-recording-platform-parity
 verification-baseline-ratchet
+afk-issue-agent-pipeline

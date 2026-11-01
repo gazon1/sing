@@ -1121,6 +1121,19 @@ _REGISTERED: tuple[GateSpec, ...] = (
             # dry-run exits zero whatever it found. A gate invoked that way
             # reports success forever.
         ),
+        # A touch target is 48 dp, and the order of the modifier chain decides
+        # whether a fixed size caps the hit area or only shapes the picture.
+        #
+        # The gate was in `scripts/ci/static-gates.sh` from the day it was
+        # written, but it was never added to this registry: the two registries
+        # did not agree, so `sgate run-all` and `sgate <name>` did not know the
+        # gate at all, and no control said the gate could fail.
+        GateSpec(
+            name="touch targets meet minimum",
+            mode=GateMode.BLOCKING,
+            cmd_type=CmdType.PYTHON3,
+            script=Path("scripts/check-touch-targets.py"),
+        ),
 )
 
 
@@ -1864,6 +1877,47 @@ GATE_CONTROLS: dict[str, Control] = {
             ),
             why=(
                 'the size of the suite a pull request runs was fiction: the conventions said six flows, four of them did not exist, and the tag had spread to 45 — and nobody noticed, because the tag is what selects and the prose is what people plan against'
+            ),
+        ),
+        # touch-targets: an interactive node whose size is fixed below 48 dp is
+        # a control a finger cannot hit, and the order of the chain decides
+        # whether the size caps the hit area or only shapes the picture.
+        #
+        # The control plants the violation in the file that *defines* the
+        # correct control — `core/ui/TouchTarget.kt` — because that is where
+        # the two meet: a file that uses the helper and still breaks the rule.
+        # The first version of the gate skipped every file that mentioned
+        # `touchTarget` at all, so the helper's own file was the one place a
+        # violation could hide, and the gate was green on it.
+        #
+        # The shape that is planted is the one the codebase writes: a chain
+        # spread over several lines, ending in the lambda form of the call.
+        # Neither the line break nor the lambda was visible to the first
+        # version of the gate.
+        'touch-targets': Control(
+            kind='sabotage',
+            proves='scripts/check-touch-targets.py',
+            argv=('{python}', 'scripts/check-touch-targets.py',),
+            path='shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TouchTarget.kt',
+            edit=Edit(
+                kind='append',
+                new=(
+                    '\n'
+                    '@Composable\n'
+                    'private fun TouchTargetProbe(onClick: () -> Unit) {\n'
+                    '    Icon(\n'
+                    '        modifier = Modifier\n'
+                    '            .size(40.dp)\n'
+                    '            .clickable { onClick() },\n'
+                    '    )\n'
+                    '}\n'
+                ),
+            ),
+            why=(
+                'an interactive target below 48 dp is a control a finger cannot hit, '
+                'and the expansion has to come before the size: applied after it, the '
+                'size caps the hit area and the target stays small however the '
+                'modifier chain is read'
             ),
         ),
 }

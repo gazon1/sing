@@ -1110,6 +1110,15 @@ the same gesture on every display.""",
                 'The conventions carry the number; this gate holds it to the tag, and holds a smoke shard to costing no more than a full-suite shard.'
             ),
         ),
+        'touch targets meet minimum': Placement(
+            kind=PlacementKind.STATIC,
+            command="python3 scripts/check-touch-targets.py",
+            note=(
+                'A touch target is 48 dp, and the order of the modifier chain decides '
+                'whether a fixed size caps the hit area or only shapes the picture: '
+                'the expansion has to come before the size.'
+            ),
+        ),
 }
 
 #: The gates that are deliberately NOT a line in ``scripts/ci/static-gates.sh``.

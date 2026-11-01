@@ -17,7 +17,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,8 +24,8 @@ import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
-import kotlinx.collections.immutable.ImmutableList
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
+import kotlinx.collections.immutable.ImmutableList
 /**
  * Tags section for [com.singularity.todo.feature.tasks.presentation.screen.TaskDetailScreen].
  *

@@ -937,6 +937,30 @@ SCRIPT_GATES = [
                 'the size of the suite a pull request runs was fiction: the conventions said six flows, four of them did not exist, and the tag had spread to 45 — and nobody noticed, because the tag is what selects and the prose is what people plan against'
             ),
         ),
+    # The touch-target gate: an interactive node whose size is fixed below
+    # 48 dp is a control a finger cannot hit, and the order of the chain
+    # decides whether the size caps the hit area or only shapes the picture.
+    #
+    # The control plants the violation in the file that defines the correct
+    # control — `core/ui/TouchTarget.kt` — because that is where the two
+    # meet: a file that uses the helper and still breaks the rule. The first
+    # version of the gate skipped every file that mentioned `touchTarget`, so
+    # the helper's own file was the one place a violation could hide.
+    #
+    # The gate also had no control at all, which is how its blindness
+    # survived: it was registered, blocking, and green on a corpus that
+    # contains every shape it claimed to catch.
+    ScriptGate(
+        name="touch-targets",
+        cmd=[sys.executable, "scripts/check-touch-targets.py"],
+        sabotage_path="shared/src/commonMain/kotlin/com/singularity/todo/core/ui/TouchTarget.kt",
+        sabotage=None,  # filled from _registry.GATE_CONTROLS by _prefer_registry_controls
+        why=(
+            "an interactive target below 48 dp is a control a finger cannot hit, and "
+            "the expansion has to come before the size: applied after it, the size "
+            "caps the hit area and the target stays small however the chain is read"
+        ),
+    ),
 ]
 
 @dataclass(frozen=True)

@@ -883,6 +883,7 @@ gate blocking "a specification and the tree agree" sgate a_specification_and_the
 gate blocking "hideKeyboard follows an input" sgate hidekeyboard_follows_an_input
 # The conventions carry the number; this gate holds it to the tag, and holds a smoke shard to costing no more than a full-suite shard.
 gate blocking "maestro smoke suite matches the doc" sgate maestro_smoke_suite_matches_the_doc
+# A touch target is 48 dp, and the order of the modifier chain decides whether a fixed size caps the hit area or only shapes the picture: the expansion has to come before the size.
 gate blocking "touch targets meet minimum" python3 scripts/check-touch-targets.py
 # <<< END GENERATED: sgate render-static-gates >>>
 

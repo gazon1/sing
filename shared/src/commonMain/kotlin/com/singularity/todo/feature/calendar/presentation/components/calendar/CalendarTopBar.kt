@@ -184,7 +184,9 @@ private fun CalendarControls(
             text = "Today",
             color = palette.textSecondary,
             fontSize = 14.sp,
-            modifier = Modifier.touchTarget(TaskListSizes.MinTouchTarget).clickable { onIntent(CalendarIntent.GoToday) },
+            modifier = Modifier
+                .touchTarget(TaskListSizes.MinTouchTarget)
+                .clickable { onIntent(CalendarIntent.GoToday) },
         )
         Spacer(Modifier.width(8.dp))
         Icon(
