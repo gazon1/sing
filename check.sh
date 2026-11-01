@@ -4,6 +4,7 @@
 #      → assembleDebug → detekt
 # Optionally runs Android instrumentation on adb device if SKIP_ADB=0
 # Usage: SKIP_ADB=1 ./check.sh   # skip adb tests
+#        ./check.sh --fast      # the fast lane: only the checks this change can break
 #
 # NOTE: no --no-daemon here on purpose. A warm Gradle+Kotlin daemon keeps
 # incremental compilation across runs; --no-daemon forces a cold JVM every
@@ -21,22 +22,28 @@ set -e
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
-# ── The affected lane ─────────────────────────────────────────────────────────
+# ── The lanes ─────────────────────────────────────────────────────────────────
 #
 # `--affected` runs the tests this change can break and the detekt of the files
 # it touches, instead of the whole suite and the whole module sweep. It is a
 # LANE, not a smaller loop: every gate still runs, and the full loop is still
 # what CI runs and what `just tests::check` runs.
 #
-# The two tools it uses are the ones CI's "Affected tests" job uses — one
-# answer to "what does this change require?", asked once in one place.
+# `--fast` is the lane an unattended agent runs per issue: the checks that can
+# catch THIS change, and nothing else. See fast_lane() below.
+#
+# The two tools the affected lane uses are the ones CI's "Affected tests" job
+# uses — one answer to "what does this change require?", asked once in one
+# place.
 AFFECTED=0
+FAST=0
 for arg in "$@"; do
     case "$arg" in
         --affected) AFFECTED=1 ;;
+        --fast) FAST=1 ;;
         *)
             echo "unknown option: $arg" >&2
-            echo "usage: ./check.sh [--affected]" >&2
+            echo "usage: ./check.sh [--affected] [--fast]" >&2
             exit 64
             ;;
     esac
@@ -59,7 +66,14 @@ RESULT_MAX_AGE=21600
 # recorded baseline. Nothing is run twice to be timed: these are the runs that
 # happened anyway.
 COST_DIR="$ROOT/build/diagnostics"
-COST_FILE="$COST_DIR/cycle-steps.txt"
+# The fast lane measures itself into its own file. The full loop's record is
+# what `sgate gate-costs` publishes, and a fast run must not overwrite the
+# measurement of the loop it is not.
+if (( FAST )); then
+    COST_FILE="$COST_DIR/fast-lane-steps.txt"
+else
+    COST_FILE="$COST_DIR/cycle-steps.txt"
+fi
 mkdir -p "$COST_DIR"
 : >"$COST_FILE"
 
@@ -102,7 +116,8 @@ TOTAL=11
 # docs/decisions/2026-10-28-the-local-loop-measures-nothing-it-does-not-use.md
 COVERAGE_OFF="-Pcoverage.enabled=false"
 
-echo -e "${YELLOW}=== [1/$TOTAL] static gates (the shared registry) ===${NC}"
+# ── The static gates ──────────────────────────────────────────────────────────
+#
 # Every script gate that needs no JVM and no build output lives in
 # scripts/ci/static-gates.sh, which the `static` job of ci.yml also runs.
 # sgate run-all reads that registry and dispatches each gate to its native
@@ -115,15 +130,135 @@ echo -e "${YELLOW}=== [1/$TOTAL] static gates (the shared registry) ===${NC}"
 # install used to surface as the gate scripts' own unit tests failing with
 # ModuleNotFoundError, which reads like a broken test rather than a missing
 # install. The preflight names the tool and the command that installs it.
-bash scripts/ci/preflight-gate-tools.sh || {
-    echo -e "${RED}the gate tooling is not installed — see the message above${NC}"
-    exit 1
+#
+# ONE call site, called by both loops: the gate-wiring check asks whether
+# check.sh runs the registry, and two spellings of it in one file would let
+# either path be broken while the answer stayed "yes".
+run_static_gates() {
+    bash scripts/ci/preflight-gate-tools.sh || {
+        echo -e "${RED}the gate tooling is not installed — see the message above${NC}"
+        return 1
+    }
+    timed "static gates" sgate run-all || {
+        echo -e "${RED}a static gate failed — see sgate run-all output above${NC}"
+        return 1
+    }
 }
 
-timed "static gates" sgate run-all || {
-    echo -e "${RED}a static gate failed — see sgate run-all output above${NC}"
-    exit 1
+# ── The affected tests ────────────────────────────────────────────────────────
+#
+# The classes this change can break, and nothing else. The map is the one CI's
+# "Affected tests" job asks, and it names a POPULATION rather than a tag list,
+# so the command cannot select a population the repository has not declared. An
+# empty selection is an ANSWER — "this change claims no test class" — and the
+# map reports it on stdout, where this function reads it.
+#
+# THREE answers, and each of them says what ran. The line "shared:jvmTest
+# passed" used to stand AFTER this branch, so it was printed whatever the
+# branch did: a lane that ran four thousand tests and a lane that ran NOTHING
+# read exactly the same. The line a reader trusts has to name the tests that
+# ran.
+run_affected_tests() {
+    local selection cmd classes ran
+    selection="$(python3 scripts/test-impact-map.py --command --population fast --gradle ./gw)" || {
+        echo -e "${RED}the affected test selection could not be computed — see the message above${NC}"
+        return 1
+    }
+    if grep -q '^test-impact-map: the change is already contained in the base' <<<"$selection"; then
+        echo -e "${GREEN}the affected lane: the change is already in the base — there is nothing to compare${NC}"
+        return 0
+    fi
+    if grep -q '^test-impact-map: the change selects no test class$' <<<"$selection"; then
+        echo -e "${GREEN}the affected lane: the change claims no test class — there is nothing to run, and that is an answer${NC}"
+        return 0
+    fi
+    ran=0
+    while IFS= read -r cmd; do
+        [ -n "$cmd" ] || continue
+        classes="$(grep -o -- '--tests ' <<<"$cmd" | wc -l)"
+        ran=$(( ran + classes ))
+        # `--rerun`: a task whose inputs did not change is UP-TO-DATE, and an
+        # UP-TO-DATE test task runs NO test. The line below names the classes
+        # that ran, so they have to run — a second run over the same tree would
+        # otherwise print "N test class(es) ran" about a run that never happened.
+        echo "running: $cmd --rerun $COVERAGE_OFF"
+        eval "$cmd --rerun $COVERAGE_OFF" || {
+            echo -e "${RED}an affected test FAILED${NC}"
+            scripts/ci/print-test-failures.sh shared/build/test-results || true
+            return 1
+        }
+    done <<<"$selection"
+    echo -e "${GREEN}the affected lane: $ran test class(es) ran${NC}"
 }
+
+# ── The fast lane ─────────────────────────────────────────────────────────────
+#
+# `--fast` is the lane an unattended agent runs per issue: the checks that can
+# catch THIS change, and nothing else. The full loop below is unchanged, and it
+# is still what CI runs and what a human runs before merging.
+#
+# The full loop costs about fifteen minutes (docs/testing/gate-costs.md), and
+# most of that is spent on things this change did not touch: the whole JVM
+# suite (6m44s), the three steps that test the gate machinery itself (5m), and
+# the module-wide detekt sweep — minutes more in a fresh worktree, because the
+# configuration cache is cold there. None of them answers "does this change
+# break something", and an agent that waits fifteen minutes per iteration
+# closes one issue at a time.
+#
+# The fast lane answers exactly that, with the tools the repository already
+# has: the app compiles, the tests this change can break run, the detekt of
+# the files it touched runs, and the tree-level static gates run — 38 seconds,
+# and they catch the dead file reference a moved file leaves behind.
+#
+# What it skips is judged elsewhere, not nowhere: CI runs the full loop, and
+# the merge pipeline runs it again on a branch that moved.
+fast_lane() {
+    echo -e "${YELLOW}=== fast lane: the checks this change can break ===${NC}"
+
+    # The app compiles. androidMain is compiled by neither the JVM tests nor
+    # detekt — detekt runs without type resolution — and a broken androidMain
+    # is a defect this repository has collected twice.
+    timed "androidApp:compileDebugKotlin" ./gw :androidApp:compileDebugKotlin :androidApp:compileDebugAndroidTestKotlin --quiet || {
+        echo -e "${RED}androidApp:compileDebugKotlin FAILED${NC}"
+        return 1
+    }
+
+    # The tests this change can break.
+    timed "affected tests" run_affected_tests || return 1
+
+    # The detekt of the files the change touched: the same rules, the same
+    # baseline, a smaller input. A mechanical finding is a finding about the
+    # file that was just written.
+    timed "detekt (changed files only)" python3 scripts/lint-changed.py || {
+        echo -e "${RED}detekt reported violations in the changed files — see config/detekt/ for the active rule set${NC}"
+        return 1
+    }
+
+    # The tree-level gates: cheap, and they read the tree rather than the
+    # change.
+    run_static_gates || return 1
+
+    echo ""
+    echo -e "${YELLOW}=== what the fast lane did not run ===${NC}"
+    echo "the full JVM suite, the architecture gates, the ADR and desktop suites, the module-wide"
+    echo "detekt sweep, the gate-machinery steps and assembleDebug. CI runs them, and so does"
+    echo "./check.sh without --fast."
+    return 0
+}
+
+if (( FAST )); then
+    fast_lane
+    exit $?
+fi
+
+echo -e "${YELLOW}=== [1/$TOTAL] static gates (the shared registry) ===${NC}"
+# The registry, the preflight and what they are: run_static_gates() above.
+#
+# The invocation lives in that function and is called from here and from the
+# fast lane. ONE call site: the gate-wiring check counts the surfaces that run
+# the registry, and two spellings of it in one file would make "check.sh runs
+# the registry" true while either path was broken.
+run_static_gates || exit 1
 
 # Deliberately NOT in the registry: backlog bookkeeping changes with every commit,
 # and a PR must not be blocked by how the work queue is annotated. Declared
@@ -191,47 +326,8 @@ fi
 # producing it is `koverReport`'s job and this script does not run it.
 if (( AFFECTED )); then
     # The affected lane: the classes this change can break, and nothing else.
-    #
-    # The map is the one CI's "Affected tests" job asks, and it names a
-    # POPULATION rather than a tag list, so the command cannot select a
-    # population the repository has not declared. An empty selection is an
-    # ANSWER — "this change claims no test class" — and the map reports it on
-    # stdout, where this step reads it.
-    #
-    # THREE answers, and each of them says what ran. The line "shared:jvmTest
-    # passed" used to stand AFTER this branch, so it was printed whatever the
-    # branch did: a lane that ran four thousand tests and a lane that ran
-    # NOTHING read exactly the same. The line a reader trusts has to name the
-    # tests that ran.
     echo -e "${YELLOW}    (affected lane: only the tests this change can break)${NC}"
-    selection="$(python3 scripts/test-impact-map.py --command --population fast --gradle ./gw)" || {
-        echo -e "${RED}the affected test selection could not be computed — see the message above${NC}"
-        exit 1
-    }
-    if grep -q '^test-impact-map: the change is already contained in the base' <<<"$selection"; then
-        echo -e "${GREEN}the affected lane: the change is already in the base — there is nothing to compare${NC}"
-    elif grep -q '^test-impact-map: the change selects no test class$' <<<"$selection"; then
-        echo -e "${GREEN}the affected lane: the change claims no test class — there is nothing to run, and that is an answer${NC}"
-    else
-        ran=0
-        while IFS= read -r command; do
-            [ -n "$command" ] || continue
-            classes="$(grep -o -- '--tests ' <<<"$command" | wc -l)"
-            ran=$(( ran + classes ))
-            # `--rerun`: a task whose inputs did not change is UP-TO-DATE, and
-            # an UP-TO-DATE test task runs NO test. The line below names the
-            # classes that ran, so they have to run — a second `./check.sh
-            # --affected` over the same tree would otherwise print "N test
-            # class(es) ran" about a run that never happened.
-            echo "running: $command --rerun $COVERAGE_OFF"
-            eval "$command --rerun $COVERAGE_OFF" || {
-                echo -e "${RED}an affected test FAILED${NC}"
-                scripts/ci/print-test-failures.sh shared/build/test-results || true
-                exit 1
-            }
-        done <<<"$selection"
-        echo -e "${GREEN}the affected lane: $ran test class(es) ran${NC}"
-    fi
+    run_affected_tests || exit 1
 else
     timed "shared:jvmTest" ./gw :shared:jvmTest --quiet "${COVERAGE_OFF}" || {
         echo -e "${RED}shared:jvmTest FAILED${NC}"
