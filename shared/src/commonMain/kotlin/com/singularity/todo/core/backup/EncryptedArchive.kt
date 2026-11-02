@@ -105,13 +105,15 @@ import com.singularity.todo.core.security.ArchiveCrypto
  * - [ArchiveErrorMapping] — what a failure means.
  */
 class EncryptedArchive(private val crypto: ArchiveCrypto) {
-
     /**
      * The encrypted form of [plain].
      *
      * @throws ArchiveEnvelopeError.MissingPassword when the password is empty.
      */
-    fun seal(plain: ByteArray, password: CharArray): ByteArray {
+    fun seal(
+        plain: ByteArray,
+        password: CharArray,
+    ): ByteArray {
         val sink = ByteArraySink()
         seal(ByteArraySource(plain), sink, password)
         return sink.bytes()
@@ -129,7 +131,11 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
      *
      * @throws ArchiveEnvelopeError.MissingPassword when the password is empty.
      */
-    fun seal(source: ByteSource, sink: ByteSink, password: CharArray) {
+    fun seal(
+        source: ByteSource,
+        sink: ByteSink,
+        password: CharArray,
+    ) {
         sealChain(base = source, entries = emptyList(), sink = sink, password = password)
     }
 
@@ -157,7 +163,12 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
      * @throws ArchiveEnvelopeError.MissingPassword when the password is empty.
      * @throws ArchiveEnvelopeError.ChainTooLong when the chain is past its bound.
      */
-    fun sealChain(base: ByteSource, entries: List<ByteSource>, sink: ByteSink, password: CharArray) {
+    fun sealChain(
+        base: ByteSource,
+        entries: List<ByteSource>,
+        sink: ByteSink,
+        password: CharArray,
+    ) {
         requirePassword(password)
         ArchiveChainWriter(crypto).write(
             base = base,
@@ -208,7 +219,10 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
      * The wrapping is done **once per device**: the block has a salt of its own, so
      * it does not have to be re-wrapped when the archive's salt changes.
      */
-    fun wrapDeviceKey(deviceKey: ByteArray, password: CharArray): ArchiveKeyBlock {
+    fun wrapDeviceKey(
+        deviceKey: ByteArray,
+        password: CharArray,
+    ): ArchiveKeyBlock {
         requirePassword(password)
         val blockSalt = crypto.randomBytes(ArchiveFormat.SALT_BYTES)
         val blockNonce = crypto.randomBytes(ArchiveFormat.NONCE_BYTES)
@@ -238,7 +252,10 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
      * @throws ArchiveEnvelopeError.BrokenChain when the archive carries entries, which this
      *   call cannot apply — see [openChain].
      */
-    fun open(container: ByteArray, password: CharArray): ByteArray {
+    fun open(
+        container: ByteArray,
+        password: CharArray,
+    ): ByteArray {
         val sink = ByteArraySink()
         openChain(ByteArraySource(container), sink, password) { _, _ ->
             throw ArchiveEnvelopeError.BrokenChain(
@@ -269,7 +286,11 @@ class EncryptedArchive(private val crypto: ArchiveCrypto) {
      * @throws ArchiveEnvelopeError.BrokenChain when the archive carries entries, which this
      *   call cannot apply.
      */
-    fun open(source: ByteSource, sink: ByteSink, password: CharArray) {
+    fun open(
+        source: ByteSource,
+        sink: ByteSink,
+        password: CharArray,
+    ) {
         openChain(source, sink, password) { _, _ ->
             throw ArchiveEnvelopeError.BrokenChain(
                 "it carries changes, and reading an archive whole cannot apply them",

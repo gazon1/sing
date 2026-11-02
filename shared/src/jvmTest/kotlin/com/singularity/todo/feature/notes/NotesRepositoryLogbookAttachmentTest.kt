@@ -53,7 +53,6 @@ import kotlin.time.Clock
 @Tag("slow")
 @Tag("slow:data")
 class NotesRepositoryLogbookAttachmentTest {
-
     private val user = UserId("u1")
     private val taskId = TaskId("t1")
 
@@ -63,55 +62,58 @@ class NotesRepositoryLogbookAttachmentTest {
     private lateinit var repo: NotesRepositoryImpl
 
     @BeforeTest
-    fun setUp() = runTest {
-        tempDir = Files.createTempDirectory("singularity-logbook-").toFile()
-        db = AppDatabaseFactory.build(createSqlDriver(), File(tempDir, "singularity.db").absolutePath)
-        sync = FakeSyncRepository(this)
-        val currentUser = FakeProfileAwareCurrentUser(
-            FakeAuthRepository(Session.Anonymous(user)),
-            scope = backgroundScope,
-        )
-        repo = NotesRepositoryImpl(
-            noteDao = db.noteDao(),
-            textIndex = db.textIndex(currentUser),
-            clock = Clock.System,
-            currentUser = currentUser,
-            syncRepository = sync,
-            unitOfWork = FakeUnitOfWork(),
-        )
-        // The attachment is a foreign key, so the task has to exist before the note
-        // may point at it.
-        db.taskDao().upsert(
-            com.singularity.todo.core.database.TaskEntity(
-                id = taskId.value,
-                title = "Buy milk",
-                description = null,
-                priority = TaskPriority.None,
-                kind = TaskKind.Task,
-                projectId = null,
-                parentTaskId = null,
-                dueDate = null,
-                dueTime = null,
-                startDate = null,
-                startTime = null,
-                endDate = null,
-                endTime = null,
-                accentColor = null,
-                emoji = null,
-                estimateMinutes = null,
-                completedAt = null,
-                someday = false,
-                archivedAt = null,
-                isPinned = false,
-                recurrenceRule = null,
-                outgoingLinks = "[]",
-                aiSuppressedTagIds = "[]",
-                createdAt = 1_000L,
-                updatedAt = 1_000L,
-                userId = user.value,
-            ),
-        )
-    }
+    fun setUp() =
+        runTest {
+            tempDir = Files.createTempDirectory("singularity-logbook-").toFile()
+            db = AppDatabaseFactory.build(createSqlDriver(), File(tempDir, "singularity.db").absolutePath)
+            sync = FakeSyncRepository(this)
+            val currentUser =
+                FakeProfileAwareCurrentUser(
+                    FakeAuthRepository(Session.Anonymous(user)),
+                    scope = backgroundScope,
+                )
+            repo =
+                NotesRepositoryImpl(
+                    noteDao = db.noteDao(),
+                    textIndex = db.textIndex(currentUser),
+                    clock = Clock.System,
+                    currentUser = currentUser,
+                    syncRepository = sync,
+                    unitOfWork = FakeUnitOfWork(),
+                )
+            // The attachment is a foreign key, so the task has to exist before the note
+            // may point at it.
+            db.taskDao().upsert(
+                com.singularity.todo.core.database.TaskEntity(
+                    id = taskId.value,
+                    title = "Buy milk",
+                    description = null,
+                    priority = TaskPriority.None,
+                    kind = TaskKind.Task,
+                    projectId = null,
+                    parentTaskId = null,
+                    dueDate = null,
+                    dueTime = null,
+                    startDate = null,
+                    startTime = null,
+                    endDate = null,
+                    endTime = null,
+                    accentColor = null,
+                    emoji = null,
+                    estimateMinutes = null,
+                    completedAt = null,
+                    someday = false,
+                    archivedAt = null,
+                    isPinned = false,
+                    recurrenceRule = null,
+                    outgoingLinks = "[]",
+                    aiSuppressedTagIds = "[]",
+                    createdAt = 1_000L,
+                    updatedAt = 1_000L,
+                    userId = user.value,
+                ),
+            )
+        }
 
     @AfterTest
     fun tearDown() {
@@ -123,111 +125,119 @@ class NotesRepositoryLogbookAttachmentTest {
         db.noteDao().getByIdForUser(noteId, user.value)?.taskId
 
     @Test
-    fun `createForTask writes the attachment onto the note`() = runTest {
-        val result = repo.createForTask(
-            id = NoteId("n1"),
-            taskId = taskId,
-            title = "Bought the good one",
-            bodyMarkdown = null,
-            bodyHtml = "<p>Bought the good one</p>",
-        )
+    fun `createForTask writes the attachment onto the note`() =
+        runTest {
+            val result =
+                repo.createForTask(
+                    id = NoteId("n1"),
+                    taskId = taskId,
+                    title = "Bought the good one",
+                    bodyMarkdown = null,
+                    bodyHtml = "<p>Bought the good one</p>",
+                )
 
-        assertTrue(result.isSuccess, "createForTask failed: ${result.exceptionOrNull()}")
-        assertEquals(taskId.value, storedTaskIdOf("n1"))
-    }
-
-    @Test
-    fun `the attached note is in the task's logbook right after it is created`() = runTest {
-        repo.createForTask(
-            id = NoteId("n1"),
-            taskId = taskId,
-            title = "Bought the good one",
-            bodyMarkdown = null,
-            bodyHtml = "<p>Bought the good one</p>",
-        )
-
-        val attached = repo.watchForTask(taskId).first()
-        assertEquals(1, attached.size)
-        assertEquals("Bought the good one", attached.first().title)
-    }
+            assertTrue(result.isSuccess, "createForTask failed: ${result.exceptionOrNull()}")
+            assertEquals(taskId.value, storedTaskIdOf("n1"))
+        }
 
     @Test
-    fun `a content save does not drop the attachment — the editor's autosave path`() = runTest {
-        repo.createForTask(
-            id = NoteId("n1"),
-            taskId = taskId,
-            title = "Bought the good one",
-            bodyMarkdown = null,
-            bodyHtml = "<p>Bought the good one</p>",
-        )
+    fun `the attached note is in the task's logbook right after it is created`() =
+        runTest {
+            repo.createForTask(
+                id = NoteId("n1"),
+                taskId = taskId,
+                title = "Bought the good one",
+                bodyMarkdown = null,
+                bodyHtml = "<p>Bought the good one</p>",
+            )
 
-        // What the editor's autosave does on every debounced keystroke.
-        val result = repo.updateContent(
-            id = NoteId("n1"),
-            title = "Bought the good one (2l)",
-            bodyMarkdown = "",
-            bodyHtml = "<p>Bought the good one (2l)</p>",
-        )
-
-        assertTrue(result.isSuccess, "updateContent failed: ${result.exceptionOrNull()}")
-        assertEquals(
-            taskId.value,
-            storedTaskIdOf("n1"),
-            "a content save must not detach the note from its task",
-        )
-    }
+            val attached = repo.watchForTask(taskId).first()
+            assertEquals(1, attached.size)
+            assertEquals("Bought the good one", attached.first().title)
+        }
 
     @Test
-    fun `the note is still in the task's logbook after a content save`() = runTest {
-        repo.createForTask(
-            id = NoteId("n1"),
-            taskId = taskId,
-            title = "Bought the good one",
-            bodyMarkdown = null,
-            bodyHtml = "<p>Bought the good one</p>",
-        )
-        repo.updateContent(
-            id = NoteId("n1"),
-            title = "Bought the good one (2l)",
-            bodyMarkdown = "",
-            bodyHtml = "<p>Bought the good one (2l)</p>",
-        )
+    fun `a content save does not drop the attachment — the editor's autosave path`() =
+        runTest {
+            repo.createForTask(
+                id = NoteId("n1"),
+                taskId = taskId,
+                title = "Bought the good one",
+                bodyMarkdown = null,
+                bodyHtml = "<p>Bought the good one</p>",
+            )
 
-        val attached = repo.watchForTask(taskId).first()
-        assertEquals(1, attached.size, "the note left the logbook after its content was saved")
-    }
+            // What the editor's autosave does on every debounced keystroke.
+            val result =
+                repo.updateContent(
+                    id = NoteId("n1"),
+                    title = "Bought the good one (2l)",
+                    bodyMarkdown = "",
+                    bodyHtml = "<p>Bought the good one (2l)</p>",
+                )
 
-    @Test
-    fun `a note of another task is not in this task's logbook`() = runTest {
-        val other = TaskId("t2")
-        repo.createForTask(
-            id = NoteId("n1"),
-            taskId = other,
-            title = "Somewhere else",
-            bodyMarkdown = null,
-            bodyHtml = "<p>Somewhere else</p>",
-        )
-
-        assertTrue(repo.watchForTask(taskId).first().isEmpty())
-    }
+            assertTrue(result.isSuccess, "updateContent failed: ${result.exceptionOrNull()}")
+            assertEquals(
+                taskId.value,
+                storedTaskIdOf("n1"),
+                "a content save must not detach the note from its task",
+            )
+        }
 
     @Test
-    fun `a note that only links to the task is not in the logbook`() = runTest {
-        // A `task://` link in the body: the note is *about* the task, not attached to it.
-        repo.createWithContent(
-            id = NoteId("n1"),
-            title = "Mentions the task",
-            bodyMarkdown = "",
-            bodyHtml = "<p>Mentions the task</p>",
-        )
-        repo.setOutgoingLinks(NoteId("n1"), listOf("task://${taskId.value}"))
+    fun `the note is still in the task's logbook after a content save`() =
+        runTest {
+            repo.createForTask(
+                id = NoteId("n1"),
+                taskId = taskId,
+                title = "Bought the good one",
+                bodyMarkdown = null,
+                bodyHtml = "<p>Bought the good one</p>",
+            )
+            repo.updateContent(
+                id = NoteId("n1"),
+                title = "Bought the good one (2l)",
+                bodyMarkdown = "",
+                bodyHtml = "<p>Bought the good one (2l)</p>",
+            )
 
-        assertTrue(
-            repo.watchForTask(taskId).first().isEmpty(),
-            "a note that merely links to the task belongs in the task's \"Linked\" card, " +
-                "not in its logbook",
-        )
-    }
+            val attached = repo.watchForTask(taskId).first()
+            assertEquals(1, attached.size, "the note left the logbook after its content was saved")
+        }
+
+    @Test
+    fun `a note of another task is not in this task's logbook`() =
+        runTest {
+            val other = TaskId("t2")
+            repo.createForTask(
+                id = NoteId("n1"),
+                taskId = other,
+                title = "Somewhere else",
+                bodyMarkdown = null,
+                bodyHtml = "<p>Somewhere else</p>",
+            )
+
+            assertTrue(repo.watchForTask(taskId).first().isEmpty())
+        }
+
+    @Test
+    fun `a note that only links to the task is not in the logbook`() =
+        runTest {
+            // A `task://` link in the body: the note is *about* the task, not attached to it.
+            repo.createWithContent(
+                id = NoteId("n1"),
+                title = "Mentions the task",
+                bodyMarkdown = "",
+                bodyHtml = "<p>Mentions the task</p>",
+            )
+            repo.setOutgoingLinks(NoteId("n1"), listOf("task://${taskId.value}"))
+
+            assertTrue(
+                repo.watchForTask(taskId).first().isEmpty(),
+                "a note that merely links to the task belongs in the task's \"Linked\" card, " +
+                    "not in its logbook",
+            )
+        }
 
     /**
      * The hazard the editor has to avoid, pinned so it cannot be forgotten.
@@ -239,39 +249,42 @@ class NotesRepositoryLogbookAttachmentTest {
      * to create twice.
      */
     @Test
-    fun `the create primitive replaces the whole row — it is not safe on an existing note`() = runTest {
-        repo.createForTask(
-            id = NoteId("n1"),
-            taskId = taskId,
-            title = "Bought the good one",
-            bodyMarkdown = null,
-            bodyHtml = "<p>Bought the good one</p>",
-        )
+    fun `the create primitive replaces the whole row — it is not safe on an existing note`() =
+        runTest {
+            repo.createForTask(
+                id = NoteId("n1"),
+                taskId = taskId,
+                title = "Bought the good one",
+                bodyMarkdown = null,
+                bodyHtml = "<p>Bought the good one</p>",
+            )
 
-        repo.createWithContent(
-            id = NoteId("n1"),
-            title = "Bought the good one (2l)",
-            bodyMarkdown = "",
-            bodyHtml = "<p>Bought the good one (2l)</p>",
-        )
+            repo.createWithContent(
+                id = NoteId("n1"),
+                title = "Bought the good one (2l)",
+                bodyMarkdown = "",
+                bodyHtml = "<p>Bought the good one (2l)</p>",
+            )
 
-        assertNull(
-            storedTaskIdOf("n1"),
-            "a whole-row write is expected to clear the attachment — that is the hazard",
-        )
-    }
+            assertNull(
+                storedTaskIdOf("n1"),
+                "a whole-row write is expected to clear the attachment — that is the hazard",
+            )
+        }
 
     @Test
-    fun `the created note is enqueued for sync`() = runTest {
-        val result = repo.createForTask(
-            id = NoteId("n1"),
-            taskId = taskId,
-            title = "Bought the good one",
-            bodyMarkdown = null,
-            bodyHtml = "<p>Bought the good one</p>",
-        )
+    fun `the created note is enqueued for sync`() =
+        runTest {
+            val result =
+                repo.createForTask(
+                    id = NoteId("n1"),
+                    taskId = taskId,
+                    title = "Bought the good one",
+                    bodyMarkdown = null,
+                    bodyHtml = "<p>Bought the good one</p>",
+                )
 
-        assertTrue(result.isSuccess)
-        assertNotNull(sync.enqueuedEntities.lastOrNull())
-    }
+            assertTrue(result.isSuccess)
+            assertNotNull(sync.enqueuedEntities.lastOrNull())
+        }
 }

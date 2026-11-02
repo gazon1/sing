@@ -36,5 +36,8 @@ sealed interface OpenOutcome {
  * This port does not own the lifecycle of [filePath]; the caller owns the file.
  */
 interface FileOpener {
-    suspend fun open(filePath: String, mimeType: String): OpenOutcome
+    suspend fun open(
+        filePath: String,
+        mimeType: String,
+    ): OpenOutcome
 }

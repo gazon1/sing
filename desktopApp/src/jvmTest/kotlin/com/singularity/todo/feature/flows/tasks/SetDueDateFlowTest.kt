@@ -1,10 +1,9 @@
 package com.singularity.todo.feature.flows.tasks
 
-import kotlinx.datetime.LocalDate
-import com.singularity.todo.test.fakes.FakeClock
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.assertTextNotExists
@@ -12,6 +11,7 @@ import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.scrollToTag
 import com.singularity.todo.test.helpers.tasks
+import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.time.Instant
@@ -47,24 +47,25 @@ class SetDueDateFlowTest {
      * would fail for a reason unrelated to the row.
      */
     @Test
-    fun a_dated_task_shows_its_date_instead_of_the_placeholder() = runDesktopAppTest(
-        clock = CLOCK,
-        checkA11y = true,
-    ) { koin ->
-        tasks(koin).given(due = today, title = "Buy milk")
+    fun a_dated_task_shows_its_date_instead_of_the_placeholder() =
+        runDesktopAppTest(
+            clock = CLOCK,
+            checkA11y = true,
+        ) { koin ->
+            tasks(koin).given(due = today, title = "Buy milk")
 
-        awaitTag(TestTags.taskItem("Buy milk")).performClick()
-        awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+            awaitTag(TestTags.taskItem("Buy milk")).performClick()
+            awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
 
-        // The attribute rows live below the fold on a 1024x768 window — the priority
-        // row alone lands at y=715 — so the due row is composed at (0,0) w=0 h=0
-        // until scrolled into view, and assertIsDisplayed fails on a zero-size node.
-        scrollToTag(TestTags.TASK_EDITOR_DUE_ROW)
-        assertTagDisplayed(TestTags.TASK_EDITOR_DUE_ROW)
-        // The row renders the ISO date, not the placeholder.
-        assertTextDisplayed(today.toString())
-        assertTextNotExists("Добавить дату")
-    }
+            // The attribute rows live below the fold on a 1024x768 window — the priority
+            // row alone lands at y=715 — so the due row is composed at (0,0) w=0 h=0
+            // until scrolled into view, and assertIsDisplayed fails on a zero-size node.
+            scrollToTag(TestTags.TASK_EDITOR_DUE_ROW)
+            assertTagDisplayed(TestTags.TASK_EDITOR_DUE_ROW)
+            // The row renders the ISO date, not the placeholder.
+            assertTextDisplayed(today.toString())
+            assertTextNotExists("Добавить дату")
+        }
 
     private companion object {
         /** Mid-month, so no assertion in this file straddles a boundary. */

@@ -19,10 +19,10 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
-import kotlin.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 /**
  * A failed time-tracking write has to become a state, not a silence.
@@ -47,7 +47,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class TaskTimeSlotFailureTest {
-
     private fun slot(
         repo: TimeTrackingRepository,
         scope: AutoCloseableCoroutineScope,
@@ -63,63 +62,67 @@ class TaskTimeSlotFailureTest {
         )
     }
 
-    private fun aTask(): Task = Task(
-        id = TaskId("t1"),
-        title = "Track me",
-        // Only the three without defaults. Read from the declaration rather than
-        // guessed: the first attempt invented `isCompleted`/`isArchived`, which
-        // do not exist, and omitted these three, which do.
-        createdAt = Instant.fromEpochMilliseconds(0),
-        updatedAt = Instant.fromEpochMilliseconds(0),
-        userId = UserId("u1"),
-    )
+    private fun aTask(): Task =
+        Task(
+            id = TaskId("t1"),
+            title = "Track me",
+            // Only the three without defaults. Read from the declaration rather than
+            // guessed: the first attempt invented `isCompleted`/`isArchived`, which
+            // do not exist, and omitted these three, which do.
+            createdAt = Instant.fromEpochMilliseconds(0),
+            updatedAt = Instant.fromEpochMilliseconds(0),
+            userId = UserId("u1"),
+        )
 
     @Test
-    fun a_refused_start_becomes_an_error_state() = runTest {
-        val scope = AutoCloseableCoroutineScope(StandardTestDispatcher(testScheduler))
-        val refusing = RefusingTimeTrackingRepository("no signed-in user")
-        val subject = slot(refusing, scope, aTask())
+    fun a_refused_start_becomes_an_error_state() =
+        runTest {
+            val scope = AutoCloseableCoroutineScope(StandardTestDispatcher(testScheduler))
+            val refusing = RefusingTimeTrackingRepository("no signed-in user")
+            val subject = slot(refusing, scope, aTask())
 
-        subject.onIntent(TaskTimeSlotIntent.Start)
-        advanceUntilIdle()
+            subject.onIntent(TaskTimeSlotIntent.Start)
+            advanceUntilIdle()
 
-        val state = assertIs<TaskTimeSlotState.Error>(subject.state.value)
-        assertTrue(
-            state.message.contains("no signed-in user"),
-            "the refusal must reach the user verbatim, got '${state.message}'",
-        )
-    }
-
-    @Test
-    fun a_refused_stop_becomes_an_error_state() = runTest {
-        val scope = AutoCloseableCoroutineScope(StandardTestDispatcher(testScheduler))
-        val subject = slot(RefusingTimeTrackingRepository("offline"), scope, aTask())
-
-        subject.onIntent(TaskTimeSlotIntent.Stop)
-        advanceUntilIdle()
-
-        assertTrue(
-            assertIs<TaskTimeSlotState.Error>(subject.state.value).message.contains("offline"),
-        )
-    }
+            val state = assertIs<TaskTimeSlotState.Error>(subject.state.value)
+            assertTrue(
+                state.message.contains("no signed-in user"),
+                "the refusal must reach the user verbatim, got '${state.message}'",
+            )
+        }
 
     @Test
-    fun a_successful_start_is_not_an_error() = runTest {
-        // The negative case, because a gate that only knows how to report failure
-        // is satisfied by a repository that always fails. This one passes through
-        // the real fake, so the assertion is about the happy path not being
-        // swallowed in the other direction.
-        val scope = AutoCloseableCoroutineScope(StandardTestDispatcher(testScheduler))
-        val subject = slot(FakeTimeTrackingRepository(MutableClock()), scope, aTask())
+    fun a_refused_stop_becomes_an_error_state() =
+        runTest {
+            val scope = AutoCloseableCoroutineScope(StandardTestDispatcher(testScheduler))
+            val subject = slot(RefusingTimeTrackingRepository("offline"), scope, aTask())
 
-        subject.onIntent(TaskTimeSlotIntent.Start)
-        advanceUntilIdle()
+            subject.onIntent(TaskTimeSlotIntent.Stop)
+            advanceUntilIdle()
 
-        assertTrue(
-            subject.state.value !is TaskTimeSlotState.Error,
-            "a successful write must not produce an error state",
-        )
-    }
+            assertTrue(
+                assertIs<TaskTimeSlotState.Error>(subject.state.value).message.contains("offline"),
+            )
+        }
+
+    @Test
+    fun a_successful_start_is_not_an_error() =
+        runTest {
+            // The negative case, because a gate that only knows how to report failure
+            // is satisfied by a repository that always fails. This one passes through
+            // the real fake, so the assertion is about the happy path not being
+            // swallowed in the other direction.
+            val scope = AutoCloseableCoroutineScope(StandardTestDispatcher(testScheduler))
+            val subject = slot(FakeTimeTrackingRepository(MutableClock()), scope, aTask())
+
+            subject.onIntent(TaskTimeSlotIntent.Start)
+            advanceUntilIdle()
+
+            assertTrue(
+                subject.state.value !is TaskTimeSlotState.Error,
+                "a successful write must not produce an error state",
+            )
+        }
 
     private class RefusingTimeTrackingRepository(private val why: String) :
         TimeTrackingRepository by FakeTimeTrackingRepository(MutableClock()) {
@@ -130,7 +133,6 @@ class TaskTimeSlotFailureTest {
             source: TimeEntrySource,
         ): Result<TimeEntryId> = Result.failure(IllegalStateException(why))
 
-        override suspend fun stopEntry(userId: UserId): Result<TimeEntry?> =
-            Result.failure(IllegalStateException(why))
+        override suspend fun stopEntry(userId: UserId): Result<TimeEntry?> = Result.failure(IllegalStateException(why))
     }
 }

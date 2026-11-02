@@ -26,22 +26,23 @@ private data class AuthLinkKey(val email: String, val token: String)
  * авто-отправляется на экране — [com.singularity.todo.feature.auth.presentation.MagicLinkConfirmScreen].
  */
 class AuthDeepLink : AppDeepLink {
-
     override val id: String = "verify"
 
-    private val matcher = UriDeepLinkMatcher(
-        uriPattern = DeepLinkUri(AuthLinkSpec.URI),
-        serializer = AuthLinkKey.serializer(),
-    )
+    private val matcher =
+        UriDeepLinkMatcher(
+            uriPattern = DeepLinkUri(AuthLinkSpec.URI),
+            serializer = AuthLinkKey.serializer(),
+        )
 
     override fun match(request: DeepLinkRequest): DeepLinkTarget? {
         val hit = matcher.match(request) ?: return null
         return DeepLinkTarget(
             tab = AppDestination.AgendaGraph(AgendaStartRoute.Today),
-            screen = AppDestination.MagicLinkConfirm(
-                email = hit.key.email,
-                token = hit.key.token,
-            ),
+            screen =
+                AppDestination.MagicLinkConfirm(
+                    email = hit.key.email,
+                    token = hit.key.token,
+                ),
         )
     }
 }

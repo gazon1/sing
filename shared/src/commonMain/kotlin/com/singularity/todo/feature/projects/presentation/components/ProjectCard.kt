@@ -19,13 +19,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import com.singularity.todo.core.ui.contrastingForeground
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.AiActionButton
 import com.singularity.todo.core.ui.components.DeleteActionButton
 import com.singularity.todo.core.ui.components.ReopenActionButton
+import com.singularity.todo.core.ui.contrastingForeground
 import com.singularity.todo.feature.projects.domain.model.Project
 
 /**
@@ -42,10 +42,11 @@ fun ProjectCard(
     modifier: Modifier = Modifier,
 ) {
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .testTag(TestTags.projectCard(project.name))
-            .clickable(onClick = onClick),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .testTag(TestTags.projectCard(project.name))
+                .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Row(
@@ -91,12 +92,17 @@ fun ProjectCard(
 }
 
 @Composable
-private fun ColorCircle(color: Color, iconKey: String?, contentDescription: String? = null) {
+private fun ColorCircle(
+    color: Color,
+    iconKey: String?,
+    contentDescription: String? = null,
+) {
     Box(
-        modifier = Modifier
-            .size(32.dp)
-            .clip(CircleShape)
-            .background(color),
+        modifier =
+            Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .background(color),
         contentAlignment = Alignment.Center,
     ) {
         ProjectIcon(

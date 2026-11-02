@@ -21,7 +21,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class KotlinTextTest {
-
     @Test
     fun a_brace_inside_a_string_is_not_a_brace() {
         assertTrue('{' !in KotlinText.stripCode("val a = \"{\""))

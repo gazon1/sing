@@ -16,13 +16,13 @@ package com.singularity.todo.adr.cli
  * "does this match my checkout?" cannot be told yes or no.
  */
 object AdrProvenance {
-
     const val UNKNOWN: String = "unknown"
 
-    private val properties: java.util.Properties? = run {
-        val stream = AdrProvenance::class.java.getResourceAsStream("/adr-provenance.properties")
-        stream?.use { java.util.Properties().apply { load(it) } }
-    }
+    private val properties: java.util.Properties? =
+        run {
+            val stream = AdrProvenance::class.java.getResourceAsStream("/adr-provenance.properties")
+            stream?.use { java.util.Properties().apply { load(it) } }
+        }
 
     /** 12-char git sha of HEAD at build time, or [UNKNOWN]. */
     val gitSha: String = properties?.getProperty("gitSha")?.takeIf { it.isNotBlank() } ?: UNKNOWN
@@ -41,6 +41,5 @@ object AdrProvenance {
      * refusing to compare would make `--check` useless for every worktree that
      * has not been committed — which is most of them, most of the time.
      */
-    fun matches(checkoutSha: String): Boolean =
-        isKnown && gitSha.equals(checkoutSha.trim().take(12), ignoreCase = true)
+    fun matches(checkoutSha: String): Boolean = isKnown && gitSha.equals(checkoutSha.trim().take(12), ignoreCase = true)
 }

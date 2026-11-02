@@ -13,7 +13,6 @@ import kotlin.test.assertTrue
 
 @Tag("fast")
 class BackupMigrationsTest {
-
     private val json = Json { ignoreUnknownKeys = true }
 
     @Test

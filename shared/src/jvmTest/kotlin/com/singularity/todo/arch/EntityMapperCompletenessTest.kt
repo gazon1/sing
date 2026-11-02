@@ -1,13 +1,13 @@
 package com.singularity.todo.arch
 
-import java.io.File
 import org.junit.jupiter.api.Tag
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.test.fail
 
-/**
+/*
  * Every `@Entity` constructor parameter must appear in its corresponding `toX()` mapper.
  *
  * Room `@Upsert` is a full-row REPLACE: any column not set takes its Kotlin default.
@@ -41,32 +41,35 @@ private val ENTITY_DECLARATION =
     Regex("""@Entity\b[\s\S]{0,600}?\bdata class (\w+)\(""")
 
 private fun declaredEntities(): Set<String> {
-    val root = System.getProperty("commonMain.root")
-        ?: error(
-            "commonMain.root system property is not set — " +
-                "see the jvmTest task config in shared/build.gradle.kts",
-        )
+    val root =
+        System.getProperty("commonMain.root")
+            ?: error(
+                "commonMain.root system property is not set — " +
+                    "see the jvmTest task config in shared/build.gradle.kts",
+            )
     val blockComment = Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL)
     val lineComment = Regex("""//[^\n]*""")
-    return File(root).walkTopDown()
+    return File(root)
+        .walkTopDown()
         .filter { it.isFile && it.extension == "kt" }
         .filterNot { it.path.contains("${File.separator}test${File.separator}") }
         .flatMap { file ->
-            val source = file.readText()
-                .replace(blockComment, "")
-                .replace(lineComment, "")
-            ENTITY_DECLARATION.findAll(source)
+            val source =
+                file
+                    .readText()
+                    .replace(blockComment, "")
+                    .replace(lineComment, "")
+            ENTITY_DECLARATION
+                .findAll(source)
                 .map { it.groupValues[1] }
                 .toList()
                 .asSequence()
-        }
-        .toSet()
+        }.toSet()
 }
 
 @Tag("slow")
 @Tag("slow:data")
 abstract class EntityMapperCompletenessTest {
-
     companion object {
         /** Cached per-process; the top-level `declaredEntities()` is called once. */
         val DECLARED_ENTITIES: Set<String> by lazy { declaredEntities() }
@@ -75,14 +78,15 @@ abstract class EntityMapperCompletenessTest {
          * Entities that are join/cross-ref tables with no domain model,
          * or private mappers that intentionally omit fields managed by the repository.
          */
-        private val SKIP_ENTITIES = setOf(
-            "TaskTagCrossRef",
-            "TaskDependencyCrossRef",
-            "ProjectInheritedTagGroupCrossRef", // join table: no domain model, by design
-            "AttachmentEntity",
-            "SyncOutboxEntity",
-            "ChecklistItemEntity", // toItem() is private; createdAt/updatedAt/rowVersion managed by repo
-        )
+        private val SKIP_ENTITIES =
+            setOf(
+                "TaskTagCrossRef",
+                "TaskDependencyCrossRef",
+                "ProjectInheritedTagGroupCrossRef", // join table: no domain model, by design
+                "AttachmentEntity",
+                "SyncOutboxEntity",
+                "ChecklistItemEntity", // toItem() is private; createdAt/updatedAt/rowVersion managed by repo
+            )
 
         /**
          * Supplemental parameters passed to toX() mappers that are NOT entity columns.
@@ -104,105 +108,214 @@ abstract class EntityMapperCompletenessTest {
          * feature that owns a table of its own — so what matters here is the name and
          * the params, not the file. Updated manually when the schema changes.
          */
-        private val ENTITY_PARAMS = mapOf(
-            // Mapped both ways by the annotation repository, so it belongs here rather
-            // than in UNMAPPED_ENTITIES: an entry in that map asserts the entity has *no*
-            // domain mapper, which is the opposite of what is true here.
-            "AttachmentAnnotationEntity" to setOf(
-                "id", "attachmentId", "userId", "rangeStart", "rangeEnd", "quote", "note",
-                "syncStatus", "createdAt", "updatedAt", "deletedAt", "serverVersion", "hlc",
-            ),
-            "TaskEntity" to setOf(
-                "id", "title", "description", "priority", "kind", "projectId",
-                "parentTaskId", "dueDate", "dueTime", "startDate", "startTime",
-                "endDate", "endTime", "accentColor", "emoji", "estimateMinutes",
-                "completedAt", "someday", "archivedAt", "isPinned", "recurrenceRule",
-                "outgoingLinks", "aiSuppressedTagIds", "createdAt", "updatedAt",
-                "userId", "sync",
-            ),
-            "NoteEntity" to setOf(
-                "id", "userId", "title", "bodyMarkdown", "bodyHtml", "isFolder",
-                "kind", "parentNoteId", "isPinned", "pinnedAt", "color",
-                "sortOrder", "wordCount", "charCount", "outgoingLinks",
-                "taskId", "createdAt", "updatedAt", "deletedAt", "archivedAt", "sync",
-            ),
-            "ProjectEntity" to setOf(
-                "id", "userId", "name", "color", "icon", "description",
-                "createdAt", "updatedAt", "isDefault", "dueDate", "team",
-                "isDeleted", "deletedAt", "parentId", "sortOrder",
-                "idempotencyKey", "externalId", "sync",
-            ),
-            "TagEntity" to setOf(
-                "id", "userId", "name", "color", "createdAt", "updatedAt",
-                "groupId", "sortOrder", "deletedAt", "sync",
-            ),
-            "TagGroupEntity" to setOf(
-                "id",
-                "userId",
-                "name",
-                "color",
-                "createdAt",
-                "updatedAt",
-                "deletedAt",
-                "sync",
-            ),
-            "TaskReminderEntity" to setOf(
-                "id", "taskId", "userId", "type", "offsetMinutes",
-                "fireAt", "recurringPattern", "viewId", "lastFiredAt",
-                "createdAt", "updatedAt",
-            ),
-            // Added 2026-10-04 by the self-completeness check below, which found this
-            // entity had a real mapper (TimeEntryMapper) that no completeness rule had
-            // ever been applied to: an omitted column here would be reset by @Upsert
-            // on every write, silently.
-            "TimeEntryEntity" to setOf(
-                "id", "taskId", "userId", "startedAt", "endedAt",
-                "kind", "source", "note", "createdAt", "updatedAt",
-                "deletedAt", "sync",
-            ),
-            // Also found by the self-completeness check on 2026-10-04. All five have
-            // mappers that were never checked: a column omitted by a mapper is reset by
-            // @Upsert on every write, and nothing here would have noticed.
-            "AgendaViewEntity" to setOf(
-                "id",
-                "userId",
-                "name",
-                "sectionsJson",
-                "createdAt",
-                "updatedAt",
-            ),
-            "AiProposalEntity" to setOf(
-                "id", "userId", "source", "status", "targetKind", "targetId",
-                "createdAt", "updatedAt", "sync",
-            ),
-            "ProposalItemEntity" to setOf(
-                "id",
-                "proposalId",
-                "kindJson",
-                "targetId",
-                "humanSummary",
-                "status",
-                "fingerprint",
-                "sortOrder",
-                "decidedAt",
-                "decidedActor",
-                "rejectionReason",
-            ),
-            "RemoteConfigEntity" to setOf(
-                "id",
-                "supabaseUrl",
-                "anonKey",
-                "updatedAt",
-            ),
-            "SavedSearchEntity" to setOf(
-                "id",
-                "userId",
-                "name",
-                "queryString",
-                "createdAt",
-                "updatedAt",
-            ),
-        )
+        private val ENTITY_PARAMS =
+            mapOf(
+                // Mapped both ways by the annotation repository, so it belongs here rather
+                // than in UNMAPPED_ENTITIES: an entry in that map asserts the entity has *no*
+                // domain mapper, which is the opposite of what is true here.
+                "AttachmentAnnotationEntity" to
+                    setOf(
+                        "id",
+                        "attachmentId",
+                        "userId",
+                        "rangeStart",
+                        "rangeEnd",
+                        "quote",
+                        "note",
+                        "syncStatus",
+                        "createdAt",
+                        "updatedAt",
+                        "deletedAt",
+                        "serverVersion",
+                        "hlc",
+                    ),
+                "TaskEntity" to
+                    setOf(
+                        "id",
+                        "title",
+                        "description",
+                        "priority",
+                        "kind",
+                        "projectId",
+                        "parentTaskId",
+                        "dueDate",
+                        "dueTime",
+                        "startDate",
+                        "startTime",
+                        "endDate",
+                        "endTime",
+                        "accentColor",
+                        "emoji",
+                        "estimateMinutes",
+                        "completedAt",
+                        "someday",
+                        "archivedAt",
+                        "isPinned",
+                        "recurrenceRule",
+                        "outgoingLinks",
+                        "aiSuppressedTagIds",
+                        "createdAt",
+                        "updatedAt",
+                        "userId",
+                        "sync",
+                    ),
+                "NoteEntity" to
+                    setOf(
+                        "id",
+                        "userId",
+                        "title",
+                        "bodyMarkdown",
+                        "bodyHtml",
+                        "isFolder",
+                        "kind",
+                        "parentNoteId",
+                        "isPinned",
+                        "pinnedAt",
+                        "color",
+                        "sortOrder",
+                        "wordCount",
+                        "charCount",
+                        "outgoingLinks",
+                        "taskId",
+                        "createdAt",
+                        "updatedAt",
+                        "deletedAt",
+                        "archivedAt",
+                        "sync",
+                    ),
+                "ProjectEntity" to
+                    setOf(
+                        "id",
+                        "userId",
+                        "name",
+                        "color",
+                        "icon",
+                        "description",
+                        "createdAt",
+                        "updatedAt",
+                        "isDefault",
+                        "dueDate",
+                        "team",
+                        "isDeleted",
+                        "deletedAt",
+                        "parentId",
+                        "sortOrder",
+                        "idempotencyKey",
+                        "externalId",
+                        "sync",
+                    ),
+                "TagEntity" to
+                    setOf(
+                        "id",
+                        "userId",
+                        "name",
+                        "color",
+                        "createdAt",
+                        "updatedAt",
+                        "groupId",
+                        "sortOrder",
+                        "deletedAt",
+                        "sync",
+                    ),
+                "TagGroupEntity" to
+                    setOf(
+                        "id",
+                        "userId",
+                        "name",
+                        "color",
+                        "createdAt",
+                        "updatedAt",
+                        "deletedAt",
+                        "sync",
+                    ),
+                "TaskReminderEntity" to
+                    setOf(
+                        "id",
+                        "taskId",
+                        "userId",
+                        "type",
+                        "offsetMinutes",
+                        "fireAt",
+                        "recurringPattern",
+                        "viewId",
+                        "lastFiredAt",
+                        "createdAt",
+                        "updatedAt",
+                    ),
+                // Added 2026-10-04 by the self-completeness check below, which found this
+                // entity had a real mapper (TimeEntryMapper) that no completeness rule had
+                // ever been applied to: an omitted column here would be reset by @Upsert
+                // on every write, silently.
+                "TimeEntryEntity" to
+                    setOf(
+                        "id",
+                        "taskId",
+                        "userId",
+                        "startedAt",
+                        "endedAt",
+                        "kind",
+                        "source",
+                        "note",
+                        "createdAt",
+                        "updatedAt",
+                        "deletedAt",
+                        "sync",
+                    ),
+                // Also found by the self-completeness check on 2026-10-04. All five have
+                // mappers that were never checked: a column omitted by a mapper is reset by
+                // @Upsert on every write, and nothing here would have noticed.
+                "AgendaViewEntity" to
+                    setOf(
+                        "id",
+                        "userId",
+                        "name",
+                        "sectionsJson",
+                        "createdAt",
+                        "updatedAt",
+                    ),
+                "AiProposalEntity" to
+                    setOf(
+                        "id",
+                        "userId",
+                        "source",
+                        "status",
+                        "targetKind",
+                        "targetId",
+                        "createdAt",
+                        "updatedAt",
+                        "sync",
+                    ),
+                "ProposalItemEntity" to
+                    setOf(
+                        "id",
+                        "proposalId",
+                        "kindJson",
+                        "targetId",
+                        "humanSummary",
+                        "status",
+                        "fingerprint",
+                        "sortOrder",
+                        "decidedAt",
+                        "decidedActor",
+                        "rejectionReason",
+                    ),
+                "RemoteConfigEntity" to
+                    setOf(
+                        "id",
+                        "supabaseUrl",
+                        "anonKey",
+                        "updatedAt",
+                    ),
+                "SavedSearchEntity" to
+                    setOf(
+                        "id",
+                        "userId",
+                        "name",
+                        "queryString",
+                        "createdAt",
+                        "updatedAt",
+                    ),
+            )
 
         /**
          * Entity field names actually accessed by each public/internal `toX()` mapper,
@@ -213,219 +326,313 @@ abstract class EntityMapperCompletenessTest {
          * Supplemental params (tags, blockedBy) are NOT included here — they are
          * handled via SUPPLEMENTAL_PARAMS to avoid false phantom-param positives.
          */
-        private val MAPPER_ENTITY_FIELDS_ACCESSED = mapOf(
-            "toTask" to (
-                "TaskEntity" to setOf(
-                    "id", "title", "description", "priority", "kind", "projectId",
-                    "parentTaskId", "dueDate", "dueTime", "startDate", "startTime",
-                    "endDate", "endTime", "accentColor", "emoji", "completedAt",
-                    "someday", "archivedAt", "isPinned", "recurrenceRule",
-                    "outgoingLinks", "aiSuppressedTagIds", "estimateMinutes",
-                    "createdAt", "updatedAt", "userId", "sync",
-                )
-            ),
-            "toNote" to (
-                "NoteEntity" to setOf(
-                    "id", "userId", "title", "bodyMarkdown", "bodyHtml", "isFolder",
-                    "kind", "parentNoteId", "isPinned", "pinnedAt", "color",
-                    "sortOrder", "wordCount", "charCount", "outgoingLinks",
-                    "taskId", "createdAt", "updatedAt", "deletedAt", "archivedAt", "sync",
-                )
-            ),
-            "toProject" to (
-                "ProjectEntity" to setOf(
-                    "id", "name", "color", "icon", "description",
-                    "createdAt", "updatedAt", "isDefault", "dueDate", "team",
-                    "isDeleted", "deletedAt", "parentId", "sortOrder",
-                    "idempotencyKey", "externalId", "userId", "sync",
-                )
-            ),
-            "toTag" to (
-                "TagEntity" to setOf(
-                    "id", "name", "color", "createdAt", "updatedAt",
-                    "groupId", "sortOrder", "deletedAt", "userId", "sync",
-                )
-            ),
-            "toTagGroup" to (
-                "TagGroupEntity" to setOf(
-                    "id",
-                    "name",
-                    "color",
-                    "createdAt",
-                    "updatedAt",
-                    "deletedAt",
-                    "userId",
-                    "sync",
-                )
-            ),
-            "toReminder" to (
-                "TaskReminderEntity" to setOf(
-                    "id", "taskId", "userId", "type", "offsetMinutes",
-                    "fireAt", "recurringPattern", "viewId", "lastFiredAt",
-                    "createdAt", "updatedAt",
-                )
-            ),
-        )
+        private val MAPPER_ENTITY_FIELDS_ACCESSED =
+            mapOf(
+                "toTask" to (
+                    "TaskEntity" to
+                        setOf(
+                            "id",
+                            "title",
+                            "description",
+                            "priority",
+                            "kind",
+                            "projectId",
+                            "parentTaskId",
+                            "dueDate",
+                            "dueTime",
+                            "startDate",
+                            "startTime",
+                            "endDate",
+                            "endTime",
+                            "accentColor",
+                            "emoji",
+                            "completedAt",
+                            "someday",
+                            "archivedAt",
+                            "isPinned",
+                            "recurrenceRule",
+                            "outgoingLinks",
+                            "aiSuppressedTagIds",
+                            "estimateMinutes",
+                            "createdAt",
+                            "updatedAt",
+                            "userId",
+                            "sync",
+                        )
+                ),
+                "toNote" to (
+                    "NoteEntity" to
+                        setOf(
+                            "id",
+                            "userId",
+                            "title",
+                            "bodyMarkdown",
+                            "bodyHtml",
+                            "isFolder",
+                            "kind",
+                            "parentNoteId",
+                            "isPinned",
+                            "pinnedAt",
+                            "color",
+                            "sortOrder",
+                            "wordCount",
+                            "charCount",
+                            "outgoingLinks",
+                            "taskId",
+                            "createdAt",
+                            "updatedAt",
+                            "deletedAt",
+                            "archivedAt",
+                            "sync",
+                        )
+                ),
+                "toProject" to (
+                    "ProjectEntity" to
+                        setOf(
+                            "id",
+                            "name",
+                            "color",
+                            "icon",
+                            "description",
+                            "createdAt",
+                            "updatedAt",
+                            "isDefault",
+                            "dueDate",
+                            "team",
+                            "isDeleted",
+                            "deletedAt",
+                            "parentId",
+                            "sortOrder",
+                            "idempotencyKey",
+                            "externalId",
+                            "userId",
+                            "sync",
+                        )
+                ),
+                "toTag" to (
+                    "TagEntity" to
+                        setOf(
+                            "id",
+                            "name",
+                            "color",
+                            "createdAt",
+                            "updatedAt",
+                            "groupId",
+                            "sortOrder",
+                            "deletedAt",
+                            "userId",
+                            "sync",
+                        )
+                ),
+                "toTagGroup" to (
+                    "TagGroupEntity" to
+                        setOf(
+                            "id",
+                            "name",
+                            "color",
+                            "createdAt",
+                            "updatedAt",
+                            "deletedAt",
+                            "userId",
+                            "sync",
+                        )
+                ),
+                "toReminder" to (
+                    "TaskReminderEntity" to
+                        setOf(
+                            "id",
+                            "taskId",
+                            "userId",
+                            "type",
+                            "offsetMinutes",
+                            "fireAt",
+                            "recurringPattern",
+                            "viewId",
+                            "lastFiredAt",
+                            "createdAt",
+                            "updatedAt",
+                        )
+                ),
+            )
 
         /**
          * All params passed to each toX() mapper (supplemental + entity field names).
          * Used only for the phantom-param check.
          */
-        private val MAPPER_ALL_PARAMS = mapOf(
-            "toTask" to ("TaskEntity" to setOf("tags", "blockedBy")),
-            "toNote" to ("NoteEntity" to setOf()),
-            "toProject" to ("ProjectEntity" to setOf()),
-            "toTag" to ("TagEntity" to setOf()),
-            "toTagGroup" to ("TagGroupEntity" to setOf()),
-            "toReminder" to ("TaskReminderEntity" to setOf()),
-        )
+        private val MAPPER_ALL_PARAMS =
+            mapOf(
+                "toTask" to ("TaskEntity" to setOf("tags", "blockedBy")),
+                "toNote" to ("NoteEntity" to setOf()),
+                "toProject" to ("ProjectEntity" to setOf()),
+                "toTag" to ("TagEntity" to setOf()),
+                "toTagGroup" to ("TagGroupEntity" to setOf()),
+                "toReminder" to ("TaskReminderEntity" to setOf()),
+            )
 
         // Mappers that are not named `toX()` but map an entity both ways
         // (`TimeEntryEntity.toDomain()` / `TimeEntry.toEntity()`). The completeness rule
         // reads by entity name rather than by mapper name, so an entity with a
         // non-standard mapper is reached only by appearing in ENTITY_PARAMS *and* here.
-        private val MAPPER_NON_STANDARD_ACCESSED = mapOf(
-            "TimeEntry.toEntity" to (
-                "TimeEntryEntity" to setOf(
-                    "id", "taskId", "userId", "startedAt", "endedAt",
-                    "kind", "source", "note", "createdAt", "updatedAt",
-                    "deletedAt", "sync",
-                )
-            ),
-            "SavedAgendaView.toEntity" to (
-                "AgendaViewEntity" to setOf(
-                    "id",
-                    "userId",
-                    "name",
-                    "sectionsJson",
-                    "createdAt",
-                    "updatedAt",
-                )
-            ),
-            "ProposalRepositoryImpl.save" to (
-                "AiProposalEntity" to setOf(
-                    "id",
-                    "userId",
-                    "source",
-                    "status",
-                    "targetKind",
-                    "targetId",
-                    "createdAt",
-                    "updatedAt",
-                    "sync",
-                )
-            ),
-            "ProposalRepositoryImpl.hydrate" to (
-                "ProposalItemEntity" to setOf(
-                    "id",
-                    "proposalId",
-                    "kindJson",
-                    "targetId",
-                    "humanSummary",
-                    "status",
-                    "fingerprint",
-                    "sortOrder",
-                    "decidedAt",
-                    "decidedActor",
-                    "rejectionReason",
-                )
-            ),
-            "RemoteConfigRepositoryImpl.getConfig" to (
-                "RemoteConfigEntity" to setOf(
-                    "id",
-                    "supabaseUrl",
-                    "anonKey",
-                    "updatedAt",
-                )
-            ),
-            "SavedSearch.toEntity" to (
-                "SavedSearchEntity" to setOf(
-                    "id",
-                    "userId",
-                    "name",
-                    "queryString",
-                    "createdAt",
-                    "updatedAt",
-                )
-            ),
-        )
+        private val MAPPER_NON_STANDARD_ACCESSED =
+            mapOf(
+                "TimeEntry.toEntity" to (
+                    "TimeEntryEntity" to
+                        setOf(
+                            "id",
+                            "taskId",
+                            "userId",
+                            "startedAt",
+                            "endedAt",
+                            "kind",
+                            "source",
+                            "note",
+                            "createdAt",
+                            "updatedAt",
+                            "deletedAt",
+                            "sync",
+                        )
+                ),
+                "SavedAgendaView.toEntity" to (
+                    "AgendaViewEntity" to
+                        setOf(
+                            "id",
+                            "userId",
+                            "name",
+                            "sectionsJson",
+                            "createdAt",
+                            "updatedAt",
+                        )
+                ),
+                "ProposalRepositoryImpl.save" to (
+                    "AiProposalEntity" to
+                        setOf(
+                            "id",
+                            "userId",
+                            "source",
+                            "status",
+                            "targetKind",
+                            "targetId",
+                            "createdAt",
+                            "updatedAt",
+                            "sync",
+                        )
+                ),
+                "ProposalRepositoryImpl.hydrate" to (
+                    "ProposalItemEntity" to
+                        setOf(
+                            "id",
+                            "proposalId",
+                            "kindJson",
+                            "targetId",
+                            "humanSummary",
+                            "status",
+                            "fingerprint",
+                            "sortOrder",
+                            "decidedAt",
+                            "decidedActor",
+                            "rejectionReason",
+                        )
+                ),
+                "RemoteConfigRepositoryImpl.getConfig" to (
+                    "RemoteConfigEntity" to
+                        setOf(
+                            "id",
+                            "supabaseUrl",
+                            "anonKey",
+                            "updatedAt",
+                        )
+                ),
+                "SavedSearch.toEntity" to (
+                    "SavedSearchEntity" to
+                        setOf(
+                            "id",
+                            "userId",
+                            "name",
+                            "queryString",
+                            "createdAt",
+                            "updatedAt",
+                        )
+                ),
+            )
 
         // Entities whose mapper is a **partial projection** by design: the domain model
         // deliberately omits some columns, so a completeness rule over the full
         // constructor would report a false failure. Naming the omitted columns and why
         // is the only honest option — declaring such an entity "unmapped" would be a
         // false statement in a file whose whole purpose is to be true.
-        private val PARTIAL_MAPPERS = mapOf(
-            "CalendarSyncTaskMapEntity" to
-                "toSyncedEventRef() omits `userId` (the scoping column, applied by the " +
-                "DAO query) and `syncedAt` (a sync audit stamp with no domain meaning)",
-            "RemoteConfigCacheEntity" to
-                "refresh() omits `id` — the row is the constant 'default' singleton, so " +
-                "the key is written by the @Insert strategy rather than the mapper",
-        )
+        private val PARTIAL_MAPPERS =
+            mapOf(
+                "CalendarSyncTaskMapEntity" to
+                    "toSyncedEventRef() omits `userId` (the scoping column, applied by the " +
+                    "DAO query) and `syncedAt` (a sync audit stamp with no domain meaning)",
+                "RemoteConfigCacheEntity" to
+                    "refresh() omits `id` — the row is the constant 'default' singleton, so " +
+                    "the key is written by the @Insert strategy rather than the mapper",
+            )
 
         // `@Entity` data classes that intentionally have no domain mapper, with the
         // reason. An entity in neither this map nor ENTITY_PARAMS is a hole in the gate,
         // not a fact about the schema — which is what the self-completeness test catches.
-        private val UNMAPPED_ENTITIES = mapOf(
-            "TaskFtsEntity" to
-                "the full-text index of the tasks: a virtual table whose content is the " +
-                "tasks table itself, read through the index and never mapped to a domain model",
-            "NoteFtsEntity" to
-                "the full-text index of the notes: a virtual table whose content is the " +
-                "notes table itself, read through the index and never mapped to a domain model",
-            "ProjectFtsEntity" to
-                "the full-text index of the projects: a virtual table whose content is the " +
-                "projects table itself, read through the index and never mapped to a domain model",
-            "TagFtsEntity" to
-                "the full-text index of the tags: a virtual table whose content is the " +
-                "tags table itself, read through the index and never mapped to a domain model",
-            "LlmUsageEntity" to
-                "usage rows are written by the recorder and read back as projections; " +
-                "no domain model, so there is no mapper to be incomplete",
-            "ProfileEntity" to
-                "the profiles table is manipulated directly by the profile bootstrap and " +
-                "sync; Profile is not a mapped domain entity",
-            "ProjectReminderEntity" to
-                "project-level reminders are queried as rows and converted at the call " +
-                "site; there is no ProjectReminder domain model",
-            "SyncDeadLetterEntity" to
-                "a transport shelf, not an entity: rows are moved between it and " +
-                "sync_outbox verbatim, never mapped to a domain model. Nothing " +
-                "upserts it, so there is no column to be silently reset.",
-            "SyncShadowEntity" to
-                "transport bookkeeping, not domain data: the state the server is known to " +
-                "hold for one entity, and the state a queued patch will bring it to. " +
-                "Written by narrow column-level UPDATEs that name every column they " +
-                "change, so the 'unchecked column is reset by @Upsert' rule this gate " +
-                "protects against cannot bite — the one write that is an upsert, " +
-                "build(), sets all seven columns together.",
-            "SyncStateEntity" to
-                "sync bookkeeping, not domain data: the download cursor, the last " +
-                "successful sync time, the device id and the sync preferences. It " +
-                "is written by narrow column-level UPDATEs, never @Upsert, so the " +
-                "'unchecked column is reset by @Upsert' rule this gate protects " +
-                "against does not apply to it.",
-            "CalendarSyncStateEntity" to
-                "a cursor, not domain data: the per-calendar Google incremental token " +
-                "and the last pull/push times. It has no domain model because nothing " +
-                "outside the sync engine reasons about it — the pull reads the token, " +
-                "writes a new one, and that is the whole contract. Every write is a " +
-                "whole-row @Insert(REPLACE) that sets all seven columns, so no column " +
-                "can be left unchecked and reset.",
-            "GoogleEventShadowEntity" to
-                "the 3-way merge's common ancestor, deliberately not a mapped domain " +
-                "entity: the merge reads it as a set of field values and writes it back " +
-                "whole, and turning it into a mapper would add a translation that could " +
-                "drop a field — the exact failure this table exists to make impossible, " +
-                "since a dropped field reads as 'that value was never agreed'. The " +
-                "payload is serialised by EventShadowCodec and round-trip tested.",
-            "CalendarImportEventEntity" to
-                "a staging shelf for foreign events, not a domain entity: a row exists " +
-                "until the user adopts it, at which point it becomes a Task and this row " +
-                "is a record of the link. Read as rows and converted at the call site, " +
-                "in the same shape as ProjectReminderEntity above.",
-        )
+        private val UNMAPPED_ENTITIES =
+            mapOf(
+                "TaskFtsEntity" to
+                    "the full-text index of the tasks: a virtual table whose content is the " +
+                    "tasks table itself, read through the index and never mapped to a domain model",
+                "NoteFtsEntity" to
+                    "the full-text index of the notes: a virtual table whose content is the " +
+                    "notes table itself, read through the index and never mapped to a domain model",
+                "ProjectFtsEntity" to
+                    "the full-text index of the projects: a virtual table whose content is the " +
+                    "projects table itself, read through the index and never mapped to a domain model",
+                "TagFtsEntity" to
+                    "the full-text index of the tags: a virtual table whose content is the " +
+                    "tags table itself, read through the index and never mapped to a domain model",
+                "LlmUsageEntity" to
+                    "usage rows are written by the recorder and read back as projections; " +
+                    "no domain model, so there is no mapper to be incomplete",
+                "ProfileEntity" to
+                    "the profiles table is manipulated directly by the profile bootstrap and " +
+                    "sync; Profile is not a mapped domain entity",
+                "ProjectReminderEntity" to
+                    "project-level reminders are queried as rows and converted at the call " +
+                    "site; there is no ProjectReminder domain model",
+                "SyncDeadLetterEntity" to
+                    "a transport shelf, not an entity: rows are moved between it and " +
+                    "sync_outbox verbatim, never mapped to a domain model. Nothing " +
+                    "upserts it, so there is no column to be silently reset.",
+                "SyncShadowEntity" to
+                    "transport bookkeeping, not domain data: the state the server is known to " +
+                    "hold for one entity, and the state a queued patch will bring it to. " +
+                    "Written by narrow column-level UPDATEs that name every column they " +
+                    "change, so the 'unchecked column is reset by @Upsert' rule this gate " +
+                    "protects against cannot bite — the one write that is an upsert, " +
+                    "build(), sets all seven columns together.",
+                "SyncStateEntity" to
+                    "sync bookkeeping, not domain data: the download cursor, the last " +
+                    "successful sync time, the device id and the sync preferences. It " +
+                    "is written by narrow column-level UPDATEs, never @Upsert, so the " +
+                    "'unchecked column is reset by @Upsert' rule this gate protects " +
+                    "against does not apply to it.",
+                "CalendarSyncStateEntity" to
+                    "a cursor, not domain data: the per-calendar Google incremental token " +
+                    "and the last pull/push times. It has no domain model because nothing " +
+                    "outside the sync engine reasons about it — the pull reads the token, " +
+                    "writes a new one, and that is the whole contract. Every write is a " +
+                    "whole-row @Insert(REPLACE) that sets all seven columns, so no column " +
+                    "can be left unchecked and reset.",
+                "GoogleEventShadowEntity" to
+                    "the 3-way merge's common ancestor, deliberately not a mapped domain " +
+                    "entity: the merge reads it as a set of field values and writes it back " +
+                    "whole, and turning it into a mapper would add a translation that could " +
+                    "drop a field — the exact failure this table exists to make impossible, " +
+                    "since a dropped field reads as 'that value was never agreed'. The " +
+                    "payload is serialised by EventShadowCodec and round-trip tested.",
+                "CalendarImportEventEntity" to
+                    "a staging shelf for foreign events, not a domain entity: a row exists " +
+                    "until the user adopts it, at which point it becomes a Task and this row " +
+                    "is a record of the link. Read as rows and converted at the call site, " +
+                    "in the same shape as ProjectReminderEntity above.",
+            )
     }
 
     @Test
@@ -447,9 +654,11 @@ abstract class EntityMapperCompletenessTest {
         val offenders = mutableListOf<String>()
         for ((entityName, entityParams) in ENTITY_PARAMS) {
             if (entityName in SKIP_ENTITIES) continue
-            val entry = (MAPPER_ENTITY_FIELDS_ACCESSED + MAPPER_NON_STANDARD_ACCESSED)
-                .entries.find { it.value.first == entityName }
-                ?: continue
+            val entry =
+                (MAPPER_ENTITY_FIELDS_ACCESSED + MAPPER_NON_STANDARD_ACCESSED)
+                    .entries
+                    .find { it.value.first == entityName }
+                    ?: continue
             val (_, accessedFields) = entry.value
             val allowlist = FIELD_ALLOWLIST[entityName] ?: emptySet()
             val missing = entityParams - accessedFields - allowlist
@@ -478,8 +687,9 @@ abstract class EntityMapperCompletenessTest {
      */
     @Test
     open fun everyEntityIsEitherCheckedOrDeclaredUnmapped() {
-        val registered = ENTITY_PARAMS.keys + SKIP_ENTITIES +
-            UNMAPPED_ENTITIES.keys + PARTIAL_MAPPERS.keys
+        val registered =
+            ENTITY_PARAMS.keys + SKIP_ENTITIES +
+                UNMAPPED_ENTITIES.keys + PARTIAL_MAPPERS.keys
         val unregistered = DECLARED_ENTITIES - registered
         if (unregistered.isEmpty()) return
         fail(
@@ -583,12 +793,19 @@ abstract class EntityMapperCompletenessTest {
 @Suppress("EmptyFunctionBlock") // empty overrides delegate to parent; cost = zero
 class EntityMapperCompletenessTestA : EntityMapperCompletenessTest() {
     override fun everySkippedEntityStillExists() {}
+
     override fun everyUnmappedDeclarationStatesAReason() {}
+
     override fun everyUnmappedEntityStillExists() {}
+
     override fun everyPartialMapperStillExists() {}
+
     override fun everyPartialMapperStatesWhyItIsPartial() {}
+
     override fun theCategoriesDoNotOverlap() {}
+
     override fun positiveControlDetectsAnUnregisteredEntity() {}
+
     override fun everyMapperParamExistsInEntityOrIsSupplemental() {}
 }
 
@@ -597,10 +814,15 @@ class EntityMapperCompletenessTestA : EntityMapperCompletenessTest() {
 @Suppress("EmptyFunctionBlock") // empty overrides delegate to parent; cost = zero
 class EntityMapperCompletenessTestB : EntityMapperCompletenessTest() {
     override fun positiveControlDetectsMissingField() {}
+
     override fun everyEntityParamAppearsInMapper() {}
+
     override fun everyPartialMapperStillExists() {}
+
     override fun everyPartialMapperStatesWhyItIsPartial() {}
+
     override fun theCategoriesDoNotOverlap() {}
+
     override fun everyMapperParamExistsInEntityOrIsSupplemental() {}
 }
 
@@ -609,12 +831,19 @@ class EntityMapperCompletenessTestB : EntityMapperCompletenessTest() {
 @Suppress("EmptyFunctionBlock") // empty overrides delegate to parent; cost = zero
 class EntityMapperCompletenessTestC : EntityMapperCompletenessTest() {
     override fun positiveControlDetectsMissingField() {}
+
     override fun everyEntityParamAppearsInMapper() {}
+
     override fun everySkippedEntityStillExists() {}
+
     override fun everyUnmappedDeclarationStatesAReason() {}
+
     override fun everyUnmappedEntityStillExists() {}
+
     override fun theCategoriesDoNotOverlap() {}
+
     override fun positiveControlDetectsAnUnregisteredEntity() {}
+
     override fun everyMapperParamExistsInEntityOrIsSupplemental() {}
 }
 
@@ -623,11 +852,18 @@ class EntityMapperCompletenessTestC : EntityMapperCompletenessTest() {
 @Suppress("EmptyFunctionBlock") // empty overrides delegate to parent; cost = zero
 class EntityMapperCompletenessTestD : EntityMapperCompletenessTest() {
     override fun positiveControlDetectsMissingField() {}
+
     override fun everyEntityParamAppearsInMapper() {}
+
     override fun everySkippedEntityStillExists() {}
+
     override fun everyUnmappedDeclarationStatesAReason() {}
+
     override fun everyUnmappedEntityStillExists() {}
+
     override fun everyPartialMapperStillExists() {}
+
     override fun everyPartialMapperStatesWhyItIsPartial() {}
+
     override fun positiveControlDetectsAnUnregisteredEntity() {}
 }

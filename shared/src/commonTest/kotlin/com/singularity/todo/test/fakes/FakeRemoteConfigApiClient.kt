@@ -30,7 +30,6 @@ class FakeRemoteConfigApiClient(
     private val fetchBehaviour: FetchBehaviour = FetchBehaviour.Answer,
     private val blockMs: Long = 60_000L,
 ) : SyncApiClient {
-
     /** What the remote-config fetch does. */
     enum class FetchBehaviour {
         /** Answers [payload]. */
@@ -52,24 +51,32 @@ class FakeRemoteConfigApiClient(
         response: BatchPushResponse,
     ) -> Unit = { _, _ -> }
 
-    override suspend fun batchPush(request: BatchPushRequest): BatchPushResponse =
-        BatchPushResponse(emptyList())
+    override suspend fun batchPush(request: BatchPushRequest): BatchPushResponse = BatchPushResponse(emptyList())
 
-    override suspend fun getEventsSince(sinceLsn: Long, limit: Int): List<SyncEvent> = emptyList()
+    override suspend fun getEventsSince(
+        sinceLsn: Long,
+        limit: Int,
+    ): List<SyncEvent> = emptyList()
 
     override suspend fun testConnection(): Result<Unit> = Result.success(Unit)
 
     override suspend fun getRemoteConfig(): JsonObject? {
         fetchCount++
         return when (fetchBehaviour) {
-            FetchBehaviour.Answer -> payload
-
-            FetchBehaviour.Blocks -> withContext(NonCancellable) {
-                withTimeoutOrNull(blockMs) { awaitCancellation() }
+            FetchBehaviour.Answer -> {
                 payload
             }
 
-            FetchBehaviour.Throws -> throw IllegalStateException("config server down")
+            FetchBehaviour.Blocks -> {
+                withContext(NonCancellable) {
+                    withTimeoutOrNull(blockMs) { awaitCancellation() }
+                    payload
+                }
+            }
+
+            FetchBehaviour.Throws -> {
+                throw IllegalStateException("config server down")
+            }
         }
     }
 }

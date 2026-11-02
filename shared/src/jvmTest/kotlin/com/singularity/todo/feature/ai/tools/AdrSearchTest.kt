@@ -34,7 +34,6 @@ import kotlin.time.Instant
 @Tag("slow")
 @Tag("slow:data")
 class AdrSearchTest {
-
     private val temporaries = mutableListOf<File>()
 
     @AfterTest
@@ -45,62 +44,67 @@ class AdrSearchTest {
 
     private class FakeHost(private val workingDir: String, private val homeDir: String) : HostEnvironmentPort {
         override fun workingDirectory(): String = workingDir
+
         override fun homeDirectory(): String = homeDir
+
         override fun applicationDataDirectory(): String = homeDir + "/.singularity-todo"
     }
 
     /** A checkout with a decisions directory, a backlog, an archive and one document. */
-    private fun checkout(): File = createTempDirectory("adr-search").toFile().also { temporaries += it }
-        .apply {
-            resolve("docs/decisions/deferred").mkdirs()
-            resolve("docs/decisions/archive").mkdirs()
-            resolve("docs/architecture").mkdirs()
-            writeDecision(
-                "2026-10-01-sync-conflict-policy",
-                title = "The sync conflict policy",
-                date = "2026-10-01",
-                status = "accepted",
-                tags = listOf("sync", "conflict"),
-                body = "Conflicts are resolved by last write wins, and the loser is kept.",
-            )
-            writeDecision(
-                "2026-09-01-older-note",
-                title = "An older decision",
-                date = "2026-09-01",
-                status = "open",
-                tags = listOf("misc"),
-                body = "Nothing about sync here.",
-            )
-            writeDecision(
-                "2026-08-01-archived-note",
-                title = "An archived decision about sync",
-                date = "2026-08-01",
-                status = "archived",
-                tags = listOf("sync"),
-                body = "Archived, and therefore not a decision any more.",
-                directory = "docs/decisions/archive",
-            )
-            resolve("docs/decisions/deferred/2026-07-01-planned-sync.md").writeText(
-                """
-                ---
-                title: A planned sync change
-                date: 2026-07-01
-                status: open
-                tags: [sync, planned]
-                ---
+    private fun checkout(): File =
+        createTempDirectory("adr-search")
+            .toFile()
+            .also { temporaries += it }
+            .apply {
+                resolve("docs/decisions/deferred").mkdirs()
+                resolve("docs/decisions/archive").mkdirs()
+                resolve("docs/architecture").mkdirs()
+                writeDecision(
+                    "2026-10-01-sync-conflict-policy",
+                    title = "The sync conflict policy",
+                    date = "2026-10-01",
+                    status = "accepted",
+                    tags = listOf("sync", "conflict"),
+                    body = "Conflicts are resolved by last write wins, and the loser is kept.",
+                )
+                writeDecision(
+                    "2026-09-01-older-note",
+                    title = "An older decision",
+                    date = "2026-09-01",
+                    status = "open",
+                    tags = listOf("misc"),
+                    body = "Nothing about sync here.",
+                )
+                writeDecision(
+                    "2026-08-01-archived-note",
+                    title = "An archived decision about sync",
+                    date = "2026-08-01",
+                    status = "archived",
+                    tags = listOf("sync"),
+                    body = "Archived, and therefore not a decision any more.",
+                    directory = "docs/decisions/archive",
+                )
+                resolve("docs/decisions/deferred/2026-07-01-planned-sync.md").writeText(
+                    """
+                    ---
+                    title: A planned sync change
+                    date: 2026-07-01
+                    status: open
+                    tags: [sync, planned]
+                    ---
 
-                The backlog entry about sync that has not been decided yet.
-                """.trimIndent(),
-            )
-            resolve("docs/architecture/sync.md").writeText(
-                """
-                # Sync
+                    The backlog entry about sync that has not been decided yet.
+                    """.trimIndent(),
+                )
+                resolve("docs/architecture/sync.md").writeText(
+                    """
+                    # Sync
 
-                The sync engine keeps two databases in step. A conflict is resolved by
-                last write wins.
-                """.trimIndent(),
-            )
-        }
+                    The sync engine keeps two databases in step. A conflict is resolved by
+                    last write wins.
+                    """.trimIndent(),
+                )
+            }
 
     private fun File.writeDecision(
         slug: String,

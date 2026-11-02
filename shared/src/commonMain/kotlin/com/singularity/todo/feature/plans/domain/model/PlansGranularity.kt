@@ -32,7 +32,6 @@ enum class PlansGranularity(val periodCount: Int) {
          * build does not know about must leave the screen with a grouping
          * rather than without one.
          */
-        fun fromStorage(raw: String?): PlansGranularity =
-            entries.firstOrNull { it.name == raw } ?: Default
+        fun fromStorage(raw: String?): PlansGranularity = entries.firstOrNull { it.name == raw } ?: Default
     }
 }

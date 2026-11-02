@@ -39,13 +39,13 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.refresh.RefreshableContent
-import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.core.ui.components.LoadingIndicator
 import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.core.text.StaticText
+import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.LoadingIndicator
+import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
-import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaView
@@ -79,8 +79,10 @@ internal fun SavedAgendaContent(
 
             SavedAgendaViewState.NotFound -> {
                 Column(
-                    modifier = modifier.fillMaxSize()
-                        .padding(24.dp),
+                    modifier =
+                        modifier
+                            .fillMaxSize()
+                            .padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     SelectableText(
@@ -137,20 +139,22 @@ private fun SavedAgendaEditor(
             state = state,
             onIntent = onIntent,
             onRequestAddSection = onRequestAddSection,
-            modifier = Modifier
-                .weight(1f)
-                .padding(24.dp)
-                .imePadding(),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .padding(24.dp)
+                    .imePadding(),
         )
 
         SavedAgendaActionRow(
             state = state,
             onSave = { onIntent(SavedAgendaIntent.Save) },
             onRequestDelete = onRequestDelete,
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface)
-                .imePadding(),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .imePadding(),
         )
     }
 }
@@ -253,22 +257,25 @@ private fun SavedAgendaNameField(
     onNameChange: (String) -> Unit,
     onDone: () -> Unit,
 ) {
-    val nameState = rememberBridgedTextFieldState(
-        source = nameSource,
-        onTextChanged = onNameChange,
-    )
+    val nameState =
+        rememberBridgedTextFieldState(
+            source = nameSource,
+            onTextChanged = onNameChange,
+        )
     OutlinedTextField(
         state = nameState,
         label = { Text("View name") },
         placeholder = { Text("My saved view") },
         lineLimits = TextFieldLineLimits.SingleLine,
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag(TestTags.SAVED_AGENDA_NAME_INPUT),
-        keyboardOptions = KeyboardOptions(
-            capitalization = KeyboardCapitalization.Words,
-            imeAction = ImeAction.Done,
-        ),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .testTag(TestTags.SAVED_AGENDA_NAME_INPUT),
+        keyboardOptions =
+            KeyboardOptions(
+                capitalization = KeyboardCapitalization.Words,
+                imeAction = ImeAction.Done,
+            ),
         onKeyboardAction = { onDone() },
         enabled = enabled,
     )
@@ -277,9 +284,7 @@ private fun SavedAgendaNameField(
 
 /** The "Sections" heading with its Add action. */
 @Composable
-private fun SavedAgendaSectionsHeader(
-    onAdd: () -> Unit,
-) {
+private fun SavedAgendaSectionsHeader(onAdd: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -300,9 +305,7 @@ private fun SavedAgendaSectionsHeader(
 
 /** Shown instead of the list when the draft has no sections yet. */
 @Composable
-private fun SavedAgendaEmptySections(
-    onAdd: () -> Unit,
-) {
+private fun SavedAgendaEmptySections(onAdd: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -341,9 +344,10 @@ private fun SavedAgendaActionRow(
         Button(
             onClick = onSave,
             enabled = state.canSave && !state.isSaving,
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(TestTags.SAVED_AGENDA_SAVE_BUTTON),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .testTag(TestTags.SAVED_AGENDA_SAVE_BUTTON),
         ) {
             if (state.isSaving) {
                 CircularProgressIndicator(
@@ -360,9 +364,10 @@ private fun SavedAgendaActionRow(
             Button(
                 onClick = onRequestDelete,
                 enabled = !state.isSaving,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag(TestTags.SAVED_AGENDA_DELETE_BUTTON),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .testTag(TestTags.SAVED_AGENDA_DELETE_BUTTON),
             ) {
                 Text("Delete view")
             }
@@ -371,93 +376,104 @@ private fun SavedAgendaActionRow(
 }
 
 @Composable
-private fun SavedAgendaContentLoadingPreview() = PreviewAgendaNavigator {
-    PreviewThemed(darkTheme = false) {
-        SavedAgendaContent(
-            state = SavedAgendaViewState.Loading,
-            onIntent = {},
-            onRequestDelete = {},
-            onRequestAddSection = {},
-        )
+private fun SavedAgendaContentLoadingPreview() =
+    PreviewAgendaNavigator {
+        PreviewThemed(darkTheme = false) {
+            SavedAgendaContent(
+                state = SavedAgendaViewState.Loading,
+                onIntent = {},
+                onRequestDelete = {},
+                onRequestAddSection = {},
+            )
+        }
     }
-}
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun SavedAgendaContentEditingPreview() = PreviewAgendaNavigator {
-    PreviewThemed(darkTheme = false) {
-        SavedAgendaContent(
-            state = SavedAgendaViewState.Editing(
-                view = SavedAgendaView(
-                    id = SavedAgendaViewId("v1"),
-                    userId = UserId("u1"),
-                    name = "My Work Setup",
-                    sectionsJson = """{"sections":[{"type":"tasks"},{"type":"notes"}]}""",
-                    createdAt = kotlin.time.Instant.fromEpochSeconds(1784253600),
-                    updatedAt = kotlin.time.Instant.fromEpochSeconds(1785496200),
-                ),
-                draft = Draft(
-                    name = FieldOwnedText.empty().seeded("My Work Setup"),
-                    sections = listOf(
-                        Section("today", "Today", 0, Selector.DateBucket(RelativeBucket.Today)),
-                        Section("overdue", "Overdue", 1, Selector.DateBucket(RelativeBucket.Overdue)),
+private fun SavedAgendaContentEditingPreview() =
+    PreviewAgendaNavigator {
+        PreviewThemed(darkTheme = false) {
+            SavedAgendaContent(
+                state =
+                    SavedAgendaViewState.Editing(
+                        view =
+                            SavedAgendaView(
+                                id = SavedAgendaViewId("v1"),
+                                userId = UserId("u1"),
+                                name = "My Work Setup",
+                                sectionsJson = """{"sections":[{"type":"tasks"},{"type":"notes"}]}""",
+                                createdAt = kotlin.time.Instant.fromEpochSeconds(1784253600),
+                                updatedAt = kotlin.time.Instant.fromEpochSeconds(1785496200),
+                            ),
+                        draft =
+                            Draft(
+                                name = FieldOwnedText.empty().seeded("My Work Setup"),
+                                sections =
+                                    listOf(
+                                        Section("today", "Today", 0, Selector.DateBucket(RelativeBucket.Today)),
+                                        Section("overdue", "Overdue", 1, Selector.DateBucket(RelativeBucket.Overdue)),
+                                    ),
+                                originalName = "My Work Setup",
+                                originalSections = emptyList(),
+                                initialized = true,
+                            ),
+                        sectionCount = 2,
+                        isSaving = false,
+                        decodeError = false,
                     ),
-                    originalName = "My Work Setup",
-                    originalSections = emptyList(),
-                    initialized = true,
-                ),
-                sectionCount = 2,
-                isSaving = false,
-                decodeError = false,
-            ),
-            onIntent = {},
-            onRequestDelete = {},
-            onRequestAddSection = {},
-        )
+                onIntent = {},
+                onRequestDelete = {},
+                onRequestAddSection = {},
+            )
+        }
     }
-}
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun SavedAgendaContentSavingPreview() = PreviewAgendaNavigator {
-    PreviewThemed(darkTheme = false) {
-        SavedAgendaContent(
-            state = SavedAgendaViewState.Editing(
-                view = SavedAgendaView(
-                    id = SavedAgendaViewId("v1"),
-                    userId = UserId("u1"),
-                    name = "My Work Setup",
-                    sectionsJson = """{"sections":[]}""",
-                    createdAt = kotlin.time.Instant.fromEpochSeconds(1784253600),
-                    updatedAt = kotlin.time.Instant.fromEpochSeconds(1785496200),
-                ),
-                draft = Draft(
-                    name = FieldOwnedText.empty().seeded("My Work Setup"),
-                    sections = emptyList(),
-                    originalName = "My Work Setup",
-                    originalSections = emptyList(),
-                    initialized = true,
-                ),
-                sectionCount = 0,
-                isSaving = true,
-                decodeError = false,
-            ),
-            onIntent = {},
-            onRequestDelete = {},
-            onRequestAddSection = {},
-        )
+private fun SavedAgendaContentSavingPreview() =
+    PreviewAgendaNavigator {
+        PreviewThemed(darkTheme = false) {
+            SavedAgendaContent(
+                state =
+                    SavedAgendaViewState.Editing(
+                        view =
+                            SavedAgendaView(
+                                id = SavedAgendaViewId("v1"),
+                                userId = UserId("u1"),
+                                name = "My Work Setup",
+                                sectionsJson = """{"sections":[]}""",
+                                createdAt = kotlin.time.Instant.fromEpochSeconds(1784253600),
+                                updatedAt = kotlin.time.Instant.fromEpochSeconds(1785496200),
+                            ),
+                        draft =
+                            Draft(
+                                name = FieldOwnedText.empty().seeded("My Work Setup"),
+                                sections = emptyList(),
+                                originalName = "My Work Setup",
+                                originalSections = emptyList(),
+                                initialized = true,
+                            ),
+                        sectionCount = 0,
+                        isSaving = true,
+                        decodeError = false,
+                    ),
+                onIntent = {},
+                onRequestDelete = {},
+                onRequestAddSection = {},
+            )
+        }
     }
-}
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun SavedAgendaContentNotFoundPreview() = PreviewAgendaNavigator {
-    PreviewThemed(darkTheme = false) {
-        SavedAgendaContent(
-            state = SavedAgendaViewState.NotFound,
-            onIntent = {},
-            onRequestDelete = {},
-            onRequestAddSection = {},
-        )
+private fun SavedAgendaContentNotFoundPreview() =
+    PreviewAgendaNavigator {
+        PreviewThemed(darkTheme = false) {
+            SavedAgendaContent(
+                state = SavedAgendaViewState.NotFound,
+                onIntent = {},
+                onRequestDelete = {},
+                onRequestAddSection = {},
+            )
+        }
     }
-}

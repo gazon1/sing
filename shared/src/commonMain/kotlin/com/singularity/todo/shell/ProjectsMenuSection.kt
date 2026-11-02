@@ -77,9 +77,10 @@ fun ProjectsMenuSection(
                 contentDescription = "All projects",
             )
         },
-        modifier = itemModifier
-            .fillMaxWidth()
-            .mapTestTagsAsResourceIds()
-            .testTag(TestTags.MENU_ALL_PROJECTS),
+        modifier =
+            itemModifier
+                .fillMaxWidth()
+                .mapTestTagsAsResourceIds()
+                .testTag(TestTags.MENU_ALL_PROJECTS),
     )
 }

@@ -26,7 +26,6 @@ import kotlinx.serialization.json.JsonPrimitive
  *   "JSON Schema declares an unsupported dialect"
  */
 object KoogJsonSchemaBuilder {
-
     fun build(descriptor: ToolDescriptor): ToolSchema {
         val properties = mutableMapOf<String, JsonElement>()
         val required = mutableListOf<String>()
@@ -50,22 +49,25 @@ object KoogJsonSchemaBuilder {
         )
     }
 
-    private fun ToolParameterDescriptor.toJsonSchema(): JsonElement =
-        type.toJsonSchema(description)
+    private fun ToolParameterDescriptor.toJsonSchema(): JsonElement = type.toJsonSchema(description)
 
-    private fun ToolParameterType.toJsonSchema(description: String): JsonElement = when (this) {
-        is ToolParameterType.String -> stringSchema("string", description)
-        is ToolParameterType.Integer -> stringSchema("integer", description)
-        is ToolParameterType.Float -> stringSchema("number", description)
-        is ToolParameterType.Boolean -> stringSchema("boolean", description)
-        is ToolParameterType.Null -> stringSchema("null", description)
-        is ToolParameterType.Enum -> enumSchema(this.entries, description)
-        is ToolParameterType.List -> listSchema(this.itemsType, description)
-        is ToolParameterType.Object -> objectSchema(this, description)
-        is ToolParameterType.AnyOf -> anyOfSchema(this.types, description)
-    }
+    private fun ToolParameterType.toJsonSchema(description: String): JsonElement =
+        when (this) {
+            is ToolParameterType.String -> stringSchema("string", description)
+            is ToolParameterType.Integer -> stringSchema("integer", description)
+            is ToolParameterType.Float -> stringSchema("number", description)
+            is ToolParameterType.Boolean -> stringSchema("boolean", description)
+            is ToolParameterType.Null -> stringSchema("null", description)
+            is ToolParameterType.Enum -> enumSchema(this.entries, description)
+            is ToolParameterType.List -> listSchema(this.itemsType, description)
+            is ToolParameterType.Object -> objectSchema(this, description)
+            is ToolParameterType.AnyOf -> anyOfSchema(this.types, description)
+        }
 
-    private fun stringSchema(type: String, description: String): JsonObject =
+    private fun stringSchema(
+        type: String,
+        description: String,
+    ): JsonObject =
         if (description.isNotEmpty()) {
             JsonObject(
                 mapOf(
@@ -77,21 +79,30 @@ object KoogJsonSchemaBuilder {
             JsonObject(mapOf("type" to JsonPrimitive(type)))
         }
 
-    private fun enumSchema(entries: Array<String>, description: String): JsonObject =
+    private fun enumSchema(
+        entries: Array<String>,
+        description: String,
+    ): JsonObject =
         buildMap {
             put("type", JsonPrimitive("string"))
             put("enum", JsonArray(entries.map { JsonPrimitive(it) }))
             if (description.isNotEmpty()) put("description", JsonPrimitive(description))
         }.let { JsonObject(it) }
 
-    private fun listSchema(itemsType: ToolParameterType, description: String): JsonObject =
+    private fun listSchema(
+        itemsType: ToolParameterType,
+        description: String,
+    ): JsonObject =
         buildMap {
             put("type", JsonPrimitive("array"))
             put("items", itemsType.toJsonSchema(""))
             if (description.isNotEmpty()) put("description", JsonPrimitive(description))
         }.let { JsonObject(it) }
 
-    private fun objectSchema(obj: ToolParameterType.Object, description: String): JsonObject =
+    private fun objectSchema(
+        obj: ToolParameterType.Object,
+        description: String,
+    ): JsonObject =
         buildMap {
             put("type", JsonPrimitive("object"))
             put(
@@ -117,7 +128,10 @@ object KoogJsonSchemaBuilder {
             if (description.isNotEmpty()) put("description", JsonPrimitive(description))
         }.let { JsonObject(it) }
 
-    private fun anyOfSchema(types: Array<ToolParameterDescriptor>, description: String): JsonObject =
+    private fun anyOfSchema(
+        types: Array<ToolParameterDescriptor>,
+        description: String,
+    ): JsonObject =
         buildMap {
             put("anyOf", JsonArray(types.map { it.toJsonSchema() }))
             if (description.isNotEmpty()) put("description", JsonPrimitive(description))

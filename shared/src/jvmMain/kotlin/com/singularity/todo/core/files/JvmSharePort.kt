@@ -16,22 +16,26 @@ import java.awt.datatransfer.StringSelection
  * failure the user needs to hear about, because they already have the text.
  */
 class JvmSharePort : SharePort {
+    override fun shareText(
+        title: String,
+        text: String,
+    ): Boolean {
+        val clipboard =
+            runCatching {
+                Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(text), null)
+            }.isSuccess
 
-    override fun shareText(title: String, text: String): Boolean {
-        val clipboard = runCatching {
-            Toolkit.getDefaultToolkit().systemClipboard.setContents(StringSelection(text), null)
-        }.isSuccess
-
-        val browsed = runCatching {
-            val subject = java.net.URLEncoder.encode(title, Charsets.UTF_8.name())
-            val body = java.net.URLEncoder.encode(text, Charsets.UTF_8.name())
-            if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
-                Desktop.getDesktop().browse(java.net.URI("mailto:?subject=$subject&body=$body"))
-                true
-            } else {
-                false
-            }
-        }.getOrDefault(false)
+        val browsed =
+            runCatching {
+                val subject = java.net.URLEncoder.encode(title, Charsets.UTF_8.name())
+                val body = java.net.URLEncoder.encode(text, Charsets.UTF_8.name())
+                if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+                    Desktop.getDesktop().browse(java.net.URI("mailto:?subject=$subject&body=$body"))
+                    true
+                } else {
+                    false
+                }
+            }.getOrDefault(false)
 
         return clipboard || browsed
     }

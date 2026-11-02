@@ -34,28 +34,28 @@ import kotlin.time.Instant
 @Tag("slow")
 @Tag("slow:compose")
 class PlansProjectsMovedFlowTest {
-
     @Test
     @DisplayName("PLANS-06 the Plans tab no longer shows a project list")
-    fun the_tab_shows_tasks_and_the_menu_shows_the_projects() = runDesktopAppTest(
-        clock = CLOCK,
-        checkA11y = true,
-    ) { koin ->
-        seedProject(koin, "robot-root", "Product")
-        tasks(koin).given(due = TODAY, title = "Due today")
+    fun the_tab_shows_tasks_and_the_menu_shows_the_projects() =
+        runDesktopAppTest(
+            clock = CLOCK,
+            checkA11y = true,
+        ) { koin ->
+            seedProject(koin, "robot-root", "Product")
+            tasks(koin).given(due = TODAY, title = "Due today")
 
-        // The tab is the timeline: a task, in a section that names its day.
-        tapTab("Plans")
-        assertTagDisplayed(TestTags.plansSection("day:2026-09-16"))
-        assertTagDisplayed(TestTags.taskItem("Due today"))
+            // The tab is the timeline: a task, in a section that names its day.
+            tapTab("Plans")
+            assertTagDisplayed(TestTags.plansSection("day:2026-09-16"))
+            assertTagDisplayed(TestTags.taskItem("Due today"))
 
-        // And no project list: the project is not on the tab any more.
-        awaitTagGone(TestTags.projectCard("Product"))
+            // And no project list: the project is not on the tab any more.
+            awaitTagGone(TestTags.projectCard("Product"))
 
-        // The project is not lost — it is in the menu, as a tree.
-        openDrawer()
-        awaitTag(TestTags.menuProjectNode("robot-root"))
-    }
+            // The project is not lost — it is in the menu, as a tree.
+            openDrawer()
+            awaitTag(TestTags.menuProjectNode("robot-root"))
+        }
 
     private suspend fun seedProject(
         koin: org.koin.core.Koin,

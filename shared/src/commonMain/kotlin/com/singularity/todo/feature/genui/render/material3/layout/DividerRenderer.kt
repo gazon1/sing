@@ -5,6 +5,7 @@ import androidx.compose.material3.HorizontalDivider
 import com.singularity.todo.feature.genui.render.ComponentRegistry
 import com.singularity.todo.feature.genui.render.genuiTag
 
-internal fun ComponentRegistry.registerDivider(): Unit = register("divider") { _, _, modifier ->
-    HorizontalDivider(modifier = modifier.genuiTag("divider", "Divider").fillMaxWidth())
-}
+internal fun ComponentRegistry.registerDivider(): Unit =
+    register("divider") { _, _, modifier ->
+        HorizontalDivider(modifier = modifier.genuiTag("divider", "Divider").fillMaxWidth())
+    }

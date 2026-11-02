@@ -58,7 +58,6 @@ import org.koin.core.context.GlobalContext
 @RunWith(AndroidJUnit4::class)
 @LargeTest
 class AppTracerInstrumentedTest : InstrumentedTestBase() {
-
     private lateinit var scenario: ActivityScenario<MainActivity>
 
     @Before
@@ -66,10 +65,11 @@ class AppTracerInstrumentedTest : InstrumentedTestBase() {
         // Launch the app — this exercises the full startup path including
         // Koin initialisation, the pro module loading, and SDK initialisation.
         // The app must be built with `-PwithPro=true` and valid tokens.
-        val intent = Intent(
-            ApplicationProvider.getApplicationContext(),
-            MainActivity::class.java,
-        )
+        val intent =
+            Intent(
+                ApplicationProvider.getApplicationContext(),
+                MainActivity::class.java,
+            )
         scenario = ActivityScenario.launch(intent)
     }
 

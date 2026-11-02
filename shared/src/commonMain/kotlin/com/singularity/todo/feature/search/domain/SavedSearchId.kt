@@ -6,7 +6,12 @@ import kotlinx.serialization.Serializable
 @JvmInline
 value class SavedSearchId(val raw: String) {
     companion object {
-        fun generate() = SavedSearchId(com.singularity.todo.core.ids.nextId())
+        fun generate() =
+            SavedSearchId(
+                com.singularity.todo.core.ids
+                    .nextId(),
+            )
+
         fun fromString(value: String) = SavedSearchId(value)
     }
 }

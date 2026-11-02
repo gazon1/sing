@@ -7,27 +7,30 @@ import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
-import com.singularity.todo.core.ui.components.CountdownStateMachine
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
+import com.singularity.todo.core.ui.components.CountdownStateMachine
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tags.domain.usecase.CreateTagUseCase
 import com.singularity.todo.feature.tags.domain.usecase.UpdateTagUseCase
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlinx.collections.immutable.toImmutableList
 
 // --- UI State ---
 
 sealed interface TagsUiState {
     data object Loading : TagsUiState
+
     data object Empty : TagsUiState
+
     data class Content(val tags: List<Tag>) : TagsUiState
+
     data class Error(val message: String) : TagsUiState
 }
 
@@ -35,6 +38,7 @@ sealed interface TagsUiState {
 
 sealed interface TagsIntent : MviIntent {
     data class Create(val name: String, val color: Int) : TagsIntent
+
     data class Delete(val id: TagId) : TagsIntent
 
     /**
@@ -98,7 +102,6 @@ class TagsViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
-
     companion object {
         /** 5-second undo window, matching the snackbar countdown. */
         private const val UNDO_WINDOW_MS = 5_000L
@@ -119,29 +122,29 @@ class TagsViewModel(
     val pendingDelete = _pendingDelete.asStateFlow()
 
     /** Drives the undo snackbar countdown. Uses [UNDO_WINDOW_MS] and tick counting for virtual-time test compatibility. */
-    private val countdown = CountdownStateMachine(
-        scope = scope,
-        windowMs = UNDO_WINDOW_MS,
-        onExpired = { _pendingDelete.value = null },
-    )
+    private val countdown =
+        CountdownStateMachine(
+            scope = scope,
+            windowMs = UNDO_WINDOW_MS,
+            onExpired = { _pendingDelete.value = null },
+        )
 
     /** Exposes countdown progress to the screen's snackbar progress bar. */
     val countdownProgress: StateFlow<Float?> = countdown.progress
 
     init {
         scope.launch {
-            tagRepo.observeAll()
+            tagRepo
+                .observeAll()
                 .map { tags ->
                     if (tags.isEmpty()) TagsUiState.Empty else TagsUiState.Content(tags.toImmutableList())
-                }
-                .catch { e ->
+                }.catch { e ->
                     updateState {
                         TagsUiState.Error(
                             e.toMessage(),
                         )
                     }
-                }
-                .collect { newState -> updateState { newState } }
+                }.collect { newState -> updateState { newState } }
         }
     }
 
@@ -183,12 +186,12 @@ class TagsViewModel(
      */
     private suspend fun handleUndoDeleteTapped() {
         val pending = _pendingDelete.value ?: return
-        tagRepo.restore(pending.tagId)
+        tagRepo
+            .restore(pending.tagId)
             .onSuccess {
                 countdown.cancel()
                 _pendingDelete.value = null
-            }
-            .onFailure {
+            }.onFailure {
                 crashReporter.report(it, RESTORE_FAILED)
             }
     }
@@ -204,17 +207,25 @@ class TagsViewModel(
      * so a thrown [AppError.NotFound] would escape the coroutine and reach the
      * uncaught-exception handler instead of showing an error.
      */
-    private suspend fun rename(id: TagId, name: String, color: Int) {
+    private suspend fun rename(
+        id: TagId,
+        name: String,
+        color: Int,
+    ) {
         emitError("Rename tag failed", TagsUiEvent::ShowError) {
-            val existing = tagRepo.get(id)
-                ?: return@emitError Result.failure<Unit>(
-                    AppError.NotFound("Tag $id no longer exists", code = "tag.not_found"),
-                )
+            val existing =
+                tagRepo.get(id)
+                    ?: return@emitError Result.failure<Unit>(
+                        AppError.NotFound("Tag $id no longer exists", code = "tag.not_found"),
+                    )
             updateTag(existing.copy(name = name, color = color))
         }
     }
 
-    private suspend fun create(name: String, color: Int) {
+    private suspend fun create(
+        name: String,
+        color: Int,
+    ) {
         val userId: UserId = currentUser.scopedUserId.value
         emitError("Create tag failed", TagsUiEvent::ShowError) {
             createTag(CreateTagInput(name = name, color = color, userId = userId))

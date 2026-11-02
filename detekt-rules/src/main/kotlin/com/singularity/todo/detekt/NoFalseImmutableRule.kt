@@ -64,7 +64,6 @@ import org.jetbrains.kotlin.psi.KtProperty
  * @see 2026-10-22-compose-stability-contract
  */
 class NoFalseImmutableRule(config: Config) : Rule(config, "", null) {
-
     override fun visitClass(klass: KtClass) {
         super.visitClass(klass)
         checkImmutable(klass)
@@ -90,13 +89,14 @@ class NoFalseImmutableRule(config: Config) : Rule(config, "", null) {
                 report(
                     Finding(
                         entity = declared.entity,
-                        message = "@Immutable class declares a mutable property " +
-                            "'${declared.name}'. @Immutable promises that the instance never " +
-                            "changes, and the compiler believes the promise: it compares the " +
-                            "instance by equals and skips the recomposition. A 'var' breaks that " +
-                            "promise silently — the screen shows a value that is one " +
-                            "recomposition out of date. Use a 'val', or drop @Immutable and let " +
-                            "the class be honestly unstable.",
+                        message =
+                            "@Immutable class declares a mutable property " +
+                                "'${declared.name}'. @Immutable promises that the instance never " +
+                                "changes, and the compiler believes the promise: it compares the " +
+                                "instance by equals and skips the recomposition. A 'var' breaks that " +
+                                "promise silently — the screen shows a value that is one " +
+                                "recomposition out of date. Use a 'val', or drop @Immutable and let " +
+                                "the class be honestly unstable.",
                         references = emptyList(),
                         suppressReasons = emptyList(),
                     ),
@@ -107,11 +107,12 @@ class NoFalseImmutableRule(config: Config) : Rule(config, "", null) {
             report(
                 Finding(
                     entity = declared.entity,
-                    message = "@Immutable class declares a raw '$collection' property " +
-                        "'${declared.name}'. The compiler trusts @Immutable and never looks at " +
-                        "the field, so a collection that changes underneath it goes unnoticed. " +
-                        "Use a persistent collection (ImmutableList / ImmutableSet / " +
-                        "ImmutableMap), or drop @Immutable.",
+                    message =
+                        "@Immutable class declares a raw '$collection' property " +
+                            "'${declared.name}'. The compiler trusts @Immutable and never looks at " +
+                            "the field, so a collection that changes underneath it goes unnoticed. " +
+                            "Use a persistent collection (ImmutableList / ImmutableSet / " +
+                            "ImmutableMap), or drop @Immutable.",
                     references = emptyList(),
                     suppressReasons = emptyList(),
                 ),
@@ -129,26 +130,28 @@ class NoFalseImmutableRule(config: Config) : Rule(config, "", null) {
      * fields and calls it immutable.
      */
     private fun KtClassOrObject.declaredProperties(): List<DeclaredProperty> {
-        val fromConstructor = primaryConstructorParameters
-            .filter { it.hasValOrVar() }
-            .map { parameter ->
-                DeclaredProperty(
-                    name = parameter.name ?: "",
-                    type = parameter.typeReference?.text,
-                    mutable = parameter.isMutable(),
-                    entity = Entity.from(parameter),
-                )
-            }
-        val fromBody = declarations
-            .filterIsInstance<KtProperty>()
-            .map { property ->
-                DeclaredProperty(
-                    name = property.name ?: "",
-                    type = property.typeReference?.text,
-                    mutable = property.isMutable(),
-                    entity = Entity.from(property),
-                )
-            }
+        val fromConstructor =
+            primaryConstructorParameters
+                .filter { it.hasValOrVar() }
+                .map { parameter ->
+                    DeclaredProperty(
+                        name = parameter.name ?: "",
+                        type = parameter.typeReference?.text,
+                        mutable = parameter.isMutable(),
+                        entity = Entity.from(parameter),
+                    )
+                }
+        val fromBody =
+            declarations
+                .filterIsInstance<KtProperty>()
+                .map { property ->
+                    DeclaredProperty(
+                        name = property.name ?: "",
+                        type = property.typeReference?.text,
+                        mutable = property.isMutable(),
+                        entity = Entity.from(property),
+                    )
+                }
         return fromConstructor + fromBody
     }
 
@@ -197,10 +200,12 @@ class NoFalseImmutableRule(config: Config) : Rule(config, "", null) {
  */
 class NoFalseImmutableProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("no-false-immutable")
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf<RuleName, (Config) -> Rule>(
-            RuleName("NoFalseImmutable") to { cfg: Config -> NoFalseImmutableRule(cfg) },
-        ),
-    )
+
+    override fun instance(): RuleSet =
+        RuleSet(
+            ruleSetId,
+            mapOf<RuleName, (Config) -> Rule>(
+                RuleName("NoFalseImmutable") to { cfg: Config -> NoFalseImmutableRule(cfg) },
+            ),
+        )
 }

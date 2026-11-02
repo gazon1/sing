@@ -9,7 +9,9 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
  */
 sealed interface AgendaUiEvent : MviEvent {
     data class NavigateToTask(val taskId: TaskId) : AgendaUiEvent
+
     data class ShowTaskContextMenu(val taskId: TaskId) : AgendaUiEvent
+
     data class ExpandTask(val taskId: TaskId) : AgendaUiEvent
 
     /**

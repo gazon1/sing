@@ -74,10 +74,11 @@ fun TagsScreen(
     // Show undo-delete snackbar and drive countdown via LaunchedEffect.
     LaunchedEffect(pendingDelete?.tagId) {
         val pending = pendingDelete ?: return@LaunchedEffect
-        val result = snackbarHostState.showSnackbar(
-            message = "\"${pending.title}\" deleted",
-            actionLabel = "Undo",
-        )
+        val result =
+            snackbarHostState.showSnackbar(
+                message = "\"${pending.title}\" deleted",
+                actionLabel = "Undo",
+            )
         if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
             viewModel.onIntent(TagsIntent.UndoDeleteTapped)
         }
@@ -103,10 +104,11 @@ fun TagsScreen(
                     )
                     FloatingActionButton(
                         onClick = { overlay.show(TagDialog.Add) },
-                        modifier = Modifier
-                            .testTag(TestTags.TAGS_FAB)
-                            .align(Alignment.BottomEnd)
-                            .padding(16.dp),
+                        modifier =
+                            Modifier
+                                .testTag(TestTags.TAGS_FAB)
+                                .align(Alignment.BottomEnd)
+                                .padding(16.dp),
                     ) {
                         Icon(Icons.Filled.Add, contentDescription = "Add tag")
                     }
@@ -116,32 +118,39 @@ fun TagsScreen(
     }
 
     when (val dialog = overlay.sheet) {
-        is TagDialog.Add -> AddTagDialog(
-            onConfirm = { name, color ->
-                viewModel.onIntent(TagsIntent.Create(name, color))
-                overlay.dismissSheet()
-            },
-            onDismiss = { overlay.dismissSheet() },
-        )
+        is TagDialog.Add -> {
+            AddTagDialog(
+                onConfirm = { name, color ->
+                    viewModel.onIntent(TagsIntent.Create(name, color))
+                    overlay.dismissSheet()
+                },
+                onDismiss = { overlay.dismissSheet() },
+            )
+        }
 
-        is TagDialog.Rename -> AddTagDialog(
-            onConfirm = { name, color ->
-                viewModel.onIntent(TagsIntent.Rename(dialog.tag.id, name, color))
-                overlay.dismissSheet()
-            },
-            onDismiss = { overlay.dismissSheet() },
-            title = "Rename Tag",
-            initialName = dialog.tag.name,
-            initialColor = dialog.tag.color,
-            confirmLabel = "Save",
-        )
+        is TagDialog.Rename -> {
+            AddTagDialog(
+                onConfirm = { name, color ->
+                    viewModel.onIntent(TagsIntent.Rename(dialog.tag.id, name, color))
+                    overlay.dismissSheet()
+                },
+                onDismiss = { overlay.dismissSheet() },
+                title = "Rename Tag",
+                initialName = dialog.tag.name,
+                initialColor = dialog.tag.color,
+                confirmLabel = "Save",
+            )
+        }
 
-        null -> Unit
+        null -> {
+            Unit
+        }
     }
 }
 
 private sealed interface TagDialog {
     data object Add : TagDialog
+
     data class Rename(val tag: Tag) : TagDialog
 }
 
@@ -171,25 +180,33 @@ private fun TagList(
 }
 
 @Composable
-fun TagCard(tag: Tag, onDelete: () -> Unit, onRename: () -> Unit, onOpen: () -> Unit) {
+fun TagCard(
+    tag: Tag,
+    onDelete: () -> Unit,
+    onRename: () -> Unit,
+    onOpen: () -> Unit,
+) {
     androidx.compose.material3.Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onOpen)
-            .testTag(TestTags.tagOpen(tag.name)),
-        colors = androidx.compose.material3.CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-        ),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onOpen)
+                .testTag(TestTags.tagOpen(tag.name)),
+        colors =
+            androidx.compose.material3.CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface,
+            ),
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
-                modifier = Modifier
-                    .size(24.dp)
-                    .clip(CircleShape)
-                    .background(Color(tag.color)),
+                modifier =
+                    Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(Color(tag.color)),
             )
             Text(
                 text = tag.name,

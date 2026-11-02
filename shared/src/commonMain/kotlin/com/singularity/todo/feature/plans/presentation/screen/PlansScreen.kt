@@ -38,8 +38,10 @@ fun PlansScreen(modifier: Modifier = Modifier) {
 
     CollectEvents(vm.events) { event ->
         when (event) {
-            is PlansUiEvent.ShowError -> scope.launch {
-                snackbarHostState.showSnackbar(event.message)
+            is PlansUiEvent.ShowError -> {
+                scope.launch {
+                    snackbarHostState.showSnackbar(event.message)
+                }
             }
         }
     }

@@ -90,7 +90,6 @@ class CloseProjectUseCase(
     private val clock: Clock,
     private val unitOfWork: UnitOfWork,
 ) {
-
     /**
      * Closes [projectId] and the tasks that are still open in it.
      *
@@ -98,7 +97,10 @@ class CloseProjectUseCase(
      * @param force close even when one of the tasks has an unfinished prerequisite.
      *   The caller passes `true` only after the user has confirmed.
      */
-    suspend fun close(projectId: ProjectId, force: Boolean = false): Result<ProjectCloseOutcome> =
+    suspend fun close(
+        projectId: ProjectId,
+        force: Boolean = false,
+    ): Result<ProjectCloseOutcome> =
         runCatchingCancellable {
             // The project's own tasks, not the whole task list: a question about
             // ten tasks does not need an answer about ten thousand.

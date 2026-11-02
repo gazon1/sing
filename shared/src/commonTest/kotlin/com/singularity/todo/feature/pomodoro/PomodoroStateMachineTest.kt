@@ -17,13 +17,13 @@ import kotlin.test.assertNotEquals
  */
 @Tag("fast")
 class PomodoroStateMachineTest {
-
-    private val config = PomodoroConfig(
-        workMinutes = 25,
-        shortBreakMinutes = 5,
-        longBreakMinutes = 15,
-        cyclesBeforeLongBreak = 4,
-    )
+    private val config =
+        PomodoroConfig(
+            workMinutes = 25,
+            shortBreakMinutes = 5,
+            longBreakMinutes = 15,
+            cyclesBeforeLongBreak = 4,
+        )
 
     // ─── nextPhase — isRunning is always false in the returned state ──────────
 
@@ -126,11 +126,12 @@ class PomodoroStateMachineTest {
     fun `recomputeRemaining computes elapsed seconds correctly`() {
         // Phase started 60 seconds ago → 1500s - 60s = 1440s remaining
         val started = 1_000_000_000_000L - 60_000
-        val state = PomodoroState(
-            phase = PomodoroPhase.Work,
-            remainingSeconds = 1500,
-            phaseStartedAtEpochMs = started,
-        )
+        val state =
+            PomodoroState(
+                phase = PomodoroPhase.Work,
+                remainingSeconds = 1500,
+                phaseStartedAtEpochMs = started,
+            )
         assertEquals(1440, recomputeRemaining(state, nowEpochMs = 1_000_000_000_000L))
     }
 
@@ -138,22 +139,24 @@ class PomodoroStateMachineTest {
     fun `recomputeRemaining clamps to zero`() {
         // Phase started 5000 seconds ago (far longer than 1500s duration)
         val started = 1_000_000_000_000L - 5_000_000
-        val state = PomodoroState(
-            phase = PomodoroPhase.Work,
-            remainingSeconds = 1500,
-            phaseStartedAtEpochMs = started,
-        )
+        val state =
+            PomodoroState(
+                phase = PomodoroPhase.Work,
+                remainingSeconds = 1500,
+                phaseStartedAtEpochMs = started,
+            )
         assertEquals(0, recomputeRemaining(state, nowEpochMs = 1_000_000_000_000L))
     }
 
     @Test
     fun `recomputeRemaining returns remainingSeconds when now equals phaseStartedAt`() {
         val epochMs = 1_000_000_000_000L
-        val state = PomodoroState(
-            phase = PomodoroPhase.Work,
-            remainingSeconds = 1500,
-            phaseStartedAtEpochMs = epochMs,
-        )
+        val state =
+            PomodoroState(
+                phase = PomodoroPhase.Work,
+                remainingSeconds = 1500,
+                phaseStartedAtEpochMs = epochMs,
+            )
         assertEquals(1500, recomputeRemaining(state, nowEpochMs = epochMs))
     }
 

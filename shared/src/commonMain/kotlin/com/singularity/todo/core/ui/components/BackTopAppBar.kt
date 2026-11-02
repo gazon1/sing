@@ -57,9 +57,10 @@ fun BackTopAppBar(
                     }
                 },
                 actions = { actions() },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                    ),
             )
         },
     ) { paddingValues ->
@@ -71,37 +72,40 @@ fun BackTopAppBar(
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun BackTopAppBarLightPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    BackTopAppBar(
-        title = "Task Detail",
-        onBack = noopClick,
-    ) { paddingValues ->
-        Box(modifier = Modifier.padding(paddingValues)) {}
+private fun BackTopAppBarLightPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        BackTopAppBar(
+            title = "Task Detail",
+            onBack = noopClick,
+        ) { paddingValues ->
+            Box(modifier = Modifier.padding(paddingValues)) {}
+        }
     }
-}
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun BackTopAppBarDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
-    BackTopAppBar(
-        title = "Project",
-        onBack = noopClick,
-    ) { paddingValues ->
-        Box(modifier = Modifier.padding(paddingValues)) {}
+private fun BackTopAppBarDarkPreview() =
+    PreviewThemed(darkTheme = true, useSurface = false) {
+        BackTopAppBar(
+            title = "Project",
+            onBack = noopClick,
+        ) { paddingValues ->
+            Box(modifier = Modifier.padding(paddingValues)) {}
+        }
     }
-}
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun BackTopAppBarPurpleDarkPreview() = PreviewThemed(
-    darkTheme = true,
-    accent = com.singularity.todo.core.ui.theme.SingularityAccents.Purple,
-    useSurface = false,
-) {
-    BackTopAppBar(
-        title = "Settings",
-        onBack = noopClick,
-    ) { paddingValues ->
-        Box(modifier = Modifier.padding(paddingValues)) {}
+private fun BackTopAppBarPurpleDarkPreview() =
+    PreviewThemed(
+        darkTheme = true,
+        accent = com.singularity.todo.core.ui.theme.SingularityAccents.Purple,
+        useSurface = false,
+    ) {
+        BackTopAppBar(
+            title = "Settings",
+            onBack = noopClick,
+        ) { paddingValues ->
+            Box(modifier = Modifier.padding(paddingValues)) {}
+        }
     }
-}

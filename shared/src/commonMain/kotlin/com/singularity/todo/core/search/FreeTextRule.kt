@@ -97,10 +97,11 @@ data class FreeTextRule(val terms: List<Term> = emptyList(), val combinesWithOr:
         // F5 — a query with no free text selects no note, project or tag. The rule
         // is what says so.
         if (terms.isEmpty()) return false
-        val satisfied = terms.map { term ->
-            val contained = matchesTerm(term.text)
-            if (term.negated) !contained else contained
-        }
+        val satisfied =
+            terms.map { term ->
+                val contained = matchesTerm(term.text)
+                if (term.negated) !contained else contained
+            }
         // F4 — the terms are combined by the query's connective. `OR` makes the terms
         // alternatives, a conjunction makes them requirements.
         // F2 — every term has to match. Matching is a word-prefix match and is
@@ -160,10 +161,14 @@ data class FreeTextRule(val terms: List<Term> = emptyList(), val combinesWithOr:
      * @param matchesTerm Answers whether one term matches the record's searchable
      *   text (F3).
      */
-    fun accepts(plan: TextMatchPlan, matchesTerm: (String) -> Boolean): Boolean = when (plan) {
-        is TextMatchPlan.Narrowed -> satisfiesNegations(matchesTerm)
-        TextMatchPlan.BroadScan -> selects(matchesTerm)
-    }
+    fun accepts(
+        plan: TextMatchPlan,
+        matchesTerm: (String) -> Boolean,
+    ): Boolean =
+        when (plan) {
+            is TextMatchPlan.Narrowed -> satisfiesNegations(matchesTerm)
+            TextMatchPlan.BroadScan -> selects(matchesTerm)
+        }
 
     /**
      * What the full-text index can do for this rule, in [mode].
@@ -242,10 +247,11 @@ data class FreeTextRule(val terms: List<Term> = emptyList(), val combinesWithOr:
      * @return The question the index is asked — empty when the index cannot
      *   narrow the rule.
      */
-    fun indexQuery(mode: SearchMode): TextMatchQuery = when (val plan = plan(mode)) {
-        is TextMatchPlan.Narrowed -> plan.query
-        TextMatchPlan.BroadScan -> TextMatchQuery.EMPTY
-    }
+    fun indexQuery(mode: SearchMode): TextMatchQuery =
+        when (val plan = plan(mode)) {
+            is TextMatchPlan.Narrowed -> plan.query
+            TextMatchPlan.BroadScan -> TextMatchQuery.EMPTY
+        }
 
     companion object {
         /**
@@ -259,7 +265,6 @@ data class FreeTextRule(val terms: List<Term> = emptyList(), val combinesWithOr:
          *
          * @param text The text the person typed.
          */
-        fun singleTerm(text: String): FreeTextRule =
-            FreeTextRule(terms = listOf(Term(text = text)))
+        fun singleTerm(text: String): FreeTextRule = FreeTextRule(terms = listOf(Term(text = text)))
     }
 }

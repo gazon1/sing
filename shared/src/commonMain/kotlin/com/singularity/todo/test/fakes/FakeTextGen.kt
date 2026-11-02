@@ -45,21 +45,29 @@ class FakeTextGen(
 ) : TextGenPort {
     private val _generateCalls = mutableListOf<Triple<String, String?, String?>>()
 
-    override suspend fun generate(prompt: String, systemPrompt: String?, model: String?): Result<String> {
+    override suspend fun generate(
+        prompt: String,
+        systemPrompt: String?,
+        model: String?,
+    ): Result<String> {
         if (trackGenerateCalls) _generateCalls += Triple(prompt, systemPrompt, model)
         return failureMessage?.let { Result.failure(RuntimeException(it)) } ?: Result.success(success)
     }
 
-    override fun streamChat(message: String, instructions: String): Flow<AgentEvent> = flow {
-        lastInstructions = instructions
-        val scripted = events
-        if (scripted != null) {
-            scripted.forEach { emit(it) }
-        } else {
-            emit(AgentEvent.TextDelta(success))
-            emit(AgentEvent.TurnCompleted)
+    override fun streamChat(
+        message: String,
+        instructions: String,
+    ): Flow<AgentEvent> =
+        flow {
+            lastInstructions = instructions
+            val scripted = events
+            if (scripted != null) {
+                scripted.forEach { emit(it) }
+            } else {
+                emit(AgentEvent.TextDelta(success))
+                emit(AgentEvent.TurnCompleted)
+            }
         }
-    }
 
     /**
      * The instructions of the last call, so a test can see what the caller asked for.
@@ -70,5 +78,8 @@ class FakeTextGen(
     var lastInstructions: String? = null
         private set
 
-    override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> = Result.success(emptyList())
+    override suspend fun listModels(
+        baseUrl: String,
+        apiKey: String,
+    ): Result<List<String>> = Result.success(emptyList())
 }

@@ -18,7 +18,6 @@ import kotlin.test.assertTrue
  * no other gate in this repository would catch.
  */
 class NoValueBasedTextFieldRuleTest {
-
     private val rule = NoValueBasedTextFieldRule(TestConfig())
     private val languageSettings = FakeLanguageVersionSettings(ExplicitApiMode.STRICT)
 

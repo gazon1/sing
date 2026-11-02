@@ -25,7 +25,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class ToolCallRecordPolicyTest {
-
     private val policy: JsonObject by lazy {
         val file = File(repoRoot(), "config/docs/tool-call-records.json")
         assertTrue(file.isFile, "no record policy at $file")
@@ -34,8 +33,9 @@ class ToolCallRecordPolicyTest {
 
     @Test
     fun `the outcomes the writer can produce are the outcomes the policy declares`() {
-        val declared = policy["outcomes"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet()
-            ?: error("the policy declares no outcomes")
+        val declared =
+            policy["outcomes"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet()
+                ?: error("the policy declares no outcomes")
 
         assertEquals(
             declared,
@@ -47,8 +47,9 @@ class ToolCallRecordPolicyTest {
 
     @Test
     fun `the sources the writer can produce are the sources the policy declares`() {
-        val declared = policy["sources"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet()
-            ?: error("the policy declares no sources")
+        val declared =
+            policy["sources"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet()
+                ?: error("the policy declares no sources")
 
         assertEquals(
             declared,
@@ -59,8 +60,9 @@ class ToolCallRecordPolicyTest {
 
     @Test
     fun `the record's version is the version the policy declares`() {
-        val declared = policy["schemaVersion"]?.jsonPrimitive?.content?.toInt()
-            ?: error("the policy declares no schema version")
+        val declared =
+            policy["schemaVersion"]?.jsonPrimitive?.content?.toInt()
+                ?: error("the policy declares no schema version")
 
         assertEquals(
             declared,
@@ -72,8 +74,9 @@ class ToolCallRecordPolicyTest {
 
     @Test
     fun `the retention is the retention the policy declares`() {
-        val declared = policy["retentionDays"]?.jsonPrimitive?.content?.toInt()
-            ?: error("the policy declares no retention")
+        val declared =
+            policy["retentionDays"]?.jsonPrimitive?.content?.toInt()
+                ?: error("the policy declares no retention")
 
         assertEquals(
             declared,
@@ -83,9 +86,9 @@ class ToolCallRecordPolicyTest {
         )
     }
 
-    private fun repoRoot(): File = generateSequence(File(System.getProperty("user.dir")).absoluteFile) {
-        it.parentFile
-    }
-        .firstOrNull { File(it, "config/docs/tool-call-records.json").isFile }
-        ?: error("could not find the repository root from ${System.getProperty("user.dir")}")
+    private fun repoRoot(): File =
+        generateSequence(File(System.getProperty("user.dir")).absoluteFile) {
+            it.parentFile
+        }.firstOrNull { File(it, "config/docs/tool-call-records.json").isFile }
+            ?: error("could not find the repository root from ${System.getProperty("user.dir")}")
 }

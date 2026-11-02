@@ -38,7 +38,6 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:platform")
 class ToolboxRuntimeContractTest {
-
     private val temporaries = mutableListOf<Path>()
 
     @AfterTest
@@ -52,30 +51,33 @@ class ToolboxRuntimeContractTest {
         return dir
     }
 
-    private fun entry(name: String) = ToolboxToolEntry(
-        name = name,
-        description = "The $name tool.",
-        domain = "tasks",
-        readOnly = true,
-        destructive = false,
-        idempotent = true,
-        requiredParameters = emptyList(),
-        optionalParameters = emptyList(),
-    )
+    private fun entry(name: String) =
+        ToolboxToolEntry(
+            name = name,
+            description = "The $name tool.",
+            domain = "tasks",
+            readOnly = true,
+            destructive = false,
+            idempotent = true,
+            requiredParameters = emptyList(),
+            optionalParameters = emptyList(),
+        )
 
-    private fun snapshot() = ToolsetSnapshot(
-        identity = ToolboxIdentity(
-            buildVersion = "1.2.3",
-            checkout = null,
-            catalogFingerprint = "catalog0000000000",
-            activeToolsetFingerprint = "active00000000000",
-        ),
-        registered = listOf(entry("list_tasks"), entry("create_task")),
-        disabled = listOf(entry("delete_task")),
-        configurationStatus = ConfigurationStatus.CURRENT,
-        configurationFetchedAtEpochMillis = 1_700_000_000_000L,
-        unmatchedFlags = listOf("old_tool"),
-    )
+    private fun snapshot() =
+        ToolsetSnapshot(
+            identity =
+                ToolboxIdentity(
+                    buildVersion = "1.2.3",
+                    checkout = null,
+                    catalogFingerprint = "catalog0000000000",
+                    activeToolsetFingerprint = "active00000000000",
+                ),
+            registered = listOf(entry("list_tasks"), entry("create_task")),
+            disabled = listOf(entry("delete_task")),
+            configurationStatus = ConfigurationStatus.CURRENT,
+            configurationFetchedAtEpochMillis = 1_700_000_000_000L,
+            unmatchedFlags = listOf("old_tool"),
+        )
 
     /**
      * The report's answer, as JSON.
@@ -88,16 +90,16 @@ class ToolboxRuntimeContractTest {
         val script = repoRoot().resolve("scripts").resolve("mcp-toolbox-usage.py")
         assertTrue(script.exists(), "no usage report at $script")
 
-        val process = ProcessBuilder(
-            "python3",
-            script.toString(),
-            "--data-dir",
-            dataDirectory.toString(),
-            "--json",
-        )
-            .directory(repoRoot().toFile())
-            .redirectErrorStream(false)
-            .start()
+        val process =
+            ProcessBuilder(
+                "python3",
+                script.toString(),
+                "--data-dir",
+                dataDirectory.toString(),
+                "--json",
+            ).directory(repoRoot().toFile())
+                .redirectErrorStream(false)
+                .start()
 
         val output = process.inputStream.bufferedReader().readText()
         val finished = process.waitFor()
@@ -156,16 +158,25 @@ class ToolboxRuntimeContractTest {
         assertEquals(1, listTasks["errors"]?.jsonPrimitive?.content?.toInt() ?: -1)
         assertEquals(50.0, listTasks["errorRate"]?.jsonPrimitive?.content?.toDouble() ?: -1.0)
 
-        val registered = answer["registry"]?.jsonObject
-            ?.get("registeredTools")?.jsonArray
-            ?.mapNotNull { it.jsonObject["name"]?.jsonPrimitive?.content }
+        val registered =
+            answer["registry"]
+                ?.jsonObject
+                ?.get("registeredTools")
+                ?.jsonArray
+                ?.mapNotNull { it.jsonObject["name"]?.jsonPrimitive?.content }
         assertEquals(listOf("create_task", "list_tasks"), registered?.sorted() ?: emptyList())
     }
 
     /** The repository root, found by walking up from the working directory. */
-    private fun repoRoot(): Path = generateSequence(Path.of(System.getProperty("user.dir")).toAbsolutePath()) {
-        it.parent
-    }
-        .firstOrNull { it.resolve("scripts").resolve("mcp-toolbox-usage.py").toFile().isFile }
-        ?: error("could not find the repository root from ${System.getProperty("user.dir")}")
+    private fun repoRoot(): Path =
+        generateSequence(Path.of(System.getProperty("user.dir")).toAbsolutePath()) {
+            it.parent
+        }.firstOrNull {
+            it
+                .resolve("scripts")
+                .resolve("mcp-toolbox-usage.py")
+                .toFile()
+                .isFile
+        }
+            ?: error("could not find the repository root from ${System.getProperty("user.dir")}")
 }

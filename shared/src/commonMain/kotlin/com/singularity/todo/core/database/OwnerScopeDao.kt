@@ -25,7 +25,6 @@ import androidx.room3.Query
  */
 @Dao
 interface OwnerScopeDao {
-
     /** Task ids the owner holds — the parent set for the task-scoped child deletes. */
     @Query("SELECT id FROM tasks WHERE user_id IN (:scopedUserIds)")
     suspend fun listTaskIdsForOwner(scopedUserIds: List<String>): List<String>

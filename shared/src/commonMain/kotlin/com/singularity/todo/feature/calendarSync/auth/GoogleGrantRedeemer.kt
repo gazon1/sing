@@ -18,7 +18,6 @@ package com.singularity.todo.feature.calendarSync.auth
  * both, and it is in [GoogleAuthorizationService].
  */
 interface GoogleGrantRedeemer {
-
     /**
      * Redeems [grant] for a credential.
      *

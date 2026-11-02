@@ -41,7 +41,11 @@ import com.singularity.todo.feature.tags.presentation.viewmodel.TagGroupsUiState
 import kotlinx.collections.immutable.ImmutableList
 
 @Composable
-fun TagGroupsScreen(state: TagGroupsUiState, onDelete: (TagGroupId) -> Unit, modifier: Modifier = Modifier) {
+fun TagGroupsScreen(
+    state: TagGroupsUiState,
+    onDelete: (TagGroupId) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     RefreshableContent {
         StatefulContent(
             state = state.toContentState(),
@@ -53,8 +57,8 @@ fun TagGroupsScreen(state: TagGroupsUiState, onDelete: (TagGroupId) -> Unit, mod
     }
 }
 
-private fun TagGroupsUiState.toContentState():
-    ContentState<ImmutableList<TagGroup>> = ContentStateMapper.tagGroups(this)
+private fun TagGroupsUiState.toContentState(): ContentState<ImmutableList<TagGroup>> =
+    ContentStateMapper.tagGroups(this)
 
 @Composable
 private fun TagGroupList(
@@ -74,7 +78,10 @@ private fun TagGroupList(
 }
 
 @Composable
-private fun TagGroupCard(group: TagGroup, onDelete: () -> Unit) {
+private fun TagGroupCard(
+    group: TagGroup,
+    onDelete: () -> Unit,
+) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     Row(
@@ -82,10 +89,11 @@ private fun TagGroupCard(group: TagGroup, onDelete: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(Color(group.color)),
+            modifier =
+                Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(Color(group.color)),
         )
         Column(modifier = Modifier.padding(start = 12.dp).weight(1f)) {
             Text(":${group.name}:", style = MaterialTheme.typography.bodyLarge)

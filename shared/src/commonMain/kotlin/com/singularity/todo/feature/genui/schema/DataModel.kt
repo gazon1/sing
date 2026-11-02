@@ -40,7 +40,6 @@ import kotlinx.serialization.json.JsonObject
  * Thread-safe via [MutableStateFlow] (which is conflated — last-write-wins).
  */
 class DataModel(initial: JsonObject = JsonObject(emptyMap())) {
-
     /**
      * The document and the count of the server's rewrites, per path, in one state.
      *
@@ -79,9 +78,10 @@ class DataModel(initial: JsonObject = JsonObject(emptyMap())) {
      * One emission carries both, so a collector never sees a value with a count that
      * belongs to another write.
      */
-    fun flowAt(path: UiPath): Flow<Revisioned<JsonElement?>> = state.map { doc ->
-        doc.revisionedAt(path)
-    }
+    fun flowAt(path: UiPath): Flow<Revisioned<JsonElement?>> =
+        state.map { doc ->
+            doc.revisionedAt(path)
+        }
 
     /**
      * Sets the value at [path], creating intermediate objects as needed.
@@ -89,17 +89,21 @@ class DataModel(initial: JsonObject = JsonObject(emptyMap())) {
      * The count does not move: this is the field's own write, the model talking to
      * itself. A write from outside is [setFromServer].
      */
-    fun set(path: UiPath, value: JsonElement) {
+    fun set(
+        path: UiPath,
+        value: JsonElement,
+    ) {
         val current = state.value
         val key = path.toPointer()
         // The write is the field's own, so the count stays where it is — `typed` is the
         // move that changes a value without announcing a replacement.
         val revisioned: Revisioned<JsonElement?> =
             current.revisions[key]?.typed(value) ?: Revisioned.initial(value)
-        state.value = current.copy(
-            json = writeAt(current.json, path, value),
-            revisions = current.revisions + (key to revisioned),
-        )
+        state.value =
+            current.copy(
+                json = writeAt(current.json, path, value),
+                revisions = current.revisions + (key to revisioned),
+            )
     }
 
     /**
@@ -108,23 +112,28 @@ class DataModel(initial: JsonObject = JsonObject(emptyMap())) {
      * The count is the *only* way to say "this value was replaced from outside", and it
      * moves for this path alone: a rewrite of one path says nothing about another.
      */
-    fun setFromServer(path: UiPath, value: JsonElement) {
+    fun setFromServer(
+        path: UiPath,
+        value: JsonElement,
+    ) {
         val current = state.value
         val key = path.toPointer()
         // A write from outside is a replacement, so the count moves — `replacedBy` is the
         // only move that moves it.
         val previous: Revisioned<JsonElement?> =
             current.revisions[key] ?: Revisioned.initial(value)
-        state.value = Document(
-            json = writeAt(current.json, path, value),
-            revisions = current.revisions + (key to previous.replacedBy(value)),
-        )
+        state.value =
+            Document(
+                json = writeAt(current.json, path, value),
+                revisions = current.revisions + (key to previous.replacedBy(value)),
+            )
     }
 
     /** A [Flow] of the value at [path], emitting on every change. */
-    fun flow(path: UiPath): Flow<JsonElement?> = state.map { doc ->
-        if (path is UiPath.Root) doc.json else resolve(path, doc.json)
-    }
+    fun flow(path: UiPath): Flow<JsonElement?> =
+        state.map { doc ->
+            if (path is UiPath.Root) doc.json else resolve(path, doc.json)
+        }
 
     /** Returns a snapshot of the entire document as [JsonObject]. */
     fun snapshot(): JsonObject = state.value.json
@@ -163,19 +172,28 @@ class DataModel(initial: JsonObject = JsonObject(emptyMap())) {
     }
 
     /** The document with [value] written at [path]. */
-    private fun writeAt(doc: JsonObject, path: UiPath, value: JsonElement): JsonObject =
+    private fun writeAt(
+        doc: JsonObject,
+        path: UiPath,
+        value: JsonElement,
+    ): JsonObject =
         if (path is UiPath.Root) {
             value as? JsonObject ?: JsonObject(emptyMap())
         } else {
             setNode(doc, path, value)
         }
 
-    private fun resolve(path: UiPath, doc: JsonElement): JsonElement? {
+    private fun resolve(
+        path: UiPath,
+        doc: JsonElement,
+    ): JsonElement? {
         var current: JsonElement = doc
         var p: UiPath = path
         while (true) {
             when (p) {
-                is UiPath.Root -> return current
+                is UiPath.Root -> {
+                    return current
+                }
 
                 is UiPath.Child -> {
                     val arr = current as? JsonArray
@@ -189,7 +207,9 @@ class DataModel(initial: JsonObject = JsonObject(emptyMap())) {
                     p = p.tail
                 }
 
-                is UiPath.Leaf -> return current
+                is UiPath.Leaf -> {
+                    return current
+                }
             }
         }
     }
@@ -201,6 +221,9 @@ class DataModel(initial: JsonObject = JsonObject(emptyMap())) {
      * object for a name — and this class is about storing and observing the result of that choice,
      * not about making it.
      */
-    private fun setNode(doc: JsonObject, path: UiPath, value: JsonElement): JsonObject =
-        JsonPathWriter.write(doc, path.toSegmentList(), value)
+    private fun setNode(
+        doc: JsonObject,
+        path: UiPath,
+        value: JsonElement,
+    ): JsonObject = JsonPathWriter.write(doc, path.toSegmentList(), value)
 }

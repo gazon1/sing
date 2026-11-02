@@ -52,142 +52,150 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class TextFieldStateBridgeUiTest {
-
     @Test
-    fun the_field_shows_what_the_user_typed() = runIsolatedComposeTest {
-        setContent { BridgeField(Upstream()) }
+    fun the_field_shows_what_the_user_typed() =
+        runIsolatedComposeTest {
+            setContent { BridgeField(Upstream()) }
 
-        awaitTag(FIELD).performTextInput("Buy milk")
+            awaitTag(FIELD).performTextInput("Buy milk")
 
-        assertTagTextEquals(FIELD, "Buy milk")
-    }
-
-    @Test
-    fun the_field_shows_the_value_the_upstream_rewrote() = runIsolatedComposeTest {
-        val upstream = Upstream(initial = "first")
-        setContent { BridgeField(upstream) }
-
-        assertTagTextEquals(FIELD, "first")
-        upstream.rewrite("second")
-        waitForIdle()
-
-        assertTagTextEquals(FIELD, "second")
-    }
-
-    @Test
-    fun the_field_starts_with_the_value_the_upstream_already_holds() = runIsolatedComposeTest {
-        val upstream = Upstream(initial = "loaded title")
-        setContent { BridgeField(upstream) }
-
-        // The upstream must not be wiped: the field's first emission is its seed, and
-        // an empty field that pushed that emptiness upstream would clear a value the
-        // ViewModel had already loaded.
-        assertTagTextEquals(FIELD, "loaded title")
-        assert(upstream.value == "loaded title") {
-            "the upstream must still hold the value it started with, got: ${upstream.value}"
+            assertTagTextEquals(FIELD, "Buy milk")
         }
-    }
 
     @Test
-    fun clearing_the_field_reaches_the_upstream() = runIsolatedComposeTest {
-        val upstream = Upstream(initial = "Buy milk")
-        setContent { BridgeField(upstream) }
+    fun the_field_shows_the_value_the_upstream_rewrote() =
+        runIsolatedComposeTest {
+            val upstream = Upstream(initial = "first")
+            setContent { BridgeField(upstream) }
 
-        clearTag(FIELD)
-        waitForIdle()
+            assertTagTextEquals(FIELD, "first")
+            upstream.rewrite("second")
+            waitForIdle()
 
-        assertTagTextEquals(FIELD, "")
-        assert(upstream.value == "") {
-            "a cleared field must reach the upstream, got: ${upstream.value}"
+            assertTagTextEquals(FIELD, "second")
         }
-    }
 
     @Test
-    fun the_upstream_is_not_written_back_the_value_the_field_pushed() = runIsolatedComposeTest {
-        val upstream = Upstream()
-        setContent { BridgeField(upstream) }
+    fun the_field_starts_with_the_value_the_upstream_already_holds() =
+        runIsolatedComposeTest {
+            val upstream = Upstream(initial = "loaded title")
+            setContent { BridgeField(upstream) }
 
-        awaitTag(FIELD).performTextInput("abc")
-        waitForIdle()
-
-        // The upstream echoing the field's own value back is the case the pull guard
-        // exists for. It must not re-enter the field: a re-entry moves the cursor to
-        // the end of the text, and a field whose cursor jumps while the user types is
-        // a field that eats the next keystroke.
-        assert(upstream.pushes == 1) {
-            "the field's own value must not be pushed back a second time, pushes: ${upstream.pushes}"
+            // The upstream must not be wiped: the field's first emission is its seed, and
+            // an empty field that pushed that emptiness upstream would clear a value the
+            // ViewModel had already loaded.
+            assertTagTextEquals(FIELD, "loaded title")
+            assert(upstream.value == "loaded title") {
+                "the upstream must still hold the value it started with, got: ${upstream.value}"
+            }
         }
-        assertTagTextEquals(FIELD, "abc")
-    }
 
     @Test
-    fun an_upstream_that_clears_its_value_clears_the_field() = runIsolatedComposeTest {
-        val upstream = Upstream(initial = "What is on my agenda?")
-        setContent { BridgeField(upstream) }
+    fun clearing_the_field_reaches_the_upstream() =
+        runIsolatedComposeTest {
+            val upstream = Upstream(initial = "Buy milk")
+            setContent { BridgeField(upstream) }
 
-        assertTagTextEquals(FIELD, "What is on my agenda?")
+            clearTag(FIELD)
+            waitForIdle()
 
-        // This is what the chat screen does when a message is sent: the ViewModel
-        // clears its copy of the input, and the field has to show the cleared value.
-        // A field that kept the old text would let the user send the same message
-        // twice by accident — and, in the other direction, a field that ignored the
-        // upstream would keep showing text the app no longer holds.
-        upstream.rewrite("")
-        waitForIdle()
-
-        assertTagTextEquals(FIELD, "")
-    }
+            assertTagTextEquals(FIELD, "")
+            assert(upstream.value == "") {
+                "a cleared field must reach the upstream, got: ${upstream.value}"
+            }
+        }
 
     @Test
-    fun an_upstream_that_lags_behind_does_not_overwrite_the_field() = runIsolatedComposeTest {
-        val upstream = Upstream()
-        setContent { BridgeField(upstream) }
+    fun the_upstream_is_not_written_back_the_value_the_field_pushed() =
+        runIsolatedComposeTest {
+            val upstream = Upstream()
+            setContent { BridgeField(upstream) }
 
-        awaitTag(FIELD).performTextInput("abc")
-        waitForIdle()
-        awaitTag(FIELD).performTextReplacement("a")
-        waitForIdle()
-        assertTagTextEquals(FIELD, "a")
+            awaitTag(FIELD).performTextInput("abc")
+            waitForIdle()
 
-        // The upstream is behind: it hands back "abc", a value the field pushed a moment
-        // ago and no longer holds. Applying it would undo the user's latest edit with a
-        // value the app already moved past.
-        upstream.rewrite("abc")
-        waitForIdle()
-
-        assertTagTextEquals(FIELD, "a")
-    }
-
-    @Test
-    fun the_edit_observer_fires_on_edits_and_not_on_the_seed() = runIsolatedComposeTest {
-        val edits = mutableListOf<String>()
-        setContent { ObservedField { edits += "edit" } }
-
-        // The seed is not an edit: a screen that cleared its error on the seed would
-        // clear an error the user has not touched yet.
-        waitForIdle()
-        assert(edits.isEmpty()) { "the field's seed must not count as an edit, got: $edits" }
-
-        awaitTag(FIELD).performTextInput("x")
-        waitForIdle()
-
-        assert(edits.isNotEmpty()) { "an edit must be reported, got: $edits" }
-    }
+            // The upstream echoing the field's own value back is the case the pull guard
+            // exists for. It must not re-enter the field: a re-entry moves the cursor to
+            // the end of the text, and a field whose cursor jumps while the user types is
+            // a field that eats the next keystroke.
+            assert(upstream.pushes == 1) {
+                "the field's own value must not be pushed back a second time, pushes: ${upstream.pushes}"
+            }
+            assertTagTextEquals(FIELD, "abc")
+        }
 
     @Test
-    fun an_anchored_field_follows_the_value_it_is_anchored_to() = runIsolatedComposeTest {
-        var value by mutableStateOf("first")
-        setContent { AnchoredField(value) }
+    fun an_upstream_that_clears_its_value_clears_the_field() =
+        runIsolatedComposeTest {
+            val upstream = Upstream(initial = "What is on my agenda?")
+            setContent { BridgeField(upstream) }
 
-        assertTagTextEquals(FIELD, "first")
+            assertTagTextEquals(FIELD, "What is on my agenda?")
 
-        // The anchored value changes under the field — a reloaded provider, a changed
-        // setting — and the field has to show the new value.
-        value = "second"
-        waitForIdle()
+            // This is what the chat screen does when a message is sent: the ViewModel
+            // clears its copy of the input, and the field has to show the cleared value.
+            // A field that kept the old text would let the user send the same message
+            // twice by accident — and, in the other direction, a field that ignored the
+            // upstream would keep showing text the app no longer holds.
+            upstream.rewrite("")
+            waitForIdle()
 
-        assertTagTextEquals(FIELD, "second")
-    }
+            assertTagTextEquals(FIELD, "")
+        }
+
+    @Test
+    fun an_upstream_that_lags_behind_does_not_overwrite_the_field() =
+        runIsolatedComposeTest {
+            val upstream = Upstream()
+            setContent { BridgeField(upstream) }
+
+            awaitTag(FIELD).performTextInput("abc")
+            waitForIdle()
+            awaitTag(FIELD).performTextReplacement("a")
+            waitForIdle()
+            assertTagTextEquals(FIELD, "a")
+
+            // The upstream is behind: it hands back "abc", a value the field pushed a moment
+            // ago and no longer holds. Applying it would undo the user's latest edit with a
+            // value the app already moved past.
+            upstream.rewrite("abc")
+            waitForIdle()
+
+            assertTagTextEquals(FIELD, "a")
+        }
+
+    @Test
+    fun the_edit_observer_fires_on_edits_and_not_on_the_seed() =
+        runIsolatedComposeTest {
+            val edits = mutableListOf<String>()
+            setContent { ObservedField { edits += "edit" } }
+
+            // The seed is not an edit: a screen that cleared its error on the seed would
+            // clear an error the user has not touched yet.
+            waitForIdle()
+            assert(edits.isEmpty()) { "the field's seed must not count as an edit, got: $edits" }
+
+            awaitTag(FIELD).performTextInput("x")
+            waitForIdle()
+
+            assert(edits.isNotEmpty()) { "an edit must be reported, got: $edits" }
+        }
+
+    @Test
+    fun an_anchored_field_follows_the_value_it_is_anchored_to() =
+        runIsolatedComposeTest {
+            var value by mutableStateOf("first")
+            setContent { AnchoredField(value) }
+
+            assertTagTextEquals(FIELD, "first")
+
+            // The anchored value changes under the field — a reloaded provider, a changed
+            // setting — and the field has to show the new value.
+            value = "second"
+            waitForIdle()
+
+            assertTagTextEquals(FIELD, "second")
+        }
 
     @Test
     fun the_last_edit_reaches_the_upstream_when_the_field_leaves_the_composition() =
@@ -239,26 +247,27 @@ class TextFieldStateBridgeUiTest {
         }
 
     @Test
-    fun an_owned_upstream_rewrites_a_value_the_field_produced() = runIsolatedComposeTest {
-        val upstream = OwnedUpstream()
-        setContent { OwnedBridgeField(upstream) }
+    fun an_owned_upstream_rewrites_a_value_the_field_produced() =
+        runIsolatedComposeTest {
+            val upstream = OwnedUpstream()
+            setContent { OwnedBridgeField(upstream) }
 
-        awaitTag(FIELD).performTextInput("abc")
-        waitForIdle()
-        awaitTag(FIELD).performTextReplacement("a")
-        waitForIdle()
-        assertTagTextEquals(FIELD, "a")
+            awaitTag(FIELD).performTextInput("abc")
+            waitForIdle()
+            awaitTag(FIELD).performTextReplacement("a")
+            waitForIdle()
+            assertTagTextEquals(FIELD, "a")
 
-        // The upstream replaces the field's text with "abc" — a value the field
-        // produced a moment ago and no longer holds. From the field's side that is
-        // indistinguishable from a lagging upstream, and the static guard drops it
-        // (see the test above). The owned source carries the count of the
-        // replacements, so the guard is lifted and the rewrite lands.
-        upstream.rewrite("abc")
-        waitForIdle()
+            // The upstream replaces the field's text with "abc" — a value the field
+            // produced a moment ago and no longer holds. From the field's side that is
+            // indistinguishable from a lagging upstream, and the static guard drops it
+            // (see the test above). The owned source carries the count of the
+            // replacements, so the guard is lifted and the rewrite lands.
+            upstream.rewrite("abc")
+            waitForIdle()
 
-        assertTagTextEquals(FIELD, "abc")
-    }
+            assertTagTextEquals(FIELD, "abc")
+        }
 
     @Test
     fun a_rewrite_that_lands_on_a_value_the_field_produced_reaches_the_field_only_for_an_owned_source() =
@@ -357,14 +366,18 @@ class TextFieldStateBridgeUiTest {
 
     /** A field bound to [upstream] through the shared bridge helper. */
     @Composable
-    private fun BridgeField(upstream: Upstream, tag: String = FIELD) {
-        val state = rememberBridgedTextFieldState(
-            source = upstream.source,
-            onTextChanged = { newText ->
-                upstream.pushes++
-                upstream.rewrite(newText)
-            },
-        )
+    private fun BridgeField(
+        upstream: Upstream,
+        tag: String = FIELD,
+    ) {
+        val state =
+            rememberBridgedTextFieldState(
+                source = upstream.source,
+                onTextChanged = { newText ->
+                    upstream.pushes++
+                    upstream.rewrite(newText)
+                },
+            )
         OutlinedTextField(
             state = state,
             modifier = Modifier.testTag(tag),
@@ -373,11 +386,15 @@ class TextFieldStateBridgeUiTest {
 
     /** A field bound to an [OwnedUpstream] through the shared bridge helper. */
     @Composable
-    private fun OwnedBridgeField(upstream: OwnedUpstream, tag: String = FIELD) {
-        val state = rememberBridgedTextFieldState(
-            source = upstream.source,
-            onTextChanged = { newText -> upstream.push(newText) },
-        )
+    private fun OwnedBridgeField(
+        upstream: OwnedUpstream,
+        tag: String = FIELD,
+    ) {
+        val state =
+            rememberBridgedTextFieldState(
+                source = upstream.source,
+                onTextChanged = { newText -> upstream.push(newText) },
+            )
         OutlinedTextField(
             state = state,
             modifier = Modifier.testTag(tag),
@@ -387,7 +404,9 @@ class TextFieldStateBridgeUiTest {
     /** A local field that reports every edit through [onEdit]. */
     @Composable
     private fun ObservedField(onEdit: () -> Unit) {
-        val state = androidx.compose.foundation.text.input.rememberTextFieldState()
+        val state =
+            androidx.compose.foundation.text.input
+                .rememberTextFieldState()
         ObserveTextFieldEdits(state) { onEdit() }
         OutlinedTextField(
             state = state,

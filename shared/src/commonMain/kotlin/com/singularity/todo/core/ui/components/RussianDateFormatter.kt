@@ -28,30 +28,32 @@ internal fun formatDateCount(count: Int): String {
     return "$count $word"
 }
 
-private fun shortWeekday(d: DayOfWeek): String = when (d) {
-    DayOfWeek.MONDAY -> "Пн"
-    DayOfWeek.TUESDAY -> "Вт"
-    DayOfWeek.WEDNESDAY -> "Ср"
-    DayOfWeek.THURSDAY -> "Чт"
-    DayOfWeek.FRIDAY -> "Пт"
-    DayOfWeek.SATURDAY -> "Сб"
-    DayOfWeek.SUNDAY -> "Вс"
-}
+private fun shortWeekday(d: DayOfWeek): String =
+    when (d) {
+        DayOfWeek.MONDAY -> "Пн"
+        DayOfWeek.TUESDAY -> "Вт"
+        DayOfWeek.WEDNESDAY -> "Ср"
+        DayOfWeek.THURSDAY -> "Чт"
+        DayOfWeek.FRIDAY -> "Пт"
+        DayOfWeek.SATURDAY -> "Сб"
+        DayOfWeek.SUNDAY -> "Вс"
+    }
 
-private fun shortMonth(m: Month): String = when (m) {
-    Month.JANUARY -> "янв"
-    Month.FEBRUARY -> "фев"
-    Month.MARCH -> "мар"
-    Month.APRIL -> "апр"
-    Month.MAY -> "мая"
-    Month.JUNE -> "июн"
-    Month.JULY -> "июл"
-    Month.AUGUST -> "авг"
-    Month.SEPTEMBER -> "сен"
-    Month.OCTOBER -> "окт"
-    Month.NOVEMBER -> "ноя"
-    Month.DECEMBER -> "дек"
-}
+private fun shortMonth(m: Month): String =
+    when (m) {
+        Month.JANUARY -> "янв"
+        Month.FEBRUARY -> "фев"
+        Month.MARCH -> "мар"
+        Month.APRIL -> "апр"
+        Month.MAY -> "мая"
+        Month.JUNE -> "июн"
+        Month.JULY -> "июл"
+        Month.AUGUST -> "авг"
+        Month.SEPTEMBER -> "сен"
+        Month.OCTOBER -> "окт"
+        Month.NOVEMBER -> "ноя"
+        Month.DECEMBER -> "дек"
+    }
 
 /**
  * Formats a month title: "Октябрь 2026".
@@ -83,17 +85,18 @@ internal fun formatRussianShortDate(date: LocalDate): String =
 internal fun formatRussianDateList(dates: List<LocalDate>): String =
     dates.joinToString(", ") { formatRussianShortDate(it) }
 
-private fun longMonth(m: Month): String = when (m) {
-    Month.JANUARY -> "Январь"
-    Month.FEBRUARY -> "Февраль"
-    Month.MARCH -> "Март"
-    Month.APRIL -> "Апрель"
-    Month.MAY -> "Май"
-    Month.JUNE -> "Июнь"
-    Month.JULY -> "Июль"
-    Month.AUGUST -> "Август"
-    Month.SEPTEMBER -> "Сентябрь"
-    Month.OCTOBER -> "Октябрь"
-    Month.NOVEMBER -> "Ноябрь"
-    Month.DECEMBER -> "Декабрь"
-}
+private fun longMonth(m: Month): String =
+    when (m) {
+        Month.JANUARY -> "Январь"
+        Month.FEBRUARY -> "Февраль"
+        Month.MARCH -> "Март"
+        Month.APRIL -> "Апрель"
+        Month.MAY -> "Май"
+        Month.JUNE -> "Июнь"
+        Month.JULY -> "Июль"
+        Month.AUGUST -> "Август"
+        Month.SEPTEMBER -> "Сентябрь"
+        Month.OCTOBER -> "Октябрь"
+        Month.NOVEMBER -> "Ноябрь"
+        Month.DECEMBER -> "Декабрь"
+    }

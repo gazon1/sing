@@ -22,23 +22,24 @@ import org.koin.dsl.module
  * is platform-specific: the screen is made from what the model wrote, and the model is asked by
  * the chat's turn, not by this layer.
  */
-fun genuiModule(): Module = module {
-    // The interface, not the object: everything downstream asks for A2uiCatalog, and a binding
-    // registered as the concrete type leaves the graph with a definition nobody can resolve by the
-    // type they actually hold. The koin compiler plugin catches this at compile time.
-    single<A2uiCatalog> { SingularityCatalog }
-    single { A2uiValidator(get()) }
-    single { SurfaceController() }
-    // The usage tally is the parser's to own: it is the only thing that sees every kind.
-    single { A2uiParser(get(), usage = get()) }
-    single { A2uiMessageProcessor(get(), get()) }
-    single { GenuiRejectionCounter() }
-    // One tally for the process, injected into the parser so every turn accumulates into it.
-    // The screen is made per answer, so a counter created per answer would answer "what did this
-    // answer use" rather than the question the tally exists for: "what does the catalog actually
-    // earn".
-    single { GenuiUsageCounter() }
-    single { ComponentRegistry().also { Material3Catalog.installAll(it) } }
-    // The screen of an answer is made per answer; everything it is made of is not.
-    factory { SurfaceTurnFactory(get(), get(), get(), get(), get()) }
-}
+fun genuiModule(): Module =
+    module {
+        // The interface, not the object: everything downstream asks for A2uiCatalog, and a binding
+        // registered as the concrete type leaves the graph with a definition nobody can resolve by the
+        // type they actually hold. The koin compiler plugin catches this at compile time.
+        single<A2uiCatalog> { SingularityCatalog }
+        single { A2uiValidator(get()) }
+        single { SurfaceController() }
+        // The usage tally is the parser's to own: it is the only thing that sees every kind.
+        single { A2uiParser(get(), usage = get()) }
+        single { A2uiMessageProcessor(get(), get()) }
+        single { GenuiRejectionCounter() }
+        // One tally for the process, injected into the parser so every turn accumulates into it.
+        // The screen is made per answer, so a counter created per answer would answer "what did this
+        // answer use" rather than the question the tally exists for: "what does the catalog actually
+        // earn".
+        single { GenuiUsageCounter() }
+        single { ComponentRegistry().also { Material3Catalog.installAll(it) } }
+        // The screen of an answer is made per answer; everything it is made of is not.
+        factory { SurfaceTurnFactory(get(), get(), get(), get(), get()) }
+    }

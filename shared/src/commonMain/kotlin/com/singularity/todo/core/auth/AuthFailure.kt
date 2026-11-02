@@ -23,17 +23,17 @@ import com.singularity.todo.core.error.AppError
  * vocabulary says *which* failure it was; this file says *what that means*.
  */
 internal object AuthFailure {
-
     /**
      * No project is configured: there is nothing to sign in to.
      *
      * This is not a failure of the sign-in — it is a failure to have a place to sign
      * in to, and the message says what to do about it.
      */
-    fun notConfigured(): AppError.Validation = AppError.Validation(
-        "No Supabase project is configured, so there is nothing to sign in to.",
-        code = "auth.not_configured",
-    )
+    fun notConfigured(): AppError.Validation =
+        AppError.Validation(
+            "No Supabase project is configured, so there is nothing to sign in to.",
+            code = "auth.not_configured",
+        )
 
     /**
      * The provider accepted the call and left no session behind.
@@ -42,10 +42,11 @@ internal object AuthFailure {
      * caller cannot act differently on them: both mean there is no session, and both
      * must leave the store untouched.
      */
-    fun noSession(what: String): AppError.Unauthorized = AppError.Unauthorized(
-        "The identity provider accepted '$what' but left no session behind",
-        code = "auth.no_session",
-    )
+    fun noSession(what: String): AppError.Unauthorized =
+        AppError.Unauthorized(
+            "The identity provider accepted '$what' but left no session behind",
+            code = "auth.no_session",
+        )
 
     /**
      * The magic link was verified, but no session was issued for it.
@@ -55,10 +56,11 @@ internal object AuthFailure {
      * and a person who has just clicked a link deserves to be told which of the two
      * happened.
      */
-    fun verifiedWithoutSession(): AppError.Unauthorized = AppError.Unauthorized(
-        "Magic link verified but no session was issued",
-        code = "auth.no_session",
-    )
+    fun verifiedWithoutSession(): AppError.Unauthorized =
+        AppError.Unauthorized(
+            "Magic link verified but no session was issued",
+            code = "auth.no_session",
+        )
 
     /**
      * What a failed refresh means for the session.
@@ -68,10 +70,11 @@ internal object AuthFailure {
      * network blip throws away a session that would have worked a second later.
      * REQ-UA-003 — a transport failure is not a verdict on the token.
      */
-    fun refreshOutcome(reason: RefreshFailureReason): RefreshOutcome = when (reason) {
-        RefreshFailureReason.Rejected -> RefreshOutcome.SessionIsGone
-        RefreshFailureReason.Transient -> RefreshOutcome.KeepSession
-    }
+    fun refreshOutcome(reason: RefreshFailureReason): RefreshOutcome =
+        when (reason) {
+            RefreshFailureReason.Rejected -> RefreshOutcome.SessionIsGone
+            RefreshFailureReason.Transient -> RefreshOutcome.KeepSession
+        }
 }
 
 /**

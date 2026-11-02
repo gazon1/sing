@@ -33,7 +33,11 @@ import kotlinx.serialization.Serializable
 value class TaskSeriesId(val value: String) {
     companion object {
         /** Mints a fresh series id. */
-        fun generate(): TaskSeriesId = TaskSeriesId(com.singularity.todo.core.ids.nextId())
+        fun generate(): TaskSeriesId =
+            TaskSeriesId(
+                com.singularity.todo.core.ids
+                    .nextId(),
+            )
 
         /** Wraps an id that came from storage or from the wire. */
         fun fromString(value: String): TaskSeriesId = TaskSeriesId(value)

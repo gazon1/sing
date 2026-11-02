@@ -14,7 +14,6 @@ import kotlin.test.assertNotEquals
  */
 @Tag("fast")
 class RevisionedTest {
-
     @Test
     fun `a value that nothing replaced carries no count`() {
         val value = Revisioned.initial("first")
@@ -41,9 +40,11 @@ class RevisionedTest {
 
     @Test
     fun `a count moves once per replacement`() {
-        val value = Revisioned.initial("first")
-            .replacedBy("second")
-            .replacedBy("third")
+        val value =
+            Revisioned
+                .initial("first")
+                .replacedBy("second")
+                .replacedBy("third")
 
         assertEquals("third", value.value)
         assertEquals(2L, value.revision)
@@ -51,11 +52,13 @@ class RevisionedTest {
 
     @Test
     fun `a keystroke between two replacements does not move the count`() {
-        val value = Revisioned.initial("first")
-            .typed("firsts")
-            .replacedBy("second")
-            .typed("seconds")
-            .replacedBy("third")
+        val value =
+            Revisioned
+                .initial("first")
+                .typed("firsts")
+                .replacedBy("second")
+                .typed("seconds")
+                .replacedBy("third")
 
         assertEquals("third", value.value)
         assertEquals(2L, value.revision)

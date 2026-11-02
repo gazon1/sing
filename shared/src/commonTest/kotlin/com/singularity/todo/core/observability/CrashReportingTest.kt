@@ -22,18 +22,21 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Tag
 import java.io.IOException
+import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
-import kotlin.coroutines.EmptyCoroutineContext
 
 /** Records what the funnel reported, so tests can assert on it without a mocking framework. */
 private class RecordingCrashReporter : CrashReportingPort {
     val reports = mutableListOf<Pair<Throwable, String>>()
     val breadcrumbs = mutableListOf<String>()
 
-    override fun report(error: Throwable, issueKey: String) {
+    override fun report(
+        error: Throwable,
+        issueKey: String,
+    ) {
         reports += error to issueKey
     }
 
@@ -44,13 +47,17 @@ private class RecordingCrashReporter : CrashReportingPort {
 
 private sealed class S {
     data object Idle : S()
+
     data class Err(val message: String) : S()
 }
 
 private sealed interface I : MviIntent {
     data object ReturnedFailure : I
+
     data object ThrownPlain : I
+
     data object ReturnedAppError : I
+
     data object Succeed : I
 }
 
@@ -66,12 +73,13 @@ private class Vm(scope: CoroutineScope, reporter: CrashReportingPort, private va
         drive(intent)
     }
 
-    fun drive(intent: I) = when (intent) {
-        I.ReturnedFailure -> catchTo("vm.op_failed", { msg -> updateState { S.Err(msg) } }) { block() }
-        I.ThrownPlain -> catchTo("vm.op_threw", { msg -> updateState { S.Err(msg) } }) { block() }
-        I.ReturnedAppError -> catchTo("vm.not_found", { msg -> updateState { S.Err(msg) } }) { block() }
-        I.Succeed -> catchTo("vm.ok", { msg -> updateState { S.Err(msg) } }) { block() }
-    }
+    fun drive(intent: I) =
+        when (intent) {
+            I.ReturnedFailure -> catchTo("vm.op_failed", { msg -> updateState { S.Err(msg) } }) { block() }
+            I.ThrownPlain -> catchTo("vm.op_threw", { msg -> updateState { S.Err(msg) } }) { block() }
+            I.ReturnedAppError -> catchTo("vm.not_found", { msg -> updateState { S.Err(msg) } }) { block() }
+            I.Succeed -> catchTo("vm.ok", { msg -> updateState { S.Err(msg) } }) { block() }
+        }
 }
 
 /**
@@ -80,83 +88,90 @@ private class Vm(scope: CoroutineScope, reporter: CrashReportingPort, private va
  */
 @Tag("fast")
 class MviViewModelCrashReportingTest {
-
     @Test
-    fun `a returned failure is reported once, grouped by the call-site label`() = runTest {
-        val reporter = RecordingCrashReporter()
-        val boom = IllegalStateException("disk gone")
-        val vm = Vm(this, reporter) { Result.failure<Unit>(boom) }
+    fun `a returned failure is reported once, grouped by the call-site label`() =
+        runTest {
+            val reporter = RecordingCrashReporter()
+            val boom = IllegalStateException("disk gone")
+            val vm = Vm(this, reporter) { Result.failure<Unit>(boom) }
 
-        vm.drive(I.ReturnedFailure)
-        advanceUntilIdle()
+            vm.drive(I.ReturnedFailure)
+            advanceUntilIdle()
 
-        assertEquals(1, reporter.reports.size, "Exactly one report per failure")
-        assertSame(boom, reporter.reports.single().first, "The ORIGINAL throwable, not a copy")
-        assertEquals("vm.op_failed", reporter.reports.single().second)
-    }
-
-    @Test
-    fun `a thrown non-AppError is reported under the call-site label`() = runTest {
-        val reporter = RecordingCrashReporter()
-        val boom = IllegalArgumentException("bad id")
-        // Declared with its type so the lambda body (which only throws) has an
-        // expected type; an inline trailing lambda infers T from a Nothing body.
-        val throwsInstead: suspend () -> Result<*> = { throw boom }
-        val vm = Vm(this, reporter, throwsInstead)
-
-        vm.drive(I.ThrownPlain)
-        advanceUntilIdle()
-
-        assertEquals(1, reporter.reports.size)
-        assertSame(boom, reporter.reports.single().first)
-        assertEquals("vm.op_threw", reporter.reports.single().second)
-    }
-
-    @Test
-    fun `an AppError is grouped by its domain code, not the call-site label`() = runTest {
-        val reporter = RecordingCrashReporter()
-        val vm = Vm(this, reporter) { Result.failure<Unit>(AppError.NotFound("Task not found: abc")) }
-
-        vm.drive(I.ReturnedAppError)
-        advanceUntilIdle()
-
-        assertEquals(1, reporter.reports.size)
-        assertEquals("error.not_found", reporter.reports.single().second)
-    }
-
-    @Test
-    fun `success reports nothing`() = runTest {
-        val reporter = RecordingCrashReporter()
-        val vm = Vm(this, reporter) { Result.success(Unit) }
-
-        vm.drive(I.Succeed)
-        advanceUntilIdle()
-
-        assertTrue(reporter.reports.isEmpty(), "A successful operation is not an error")
-    }
-
-    @Test
-    fun `the issue key never carries the error message`() = runTest {
-        val reporter = RecordingCrashReporter()
-        val vm = Vm(this, reporter) {
-            Result.failure<Unit>(IllegalStateException("john@example.com bought milk"))
+            assertEquals(1, reporter.reports.size, "Exactly one report per failure")
+            assertSame(boom, reporter.reports.single().first, "The ORIGINAL throwable, not a copy")
+            assertEquals("vm.op_failed", reporter.reports.single().second)
         }
 
-        vm.drive(I.ReturnedFailure)
-        advanceUntilIdle()
+    @Test
+    fun `a thrown non-AppError is reported under the call-site label`() =
+        runTest {
+            val reporter = RecordingCrashReporter()
+            val boom = IllegalArgumentException("bad id")
+            // Declared with its type so the lambda body (which only throws) has an
+            // expected type; an inline trailing lambda infers T from a Nothing body.
+            val throwsInstead: suspend () -> Result<*> = { throw boom }
+            val vm = Vm(this, reporter, throwsInstead)
 
-        // The key is what leaves the device. It is a label or a code, never the message.
-        assertTrue(
-            !reporter.reports.single().second.contains("@"),
-            "Issue key must not embed user content: ${reporter.reports.single().second}",
-        )
-    }
+            vm.drive(I.ThrownPlain)
+            advanceUntilIdle()
+
+            assertEquals(1, reporter.reports.size)
+            assertSame(boom, reporter.reports.single().first)
+            assertEquals("vm.op_threw", reporter.reports.single().second)
+        }
+
+    @Test
+    fun `an AppError is grouped by its domain code, not the call-site label`() =
+        runTest {
+            val reporter = RecordingCrashReporter()
+            val vm = Vm(this, reporter) { Result.failure<Unit>(AppError.NotFound("Task not found: abc")) }
+
+            vm.drive(I.ReturnedAppError)
+            advanceUntilIdle()
+
+            assertEquals(1, reporter.reports.size)
+            assertEquals("error.not_found", reporter.reports.single().second)
+        }
+
+    @Test
+    fun `success reports nothing`() =
+        runTest {
+            val reporter = RecordingCrashReporter()
+            val vm = Vm(this, reporter) { Result.success(Unit) }
+
+            vm.drive(I.Succeed)
+            advanceUntilIdle()
+
+            assertTrue(reporter.reports.isEmpty(), "A successful operation is not an error")
+        }
+
+    @Test
+    fun `the issue key never carries the error message`() =
+        runTest {
+            val reporter = RecordingCrashReporter()
+            val vm =
+                Vm(this, reporter) {
+                    Result.failure<Unit>(IllegalStateException("john@example.com bought milk"))
+                }
+
+            vm.drive(I.ReturnedFailure)
+            advanceUntilIdle()
+
+            // The key is what leaves the device. It is a label or a code, never the message.
+            assertTrue(
+                !reporter.reports
+                    .single()
+                    .second
+                    .contains("@"),
+                "Issue key must not embed user content: ${reporter.reports.single().second}",
+            )
+        }
 }
 
 /** The no-op must be genuinely inert — it is the default for every ViewModel test. */
 @Tag("fast")
 class NoOpCrashReportingPortTest {
-
     @Test
     fun `report and addBreadcrumb are silent no-ops`() {
         val port = NoOpCrashReportingPort()
@@ -172,7 +187,6 @@ class NoOpCrashReportingPortTest {
  */
 @Tag("fast")
 class AppErrorCauseTest {
-
     @Test
     fun `runCatchingResult keeps the original throwable as the cause`() {
         val original = IOException("socket closed")
@@ -198,17 +212,17 @@ class AppErrorCauseTest {
 /** Every subtype must still construct from a bare message — the trailing params are defaulted. */
 @Tag("fast")
 class AppErrorCompatibilityTest {
-
     @Test
     fun `each subtype constructs from a message alone and has a stable code`() {
-        val pairs: List<Pair<AppError, String>> = listOf(
-            AppError.Validation("v") to "error.validation",
-            AppError.NotFound("n") to "error.not_found",
-            AppError.Unauthorized("u") to "error.unauthorized",
-            AppError.Persistence("p") to "error.persistence",
-            AppError.Network("net") to "error.network",
-            AppError.Unknown("x") to "error.unknown",
-        )
+        val pairs: List<Pair<AppError, String>> =
+            listOf(
+                AppError.Validation("v") to "error.validation",
+                AppError.NotFound("n") to "error.not_found",
+                AppError.Unauthorized("u") to "error.unauthorized",
+                AppError.Persistence("p") to "error.persistence",
+                AppError.Network("net") to "error.network",
+                AppError.Unknown("x") to "error.unknown",
+            )
         for ((error, expectedCode) in pairs) {
             assertEquals(expectedCode, error.code, "code drift in ${error::class.simpleName}")
         }
@@ -243,7 +257,6 @@ class AppErrorCompatibilityTest {
  */
 @Tag("fast")
 class BackgroundFailureHandlerTest {
-
     private companion object {
         /** Real threads are involved, so this is a hang guard, not a timing assertion. */
         const val TIMEOUT_MS = 5_000L
@@ -263,22 +276,23 @@ class BackgroundFailureHandlerTest {
     }
 
     @Test
-    fun `a failed launch is reported and the scope survives it`() = runTest {
-        val seen = CompletableDeferred<Throwable>()
-        val scope = createBackgroundScope(backgroundFailureHandler { seen.complete(it) })
+    fun `a failed launch is reported and the scope survives it`() =
+        runTest {
+            val seen = CompletableDeferred<Throwable>()
+            val scope = createBackgroundScope(backgroundFailureHandler { seen.complete(it) })
 
-        // Real threads, so the waits below are real too. Inside withContext(Dispatchers.Default)
-        // the test scheduler is out of the way, which means withTimeout is a genuine hang guard
-        // rather than a virtual-time skip. runBlocking would say the same thing more directly,
-        // but it is banned outside the baseline.
-        withContext(Dispatchers.Default) {
-            scope.launch { throw IllegalStateException("disk gone") }.join()
+            // Real threads, so the waits below are real too. Inside withContext(Dispatchers.Default)
+            // the test scheduler is out of the way, which means withTimeout is a genuine hang guard
+            // rather than a virtual-time skip. runBlocking would say the same thing more directly,
+            // but it is banned outside the baseline.
+            withContext(Dispatchers.Default) {
+                scope.launch { throw IllegalStateException("disk gone") }.join()
 
-            assertEquals("disk gone", withTimeout(TIMEOUT_MS) { seen.await() }.message)
-            // SupervisorJob plus a handler that returns normally: the scope is not dead.
-            withTimeout(TIMEOUT_MS) { scope.launch { }.join() }
+                assertEquals("disk gone", withTimeout(TIMEOUT_MS) { seen.await() }.message)
+                // SupervisorJob plus a handler that returns normally: the scope is not dead.
+                withTimeout(TIMEOUT_MS) { scope.launch { }.join() }
+            }
         }
-    }
 
     @Test
     fun `two handlers are independent, so one failure cannot be captured by the other`() {

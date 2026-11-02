@@ -3,9 +3,9 @@ package com.singularity.todo.core.sync
 import androidx.room3.ColumnInfo
 import androidx.room3.Dao
 import androidx.room3.Entity
+import androidx.room3.Index
 import androidx.room3.Insert
 import androidx.room3.OnConflictStrategy
-import androidx.room3.Index
 import androidx.room3.PrimaryKey
 import androidx.room3.Query
 import kotlinx.coroutines.flow.Flow
@@ -83,11 +83,18 @@ interface SyncOutboxDao {
             "AND (next_attempt_at IS NULL OR next_attempt_at <= :now) " +
             "ORDER BY created_at ASC",
     )
-    suspend fun getPending(now: Long, ownerId: String, profileId: String): List<SyncOutboxEntity>
+    suspend fun getPending(
+        now: Long,
+        ownerId: String,
+        profileId: String,
+    ): List<SyncOutboxEntity>
 
     /** Claims rows for pushing: sets claim_token where it is still null. */
     @Query("UPDATE sync_outbox SET claim_token = :token WHERE patch_id IN (:ids) AND claim_token IS NULL")
-    suspend fun claim(ids: List<String>, token: String)
+    suspend fun claim(
+        ids: List<String>,
+        token: String,
+    )
 
     /**
      * Releases rows back onto the queue: clears `claim_token` so they can be pushed again,
@@ -96,7 +103,10 @@ interface SyncOutboxDao {
      * untouched, so this cycle's release cannot strip another cycle's claim.
      */
     @Query("UPDATE sync_outbox SET claim_token = NULL WHERE patch_id IN (:ids) AND claim_token = :token")
-    suspend fun release(ids: List<String>, token: String)
+    suspend fun release(
+        ids: List<String>,
+        token: String,
+    )
 
     /**
      * How many patches an account still owes the server.
@@ -142,7 +152,12 @@ interface SyncOutboxDao {
             "next_attempt_at = :nextAttemptAt, claim_token = NULL " +
             "WHERE patch_id = :id AND (claim_token IS NULL OR claim_token = :claimToken)",
     )
-    suspend fun markFailed(id: String, error: String, nextAttemptAt: Long, claimToken: String? = null)
+    suspend fun markFailed(
+        id: String,
+        error: String,
+        nextAttemptAt: Long,
+        claimToken: String? = null,
+    )
 
     /** Current attempt count for a patch. */
     @Query("SELECT attempts FROM sync_outbox WHERE patch_id = :id")
@@ -158,7 +173,11 @@ interface SyncOutboxDao {
      * prevent, reached from the other direction.
      */
     @Query("DELETE FROM sync_outbox WHERE owner_id = :ownerId AND profile_id = :profileId AND entity_id = :entityId")
-    suspend fun deleteByEntity(ownerId: String, profileId: String, entityId: String)
+    suspend fun deleteByEntity(
+        ownerId: String,
+        profileId: String,
+        entityId: String,
+    )
 
     /** Clear the entire outbox */
     @Query("DELETE FROM sync_outbox")

@@ -5,29 +5,32 @@ package com.singularity.todo.feature.ai.prompts
  * Migrated from 11 Flutter `.prompt` Handlebars files — Kotlin string templates.
  */
 object Prompts {
-
     // ─── System prompts ────────────────────────────────────────────────────────
 
-    val refineSystem = """
+    val refineSystem =
+        """
         You are a productivity assistant. Rewrite the user's task title to be clearer,
         more actionable, and specific. Return only the rewritten title, no quotes.
-    """.trimIndent()
+        """.trimIndent()
 
-    val smartRewriteSystem = """
+    val smartRewriteSystem =
+        """
         You are an expert at crafting concise, actionable task titles from raw ideas.
         Return only the rewritten title — no explanation, no quotes, no markdown.
-    """.trimIndent()
+        """.trimIndent()
 
-    val generateDescriptionSystem = """
+    val generateDescriptionSystem =
+        """
         You are a productivity assistant. Given a task title, write a brief, clear
         description (1-2 sentences) that adds useful context. Return only the description.
-    """.trimIndent()
+        """.trimIndent()
 
-    val decomposeTaskSystem = """
+    val decomposeTaskSystem =
+        """
         You are a task decomposition assistant. Break the given task into 3-7 smaller,
         actionable sub-tasks. Return a JSON object with a "subTasks" field containing an
         array of strings, each being one sub-task. No numbering, no markdown, just the object.
-    """.trimIndent()
+        """.trimIndent()
 
     /**
      * The prompt behind the `first_step` tool.
@@ -38,7 +41,8 @@ object Prompts {
      * the outcome has to be checkable, because a step nobody can check is a step
      * nobody can be finished with.
      */
-    val firstStepSystem = """
+    val firstStepSystem =
+        """
         You name the first physical action of a task.
 
         One action. Not a plan, not a list, not the whole task. The first thing a
@@ -53,31 +57,35 @@ object Prompts {
         Also give the checkable outcome that ends this step ("the pricing is written
         in the doc"), and one short sentence saying why this is the first step.
         Return JSON: {"action": "...", "doneWhen": "...", "rationale": "..."}.
-    """.trimIndent()
+        """.trimIndent()
 
-    val generateChecklistSystem = """
+    val generateChecklistSystem =
+        """
         You are a checklist generation assistant. Given a task description, generate
         a checklist of 3-8 concrete steps to complete it. Return a JSON object with a
         "steps" field containing an array of strings, each step on its own line. No markdown.
-    """.trimIndent()
+        """.trimIndent()
 
-    val pickTimeSystem = """
+    val pickTimeSystem =
+        """
         You are a scheduling assistant. Given a task title and optional description,
         suggest the best time slot for today or tomorrow. Return only an ISO-8601 instant
         like "2026-10-27T14:00:00Z" for the start of the slot. If no time can be determined, return "no-time".
-    """.trimIndent()
+        """.trimIndent()
 
-    val clusterTasksSystem = """
+    val clusterTasksSystem =
+        """
         You are a task categorization assistant. Group the given task titles into
         2-5 thematic clusters. Return a JSON object where keys are cluster names and
         values are arrays of task titles. No explanation.
-    """.trimIndent()
+        """.trimIndent()
 
-    val clusterNotesSystem = """
+    val clusterNotesSystem =
+        """
         You are a notes categorization assistant. Group the given note titles into
         2-5 thematic clusters. Return a JSON object where keys are cluster names and
         values are arrays of note titles. No explanation.
-    """.trimIndent()
+        """.trimIndent()
 
     /**
      * The prompt of the daily planning tool.
@@ -88,7 +96,8 @@ object Prompts {
      * and the buffer is part of it, because a day planned to the minute is a day that
      * fails at the first thing that takes longer than expected.
      */
-    val weeklyPlanSystem = """
+    val weeklyPlanSystem =
+        """
         You are a daily planning assistant. Given the user's current tasks, suggest
         which 3-5 tasks to focus on, and in what order.
 
@@ -101,7 +110,7 @@ object Prompts {
         that is large goes in with its first action, not as a block of hours.
 
         Return a JSON object with an "items" field containing an array of task titles, in the order they should be done.
-    """.trimIndent()
+        """.trimIndent()
 
     /**
      * The prompt of the project review tool.
@@ -111,7 +120,8 @@ object Prompts {
      * anything, so the prompt asks for the risks that matter and one action that
      * would change the state.
      */
-    val projectReviewSystem = """
+    val projectReviewSystem =
+        """
         You are a project health reviewer. Given a project name and task list, identify
         the biggest risks and suggest one concrete next action.
 
@@ -121,7 +131,7 @@ object Prompts {
         that can be done and seen to be done.
 
         Return a short paragraph.
-    """.trimIndent()
+        """.trimIndent()
 
     /**
      * The system prompt of the chat screen.
@@ -130,7 +140,8 @@ object Prompts {
      * guess: without a lookup, the model has nothing but the user's words to go on. So the
      * prompt says the tools are there, and says what it must not do instead of using them.
      */
-    val chatSystem = """
+    val chatSystem =
+        """
         You are a helpful, concise productivity assistant inside Singularity.
         You help users manage tasks, notes, and projects. Be direct and actionable.
 
@@ -175,50 +186,64 @@ object Prompts {
 
         A review is a procedure: break the task into parts, find the first step, and
         say how the reader will know the step is done — plainly, without thinking.
-    """.trimIndent()
+        """.trimIndent()
 
-    val summarizeNoteSystem = """
+    val summarizeNoteSystem =
+        """
         You are an expert writing assistant. Summarize the following note in exactly one sentence.
         Preserve all key information. Return a JSON object with a 'summary' field.
-    """.trimIndent()
+        """.trimIndent()
 
-    val extractActionsSystem = """
+    val extractActionsSystem =
+        """
         You are an expert productivity assistant. From the following note, extract all actionable
         tasks as a JSON object with an "actions" field containing an array of strings. Each
         string should be a single, concrete action. If no actions are found, return an empty array.
-    """.trimIndent()
+        """.trimIndent()
 
-    val rewriteNoteSystem = """
+    val rewriteNoteSystem =
+        """
         You are an expert writing assistant. Rewrite the following note in the requested style.
         Return a JSON object with 'title' and 'body' fields.
-    """.trimIndent()
+        """.trimIndent()
 
-    val suggestTagsSystem = """
+    val suggestTagsSystem =
+        """
         You are an expert productivity assistant. Given a note title and body, suggest 3-8
         relevant tags. Return a JSON object with a "tags" field containing an array of tag
         strings (lowercase, no # prefix).
-    """.trimIndent()
+        """.trimIndent()
 
     // ─── User prompt templates ─────────────────────────────────────────────────
 
-    fun refineUser(currentTitle: String, description: String?): String =
-        "Title: $currentTitle\nDescription: ${description ?: "(none)"}"
+    fun refineUser(
+        currentTitle: String,
+        description: String?,
+    ): String = "Title: $currentTitle\nDescription: ${description ?: "(none)"}"
 
     fun smartRewriteUser(rawIdea: String): String = "Raw idea: $rawIdea"
 
     fun generateDescriptionUser(title: String): String = "Task: $title"
 
-    fun decomposeTaskUser(title: String, description: String?): String =
-        "Task: $title\nDescription: ${description ?: "(none)"}"
+    fun decomposeTaskUser(
+        title: String,
+        description: String?,
+    ): String = "Task: $title\nDescription: ${description ?: "(none)"}"
 
-    fun firstStepUser(title: String, description: String?): String =
-        "Task: $title\nDescription: ${description ?: "(none)"}"
+    fun firstStepUser(
+        title: String,
+        description: String?,
+    ): String = "Task: $title\nDescription: ${description ?: "(none)"}"
 
-    fun generateChecklistUser(title: String, description: String?): String =
-        "Task: $title\nDescription: ${description ?: "(none)"}"
+    fun generateChecklistUser(
+        title: String,
+        description: String?,
+    ): String = "Task: $title\nDescription: ${description ?: "(none)"}"
 
-    fun pickTimeUser(title: String, description: String?): String =
-        "Task: $title\nDescription: ${description ?: "(none)"}"
+    fun pickTimeUser(
+        title: String,
+        description: String?,
+    ): String = "Task: $title\nDescription: ${description ?: "(none)"}"
 
     fun clusterTasksUser(tasks: List<String>): String = "Tasks:\n${tasks.joinToString("\n") { "- $it" }}"
 
@@ -226,15 +251,29 @@ object Prompts {
 
     fun weeklyPlanUser(tasks: List<String>): String = "Current tasks:\n${tasks.joinToString("\n") { "- $it" }}"
 
-    fun projectReviewUser(projectName: String, tasks: List<String>): String =
-        "Project: $projectName\nTasks:\n${tasks.joinToString("\n") { "- $it" }}"
+    fun projectReviewUser(
+        projectName: String,
+        tasks: List<String>,
+    ): String = "Project: $projectName\nTasks:\n${tasks.joinToString("\n") { "- $it" }}"
 
-    fun summarizeNoteUser(title: String, body: String): String = "Title: $title\n\n$body"
+    fun summarizeNoteUser(
+        title: String,
+        body: String,
+    ): String = "Title: $title\n\n$body"
 
-    fun extractActionsUser(title: String, body: String): String = "Title: $title\n\n$body"
+    fun extractActionsUser(
+        title: String,
+        body: String,
+    ): String = "Title: $title\n\n$body"
 
-    fun rewriteNoteUser(title: String, body: String, tone: String): String =
-        "Title: $title\n\n$body\n\nRequested style: $tone"
+    fun rewriteNoteUser(
+        title: String,
+        body: String,
+        tone: String,
+    ): String = "Title: $title\n\n$body\n\nRequested style: $tone"
 
-    fun suggestTagsUser(title: String, body: String): String = "Title: $title\n\n$body"
+    fun suggestTagsUser(
+        title: String,
+        body: String,
+    ): String = "Title: $title\n\n$body"
 }

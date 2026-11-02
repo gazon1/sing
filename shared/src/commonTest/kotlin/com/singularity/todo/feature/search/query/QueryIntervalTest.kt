@@ -16,7 +16,6 @@ import kotlin.test.assertTrue
 
 @Tag("fast")
 class QueryIntervalTest {
-
     @Test
     fun `NONE and NOW have correct day values`() {
         assertTrue(NONE.isNone)

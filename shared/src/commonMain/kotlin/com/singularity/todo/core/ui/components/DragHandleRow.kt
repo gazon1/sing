@@ -64,16 +64,16 @@ fun DragHandleRow(
     val trailingComposable: @Composable RowScope.() -> Unit = trailing
 
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .then(
-                if (onClick != null) {
-                    Modifier.clickable(onClick = onClick)
-                } else {
-                    Modifier
-                },
-            )
-            .padding(padding),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .then(
+                    if (onClick != null) {
+                        Modifier.clickable(onClick = onClick)
+                    } else {
+                        Modifier
+                    },
+                ).padding(padding),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         when (handleSide) {
@@ -99,7 +99,10 @@ fun DragHandleRow(
 }
 
 @Composable
-private fun ContentColumn(text: String, subtitle: String?) {
+private fun ContentColumn(
+    text: String,
+    subtitle: String?,
+) {
     Column {
         Text(
             text = text,

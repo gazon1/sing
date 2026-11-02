@@ -31,7 +31,6 @@ import kotlin.test.fail
  */
 @Tag("fast")
 class DiFacadeTest {
-
     companion object {
         private const val PKG = "com.singularity.todo"
 
@@ -77,7 +76,8 @@ class DiFacadeTest {
 
         /** Strips KDoc and line comments so prose about DI is not read as a call. */
         private fun KoFileDeclaration.codeOnly(): String =
-            text.replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")
+            text
+                .replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")
                 .replace(Regex("""//[^\n]*"""), "")
     }
 
@@ -90,7 +90,8 @@ class DiFacadeTest {
      */
     @Test
     fun positiveControlDetectsLooseBinding() {
-        val synthetic = """
+        val synthetic =
+            """
             package com.example
 
             fun coreLoggingModule() = module {
@@ -100,7 +101,7 @@ class DiFacadeTest {
             fun strayHelper() {
                 single { SomethingElse(get()) }
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val strayDeclarations = bindingDeclarationsIn(synthetic, facadeNames = setOf("coreLoggingModule"))
 
@@ -129,13 +130,13 @@ class DiFacadeTest {
 
     @Test
     fun `per-domain DiModule files declare no bindings`() {
-        val offenders = scope.files
-            .filter { it.name.endsWith("DiModule.kt") }
-            .filter { it.packageName().startsWith("$PKG.core.di") }
-            .filter { file ->
-                bindingDeclarationsIn(file.codeOnly(), facadeNames = emptySet()).isNotEmpty()
-            }
-            .map { it.path }
+        val offenders =
+            scope.files
+                .filter { it.name.endsWith("DiModule.kt") }
+                .filter { it.packageName().startsWith("$PKG.core.di") }
+                .filter { file ->
+                    bindingDeclarationsIn(file.codeOnly(), facadeNames = emptySet()).isNotEmpty()
+                }.map { it.path }
 
         if (offenders.isNotEmpty()) {
             fail(
@@ -149,9 +150,11 @@ class DiFacadeTest {
 
     @Test
     fun `every facade function in Modules kt is one of the known set`() {
-        val declared = modulesFile.functions()
-            .filter { it.name in setOf("domainModule", "coreLoggingModule", "aiToolsModule") }
-            .map { it.name }
+        val declared =
+            modulesFile
+                .functions()
+                .filter { it.name in setOf("domainModule", "coreLoggingModule", "aiToolsModule") }
+                .map { it.name }
 
         val unknown = declared.filterNot { it in FACADE_FUNCTIONS }
         if (unknown.isNotEmpty()) {
@@ -167,7 +170,10 @@ class DiFacadeTest {
      * "is this declaration inside a facade body" — and the file is a facade aggregator by
      * construction, so the scan only ever runs over a handful of lines.
      */
-    private fun bindingDeclarationsIn(source: String, facadeNames: Set<String>): List<String> {
+    private fun bindingDeclarationsIn(
+        source: String,
+        facadeNames: Set<String>,
+    ): List<String> {
         val offenders = mutableListOf<String>()
         var depth = 0
         var enclosingFns = mutableListOf<String>()
@@ -177,10 +183,22 @@ class DiFacadeTest {
 
             // A top-level `fun name(` opens a function body at depth 0.
             if (depth == 0 && line.startsWith("fun ")) {
-                enclosingFns.add(line.substringAfter("fun ").substringBefore("(").trim().substringBefore(":").trim())
+                enclosingFns.add(
+                    line
+                        .substringAfter("fun ")
+                        .substringBefore("(")
+                        .trim()
+                        .substringBefore(":")
+                        .trim(),
+                )
             }
 
-            val firstToken = line.substringBefore(" ").substringBefore("(").substringBefore("{").trim()
+            val firstToken =
+                line
+                    .substringBefore(" ")
+                    .substringBefore("(")
+                    .substringBefore("{")
+                    .trim()
             if (firstToken in BINDING_CALLS && enclosingFns.none { it in facadeNames }) {
                 val owner = enclosingFns.lastOrNull() ?: "<file body>"
                 offenders += "line ${index + 1} in $owner"

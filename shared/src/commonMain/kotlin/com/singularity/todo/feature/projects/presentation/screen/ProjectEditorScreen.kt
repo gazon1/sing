@@ -26,7 +26,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import com.singularity.todo.core.ui.components.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,21 +35,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import com.singularity.todo.core.ui.contrastingForeground
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.ColorSwatch
 import com.singularity.todo.core.ui.components.DiscardChangesDialog
 import com.singularity.todo.core.ui.components.ImeAwareBackHandler
 import com.singularity.todo.core.ui.components.LoadingIndicator
-import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.components.Notification
 import com.singularity.todo.core.ui.components.NotificationHost
 import com.singularity.todo.core.ui.components.ResultDialog
-import com.singularity.todo.core.text.StaticText
-import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
+import com.singularity.todo.core.ui.components.TopAppBar
+import com.singularity.todo.core.ui.components.rememberOverlayState
 import com.singularity.todo.core.ui.components.sheet.BottomSheetHost
+import com.singularity.todo.core.ui.contrastingForeground
+import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.presentation.components.EditorParentPickerSheet
 import com.singularity.todo.feature.projects.presentation.components.IconPickerSheet
@@ -58,7 +59,6 @@ import com.singularity.todo.feature.projects.presentation.components.ProjectIcon
 import com.singularity.todo.feature.projects.presentation.nav.LocalProjectsNavigator
 import com.singularity.todo.feature.projects.presentation.state.ProjectEditorIntent
 import com.singularity.todo.feature.projects.presentation.state.ProjectEditorUiEvent
-import com.singularity.todo.core.ui.components.ColorSwatch
 import com.singularity.todo.feature.projects.presentation.theme.ProjectColorPalette
 import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegistry
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectEditorViewModel
@@ -66,13 +66,17 @@ import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
+
 /**
  * Shell that creates [ProjectEditorViewModel] via Koin and delegates to
  * [ProjectEditorContent]. This is the navigation-entry composable.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun ProjectEditorScreen(projectId: ProjectId?, modifier: Modifier = Modifier) {
+fun ProjectEditorScreen(
+    projectId: ProjectId?,
+    modifier: Modifier = Modifier,
+) {
     val nav = LocalProjectsNavigator.current
     val viewModel: ProjectEditorViewModel = koinViewModel { parametersOf(projectId) }
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
@@ -111,7 +115,11 @@ fun ProjectEditorScreen(projectId: ProjectId?, modifier: Modifier = Modifier) {
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun ProjectEditorContent(viewModel: ProjectEditorViewModel, modifier: Modifier = Modifier, onBack: () -> Unit) {
+fun ProjectEditorContent(
+    viewModel: ProjectEditorViewModel,
+    modifier: Modifier = Modifier,
+    onBack: () -> Unit,
+) {
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     val overlay = rememberOverlayState<EditorSheet>()
 
@@ -139,11 +147,12 @@ fun ProjectEditorContent(viewModel: ProjectEditorViewModel, modifier: Modifier =
         },
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             // ── Identity: name + description ──────────────────────────────
@@ -179,31 +188,38 @@ fun ProjectEditorContent(viewModel: ProjectEditorViewModel, modifier: Modifier =
     }
 
     when (val sheet = overlay.sheet) {
-        is EditorSheet.Icon -> IconPickerSheetHost(
-            visible = true,
-            currentIcon = state.icon,
-            onPick = { icon ->
-                viewModel.onIntent(ProjectEditorIntent.IconChanged(icon))
-                overlay.dismissSheet()
-            },
-            onDismiss = { overlay.dismissSheet() },
-        )
+        is EditorSheet.Icon -> {
+            IconPickerSheetHost(
+                visible = true,
+                currentIcon = state.icon,
+                onPick = { icon ->
+                    viewModel.onIntent(ProjectEditorIntent.IconChanged(icon))
+                    overlay.dismissSheet()
+                },
+                onDismiss = { overlay.dismissSheet() },
+            )
+        }
 
-        is EditorSheet.Parent -> ParentPickerSheetHost(
-            visible = true,
-            onPick = {
-                viewModel.onIntent(ProjectEditorIntent.ParentChanged(it))
-                overlay.dismissSheet()
-            },
-            onDismiss = { overlay.dismissSheet() },
-        )
+        is EditorSheet.Parent -> {
+            ParentPickerSheetHost(
+                visible = true,
+                onPick = {
+                    viewModel.onIntent(ProjectEditorIntent.ParentChanged(it))
+                    overlay.dismissSheet()
+                },
+                onDismiss = { overlay.dismissSheet() },
+            )
+        }
 
-        null -> Unit
+        null -> {
+            Unit
+        }
     }
 }
 
 private sealed interface EditorSheet {
     data object Icon : EditorSheet
+
     data object Parent : EditorSheet
 }
 
@@ -278,7 +294,10 @@ private fun EditorTopBar(
 }
 
 @Composable
-private fun EditorErrorDialog(message: String, onDismiss: () -> Unit) {
+private fun EditorErrorDialog(
+    message: String,
+    onDismiss: () -> Unit,
+) {
     ResultDialog(
         title = "Error",
         text = message,
@@ -295,14 +314,16 @@ private fun IdentitySection(
     onNameChanged: (String) -> Unit,
     onDescriptionChanged: (String) -> Unit,
 ) {
-    val nameState = rememberBridgedTextFieldState(
-        source = nameSource,
-        onTextChanged = onNameChanged,
-    )
-    val descriptionState = rememberBridgedTextFieldState(
-        source = descriptionSource,
-        onTextChanged = onDescriptionChanged,
-    )
+    val nameState =
+        rememberBridgedTextFieldState(
+            source = nameSource,
+            onTextChanged = onNameChanged,
+        )
+    val descriptionState =
+        rememberBridgedTextFieldState(
+            source = descriptionSource,
+            onTextChanged = onDescriptionChanged,
+        )
 
     OutlinedTextField(
         state = nameState,
@@ -310,18 +331,20 @@ private fun IdentitySection(
         isError = errorMessage != null,
         supportingText = errorMessage?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
         lineLimits = TextFieldLineLimits.SingleLine,
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag(TestTags.PROJECT_EDITOR_NAME_INPUT),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .testTag(TestTags.PROJECT_EDITOR_NAME_INPUT),
     )
 
     OutlinedTextField(
         state = descriptionState,
         label = { Text("Description (optional)") },
         lineLimits = TextFieldLineLimits.MultiLine(minHeightInLines = 3),
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag(TestTags.PROJECT_EDITOR_DESCRIPTION_INPUT),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .testTag(TestTags.PROJECT_EDITOR_DESCRIPTION_INPUT),
     )
 }
 
@@ -405,6 +428,7 @@ private fun OrganizationSection(
 
 // ─── Notification mapper ────────────────────────────────────────────────────────
 
-private fun ProjectEditorUiEvent.toNotification(): Notification = when (this) {
-    ProjectEditorUiEvent.NavigateBack -> Notification.NavigateBack
-}
+private fun ProjectEditorUiEvent.toNotification(): Notification =
+    when (this) {
+        ProjectEditorUiEvent.NavigateBack -> Notification.NavigateBack
+    }

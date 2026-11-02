@@ -4,12 +4,12 @@ import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
 import com.singularity.todo.core.ai.ToolOutputJson
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
-import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
-import com.singularity.todo.feature.proposals.domain.model.ProjectValue
-import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.proposals.domain.model.ProjectValue
+import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
+import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import kotlinx.serialization.Serializable
 import kotlin.time.Clock
 
@@ -51,29 +51,35 @@ class UpdateProjectTool(
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
 ) : SimpleTool<UpdateProjectInput>(TypeToken.of(UpdateProjectInput::class.java), NAME, DESCRIPTION) {
-
     override suspend fun execute(args: UpdateProjectInput): String {
-        val existing = projectsRepository.get(ProjectId(args.projectId))
-            ?: return failure(args.projectId, "There is no project with id \"${args.projectId}\".")
+        val existing =
+            projectsRepository.get(ProjectId(args.projectId))
+                ?: return failure(args.projectId, "There is no project with id \"${args.projectId}\".")
 
         val kinds = changes(args, existing)
         if (kinds.isEmpty()) {
             return failure(args.projectId, "The project already has these values — there is nothing to change.")
         }
 
-        val result = proposeChange(
-            proposals = proposals,
-            userId = currentUser.scopedUserId.value,
-            clock = clock,
-            items = proposalItems(kinds, args.projectId),
-            targetId = args.projectId,
-        )
+        val result =
+            proposeChange(
+                proposals = proposals,
+                userId = currentUser.scopedUserId.value,
+                clock = clock,
+                items = proposalItems(kinds, args.projectId),
+                targetId = args.projectId,
+            )
 
         return ToolOutputJson.encodeToString(
             UpdateProjectOutput.serializer(),
             UpdateProjectOutput(
                 proposalCreated = result.isSuccess,
-                proposalId = result.getOrNull()?.id?.value.orEmpty(),
+                proposalId =
+                    result
+                        .getOrNull()
+                        ?.id
+                        ?.value
+                        .orEmpty(),
                 projectId = args.projectId,
                 error = result.exceptionOrNull()?.message,
             ),
@@ -81,7 +87,10 @@ class UpdateProjectTool(
     }
 
     /** The changes the request asks for: one item per field that actually differs. */
-    private fun changes(args: UpdateProjectInput, existing: Project): List<ProposalItemKind> {
+    private fun changes(
+        args: UpdateProjectInput,
+        existing: Project,
+    ): List<ProposalItemKind> {
         val kinds = mutableListOf<ProposalItemKind>()
 
         args.name?.let { value ->
@@ -111,10 +120,14 @@ class UpdateProjectTool(
         return kinds
     }
 
-    private fun failure(projectId: String, message: String): String = ToolOutputJson.encodeToString(
-        UpdateProjectOutput.serializer(),
-        UpdateProjectOutput(proposalCreated = false, proposalId = "", projectId = projectId, error = message),
-    )
+    private fun failure(
+        projectId: String,
+        message: String,
+    ): String =
+        ToolOutputJson.encodeToString(
+            UpdateProjectOutput.serializer(),
+            UpdateProjectOutput(proposalCreated = false, proposalId = "", projectId = projectId, error = message),
+        )
 
     companion object {
         const val NAME = "update_project"

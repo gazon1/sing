@@ -13,7 +13,9 @@ value class ProjectCardActions(val block: (Action) -> Unit) {
     enum class Action { Delete, Review, Reopen }
 
     fun onDelete() = block(Action.Delete)
+
     fun onReviewClick() = block(Action.Review)
+
     fun onReopen() = block(Action.Reopen)
 
     companion object {

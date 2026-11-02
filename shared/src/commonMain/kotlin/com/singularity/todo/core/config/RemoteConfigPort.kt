@@ -44,7 +44,6 @@ import kotlinx.coroutines.flow.StateFlow
  * Implementations must be safe for concurrent access from multiple coroutines.
  */
 interface RemoteConfigPort {
-
     /**
      * Returns the current cached [RemoteConfigSnapshot] without a network call.
      * Emits [RemoteConfigSnapshot.defaults] if no cache exists.

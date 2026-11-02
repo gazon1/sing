@@ -4,9 +4,9 @@ import com.singularity.todo.feature.genui.catalog.SingularityCatalog
 import com.singularity.todo.feature.genui.surface.SurfaceId
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonArray
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -21,7 +21,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class GenuiUsageCounterTest {
-
     private val counter = GenuiUsageCounter()
 
     @Test
@@ -130,8 +129,10 @@ class GenuiUsageCounterTest {
     fun `a drawn component leaves the unused list`() {
         counter.record("task_card")
 
-        val unusedLine = counter.summary(SingularityCatalog)
-            .first { it.startsWith("Never drawn:") }
+        val unusedLine =
+            counter
+                .summary(SingularityCatalog)
+                .first { it.startsWith("Never drawn:") }
 
         assertTrue("task_card" !in unusedLine, "It was drawn: $unusedLine")
     }
@@ -150,10 +151,11 @@ class GenuiUsageCounterTest {
         val usage = GenuiUsageCounter()
         val factory = A2uiNodeFactory(SingularityCatalog, usage)
 
-        val components: JsonArray = buildJsonArray {
-            add(componentJson(id = "ok", kind = "heading", text = "Today"))
-            add(componentJson(id = "bad", kind = "heading"))
-        }
+        val components: JsonArray =
+            buildJsonArray {
+                add(componentJson(id = "ok", kind = "heading", text = "Today"))
+                add(componentJson(id = "bad", kind = "heading"))
+            }
         factory.parseComponents(
             components,
             SurfaceId("s1"),
@@ -163,12 +165,19 @@ class GenuiUsageCounterTest {
         // One, not two: the heading with no `text` is refused before the counter is reached.
         assertEquals(
             1,
-            factory.usageCounter().counts.value.getValue("heading"),
+            factory
+                .usageCounter()
+                .counts.value
+                .getValue("heading"),
             "Only the component that became a node counts as used",
         )
     }
 
-    private fun componentJson(id: String, kind: String, text: String? = null): JsonObject {
+    private fun componentJson(
+        id: String,
+        kind: String,
+        text: String? = null,
+    ): JsonObject {
         val body: String = if (text == null) "" else ""","text": "$text""""
         return Json.parseToJsonElement(
             """{"id":"$id","kind":"$kind"$body}""",

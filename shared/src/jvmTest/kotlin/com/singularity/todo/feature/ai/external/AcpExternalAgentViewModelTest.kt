@@ -71,205 +71,220 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class AcpExternalAgentViewModelTest {
-
     // ── Permission ─────────────────────────────────────────────────────────────
 
     @Test
-    fun `a permission request the reader allows resolves as the agent's allow option`() = runTest {
-        val session = ScriptedSession {
-            it.askForPermission()
-            true
+    fun `a permission request the reader allows resolves as the agent's allow option`() =
+        runTest {
+            val session =
+                ScriptedSession {
+                    it.askForPermission()
+                    true
+                }
+            val ctx = viewModel(session)
+
+            connect(ctx)
+            send(ctx)
+            runCurrent()
+
+            assertNotNull(ctx.state.value.permission, "the request is on screen before it is answered")
+
+            ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.AllowPermission(ALLOW_OPTION_ID))
+            runCurrent()
+
+            val outcome = session.permissionOutcome
+            assertIs<PermissionDecision.Selected>(outcome, "the agent is told which option was chosen")
+            assertEquals(ALLOW_OPTION_ID, outcome.optionId)
         }
-        val ctx = viewModel(session)
-
-        connect(ctx)
-        send(ctx)
-        runCurrent()
-
-        assertNotNull(ctx.state.value.permission, "the request is on screen before it is answered")
-
-        ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.AllowPermission(ALLOW_OPTION_ID))
-        runCurrent()
-
-        val outcome = session.permissionOutcome
-        assertIs<PermissionDecision.Selected>(outcome, "the agent is told which option was chosen")
-        assertEquals(ALLOW_OPTION_ID, outcome.optionId)
-    }
 
     @Test
-    fun `a permission request the reader refuses resolves as the agent's reject option`() = runTest {
-        val session = ScriptedSession {
-            it.askForPermission()
-            true
+    fun `a permission request the reader refuses resolves as the agent's reject option`() =
+        runTest {
+            val session =
+                ScriptedSession {
+                    it.askForPermission()
+                    true
+                }
+            val ctx = viewModel(session)
+
+            connect(ctx)
+            send(ctx)
+            runCurrent()
+
+            ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.DenyPermission)
+            runCurrent()
+
+            val outcome = session.permissionOutcome
+            assertIs<PermissionDecision.Declined>(outcome, "a refusal is the reader's refusal")
         }
-        val ctx = viewModel(session)
-
-        connect(ctx)
-        send(ctx)
-        runCurrent()
-
-        ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.DenyPermission)
-        runCurrent()
-
-        val outcome = session.permissionOutcome
-        assertIs<PermissionDecision.Declined>(outcome, "a refusal is the reader's refusal")
-    }
 
     @Test
-    fun `a permission request nobody answers declines itself`() = runTest {
-        val session = ScriptedSession {
-            it.askForPermission()
-            true
+    fun `a permission request nobody answers declines itself`() =
+        runTest {
+            val session =
+                ScriptedSession {
+                    it.askForPermission()
+                    true
+                }
+            val ctx = viewModel(session)
+
+            connect(ctx)
+            send(ctx)
+            runCurrent()
+
+            assertNotNull(ctx.state.value.permission, "the request waits")
+
+            advanceTimeBy(AcpExternalAgentViewModel.PERMISSION_TIMEOUT.inWholeMilliseconds + 1_000)
+            runCurrent()
+
+            val outcome = session.permissionOutcome
+            assertIs<PermissionDecision.Declined>(outcome, "an unanswered request is a refusal")
+            assertNull(ctx.state.value.permission, "and the request is off the screen")
         }
-        val ctx = viewModel(session)
-
-        connect(ctx)
-        send(ctx)
-        runCurrent()
-
-        assertNotNull(ctx.state.value.permission, "the request waits")
-
-        advanceTimeBy(AcpExternalAgentViewModel.PERMISSION_TIMEOUT.inWholeMilliseconds + 1_000)
-        runCurrent()
-
-        val outcome = session.permissionOutcome
-        assertIs<PermissionDecision.Declined>(outcome, "an unanswered request is a refusal")
-        assertNull(ctx.state.value.permission, "and the request is off the screen")
-    }
 
     @Test
-    fun `a cancelled turn refuses the request that was outstanding`() = runTest {
-        val session = ScriptedSession {
-            it.askForPermission()
-            true
+    fun `a cancelled turn refuses the request that was outstanding`() =
+        runTest {
+            val session =
+                ScriptedSession {
+                    it.askForPermission()
+                    true
+                }
+            val ctx = viewModel(session)
+
+            connect(ctx)
+            send(ctx)
+            runCurrent()
+
+            ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Cancel)
+            runCurrent()
+
+            assertEquals(AgentTurnOutcome.Cancelled, ctx.state.value.turnOutcome, "the turn is cancelled")
+            val outcome = session.permissionOutcome
+            assertIs<PermissionDecision.Declined>(outcome, "the outstanding request is refused")
         }
-        val ctx = viewModel(session)
-
-        connect(ctx)
-        send(ctx)
-        runCurrent()
-
-        ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Cancel)
-        runCurrent()
-
-        assertEquals(AgentTurnOutcome.Cancelled, ctx.state.value.turnOutcome, "the turn is cancelled")
-        val outcome = session.permissionOutcome
-        assertIs<PermissionDecision.Declined>(outcome, "the outstanding request is refused")
-    }
 
     @Test
-    fun `an agent that ignores the cancellation is ended by the application`() = runTest {
-        val session = ScriptedSession { _ ->
-            // An agent that does not stop when it is told to: the turn goes on.
-            kotlinx.coroutines.awaitCancellation()
+    fun `an agent that ignores the cancellation is ended by the application`() =
+        runTest {
+            val session =
+                ScriptedSession { _ ->
+                    // An agent that does not stop when it is told to: the turn goes on.
+                    kotlinx.coroutines.awaitCancellation()
+                }
+            val ctx = viewModel(session)
+
+            connect(ctx)
+            send(ctx)
+            runCurrent()
+
+            ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Cancel)
+            runCurrent()
+
+            assertTrue(session.cancelled, "the agent is asked to stop first")
+            assertEquals(AgentTurnOutcome.Cancelled, ctx.state.value.turnOutcome, "and the reader is told at once")
+
+            advanceTimeBy(AcpExternalAgentViewModel.CANCEL_GRACE.inWholeMilliseconds + 1_000)
+            runCurrent()
+
+            assertTrue(
+                session.terminated,
+                "an agent that does not stop is ended by the application: a reader who pressed " +
+                    "cancel must not watch the turn continue.",
+            )
+
+            ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Disconnect)
+            runCurrent()
         }
-        val ctx = viewModel(session)
-
-        connect(ctx)
-        send(ctx)
-        runCurrent()
-
-        ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Cancel)
-        runCurrent()
-
-        assertTrue(session.cancelled, "the agent is asked to stop first")
-        assertEquals(AgentTurnOutcome.Cancelled, ctx.state.value.turnOutcome, "and the reader is told at once")
-
-        advanceTimeBy(AcpExternalAgentViewModel.CANCEL_GRACE.inWholeMilliseconds + 1_000)
-        runCurrent()
-
-        assertTrue(
-            session.terminated,
-            "an agent that does not stop is ended by the application: a reader who pressed " +
-                "cancel must not watch the turn continue.",
-        )
-
-        ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Disconnect)
-        runCurrent()
-    }
 
     @Test
-    fun `an agent that stops when asked is left alone`() = runTest {
-        val session = ScriptedSession { s ->
-            // The agent stops when it is asked to, and ends the turn properly.
-            s.cancelledSignal.await()
-            true
+    fun `an agent that stops when asked is left alone`() =
+        runTest {
+            val session =
+                ScriptedSession { s ->
+                    // The agent stops when it is asked to, and ends the turn properly.
+                    s.cancelledSignal.await()
+                    true
+                }
+            val ctx = viewModel(session)
+
+            connect(ctx)
+            send(ctx)
+            runCurrent()
+
+            ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Cancel)
+            runCurrent()
+
+            advanceTimeBy(AcpExternalAgentViewModel.CANCEL_GRACE.inWholeMilliseconds + 1_000)
+            runCurrent()
+
+            assertTrue(session.cancelled, "the agent was asked to stop")
+            assertFalse(session.terminated, "an agent that stopped on its own is not torn down")
+
+            ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Disconnect)
+            runCurrent()
         }
-        val ctx = viewModel(session)
-
-        connect(ctx)
-        send(ctx)
-        runCurrent()
-
-        ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Cancel)
-        runCurrent()
-
-        advanceTimeBy(AcpExternalAgentViewModel.CANCEL_GRACE.inWholeMilliseconds + 1_000)
-        runCurrent()
-
-        assertTrue(session.cancelled, "the agent was asked to stop")
-        assertFalse(session.terminated, "an agent that stopped on its own is not torn down")
-
-        ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Disconnect)
-        runCurrent()
-    }
 
     // ── The turn ───────────────────────────────────────────────────────────────
 
     @Test
-    fun `a second message is refused while a turn is running`() = runTest {
-        val session = ScriptedSession { _ ->
-            // A turn that never finishes on its own: the reader has to stop it.
-            kotlinx.coroutines.awaitCancellation()
-        }
-        val ctx = viewModel(session)
-        val errors = mutableListOf<AcpExternalAgentViewModel.UiEvent.Error>()
-        backgroundScope.launch {
-            ctx.vm.events.collect { event ->
-                if (event is AcpExternalAgentViewModel.UiEvent.Error) errors += event
+    fun `a second message is refused while a turn is running`() =
+        runTest {
+            val session =
+                ScriptedSession { _ ->
+                    // A turn that never finishes on its own: the reader has to stop it.
+                    kotlinx.coroutines.awaitCancellation()
+                }
+            val ctx = viewModel(session)
+            val errors = mutableListOf<AcpExternalAgentViewModel.UiEvent.Error>()
+            backgroundScope.launch {
+                ctx.vm.events.collect { event ->
+                    if (event is AcpExternalAgentViewModel.UiEvent.Error) errors += event
+                }
             }
+
+            connect(ctx)
+            send(ctx)
+            runCurrent()
+
+            ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.InputChanged("and another thing"))
+            ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Send)
+            runCurrent()
+
+            assertEquals(1, session.prompts.size, "the second message was not sent")
+            // The refusal is a message, not a silence (REQ-EXTAG-007): the reader pressed Send and
+            // must be told why nothing happened, so that "nothing happened" is not what reaches them.
+            val refusal = errors.singleOrNull()
+            assertNotNull(refusal, "the reader is told the second turn was refused")
+            assertTrue(
+                refusal.message.contains("already running", ignoreCase = true),
+                "and the message says a turn is running: ${refusal.message}",
+            )
+
+            // The turn is still running; the session is closed, so the test does not leave
+            // a coroutine behind for the harness to wait for.
+            ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Disconnect)
+            runCurrent()
         }
-
-        connect(ctx)
-        send(ctx)
-        runCurrent()
-
-        ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.InputChanged("and another thing"))
-        ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Send)
-        runCurrent()
-
-        assertEquals(1, session.prompts.size, "the second message was not sent")
-        // The refusal is a message, not a silence (REQ-EXTAG-007): the reader pressed Send and
-        // must be told why nothing happened, so that "nothing happened" is not what reaches them.
-        val refusal = errors.singleOrNull()
-        assertNotNull(refusal, "the reader is told the second turn was refused")
-        assertTrue(
-            refusal.message.contains("already running", ignoreCase = true),
-            "and the message says a turn is running: ${refusal.message}",
-        )
-
-        // The turn is still running; the session is closed, so the test does not leave
-        // a coroutine behind for the harness to wait for.
-        ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Disconnect)
-        runCurrent()
-    }
 
     @Test
-    fun `a turn that ends without a completion is failed and not retried`() = runTest {
-        val session = ScriptedSession { _ ->
-            // The stream ends with no completion event: the agent did not finish.
-            false
+    fun `a turn that ends without a completion is failed and not retried`() =
+        runTest {
+            val session =
+                ScriptedSession { _ ->
+                    // The stream ends with no completion event: the agent did not finish.
+                    false
+                }
+            val ctx = viewModel(session)
+
+            connect(ctx)
+            send(ctx)
+            runCurrent()
+
+            val outcome = ctx.state.value.turnOutcome
+            assertIs<AgentTurnOutcome.Failed>(outcome, "the absence of a completion is a failure")
+            assertEquals(1, session.prompts.size, "and the turn is not retried")
         }
-        val ctx = viewModel(session)
-
-        connect(ctx)
-        send(ctx)
-        runCurrent()
-
-        val outcome = ctx.state.value.turnOutcome
-        assertIs<AgentTurnOutcome.Failed>(outcome, "the absence of a completion is a failure")
-        assertEquals(1, session.prompts.size, "and the turn is not retried")
-    }
 
     /**
      * A turn that goes quiet for the idle window is hung, and ends as a failure that says so.
@@ -279,33 +294,35 @@ class AcpExternalAgentViewModelTest {
      * waiting.
      */
     @Test
-    fun `a turn that produces no event for the idle window is failed and the connection is reported lost`() = runTest {
-        val session = ScriptedSession { _ ->
-            // One event, then silence: a hung agent keeps the flow open and says nothing more.
-            kotlinx.coroutines.awaitCancellation()
+    fun `a turn that produces no event for the idle window is failed and the connection is reported lost`() =
+        runTest {
+            val session =
+                ScriptedSession { _ ->
+                    // One event, then silence: a hung agent keeps the flow open and says nothing more.
+                    kotlinx.coroutines.awaitCancellation()
+                }
+            val ctx = viewModel(session)
+
+            connect(ctx)
+            send(ctx)
+            runCurrent()
+
+            assertTrue(ctx.state.value.isRunning, "the turn is running before the window passes")
+
+            advanceTimeBy(AcpTurnRunner.TURN_IDLE_TIMEOUT.inWholeMilliseconds + 1_000)
+            runCurrent()
+
+            val outcome = ctx.state.value.turnOutcome
+            assertIs<AgentTurnOutcome.Failed>(outcome, "a silent agent did not answer: $outcome")
+            assertTrue(
+                outcome.reason.contains("did not respond", ignoreCase = true),
+                "and the reason names the silence: ${outcome.reason}",
+            )
+            assertFalse(ctx.state.value.isRunning, "the spinner is gone")
+            val connection = ctx.state.value.connection
+            assertIs<AcpConnection.Failed>(connection, "a dead session is not reported as connected: $connection")
+            assertIs<AcpToolAccess.Unavailable>(ctx.state.value.toolAccess, "the tool access is not claimed")
         }
-        val ctx = viewModel(session)
-
-        connect(ctx)
-        send(ctx)
-        runCurrent()
-
-        assertTrue(ctx.state.value.isRunning, "the turn is running before the window passes")
-
-        advanceTimeBy(AcpTurnRunner.TURN_IDLE_TIMEOUT.inWholeMilliseconds + 1_000)
-        runCurrent()
-
-        val outcome = ctx.state.value.turnOutcome
-        assertIs<AgentTurnOutcome.Failed>(outcome, "a silent agent did not answer: $outcome")
-        assertTrue(
-            outcome.reason.contains("did not respond", ignoreCase = true),
-            "and the reason names the silence: ${outcome.reason}",
-        )
-        assertFalse(ctx.state.value.isRunning, "the spinner is gone")
-        val connection = ctx.state.value.connection
-        assertIs<AcpConnection.Failed>(connection, "a dead session is not reported as connected: $connection")
-        assertIs<AcpToolAccess.Unavailable>(ctx.state.value.toolAccess, "the tool access is not claimed")
-    }
 
     /**
      * A session that ends a turn without a completion is marked disconnected — FR-040's
@@ -315,24 +332,27 @@ class AcpExternalAgentViewModelTest {
      * partial answer stays.
      */
     @Test
-    fun `a session that dies mid-turn is marked disconnected and keeps the answer`() = runTest {
-        val session = ScriptedSession { _ -> false }
-        val ctx = viewModel(session)
+    fun `a session that dies mid-turn is marked disconnected and keeps the answer`() =
+        runTest {
+            val session = ScriptedSession { _ -> false }
+            val ctx = viewModel(session)
 
-        connect(ctx)
-        assertIs<AcpConnection.Connected>(ctx.state.value.connection, "connected before the turn")
+            connect(ctx)
+            assertIs<AcpConnection.Connected>(ctx.state.value.connection, "connected before the turn")
 
-        send(ctx)
-        runCurrent()
+            send(ctx)
+            runCurrent()
 
-        val connection = ctx.state.value.connection
-        assertIs<AcpConnection.Failed>(connection, "the session that died is not still connected: $connection")
-        assertEquals(
-            "hello",
-            ctx.state.value.messages.last { !it.fromUser }.text,
-            "the answer produced so far stays",
-        )
-    }
+            val connection = ctx.state.value.connection
+            assertIs<AcpConnection.Failed>(connection, "the session that died is not still connected: $connection")
+            assertEquals(
+                "hello",
+                ctx.state.value.messages
+                    .last { !it.fromUser }
+                    .text,
+                "the answer produced so far stays",
+            )
+        }
 
     /**
      * A turn the reader stopped is not a session loss — even when the agent obeys before the
@@ -344,38 +364,40 @@ class AcpExternalAgentViewModelTest {
      * report the session lost — the reader would be punished for pressing Stop.
      */
     @Test
-    fun `a turn the reader stopped is not a session loss even when the agent obeys at once`() = runTest {
-        val gate = CompletableDeferred<Unit>()
-        val session = ScriptedSession(
-            cancelGate = gate,
-        ) { me ->
-            // The agent obeys the cancel and closes the stream with no completion.
-            me.cancelledSignal.await()
-            false
+    fun `a turn the reader stopped is not a session loss even when the agent obeys at once`() =
+        runTest {
+            val gate = CompletableDeferred<Unit>()
+            val session =
+                ScriptedSession(
+                    cancelGate = gate,
+                ) { me ->
+                    // The agent obeys the cancel and closes the stream with no completion.
+                    me.cancelledSignal.await()
+                    false
+                }
+            val ctx = viewModel(session)
+
+            connect(ctx)
+            send(ctx)
+            runCurrent()
+
+            ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Cancel)
+            // The agent has obeyed and the stream has closed, but `cancel()` is still suspended.
+            runCurrent()
+
+            assertIs<AgentTurnOutcome.Cancelled>(ctx.state.value.turnOutcome, "the reader stopped the turn")
+            assertIs<AcpConnection.Connected>(
+                ctx.state.value.connection,
+                "a stopped turn says nothing about the session: ${ctx.state.value.connection}",
+            )
+
+            gate.complete(Unit)
+            advanceTimeBy(AcpExternalAgentViewModel.CANCEL_GRACE.inWholeMilliseconds + 1_000)
+            runCurrent()
+
+            ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Disconnect)
+            runCurrent()
         }
-        val ctx = viewModel(session)
-
-        connect(ctx)
-        send(ctx)
-        runCurrent()
-
-        ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Cancel)
-        // The agent has obeyed and the stream has closed, but `cancel()` is still suspended.
-        runCurrent()
-
-        assertIs<AgentTurnOutcome.Cancelled>(ctx.state.value.turnOutcome, "the reader stopped the turn")
-        assertIs<AcpConnection.Connected>(
-            ctx.state.value.connection,
-            "a stopped turn says nothing about the session: ${ctx.state.value.connection}",
-        )
-
-        gate.complete(Unit)
-        advanceTimeBy(AcpExternalAgentViewModel.CANCEL_GRACE.inWholeMilliseconds + 1_000)
-        runCurrent()
-
-        ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Disconnect)
-        runCurrent()
-    }
 
     /**
      * A session that cannot even build its stream fails the turn instead of throwing at the
@@ -387,18 +409,19 @@ class AcpExternalAgentViewModelTest {
      * already put up.
      */
     @Test
-    fun `a session that cannot build the stream fails the turn instead of throwing`() = runTest {
-        val session = ScriptedSession { _ -> true }
-        session.promptThrows = true
-        val ctx = viewModel(session)
+    fun `a session that cannot build the stream fails the turn instead of throwing`() =
+        runTest {
+            val session = ScriptedSession { _ -> true }
+            session.promptThrows = true
+            val ctx = viewModel(session)
 
-        connect(ctx)
-        send(ctx) // must not throw
-        runCurrent()
+            connect(ctx)
+            send(ctx) // must not throw
+            runCurrent()
 
-        assertIs<AgentTurnOutcome.Failed>(ctx.state.value.turnOutcome, "the turn is told, not the caller")
-        assertFalse(ctx.state.value.isRunning, "and the spinner is gone")
-    }
+            assertIs<AgentTurnOutcome.Failed>(ctx.state.value.turnOutcome, "the turn is told, not the caller")
+            assertFalse(ctx.state.value.isRunning, "and the spinner is gone")
+        }
 
     /**
      * A session lost while a permission request is on screen takes the request with it.
@@ -407,18 +430,19 @@ class AcpExternalAgentViewModelTest {
      * nothing will hear.
      */
     @Test
-    fun `a session lost while a permission request is on screen clears the request`() = runTest {
-        val session = ScriptedSession { _ -> true }
-        session.diesWhileAsking = true
-        val ctx = viewModel(session)
+    fun `a session lost while a permission request is on screen clears the request`() =
+        runTest {
+            val session = ScriptedSession { _ -> true }
+            session.diesWhileAsking = true
+            val ctx = viewModel(session)
 
-        connect(ctx)
-        send(ctx)
-        runCurrent()
+            connect(ctx)
+            send(ctx)
+            runCurrent()
 
-        assertIs<AcpConnection.Failed>(ctx.state.value.connection, "the session is gone")
-        assertNull(ctx.state.value.permission, "and the question that belonged to it is off the screen")
-    }
+            assertIs<AcpConnection.Failed>(ctx.state.value.connection, "the session is gone")
+            assertNull(ctx.state.value.permission, "and the question that belonged to it is off the screen")
+        }
 
     /**
      * A turn the agent itself ends as failed — a refusal, say — is not a session loss.
@@ -427,119 +451,129 @@ class AcpExternalAgentViewModelTest {
      * stream that ends *without* that event means the session is gone.
      */
     @Test
-    fun `a turn the agent completes as failed is not a session loss`() = runTest {
-        val session = ScriptedSession(
-            completion = AgentTurnOutcome.Failed("the agent refused"),
-        ) { _ -> true }
-        val ctx = viewModel(session)
+    fun `a turn the agent completes as failed is not a session loss`() =
+        runTest {
+            val session =
+                ScriptedSession(
+                    completion = AgentTurnOutcome.Failed("the agent refused"),
+                ) { _ -> true }
+            val ctx = viewModel(session)
 
-        connect(ctx)
-        send(ctx)
-        runCurrent()
+            connect(ctx)
+            send(ctx)
+            runCurrent()
 
-        assertIs<AgentTurnOutcome.Failed>(ctx.state.value.turnOutcome, "the turn failed, as the agent said")
-        assertIs<AcpConnection.Connected>(
-            ctx.state.value.connection,
-            "a completion — even a failed one — is the agent answering: ${ctx.state.value.connection}",
-        )
-    }
-
-    @Test
-    fun `the answer streams into the conversation`() = runTest {
-        val session = ScriptedSession { _ ->
-            // The fake emits the answer itself; the script only says the turn ended.
-            true
+            assertIs<AgentTurnOutcome.Failed>(ctx.state.value.turnOutcome, "the turn failed, as the agent said")
+            assertIs<AcpConnection.Connected>(
+                ctx.state.value.connection,
+                "a completion — even a failed one — is the agent answering: ${ctx.state.value.connection}",
+            )
         }
-        val ctx = viewModel(session)
-
-        connect(ctx)
-        send(ctx)
-        runCurrent()
-
-        val assistant = ctx.state.value.messages.lastOrNull { !it.fromUser }
-        assertNotNull(assistant, "the agent has a message of its own")
-    }
 
     @Test
-    fun `a connect that is cancelled ends the agent`() = runTest {
-        val session = ScriptedSession { true }
-        // The handshake never finishes: the agent does not answer.
-        session.connectBlocks = true
-        val scope = AutoCloseableCoroutineScope(coroutineContext + Job(coroutineContext[Job]))
-        val ctx = viewModel(session, scope = scope)
+    fun `the answer streams into the conversation`() =
+        runTest {
+            val session =
+                ScriptedSession { _ ->
+                    // The fake emits the answer itself; the script only says the turn ended.
+                    true
+                }
+            val ctx = viewModel(session)
 
-        ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Connect)
-        runCurrent()
+            connect(ctx)
+            send(ctx)
+            runCurrent()
 
-        assertFalse(session.terminated, "the agent is still connecting")
-
-        // The reader navigates away. The screen's scope is closed, and the handshake is
-        // cancelled with it — and the agent's process was spawned before the handshake,
-        // so it exists whether or not the handshake finished.
-        scope.close()
-        runCurrent()
-
-        assertTrue(session.terminated, "the agent's process was ended")
-    }
-
-    @Test
-    fun `a stopped turn cannot end the turn that follows it`() = runTest {
-        // The first turn waits for the test to let it end; the second never ends on
-        // its own, so the state has to keep saying that a turn is running.
-        val firstTurnMayFinish = CompletableDeferred<Unit>()
-        val session = ScriptedSession { me ->
-            if (me.prompts.size == 1) {
-                firstTurnMayFinish.await()
-                // The first turn ends *late* — after the next one has begun — and it
-                // ends with a completion, which is the event that would finalise a turn
-                // if the outcome did not know which turn it belonged to.
-                true
-            } else {
-                awaitCancellation()
-            }
+            val assistant =
+                ctx.state.value.messages
+                    .lastOrNull { !it.fromUser }
+            assertNotNull(assistant, "the agent has a message of its own")
         }
-        val ctx = viewModel(session)
 
-        connect(ctx)
-        send(ctx)
-        runCurrent()
+    @Test
+    fun `a connect that is cancelled ends the agent`() =
+        runTest {
+            val session = ScriptedSession { true }
+            // The handshake never finishes: the agent does not answer.
+            session.connectBlocks = true
+            val scope = AutoCloseableCoroutineScope(coroutineContext + Job(coroutineContext[Job]))
+            val ctx = viewModel(session, scope = scope)
 
-        // The reader stops the turn. The turn's job keeps running for a moment — the
-        // agent is asked to stop, and the request is a request — so the reader can
-        // send another message while it is still winding down.
-        ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Cancel)
-        runCurrent()
-        assertIs<AgentTurnOutcome.Cancelled>(ctx.state.value.turnOutcome, "the turn was stopped")
+            ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Connect)
+            runCurrent()
 
-        // The first turn is released *before* the second one starts, so its completion
-        // is already waiting when the second turn begins. The first turn's outcome
-        // belongs to a turn that is no longer the current one, and it must not end the
-        // turn the reader is looking at.
-        firstTurnMayFinish.complete(Unit)
-        ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.InputChanged("and another thing"))
-        ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Send)
-        runCurrent()
+            assertFalse(session.terminated, "the agent is still connecting")
 
-        assertTrue(ctx.state.value.isRunning, "the second turn is still running")
-        assertNull(ctx.state.value.turnOutcome, "and the first turn did not end it")
+            // The reader navigates away. The screen's scope is closed, and the handshake is
+            // cancelled with it — and the agent's process was spawned before the handshake,
+            // so it exists whether or not the handshake finished.
+            scope.close()
+            runCurrent()
 
-        ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Disconnect)
-        runCurrent()
-    }
+            assertTrue(session.terminated, "the agent's process was ended")
+        }
+
+    @Test
+    fun `a stopped turn cannot end the turn that follows it`() =
+        runTest {
+            // The first turn waits for the test to let it end; the second never ends on
+            // its own, so the state has to keep saying that a turn is running.
+            val firstTurnMayFinish = CompletableDeferred<Unit>()
+            val session =
+                ScriptedSession { me ->
+                    if (me.prompts.size == 1) {
+                        firstTurnMayFinish.await()
+                        // The first turn ends *late* — after the next one has begun — and it
+                        // ends with a completion, which is the event that would finalise a turn
+                        // if the outcome did not know which turn it belonged to.
+                        true
+                    } else {
+                        awaitCancellation()
+                    }
+                }
+            val ctx = viewModel(session)
+
+            connect(ctx)
+            send(ctx)
+            runCurrent()
+
+            // The reader stops the turn. The turn's job keeps running for a moment — the
+            // agent is asked to stop, and the request is a request — so the reader can
+            // send another message while it is still winding down.
+            ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Cancel)
+            runCurrent()
+            assertIs<AgentTurnOutcome.Cancelled>(ctx.state.value.turnOutcome, "the turn was stopped")
+
+            // The first turn is released *before* the second one starts, so its completion
+            // is already waiting when the second turn begins. The first turn's outcome
+            // belongs to a turn that is no longer the current one, and it must not end the
+            // turn the reader is looking at.
+            firstTurnMayFinish.complete(Unit)
+            ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.InputChanged("and another thing"))
+            ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Send)
+            runCurrent()
+
+            assertTrue(ctx.state.value.isRunning, "the second turn is still running")
+            assertNull(ctx.state.value.turnOutcome, "and the first turn did not end it")
+
+            ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.Disconnect)
+            runCurrent()
+        }
 
     // ── The warning ────────────────────────────────────────────────────────────
 
     @Test
-    fun `the state claims no tool access before there is a session`() = runTest {
-        val session = ScriptedSession { true }
-        val ctx = viewModel(session)
+    fun `the state claims no tool access before there is a session`() =
+        runTest {
+            val session = ScriptedSession { true }
+            val ctx = viewModel(session)
 
-        assertIs<AcpToolAccess.Unknown>(
-            ctx.state.value.toolAccess,
-            "Nothing is claimed before anything was negotiated: a default that says " +
-                "'granted' is a claim the app cannot back",
-        )
-    }
+            assertIs<AcpToolAccess.Unknown>(
+                ctx.state.value.toolAccess,
+                "Nothing is claimed before anything was negotiated: a default that says " +
+                    "'granted' is a claim the app cannot back",
+            )
+        }
 
     /**
      * The connect outcome carries the protocol version, and the build of the tool server
@@ -554,55 +588,59 @@ class AcpExternalAgentViewModelTest {
      * `2026-10-25-the-version-we-can-compare`.
      */
     @Test
-    fun `the connect outcome carries the protocol version and the tool-server build`() = runTest {
-        val session = ScriptedSession { true }
-        val ctx = viewModel(session)
+    fun `the connect outcome carries the protocol version and the tool-server build`() =
+        runTest {
+            val session = ScriptedSession { true }
+            val ctx = viewModel(session)
 
-        connect(ctx)
+            connect(ctx)
 
-        val connection = ctx.state.value.connection
-        assertIs<AcpConnection.Connected>(connection, "the handshake answered")
-        assertEquals(1, connection.protocolVersion, "the version the agent speaks")
-        assertTrue(
-            connection.toolServerBuild.isNotBlank(),
-            "the build of the tool server handed over is reported: ${connection.toolServerBuild}",
-        )
-    }
-
-    @Test
-    fun `the answer to a permission request stays on the screen`() = runTest {
-        val session = ScriptedSession {
-            it.askForPermission()
-            true
+            val connection = ctx.state.value.connection
+            assertIs<AcpConnection.Connected>(connection, "the handshake answered")
+            assertEquals(1, connection.protocolVersion, "the version the agent speaks")
+            assertTrue(
+                connection.toolServerBuild.isNotBlank(),
+                "the build of the tool server handed over is reported: ${connection.toolServerBuild}",
+            )
         }
-        val ctx = viewModel(session)
-
-        connect(ctx)
-        send(ctx)
-        runCurrent()
-
-        ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.AllowPermission(ALLOW_OPTION_ID))
-        runCurrent()
-
-        val answer = ctx.state.value.permissionAnswer
-        assertNotNull(answer, "the decision leaves a trace: the sheet closes, and the screen keeps it")
-        assertEquals("Read file", answer.request.title, "next to the question it was about")
-        assertIs<PermissionDecision.Selected>(answer.decision, "and it is the decision that was made")
-    }
 
     @Test
-    fun `the no-tool-access warning survives the first reply`() = runTest {
-        val session = ScriptedSession { true }
-        val ctx = viewModel(session, toolServerAvailable = false)
+    fun `the answer to a permission request stays on the screen`() =
+        runTest {
+            val session =
+                ScriptedSession {
+                    it.askForPermission()
+                    true
+                }
+            val ctx = viewModel(session)
 
-        connect(ctx)
-        send(ctx)
-        runCurrent()
+            connect(ctx)
+            send(ctx)
+            runCurrent()
 
-        val access = ctx.state.value.toolAccess
-        assertIs<AcpToolAccess.Unavailable>(access, "the agent cannot reach the user's tasks")
-        assertTrue(access.reason.isNotBlank(), "and the reason says why")
-    }
+            ctx.vm.onIntent(AcpExternalAgentViewModel.Intent.AllowPermission(ALLOW_OPTION_ID))
+            runCurrent()
+
+            val answer = ctx.state.value.permissionAnswer
+            assertNotNull(answer, "the decision leaves a trace: the sheet closes, and the screen keeps it")
+            assertEquals("Read file", answer.request.title, "next to the question it was about")
+            assertIs<PermissionDecision.Selected>(answer.decision, "and it is the decision that was made")
+        }
+
+    @Test
+    fun `the no-tool-access warning survives the first reply`() =
+        runTest {
+            val session = ScriptedSession { true }
+            val ctx = viewModel(session, toolServerAvailable = false)
+
+            connect(ctx)
+            send(ctx)
+            runCurrent()
+
+            val access = ctx.state.value.toolAccess
+            assertIs<AcpToolAccess.Unavailable>(access, "the agent cannot reach the user's tasks")
+            assertTrue(access.reason.isNotBlank(), "and the reason says why")
+        }
 
     // ── Fixtures ───────────────────────────────────────────────────────────────
 
@@ -610,18 +648,20 @@ class AcpExternalAgentViewModelTest {
         session: ScriptedSession,
         toolServerAvailable: Boolean = true,
         scope: AutoCloseableCoroutineScope = AutoCloseableCoroutineScope(coroutineContext),
-    ): TestVmContext<AcpExternalAgentViewModel, AcpExternalAgentUiState> = testVmContext(
-        vm = AcpExternalAgentViewModel(
-            idGen = SequenceIdGenerator(),
-            profileRepository = FakeProfileRepository(),
-            commandProvider = commandProvider(toolServerAvailable),
-            launcher = FixedLauncher(session),
-            scope = scope,
-        ),
-        stateOf = { it.stateFlow },
-        scope = this,
-        backgroundScope = backgroundScope,
-    )
+    ): TestVmContext<AcpExternalAgentViewModel, AcpExternalAgentUiState> =
+        testVmContext(
+            vm =
+                AcpExternalAgentViewModel(
+                    idGen = SequenceIdGenerator(),
+                    profileRepository = FakeProfileRepository(),
+                    commandProvider = commandProvider(toolServerAvailable),
+                    launcher = FixedLauncher(session),
+                    scope = scope,
+                ),
+            stateOf = { it.stateFlow },
+            scope = this,
+            backgroundScope = backgroundScope,
+        )
 
     private fun commandProvider(available: Boolean): McpServerCommandProvider {
         val java = System.getProperty("java.home") + "/bin/java"
@@ -661,7 +701,6 @@ class AcpExternalAgentViewModelTest {
         private val completion: AgentTurnOutcome = AgentTurnOutcome.Completed(),
         private val script: suspend (ScriptedSession) -> Boolean,
     ) : AcpAgentSession {
-
         val prompts = mutableListOf<String>()
         var permissionOutcome: PermissionDecision? = null
         var cancelled = false
@@ -754,14 +793,16 @@ class AcpExternalAgentViewModelTest {
 }
 
 /** The request the fake agent asks permission for. */
-private fun permissionRequest() = AcpPermissionRequest(
-    toolCallId = "call-1",
-    title = "Read file",
-    options = listOf(
-        AcpPermissionOption(optionId = ALLOW_OPTION_ID, label = "Allow once", isRejection = false),
-        AcpPermissionOption(optionId = REJECT_OPTION_ID, label = "Reject", isRejection = true),
-    ),
-)
+private fun permissionRequest() =
+    AcpPermissionRequest(
+        toolCallId = "call-1",
+        title = "Read file",
+        options =
+            listOf(
+                AcpPermissionOption(optionId = ALLOW_OPTION_ID, label = "Allow once", isRejection = false),
+                AcpPermissionOption(optionId = REJECT_OPTION_ID, label = "Reject", isRejection = true),
+            ),
+    )
 
 private const val ALLOW_OPTION_ID = "allow-once"
 private const val REJECT_OPTION_ID = "reject-once"

@@ -13,7 +13,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class NavigationLabelsTest {
-
     @Test
     fun everyDestinationHasNonBlankTitle() {
         val allDestinations = DestinationKind.tabs + DestinationKind.menuEntries

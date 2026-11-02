@@ -31,7 +31,6 @@ class PruneLlmUsageJob(
     private val usageRecorder: RoomUsageRecorder,
     private val retentionDays: Int = DEFAULT_RETENTION_DAYS,
 ) : BackgroundJob {
-
     override val id: String = ID
     override val requiresNetwork: Boolean = false
 
@@ -69,6 +68,8 @@ class PruneLlmUsageJob(
          */
         const val DEFAULT_RETENTION_DAYS = 90
 
-        private val logger = co.touchlab.kermit.Logger.withTag("PruneLlmUsageJob")
+        private val logger =
+            co.touchlab.kermit.Logger
+                .withTag("PruneLlmUsageJob")
     }
 }

@@ -7,9 +7,9 @@ import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.message.Message
 import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.streaming.StreamFrame
-import com.singularity.todo.core.llm.AgentEvent
 import ai.koog.serialization.TypeToken
 import ai.koog.utils.time.KoogClock
+import com.singularity.todo.core.llm.AgentEvent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
@@ -31,7 +31,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class ToolCallLoopTest {
-
     @Serializable
     data class EchoInput(val value: String = "")
 
@@ -70,7 +69,10 @@ class ToolCallLoopTest {
         val prompts = mutableListOf<Prompt>()
         val offeredTools = mutableListOf<List<ToolDescriptor>>()
 
-        fun stream(prompt: Prompt, descriptors: List<ToolDescriptor>): Flow<StreamFrame> {
+        fun stream(
+            prompt: Prompt,
+            descriptors: List<ToolDescriptor>,
+        ): Flow<StreamFrame> {
             prompts += prompt
             offeredTools += descriptors
             val index = prompts.size - 1
@@ -78,10 +80,11 @@ class ToolCallLoopTest {
         }
     }
 
-    private fun initialPrompt(): Prompt = prompt(Prompt.Empty, KoogClock.System) {
-        system("You are an assistant.")
-        user("What did I say?")
-    }
+    private fun initialPrompt(): Prompt =
+        prompt(Prompt.Empty, KoogClock.System) {
+            system("You are an assistant.")
+            user("What did I say?")
+        }
 
     private fun textOf(message: Message): String =
         message.parts.filterIsInstance<MessagePart.Text>().joinToString("") { it.text }
@@ -101,213 +104,251 @@ class ToolCallLoopTest {
         message.parts.filterIsInstance<MessagePart.Tool.Result>()
 
     @Test
-    fun `a question the model answers without a tool is answered in one round`() = runTest {
-        val model = ScriptedModel(listOf(listOf(StreamFrame.TextDelta("You said hello."))))
+    fun `a question the model answers without a tool is answered in one round`() =
+        runTest {
+            val model = ScriptedModel(listOf(listOf(StreamFrame.TextDelta("You said hello."))))
 
-        val text = textOf(
-            ToolCallLoop(tools = emptyList())
-                .run(initialPrompt(), model::stream)
-                .toList(),
-        )
+            val text =
+                textOf(
+                    ToolCallLoop(tools = emptyList())
+                        .run(initialPrompt(), model::stream)
+                        .toList(),
+                )
 
-        assertEquals(listOf("You said hello."), text)
-        assertEquals(1, model.prompts.size)
-    }
-
-    @Test
-    fun `the model may call a tool, and the tool really runs`() = runTest {
-        val tool = EchoTool()
-        val model = ScriptedModel(
-            listOf(
-                listOf(
-                    StreamFrame.TextDelta("Let me look. "),
-                    StreamFrame.ToolCallComplete(
-                        id = "call-1",
-                        name = EchoTool.NAME,
-                        content = """{"value":"hello"}""",
-                    ),
-                ),
-                listOf(StreamFrame.TextDelta("You said hello.")),
-            ),
-        )
-
-        val text = textOf(
-            ToolCallLoop(tools = listOf(tool))
-                .run(initialPrompt(), model::stream)
-                .toList(),
-        )
-
-        assertEquals(listOf("Let me look. ", "You said hello."), text)
-        assertEquals(listOf(EchoInput("hello")), tool.calls)
-        assertEquals(2, model.prompts.size)
-    }
-
-    @Test
-    fun `the tool's answer reaches the model`() = runTest {
-        val tool = EchoTool()
-        val model = ScriptedModel(
-            listOf(
-                listOf(
-                    StreamFrame.ToolCallComplete(
-                        id = "call-1",
-                        name = EchoTool.NAME,
-                        content = """{"value":"hello"}""",
-                    ),
-                ),
-                listOf(StreamFrame.TextDelta("Done.")),
-            ),
-        )
-
-        ToolCallLoop(tools = listOf(tool))
-            .run(initialPrompt(), model::stream)
-            .toList()
-
-        val secondRound = model.prompts[1].messages
-
-        // The model must be shown what it asked for and what came back, in the shape the
-        // backends expect: an assistant turn that carries the call, and a user turn that
-        // carries the outcome.
-        val assistant = secondRound.filterIsInstance<Message.Assistant>().single()
-        assertEquals(listOf("call-1"), toolCallsOf(assistant).map { it.id })
-
-        val user = secondRound.filterIsInstance<Message.User>().last()
-        val results = toolResultsOf(user)
-        assertEquals(1, results.size)
-        assertEquals("call-1", results.single().id)
-        assertEquals("echoed:hello", results.single().output)
-    }
-
-    @Test
-    fun `a call the model made but no tool answers is an error the model can read`() = runTest {
-        val model = ScriptedModel(
-            listOf(
-                listOf(
-                    StreamFrame.ToolCallComplete(
-                        id = "call-1",
-                        name = "no_such_tool",
-                        content = "{}",
-                    ),
-                ),
-                listOf(StreamFrame.TextDelta("I could not do that.")),
-            ),
-        )
-
-        val text = textOf(
-            ToolCallLoop(tools = emptyList())
-                .run(initialPrompt(), model::stream)
-                .toList(),
-        )
-
-        assertEquals(listOf("I could not do that."), text)
-
-        val user = model.prompts[1].messages.filterIsInstance<Message.User>().last()
-        val result = toolResultsOf(user).single()
-        assertTrue(result.isError, "an unknown tool is an error, not a silent success")
-        assertTrue(result.output.contains("no_such_tool"), "the error names the tool that was missing")
-    }
-
-    @Test
-    fun `a tool that fails does not end the conversation`() = runTest {
-        val failing = object : SimpleTool<EchoInput>(
-            TypeToken.of(EchoInput::class.java),
-            "boom",
-            "Always fails.",
-        ) {
-            override suspend fun execute(args: EchoInput): String = throw IllegalStateException("no")
+            assertEquals(listOf("You said hello."), text)
+            assertEquals(1, model.prompts.size)
         }
-        val model = ScriptedModel(
-            listOf(
-                listOf(
-                    StreamFrame.ToolCallComplete(id = "call-1", name = "boom", content = "{}"),
-                ),
-                listOf(StreamFrame.TextDelta("That did not work.")),
-            ),
-        )
-
-        val text = textOf(
-            ToolCallLoop(tools = listOf(failing))
-                .run(initialPrompt(), model::stream)
-                .toList(),
-        )
-
-        assertEquals(listOf("That did not work."), text)
-
-        val user = model.prompts[1].messages.filterIsInstance<Message.User>().last()
-        val result = toolResultsOf(user).single()
-        assertTrue(result.isError, "a failed tool is an error the model can read")
-    }
 
     @Test
-    fun `a model that keeps calling tools is stopped, and the last call is still honoured`() = runTest {
-        val tool = EchoTool()
-        val call = StreamFrame.ToolCallComplete(
-            id = "call-1",
-            name = EchoTool.NAME,
-            content = """{"value":"again"}""",
-        )
-        val model = ScriptedModel(
-            listOf(
-                listOf(call),
-                listOf(call),
-                listOf(StreamFrame.TextDelta("I will answer now.")),
-            ),
-        )
+    fun `the model may call a tool, and the tool really runs`() =
+        runTest {
+            val tool = EchoTool()
+            val model =
+                ScriptedModel(
+                    listOf(
+                        listOf(
+                            StreamFrame.TextDelta("Let me look. "),
+                            StreamFrame.ToolCallComplete(
+                                id = "call-1",
+                                name = EchoTool.NAME,
+                                content = """{"value":"hello"}""",
+                            ),
+                        ),
+                        listOf(StreamFrame.TextDelta("You said hello.")),
+                    ),
+                )
 
-        val text = textOf(
-            ToolCallLoop(tools = listOf(tool), maxRounds = 2)
-                .run(initialPrompt(), model::stream)
-                .toList(),
-        )
+            val text =
+                textOf(
+                    ToolCallLoop(tools = listOf(tool))
+                        .run(initialPrompt(), model::stream)
+                        .toList(),
+                )
 
-        // Two rounds of tool calls, then a round with no tools, in which the model answers.
-        assertEquals(3, model.prompts.size)
-        assertEquals(2, tool.calls.size)
-        assertEquals(listOf("I will answer now."), text)
-
-        // The last round offered no tools, so the model had to answer in words.
-        assertTrue(model.offeredTools[2].isEmpty(), "the final round offers no tools")
-        assertEquals(1, model.offeredTools[0].size, "the first round offers the tool")
-    }
+            assertEquals(listOf("Let me look. ", "You said hello."), text)
+            assertEquals(listOf(EchoInput("hello")), tool.calls)
+            assertEquals(2, model.prompts.size)
+        }
 
     @Test
-    fun `a call whose arguments do not fit the tool is told what to look at`() = runTest {
-        val tool = EchoTool()
-        val model = ScriptedModel(
-            listOf(
-                listOf(
-                    // "value" is a number, and the tool's field is a string.
-                    StreamFrame.ToolCallComplete(id = "call-1", name = EchoTool.NAME, content = """{"value":7}"""),
-                ),
-                listOf(StreamFrame.TextDelta("I will try again.")),
-            ),
-        )
+    fun `the tool's answer reaches the model`() =
+        runTest {
+            val tool = EchoTool()
+            val model =
+                ScriptedModel(
+                    listOf(
+                        listOf(
+                            StreamFrame.ToolCallComplete(
+                                id = "call-1",
+                                name = EchoTool.NAME,
+                                content = """{"value":"hello"}""",
+                            ),
+                        ),
+                        listOf(StreamFrame.TextDelta("Done.")),
+                    ),
+                )
 
-        val text = textOf(
             ToolCallLoop(tools = listOf(tool))
                 .run(initialPrompt(), model::stream)
-                .toList(),
-        )
+                .toList()
 
-        assertEquals(listOf("I will try again."), text)
+            val secondRound = model.prompts[1].messages
 
-        val user = model.prompts[1].messages.filterIsInstance<Message.User>().last()
-        val result = toolResultsOf(user).single()
-        assertTrue(result.isError, "arguments that do not fit are an error")
-        assertTrue(
-            result.output.contains("arguments"),
-            "the model is told that the arguments are what is wrong: ${result.output}",
-        )
-    }
+            // The model must be shown what it asked for and what came back, in the shape the
+            // backends expect: an assistant turn that carries the call, and a user turn that
+            // carries the outcome.
+            val assistant = secondRound.filterIsInstance<Message.Assistant>().single()
+            assertEquals(listOf("call-1"), toolCallsOf(assistant).map { it.id })
+
+            val user = secondRound.filterIsInstance<Message.User>().last()
+            val results = toolResultsOf(user)
+            assertEquals(1, results.size)
+            assertEquals("call-1", results.single().id)
+            assertEquals("echoed:hello", results.single().output)
+        }
 
     @Test
-    fun `the tools the model is offered are the ones the loop was given`() = runTest {
-        val tool = EchoTool()
-        val model = ScriptedModel(listOf(listOf(StreamFrame.TextDelta("hi"))))
+    fun `a call the model made but no tool answers is an error the model can read`() =
+        runTest {
+            val model =
+                ScriptedModel(
+                    listOf(
+                        listOf(
+                            StreamFrame.ToolCallComplete(
+                                id = "call-1",
+                                name = "no_such_tool",
+                                content = "{}",
+                            ),
+                        ),
+                        listOf(StreamFrame.TextDelta("I could not do that.")),
+                    ),
+                )
 
-        ToolCallLoop(tools = listOf(tool))
-            .run(initialPrompt(), model::stream)
-            .toList()
+            val text =
+                textOf(
+                    ToolCallLoop(tools = emptyList())
+                        .run(initialPrompt(), model::stream)
+                        .toList(),
+                )
 
-        assertEquals(listOf(EchoTool.NAME), model.offeredTools[0].map { it.name })
-    }
+            assertEquals(listOf("I could not do that."), text)
+
+            val user =
+                model.prompts[1]
+                    .messages
+                    .filterIsInstance<Message.User>()
+                    .last()
+            val result = toolResultsOf(user).single()
+            assertTrue(result.isError, "an unknown tool is an error, not a silent success")
+            assertTrue(result.output.contains("no_such_tool"), "the error names the tool that was missing")
+        }
+
+    @Test
+    fun `a tool that fails does not end the conversation`() =
+        runTest {
+            val failing =
+                object : SimpleTool<EchoInput>(
+                    TypeToken.of(EchoInput::class.java),
+                    "boom",
+                    "Always fails.",
+                ) {
+                    override suspend fun execute(args: EchoInput): String = throw IllegalStateException("no")
+                }
+            val model =
+                ScriptedModel(
+                    listOf(
+                        listOf(
+                            StreamFrame.ToolCallComplete(id = "call-1", name = "boom", content = "{}"),
+                        ),
+                        listOf(StreamFrame.TextDelta("That did not work.")),
+                    ),
+                )
+
+            val text =
+                textOf(
+                    ToolCallLoop(tools = listOf(failing))
+                        .run(initialPrompt(), model::stream)
+                        .toList(),
+                )
+
+            assertEquals(listOf("That did not work."), text)
+
+            val user =
+                model.prompts[1]
+                    .messages
+                    .filterIsInstance<Message.User>()
+                    .last()
+            val result = toolResultsOf(user).single()
+            assertTrue(result.isError, "a failed tool is an error the model can read")
+        }
+
+    @Test
+    fun `a model that keeps calling tools is stopped, and the last call is still honoured`() =
+        runTest {
+            val tool = EchoTool()
+            val call =
+                StreamFrame.ToolCallComplete(
+                    id = "call-1",
+                    name = EchoTool.NAME,
+                    content = """{"value":"again"}""",
+                )
+            val model =
+                ScriptedModel(
+                    listOf(
+                        listOf(call),
+                        listOf(call),
+                        listOf(StreamFrame.TextDelta("I will answer now.")),
+                    ),
+                )
+
+            val text =
+                textOf(
+                    ToolCallLoop(tools = listOf(tool), maxRounds = 2)
+                        .run(initialPrompt(), model::stream)
+                        .toList(),
+                )
+
+            // Two rounds of tool calls, then a round with no tools, in which the model answers.
+            assertEquals(3, model.prompts.size)
+            assertEquals(2, tool.calls.size)
+            assertEquals(listOf("I will answer now."), text)
+
+            // The last round offered no tools, so the model had to answer in words.
+            assertTrue(model.offeredTools[2].isEmpty(), "the final round offers no tools")
+            assertEquals(1, model.offeredTools[0].size, "the first round offers the tool")
+        }
+
+    @Test
+    fun `a call whose arguments do not fit the tool is told what to look at`() =
+        runTest {
+            val tool = EchoTool()
+            val model =
+                ScriptedModel(
+                    listOf(
+                        listOf(
+                            // "value" is a number, and the tool's field is a string.
+                            StreamFrame.ToolCallComplete(
+                                id = "call-1",
+                                name = EchoTool.NAME,
+                                content = """{"value":7}""",
+                            ),
+                        ),
+                        listOf(StreamFrame.TextDelta("I will try again.")),
+                    ),
+                )
+
+            val text =
+                textOf(
+                    ToolCallLoop(tools = listOf(tool))
+                        .run(initialPrompt(), model::stream)
+                        .toList(),
+                )
+
+            assertEquals(listOf("I will try again."), text)
+
+            val user =
+                model.prompts[1]
+                    .messages
+                    .filterIsInstance<Message.User>()
+                    .last()
+            val result = toolResultsOf(user).single()
+            assertTrue(result.isError, "arguments that do not fit are an error")
+            assertTrue(
+                result.output.contains("arguments"),
+                "the model is told that the arguments are what is wrong: ${result.output}",
+            )
+        }
+
+    @Test
+    fun `the tools the model is offered are the ones the loop was given`() =
+        runTest {
+            val tool = EchoTool()
+            val model = ScriptedModel(listOf(listOf(StreamFrame.TextDelta("hi"))))
+
+            ToolCallLoop(tools = listOf(tool))
+                .run(initialPrompt(), model::stream)
+                .toList()
+
+            assertEquals(listOf(EchoTool.NAME), model.offeredTools[0].map { it.name })
+        }
 }

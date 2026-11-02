@@ -1,8 +1,8 @@
 package com.singularity.todo.feature.flows.calendar
 
-import com.singularity.todo.test.fakes.FakeClock
 import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.assertTextNotExists
 import com.singularity.todo.test.helpers.awaitAnyDisplayed
@@ -34,48 +34,51 @@ class CalendarFlowTest {
         "${today.month.name.lowercase().replaceFirstChar { it.uppercase() }} ${today.year}"
 
     @Test
-    fun month_view_renders_the_current_month() = runDesktopAppTest(clock = CLOCK, checkA11y = true) {
-        tapTab("Calendar")
+    fun month_view_renders_the_current_month() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) {
+            tapTab("Calendar")
 
-        assertTextDisplayed(monthTitle)
-        assertTextDisplayed("Mon")
-        assertTextDisplayed("Sun")
-        assertTextDisplayed("Month")
-    }
-
-    @Test
-    fun every_day_of_the_month_has_an_addressable_cell() = runDesktopAppTest(clock = CLOCK, checkA11y = true) {
-        tapTab("Calendar")
-
-        // The month view is a pager that also composes the neighbouring months,
-        // and those pad with leading/trailing days — so a date near *either*
-        // edge of the month matches two cells: the 30th pads into the next
-        // month's page, the 1st into the previous one. Which match is index 0
-        // follows the pager's composition order, not what is on screen, and
-        // silently flips over at midnight on the 1st — this test passed on
-        // September 30th and failed on October 1st for exactly that reason.
-        // The intent is "the day has an addressable, visible cell", so assert
-        // that some matching cell is on screen instead of pinning an index.
-        val midMonth = LocalDate(today.year, today.month, 15)
-        awaitAnyDisplayed(TestTags.calendarDay(midMonth.toString()))
-        awaitAnyDisplayed(TestTags.calendarDay(today.toString()))
-    }
+            assertTextDisplayed(monthTitle)
+            assertTextDisplayed("Mon")
+            assertTextDisplayed("Sun")
+            assertTextDisplayed("Month")
+        }
 
     @Test
-    fun view_mode_switches_from_month_to_week() = runDesktopAppTest(clock = CLOCK, checkA11y = true) {
-        tapTab("Calendar")
-        assertTextDisplayed("Month")
-        assertTextDisplayed(monthTitle)
+    fun every_day_of_the_month_has_an_addressable_cell() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) {
+            tapTab("Calendar")
 
-        // The control is labelled with the current mode and opens the switcher.
-        clickText("Month")
-        clickText("Week")
+            // The month view is a pager that also composes the neighbouring months,
+            // and those pad with leading/trailing days — so a date near *either*
+            // edge of the month matches two cells: the 30th pads into the next
+            // month's page, the 1st into the previous one. Which match is index 0
+            // follows the pager's composition order, not what is on screen, and
+            // silently flips over at midnight on the 1st — this test passed on
+            // September 30th and failed on October 1st for exactly that reason.
+            // The intent is "the day has an addressable, visible cell", so assert
+            // that some matching cell is on screen instead of pinning an index.
+            val midMonth = LocalDate(today.year, today.month, 15)
+            awaitAnyDisplayed(TestTags.calendarDay(midMonth.toString()))
+            awaitAnyDisplayed(TestTags.calendarDay(today.toString()))
+        }
 
-        // Week replaces the month title with a date range. The weekday columns
-        // stay in both views, so the header is what distinguishes them.
-        assertTextDisplayed("Week")
-        assertTextNotExists(monthTitle)
-    }
+    @Test
+    fun view_mode_switches_from_month_to_week() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) {
+            tapTab("Calendar")
+            assertTextDisplayed("Month")
+            assertTextDisplayed(monthTitle)
+
+            // The control is labelled with the current mode and opens the switcher.
+            clickText("Month")
+            clickText("Week")
+
+            // Week replaces the month title with a date range. The weekday columns
+            // stay in both views, so the header is what distinguishes them.
+            assertTextDisplayed("Week")
+            assertTextNotExists(monthTitle)
+        }
 
     private companion object {
         /**

@@ -71,7 +71,6 @@ value class SpotlightAnchorId(val value: String) {
  * means to the person looking at it.
  */
 object SpotlightContent {
-
     /** Bump whenever [STEPS] changes in a way worth showing again. */
     const val VERSION: Int = 1
 
@@ -83,20 +82,21 @@ object SpotlightContent {
      * onboarding anywhere else that mentions them. Pointing the tour at something
      * obvious instead would spend the one moment the user is most willing to listen.
      */
-    val STEPS: ImmutableList<SpotlightStep> = persistentListOf(
-        SpotlightStep(
-            id = "agenda.saved_views.intro",
-            title = "Saved views",
-            body = "Views you have saved show up here. Open one to jump straight to it.",
-            anchor = SpotlightAnchorId.SavedViews,
-            shape = SpotlightShape.Circle,
-        ),
-        SpotlightStep(
-            id = "agenda.save_current.intro",
-            title = "Save this view",
-            body = "Saves the filters and sections you have set up, so you can return to exactly this.",
-            anchor = SpotlightAnchorId.SaveCurrent,
-            shape = SpotlightShape.Circle,
-        ),
-    )
+    val STEPS: ImmutableList<SpotlightStep> =
+        persistentListOf(
+            SpotlightStep(
+                id = "agenda.saved_views.intro",
+                title = "Saved views",
+                body = "Views you have saved show up here. Open one to jump straight to it.",
+                anchor = SpotlightAnchorId.SavedViews,
+                shape = SpotlightShape.Circle,
+            ),
+            SpotlightStep(
+                id = "agenda.save_current.intro",
+                title = "Save this view",
+                body = "Saves the filters and sections you have set up, so you can return to exactly this.",
+                anchor = SpotlightAnchorId.SaveCurrent,
+                shape = SpotlightShape.Circle,
+            ),
+        )
 }

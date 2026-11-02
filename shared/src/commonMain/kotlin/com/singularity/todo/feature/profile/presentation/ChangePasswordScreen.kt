@@ -21,7 +21,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedSecureTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import com.singularity.todo.core.ui.components.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -37,9 +36,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ButtonSpinner
 import com.singularity.todo.core.ui.components.CollectEvents
-import com.singularity.todo.core.ui.textfields.ObserveTextFieldEdits
+import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.text.SelectableText
+import com.singularity.todo.core.ui.textfields.ObserveTextFieldEdits
 import com.singularity.todo.feature.nav.LocalAppNavigator
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -48,9 +48,7 @@ private const val SUBMIT_TAG = "change_password_submit"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChangePasswordScreen(
-    viewModel: ChangePasswordViewModel = koinViewModel(),
-) {
+fun ChangePasswordScreen(viewModel: ChangePasswordViewModel = koinViewModel()) {
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     // The settings graph's own navigator is *not* read here, and reading it was
     // a crash: this screen is opened by leaving the settings graph
@@ -99,16 +97,17 @@ fun ChangePasswordScreen(
 // ===== Preview =====
 
 @Composable
-private fun ChangePasswordScreenPreview() = PreviewThemed(darkTheme = false) {
-    ChangePasswordScreenContent(
-        passwordState = rememberTextFieldState("NewPassword123!"),
-        isLoading = false,
-        errorMessage = null,
-        onFieldEdited = {},
-        onSubmit = {},
-        onBack = {},
-    )
-}
+private fun ChangePasswordScreenPreview() =
+    PreviewThemed(darkTheme = false) {
+        ChangePasswordScreenContent(
+            passwordState = rememberTextFieldState("NewPassword123!"),
+            isLoading = false,
+            errorMessage = null,
+            onFieldEdited = {},
+            onSubmit = {},
+            onBack = {},
+        )
+    }
 
 @Composable
 internal fun ChangePasswordScreenContent(
@@ -140,10 +139,11 @@ internal fun ChangePasswordScreenContent(
         modifier = modifier,
     ) { paddingValues ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 32.dp, vertical = 16.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(horizontal = 32.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top,
         ) {
@@ -191,9 +191,10 @@ private fun ChangePasswordForm(
     OutlinedSecureTextField(
         state = passwordState,
         label = { Text("New Password") },
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag(PASSWORD_TAG),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .testTag(PASSWORD_TAG),
         textObfuscationMode = TextObfuscationMode.Hidden,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         isError = errorMessage != null,
@@ -213,16 +214,18 @@ private fun ChangePasswordForm(
 
     if (isLoading) {
         ButtonSpinner(
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(TestTags.AUTH_LOADING),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .testTag(TestTags.AUTH_LOADING),
         )
     } else {
         Button(
             onClick = onSubmit,
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(SUBMIT_TAG),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .testTag(SUBMIT_TAG),
             enabled = passwordState.text.isNotBlank(),
         ) {
             Text("Change Password")

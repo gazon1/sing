@@ -80,7 +80,6 @@ data class TextMatchQuery(val terms: List<String> = emptyList(), val combinesWit
  * the contradiction went unnoticed for as long as it did.
  */
 object TextMatch {
-
     private val SEPARATORS = Regex("[^\\p{L}\\p{N}]+")
 
     /**
@@ -89,7 +88,10 @@ object TextMatch {
      * @param text the searchable text of a record; `null` matches nothing.
      * @param term the term to look for.
      */
-    fun matches(text: String?, term: String): Boolean {
+    fun matches(
+        text: String?,
+        term: String,
+    ): Boolean {
         if (text.isNullOrEmpty()) return false
         val termTokens = tokens(term)
         val textTokens = tokens(text)
@@ -107,7 +109,10 @@ object TextMatch {
      * and a description — and a term matches the record when it matches one of
      * them.
      */
-    fun matchesAny(texts: Iterable<String?>, term: String): Boolean = texts.any { matches(it, term) }
+    fun matchesAny(
+        texts: Iterable<String?>,
+        term: String,
+    ): Boolean = texts.any { matches(it, term) }
 
     /**
      * True when [term] occurs **anywhere** in [text] — the escape-hatch rule.
@@ -138,7 +143,10 @@ object TextMatch {
      * @param text the searchable text of a record; `null` matches nothing.
      * @param term the term to look for. An empty term matches nothing.
      */
-    fun contains(text: String?, term: String): Boolean {
+    fun contains(
+        text: String?,
+        term: String,
+    ): Boolean {
         if (text.isNullOrEmpty() || term.isEmpty()) return false
         return fold(text).contains(fold(term))
     }
@@ -179,19 +187,23 @@ object TextMatch {
     fun tokens(text: String): List<String> =
         buildString(text.length) {
             text.forEach { character -> append(DiacriticFold.fold(character).lowercaseChar()) }
-        }
-            .split(SEPARATORS)
+        }.split(SEPARATORS)
             .filter { it.isNotEmpty() }
 
-    private fun matchesAt(textTokens: List<String>, start: Int, termTokens: List<String>): Boolean {
+    private fun matchesAt(
+        textTokens: List<String>,
+        start: Int,
+        termTokens: List<String>,
+    ): Boolean {
         for (offset in termTokens.indices) {
             val textToken = textTokens[start + offset]
             val termToken = termTokens[offset]
-            val matches = if (offset == termTokens.lastIndex) {
-                textToken.startsWith(termToken)
-            } else {
-                textToken == termToken
-            }
+            val matches =
+                if (offset == termTokens.lastIndex) {
+                    textToken.startsWith(termToken)
+                } else {
+                    textToken == termToken
+                }
             if (!matches) return false
         }
         return true

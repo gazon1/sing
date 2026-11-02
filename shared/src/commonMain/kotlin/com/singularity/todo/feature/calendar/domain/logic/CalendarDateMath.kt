@@ -7,7 +7,7 @@ import kotlinx.datetime.Month
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 
-/**
+/*
  * Pure date arithmetic for the Calendar screen.
  * All functions are side-effect free and fully unit-testable.
  */
@@ -24,7 +24,8 @@ import kotlinx.datetime.plus
  * reach it; this function stays as the calendar's public name for it.
  */
 fun isoLocalDate(date: LocalDate): String =
-    com.singularity.todo.core.ui.components.isoLocalDate(date)
+    com.singularity.todo.core.ui.components
+        .isoLocalDate(date)
 
 /**
  * Returns the full 6-week grid for a month view, including trailing days from
@@ -37,68 +38,106 @@ fun isoLocalDate(date: LocalDate): String =
  * tests have to know where the arithmetic is.
  */
 fun monthGridDates(anyDateInMonth: LocalDate): List<LocalDate> =
-    com.singularity.todo.core.ui.components.sheet.monthGridDates(anyDateInMonth)
+    com.singularity.todo.core.ui.components.sheet
+        .monthGridDates(anyDateInMonth)
 
 /** Returns the visible date range for the given [viewMode] and [anchor] date. */
-fun visibleRange(anchor: LocalDate, viewMode: CalendarViewMode): List<LocalDate> = when (viewMode) {
-    CalendarViewMode.DAY -> listOf(anchor)
+fun visibleRange(
+    anchor: LocalDate,
+    viewMode: CalendarViewMode,
+): List<LocalDate> =
+    when (viewMode) {
+        CalendarViewMode.DAY -> {
+            listOf(anchor)
+        }
 
-    CalendarViewMode.FOUR_DAYS -> (0..3).map { anchor.plus(it, DateTimeUnit.DAY) }
+        CalendarViewMode.FOUR_DAYS -> {
+            (0..3).map { anchor.plus(it, DateTimeUnit.DAY) }
+        }
 
-    CalendarViewMode.WEEK -> {
-        val weekStart = anchor.minus(anchor.dayOfWeek.ordinal, DateTimeUnit.DAY)
-        (0..6).map { weekStart.plus(it, DateTimeUnit.DAY) }
+        CalendarViewMode.WEEK -> {
+            val weekStart = anchor.minus(anchor.dayOfWeek.ordinal, DateTimeUnit.DAY)
+            (0..6).map { weekStart.plus(it, DateTimeUnit.DAY) }
+        }
+
+        CalendarViewMode.MONTH -> {
+            monthGridDates(anchor)
+        }
     }
-
-    CalendarViewMode.MONTH -> monthGridDates(anchor)
-}
 
 /** Advances [date] by one step in the given [viewMode]. */
-fun goNext(date: LocalDate, viewMode: CalendarViewMode): LocalDate = when (viewMode) {
-    CalendarViewMode.DAY -> date.plus(1, DateTimeUnit.DAY)
+fun goNext(
+    date: LocalDate,
+    viewMode: CalendarViewMode,
+): LocalDate =
+    when (viewMode) {
+        CalendarViewMode.DAY -> {
+            date.plus(1, DateTimeUnit.DAY)
+        }
 
-    CalendarViewMode.FOUR_DAYS -> date.plus(4, DateTimeUnit.DAY)
+        CalendarViewMode.FOUR_DAYS -> {
+            date.plus(4, DateTimeUnit.DAY)
+        }
 
-    CalendarViewMode.WEEK -> date.plus(7, DateTimeUnit.DAY)
+        CalendarViewMode.WEEK -> {
+            date.plus(7, DateTimeUnit.DAY)
+        }
 
-    CalendarViewMode.MONTH -> {
-        val nextMonthOrdinal = date.month.ordinal + 1
-        if (nextMonthOrdinal == 12) {
-            LocalDate(date.year + 1, Month.JANUARY, 1)
-        } else {
-            LocalDate(date.year, Month.entries[nextMonthOrdinal], 1)
+        CalendarViewMode.MONTH -> {
+            val nextMonthOrdinal = date.month.ordinal + 1
+            if (nextMonthOrdinal == 12) {
+                LocalDate(date.year + 1, Month.JANUARY, 1)
+            } else {
+                LocalDate(date.year, Month.entries[nextMonthOrdinal], 1)
+            }
         }
     }
-}
 
 /** Rewinds [date] by one step in the given [viewMode]. */
-fun goPrevious(date: LocalDate, viewMode: CalendarViewMode): LocalDate = when (viewMode) {
-    CalendarViewMode.DAY -> date.minus(1, DateTimeUnit.DAY)
+fun goPrevious(
+    date: LocalDate,
+    viewMode: CalendarViewMode,
+): LocalDate =
+    when (viewMode) {
+        CalendarViewMode.DAY -> {
+            date.minus(1, DateTimeUnit.DAY)
+        }
 
-    CalendarViewMode.FOUR_DAYS -> date.minus(4, DateTimeUnit.DAY)
+        CalendarViewMode.FOUR_DAYS -> {
+            date.minus(4, DateTimeUnit.DAY)
+        }
 
-    CalendarViewMode.WEEK -> date.minus(7, DateTimeUnit.DAY)
+        CalendarViewMode.WEEK -> {
+            date.minus(7, DateTimeUnit.DAY)
+        }
 
-    CalendarViewMode.MONTH -> {
-        val prevMonthOrdinal = date.month.ordinal - 1
-        if (prevMonthOrdinal == -1) {
-            LocalDate(date.year - 1, Month.DECEMBER, 1)
-        } else {
-            LocalDate(date.year, Month.entries[prevMonthOrdinal], 1)
+        CalendarViewMode.MONTH -> {
+            val prevMonthOrdinal = date.month.ordinal - 1
+            if (prevMonthOrdinal == -1) {
+                LocalDate(date.year - 1, Month.DECEMBER, 1)
+            } else {
+                LocalDate(date.year, Month.entries[prevMonthOrdinal], 1)
+            }
         }
     }
-}
 
 /**
  * Returns a display label for the given [anchor] and [viewMode].
  * Examples: "September 2026", "Sep 16 – 19, 2026", "September 16, 2026".
  */
-fun headerLabel(anchor: LocalDate, viewMode: CalendarViewMode): String {
+fun headerLabel(
+    anchor: LocalDate,
+    viewMode: CalendarViewMode,
+): String {
     val range = visibleRange(anchor, viewMode)
     return when (viewMode) {
-        CalendarViewMode.MONTH -> "${anchor.month.displayName()} ${anchor.year}"
+        CalendarViewMode.MONTH -> {
+            "${anchor.month.displayName()} ${anchor.year}"
+        }
 
-        CalendarViewMode.DAY -> "${anchor.month.displayName()} ${anchor.day}, ${anchor.year}"
+        CalendarViewMode.DAY -> {
+            "${anchor.month.displayName()} ${anchor.day}, ${anchor.year}"
+        }
 
         else -> {
             val start = range.first()
@@ -160,7 +199,10 @@ fun YearMonth.toLocalDate(): LocalDate = LocalDate(year, month, 1)
  *
  * Default [span] = 120 ⇒ ±120 months (±10 years) of swipeable history.
  */
-fun monthPageRange(anchor: YearMonth, span: Int = 120): Pair<YearMonth, YearMonth> {
+fun monthPageRange(
+    anchor: YearMonth,
+    span: Int = 120,
+): Pair<YearMonth, YearMonth> {
     val totalMin = anchor.year * YearMonth.MONTHS_PER_YEAR + (anchor.month.ordinal - span)
     val totalMax = anchor.year * YearMonth.MONTHS_PER_YEAR + (anchor.month.ordinal + span)
     return monthIndexToYearMonth(totalMin) to monthIndexToYearMonth(totalMax)
@@ -172,9 +214,14 @@ fun monthPageRange(anchor: YearMonth, span: Int = 120): Pair<YearMonth, YearMont
  * Pager pages are offset from the anchor's middle position ([span]) so that
  * the initial month lands near index [span] for forward/backward swipe headroom.
  */
-fun yearMonthForPage(anchor: YearMonth, page: Int, span: Int = 120): YearMonth {
-    val totalMonths = anchor.year * YearMonth.MONTHS_PER_YEAR +
-        anchor.month.ordinal + (page - span)
+fun yearMonthForPage(
+    anchor: YearMonth,
+    page: Int,
+    span: Int = 120,
+): YearMonth {
+    val totalMonths =
+        anchor.year * YearMonth.MONTHS_PER_YEAR +
+            anchor.month.ordinal + (page - span)
     return monthIndexToYearMonth(totalMonths)
 }
 
@@ -183,7 +230,11 @@ fun yearMonthForPage(anchor: YearMonth, page: Int, span: Int = 120): YearMonth {
  * Returns null if [target] is outside the [anchor ± span] window — caller must
  * either expand the range or refuse the jump.
  */
-fun pageForYearMonth(anchor: YearMonth, target: YearMonth, span: Int = 120): Int? {
+fun pageForYearMonth(
+    anchor: YearMonth,
+    target: YearMonth,
+    span: Int = 120,
+): Int? {
     val anchorTotal = anchor.year * YearMonth.MONTHS_PER_YEAR + anchor.month.ordinal
     val targetTotal = target.year * YearMonth.MONTHS_PER_YEAR + target.month.ordinal
     val delta = targetTotal - anchorTotal

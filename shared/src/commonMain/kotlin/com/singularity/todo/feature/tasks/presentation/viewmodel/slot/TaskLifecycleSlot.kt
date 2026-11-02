@@ -41,7 +41,6 @@ class TaskLifecycleSlot(
     private val onNavigateBack: () -> Unit,
     private val onSaved: (String) -> Unit,
 ) : FeatureSlot<TaskLifecycleState, TaskLifecycleIntent> {
-
     private val _state = MutableStateFlow(TaskLifecycleState())
     override val state: StateFlow<TaskLifecycleState> = _state.asStateFlow()
 
@@ -56,45 +55,50 @@ class TaskLifecycleSlot(
         }
     }
 
-    private fun delete() = scope.launch {
-        val task = taskFlow.value ?: return@launch
-        _state.update { it.copy(recentlyDeleted = task) }
-        cancelReminders(task)
-        core.taskRepo.softDelete(task.id)
-            .onSuccess { onUndoDelete(task) }
-            .onFailure {
-                _state.update { it.copy(recentlyDeleted = null) }
-                onError("Delete failed")
-            }
-    }
+    private fun delete() =
+        scope.launch {
+            val task = taskFlow.value ?: return@launch
+            _state.update { it.copy(recentlyDeleted = task) }
+            cancelReminders(task)
+            core.taskRepo
+                .softDelete(task.id)
+                .onSuccess { onUndoDelete(task) }
+                .onFailure {
+                    _state.update { it.copy(recentlyDeleted = null) }
+                    onError("Delete failed")
+                }
+        }
 
-    private fun archive() = scope.launch {
-        val task = taskFlow.value ?: return@launch
-        _state.update { it.copy(recentlyDeleted = task) }
-        core.taskRepo.softDelete(task.id)
-            .onSuccess { onUndoArchive(task) }
-            .onFailure {
-                _state.update { it.copy(recentlyDeleted = null) }
-                onError("Archive failed")
-            }
-    }
+    private fun archive() =
+        scope.launch {
+            val task = taskFlow.value ?: return@launch
+            _state.update { it.copy(recentlyDeleted = task) }
+            core.taskRepo
+                .softDelete(task.id)
+                .onSuccess { onUndoArchive(task) }
+                .onFailure {
+                    _state.update { it.copy(recentlyDeleted = null) }
+                    onError("Archive failed")
+                }
+        }
 
-    private fun restore() = scope.launch {
-        val task = _state.value.recentlyDeleted ?: return@launch
-        core.taskRepo.restore(task.id)
-            .onSuccess {
-                _state.update { it.copy(recentlyDeleted = null) }
-                onSaved("Task restored")
-            }
-            .onFailure {
-                // Keep the snapshot alive: the user saw the undo toast dismissed and the
-                // error dialog will also auto-dismiss. If we clear the snapshot now, the
-                // next snackbar auto-dismiss removes the only safety net and the task is
-                // silently lost. Keeping it gives the user a chance to retry once the
-                // server recovers.
-                onError("Restore failed")
-            }
-    }
+    private fun restore() =
+        scope.launch {
+            val task = _state.value.recentlyDeleted ?: return@launch
+            core.taskRepo
+                .restore(task.id)
+                .onSuccess {
+                    _state.update { it.copy(recentlyDeleted = null) }
+                    onSaved("Task restored")
+                }.onFailure {
+                    // Keep the snapshot alive: the user saw the undo toast dismissed and the
+                    // error dialog will also auto-dismiss. If we clear the snapshot now, the
+                    // next snackbar auto-dismiss removes the only safety net and the task is
+                    // silently lost. Keeping it gives the user a chance to retry once the
+                    // server recovers.
+                    onError("Restore failed")
+                }
+        }
 
     /**
      * Archives every occurrence of the series, and offers to put them back.
@@ -110,15 +114,16 @@ class TaskLifecycleSlot(
      * the screen decides that, because it is the one that knows how the toast is
      * hosted.
      */
-    private fun deleteSeries() = scope.launch {
-        val task = taskFlow.value ?: return@launch
-        val seriesId = task.seriesId ?: return@launch
-        core.updateSeries.archiveSeries(seriesId)
-            .onSuccess { ids ->
-                onUndoDeleteSeries(ids)
-            }
-            .onFailure { onError("Failed to delete the series") }
-    }
+    private fun deleteSeries() =
+        scope.launch {
+            val task = taskFlow.value ?: return@launch
+            val seriesId = task.seriesId ?: return@launch
+            core.updateSeries
+                .archiveSeries(seriesId)
+                .onSuccess { ids ->
+                    onUndoDeleteSeries(ids)
+                }.onFailure { onError("Failed to delete the series") }
+        }
 
     /**
      * Puts back the occurrences of a series that was deleted.
@@ -127,18 +132,20 @@ class TaskLifecycleSlot(
      * and the others still come back, because a partly restored series is
      * better than a series that stayed in the trash.
      */
-    private fun restoreSeries(taskIds: List<TaskId>) = scope.launch {
-        if (taskIds.isEmpty()) return@launch
-        var restored = 0
-        var failed = false
-        taskIds.forEach { id ->
-            core.taskRepo.restore(id)
-                .onSuccess { restored++ }
-                .onFailure { failed = true }
+    private fun restoreSeries(taskIds: List<TaskId>) =
+        scope.launch {
+            if (taskIds.isEmpty()) return@launch
+            var restored = 0
+            var failed = false
+            taskIds.forEach { id ->
+                core.taskRepo
+                    .restore(id)
+                    .onSuccess { restored++ }
+                    .onFailure { failed = true }
+            }
+            if (restored > 0) onSaved("Series restored")
+            if (failed) onError("Restore failed")
         }
-        if (restored > 0) onSaved("Series restored")
-        if (failed) onError("Restore failed")
-    }
 
     /**
      * Un-trashes the task this screen is open on — the action behind "Восстановить"
@@ -146,15 +153,16 @@ class TaskLifecycleSlot(
      * there is no recently-deleted snapshot to consult: the write targets
      * [taskFlow]'s task directly, and success pops back to the list it came from.
      */
-    private fun unarchive() = scope.launch {
-        val task = taskFlow.value ?: return@launch
-        core.taskRepo.restore(task.id)
-            .onSuccess {
-                onSaved("Task restored")
-                onNavigateBack()
-            }
-            .onFailure { onError("Restore failed") }
-    }
+    private fun unarchive() =
+        scope.launch {
+            val task = taskFlow.value ?: return@launch
+            core.taskRepo
+                .restore(task.id)
+                .onSuccess {
+                    onSaved("Task restored")
+                    onNavigateBack()
+                }.onFailure { onError("Restore failed") }
+        }
 
     private suspend fun cancelReminders(task: Task) {
         val userId = core.taskRepo.currentUserId()

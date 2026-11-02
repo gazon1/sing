@@ -22,7 +22,6 @@ package com.singularity.todo.core.search
  * place that decides is the rule itself — see `FreeTextRule.plan(mode)`.
  */
 sealed interface TextMatchPlan {
-
     /**
      * The index can narrow: [query] is a positive lookup.
      *

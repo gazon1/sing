@@ -9,8 +9,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -55,13 +55,16 @@ fun ProjectTreeSection(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .testTag(TestTags.MENU_PROJECTS_SECTION),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .testTag(TestTags.MENU_PROJECTS_SECTION),
         verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
         when (state) {
-            is ProjectsTreeUiState.Loading -> Unit
+            is ProjectsTreeUiState.Loading -> {
+                Unit
+            }
 
             is ProjectsTreeUiState.Loaded -> {
                 for (node in state.nodes) {
@@ -89,15 +92,16 @@ private fun ProjectTreeRow(
     onOpen: () -> Unit,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            // One level of indent per step down the hierarchy.
-            .padding(start = (node.depth * 16).dp)
-            // The whole row opens the project, and the row is what carries the
-            // tag: a click on the row's centre is the click a test makes, and a
-            // clickable only on the name would miss it.
-            .clickable(onClick = onOpen)
-            .testTag(TestTags.menuProjectNode(node.id.value)),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                // One level of indent per step down the hierarchy.
+                .padding(start = (node.depth * 16).dp)
+                // The whole row opens the project, and the row is what carries the
+                // tag: a click on the row's centre is the click a test makes, and a
+                // clickable only on the name would miss it.
+                .clickable(onClick = onOpen)
+                .testTag(TestTags.menuProjectNode(node.id.value)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (node.hasChildren) {
@@ -106,16 +110,18 @@ private fun ProjectTreeRow(
                 modifier = Modifier.testTag(TestTags.menuProjectExpander(node.id.value)),
             ) {
                 Icon(
-                    imageVector = if (node.isExpanded) {
-                        Icons.Default.ExpandMore
-                    } else {
-                        Icons.Default.ChevronRight
-                    },
-                    contentDescription = if (node.isExpanded) {
-                        "Collapse ${node.name}"
-                    } else {
-                        "Expand ${node.name}"
-                    },
+                    imageVector =
+                        if (node.isExpanded) {
+                            Icons.Default.ExpandMore
+                        } else {
+                            Icons.Default.ChevronRight
+                        },
+                    contentDescription =
+                        if (node.isExpanded) {
+                            "Collapse ${node.name}"
+                        } else {
+                            "Expand ${node.name}"
+                        },
                 )
             }
         } else {

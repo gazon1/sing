@@ -21,71 +21,76 @@ import java.nio.file.Paths
  * system property of the same name is never forwarded to the test JVM.)
  */
 object TagsMd {
-
     /**
      * Path to `Maestro/TAGS.md`, relative to the workspace root.
      * Derived by going up 4 levels from `commonMain.root` (`:shared/src/commonMain/kotlin`).
      */
     private val tagsMdPath: String by lazy {
-        val commonMainRoot = System.getProperty("commonMain.root")
-            ?: error("commonMain.root is not set — see shared/build.gradle.kts")
-        val workspaceRoot = Paths.get(commonMainRoot).parent.parent.parent.parent
+        val commonMainRoot =
+            System.getProperty("commonMain.root")
+                ?: error("commonMain.root is not set — see shared/build.gradle.kts")
+        val workspaceRoot =
+            Paths
+                .get(commonMainRoot)
+                .parent.parent.parent.parent
         workspaceRoot.resolve("Maestro/TAGS.md").toString()
     }
 
     // ─── Subsection order (matches the comment blocks in TestTags.kt) ─────────
 
-    private val staticSubsections: List<String> = listOf(
-        "Auth",
-        "Navigation",
-        "Tasks",
-        "Agenda",
-        "Plans",
-        "Pomodoro",
-        "Tags",
-        "Notes",
-        "Note Editor",
-        "Note Preview",
-        "Search",
-        "Projects",
-        "Settings",
-        "Onboarding",
-        "Sync",
-        "Dialog",
-        "Editor Overflow menu",
-        "Snackbar / transient UI",
-        "Backup",
-        "Profile",
-        "AI",
-        "Calendar",
-        // Added 2026-10-07 with `TestTags.CalendarSync` and `TestTags.SearchFilter`.
-        "Calendar sync",
-        "Search filters",
-        "Statistics",
-        // Catch-all for constants that have no known prefix rule.  A constant
-        // landing here means it was added without a naming convention that matches
-        // any of the prefix rules — add a rule for it rather than growing this list.
-        "Other",
-    )
+    private val staticSubsections: List<String> =
+        listOf(
+            "Auth",
+            "Navigation",
+            "Tasks",
+            "Agenda",
+            "Plans",
+            "Pomodoro",
+            "Tags",
+            "Notes",
+            "Note Editor",
+            "Note Preview",
+            "Search",
+            "Projects",
+            "Settings",
+            "Onboarding",
+            "Sync",
+            "Dialog",
+            "Editor Overflow menu",
+            "Snackbar / transient UI",
+            "Backup",
+            "Profile",
+            "AI",
+            "Calendar",
+            // Added 2026-10-07 with `TestTags.CalendarSync` and `TestTags.SearchFilter`.
+            "Calendar sync",
+            "Search filters",
+            "Statistics",
+            // Catch-all for constants that have no known prefix rule.  A constant
+            // landing here means it was added without a naming convention that matches
+            // any of the prefix rules — add a rule for it rather than growing this list.
+            "Other",
+        )
 
-    private val dynamicSubsections: List<String> = listOf(
-        "Navigation",
-        "Settings",
-        "Menu",
-        "Tasks",
-        "Notes",
-        "Agenda",
-        "Plans",
-        "Projects",
-        "Pomodoro",
-        "Dialog",
-        "Backup",
-        "Profile",
-        "AI",
-        "Calendar",
-        "Calendar sync",
-        "Search filters",
-    )
+    private val dynamicSubsections: List<String> =
+        listOf(
+            "Navigation",
+            "Settings",
+            "Menu",
+            "Tasks",
+            "Notes",
+            "Agenda",
+            "Plans",
+            "Projects",
+            "Pomodoro",
+            "Dialog",
+            "Backup",
+            "Profile",
+            "AI",
+            "Calendar",
+            "Calendar sync",
+            "Search filters",
+        )
 
     // ─── Rendering ─────────────────────────────────────────────────────────────
 
@@ -93,13 +98,14 @@ object TagsMd {
      * Renders the complete generated section (static constants + dynamic functions)
      * in the same format as TAGS.md.
      */
-    fun renderGeneratedSection(catalog: TestTagsCatalog): String = buildString {
-        appendLine("## Static constants")
-        appendStaticConstants(catalog)
-        appendLine()
-        appendLine("## Dynamic functions")
-        appendDynamicFunctions(catalog)
-    }
+    fun renderGeneratedSection(catalog: TestTagsCatalog): String =
+        buildString {
+            appendLine("## Static constants")
+            appendStaticConstants(catalog)
+            appendLine()
+            appendLine("## Dynamic functions")
+            appendDynamicFunctions(catalog)
+        }
 
     private fun StringBuilder.appendStaticConstants(catalog: TestTagsCatalog): StringBuilder {
         val byCategory = mutableMapOf<String, MutableList<Pair<String, String>>>()
@@ -155,22 +161,27 @@ object TagsMd {
         val staticTags = catalog.staticTags().toMap()
         val byCategory: MutableMap<String, MutableList<DynamicMeta>> = mutableMapOf()
         for ((fnName, prefix) in catalog.dynamicFunctions()) {
-            byCategory.getOrPut(dynamicMeta(fnName, prefix).category) { mutableListOf() }
+            byCategory
+                .getOrPut(dynamicMeta(fnName, prefix).category) { mutableListOf() }
                 .add(dynamicMeta(fnName, prefix))
         }
 
         for (section in dynamicSubsections) {
             val entries = byCategory[section] ?: continue
             for (meta in entries.sortedBy { it.function }) {
-                val rawPrefix = catalog.dynamicFunctions()
-                    .first { it.first == meta.function }.second
+                val rawPrefix =
+                    catalog
+                        .dynamicFunctions()
+                        .first { it.first == meta.function }
+                        .second
                 // Resolve interpolated constants (e.g. "${PROFILE_ITEM_PREFIX}" → "profile_item_")
                 val resolvedPrefix = resolveInterpolatedPrefix(rawPrefix, staticTags)
-                val expanded = "${resolvedPrefix}${slug(meta.example)}"
-                    .lowercase()
-                    .replace(Regex("[^a-z0-9]+"), "_")
-                    .removePrefix("_")
-                    .removeSuffix("_")
+                val expanded =
+                    "${resolvedPrefix}${slug(meta.example)}"
+                        .lowercase()
+                        .replace(Regex("[^a-z0-9]+"), "_")
+                        .removePrefix("_")
+                        .removeSuffix("_")
                 appendLine(
                     "| `${meta.function}(\"${meta.example}\")` | `\"${meta.example}\"` | " +
                         "`$expanded` | ${meta.usedFor} |",
@@ -184,9 +195,13 @@ object TagsMd {
      * Resolves `${CONST_NAME}` interpolations in a tag prefix using [staticTags].
      * For example: `"${PROFILE_ITEM_PREFIX}"` → `"profile_item_"`.
      */
-    private fun resolveInterpolatedPrefix(prefix: String, staticTags: Map<String, String>): String {
-        val constRef = Regex("""\$\{(\w+)\}""").find(prefix)?.groupValues?.get(1)
-            ?: return prefix
+    private fun resolveInterpolatedPrefix(
+        prefix: String,
+        staticTags: Map<String, String>,
+    ): String {
+        val constRef =
+            Regex("""\$\{(\w+)\}""").find(prefix)?.groupValues?.get(1)
+                ?: return prefix
         return staticTags[constRef] ?: prefix
     }
 
@@ -208,117 +223,201 @@ object TagsMd {
     // adding a dynamic test tag means adding a row here, and that should stay a
     // one-line change.
     @Suppress("CyclomaticComplexMethod")
-    private fun dynamicMeta(fnName: String, prefix: String): DynamicMeta = when (fnName) {
-        "navTab" -> DynamicMeta(fnName, "Navigation", "Today", "Bottom nav tabs")
+    private fun dynamicMeta(
+        fnName: String,
+        prefix: String,
+    ): DynamicMeta =
+        when (fnName) {
+            "navTab" -> {
+                DynamicMeta(fnName, "Navigation", "Today", "Bottom nav tabs")
+            }
 
-        "calendarViewMode" -> DynamicMeta(fnName, "Calendar", "month", "Calendar view-mode tabs (month / day / 4_days)")
+            "calendarViewMode" -> {
+                DynamicMeta(fnName, "Calendar", "month", "Calendar view-mode tabs (month / day / 4_days)")
+            }
 
-        "Settings.accentSwatch" -> DynamicMeta(fnName, "Settings", "Blue", "Accent colour swatches in Settings")
+            "Settings.accentSwatch" -> {
+                DynamicMeta(fnName, "Settings", "Blue", "Accent colour swatches in Settings")
+            }
 
-        "Settings.themeModeButton" -> DynamicMeta(fnName, "Settings", "Dark", "Theme-mode radio buttons")
+            "Settings.themeModeButton" -> {
+                DynamicMeta(fnName, "Settings", "Dark", "Theme-mode radio buttons")
+            }
 
-        "Settings.reminderOffsetRadioRow" ->
-            DynamicMeta(fnName, "Settings", "At due time", "Reminder-offset radio rows in notification settings")
+            "Settings.reminderOffsetRadioRow" -> {
+                DynamicMeta(fnName, "Settings", "At due time", "Reminder-offset radio rows in notification settings")
+            }
 
-        "CalendarSync.providerSegment" ->
-            DynamicMeta(fnName, "Calendar sync", "Google Calendar", "Provider segments in the panel")
+            "CalendarSync.providerSegment" -> {
+                DynamicMeta(fnName, "Calendar sync", "Google Calendar", "Provider segments in the panel")
+            }
 
-        "CalendarSync.googleCalendarRow" ->
-            DynamicMeta(fnName, "Calendar sync", "primary-cal", "One row per writable Google calendar")
+            "CalendarSync.googleCalendarRow" -> {
+                DynamicMeta(fnName, "Calendar sync", "primary-cal", "One row per writable Google calendar")
+            }
 
-        "settingsTab" -> DynamicMeta(fnName, "Settings", "Interface", "Settings nav rail tabs")
+            "settingsTab" -> {
+                DynamicMeta(fnName, "Settings", "Interface", "Settings nav rail tabs")
+            }
 
-        "Settings.workingDaySwitch" ->
-            DynamicMeta(fnName, "Settings", "MONDAY", "Working-day toggles in the work schedule section")
+            "Settings.workingDaySwitch" -> {
+                DynamicMeta(fnName, "Settings", "MONDAY", "Working-day toggles in the work schedule section")
+            }
 
-        "Settings.content" -> DynamicMeta(fnName, "Settings", "Interface", "Settings tab content area")
+            "Settings.content" -> {
+                DynamicMeta(fnName, "Settings", "Interface", "Settings tab content area")
+            }
 
-        "menuItem" -> DynamicMeta(fnName, "Menu", "Settings", "Menu bottom sheet items")
+            "menuItem" -> {
+                DynamicMeta(fnName, "Menu", "Settings", "Menu bottom sheet items")
+            }
 
-        "taskItem" -> DynamicMeta(fnName, "Tasks", "Buy milk", "Task list rows")
+            "taskItem" -> {
+                DynamicMeta(fnName, "Tasks", "Buy milk", "Task list rows")
+            }
 
-        "taskCheckbox" -> DynamicMeta(fnName, "Tasks", "Buy milk", "Task checkboxes")
+            "taskCheckbox" -> {
+                DynamicMeta(fnName, "Tasks", "Buy milk", "Task checkboxes")
+            }
 
-        "dependencyItem" ->
-            DynamicMeta(fnName, "Tasks", "Dep task", "Rows in the dependency picker")
+            "dependencyItem" -> {
+                DynamicMeta(fnName, "Tasks", "Dep task", "Rows in the dependency picker")
+            }
 
-        "dependencyVerb" ->
-            DynamicMeta(fnName, "Tasks", "blocks", "Kind-of-relation chips on one dependency row")
+            "dependencyVerb" -> {
+                DynamicMeta(fnName, "Tasks", "blocks", "Kind-of-relation chips on one dependency row")
+            }
 
-        "subtaskItem" -> DynamicMeta(fnName, "Tasks", "Child task one", "Subtask list rows")
+            "subtaskItem" -> {
+                DynamicMeta(fnName, "Tasks", "Child task one", "Subtask list rows")
+            }
 
-        "subtaskCheckbox" -> DynamicMeta(fnName, "Tasks", "Child task one", "Subtask checkboxes")
+            "subtaskCheckbox" -> {
+                DynamicMeta(fnName, "Tasks", "Child task one", "Subtask checkboxes")
+            }
 
-        "subtaskDelete" -> DynamicMeta(fnName, "Tasks", "Child task one", "Subtask delete buttons")
+            "subtaskDelete" -> {
+                DynamicMeta(fnName, "Tasks", "Child task one", "Subtask delete buttons")
+            }
 
-        "checklistItem" -> DynamicMeta(fnName, "Tasks", "Item", "Checklist item rows")
+            "checklistItem" -> {
+                DynamicMeta(fnName, "Tasks", "Item", "Checklist item rows")
+            }
 
-        "checklistItemCheckbox" -> DynamicMeta(fnName, "Tasks", "Item", "Checklist item checkboxes")
+            "checklistItemCheckbox" -> {
+                DynamicMeta(fnName, "Tasks", "Item", "Checklist item checkboxes")
+            }
 
-        "checklistItemDelete" -> DynamicMeta(fnName, "Tasks", "Item", "Checklist item delete buttons")
+            "checklistItemDelete" -> {
+                DynamicMeta(fnName, "Tasks", "Item", "Checklist item delete buttons")
+            }
 
-        "noteItem" -> DynamicMeta(fnName, "Notes", "01BXFF...", "Note cards (desktop unit tests)")
+            "noteItem" -> {
+                DynamicMeta(fnName, "Notes", "01BXFF...", "Note cards (desktop unit tests)")
+            }
 
-        "noteItemByTitle" -> DynamicMeta(fnName, "Notes", "Meeting notes", "Note cards (automation)")
+            "noteItemByTitle" -> {
+                DynamicMeta(fnName, "Notes", "Meeting notes", "Note cards (automation)")
+            }
 
-        "logbookNoteByTitle" ->
-            DynamicMeta(fnName, "Tasks", "Logbook note", "Note rows in a task's logbook")
+            "logbookNoteByTitle" -> {
+                DynamicMeta(fnName, "Tasks", "Logbook note", "Note rows in a task's logbook")
+            }
 
-        "noteFilterChip" -> DynamicMeta(fnName, "Notes", "pinned", "Note list filter chips")
+            "noteFilterChip" -> {
+                DynamicMeta(fnName, "Notes", "pinned", "Note list filter chips")
+            }
 
-        "noteAction" -> DynamicMeta(fnName, "Notes", "edit", "Note editor action buttons")
+            "noteAction" -> {
+                DynamicMeta(fnName, "Notes", "edit", "Note editor action buttons")
+            }
 
-        "savedAgendaCard" -> DynamicMeta(fnName, "Agenda", "Work", "Saved agenda cards")
+            "savedAgendaCard" -> {
+                DynamicMeta(fnName, "Agenda", "Work", "Saved agenda cards")
+            }
 
-        "agendaSection" -> DynamicMeta(fnName, "Agenda", "Today", "Agenda section headers")
+            "agendaSection" -> {
+                DynamicMeta(fnName, "Agenda", "Today", "Agenda section headers")
+            }
 
-        "plansSection" ->
-            DynamicMeta(fnName, "Plans", "day:2026-09-16", "Timeline section headers")
+            "plansSection" -> {
+                DynamicMeta(fnName, "Plans", "day:2026-09-16", "Timeline section headers")
+            }
 
-        "plansSectionAdd" ->
-            DynamicMeta(fnName, "Plans", "day:2026-09-16", "The add control of a timeline section")
+            "plansSectionAdd" -> {
+                DynamicMeta(fnName, "Plans", "day:2026-09-16", "The add control of a timeline section")
+            }
 
-        "menuProjectNode" ->
-            DynamicMeta(fnName, "Menu", "p1", "A project in the menu's project tree")
+            "menuProjectNode" -> {
+                DynamicMeta(fnName, "Menu", "p1", "A project in the menu's project tree")
+            }
 
-        "menuProjectExpander" ->
-            DynamicMeta(fnName, "Menu", "p1", "The expander of a project in the menu's tree")
+            "menuProjectExpander" -> {
+                DynamicMeta(fnName, "Menu", "p1", "The expander of a project in the menu's tree")
+            }
 
-        "agendaSectionTemplate" ->
-            DynamicMeta(fnName, "Agenda", "By tag", "Section *types* in the add-section sheet")
+            "agendaSectionTemplate" -> {
+                DynamicMeta(fnName, "Agenda", "By tag", "Section *types* in the add-section sheet")
+            }
 
-        "agendaSelectorOption" ->
-            DynamicMeta(fnName, "Agenda", "work", "Values in the section parameter picker")
+            "agendaSelectorOption" -> {
+                DynamicMeta(fnName, "Agenda", "work", "Values in the section parameter picker")
+            }
 
-        "projectCard" -> DynamicMeta(fnName, "Projects", "Project Alpha", "Project cards")
+            "projectCard" -> {
+                DynamicMeta(fnName, "Projects", "Project Alpha", "Project cards")
+            }
 
-        "pomodoroTaskChip" -> DynamicMeta(fnName, "Pomodoro", "Buy milk", "Pomodoro focus-task chips")
+            "pomodoroTaskChip" -> {
+                DynamicMeta(fnName, "Pomodoro", "Buy milk", "Pomodoro focus-task chips")
+            }
 
-        "genUi" -> DynamicMeta(fnName, "AI", "whatsnew", "GenUI surfaces")
+            "genUi" -> {
+                DynamicMeta(fnName, "AI", "whatsnew", "GenUI surfaces")
+            }
 
-        "acpAgentChip" ->
-            DynamicMeta(fnName, "AI", "gemini-cli", "The chip that selects one agent of the registry")
+            "acpAgentChip" -> {
+                DynamicMeta(fnName, "AI", "gemini-cli", "The chip that selects one agent of the registry")
+            }
 
-        "tagRename" -> DynamicMeta(fnName, "Tags", "inbox", "Rename affordance on a tag card")
+            "tagRename" -> {
+                DynamicMeta(fnName, "Tags", "inbox", "Rename affordance on a tag card")
+            }
 
-        "tagOpen" -> DynamicMeta(fnName, "Tags", "inbox", "Tag chips that navigate to the tag view")
+            "tagOpen" -> {
+                DynamicMeta(fnName, "Tags", "inbox", "Tag chips that navigate to the tag view")
+            }
 
-        "taskAction" -> DynamicMeta(fnName, "Dialog", "Archive", "Long-press action rows")
+            "taskAction" -> {
+                DynamicMeta(fnName, "Dialog", "Archive", "Long-press action rows")
+            }
 
-        "Dialog.title" -> DynamicMeta(fnName, "Dialog", "discard", "Dialog title")
+            "Dialog.title" -> {
+                DynamicMeta(fnName, "Dialog", "discard", "Dialog title")
+            }
 
-        "profileItem" -> DynamicMeta(fnName, "Profile", "Personal", "Profile list items")
+            "profileItem" -> {
+                DynamicMeta(fnName, "Profile", "Personal", "Profile list items")
+            }
 
-        "backupRestoreFromCloud" ->
-            DynamicMeta(fnName, "Backup", "singularity_backup_1.zip", "The Restore button of one archive in the cloud")
+            "backupRestoreFromCloud" -> {
+                DynamicMeta(
+                    fnName,
+                    "Backup",
+                    "singularity_backup_1.zip",
+                    "The Restore button of one archive in the cloud",
+                )
+            }
 
-        // A new dynamic function must be described here, not silently dropped:
-        // "Used for" and the example input are documentation, not derivable from source.
-        else -> error(
-            "TagsMd.dynamicMeta has no entry for TestTags.$fnName (prefix \"$prefix\"). " +
-                "Add a DynamicMeta(...) row so the function appears in TAGS.md.",
-        )
-    }
+            // A new dynamic function must be described here, not silently dropped:
+            // "Used for" and the example input are documentation, not derivable from source.
+            else -> {
+                error(
+                    "TagsMd.dynamicMeta has no entry for TestTags.$fnName (prefix \"$prefix\"). " +
+                        "Add a DynamicMeta(...) row so the function appears in TAGS.md.",
+                )
+            }
+        }
 
     // ─── Category inference for static constants ─────────────────────────────────
 
@@ -326,38 +425,39 @@ object TagsMd {
      * Nested-object name → TAGS.md subsection. The owning object is where the author
      * already grouped these constants in `TestTags.kt`.
      */
-    private val ownerSections: Map<String, String> = mapOf(
-        "Pomodoro" to "Pomodoro",
-        "Settings" to "Settings",
-        "Dialog" to "Dialog",
-        "DatePicker" to "Dialog",
-        "EditorOverflow" to "Editor Overflow menu",
-        // The start/stop chip on the task detail. Filed under Tasks rather than
-        // given its own heading because it is a row of the task editor, the same
-        // call the recurrence and priority rows make — a heading per control
-        // would make the table a list of two-row sections.
-        "TimeTracking" to "Tasks",
-        // Settings → Calendar. Filed under its own heading rather than under
-        // Settings because it is the only panel there that configures a *remote*
-        // account: a reader looking for a control in Settings should find out which
-        // ones need a Google grant.
-        "CalendarSync" to "Calendar sync",
-        // Inside `SimpleFilterSheet`, a ModalBottomSheet — rendered in a separate
-        // semantics root on desktop, so these exist for the Android/Maestro tier.
-        "SearchFilter" to "Search filters",
-        // The spotlight tour and its replay row. Their own heading rather than a
-        // fragment of Settings: a tag that outlives the settings screen it can be
-        // triggered from would otherwise be filed under whichever prefix matched first,
-        // which is the Settings one, and would read as belonging to it.
-        "Onboarding" to "Onboarding",
-        // Sync settings rows. A section of its own rather than a prefix match on
-        // "SETTINGS_": the sync screen is its own tab, and filing its rows under
-        // Settings would make the catalog claim they belong to the settings screen.
-        "Sync" to "Sync",
-        // Saved-views overflow menu on the search/agenda screens — filed under
-        // Search rather than Agenda: the rows live on the saved-searches screen.
-        "SavedSearches" to "Search",
-    )
+    private val ownerSections: Map<String, String> =
+        mapOf(
+            "Pomodoro" to "Pomodoro",
+            "Settings" to "Settings",
+            "Dialog" to "Dialog",
+            "DatePicker" to "Dialog",
+            "EditorOverflow" to "Editor Overflow menu",
+            // The start/stop chip on the task detail. Filed under Tasks rather than
+            // given its own heading because it is a row of the task editor, the same
+            // call the recurrence and priority rows make — a heading per control
+            // would make the table a list of two-row sections.
+            "TimeTracking" to "Tasks",
+            // Settings → Calendar. Filed under its own heading rather than under
+            // Settings because it is the only panel there that configures a *remote*
+            // account: a reader looking for a control in Settings should find out which
+            // ones need a Google grant.
+            "CalendarSync" to "Calendar sync",
+            // Inside `SimpleFilterSheet`, a ModalBottomSheet — rendered in a separate
+            // semantics root on desktop, so these exist for the Android/Maestro tier.
+            "SearchFilter" to "Search filters",
+            // The spotlight tour and its replay row. Their own heading rather than a
+            // fragment of Settings: a tag that outlives the settings screen it can be
+            // triggered from would otherwise be filed under whichever prefix matched first,
+            // which is the Settings one, and would read as belonging to it.
+            "Onboarding" to "Onboarding",
+            // Sync settings rows. A section of its own rather than a prefix match on
+            // "SETTINGS_": the sync screen is its own tab, and filing its rows under
+            // Settings would make the catalog claim they belong to the settings screen.
+            "Sync" to "Sync",
+            // Saved-views overflow menu on the search/agenda screens — filed under
+            // Search rather than Agenda: the rows live on the saved-searches screen.
+            "SavedSearches" to "Search",
+        )
 
     /**
      * Name fragment → TAGS.md subsection for top-level constants. Order matters:
@@ -365,61 +465,62 @@ object TagsMd {
      * Matching on a fragment rather than a pure prefix keeps
      * `PROJECT_EDITOR_NOTIFICATION_HOST` with the other Projects constants.
      */
-    private val prefixSections: List<Pair<String, String>> = listOf(
-        "AUTH_" to "Auth",
-        "NAV_" to "Navigation",
-        "TOP_BAR_" to "Navigation",
-        "MENU_" to "Navigation",
-        "TASK_EDITOR_" to "Tasks",
-        "TASK_CONTEXT_" to "Tasks",
-        "TASKS_" to "Tasks",
-        "TASK_" to "Tasks",
-        // The logbook section of the task detail: the notes attached to a task. A
-        // section of the task screen, so it files with the other task rows rather
-        // than getting a heading of its own.
-        "LOGBOOK_" to "Tasks",
-        "PRIORITY_" to "Tasks",
-        // Recurrence options live in the task editor's recurrence picker, so
-        // they belong with the other task-editor rows. Anchored like every other
-        // entry: an unanchored match would also swallow unrelated names.
-        "RECURRENCE_" to "Tasks",
-        // Task-editor sheet chrome and task-detail sections. All four are rows or
-        // containers of the task editor/detail, so they file with the TASK_* block
-        // rather than getting a heading each.
-        "SHEET_" to "Tasks",
-        "FIRST_RUN_" to "Tasks",
-        "CHECKLIST_" to "Tasks",
-        "SUBTASK" to "Tasks",
-        "AGENDA_" to "Agenda",
-        // The timeline of the Plans tab: its sections, its granularity control
-        // and its empty state. A heading of its own rather than a fragment of
-        // Agenda: the plan is a feature, not a preset of the agenda's.
-        "PLANS_" to "Plans",
-        "SAVED_" to "Agenda",
-        "POMODORO_" to "Pomodoro",
-        "TAGS_" to "Tags",
-        "TAG_" to "Tags",
-        "NOTE" to "Notes",
-        "DIALOG_" to "Dialog",
-        "OVERFLOW_" to "Editor Overflow menu",
-        "SNACKBAR_" to "Snackbar / transient UI",
-        "BACKUP_" to "Backup",
-        "PROFILE_" to "Profile",
-        "SETTINGS_" to "Settings",
-        "GENUI_" to "AI",
-        // The activity cards an agent's turn draws — the tool calls it made, the plan it
-        // published. The same cards appear in the built-in chat and on the external
-        // agent's screen, so one tag names a thing both draw, and both file under AI.
-        "AGENT_" to "AI",
-        // The external-agent screen: the registry, the command it is about to run, the
-        // permission sheet. It hosts a third-party agent, so it belongs with the AI rows
-        // rather than under a heading of its own.
-        "ACP_" to "AI",
-        "CALENDAR_" to "Calendar",
-        "SEARCH_" to "Search",
-        "PROJECT_" to "Projects",
-        "HEALTH_BUCKET_" to "Statistics",
-    )
+    private val prefixSections: List<Pair<String, String>> =
+        listOf(
+            "AUTH_" to "Auth",
+            "NAV_" to "Navigation",
+            "TOP_BAR_" to "Navigation",
+            "MENU_" to "Navigation",
+            "TASK_EDITOR_" to "Tasks",
+            "TASK_CONTEXT_" to "Tasks",
+            "TASKS_" to "Tasks",
+            "TASK_" to "Tasks",
+            // The logbook section of the task detail: the notes attached to a task. A
+            // section of the task screen, so it files with the other task rows rather
+            // than getting a heading of its own.
+            "LOGBOOK_" to "Tasks",
+            "PRIORITY_" to "Tasks",
+            // Recurrence options live in the task editor's recurrence picker, so
+            // they belong with the other task-editor rows. Anchored like every other
+            // entry: an unanchored match would also swallow unrelated names.
+            "RECURRENCE_" to "Tasks",
+            // Task-editor sheet chrome and task-detail sections. All four are rows or
+            // containers of the task editor/detail, so they file with the TASK_* block
+            // rather than getting a heading each.
+            "SHEET_" to "Tasks",
+            "FIRST_RUN_" to "Tasks",
+            "CHECKLIST_" to "Tasks",
+            "SUBTASK" to "Tasks",
+            "AGENDA_" to "Agenda",
+            // The timeline of the Plans tab: its sections, its granularity control
+            // and its empty state. A heading of its own rather than a fragment of
+            // Agenda: the plan is a feature, not a preset of the agenda's.
+            "PLANS_" to "Plans",
+            "SAVED_" to "Agenda",
+            "POMODORO_" to "Pomodoro",
+            "TAGS_" to "Tags",
+            "TAG_" to "Tags",
+            "NOTE" to "Notes",
+            "DIALOG_" to "Dialog",
+            "OVERFLOW_" to "Editor Overflow menu",
+            "SNACKBAR_" to "Snackbar / transient UI",
+            "BACKUP_" to "Backup",
+            "PROFILE_" to "Profile",
+            "SETTINGS_" to "Settings",
+            "GENUI_" to "AI",
+            // The activity cards an agent's turn draws — the tool calls it made, the plan it
+            // published. The same cards appear in the built-in chat and on the external
+            // agent's screen, so one tag names a thing both draw, and both file under AI.
+            "AGENT_" to "AI",
+            // The external-agent screen: the registry, the command it is about to run, the
+            // permission sheet. It hosts a third-party agent, so it belongs with the AI rows
+            // rather than under a heading of its own.
+            "ACP_" to "AI",
+            "CALENDAR_" to "Calendar",
+            "SEARCH_" to "Search",
+            "PROJECT_" to "Projects",
+            "HEALTH_BUCKET_" to "Statistics",
+        )
 
     /**
      * Maps a constant's (possibly qualified) name to the TAGS.md subsection it
@@ -435,7 +536,8 @@ object TagsMd {
     private fun staticCategoryOf(qualifiedName: String): String {
         val owner = qualifiedName.substringBeforeLast('.', missingDelimiterValue = "")
         if (owner.isNotEmpty()) return ownerSections[owner] ?: "Other"
-        prefixSections.firstOrNull { (prefix, _) -> qualifiedName.startsWith(prefix) }
+        prefixSections
+            .firstOrNull { (prefix, _) -> qualifiedName.startsWith(prefix) }
             ?.let { return it.second }
         return if (qualifiedName.endsWith("_NOTIFICATION_HOST")) "Snackbar / transient UI" else "Other"
     }
@@ -505,16 +607,18 @@ object TagsMd {
      */
     fun replaceGeneratedSection(newSection: String) {
         val content = Files.readString(Paths.get(tagsMdPath))
-        val span = checkNotNull(findMarkers(content)) {
-            "$tagsMdPath needs a line containing exactly `$BEGIN_MARKER` and a line " +
-                "containing exactly `$END_MARKER`."
-        }
-        val updated = buildString {
-            append(content, 0, span.begin)
-            append(BEGIN_MARKER).append('\n')
-            append(newSection)
-            append(content, span.end, content.length)
-        }
+        val span =
+            checkNotNull(findMarkers(content)) {
+                "$tagsMdPath needs a line containing exactly `$BEGIN_MARKER` and a line " +
+                    "containing exactly `$END_MARKER`."
+            }
+        val updated =
+            buildString {
+                append(content, 0, span.begin)
+                append(BEGIN_MARKER).append('\n')
+                append(newSection)
+                append(content, span.end, content.length)
+            }
         Files.writeString(Paths.get(tagsMdPath), updated)
     }
 }

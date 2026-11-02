@@ -51,7 +51,6 @@ internal data class StoredSession(
     /** When the access token stops being valid, in epoch milliseconds. Zero when unknown. */
     val expiresAtMillis: Long = 0L,
 ) {
-
     /**
      * The SDK's session, for the plugin to work with.
      *
@@ -89,13 +88,14 @@ internal data class StoredSession(
         const val TOKEN_TYPE = "bearer"
 
         /** The SDK's session, as this project stores it. */
-        fun of(session: UserSession): StoredSession = StoredSession(
-            accessToken = session.accessToken,
-            refreshToken = session.refreshToken,
-            ownerId = session.user?.id,
-            email = session.user?.email,
-            expiresAtMillis = session.expiresAt.toEpochMilliseconds(),
-        )
+        fun of(session: UserSession): StoredSession =
+            StoredSession(
+                accessToken = session.accessToken,
+                refreshToken = session.refreshToken,
+                ownerId = session.user?.id,
+                email = session.user?.email,
+                expiresAtMillis = session.expiresAt.toEpochMilliseconds(),
+            )
     }
 }
 
@@ -178,7 +178,6 @@ class SecureSessionManager(
      */
     private val legacy: DataStoreSessionStore,
 ) : SessionManager {
-
     /**
      * The lock every operation on the store's contents takes.
      *
@@ -314,8 +313,7 @@ class SecureSessionManager(
         return runCatchingCancellable { StableJson.decodeFromString<StoredSession>(raw) }
             .onFailure { cause ->
                 log.w(cause) { "The stored session could not be read; the device is treated as signed out" }
-            }
-            .getOrNull()
+            }.getOrNull()
     }
 
     /**
@@ -362,19 +360,20 @@ class SecureSessionManager(
      */
     private suspend fun migrateOnceLocked() {
         if (migrated) return
-        val attempt = runCatchingCancellable {
-            // A session already in the current layout is the newest one there is.
-            // The older copies are erased rather than imported: importing them would
-            // move this device *backwards*, onto a refresh token that was rotated on
-            // the way out and is usually already revoked — a sign-in that works once
-            // and then fails, for a user who was signed in the whole time.
-            if (secure.read(KEY_SESSION) != null) {
-                eraseLegacyKeychainLayout()
-                legacy.forgetTokens()
-            } else {
-                moveTheOldSession()
+        val attempt =
+            runCatchingCancellable {
+                // A session already in the current layout is the newest one there is.
+                // The older copies are erased rather than imported: importing them would
+                // move this device *backwards*, onto a refresh token that was rotated on
+                // the way out and is usually already revoked — a sign-in that works once
+                // and then fails, for a user who was signed in the whole time.
+                if (secure.read(KEY_SESSION) != null) {
+                    eraseLegacyKeychainLayout()
+                    legacy.forgetTokens()
+                } else {
+                    moveTheOldSession()
+                }
             }
-        }
         migrated = true
         attempt.exceptionOrNull()?.let { cause ->
             log.w(cause) { "The legacy session could not be moved; the old copy is kept" }
@@ -406,13 +405,15 @@ class SecureSessionManager(
      * A failed write erases nothing: the copy stays where it was, and the next launch
      * tries again.
      */
-    private suspend fun move(record: StoredSession, erase: suspend () -> Unit) {
+    private suspend fun move(
+        record: StoredSession,
+        erase: suspend () -> Unit,
+    ) {
         runCatchingCancellable { secure.write(KEY_SESSION, StableJson.encodeToString(record)) }
             .onSuccess {
                 runCatchingCancellable { erase() }
                     .onFailure { cause -> log.w(cause) { "Could not erase the migrated session" } }
-            }
-            .onFailure { cause ->
+            }.onFailure { cause ->
                 log.w(cause) { "Could not move the session into the secure store; the old copy is kept" }
             }
     }

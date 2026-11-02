@@ -18,7 +18,6 @@ import com.singularity.todo.feature.tasks.domain.model.TaskStatus
  * This guarantees a single canonical representation for every query.
  */
 sealed interface Condition {
-
     // ─── Primitive predicates ────────────────────────────────────────────────
 
     /** Full-text search across task title and description. */

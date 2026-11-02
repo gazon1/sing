@@ -24,7 +24,6 @@ import kotlinx.coroutines.flow.map
  * - `calendar_sync_status` (string) — serialized [CalendarSyncStatus]
  */
 class CalendarSyncSettingsRepositoryImpl(private val dataStore: DataStore<Preferences>) : CalendarSyncRepository {
-
     companion object {
         val CALENDAR_SYNC_ENABLED = booleanPreferencesKey("calendar_sync_enabled")
         val CALENDAR_SYNC_TARGET_ID = stringPreferencesKey("calendar_sync_target_id")
@@ -33,25 +32,28 @@ class CalendarSyncSettingsRepositoryImpl(private val dataStore: DataStore<Prefer
         val CALENDAR_SYNC_STATUS = stringPreferencesKey("calendar_sync_status")
     }
 
-    override fun observeEnabled(): Flow<Boolean> = dataStore.data
-        .catchDataStoreIoError()
-        .map { it[CALENDAR_SYNC_ENABLED] ?: false }
+    override fun observeEnabled(): Flow<Boolean> =
+        dataStore.data
+            .catchDataStoreIoError()
+            .map { it[CALENDAR_SYNC_ENABLED] ?: false }
 
     override suspend fun setEnabled(enabled: Boolean) {
         dataStore.edit { it[CALENDAR_SYNC_ENABLED] = enabled }
     }
 
-    override fun observeTargetCalendarId(): Flow<String?> = dataStore.data
-        .catchDataStoreIoError()
-        .map { it[CALENDAR_SYNC_TARGET_ID] }
+    override fun observeTargetCalendarId(): Flow<String?> =
+        dataStore.data
+            .catchDataStoreIoError()
+            .map { it[CALENDAR_SYNC_TARGET_ID] }
 
     override suspend fun setTargetCalendarId(calendarId: String) {
         dataStore.edit { it[CALENDAR_SYNC_TARGET_ID] = calendarId }
     }
 
-    override fun observeTargetAppPackage(): Flow<String?> = dataStore.data
-        .catchDataStoreIoError()
-        .map { it[CALENDAR_SYNC_APP_PKG] }
+    override fun observeTargetAppPackage(): Flow<String?> =
+        dataStore.data
+            .catchDataStoreIoError()
+            .map { it[CALENDAR_SYNC_APP_PKG] }
 
     override suspend fun setTargetAppPackage(packageName: String?) {
         dataStore.edit { prefs ->
@@ -63,24 +65,26 @@ class CalendarSyncSettingsRepositoryImpl(private val dataStore: DataStore<Prefer
         }
     }
 
-    override fun observeLastSyncedAt(): Flow<Long?> = dataStore.data
-        .catchDataStoreIoError()
-        .map { it[CALENDAR_SYNC_LAST_AT] }
+    override fun observeLastSyncedAt(): Flow<Long?> =
+        dataStore.data
+            .catchDataStoreIoError()
+            .map { it[CALENDAR_SYNC_LAST_AT] }
 
     override suspend fun setLastSyncedAt(ts: Long) {
         dataStore.edit { it[CALENDAR_SYNC_LAST_AT] = ts }
     }
 
-    override fun observeStatus(): Flow<CalendarSyncStatus> = dataStore.data
-        .catchDataStoreIoError()
-        .map { prefs ->
-            // Nothing written yet: fall back to Idle, seeded from the last-sync timestamp
-            // rather than from the (absent) status string.
-            CalendarSyncStatusCodec.decode(
-                raw = prefs[CALENDAR_SYNC_STATUS],
-                fallback = CalendarSyncStatus.Idle(prefs[CALENDAR_SYNC_LAST_AT]),
-            )
-        }
+    override fun observeStatus(): Flow<CalendarSyncStatus> =
+        dataStore.data
+            .catchDataStoreIoError()
+            .map { prefs ->
+                // Nothing written yet: fall back to Idle, seeded from the last-sync timestamp
+                // rather than from the (absent) status string.
+                CalendarSyncStatusCodec.decode(
+                    raw = prefs[CALENDAR_SYNC_STATUS],
+                    fallback = CalendarSyncStatus.Idle(prefs[CALENDAR_SYNC_LAST_AT]),
+                )
+            }
 
     override suspend fun setStatus(status: CalendarSyncStatus) {
         dataStore.edit { prefs ->

@@ -8,13 +8,13 @@ package com.singularity.todo.mcp
  * than told. Never a fallback.
  */
 internal object RefuseAnUnknownProfile : ToolServerStartupStep {
-
     override val title: String = "refuse a profile that does not exist"
 
     override suspend fun run(context: ToolServerStartupContext): ToolServerStartup.Refused? {
-        val dependencies = checkNotNull(context.dependencies) {
-            "The order does not resolve the dependencies before this step."
-        }
+        val dependencies =
+            checkNotNull(context.dependencies) {
+                "The order does not resolve the dependencies before this step."
+            }
         val refusal = refusalForUnknownProfile(context.fixedProfileId) { id -> profileExists(dependencies, id) }
         if (refusal == null) return null
         startupLog.e { "No profile with id ${context.fixedProfileId}" }
@@ -44,5 +44,7 @@ internal suspend fun refusalForUnknownProfile(
     }
 
 /** Whether a profile with this id exists. */
-private suspend fun profileExists(dependencies: ServerDependencies, profileId: String): Boolean =
-    dependencies.database.profileDao().getById(profileId) != null
+private suspend fun profileExists(
+    dependencies: ServerDependencies,
+    profileId: String,
+): Boolean = dependencies.database.profileDao().getById(profileId) != null

@@ -36,7 +36,6 @@ import org.jetbrains.kotlin.psi.psiUtil.collectDescendantsOfType
  * @see NoCoroutineLaunchInInitProvider for registration.
  */
 class NoCoroutineLaunchInInit(config: Config) : Rule(config, "", null) {
-
     override fun visitClass(klass: KtClass) {
         super.visitClass(klass)
         if (klass.name in EXEMPTED_CLASSES) return
@@ -57,21 +56,24 @@ class NoCoroutineLaunchInInit(config: Config) : Rule(config, "", null) {
         expression: KtExpression,
         className: String?,
     ) {
-        val (receiver, call) = when (expression) {
-            is KtDotQualifiedExpression -> {
-                val recv = expression.receiverExpression as? KtNameReferenceExpression
-                val call = expression.selectorExpression as? KtCallExpression
-                recv to call
-            }
+        val (receiver, call) =
+            when (expression) {
+                is KtDotQualifiedExpression -> {
+                    val recv = expression.receiverExpression as? KtNameReferenceExpression
+                    val call = expression.selectorExpression as? KtCallExpression
+                    recv to call
+                }
 
-            is KtSafeQualifiedExpression -> {
-                val recv = expression.receiverExpression as? KtNameReferenceExpression
-                val call = expression.selectorExpression as? KtCallExpression
-                recv to call
-            }
+                is KtSafeQualifiedExpression -> {
+                    val recv = expression.receiverExpression as? KtNameReferenceExpression
+                    val call = expression.selectorExpression as? KtCallExpression
+                    recv to call
+                }
 
-            else -> return
-        }
+                else -> {
+                    return
+                }
+            }
 
         if (receiver == null || call == null) return
         if (receiver.text != "scope") return
@@ -82,17 +84,21 @@ class NoCoroutineLaunchInInit(config: Config) : Rule(config, "", null) {
         reportFinding(expression, className)
     }
 
-    private fun reportFinding(expr: KtExpression, className: String?) {
+    private fun reportFinding(
+        expr: KtExpression,
+        className: String?,
+    ) {
         val name = className ?: "anonymous class"
         report(
             Finding(
                 entity = Entity.from(expr),
-                message = "$name has 'scope.$METHODS_STRING' inside an init block. " +
-                    "Coroutines launched in init can observe the object in a partially-constructed state, " +
-                    "and their lifetime is not managed by the object. " +
-                    "Move the launch to a field initializer after init, or to an explicit start() method. " +
-                    "If this class is a sync infrastructure class that must launch in init, " +
-                    "add it to EXEMPTED_CLASSES in the rule.",
+                message =
+                    "$name has 'scope.$METHODS_STRING' inside an init block. " +
+                        "Coroutines launched in init can observe the object in a partially-constructed state, " +
+                        "and their lifetime is not managed by the object. " +
+                        "Move the launch to a field initializer after init, or to an explicit start() method. " +
+                        "If this class is a sync infrastructure class that must launch in init, " +
+                        "add it to EXEMPTED_CLASSES in the rule.",
                 references = emptyList(),
                 suppressReasons = emptyList(),
             ),
@@ -104,43 +110,44 @@ class NoCoroutineLaunchInInit(config: Config) : Rule(config, "", null) {
          * Classes that are grandfathered — they have `init { scope.launch { } }` in the baseline
          * and are not migrated in this refactor.
          */
-        private val EXEMPTED_CLASSES = setOf(
-            "SyncEngine",
-            "SyncBootstrapper",
-            "SyncCoordinator",
-            // ViewModels and repositories using the canonical injected-scope pattern:
-            // private val scope = AutoCloseableCoroutineScope(); init { addCloseable(scope) }
-            // The scope is externally managed; the init block only attaches it to the object.
-            "AgendaViewModel",
-            "SavedAgendaListViewModel",
-            "SavedAgendaViewModel",
-            "AiUsageViewModel",
-            "ArchiveViewModel",
-            "AttachmentAnnotationViewModel",
-            "BackupViewModel",
-            "NotesListViewModel",
-            "ProfileAwareCurrentUser",
-            "ProfileRepositoryImpl",
-            "StatisticsViewModel",
-            "TagsViewModel",
-            "TagGroupsViewModel",
-            "TaskDetailCoordinator",
-            "TaskBacklinksCollector",
-            "TaskChildrenSlot",
-            "TaskCompletionSlot",
-            "TaskDraftSlot",
-            "TaskEntitySlot",
-            "TaskLogbookCollector",
-            "TaskProposalsCollector",
-            "TaskRemindersSlot",
-            "TaskTimeSlot",
-            "TestViewModel",
-            "CurrentUser",
-            "DataStoreSyncPrefs",
-            "SyncRunner",
-            "AndroidPomodoroTaskListProvider",
-            "SupabaseAuthRepository",
-        )
+        private val EXEMPTED_CLASSES =
+            setOf(
+                "SyncEngine",
+                "SyncBootstrapper",
+                "SyncCoordinator",
+                // ViewModels and repositories using the canonical injected-scope pattern:
+                // private val scope = AutoCloseableCoroutineScope(); init { addCloseable(scope) }
+                // The scope is externally managed; the init block only attaches it to the object.
+                "AgendaViewModel",
+                "SavedAgendaListViewModel",
+                "SavedAgendaViewModel",
+                "AiUsageViewModel",
+                "ArchiveViewModel",
+                "AttachmentAnnotationViewModel",
+                "BackupViewModel",
+                "NotesListViewModel",
+                "ProfileAwareCurrentUser",
+                "ProfileRepositoryImpl",
+                "StatisticsViewModel",
+                "TagsViewModel",
+                "TagGroupsViewModel",
+                "TaskDetailCoordinator",
+                "TaskBacklinksCollector",
+                "TaskChildrenSlot",
+                "TaskCompletionSlot",
+                "TaskDraftSlot",
+                "TaskEntitySlot",
+                "TaskLogbookCollector",
+                "TaskProposalsCollector",
+                "TaskRemindersSlot",
+                "TaskTimeSlot",
+                "TestViewModel",
+                "CurrentUser",
+                "DataStoreSyncPrefs",
+                "SyncRunner",
+                "AndroidPomodoroTaskListProvider",
+                "SupabaseAuthRepository",
+            )
 
         /** Coroutine launch methods that are banned inside init blocks. */
         private val BLOCKED_METHODS = setOf("launch", "async")
@@ -154,12 +161,14 @@ class NoCoroutineLaunchInInit(config: Config) : Rule(config, "", null) {
  */
 class NoCoroutineLaunchInInitProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("no-init-coroutine-launch")
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf<RuleName, (Config) -> Rule>(
-            RuleName("NoCoroutineLaunchInInit") to { cfg: Config ->
-                NoCoroutineLaunchInInit(cfg)
-            },
-        ),
-    )
+
+    override fun instance(): RuleSet =
+        RuleSet(
+            ruleSetId,
+            mapOf<RuleName, (Config) -> Rule>(
+                RuleName("NoCoroutineLaunchInInit") to { cfg: Config ->
+                    NoCoroutineLaunchInInit(cfg)
+                },
+            ),
+        )
 }

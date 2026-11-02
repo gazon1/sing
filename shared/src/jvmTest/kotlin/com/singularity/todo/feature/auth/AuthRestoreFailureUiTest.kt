@@ -16,14 +16,14 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -46,7 +46,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class AuthRestoreFailureUiTest {
-
     private val sessions = MutableStateFlow<Session>(Session.SignedOut)
 
     // Mirrors the production shape — a channel, not a replaying flow. A fake built from
@@ -60,30 +59,51 @@ class AuthRestoreFailureUiTest {
     // first time someone hits it.
     private val failures = Channel<Unit>(Channel.BUFFERED)
 
-    private val repository = object : AuthRepository {
-        override val currentSession = sessions.asStateFlow()
-        override val isLoading = MutableStateFlow(false)
-        override val restoreFailures: Flow<Unit> = failures.receiveAsFlow()
+    private val repository =
+        object : AuthRepository {
+            override val currentSession = sessions.asStateFlow()
+            override val isLoading = MutableStateFlow(false)
+            override val restoreFailures: Flow<Unit> = failures.receiveAsFlow()
 
-        override suspend fun signIn(email: String, password: String): Result<Unit> = unused()
-        override suspend fun signUp(email: String, password: String): Result<Unit> = unused()
-        override suspend fun startLocalSession(): Result<Unit> = unused()
-        override suspend fun signOut(): Result<Unit> = unused()
-        override suspend fun updatePassword(newPassword: String): Result<Unit> = unused()
-        override suspend fun sendMagicLink(email: String): Result<Unit> = unused()
-        override suspend fun verifyMagicLink(email: String, token: String): Result<Unit> = unused()
+            override suspend fun signIn(
+                email: String,
+                password: String,
+            ): Result<Unit> = unused()
 
-        // A failure rather than a success: reaching one of these would mean the test's
-        // understanding of the screen is wrong, and a passing sign-in would hide that.
-        private fun unused(): Result<Unit> = Result.failure(UnusedOperation)
-    }
+            override suspend fun signUp(
+                email: String,
+                password: String,
+            ): Result<Unit> = unused()
+
+            override suspend fun startLocalSession(): Result<Unit> = unused()
+
+            override suspend fun signOut(): Result<Unit> = unused()
+
+            override suspend fun updatePassword(newPassword: String): Result<Unit> = unused()
+
+            override suspend fun sendMagicLink(email: String): Result<Unit> = unused()
+
+            override suspend fun verifyMagicLink(
+                email: String,
+                token: String,
+            ): Result<Unit> = unused()
+
+            // A failure rather than a success: reaching one of these would mean the test's
+            // understanding of the screen is wrong, and a passing sign-in would hide that.
+            private fun unused(): Result<Unit> = Result.failure(UnusedOperation)
+        }
 
     private object UnusedOperation : Throwable("this test never attempts an operation")
 
     /** No server configured — the point of the fixture, and what `client()` should return. */
     private class EmptyStorage : SecureStorage {
         override suspend fun read(key: String): String? = null
-        override suspend fun write(key: String, value: String) = Unit
+
+        override suspend fun write(
+            key: String,
+            value: String,
+        ) = Unit
+
         override suspend fun delete(key: String) = Unit
     }
 
@@ -91,98 +111,105 @@ class AuthRestoreFailureUiTest {
         override fun next(): String = "dev-id"
     }
 
-    private fun TestScope.viewModel() = AuthViewModel(
-        authRepository = repository,
-        clients = SupabaseClientProvider(
-            resolver = SupabaseConfigResolver(idGenerator = FixedIds),
-            store = EmptyStorage(),
-            sessionStore = SecureSessionManager(
-                log = testLogger(),
-                secure = EmptyStorage(),
-                legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
-            ),
-        ),
-        // `backgroundScope`, not the test scope. `AuthViewModel.init` starts collectors
-        // that never finish — the session, the server config, the restore-failure event —
-        // and `runTest` waits for every foreground coroutine on its scope. Handing it the
-        // test scope therefore fails each test the same way: a minute of waiting, then
-        // `UncompletedCoroutinesError`, whatever the assertions underneath said.
-        //
-        // The collector in each test below stays on the test scope deliberately: it has to
-        // be subscribed before the emission, and a background coroutine is not guaranteed
-        // to have been scheduled by then. So it is cancelled in a `finally` instead.
-        scope = AutoCloseableCoroutineScope(backgroundScope.coroutineContext),
-    )
-
-    @Test
-    fun `a failed restore reaches the screen as a message`() = runTest {
-        // The emission happens before the view model is built, deliberately: that is the
-        // production order. The repository is a startup singleton and restores long before
-        // the login screen composes, so a view model that only listened from its own
-        // construction would never hear about the failure it is meant to explain.
-        failures.trySend(Unit)
-
-        val viewModel = viewModel()
-        val events = mutableListOf<AuthUiEvent>()
-        // `backgroundScope`, so the collector is not a foreground coroutine `runTest`
-        // would then wait on — it never completes, by design.
-        backgroundScope.launch { viewModel.events.collect { events += it } }
-        runCurrent()
-        advanceUntilIdle()
-
-        val message = events.filterIsInstance<AuthUiEvent.Message>().singleOrNull()
-        assertEquals(
-            RESTORE_FAILED_MESSAGE,
-            message?.message,
-            "a restore that failed has to be visible, not folded into a plain sign-out",
+    private fun TestScope.viewModel() =
+        AuthViewModel(
+            authRepository = repository,
+            clients =
+                SupabaseClientProvider(
+                    resolver = SupabaseConfigResolver(idGenerator = FixedIds),
+                    store = EmptyStorage(),
+                    sessionStore =
+                        SecureSessionManager(
+                            log = testLogger(),
+                            secure = EmptyStorage(),
+                            legacy = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
+                        ),
+                ),
+            // `backgroundScope`, not the test scope. `AuthViewModel.init` starts collectors
+            // that never finish — the session, the server config, the restore-failure event —
+            // and `runTest` waits for every foreground coroutine on its scope. Handing it the
+            // test scope therefore fails each test the same way: a minute of waiting, then
+            // `UncompletedCoroutinesError`, whatever the assertions underneath said.
+            //
+            // The collector in each test below stays on the test scope deliberately: it has to
+            // be subscribed before the emission, and a background coroutine is not guaranteed
+            // to have been scheduled by then. So it is cancelled in a `finally` instead.
+            scope = AutoCloseableCoroutineScope(backgroundScope.coroutineContext),
         )
-    }
 
     @Test
-    fun `a device with no session says nothing`() = runTest {
-        // The other half, and the one that keeps the message worth reading when it does
-        // appear: silence on a genuine first launch is what makes it diagnostic.
-        val viewModel = viewModel()
-        val events = mutableListOf<AuthUiEvent>()
-        backgroundScope.launch { viewModel.events.collect { events += it } }
-        advanceUntilIdle()
+    fun `a failed restore reaches the screen as a message`() =
+        runTest {
+            // The emission happens before the view model is built, deliberately: that is the
+            // production order. The repository is a startup singleton and restores long before
+            // the login screen composes, so a view model that only listened from its own
+            // construction would never hear about the failure it is meant to explain.
+            failures.trySend(Unit)
 
-        assertEquals(
-            emptyList(),
-            events.toList(),
-            "nothing failed, so there is nothing to report",
-        )
-    }
+            val viewModel = viewModel()
+            val events = mutableListOf<AuthUiEvent>()
+            // `backgroundScope`, so the collector is not a foreground coroutine `runTest`
+            // would then wait on — it never completes, by design.
+            backgroundScope.launch { viewModel.events.collect { events += it } }
+            runCurrent()
+            advanceUntilIdle()
 
-    @Test
-    fun `the message points at the way back in`() = runTest {
-        // "Continue Offline" is the button that recovers a local session, so a message that
-        // names the problem without naming the way out leaves a diagnosis and no action.
-        failures.trySend(Unit)
-
-        val viewModel = viewModel()
-        val events = mutableListOf<AuthUiEvent>()
-        backgroundScope.launch { viewModel.events.collect { events += it } }
-        runCurrent()
-        advanceUntilIdle()
-
-        val message = events.filterIsInstance<AuthUiEvent.Message>().single().message
-        assertTrue(
-            message.contains("sign in", ignoreCase = true),
-            "the message has to offer a way forward, got: $message",
-        )
-    }
+            val message = events.filterIsInstance<AuthUiEvent.Message>().singleOrNull()
+            assertEquals(
+                RESTORE_FAILED_MESSAGE,
+                message?.message,
+                "a restore that failed has to be visible, not folded into a plain sign-out",
+            )
+        }
 
     @Test
-    fun `a session that restored normally is not reported`() = runTest {
-        sessions.value = Session.Anonymous(UserId.fromString("owner-1"))
-        val viewModel = viewModel()
-        val events = mutableListOf<AuthUiEvent>()
-        backgroundScope.launch { viewModel.events.collect { events += it } }
-        advanceUntilIdle()
+    fun `a device with no session says nothing`() =
+        runTest {
+            // The other half, and the one that keeps the message worth reading when it does
+            // appear: silence on a genuine first launch is what makes it diagnostic.
+            val viewModel = viewModel()
+            val events = mutableListOf<AuthUiEvent>()
+            backgroundScope.launch { viewModel.events.collect { events += it } }
+            advanceUntilIdle()
 
-        assertEquals(emptyList(), events.toList())
-    }
+            assertEquals(
+                emptyList(),
+                events.toList(),
+                "nothing failed, so there is nothing to report",
+            )
+        }
+
+    @Test
+    fun `the message points at the way back in`() =
+        runTest {
+            // "Continue Offline" is the button that recovers a local session, so a message that
+            // names the problem without naming the way out leaves a diagnosis and no action.
+            failures.trySend(Unit)
+
+            val viewModel = viewModel()
+            val events = mutableListOf<AuthUiEvent>()
+            backgroundScope.launch { viewModel.events.collect { events += it } }
+            runCurrent()
+            advanceUntilIdle()
+
+            val message = events.filterIsInstance<AuthUiEvent.Message>().single().message
+            assertTrue(
+                message.contains("sign in", ignoreCase = true),
+                "the message has to offer a way forward, got: $message",
+            )
+        }
+
+    @Test
+    fun `a session that restored normally is not reported`() =
+        runTest {
+            sessions.value = Session.Anonymous(UserId.fromString("owner-1"))
+            val viewModel = viewModel()
+            val events = mutableListOf<AuthUiEvent>()
+            backgroundScope.launch { viewModel.events.collect { events += it } }
+            advanceUntilIdle()
+
+            assertEquals(emptyList(), events.toList())
+        }
 
     /**
      * The defect this file's shape exists to prevent.
@@ -194,30 +221,31 @@ class AuthRestoreFailureUiTest {
      * model that greets them with a failure that happened before they signed in.
      */
     @Test
-    fun `only the first screen hears about the failure`() = runTest {
-        failures.trySend(Unit)
+    fun `only the first screen hears about the failure`() =
+        runTest {
+            failures.trySend(Unit)
 
-        val first = viewModel()
-        val firstEvents = mutableListOf<AuthUiEvent>()
-        backgroundScope.launch { first.events.collect { firstEvents += it } }
-        runCurrent()
-        advanceUntilIdle()
+            val first = viewModel()
+            val firstEvents = mutableListOf<AuthUiEvent>()
+            backgroundScope.launch { first.events.collect { firstEvents += it } }
+            runCurrent()
+            advanceUntilIdle()
 
-        val second = viewModel()
-        val secondEvents = mutableListOf<AuthUiEvent>()
-        backgroundScope.launch { second.events.collect { secondEvents += it } }
-        runCurrent()
-        advanceUntilIdle()
+            val second = viewModel()
+            val secondEvents = mutableListOf<AuthUiEvent>()
+            backgroundScope.launch { second.events.collect { secondEvents += it } }
+            runCurrent()
+            advanceUntilIdle()
 
-        assertEquals(
-            1,
-            firstEvents.filterIsInstance<AuthUiEvent.Message>().size,
-            "the screen that explains the failure must say it",
-        )
-        assertEquals(
-            emptyList(),
-            secondEvents.filterIsInstance<AuthUiEvent.Message>(),
-            "a screen built later is not owed a failure that has already been explained",
-        )
-    }
+            assertEquals(
+                1,
+                firstEvents.filterIsInstance<AuthUiEvent.Message>().size,
+                "the screen that explains the failure must say it",
+            )
+            assertEquals(
+                emptyList(),
+                secondEvents.filterIsInstance<AuthUiEvent.Message>(),
+                "a screen built later is not owed a failure that has already been explained",
+            )
+        }
 }

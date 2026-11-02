@@ -40,7 +40,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class MaestroFlowTagsTest {
-
     /**
      * The tree holding the flows, passed in rather than derived.
      *
@@ -57,16 +56,18 @@ class MaestroFlowTagsTest {
      * points outside its module and no `inputs.dir` covers it. A derived path is invisible
      * to that gate by construction, so deriving it was the defect and not the style.
      */
-    private val maestroRoot: Path = run {
-        val root = System.getProperty("maestro.root")
-            ?: error(
-                "maestro.root system property is not set — see shared/build.gradle.kts. " +
-                    "This test scans Maestro/flows, which is outside :shared, so the path " +
-                    "has to be passed in and declared as a task input; deriving it made the " +
-                    "gate silently stale.",
-            )
-        Paths.get(root)
-    }
+    private val maestroRoot: Path =
+        run {
+            val root =
+                System.getProperty("maestro.root")
+                    ?: error(
+                        "maestro.root system property is not set — see shared/build.gradle.kts. " +
+                            "This test scans Maestro/flows, which is outside :shared, so the path " +
+                            "has to be passed in and declared as a task input; deriving it made the " +
+                            "gate silently stale.",
+                    )
+            Paths.get(root)
+        }
 
     /** The worktree root, for the few checks that need a path outside Maestro/ itself. */
     private val workspaceRoot: Path = maestroRoot.parent
@@ -93,7 +94,8 @@ class MaestroFlowTagsTest {
         if (!dir.exists()) return emptyMap()
         val out = mutableMapOf<String, String>()
         Files.walk(dir).use { stream ->
-            stream.filter { it.isRegularFile() && it.extension in listOf("yaml", "yml") }
+            stream
+                .filter { it.isRegularFile() && it.extension in listOf("yaml", "yml") }
                 .forEach { file ->
                     val text = file.readText()
                     idPattern.findAll(text).forEach { match ->
@@ -114,29 +116,33 @@ class MaestroFlowTagsTest {
         assertTrue(ids.size >= 5, "scanned ${ids.size} ids — collector likely broken (expected >= 5)")
 
         val staticValues = TestTagsCatalog.staticTags().map { it.second }.toSet()
-        val dynamicPrefixes = TestTagsCatalog.dynamicFunctions()
-            .mapNotNull { it.second.substringBefore("\${").takeIf(String::isNotBlank) }
-            .toSet()
+        val dynamicPrefixes =
+            TestTagsCatalog
+                .dynamicFunctions()
+                .mapNotNull { it.second.substringBefore("\${").takeIf(String::isNotBlank) }
+                .toSet()
 
-        val unknown = ids.keys.filter { id ->
-            id !in staticValues &&
-                dynamicPrefixes.none { prefix -> id.startsWith(prefix) } &&
-                !id.matches(calendarDayPattern) &&
-                !id.matches(profileItemPattern)
-        }
+        val unknown =
+            ids.keys.filter { id ->
+                id !in staticValues &&
+                    dynamicPrefixes.none { prefix -> id.startsWith(prefix) } &&
+                    !id.matches(calendarDayPattern) &&
+                    !id.matches(profileItemPattern)
+            }
 
-        val failureMessage = if (unknown.isEmpty()) {
-            ""
-        } else {
-            "Unknown Maestro helper ids (${unknown.size}/${ids.size}): " +
-                unknown.take(5).joinToString(", ") { "$it (e.g. ${ids[it]})" } +
-                if (unknown.size > 5) {
-                    " ... and ${unknown.size - 5} more"
-                } else {
-                    ""
-                } +
-                ". Fix: add a const val to TestTags.kt, or remove the flow that needs it."
-        }
+        val failureMessage =
+            if (unknown.isEmpty()) {
+                ""
+            } else {
+                "Unknown Maestro helper ids (${unknown.size}/${ids.size}): " +
+                    unknown.take(5).joinToString(", ") { "$it (e.g. ${ids[it]})" } +
+                    if (unknown.size > 5) {
+                        " ... and ${unknown.size - 5} more"
+                    } else {
+                        ""
+                    } +
+                    ". Fix: add a const val to TestTags.kt, or remove the flow that needs it."
+            }
         assertTrue(unknown.isEmpty(), failureMessage)
     }
 
@@ -160,7 +166,8 @@ class MaestroFlowTagsTest {
         var checked = 0
 
         Files.walk(flowsRoot).use { stream ->
-            stream.filter { it.isRegularFile() && it.extension in listOf("yaml", "yml") }
+            stream
+                .filter { it.isRegularFile() && it.extension in listOf("yaml", "yml") }
                 .forEach { file ->
                     val dir = file.parent
                     RUN_FLOW.findAll(file.readText()).forEach { match ->
@@ -210,14 +217,18 @@ class MaestroFlowTagsTest {
         var checked = 0
 
         Files.walk(maestroRoot).use { stream ->
-            stream.filter { it.isRegularFile() && it.extension in listOf("yaml", "yml") }
+            stream
+                .filter { it.isRegularFile() && it.extension in listOf("yaml", "yml") }
                 .forEach { file ->
                     COMMAND_ITEM.findAll(file.readText()).forEach { match ->
                         checked++
                         val command = match.groupValues[1]
                         if (command !in KNOWN_COMMANDS) {
-                            val line = file.readText().substring(0, match.range.first)
-                                .count { it == '\n' } + 1
+                            val line =
+                                file
+                                    .readText()
+                                    .substring(0, match.range.first)
+                                    .count { it == '\n' } + 1
                             unknown += "${maestroRoot.relativize(file)}:$line $command"
                         }
                     }
@@ -305,7 +316,8 @@ class MaestroFlowTagsTest {
         var checked = 0
 
         Files.walk(flowsRoot).use { stream ->
-            stream.filter { it.isRegularFile() && it.extension in listOf("yaml", "yml") }
+            stream
+                .filter { it.isRegularFile() && it.extension in listOf("yaml", "yml") }
                 .forEach { file ->
                     val text = file.readText()
                     val texts = textsFor(file)
@@ -371,11 +383,12 @@ class MaestroFlowTagsTest {
      *   URL-encoded titles;
      * - the `QUERY` env the seed helper takes, which carries the same query.
      */
-    private fun textsIn(text: String): FlowTexts = FlowTexts(
-        typed = inputTextsIn(text),
-        seeded = seedTitlesIn(text),
-        helpers = emptyList(),
-    )
+    private fun textsIn(text: String): FlowTexts =
+        FlowTexts(
+            typed = inputTextsIn(text),
+            seeded = seedTitlesIn(text),
+            helpers = emptyList(),
+        )
 
     /** The literals the file types into the app. */
     private fun inputTextsIn(text: String): List<String> {
@@ -385,15 +398,18 @@ class MaestroFlowTagsTest {
             val match = INPUT_TEXT.find(lines[index])
             if (match != null) {
                 val inline = match.groupValues[1].trim()
-                val value = if (inline.isNotEmpty()) {
-                    inline
-                } else {
-                    // `- inputText:` with the value on the lines below it.
-                    val nested = lines.drop(index + 1)
-                        .takeWhile { !it.trimStart().startsWith("- ") }
-                        .firstOrNull { TEXT_KEY.containsMatchIn(it) }
-                    nested?.let { TEXT_KEY.find(it)?.groupValues?.get(1) }.orEmpty()
-                }
+                val value =
+                    if (inline.isNotEmpty()) {
+                        inline
+                    } else {
+                        // `- inputText:` with the value on the lines below it.
+                        val nested =
+                            lines
+                                .drop(index + 1)
+                                .takeWhile { !it.trimStart().startsWith("- ") }
+                                .firstOrNull { TEXT_KEY.containsMatchIn(it) }
+                        nested?.let { TEXT_KEY.find(it)?.groupValues?.get(1) }.orEmpty()
+                    }
                 if (value.isNotEmpty()) {
                     typed.add(unquote(value))
                 }
@@ -423,7 +439,8 @@ class MaestroFlowTagsTest {
      * parameters carry a title — `due`, `desc` and `cleanup` do not.
      */
     private fun queryTitles(query: String): List<String> =
-        query.split("&")
+        query
+            .split("&")
             .mapNotNull { pair ->
                 val key = pair.substringBefore("=").trim()
                 if (key !in SEED_TITLE_KEYS) return@mapNotNull null
@@ -483,11 +500,12 @@ class MaestroFlowTagsTest {
                 for (raw in runFlowTargets(file.readText())) {
                     // A path the flow builds from a variable is not one this
                     // test can resolve.
-                    val target = if (raw.startsWith("/") || raw.contains('$')) {
-                        null
-                    } else {
-                        dir.resolve(raw).normalize()
-                    }
+                    val target =
+                        if (raw.startsWith("/") || raw.contains('$')) {
+                            null
+                        } else {
+                            dir.resolve(raw).normalize()
+                        }
                     if (target != null && target.isRegularFile() && seen.add(target)) {
                         // `add`, not `+=`: a Path is an Iterable<Path>, and `+=`
                         // would read as "concatenate the path's elements".
@@ -515,9 +533,10 @@ class MaestroFlowTagsTest {
         val typed = texts.typed.take(REPORTED_TEXTS).joinToString(", ") { "\"$it\"" }
         val seeded = texts.seeded.take(REPORTED_TEXTS).joinToString(", ") { "\"$it\"" }
         val helperTexts = texts.helpers.take(REPORTED_TEXTS).joinToString(", ") { "\"$it\"" }
-        val produced = (texts.all + generator.appSideInputs)
-            .take(REPORTED_TEXTS)
-            .joinToString(", ") { generator.produce(it) }
+        val produced =
+            (texts.all + generator.appSideInputs)
+                .take(REPORTED_TEXTS)
+                .joinToString(", ") { generator.produce(it) }
         return "${workspaceRoot.relativize(file)}\n" +
             "        id:                $id\n" +
             "        texts it typed:    $typed\n" +
@@ -585,25 +604,26 @@ class MaestroFlowTagsTest {
          * `noteItem(id)` is absent for the same reason from the other side: the
          * note's id is a generated ULID the flow never learns.
          */
-        val TEXT_DERIVED_GENERATORS = listOf(
-            DynamicGenerator("noteItemByTitle") { TestTags.noteItemByTitle(it) },
-            DynamicGenerator("taskItem") { TestTags.taskItem(it) },
-            DynamicGenerator("taskCheckbox") { TestTags.taskCheckbox(it) },
-            DynamicGenerator("pomodoroTaskChip") { TestTags.pomodoroTaskChip(it) },
-            DynamicGenerator("projectCard") { TestTags.projectCard(it) },
-            DynamicGenerator("savedAgendaCard") { TestTags.savedAgendaCard(it) },
-            DynamicGenerator("subtaskItem") { TestTags.subtaskItem(it) },
-            DynamicGenerator("subtaskCheckbox") { TestTags.subtaskCheckbox(it) },
-            DynamicGenerator("subtaskDelete") { TestTags.subtaskDelete(it) },
-            DynamicGenerator("checklistItem") { TestTags.checklistItem("id", it) },
-            DynamicGenerator("checklistItemCheckbox") { TestTags.checklistItemCheckbox("id", it) },
-            DynamicGenerator("checklistItemDelete") { TestTags.checklistItemDelete("id", it) },
-            DynamicGenerator(
-                name = "profileItem",
-                appSideInputs = listOf(DEFAULT_PROFILE_NAME),
-                produce = { TestTags.profileItem(it) },
-            ),
-        )
+        val TEXT_DERIVED_GENERATORS =
+            listOf(
+                DynamicGenerator("noteItemByTitle") { TestTags.noteItemByTitle(it) },
+                DynamicGenerator("taskItem") { TestTags.taskItem(it) },
+                DynamicGenerator("taskCheckbox") { TestTags.taskCheckbox(it) },
+                DynamicGenerator("pomodoroTaskChip") { TestTags.pomodoroTaskChip(it) },
+                DynamicGenerator("projectCard") { TestTags.projectCard(it) },
+                DynamicGenerator("savedAgendaCard") { TestTags.savedAgendaCard(it) },
+                DynamicGenerator("subtaskItem") { TestTags.subtaskItem(it) },
+                DynamicGenerator("subtaskCheckbox") { TestTags.subtaskCheckbox(it) },
+                DynamicGenerator("subtaskDelete") { TestTags.subtaskDelete(it) },
+                DynamicGenerator("checklistItem") { TestTags.checklistItem("id", it) },
+                DynamicGenerator("checklistItemCheckbox") { TestTags.checklistItemCheckbox("id", it) },
+                DynamicGenerator("checklistItemDelete") { TestTags.checklistItemDelete("id", it) },
+                DynamicGenerator(
+                    name = "profileItem",
+                    appSideInputs = listOf(DEFAULT_PROFILE_NAME),
+                    produce = { TestTags.profileItem(it) },
+                ),
+            )
 
         /**
          * A command is a key on a **top-level list item** — `- tapOn:`. Keys one
@@ -619,16 +639,44 @@ class MaestroFlowTagsTest {
          * which is the safe direction to be wrong in: adding one to a flow
          * without adding it here fails the build and asks the question.
          */
-        val KNOWN_COMMANDS = setOf(
-            "assertAbsent", "assertNotVisible", "assertVisible", "assertTrue", "back",
-            "clearState",
-            "copyTextFrom", "doubleTapOn", "eraseText", "exec", "extendedWaitUntil",
-            "hideKeyboard",
-            "inputRandomText", "inputText", "killApp", "launchApp", "longPressOn",
-            "openLink", "openNotifications", "pasteText", "pressKey", "repeat",
-            "runFlow", "runScript", "scroll", "scrollUntilVisible", "setAirplaneMode",
-            "setOrientation", "startRecording", "stopApp", "stopRecording", "swipe",
-            "takeScreenshot", "tapOn", "waitForAnimationToEnd", "waitForAnimations",
-        )
+        val KNOWN_COMMANDS =
+            setOf(
+                "assertAbsent",
+                "assertNotVisible",
+                "assertVisible",
+                "assertTrue",
+                "back",
+                "clearState",
+                "copyTextFrom",
+                "doubleTapOn",
+                "eraseText",
+                "exec",
+                "extendedWaitUntil",
+                "hideKeyboard",
+                "inputRandomText",
+                "inputText",
+                "killApp",
+                "launchApp",
+                "longPressOn",
+                "openLink",
+                "openNotifications",
+                "pasteText",
+                "pressKey",
+                "repeat",
+                "runFlow",
+                "runScript",
+                "scroll",
+                "scrollUntilVisible",
+                "setAirplaneMode",
+                "setOrientation",
+                "startRecording",
+                "stopApp",
+                "stopRecording",
+                "swipe",
+                "takeScreenshot",
+                "tapOn",
+                "waitForAnimationToEnd",
+                "waitForAnimations",
+            )
     }
 }

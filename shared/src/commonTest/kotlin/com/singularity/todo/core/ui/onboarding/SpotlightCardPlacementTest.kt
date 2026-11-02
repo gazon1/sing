@@ -13,7 +13,6 @@ import kotlin.test.assertEquals
  */
 @Tag("fast")
 class SpotlightCardPlacementTest {
-
     private fun resolve(
         preferred: SpotlightCardPlacement,
         holeTop: Float,
@@ -56,12 +55,13 @@ class SpotlightCardPlacementTest {
     @Test
     fun `when neither side fits the card is pinned to the bottom`() {
         // A tall card on a short screen with the hole in the middle: no side has room.
-        val placement = resolve(
-            preferred = SpotlightCardPlacement.Above,
-            holeTop = 400f,
-            holeBottom = 440f,
-            cardHeight = 700f,
-        )
+        val placement =
+            resolve(
+                preferred = SpotlightCardPlacement.Above,
+                holeTop = 400f,
+                holeBottom = 440f,
+                cardHeight = 700f,
+            )
 
         assertEquals(
             SpotlightCardPlacement.Below,

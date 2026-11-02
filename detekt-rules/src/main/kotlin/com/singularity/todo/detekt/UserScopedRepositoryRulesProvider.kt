@@ -38,27 +38,28 @@ import org.jetbrains.kotlin.psi.KtTreeVisitorVoid
  * `…RepositoryImpl`; see [isRepositoryLike].)
  */
 class ProhibitUserIdInObserveRule(config: Config) : Rule(config, "", null) {
-
     override fun visitKtFile(root: KtFile) {
         super.visitKtFile(root)
         // Use a visitor that traverses the entire PSI tree, including nested
         // KtScript wrappers that compileContentForTest wraps around test code.
-        root.accept(object : KtTreeVisitorVoid() {
-            override fun visitClass(klass: KtClass) {
-                val className = klass.name
-                if (className != null && isRepositoryLike(className)) {
-                    val body = klass.body
-                    if (body != null) {
-                        for (declaration in body.declarations) {
-                            if (declaration is KtNamedFunction) {
-                                checkFunction(declaration, className)
+        root.accept(
+            object : KtTreeVisitorVoid() {
+                override fun visitClass(klass: KtClass) {
+                    val className = klass.name
+                    if (className != null && isRepositoryLike(className)) {
+                        val body = klass.body
+                        if (body != null) {
+                            for (declaration in body.declarations) {
+                                if (declaration is KtNamedFunction) {
+                                    checkFunction(declaration, className)
+                                }
                             }
                         }
                     }
+                    super.visitClass(klass)
                 }
-                super.visitClass(klass)
-            }
-        })
+            },
+        )
     }
 
     /**
@@ -73,7 +74,10 @@ class ProhibitUserIdInObserveRule(config: Config) : Rule(config, "", null) {
     private fun isRepositoryLike(className: String): Boolean =
         className.endsWith("Repository") || className.endsWith("RepositoryImpl")
 
-    private fun checkFunction(fn: KtNamedFunction, className: String) {
+    private fun checkFunction(
+        fn: KtNamedFunction,
+        className: String,
+    ) {
         val name = fn.name ?: return
         if (!name.startsWith("watch") && !name.startsWith("observe")) return
         val returnType = fn.typeReference?.text ?: return
@@ -84,17 +88,19 @@ class ProhibitUserIdInObserveRule(config: Config) : Rule(config, "", null) {
             return
         }
 
-        val userIdParam = fn.valueParameters.find {
-            it.name == "userId" || it.name == "scopedUserId"
-        } ?: return
+        val userIdParam =
+            fn.valueParameters.find {
+                it.name == "userId" || it.name == "scopedUserId"
+            } ?: return
 
         report(
             Finding(
                 entity = Entity.from(userIdParam),
-                message = "Repository '$className' observe method '$name' must NOT " +
-                    "take 'userId' or 'scopedUserId' as a parameter. " +
-                    "Observations are self-scoped via 'ProfileAwareCurrentUser.scopedUserId'. " +
-                    "Use 'flatMapLatest(currentUser.scopedUserId) { ... }' inside the implementation.",
+                message =
+                    "Repository '$className' observe method '$name' must NOT " +
+                        "take 'userId' or 'scopedUserId' as a parameter. " +
+                        "Observations are self-scoped via 'ProfileAwareCurrentUser.scopedUserId'. " +
+                        "Use 'flatMapLatest(currentUser.scopedUserId) { ... }' inside the implementation.",
                 references = emptyList(),
                 suppressReasons = emptyList(),
             ),
@@ -107,10 +113,12 @@ class ProhibitUserIdInObserveRule(config: Config) : Rule(config, "", null) {
  */
 class UserScopedRepositoryRulesProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("user-scoped-repository")
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf<RuleName, (Config) -> Rule>(
-            RuleName("ProhibitUserIdInObserve") to { cfg: Config -> ProhibitUserIdInObserveRule(cfg) },
-        ),
-    )
+
+    override fun instance(): RuleSet =
+        RuleSet(
+            ruleSetId,
+            mapOf<RuleName, (Config) -> Rule>(
+                RuleName("ProhibitUserIdInObserve") to { cfg: Config -> ProhibitUserIdInObserveRule(cfg) },
+            ),
+        )
 }

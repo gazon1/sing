@@ -71,14 +71,14 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class TextFieldShapeConventionTest {
-
     @Test
     fun `every file with a text field is classified`() {
         val classified = registry.keys.toSet()
-        val unclassified = fieldSites()
-            .keys
-            .filterNot { it in classified }
-            .sorted()
+        val unclassified =
+            fieldSites()
+                .keys
+                .filterNot { it in classified }
+                .sorted()
 
         assertTrue(
             unclassified.isEmpty(),
@@ -93,17 +93,18 @@ class TextFieldShapeConventionTest {
     @Test
     fun `the classified shapes are the shapes the code uses`() {
         val sites = fieldSites()
-        val mismatches = registry.mapNotNull { (path, declared) ->
-            val used = sites[path]
-            if (used == null) {
-                "  - $path: classified as $declared but the file has no text field " +
-                    "any more (stale row)"
-            } else if (used != declared) {
-                "  - $path: classified as $declared but the file uses $used"
-            } else {
-                null
+        val mismatches =
+            registry.mapNotNull { (path, declared) ->
+                val used = sites[path]
+                if (used == null) {
+                    "  - $path: classified as $declared but the file has no text field " +
+                        "any more (stale row)"
+                } else if (used != declared) {
+                    "  - $path: classified as $declared but the file uses $used"
+                } else {
+                    null
+                }
             }
-        }
 
         assertTrue(
             mismatches.isEmpty(),
@@ -132,7 +133,8 @@ class TextFieldShapeConventionTest {
      * import and not a mention.
      */
     private fun fieldSites(): Map<String, Set<String>> =
-        TextFieldShapeScan.shapes()
+        TextFieldShapeScan
+            .shapes()
             .mapValues { (_, shapes) -> shapes.map { shape -> shape.label }.toSet() }
 
     // ── the skill's inventory ───────────────────────────────────────────────────
@@ -146,16 +148,17 @@ class TextFieldShapeConventionTest {
      * read as a row of this one.
      */
     private fun skillInventory(): Map<String, Set<String>> =
-        SkillTables.table("File", "Shape", "Field")
+        SkillTables
+            .table("File", "Shape", "Field")
             .mapNotNull { cells ->
                 val file = cells[0].removeSurrounding("`").trim()
                 if (!file.endsWith(".kt")) return@mapNotNull null
-                val shapes = cells[1]
-                    .split(",")
-                    .map { it.trim().removeSurrounding("`") }
-                    .filter { it in setOf("local", "bridged", "anchored") }
-                    .toSet()
+                val shapes =
+                    cells[1]
+                        .split(",")
+                        .map { it.trim().removeSurrounding("`") }
+                        .filter { it in setOf("local", "bridged", "anchored") }
+                        .toSet()
                 if (shapes.isEmpty()) null else file to shapes
-            }
-            .toMap()
+            }.toMap()
 }

@@ -39,7 +39,6 @@ import org.jetbrains.kotlin.psi.KtNameReferenceExpression
  * @see NoValueBasedTextFieldProvider for registration.
  */
 class NoValueBasedTextFieldRule(config: Config) : Rule(config, "", null) {
-
     override fun visitCallExpression(expression: KtCallExpression) {
         super.visitCallExpression(expression)
         if (isExemptFile(expression)) return
@@ -49,21 +48,23 @@ class NoValueBasedTextFieldRule(config: Config) : Rule(config, "", null) {
         val callee = expression.calleeExpression as? KtNameReferenceExpression ?: return
         if (callee.text !in TEXT_FIELD_FUNCTIONS) return
 
-        val offenders = expression.valueArguments.filter { argument ->
-            val name = argument.getArgumentName()?.text
-            name == "value" || name == "onValueChange"
-        }
+        val offenders =
+            expression.valueArguments.filter { argument ->
+                val name = argument.getArgumentName()?.text
+                name == "value" || name == "onValueChange"
+            }
         if (offenders.isEmpty()) return
 
         val parameters = offenders.joinToString(", ") { it.getArgumentName()?.text ?: "?" }
         report(
             Finding(
                 entity = Entity.from(expression),
-                message = "`${callee.text}` uses the value-based text field API ($parameters). " +
-                    "Use the state-based API instead: `state = rememberTextFieldState()` for a " +
-                    "local field, or `rememberBridgedTextFieldState(...)` when a ViewModel owns " +
-                    "the value. The value-based shape discards text injected from outside the " +
-                    "field and pushes the filtering a field needs onto every caller.",
+                message =
+                    "`${callee.text}` uses the value-based text field API ($parameters). " +
+                        "Use the state-based API instead: `state = rememberTextFieldState()` for a " +
+                        "local field, or `rememberBridgedTextFieldState(...)` when a ViewModel owns " +
+                        "the value. The value-based shape discards text injected from outside the " +
+                        "field and pushes the filtering a field needs onto every caller.",
                 references = emptyList(),
                 suppressReasons = emptyList(),
             ),
@@ -89,7 +90,6 @@ class NoValueBasedTextFieldRule(config: Config) : Rule(config, "", null) {
  * be tested without a virtual file system.
  */
 internal object NoValueBasedTextFieldPolicy {
-
     /** Same list `NoEmptyOnClickLambdaPolicy` uses, kept in step deliberately. */
     private val TEST_SOURCE_SETS = listOf("commonTest", "jvmTest", "androidTest", "iosTest", "jsTest")
 
@@ -117,23 +117,26 @@ internal object NoValueBasedTextFieldPolicy {
  */
 class NoValueBasedTextFieldProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("no-value-based-text-field")
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf<RuleName, (Config) -> Rule>(
-            RuleName("NoValueBasedTextField") to { cfg: Config -> NoValueBasedTextFieldRule(cfg) },
-        ),
-    )
+
+    override fun instance(): RuleSet =
+        RuleSet(
+            ruleSetId,
+            mapOf<RuleName, (Config) -> Rule>(
+                RuleName("NoValueBasedTextField") to { cfg: Config -> NoValueBasedTextFieldRule(cfg) },
+            ),
+        )
 }
 
 /**
  * The composables the rule polices. Every one of them has a state-based overload that takes a
  * `TextFieldState` instead of a `value`/`onValueChange` pair.
  */
-internal val TEXT_FIELD_FUNCTIONS = setOf(
-    "TextField",
-    "OutlinedTextField",
-    "BasicTextField",
-    "SecureTextField",
-    "OutlinedSecureTextField",
-    "BasicSecureTextField",
-)
+internal val TEXT_FIELD_FUNCTIONS =
+    setOf(
+        "TextField",
+        "OutlinedTextField",
+        "BasicTextField",
+        "SecureTextField",
+        "OutlinedSecureTextField",
+        "BasicSecureTextField",
+    )

@@ -23,9 +23,10 @@ internal data class PrefSpec<T>(
 @JvmInline
 value class BooleanPref internal constructor(private val spec: PrefSpec<Boolean>) {
     val flow: Flow<Boolean>
-        get() = spec.dataStore.data
-            .catchDataStoreIoError()
-            .map { it[spec.key] ?: spec.default }
+        get() =
+            spec.dataStore.data
+                .catchDataStoreIoError()
+                .map { it[spec.key] ?: spec.default }
 
     suspend fun set(value: Boolean) {
         spec.dataStore.edit { it[spec.key] = value }
@@ -36,12 +37,13 @@ value class BooleanPref internal constructor(private val spec: PrefSpec<Boolean>
 @JvmInline
 value class IntPref internal constructor(private val spec: PrefSpec<Int>) {
     val flow: Flow<Int>
-        get() = spec.dataStore.data
-            .catchDataStoreIoError()
-            .map {
-                val raw = it[spec.key] ?: spec.default
-                spec.range?.let { raw.coerceIn(it) } ?: raw
-            }
+        get() =
+            spec.dataStore.data
+                .catchDataStoreIoError()
+                .map {
+                    val raw = it[spec.key] ?: spec.default
+                    spec.range?.let { raw.coerceIn(it) } ?: raw
+                }
 
     suspend fun set(value: Int) {
         val coerced = spec.range?.let { value.coerceIn(it) } ?: value
@@ -53,9 +55,10 @@ value class IntPref internal constructor(private val spec: PrefSpec<Int>) {
 @JvmInline
 value class StringPref internal constructor(private val spec: PrefSpec<String>) {
     val flow: Flow<String>
-        get() = spec.dataStore.data
-            .catchDataStoreIoError()
-            .map { it[spec.key] ?: spec.default }
+        get() =
+            spec.dataStore.data
+                .catchDataStoreIoError()
+                .map { it[spec.key] ?: spec.default }
 
     suspend fun set(value: String) {
         spec.dataStore.edit { it[spec.key] = value }
@@ -66,9 +69,10 @@ value class StringPref internal constructor(private val spec: PrefSpec<String>) 
 @JvmInline
 value class FloatPref internal constructor(private val spec: PrefSpec<Float>) {
     val flow: Flow<Float>
-        get() = spec.dataStore.data
-            .catchDataStoreIoError()
-            .map { it[spec.key] ?: spec.default }
+        get() =
+            spec.dataStore.data
+                .catchDataStoreIoError()
+                .map { it[spec.key] ?: spec.default }
 
     suspend fun set(value: Float) {
         spec.dataStore.edit { it[spec.key] = value }
@@ -86,9 +90,10 @@ value class FloatPref internal constructor(private val spec: PrefSpec<Float>) {
 @JvmInline
 value class StringSetPref internal constructor(private val spec: PrefSpec<Set<String>>) {
     val flow: Flow<Set<String>>
-        get() = spec.dataStore.data
-            .catchDataStoreIoError()
-            .map { it[spec.key] ?: spec.default }
+        get() =
+            spec.dataStore.data
+                .catchDataStoreIoError()
+                .map { it[spec.key] ?: spec.default }
 
     suspend fun set(value: Set<String>) {
         spec.dataStore.edit { it[spec.key] = value }
@@ -113,9 +118,10 @@ class NullableStringPref internal constructor(
      * the settings UI already handles as an empty field.
      */
     val flow: Flow<String?>
-        get() = dataStore.data
-            .catchDataStoreIoError()
-            .map { it[key] }
+        get() =
+            dataStore.data
+                .catchDataStoreIoError()
+                .map { it[key] }
 
     suspend fun set(value: String?) {
         dataStore.edit {
@@ -151,13 +157,14 @@ class EnumPref<T : Enum<T>> internal constructor(
      * value the UI initialises to, and the user can still interact with the settings.
      */
     val flow: Flow<T>
-        get() = dataStore.data
-            .catchDataStoreIoError()
-            .map { prefs ->
-                prefs[key]?.let { name ->
-                    entries.firstOrNull { it.name == name }
-                } ?: default
-            }
+        get() =
+            dataStore.data
+                .catchDataStoreIoError()
+                .map { prefs ->
+                    prefs[key]?.let { name ->
+                        entries.firstOrNull { it.name == name }
+                    } ?: default
+                }
 
     suspend fun set(value: T) {
         dataStore.edit { it[key] = value.name }

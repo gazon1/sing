@@ -21,7 +21,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class InternalErrorTest {
-
     private val leakyMessage = "connection to /home/max/.config/secret.db refused by 10.0.0.4"
 
     @Test
@@ -53,8 +52,10 @@ class InternalErrorTest {
         val result = ErrorMapper.toResult(error)
 
         assertTrue(result.isError == true, "A business error is a result the model can read")
-        val text = result.content.filterIsInstance<io.modelcontextprotocol.kotlin.sdk.types.TextContent>()
-            .joinToString(" ") { it.text }
+        val text =
+            result.content
+                .filterIsInstance<io.modelcontextprotocol.kotlin.sdk.types.TextContent>()
+                .joinToString(" ") { it.text }
         assertTrue("title" in text, "It says which field: $text")
     }
 }

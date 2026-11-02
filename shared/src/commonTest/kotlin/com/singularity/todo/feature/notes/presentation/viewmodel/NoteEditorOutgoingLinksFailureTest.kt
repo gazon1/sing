@@ -6,6 +6,7 @@ package com.singularity.todo.feature.notes.presentation.viewmodel
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.domain.editor.NoteAiController
@@ -31,7 +32,6 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
-import com.singularity.todo.core.search.SearchMode
 
 /**
  * A save that could not write the outgoing links is not reported as a save (REQ-DRAFT-001).
@@ -68,29 +68,43 @@ import com.singularity.todo.core.search.SearchMode
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
 class NoteEditorOutgoingLinksFailureTest {
-
     private val userId = UserId("test-user")
 
-    private val note = Note(
-        id = NoteId("note-1"),
-        userId = userId,
-        title = "Test Note",
-        bodyHtml = "<p>See [[note://note-2]]</p>",
-        wordCount = 2,
-        charCount = 11,
-        createdAt = Clock.System.now(),
-        updatedAt = Clock.System.now(),
-    )
+    private val note =
+        Note(
+            id = NoteId("note-1"),
+            userId = userId,
+            title = "Test Note",
+            bodyHtml = "<p>See [[note://note-2]]</p>",
+            wordCount = 2,
+            charCount = 11,
+            createdAt = Clock.System.now(),
+            updatedAt = Clock.System.now(),
+        )
 
-    private val emptyLinkRepo = object : InternalLinkRepository {
-        override suspend fun searchNotes(query: String, mode: SearchMode): List<Note> = emptyList()
-        override suspend fun searchTasks(query: String, mode: SearchMode): List<Task> = emptyList()
-        override suspend fun getBacklinkNotes(noteId: String): List<Note> = emptyList()
-        override suspend fun getBacklinkTasks(taskId: String): List<Task> = emptyList()
-        override suspend fun getNotesLinkingToTask(taskId: String): List<Note> = emptyList()
-    }
+    private val emptyLinkRepo =
+        object : InternalLinkRepository {
+            override suspend fun searchNotes(
+                query: String,
+                mode: SearchMode,
+            ): List<Note> = emptyList()
 
-    private fun createVm(notesRepo: FakeNotesRepository, scope: CoroutineScope): NoteEditor {
+            override suspend fun searchTasks(
+                query: String,
+                mode: SearchMode,
+            ): List<Task> = emptyList()
+
+            override suspend fun getBacklinkNotes(noteId: String): List<Note> = emptyList()
+
+            override suspend fun getBacklinkTasks(taskId: String): List<Task> = emptyList()
+
+            override suspend fun getNotesLinkingToTask(taskId: String): List<Note> = emptyList()
+        }
+
+    private fun createVm(
+        notesRepo: FakeNotesRepository,
+        scope: CoroutineScope,
+    ): NoteEditor {
         val clock = FakeClock()
         val currentUser = FakeProfileAwareCurrentUser()
         val proposals = FakeProposalRepository(clock)
@@ -121,7 +135,10 @@ class NoteEditorOutgoingLinksFailureTest {
         var linkWrites: Int = 0
         var rejectLinkWrites: Boolean = false
 
-        override suspend fun setOutgoingLinks(id: NoteId, links: List<String>): Result<Unit> {
+        override suspend fun setOutgoingLinks(
+            id: NoteId,
+            links: List<String>,
+        ): Result<Unit> {
             linkWrites++
             return if (rejectLinkWrites) {
                 Result.failure(IllegalStateException("read-only column"))
@@ -132,67 +149,69 @@ class NoteEditorOutgoingLinksFailureTest {
     }
 
     @Test
-    fun `a save that could not write the outgoing links is not reported as a save`() = runTest {
-        val notesRepo = CountingNotesRepository()
-        notesRepo.seed(note)
-        // A column that will not take the write — a locked row, a read-only mount,
-        // a migration that has not run yet. All of them look the same to the caller.
-        notesRepo.rejectLinkWrites = true
-        val vm = createVm(notesRepo, backgroundScope)
+    fun `a save that could not write the outgoing links is not reported as a save`() =
+        runTest {
+            val notesRepo = CountingNotesRepository()
+            notesRepo.seed(note)
+            // A column that will not take the write — a locked row, a read-only mount,
+            // a migration that has not run yet. All of them look the same to the caller.
+            notesRepo.rejectLinkWrites = true
+            val vm = createVm(notesRepo, backgroundScope)
 
-        vm.openEditor(note.id.value)
-        advanceTimeBy(1_000)
-        runCurrent()
-        vm.onIntent(NotesEditorIntent.EditBody("<p>See [[note://note-2]] and [[task://task-9]]</p>"))
-        runCurrent()
+            vm.openEditor(note.id.value)
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(NotesEditorIntent.EditBody("<p>See [[note://note-2]] and [[task://task-9]]</p>"))
+            runCurrent()
 
-        vm.onIntent(NotesEditorIntent.SaveNow)
-        runCurrent()
-        // Read the state HERE and not after advancing further: `pushUiState` clears a
-        // persistence error on its next pass by design (DraftMviViewModel:165-168 — "A
-        // persistence error set by [save] is cleared the same way — the user has moved
-        // on"). Letting the 500ms autosave debounce fire in between wipes the error, so a
-        // control that waits past it is asserting nothing about the save at all.
-        assertNotNull(
-            vm.stateFlow.value.error,
-            "the note was saved but its links were not, so the backlinks feature silently " +
-                "did nothing — the comment above that line calls it the write path for " +
-                "exactly this, and the save reported success; link writes seen: " +
-                "${notesRepo.linkWrites}, state was ${vm.stateFlow.value}",
-        )
-        assertTrue(
-            vm.stateFlow.value.isDirty,
-            "the draft is still dirty: the user's work was not fully persisted, so " +
-                "clearing the flag would claim otherwise",
-        )
-    }
+            vm.onIntent(NotesEditorIntent.SaveNow)
+            runCurrent()
+            // Read the state HERE and not after advancing further: `pushUiState` clears a
+            // persistence error on its next pass by design (DraftMviViewModel:165-168 — "A
+            // persistence error set by [save] is cleared the same way — the user has moved
+            // on"). Letting the 500ms autosave debounce fire in between wipes the error, so a
+            // control that waits past it is asserting nothing about the save at all.
+            assertNotNull(
+                vm.stateFlow.value.error,
+                "the note was saved but its links were not, so the backlinks feature silently " +
+                    "did nothing — the comment above that line calls it the write path for " +
+                    "exactly this, and the save reported success; link writes seen: " +
+                    "${notesRepo.linkWrites}, state was ${vm.stateFlow.value}",
+            )
+            assertTrue(
+                vm.stateFlow.value.isDirty,
+                "the draft is still dirty: the user's work was not fully persisted, so " +
+                    "clearing the flag would claim otherwise",
+            )
+        }
 
     @Test
-    fun `a save whose links were written reports no error`() = runTest {
-        // The negative case. Without it, an unwrap on the wrong call — or an unwrap that
-        // fired on every save — would pass the control above.
-        val notesRepo = CountingNotesRepository()
-        notesRepo.seed(note)
-        val vm = createVm(notesRepo, backgroundScope)
+    fun `a save whose links were written reports no error`() =
+        runTest {
+            // The negative case. Without it, an unwrap on the wrong call — or an unwrap that
+            // fired on every save — would pass the control above.
+            val notesRepo = CountingNotesRepository()
+            notesRepo.seed(note)
+            val vm = createVm(notesRepo, backgroundScope)
 
-        vm.openEditor(note.id.value)
-        advanceTimeBy(1_000)
-        runCurrent()
-        vm.onIntent(NotesEditorIntent.EditBody("<p>See [[note://note-2]]</p>"))
-        runCurrent()
+            vm.openEditor(note.id.value)
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(NotesEditorIntent.EditBody("<p>See [[note://note-2]]</p>"))
+            runCurrent()
 
-        vm.onIntent(NotesEditorIntent.SaveNow)
-        runCurrent()
+            vm.onIntent(NotesEditorIntent.SaveNow)
+            runCurrent()
 
-        assertNull(vm.stateFlow.value.error, "the write succeeded; an error here would be a false alarm")
-        assertEquals(
-            1,
-            notesRepo.linkWrites,
-            "and the links really were written exactly once",
-        )
-        assertTrue(
-            !vm.stateFlow.value.isDirty,
-            "so the save really happened and the draft is clean",
-        )
-    }
+            assertNull(vm.stateFlow.value.error, "the write succeeded; an error here would be a false alarm")
+            assertEquals(
+                1,
+                notesRepo.linkWrites,
+                "and the links really were written exactly once",
+            )
+            assertTrue(
+                !vm.stateFlow.value.isDirty,
+                "so the save really happened and the draft is clean",
+            )
+        }
 }

@@ -9,8 +9,9 @@ indent_style = space
 indent_size = 4
 
 [*.{kt,kts}]
-# 120, not 140: detekt's ktlint MaximumLineLength runs at 120 (declared in
-# config/detekt/detekt.yml). ktlint and detekt must agree or --format fights the gate.
+# 120, not 140: the ktlint rule `max-line-length` runs at 120, and detekt's own
+# `MaximumLineLength` (config/detekt/detekt.yml) runs at the same number. The
+# two must agree or --format fights the gate.
 max_line_length = 120
 ij_kotlin_call_parameters_wrap = on_every_item
 
@@ -28,8 +29,66 @@ ij_kotlin_method_parameters_right_paren_on_new_line = true
 # Опционально: отключить выравнивание по колонкам
 ij_kotlin_align_multiline_parameters_in_calls = false
 
+# ── ktlint ───────────────────────────────────────────────────────────────────
+#
+# The Kotlin style rules live here and nowhere else: ktlint reads this file,
+# and detekt no longer carries a ktlint layer of its own
+# (ADR 2026-11-02-ktlint-cli-replaces-the-detekt-formatting-layer).
+#
+# `ktlint_official` is the ktlint 1.x style — the only style there is.
+ktlint_code_style = ktlint_official
+
+# A @Composable function is named in PascalCase: that is the Compose
+# convention, and the rule's lowercase default would rename 700 call sites.
+ktlint_function_naming_ignore_when_annotated_with = Composable
+
+# The canonical ViewModel pattern of AGENTS.md is a `_state` backing property
+# with a `state` accessor. The rule wants the pair the other way round.
+ktlint_standard_backing-property-naming = disabled
+
+# The file names of this repository are conventions, not accidents:
+# `*UseCase.kt` drops the suffix, `FileRevealer.android.kt` carries the KMP
+# platform suffix, `main.kt` is the desktop entry point, `package-info.kt` is
+# the Kotlin package-doc convention, and an expect/actual pair shares one file
+# name across source sets. The rule would rename all of them.
+ktlint_standard_filename = disabled
+
+# `feature/ai/use_cases` is the package the AI skills document and the ADRs
+# reference. Renaming it is a semantic refactor of that feature, not a
+# formatting pass, so it does not belong to this change.
+ktlint_standard_package-name = disabled
+
+# The coverage floors are a contract with the governance scripts, not free
+# identifiers: `scripts/check-coverage-floor-declaration.py` and the
+# `detekt-rule-coverage-floor` gate in the registry parse them by name, and
+# the gate's sabotage control rewrites `val DETEKT_RULE_BRANCH_FLOOR = N`.
+# Renaming them would break the gate that watches them.
+[settings.gradle.kts]
+ktlint_standard_property-naming = disabled
+
+[detekt-rules/build.gradle.kts]
+ktlint_standard_property-naming = disabled
+
+# The fake factories are named after the type they fake (`FakeCurrentUser()`
+# builds a `CurrentUser`), and the AI and feature-scaffold skills document
+# that name. The rule would rename 131 call sites and the skill docs.
+[shared/src/commonMain/kotlin/com/singularity/todo/test/fakes/*.kt]
+ktlint_standard_function-naming = disabled
+
 
 [*.md]
 trim_trailing_whitespace = false
 
+# The two generated test files are written by a generator, not by a person:
+# `python3 scripts/check-room-schema-integrity.py --write` owns their shape,
+# and a gate compares them byte-for-byte with what the generator produces.
+# A formatter that rewrites them would make that gate red for the wrong
+# reason, so the rules the generator's shape trips are off for these two
+# paths only. Every other file is formatted.
+[shared/src/jvmTest/kotlin/com/singularity/todo/core/database/GeneratedMigrationScenarioTest.kt]
+ktlint_standard_multiline-expression-wrapping = disabled
+ktlint_standard_no-empty-first-line-in-class-body = disabled
+ktlint_standard_function-signature = disabled
 
+[shared/src/jvmTest/kotlin/com/singularity/todo/core/database/MigrationRoundTripTest.kt]
+ktlint_standard_no-empty-first-line-in-class-body = disabled

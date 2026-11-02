@@ -31,13 +31,15 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:data")
 class StaleDbCleanerTest {
-
     @TempDir
     lateinit var dir: File
 
     private fun dbPath(name: String = "singularity.db"): String = File(dir, name).path
 
-    private fun writeValidDatabase(path: String, withMarker: Boolean) {
+    private fun writeValidDatabase(
+        path: String,
+        withMarker: Boolean,
+    ) {
         val driver = BundledSQLiteDriver()
         driver.open(path).use { connection ->
             if (withMarker) {

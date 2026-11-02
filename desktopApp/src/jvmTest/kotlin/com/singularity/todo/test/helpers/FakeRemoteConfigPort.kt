@@ -22,10 +22,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * [seed] lets a test push a non-default snapshot, e.g. to exercise the blocked
  * gate.
  */
-class FakeRemoteConfigPort(
-    initial: RemoteConfigSnapshot = RemoteConfigSnapshot.defaults(),
-) : RemoteConfigPort {
-
+class FakeRemoteConfigPort(initial: RemoteConfigSnapshot = RemoteConfigSnapshot.defaults()) : RemoteConfigPort {
     private val _snapshot = MutableStateFlow(initial)
 
     /** Replaces the served snapshot; every `observe()` collector re-emits. */
@@ -35,8 +32,7 @@ class FakeRemoteConfigPort(
 
     override suspend fun snapshot(): RemoteConfigSnapshot = _snapshot.value
 
-    override suspend fun refresh(): Result<RemoteConfigSnapshot> =
-        Result.success(_snapshot.value)
+    override suspend fun refresh(): Result<RemoteConfigSnapshot> = Result.success(_snapshot.value)
 
     override fun observe(): StateFlow<RemoteConfigSnapshot> = _snapshot.asStateFlow()
 }

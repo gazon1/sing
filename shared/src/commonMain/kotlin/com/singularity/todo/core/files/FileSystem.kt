@@ -28,7 +28,10 @@ interface FileSystem {
      * **Note**: on JVM this is not crash-safe — write a temporary file and
      * [move] it over the target when the data must survive a crash.
      */
-    suspend fun writeBytes(path: String, data: ByteArray)
+    suspend fun writeBytes(
+        path: String,
+        data: ByteArray,
+    )
 
     /**
      * Moves [from] to [to], replacing [to] when it is there.
@@ -43,7 +46,10 @@ interface FileSystem {
      * The move stays within one filesystem: a move across two is a copy, and a
      * copy is not atomic.
      */
-    suspend fun move(from: String, to: String)
+    suspend fun move(
+        from: String,
+        to: String,
+    )
 
     /** Deletes file or empty directory. Returns `true` if the path existed prior to deletion. */
     suspend fun delete(path: String): Boolean

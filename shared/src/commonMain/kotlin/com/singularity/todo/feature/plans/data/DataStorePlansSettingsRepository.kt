@@ -31,7 +31,6 @@ import kotlinx.coroutines.flow.map
 class DataStorePlansSettingsRepository(dataStore: DataStore<Preferences>, private val userId: Flow<UserId>) :
     BaseSettingsRepository(dataStore),
     PlansSettingsRepository {
-
     /** The preference of one profile. */
     private fun granularityPref(profileUserId: UserId) =
         enumPref(

@@ -1,8 +1,8 @@
 package com.singularity.todo.arch
 
-import org.junit.jupiter.api.extension.Extension
-import org.junit.jupiter.api.Timeout
 import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.Timeout
+import org.junit.jupiter.api.extension.Extension
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 
@@ -16,22 +16,24 @@ import kotlin.test.Test
  */
 @Tag("fast")
 class ExtensionServiceRegistrationTest {
-
     private val serviceFileName = "META-INF/services/org.junit.jupiter.api.extension.Extension"
 
     @Test
     @Timeout(30, unit = TimeUnit.SECONDS)
     fun `every registered extension class is loadable`() {
         val loader = Thread.currentThread().contextClassLoader
-        val serviceUrl = loader.getResource(serviceFileName)
-            ?: kotlin.test.fail(
-                "Service file not found on classpath: $serviceFileName — " +
-                    "add META-INF/services/org.junit.jupiter.api.extension.Extension with extension class names",
-            )
+        val serviceUrl =
+            loader.getResource(serviceFileName)
+                ?: kotlin.test.fail(
+                    "Service file not found on classpath: $serviceFileName — " +
+                        "add META-INF/services/org.junit.jupiter.api.extension.Extension with extension class names",
+                )
 
-        val classNames = serviceUrl.readText()
-            .lines()
-            .filter { it.isNotBlank() && !it.startsWith("#") }
+        val classNames =
+            serviceUrl
+                .readText()
+                .lines()
+                .filter { it.isNotBlank() && !it.startsWith("#") }
 
         if (classNames.isEmpty()) {
             kotlin.test.fail(

@@ -7,7 +7,6 @@ package com.singularity.todo.feature.calendarSync.work
  * JVM:     no-op stub — calendar sync is Android-only.
  */
 interface CalendarSyncWorkScheduler {
-
     /**
      * Whether this port can do its job on this platform.
      *

@@ -97,7 +97,6 @@ data class ProposalItemEntity(
  */
 @Dao
 interface ProposalDao {
-
     // ── Proposals ─────────────────────────────────────────────────────────────
 
     @Upsert
@@ -116,7 +115,11 @@ interface ProposalDao {
         ORDER BY created_at DESC
         """,
     )
-    fun watchProposalsForTarget(targetId: String, targetKind: String, userId: String): Flow<List<AiProposalEntity>>
+    fun watchProposalsForTarget(
+        targetId: String,
+        targetKind: String,
+        userId: String,
+    ): Flow<List<AiProposalEntity>>
 
     /**
      * The proposals of one user that still wait for a decision, newest first.
@@ -150,7 +153,12 @@ interface ProposalDao {
         WHERE id = :id AND user_id = :userId
         """,
     )
-    suspend fun updateProposalStatus(id: String, status: String, updatedAt: Long, userId: String): Int
+    suspend fun updateProposalStatus(
+        id: String,
+        status: String,
+        updatedAt: Long,
+        userId: String,
+    ): Int
 
     /**
      * Hard-deletes every proposal of [userId].

@@ -33,10 +33,14 @@ class StartRecurringSeriesUseCase(
      * @return the series id, or a failure. A task that is already in a series is a
      *   failure here — its rule change is the series' business, not this door's.
      */
-    suspend operator fun invoke(taskId: TaskId, rule: RecurrenceSpec): Result<TaskSeriesId> =
+    suspend operator fun invoke(
+        taskId: TaskId,
+        rule: RecurrenceSpec,
+    ): Result<TaskSeriesId> =
         runCatchingCancellable {
-            val task = repo.get(taskId)
-                ?: throw IllegalStateException("Task $taskId not found")
+            val task =
+                repo.get(taskId)
+                    ?: throw IllegalStateException("Task $taskId not found")
             if (task.seriesId != null) {
                 throw IllegalStateException("Task $taskId is already in a series: ${task.seriesId}")
             }

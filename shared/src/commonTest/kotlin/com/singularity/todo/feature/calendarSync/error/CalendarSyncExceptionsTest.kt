@@ -6,7 +6,6 @@ import kotlin.test.assertEquals
 
 @Tag("fast")
 class CalendarSyncExceptionsTest {
-
     @Test
     fun permissionRevoked_is_sealed() {
         val ex = CalendarSyncException.PermissionRevokedException()

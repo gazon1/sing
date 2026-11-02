@@ -35,37 +35,44 @@ data class Reminder(
 @JvmInline
 value class ReminderId(val value: String) {
     companion object {
-        fun generate(): ReminderId = ReminderId(com.singularity.todo.core.ids.nextId())
+        fun generate(): ReminderId =
+            ReminderId(
+                com.singularity.todo.core.ids
+                    .nextId(),
+            )
     }
 }
 
 // ─── Mapping ─────────────────────────────────────────────────────────────────
 
-fun TaskReminderEntity.toReminder() = Reminder(
-    id = ReminderId(id),
-    taskId = TaskId(taskId),
-    userId = UserId(userId),
-    type = when (type) {
-        "annoying" -> ReminderType.Annoying
-        else -> ReminderType.Gentle
-    },
-    offsetMinutes = offsetMinutes,
-    fireAt = fireAt,
-    recurringPattern = recurringPattern,
-    viewId = viewId?.let { SavedAgendaViewId.fromString(it) },
-    lastFiredAt = lastFiredAt,
-)
+fun TaskReminderEntity.toReminder() =
+    Reminder(
+        id = ReminderId(id),
+        taskId = TaskId(taskId),
+        userId = UserId(userId),
+        type =
+            when (type) {
+                "annoying" -> ReminderType.Annoying
+                else -> ReminderType.Gentle
+            },
+        offsetMinutes = offsetMinutes,
+        fireAt = fireAt,
+        recurringPattern = recurringPattern,
+        viewId = viewId?.let { SavedAgendaViewId.fromString(it) },
+        lastFiredAt = lastFiredAt,
+    )
 
-fun Reminder.toEntity(now: Long) = TaskReminderEntity(
-    id = id.value,
-    taskId = taskId.value,
-    userId = userId.value,
-    type = type.name.lowercase(),
-    offsetMinutes = offsetMinutes,
-    fireAt = fireAt,
-    recurringPattern = recurringPattern,
-    viewId = viewId?.raw,
-    lastFiredAt = lastFiredAt,
-    createdAt = now,
-    updatedAt = now,
-)
+fun Reminder.toEntity(now: Long) =
+    TaskReminderEntity(
+        id = id.value,
+        taskId = taskId.value,
+        userId = userId.value,
+        type = type.name.lowercase(),
+        offsetMinutes = offsetMinutes,
+        fireAt = fireAt,
+        recurringPattern = recurringPattern,
+        viewId = viewId?.raw,
+        lastFiredAt = lastFiredAt,
+        createdAt = now,
+        updatedAt = now,
+    )

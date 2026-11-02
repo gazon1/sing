@@ -8,9 +8,9 @@ import kotlin.test.assertNull
 
 @Tag("fast")
 class DialogStateTest {
-
     private sealed interface TestDialog {
         data object Alpha : TestDialog
+
         data class Bravo(val value: String) : TestDialog
     }
 

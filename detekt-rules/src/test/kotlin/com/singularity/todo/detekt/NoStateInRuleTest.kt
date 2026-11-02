@@ -18,13 +18,13 @@ import kotlin.test.assertTrue
  * invisible hatch, and a deliberate suppression is visible in review instead.
  */
 class NoStateInRuleTest {
-
     private val rule = NoStateInRule(TestConfig())
     private val languageSettings = FakeLanguageVersionSettings(ExplicitApiMode.STRICT)
 
     @Test
     fun `stateIn is flagged`() {
-        val code = """
+        val code =
+            """
             package com.singularity.todo.feature.tasks
 
             class TaskViewModel {
@@ -32,7 +32,7 @@ class NoStateInRuleTest {
 
                 fun expose(scope: Any) = tasks.stateIn(scope)
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         val findings = rule.visitFile(ktFile, languageSettings)
         assertEquals(1, findings.size)
@@ -41,26 +41,28 @@ class NoStateInRuleTest {
 
     @Test
     fun `plain state flow is not flagged`() {
-        val code = """
+        val code =
+            """
             package com.singularity.todo.feature.tasks
 
             class TaskViewModel {
                 val tasks = MutableStateFlow<List<String>>(emptyList())
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         assertEquals(0, rule.visitFile(ktFile, languageSettings).size)
     }
 
     @Test
     fun `finding points reviewers at a visible suppression`() {
-        val code = """
+        val code =
+            """
             package com.singularity.todo.feature.tasks
 
             class TaskViewModel {
                 fun expose(scope: Any) = MutableStateFlow(0).stateIn(scope)
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         val findings = rule.visitFile(ktFile, languageSettings)
         assertEquals(1, findings.size)

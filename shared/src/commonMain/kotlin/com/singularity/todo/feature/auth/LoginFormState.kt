@@ -33,37 +33,39 @@ class LoginFormState(form: LoginForm = LoginForm()) : FormState<LoginForm>(form)
     override fun initialForm() = LoginForm()
 
     companion object {
-        val Saver = listSaver(
-            save = {
-                listOf(
-                    it.value.isSignUp,
-                    // The simple class name, or null. An unrecognised name reads back as null
-                    // rather than crashing the restore — the screen then shows both options
-                    // again, which is the safe reading of a choice that was lost.
-                    // Actual counts are reloaded from summarise() when the screen opens.
-                    it.value.disposition?.let { d ->
-                        when (d) {
-                            is LocalDataDisposition.Keep -> "Keep"
-                            is LocalDataDisposition.Discard -> "Discard"
-                        }
-                    },
-                )
-            },
-            restore = {
-                LoginFormState(
-                    LoginForm(
-                        isSignUp = it[0] as Boolean,
-                        disposition = (it[1] as String?)?.let { kind ->
-                            when (kind) {
-                                "Keep" -> LocalDataDisposition.Keep(ReassignCounts(), LocalDataSummary(0, 0))
-                                "Discard" -> LocalDataDisposition.Discard(EraseCounts())
-                                else -> null
+        val Saver =
+            listSaver(
+                save = {
+                    listOf(
+                        it.value.isSignUp,
+                        // The simple class name, or null. An unrecognised name reads back as null
+                        // rather than crashing the restore — the screen then shows both options
+                        // again, which is the safe reading of a choice that was lost.
+                        // Actual counts are reloaded from summarise() when the screen opens.
+                        it.value.disposition?.let { d ->
+                            when (d) {
+                                is LocalDataDisposition.Keep -> "Keep"
+                                is LocalDataDisposition.Discard -> "Discard"
                             }
                         },
-                    ),
-                )
-            },
-        )
+                    )
+                },
+                restore = {
+                    LoginFormState(
+                        LoginForm(
+                            isSignUp = it[0] as Boolean,
+                            disposition =
+                                (it[1] as String?)?.let { kind ->
+                                    when (kind) {
+                                        "Keep" -> LocalDataDisposition.Keep(ReassignCounts(), LocalDataSummary(0, 0))
+                                        "Discard" -> LocalDataDisposition.Discard(EraseCounts())
+                                        else -> null
+                                    }
+                                },
+                        ),
+                    )
+                },
+            )
     }
 }
 

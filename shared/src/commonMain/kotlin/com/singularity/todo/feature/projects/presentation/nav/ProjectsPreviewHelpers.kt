@@ -20,14 +20,19 @@ class PreviewProjectsNavigator(
         onExitGraph = {},
     ) {
     override fun openDetail(id: ProjectId) { /* no-op for preview */ }
+
     override fun openEditor(id: ProjectId?) { /* no-op for preview */ }
+
     override fun openTasks(projectId: ProjectId) {
         onOpenTasks(projectId)
     }
+
     override fun openTask(taskId: TaskId) {
         onOpenTask(taskId)
     }
+
     override fun back() { /* no-op for preview */ }
+
     override fun closeGraph() { /* no-op for preview */ }
 }
 

@@ -16,11 +16,11 @@ import com.singularity.todo.feature.calendar.domain.logic.yearMonthForPage
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.EnumSource
 import org.junit.jupiter.params.provider.MethodSource
-import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -30,7 +30,6 @@ import kotlin.test.assertNull
  */
 @Tag("fast")
 class CalendarDateMathTest {
-
     private val sept16 = LocalDate(2026, Month.SEPTEMBER, 16)
 
     // ─── monthGridDates ───────────────────────────────────────────────────────
@@ -79,12 +78,13 @@ class CalendarDateMathTest {
     @EnumSource(CalendarViewMode::class)
     fun `visibleRange returns correct size for each mode`(mode: CalendarViewMode) {
         val range = visibleRange(sept16, mode)
-        val expectedSize = when (mode) {
-            CalendarViewMode.DAY -> 1
-            CalendarViewMode.FOUR_DAYS -> 4
-            CalendarViewMode.WEEK -> 7
-            CalendarViewMode.MONTH -> 42
-        }
+        val expectedSize =
+            when (mode) {
+                CalendarViewMode.DAY -> 1
+                CalendarViewMode.FOUR_DAYS -> 4
+                CalendarViewMode.WEEK -> 7
+                CalendarViewMode.MONTH -> 42
+            }
         assertEquals(expectedSize, range.size)
     }
 
@@ -112,13 +112,19 @@ class CalendarDateMathTest {
 
     @ParameterizedTest(name = "goNext {0} → {1}")
     @MethodSource("goNextCases")
-    fun `goNext advances by correct interval`(mode: CalendarViewMode, expected: LocalDate) {
+    fun `goNext advances by correct interval`(
+        mode: CalendarViewMode,
+        expected: LocalDate,
+    ) {
         assertEquals(expected, goNext(sept16, mode))
     }
 
     @ParameterizedTest(name = "goPrevious {0} → {1}")
     @MethodSource("goPreviousCases")
-    fun `goPrevious rewinds by correct interval`(mode: CalendarViewMode, expected: LocalDate) {
+    fun `goPrevious rewinds by correct interval`(
+        mode: CalendarViewMode,
+        expected: LocalDate,
+    ) {
         assertEquals(expected, goPrevious(sept16, mode))
     }
 
@@ -165,7 +171,10 @@ class CalendarDateMathTest {
 
     @ParameterizedTest(name = "{0} → day {1}")
     @MethodSource("lastDayOfMonthCases")
-    fun `lastDayOfMonth returns correct last day`(date: LocalDate, expectedDay: Int) {
+    fun `lastDayOfMonth returns correct last day`(
+        date: LocalDate,
+        expectedDay: Int,
+    ) {
         assertEquals(expectedDay, lastDayOfMonth(date).day)
     }
 
@@ -246,16 +255,18 @@ class CalendarDateMathTest {
     @Test
     fun `pageForYearMonth and yearMonthForPage are inverse`() {
         val anchor = YearMonth(2026, Month.SEPTEMBER)
-        val targets = listOf(
-            YearMonth(2020, Month.JANUARY),
-            YearMonth(2025, Month.JULY),
-            YearMonth(2026, Month.SEPTEMBER),
-            YearMonth(2027, Month.MARCH),
-            YearMonth(2030, Month.DECEMBER),
-        )
+        val targets =
+            listOf(
+                YearMonth(2020, Month.JANUARY),
+                YearMonth(2025, Month.JULY),
+                YearMonth(2026, Month.SEPTEMBER),
+                YearMonth(2027, Month.MARCH),
+                YearMonth(2030, Month.DECEMBER),
+            )
         targets.forEach { target ->
-            val page = pageForYearMonth(anchor, target)
-                ?: error("target $target out of range")
+            val page =
+                pageForYearMonth(anchor, target)
+                    ?: error("target $target out of range")
             assertEquals(target, yearMonthForPage(anchor, page))
         }
     }
@@ -265,45 +276,58 @@ class CalendarDateMathTest {
     // ═══════════════════════════════════════════════════════════════════════════
     companion object {
         @JvmStatic
-        fun goNextCases(): List<Arguments> = listOf(
-            Arguments.of(CalendarViewMode.DAY, LocalDate(2026, Month.SEPTEMBER, 17)),
-            Arguments.of(CalendarViewMode.FOUR_DAYS, LocalDate(2026, Month.SEPTEMBER, 20)),
-            Arguments.of(CalendarViewMode.WEEK, LocalDate(2026, Month.SEPTEMBER, 23)),
-            Arguments.of(CalendarViewMode.MONTH, LocalDate(2026, Month.OCTOBER, 1)),
-        )
+        fun goNextCases(): List<Arguments> =
+            listOf(
+                Arguments.of(CalendarViewMode.DAY, LocalDate(2026, Month.SEPTEMBER, 17)),
+                Arguments.of(CalendarViewMode.FOUR_DAYS, LocalDate(2026, Month.SEPTEMBER, 20)),
+                Arguments.of(CalendarViewMode.WEEK, LocalDate(2026, Month.SEPTEMBER, 23)),
+                Arguments.of(CalendarViewMode.MONTH, LocalDate(2026, Month.OCTOBER, 1)),
+            )
 
         @JvmStatic
-        fun goPreviousCases(): List<Arguments> = listOf(
-            Arguments.of(CalendarViewMode.DAY, LocalDate(2026, Month.SEPTEMBER, 15)),
-            Arguments.of(CalendarViewMode.FOUR_DAYS, LocalDate(2026, Month.SEPTEMBER, 12)),
-            Arguments.of(CalendarViewMode.WEEK, LocalDate(2026, Month.SEPTEMBER, 9)),
-            Arguments.of(CalendarViewMode.MONTH, LocalDate(2026, Month.AUGUST, 1)),
-        )
+        fun goPreviousCases(): List<Arguments> =
+            listOf(
+                Arguments.of(CalendarViewMode.DAY, LocalDate(2026, Month.SEPTEMBER, 15)),
+                Arguments.of(CalendarViewMode.FOUR_DAYS, LocalDate(2026, Month.SEPTEMBER, 12)),
+                Arguments.of(CalendarViewMode.WEEK, LocalDate(2026, Month.SEPTEMBER, 9)),
+                Arguments.of(CalendarViewMode.MONTH, LocalDate(2026, Month.AUGUST, 1)),
+            )
 
         @JvmStatic
-        fun headerLabelSameMonthCases(): List<Arguments> = listOf(
-            Arguments.of(LocalDate(2026, Month.SEPTEMBER, 16), CalendarViewMode.DAY, "September 16, 2026"),
-            Arguments.of(LocalDate(2026, Month.SEPTEMBER, 16), CalendarViewMode.FOUR_DAYS, "September 16 – 19, 2026"),
-            Arguments.of(LocalDate(2026, Month.SEPTEMBER, 16), CalendarViewMode.WEEK, "September 14 – 20, 2026"),
-            Arguments.of(LocalDate(2026, Month.SEPTEMBER, 16), CalendarViewMode.MONTH, "September 2026"),
-        )
+        fun headerLabelSameMonthCases(): List<Arguments> =
+            listOf(
+                Arguments.of(LocalDate(2026, Month.SEPTEMBER, 16), CalendarViewMode.DAY, "September 16, 2026"),
+                Arguments.of(
+                    LocalDate(2026, Month.SEPTEMBER, 16),
+                    CalendarViewMode.FOUR_DAYS,
+                    "September 16 – 19, 2026",
+                ),
+                Arguments.of(LocalDate(2026, Month.SEPTEMBER, 16), CalendarViewMode.WEEK, "September 14 – 20, 2026"),
+                Arguments.of(LocalDate(2026, Month.SEPTEMBER, 16), CalendarViewMode.MONTH, "September 2026"),
+            )
 
         @JvmStatic
-        fun headerLabelCrossMonthCases(): List<Arguments> = listOf(
-            Arguments.of(
-                LocalDate(2026, Month.SEPTEMBER, 30),
-                CalendarViewMode.FOUR_DAYS,
-                "September 30 – October 3, 2026",
-            ),
-            Arguments.of(LocalDate(2026, Month.DECEMBER, 28), CalendarViewMode.WEEK, "December 28 – January 3, 2027"),
-        )
+        fun headerLabelCrossMonthCases(): List<Arguments> =
+            listOf(
+                Arguments.of(
+                    LocalDate(2026, Month.SEPTEMBER, 30),
+                    CalendarViewMode.FOUR_DAYS,
+                    "September 30 – October 3, 2026",
+                ),
+                Arguments.of(
+                    LocalDate(2026, Month.DECEMBER, 28),
+                    CalendarViewMode.WEEK,
+                    "December 28 – January 3, 2027",
+                ),
+            )
 
         @JvmStatic
-        fun lastDayOfMonthCases(): List<Arguments> = listOf(
-            Arguments.of(LocalDate(2026, Month.SEPTEMBER, 16), 30),
-            Arguments.of(LocalDate(2024, Month.FEBRUARY, 15), 29), // leap year
-            Arguments.of(LocalDate(2025, Month.FEBRUARY, 15), 28), // non-leap year
-            Arguments.of(LocalDate(2026, Month.DECEMBER, 25), 31),
-        )
+        fun lastDayOfMonthCases(): List<Arguments> =
+            listOf(
+                Arguments.of(LocalDate(2026, Month.SEPTEMBER, 16), 30),
+                Arguments.of(LocalDate(2024, Month.FEBRUARY, 15), 29), // leap year
+                Arguments.of(LocalDate(2025, Month.FEBRUARY, 15), 28), // non-leap year
+                Arguments.of(LocalDate(2026, Month.DECEMBER, 25), 31),
+            )
     }
 }

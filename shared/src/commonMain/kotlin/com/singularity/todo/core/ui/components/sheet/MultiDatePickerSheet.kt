@@ -36,13 +36,13 @@ import com.singularity.todo.core.ui.components.formatRussianMonthYear
 import com.singularity.todo.core.ui.components.isoLocalDate
 import com.singularity.todo.core.ui.components.russianWeekdayHeaders
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
 import kotlinx.datetime.number
 import kotlinx.datetime.plus
-import kotlinx.collections.immutable.ImmutableSet
-import kotlinx.collections.immutable.persistentSetOf
-import kotlinx.collections.immutable.toImmutableSet
 
 /**
  * A picker that lets the user choose *several* days in one go.
@@ -90,24 +90,25 @@ fun MultiDatePickerSheet(
     BottomSheetHost(onDismiss = onDismiss) {
         SheetScaffold(
             modifier = modifier,
-            actions = SheetActions(
-                onClear = {
-                    selected = persistentSetOf()
-                    onConfirm(persistentSetOf())
-                    onDismiss()
-                },
-                onCancel = onDismiss,
-                onConfirm = {
-                    onConfirm(selected)
-                    onDismiss()
-                },
-                confirmLabel = "Готово",
-                cancelLabel = "Отмена",
-                clearLabel = "Очистить",
-                testTagConfirm = TestTags.MultiDatePicker.OK,
-                testTagCancel = TestTags.MultiDatePicker.CANCEL,
-                testTagClear = TestTags.MultiDatePicker.CLEAR,
-            ),
+            actions =
+                SheetActions(
+                    onClear = {
+                        selected = persistentSetOf()
+                        onConfirm(persistentSetOf())
+                        onDismiss()
+                    },
+                    onCancel = onDismiss,
+                    onConfirm = {
+                        onConfirm(selected)
+                        onDismiss()
+                    },
+                    confirmLabel = "Готово",
+                    cancelLabel = "Отмена",
+                    clearLabel = "Очистить",
+                    testTagConfirm = TestTags.MultiDatePicker.OK,
+                    testTagCancel = TestTags.MultiDatePicker.CANCEL,
+                    testTagClear = TestTags.MultiDatePicker.CLEAR,
+                ),
         ) {
             MonthHeader(
                 monthAnchor = monthAnchor,
@@ -129,7 +130,9 @@ fun MultiDatePickerSheet(
                         // The ceiling refuses the click and says so. The day stays
                         // unselected, so the grid still shows exactly what will be
                         // created.
-                        selected.size >= maxDates -> limitReached = true
+                        selected.size >= maxDates -> {
+                            limitReached = true
+                        }
 
                         else -> {
                             selected = (selected + date).toImmutableSet()
@@ -161,9 +164,10 @@ private fun MonthHeader(
     ) {
         IconButton(
             onClick = onPrevious,
-            modifier = Modifier
-                .testTag(TestTags.MultiDatePicker.PREV_MONTH)
-                .mapTestTagsAsResourceIds(),
+            modifier =
+                Modifier
+                    .testTag(TestTags.MultiDatePicker.PREV_MONTH)
+                    .mapTestTagsAsResourceIds(),
         ) {
             Icon(Icons.Default.ChevronLeft, contentDescription = "Предыдущий месяц")
         }
@@ -174,9 +178,10 @@ private fun MonthHeader(
         )
         IconButton(
             onClick = onNext,
-            modifier = Modifier
-                .testTag(TestTags.MultiDatePicker.NEXT_MONTH)
-                .mapTestTagsAsResourceIds(),
+            modifier =
+                Modifier
+                    .testTag(TestTags.MultiDatePicker.NEXT_MONTH)
+                    .mapTestTagsAsResourceIds(),
         ) {
             Icon(Icons.Default.ChevronRight, contentDescription = "Следующий месяц")
         }
@@ -210,9 +215,10 @@ private fun MonthGrid(
     val gridDates = remember(monthAnchor) { monthGridDates(monthAnchor) }
     gridDates.chunked(7).forEach { week ->
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 2.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 2.dp),
         ) {
             week.forEach { date ->
                 MultiDateCell(
@@ -236,14 +242,16 @@ private fun SelectionCounter(
     limitReached: Boolean,
 ) {
     Text(
-        text = "Выбрано: $selectedCount" +
-            if (limitReached) " — максимум $maxDates" else "",
+        text =
+            "Выбрано: $selectedCount" +
+                if (limitReached) " — максимум $maxDates" else "",
         style = MaterialTheme.typography.bodyMedium,
-        color = if (limitReached) {
-            MaterialTheme.colorScheme.error
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        },
+        color =
+            if (limitReached) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
         modifier = Modifier.testTag(TestTags.MultiDatePicker.COUNTER),
     )
 }
@@ -258,29 +266,30 @@ private fun MultiDateCell(
     modifier: Modifier = Modifier,
 ) {
     Box(
-        modifier = modifier
-            .aspectRatio(1f)
-            .padding(2.dp)
-            .clip(CircleShape)
-            .background(
-                when {
-                    isSelected -> MaterialTheme.colorScheme.primary
-                    isToday -> MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
-                    else -> Color.Transparent
-                },
-            )
-            .clickable(onClick = onClick)
-            .testTag(TestTags.MultiDatePicker.day(isoLocalDate(date)))
-            .mapTestTagsAsResourceIds(),
+        modifier =
+            modifier
+                .aspectRatio(1f)
+                .padding(2.dp)
+                .clip(CircleShape)
+                .background(
+                    when {
+                        isSelected -> MaterialTheme.colorScheme.primary
+                        isToday -> MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+                        else -> Color.Transparent
+                    },
+                ).clickable(onClick = onClick)
+                .testTag(TestTags.MultiDatePicker.day(isoLocalDate(date)))
+                .mapTestTagsAsResourceIds(),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = date.day.toString(),
-            color = when {
-                isSelected -> MaterialTheme.colorScheme.onPrimary
-                !isCurrentMonth -> MaterialTheme.colorScheme.onSurfaceVariant
-                else -> MaterialTheme.colorScheme.onSurface
-            },
+            color =
+                when {
+                    isSelected -> MaterialTheme.colorScheme.onPrimary
+                    !isCurrentMonth -> MaterialTheme.colorScheme.onSurfaceVariant
+                    else -> MaterialTheme.colorScheme.onSurface
+                },
             fontSize = 14.sp,
             fontWeight = if (isToday || isSelected) FontWeight.Bold else FontWeight.Normal,
         )
@@ -313,10 +322,11 @@ private fun LocalDate.shiftMonth(delta: Int): LocalDate {
 }
 
 /** The number of days in [month] of [year]. */
-private fun Month.daysIn(year: Int): Int = when (this) {
-    Month.JANUARY, Month.MARCH, Month.MAY, Month.JULY, Month.AUGUST, Month.OCTOBER, Month.DECEMBER -> 31
-    Month.APRIL, Month.JUNE, Month.SEPTEMBER, Month.NOVEMBER -> 30
-    Month.FEBRUARY -> if (isLeapYear(year)) 29 else 28
-}
+private fun Month.daysIn(year: Int): Int =
+    when (this) {
+        Month.JANUARY, Month.MARCH, Month.MAY, Month.JULY, Month.AUGUST, Month.OCTOBER, Month.DECEMBER -> 31
+        Month.APRIL, Month.JUNE, Month.SEPTEMBER, Month.NOVEMBER -> 30
+        Month.FEBRUARY -> if (isLeapYear(year)) 29 else 28
+    }
 
 private fun isLeapYear(year: Int): Boolean = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0

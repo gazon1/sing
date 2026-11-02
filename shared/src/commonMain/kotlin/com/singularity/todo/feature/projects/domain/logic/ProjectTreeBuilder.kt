@@ -25,7 +25,6 @@ import com.singularity.todo.feature.projects.domain.model.ProjectTreeNode
  *   rather than lost.
  */
 object ProjectTreeBuilder {
-
     /**
      * The nodes the menu draws, in display order.
      *
@@ -34,7 +33,10 @@ object ProjectTreeBuilder {
      *   A project that is not in the set shows its children — the tree starts
      *   open, so the hierarchy is visible without a tap.
      */
-    fun build(projects: List<Project>, collapsedIds: Set<ProjectId>): List<ProjectTreeNode> {
+    fun build(
+        projects: List<Project>,
+        collapsedIds: Set<ProjectId>,
+    ): List<ProjectTreeNode> {
         val open = projects.filter { !it.isDeleted && it.closedAt == null }
         if (open.isEmpty()) return emptyList()
 
@@ -42,8 +44,7 @@ object ProjectTreeBuilder {
         val childrenByParent = open.groupBy { it.parentId }
         val order = compareBy<Project>({ it.sortOrder }, { it.name.lowercase() }, { it.id.value })
 
-        fun childrenOf(project: Project): List<Project> =
-            childrenByParent[project.id].orEmpty().sortedWith(order)
+        fun childrenOf(project: Project): List<Project> = childrenByParent[project.id].orEmpty().sortedWith(order)
 
         val nodes = mutableListOf<ProjectTreeNode>()
         val visited = mutableSetOf<ProjectId>()
@@ -86,12 +87,13 @@ object ProjectTreeBuilder {
                         val children = childrenOf(project)
                         val hasChildren = children.isNotEmpty()
                         val isExpanded = hasChildren && project.id !in collapsedIds
-                        nodes += ProjectTreeNode(
-                            project = project,
-                            depth = depth,
-                            hasChildren = hasChildren,
-                            isExpanded = isExpanded,
-                        )
+                        nodes +=
+                            ProjectTreeNode(
+                                project = project,
+                                depth = depth,
+                                hasChildren = hasChildren,
+                                isExpanded = isExpanded,
+                            )
                         if (isExpanded) {
                             TraversalDirective.Continue
                         } else {
@@ -109,9 +111,10 @@ object ProjectTreeBuilder {
             }
         }
 
-        val roots = ArrayDeque(
-            open.filter { it.parentId == null || it.parentId !in byId }.sortedWith(order),
-        )
+        val roots =
+            ArrayDeque(
+                open.filter { it.parentId == null || it.parentId !in byId }.sortedWith(order),
+            )
         while (roots.isNotEmpty()) {
             walk(roots.removeFirst())
         }

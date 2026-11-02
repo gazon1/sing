@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.map
  * Contract for appearance settings.
  */
 interface AppearanceSettingsRepository {
-
     /**
      * The theme mode tri-state (replaces [darkTheme]).
      *
@@ -41,7 +40,9 @@ interface AppearanceSettingsRepository {
     /** @deprecated Use [setThemeMode] instead. */
     @Deprecated("Migrate to setThemeMode", ReplaceWith("setThemeMode"))
     suspend fun setDarkTheme(value: Boolean)
+
     suspend fun setAccentColor(value: String)
+
     suspend fun setFontSizeScale(value: Float)
 }
 
@@ -61,24 +62,27 @@ interface AppearanceSettingsRepository {
 class DataStoreAppearanceSettingsRepository(dataStore: DataStore<Preferences>) :
     BaseSettingsRepository(dataStore),
     AppearanceSettingsRepository {
+    private val themeModePref =
+        stringPref(
+            nsKey(SettingsNamespace.APPEARANCE, ThemeMode.STORAGE_KEY),
+            "",
+        )
+    private val oldDarkThemePref =
+        boolPref(
+            nsKey(SettingsNamespace.APPEARANCE, "dark_theme"),
+            false,
+        )
 
-    private val themeModePref = stringPref(
-        nsKey(SettingsNamespace.APPEARANCE, ThemeMode.STORAGE_KEY),
-        "",
-    )
-    private val oldDarkThemePref = boolPref(
-        nsKey(SettingsNamespace.APPEARANCE, "dark_theme"),
-        false,
-    )
-
-    private val accentColorPref = stringPref(
-        nsKey(SettingsNamespace.APPEARANCE, "accent_color"),
-        SettingsDefaults.Appearance.ACCENT_COLOR,
-    )
-    private val fontSizeScalePref = floatPref(
-        nsKey(SettingsNamespace.APPEARANCE, "font_size_scale"),
-        SettingsDefaults.Appearance.FONT_SIZE_SCALE,
-    )
+    private val accentColorPref =
+        stringPref(
+            nsKey(SettingsNamespace.APPEARANCE, "accent_color"),
+            SettingsDefaults.Appearance.ACCENT_COLOR,
+        )
+    private val fontSizeScalePref =
+        floatPref(
+            nsKey(SettingsNamespace.APPEARANCE, "font_size_scale"),
+            SettingsDefaults.Appearance.FONT_SIZE_SCALE,
+        )
 
     /**
      * Resolves the tri-state with migration.
@@ -87,20 +91,21 @@ class DataStoreAppearanceSettingsRepository(dataStore: DataStore<Preferences>) :
      * If it is absent/empty, the old `dark_theme` boolean is consulted as a fallback.
      * When neither exists, [ThemeMode.System] is returned (new-install default).
      */
-    override val themeMode: Flow<ThemeMode> = combine(
-        themeModePref.flow,
-        oldDarkThemePref.flow,
-    ) { storedMode: String, oldDarkTheme: Boolean ->
-        if (storedMode.isNotEmpty()) {
-            ThemeMode.fromStorageString(storedMode)
-        } else {
-            // Migration: old boolean is authoritative only when the new key is absent.
-            // `oldDarkTheme` defaults to false (the old default), which maps to Light.
-            // A user who never touched the setting gets System (new default).
-            // A user who had dark=true gets Dark, dark=false gets Light.
-            ThemeMode.fromLegacyBoolean(oldDarkTheme)
+    override val themeMode: Flow<ThemeMode> =
+        combine(
+            themeModePref.flow,
+            oldDarkThemePref.flow,
+        ) { storedMode: String, oldDarkTheme: Boolean ->
+            if (storedMode.isNotEmpty()) {
+                ThemeMode.fromStorageString(storedMode)
+            } else {
+                // Migration: old boolean is authoritative only when the new key is absent.
+                // `oldDarkTheme` defaults to false (the old default), which maps to Light.
+                // A user who never touched the setting gets System (new default).
+                // A user who had dark=true gets Dark, dark=false gets Light.
+                ThemeMode.fromLegacyBoolean(oldDarkTheme)
+            }
         }
-    }
 
     /**
      * Derived from [themeMode]: [ThemeMode.Dark] → `true`, everything else → `false`.
@@ -125,5 +130,6 @@ class DataStoreAppearanceSettingsRepository(dataStore: DataStore<Preferences>) :
     }
 
     override suspend fun setAccentColor(value: String) = accentColorPref.set(value)
+
     override suspend fun setFontSizeScale(value: Float) = fontSizeScalePref.set(value)
 }

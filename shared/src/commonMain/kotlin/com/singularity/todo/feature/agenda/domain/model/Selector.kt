@@ -5,10 +5,10 @@ import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
 import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.days
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
 
 /**
  * Relative date buckets for [DateBucket] selector.
@@ -41,7 +41,6 @@ enum class RelativeBucket {
 @Serializable(with = SelectorSerializer::class)
 @SerialName("Selector")
 sealed interface Selector {
-
     /**
      * Tasks bucketed by a relative date period.
      * - [RelativeBucket.Overdue] — past the due date and still open
@@ -167,7 +166,6 @@ sealed interface Selector {
     @Serializable
     @SerialName("Regexp")
     data class Regexp(val query: String) : Selector {
-
         /**
          * [query] compiled once per selector instance, rather than once per task.
          *

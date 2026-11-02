@@ -37,40 +37,41 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class PomodoroFlowTest {
+    @Test
+    fun timer_starts_paused_on_the_first_work_cycle() =
+        runDesktopAppTest(checkA11y = true) {
+            tapTab("Pomodoro")
+
+            assertTagDisplayed(TestTags.Pomodoro.PHASE_LABEL)
+            assertTextDisplayed("Work")
+            assertTextDisplayed("Cycle 1")
+            assertTagDisplayed(TestTags.Pomodoro.TIMER_LABEL)
+            assertTagDisplayed(TestTags.Pomodoro.STOP_BUTTON)
+            assertTagDisplayed(TestTags.Pomodoro.SKIP_BUTTON)
+
+            // Paused, so the control offers to resume. Both assertions are atomic:
+            // the tags live in the same `when` branch of the same composable.
+            assertTagDisplayed(TestTags.Pomodoro.PLAY_BUTTON)
+            assertTagNotExists(TestTags.Pomodoro.PAUSE_BUTTON)
+        }
 
     @Test
-    fun timer_starts_paused_on_the_first_work_cycle() = runDesktopAppTest(checkA11y = true) {
-        tapTab("Pomodoro")
+    fun play_and_pause_swap_the_single_control() =
+        runDesktopAppTest(checkA11y = true) {
+            tapTab("Pomodoro")
+            clickTag(TestTags.Pomodoro.PLAY_BUTTON)
 
-        assertTagDisplayed(TestTags.Pomodoro.PHASE_LABEL)
-        assertTextDisplayed("Work")
-        assertTextDisplayed("Cycle 1")
-        assertTagDisplayed(TestTags.Pomodoro.TIMER_LABEL)
-        assertTagDisplayed(TestTags.Pomodoro.STOP_BUTTON)
-        assertTagDisplayed(TestTags.Pomodoro.SKIP_BUTTON)
+            // Running, so the same control now offers to pause. The swap lands
+            // asynchronously, so arrival waits (assertTagDisplayed) and departure
+            // waits too (awaitTagGone).
+            assertTagDisplayed(TestTags.Pomodoro.PAUSE_BUTTON)
+            awaitTagGone(TestTags.Pomodoro.PLAY_BUTTON)
+            assertTextDisplayed("Work")
 
-        // Paused, so the control offers to resume. Both assertions are atomic:
-        // the tags live in the same `when` branch of the same composable.
-        assertTagDisplayed(TestTags.Pomodoro.PLAY_BUTTON)
-        assertTagNotExists(TestTags.Pomodoro.PAUSE_BUTTON)
-    }
+            clickTag(TestTags.Pomodoro.PAUSE_BUTTON)
 
-    @Test
-    fun play_and_pause_swap_the_single_control() = runDesktopAppTest(checkA11y = true) {
-        tapTab("Pomodoro")
-        clickTag(TestTags.Pomodoro.PLAY_BUTTON)
-
-        // Running, so the same control now offers to pause. The swap lands
-        // asynchronously, so arrival waits (assertTagDisplayed) and departure
-        // waits too (awaitTagGone).
-        assertTagDisplayed(TestTags.Pomodoro.PAUSE_BUTTON)
-        awaitTagGone(TestTags.Pomodoro.PLAY_BUTTON)
-        assertTextDisplayed("Work")
-
-        clickTag(TestTags.Pomodoro.PAUSE_BUTTON)
-
-        assertTagDisplayed(TestTags.Pomodoro.PLAY_BUTTON)
-        awaitTagGone(TestTags.Pomodoro.PAUSE_BUTTON)
-        assertTextDisplayed("Work")
-    }
+            assertTagDisplayed(TestTags.Pomodoro.PLAY_BUTTON)
+            awaitTagGone(TestTags.Pomodoro.PAUSE_BUTTON)
+            assertTextDisplayed("Work")
+        }
 }

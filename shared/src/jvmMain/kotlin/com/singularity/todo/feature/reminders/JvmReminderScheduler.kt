@@ -6,8 +6,8 @@ import com.singularity.todo.core.notifications.Notifier
 import com.singularity.todo.core.process.Subprocess
 import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import kotlin.time.Clock
 import kotlinx.coroutines.flow.first
+import kotlin.time.Clock
 
 /**
  * Desktop [ReminderScheduler] backed by one `systemd --user` transient timer per reminder.
@@ -60,7 +60,6 @@ class JvmReminderScheduler(
     private val runCommand: suspend (List<String>) -> Int = { Subprocess.runQuietly(it) },
     private val userSystemdAvailable: () -> Boolean = ::probeUserSystemd,
 ) : ReminderScheduler {
-
     /**
      * Whether this host can actually arm a reminder that will be seen.
      *
@@ -92,20 +91,21 @@ class JvmReminderScheduler(
         // chose. A relative `--on-active` timer would count monotonic time and fire late.
         // Second precision is what systemd's calendar syntax offers, and a reminder that
         // is up to a second early is not a defect anyone can perceive.
-        val argv = buildList {
-            add("systemd-run")
-            add("--user")
-            add("--unit=$unit")
-            add("--on-calendar=@${reminder.fireAt / MILLIS_PER_SECOND}")
-            // systemd coalesces timers by default; a reminder is not a poll.
-            add("--timer-property=AccuracySec=1s")
-            sessionBusAddress?.let { add("--setenv=DBUS_SESSION_BUS_ADDRESS=$it") }
-            add("--")
-            add(launcherPath)
-            add(JvmReminderFireCommand.COMMAND)
-            add(reminder.id.value)
-            add(reminder.userId.value)
-        }
+        val argv =
+            buildList {
+                add("systemd-run")
+                add("--user")
+                add("--unit=$unit")
+                add("--on-calendar=@${reminder.fireAt / MILLIS_PER_SECOND}")
+                // systemd coalesces timers by default; a reminder is not a poll.
+                add("--timer-property=AccuracySec=1s")
+                sessionBusAddress?.let { add("--setenv=DBUS_SESSION_BUS_ADDRESS=$it") }
+                add("--")
+                add(launcherPath)
+                add(JvmReminderFireCommand.COMMAND)
+                add(reminder.id.value)
+                add(reminder.userId.value)
+            }
 
         val exit = runCommand(argv)
         if (exit != 0) {
@@ -129,7 +129,10 @@ class JvmReminderScheduler(
      * deletion, and would leave rows written by a build where the unit had already been
      * reaped by systemd impossible to tidy up.
      */
-    override suspend fun cancel(id: ReminderId, userId: UserId) {
+    override suspend fun cancel(
+        id: ReminderId,
+        userId: UserId,
+    ) {
         if (!armable) return
         val unit = unitName(userId, id)
         runCommand(listOf("systemctl", "--user", "stop", "$unit.timer"))
@@ -139,9 +142,14 @@ class JvmReminderScheduler(
     }
 
     /** Enumerates via the repository, then cancels each unit. Same shape as Android. */
-    override suspend fun cancelByTask(taskId: TaskId, userId: UserId) {
+    override suspend fun cancelByTask(
+        taskId: TaskId,
+        userId: UserId,
+    ) {
         if (!armable) return
-        reminderRepo.watchByTask(taskId).first()
+        reminderRepo
+            .watchByTask(taskId)
+            .first()
             .filter { it.userId == userId }
             .forEach { cancel(it.id, it.userId) }
     }
@@ -176,8 +184,7 @@ class JvmReminderScheduler(
          * was perfectly capable. See
          * `docs/decisions/2026-10-07-closing-child-streams-sends-sigpipe.md`.
          */
-        fun probeUserSystemd(): Boolean =
-            Subprocess.runQuietly(listOf(SYSTEMD_RUN, "--user", "--version")) == 0
+        fun probeUserSystemd(): Boolean = Subprocess.runQuietly(listOf(SYSTEMD_RUN, "--user", "--version")) == 0
     }
 }
 
@@ -232,14 +239,17 @@ internal const val REMINDER_LAUNCHER_PATH = "/opt/singularity-todo/bin/singulari
  * systemd, not passed as an opaque token. A `-` substitution is unambiguous here — the
  * separator is also `-`, and the two id components have fixed lengths in practice.
  */
-internal fun unitName(userId: UserId, id: ReminderId): String =
-    "singularity-reminder-${sanitize(userId.value)}-${sanitize(id.value)}"
+internal fun unitName(
+    userId: UserId,
+    id: ReminderId,
+): String = "singularity-reminder-${sanitize(userId.value)}-${sanitize(id.value)}"
 
-private fun sanitize(raw: String): String = buildString(raw.length) {
-    raw.take(MAX_ID_COMPONENT).forEach { c ->
-        append(if (c.isLetterOrDigit() || c == '-' || c == '_') c else '-')
+private fun sanitize(raw: String): String =
+    buildString(raw.length) {
+        raw.take(MAX_ID_COMPONENT).forEach { c ->
+            append(if (c.isLetterOrDigit() || c == '-' || c == '_') c else '-')
+        }
     }
-}
 
 /** systemd caps a unit name at 255 bytes; the prefix and two components stay well inside it. */
 private const val MAX_ID_COMPONENT = 64

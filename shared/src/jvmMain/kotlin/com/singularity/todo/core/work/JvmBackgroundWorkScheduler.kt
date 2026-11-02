@@ -2,7 +2,6 @@ package com.singularity.todo.core.work
 
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.observability.CrashReportingPort
-import kotlin.time.Clock
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
@@ -12,6 +11,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
 
 /**
  * The JVM implementation of [BackgroundWorkScheduler], and the first real background
@@ -43,7 +43,6 @@ class JvmBackgroundWorkScheduler(
     private val zone: TimeZone = TimeZone.currentSystemDefault(),
     private val crashReporter: CrashReportingPort,
 ) : BackgroundWorkScheduler {
-
     /**
      * Scheduled loops, by job id.
      *
@@ -57,7 +56,10 @@ class JvmBackgroundWorkScheduler(
 
     private val lock = Any()
 
-    override fun schedule(jobId: String, schedule: JobSchedule) {
+    override fun schedule(
+        jobId: String,
+        schedule: JobSchedule,
+    ) {
         val job = requireJob(jobId)
         synchronized(lock) {
             // KEEP: an existing loop is still this job's schedule. Re-scheduling an armed
@@ -66,9 +68,10 @@ class JvmBackgroundWorkScheduler(
                 logger.d { "$jobId already scheduled; keeping the existing loop" }
                 return
             }
-            scheduled[jobId] = scope.launch(CoroutineName("bg-$jobId")) {
-                loop(jobId, job, schedule)
-            }
+            scheduled[jobId] =
+                scope.launch(CoroutineName("bg-$jobId")) {
+                    loop(jobId, job, schedule)
+                }
         }
     }
 
@@ -103,9 +106,15 @@ class JvmBackgroundWorkScheduler(
                     "the job in the catalogue or use an id that exists.",
             )
 
-    private suspend fun loop(jobId: String, job: BackgroundJob, schedule: JobSchedule) {
+    private suspend fun loop(
+        jobId: String,
+        job: BackgroundJob,
+        schedule: JobSchedule,
+    ) {
         when (schedule) {
-            JobSchedule.OnDemand -> runGuarded(job)
+            JobSchedule.OnDemand -> {
+                runGuarded(job)
+            }
 
             is JobSchedule.Periodic -> {
                 val interval = schedule.interval
@@ -141,19 +150,24 @@ class JvmBackgroundWorkScheduler(
      */
     @Suppress("TooGenericExceptionCaught") // see KDoc: the loop must outlive any throw
     private suspend fun runGuarded(job: BackgroundJob) {
-        val outcome = try {
-            job.run()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.e(e) { "${job.id} failed" }
-            crashReporter.report(e, "background_job.failed")
-            JobOutcome.Failed(e)
-        }
+        val outcome =
+            try {
+                job.run()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.e(e) { "${job.id} failed" }
+                crashReporter.report(e, "background_job.failed")
+                JobOutcome.Failed(e)
+            }
         when (outcome) {
-            is JobOutcome.Success -> logger.d { "${job.id}: success" }
+            is JobOutcome.Success -> {
+                logger.d { "${job.id}: success" }
+            }
 
-            is JobOutcome.Skipped -> logger.d { "${job.id}: skipped (${outcome.reason})" }
+            is JobOutcome.Skipped -> {
+                logger.d { "${job.id}: skipped (${outcome.reason})" }
+            }
 
             is JobOutcome.Failed -> {
                 logger.e(outcome.error) { "${job.id}: failed (${outcome.error.message})" }

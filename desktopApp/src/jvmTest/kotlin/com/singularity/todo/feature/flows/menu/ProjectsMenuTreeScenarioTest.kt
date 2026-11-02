@@ -29,27 +29,27 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:compose")
 class ProjectsMenuTreeScenarioTest {
-
     @Test
     @DisplayName("MENU-01 the menu shows projects as a tree with children indented")
-    fun the_menu_shows_a_tree() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
-        seedProject(koin, "robot-root", "Product")
-        seedProject(koin, "robot-child", "Website", parent = "robot-root")
+    fun the_menu_shows_a_tree() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
+            seedProject(koin, "robot-root", "Product")
+            seedProject(koin, "robot-child", "Website", parent = "robot-root")
 
-        openDrawer()
+            openDrawer()
 
-        val parent = awaitTag(TestTags.menuProjectNode("robot-root"))
-        val child = awaitTag(TestTags.menuProjectNode("robot-child"))
-        parent.performScrollTo()
-        child.performScrollTo()
+            val parent = awaitTag(TestTags.menuProjectNode("robot-root"))
+            val child = awaitTag(TestTags.menuProjectNode("robot-child"))
+            parent.performScrollTo()
+            child.performScrollTo()
 
-        // The indentation is the assertion: a child sits under its parent, and
-        // a flat list of names would lose the one thing a tree shows.
-        val parentLeft = unclippedBoundsOfTag(TestTags.menuProjectNode("robot-root")).left
-        val childLeft = unclippedBoundsOfTag(TestTags.menuProjectNode("robot-child")).left
-        assertTrue(
-            childLeft > parentLeft,
-            "the child is not indented under its parent: $childLeft is not to the right of $parentLeft",
-        )
-    }
+            // The indentation is the assertion: a child sits under its parent, and
+            // a flat list of names would lose the one thing a tree shows.
+            val parentLeft = unclippedBoundsOfTag(TestTags.menuProjectNode("robot-root")).left
+            val childLeft = unclippedBoundsOfTag(TestTags.menuProjectNode("robot-child")).left
+            assertTrue(
+                childLeft > parentLeft,
+                "the child is not indented under its parent: $childLeft is not to the right of $parentLeft",
+            )
+        }
 }

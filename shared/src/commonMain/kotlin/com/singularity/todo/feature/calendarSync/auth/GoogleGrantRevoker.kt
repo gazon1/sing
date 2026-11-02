@@ -25,7 +25,6 @@ package com.singularity.todo.feature.calendarSync.auth
  * the promise true.
  */
 interface GoogleGrantRevoker {
-
     /**
      * Revokes the credential [userId] holds.
      *

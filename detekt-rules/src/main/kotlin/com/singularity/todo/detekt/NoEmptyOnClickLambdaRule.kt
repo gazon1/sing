@@ -53,7 +53,6 @@ import org.jetbrains.kotlin.psi.KtSafeQualifiedExpression
  * @see NoEmptyOnClickLambdaProvider for registration.
  */
 class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
-
     @Suppress("LoopWithTooManyJumpStatements") // two continues and one break are intentional gate logic
     override fun visitCallExpression(expression: KtCallExpression) {
         super.visitCallExpression(expression)
@@ -199,9 +198,10 @@ class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
         report(
             Finding(
                 entity = Entity.from(lambda),
-                message = "Passing an empty lambda to `$paramName` in `$fnName` defeats the " +
-                    "handler: the consumer cannot tell 'intentionally no-op' from 'not wired'. " +
-                    "Use `noopClick` (for preview) or wire a real handler.",
+                message =
+                    "Passing an empty lambda to `$paramName` in `$fnName` defeats the " +
+                        "handler: the consumer cannot tell 'intentionally no-op' from 'not wired'. " +
+                        "Use `noopClick` (for preview) or wire a real handler.",
                 references = emptyList(),
                 suppressReasons = emptyList(),
             ),
@@ -220,7 +220,6 @@ class NoEmptyOnClickLambdaRule(config: Config) : Rule(config, "", null) {
  * regardless of the rule and so proved nothing.
  */
 internal object NoEmptyOnClickLambdaPolicy {
-
     /**
      * True when a parameter name reads as an event handler.
      *
@@ -270,7 +269,10 @@ internal object NoEmptyOnClickLambdaPolicy {
      * under a `preview/` package. The repo's convention is the latter (there is
      * `core/ui/preview/` and no `Preview.kt`), so both are accepted.
      */
-    fun isPreviewPath(fileName: String, filePath: String): Boolean =
+    fun isPreviewPath(
+        fileName: String,
+        filePath: String,
+    ): Boolean =
         fileName.lowercase().contains("preview") ||
             filePath.replace('\\', '/').contains("/preview/", ignoreCase = true)
 
@@ -308,10 +310,12 @@ internal object NoEmptyOnClickLambdaPolicy {
  */
 class NoEmptyOnClickLambdaProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("no-empty-onclick-lambda")
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf<RuleName, (Config) -> Rule>(
-            RuleName("NoEmptyOnClickLambda") to { cfg: Config -> NoEmptyOnClickLambdaRule(cfg) },
-        ),
-    )
+
+    override fun instance(): RuleSet =
+        RuleSet(
+            ruleSetId,
+            mapOf<RuleName, (Config) -> Rule>(
+                RuleName("NoEmptyOnClickLambda") to { cfg: Config -> NoEmptyOnClickLambdaRule(cfg) },
+            ),
+        )
 }

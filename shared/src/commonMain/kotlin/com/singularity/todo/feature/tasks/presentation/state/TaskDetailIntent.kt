@@ -32,11 +32,9 @@ import kotlinx.datetime.LocalTime
  * исчерпывающим `when` по [Domain].
  */
 sealed interface TaskDetailIntent : MviIntent {
-
     // ── Domain: owned by ViewModel ─────────────────────────────────────────
 
     sealed interface Domain : TaskDetailIntent {
-
         // ── Hero ────────────────────────────────────────────────────────────
 
         data object ToggleComplete : Domain, TaskCompletionIntent
@@ -63,13 +61,17 @@ sealed interface TaskDetailIntent : MviIntent {
          * Nothing was written, so this only closes the confirmation.
          */
         data object DismissBlockedClose : Domain
+
         data class TitleChanged(val title: String) :
             Domain,
             TaskDraftIntent
+
         data class DescriptionChanged(val description: String) :
             Domain,
             TaskDraftIntent
+
         data object ToggleSomeday : Domain, TaskEntityIntent
+
         data class SetKind(val kind: TaskKind) :
             Domain,
             TaskEntityIntent
@@ -79,15 +81,19 @@ sealed interface TaskDetailIntent : MviIntent {
         data class SetDueDate(val date: LocalDate?) :
             Domain,
             TaskEntityIntent
+
         data class SetDueTime(val time: LocalTime?) :
             Domain,
             TaskEntityIntent
+
         data class SetStartDate(val date: LocalDate?) :
             Domain,
             TaskEntityIntent
+
         data class SetStartTime(val time: LocalTime?) :
             Domain,
             TaskEntityIntent
+
         data class SetPriority(val priority: TaskPriority) :
             Domain,
             TaskEntityIntent
@@ -103,6 +109,7 @@ sealed interface TaskDetailIntent : MviIntent {
         data class SetWorkflowState(val state: TaskWorkflowState) :
             Domain,
             TaskEntityIntent
+
         data class SetProject(val projectId: ProjectId?) :
             Domain,
             TaskEntityIntent
@@ -112,6 +119,7 @@ sealed interface TaskDetailIntent : MviIntent {
         data class SetTags(val tagIds: List<TagId>) :
             Domain,
             TaskEntityIntent
+
         data class RemoveTag(val tagId: TagId) :
             Domain,
             TaskEntityIntent
@@ -121,9 +129,11 @@ sealed interface TaskDetailIntent : MviIntent {
         data class ToggleChecklistItem(val item: ChecklistItem) :
             Domain,
             TaskChildrenIntent
+
         data class DeleteChecklistItem(val id: ChecklistItemId) :
             Domain,
             TaskChildrenIntent
+
         data class AddChecklistItem(val title: String) :
             Domain,
             TaskChildrenIntent
@@ -133,9 +143,11 @@ sealed interface TaskDetailIntent : MviIntent {
         data class ToggleSubtask(val task: Task) :
             Domain,
             TaskChildrenIntent
+
         data class DeleteSubtask(val task: Task) :
             Domain,
             TaskChildrenIntent
+
         data class AddSubtask(val title: String) :
             Domain,
             TaskChildrenIntent
@@ -145,6 +157,7 @@ sealed interface TaskDetailIntent : MviIntent {
         data class SetReminder(val offset: ReminderOffset) :
             Domain,
             TaskRemindersIntent
+
         data object DeleteReminder : Domain, TaskRemindersIntent
 
         // ── Lifecycle ─────────────────────────────────────────────────────

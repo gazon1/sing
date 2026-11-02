@@ -51,9 +51,7 @@ internal data class StatisticsWorkRow(val id: String, val seriesId: String?, val
  * @return The completed works (key to the day they were completed) and the
  *   overdue ones (key to the day they were missed).
  */
-internal fun groupIntoWorks(
-    rows: List<StatisticsWorkRow>,
-): Pair<List<Pair<String, Long>>, List<Pair<String, Long>>> {
+internal fun groupIntoWorks(rows: List<StatisticsWorkRow>): Pair<List<Pair<String, Long>>, List<Pair<String, Long>>> {
     val works = LinkedHashMap<String, MutableList<StatisticsWorkRow>>()
     for (row in rows) {
         works.getOrPut(row.seriesId ?: row.id) { mutableListOf() }.add(row)
@@ -90,33 +88,40 @@ internal fun computeStatistics(
     val overduePerDay = mutableMapOf<String, Int>()
     for (i in 0 until rangeDays) {
         val dayMs = nowEpochMs - (i * TimeConstants.MILLIS_PER_DAY)
-        val day = Instant.fromEpochMilliseconds(dayMs)
-            .toLocalDateTime(TimeZone.currentSystemDefault())
-            .date
-            .toString()
+        val day =
+            Instant
+                .fromEpochMilliseconds(dayMs)
+                .toLocalDateTime(TimeZone.currentSystemDefault())
+                .date
+                .toString()
         completedPerDay[day] = 0
         overduePerDay[day] = 0
     }
 
     recentCompleted.forEach { (_, completedAt) ->
-        val day = Instant.fromEpochMilliseconds(completedAt)
-            .toLocalDateTime(TimeZone.currentSystemDefault())
-            .date
-            .toString()
+        val day =
+            Instant
+                .fromEpochMilliseconds(completedAt)
+                .toLocalDateTime(TimeZone.currentSystemDefault())
+                .date
+                .toString()
         completedPerDay[day] = (completedPerDay[day] ?: 0) + 1
     }
 
     recentOverdue.forEach { (_, dueAt) ->
-        val day = Instant.fromEpochMilliseconds(dueAt)
-            .toLocalDateTime(TimeZone.currentSystemDefault())
-            .date
-            .toString()
+        val day =
+            Instant
+                .fromEpochMilliseconds(dueAt)
+                .toLocalDateTime(TimeZone.currentSystemDefault())
+                .date
+                .toString()
         overduePerDay[day] = (overduePerDay[day] ?: 0) + 1
     }
 
-    val buckets = completedPerDay.keys.sorted().map { date ->
-        DayBucket(date, completedPerDay[date] ?: 0, overduePerDay[date] ?: 0)
-    }
+    val buckets =
+        completedPerDay.keys.sorted().map { date ->
+            DayBucket(date, completedPerDay[date] ?: 0, overduePerDay[date] ?: 0)
+        }
 
     return StatisticsSnapshot(
         tasksPerDay = buckets.toImmutableList(),

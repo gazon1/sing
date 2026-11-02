@@ -10,7 +10,6 @@ import kotlin.test.assertEquals
 
 @Tag("slow")
 class JvmSecureStorageKeyringIntegrationTest {
-
     @TempDir
     lateinit var tempDir: Path
 
@@ -25,12 +24,14 @@ class JvmSecureStorageKeyringIntegrationTest {
     }
 
     @Test
-    fun `fallback round-trips a value through the real secret-tool`() = runTest {
-        storage = object : JvmSecureStorage() {
-            override val fallbackFile: Path = this@JvmSecureStorageKeyringIntegrationTest.secureBin
-            override val fallbackKeyName: String = this@JvmSecureStorageKeyringIntegrationTest.uniqueKey
+    fun `fallback round-trips a value through the real secret-tool`() =
+        runTest {
+            storage =
+                object : JvmSecureStorage() {
+                    override val fallbackFile: Path = this@JvmSecureStorageKeyringIntegrationTest.secureBin
+                    override val fallbackKeyName: String = this@JvmSecureStorageKeyringIntegrationTest.uniqueKey
+                }
+            storage.write("key", "secret value")
+            assertEquals("secret value", storage.read("key"))
         }
-        storage.write("key", "secret value")
-        assertEquals("secret value", storage.read("key"))
-    }
 }

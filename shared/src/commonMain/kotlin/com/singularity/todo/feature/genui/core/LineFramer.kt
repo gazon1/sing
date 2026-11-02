@@ -8,7 +8,6 @@ package com.singularity.todo.feature.genui.core
  * response — the sentence belongs to the user, and the lines after it belong to the surface.
  */
 sealed interface FramedLine {
-
     /** A line that looks like a message; it may still be rejected by the parser. */
     data class Message(val text: String) : FramedLine
 
@@ -36,7 +35,6 @@ sealed interface FramedLine {
  * Stateless between calls except for the buffer, so one instance serves one response.
  */
 class LineFramer(private val maxLineLength: Int = MAX_LINE_LENGTH) {
-
     private val buffer = StringBuilder()
     private var insideFence: Boolean = false
     private var skippingOversizedLine: Boolean = false
@@ -83,9 +81,10 @@ class LineFramer(private val maxLineLength: Int = MAX_LINE_LENGTH) {
         if (open != null) {
             // The message was cut off before it closed: the model stopped in the middle of it.
             message = null
-            produced += FramedLine.Dropped(
-                "Response ended mid-message; ${open.length} characters discarded",
-            )
+            produced +=
+                FramedLine.Dropped(
+                    "Response ended mid-message; ${open.length} characters discarded",
+                )
         }
         val remainder: String = buffer.toString().trim()
         buffer.clear()
@@ -104,7 +103,10 @@ class LineFramer(private val maxLineLength: Int = MAX_LINE_LENGTH) {
         return produced
     }
 
-    private fun appendToBuffer(character: Char, produced: MutableList<FramedLine>) {
+    private fun appendToBuffer(
+        character: Char,
+        produced: MutableList<FramedLine>,
+    ) {
         if (buffer.length >= maxLineLength) {
             buffer.clear()
             skippingOversizedLine = true

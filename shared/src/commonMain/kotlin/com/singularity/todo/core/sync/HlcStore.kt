@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.first
 
 interface HlcStore {
     suspend fun load(): Hlc?
+
     suspend fun save(hlc: Hlc)
 }
 

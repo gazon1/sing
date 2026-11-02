@@ -78,19 +78,21 @@ fun InheritedTagGroupsSheet(
                         FilterChip(
                             selected = opt.id in selected,
                             onClick = {
-                                selected = if (opt.id in selected) {
-                                    selected - opt.id
-                                } else {
-                                    selected + opt.id
-                                }
+                                selected =
+                                    if (opt.id in selected) {
+                                        selected - opt.id
+                                    } else {
+                                        selected + opt.id
+                                    }
                             },
                             label = { Text(opt.name) },
                             leadingIcon = {
                                 Box(
-                                    modifier = Modifier
-                                        .size(12.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(opt.color)),
+                                    modifier =
+                                        Modifier
+                                            .size(12.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(opt.color)),
                                 )
                             },
                             modifier = Modifier.fillMaxWidth(),

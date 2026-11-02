@@ -62,16 +62,20 @@ class TaskDetailDraftState(initial: TaskDetailDraft = TaskDetailDraft.empty()) {
      * @param title the task's title as the repository holds it.
      * @param description the task's description as the repository holds it.
      */
-    fun seed(title: String, description: String) {
+    fun seed(
+        title: String,
+        description: String,
+    ) {
         val current = _state.value
         if (!current.initialized) {
-            _state.value = TaskDetailDraft(
-                title = Revisioned.initial(title),
-                description = Revisioned.initial(description),
-                originalTitle = title,
-                originalDescription = description,
-                initialized = true,
-            )
+            _state.value =
+                TaskDetailDraft(
+                    title = Revisioned.initial(title),
+                    description = Revisioned.initial(description),
+                    originalTitle = title,
+                    originalDescription = description,
+                    initialized = true,
+                )
             return
         }
         if (current.title.value == title && current.description.value == description) {
@@ -84,17 +88,19 @@ class TaskDetailDraftState(initial: TaskDetailDraft = TaskDetailDraft.empty()) {
         // The user is typing: their text wins over the other writer's.
         if (current.isDirty) return
         // A rewrite from outside: take it, and say that it happened.
-        _state.value = current.copy(
-            title = current.title.replacedBy(title),
-            description = current.description.replacedBy(description),
-            originalTitle = title,
-            originalDescription = description,
-        )
+        _state.value =
+            current.copy(
+                title = current.title.replacedBy(title),
+                description = current.description.replacedBy(description),
+                originalTitle = title,
+                originalDescription = description,
+            )
     }
 
     fun setTitle(title: String) {
         _state.value = _state.value.copy(title = _state.value.title.typed(title))
     }
+
     fun setDescription(description: String) {
         _state.value = _state.value.copy(description = _state.value.description.typed(description))
     }
@@ -119,13 +125,15 @@ data class TaskDetailDraft(
     val initialized: Boolean = false,
 ) {
     companion object {
-        fun empty() = TaskDetailDraft(
-            title = Revisioned.initial(""),
-            description = Revisioned.initial(""),
-            originalTitle = "",
-            originalDescription = "",
-        )
+        fun empty() =
+            TaskDetailDraft(
+                title = Revisioned.initial(""),
+                description = Revisioned.initial(""),
+                originalTitle = "",
+                originalDescription = "",
+            )
     }
+
     val isDirty: Boolean get() =
         title.value != originalTitle || description.value != originalDescription
 

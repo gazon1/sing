@@ -43,22 +43,22 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:platform")
 class ChatTurnReplayTest {
-
     private val surface = SurfaceId("replay")
     private val controller = SurfaceController()
 
     /** One screen's recorded response, replayed and asserted to need no correction. */
     @Test
-    fun aRecordedAnswerStillNeedsOnlyOneCall() = runTest {
-        val agent = replaying(recording("task-list.jsonl"))
-        val screen = screen()
+    fun aRecordedAnswerStillNeedsOnlyOneCall() =
+        runTest {
+            val agent = replaying(recording("task-list.jsonl"))
+            val screen = screen()
 
-        ChatTurn(agent, screen, emptyList()).run("show my tasks").collect { }
+            ChatTurn(agent, screen, emptyList()).run("show my tasks").collect { }
 
-        assertEquals(1, agent.calls, "A recorded good answer needs no correction: ${screen.readerFeedback()}")
-        assertTrue(screen.rejections.isEmpty(), screen.readerFeedback())
-        assertNotNull(controller.snapshot(surface), "And it draws a surface")
-    }
+            assertEquals(1, agent.calls, "A recorded good answer needs no correction: ${screen.readerFeedback()}")
+            assertTrue(screen.rejections.isEmpty(), screen.readerFeedback())
+            assertNotNull(controller.snapshot(surface), "And it draws a surface")
+        }
 
     /**
      * The recording still exercises the catalog as it is today.
@@ -68,26 +68,28 @@ class ChatTurnReplayTest {
      * Here, staleness *is* the finding.
      */
     @Test
-    fun aRecordedAnswerStillUsesComponentsTheCatalogDeclares() = runTest {
-        val usage = GenuiUsageCounter()
-        val parser = A2uiParser(SingularityCatalog, usage = usage)
-        val processor = A2uiMessageProcessor(A2uiValidator(SingularityCatalog), SurfaceController())
+    fun aRecordedAnswerStillUsesComponentsTheCatalogDeclares() =
+        runTest {
+            val usage = GenuiUsageCounter()
+            val parser = A2uiParser(SingularityCatalog, usage = usage)
+            val processor = A2uiMessageProcessor(A2uiValidator(SingularityCatalog), SurfaceController())
 
-        recording("task-list.jsonl").forEach { line: String ->
-            val outcome: A2uiParseOutcome = parser.parseLine(line)
-            if (outcome is A2uiParseOutcome.Parsed) {
-                processor.apply(outcome.event.retargeted(surface), outcome.errors)
+            recording("task-list.jsonl").forEach { line: String ->
+                val outcome: A2uiParseOutcome = parser.parseLine(line)
+                if (outcome is A2uiParseOutcome.Parsed) {
+                    processor.apply(outcome.event.retargeted(surface), outcome.errors)
+                }
             }
-        }
 
-        assertTrue(usage.counts.value.isNotEmpty(), "The recording exercises something")
-        val undeclared: List<String> =
-            usage.counts.value.keys.filterNot { SingularityCatalog.components.containsKey(it) }
-        assertTrue(
-            undeclared.isEmpty(),
-            "The recording uses components the catalog no longer declares: $undeclared",
-        )
-    }
+            assertTrue(usage.counts.value.isNotEmpty(), "The recording exercises something")
+            val undeclared: List<String> =
+                usage.counts.value.keys
+                    .filterNot { SingularityCatalog.components.containsKey(it) }
+            assertTrue(
+                undeclared.isEmpty(),
+                "The recording uses components the catalog no longer declares: $undeclared",
+            )
+        }
 
     /**
      * A response that has become invalid is corrected, not quietly accepted.
@@ -98,23 +100,25 @@ class ChatTurnReplayTest {
      * on the surface.
      */
     @Test
-    fun anUnusableAnswerIsReportedRatherThanAcceptedQuietly() = runTest {
-        val unknownKind = """{"createSurface":{"surfaceId":"s1","rootId":"r","components":[""" +
-            """{"id":"r","kind":"sunburst_chart"}]}}"""
-        val agent = replaying(listOf(unknownKind))
-        val screen = screen()
+    fun anUnusableAnswerIsReportedRatherThanAcceptedQuietly() =
+        runTest {
+            val unknownKind =
+                """{"createSurface":{"surfaceId":"s1","rootId":"r","components":[""" +
+                    """{"id":"r","kind":"sunburst_chart"}]}}"""
+            val agent = replaying(listOf(unknownKind))
+            val screen = screen()
 
-        ChatTurn(agent, screen, emptyList()).run("show my chart").collect { }
+            ChatTurn(agent, screen, emptyList()).run("show my chart").collect { }
 
-        assertTrue(agent.calls >= 2, "An unusable answer is corrected, not taken")
-        // What the model was told — not what the screen holds afterwards. The screen
-        // clears its errors when the correction attempt begins, so the reason the
-        // first attempt was refused is only in the request the model received.
-        assertTrue(
-            agent.requests.any { it.contains("UNKNOWN_COMPONENT") },
-            "and the model is told why: ${agent.requests.lastOrNull()}",
-        )
-    }
+            assertTrue(agent.calls >= 2, "An unusable answer is corrected, not taken")
+            // What the model was told — not what the screen holds afterwards. The screen
+            // clears its errors when the correction attempt begins, so the reason the
+            // first attempt was refused is only in the request the model received.
+            assertTrue(
+                agent.requests.any { it.contains("UNKNOWN_COMPONENT") },
+                "and the model is told why: ${agent.requests.lastOrNull()}",
+            )
+        }
 
     // ─── harness ───────────────────────────────────────────────────────────
 
@@ -125,14 +129,15 @@ class ChatTurnReplayTest {
     private fun replaying(responses: List<String>): ReplayingTextGen = object : ReplayingTextGen(responses) {}
 
     /** A real turn over the real pipeline, with one shared controller. */
-    private fun screen(): SurfaceTurn = SurfaceTurn(
-        id = surface,
-        parser = A2uiParser(SingularityCatalog),
-        processor = A2uiMessageProcessor(A2uiValidator(SingularityCatalog), controller),
-        controller = controller,
-        catalog = SingularityCatalog,
-        rejectionCounter = GenuiRejectionCounter(),
-    )
+    private fun screen(): SurfaceTurn =
+        SurfaceTurn(
+            id = surface,
+            parser = A2uiParser(SingularityCatalog),
+            processor = A2uiMessageProcessor(A2uiValidator(SingularityCatalog), controller),
+            controller = controller,
+            catalog = SingularityCatalog,
+            rejectionCounter = GenuiRejectionCounter(),
+        )
 
     /**
      * The recorded model output, read from the corpus the offline test also uses.
@@ -143,7 +148,8 @@ class ChatTurnReplayTest {
      * `FileNotFoundException` (run 39005284790).
      */
     private fun recording(name: String): List<String> =
-        SourceScan.jvmTestResourcesRoot()
+        SourceScan
+            .jvmTestResourcesRoot()
             .resolve("genui-corpus/$name")
             .readLines()
             .filter { it.isNotBlank() }
@@ -175,16 +181,25 @@ private open class ReplayingTextGen(responses: List<String>) : TextGenPort {
 
     private val responses: List<String> = responses
 
-    override suspend fun generate(prompt: String, systemPrompt: String?, model: String?): Result<String> =
-        Result.success("unused")
+    override suspend fun generate(
+        prompt: String,
+        systemPrompt: String?,
+        model: String?,
+    ): Result<String> = Result.success("unused")
 
-    override fun streamChat(message: String, instructions: String): Flow<AgentEvent> = flow {
-        recorded += message
-        val answer: List<String> = if (calls++ == 0) responses else emptyList()
-        answer.forEach { emit(AgentEvent.TextDelta("$it\n")) }
-        emit(AgentEvent.TurnCompleted)
-    }
+    override fun streamChat(
+        message: String,
+        instructions: String,
+    ): Flow<AgentEvent> =
+        flow {
+            recorded += message
+            val answer: List<String> = if (calls++ == 0) responses else emptyList()
+            answer.forEach { emit(AgentEvent.TextDelta("$it\n")) }
+            emit(AgentEvent.TurnCompleted)
+        }
 
-    override suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>> =
-        Result.success(emptyList())
+    override suspend fun listModels(
+        baseUrl: String,
+        apiKey: String,
+    ): Result<List<String>> = Result.success(emptyList())
 }

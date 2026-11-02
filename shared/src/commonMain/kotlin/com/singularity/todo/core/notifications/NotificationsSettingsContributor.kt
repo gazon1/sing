@@ -20,7 +20,6 @@ interface NotificationsContributor : SettingsContributor<SettingsSection.Notific
  * Registration: `single<SettingsContributor> { NotificationsSettingsContributor(get()) }`.
  */
 class NotificationsSettingsContributor(private val store: NotificationsSettingsStore) : NotificationsContributor {
-
     override val section: SettingsSection.Notifications = SettingsSection.Notifications()
 
     override fun observe(): Flow<SettingsSection.Notifications> = store.observe()

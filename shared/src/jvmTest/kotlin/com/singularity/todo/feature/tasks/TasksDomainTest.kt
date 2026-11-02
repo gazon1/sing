@@ -3,10 +3,10 @@ package com.singularity.todo.feature.tasks
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.feature.nav.Search
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
-import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.feature.tasks.domain.TaskDomain
 import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -29,7 +29,6 @@ import kotlin.time.Instant
  */
 @Tag("fast")
 class TasksDomainTest {
-
     // ===== validateTitle =====
 
     @Test
@@ -62,9 +61,10 @@ class TasksDomainTest {
 
     @Test
     fun `createInput - valid input returns Right with trimmed title`() {
-        val result = TaskDomain.createInput(
-            title = "  Buy groceries  ",
-        )
+        val result =
+            TaskDomain.createInput(
+                title = "  Buy groceries  ",
+            )
         assertIs<Either.Right<CreateTaskInput>>(result)
         assertEquals("Buy groceries", result.value.title)
     }
@@ -75,17 +75,20 @@ class TasksDomainTest {
         val tagIds = listOf(TagId.fromString("tag-1"), TagId.fromString("tag-2"))
         val dueDate = LocalDate(2024, 1, 15)
 
-        val result = TaskDomain.createInput(
-            title = "Task",
-            description = "Description",
-            priority = TaskPriority.High,
-            kind = TaskKind.Task,
-            projectId = projectId,
-            tagIds = tagIds,
-            dueDate = dueDate,
-            dueTime = com.singularity.todo.core.database.LocalTimeFormats.parse("14:00:00"),
-            someday = false,
-        )
+        val result =
+            TaskDomain.createInput(
+                title = "Task",
+                description = "Description",
+                priority = TaskPriority.High,
+                kind = TaskKind.Task,
+                projectId = projectId,
+                tagIds = tagIds,
+                dueDate = dueDate,
+                dueTime =
+                    com.singularity.todo.core.database.LocalTimeFormats
+                        .parse("14:00:00"),
+                someday = false,
+            )
 
         assertIs<Either.Right<CreateTaskInput>>(result)
         val input = result.value
@@ -95,25 +98,31 @@ class TasksDomainTest {
         assertEquals(projectId, input.projectId)
         assertEquals(tagIds, input.tagIds)
         assertEquals(dueDate, input.dueDate)
-        assertEquals(com.singularity.todo.core.database.LocalTimeFormats.parse("14:00:00"), input.dueTime)
+        assertEquals(
+            com.singularity.todo.core.database.LocalTimeFormats
+                .parse("14:00:00"),
+            input.dueTime,
+        )
     }
 
     // ===== buildTask =====
 
     @Test
     fun `buildTask - creates task with correct fields`() {
-        val input = CreateTaskInput(
-            title = "Test task",
-        )
+        val input =
+            CreateTaskInput(
+                title = "Test task",
+            )
         val createdAt = Instant.fromEpochMilliseconds(1000)
         val updatedAt = Instant.fromEpochMilliseconds(2000)
 
-        val task = TaskDomain.buildTask(
-            input = input,
-            createdAt = createdAt,
-            updatedAt = updatedAt,
-            userId = UserId.fromString("user-1"),
-        )
+        val task =
+            TaskDomain.buildTask(
+                input = input,
+                createdAt = createdAt,
+                updatedAt = updatedAt,
+                userId = UserId.fromString("user-1"),
+            )
 
         assertEquals("Test task", task.title)
         assertEquals(createdAt, task.createdAt)
@@ -167,10 +176,11 @@ class TasksDomainTest {
     @Test
     fun `matchesFilter - Today ignores trashed`() {
         val today = LocalDate(2024, 1, 15)
-        val task = taskWith(
-            dueDate = today,
-            archivedAt = Instant.fromEpochMilliseconds(1),
-        )
+        val task =
+            taskWith(
+                dueDate = today,
+                archivedAt = Instant.fromEpochMilliseconds(1),
+            )
         assertFalse(TaskDomain.matchesFilter(task, TaskFilter.Today, today))
     }
 

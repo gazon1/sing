@@ -5,7 +5,6 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import com.singularity.todo.test.fakes.TestUsers
-import kotlin.time.Instant
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -16,6 +15,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 /**
  * The document wins wherever it speaks; where it says nothing, the row that is
@@ -53,27 +53,27 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class DocumentMergeTest {
-
-    private val local = Task(
-        id = TaskId.fromString("t1"),
-        title = "Pay the rent",
-        userId = TestUsers.DEFAULT,
-        seriesId = TaskSeriesId.fromString("s1"),
-        estimateMinutes = 30,
-        recurrence = RecurrenceSpec.Interval(
-            base = RecurrenceSpec.RecurrenceBase.FROM_DUE,
-            amount = 2,
-            unit = DateTimeUnit.DAY,
-        ),
-        createdAt = Instant.fromEpochMilliseconds(0),
-        updatedAt = Instant.fromEpochMilliseconds(0),
-    )
+    private val local =
+        Task(
+            id = TaskId.fromString("t1"),
+            title = "Pay the rent",
+            userId = TestUsers.DEFAULT,
+            seriesId = TaskSeriesId.fromString("s1"),
+            estimateMinutes = 30,
+            recurrence =
+                RecurrenceSpec.Interval(
+                    base = RecurrenceSpec.RecurrenceBase.FROM_DUE,
+                    amount = 2,
+                    unit = DateTimeUnit.DAY,
+                ),
+            createdAt = Instant.fromEpochMilliseconds(0),
+            updatedAt = Instant.fromEpochMilliseconds(0),
+        )
 
     /** The row, as the model writes it — the same names the document uses. */
     private val localRow: JsonObject = local.toJson()
 
-    private fun document(vararg entries: Pair<String, JsonElement>): JsonObject =
-        JsonObject(entries.toMap())
+    private fun document(vararg entries: Pair<String, JsonElement>): JsonObject = JsonObject(entries.toMap())
 
     // ── the absences ───────────────────────────────────────────────────────
 
@@ -103,10 +103,11 @@ class DocumentMergeTest {
     @Test
     fun `a document that says the task stands alone takes it out of the series`() {
         // The key is there and it says null: that is a claim, and it wins.
-        val merged = mergeWithLocalRow(
-            document("id" to JsonPrimitive("t1"), "seriesId" to JsonPrimitive(null as String?)),
-            localRow,
-        )
+        val merged =
+            mergeWithLocalRow(
+                document("id" to JsonPrimitive("t1"), "seriesId" to JsonPrimitive(null as String?)),
+                localRow,
+            )
 
         assertTrue(merged.containsKey("seriesId"), "the document speaks about the series: null is a claim")
         assertEquals(JsonNull, merged["seriesId"], "the document says the task stands alone")
@@ -114,10 +115,11 @@ class DocumentMergeTest {
 
     @Test
     fun `the document wins where it speaks`() {
-        val merged = mergeWithLocalRow(
-            document("id" to JsonPrimitive("t1"), "title" to JsonPrimitive("Pay the rent in full")),
-            localRow,
-        )
+        val merged =
+            mergeWithLocalRow(
+                document("id" to JsonPrimitive("t1"), "title" to JsonPrimitive("Pay the rent in full")),
+                localRow,
+            )
 
         assertEquals(JsonPrimitive("Pay the rent in full"), merged["title"])
     }

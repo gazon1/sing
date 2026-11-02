@@ -27,7 +27,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class TimelineGrouperTest {
-
     // Wednesday 2026-09-16 — mid-week, so a week boundary is in reach.
     private val today = LocalDate(2026, Month.SEPTEMBER, 16)
 
@@ -37,15 +36,17 @@ class TimelineGrouperTest {
 
     @Test
     fun `days appear in chronological order, each holding that day's tasks`() {
-        val sections = TimelineGrouper.group(
-            tasks = listOf(
-                task("later", "Later", due = inSixDays),
-                task("soon", "Soon", due = tomorrow),
-                task("now", "Now", due = today),
-            ),
-            granularity = PlansGranularity.Day,
-            today = today,
-        )
+        val sections =
+            TimelineGrouper.group(
+                tasks =
+                    listOf(
+                        task("later", "Later", due = inSixDays),
+                        task("soon", "Soon", due = tomorrow),
+                        task("now", "Now", due = today),
+                    ),
+                granularity = PlansGranularity.Day,
+                today = today,
+            )
 
         assertEquals(listOf("Today", "Tomorrow", "Tue, 22 Sep"), sections.map { it.label })
         assertEquals(listOf("now"), sections[0].tasks.map { it.task.id.value })
@@ -55,14 +56,16 @@ class TimelineGrouperTest {
 
     @Test
     fun `a section prefills today when it holds today, and its first date otherwise`() {
-        val sections = TimelineGrouper.group(
-            tasks = listOf(
-                task("now", "Now", due = today),
-                task("later", "Later", due = inSixDays),
-            ),
-            granularity = PlansGranularity.Week,
-            today = today,
-        )
+        val sections =
+            TimelineGrouper.group(
+                tasks =
+                    listOf(
+                        task("now", "Now", due = today),
+                        task("later", "Later", due = inSixDays),
+                    ),
+                granularity = PlansGranularity.Week,
+                today = today,
+            )
 
         // The week that holds today prefills today: the task added from it has
         // to land in it, and a date already past would make it overdue.
@@ -75,11 +78,12 @@ class TimelineGrouperTest {
 
     @Test
     fun `a task lands in exactly one section`() {
-        val sections = TimelineGrouper.group(
-            tasks = listOf(task("one", "One", due = tomorrow)),
-            granularity = PlansGranularity.Day,
-            today = today,
-        )
+        val sections =
+            TimelineGrouper.group(
+                tasks = listOf(task("one", "One", due = tomorrow)),
+                granularity = PlansGranularity.Day,
+                today = today,
+            )
 
         assertEquals(1, sections.sumOf { it.tasks.size })
     }
@@ -100,11 +104,12 @@ class TimelineGrouperTest {
 
     @Test
     fun `a period with no tasks is not a section`() {
-        val sections = TimelineGrouper.group(
-            tasks = listOf(task("now", "Now", due = today)),
-            granularity = PlansGranularity.Day,
-            today = today,
-        )
+        val sections =
+            TimelineGrouper.group(
+                tasks = listOf(task("now", "Now", due = today)),
+                granularity = PlansGranularity.Day,
+                today = today,
+            )
 
         assertEquals(1, sections.size)
         assertEquals("Today", sections[0].label)
@@ -112,14 +117,16 @@ class TimelineGrouperTest {
 
     @Test
     fun `overdue work leads the timeline and is in no dated section`() {
-        val sections = TimelineGrouper.group(
-            tasks = listOf(
-                task("late", "Late", due = yesterday),
-                task("now", "Now", due = today),
-            ),
-            granularity = PlansGranularity.Day,
-            today = today,
-        )
+        val sections =
+            TimelineGrouper.group(
+                tasks =
+                    listOf(
+                        task("late", "Late", due = yesterday),
+                        task("now", "Now", due = today),
+                    ),
+                granularity = PlansGranularity.Day,
+                today = today,
+            )
 
         assertEquals(TimelineLabels.OVERDUE, sections.first().label)
         assertEquals(listOf("late"), sections.first().tasks.map { it.task.id.value })
@@ -128,33 +135,36 @@ class TimelineGrouperTest {
 
     @Test
     fun `a completed task is not on the timeline`() {
-        val sections = TimelineGrouper.group(
-            tasks = listOf(task("done", "Done", due = today, completed = true)),
-            granularity = PlansGranularity.Day,
-            today = today,
-        )
+        val sections =
+            TimelineGrouper.group(
+                tasks = listOf(task("done", "Done", due = today, completed = true)),
+                granularity = PlansGranularity.Day,
+                today = today,
+            )
 
         assertTrue(sections.isEmpty())
     }
 
     @Test
     fun `a task without a due date is not on the timeline`() {
-        val sections = TimelineGrouper.group(
-            tasks = listOf(task("undated", "Undated")),
-            granularity = PlansGranularity.Day,
-            today = today,
-        )
+        val sections =
+            TimelineGrouper.group(
+                tasks = listOf(task("undated", "Undated")),
+                granularity = PlansGranularity.Day,
+                today = today,
+            )
 
         assertTrue(sections.isEmpty())
     }
 
     @Test
     fun `a task beyond the horizon is not on the timeline`() {
-        val sections = TimelineGrouper.group(
-            tasks = listOf(task("far", "Far", due = today.plus(45, DateTimeUnit.DAY))),
-            granularity = PlansGranularity.Day,
-            today = today,
-        )
+        val sections =
+            TimelineGrouper.group(
+                tasks = listOf(task("far", "Far", due = today.plus(45, DateTimeUnit.DAY))),
+                granularity = PlansGranularity.Day,
+                today = today,
+            )
 
         assertTrue(sections.isEmpty())
     }
@@ -181,14 +191,16 @@ class TimelineGrouperTest {
         // The next week runs Mon 2026-09-21 .. Sun 2026-09-27. The current week
         // is not used: it starts before today, and a task due in it is overdue
         // rather than scheduled.
-        val sections = TimelineGrouper.group(
-            tasks = listOf(
-                task("mon", "Monday", due = LocalDate(2026, Month.SEPTEMBER, 21)),
-                task("sun", "Sunday", due = LocalDate(2026, Month.SEPTEMBER, 27)),
-            ),
-            granularity = PlansGranularity.Week,
-            today = today,
-        )
+        val sections =
+            TimelineGrouper.group(
+                tasks =
+                    listOf(
+                        task("mon", "Monday", due = LocalDate(2026, Month.SEPTEMBER, 21)),
+                        task("sun", "Sunday", due = LocalDate(2026, Month.SEPTEMBER, 27)),
+                    ),
+                granularity = PlansGranularity.Week,
+                today = today,
+            )
 
         assertEquals(1, sections.size)
         assertEquals("21–27 Sep", sections[0].label)
@@ -200,11 +212,12 @@ class TimelineGrouperTest {
         // The current week runs Mon 2026-09-14 .. Sun 2026-09-20, and today is
         // the Wednesday inside it. A task due on the Monday has a date that has
         // passed, so it leads the timeline instead of sitting in the week.
-        val sections = TimelineGrouper.group(
-            tasks = listOf(task("mon", "Monday", due = LocalDate(2026, Month.SEPTEMBER, 14))),
-            granularity = PlansGranularity.Week,
-            today = today,
-        )
+        val sections =
+            TimelineGrouper.group(
+                tasks = listOf(task("mon", "Monday", due = LocalDate(2026, Month.SEPTEMBER, 14))),
+                granularity = PlansGranularity.Week,
+                today = today,
+            )
 
         assertEquals(listOf(TimelineLabels.OVERDUE), sections.map { it.label })
         assertEquals(listOf("mon"), sections[0].tasks.map { it.task.id.value })
@@ -212,15 +225,17 @@ class TimelineGrouperTest {
 
     @Test
     fun `months group by calendar month`() {
-        val sections = TimelineGrouper.group(
-            tasks = listOf(
-                task("early", "Early", due = LocalDate(2026, Month.SEPTEMBER, 20)),
-                task("late", "Late", due = LocalDate(2026, Month.SEPTEMBER, 30)),
-                task("next", "Next", due = LocalDate(2026, Month.OCTOBER, 1)),
-            ),
-            granularity = PlansGranularity.Month,
-            today = today,
-        )
+        val sections =
+            TimelineGrouper.group(
+                tasks =
+                    listOf(
+                        task("early", "Early", due = LocalDate(2026, Month.SEPTEMBER, 20)),
+                        task("late", "Late", due = LocalDate(2026, Month.SEPTEMBER, 30)),
+                        task("next", "Next", due = LocalDate(2026, Month.OCTOBER, 1)),
+                    ),
+                granularity = PlansGranularity.Month,
+                today = today,
+            )
 
         assertEquals(listOf("September 2026", "October 2026"), sections.map { it.label })
         assertEquals(listOf("early", "late"), sections[0].tasks.map { it.task.id.value })
@@ -229,11 +244,12 @@ class TimelineGrouperTest {
 
     @Test
     fun `an overdue task carries the overdue marking`() {
-        val sections = TimelineGrouper.group(
-            tasks = listOf(task("late", "Late", due = yesterday)),
-            granularity = PlansGranularity.Day,
-            today = today,
-        )
+        val sections =
+            TimelineGrouper.group(
+                tasks = listOf(task("late", "Late", due = yesterday)),
+                granularity = PlansGranularity.Day,
+                today = today,
+            )
 
         assertEquals(
             setOf(com.singularity.todo.feature.tasks.domain.model.TaskMarking.Overdue),
@@ -246,14 +262,15 @@ class TimelineGrouperTest {
         title: String,
         due: LocalDate? = null,
         completed: Boolean = false,
-    ): Task = Task(
-        id = TaskId(id),
-        title = title,
-        dueDate = due,
-        kind = TaskKind.Task,
-        completedAt = if (completed) kotlin.time.Instant.fromEpochMilliseconds(0) else null,
-        createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
-        updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0),
-        userId = UserId("test-user"),
-    )
+    ): Task =
+        Task(
+            id = TaskId(id),
+            title = title,
+            dueDate = due,
+            kind = TaskKind.Task,
+            completedAt = if (completed) kotlin.time.Instant.fromEpochMilliseconds(0) else null,
+            createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+            updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+            userId = UserId("test-user"),
+        )
 }

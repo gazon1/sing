@@ -48,7 +48,6 @@ import kotlinx.serialization.json.put
  * `ToolboxResourcesTest`.
  */
 class ToolboxTool(private val snapshot: ToolsetSnapshot) {
-
     private val json = Json { prettyPrint = false }
 
     fun register(server: Server) {
@@ -64,34 +63,45 @@ class ToolboxTool(private val snapshot: ToolsetSnapshot) {
         ) { request: CallToolRequest -> describe(request) }
     }
 
-    private fun inputSchema(): ToolSchema = ToolSchema(
-        schema = null as String?,
-        properties = JsonObject(
-            mapOf(
-                "domain" to buildJsonObject {
-                    put("type", "string")
-                    put(
-                        "description",
-                        "Only list the tools of this domain (tasks, projects, notes, tags, adr, " +
-                            "docs, ai). Omit for every domain.",
-                    )
-                },
-                "includeDisabled" to buildJsonObject {
-                    put("type", "boolean")
-                    put("description", "Also list the tools the remote config has switched off.")
-                },
-            ),
-        ),
-        required = emptyList(),
-        defs = null as JsonObject?,
-    )
+    private fun inputSchema(): ToolSchema =
+        ToolSchema(
+            schema = null as String?,
+            properties =
+                JsonObject(
+                    mapOf(
+                        "domain" to
+                            buildJsonObject {
+                                put("type", "string")
+                                put(
+                                    "description",
+                                    "Only list the tools of this domain (tasks, projects, notes, tags, adr, " +
+                                        "docs, ai). Omit for every domain.",
+                                )
+                            },
+                        "includeDisabled" to
+                            buildJsonObject {
+                                put("type", "boolean")
+                                put("description", "Also list the tools the remote config has switched off.")
+                            },
+                    ),
+                ),
+            required = emptyList(),
+            defs = null as JsonObject?,
+        )
 
     private fun describe(request: CallToolRequest): CallToolResult {
         // Arguments arrive as JsonElement: `as? String` / `as? Boolean` never matched, and
         // `jsonPrimitive` throws on an object and reads JsonNull as the string "null".
-        val domain = request.arguments?.get("domain").argumentString()?.takeIf { it.isNotBlank() }
+        val domain =
+            request.arguments
+                ?.get("domain")
+                .argumentString()
+                ?.takeIf { it.isNotBlank() }
         val includeDisabled =
-            request.arguments?.get("includeDisabled").argumentString()?.toBooleanStrictOrNull() ?: false
+            request.arguments
+                ?.get("includeDisabled")
+                .argumentString()
+                ?.toBooleanStrictOrNull() ?: false
 
         val registered = snapshot.registered.filter { domain == null || it.domain == domain }
         val disabled = snapshot.disabled.filter { domain == null || it.domain == domain }
@@ -116,87 +126,90 @@ class ToolboxTool(private val snapshot: ToolsetSnapshot) {
         registered: List<ToolboxToolEntry>,
         disabled: List<ToolboxToolEntry>,
         includeDisabled: Boolean,
-    ): JsonObject = buildJsonObject {
-        put(
-            "toolset",
-            buildJsonObject {
-                put("surfaceContractVersion", McpToolCatalog.SURFACE_CONTRACT_VERSION)
-                put("buildVersion", snapshot.identity.buildVersion)
-                put("catalogFingerprint", snapshot.identity.catalogFingerprint)
-                put("activeToolsetFingerprint", snapshot.identity.activeToolsetFingerprint)
-                put("configurationStatus", snapshot.configurationStatus.name.lowercase())
-                put("registeredCount", registered.size)
-                put("domains", domains(registered))
-            },
-        )
-        snapshot.identity.checkout?.let { checkout ->
+    ): JsonObject =
+        buildJsonObject {
             put(
-                "checkout",
+                "toolset",
                 buildJsonObject {
-                    put("sha", checkout.sha)
-                    put("dirty", checkout.dirty)
+                    put("surfaceContractVersion", McpToolCatalog.SURFACE_CONTRACT_VERSION)
+                    put("buildVersion", snapshot.identity.buildVersion)
+                    put("catalogFingerprint", snapshot.identity.catalogFingerprint)
+                    put("activeToolsetFingerprint", snapshot.identity.activeToolsetFingerprint)
+                    put("configurationStatus", snapshot.configurationStatus.name.lowercase())
+                    put("registeredCount", registered.size)
+                    put("domains", domains(registered))
                 },
             )
-        }
-        if (includeDisabled && disabled.isNotEmpty()) {
-            put(
-                "disabled",
-                buildJsonArray {
-                    disabled.take(MAX_DISABLED_LISTED).sortedBy { it.name }.forEach { tool ->
-                        add(buildJsonObject { put("name", tool.name) })
-                    }
-                },
-            )
-            if (disabled.size > MAX_DISABLED_LISTED) {
-                put("disabledTruncated", true)
-                put("disabledCount", disabled.size)
-            }
-        }
-        if (snapshot.unmatchedFlags.isNotEmpty()) {
-            // A flag that named no tool switched nothing off. Reporting it is the
-            // difference between "the operator's flag did nothing" and "the operator's
-            // flag is still in force, and the tool it names is missing".
-            put(
-                "unmatchedFlags",
-                buildJsonArray {
-                    snapshot.unmatchedFlags.take(MAX_UNMATCHED_LISTED).forEach { flag ->
-                        add(buildJsonObject { put("name", flag) })
-                    }
-                },
-            )
-            if (snapshot.unmatchedFlags.size > MAX_UNMATCHED_LISTED) {
-                put("unmatchedFlagsTruncated", true)
-                put("unmatchedFlagsCount", snapshot.unmatchedFlags.size)
-            }
-        }
-    }
-
-    private fun domains(registered: List<ToolboxToolEntry>): JsonObject = buildJsonObject {
-        registered.groupBy { it.domain }
-            .toSortedMap()
-            .forEach { (toolDomain, tools) ->
+            snapshot.identity.checkout?.let { checkout ->
                 put(
-                    toolDomain,
+                    "checkout",
                     buildJsonObject {
-                        put(
-                            "tools",
-                            buildJsonArray {
-                                tools.sortedBy { it.name }.forEach { tool ->
-                                    add(
-                                        buildJsonObject {
-                                            put("name", tool.name)
-                                            put("description", tool.description)
-                                            put("readOnly", tool.readOnly)
-                                            put("destructive", tool.destructive)
-                                        },
-                                    )
-                                }
-                            },
-                        )
+                        put("sha", checkout.sha)
+                        put("dirty", checkout.dirty)
                     },
                 )
             }
-    }
+            if (includeDisabled && disabled.isNotEmpty()) {
+                put(
+                    "disabled",
+                    buildJsonArray {
+                        disabled.take(MAX_DISABLED_LISTED).sortedBy { it.name }.forEach { tool ->
+                            add(buildJsonObject { put("name", tool.name) })
+                        }
+                    },
+                )
+                if (disabled.size > MAX_DISABLED_LISTED) {
+                    put("disabledTruncated", true)
+                    put("disabledCount", disabled.size)
+                }
+            }
+            if (snapshot.unmatchedFlags.isNotEmpty()) {
+                // A flag that named no tool switched nothing off. Reporting it is the
+                // difference between "the operator's flag did nothing" and "the operator's
+                // flag is still in force, and the tool it names is missing".
+                put(
+                    "unmatchedFlags",
+                    buildJsonArray {
+                        snapshot.unmatchedFlags.take(MAX_UNMATCHED_LISTED).forEach { flag ->
+                            add(buildJsonObject { put("name", flag) })
+                        }
+                    },
+                )
+                if (snapshot.unmatchedFlags.size > MAX_UNMATCHED_LISTED) {
+                    put("unmatchedFlagsTruncated", true)
+                    put("unmatchedFlagsCount", snapshot.unmatchedFlags.size)
+                }
+            }
+        }
+
+    private fun domains(registered: List<ToolboxToolEntry>): JsonObject =
+        buildJsonObject {
+            registered
+                .groupBy { it.domain }
+                .toSortedMap()
+                .forEach { (toolDomain, tools) ->
+                    put(
+                        toolDomain,
+                        buildJsonObject {
+                            put(
+                                "tools",
+                                buildJsonArray {
+                                    tools.sortedBy { it.name }.forEach { tool ->
+                                        add(
+                                            buildJsonObject {
+                                                put("name", tool.name)
+                                                put("description", tool.description)
+                                                put("readOnly", tool.readOnly)
+                                                put("destructive", tool.destructive)
+                                            },
+                                        )
+                                    }
+                                },
+                            )
+                        },
+                    )
+                }
+        }
 
     companion object {
         const val NAME = "describe_toolbox"

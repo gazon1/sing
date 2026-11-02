@@ -17,7 +17,6 @@ package com.singularity.todo.mcp
  * @see ToolServerStartupOrder for the order itself.
  */
 internal interface ToolServerStartupStep {
-
     /**
      * The name of the step.
      *

@@ -17,7 +17,6 @@ import kotlinx.coroutines.flow.flowOf
  * into production APKs.
  */
 internal object PreviewProfileRepository : ProfileRepository {
-
     private val allProfiles = listOf(PreviewSamples.previewProfile)
     private val _activeProfileId = MutableStateFlow(PreviewSamples.previewProfile.id)
 

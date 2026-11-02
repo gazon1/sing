@@ -81,9 +81,10 @@ fun <T> ListPickerSheet(
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.then(
-                    if (testTag != null) Modifier.testTag(testTag) else Modifier,
-                ),
+                modifier =
+                    Modifier.then(
+                        if (testTag != null) Modifier.testTag(testTag) else Modifier,
+                    ),
             )
 
             header?.invoke(this)
@@ -96,8 +97,11 @@ fun <T> ListPickerSheet(
                 )
             } else {
                 LazyColumn(
-                    modifier = Modifier.fillMaxWidth()
-                        .heightIn(max = 480.dp), // защита от вытеснения footer-а
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 480.dp),
+                    // защита от вытеснения footer-а
                 ) {
                     items(items, key = { it.key.toString() }) { item ->
                         ListPickerItemRow(
@@ -118,19 +122,23 @@ fun <T> ListPickerSheet(
 }
 
 @Composable
-private fun <T> ListPickerItemRow(item: ListPickerItem<T>, onSelect: () -> Unit) {
+private fun <T> ListPickerItemRow(
+    item: ListPickerItem<T>,
+    onSelect: () -> Unit,
+) {
     Row(
-        modifier = Modifier.fillMaxWidth()
-            // A modal sheet is its own Android window, so the app-root
-            // testTagsAsResourceId does not reach the rows. Without this every
-            // picker's testTag is invisible to Maestro and callers are pushed
-            // into selecting by visible label instead.
-            .mapTestTagsAsResourceIds()
-            .then(item.testTag?.let { Modifier.testTag(it) } ?: Modifier)
-            .then(
-                if (item.enabled) Modifier.clickable(onClick = onSelect) else Modifier,
-            )
-            .padding(vertical = 12.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                // A modal sheet is its own Android window, so the app-root
+                // testTagsAsResourceId does not reach the rows. Without this every
+                // picker's testTag is invisible to Maestro and callers are pushed
+                // into selecting by visible label instead.
+                .mapTestTagsAsResourceIds()
+                .then(item.testTag?.let { Modifier.testTag(it) } ?: Modifier)
+                .then(
+                    if (item.enabled) Modifier.clickable(onClick = onSelect) else Modifier,
+                ).padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -140,11 +148,12 @@ private fun <T> ListPickerItemRow(item: ListPickerItem<T>, onSelect: () -> Unit)
                 Text(
                     text = item.label,
                     style = MaterialTheme.typography.bodyLarge,
-                    color = if (item.enabled) {
-                        MaterialTheme.colorScheme.onSurface
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
+                    color =
+                        if (item.enabled) {
+                            MaterialTheme.colorScheme.onSurface
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
                 )
                 item.subtitle?.let {
                     Text(

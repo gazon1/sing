@@ -33,17 +33,17 @@ internal class DelayLoopSyncPeriodicTrigger(
     private val scope: CoroutineScope,
     private val log: Logger = Logger.withTag("DelayLoopSyncTrigger"),
 ) : SyncPeriodicTrigger {
-
     private var job: Job? = null
 
     override fun start(interval: Duration) {
         job?.cancel()
-        job = scope.launch {
-            while (isActive) {
-                runCycle()
-                delay(interval)
+        job =
+            scope.launch {
+                while (isActive) {
+                    runCycle()
+                    delay(interval)
+                }
             }
-        }
     }
 
     override fun stop() {

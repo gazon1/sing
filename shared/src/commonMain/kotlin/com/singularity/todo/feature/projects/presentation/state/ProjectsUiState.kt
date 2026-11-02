@@ -37,7 +37,6 @@ enum class ProjectSortOrder { Name, Color }
  * project skips itself. See docs/architecture/compose-stability.md.
  */
 sealed interface ProjectsUiState {
-
     /**
      * The query the list is filtered by. Empty when nothing is filtered.
      *

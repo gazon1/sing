@@ -11,14 +11,14 @@ import kotlin.test.assertIs
 
 @Tag("fast")
 class AgendaScopeSectionTest {
-
     // ─── section with selector parameter ────────────────────────────────────
 
     @Test
     fun `section with selector parameter`() {
-        val def = agenda("Test") {
-            section(id = "Today", selector = Selector.DateBucket(RelativeBucket.Today), order = 0)
-        }
+        val def =
+            agenda("Test") {
+                section(id = "Today", selector = Selector.DateBucket(RelativeBucket.Today), order = 0)
+            }
         assertEquals(1, def.sections.size)
         assertEquals("Today", def.sections[0].name)
         assertEquals(0, def.sections[0].order)
@@ -27,9 +27,15 @@ class AgendaScopeSectionTest {
 
     @Test
     fun `section with selector parameter and discard`() {
-        val def = agenda("Test") {
-            section(id = "Overdue", selector = Selector.DateBucket(RelativeBucket.Overdue), order = -1, discard = true)
-        }
+        val def =
+            agenda("Test") {
+                section(
+                    id = "Overdue",
+                    selector = Selector.DateBucket(RelativeBucket.Overdue),
+                    order = -1,
+                    discard = true,
+                )
+            }
         assertEquals(true, def.sections[0].discard)
     }
 
@@ -37,11 +43,12 @@ class AgendaScopeSectionTest {
 
     @Test
     fun `section with block assigns selector inside block`() {
-        val def = agenda("Test") {
-            section("Today") {
-                selector = Selector.DateBucket(RelativeBucket.Today)
+        val def =
+            agenda("Test") {
+                section("Today") {
+                    selector = Selector.DateBucket(RelativeBucket.Today)
+                }
             }
-        }
         assertIs<Selector.DateBucket>(def.sections[0].selector)
     }
 
@@ -49,11 +56,12 @@ class AgendaScopeSectionTest {
 
     @Test
     fun `section with both parameter and block — block wins`() {
-        val def = agenda("Test") {
-            section(id = "Today", selector = Selector.DateBucket(RelativeBucket.Tomorrow)) {
-                selector = Selector.DateBucket(RelativeBucket.Today)
+        val def =
+            agenda("Test") {
+                section(id = "Today", selector = Selector.DateBucket(RelativeBucket.Tomorrow)) {
+                    selector = Selector.DateBucket(RelativeBucket.Today)
+                }
             }
-        }
         // The block's selector is applied last, after the parameter.
         // But both non-null, so the parameter is used as base, then block overwrites it.
         // Actually looking at the implementation: val effectiveSelector = selector ?: scope.selector
@@ -88,11 +96,12 @@ class AgendaScopeSectionTest {
 
     @Test
     fun `section order defaults to sections size`() {
-        val def = agenda("Test") {
-            section(id = "First", selector = Selector.DateBucket(RelativeBucket.Today))
-            section(id = "Second", selector = Selector.DateBucket(RelativeBucket.Tomorrow))
-            section(id = "Third", selector = Selector.DateBucket(RelativeBucket.ThisWeek))
-        }
+        val def =
+            agenda("Test") {
+                section(id = "First", selector = Selector.DateBucket(RelativeBucket.Today))
+                section(id = "Second", selector = Selector.DateBucket(RelativeBucket.Tomorrow))
+                section(id = "Third", selector = Selector.DateBucket(RelativeBucket.ThisWeek))
+            }
         assertEquals(0, def.sections[0].order)
         assertEquals(1, def.sections[1].order)
         assertEquals(2, def.sections[2].order)
@@ -102,10 +111,11 @@ class AgendaScopeSectionTest {
 
     @Test
     fun `section order can be overridden`() {
-        val def = agenda("Test") {
-            section(id = "A", selector = Selector.DateBucket(RelativeBucket.Today), order = 10)
-            section(id = "B", selector = Selector.DateBucket(RelativeBucket.Tomorrow), order = 5)
-        }
+        val def =
+            agenda("Test") {
+                section(id = "A", selector = Selector.DateBucket(RelativeBucket.Today), order = 10)
+                section(id = "B", selector = Selector.DateBucket(RelativeBucket.Tomorrow), order = 5)
+            }
         // Stored in declaration order; sorting happens in AgendaEvaluator.evaluate()
         assertEquals("A", def.sections[0].name)
         assertEquals(10, def.sections[0].order)
@@ -117,9 +127,10 @@ class AgendaScopeSectionTest {
 
     @Test
     fun `section discard defaults to false`() {
-        val def = agenda("Test") {
-            section(id = "Today", selector = Selector.DateBucket(RelativeBucket.Today))
-        }
+        val def =
+            agenda("Test") {
+                section(id = "Today", selector = Selector.DateBucket(RelativeBucket.Today))
+            }
         assertEquals(false, def.sections[0].discard)
     }
 }

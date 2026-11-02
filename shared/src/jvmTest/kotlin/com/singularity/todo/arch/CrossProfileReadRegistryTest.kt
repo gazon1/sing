@@ -1,8 +1,8 @@
 package com.singularity.todo.arch
 
 import com.singularity.todo.feature.reminders.data.CrossProfileReadRegistry
-import java.io.File
 import org.junit.jupiter.api.Tag
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -35,15 +35,15 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class CrossProfileReadRegistryTest {
-
     @Test
     fun `every sanctioned cross-profile read names a method that still exists`() {
-        val missing = CrossProfileReadRegistry.sanctioned.filterNot { entry ->
-            val (iface, method) = entry.split('.', limit = 2).let { it[0] to it[1] }
-            val source = daosSource().readText()
-            Regex("""fun\s+$method\s*\(""").containsMatchIn(source) &&
-                Regex("""interface\s+$iface\b""").containsMatchIn(source)
-        }
+        val missing =
+            CrossProfileReadRegistry.sanctioned.filterNot { entry ->
+                val (iface, method) = entry.split('.', limit = 2).let { it[0] to it[1] }
+                val source = daosSource().readText()
+                Regex("""fun\s+$method\s*\(""").containsMatchIn(source) &&
+                    Regex("""interface\s+$iface\b""").containsMatchIn(source)
+            }
         assertTrue(
             missing.isEmpty(),
             "CrossProfileReadRegistry lists methods that no longer exist: ${missing.joinToString()}. " +
@@ -64,15 +64,16 @@ class CrossProfileReadRegistryTest {
 
     @Test
     fun `every sanctioned read documents the boundary it crosses`() {
-        val undocumented = CrossProfileReadRegistry.sanctioned.filterNot { entry ->
-            val (_, method) = entry.split('.', limit = 2).let { it[0] to it[1] }
-            val text = daosSource().readText()
-            val start = text.indexOf("fun $method(")
-            if (start < 0) return@filterNot false
-            // The KDoc immediately above the declaration has to name what it is doing.
-            val before = text.substring((start - 900).coerceAtLeast(0), start)
-            before.contains("profile", ignoreCase = true)
-        }
+        val undocumented =
+            CrossProfileReadRegistry.sanctioned.filterNot { entry ->
+                val (_, method) = entry.split('.', limit = 2).let { it[0] to it[1] }
+                val text = daosSource().readText()
+                val start = text.indexOf("fun $method(")
+                if (start < 0) return@filterNot false
+                // The KDoc immediately above the declaration has to name what it is doing.
+                val before = text.substring((start - 900).coerceAtLeast(0), start)
+                before.contains("profile", ignoreCase = true)
+            }
         if (undocumented.isNotEmpty()) {
             throw AssertionError(
                 "Sanctioned cross-profile reads whose KDoc does not explain the boundary: " +
@@ -88,10 +89,12 @@ class CrossProfileReadRegistryTest {
         // Not a tautology: `watchAllProfiles` exists, `sanctioned` names it, and the
         // registry could list a method nobody calls — an approved hole that no longer
         // needs approving. The re-arm is the reason this entry exists, so pin the caller.
-        val repository = SourceScan.commonMainRoot()
-            .walkTopDown()
-            .first { it.name == "ReminderRepositoryImpl.kt" }
-            .readText()
+        val repository =
+            SourceScan
+                .commonMainRoot()
+                .walkTopDown()
+                .first { it.name == "ReminderRepositoryImpl.kt" }
+                .readText()
         assertTrue(
             repository.contains("watchAllProfiles()"),
             "Nothing calls watchAllProfiles any more, so the sanctioned hole can be removed " +

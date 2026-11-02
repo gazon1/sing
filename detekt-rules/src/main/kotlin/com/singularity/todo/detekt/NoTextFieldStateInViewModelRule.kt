@@ -67,7 +67,6 @@ import org.jetbrains.kotlin.psi.KtTypeReference
  * @see NoTextFieldStateInViewModelProvider for registration.
  */
 class NoTextFieldStateInViewModelRule(config: Config) : Rule(config, "", null) {
-
     override fun visitKtFile(root: KtFile) {
         super.visitKtFile(root)
         val classes = collectClasses(root)
@@ -104,7 +103,8 @@ class NoTextFieldStateInViewModelRule(config: Config) : Rule(config, "", null) {
      * same file, so the rule never has to resolve a type across files to make a call.
      */
     private fun uiStateInterfaceNames(classes: List<KtClass>): Set<String> =
-        classes.filter { it.isInterface() && isUiStateInterface(it) }
+        classes
+            .filter { it.isInterface() && isUiStateInterface(it) }
             .mapNotNull { it.name }
             .toSet()
 
@@ -115,13 +115,19 @@ class NoTextFieldStateInViewModelRule(config: Config) : Rule(config, "", null) {
     /**
      * Checks one class: a ViewModel, or a class that implements a UI state interface.
      */
-    private fun checkClass(clazz: KtClass, uiStateInterfaces: Set<String>) {
+    private fun checkClass(
+        clazz: KtClass,
+        uiStateInterfaces: Set<String>,
+    ) {
         val isViewModel = isViewModelClass(clazz)
         val isUiState = isUiStateImplementation(clazz, uiStateInterfaces)
         if (!isViewModel && !isUiState) return
 
         val owner = clazz.name ?: "class"
-        for (property in clazz.body?.declarations?.filterIsInstance<KtProperty>().orEmpty()) {
+        for (property in clazz.body
+            ?.declarations
+            ?.filterIsInstance<KtProperty>()
+            .orEmpty()) {
             if (mentionsTextFieldState(property.typeReference)) {
                 report(property, owner)
             } else if (isViewModel && storesCreatedTextFieldState(property)) {
@@ -160,7 +166,10 @@ class NoTextFieldStateInViewModelRule(config: Config) : Rule(config, "", null) {
      *   different name — a sealed `ProjectsState` — as long as it is declared next
      *   to the class that implements it.
      */
-    private fun isUiStateImplementation(clazz: KtClass, uiStateInterfaces: Set<String>): Boolean {
+    private fun isUiStateImplementation(
+        clazz: KtClass,
+        uiStateInterfaces: Set<String>,
+    ): Boolean {
         if (clazz.isInterface()) return false
         return clazz.superTypeListEntries.any { entry ->
             val name = rawSuperName(entry) ?: return@any false
@@ -180,7 +189,11 @@ class NoTextFieldStateInViewModelRule(config: Config) : Rule(config, "", null) {
      * arguments (`MviViewModel<State, Intent, Event>`), so an exact match never fires.
      */
     private fun rawSuperName(entry: KtSuperTypeListEntry): String? =
-        entry.typeReference?.text?.substringBefore('<')?.substringAfterLast('.')?.trim()
+        entry.typeReference
+            ?.text
+            ?.substringBefore('<')
+            ?.substringAfterLast('.')
+            ?.trim()
 
     /**
      * True when the declared type mentions `TextFieldState`.
@@ -207,16 +220,20 @@ class NoTextFieldStateInViewModelRule(config: Config) : Rule(config, "", null) {
     }
 
     /** Reports the offending declaration, naming the symbol and the alternative. */
-    private fun report(declaration: KtProperty, owner: String) {
+    private fun report(
+        declaration: KtProperty,
+        owner: String,
+    ) {
         report(
             Finding(
                 entity = Entity.from(declaration),
-                message = "`${declaration.name}` holds a `TextFieldState` in `$owner`. " +
-                    "A `TextFieldState` belongs to the composable that owns the field: keep a " +
-                    "plain `String` in the ViewModel's UI state and let the composable own the " +
-                    "`TextFieldState`, bridged by `rememberBridgedTextFieldState(...)`. A " +
-                    "mutable buffer inside an immutable state is a second source of truth for " +
-                    "the same text.",
+                message =
+                    "`${declaration.name}` holds a `TextFieldState` in `$owner`. " +
+                        "A `TextFieldState` belongs to the composable that owns the field: keep a " +
+                        "plain `String` in the ViewModel's UI state and let the composable own the " +
+                        "`TextFieldState`, bridged by `rememberBridgedTextFieldState(...)`. A " +
+                        "mutable buffer inside an immutable state is a second source of truth for " +
+                        "the same text.",
                 references = emptyList(),
                 suppressReasons = emptyList(),
             ),
@@ -224,16 +241,20 @@ class NoTextFieldStateInViewModelRule(config: Config) : Rule(config, "", null) {
     }
 
     /** Reports an offending constructor parameter, naming the symbol and the alternative. */
-    private fun report(declaration: KtParameter, owner: String) {
+    private fun report(
+        declaration: KtParameter,
+        owner: String,
+    ) {
         report(
             Finding(
                 entity = Entity.from(declaration),
-                message = "`${declaration.name}` takes a `TextFieldState` in `$owner`. " +
-                    "A `TextFieldState` belongs to the composable that owns the field: keep a " +
-                    "plain `String` in the ViewModel's UI state and let the composable own the " +
-                    "`TextFieldState`, bridged by `rememberBridgedTextFieldState(...)`. A " +
-                    "mutable buffer inside an immutable state is a second source of truth for " +
-                    "the same text.",
+                message =
+                    "`${declaration.name}` takes a `TextFieldState` in `$owner`. " +
+                        "A `TextFieldState` belongs to the composable that owns the field: keep a " +
+                        "plain `String` in the ViewModel's UI state and let the composable own the " +
+                        "`TextFieldState`, bridged by `rememberBridgedTextFieldState(...)`. A " +
+                        "mutable buffer inside an immutable state is a second source of truth for " +
+                        "the same text.",
                 references = emptyList(),
                 suppressReasons = emptyList(),
             ),
@@ -241,7 +262,6 @@ class NoTextFieldStateInViewModelRule(config: Config) : Rule(config, "", null) {
     }
 
     private companion object {
-
         /** The ViewModel base classes whose subclasses are ViewModels whatever their name. */
         val MVI_BASE_TYPES = setOf("MviViewModel", "DraftMviViewModel")
 
@@ -259,12 +279,14 @@ class NoTextFieldStateInViewModelRule(config: Config) : Rule(config, "", null) {
  */
 class NoTextFieldStateInViewModelProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("no-text-field-state-in-viewmodel")
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf<RuleName, (Config) -> Rule>(
-            RuleName("NoTextFieldStateInViewModel") to { cfg: Config ->
-                NoTextFieldStateInViewModelRule(cfg)
-            },
-        ),
-    )
+
+    override fun instance(): RuleSet =
+        RuleSet(
+            ruleSetId,
+            mapOf<RuleName, (Config) -> Rule>(
+                RuleName("NoTextFieldStateInViewModel") to { cfg: Config ->
+                    NoTextFieldStateInViewModelRule(cfg)
+                },
+            ),
+        )
 }

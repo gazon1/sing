@@ -12,6 +12,9 @@ import kotlinx.coroutines.flow.Flow
  * collector is launched only when the upstream flow changes identity.
  */
 @Composable
-fun <T> CollectEvents(flow: Flow<T>, onEvent: (T) -> Unit) {
+fun <T> CollectEvents(
+    flow: Flow<T>,
+    onEvent: (T) -> Unit,
+) {
     LaunchedEffect(flow) { flow.collect(onEvent) }
 }

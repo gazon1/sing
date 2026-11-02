@@ -32,7 +32,6 @@ import kotlin.test.assertEquals
 @Tag("slow")
 @Tag("slow:compose")
 class TaskStateChosenScenarioTest {
-
     @Test
     @DisplayName("TASK-STATE-01 a workflow state is chosen on the task screen")
     fun a_workflow_state_is_chosen_on_the_task_screen() =

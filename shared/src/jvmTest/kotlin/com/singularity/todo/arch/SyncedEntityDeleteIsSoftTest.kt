@@ -1,8 +1,8 @@
 package com.singularity.todo.arch
 
 import com.singularity.todo.core.sync.DocType
-import java.io.File
 import org.junit.jupiter.api.Tag
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -58,24 +58,25 @@ import kotlin.test.fail
  */
 @Tag("fast")
 class SyncedEntityDeleteIsSoftTest {
-
     @Test
     fun the_scanner_finds_a_soft_delete() {
-        val source = """
+        val source =
+            """
             override suspend fun delete(id: NoteId): Result<Unit> = runCatchingCancellable {
                 noteDao.softDeleteForUser(id.value, clock.now().toEpochMilliseconds(), uid)
             }
-        """.trimIndent()
+            """.trimIndent()
         assertTrue(deletesSoftly(source), "a softDeleteForUser call is the shape this gate accepts")
     }
 
     @Test
     fun the_scanner_flags_a_hard_delete() {
-        val source = """
+        val source =
+            """
             override suspend fun delete(id: NoteId): Result<Unit> = runCatchingCancellable {
                 noteDao.hardDelete(id.value)
             }
-        """.trimIndent()
+            """.trimIndent()
         assertTrue(!deletesSoftly(source), "a hard delete must be reported")
     }
 
@@ -100,12 +101,13 @@ class SyncedEntityDeleteIsSoftTest {
         // The word in a comment must not stand in for the call. Otherwise a hard
         // delete whose body says "this is a soft delete" passes the gate, which is
         // precisely the failure mode the old comment had.
-        val source = """
+        val source =
+            """
             override suspend fun delete(id: NoteId): Result<Unit> = runCatchingCancellable {
                 // Mirrors TaskRepositoryImpl.softDelete so both paths converge.
                 noteDao.hardDelete(id.value)
             }
-        """.trimIndent()
+            """.trimIndent()
         assertTrue(!deletesSoftly(source), "a comment mentioning softDelete is not a soft delete")
     }
 
@@ -113,7 +115,8 @@ class SyncedEntityDeleteIsSoftTest {
     fun the_scanner_reads_only_the_delete_body() {
         // `restore` is a different operation, and `softDelete` must not be found
         // through a neighbouring member that happens to sit below `delete`.
-        val source = """
+        val source =
+            """
             override suspend fun delete(id: NoteId): Result<Unit> = runCatchingCancellable {
                 noteDao.hardDelete(id.value)
             }
@@ -121,7 +124,7 @@ class SyncedEntityDeleteIsSoftTest {
             override suspend fun restore(id: NoteId): Result<Unit> = runCatchingCancellable {
                 noteDao.softDeleteForUser(id.value, 0, uid)
             }
-        """.trimIndent()
+            """.trimIndent()
         assertTrue(!deletesSoftly(source), "a soft restore does not make a hard delete soft")
     }
 
@@ -133,24 +136,26 @@ class SyncedEntityDeleteIsSoftTest {
         // following member as the body, and reported the one repository that soft
         // deletes by delegation as though it hard-deleted — the gate naming a correct
         // file as wrong, which is how a gate gets allowlisted.
-        val source = """
+        val source =
+            """
             override suspend fun delete(id: TaskId): Result<Unit> = softDelete(id)
 
             override suspend fun softDelete(id: TaskId): Result<Unit> = runCatchingCancellable {
                 taskDao.softDeleteForUser(id.value, 0, uid)
             }
-        """.trimIndent()
+            """.trimIndent()
         assertTrue(deletesSoftly(source), "an expression-bodied delete must not absorb the next member")
     }
 
     @Test
     fun the_dispatch_table_is_read_from_the_handler() {
-        val source = """
+        val source =
+            """
             val outcome: Result<Unit> = when (event.entityType) {
                 DocType.Task -> taskRepo.delete(TaskId.fromString(event.entityId))
                 DocType.Note -> noteRepo.delete(NoteId.fromString(event.entityId))
             }
-        """.trimIndent()
+            """.trimIndent()
         assertEquals(
             mapOf("Task" to "taskRepo", "Note" to "noteRepo"),
             dispatchedDeletes(source),
@@ -162,22 +167,24 @@ class SyncedEntityDeleteIsSoftTest {
         // ktlint wraps the TimeEntry case across lines. A pattern that requires the
         // closing paren on the same line loses that row, and the type it names goes
         // unchecked — a formatting change silently disabling a gate.
-        val source = """
+        val source =
+            """
             DocType.TimeEntry -> timeTrackingRepo.delete(
                 TimeEntryId.fromString(event.entityId),
             )
-        """.trimIndent()
+            """.trimIndent()
         assertEquals(mapOf("TimeEntry" to "timeTrackingRepo"), dispatchedDeletes(source))
     }
 
     @Test
     fun the_repository_type_is_read_from_the_constructor() {
-        val source = """
+        val source =
+            """
             class SyncDocumentWriter(
                 private val taskRepo: TaskRepository,
                 private val timeTrackingRepo: TimeTrackingRepository,
             )
-        """.trimIndent()
+            """.trimIndent()
         assertEquals(
             mapOf("taskRepo" to "TaskRepository", "timeTrackingRepo" to "TimeTrackingRepository"),
             repositoryTypes(source),
@@ -218,10 +225,11 @@ class SyncedEntityDeleteIsSoftTest {
 
         dispatched.forEach { (docType, field) ->
             val interfaceName = types.getValue(field)
-            val impl = File(root, "com/singularity/todo")
-                .walkTopDown()
-                .filter { it.isFile && it.name == "$interfaceName" + "Impl.kt" }
-                .firstOrNull()
+            val impl =
+                File(root, "com/singularity/todo")
+                    .walkTopDown()
+                    .filter { it.isFile && it.name == "$interfaceName" + "Impl.kt" }
+                    .firstOrNull()
             if (impl == null) {
                 hardDeleted += "$docType -> $field ($interfaceName): no $interfaceName" +
                     "Impl.kt under commonMain, so the delete is unchecked"
@@ -300,8 +308,9 @@ class SyncedEntityDeleteIsSoftTest {
      *  - `= dao.hardDelete(id)` for the negative case.
      */
     private fun deleteBody(source: String): String? {
-        val signature = Regex("""override\s+suspend\s+fun\s+delete\s*\(""")
-            .find(source) ?: return null
+        val signature =
+            Regex("""override\s+suspend\s+fun\s+delete\s*\(""")
+                .find(source) ?: return null
         val afterSignature = source.substring(signature.range.last + 1)
         val equals = afterSignature.indexOf('=')
         if (equals < 0) return null
@@ -322,7 +331,9 @@ class SyncedEntityDeleteIsSoftTest {
         var depth = 0
         source.forEachIndexed { index, c ->
             when (c) {
-                '{' -> depth++
+                '{' -> {
+                    depth++
+                }
 
                 '}' -> {
                     depth--
@@ -340,11 +351,9 @@ class SyncedEntityDeleteIsSoftTest {
      * this gate exists to prevent arrived as a comment that described a check which
      * was not there. A gate that a comment can satisfy is the same gate, broken.
      */
-    private fun deletesSoftly(source: String): Boolean =
-        deleteBody(source)?.let { isSoftDelete(it) } == true
+    private fun deletesSoftly(source: String): Boolean = deleteBody(source)?.let { isSoftDelete(it) } == true
 
-    private fun isSoftDelete(body: String): Boolean =
-        SOFT_DELETE_CALL.containsMatchIn(stripped(body))
+    private fun isSoftDelete(body: String): Boolean = SOFT_DELETE_CALL.containsMatchIn(stripped(body))
 
     private companion object {
         val SOFT_DELETE_CALL = Regex("""\bsoftDelete\w*\s*\(""")
@@ -387,17 +396,19 @@ class SyncedEntityDeleteIsSoftTest {
                     }
 
                     rest.startsWith("/*") -> {
-                        val end = rest.indexOf("*/").let {
-                            if (it < 0) rest.length else it + 2
-                        }
+                        val end =
+                            rest.indexOf("*/").let {
+                                if (it < 0) rest.length else it + 2
+                            }
                         blank(out, index, index + end)
                         index += end
                     }
 
                     rest.startsWith("\"\"\"") -> {
-                        val end = rest.indexOf("\"\"\"", 3).let {
-                            if (it < 0) rest.length else it + 3
-                        }
+                        val end =
+                            rest.indexOf("\"\"\"", 3).let {
+                                if (it < 0) rest.length else it + 3
+                            }
                         blank(out, index, index + end)
                         index += end
                     }
@@ -412,14 +423,20 @@ class SyncedEntityDeleteIsSoftTest {
                         index = end + 1
                     }
 
-                    else -> index++
+                    else -> {
+                        index++
+                    }
                 }
             }
             return out.toString()
         }
 
         /** Overwrites [from]..<[to] in [out] with spaces, keeping every offset. */
-        fun blank(out: StringBuilder, from: Int, to: Int) {
+        fun blank(
+            out: StringBuilder,
+            from: Int,
+            to: Int,
+        ) {
             for (i in from until to.coerceAtMost(out.length)) {
                 if (out[i] != '\n') out[i] = ' '
             }

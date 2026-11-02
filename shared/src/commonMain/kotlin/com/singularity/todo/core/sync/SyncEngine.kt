@@ -476,32 +476,46 @@ internal class SyncEngine(
         val pullResult = pullPhase.pull(active, sinceLsn = cursor)
         val push =
             when (pushResult) {
-                is PhaseResult.Ok -> Result.success(pushResult.getOrThrow())
+                is PhaseResult.Ok -> {
+                    Result.success(pushResult.getOrThrow())
+                }
 
                 // NotRun is unreachable: push() returns Ok/Failed or throws; it never returns NotRun.
                 // Suppressed instead of removed so a future caller that adds NotRun gets a
                 // compile warning rather than a silent missing-arm crash.
-                is PhaseResult.NotRun ->
+                is PhaseResult.NotRun -> {
                     @Suppress("UNREACHABLE_CODE")
                     Result.failure(IllegalStateException("Phase did not run"))
+                }
 
-                is PhaseResult.Failed -> Result.failure(pushResult.error)
+                is PhaseResult.Failed -> {
+                    Result.failure(pushResult.error)
+                }
 
-                is PhaseResult.Superseded -> Result.success(PushSummary(0, 0, 0, superseded = 0))
+                is PhaseResult.Superseded -> {
+                    Result.success(PushSummary(0, 0, 0, superseded = 0))
+                }
             }
         val pull =
             when (pullResult) {
-                is PhaseResult.Ok -> Result.success(pullResult.getOrThrow())
+                is PhaseResult.Ok -> {
+                    Result.success(pullResult.getOrThrow())
+                }
 
                 // NotRun is unreachable: pull() returns NotRun only when !SignedIn, but
                 // `active ?: return NothingToDo` guards this call before it is reached.
-                is PhaseResult.NotRun ->
+                is PhaseResult.NotRun -> {
                     @Suppress("UNREACHABLE_CODE")
                     Result.success(PullSummary(0, 0, 0))
+                }
 
-                is PhaseResult.Failed -> Result.failure(pullResult.error)
+                is PhaseResult.Failed -> {
+                    Result.failure(pullResult.error)
+                }
 
-                is PhaseResult.Superseded -> Result.success(PullSummary(0, 0, 0))
+                is PhaseResult.Superseded -> {
+                    Result.success(PullSummary(0, 0, 0))
+                }
             }
         return SyncOutcome.Completed(push = push, pull = pull)
     }

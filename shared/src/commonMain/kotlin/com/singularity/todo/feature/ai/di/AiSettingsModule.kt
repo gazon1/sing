@@ -22,7 +22,8 @@ import org.koin.dsl.module
  * Note: [TextGenPort] is registered separately by [aiToolsModule].
  * This module depends on it being already available.
  */
-fun aiSettingsModule() = module {
-    single { AiSettingsStore(get<SecureStoragePort>(), get<SettingsRepository>(), get<TextGenPort>()) }
-    single<AiContributor> { AiSettingsContributor(get()) }
-}
+fun aiSettingsModule() =
+    module {
+        single { AiSettingsStore(get<SecureStoragePort>(), get<SettingsRepository>(), get<TextGenPort>()) }
+        single<AiContributor> { AiSettingsContributor(get()) }
+    }

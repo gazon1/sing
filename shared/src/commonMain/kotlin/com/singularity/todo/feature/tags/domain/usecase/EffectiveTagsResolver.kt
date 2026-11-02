@@ -26,7 +26,10 @@ class EffectiveTagsResolver(private val tagRepo: TagsRepository, private val tag
      * @param taskOwnTagIds Tags the task has been assigned directly.
      * @param projectId The project the task belongs to (used to resolve inherited groups).
      */
-    fun resolveEffectiveTags(taskOwnTagIds: Set<TagId>, projectId: ProjectId?): Flow<List<Tag>> {
+    fun resolveEffectiveTags(
+        taskOwnTagIds: Set<TagId>,
+        projectId: ProjectId?,
+    ): Flow<List<Tag>> {
         if (projectId == null) {
             return tagRepo.observeAll().map { allTags ->
                 filterAndPreserveOrder(taskOwnTagIds, allTags)
@@ -60,14 +63,20 @@ class EffectiveTagsResolver(private val tagRepo: TagsRepository, private val tag
         return combined
     }
 
-    private fun resolveGroupTagIds(groupIds: Set<TagGroupId>, allTags: List<Tag>): Set<TagId> {
+    private fun resolveGroupTagIds(
+        groupIds: Set<TagGroupId>,
+        allTags: List<Tag>,
+    ): Set<TagId> {
         if (groupIds.isEmpty()) return emptySet()
         return allTags
             .filter { it.groupId in groupIds }
             .mapTo(LinkedHashSet()) { it.id }
     }
 
-    private fun filterAndPreserveOrder(ownTagIds: Set<TagId>, allTags: List<Tag>): List<Tag> {
+    private fun filterAndPreserveOrder(
+        ownTagIds: Set<TagId>,
+        allTags: List<Tag>,
+    ): List<Tag> {
         val ownSet = LinkedHashSet(ownTagIds)
         return allTags.filter { it.id in ownSet }
     }

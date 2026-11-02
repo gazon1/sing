@@ -28,7 +28,6 @@ private val logger = Logger.withTag("GenuiCatalogUsage")
  * to build next, not a metric to report on.
  */
 class GenuiUsageCounter {
-
     private val _counts = MutableStateFlow<Map<String, Int>>(emptyMap())
 
     /** Live tally of decoded components by kind. */
@@ -47,12 +46,15 @@ class GenuiUsageCounter {
      * the catalog's own declarations.
      */
     fun neverUsed(catalog: A2uiCatalog): List<String> =
-        catalog.components.keys.filterNot { (_counts.value[it] ?: 0) > 0 }.sorted()
+        catalog.components.keys
+            .filterNot { (_counts.value[it] ?: 0) > 0 }
+            .sorted()
 
     /** How often each kind was drawn, most used first. */
-    fun ranking(): List<Pair<String, Int>> = _counts.value.entries
-        .sortedByDescending { it.value }
-        .map { it.key to it.value }
+    fun ranking(): List<Pair<String, Int>> =
+        _counts.value.entries
+            .sortedByDescending { it.value }
+            .map { it.key to it.value }
 
     /**
      * The two lines [report] logs, as data.

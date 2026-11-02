@@ -43,45 +43,53 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class NavStackSeedTest {
-
-    private fun sourceRoot(property: String): File = File(
-        System.getProperty(property)
-            ?: error(
-                "$property system property is not set — " +
-                    "see the jvmTest task config in shared/build.gradle.kts",
-            ),
-    )
+    private fun sourceRoot(property: String): File =
+        File(
+            System.getProperty(property)
+                ?: error(
+                    "$property system property is not set — " +
+                        "see the jvmTest task config in shared/build.gradle.kts",
+                ),
+        )
 
     private val commonMainRoot: File = sourceRoot("commonMain.root")
     private val jvmMainRoot: File = sourceRoot("jvmMain.root")
     private val androidMainRoot: File = sourceRoot("androidMain.root")
 
-    private fun file(root: File, path: String): File = File(root, path)
+    private fun file(
+        root: File,
+        path: String,
+    ): File = File(root, path)
 
     /**
      * The source with comments removed — a KDoc example is documentation, not a call
      * site, and `start = route.start` inside a comment must not satisfy the rule.
      */
-    private fun code(source: String): String = source
-        .lineSequence()
-        .filterNot { line ->
-            val trimmed = line.trim()
-            trimmed.startsWith("*") || trimmed.startsWith("/*") || trimmed.startsWith("//")
-        }
-        .joinToString("\n")
+    private fun code(source: String): String =
+        source
+            .lineSequence()
+            .filterNot { line ->
+                val trimmed = line.trim()
+                trimmed.startsWith("*") || trimmed.startsWith("/*") || trimmed.startsWith("//")
+            }.joinToString("\n")
 
     /** The argument every stack seam is called with. */
-    private fun seeds(source: String): List<String> = Regex(
-        """remember(?:App|InMemory)NavBackStack\(\s*([^()]*?)\s*\)""",
-    ).findAll(source).map { it.groupValues[1].trim() }.toList()
+    private fun seeds(source: String): List<String> =
+        Regex(
+            """remember(?:App|InMemory)NavBackStack\(\s*([^()]*?)\s*\)""",
+        ).findAll(source).map { it.groupValues[1].trim() }.toList()
 
     /** The argument every graph is started with. */
-    private fun starts(source: String): List<String> = Regex(
-        """\bstart\s*=\s*([^,\n]+)""",
-    ).findAll(source).map { it.groupValues[1].trim() }.toList()
+    private fun starts(source: String): List<String> =
+        Regex(
+            """\bstart\s*=\s*([^,\n]+)""",
+        ).findAll(source).map { it.groupValues[1].trim() }.toList()
 
     /** The body of `entry<AppDestination.X> { … }`, braces matched. */
-    private fun entryBlock(source: String, name: String): String {
+    private fun entryBlock(
+        source: String,
+        name: String,
+    ): String {
         val marker = "entry<AppDestination.$name>"
         val start = source.indexOf(marker)
         require(start >= 0) { "no entry for $name in the source" }
@@ -90,7 +98,9 @@ class NavStackSeedTest {
         val from = index
         while (index < source.length) {
             when (source[index]) {
-                '{' -> depth++
+                '{' -> {
+                    depth++
+                }
 
                 '}' -> {
                     depth--
@@ -102,13 +112,15 @@ class NavStackSeedTest {
         error("the entry for $name is not closed")
     }
 
-    private fun navFiles(): List<File> = listOf(commonMainRoot, jvmMainRoot, androidMainRoot)
-        .flatMap { root ->
-            root.walkTopDown()
-                .filter { it.isFile && it.extension == "kt" }
-                .filter { it.path.replace('\\', '/').contains("/nav/") }
-                .toList()
-        }
+    private fun navFiles(): List<File> =
+        listOf(commonMainRoot, jvmMainRoot, androidMainRoot)
+            .flatMap { root ->
+                root
+                    .walkTopDown()
+                    .filter { it.isFile && it.extension == "kt" }
+                    .filter { it.path.replace('\\', '/').contains("/nav/") }
+                    .toList()
+            }
 
     @Test
     fun `every stack is seeded with the route its graph is started with`() {
@@ -140,14 +152,16 @@ class NavStackSeedTest {
 
     @Test
     fun `both platforms ask for the same tasks route`() {
-        val android = entryBlock(
-            file(androidMainRoot, "com/singularity/todo/feature/nav/AndroidNavEntries.kt").readText(),
-            "TasksGraph",
-        )
-        val jvm = entryBlock(
-            file(jvmMainRoot, "com/singularity/todo/feature/nav/JvmNavEntries.kt").readText(),
-            "TasksGraph",
-        )
+        val android =
+            entryBlock(
+                file(androidMainRoot, "com/singularity/todo/feature/nav/AndroidNavEntries.kt").readText(),
+                "TasksGraph",
+            )
+        val jvm =
+            entryBlock(
+                file(jvmMainRoot, "com/singularity/todo/feature/nav/JvmNavEntries.kt").readText(),
+                "TasksGraph",
+            )
 
         assertEquals(
             starts(code(android)),
@@ -159,14 +173,16 @@ class NavStackSeedTest {
 
     @Test
     fun `neither platform pushes the requested route a second time`() {
-        val android = entryBlock(
-            file(androidMainRoot, "com/singularity/todo/feature/nav/AndroidNavEntries.kt").readText(),
-            "TasksGraph",
-        )
-        val jvm = entryBlock(
-            file(jvmMainRoot, "com/singularity/todo/feature/nav/JvmNavEntries.kt").readText(),
-            "TasksGraph",
-        )
+        val android =
+            entryBlock(
+                file(androidMainRoot, "com/singularity/todo/feature/nav/AndroidNavEntries.kt").readText(),
+                "TasksGraph",
+            )
+        val jvm =
+            entryBlock(
+                file(jvmMainRoot, "com/singularity/todo/feature/nav/JvmNavEntries.kt").readText(),
+                "TasksGraph",
+            )
 
         listOf("Android" to android, "JVM" to jvm).forEach { (platform, block) ->
             assertTrue(

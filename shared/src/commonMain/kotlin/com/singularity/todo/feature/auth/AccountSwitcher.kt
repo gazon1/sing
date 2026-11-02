@@ -52,7 +52,6 @@ class AccountSwitcher(
     private val eraser: OwnerScopedEraser,
     private val calculator: OwnerCountsCalculator,
 ) {
-
     private val _progress = MutableStateFlow<SwitchStep>(SwitchStep.Idle)
     val progress: StateFlow<SwitchStep> = _progress.asStateFlow()
 
@@ -63,7 +62,10 @@ class AccountSwitcher(
      * account's queued work has been delivered. Any failure leaves the device exactly as
      * it was, still signed in to the same account with the same local data.
      */
-    suspend fun switchTo(email: String, password: String): Result<Unit> {
+    suspend fun switchTo(
+        email: String,
+        password: String,
+    ): Result<Unit> {
         val departing = (authRepository.currentSession.value as? Session.SignedIn)?.userId
         if (departing == null) {
             return Result.failure(
@@ -82,10 +84,11 @@ class AccountSwitcher(
         // failure, so a step that did not happen cannot have the next one run after it.
         // `map` would have produced a `Result<Result<Unit>>` and run the whole sequence
         // regardless — which is the exact ordering bug this class exists to prevent.
-        val outcome = validateCredentials(email, password)
-            .mapCatching { deliver(departing).getOrThrow() }
-            .mapCatching { erase(departing).getOrThrow() }
-            .mapCatching { signIn(email, password).getOrThrow() }
+        val outcome =
+            validateCredentials(email, password)
+                .mapCatching { deliver(departing).getOrThrow() }
+                .mapCatching { erase(departing).getOrThrow() }
+                .mapCatching { signIn(email, password).getOrThrow() }
 
         return outcome.fold(
             onSuccess = {
@@ -100,7 +103,10 @@ class AccountSwitcher(
      * Validates before anything irreversible, so a wrong password cannot leave the
      * device signed out of an account whose data it has just erased.
      */
-    private fun validateCredentials(email: String, password: String): Result<Unit> {
+    private fun validateCredentials(
+        email: String,
+        password: String,
+    ): Result<Unit> {
         _progress.value = SwitchStep.CheckingCredentials
         return runCatchingResult {
             AuthDomain.validateEmail(email)
@@ -143,7 +149,10 @@ class AccountSwitcher(
      * report the whole switch as done — with the departing account's data erased and
      * nobody signed in. Throwing first is what turns the inner failure into a real one.
      */
-    private suspend fun signIn(email: String, password: String): Result<Unit> {
+    private suspend fun signIn(
+        email: String,
+        password: String,
+    ): Result<Unit> {
         _progress.value = SwitchStep.SigningIn
         return runCatchingResult { authRepository.signIn(email, password).getOrThrow() }
     }
@@ -163,40 +172,46 @@ class AccountSwitcher(
      * `PushSummary.discarded` is work this account has not seen acknowledged, and
      * erasing the rows would lose it.
      */
-    private fun switchDeliveryFailure(outcome: SyncOutcome): AppError? = when (outcome) {
-        // The cycle never ran — a local read failed. Nothing was sent, so nothing may
-        // be erased.
-        is SyncOutcome.CouldNotStart -> outcome.error
+    private fun switchDeliveryFailure(outcome: SyncOutcome): AppError? =
+        when (outcome) {
+            // The cycle never ran — a local read failed. Nothing was sent, so nothing may
+            // be erased.
+            is SyncOutcome.CouldNotStart -> {
+                outcome.error
+            }
 
-        // No cycle ran and none will: no active sync scope or the coordinator is closed.
-        // Also nothing sent.
-        is SyncOutcome.NothingToDo -> AppError.Unknown(
-            "Sync is not running, so the queued changes were not sent",
-            code = "auth.switch_delivery_skipped",
-        )
-
-        is SyncOutcome.Completed -> {
-            val push = outcome.push.getOrElse {
-                return AppError.Network(
-                    "The queued changes could not be sent before switching accounts",
-                    code = "auth.switch_delivery_failed",
+            // No cycle ran and none will: no active sync scope or the coordinator is closed.
+            // Also nothing sent.
+            is SyncOutcome.NothingToDo -> {
+                AppError.Unknown(
+                    "Sync is not running, so the queued changes were not sent",
+                    code = "auth.switch_delivery_skipped",
                 )
             }
-            if (push.failed > 0) {
-                AppError.Network(
-                    "${push.failed} queued change(s) could not be sent before switching accounts",
-                    code = "auth.switch_delivery_failed",
-                )
-            } else if (push.discarded > 0) {
-                AppError.Network(
-                    "${push.discarded} queued change(s) were not acknowledged before switching accounts",
-                    code = "auth.switch_delivery_discarded",
-                )
-            } else {
-                null
+
+            is SyncOutcome.Completed -> {
+                val push =
+                    outcome.push.getOrElse {
+                        return AppError.Network(
+                            "The queued changes could not be sent before switching accounts",
+                            code = "auth.switch_delivery_failed",
+                        )
+                    }
+                if (push.failed > 0) {
+                    AppError.Network(
+                        "${push.failed} queued change(s) could not be sent before switching accounts",
+                        code = "auth.switch_delivery_failed",
+                    )
+                } else if (push.discarded > 0) {
+                    AppError.Network(
+                        "${push.discarded} queued change(s) were not acknowledged before switching accounts",
+                        code = "auth.switch_delivery_discarded",
+                    )
+                } else {
+                    null
+                }
             }
         }
-    }
 }
 
 /** What a switch is doing right now, for the UI to show rather than a spinner. */

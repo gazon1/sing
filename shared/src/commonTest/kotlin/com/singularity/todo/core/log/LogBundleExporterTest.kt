@@ -25,81 +25,85 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class LogBundleExporterTest {
-
     private val fs: FileSystem = MapFileSystem()
 
     @Test
-    fun `export with no log files produces empty archive`() = runTest {
-        val codec = FakeBackupCodec()
-        val sut = LogBundleExporter("/logs", codec, fs)
+    fun `export with no log files produces empty archive`() =
+        runTest {
+            val codec = FakeBackupCodec()
+            val sut = LogBundleExporter("/logs", codec, fs)
 
-        val result = sut.export()
+            val result = sut.export()
 
-        assertTrue(result.isSuccess)
-        assertEquals(1, codec.calls)
-        assertTrue(codec.lastAttachments!!.isEmpty())
-    }
-
-    @Test
-    fun `export with single log file includes it in attachments`() = runTest {
-        fs.writeBytes("/logs/log.0.txt", "line1\nline2\n".toByteArray())
-        val codec = FakeBackupCodec()
-        val sut = LogBundleExporter("/logs", codec, fs)
-
-        val result = sut.export()
-
-        assertTrue(result.isSuccess)
-        val attachments = codec.lastAttachments!!
-        assertEquals(1, attachments.size)
-        assertEquals("log.0.txt", attachments[0].first)
-        // The attachment names a path; the bytes the codec would stream are there.
-        assertEquals("/logs/log.0.txt", attachments[0].second)
-        assertEquals("line1\nline2\n".toByteArray().toList(), fs.readBytes(attachments[0].second).toList())
-    }
+            assertTrue(result.isSuccess)
+            assertEquals(1, codec.calls)
+            assertTrue(codec.lastAttachments!!.isEmpty())
+        }
 
     @Test
-    fun `export with multiple log files includes all in order`() = runTest {
-        fs.writeBytes("/logs/log.0.txt", "oldest".toByteArray())
-        fs.writeBytes("/logs/log.1.txt", "middle".toByteArray())
-        fs.writeBytes("/logs/log.2.txt", "newest".toByteArray())
-        val codec = FakeBackupCodec()
-        val sut = LogBundleExporter("/logs", codec, fs, fileCount = 3)
+    fun `export with single log file includes it in attachments`() =
+        runTest {
+            fs.writeBytes("/logs/log.0.txt", "line1\nline2\n".toByteArray())
+            val codec = FakeBackupCodec()
+            val sut = LogBundleExporter("/logs", codec, fs)
 
-        val result = sut.export()
+            val result = sut.export()
 
-        assertTrue(result.isSuccess)
-        val attachments = codec.lastAttachments!!
-        assertEquals(3, attachments.size)
-        assertEquals("log.0.txt", attachments[0].first)
-        assertEquals("oldest".toByteArray().toList(), fs.readBytes(attachments[0].second).toList())
-        assertEquals("log.1.txt", attachments[1].first)
-        assertEquals("log.2.txt", attachments[2].first)
-    }
-
-    @Test
-    fun `export skips missing log files`() = runTest {
-        // log.0 exists but log.1 does not
-        fs.writeBytes("/logs/log.0.txt", "only-one".toByteArray())
-        val codec = FakeBackupCodec()
-        val sut = LogBundleExporter("/logs", codec, fs, fileCount = 3)
-
-        val result = sut.export()
-
-        assertTrue(result.isSuccess)
-        assertEquals(1, codec.lastAttachments!!.size)
-        assertEquals("log.0.txt", codec.lastAttachments!![0].first)
-    }
+            assertTrue(result.isSuccess)
+            val attachments = codec.lastAttachments!!
+            assertEquals(1, attachments.size)
+            assertEquals("log.0.txt", attachments[0].first)
+            // The attachment names a path; the bytes the codec would stream are there.
+            assertEquals("/logs/log.0.txt", attachments[0].second)
+            assertEquals("line1\nline2\n".toByteArray().toList(), fs.readBytes(attachments[0].second).toList())
+        }
 
     @Test
-    fun `export returns failure when BackupCodec fails`() = runTest {
-        fs.writeBytes("/logs/log.0.txt", "content".toByteArray())
-        val codec = FakeBackupCodec(failExport = true)
-        val sut = LogBundleExporter("/logs", codec, fs)
+    fun `export with multiple log files includes all in order`() =
+        runTest {
+            fs.writeBytes("/logs/log.0.txt", "oldest".toByteArray())
+            fs.writeBytes("/logs/log.1.txt", "middle".toByteArray())
+            fs.writeBytes("/logs/log.2.txt", "newest".toByteArray())
+            val codec = FakeBackupCodec()
+            val sut = LogBundleExporter("/logs", codec, fs, fileCount = 3)
 
-        val result = sut.export()
+            val result = sut.export()
 
-        assertTrue(result.isFailure)
-    }
+            assertTrue(result.isSuccess)
+            val attachments = codec.lastAttachments!!
+            assertEquals(3, attachments.size)
+            assertEquals("log.0.txt", attachments[0].first)
+            assertEquals("oldest".toByteArray().toList(), fs.readBytes(attachments[0].second).toList())
+            assertEquals("log.1.txt", attachments[1].first)
+            assertEquals("log.2.txt", attachments[2].first)
+        }
+
+    @Test
+    fun `export skips missing log files`() =
+        runTest {
+            // log.0 exists but log.1 does not
+            fs.writeBytes("/logs/log.0.txt", "only-one".toByteArray())
+            val codec = FakeBackupCodec()
+            val sut = LogBundleExporter("/logs", codec, fs, fileCount = 3)
+
+            val result = sut.export()
+
+            assertTrue(result.isSuccess)
+            assertEquals(1, codec.lastAttachments!!.size)
+            assertEquals("log.0.txt", codec.lastAttachments!![0].first)
+        }
+
+    @Test
+    fun `export returns failure when BackupCodec fails`() =
+        runTest {
+            fs.writeBytes("/logs/log.0.txt", "content".toByteArray())
+            val codec = FakeBackupCodec(failExport = true)
+            val sut = LogBundleExporter("/logs", codec, fs)
+
+            val result = sut.export()
+
+            assertTrue(result.isFailure)
+        }
 }
 
 /**
@@ -114,23 +118,24 @@ class LogBundleExporterTest {
  */
 @Tag("fast")
 class LogBundleExporterStampTest {
-
     @Test
-    fun `the archive name is a fixed-width sortable timestamp`() = runTest {
-        val codec = FakeBackupCodec()
-        val sut = LogBundleExporter("/logs", codec, MapFileSystem())
+    fun `the archive name is a fixed-width sortable timestamp`() =
+        runTest {
+            val codec = FakeBackupCodec()
+            val sut = LogBundleExporter("/logs", codec, MapFileSystem())
 
-        val path = sut.export().getOrThrow()
+            val path = sut.export().getOrThrow()
 
-        val stamp = Regex("""^/logs/singularity-logs-(\d{8}-\d{6})\.zip$""")
-            .matchEntire(path)
-            ?.groupValues
-            ?.get(1)
-        assertNotNull(stamp, "archive name was not a fixed-width timestamp: $path")
+            val stamp =
+                Regex("""^/logs/singularity-logs-(\d{8}-\d{6})\.zip$""")
+                    .matchEntire(path)
+                    ?.groupValues
+                    ?.get(1)
+            assertNotNull(stamp, "archive name was not a fixed-width timestamp: $path")
 
-        // The manifest carries the same stamp, so a bundle can be traced to a name.
-        assertTrue(codec.lastManifest!!.contains(stamp))
-    }
+            // The manifest carries the same stamp, so a bundle can be traced to a name.
+            assertTrue(codec.lastManifest!!.contains(stamp))
+        }
 }
 
 /** Minimal fake [BackupCodec] for testing [LogBundleExporter]. */
@@ -162,11 +167,16 @@ private class FakeBackupCodec(private val failExport: Boolean = false) : BackupC
         }
     }
 
-    override suspend fun import(sourcePath: String, fs: FileSystem): Result<BackupCodec.CodecReadResult> {
+    override suspend fun import(
+        sourcePath: String,
+        fs: FileSystem,
+    ): Result<BackupCodec.CodecReadResult> {
         error("not used in LogBundleExporter tests")
     }
 
-    override suspend fun importFromSource(source: com.singularity.todo.core.files.FileSource): Result<BackupCodec.CodecReadResult> {
+    override suspend fun importFromSource(
+        source: com.singularity.todo.core.files.FileSource,
+    ): Result<BackupCodec.CodecReadResult> {
         error("not used in LogBundleExporter tests")
     }
 }

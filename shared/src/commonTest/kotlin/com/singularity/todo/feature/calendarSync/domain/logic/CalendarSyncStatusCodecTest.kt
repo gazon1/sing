@@ -13,21 +13,21 @@ import kotlin.test.assertEquals
  */
 @Tag("fast")
 class CalendarSyncStatusCodecTest {
-
     private val neverSynced = CalendarSyncStatus.Idle(null)
 
     @Test
     fun `every status round-trips through the store`() {
-        val statuses = listOf(
-            CalendarSyncStatus.Disabled,
-            CalendarSyncStatus.Syncing,
-            CalendarSyncStatus.Idle(null),
-            CalendarSyncStatus.Idle(0L),
-            CalendarSyncStatus.Idle(1_700_000_000_123L),
-            CalendarSyncStatus.Failed("boom"),
-            CalendarSyncStatus.Failed("boom", FailureType.Network),
-            CalendarSyncStatus.Failed("revoked", FailureType.PermissionRevoked),
-        )
+        val statuses =
+            listOf(
+                CalendarSyncStatus.Disabled,
+                CalendarSyncStatus.Syncing,
+                CalendarSyncStatus.Idle(null),
+                CalendarSyncStatus.Idle(0L),
+                CalendarSyncStatus.Idle(1_700_000_000_123L),
+                CalendarSyncStatus.Failed("boom"),
+                CalendarSyncStatus.Failed("boom", FailureType.Network),
+                CalendarSyncStatus.Failed("revoked", FailureType.PermissionRevoked),
+            )
 
         statuses.forEach { status ->
             val encoded = CalendarSyncStatusCodec.encode(status)

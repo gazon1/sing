@@ -11,9 +11,9 @@ import ai.koog.serialization.TypeToken
 import ai.koog.utils.time.KoogClock
 import co.touchlab.kermit.Logger
 import com.singularity.todo.feature.ai.prompts.Prompts
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import kotlinx.coroutines.CancellationException
 
 @Serializable
 data class ClusterNotesInput(val notes: List<String>)
@@ -23,14 +23,14 @@ data class ClusterNotesOutput(val clusters: Map<String, List<String>>)
 
 class ClusterNotesTool(private val promptExecutor: PromptExecutor, private val model: LLModel) :
     SimpleTool<ClusterNotesInput>(TypeToken.of(ClusterNotesInput::class.java), NAME, DESCRIPTION) {
-
     private val logger = Logger.withTag("ClusterNotes")
 
     override suspend fun execute(args: ClusterNotesInput): String {
-        val p = prompt(Prompt.Empty, KoogClock.System) {
-            system(Prompts.clusterNotesSystem)
-            user(Prompts.clusterNotesUser(args.notes))
-        }
+        val p =
+            prompt(Prompt.Empty, KoogClock.System) {
+                system(Prompts.clusterNotesSystem)
+                user(Prompts.clusterNotesUser(args.notes))
+            }
         val response = promptExecutor.execute(p, model, emptyList())
         val text = extractText(response)
         return try {
@@ -50,6 +50,9 @@ class ClusterNotesTool(private val promptExecutor: PromptExecutor, private val m
         const val DESCRIPTION = "Group note titles into thematic clusters."
 
         private fun extractText(response: Message.Assistant): String =
-            response.parts.filterIsInstance<MessagePart.Text>().joinToString("") { it.text }.trim()
+            response.parts
+                .filterIsInstance<MessagePart.Text>()
+                .joinToString("") { it.text }
+                .trim()
     }
 }

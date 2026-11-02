@@ -69,20 +69,22 @@ fun createJvmEntryProvider(
 ): (AppDestination) -> NavEntry<AppDestination> {
     // Hoisted top-level graph stacks — see the KDoc above for why they must live in the
     // shell composition rather than inside the entry content.
-    val stacks = AppNavStacks(
-        projects = remember { NavBackStack<ProjectsRoute>(ProjectsRoute.List) },
-        calendar = remember { NavBackStack<CalendarRoute>(CalendarRoute.Month(today.toString())) },
-        notes = remember { NavBackStack<NotesRoute>(NotesRoute.List) },
-        search = remember { NavBackStack<Search>(Search) },
-        settings = remember { NavBackStack<Settings>(Settings) },
-        agenda = remember {
-            mapOf(
-                AgendaStartRoute.Today to NavBackStack<AgendaStartRoute>(AgendaStartRoute.Today),
-                AgendaStartRoute.Upcoming to NavBackStack<AgendaStartRoute>(AgendaStartRoute.Upcoming),
-                AgendaStartRoute.Inbox to NavBackStack<AgendaStartRoute>(AgendaStartRoute.Inbox),
-            )
-        },
-    )
+    val stacks =
+        AppNavStacks(
+            projects = remember { NavBackStack<ProjectsRoute>(ProjectsRoute.List) },
+            calendar = remember { NavBackStack<CalendarRoute>(CalendarRoute.Month(today.toString())) },
+            notes = remember { NavBackStack<NotesRoute>(NotesRoute.List) },
+            search = remember { NavBackStack<Search>(Search) },
+            settings = remember { NavBackStack<Settings>(Settings) },
+            agenda =
+                remember {
+                    mapOf(
+                        AgendaStartRoute.Today to NavBackStack<AgendaStartRoute>(AgendaStartRoute.Today),
+                        AgendaStartRoute.Upcoming to NavBackStack<AgendaStartRoute>(AgendaStartRoute.Upcoming),
+                        AgendaStartRoute.Inbox to NavBackStack<AgendaStartRoute>(AgendaStartRoute.Inbox),
+                    )
+                },
+        )
 
     return entryProvider {
         appEntries(nav, pomodoroTimer, pomodoroTaskList)

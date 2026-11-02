@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,7 +44,6 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import androidx.compose.material3.MaterialTheme
 
 /**
  * Task logbook — a chronological feed of notes and time entries attached to the current task.
@@ -83,22 +83,26 @@ fun LogbookSection(
 }
 
 @Composable
-private fun LogbookEmptyCard(onAddNote: () -> Unit, modifier: Modifier = Modifier) {
+private fun LogbookEmptyCard(
+    onAddNote: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Surface(
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(TaskSpacing.cardCornerRadius),
-        modifier = modifier
-            .fillMaxWidth()
-            .testTag(TestTags.LOGBOOK_SECTION),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .testTag(TestTags.LOGBOOK_SECTION),
     ) {
         Row(
-            modifier = Modifier
-                .padding(
-                    horizontal = TaskSpacing.cardPaddingHorizontal,
-                    vertical = TaskSpacing.cardPaddingVertical,
-                )
-                .fillMaxWidth()
-                .testTag(TestTags.LOGBOOK_EMPTY),
+            modifier =
+                Modifier
+                    .padding(
+                        horizontal = TaskSpacing.cardPaddingHorizontal,
+                        vertical = TaskSpacing.cardPaddingVertical,
+                    ).fillMaxWidth()
+                    .testTag(TestTags.LOGBOOK_EMPTY),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             LogbookHeader(
@@ -170,29 +174,33 @@ private fun LogbookLoadedCard(
     val today = LocalDate.fromEpochDays((nowMs / 86_400_000).toInt())
     val yesterday = LocalDate.fromEpochDays(today.toEpochDays() - 1)
 
-    val grouped = remember(entries) {
-        entries.groupBy { entry ->
-            val instant = when (entry) {
-                is LogbookEntry.NoteEntry -> entry.note.createdAt
-                is LogbookEntry.TimeEntryRow -> entry.entry.startedAt
+    val grouped =
+        remember(entries) {
+            entries.groupBy { entry ->
+                val instant =
+                    when (entry) {
+                        is LogbookEntry.NoteEntry -> entry.note.createdAt
+                        is LogbookEntry.TimeEntryRow -> entry.entry.startedAt
+                    }
+                instant.toLocalDateTime(TimeZone.currentSystemDefault()).date
             }
-            instant.toLocalDateTime(TimeZone.currentSystemDefault()).date
         }
-    }
 
     Surface(
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(TaskSpacing.cardCornerRadius),
-        modifier = modifier
-            .fillMaxWidth()
-            .testTag(TestTags.LOGBOOK_SECTION),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .testTag(TestTags.LOGBOOK_SECTION),
     ) {
         Column(
-            modifier = Modifier.padding(
-                horizontal = TaskSpacing.cardPaddingHorizontal,
-                vertical = TaskSpacing.cardPaddingVertical,
-            )
-                .fillMaxWidth(),
+            modifier =
+                Modifier
+                    .padding(
+                        horizontal = TaskSpacing.cardPaddingHorizontal,
+                        vertical = TaskSpacing.cardPaddingVertical,
+                    ).fillMaxWidth(),
         ) {
             // Header row
             LogbookHeader(
@@ -213,14 +221,18 @@ private fun LogbookLoadedCard(
                 )
                 dayEntries.forEach { entry: LogbookEntry ->
                     when (entry) {
-                        is LogbookEntry.NoteEntry -> LogbookNoteRow(
-                            note = entry.note,
-                            onClick = { onOpenNote(entry.note.id) },
-                        )
+                        is LogbookEntry.NoteEntry -> {
+                            LogbookNoteRow(
+                                note = entry.note,
+                                onClick = { onOpenNote(entry.note.id) },
+                            )
+                        }
 
-                        is LogbookEntry.TimeEntryRow -> LogbookTimeEntryRow(
-                            entry = entry.entry,
-                        )
+                        is LogbookEntry.TimeEntryRow -> {
+                            LogbookTimeEntryRow(
+                                entry = entry.entry,
+                            )
+                        }
                     }
                 }
             }
@@ -229,16 +241,22 @@ private fun LogbookLoadedCard(
 }
 
 @Composable
-private fun LogbookNoteRow(note: Note, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun LogbookNoteRow(
+    note: Note,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     // The tag is keyed by the visible title, because the row's id is a generated
     // ULID that a UI-automation flow never learns — the title is what the user
     // sees, and therefore what a flow can address.
     val title = note.title.ifBlank { "(untitled)" }
     Row(
-        modifier = modifier.fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 6.dp)
-            .testTag(TestTags.logbookNoteByTitle(title)),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(vertical = 6.dp)
+                .testTag(TestTags.logbookNoteByTitle(title)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SelectableText(
@@ -258,8 +276,10 @@ private fun LogbookTimeEntryRow(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier.fillMaxWidth()
-            .padding(vertical = 6.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
@@ -285,7 +305,11 @@ private fun LogbookTimeEntryRow(
  * @param today Derived from the injected clock (#91) — stable within a composition.
  * @param yesterday Derived from the injected clock (#91) — stable within a composition.
  */
-private fun formatDayLabel(date: LocalDate, today: LocalDate, yesterday: LocalDate): String =
+private fun formatDayLabel(
+    date: LocalDate,
+    today: LocalDate,
+    yesterday: LocalDate,
+): String =
     when (date) {
         today -> "Today"
         yesterday -> "Yesterday"

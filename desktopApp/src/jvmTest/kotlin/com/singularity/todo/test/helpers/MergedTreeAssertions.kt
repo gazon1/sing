@@ -51,9 +51,12 @@ fun DesktopComposeUiTest.mergedTreeTags(): Set<String> {
  *   that was supposed to show it.
  */
 @OptIn(ExperimentalTestApi::class)
-fun DesktopComposeUiTest.assertTagInMergedTree(tag: String, screen: String) =
-    step("assertTagInMergedTree", "$screen/$tag") {
-        val found = runCatching {
+fun DesktopComposeUiTest.assertTagInMergedTree(
+    tag: String,
+    screen: String,
+) = step("assertTagInMergedTree", "$screen/$tag") {
+    val found =
+        runCatching {
             waitUntil(
                 conditionDescription = "node with testTag '$tag' is in the merged tree of $screen",
                 timeoutMillis = TIMEOUT_MS,
@@ -61,11 +64,12 @@ fun DesktopComposeUiTest.assertTagInMergedTree(tag: String, screen: String) =
                 onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
             }
         }
-        if (found.isSuccess) return@step
+    if (found.isSuccess) return@step
 
-        val merged = mergedTreeTags()
-        val unmerged = unmergedTreeTags()
-        val diagnosis = if (tag in unmerged) {
+    val merged = mergedTreeTags()
+    val unmerged = unmergedTreeTags()
+    val diagnosis =
+        if (tag in unmerged) {
             "The tag IS in the tree, but only in the unmerged one: it sits below a " +
                 "node that merges its descendants (a Material3 Card/Surface merges " +
                 "its children, and TestTag's merge policy keeps the parent's value). " +
@@ -75,15 +79,15 @@ fun DesktopComposeUiTest.assertTagInMergedTree(tag: String, screen: String) =
             "The tag is in neither tree — nothing rendered it (or it rendered under " +
                 "a different tag)."
         }
-        throw AssertionError(
-            "testTag '$tag' is not addressable in the merged semantics tree of " +
-                "$screen. $diagnosis\n" +
-                "Tags in the merged tree (${merged.size}): " +
-                "${merged.joinToString(", ")}\n" +
-                "Tags in the unmerged tree only (${unmerged - merged}): " +
-                "${(unmerged - merged).joinToString(", ")}",
-        ).also { it.addSuppressed(found.exceptionOrNull()!!) }
-    }
+    throw AssertionError(
+        "testTag '$tag' is not addressable in the merged semantics tree of " +
+            "$screen. $diagnosis\n" +
+            "Tags in the merged tree (${merged.size}): " +
+            "${merged.joinToString(", ")}\n" +
+            "Tags in the unmerged tree only (${unmerged - merged}): " +
+            "${(unmerged - merged).joinToString(", ")}",
+    ).also { it.addSuppressed(found.exceptionOrNull()!!) }
+}
 
 /**
  * Every `testTag` the **unmerged** semantics tree carries, across every root.

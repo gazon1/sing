@@ -1,8 +1,8 @@
 package com.singularity.todo.core.transport
 
 import com.singularity.todo.core.error.TransportException
-import com.singularity.todo.core.error.TransportFailure
 import com.singularity.todo.core.error.TransportFacts
+import com.singularity.todo.core.error.TransportFailure
 import com.singularity.todo.core.error.classifyTransportFailure
 import io.github.jan.supabase.exceptions.RestException
 import io.github.jan.supabase.exceptions.SupabaseEncodingException
@@ -34,7 +34,6 @@ import io.github.jan.supabase.postgrest.exception.PostgrestRestException
  * there. Both are "the server does not have it", and the message says which.
  */
 internal object SupabaseTransportFailure {
-
     /**
      * The class of a vendor failure.
      *
@@ -60,14 +59,15 @@ internal object SupabaseTransportFailure {
      * three plain values, without a vendor's type attached. What is done with
      * them is the project's decision, and it is made further up.
      */
-    fun facts(error: Throwable): TransportFacts = TransportFacts(
-        statusCode = (error as? RestException)?.statusCode,
-        // PostgREST has its own code and the rest of the SDK carries the server's
-        // own error string — the same fallback the exception path uses, because a
-        // storage or auth failure that loses its code is a failure nobody can act on.
-        serverCode = (error as? PostgrestRestException)?.code ?: (error as? RestException)?.error,
-        detail = (error as? RestException)?.description ?: error.message,
-    )
+    fun facts(error: Throwable): TransportFacts =
+        TransportFacts(
+            statusCode = (error as? RestException)?.statusCode,
+            // PostgREST has its own code and the rest of the SDK carries the server's
+            // own error string — the same fallback the exception path uses, because a
+            // storage or auth failure that loses its code is a failure nobody can act on.
+            serverCode = (error as? PostgrestRestException)?.code ?: (error as? RestException)?.error,
+            detail = (error as? RestException)?.description ?: error.message,
+        )
 
     /**
      * The failure as the project sees it: the class, and the server's words.
@@ -77,17 +77,21 @@ internal object SupabaseTransportFailure {
      * policy that refused a write from a server that failed — which is the
      * difference between a bug in the app and a bug in the deployment.
      */
-    fun toTransportException(error: Throwable, what: String): TransportException {
+    fun toTransportException(
+        error: Throwable,
+        what: String,
+    ): TransportException {
         val rest = error as? RestException
         val postgrestCode: String? = (error as? PostgrestRestException)?.code
         val code = postgrestCode ?: rest?.error
         val detail = rest?.description ?: error.message
         val status = rest?.statusCode
-        val parts = listOfNotNull(
-            status?.toString(),
-            code?.takeIf { it.isNotBlank() },
-            detail?.takeIf { it.isNotBlank() },
-        )
+        val parts =
+            listOfNotNull(
+                status?.toString(),
+                code?.takeIf { it.isNotBlank() },
+                detail?.takeIf { it.isNotBlank() },
+            )
         val said = if (parts.isEmpty()) error::class.simpleName.orEmpty() else parts.joinToString(": ")
         return TransportException(classify(error), "$what: $said", error)
     }

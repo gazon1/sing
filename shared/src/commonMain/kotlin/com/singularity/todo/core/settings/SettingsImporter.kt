@@ -1,14 +1,14 @@
 package com.singularity.todo.core.settings
 
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.llm.LlmProvider
 import com.singularity.todo.core.reminders.ReminderOffset
 import com.singularity.todo.core.schedule.WorkingDays
 import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
-import kotlinx.serialization.json.Json
-import com.singularity.todo.core.error.runCatchingCancellable
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.isoDayNumber
+import kotlinx.serialization.json.Json
 
 /**
  * Imports a settings snapshot from JSON, validates it, and applies each
@@ -26,8 +26,11 @@ open class SettingsImporter(private val contributors: Set<SettingsContributor<*,
 
     sealed interface ImportResult {
         data object Success : ImportResult
+
         data class SchemaTooOld(val snapshotVersion: Int, val currentVersion: Int) : ImportResult
+
         data class ParseError(val message: String) : ImportResult
+
         data class PartialFailure(val failures: List<String>) : ImportResult
     }
 
@@ -40,14 +43,15 @@ open class SettingsImporter(private val contributors: Set<SettingsContributor<*,
      * 4. Return [ImportResult].
      */
     open suspend fun importFromJson(jsonString: String): ImportResult {
-        val snapshot: SettingsSnapshot = runCatchingCancellable {
-            json.decodeFromString(SettingsSnapshot.serializer(), jsonString)
-        }.getOrElse { e ->
-            return ImportResult.ParseError(
-                e.message
-                    ?: "Failed to parse settings JSON",
-            )
-        }
+        val snapshot: SettingsSnapshot =
+            runCatchingCancellable {
+                json.decodeFromString(SettingsSnapshot.serializer(), jsonString)
+            }.getOrElse { e ->
+                return ImportResult.ParseError(
+                    e.message
+                        ?: "Failed to parse settings JSON",
+                )
+            }
 
         if (snapshot.schemaVersion < SettingsSnapshot.CURRENT_VERSION) {
             return ImportResult.SchemaTooOld(
@@ -60,20 +64,23 @@ open class SettingsImporter(private val contributors: Set<SettingsContributor<*,
 
         // Appearance
         runCatchingCancellable {
-            val contributor = contributors.filterIsInstance<SettingsContributor<SettingsSection.Appearance, SettingsIntent.Appearance>>()
-                .firstOrNull()
+            val contributor =
+                contributors
+                    .filterIsInstance<SettingsContributor<SettingsSection.Appearance, SettingsIntent.Appearance>>()
+                    .firstOrNull()
             // REQ-THEME-010 migration: v1 snapshots carry `darkThemeForMigration=true/false`
             // and `themeMode="__UNSET__"`. When `darkThemeForMigration` is true, migrate
             // to the corresponding mode. Otherwise parse `themeMode` directly.
-            val resolvedMode = when {
-                snapshot.appearance.themeMode == "__UNSET__" &&
-                    snapshot.appearance.darkThemeForMigration -> ThemeMode.Dark
+            val resolvedMode =
+                when {
+                    snapshot.appearance.themeMode == "__UNSET__" &&
+                        snapshot.appearance.darkThemeForMigration -> ThemeMode.Dark
 
-                snapshot.appearance.themeMode == "__UNSET__" &&
-                    !snapshot.appearance.darkThemeForMigration -> ThemeMode.Light
+                    snapshot.appearance.themeMode == "__UNSET__" &&
+                        !snapshot.appearance.darkThemeForMigration -> ThemeMode.Light
 
-                else -> ThemeMode.fromStorageString(snapshot.appearance.themeMode)
-            }
+                    else -> ThemeMode.fromStorageString(snapshot.appearance.themeMode)
+                }
             contributor?.process(SettingsIntent.Appearance.UpdateThemeMode(resolvedMode))
             contributor?.process(SettingsIntent.Appearance.UpdateAccentColor(snapshot.appearance.accentColor))
             contributor?.process(SettingsIntent.Appearance.UpdateFontSizeScale(snapshot.appearance.fontSizeScale))
@@ -83,8 +90,10 @@ open class SettingsImporter(private val contributors: Set<SettingsContributor<*,
 
         // AI
         runCatchingCancellable {
-            val contributor = contributors.filterIsInstance<SettingsContributor<SettingsSection.Ai, SettingsIntent.Ai>>()
-                .firstOrNull()
+            val contributor =
+                contributors
+                    .filterIsInstance<SettingsContributor<SettingsSection.Ai, SettingsIntent.Ai>>()
+                    .firstOrNull()
             contributor?.process(SettingsIntent.Ai.UpdateProvider(LlmProvider.fromId(snapshot.ai.providerId)))
             // An imported value comes from outside the field, so the field never produced it.
             contributor?.process(SettingsIntent.Ai.UpdateBaseUrl(FieldOwnedText.empty().seeded(snapshot.ai.baseUrl)))
@@ -99,13 +108,20 @@ open class SettingsImporter(private val contributors: Set<SettingsContributor<*,
         // Notifications
         runCatchingCancellable {
             val contributor =
-                contributors.filterIsInstance<SettingsContributor<SettingsSection.Notifications, SettingsIntent.Notifications>>()
+                contributors
+                    .filterIsInstance<
+                        SettingsContributor<
+                            SettingsSection.Notifications,
+                            SettingsIntent.Notifications,
+                        >,
+                    >()
                     .firstOrNull()
             contributor?.process(SettingsIntent.Notifications.UpdateEnabled(snapshot.notifications.enabled))
             contributor?.process(SettingsIntent.Notifications.UpdateSound(snapshot.notifications.sound))
             contributor?.process(SettingsIntent.Notifications.UpdateVibration(snapshot.notifications.vibration))
-            val offset = ReminderOffset.entries.find { it.minutes == snapshot.notifications.reminderDefaultMinutes }
-                ?: ReminderOffset.AT_DUE
+            val offset =
+                ReminderOffset.entries.find { it.minutes == snapshot.notifications.reminderDefaultMinutes }
+                    ?: ReminderOffset.AT_DUE
             contributor?.process(SettingsIntent.Notifications.UpdateReminderDefault(offset))
         }.onFailure { e ->
             failures.add("Notifications: ${e.message ?: e}")
@@ -114,7 +130,8 @@ open class SettingsImporter(private val contributors: Set<SettingsContributor<*,
         // Work Schedule
         runCatchingCancellable {
             val contributor =
-                contributors.filterIsInstance<SettingsContributor<SettingsSection.WorkSchedule, SettingsIntent.WorkSchedule>>()
+                contributors
+                    .filterIsInstance<SettingsContributor<SettingsSection.WorkSchedule, SettingsIntent.WorkSchedule>>()
                     .firstOrNull()
             contributor?.process(SettingsIntent.WorkSchedule.UpdateWorkDayStart(snapshot.workSchedule.dayStartMinutes))
             contributor?.process(SettingsIntent.WorkSchedule.UpdateWorkDayEnd(snapshot.workSchedule.dayEndMinutes))
@@ -126,15 +143,16 @@ open class SettingsImporter(private val contributors: Set<SettingsContributor<*,
             // file written before the set existed carries the two flags
             // instead, and they are what it meant: the same days, spelled the
             // old way.
-            val workingDays = snapshot.workSchedule.workingDays
-                ?.let { stored ->
-                    val byNumber = DayOfWeek.entries.associateBy { it.isoDayNumber }
-                    stored.mapNotNull { byNumber[it] }.toSet()
-                }
-                ?: WorkingDays.fromLegacyFlags(
-                    saturdayIsWorkingDay = snapshot.workSchedule.weekendSat,
-                    sundayIsWorkingDay = snapshot.workSchedule.weekendSun,
-                )
+            val workingDays =
+                snapshot.workSchedule.workingDays
+                    ?.let { stored ->
+                        val byNumber = DayOfWeek.entries.associateBy { it.isoDayNumber }
+                        stored.mapNotNull { byNumber[it] }.toSet()
+                    }
+                    ?: WorkingDays.fromLegacyFlags(
+                        saturdayIsWorkingDay = snapshot.workSchedule.weekendSat,
+                        sundayIsWorkingDay = snapshot.workSchedule.weekendSun,
+                    )
             contributor?.process(SettingsIntent.WorkSchedule.UpdateWorkingDays(workingDays))
         }.onFailure { e ->
             failures.add("Work Schedule: ${e.message ?: e}")
@@ -142,8 +160,10 @@ open class SettingsImporter(private val contributors: Set<SettingsContributor<*,
 
         // Greeting
         runCatchingCancellable {
-            val contributor = contributors.filterIsInstance<SettingsContributor<SettingsSection.Greeting, SettingsIntent.Greeting>>()
-                .firstOrNull()
+            val contributor =
+                contributors
+                    .filterIsInstance<SettingsContributor<SettingsSection.Greeting, SettingsIntent.Greeting>>()
+                    .firstOrNull()
             contributor?.process(SettingsIntent.Greeting.UpdateMorningEnd(snapshot.greeting.morningEndHour))
             contributor?.process(SettingsIntent.Greeting.UpdateAfternoonEnd(snapshot.greeting.afternoonEndHour))
         }.onFailure { e ->
@@ -153,7 +173,13 @@ open class SettingsImporter(private val contributors: Set<SettingsContributor<*,
         // Default Agenda View
         runCatchingCancellable {
             val contributor =
-                contributors.filterIsInstance<SettingsContributor<SettingsSection.DefaultAgendaView, SettingsIntent.DefaultAgendaView>>()
+                contributors
+                    .filterIsInstance<
+                        SettingsContributor<
+                            SettingsSection.DefaultAgendaView,
+                            SettingsIntent.DefaultAgendaView,
+                        >,
+                    >()
                     .firstOrNull()
             val viewId = snapshot.defaultAgendaView.viewId?.let { SavedAgendaViewId.fromString(it) }
             contributor?.process(SettingsIntent.DefaultAgendaView.Update(viewId))

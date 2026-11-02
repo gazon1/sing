@@ -8,10 +8,10 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.nav.AppDestination
-import com.singularity.todo.feature.nav.rememberAppEntryDecorators
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.Search
 import com.singularity.todo.feature.nav.SystemBackHandler
+import com.singularity.todo.feature.nav.rememberAppEntryDecorators
 import com.singularity.todo.feature.nav.rememberAppNavBackStack
 import com.singularity.todo.feature.search.SearchScreen
 
@@ -35,9 +35,10 @@ fun SearchNavGraph(
 ) {
     val stack: NavBackStack<Search> = backStack ?: rememberAppNavBackStack(Search)
     val onExitGraph: (AppDestination?) -> Unit = navCallbacks.graphExit
-    val navigator = remember(onExitGraph) {
-        SearchNavigator(onExitGraph)
-    }
+    val navigator =
+        remember(onExitGraph) {
+            SearchNavigator(onExitGraph)
+        }
     CompositionLocalProvider(
         LocalSearchNavigator provides navigator,
     ) {
@@ -59,6 +60,7 @@ fun SearchNavGraph(
  * nested graph — the map from [Search] to [SearchScreen].
  */
 @Composable
-internal fun searchScreenEntryProvider() = entryProvider {
-    entry<Search> { SearchScreen() }
-}
+internal fun searchScreenEntryProvider() =
+    entryProvider {
+        entry<Search> { SearchScreen() }
+    }

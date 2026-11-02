@@ -21,8 +21,11 @@ sealed interface TaskAiIntent : TaskDetailSlotIntent
 
 sealed interface TaskTimeSlotIntent : TaskDetailSlotIntent {
     data object Start : TaskTimeSlotIntent
+
     data object Stop : TaskTimeSlotIntent
+
     data class CreateManual(val startedAtMs: Long, val endedAtMs: Long, val kind: TimeEntryKind, val note: String?) :
         TaskTimeSlotIntent
+
     data class Tick(val elapsedMs: Long) : TaskTimeSlotIntent
 }

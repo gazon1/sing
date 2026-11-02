@@ -33,7 +33,6 @@ import kotlin.test.assertTrue
  * same limitation and its `FileLogWriter` whitelist has no test for exactly this reason.
  */
 class NoDirectDispatchersRuleTest {
-
     private val rule = NoDirectDispatchersRule(TestConfig())
     private val languageSettings = FakeLanguageVersionSettings(ExplicitApiMode.STRICT)
 

@@ -58,7 +58,6 @@ import androidx.compose.runtime.Immutable
  */
 @Immutable
 sealed interface TextSource {
-
     /** The text the field shows. */
     val text: String
 }

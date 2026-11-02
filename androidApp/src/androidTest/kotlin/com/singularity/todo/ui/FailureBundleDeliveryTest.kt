@@ -41,7 +41,6 @@ import java.io.FileInputStream
  */
 @RunWith(AndroidJUnit4::class)
 class FailureBundleDeliveryTest : InstrumentedTestBase() {
-
     private fun shell(command: String): String {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val descriptor = instrumentation.uiAutomation.executeShellCommand(command)
@@ -93,7 +92,11 @@ class FailureBundleDeliveryTest : InstrumentedTestBase() {
     @SmallTest
     fun the_published_directory_is_outside_the_apps_own_storage() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
-        val appDir = instrumentation.targetContext.getExternalFilesDir(null)?.absolutePath.orEmpty()
+        val appDir =
+            instrumentation.targetContext
+                .getExternalFilesDir(null)
+                ?.absolutePath
+                .orEmpty()
         assertTrue(
             "the bundle must not live in the app's storage — it is deleted with the app: $appDir",
             !FailureBundle.DEVICE_ROOT.startsWith(appDir),

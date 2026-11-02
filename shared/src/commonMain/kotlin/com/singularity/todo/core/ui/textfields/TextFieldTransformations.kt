@@ -26,8 +26,10 @@ import androidx.compose.foundation.text.input.InputTransformation
  * what the minutes field wants: it filters characters, it does not cap the number.
  * @return [text] with every non-digit removed and truncated to [maxDigits] characters.
  */
-internal fun filterDigits(text: String, maxDigits: Int = Int.MAX_VALUE): String =
-    text.filter { it.isDigit() }.take(maxDigits)
+internal fun filterDigits(
+    text: String,
+    maxDigits: Int = Int.MAX_VALUE,
+): String = text.filter { it.isDigit() }.take(maxDigits)
 
 /**
  * True when [text] is short enough for a field that accepts at most [maxLength] characters.
@@ -40,7 +42,10 @@ internal fun filterDigits(text: String, maxDigits: Int = Int.MAX_VALUE): String 
  * @param maxLength the maximum number of characters the field accepts.
  * @return `true` when the text may be kept.
  */
-internal fun isWithinLength(text: String, maxLength: Int): Boolean = text.length <= maxLength
+internal fun isWithinLength(
+    text: String,
+    maxLength: Int,
+): Boolean = text.length <= maxLength
 
 /**
  * True when [text] is a valid recurrence interval — a whole number of at least one.
@@ -48,8 +53,7 @@ internal fun isWithinLength(text: String, maxLength: Int): Boolean = text.length
  * @param text the text the user has typed.
  * @return `true` when the text may be committed as an interval.
  */
-internal fun isValidRecurrenceInterval(text: String): Boolean =
-    (text.toIntOrNull() ?: 0) > 0
+internal fun isValidRecurrenceInterval(text: String): Boolean = (text.toIntOrNull() ?: 0) > 0
 
 /**
  * True when [text] is a valid day of the month — a whole number between 1 and 31.

@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.search.query
 
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -14,7 +15,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Instant
-import com.singularity.todo.core.search.SearchMode
 
 /**
  * The tag conditions of the query language — §4 of the grammar.
@@ -34,7 +34,6 @@ import com.singularity.todo.core.search.SearchMode
  */
 @Tag("fast")
 class SearchQueryTagConditionsTest {
-
     // ─── C1 — the accumulating condition ───────────────────────────────────────
 
     @Test
@@ -83,36 +82,38 @@ class SearchQueryTagConditionsTest {
     // ─── C3 — an unresolvable name ─────────────────────────────────────────────
 
     @Test
-    fun `an unresolvable name in an accumulating condition matches no rows`() = runTest {
-        val resolver = resolver(resolving = setOf("work"))
-        val query = SingularityQueryParser("tag:work tag:missing").parse()
+    fun `an unresolvable name in an accumulating condition matches no rows`() =
+        runTest {
+            val resolver = resolver(resolving = setOf("work"))
+            val query = SingularityQueryParser("tag:work tag:missing").parse()
 
-        val resolved = resolver.resolve(query, USER_ID, SearchMode.Word)
+            val resolved = resolver.resolve(query, USER_ID, SearchMode.Word)
 
-        assertTrue(resolved.unknownTagNames.contains("missing"), "the name that resolves to nothing is tracked")
-        assertTrue(resolved.resolvedTagIds.contains("tag_work"), "the name that resolved is tracked too")
-        assertFalse(
-            resolved.postFilter(sequenceOf(task(tags = listOf(TagId("tag_work"))))).any(),
-            "a task carrying only the tag that resolved must not match: the condition asks for both",
-        )
-    }
+            assertTrue(resolved.unknownTagNames.contains("missing"), "the name that resolves to nothing is tracked")
+            assertTrue(resolved.resolvedTagIds.contains("tag_work"), "the name that resolved is tracked too")
+            assertFalse(
+                resolved.postFilter(sequenceOf(task(tags = listOf(TagId("tag_work"))))).any(),
+                "a task carrying only the tag that resolved must not match: the condition asks for both",
+            )
+        }
 
     @Test
-    fun `an accumulating condition whose names all resolve matches the tasks that carry them`() = runTest {
-        val resolver = resolver(resolving = setOf("work", "urgent"))
-        val query = SingularityQueryParser("tag:work tag:urgent").parse()
+    fun `an accumulating condition whose names all resolve matches the tasks that carry them`() =
+        runTest {
+            val resolver = resolver(resolving = setOf("work", "urgent"))
+            val query = SingularityQueryParser("tag:work tag:urgent").parse()
 
-        val resolved = resolver.resolve(query, USER_ID, SearchMode.Word)
+            val resolved = resolver.resolve(query, USER_ID, SearchMode.Word)
 
-        assertTrue(
-            resolved.postFilter(sequenceOf(task(tags = listOf(TagId("tag_work"), TagId("tag_urgent"))))).any(),
-            "a task carrying both tags matches",
-        )
-        assertFalse(
-            resolved.postFilter(sequenceOf(task(tags = listOf(TagId("tag_work"))))).any(),
-            "a task carrying one of the two tags does not",
-        )
-    }
+            assertTrue(
+                resolved.postFilter(sequenceOf(task(tags = listOf(TagId("tag_work"), TagId("tag_urgent"))))).any(),
+                "a task carrying both tags matches",
+            )
+            assertFalse(
+                resolved.postFilter(sequenceOf(task(tags = listOf(TagId("tag_work"))))).any(),
+                "a task carrying one of the two tags does not",
+            )
+        }
 
     // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -136,18 +137,22 @@ class SearchQueryTagConditionsTest {
     }
 
     /** A task carrying the given tags, and nothing else that matters here. */
-    private fun task(tags: List<TagId>): Task = Task(
-        id = TaskId("task_1"),
-        title = "A task",
-        createdAt = Instant.parse("2026-09-16T10:00:00Z"),
-        updatedAt = Instant.parse("2026-09-16T10:00:00Z"),
-        userId = UserId.fromString(USER_ID),
-        tags = tags,
-    )
+    private fun task(tags: List<TagId>): Task =
+        Task(
+            id = TaskId("task_1"),
+            title = "A task",
+            createdAt = Instant.parse("2026-09-16T10:00:00Z"),
+            updatedAt = Instant.parse("2026-09-16T10:00:00Z"),
+            userId = UserId.fromString(USER_ID),
+            tags = tags,
+        )
 
     /** A tag lookup that answers for the names it was given. */
     private class FakeTagLookup(private val known: Map<String, String>) : TagLookup {
-        override suspend fun findByName(userId: String, name: String): TagLookupResult? {
+        override suspend fun findByName(
+            userId: String,
+            name: String,
+        ): TagLookupResult? {
             val id = known[name] ?: return null
             return TagLookupResult(id = id, userId = userId, name = name)
         }
@@ -155,7 +160,10 @@ class SearchQueryTagConditionsTest {
 
     /** A project lookup that knows no projects. */
     private class FakeProjectLookup : ProjectLookup {
-        override suspend fun findByName(userId: String, name: String): ProjectLookupResult? = null
+        override suspend fun findByName(
+            userId: String,
+            name: String,
+        ): ProjectLookupResult? = null
     }
 
     private companion object {

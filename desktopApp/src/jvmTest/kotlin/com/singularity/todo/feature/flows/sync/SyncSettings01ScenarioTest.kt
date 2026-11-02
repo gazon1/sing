@@ -5,9 +5,9 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.clickContentDescriptionScrolled
 import com.singularity.todo.test.helpers.clickTag
-import com.singularity.todo.test.helpers.textOfTag
 import com.singularity.todo.test.helpers.openDrawer
 import com.singularity.todo.test.helpers.runDesktopAppTest
+import com.singularity.todo.test.helpers.textOfTag
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
@@ -20,7 +20,6 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class SyncSettings01ScenarioTest {
-
     @Test
     @DisplayName("SYNC-SETTINGS-01 change how often sync runs")
     fun change_interval_cycles_value() =

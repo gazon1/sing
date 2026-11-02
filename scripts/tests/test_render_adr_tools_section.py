@@ -9,6 +9,7 @@ that is never seen failing is indistinguishable from a generator that is not wir
 import importlib.util
 import json
 import pathlib
+import re
 import shutil
 import sys
 import tempfile
@@ -280,8 +281,16 @@ class ToolboxParityTest(unittest.TestCase):
         catalog = self._copy_file(drift.renderer.CATALOG_KT)
         drift.renderer.CATALOG_KT = catalog
         text = catalog.read_text(encoding='utf-8')
-        start = text.index('ToolEntry(\n            name = "list_tasks",')
-        end = text.index('),', start) + len('),')
+        # The indentation of the entry is the formatter's business, not this
+        # test's: find the `ToolEntry(` whose first argument is the name.
+        match = re.search(
+            r'ToolEntry\(\s*\n\s*name = "list_tasks",.*?\n(\s*)\),',
+            text,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(match, 'the catalogue has no list_tasks entry')
+        start = match.start()
+        end = match.end()
         catalog.write_text(text[:start] + text[end:], encoding='utf-8')
         problems = drift.toolbox_problems()
         self.assertTrue(any('list_tasks' in p for p in problems), problems)

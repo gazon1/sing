@@ -32,7 +32,8 @@ class CommonDepsConventionPlugin : Plugin<Project> {
                     if (requested.group == "org.jetbrains.kotlinx") {
                         if (requested.name == "kotlinx-serialization-json" ||
                             requested.name == "kotlinx-serialization-core" ||
-                            requested.name == "kotlinx-serialization-bom") {
+                            requested.name == "kotlinx-serialization-bom"
+                        ) {
                             useVersion(serializationVersion)
                         }
                         if (requested.name == "kotlinx-collections-immutable") {

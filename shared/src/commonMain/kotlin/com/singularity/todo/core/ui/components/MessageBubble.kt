@@ -17,10 +17,11 @@ import com.singularity.todo.core.ui.text.LinkifiedText
 enum class BubbleRole { User, Assistant }
 
 /** Pure formatter kept separate so it can be unit-tested without Compose. */
-internal fun bubbleLabel(role: BubbleRole): String = when (role) {
-    BubbleRole.User -> "You"
-    BubbleRole.Assistant -> "Assistant"
-}
+internal fun bubbleLabel(role: BubbleRole): String =
+    when (role) {
+        BubbleRole.User -> "You"
+        BubbleRole.Assistant -> "Assistant"
+    }
 
 /**
  * Single canonical chat-bubble renderer used by AI Chat screens.
@@ -30,7 +31,11 @@ internal fun bubbleLabel(role: BubbleRole): String = when (role) {
  * `feature/ai/chat/ChatScreen.kt` (column with role label).
  */
 @Composable
-fun MessageBubble(role: BubbleRole, content: String, modifier: Modifier = Modifier) {
+fun MessageBubble(
+    role: BubbleRole,
+    content: String,
+    modifier: Modifier = Modifier,
+) {
     val isUser = role == BubbleRole.User
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -59,30 +64,34 @@ fun MessageBubble(role: BubbleRole, content: String, modifier: Modifier = Modifi
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun MessageBubbleUserLightPreview() = PreviewThemed(darkTheme = false) {
-    MessageBubble(role = BubbleRole.User, content = "Can you help me organize my tasks?")
-}
+private fun MessageBubbleUserLightPreview() =
+    PreviewThemed(darkTheme = false) {
+        MessageBubble(role = BubbleRole.User, content = "Can you help me organize my tasks?")
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun MessageBubbleAssistantDarkPreview() = PreviewThemed(darkTheme = true) {
-    MessageBubble(
-        role = BubbleRole.Assistant,
-        content = "Sure! I can help you prioritize your tasks based on due dates and priority levels.",
-    )
-}
+private fun MessageBubbleAssistantDarkPreview() =
+    PreviewThemed(darkTheme = true) {
+        MessageBubble(
+            role = BubbleRole.Assistant,
+            content = "Sure! I can help you prioritize your tasks based on due dates and priority levels.",
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun MessageBubbleUserDarkPreview() = PreviewThemed(darkTheme = true) {
-    MessageBubble(role = BubbleRole.User, content = "What about my project tasks?")
-}
+private fun MessageBubbleUserDarkPreview() =
+    PreviewThemed(darkTheme = true) {
+        MessageBubble(role = BubbleRole.User, content = "What about my project tasks?")
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun MessageBubbleAssistantPurpleDarkPreview() = PreviewThemed(
-    darkTheme = true,
-    accent = com.singularity.todo.core.ui.theme.SingularityAccents.Purple,
-) {
-    MessageBubble(role = BubbleRole.Assistant, content = "I've organized them by priority. Check your Inbox!")
-}
+private fun MessageBubbleAssistantPurpleDarkPreview() =
+    PreviewThemed(
+        darkTheme = true,
+        accent = com.singularity.todo.core.ui.theme.SingularityAccents.Purple,
+    ) {
+        MessageBubble(role = BubbleRole.Assistant, content = "I've organized them by priority. Check your Inbox!")
+    }

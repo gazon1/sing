@@ -13,9 +13,9 @@ import com.singularity.todo.core.ai.ToolOutputJson
 import com.singularity.todo.feature.ai.prompts.Prompts
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
+import com.singularity.todo.feature.proposals.domain.model.ProposedTask
 import com.singularity.todo.feature.proposals.domain.model.ReadResult
 import com.singularity.todo.feature.proposals.domain.model.TaskValue
-import com.singularity.todo.feature.proposals.domain.model.ProposedTask
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
@@ -85,7 +85,6 @@ class DecomposeAndCreateTool(
         NAME,
         DESCRIPTION,
     ) {
-
     override suspend fun execute(args: DecomposeAndCreateInput): String {
         val userId = currentUser.scopedUserId.value
 
@@ -96,38 +95,43 @@ class DecomposeAndCreateTool(
 
         // 2) propose each sub-task. The ids are the ids the tasks *will* have, so
         // the proposal and the tasks agree on what they are.
-        val priority = when (val read = TaskValue.readPriority(args.priority)) {
-            is ReadResult.Ok -> read.value
+        val priority =
+            when (val read = TaskValue.readPriority(args.priority)) {
+                is ReadResult.Ok -> {
+                    read.value
+                }
 
-            is ReadResult.Rejected -> {
-                return ToolOutputJson.encodeToString(
-                    DecomposeAndCreateOutput.serializer(),
-                    DecomposeAndCreateOutput(
-                        proposalCreated = false,
-                        proposalId = "",
-                        proposedTaskCount = 0,
-                        planSource = planSource,
-                        error = read.reason,
+                is ReadResult.Rejected -> {
+                    return ToolOutputJson.encodeToString(
+                        DecomposeAndCreateOutput.serializer(),
+                        DecomposeAndCreateOutput(
+                            proposalCreated = false,
+                            proposalId = "",
+                            proposedTaskCount = 0,
+                            planSource = planSource,
+                            error = read.reason,
+                        ),
+                    )
+                }
+            }
+        val kinds =
+            subTitles.map { title ->
+                ProposalItemKind.CreateTask(
+                    ProposedTask(
+                        title = title,
+                        description = null,
+                        priority = priority,
+                        kind = TaskKind.Task,
+                        projectId = args.projectId,
+                        parentTaskId = args.parentTaskId,
+                        tagIds = args.tagIds,
                     ),
                 )
             }
-        }
-        val kinds = subTitles.map { title ->
-            ProposalItemKind.CreateTask(
-                ProposedTask(
-                    title = title,
-                    description = null,
-                    priority = priority,
-                    kind = TaskKind.Task,
-                    projectId = args.projectId,
-                    parentTaskId = args.parentTaskId,
-                    tagIds = args.tagIds,
-                ),
-            )
-        }
         val ids = subTitles.map { TaskId.generate().value }
-        val items = proposalItems(kinds, ids.firstOrNull().orEmpty())
-            .mapIndexed { index, item -> item.copy(targetId = ids[index]) }
+        val items =
+            proposalItems(kinds, ids.firstOrNull().orEmpty())
+                .mapIndexed { index, item -> item.copy(targetId = ids[index]) }
 
         if (items.isEmpty()) {
             return ToolOutputJson.encodeToString(
@@ -142,37 +146,55 @@ class DecomposeAndCreateTool(
             )
         }
 
-        val result = proposeChange(
-            proposals = proposals,
-            userId = userId,
-            clock = clock,
-            items = items,
-            targetId = args.parentTaskId ?: ids.first(),
-        )
+        val result =
+            proposeChange(
+                proposals = proposals,
+                userId = userId,
+                clock = clock,
+                items = items,
+                targetId = args.parentTaskId ?: ids.first(),
+            )
 
         return ToolOutputJson.encodeToString(
             DecomposeAndCreateOutput.serializer(),
             DecomposeAndCreateOutput(
                 proposalCreated = result.isSuccess,
-                proposalId = result.getOrNull()?.id?.value.orEmpty(),
+                proposalId =
+                    result
+                        .getOrNull()
+                        ?.id
+                        ?.value
+                        .orEmpty(),
                 proposedTaskCount = items.size,
                 planSource = planSource,
-                error = result.exceptionOrNull()?.message
-                    ?: if (dropped > 0) "Dropped $dropped subtasks (cap 20)." else null,
+                error =
+                    result.exceptionOrNull()?.message
+                        ?: if (dropped > 0) "Dropped $dropped subtasks (cap 20)." else null,
             ),
         )
     }
 
-    private fun parsePlan(text: String): List<String> = runCatching {
-        Json.decodeFromString<DecomposeTaskOutput>(text).subTasks
-    }.getOrElse {
-        text.lines()
-            .filter { it.isNotBlank() && !it.startsWith("[") && !it.startsWith("]") }
-            .map { it.trim().removePrefix("- ").removePrefix("* ").removeSurrounding("\"") }
-    }
+    private fun parsePlan(text: String): List<String> =
+        runCatching {
+            Json.decodeFromString<DecomposeTaskOutput>(text).subTasks
+        }.getOrElse {
+            text
+                .lines()
+                .filter { it.isNotBlank() && !it.startsWith("[") && !it.startsWith("]") }
+                .map {
+                    it
+                        .trim()
+                        .removePrefix("- ")
+                        .removePrefix("* ")
+                        .removeSurrounding("\"")
+                }
+        }
 
     private fun extractText(response: Message.Assistant): String =
-        response.parts.filterIsInstance<MessagePart.Text>().joinToString("") { it.text }.trim()
+        response.parts
+            .filterIsInstance<MessagePart.Text>()
+            .joinToString("") { it.text }
+            .trim()
 
     companion object {
         const val NAME = "decompose_and_create"
@@ -189,17 +211,19 @@ class DecomposeAndCreateTool(
      * is spent — the plan is empty rather than an exception: the caller then knows to
      * fall back, and the agent can keep going.
      */
-    private suspend fun planSubtitles(args: DecomposeAndCreateInput): Pair<List<String>, String> = try {
-        val p = prompt(Prompt.Empty, KoogClock.System) {
-            system(Prompts.decomposeTaskSystem)
-            user(Prompts.decomposeTaskUser(args.title, args.description))
+    private suspend fun planSubtitles(args: DecomposeAndCreateInput): Pair<List<String>, String> =
+        try {
+            val p =
+                prompt(Prompt.Empty, KoogClock.System) {
+                    system(Prompts.decomposeTaskSystem)
+                    user(Prompts.decomposeTaskUser(args.title, args.description))
+                }
+            val text = extractText(promptExecutor.execute(p, model, emptyList()))
+            val parsed = parsePlan(text)
+            parsed to if (parsed.isEmpty()) "empty" else "llm"
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Throwable) {
+            emptyList<String>() to "empty"
         }
-        val text = extractText(promptExecutor.execute(p, model, emptyList()))
-        val parsed = parsePlan(text)
-        parsed to if (parsed.isEmpty()) "empty" else "llm"
-    } catch (e: CancellationException) {
-        throw e
-    } catch (_: Throwable) {
-        emptyList<String>() to "empty"
-    }
 }

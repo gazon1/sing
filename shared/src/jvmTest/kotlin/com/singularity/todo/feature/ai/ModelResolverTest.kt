@@ -13,12 +13,21 @@ import kotlin.test.assertEquals
  */
 @Tag("fast")
 class ModelResolverTest {
-
     @Test fun resolvesAllKnownModelIdsToNonEmptyLLModelInstances() {
-        val ids = listOf(
-            "gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-nano", "gpt-4.1-mini",
-            "o1", "o3", "o3-mini", "o4-mini", "gpt-5", "gpt-5-mini",
-        )
+        val ids =
+            listOf(
+                "gpt-4o",
+                "gpt-4o-mini",
+                "gpt-4.1",
+                "gpt-4.1-nano",
+                "gpt-4.1-mini",
+                "o1",
+                "o3",
+                "o3-mini",
+                "o4-mini",
+                "gpt-5",
+                "gpt-5-mini",
+            )
         for (id in ids) {
             val model = resolveModel(id)
             assertEquals(expected = id, actual = model.id, message = "id mismatch for $id")

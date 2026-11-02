@@ -38,7 +38,6 @@ import androidx.compose.runtime.Immutable
  */
 @Immutable
 class Revisioned<T> private constructor(val value: T, val revision: Long) {
-
     /** The value after the field's own change. The count does not move. */
     fun typed(newValue: T): Revisioned<T> = Revisioned(newValue, revision)
 
@@ -56,8 +55,7 @@ class Revisioned<T> private constructor(val value: T, val revision: Long) {
      * @param newValue the value the upstream now holds.
      * @return the value with a moved count if it changed, this value otherwise.
      */
-    fun replacedIfChangedBy(newValue: T): Revisioned<T> =
-        if (value == newValue) this else replacedBy(newValue)
+    fun replacedIfChangedBy(newValue: T): Revisioned<T> = if (value == newValue) this else replacedBy(newValue)
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

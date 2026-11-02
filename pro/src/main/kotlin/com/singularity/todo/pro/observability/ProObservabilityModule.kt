@@ -25,6 +25,7 @@ import org.koin.dsl.module
  * it is constructed with. Writing the binding in the app module would drag Kermit — a
  * third-party type — onto the app's compile classpath purely to spell out a `get()`.
  */
-fun proObservabilityModule(): Module = module {
-    single<CrashReportingPort> { TracerCrashReportingPort(get()) }
-}
+fun proObservabilityModule(): Module =
+    module {
+        single<CrashReportingPort> { TracerCrashReportingPort(get()) }
+    }

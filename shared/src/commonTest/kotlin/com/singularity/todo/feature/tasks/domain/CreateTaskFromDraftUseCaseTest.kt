@@ -37,7 +37,6 @@ import kotlin.time.Instant
  */
 @Tag("fast")
 class CreateTaskFromDraftUseCaseTest {
-
     private val today = LocalDate(2026, 6, 15)
     private val clock = FakeClock(Instant.parse("2026-06-15T10:00:00Z"))
     private val repo = FakeTaskRepository()
@@ -47,16 +46,17 @@ class CreateTaskFromDraftUseCaseTest {
 
     private fun materialize() = MaterializeRecurringSeriesUseCase(repo, unitOfWork, clock)
 
-    private fun useCase() = CreateTaskFromDraftUseCase(
-        repo = repo,
-        clock = clock,
-        timeZone = TEST_TZ,
-        currentUser = FakeProfileAwareCurrentUser(),
-        checklistRepository = FakeChecklistRepository(),
-        attachmentRepository = FakeAttachmentRepository(),
-        unitOfWork = unitOfWork,
-        materialize = materialize(),
-    )
+    private fun useCase() =
+        CreateTaskFromDraftUseCase(
+            repo = repo,
+            clock = clock,
+            timeZone = TEST_TZ,
+            currentUser = FakeProfileAwareCurrentUser(),
+            checklistRepository = FakeChecklistRepository(),
+            attachmentRepository = FakeAttachmentRepository(),
+            unitOfWork = unitOfWork,
+            materialize = materialize(),
+        )
 
     private fun draft(
         date: LocalDate = today,
@@ -70,52 +70,62 @@ class CreateTaskFromDraftUseCaseTest {
     )
 
     @Test
-    fun `a created repeating task carries the rule`() = runTest {
-        val result = useCase()(draft(rule = weekly))
+    fun `a created repeating task carries the rule`() =
+        runTest {
+            val result = useCase()(draft(rule = weekly))
 
-        val id = (result as Either.Right).value
-        val row = repo.get(id)
-        assertEquals(weekly, row?.recurrence, "the created row carries the rule — the create path no longer drops it")
-        assertNotNull(row?.seriesId, "and it belongs to a series")
-    }
-
-    @Test
-    fun `a created repeating task materialises the future occurrences`() = runTest {
-        val result = useCase()(draft(rule = weekly))
-
-        val id = (result as Either.Right).value
-        val seriesId = repo.get(id)?.seriesId
-        assertNotNull(seriesId, "the created row belongs to a series")
-        val future = repo.tasks.value.values.filter {
-            it.seriesId == seriesId && it.completedAt == null && it.id != id
+            val id = (result as Either.Right).value
+            val row = repo.get(id)
+            assertEquals(
+                weekly,
+                row?.recurrence,
+                "the created row carries the rule — the create path no longer drops it",
+            )
+            assertNotNull(row?.seriesId, "and it belongs to a series")
         }
-        assertTrue(future.isNotEmpty(), "the series holds the rule's future dates as real rows")
-        assertTrue(future.all { it.recurrence == weekly }, "every occurrence carries the rule")
-    }
 
     @Test
-    fun `a draft with a rule and a second date drops the rule`() = runTest {
-        // A rule together with picked dates: the rule loses (FR-048), which is what
-        // the create screen already tells the user.
-        val result = useCase()(draft(rule = weekly, extraDates = listOf(today.plus(1, DateTimeUnit.DAY))))
+    fun `a created repeating task materialises the future occurrences`() =
+        runTest {
+            val result = useCase()(draft(rule = weekly))
 
-        val id = (result as Either.Right).value
-        val row = repo.get(id)
-        assertNull(row?.recurrence, "the rule loses against picked dates")
-        assertNotNull(row?.seriesId, "a multi-date draft is still a series")
-        assertTrue(
-            repo.tasks.value.values.all { it.recurrence == null },
-            "no row of a picked-dates series carries a rule",
-        )
-    }
+            val id = (result as Either.Right).value
+            val seriesId = repo.get(id)?.seriesId
+            assertNotNull(seriesId, "the created row belongs to a series")
+            val future =
+                repo.tasks.value.values.filter {
+                    it.seriesId == seriesId && it.completedAt == null && it.id != id
+                }
+            assertTrue(future.isNotEmpty(), "the series holds the rule's future dates as real rows")
+            assertTrue(future.all { it.recurrence == weekly }, "every occurrence carries the rule")
+        }
 
     @Test
-    fun `a draft without a rule is a single ordinary task`() = runTest {
-        val result = useCase()(draft(rule = null))
+    fun `a draft with a rule and a second date drops the rule`() =
+        runTest {
+            // A rule together with picked dates: the rule loses (FR-048), which is what
+            // the create screen already tells the user.
+            val result = useCase()(draft(rule = weekly, extraDates = listOf(today.plus(1, DateTimeUnit.DAY))))
 
-        val id = (result as Either.Right).value
-        val row = repo.get(id)
-        assertNull(row?.recurrence, "no rule, no repeating")
-        assertNull(row?.seriesId, "a single date is an ordinary task, not a series")
-    }
+            val id = (result as Either.Right).value
+            val row = repo.get(id)
+            assertNull(row?.recurrence, "the rule loses against picked dates")
+            assertNotNull(row?.seriesId, "a multi-date draft is still a series")
+            assertTrue(
+                repo.tasks.value.values
+                    .all { it.recurrence == null },
+                "no row of a picked-dates series carries a rule",
+            )
+        }
+
+    @Test
+    fun `a draft without a rule is a single ordinary task`() =
+        runTest {
+            val result = useCase()(draft(rule = null))
+
+            val id = (result as Either.Right).value
+            val row = repo.get(id)
+            assertNull(row?.recurrence, "no rule, no repeating")
+            assertNull(row?.seriesId, "a single date is an ordinary task, not a series")
+        }
 }

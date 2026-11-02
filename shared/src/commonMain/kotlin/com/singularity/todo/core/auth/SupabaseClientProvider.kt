@@ -76,14 +76,15 @@ open class SupabaseClientProvider(
      * arrive as a stranger — which for the backup feature means a row-level
      * security policy refusing an upload the user is entitled to make.
      */
-    open suspend fun client(): SupabaseClient? = lock.withLock {
-        val config = resolver.resolve(store) ?: return@withLock null
-        cachedClient?.takeIf { cachedConfig == config }
-            ?: build(config).also {
-                cachedConfig = config
-                cachedClient = it
-            }
-    }
+    open suspend fun client(): SupabaseClient? =
+        lock.withLock {
+            val config = resolver.resolve(store) ?: return@withLock null
+            cachedClient?.takeIf { cachedConfig == config }
+                ?: build(config).also {
+                    cachedConfig = config
+                    cachedClient = it
+                }
+        }
 
     /**
      * Points the app at [config] and stores it, so it survives a restart.
@@ -102,11 +103,12 @@ open class SupabaseClientProvider(
 
     /** Forgets the configuration and closes the client that was using it. */
     open suspend fun forget() {
-        val doomed = lock.withLock {
-            resolver.clear(store)
-            cachedConfig = null
-            cachedClient.also { cachedClient = null }
-        }
+        val doomed =
+            lock.withLock {
+                resolver.clear(store)
+                cachedConfig = null
+                cachedClient.also { cachedClient = null }
+            }
         doomed?.close()
     }
 
@@ -119,27 +121,28 @@ open class SupabaseClientProvider(
      */
     open suspend fun auth(): Auth? = client()?.auth
 
-    private fun build(config: SupabaseConfig): SupabaseClient = createSupabaseClient(config.url, config.anonKey) {
-        install(Auth) {
-            // The one session both sides read, in the app's keychain. Left to itself
-            // the plugin would keep a second copy in its own settings store.
-            sessionManager = sessionStore
-            // The plugin must not read the session while the client is being built:
-            // whoever builds the client first is not necessarily the restore, and a
-            // migration that runs there is a migration outside the restore's bound.
-            autoLoadFromStorage = false
-            // The application owns the refresh. A plugin that refreshes on its own
-            // republishes a session the application did not ask for.
-            alwaysAutoRefresh = false
-            // What the plugin is given, it keeps. The store is the credential store.
-            autoSaveToStorage = true
+    private fun build(config: SupabaseConfig): SupabaseClient =
+        createSupabaseClient(config.url, config.anonKey) {
+            install(Auth) {
+                // The one session both sides read, in the app's keychain. Left to itself
+                // the plugin would keep a second copy in its own settings store.
+                sessionManager = sessionStore
+                // The plugin must not read the session while the client is being built:
+                // whoever builds the client first is not necessarily the restore, and a
+                // migration that runs there is a migration outside the restore's bound.
+                autoLoadFromStorage = false
+                // The application owns the refresh. A plugin that refreshes on its own
+                // republishes a session the application did not ask for.
+                alwaysAutoRefresh = false
+                // What the plugin is given, it keeps. The store is the credential store.
+                autoSaveToStorage = true
+            }
+            install(Postgrest)
+            // The backup feature's remote half: the archive goes into a Storage bucket.
+            install(Storage)
+            // The Google grant's remote half: the server redeems the one-time code and
+            // holds the refresh token. The SDK carries the session, so the call is made
+            // as the signed-in user and the server can bind the grant to that account.
+            install(Functions)
         }
-        install(Postgrest)
-        // The backup feature's remote half: the archive goes into a Storage bucket.
-        install(Storage)
-        // The Google grant's remote half: the server redeems the one-time code and
-        // holds the refresh token. The SDK carries the session, so the call is made
-        // as the signed-in user and the server can bind the grant to that account.
-        install(Functions)
-    }
 }

@@ -1,9 +1,9 @@
 package com.singularity.todo.feature.tasks.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
@@ -23,30 +23,30 @@ import com.singularity.todo.feature.tasks.presentation.state.FirstRun
 import com.singularity.todo.feature.tasks.presentation.state.FirstRunResolver
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailExtras
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailIntent
-import com.singularity.todo.feature.tasks.presentation.state.TaskTimeSlotIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUi
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiEvent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDetailUiState
-import kotlinx.collections.immutable.toImmutableList
-import kotlinx.collections.immutable.toImmutableMap
-import kotlinx.collections.immutable.toImmutableSet
+import com.singularity.todo.feature.tasks.presentation.state.TaskTimeSlotIntent
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskAiSlot
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskBacklinksCollector
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskBacklinksState
-import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskEntityState
-import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskLogbookState
-import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskRemindersState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskChildrenSlot
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskChildrenState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskCompletionSlot
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskDraftSlot
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskEntitySlot
+import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskEntityState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskLifecycleSlot
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskLogbookCollector
+import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskLogbookState
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskProposalsCollector
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskRemindersSlot
+import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.TaskRemindersState
 import com.singularity.todo.feature.timetracking.domain.model.TaskTimeSlotState
 import com.singularity.todo.feature.timetracking.presentation.slot.TaskTimeSlot
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableMap
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -100,7 +100,6 @@ class TaskDetailCoordinator(
         crashReporter = crashReporter,
         scope = scope,
     ) {
-
     private val loadable = MutableStateFlow<Task?>(null)
     private val taskFlow: StateFlow<Task?> = loadable.asStateFlow()
     private val retryVersion = MutableStateFlow(0)
@@ -155,95 +154,104 @@ class TaskDetailCoordinator(
 
     private val entity = TaskEntitySlot(taskId, deps.core, deps.children, vmScope, taskFlow, ::reportError)
 
-    private val completion = TaskCompletionSlot(
-        core = deps.core,
-        context = deps.context,
-        scope = vmScope,
-        taskFlow = taskFlow,
-        allTasks = allTasks,
-        onError = ::reportError,
-        onSaved = ::reportSaved,
-        onBlockedClose = ::raiseBlockedClose,
-    )
-
-    private val children = TaskChildrenSlot(
-        taskId = taskId,
-        core = deps.core,
-        children = deps.children,
-        context = deps.context,
-        scope = vmScope,
-        taskFlow = taskFlow,
-        allTasks = allTasks,
-        onError = ::reportError,
-        onSaved = ::reportSaved,
-        onBlockedClose = ::raiseBlockedClose,
-    )
-
-    private val reminders = TaskRemindersSlot(
-        taskId = taskId,
-        sourceViewId = sourceViewId,
-        core = deps.core,
-        scheduling = deps.scheduling,
-        context = deps.context,
-        scope = vmScope,
-        taskFlow = taskFlow,
-        onError = ::reportError,
-    )
-
-    private val lifecycle = TaskLifecycleSlot(
-        core = deps.core,
-        scheduling = deps.scheduling,
-        scope = vmScope,
-        taskFlow = taskFlow,
-        onError = ::reportError,
-        onUndoDelete = { tryEmit(TaskDetailUiEvent.UndoDelete(it.id)) },
-        onUndoArchive = { tryEmit(TaskDetailUiEvent.UndoArchive(it.id)) },
-        onUndoDeleteSeries = { ids ->
-            tryEmit(TaskDetailUiEvent.UndoDeleteSeries(ids, dates = ids.size))
-        },
-        onNavigateBack = { tryEmit(TaskDetailUiEvent.NavigateBack) },
-        onSaved = ::reportSaved,
-    )
-
-    private val ai = TaskAiSlot(
-        ai = deps.ai,
-        collaboration = deps.collaboration,
-        context = deps.context,
-        scope = vmScope,
-        taskFlow = taskFlow,
-        onError = ::reportError,
-        onSaved = ::reportSaved,
-    )
-
-    private val backlinks = TaskBacklinksCollector(
-        collaboration = deps.collaboration,
-        scope = vmScope,
-        taskFlow = taskFlow,
-    )
-
-    private val logbook = TaskLogbookCollector(
-        notesRepo = deps.collaboration.notesRepo,
-        timeTrackingRepo = deps.collaboration.timeTrackingRepo,
-        scope = vmScope,
-        taskFlow = taskFlow,
-    )
-
-    private val timeSlot = TaskTimeSlot(
-        taskId = taskId,
-        timeTrackingRepo = deps.collaboration.timeTrackingRepo,
-        currentUser = deps.collaboration.currentUser,
-        scope = vmScope,
-        taskFlow = taskFlow,
-    )
-
-    private val proposalsCollector = if (deps.collaboration.proposals != null) {
-        TaskProposalsCollector(
+    private val completion =
+        TaskCompletionSlot(
+            core = deps.core,
+            context = deps.context,
             scope = vmScope,
-            proposals = deps.collaboration.proposals.watchProposalsForTask(taskId),
+            taskFlow = taskFlow,
+            allTasks = allTasks,
+            onError = ::reportError,
+            onSaved = ::reportSaved,
+            onBlockedClose = ::raiseBlockedClose,
         )
-    } else {
-        null
-    }
+
+    private val children =
+        TaskChildrenSlot(
+            taskId = taskId,
+            core = deps.core,
+            children = deps.children,
+            context = deps.context,
+            scope = vmScope,
+            taskFlow = taskFlow,
+            allTasks = allTasks,
+            onError = ::reportError,
+            onSaved = ::reportSaved,
+            onBlockedClose = ::raiseBlockedClose,
+        )
+
+    private val reminders =
+        TaskRemindersSlot(
+            taskId = taskId,
+            sourceViewId = sourceViewId,
+            core = deps.core,
+            scheduling = deps.scheduling,
+            context = deps.context,
+            scope = vmScope,
+            taskFlow = taskFlow,
+            onError = ::reportError,
+        )
+
+    private val lifecycle =
+        TaskLifecycleSlot(
+            core = deps.core,
+            scheduling = deps.scheduling,
+            scope = vmScope,
+            taskFlow = taskFlow,
+            onError = ::reportError,
+            onUndoDelete = { tryEmit(TaskDetailUiEvent.UndoDelete(it.id)) },
+            onUndoArchive = { tryEmit(TaskDetailUiEvent.UndoArchive(it.id)) },
+            onUndoDeleteSeries = { ids ->
+                tryEmit(TaskDetailUiEvent.UndoDeleteSeries(ids, dates = ids.size))
+            },
+            onNavigateBack = { tryEmit(TaskDetailUiEvent.NavigateBack) },
+            onSaved = ::reportSaved,
+        )
+
+    private val ai =
+        TaskAiSlot(
+            ai = deps.ai,
+            collaboration = deps.collaboration,
+            context = deps.context,
+            scope = vmScope,
+            taskFlow = taskFlow,
+            onError = ::reportError,
+            onSaved = ::reportSaved,
+        )
+
+    private val backlinks =
+        TaskBacklinksCollector(
+            collaboration = deps.collaboration,
+            scope = vmScope,
+            taskFlow = taskFlow,
+        )
+
+    private val logbook =
+        TaskLogbookCollector(
+            notesRepo = deps.collaboration.notesRepo,
+            timeTrackingRepo = deps.collaboration.timeTrackingRepo,
+            scope = vmScope,
+            taskFlow = taskFlow,
+        )
+
+    private val timeSlot =
+        TaskTimeSlot(
+            taskId = taskId,
+            timeTrackingRepo = deps.collaboration.timeTrackingRepo,
+            currentUser = deps.collaboration.currentUser,
+            scope = vmScope,
+            taskFlow = taskFlow,
+        )
+
+    private val proposalsCollector =
+        if (deps.collaboration.proposals != null) {
+            TaskProposalsCollector(
+                scope = vmScope,
+                proposals = deps.collaboration.proposals.watchProposalsForTask(taskId),
+            )
+        } else {
+            null
+        }
 
     /**
      * The five operations every proposal surface performs.
@@ -256,24 +264,27 @@ class TaskDetailCoordinator(
      * proposal write path has nothing to decide, and the operations say so
      * instead of throwing.
      */
-    private val proposalDecisions = ProposalDecisions(
-        applyProposalItem = deps.collaboration.applyProposal,
-        editProposalItem = deps.collaboration.editProposal,
-        style = ProposalDecisionStyles.taskDetail,
-        errors = ProposalErrorSink { label, message, error ->
-            // The failure is shown and it is reported: a failure the user can see
-            // is not the one the crash reporter gets to hear about, and one it
-            // cannot see is a change the user did not decide about. The scope's
-            // handler used to report it, because the exception flew past the
-            // decisions; now that it is caught here, the report is here too.
-            crashReporter.report(error = error, issueKey = (error as? AppError)?.code ?: label)
-            tryEmit(TaskDetailUiEvent.Error(message))
-        },
-        userId = { deps.collaboration.currentUser.scopedUserId.value },
-        withdrawProposal = deps.collaboration.proposals?.let { repository ->
-            { proposalId: ProposalId, userId: UserId -> repository.retract(proposalId, userId) }
-        },
-    )
+    private val proposalDecisions =
+        ProposalDecisions(
+            applyProposalItem = deps.collaboration.applyProposal,
+            editProposalItem = deps.collaboration.editProposal,
+            style = ProposalDecisionStyles.taskDetail,
+            errors =
+                ProposalErrorSink { label, message, error ->
+                    // The failure is shown and it is reported: a failure the user can see
+                    // is not the one the crash reporter gets to hear about, and one it
+                    // cannot see is a change the user did not decide about. The scope's
+                    // handler used to report it, because the exception flew past the
+                    // decisions; now that it is caught here, the report is here too.
+                    crashReporter.report(error = error, issueKey = (error as? AppError)?.code ?: label)
+                    tryEmit(TaskDetailUiEvent.Error(message))
+                },
+            userId = { deps.collaboration.currentUser.scopedUserId.value },
+            withdrawProposal =
+                deps.collaboration.proposals?.let { repository ->
+                    { proposalId: ProposalId, userId: UserId -> repository.retract(proposalId, userId) }
+                },
+        )
 
     /**
      * Combines time tracking, first-run, and AI proposals into one partition.
@@ -298,15 +309,16 @@ class TaskDetailCoordinator(
                 }.collect { (triple, proposalsAndFailures) ->
                     val (timeState, childrenState, task) = triple
                     val (proposals, failures) = proposalsAndFailures
-                    sink.value = TaskDetailExtras.Ready(
-                        timeSlotState = timeState,
-                        firstRun = resolveFirstRun(childrenState, task),
-                        // Built here, once per emission: the screen hands them to
-                        // composables as they are, and the compiler compares them by
-                        // their contents.
-                        proposals = proposals.toImmutableList(),
-                        proposalFailures = failures.toImmutableMap(),
-                    )
+                    sink.value =
+                        TaskDetailExtras.Ready(
+                            timeSlotState = timeState,
+                            firstRun = resolveFirstRun(childrenState, task),
+                            // Built here, once per emission: the screen hands them to
+                            // composables as they are, and the compiler compares them by
+                            // their contents.
+                            proposals = proposals.toImmutableList(),
+                            proposalFailures = failures.toImmutableMap(),
+                        )
                 }
             }
         }
@@ -314,7 +326,9 @@ class TaskDetailCoordinator(
     init {
         addCloseable(scope)
         scope.launch {
-            deps.core.taskRepo.observeByFilter(TaskFilter.All).collect { allTasks.value = it }
+            deps.core.taskRepo
+                .observeByFilter(TaskFilter.All)
+                .collect { allTasks.value = it }
         }
         scope.launch {
             combine(flowOf(taskId), retryVersion) { id, _ -> id }
@@ -351,24 +365,29 @@ class TaskDetailCoordinator(
                 blocked,
                 ->
                 when (load) {
-                    is TaskLoad.Pending -> TaskDetailUiState.Loading
+                    is TaskLoad.Pending -> {
+                        TaskDetailUiState.Loading
+                    }
 
-                    is TaskLoad.Missing -> TaskDetailUiState.Error("Not found")
+                    is TaskLoad.Missing -> {
+                        TaskDetailUiState.Error("Not found")
+                    }
 
-                    is TaskLoad.Found -> loadedState(
-                        task = load.task,
-                        draftState = draftState,
-                        entityState = entityState,
-                        childrenState = childrenState,
-                        reminderState = reminderState,
-                        backlinkState = backlinkState,
-                        logState = logState,
-                        extras = extras,
-                        pendingBlockedClose = blocked,
-                    )
+                    is TaskLoad.Found -> {
+                        loadedState(
+                            task = load.task,
+                            draftState = draftState,
+                            entityState = entityState,
+                            childrenState = childrenState,
+                            reminderState = reminderState,
+                            backlinkState = backlinkState,
+                            logState = logState,
+                            extras = extras,
+                            pendingBlockedClose = blocked,
+                        )
+                    }
                 }
-            }
-                .catch { reportError(it.message ?: "Error") }
+            }.catch { reportError(it.message ?: "Error") }
                 .collect { setState(it) }
         }
     }
@@ -391,46 +410,58 @@ class TaskDetailCoordinator(
         logState: TaskLogbookState,
         extras: TaskDetailExtras,
         pendingBlockedClose: BlockedCloseRequest?,
-    ): TaskDetailUiState.Loaded = TaskDetailUiState.Loaded(
-        ui = TaskDetailUi(
-            task = task,
-            titleDraft = draftState.title,
-            descriptionDraft = draftState.description,
-            project = entityState.project,
-            tags = entityState.tags.toImmutableList(),
-            checklist = childrenState.checklist.toImmutableList(),
-            reminders = reminderState.reminders.toImmutableList(),
-            subtasks = childrenState.subtasks.toImmutableList(),
-            blockedBy = task.blockedBy.toImmutableSet(),
-            followsUp = task.followsUp.toImmutableSet(),
-            availableTasks = entityState.availableTasks.toImmutableList(),
-            linkedNotes = backlinkState.notes.toImmutableList(),
-            linkedTasks = backlinkState.tasks.toImmutableList(),
-            logbookEntries = logState.allEntries.toImmutableList(),
-            timeSlotState = when (val ex = extras) {
-                is TaskDetailExtras.Unresolved -> TaskTimeSlotState.Idle
-                is TaskDetailExtras.Ready -> ex.timeSlotState
-            },
-            seriesMembers = entityState.seriesMembers.toImmutableList(),
-            firstRun = when (val ex = extras) {
-                is TaskDetailExtras.Unresolved -> FirstRun.Unresolved
-                is TaskDetailExtras.Ready -> ex.firstRun
-            },
-        ),
-        extras = extras,
-        pendingBlockedClose = pendingBlockedClose,
-    )
-
-    private fun resolveFirstRun(childrenState: TaskChildrenState, task: Task?): FirstRun = when {
-        task == null -> FirstRun.Established
-
-        else -> FirstRunResolver.resolve(
-            hasBody = !task.description.isNullOrBlank(),
-            checklistCount = childrenState.checklist.size,
-            completedSubtaskCount = childrenState.subtasks.count { it.isCompleted },
-            ageMs = (deps.context.clock.now() - task.createdAt).inWholeMilliseconds.coerceAtLeast(0L),
+    ): TaskDetailUiState.Loaded =
+        TaskDetailUiState.Loaded(
+            ui =
+                TaskDetailUi(
+                    task = task,
+                    titleDraft = draftState.title,
+                    descriptionDraft = draftState.description,
+                    project = entityState.project,
+                    tags = entityState.tags.toImmutableList(),
+                    checklist = childrenState.checklist.toImmutableList(),
+                    reminders = reminderState.reminders.toImmutableList(),
+                    subtasks = childrenState.subtasks.toImmutableList(),
+                    blockedBy = task.blockedBy.toImmutableSet(),
+                    followsUp = task.followsUp.toImmutableSet(),
+                    availableTasks = entityState.availableTasks.toImmutableList(),
+                    linkedNotes = backlinkState.notes.toImmutableList(),
+                    linkedTasks = backlinkState.tasks.toImmutableList(),
+                    logbookEntries = logState.allEntries.toImmutableList(),
+                    timeSlotState =
+                        when (val ex = extras) {
+                            is TaskDetailExtras.Unresolved -> TaskTimeSlotState.Idle
+                            is TaskDetailExtras.Ready -> ex.timeSlotState
+                        },
+                    seriesMembers = entityState.seriesMembers.toImmutableList(),
+                    firstRun =
+                        when (val ex = extras) {
+                            is TaskDetailExtras.Unresolved -> FirstRun.Unresolved
+                            is TaskDetailExtras.Ready -> ex.firstRun
+                        },
+                ),
+            extras = extras,
+            pendingBlockedClose = pendingBlockedClose,
         )
-    }
+
+    private fun resolveFirstRun(
+        childrenState: TaskChildrenState,
+        task: Task?,
+    ): FirstRun =
+        when {
+            task == null -> {
+                FirstRun.Established
+            }
+
+            else -> {
+                FirstRunResolver.resolve(
+                    hasBody = !task.description.isNullOrBlank(),
+                    checklistCount = childrenState.checklist.size,
+                    completedSubtaskCount = childrenState.subtasks.count { it.isCompleted },
+                    ageMs = (deps.context.clock.now() - task.createdAt).inWholeMilliseconds.coerceAtLeast(0L),
+                )
+            }
+        }
 
     /** Re-subscribes to the task after a load failure. */
     fun retry() {
@@ -448,7 +479,9 @@ class TaskDetailCoordinator(
     @Suppress("LongMethod", "CyclomaticComplexMethod")
     override fun onIntent(intent: TaskDetailIntent.Domain) {
         when (intent) {
-            is TaskDetailIntent.Domain.ToggleComplete -> completion.onIntent(intent)
+            is TaskDetailIntent.Domain.ToggleComplete -> {
+                completion.onIntent(intent)
+            }
 
             // The task being confirmed may be the task on this screen or one of its
             // subtasks, so both slots are told. Each one acts only if the id is its
@@ -459,11 +492,15 @@ class TaskDetailCoordinator(
                 children.onIntent(intent)
             }
 
-            is TaskDetailIntent.Domain.DismissBlockedClose -> pendingBlockedClose.value = null
+            is TaskDetailIntent.Domain.DismissBlockedClose -> {
+                pendingBlockedClose.value = null
+            }
 
             is TaskDetailIntent.Domain.TitleChanged,
             is TaskDetailIntent.Domain.DescriptionChanged,
-            -> draft.onIntent(intent)
+            -> {
+                draft.onIntent(intent)
+            }
 
             is TaskDetailIntent.Domain.SetDueDate,
             is TaskDetailIntent.Domain.SetDueTime,
@@ -483,7 +520,9 @@ class TaskDetailCoordinator(
             is TaskDetailIntent.Domain.SetEstimate,
             is TaskDetailIntent.Domain.ApplyToAllOccurrences,
             is TaskDetailIntent.Domain.DetachFromSeries,
-            -> entity.onIntent(intent)
+            -> {
+                entity.onIntent(intent)
+            }
 
             is TaskDetailIntent.Domain.ToggleChecklistItem,
             is TaskDetailIntent.Domain.DeleteChecklistItem,
@@ -491,11 +530,15 @@ class TaskDetailCoordinator(
             is TaskDetailIntent.Domain.ToggleSubtask,
             is TaskDetailIntent.Domain.DeleteSubtask,
             is TaskDetailIntent.Domain.AddSubtask,
-            -> children.onIntent(intent)
+            -> {
+                children.onIntent(intent)
+            }
 
             is TaskDetailIntent.Domain.SetReminder,
             is TaskDetailIntent.Domain.DeleteReminder,
-            -> reminders.onIntent(intent)
+            -> {
+                reminders.onIntent(intent)
+            }
 
             is TaskDetailIntent.Domain.Delete,
             is TaskDetailIntent.Domain.Archive,
@@ -503,43 +546,65 @@ class TaskDetailCoordinator(
             is TaskDetailIntent.Domain.Unarchive,
             is TaskDetailIntent.Domain.DeleteSeries,
             is TaskDetailIntent.Domain.RestoreSeries,
-            -> lifecycle.onIntent(intent)
-
-            is TaskDetailIntent.Domain.RunAiAction -> ai.onIntent(intent)
-
-            is TaskDetailIntent.Domain.Start -> timeSlot.onIntent(TaskTimeSlotIntent.Start)
-
-            is TaskDetailIntent.Domain.Stop -> timeSlot.onIntent(TaskTimeSlotIntent.Stop)
-
-            is TaskDetailIntent.Domain.CreateManual -> timeSlot.onIntent(
-                TaskTimeSlotIntent.CreateManual(
-                    startedAtMs = intent.startedAtMs,
-                    endedAtMs = intent.endedAtMs,
-                    kind = intent.kind,
-                    note = intent.note,
-                ),
-            )
-
-            is TaskDetailIntent.Domain.Tick -> timeSlot.onIntent(TaskTimeSlotIntent.Tick(intent.elapsedMs))
-
-            is TaskDetailIntent.Domain.ConfirmProposalItem -> vmScope.launch {
-                proposalDecisions.applyChange(intent.itemId)
+            -> {
+                lifecycle.onIntent(intent)
             }
 
-            is TaskDetailIntent.Domain.RejectProposalItem -> vmScope.launch {
-                proposalDecisions.turnDownChange(intent.itemId, intent.reason)
+            is TaskDetailIntent.Domain.RunAiAction -> {
+                ai.onIntent(intent)
             }
 
-            is TaskDetailIntent.Domain.EditProposalItem -> vmScope.launch {
-                proposalDecisions.changeValue(intent.itemId, intent.text)
+            is TaskDetailIntent.Domain.Start -> {
+                timeSlot.onIntent(TaskTimeSlotIntent.Start)
             }
 
-            is TaskDetailIntent.Domain.ConfirmAllProposalItems -> vmScope.launch {
-                proposalDecisions.applyAll(intent.proposalId)
+            is TaskDetailIntent.Domain.Stop -> {
+                timeSlot.onIntent(TaskTimeSlotIntent.Stop)
             }
 
-            is TaskDetailIntent.Domain.DismissProposal -> vmScope.launch {
-                proposalDecisions.withdraw(intent.proposalId)
+            is TaskDetailIntent.Domain.CreateManual -> {
+                timeSlot.onIntent(
+                    TaskTimeSlotIntent.CreateManual(
+                        startedAtMs = intent.startedAtMs,
+                        endedAtMs = intent.endedAtMs,
+                        kind = intent.kind,
+                        note = intent.note,
+                    ),
+                )
+            }
+
+            is TaskDetailIntent.Domain.Tick -> {
+                timeSlot.onIntent(TaskTimeSlotIntent.Tick(intent.elapsedMs))
+            }
+
+            is TaskDetailIntent.Domain.ConfirmProposalItem -> {
+                vmScope.launch {
+                    proposalDecisions.applyChange(intent.itemId)
+                }
+            }
+
+            is TaskDetailIntent.Domain.RejectProposalItem -> {
+                vmScope.launch {
+                    proposalDecisions.turnDownChange(intent.itemId, intent.reason)
+                }
+            }
+
+            is TaskDetailIntent.Domain.EditProposalItem -> {
+                vmScope.launch {
+                    proposalDecisions.changeValue(intent.itemId, intent.text)
+                }
+            }
+
+            is TaskDetailIntent.Domain.ConfirmAllProposalItems -> {
+                vmScope.launch {
+                    proposalDecisions.applyAll(intent.proposalId)
+                }
+            }
+
+            is TaskDetailIntent.Domain.DismissProposal -> {
+                vmScope.launch {
+                    proposalDecisions.withdraw(intent.proposalId)
+                }
             }
         }
     }

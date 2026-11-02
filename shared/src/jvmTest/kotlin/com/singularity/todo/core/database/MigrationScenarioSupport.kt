@@ -24,7 +24,6 @@ data class MigrationExpect(val sql: String, val equals: String)
  * which one column of it is the point, and the fixture fills the rest.
  */
 sealed interface MigrationSeed {
-
     /** A statement, run as it is written. */
     data class Sql(val statement: String) : MigrationSeed
 
@@ -79,13 +78,17 @@ internal suspend fun runMigrationScenario(
             applyExportedSchema(from, connection)
             for (item in seed) {
                 when (item) {
-                    is MigrationSeed.Sql -> connection.execSQL(item.statement)
+                    is MigrationSeed.Sql -> {
+                        connection.execSQL(item.statement)
+                    }
 
-                    is MigrationSeed.LegacyTask -> insertLegacyTask(
-                        connection,
-                        id = item.id,
-                        columns = item.columns,
-                    )
+                    is MigrationSeed.LegacyTask -> {
+                        insertLegacyTask(
+                            connection,
+                            id = item.id,
+                            columns = item.columns,
+                        )
+                    }
                 }
             }
         }
@@ -126,7 +129,10 @@ internal suspend fun runMigrationScenario(
  * A scenario that wants to assert a NULL says `equals: null`, and a scenario
  * that wants to assert the string "null" has to say so in its query.
  */
-private fun firstText(connection: SQLiteConnection, sql: String): String {
+private fun firstText(
+    connection: SQLiteConnection,
+    sql: String,
+): String {
     val statement = connection.prepare(sql)
     try {
         if (!statement.step()) return "null"

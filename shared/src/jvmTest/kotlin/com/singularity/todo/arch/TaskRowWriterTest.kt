@@ -1,8 +1,8 @@
 package com.singularity.todo.arch
 
-import java.io.File
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
+import java.io.File
 import kotlin.test.fail
 
 /**
@@ -73,7 +73,6 @@ import kotlin.test.fail
  */
 @Tag("fast")
 class TaskRowWriterTest {
-
     @Test
     fun `every column of the task row has a writer`() {
         val entity = entityParams("TaskEntity")
@@ -125,10 +124,11 @@ class TaskRowWriterTest {
 
     @Test
     fun `no declaration is left over`() {
-        val obsolete = DECLARED_OMISSIONS.keys.filter { key ->
-            val column = key.substringAfterLast('.')
-            column in rowWritten || column in embeddedWritten
-        }
+        val obsolete =
+            DECLARED_OMISSIONS.keys.filter { key ->
+                val column = key.substringAfterLast('.')
+                column in rowWritten || column in embeddedWritten
+            }
         if (obsolete.isNotEmpty()) {
             fail(
                 "Declaration(s) for a column the writer now passes: ${obsolete.sorted()}. " +
@@ -139,19 +139,27 @@ class TaskRowWriterTest {
 
     @Test
     fun `every declaration says who writes the column`() {
-        val problems = DECLARED_OMISSIONS.mapNotNull { (column, reason) ->
-            val writer = reason.substringBefore(":").trim()
-            when {
-                reason.isBlank() -> "$column has no reason at all"
+        val problems =
+            DECLARED_OMISSIONS.mapNotNull { (column, reason) ->
+                val writer = reason.substringBefore(":").trim()
+                when {
+                    reason.isBlank() -> {
+                        "$column has no reason at all"
+                    }
 
-                writer.isEmpty() -> "$column does not say who writes it"
+                    writer.isEmpty() -> {
+                        "$column does not say who writes it"
+                    }
 
-                writer != NOBODY && !productionSource.contains(writer) ->
-                    "$column names the writer $writer, which no longer exists in the sources"
+                    writer != NOBODY && !productionSource.contains(writer) -> {
+                        "$column names the writer $writer, which no longer exists in the sources"
+                    }
 
-                else -> null
+                    else -> {
+                        null
+                    }
+                }
             }
-        }
         if (problems.isNotEmpty()) {
             fail(
                 problems.joinToString("\n") + "\n\n" +
@@ -163,13 +171,15 @@ class TaskRowWriterTest {
 
     @Test
     fun `a column declared as unwritten is not written by a targeted update`() {
-        val columns = DECLARED_OMISSIONS
-            .filterValues { it.startsWith("$NOBODY:") }
-            .keys
-            .map { it.substringAfterLast('.').toColumnName() }
-        val offenders = targetedUpdates().filter { statement ->
-            columns.any { column -> Regex("""\b$column\b""").containsMatchIn(statement) }
-        }
+        val columns =
+            DECLARED_OMISSIONS
+                .filterValues { it.startsWith("$NOBODY:") }
+                .keys
+                .map { it.substringAfterLast('.').toColumnName() }
+        val offenders =
+            targetedUpdates().filter { statement ->
+                columns.any { column -> Regex("""\b$column\b""").containsMatchIn(statement) }
+            }
         if (offenders.isNotEmpty()) {
             fail(
                 "Column(s) declared as having no writer are written by a targeted update:\n" +
@@ -201,7 +211,9 @@ class TaskRowWriterTest {
 
     /** Every production source, for the checks that look at what else writes a column. */
     private val productionSource: String by lazy {
-        SourceScan.commonMainRoot().walkTopDown()
+        SourceScan
+            .commonMainRoot()
+            .walkTopDown()
             .filter { it.name.endsWith(".kt") }
             .joinToString("\n") { it.readText() }
     }
@@ -217,14 +229,16 @@ class TaskRowWriterTest {
         // it, so the call is looked up from the signature onwards.
         val callStart = repositoryCode.indexOf("TaskEntity(", start)
         if (callStart < 0) return@lazy "" to null
-        val arguments = balancedBody(repositoryCode, callStart + "TaskEntity".length)
-            ?: return@lazy "" to null
+        val arguments =
+            balancedBody(repositoryCode, callStart + "TaskEntity".length)
+                ?: return@lazy "" to null
         val embeddedStart = arguments.indexOf("SyncColumns(")
-        val embedded = if (embeddedStart < 0) {
-            null
-        } else {
-            balancedBody(arguments, embeddedStart + "SyncColumns".length)
-        }
+        val embedded =
+            if (embeddedStart < 0) {
+                null
+            } else {
+                balancedBody(arguments, embeddedStart + "SyncColumns".length)
+            }
         arguments to embedded
     }
 
@@ -248,8 +262,9 @@ class TaskRowWriterTest {
         val declaration = "data class $entityName("
         val start = entitiesCode.indexOf(declaration)
         if (start < 0) fail("$entityName is not in Entities.kt — this gate expects it there")
-        val body = balancedBody(entitiesCode, start + declaration.length - 1)
-            ?: fail("the declaration of $entityName does not close")
+        val body =
+            balancedBody(entitiesCode, start + declaration.length - 1)
+                ?: fail("the declaration of $entityName does not close")
         return body
             .splitTopLevel(',')
             .mapNotNull { param ->
@@ -261,8 +276,7 @@ class TaskRowWriterTest {
                 val withoutType = withoutDefault.substringBefore(':')
                 val name = withoutType.substringAfterLast("val ").substringAfterLast("var ").trim()
                 name.takeIf { it.isNotEmpty() && it.first().isLetter() }
-            }
-            .toSet()
+            }.toSet()
     }
 
     /**
@@ -279,9 +293,13 @@ class TaskRowWriterTest {
         while (index < arguments.length) {
             val c = arguments[index]
             when {
-                c == '(' || c == '[' || c == '{' -> depth++
+                c == '(' || c == '[' || c == '{' -> {
+                    depth++
+                }
 
-                c == ')' || c == ']' || c == '}' -> depth--
+                c == ')' || c == ']' || c == '}' -> {
+                    depth--
+                }
 
                 c == '=' && depth == 0 && isAssignment(arguments, index) -> {
                     val name = identifierBefore(arguments, index)
@@ -294,14 +312,20 @@ class TaskRowWriterTest {
     }
 
     /** Whether the `=` at [index] assigns a name, rather than comparing two values. */
-    private fun isAssignment(text: String, index: Int): Boolean {
+    private fun isAssignment(
+        text: String,
+        index: Int,
+    ): Boolean {
         val before = if (index > 0) text[index - 1] else ' '
         val after = if (index + 1 < text.length) text[index + 1] else ' '
         return before !in "!<>=+-*/" && after != '='
     }
 
     /** The identifier that ends just before [endExclusive], spaces ignored. */
-    private fun identifierBefore(text: String, endExclusive: Int): String {
+    private fun identifierBefore(
+        text: String,
+        endExclusive: Int,
+    ): String {
         var end = endExclusive - 1
         while (end >= 0 && text[end].isWhitespace()) end--
         var start = end
@@ -321,13 +345,18 @@ class TaskRowWriterTest {
      * the same in the code and in the source, so the body is cut out of the
      * source it was given.
      */
-    private fun balancedBody(source: String, openIndex: Int): String? {
+    private fun balancedBody(
+        source: String,
+        openIndex: Int,
+    ): String? {
         if (openIndex < 0 || openIndex >= source.length) return null
         if (source[openIndex] != '(') return null
         var depth = 0
         for (i in openIndex until source.length) {
             when (source[i]) {
-                '(' -> depth++
+                '(' -> {
+                    depth++
+                }
 
                 ')' -> {
                     depth--
@@ -400,16 +429,17 @@ class TaskRowWriterTest {
          * writer still exists. `nobody` is an answer of its own: it says the
          * column has no writer today, and says so where a reviewer sees it.
          */
-        val DECLARED_OMISSIONS = mapOf(
-            "TaskEntity.sync.syncStatus" to
-                "$NOBODY: vestigial — the sync state of a task lives in the shadow table",
-            "TaskEntity.sync.syncError" to
-                "$NOBODY: vestigial — the sync state of a task lives in the shadow table",
-            "TaskEntity.sync.lastSyncedAt" to
-                "$NOBODY: vestigial — the sync state of a task lives in the shadow table",
-            "TaskEntity.sync.deviceId" to
-                "$NOBODY: vestigial — the sync state of a task lives in the shadow table",
-        )
+        val DECLARED_OMISSIONS =
+            mapOf(
+                "TaskEntity.sync.syncStatus" to
+                    "$NOBODY: vestigial — the sync state of a task lives in the shadow table",
+                "TaskEntity.sync.syncError" to
+                    "$NOBODY: vestigial — the sync state of a task lives in the shadow table",
+                "TaskEntity.sync.lastSyncedAt" to
+                    "$NOBODY: vestigial — the sync state of a task lives in the shadow table",
+                "TaskEntity.sync.deviceId" to
+                    "$NOBODY: vestigial — the sync state of a task lives in the shadow table",
+            )
     }
 }
 
@@ -419,5 +449,4 @@ class TaskRowWriterTest {
  * The gate knows a column by the name the Kotlin property has; the SQL that
  * writes a column spells it in the database's own way.
  */
-private fun String.toColumnName(): String =
-    replace(Regex("""([a-z0-9])([A-Z])"""), "$1_$2").lowercase()
+private fun String.toColumnName(): String = replace(Regex("""([a-z0-9])([A-Z])"""), "$1_$2").lowercase()

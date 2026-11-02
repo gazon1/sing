@@ -39,7 +39,6 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
  * launch.
  */
 class DetachTaskFromSeriesUseCase(private val repo: TaskRepository) {
-
     /**
      * Detaches the task [taskId] from its series.
      *
@@ -48,10 +47,12 @@ class DetachTaskFromSeriesUseCase(private val repo: TaskRepository) {
      *   is the truth, not an error.
      */
     suspend operator fun invoke(taskId: TaskId): Result<Task> {
-        val task = repo.get(taskId)
-            ?: return Result.failure(IllegalStateException("Task $taskId not found"))
-        val seriesId = task.seriesId
-            ?: return Result.success(task)
+        val task =
+            repo.get(taskId)
+                ?: return Result.failure(IllegalStateException("Task $taskId not found"))
+        val seriesId =
+            task.seriesId
+                ?: return Result.success(task)
 
         val members = repo.getSeries(seriesId)
         val remaining = members.filter { it.id != taskId }

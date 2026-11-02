@@ -2,12 +2,12 @@ package com.singularity.todo.feature.calendarSync.auth
 
 import com.singularity.todo.core.auth.SupabaseClientProvider
 import com.singularity.todo.core.error.runCatchingCancellable
+import io.github.jan.supabase.functions.functions
+import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
-import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
-import io.github.jan.supabase.functions.functions
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -34,29 +34,30 @@ class SupabaseGoogleTokenGateway(
     private val clients: SupabaseClientProvider,
     private val json: Json = Json { ignoreUnknownKeys = true },
 ) : GoogleTokenGateway {
-
     override suspend fun exchange(serverAuthCode: String): Result<GoogleCredentials> =
         runCatchingCancellable {
             val body = call(GoogleTokenExchangeWire.exchangeRequest(serverAuthCode))
             body.readGoogleCredentials()
         }
 
-    override suspend fun accessToken(): Result<GoogleCredentials> = runCatchingCancellable {
-        val body = call(GoogleTokenExchangeWire.tokenRequest())
-        body.readGoogleCredentials()
-    }
-
-    override suspend fun revoke(): Result<Unit> = runCatchingCancellable {
-        val response = invoke(GoogleTokenExchangeWire.revokeRequest())
-        // Whether the answer means "the grant is gone" is the contract's rule, not
-        // this file's: a 404 is the server saying it holds no grant for this
-        // account, which is not a failure.
-        if (!GoogleTokenExchangeWire.revokeIsDone(response.status.value)) {
-            throw GoogleAuthorizationException(
-                "The server refused to revoke the Google grant (HTTP ${response.status.value})",
-            )
+    override suspend fun accessToken(): Result<GoogleCredentials> =
+        runCatchingCancellable {
+            val body = call(GoogleTokenExchangeWire.tokenRequest())
+            body.readGoogleCredentials()
         }
-    }
+
+    override suspend fun revoke(): Result<Unit> =
+        runCatchingCancellable {
+            val response = invoke(GoogleTokenExchangeWire.revokeRequest())
+            // Whether the answer means "the grant is gone" is the contract's rule, not
+            // this file's: a 404 is the server saying it holds no grant for this
+            // account, which is not a failure.
+            if (!GoogleTokenExchangeWire.revokeIsDone(response.status.value)) {
+                throw GoogleAuthorizationException(
+                    "The server refused to revoke the Google grant (HTTP ${response.status.value})",
+                )
+            }
+        }
 
     private suspend fun call(payload: JsonObject): JsonObject {
         val response = invoke(payload)

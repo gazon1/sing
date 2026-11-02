@@ -27,25 +27,25 @@ import kotlin.test.assertEquals
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
 class TaskSeriesScopeTest {
-
     private val seriesId = TaskSeriesId("series-1")
 
     /** Three members of one series, each on its own date. */
     private fun seedSeries(fakes: SlotFakes): List<com.singularity.todo.feature.tasks.domain.model.Task> {
-        val members = listOf(
-            task("s1", title = "Pay the rent").copy(
-                seriesId = seriesId,
-                dueDate = LocalDate(2026, 10, 5),
-            ),
-            task("s2", title = "Pay the rent").copy(
-                seriesId = seriesId,
-                dueDate = LocalDate(2026, 10, 12),
-            ),
-            task("s3", title = "Pay the rent").copy(
-                seriesId = seriesId,
-                dueDate = LocalDate(2026, 10, 19),
-            ),
-        )
+        val members =
+            listOf(
+                task("s1", title = "Pay the rent").copy(
+                    seriesId = seriesId,
+                    dueDate = LocalDate(2026, 10, 5),
+                ),
+                task("s2", title = "Pay the rent").copy(
+                    seriesId = seriesId,
+                    dueDate = LocalDate(2026, 10, 12),
+                ),
+                task("s3", title = "Pay the rent").copy(
+                    seriesId = seriesId,
+                    dueDate = LocalDate(2026, 10, 19),
+                ),
+            )
         fakes.taskRepo.seed(*members.toTypedArray())
         return members
     }
@@ -53,110 +53,137 @@ class TaskSeriesScopeTest {
     // ─── A shared field reaches every member ───────────────────────────────
 
     @Test
-    fun `a shared field is written to every member of the series`() = runTest {
-        val fakes = SlotFakes()
-        seedSeries(fakes)
-        val source = TaskSource(task("s1", title = "Pay the rent").copy(seriesId = seriesId))
-        val slot = TaskEntitySlot(
-            taskId = com.singularity.todo.feature.tasks.domain.model.TaskId("s1"),
-            core = fakes.core(),
-            children = fakes.children(),
-            scope = testSlotScope(backgroundScope),
-            taskFlow = source.state,
-        ) {}
-        runCurrent()
+    fun `a shared field is written to every member of the series`() =
+        runTest {
+            val fakes = SlotFakes()
+            seedSeries(fakes)
+            val source = TaskSource(task("s1", title = "Pay the rent").copy(seriesId = seriesId))
+            val slot =
+                TaskEntitySlot(
+                    taskId =
+                        com.singularity.todo.feature.tasks.domain.model
+                            .TaskId("s1"),
+                    core = fakes.core(),
+                    children = fakes.children(),
+                    scope = testSlotScope(backgroundScope),
+                    taskFlow = source.state,
+                ) {}
+            runCurrent()
 
-        slot.onIntent(TaskDetailIntent.Domain.SetPriority(TaskPriority.High))
-        runCurrent()
+            slot.onIntent(TaskDetailIntent.Domain.SetPriority(TaskPriority.High))
+            runCurrent()
 
-        val priorities = fakes.taskRepo.tasks.value.values.map { it.priority }.toSet()
-        assertEquals(
-            setOf(TaskPriority.High),
-            priorities,
-            "the priority describes the work, so every member carries it",
-        )
-    }
+            val priorities =
+                fakes.taskRepo.tasks.value.values
+                    .map { it.priority }
+                    .toSet()
+            assertEquals(
+                setOf(TaskPriority.High),
+                priorities,
+                "the priority describes the work, so every member carries it",
+            )
+        }
 
     // ─── An occurrence field stays with its occurrence ─────────────────────
 
     @Test
-    fun `an occurrence field is written to that member alone`() = runTest {
-        val fakes = SlotFakes()
-        seedSeries(fakes)
-        val source = TaskSource(task("s1", title = "Pay the rent").copy(seriesId = seriesId))
-        val slot = TaskEntitySlot(
-            taskId = com.singularity.todo.feature.tasks.domain.model.TaskId("s1"),
-            core = fakes.core(),
-            children = fakes.children(),
-            scope = testSlotScope(backgroundScope),
-            taskFlow = source.state,
-        ) {}
-        runCurrent()
+    fun `an occurrence field is written to that member alone`() =
+        runTest {
+            val fakes = SlotFakes()
+            seedSeries(fakes)
+            val source = TaskSource(task("s1", title = "Pay the rent").copy(seriesId = seriesId))
+            val slot =
+                TaskEntitySlot(
+                    taskId =
+                        com.singularity.todo.feature.tasks.domain.model
+                            .TaskId("s1"),
+                    core = fakes.core(),
+                    children = fakes.children(),
+                    scope = testSlotScope(backgroundScope),
+                    taskFlow = source.state,
+                ) {}
+            runCurrent()
 
-        slot.onIntent(TaskDetailIntent.Domain.SetDueDate(LocalDate(2026, 10, 6)))
-        runCurrent()
+            slot.onIntent(TaskDetailIntent.Domain.SetDueDate(LocalDate(2026, 10, 6)))
+            runCurrent()
 
-        val dates = fakes.taskRepo.tasks.value.values.associate { it.id.value to it.dueDate }
-        assertEquals(
-            LocalDate(2026, 10, 6),
-            dates["s1"],
-            "the date of an occurrence is its own",
-        )
-        assertEquals(
-            LocalDate(2026, 10, 12),
-            dates["s2"],
-            "the other occurrences keep their dates",
-        )
-    }
+            val dates =
+                fakes.taskRepo.tasks.value.values
+                    .associate { it.id.value to it.dueDate }
+            assertEquals(
+                LocalDate(2026, 10, 6),
+                dates["s1"],
+                "the date of an occurrence is its own",
+            )
+            assertEquals(
+                LocalDate(2026, 10, 12),
+                dates["s2"],
+                "the other occurrences keep their dates",
+            )
+        }
 
     // ─── The title of the work reaches every member ───────────────────────
 
     @Test
-    fun `the title reaches every member of the series`() = runTest {
-        val fakes = SlotFakes()
-        seedSeries(fakes)
-        val source = TaskSource(task("s1", title = "Pay the rent").copy(seriesId = seriesId))
-        val slot = TaskDraftSlot(
-            core = fakes.core(),
-            context = fakes.context(),
-            scope = testSlotScope(backgroundScope),
-            taskFlow = source.state,
-        ) {}
-        runCurrent()
+    fun `the title reaches every member of the series`() =
+        runTest {
+            val fakes = SlotFakes()
+            seedSeries(fakes)
+            val source = TaskSource(task("s1", title = "Pay the rent").copy(seriesId = seriesId))
+            val slot =
+                TaskDraftSlot(
+                    core = fakes.core(),
+                    context = fakes.context(),
+                    scope = testSlotScope(backgroundScope),
+                    taskFlow = source.state,
+                ) {}
+            runCurrent()
 
-        slot.onIntent(TaskDetailIntent.Domain.TitleChanged("Pay the rent in full"))
-        // The write is debounced; the debounce is crossed with virtual time.
-        advanceTimeBy(1_000)
-        runCurrent()
+            slot.onIntent(TaskDetailIntent.Domain.TitleChanged("Pay the rent in full"))
+            // The write is debounced; the debounce is crossed with virtual time.
+            advanceTimeBy(1_000)
+            runCurrent()
 
-        val titles = fakes.taskRepo.tasks.value.values.map { it.title }.toSet()
-        assertEquals(
-            setOf("Pay the rent in full"),
-            titles,
-            "a series whose rows carry three titles says three things about one job",
-        )
-    }
+            val titles =
+                fakes.taskRepo.tasks.value.values
+                    .map { it.title }
+                    .toSet()
+            assertEquals(
+                setOf("Pay the rent in full"),
+                titles,
+                "a series whose rows carry three titles says three things about one job",
+            )
+        }
 
     // ─── A task that stands alone is untouched by the rule ────────────────
 
     @Test
-    fun `a task that stands alone is written alone`() = runTest {
-        val fakes = SlotFakes()
-        fakes.taskRepo.seed(task("solo", title = "Solo"))
-        val source = TaskSource(task("solo", title = "Solo"))
-        val slot = TaskEntitySlot(
-            taskId = com.singularity.todo.feature.tasks.domain.model.TaskId("solo"),
-            core = fakes.core(),
-            children = fakes.children(),
-            scope = testSlotScope(backgroundScope),
-            taskFlow = source.state,
-        ) {}
-        runCurrent()
+    fun `a task that stands alone is written alone`() =
+        runTest {
+            val fakes = SlotFakes()
+            fakes.taskRepo.seed(task("solo", title = "Solo"))
+            val source = TaskSource(task("solo", title = "Solo"))
+            val slot =
+                TaskEntitySlot(
+                    taskId =
+                        com.singularity.todo.feature.tasks.domain.model
+                            .TaskId("solo"),
+                    core = fakes.core(),
+                    children = fakes.children(),
+                    scope = testSlotScope(backgroundScope),
+                    taskFlow = source.state,
+                ) {}
+            runCurrent()
 
-        slot.onIntent(TaskDetailIntent.Domain.SetPriority(TaskPriority.Low))
-        runCurrent()
+            slot.onIntent(TaskDetailIntent.Domain.SetPriority(TaskPriority.Low))
+            runCurrent()
 
-        assertEquals(TaskPriority.Low, fakes.taskRepo.tasks.value.values.first().priority)
-        assertEquals(1, fakes.taskRepo.tasks.value.size)
-    }
+            assertEquals(
+                TaskPriority.Low,
+                fakes.taskRepo.tasks.value.values
+                    .first()
+                    .priority,
+            )
+            assertEquals(1, fakes.taskRepo.tasks.value.size)
+        }
 }

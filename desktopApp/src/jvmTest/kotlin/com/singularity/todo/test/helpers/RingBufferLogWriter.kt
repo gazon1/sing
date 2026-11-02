@@ -19,10 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger
  *                 boot with debug tracing is well under that, while a few
  *                 minutes of runaway logging stays bounded.
  */
-class RingBufferLogWriter(
-    private val capacity: Int = 2_000,
-) : LogWriter() {
-
+class RingBufferLogWriter(private val capacity: Int = 2_000) : LogWriter() {
     private val buffer = CopyOnWriteArrayList<Entry>()
     private val lostCount = AtomicInteger()
 
@@ -33,7 +30,8 @@ class RingBufferLogWriter(
         val message: String,
         val throwable: String?,
     ) {
-        override fun toString(): String = "[$timestamp] ${severity.name} $tag: $message${throwable?.let { "\n$it" } ?: ""}"
+        override fun toString(): String =
+            "[$timestamp] ${severity.name} $tag: $message${throwable?.let { "\n$it" } ?: ""}"
     }
 
     override fun log(
@@ -43,14 +41,15 @@ class RingBufferLogWriter(
         throwable: Throwable?,
     ) {
         val stamp = SimpleDateFormat("HH:mm:ss.SSS").format(Date())
-        val throwableText = throwable?.let {
-            buildString {
-                append(it::class.java.name)
-                it.message?.let { msg -> append(": ").append(msg) }
-                append("\n")
-                it.stackTraceToString()
+        val throwableText =
+            throwable?.let {
+                buildString {
+                    append(it::class.java.name)
+                    it.message?.let { msg -> append(": ").append(msg) }
+                    append("\n")
+                    it.stackTraceToString()
+                }
             }
-        }
         val entry = Entry(stamp, severity, tag, message, throwableText)
         if (buffer.size >= capacity) {
             buffer.removeAt(0)

@@ -33,30 +33,36 @@ class SharedSyncServer {
         @Suppress("UNUSED_PARAMETER") account: String,
     ): BatchPushResponse =
         mutex.withLock {
-            val results = request.patches.map { patch ->
-                lsn += 1
-                val newLsn = lsn
-                val data = buildJsonObject {
-                    put("entityId", JsonPrimitive(patch.entityId))
-                    put("entityType", JsonPrimitive(patch.entityType.name))
-                    put("isDelete", JsonPrimitive(patch.isDelete))
-                    put("ops", buildJsonArray { patch.ops.forEach { op -> add(JsonPrimitive(op.toString())) } })
+            val results =
+                request.patches.map { patch ->
+                    lsn += 1
+                    val newLsn = lsn
+                    val data =
+                        buildJsonObject {
+                            put("entityId", JsonPrimitive(patch.entityId))
+                            put("entityType", JsonPrimitive(patch.entityType.name))
+                            put("isDelete", JsonPrimitive(patch.isDelete))
+                            put("ops", buildJsonArray { patch.ops.forEach { op -> add(JsonPrimitive(op.toString())) } })
+                        }
+                    events +=
+                        SyncEvent(
+                            serverLsn = newLsn,
+                            entityId = patch.entityId,
+                            entityType = patch.entityType,
+                            eventType = if (patch.isDelete) SyncEventType.DELETED else SyncEventType.UPDATED,
+                            data = data,
+                            createdAt = System.currentTimeMillis(),
+                            profileId = request.profileId,
+                        )
+                    PatchResult(patchId = patch.patchId, ok = true, newVersion = newLsn)
                 }
-                events += SyncEvent(
-                    serverLsn = newLsn,
-                    entityId = patch.entityId,
-                    entityType = patch.entityType,
-                    eventType = if (patch.isDelete) SyncEventType.DELETED else SyncEventType.UPDATED,
-                    data = data,
-                    createdAt = System.currentTimeMillis(),
-                    profileId = request.profileId,
-                )
-                PatchResult(patchId = patch.patchId, ok = true, newVersion = newLsn)
-            }
             BatchPushResponse(results)
         }
 
-    internal suspend fun pull(sinceLsn: Long, limit: Int): List<SyncEvent> =
+    internal suspend fun pull(
+        sinceLsn: Long,
+        limit: Int,
+    ): List<SyncEvent> =
         mutex.withLock {
             events.filter { it.serverLsn > sinceLsn }.sortedBy { it.serverLsn }.take(limit)
         }
@@ -67,11 +73,12 @@ class SharedSyncServer {
 private class SharedSyncClient(private val server: SharedSyncServer, val authenticatedAs: String) : SyncApiClient {
     override var onBeforeResponseLoop: (MutableList<SyncOutboxEntity>, BatchPushResponse) -> Unit = { _, _ -> }
 
-    override suspend fun batchPush(request: BatchPushRequest): BatchPushResponse =
-        server.push(request, authenticatedAs)
+    override suspend fun batchPush(request: BatchPushRequest): BatchPushResponse = server.push(request, authenticatedAs)
 
-    override suspend fun getEventsSince(sinceLsn: Long, limit: Int): List<SyncEvent> =
-        server.pull(sinceLsn, limit)
+    override suspend fun getEventsSince(
+        sinceLsn: Long,
+        limit: Int,
+    ): List<SyncEvent> = server.pull(sinceLsn, limit)
 
     override suspend fun testConnection(): Result<Unit> = server.testConnection()
 

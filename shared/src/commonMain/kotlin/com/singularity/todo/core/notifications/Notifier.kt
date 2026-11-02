@@ -27,7 +27,6 @@ package com.singularity.todo.core.notifications
  * a notification that never appears is worse than one the user was told to expect.
  */
 interface Notifier {
-
     /**
      * Whether this platform can show a notification to the user.
      *
@@ -48,5 +47,10 @@ interface Notifier {
      * `ReminderDelivery`, which a `systemd --user` unit invokes on Desktop. A port without it
      * would have made the Desktop implementation drop the tap-through on the floor.
      */
-    fun post(tag: String, title: String, body: String, viewId: String? = null)
+    fun post(
+        tag: String,
+        title: String,
+        body: String,
+        viewId: String? = null,
+    )
 }

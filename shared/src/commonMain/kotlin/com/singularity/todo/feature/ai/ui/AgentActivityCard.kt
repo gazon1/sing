@@ -34,12 +34,14 @@ fun AgentPlanCard(
     if (steps.isEmpty()) return
 
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .testTag(TestTags.AGENT_PLAN_CARD),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        ),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .testTag(TestTags.AGENT_PLAN_CARD),
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            ),
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -70,43 +72,46 @@ fun AgentPlanCard(
     }
 }
 
-private fun PlanStepStatus.marker(): String = when (this) {
-    PlanStepStatus.PENDING -> "○"
-    PlanStepStatus.IN_PROGRESS -> "◐"
-    PlanStepStatus.COMPLETED -> "●"
-}
+private fun PlanStepStatus.marker(): String =
+    when (this) {
+        PlanStepStatus.PENDING -> "○"
+        PlanStepStatus.IN_PROGRESS -> "◐"
+        PlanStepStatus.COMPLETED -> "●"
+    }
 
 @Composable
-private fun PlanStepStatus.color() = when (this) {
-    PlanStepStatus.PENDING -> MaterialTheme.colorScheme.onSurfaceVariant
-    PlanStepStatus.IN_PROGRESS -> MaterialTheme.colorScheme.primary
-    PlanStepStatus.COMPLETED -> MaterialTheme.colorScheme.primary
-}
+private fun PlanStepStatus.color() =
+    when (this) {
+        PlanStepStatus.PENDING -> MaterialTheme.colorScheme.onSurfaceVariant
+        PlanStepStatus.IN_PROGRESS -> MaterialTheme.colorScheme.primary
+        PlanStepStatus.COMPLETED -> MaterialTheme.colorScheme.primary
+    }
 
 /** Maps a raw tool name (snake_case) to a human-readable label. */
 fun humanToolName(name: String): String {
     val parts = name.split('_')
     val verb = parts.firstOrNull()?.lowercase().orEmpty()
     val noun = parts.drop(1).joinToString(" ")
-    val ing = when (verb) {
-        "create" -> "Creating"
-        "update" -> "Updating"
-        "delete" -> "Deleting"
-        "list" -> "Listing"
-        "get" -> "Getting"
-        "search" -> "Searching"
-        "refine" -> "Refining"
-        "generate" -> "Generating"
-        "decompose" -> "Decomposing"
-        "cluster" -> "Clustering"
-        "suggest" -> "Suggesting"
-        "improve" -> "Improving"
-        "summarize" -> "Summarizing"
-        "extract" -> "Extracting"
-        "rewrite" -> "Rewriting"
-        "pick" -> "Picking"
-        "write" -> "Writing"
-        else -> verb.replaceFirstChar { it.uppercase() }
-    }
+    val ing =
+        when (verb) {
+            "create" -> "Creating"
+            "update" -> "Updating"
+            "delete" -> "Deleting"
+            "list" -> "Listing"
+            "get" -> "Getting"
+            "search" -> "Searching"
+            "refine" -> "Refining"
+            "generate" -> "Generating"
+            "decompose" -> "Decomposing"
+            "cluster" -> "Clustering"
+            "suggest" -> "Suggesting"
+            "improve" -> "Improving"
+            "summarize" -> "Summarizing"
+            "extract" -> "Extracting"
+            "rewrite" -> "Rewriting"
+            "pick" -> "Picking"
+            "write" -> "Writing"
+            else -> verb.replaceFirstChar { it.uppercase() }
+        }
     return if (noun.isBlank()) ing else "$ing $noun"
 }

@@ -9,10 +9,10 @@ import com.singularity.todo.test.fakes.buildGoldenChain
 import com.singularity.todo.test.fakes.buildGoldenDeviceKeyContainer
 import com.singularity.todo.test.fakes.hexToBytes
 import com.singularity.todo.test.fakes.toHex
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
-import org.junit.jupiter.api.Tag
 
 /**
  * The desktop's cryptography, against the bytes the phone has to agree with.
@@ -35,17 +35,17 @@ import org.junit.jupiter.api.Tag
  */
 @Tag("fast")
 class ArchiveCryptoGoldenJvmTest {
-
     private val crypto = JvmArchiveCrypto()
     private val archive = EncryptedArchive(crypto)
 
     /** The desktop derives the same key the golden archive was sealed under. */
     @Test
     fun `the desktop derives the golden key`() {
-        val key = crypto.deriveKey(
-            ArchiveCryptoGolden.PASSWORD.toCharArray(),
-            ArchiveCryptoGolden.salt,
-        )
+        val key =
+            crypto.deriveKey(
+                ArchiveCryptoGolden.PASSWORD.toCharArray(),
+                ArchiveCryptoGolden.salt,
+            )
 
         assertEquals(
             ArchiveCryptoGolden.KEY_HEX,
@@ -71,10 +71,11 @@ class ArchiveCryptoGoldenJvmTest {
             "the desktop must open the archive the golden bytes describe",
         )
 
-        val key = crypto.deriveKey(
-            ArchiveCryptoGolden.PASSWORD.toCharArray(),
-            ArchiveCryptoGolden.salt,
-        )
+        val key =
+            crypto.deriveKey(
+                ArchiveCryptoGolden.PASSWORD.toCharArray(),
+                ArchiveCryptoGolden.salt,
+            )
         val header = container.copyOfRange(0, ArchiveFormat.HEADER_BYTES)
         val sealed = crypto.seal(key, ArchiveCryptoGolden.nonce, ArchiveCryptoGolden.plaintext, header)
 
@@ -100,10 +101,11 @@ class ArchiveCryptoGoldenJvmTest {
      */
     @Test
     fun `the desktop agrees with the golden chain`() {
-        val key = crypto.deriveKey(
-            ArchiveCryptoGolden.PASSWORD.toCharArray(),
-            ArchiveCryptoGolden.chainSalt,
-        )
+        val key =
+            crypto.deriveKey(
+                ArchiveCryptoGolden.PASSWORD.toCharArray(),
+                ArchiveCryptoGolden.chainSalt,
+            )
 
         assertEquals(
             ArchiveCryptoGolden.CHAIN_KEY_HEX,

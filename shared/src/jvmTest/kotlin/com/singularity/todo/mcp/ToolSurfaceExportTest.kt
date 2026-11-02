@@ -1,15 +1,15 @@
 package com.singularity.todo.mcp
 import com.singularity.todo.feature.ai.McpToolCatalog
-import java.io.File
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Tag
+import java.io.File
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
  * The committed tool surface must be the one the code declares.
@@ -30,7 +30,6 @@ import org.junit.jupiter.api.Tag
  */
 @Tag("fast")
 class ToolSurfaceExportTest {
-
     @Test
     fun `the committed tool surface is the one the code declares`() {
         val committed = File(repoRoot(), "config/docs/tool-surface.json")
@@ -87,9 +86,9 @@ class ToolSurfaceExportTest {
      * is not something to hard-code: a path that is right today and wrong after a
      * directory is renamed is a failure nobody can explain.
      */
-    private fun repoRoot(): File = generateSequence(File(System.getProperty("user.dir")).absoluteFile) {
-        it.parentFile
-    }
-        .firstOrNull { File(it, "config/docs/adr-corpus.json").isFile }
-        ?: error("could not find the repository root from ${System.getProperty("user.dir")}")
+    private fun repoRoot(): File =
+        generateSequence(File(System.getProperty("user.dir")).absoluteFile) {
+            it.parentFile
+        }.firstOrNull { File(it, "config/docs/adr-corpus.json").isFile }
+            ?: error("could not find the repository root from ${System.getProperty("user.dir")}")
 }

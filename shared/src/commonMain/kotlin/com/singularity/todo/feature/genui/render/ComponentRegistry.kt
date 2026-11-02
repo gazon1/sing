@@ -19,14 +19,16 @@ private val logger = Logger.withTag("ComponentRegistry")
  * ```
  */
 class ComponentRegistry {
-
     private val builders = mutableMapOf<String, @Composable (UiNode, DataContext, Modifier) -> Unit>()
 
     /**
      * Registers a builder for [kind]. The builder receives the concrete [UiNode] subtype
      * (already cast from the sealed interface), the [DefaultDataContext] and an optional [Modifier].
      */
-    fun register(kind: String, builder: @Composable (UiNode, DataContext, Modifier) -> Unit) {
+    fun register(
+        kind: String,
+        builder: @Composable (UiNode, DataContext, Modifier) -> Unit,
+    ) {
         builders[kind] = builder
     }
 
@@ -38,7 +40,11 @@ class ComponentRegistry {
      * through its own signature.
      */
     @Composable
-    fun render(node: UiNode, ctx: DataContext, modifier: Modifier = Modifier) {
+    fun render(
+        node: UiNode,
+        ctx: DataContext,
+        modifier: Modifier = Modifier,
+    ) {
         val kind = node.kind
         val builder = builders[kind]
         if (builder != null) {
@@ -60,42 +66,43 @@ class ComponentRegistry {
 
 /** Returns the JSON `kind` discriminator for this node. */
 val UiNode.kind: String
-    get() = when (this) {
-        is UiNode.Text -> "text"
+    get() =
+        when (this) {
+            is UiNode.Text -> "text"
 
-        is UiNode.Heading -> "heading"
+            is UiNode.Heading -> "heading"
 
-        is UiNode.Button -> "button"
+            is UiNode.Button -> "button"
 
-        is UiNode.Column -> "column"
+            is UiNode.Column -> "column"
 
-        is UiNode.Row -> "row"
+            is UiNode.Row -> "row"
 
-        is UiNode.Card -> "card"
+            is UiNode.Card -> "card"
 
-        is UiNode.ListView -> "list"
+            is UiNode.ListView -> "list"
 
-        is UiNode.Divider -> "divider"
+            is UiNode.Divider -> "divider"
 
-        is UiNode.Badge -> "badge"
+            is UiNode.Badge -> "badge"
 
-        is UiNode.TextField -> "text_field"
+            is UiNode.TextField -> "text_field"
 
-        is UiNode.Checkbox -> "checkbox"
+            is UiNode.Checkbox -> "checkbox"
 
-        is UiNode.Tabs -> "tabs"
+            is UiNode.Tabs -> "tabs"
 
-        // Held by Tabs as {title, child}; the panel is drawn by the tabs renderer, which never
-        // hands one to `render` on its own.
-        is UiNode.Tab -> "tab"
+            // Held by Tabs as {title, child}; the panel is drawn by the tabs renderer, which never
+            // hands one to `render` on its own.
+            is UiNode.Tab -> "tab"
 
-        is UiNode.Icon -> "icon"
+            is UiNode.Icon -> "icon"
 
-        is UiNode.Modal -> "modal"
+            is UiNode.Modal -> "modal"
 
-        is UiNode.TaskCard -> "task_card"
+            is UiNode.TaskCard -> "task_card"
 
-        is UiNode.DueDate -> "due_date"
+            is UiNode.DueDate -> "due_date"
 
-        is UiNode.ProjectChip -> "project_chip"
-    }
+            is UiNode.ProjectChip -> "project_chip"
+        }

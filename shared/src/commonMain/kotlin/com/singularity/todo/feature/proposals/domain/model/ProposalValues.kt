@@ -17,7 +17,6 @@ import kotlinx.serialization.Serializable
  * reading says which it is — a value, or the reason the value could not be read.
  */
 sealed interface ReadResult<out T> {
-
     /** The value, read. */
     data class Ok<T>(val value: T) : ReadResult<T>
 
@@ -43,7 +42,6 @@ class EditableValue<T>(val text: String, val change: (String) -> ReadResult<T>)
  * dictionary and forgotten in another.
  */
 sealed interface ProposalValue {
-
     /** The name of the field this value sets — the name the stored payload uses. */
     val fieldName: String
 
@@ -77,7 +75,6 @@ sealed interface ProposalValue {
  */
 @Serializable
 sealed interface TaskValue : ProposalValue {
-
     /**
      * The value the user may change before the change is applied.
      *
@@ -92,6 +89,7 @@ sealed interface TaskValue : ProposalValue {
         override val fieldName: String = "Title"
         override val summary: String = "Set the title to «${value.asCardValue()}»"
         override val text: String = value
+
         override fun editableValue(): EditableValue<TaskValue> = editableOf("Title", TaskValue::read)
     }
 
@@ -101,6 +99,7 @@ sealed interface TaskValue : ProposalValue {
         override val fieldName: String = "Description"
         override val summary: String = "Set the description to «${value.asCardValue()}»"
         override val text: String = value
+
         override fun editableValue(): EditableValue<TaskValue> = editableOf("Description", TaskValue::read)
     }
 
@@ -110,6 +109,7 @@ sealed interface TaskValue : ProposalValue {
         override val fieldName: String = "Priority"
         override val summary: String = "Set the priority to ${value.name}"
         override val text: String = value.name
+
         override fun editableValue(): EditableValue<TaskValue> = editableOf("Priority", TaskValue::read)
     }
 
@@ -127,6 +127,7 @@ sealed interface TaskValue : ProposalValue {
         override val summary: String
             get() = if (value == null) "Clear the due date" else "Set the due date to $value"
         override val text: String = value?.toString().orEmpty()
+
         override fun editableValue(): EditableValue<TaskValue> = editableOf("DueDate", TaskValue::read)
     }
 
@@ -136,12 +137,14 @@ sealed interface TaskValue : ProposalValue {
     data class DueTime(val value: LocalTime?) : TaskValue {
         override val fieldName: String = "DueTime"
         override val summary: String
-            get() = if (value == null) {
-                "Clear the due time"
-            } else {
-                "Set the due time to ${LocalTimeFormats.format(value)}"
-            }
+            get() =
+                if (value == null) {
+                    "Clear the due time"
+                } else {
+                    "Set the due time to ${LocalTimeFormats.format(value)}"
+                }
         override val text: String = value?.let { LocalTimeFormats.format(it) }.orEmpty()
+
         override fun editableValue(): EditableValue<TaskValue> = editableOf("DueTime", TaskValue::read)
     }
 
@@ -151,6 +154,7 @@ sealed interface TaskValue : ProposalValue {
         override val fieldName: String = "Status"
         override val summary: String = "Set the status to ${value.name}"
         override val text: String = value.name
+
         override fun editableValue(): EditableValue<TaskValue> = editableOf("Status", TaskValue::read)
     }
 
@@ -160,6 +164,7 @@ sealed interface TaskValue : ProposalValue {
         override val fieldName: String = "EstimateMinutes"
         override val summary: String = "Set the estimate to $value min"
         override val text: String = value.toString()
+
         override fun editableValue(): EditableValue<TaskValue> = editableOf("EstimateMinutes", TaskValue::read)
     }
 
@@ -169,6 +174,7 @@ sealed interface TaskValue : ProposalValue {
         override val fieldName: String = "Kind"
         override val summary: String = "Set the kind of work to ${value.name}"
         override val text: String = value.name
+
         override fun editableValue(): EditableValue<TaskValue> = editableOf("Kind", TaskValue::read)
     }
 
@@ -199,6 +205,7 @@ sealed interface TaskValue : ProposalValue {
         override val summary: String
             get() = if (value) "Defer the task" else "Bring the task back"
         override val text: String = value.toString()
+
         override fun editableValue(): EditableValue<TaskValue> = editableOf("Someday", TaskValue::read)
     }
 
@@ -224,11 +231,11 @@ sealed interface TaskValue : ProposalValue {
         override val text: String = raw
         override val readFailure: String?
             get() = (TaskValue.read(this.field, raw) as? ReadResult.Rejected)?.reason
+
         override fun editableValue(): EditableValue<TaskValue> = editableOf(field, TaskValue::read)
     }
 
     companion object {
-
         /**
          * The value [field] takes when read from [text] — or why it cannot be read.
          *
@@ -237,33 +244,39 @@ sealed interface TaskValue : ProposalValue {
          * it again when they change it — so a value the model named wrong is refused
          * where the model can still fix it.
          */
-        fun read(field: String, text: String): ReadResult<TaskValue> = when (field.trim()) {
-            "Title" -> ReadResult.Ok(Title(text))
-            "Description" -> ReadResult.Ok(Description(text))
-            "Priority" -> readPriority(text).map { Priority(it) }
-            "DueDate" -> readDate(text).map { DueDate(it) }
-            "DueTime" -> readTime(text).map { DueTime(it) }
-            "Status" -> readStatus(text).map { Status(it) }
-            "EstimateMinutes" -> readEstimate(text).map { EstimateMinutes(it) }
-            "Kind" -> readKind(text).map { Kind(it) }
-            "Project" -> ReadResult.Ok(Project(text.trim()))
-            "Someday" -> readSomeday(text).map { Someday(it) }
-            else -> ReadResult.Rejected("\"${field.trim()}\" is not a task field.")
-        }
+        fun read(
+            field: String,
+            text: String,
+        ): ReadResult<TaskValue> =
+            when (field.trim()) {
+                "Title" -> ReadResult.Ok(Title(text))
+                "Description" -> ReadResult.Ok(Description(text))
+                "Priority" -> readPriority(text).map { Priority(it) }
+                "DueDate" -> readDate(text).map { DueDate(it) }
+                "DueTime" -> readTime(text).map { DueTime(it) }
+                "Status" -> readStatus(text).map { Status(it) }
+                "EstimateMinutes" -> readEstimate(text).map { EstimateMinutes(it) }
+                "Kind" -> readKind(text).map { Kind(it) }
+                "Project" -> ReadResult.Ok(Project(text.trim()))
+                "Someday" -> readSomeday(text).map { Someday(it) }
+                else -> ReadResult.Rejected("\"${field.trim()}\" is not a task field.")
+            }
 
         /** The priority [text] names, or why it does not read. */
         fun readPriority(text: String): ReadResult<TaskPriority> {
             val trimmed = text.trim()
-            val priority = TaskPriority.entries.firstOrNull { it.name.equals(trimmed, ignoreCase = true) }
-                ?: return ReadResult.Rejected("\"$trimmed\" is not a priority. $PRIORITY_NAMES")
+            val priority =
+                TaskPriority.entries.firstOrNull { it.name.equals(trimmed, ignoreCase = true) }
+                    ?: return ReadResult.Rejected("\"$trimmed\" is not a priority. $PRIORITY_NAMES")
             return ReadResult.Ok(priority)
         }
 
         /** The kind of work [text] names, or why it does not read. */
         fun readKind(text: String): ReadResult<TaskKind> {
             val trimmed = text.trim()
-            val kind = TaskKind.entries.firstOrNull { it.name.equals(trimmed, ignoreCase = true) }
-                ?: return ReadResult.Rejected("\"$trimmed\" is not a kind of work. $KIND_NAMES")
+            val kind =
+                TaskKind.entries.firstOrNull { it.name.equals(trimmed, ignoreCase = true) }
+                    ?: return ReadResult.Rejected("\"$trimmed\" is not a kind of work. $KIND_NAMES")
             return ReadResult.Ok(kind)
         }
 
@@ -276,8 +289,9 @@ sealed interface TaskValue : ProposalValue {
         fun readDate(text: String): ReadResult<LocalDate?> {
             val trimmed = text.trim()
             if (trimmed.isEmpty()) return ReadResult.Ok(null)
-            val date = runCatching { LocalDate.parse(trimmed) }.getOrNull()
-                ?: return ReadResult.Rejected("\"$trimmed\" is not a date. Use YYYY-MM-DD, or empty to clear it.")
+            val date =
+                runCatching { LocalDate.parse(trimmed) }.getOrNull()
+                    ?: return ReadResult.Rejected("\"$trimmed\" is not a date. Use YYYY-MM-DD, or empty to clear it.")
             return ReadResult.Ok(date)
         }
 
@@ -287,8 +301,9 @@ sealed interface TaskValue : ProposalValue {
         fun readTime(text: String): ReadResult<LocalTime?> {
             val trimmed = text.trim()
             if (trimmed.isEmpty()) return ReadResult.Ok(null)
-            val time = runCatching { LocalTimeFormats.parse(trimmed) }.getOrNull()
-                ?: return ReadResult.Rejected("\"$trimmed\" is not a time. Use HH:mm, or empty to clear it.")
+            val time =
+                runCatching { LocalTimeFormats.parse(trimmed) }.getOrNull()
+                    ?: return ReadResult.Rejected("\"$trimmed\" is not a time. Use HH:mm, or empty to clear it.")
             return ReadResult.Ok(time)
         }
     }
@@ -302,7 +317,6 @@ sealed interface TaskValue : ProposalValue {
  */
 @Serializable
 sealed interface NoteValue : ProposalValue {
-
     /** The value the user may change before the change is applied. */
     fun editableValue(): EditableValue<NoteValue>?
 
@@ -312,6 +326,7 @@ sealed interface NoteValue : ProposalValue {
         override val fieldName: String = "Title"
         override val summary: String = "Set the note title to «${value.asCardValue()}»"
         override val text: String = value
+
         override fun editableValue(): EditableValue<NoteValue> = editableOf("Title", NoteValue::read)
     }
 
@@ -322,6 +337,7 @@ sealed interface NoteValue : ProposalValue {
         override val fieldName: String = "Body"
         override val summary: String = "Set the note body to «${value.asCardValue()}»"
         override val text: String = value
+
         override fun editableValue(): EditableValue<NoteValue> = editableOf("Body", NoteValue::read)
     }
 
@@ -332,6 +348,7 @@ sealed interface NoteValue : ProposalValue {
         override val fieldName: String = "Summary"
         override val summary: String = "Summarize the note to «${value.asCardValue()}»"
         override val text: String = value
+
         override fun editableValue(): EditableValue<NoteValue> = editableOf("Summary", NoteValue::read)
     }
 
@@ -357,18 +374,22 @@ sealed interface NoteValue : ProposalValue {
         override val text: String = raw
         override val readFailure: String?
             get() = (NoteValue.read(this.field, raw) as? ReadResult.Rejected)?.reason
+
         override fun editableValue(): EditableValue<NoteValue> = editableOf(field, NoteValue::read)
     }
 
     companion object {
-
         /** The value [field] takes when read from [text] — or why it cannot be read. */
-        fun read(field: String, text: String): ReadResult<NoteValue> = when (field.trim()) {
-            "Title" -> ReadResult.Ok(Title(text))
-            "Body" -> ReadResult.Ok(Body(text))
-            "Summary" -> ReadResult.Ok(Summary(text))
-            else -> ReadResult.Rejected("\"${field.trim()}\" is not a note field.")
-        }
+        fun read(
+            field: String,
+            text: String,
+        ): ReadResult<NoteValue> =
+            when (field.trim()) {
+                "Title" -> ReadResult.Ok(Title(text))
+                "Body" -> ReadResult.Ok(Body(text))
+                "Summary" -> ReadResult.Ok(Summary(text))
+                else -> ReadResult.Rejected("\"${field.trim()}\" is not a note field.")
+            }
     }
 }
 
@@ -382,7 +403,6 @@ sealed interface NoteValue : ProposalValue {
  */
 @Serializable
 sealed interface ProjectValue : ProposalValue {
-
     /** The value the user may change before the change is applied. */
     fun editableValue(): EditableValue<ProjectValue>?
 
@@ -392,6 +412,7 @@ sealed interface ProjectValue : ProposalValue {
         override val fieldName: String = "Name"
         override val summary: String = "Rename the project to «${value.asCardValue()}»"
         override val text: String = value
+
         override fun editableValue(): EditableValue<ProjectValue> = editableOf("Name", ProjectValue::read)
     }
 
@@ -401,6 +422,7 @@ sealed interface ProjectValue : ProposalValue {
         override val fieldName: String = "Description"
         override val summary: String = "Set the project description to «${value.asCardValue()}»"
         override val text: String = value
+
         override fun editableValue(): EditableValue<ProjectValue> = editableOf("Description", ProjectValue::read)
     }
 
@@ -450,24 +472,38 @@ sealed interface ProjectValue : ProposalValue {
         override val text: String = raw
         override val readFailure: String?
             get() = (ProjectValue.read(this.field, raw) as? ReadResult.Rejected)?.reason
+
         override fun editableValue(): EditableValue<ProjectValue> = editableOf(field, ProjectValue::read)
     }
 
     companion object {
-
         /** The value [field] takes when read from [text] — or why it cannot be read. */
-        fun read(field: String, text: String): ReadResult<ProjectValue> = when (field.trim()) {
-            "Name" -> ReadResult.Ok(Name(text))
+        fun read(
+            field: String,
+            text: String,
+        ): ReadResult<ProjectValue> =
+            when (field.trim()) {
+                "Name" -> {
+                    ReadResult.Ok(Name(text))
+                }
 
-            "Description" -> ReadResult.Ok(Description(text))
+                "Description" -> {
+                    ReadResult.Ok(Description(text))
+                }
 
-            "Color" -> text.trim().toIntOrNull()?.let { ReadResult.Ok(Color(it)) }
-                ?: ReadResult.Rejected("\"${text.trim()}\" is not a colour. Use an ARGB number.")
+                "Color" -> {
+                    text.trim().toIntOrNull()?.let { ReadResult.Ok(Color(it)) }
+                        ?: ReadResult.Rejected("\"${text.trim()}\" is not a colour. Use an ARGB number.")
+                }
 
-            "Icon" -> ReadResult.Ok(Icon(text.trim()))
+                "Icon" -> {
+                    ReadResult.Ok(Icon(text.trim()))
+                }
 
-            else -> ReadResult.Rejected("\"${field.trim()}\" is not a project field.")
-        }
+                else -> {
+                    ReadResult.Rejected("\"${field.trim()}\" is not a project field.")
+                }
+            }
     }
 }
 
@@ -481,7 +517,6 @@ sealed interface ProjectValue : ProposalValue {
  */
 @Serializable
 sealed interface TagValue : ProposalValue {
-
     /** The value the user may change before the change is applied. */
     fun editableValue(): EditableValue<TagValue>?
 
@@ -491,6 +526,7 @@ sealed interface TagValue : ProposalValue {
         override val fieldName: String = "Name"
         override val summary: String = "Rename the tag to «${value.asCardValue()}»"
         override val text: String = value
+
         override fun editableValue(): EditableValue<TagValue> = editableOf("Name", TagValue::read)
     }
 
@@ -528,20 +564,30 @@ sealed interface TagValue : ProposalValue {
         override val text: String = raw
         override val readFailure: String?
             get() = (TagValue.read(this.field, raw) as? ReadResult.Rejected)?.reason
+
         override fun editableValue(): EditableValue<TagValue> = editableOf(field, TagValue::read)
     }
 
     companion object {
-
         /** The value [field] takes when read from [text] — or why it cannot be read. */
-        fun read(field: String, text: String): ReadResult<TagValue> = when (field.trim()) {
-            "Name" -> ReadResult.Ok(Name(text))
+        fun read(
+            field: String,
+            text: String,
+        ): ReadResult<TagValue> =
+            when (field.trim()) {
+                "Name" -> {
+                    ReadResult.Ok(Name(text))
+                }
 
-            "Color" -> text.trim().toIntOrNull()?.let { ReadResult.Ok(Color(it)) }
-                ?: ReadResult.Rejected("\"${text.trim()}\" is not a colour. Use an ARGB number.")
+                "Color" -> {
+                    text.trim().toIntOrNull()?.let { ReadResult.Ok(Color(it)) }
+                        ?: ReadResult.Rejected("\"${text.trim()}\" is not a colour. Use an ARGB number.")
+                }
 
-            else -> ReadResult.Rejected("\"${field.trim()}\" is not a tag field.")
-        }
+                else -> {
+                    ReadResult.Rejected("\"${field.trim()}\" is not a tag field.")
+                }
+            }
     }
 }
 
@@ -621,8 +667,7 @@ internal const val STATUS_NAMES = "Use active or completed."
  * reads. The truncation keeps the beginning — the part that tells the user what
  * the change is about.
  */
-internal fun String.asCardValue(limit: Int = 48): String =
-    if (length <= limit) this else take(limit).trimEnd() + "…"
+internal fun String.asCardValue(limit: Int = 48): String = if (length <= limit) this else take(limit).trimEnd() + "…"
 
 /**
  * The value the user may change, read through the dictionary it belongs to.
@@ -639,20 +684,23 @@ private fun <V : ProposalValue> V.editableOf(
 
 private fun readStatus(text: String): ReadResult<TaskStatus> {
     val trimmed = text.trim()
-    val status = TaskStatus.entries.firstOrNull { it.name.equals(trimmed, ignoreCase = true) }
-        ?: return ReadResult.Rejected("\"$trimmed\" is not a status. $STATUS_NAMES")
+    val status =
+        TaskStatus.entries.firstOrNull { it.name.equals(trimmed, ignoreCase = true) }
+            ?: return ReadResult.Rejected("\"$trimmed\" is not a status. $STATUS_NAMES")
     return ReadResult.Ok(status)
 }
 
-private fun readSomeday(text: String): ReadResult<Boolean> = when (text.trim().lowercase()) {
-    "true" -> ReadResult.Ok(true)
-    "false" -> ReadResult.Ok(false)
-    else -> ReadResult.Rejected("\"${text.trim()}\" is not true or false.")
-}
+private fun readSomeday(text: String): ReadResult<Boolean> =
+    when (text.trim().lowercase()) {
+        "true" -> ReadResult.Ok(true)
+        "false" -> ReadResult.Ok(false)
+        else -> ReadResult.Rejected("\"${text.trim()}\" is not true or false.")
+    }
 
 private fun readEstimate(text: String): ReadResult<Int> {
-    val minutes = text.trim().toIntOrNull()
-        ?: return ReadResult.Rejected("\"${text.trim()}\" is not a number of minutes.")
+    val minutes =
+        text.trim().toIntOrNull()
+            ?: return ReadResult.Rejected("\"${text.trim()}\" is not a number of minutes.")
     if (minutes < 0) {
         return ReadResult.Rejected(
             "\"$minutes\" cannot be negative. Use 0 or a positive number of minutes.",
@@ -667,7 +715,8 @@ private fun readEstimate(text: String): ReadResult<Int> {
  * A rejected value stays rejected: the reason is the same reason, whatever it is
  * mapped to.
  */
-internal inline fun <T, R> ReadResult<T>.map(transform: (T) -> R): ReadResult<R> = when (this) {
-    is ReadResult.Ok -> ReadResult.Ok(transform(value))
-    is ReadResult.Rejected -> this
-}
+internal inline fun <T, R> ReadResult<T>.map(transform: (T) -> R): ReadResult<R> =
+    when (this) {
+        is ReadResult.Ok -> ReadResult.Ok(transform(value))
+        is ReadResult.Rejected -> this
+    }

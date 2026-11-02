@@ -12,13 +12,13 @@ import kotlin.time.Clock
  * server announced.
  */
 internal object ReadTheConfiguration : ToolServerStartupStep {
-
     override val title: String = "read the configuration"
 
     override suspend fun run(context: ToolServerStartupContext): ToolServerStartup.Refused? {
-        val dependencies = checkNotNull(context.dependencies) {
-            "The order does not resolve the dependencies before this step."
-        }
+        val dependencies =
+            checkNotNull(context.dependencies) {
+                "The order does not resolve the dependencies before this step."
+            }
         val configuration = read(dependencies)
         context.configuration = configuration
         startupLog.i {
@@ -28,6 +28,9 @@ internal object ReadTheConfiguration : ToolServerStartupStep {
         return null
     }
 }
+
+// The configuration is fail-open: an unreadable configuration exposes every tool, which
+// is a deliberate choice and not an accident.
 
 /**
  * The remote-config flags that decide which tools are exposed, and how they were read.
@@ -42,23 +45,22 @@ internal object ReadTheConfiguration : ToolServerStartupStep {
  * status travels with the flags all the way to `describe_toolbox`, so an operator can
  * see that the switch was *not* applied rather than assume it was.
  */
-// The configuration is fail-open: an unreadable configuration exposes every tool, which
-// is a deliberate choice and not an accident.
 @Suppress("TooGenericExceptionCaught") // fail-open by design: the flags are an operational control
-private suspend fun read(dependencies: ServerDependencies): ToolConfiguration = try {
-    val snapshot = dependencies.remoteConfig.snapshot()
-    ToolConfiguration(
-        flags = snapshot.mcpToolFlags,
-        status = ToolsetSnapshot.statusOf(snapshot, Clock.System.now().toEpochMilliseconds()),
-        fetchedAtEpochMillis = snapshot.fetchedAtEpochMillis.takeIf { it > 0L },
-    )
-} catch (e: CancellationException) {
-    throw e
-} catch (e: Throwable) {
-    startupLog.w { "Remote configuration unavailable, every tool is enabled: ${e.message}" }
-    ToolConfiguration(
-        flags = emptyMap(),
-        status = ConfigurationStatus.ERROR,
-        fetchedAtEpochMillis = null,
-    )
-}
+private suspend fun read(dependencies: ServerDependencies): ToolConfiguration =
+    try {
+        val snapshot = dependencies.remoteConfig.snapshot()
+        ToolConfiguration(
+            flags = snapshot.mcpToolFlags,
+            status = ToolsetSnapshot.statusOf(snapshot, Clock.System.now().toEpochMilliseconds()),
+            fetchedAtEpochMillis = snapshot.fetchedAtEpochMillis.takeIf { it > 0L },
+        )
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Throwable) {
+        startupLog.w { "Remote configuration unavailable, every tool is enabled: ${e.message}" }
+        ToolConfiguration(
+            flags = emptyMap(),
+            status = ConfigurationStatus.ERROR,
+            fetchedAtEpochMillis = null,
+        )
+    }

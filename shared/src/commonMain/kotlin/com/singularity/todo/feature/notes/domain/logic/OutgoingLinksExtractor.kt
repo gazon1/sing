@@ -10,9 +10,10 @@ import com.singularity.todo.core.links.InternalLinks
  * The scheme alternation is wrapped in a non-capturing group so that the capture
  * spans the whole URL — without it the first scheme would match on its own.
  */
-private val LINK_REGEX = Regex(
-    """<a\s[^>]*href="((?:${InternalLinkSchemes.ALL.joinToString("|")})://[^"]+)"[^>]*>""",
-)
+private val LINK_REGEX =
+    Regex(
+        """<a\s[^>]*href="((?:${InternalLinkSchemes.ALL.joinToString("|")})://[^"]+)"[^>]*>""",
+    )
 
 /**
  * Extracts outgoing note/task links from HTML produced by

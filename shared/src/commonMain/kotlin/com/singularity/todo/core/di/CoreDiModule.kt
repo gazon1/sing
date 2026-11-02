@@ -21,19 +21,19 @@ import com.singularity.todo.core.auth.SupabaseClientProvider
 import com.singularity.todo.core.auth.SupabaseConfigResolver
 import com.singularity.todo.core.backup.ArchiveExporter
 import com.singularity.todo.core.backup.ArchiveImporter
+import com.singularity.todo.core.backup.BackupBucket
+import com.singularity.todo.core.backup.BackupCursorStore
 import com.singularity.todo.core.backup.BackupExporter
 import com.singularity.todo.core.backup.BackupImporter
-import com.singularity.todo.core.backup.BackupBucket
 import com.singularity.todo.core.backup.BackupRepository
 import com.singularity.todo.core.backup.BackupRepositoryImpl
-import com.singularity.todo.core.backup.BackupCursorStore
 import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.DeviceKeyStore
 import com.singularity.todo.core.backup.EncryptedArchive
 import com.singularity.todo.core.backup.RemoteBackupService
 import com.singularity.todo.core.backup.RemoteBackupServiceImpl
-import com.singularity.todo.core.backup.SupabaseBackupBucket
 import com.singularity.todo.core.backup.SecureStorageDeviceKeyStore
+import com.singularity.todo.core.backup.SupabaseBackupBucket
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.draft.DataStoreDraftStore
 import com.singularity.todo.core.draft.DraftStore
@@ -41,13 +41,13 @@ import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.ids.UuidIdGenerator
 import com.singularity.todo.core.network.createHttpClient
 import com.singularity.todo.core.notifications.DataStoreNotificationsSettingsRepository
-import com.singularity.todo.core.notifications.NotificationsSettingsRepository
 import com.singularity.todo.core.notifications.NotificationsContributor
-import com.singularity.todo.core.schedule.DataStoreGreetingSettingsRepository
-import com.singularity.todo.core.schedule.DataStoreWorkScheduleSettingsRepository
+import com.singularity.todo.core.notifications.NotificationsSettingsRepository
 import com.singularity.todo.core.observability.crashReportingFailureHandler
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.platform.TimeZoneProvider
+import com.singularity.todo.core.schedule.DataStoreGreetingSettingsRepository
+import com.singularity.todo.core.schedule.DataStoreWorkScheduleSettingsRepository
 import com.singularity.todo.core.schedule.GreetingContributor
 import com.singularity.todo.core.schedule.GreetingSettingsRepository
 import com.singularity.todo.core.schedule.WorkScheduleContributor
@@ -76,8 +76,8 @@ import com.singularity.todo.feature.auth.AccountSwitcher
 import com.singularity.todo.feature.auth.AuthDeepLink
 import com.singularity.todo.feature.auth.AuthViewModel
 import com.singularity.todo.feature.auth.LocalAccountClaimer
-import com.singularity.todo.feature.auth.OwnerRowIdResolver
 import com.singularity.todo.feature.auth.OwnerCountsCalculator
+import com.singularity.todo.feature.auth.OwnerRowIdResolver
 import com.singularity.todo.feature.auth.OwnerScopedEraser
 import com.singularity.todo.feature.auth.OwnerScopedReassigner
 import com.singularity.todo.feature.backup.BackupViewModel
@@ -173,26 +173,27 @@ fun coreModule(): org.koin.core.module.Module =
         // the Room schema in step.
         single<ContentResetter> {
             ProfileContentResetter(
-                deps = ProfileWipeDeps(
-                    taskRepository = get(),
-                    notesRepository = get(),
-                    projectsRepository = get(),
-                    savedAgendaViewsRepository = get(),
-                    tagsRepository = get(),
-                    tagGroupRepository = get(),
-                    reminderDao = get(),
-                    projectReminderDao = get(),
-                    timeEntryDao = get(),
-                    savedSearchDao = get(),
-                    attachmentDao = get(),
-                    annotationDao = get(),
-                    attachmentStorage = get(),
-                    proposalDao = get(),
-                    proposalItemDao = get(),
-                    calendarImportEventDao = get(),
-                    calendarSyncTaskMapDao = get(),
-                    googleEventShadowDao = get(),
-                ),
+                deps =
+                    ProfileWipeDeps(
+                        taskRepository = get(),
+                        notesRepository = get(),
+                        projectsRepository = get(),
+                        savedAgendaViewsRepository = get(),
+                        tagsRepository = get(),
+                        tagGroupRepository = get(),
+                        reminderDao = get(),
+                        projectReminderDao = get(),
+                        timeEntryDao = get(),
+                        savedSearchDao = get(),
+                        attachmentDao = get(),
+                        annotationDao = get(),
+                        attachmentStorage = get(),
+                        proposalDao = get(),
+                        proposalItemDao = get(),
+                        calendarImportEventDao = get(),
+                        calendarSyncTaskMapDao = get(),
+                        googleEventShadowDao = get(),
+                    ),
                 draftStore = get(),
                 currentUser = get(),
             )
@@ -497,22 +498,27 @@ fun coreModule(): org.koin.core.module.Module =
                 // No `scope =` here on purpose — see SyncViewModel above. The ViewModel derives
                 // its own from crashReporter; this used to override that with a graph-supplied
                 // one, which is the divergence NoDivergentScopeAndReporter exists to catch.
-                appearanceContributor = getOptionalOrNull<AppearanceContributor> {
-                    reportBrokenContributor(it)
-                },
-                notificationsContributor = getOptionalOrNull<NotificationsContributor> {
-                    reportBrokenContributor(it)
-                },
-                workScheduleContributor = getOptionalOrNull<WorkScheduleContributor> {
-                    reportBrokenContributor(it)
-                },
-                greetingContributor = getOptionalOrNull<GreetingContributor> {
-                    reportBrokenContributor(it)
-                },
+                appearanceContributor =
+                    getOptionalOrNull<AppearanceContributor> {
+                        reportBrokenContributor(it)
+                    },
+                notificationsContributor =
+                    getOptionalOrNull<NotificationsContributor> {
+                        reportBrokenContributor(it)
+                    },
+                workScheduleContributor =
+                    getOptionalOrNull<WorkScheduleContributor> {
+                        reportBrokenContributor(it)
+                    },
+                greetingContributor =
+                    getOptionalOrNull<GreetingContributor> {
+                        reportBrokenContributor(it)
+                    },
                 aiContributor = getOptionalOrNull<AiContributor> { reportBrokenContributor(it) },
-                defaultAgendaViewContributor = getOptionalOrNull<DefaultAgendaViewContributor> {
-                    reportBrokenContributor(it)
-                },
+                defaultAgendaViewContributor =
+                    getOptionalOrNull<DefaultAgendaViewContributor> {
+                        reportBrokenContributor(it)
+                    },
                 tasksContributor = getOptionalOrNull<TasksContributor> { reportBrokenContributor(it) },
                 savedAgendaViewsRepo = get(),
                 fileRevealer = get(),

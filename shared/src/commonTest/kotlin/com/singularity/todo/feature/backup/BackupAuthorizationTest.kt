@@ -1,9 +1,9 @@
 package com.singularity.todo.feature.backup
 
 import com.singularity.todo.core.backup.ScheduledAuthorization
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertTrue
-import org.junit.jupiter.api.Tag
 
 /**
  * What the screen says after the device was authorized.
@@ -15,7 +15,6 @@ import org.junit.jupiter.api.Tag
  */
 @Tag("fast")
 class BackupAuthorizationTest {
-
     @Test
     fun `the re-sealed archive says it opens with the new password`() {
         val message = authorizationMessage(ScheduledAuthorization.Repushed("u-1/a.zip"))

@@ -21,13 +21,14 @@ enum class SingularityAccents(val displayName: String, val color: Color) {
     Teal("Teal", Color(0xFF009688)), ;
 
     companion object {
-        fun fromString(name: String): SingularityAccents = entries.find {
-            it.name.equals(
-                name,
-                ignoreCase = true,
-            )
-        }
-            ?: Blue
+        fun fromString(name: String): SingularityAccents =
+            entries.find {
+                it.name.equals(
+                    name,
+                    ignoreCase = true,
+                )
+            }
+                ?: Blue
     }
 }
 
@@ -69,21 +70,24 @@ fun SingularityTheme(
 ) {
     // Single resolution point: the tri-state is resolved to a boolean exactly once,
     // here, using the current system appearance only when the mode is System.
-    val isDark = when (themeMode) {
-        ThemeMode.System -> isSystemInDarkTheme()
-        ThemeMode.Light -> false
-        ThemeMode.Dark -> true
-    }
+    val isDark =
+        when (themeMode) {
+            ThemeMode.System -> isSystemInDarkTheme()
+            ThemeMode.Light -> false
+            ThemeMode.Dark -> true
+        }
 
-    val colorScheme = rememberDynamicColorScheme(
-        seedColor = accent.color,
-        isDark = isDark,
-        contrastLevel = 0.5,
-    )
+    val colorScheme =
+        rememberDynamicColorScheme(
+            seedColor = accent.color,
+            isDark = isDark,
+            contrastLevel = 0.5,
+        )
 
-    val typography = remember(fontSizeScale) {
-        createTypography(fontSizeScale)
-    }
+    val typography =
+        remember(fontSizeScale) {
+            createTypography(fontSizeScale)
+        }
 
     CompositionLocalProvider(
         LocalAccentColor provides accent,

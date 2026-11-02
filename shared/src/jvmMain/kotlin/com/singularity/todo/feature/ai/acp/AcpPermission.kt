@@ -26,7 +26,6 @@ data class AcpPermissionOption(
  * answer has to travel back.
  */
 sealed interface PermissionDecision {
-
     /** The reader chose an option the agent offered. */
     data class Selected(val optionId: String) : PermissionDecision
 
@@ -57,7 +56,6 @@ sealed interface PermissionDecision {
  * screen. A refusal that arrives late is still a refusal.
  */
 fun interface AcpSessionPermissions {
-
     /**
      * Asks the reader, and waits for the answer.
      *

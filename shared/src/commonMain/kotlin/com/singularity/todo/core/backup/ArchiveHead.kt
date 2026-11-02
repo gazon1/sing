@@ -22,13 +22,11 @@ internal class ChainHead(
     /** How many bytes those changes take, each frame including its own head. */
     val entriesLength: Long,
 ) {
-
     /** The head as the bytes that go into the header. */
     fun toBytes(): ByteArray = count.toBytes() + entriesLength.toBytes()
 
     companion object {
         /** The head as it is read out of a container. */
-        fun fromBytes(bytes: ByteArray): ChainHead =
-            ChainHead(count = bytes.intAt(0), entriesLength = bytes.longAt(4))
+        fun fromBytes(bytes: ByteArray): ChainHead = ChainHead(count = bytes.intAt(0), entriesLength = bytes.longAt(4))
     }
 }

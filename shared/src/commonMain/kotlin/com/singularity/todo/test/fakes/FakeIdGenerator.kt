@@ -48,5 +48,6 @@ typealias FakeIdGenerator = SequenceIdGenerator
 @OptIn(ExperimentalAtomicApi::class)
 class SequenceIdGenerator(private val prefix: String = "id") : IdGenerator {
     private val counter = AtomicInt(0)
+
     override fun next(): String = "$prefix-${counter.incrementAndFetch()}"
 }

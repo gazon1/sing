@@ -121,7 +121,6 @@ data class TaskSelectionRequest(
  * the answer is the app's answer.
  */
 object TaskSelectionResolver {
-
     /**
      * The filter the read starts from.
      *
@@ -159,69 +158,81 @@ object TaskSelectionResolver {
         task: Task,
         context: SelectorContext,
         stagnationWindow: Duration,
-    ): Boolean = when (selection) {
-        // The inbox is what is *open* and not deferred. The domain's `Inbox` filter
-        // leaves the finished tasks in, because a filter and a screen are not the same
-        // question — and the screen the reader is thinking of is the one that shows
-        // what is still to do.
-        TaskSelection.INBOX ->
-            TaskDomain.matchesFilter(task, TaskFilter.Inbox, context.today) &&
+    ): Boolean =
+        when (selection) {
+            // The inbox is what is *open* and not deferred. The domain's `Inbox` filter
+            // leaves the finished tasks in, because a filter and a screen are not the same
+            // question — and the screen the reader is thinking of is the one that shows
+            // what is still to do.
+            TaskSelection.INBOX -> {
+                TaskDomain.matchesFilter(task, TaskFilter.Inbox, context.today) &&
+                    TaskDomain.matchesFilter(
+                        task,
+                        TaskFilter.ByStatuses(setOf(TaskStatus.Active)),
+                        context.today,
+                    )
+            }
+
+            TaskSelection.TODAY -> {
+                TaskDomain.matchesFilter(task, TaskFilter.Today, context.today)
+            }
+
+            TaskSelection.UPCOMING -> {
+                TaskDomain.matchesFilter(task, TaskFilter.Upcoming, context.today)
+            }
+
+            TaskSelection.SOMEDAY -> {
+                TaskDomain.matchesFilter(task, TaskFilter.Someday, context.today)
+            }
+
+            TaskSelection.PINNED -> {
+                TaskDomain.matchesFilter(task, TaskFilter.Pinned, context.today)
+            }
+
+            TaskSelection.ALL -> {
+                TaskDomain.matchesFilter(task, TaskFilter.All, context.today)
+            }
+
+            TaskSelection.OVERDUE -> {
+                TaskDomain.matchesFilter(
+                    task,
+                    TaskFilter.ByDateBucket(RelativeBucket.Overdue, context.today),
+                    context.today,
+                )
+            }
+
+            TaskSelection.ACTIVE -> {
                 TaskDomain.matchesFilter(
                     task,
                     TaskFilter.ByStatuses(setOf(TaskStatus.Active)),
                     context.today,
                 )
+            }
 
-        TaskSelection.TODAY ->
-            TaskDomain.matchesFilter(task, TaskFilter.Today, context.today)
+            TaskSelection.COMPLETED -> {
+                TaskDomain.matchesFilter(
+                    task,
+                    TaskFilter.ByStatuses(setOf(TaskStatus.Completed)),
+                    context.today,
+                )
+            }
 
-        TaskSelection.UPCOMING ->
-            TaskDomain.matchesFilter(task, TaskFilter.Upcoming, context.today)
+            TaskSelection.BLOCKED -> {
+                TaskDomain.matchesFilter(
+                    task,
+                    TaskFilter.ByStatuses(setOf(TaskStatus.Active)),
+                    context.today,
+                ) && Selector.Blocked.matches(task, context)
+            }
 
-        TaskSelection.SOMEDAY ->
-            TaskDomain.matchesFilter(task, TaskFilter.Someday, context.today)
-
-        TaskSelection.PINNED ->
-            TaskDomain.matchesFilter(task, TaskFilter.Pinned, context.today)
-
-        TaskSelection.ALL ->
-            TaskDomain.matchesFilter(task, TaskFilter.All, context.today)
-
-        TaskSelection.OVERDUE ->
-            TaskDomain.matchesFilter(
-                task,
-                TaskFilter.ByDateBucket(RelativeBucket.Overdue, context.today),
-                context.today,
-            )
-
-        TaskSelection.ACTIVE ->
-            TaskDomain.matchesFilter(
-                task,
-                TaskFilter.ByStatuses(setOf(TaskStatus.Active)),
-                context.today,
-            )
-
-        TaskSelection.COMPLETED ->
-            TaskDomain.matchesFilter(
-                task,
-                TaskFilter.ByStatuses(setOf(TaskStatus.Completed)),
-                context.today,
-            )
-
-        TaskSelection.BLOCKED ->
-            TaskDomain.matchesFilter(
-                task,
-                TaskFilter.ByStatuses(setOf(TaskStatus.Active)),
-                context.today,
-            ) && Selector.Blocked.matches(task, context)
-
-        TaskSelection.STAGNANT ->
-            TaskDomain.matchesFilter(
-                task,
-                TaskFilter.ByStatuses(setOf(TaskStatus.Active)),
-                context.today,
-            ) && Selector.Stagnant(stagnationWindow).matches(task, context)
-    }
+            TaskSelection.STAGNANT -> {
+                TaskDomain.matchesFilter(
+                    task,
+                    TaskFilter.ByStatuses(setOf(TaskStatus.Active)),
+                    context.today,
+                ) && Selector.Stagnant(stagnationWindow).matches(task, context)
+            }
+        }
 
     /**
      * Whether [task] survives the narrowing in [request].
@@ -231,7 +242,10 @@ object TaskSelectionResolver {
      * does not know is not a match — it does not become "no priority" either, because
      * a reader that asked for "urgent" and got "none" has been answered wrongly.
      */
-    private fun matchesNarrowing(request: TaskSelectionRequest, task: Task): Boolean {
+    private fun matchesNarrowing(
+        request: TaskSelectionRequest,
+        task: Task,
+    ): Boolean {
         val projectId = request.projectId
         if (projectId != null && task.projectId?.value != projectId) return false
 
@@ -255,10 +269,11 @@ object TaskSelectionResolver {
      * list is the same list, so the cursor carries what it was reading: a cursor from
      * one selection must not silently be used for another.
      */
-    fun fingerprint(request: TaskSelectionRequest): String = listOf(
-        request.selection.name,
-        request.projectId.orEmpty(),
-        request.tagIds.sorted().joinToString(","),
-        request.priorities.sorted().joinToString(","),
-    ).joinToString("|")
+    fun fingerprint(request: TaskSelectionRequest): String =
+        listOf(
+            request.selection.name,
+            request.projectId.orEmpty(),
+            request.tagIds.sorted().joinToString(","),
+            request.priorities.sorted().joinToString(","),
+        ).joinToString("|")
 }

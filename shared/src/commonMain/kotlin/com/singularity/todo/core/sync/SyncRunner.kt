@@ -34,7 +34,6 @@ internal class SyncRunner(
     scope: AutoCloseableCoroutineScope,
     private val log: Logger = Logger.withTag("SyncRunner"),
 ) : AutoCloseable by scope {
-
     // Expose scope for coroutine builders that need an explicit CoroutineScope reference.
     private val scopeRef: CoroutineScope = scope
 
@@ -76,7 +75,8 @@ internal class SyncRunner(
                 // cancel and restart the periodic trigger after each sync, so the trigger
                 // would be rearmed constantly and an interval could pass without one ever
                 // completing. Only a real scheduling change may restart it.
-                stateRepository.observe(active)
+                stateRepository
+                    .observe(active)
                     .map { it.autoSyncEnabled to it.scheduledInterval }
                     .distinctUntilChanged()
                     .collect { (enabled, interval) ->
@@ -107,9 +107,10 @@ internal class SyncRunner(
      */
     fun startScheduledSync(interval: Duration) {
         scheduledJob?.cancel()
-        scheduledJob = scopeRef.launch {
-            periodicTrigger.start(interval)
-        }
+        scheduledJob =
+            scopeRef.launch {
+                periodicTrigger.start(interval)
+            }
         log.d { "Scheduled sync started (interval=$interval)" }
     }
 

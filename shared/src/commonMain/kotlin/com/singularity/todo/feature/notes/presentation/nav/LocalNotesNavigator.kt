@@ -11,14 +11,16 @@ import com.singularity.todo.feature.nav.NotesRoute
  * Screens MUST NOT access [LocalNavBackStack] directly — use [NotesNavigator]
  * to preserve back semantics (size <= 1 → onExitGraph).
  */
-val LocalNotesNavigator = compositionLocalOf<NotesNavigator> {
-    error("NotesNavigator not provided — wrap with NotesNavGraph")
-}
+val LocalNotesNavigator =
+    compositionLocalOf<NotesNavigator> {
+        error("NotesNavigator not provided — wrap with NotesNavGraph")
+    }
 
 /**
  * Internal back stack accessor for use within the nav package only.
  * Not accessible outside `feature/notes/presentation/nav/`.
  */
-internal val LocalNavBackStack = compositionLocalOf<NavBackStack<NotesRoute>> {
-    error("NavBackStack<NotesRoute> not provided")
-}
+internal val LocalNavBackStack =
+    compositionLocalOf<NavBackStack<NotesRoute>> {
+        error("NavBackStack<NotesRoute> not provided")
+    }

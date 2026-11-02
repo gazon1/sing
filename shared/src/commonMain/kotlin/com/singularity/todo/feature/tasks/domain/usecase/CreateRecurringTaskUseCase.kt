@@ -33,50 +33,54 @@ class CreateRecurringTaskUseCase(
     private val materialize: MaterializeRecurringSeriesUseCase,
 ) {
     suspend operator fun invoke(input: CreateTaskInput): Result<TaskId> {
-        val validated: Either<AppError.Validation, CreateTaskInput> = TaskDomain.createInput(
-            title = input.title,
-            description = input.description,
-            priority = input.priority,
-            kind = input.kind,
-            projectId = input.projectId,
-            parentTaskId = input.parentTaskId,
-            tagIds = input.tagIds,
-            dueDate = input.dueDate,
-            dueTime = input.dueTime,
-            startDate = input.startDate,
-            startTime = input.startTime,
-            endDate = input.endDate,
-            endTime = input.endTime,
-            accentColor = input.accentColor,
-            emoji = input.emoji,
-            someday = input.someday,
-            recurrence = input.recurrence,
-        )
+        val validated: Either<AppError.Validation, CreateTaskInput> =
+            TaskDomain.createInput(
+                title = input.title,
+                description = input.description,
+                priority = input.priority,
+                kind = input.kind,
+                projectId = input.projectId,
+                parentTaskId = input.parentTaskId,
+                tagIds = input.tagIds,
+                dueDate = input.dueDate,
+                dueTime = input.dueTime,
+                startDate = input.startDate,
+                startTime = input.startTime,
+                endDate = input.endDate,
+                endTime = input.endTime,
+                accentColor = input.accentColor,
+                emoji = input.emoji,
+                someday = input.someday,
+                recurrence = input.recurrence,
+            )
         if (validated is Either.Left) return Result.failure(validated.error)
 
         val userId = currentUser.scopedUserId.value
         val taskInput = (validated as Either.Right).value
         val rule = taskInput.recurrence
         if (rule == null) {
-            val task = TaskDomain.buildTask(
-                input = taskInput,
-                createdAt = clock.now(),
-                updatedAt = clock.now(),
-                userId = userId,
-            )
+            val task =
+                TaskDomain.buildTask(
+                    input = taskInput,
+                    createdAt = clock.now(),
+                    updatedAt = clock.now(),
+                    userId = userId,
+                )
             return repo.create(task).map { it.id }
         }
 
         return runCatchingCancellable {
             unitOfWork.write {
                 val seriesId = TaskSeriesId.generate()
-                val current = TaskDomain.buildTask(
-                    input = taskInput,
-                    id = TaskId.generate(),
-                    createdAt = clock.now(),
-                    updatedAt = clock.now(),
-                    userId = userId,
-                ).copy(seriesId = seriesId)
+                val current =
+                    TaskDomain
+                        .buildTask(
+                            input = taskInput,
+                            id = TaskId.generate(),
+                            createdAt = clock.now(),
+                            updatedAt = clock.now(),
+                            userId = userId,
+                        ).copy(seriesId = seriesId)
                 repo.createSeries(listOf(current)).getOrThrow()
                 val anchor: LocalDate = current.dueDate ?: clock.now().toLocalDateTime(TimeZone.UTC).date
                 materialize(template = current, rule = rule, anchor = anchor).getOrThrow()

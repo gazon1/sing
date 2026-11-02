@@ -46,19 +46,20 @@ import kotlin.test.assertFalse
  */
 @Tag("fast")
 class ApplyOutcomeArmsTest {
-
     companion object {
         /** Injected by the jvmTest task config in `shared/build.gradle.kts`. */
-        private val commonMainRoot: String = System.getProperty("commonMain.root")
-            ?: error(
-                "commonMain.root system property is not set — " +
-                    "see the jvmTest task config in shared/build.gradle.kts",
-            )
+        private val commonMainRoot: String =
+            System.getProperty("commonMain.root")
+                ?: error(
+                    "commonMain.root system property is not set — " +
+                        "see the jvmTest task config in shared/build.gradle.kts",
+                )
 
-        private val syncEngineSource: String = File(
-            commonMainRoot,
-            "com/singularity/todo/core/sync/SyncEngine.kt",
-        ).readText()
+        private val syncEngineSource: String =
+            File(
+                commonMainRoot,
+                "com/singularity/todo/core/sync/SyncEngine.kt",
+            ).readText()
 
         /** The body of a declaration that has braces, up to the `}` that closes it at column 0. */
         private fun bodyOf(declaration: String): String {
@@ -86,7 +87,9 @@ class ApplyOutcomeArmsTest {
             var i = from
             while (i < syncEngineSource.length) {
                 when (syncEngineSource[i]) {
-                    '(' -> depth++
+                    '(' -> {
+                        depth++
+                    }
 
                     ')' -> {
                         depth--

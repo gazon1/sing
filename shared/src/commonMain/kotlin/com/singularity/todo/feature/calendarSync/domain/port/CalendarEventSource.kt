@@ -23,7 +23,6 @@ import com.singularity.todo.feature.calendarSync.domain.model.GoogleEventId
  * to any other calendar, and must not invent one when the caller did not name it.
  */
 interface CalendarEventSource {
-
     /**
      * Calendars this account can write to, for the picker.
      *
@@ -56,7 +55,10 @@ interface CalendarEventSource {
      * time zone, and writing back what we *asked* for instead of what Google *stored* would
      * make every later merge see a phantom difference.
      */
-    suspend fun insert(calendarId: String, event: GoogleEvent): GoogleEvent
+    suspend fun insert(
+        calendarId: String,
+        event: GoogleEvent,
+    ): GoogleEvent
 
     /**
      * Applies a partial update to [eventId], guarded by [etag].
@@ -68,10 +70,18 @@ interface CalendarEventSource {
      * [com.singularity.todo.feature.calendarSync.error.CalendarSyncException.TransientSyncException].
      * The caller re-reads and re-plans, once.
      */
-    suspend fun patch(calendarId: String, eventId: GoogleEventId, etag: String?, event: GoogleEvent): GoogleEvent
+    suspend fun patch(
+        calendarId: String,
+        eventId: GoogleEventId,
+        etag: String?,
+        event: GoogleEvent,
+    ): GoogleEvent
 
     /** Reads one event, for the re-plan after a conflicting write. */
-    suspend fun get(calendarId: String, eventId: GoogleEventId): GoogleEvent
+    suspend fun get(
+        calendarId: String,
+        eventId: GoogleEventId,
+    ): GoogleEvent
 
     /**
      * Cancels [eventId].
@@ -81,5 +91,9 @@ interface CalendarEventSource {
      * still arrives in an incremental listing, so cancelling rather than deleting is what
      * keeps a later pull from re-creating the event.
      */
-    suspend fun cancel(calendarId: String, eventId: GoogleEventId, etag: String?)
+    suspend fun cancel(
+        calendarId: String,
+        eventId: GoogleEventId,
+        etag: String?,
+    )
 }

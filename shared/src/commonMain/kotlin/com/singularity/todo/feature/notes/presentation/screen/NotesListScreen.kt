@@ -12,9 +12,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
@@ -49,7 +49,6 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import com.singularity.todo.core.ui.components.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
@@ -68,17 +67,18 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.refresh.RefreshableContent
+import com.singularity.todo.core.text.FieldOwnedText
+import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.components.ContentStateMapper
 import com.singularity.todo.core.ui.components.EmptyState
 import com.singularity.todo.core.ui.components.StatefulContent
-import com.singularity.todo.core.text.FieldOwnedText
-import com.singularity.todo.core.text.StaticText
-import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
+import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.theme.NoteSwipeColors
 import com.singularity.todo.feature.nav.NotesRoute
 import com.singularity.todo.feature.notes.Note
@@ -88,32 +88,36 @@ import com.singularity.todo.feature.notes.NoteSortOrder
 import com.singularity.todo.feature.notes.NotesListState
 import com.singularity.todo.feature.notes.NotesUiEvent
 import com.singularity.todo.feature.notes.NotesUiState
-import com.singularity.todo.feature.notes.searchQuerySource
 import com.singularity.todo.feature.notes.components.NoteCardContent
 import com.singularity.todo.feature.notes.components.NotesActions
 import com.singularity.todo.feature.notes.presentation.nav.LocalNotesNavigator
 import com.singularity.todo.feature.notes.presentation.nav.NotesNavigator
 import com.singularity.todo.feature.notes.presentation.nav.NotesPreviewWrapper
 import com.singularity.todo.feature.notes.presentation.viewmodel.NotesListViewModel
-import kotlinx.coroutines.launch
+import com.singularity.todo.feature.notes.searchQuerySource
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 
 // ─── Screen ─────────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NotesListScreen(route: NotesRoute.List, viewModel: NotesListViewModel = koinViewModel()) {
+fun NotesListScreen(
+    route: NotesRoute.List,
+    viewModel: NotesListViewModel = koinViewModel(),
+) {
     val navigator = LocalNotesNavigator.current
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     val pendingDelete by viewModel.pendingDelete.collectAsStateWithLifecycle()
 
-    val actions = remember(viewModel) {
-        NotesActions(viewModel::onIntent)
-    }
+    val actions =
+        remember(viewModel) {
+            NotesActions(viewModel::onIntent)
+        }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -121,11 +125,12 @@ fun NotesListScreen(route: NotesRoute.List, viewModel: NotesListViewModel = koin
     // Show undo snackbar when a delete is pending.
     LaunchedEffect(pendingDelete) {
         val pd = pendingDelete ?: return@LaunchedEffect
-        val result = snackbarHostState.showSnackbar(
-            message = "\"${pd.title}\" deleted",
-            actionLabel = "Undo",
-            duration = SnackbarDuration.Short,
-        )
+        val result =
+            snackbarHostState.showSnackbar(
+                message = "\"${pd.title}\" deleted",
+                actionLabel = "Undo",
+                duration = SnackbarDuration.Short,
+            )
         if (result == SnackbarResult.ActionPerformed) {
             actions.onUndoDelete(pd.noteId)
         }
@@ -133,7 +138,9 @@ fun NotesListScreen(route: NotesRoute.List, viewModel: NotesListViewModel = koin
 
     CollectEvents(viewModel.events) { event ->
         when (event) {
-            is NotesUiEvent.NavigateToEditor -> navigator.openEditor(event.noteId)
+            is NotesUiEvent.NavigateToEditor -> {
+                navigator.openEditor(event.noteId)
+            }
 
             // The affordance itself is driven by `pendingDelete`; this event carries
             // the same id and title for the same purpose and is not read here.
@@ -143,7 +150,9 @@ fun NotesListScreen(route: NotesRoute.List, viewModel: NotesListViewModel = koin
                 scope.launch { snackbarHostState.showSnackbar(event.message, duration = SnackbarDuration.Short) }
             }
 
-            else -> Unit
+            else -> {
+                Unit
+            }
         }
     }
 
@@ -205,9 +214,10 @@ fun NotesScreenContent(
                                 )
                             }
                         },
-                        colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        ),
+                        colors =
+                            TopAppBarDefaults.topAppBarColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            ),
                     )
                 } else {
                     TopAppBar(
@@ -228,9 +238,10 @@ fun NotesScreenContent(
                                 )
                             }
                         },
-                        colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = MaterialTheme.colorScheme.surface,
-                        ),
+                        colors =
+                            TopAppBarDefaults.topAppBarColors(
+                                containerColor = MaterialTheme.colorScheme.surface,
+                            ),
                     )
                     FilterChipRow(
                         currentFilter = state.filter,
@@ -288,11 +299,15 @@ fun NotesScreenContent(
 }
 
 @Composable
-private fun FilterChipRow(currentFilter: NoteFilter, onFilterChange: (NoteFilter) -> Unit) {
+private fun FilterChipRow(
+    currentFilter: NoteFilter,
+    onFilterChange: (NoteFilter) -> Unit,
+) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         NoteFilter.entries.forEach { filter ->
@@ -300,9 +315,10 @@ private fun FilterChipRow(currentFilter: NoteFilter, onFilterChange: (NoteFilter
                 selected = currentFilter == filter,
                 onClick = { onFilterChange(filter) },
                 label = { Text(filter.label) },
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                ),
+                colors =
+                    FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    ),
                 modifier = Modifier.testTag(TestTags.noteFilterChip(filter.name)),
             )
         }
@@ -310,11 +326,12 @@ private fun FilterChipRow(currentFilter: NoteFilter, onFilterChange: (NoteFilter
 }
 
 private val NoteFilter.label: String
-    get() = when (this) {
-        NoteFilter.All -> "All"
-        NoteFilter.Pinned -> "Pinned"
-        NoteFilter.Archived -> "Archived"
-    }
+    get() =
+        when (this) {
+            NoteFilter.All -> "All"
+            NoteFilter.Pinned -> "Pinned"
+            NoteFilter.Archived -> "Archived"
+        }
 
 @Composable
 private fun SortDropdownMenu(
@@ -334,11 +351,12 @@ private fun SortDropdownMenu(
             DropdownMenuItem(
                 text = { Text(order.label) },
                 onClick = { onSelect(order) },
-                leadingIcon = if (currentOrder == order) {
-                    { Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = null) }
-                } else {
-                    null
-                },
+                leadingIcon =
+                    if (currentOrder == order) {
+                        { Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = null) }
+                    } else {
+                        null
+                    },
             )
         }
     }
@@ -356,16 +374,21 @@ private fun SortDropdownMenu(
  * rather than one per keystroke.
  */
 @Composable
-private fun NoteSearchField(querySource: StaticText, onQueryChange: (String) -> Unit) {
-    val queryState = rememberBridgedTextFieldState(
-        source = querySource,
-        onTextChanged = onQueryChange,
-    )
+private fun NoteSearchField(
+    querySource: StaticText,
+    onQueryChange: (String) -> Unit,
+) {
+    val queryState =
+        rememberBridgedTextFieldState(
+            source = querySource,
+            onTextChanged = onQueryChange,
+        )
     OutlinedTextField(
         state = queryState,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
         placeholder = { Text("Search notes") },
         lineLimits = TextFieldLineLimits.SingleLine,
         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
@@ -385,17 +408,19 @@ private fun QuickAddRow(onSubmit: (String) -> Unit) {
     val focusManager = LocalFocusManager.current
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         OutlinedTextField(
             state = textState,
             placeholder = { Text("Quick add note...") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(TestTags.NOTES_QUICK_ADD_INPUT),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .testTag(TestTags.NOTES_QUICK_ADD_INPUT),
             lineLimits = TextFieldLineLimits.SingleLine,
             leadingIcon = {
                 Icon(Icons.Default.Add, contentDescription = null)
@@ -414,12 +439,13 @@ private fun QuickAddRow(onSubmit: (String) -> Unit) {
 }
 
 private val NoteSortOrder.label: String
-    get() = when (this) {
-        NoteSortOrder.UpdatedDesc -> "Recently updated"
-        NoteSortOrder.UpdatedAsc -> "Oldest updated"
-        NoteSortOrder.TitleAsc -> "Title A–Z"
-        NoteSortOrder.TitleDesc -> "Title Z–A"
-    }
+    get() =
+        when (this) {
+            NoteSortOrder.UpdatedDesc -> "Recently updated"
+            NoteSortOrder.UpdatedAsc -> "Oldest updated"
+            NoteSortOrder.TitleAsc -> "Title A–Z"
+            NoteSortOrder.TitleDesc -> "Title Z–A"
+        }
 
 // ─── List ───────────────────────────────────────────────────────────────────
 
@@ -437,9 +463,10 @@ private fun NoteList(
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
-        modifier = modifier
-            .testTag(TestTags.NOTES_LIST)
-            .widthIn(max = 640.dp),
+        modifier =
+            modifier
+                .testTag(TestTags.NOTES_LIST)
+                .widthIn(max = 640.dp),
         contentPadding = PaddingValues(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -588,58 +615,71 @@ fun SwipeableNoteCard(
         backgroundContent = {
             SwipeBackground(dismissState.currentValue, isArchived)
         },
-        modifier = modifier
-            .fillMaxWidth()
-            // The title-based tag goes on this node, the outermost one of the item, and
-            // not on the card: a Material3 Card is a Surface, and a Surface merges its
-            // descendants — a tag below it exists in the unmerged tree only, where no
-            // end-to-end test can address it. The id-based tag is on the card itself,
-            // which is the merged node and keeps it.
-            //
-            // `Modifier.testTag` stores a single value, so one node cannot carry both
-            // tags; the outer node and the card are two nodes.
-            .testTag(TestTags.noteItemByTitle(note.title)),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                // The title-based tag goes on this node, the outermost one of the item, and
+                // not on the card: a Material3 Card is a Surface, and a Surface merges its
+                // descendants — a tag below it exists in the unmerged tree only, where no
+                // end-to-end test can address it. The id-based tag is on the card itself,
+                // which is the merged node and keeps it.
+                //
+                // `Modifier.testTag` stores a single value, so one node cannot carry both
+                // tags; the outer node and the card are two nodes.
+                .testTag(TestTags.noteItemByTitle(note.title)),
     ) {
         NoteCardContent(
             note = note,
             isSelected = isSelected,
-            modifier = Modifier.combinedClickable(
-                onClick = {
-                    if (isSelectionMode) {
-                        onToggleSelection()
-                    } else {
-                        navigator.openPreview(note.id)
-                    }
-                },
-                onLongClick = onLongClick,
-            ),
+            modifier =
+                Modifier.combinedClickable(
+                    onClick = {
+                        if (isSelectionMode) {
+                            onToggleSelection()
+                        } else {
+                            navigator.openPreview(note.id)
+                        }
+                    },
+                    onLongClick = onLongClick,
+                ),
         )
     }
 }
 
 @Composable
-private fun SwipeBackground(dismissValue: SwipeToDismissBoxValue, isArchived: Boolean) {
+private fun SwipeBackground(
+    dismissValue: SwipeToDismissBoxValue,
+    isArchived: Boolean,
+) {
     val color by animateColorAsState(
-        targetValue = when (dismissValue) {
-            SwipeToDismissBoxValue.StartToEnd -> NoteSwipeColors.Archive
+        targetValue =
+            when (dismissValue) {
+                SwipeToDismissBoxValue.StartToEnd -> {
+                    NoteSwipeColors.Archive
+                }
 
-            SwipeToDismissBoxValue.EndToStart ->
-                if (isArchived) NoteSwipeColors.UnArchive else NoteSwipeColors.Delete
+                SwipeToDismissBoxValue.EndToStart -> {
+                    if (isArchived) NoteSwipeColors.UnArchive else NoteSwipeColors.Delete
+                }
 
-            SwipeToDismissBoxValue.Settled -> Color.Transparent
-        },
+                SwipeToDismissBoxValue.Settled -> {
+                    Color.Transparent
+                }
+            },
         label = "swipe_bg",
     )
-    val alignment = when (dismissValue) {
-        SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
-        SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
-        SwipeToDismissBoxValue.Settled -> Alignment.Center
-    }
-    val icon = when (dismissValue) {
-        SwipeToDismissBoxValue.StartToEnd -> if (!isArchived) Icons.Default.PushPin else null
-        SwipeToDismissBoxValue.EndToStart -> if (isArchived) Icons.Filled.Autorenew else Icons.Default.Delete
-        SwipeToDismissBoxValue.Settled -> null
-    }
+    val alignment =
+        when (dismissValue) {
+            SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
+            SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
+            SwipeToDismissBoxValue.Settled -> Alignment.Center
+        }
+    val icon =
+        when (dismissValue) {
+            SwipeToDismissBoxValue.StartToEnd -> if (!isArchived) Icons.Default.PushPin else null
+            SwipeToDismissBoxValue.EndToStart -> if (isArchived) Icons.Filled.Autorenew else Icons.Default.Delete
+            SwipeToDismissBoxValue.Settled -> null
+        }
 
     Box(
         Modifier
@@ -663,44 +703,51 @@ private fun SwipeBackground(dismissValue: SwipeToDismissBoxValue, isArchived: Bo
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun NotesScreenContentPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    NotesPreviewWrapper {
-        NotesScreenContent(
-            state = NotesUiState.Content(
-                list = NotesListState(
-                    pinned = persistentListOf(
-                        PreviewSamples.note("n1", "Pinned Note", "**Pinned** content"),
+private fun NotesScreenContentPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        NotesPreviewWrapper {
+            NotesScreenContent(
+                state =
+                    NotesUiState.Content(
+                        list =
+                            NotesListState(
+                                pinned =
+                                    persistentListOf(
+                                        PreviewSamples.note("n1", "Pinned Note", "**Pinned** content"),
+                                    ),
+                                unpinned =
+                                    persistentListOf(
+                                        PreviewSamples.note("n2", "Ideas", "Meeting notes and **brainstorming**"),
+                                        PreviewSamples.note("n3", "Shopping list"),
+                                    ),
+                            ),
+                        filter = NoteFilter.All,
+                        sortOrder = NoteSortOrder.UpdatedDesc,
+                        searchQuery = FieldOwnedText.empty(),
                     ),
-                    unpinned = persistentListOf(
-                        PreviewSamples.note("n2", "Ideas", "Meeting notes and **brainstorming**"),
-                        PreviewSamples.note("n3", "Shopping list"),
-                    ),
-                ),
-                filter = NoteFilter.All,
-                sortOrder = NoteSortOrder.UpdatedDesc,
-                searchQuery = FieldOwnedText.empty(),
-            ),
-            navigator = LocalNotesNavigator.current,
-            onCreateNote = { NoteId.fromString("preview-note-id") },
-            actions = NotesActions.Empty,
-        )
+                navigator = LocalNotesNavigator.current,
+                onCreateNote = { NoteId.fromString("preview-note-id") },
+                actions = NotesActions.Empty,
+            )
+        }
     }
-}
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun NotesScreenEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    NotesPreviewWrapper {
-        NotesScreenContent(
-            state = NotesUiState.Content(
-                list = NotesListState(),
-                filter = NoteFilter.All,
-                sortOrder = NoteSortOrder.UpdatedDesc,
-                searchQuery = FieldOwnedText.empty(),
-            ),
-            navigator = LocalNotesNavigator.current,
-            onCreateNote = { NoteId.fromString("preview-note-id") },
-            actions = NotesActions.Empty,
-        )
+private fun NotesScreenEmptyPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        NotesPreviewWrapper {
+            NotesScreenContent(
+                state =
+                    NotesUiState.Content(
+                        list = NotesListState(),
+                        filter = NoteFilter.All,
+                        sortOrder = NoteSortOrder.UpdatedDesc,
+                        searchQuery = FieldOwnedText.empty(),
+                    ),
+                navigator = LocalNotesNavigator.current,
+                onCreateNote = { NoteId.fromString("preview-note-id") },
+                actions = NotesActions.Empty,
+            )
+        }
     }
-}

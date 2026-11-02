@@ -37,54 +37,53 @@ import org.koin.core.component.inject
 class SyncOutboxWorker(context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params),
     KoinComponent {
-
     private val syncRepository: SyncRepository by inject()
     private val crashReporter: CrashReportingPort by inject()
     private val log = Logger.withTag("SyncOutboxWorker")
 
-    override suspend fun doWork(): Result = try {
-        when (val outcome = syncRepository.syncOnce()) {
-            is SyncOutcome.Completed -> {
-                val push = outcome.push.getOrNull()
-                log.d {
-                    "Sync cycle: push processed=${push?.processed}, " +
-                        "succeeded=${push?.succeeded}, failed=${push?.failed}"
+    override suspend fun doWork(): Result =
+        try {
+            when (val outcome = syncRepository.syncOnce()) {
+                is SyncOutcome.Completed -> {
+                    val push = outcome.push.getOrNull()
+                    log.d {
+                        "Sync cycle: push processed=${push?.processed}, " +
+                            "succeeded=${push?.succeeded}, failed=${push?.failed}"
+                    }
+                    if (outcome.push.isFailure || outcome.pull.isFailure) {
+                        retryOrFail()
+                    } else {
+                        Result.success()
+                    }
                 }
-                if (outcome.push.isFailure || outcome.pull.isFailure) {
+
+                is SyncOutcome.NothingToDo -> {
+                    // No active sync scope or the coordinator is closed. Retrying is right for
+                    // the former; for the latter a retry would spin, and the runAttemptCount
+                    // cap stops it.
+                    log.d { "Sync cycle: nothing to do" }
                     retryOrFail()
-                } else {
-                    Result.success()
+                }
+
+                is SyncOutcome.CouldNotStart -> {
+                    // The cycle could not start — in practice a local read failed, so the
+                    // patches are still queued and nothing has been lost. That is the same
+                    // situation as the catch arm below: a transient condition with the
+                    // work intact, and the attempt cap is what stops a permanently broken
+                    // database from spinning.
+                    log.e(outcome.error.original()) { "Sync cycle could not start: ${outcome.error.message}" }
+                    retryOrFail()
                 }
             }
-
-            is SyncOutcome.NothingToDo -> {
-                // No active sync scope or the coordinator is closed. Retrying is right for
-                // the former; for the latter a retry would spin, and the runAttemptCount
-                // cap stops it.
-                log.d { "Sync cycle: nothing to do" }
-                retryOrFail()
-            }
-
-            is SyncOutcome.CouldNotStart -> {
-                // The cycle could not start — in practice a local read failed, so the
-                // patches are still queued and nothing has been lost. That is the same
-                // situation as the catch arm below: a transient condition with the
-                // work intact, and the attempt cap is what stops a permanently broken
-                // database from spinning.
-                log.e(outcome.error.original()) { "Sync cycle could not start: ${outcome.error.message}" }
-                retryOrFail()
-            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            log.e(e) { "Sync work failed" }
+            crashReporter.report(e, "sync.worker_failed")
+            retryOrFail()
         }
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        log.e(e) { "Sync work failed" }
-        crashReporter.report(e, "sync.worker_failed")
-        retryOrFail()
-    }
 
-    private fun retryOrFail(): Result =
-        if (runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.failure()
+    private fun retryOrFail(): Result = if (runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.failure()
 
     companion object {
         const val WORK_NAME = "sync_outbox_push"

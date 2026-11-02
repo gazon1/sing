@@ -16,32 +16,39 @@ import kotlinx.coroutines.withContext
  * which is the canonical intent for creating calendar events.
  */
 class AndroidCalendarAppQueries(private val context: Context) : CalendarAppQueries {
+    override suspend fun listInstalled(): List<CalendarAppInfo> =
+        withContext(Dispatchers.IO) {
+            val pm = context.packageManager
 
-    override suspend fun listInstalled(): List<CalendarAppInfo> = withContext(Dispatchers.IO) {
-        val pm = context.packageManager
+            // Try ACTION_INSERT first — most calendar apps register for it
+            val insertApps = resolveApps(pm, Intent(Intent.ACTION_INSERT).setData(CalendarContract.Events.CONTENT_URI))
+            // Also try ACTION_EDIT — some apps only advertise EDIT
+            val editApps = resolveApps(pm, Intent(Intent.ACTION_EDIT).setData(CalendarContract.Events.CONTENT_URI))
 
-        // Try ACTION_INSERT first — most calendar apps register for it
-        val insertApps = resolveApps(pm, Intent(Intent.ACTION_INSERT).setData(CalendarContract.Events.CONTENT_URI))
-        // Also try ACTION_EDIT — some apps only advertise EDIT
-        val editApps = resolveApps(pm, Intent(Intent.ACTION_EDIT).setData(CalendarContract.Events.CONTENT_URI))
+            // Union, sorted by display name, deduplicated by package name
+            (insertApps + editApps)
+                .associateBy { it.packageName }
+                .values
+                .sortedBy { it.displayName.lowercase() }
+        }
 
-        // Union, sorted by display name, deduplicated by package name
-        (insertApps + editApps)
-            .associateBy { it.packageName }
-            .values
-            .sortedBy { it.displayName.lowercase() }
-    }
-
-    private fun resolveApps(pm: PackageManager, intent: Intent): List<CalendarAppInfo> {
-        return pm.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+    private fun resolveApps(
+        pm: PackageManager,
+        intent: Intent,
+    ): List<CalendarAppInfo> {
+        return pm
+            .queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
             .mapNotNull { resolveInfo ->
                 val appInfo = resolveInfo.activityInfo?.applicationInfo ?: return@mapNotNull null
                 val packageName = appInfo.packageName
                 // Skip our own app
                 if (packageName == context.packageName) return@mapNotNull null
-                val displayName = pm.getApplicationLabel(appInfo).toString()
-                    .takeIf { it.isNotBlank() }
-                    ?: packageName
+                val displayName =
+                    pm
+                        .getApplicationLabel(appInfo)
+                        .toString()
+                        .takeIf { it.isNotBlank() }
+                        ?: packageName
                 CalendarAppInfo(packageName, displayName)
             }
     }

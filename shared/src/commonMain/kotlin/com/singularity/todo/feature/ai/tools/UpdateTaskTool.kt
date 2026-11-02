@@ -69,31 +69,38 @@ class UpdateTaskTool(
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
 ) : SimpleTool<UpdateTaskInput>(TypeToken.of(UpdateTaskInput::class.java), NAME, DESCRIPTION) {
-
     override suspend fun execute(args: UpdateTaskInput): String {
-        val existing = taskRepository.observe(TaskId(args.taskId)).first()
-            ?: return failure(args.taskId, "There is no task with id \"${args.taskId}\".")
+        val existing =
+            taskRepository.observe(TaskId(args.taskId)).first()
+                ?: return failure(args.taskId, "There is no task with id \"${args.taskId}\".")
 
         val changes = changes(args, existing)
-        val kinds = when (changes) {
-            is Changes.Invalid -> return failure(args.taskId, changes.message)
-            is Changes.None -> return failure(args.taskId, NOTHING_TO_CHANGE)
-            is Changes.Some -> changes.kinds
-        }
+        val kinds =
+            when (changes) {
+                is Changes.Invalid -> return failure(args.taskId, changes.message)
+                is Changes.None -> return failure(args.taskId, NOTHING_TO_CHANGE)
+                is Changes.Some -> changes.kinds
+            }
 
-        val result = proposeChange(
-            proposals = proposals,
-            userId = currentUser.scopedUserId.value,
-            clock = clock,
-            items = proposalItems(kinds, args.taskId),
-            targetId = args.taskId,
-        )
+        val result =
+            proposeChange(
+                proposals = proposals,
+                userId = currentUser.scopedUserId.value,
+                clock = clock,
+                items = proposalItems(kinds, args.taskId),
+                targetId = args.taskId,
+            )
 
         return ToolOutputJson.encodeToString(
             UpdateTaskOutput.serializer(),
             UpdateTaskOutput(
                 proposalCreated = result.isSuccess,
-                proposalId = result.getOrNull()?.id?.value.orEmpty(),
+                proposalId =
+                    result
+                        .getOrNull()
+                        ?.id
+                        ?.value
+                        .orEmpty(),
                 taskId = args.taskId,
                 error = result.exceptionOrNull()?.message,
             ),
@@ -108,18 +115,22 @@ class UpdateTaskTool(
      * the user's attention for nothing. A value that does not parse is reported
      * to the model, which can fix the call.
      */
-    private fun changes(args: UpdateTaskInput, existing: Task): Changes {
-        val outcomes = listOf(
-            titleChange(args.title, existing),
-            descriptionChange(args.description, existing),
-            priorityChange(args.priority, existing),
-            kindChange(args.kind, existing),
-            projectChange(args.projectId, existing),
-            tagsChange(args.tagIds, existing),
-            dueDateChange(args.dueDate, existing),
-            dueTimeChange(args.dueTime, existing),
-            somedayChange(args.someday, existing),
-        )
+    private fun changes(
+        args: UpdateTaskInput,
+        existing: Task,
+    ): Changes {
+        val outcomes =
+            listOf(
+                titleChange(args.title, existing),
+                descriptionChange(args.description, existing),
+                priorityChange(args.priority, existing),
+                kindChange(args.kind, existing),
+                projectChange(args.projectId, existing),
+                tagsChange(args.tagIds, existing),
+                dueDateChange(args.dueDate, existing),
+                dueTimeChange(args.dueTime, existing),
+                somedayChange(args.someday, existing),
+            )
         outcomes.filterIsInstance<FieldChange.Invalid>().firstOrNull()?.let { return Changes.Invalid(it.message) }
         val kinds = outcomes.filterIsInstance<FieldChange.Add>().map { it.kind }
         return if (kinds.isEmpty()) Changes.None else Changes.Some(kinds)
@@ -137,10 +148,14 @@ class UpdateTaskTool(
      * would be written: a request that asks for what the task already has is not a
      * change, and there is nothing to propose.
      */
-    private fun fieldChange(value: String?, field: String, current: String?): FieldChange {
+    private fun fieldChange(
+        value: String?,
+        field: String,
+        current: String?,
+    ): FieldChange {
         if (value == null) return FieldChange.Skip
         return when (val read = TaskValue.read(field, value)) {
-            is ReadResult.Ok ->
+            is ReadResult.Ok -> {
                 // The value's own text is compared with what the task holds. An absent
                 // value is an empty text — so "clear the due date" on a task that has no
                 // due date is not a change, and nothing is proposed for it.
@@ -149,39 +164,62 @@ class UpdateTaskTool(
                 } else {
                     FieldChange.Add(ProposalItemKind.SetTaskField(read.value))
                 }
+            }
 
-            is ReadResult.Rejected -> FieldChange.Invalid(read.reason)
+            is ReadResult.Rejected -> {
+                FieldChange.Invalid(read.reason)
+            }
         }
     }
 
-    private fun titleChange(value: String?, existing: Task): FieldChange =
-        fieldChange(value, "Title", existing.title)
+    private fun titleChange(
+        value: String?,
+        existing: Task,
+    ): FieldChange = fieldChange(value, "Title", existing.title)
 
-    private fun descriptionChange(value: String?, existing: Task): FieldChange =
-        fieldChange(value, "Description", existing.description)
+    private fun descriptionChange(
+        value: String?,
+        existing: Task,
+    ): FieldChange = fieldChange(value, "Description", existing.description)
 
-    private fun priorityChange(value: String?, existing: Task): FieldChange =
-        fieldChange(value, "Priority", existing.priority.name)
+    private fun priorityChange(
+        value: String?,
+        existing: Task,
+    ): FieldChange = fieldChange(value, "Priority", existing.priority.name)
 
-    private fun kindChange(value: String?, existing: Task): FieldChange =
-        fieldChange(value, "Kind", existing.kind.name)
+    private fun kindChange(
+        value: String?,
+        existing: Task,
+    ): FieldChange = fieldChange(value, "Kind", existing.kind.name)
 
-    private fun projectChange(value: String?, existing: Task): FieldChange =
-        fieldChange(value, "Project", existing.projectId?.value)
+    private fun projectChange(
+        value: String?,
+        existing: Task,
+    ): FieldChange = fieldChange(value, "Project", existing.projectId?.value)
 
-    private fun tagsChange(value: List<String>?, existing: Task): FieldChange {
+    private fun tagsChange(
+        value: List<String>?,
+        existing: Task,
+    ): FieldChange {
         if (value == null) return FieldChange.Skip
         if (value.toSet() == existing.tags.map { it.value }.toSet()) return FieldChange.Skip
         return FieldChange.Add(ProposalItemKind.SetTaskTags(value))
     }
 
-    private fun dueDateChange(value: String?, existing: Task): FieldChange =
-        fieldChange(value, "DueDate", existing.dueDate?.toString())
+    private fun dueDateChange(
+        value: String?,
+        existing: Task,
+    ): FieldChange = fieldChange(value, "DueDate", existing.dueDate?.toString())
 
-    private fun dueTimeChange(value: String?, existing: Task): FieldChange =
-        fieldChange(value, "DueTime", existing.dueTime?.let { LocalTimeFormats.format(it) })
+    private fun dueTimeChange(
+        value: String?,
+        existing: Task,
+    ): FieldChange = fieldChange(value, "DueTime", existing.dueTime?.let { LocalTimeFormats.format(it) })
 
-    private fun somedayChange(value: Boolean?, existing: Task): FieldChange {
+    private fun somedayChange(
+        value: Boolean?,
+        existing: Task,
+    ): FieldChange {
         if (value == null || value == existing.someday) return FieldChange.Skip
         return FieldChange.Add(ProposalItemKind.SetTaskField(TaskValue.Someday(value)))
     }
@@ -204,10 +242,14 @@ class UpdateTaskTool(
         data class Invalid(val message: String) : Changes
     }
 
-    private fun failure(taskId: String, message: String): String = ToolOutputJson.encodeToString(
-        UpdateTaskOutput.serializer(),
-        UpdateTaskOutput(proposalCreated = false, proposalId = "", taskId = taskId, error = message),
-    )
+    private fun failure(
+        taskId: String,
+        message: String,
+    ): String =
+        ToolOutputJson.encodeToString(
+            UpdateTaskOutput.serializer(),
+            UpdateTaskOutput(proposalCreated = false, proposalId = "", taskId = taskId, error = message),
+        )
 
     companion object {
         const val NAME = "update_task"

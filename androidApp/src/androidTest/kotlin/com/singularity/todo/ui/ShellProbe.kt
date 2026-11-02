@@ -175,12 +175,13 @@ internal fun UiDevice.findWithDeadline(
  * - `BuildConfig.TEST_AUTH_BYPASS` — whether the build under test was assembled with
  *   the bypass at all.
  */
-internal fun UiDevice.diagnostics(): String = buildString {
-    appendLine("auth bypass (BuildConfig.TEST_AUTH_BYPASS): ${BuildConfig.TEST_AUTH_BYPASS}")
-    appendLine("session: ${sessionDescription()}")
-    appendLine("--- screen ---")
-    appendLine(screenDescription())
-}
+internal fun UiDevice.diagnostics(): String =
+    buildString {
+        appendLine("auth bypass (BuildConfig.TEST_AUTH_BYPASS): ${BuildConfig.TEST_AUTH_BYPASS}")
+        appendLine("session: ${sessionDescription()}")
+        appendLine("--- screen ---")
+        appendLine(screenDescription())
+    }
 
 /**
  * The session the app is in, read from the app's own Koin graph.
@@ -192,8 +193,9 @@ internal fun UiDevice.diagnostics(): String = buildString {
  */
 internal fun sessionDescription(): String =
     runCatching {
-        val repository = GlobalContext.getOrNull()?.get<AuthRepository>()
-            ?: return "no AuthRepository in the Koin graph"
+        val repository =
+            GlobalContext.getOrNull()?.get<AuthRepository>()
+                ?: return "no AuthRepository in the Koin graph"
         when (val session = repository.currentSession.value) {
             Session.Loading -> "Loading"
             Session.SignedOut -> "SignedOut"
@@ -270,7 +272,10 @@ private fun summarize(xml: String): String {
 private val NODE = Regex("<node\\b[^>]*>")
 
 /** The value of [name] inside an attribute list. */
-private fun attribute(attributes: String, name: String): String {
+private fun attribute(
+    attributes: String,
+    name: String,
+): String {
     val match = Regex("$name=\"([^\"]*)\"").find(attributes) ?: return ""
     return match.groupValues[1]
 }

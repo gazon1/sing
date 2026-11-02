@@ -14,13 +14,13 @@ import kotlin.test.assertEquals
  * and `viewModelScope.cancel` expressions inside classes.
  */
 class NoViewModelScopeInProductionRuleTest {
-
     private val rule = NoViewModelScopeInProductionRule(TestConfig())
     private val languageSettings = FakeLanguageVersionSettings(ExplicitApiMode.STRICT)
 
     @Test
     fun `viewModelScope dot launch is flagged`() {
-        val code = """
+        val code =
+            """
             package com.singularity.todo.feature.tasks.presentation.viewmodel
 
             class MyViewModel {
@@ -28,7 +28,7 @@ class NoViewModelScopeInProductionRuleTest {
                     viewModelScope.launch { }
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.singularity.todo.feature.tasks.presentation.viewmodel")
         val findings = rule.visitFile(ktFile, languageSettings)
         assertEquals(1, findings.size, "Expected 1 finding but got ${findings.size}: ${findings.map { it.message }}")
@@ -36,7 +36,8 @@ class NoViewModelScopeInProductionRuleTest {
 
     @Test
     fun `injected scope dot launch is not flagged`() {
-        val code = """
+        val code =
+            """
             package com.singularity.todo.feature.tasks.presentation.viewmodel
 
             class MyViewModel {
@@ -44,7 +45,7 @@ class NoViewModelScopeInProductionRuleTest {
                     scope.launch { }
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.singularity.todo.feature.tasks.presentation.viewmodel")
         val findings = rule.visitFile(ktFile, languageSettings)
         assertEquals(0, findings.size)
@@ -52,13 +53,14 @@ class NoViewModelScopeInProductionRuleTest {
 
     @Test
     fun `viewModelScope toString is allowed`() {
-        val code = """
+        val code =
+            """
             package com.singularity.todo.feature.tasks.presentation.viewmodel
 
             class MyViewModel {
                 val description: String get() = viewModelScope.toString()
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.singularity.todo.feature.tasks.presentation.viewmodel")
         val findings = rule.visitFile(ktFile, languageSettings)
         assertEquals(0, findings.size)

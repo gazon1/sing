@@ -1,12 +1,12 @@
 package com.singularity.todo.feature.reminders
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.notifications.Notifier
 import com.singularity.todo.feature.alarms.AlarmContract
 import com.singularity.todo.feature.reminders.domain.port.ReminderRepository
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
-import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Delivers one reminder: read it, show it, retire it if it was a one-shot.
@@ -48,7 +48,6 @@ class ReminderDelivery(
     private val notifier: Notifier,
     private val logger: Logger = Logger.withTag("ReminderDelivery"),
 ) {
-
     /** What happened when a reminder was fired. */
     enum class Outcome {
         /** The notification was handed to the notifier. */
@@ -83,16 +82,20 @@ class ReminderDelivery(
      * shown, which is what the user was promised. Leaving the row behind means the
      * reminder fires again, which is recoverable; withholding the notification is not.
      */
-    suspend fun fire(reminderId: ReminderId, userId: UserId): Outcome {
+    suspend fun fire(
+        reminderId: ReminderId,
+        userId: UserId,
+    ): Outcome {
         if (!notifier.isSupported) {
             logger.w { "No notifier on this host; reminder ${reminderId.value} cannot be shown" }
             return Outcome.NoNotifier
         }
 
-        val reminder = reminderRepo.get(reminderId) ?: run {
-            logger.w { "Reminder not found for the active profile: ${reminderId.value}" }
-            return Outcome.NotFound
-        }
+        val reminder =
+            reminderRepo.get(reminderId) ?: run {
+                logger.w { "Reminder not found for the active profile: ${reminderId.value}" }
+                return Outcome.NotFound
+            }
 
         post(reminder, userId)
 
@@ -138,7 +141,10 @@ class ReminderDelivery(
      * [ReminderFireLogic] exists, and the reason the Desktop backend runs a launcher that
      * opens the database instead of printing a title baked into a systemd unit.
      */
-    private suspend fun post(reminder: Reminder, userId: UserId) {
+    private suspend fun post(
+        reminder: Reminder,
+        userId: UserId,
+    ) {
         val taskTitle = taskRepo.get(reminder.taskId)?.title
         val outcome = ReminderFireLogic.execute(reminder, taskTitle)
         notifier.post(

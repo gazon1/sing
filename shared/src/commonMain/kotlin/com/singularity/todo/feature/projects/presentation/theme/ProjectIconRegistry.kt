@@ -30,7 +30,6 @@ import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegis
  * 18 icons — cognitive load budget agreed in ADR 2026-09-08.
  */
 object ProjectIconRegistry {
-
     val Home = Icons.Filled.Home
     val Work = Icons.Filled.Work
     val Star = Icons.Filled.Star
@@ -51,31 +50,33 @@ object ProjectIconRegistry {
     val MoreHoriz = Icons.Filled.MoreHoriz
 
     /** All available (key, ImageVector) pairs. */
-    val all: List<Pair<String, ImageVector>> = listOf(
-        "Home" to Home,
-        "Work" to Work,
-        "Star" to Star,
-        "Folder" to Folder,
-        "FolderSpecial" to FolderSpecial,
-        "Note" to Note,
-        "DateRange" to DateRange,
-        "ShoppingCart" to ShoppingCart,
-        "Flight" to Flight,
-        "LocalHospital" to LocalHospital,
-        "School" to School,
-        "FitnessCenter" to FitnessCenter,
-        "Pets" to Pets,
-        "MusicNote" to MusicNote,
-        "Code" to Code,
-        "Build" to Build,
-        "Anchor" to Anchor,
-        "MoreHoriz" to MoreHoriz,
-    )
+    val all: List<Pair<String, ImageVector>> =
+        listOf(
+            "Home" to Home,
+            "Work" to Work,
+            "Star" to Star,
+            "Folder" to Folder,
+            "FolderSpecial" to FolderSpecial,
+            "Note" to Note,
+            "DateRange" to DateRange,
+            "ShoppingCart" to ShoppingCart,
+            "Flight" to Flight,
+            "LocalHospital" to LocalHospital,
+            "School" to School,
+            "FitnessCenter" to FitnessCenter,
+            "Pets" to Pets,
+            "MusicNote" to MusicNote,
+            "Code" to Code,
+            "Build" to Build,
+            "Anchor" to Anchor,
+            "MoreHoriz" to MoreHoriz,
+        )
 
     /** Maps a DB icon key to its [ImageVector], or `null` if not found. */
-    fun iconByKey(key: String?): ImageVector? = key?.let { k ->
-        all.find { it.first == k }?.second
-    }
+    fun iconByKey(key: String?): ImageVector? =
+        key?.let { k ->
+            all.find { it.first == k }?.second
+        }
 
     /** Maps an [ImageVector] back to its DB key, or `null` if not registered. */
     fun keyByIcon(icon: ImageVector): String? = all.find { it.second == icon }?.first

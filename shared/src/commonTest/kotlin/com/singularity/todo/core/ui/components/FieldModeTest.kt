@@ -7,7 +7,6 @@ import kotlin.test.assertTrue
 
 @Tag("fast")
 class FieldModeTest {
-
     @Test fun viewIsSingleton() {
         assertEquals(FieldMode.View, FieldMode.View)
     }

@@ -5,6 +5,7 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.draft.DraftStore
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
@@ -17,7 +18,6 @@ import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateUiEvent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
-import com.singularity.todo.core.error.runCatchingCancellable
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 
@@ -66,10 +66,12 @@ class TaskCreateViewModel(
     crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : DraftMviViewModel<TaskDraft, TaskCreateIntent, TaskCreateUiEvent>(
-        initialDraft = TaskDraft(
-            dueDate = initialDueDate?.let { DueDateOption.Custom(it, it.toString()) }
-                ?: DueDateOption.None,
-        ),
+        initialDraft =
+            TaskDraft(
+                dueDate =
+                    initialDueDate?.let { DueDateOption.Custom(it, it.toString()) }
+                        ?: DueDateOption.None,
+            ),
         autosave = { draft ->
             // Always save to the generic draft key — section prefill is restored once on entry.
             deps.draftStore.save(TaskCreateDeps.DRAFT_KEY, draft, TaskDraft.serializer())
@@ -85,13 +87,14 @@ class TaskCreateViewModel(
         logger = deps.logger,
         scope = scope,
     ) {
-    private val initial: TaskDraft = TaskDraft(
-        dueDate = initialDueDate?.let { DueDateOption.Custom(it, it.toString()) }
-            ?: DueDateOption.None,
-    )
+    private val initial: TaskDraft =
+        TaskDraft(
+            dueDate =
+                initialDueDate?.let { DueDateOption.Custom(it, it.toString()) }
+                    ?: DueDateOption.None,
+        )
 
-    override fun validate(draft: TaskDraft): String? =
-        if (draft.title.text.isBlank()) "Title is required" else null
+    override fun validate(draft: TaskDraft): String? = if (draft.title.text.isBlank()) "Title is required" else null
 
     override suspend fun persist(draft: TaskDraft): Either<AppError, Unit> =
         when (val result = deps.createFromDraft(draft)) {
@@ -119,72 +122,108 @@ class TaskCreateViewModel(
 
     override fun onIntent(intent: TaskCreateIntent) {
         when (intent) {
-            is TaskCreateIntent.TitleChanged ->
+            is TaskCreateIntent.TitleChanged -> {
                 // The field's own text: the field wrote it, and the field already shows it.
                 updateDraft { it.copy(title = it.title.echoed(intent.title)) }
+            }
 
-            is TaskCreateIntent.DescriptionChanged ->
+            is TaskCreateIntent.DescriptionChanged -> {
                 // The field's own text: the field wrote it, and the field already shows it.
                 updateDraft { it.copy(description = it.description.echoed(intent.description)) }
-
-            is TaskCreateIntent.SetPriority -> updateDraft { it.copy(priority = intent.priority) }
-
-            is TaskCreateIntent.SetDueDate -> updateDraft {
-                val option = intent.date?.let { DueDateOption.Custom(it, it.toString()) } ?: DueDateOption.None
-                // A single date replaces the whole set: the two intents say the same
-                // thing about "the dates of this task", and mixing them would leave
-                // a set whose primary date is not in it.
-                it.copy(dueDate = option, extraDueDates = emptyList())
             }
 
-            is TaskCreateIntent.SetDueDates -> setDueDates(intent.dates)
-
-            is TaskCreateIntent.SetDueTime -> updateDraft { it.copy(dueTime = intent.time) }
-
-            TaskCreateIntent.DueDateCleared -> updateDraft {
-                it.copy(dueDate = DueDateOption.None, dueTime = null, extraDueDates = emptyList())
+            is TaskCreateIntent.SetPriority -> {
+                updateDraft { it.copy(priority = intent.priority) }
             }
 
-            is TaskCreateIntent.SetStartDate -> updateDraft {
-                val option = intent.date?.let { DueDateOption.Custom(it, it.toString()) } ?: DueDateOption.None
-                it.copy(startDate = option)
+            is TaskCreateIntent.SetDueDate -> {
+                updateDraft {
+                    val option = intent.date?.let { DueDateOption.Custom(it, it.toString()) } ?: DueDateOption.None
+                    // A single date replaces the whole set: the two intents say the same
+                    // thing about "the dates of this task", and mixing them would leave
+                    // a set whose primary date is not in it.
+                    it.copy(dueDate = option, extraDueDates = emptyList())
+                }
             }
 
-            is TaskCreateIntent.SetStartTime -> updateDraft { it.copy(startTime = intent.time) }
-
-            is TaskCreateIntent.SetEndDate -> updateDraft {
-                val option = intent.date?.let { DueDateOption.Custom(it, it.toString()) } ?: DueDateOption.None
-                it.copy(endDate = option)
+            is TaskCreateIntent.SetDueDates -> {
+                setDueDates(intent.dates)
             }
 
-            is TaskCreateIntent.SetEndTime -> updateDraft { it.copy(endTime = intent.time) }
+            is TaskCreateIntent.SetDueTime -> {
+                updateDraft { it.copy(dueTime = intent.time) }
+            }
 
-            is TaskCreateIntent.SetProject -> updateDraft { it.copy(projectId = intent.projectId?.value) }
+            TaskCreateIntent.DueDateCleared -> {
+                updateDraft {
+                    it.copy(dueDate = DueDateOption.None, dueTime = null, extraDueDates = emptyList())
+                }
+            }
 
-            is TaskCreateIntent.SetTags -> updateDraft { it.copy(tagIds = intent.tagIds.map { it.value }) }
+            is TaskCreateIntent.SetStartDate -> {
+                updateDraft {
+                    val option = intent.date?.let { DueDateOption.Custom(it, it.toString()) } ?: DueDateOption.None
+                    it.copy(startDate = option)
+                }
+            }
 
-            is TaskCreateIntent.SetRecurrence -> updateDraft { it.copy(recurrence = intent.spec) }
+            is TaskCreateIntent.SetStartTime -> {
+                updateDraft { it.copy(startTime = intent.time) }
+            }
 
-            TaskCreateIntent.PinToggled -> updateDraft { it.copy(isPinned = !it.isPinned) }
+            is TaskCreateIntent.SetEndDate -> {
+                updateDraft {
+                    val option = intent.date?.let { DueDateOption.Custom(it, it.toString()) } ?: DueDateOption.None
+                    it.copy(endDate = option)
+                }
+            }
+
+            is TaskCreateIntent.SetEndTime -> {
+                updateDraft { it.copy(endTime = intent.time) }
+            }
+
+            is TaskCreateIntent.SetProject -> {
+                updateDraft { it.copy(projectId = intent.projectId?.value) }
+            }
+
+            is TaskCreateIntent.SetTags -> {
+                updateDraft { it.copy(tagIds = intent.tagIds.map { it.value }) }
+            }
+
+            is TaskCreateIntent.SetRecurrence -> {
+                updateDraft { it.copy(recurrence = intent.spec) }
+            }
+
+            TaskCreateIntent.PinToggled -> {
+                updateDraft { it.copy(isPinned = !it.isPinned) }
+            }
 
             is TaskCreateIntent.AddChecklistItem -> {
-                val newItem = DraftChecklistItem(
-                    id = com.singularity.todo.core.ids.nextId(),
-                    text = intent.text,
-                )
+                val newItem =
+                    DraftChecklistItem(
+                        id =
+                            com.singularity.todo.core.ids
+                                .nextId(),
+                        text = intent.text,
+                    )
                 updateDraft { it.copy(checklist = it.checklist + newItem) }
             }
 
-            is TaskCreateIntent.ToggleChecklistItem -> updateDraft { draft ->
-                draft.copy(
-                    checklist = draft.checklist.map { item ->
-                        if (item.id == intent.id) item.copy(isChecked = !item.isChecked) else item
-                    },
-                )
+            is TaskCreateIntent.ToggleChecklistItem -> {
+                updateDraft { draft ->
+                    draft.copy(
+                        checklist =
+                            draft.checklist.map { item ->
+                                if (item.id == intent.id) item.copy(isChecked = !item.isChecked) else item
+                            },
+                    )
+                }
             }
 
-            is TaskCreateIntent.RemoveChecklistItem -> updateDraft { draft ->
-                draft.copy(checklist = draft.checklist.filter { it.id != intent.id })
+            is TaskCreateIntent.RemoveChecklistItem -> {
+                updateDraft { draft ->
+                    draft.copy(checklist = draft.checklist.filter { it.id != intent.id })
+                }
             }
 
             is TaskCreateIntent.AddAttachmentUrl -> {
@@ -192,13 +231,19 @@ class TaskCreateViewModel(
                 updateDraft { it.copy(attachments = it.attachments + newAttachment) }
             }
 
-            is TaskCreateIntent.RemoveAttachmentUrl -> updateDraft { draft ->
-                draft.copy(attachments = draft.attachments.filter { it.url != intent.url })
+            is TaskCreateIntent.RemoveAttachmentUrl -> {
+                updateDraft { draft ->
+                    draft.copy(attachments = draft.attachments.filter { it.url != intent.url })
+                }
             }
 
-            TaskCreateIntent.SaveClicked -> save()
+            TaskCreateIntent.SaveClicked -> {
+                save()
+            }
 
-            TaskCreateIntent.DismissError -> dismissError()
+            TaskCreateIntent.DismissError -> {
+                dismissError()
+            }
 
             TaskCreateIntent.Discard -> {
                 vmScope.launch {

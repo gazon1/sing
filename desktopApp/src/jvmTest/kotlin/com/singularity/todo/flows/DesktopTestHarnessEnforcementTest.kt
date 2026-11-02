@@ -47,7 +47,6 @@ import kotlin.test.fail
 @Tag("slow")
 @Tag("slow:compose")
 class DesktopTestHarnessEnforcementTest {
-
     /**
      * This module's own jvmTest sources.
      *
@@ -72,22 +71,23 @@ class DesktopTestHarnessEnforcementTest {
      *
      * Format: `fileName` to `reason`.
      */
-    private val allowedBypassFiles = mapOf(
-        "MenuBarTest.kt" to
-            "smoke tests: no real AWT Frame in test, harness would add " +
-            "FailureBundle machinery with no actionable output. " +
-            "Revisit if smoke scope expands.",
-        "ContextMenuTest.kt" to
-            "smoke tests: desktop popup menus cannot be fully tested in headless " +
-            "environment, harness would add FailureBundle with no actionable output. " +
-            "Revisit if smoke scope expands.",
-        "CelebrationTest.kt" to
-            "haptic verification tests call runDesktopComposeUiTest to trigger " +
-            "LaunchedEffect and verify side-effects on a test spy. " +
-            "Should migrate to v2 runDesktopComposeUiTest with aligned dispatchers " +
-            "so advanceUntilIdle() is scoped to the same test. " +
-            " tracked in follow-up ADR.",
-    )
+    private val allowedBypassFiles =
+        mapOf(
+            "MenuBarTest.kt" to
+                "smoke tests: no real AWT Frame in test, harness would add " +
+                "FailureBundle machinery with no actionable output. " +
+                "Revisit if smoke scope expands.",
+            "ContextMenuTest.kt" to
+                "smoke tests: desktop popup menus cannot be fully tested in headless " +
+                "environment, harness would add FailureBundle with no actionable output. " +
+                "Revisit if smoke scope expands.",
+            "CelebrationTest.kt" to
+                "haptic verification tests call runDesktopComposeUiTest to trigger " +
+                "LaunchedEffect and verify side-effects on a test spy. " +
+                "Should migrate to v2 runDesktopComposeUiTest with aligned dispatchers " +
+                "so advanceUntilIdle() is scoped to the same test. " +
+                " tracked in follow-up ADR.",
+        )
 
     @Test
     fun every_desktop_test_goes_through_a_harness() {
@@ -99,35 +99,36 @@ class DesktopTestHarnessEnforcementTest {
             )
         }
 
-        val bypassFiles = desktopTestRoot
-            .walkTopDown()
-            .filter { it.isFile && it.extension == "kt" }
-            // The harness itself is allowed.
-            .filter { it.name != "DesktopAppHarness.kt" }
-            // This file, too, and not because it is allowed to bypass — because it
-            // NAMES the entry point it forbids. Its KDoc has to, to explain the
-            // rule, and so does the `contains` call below. Found by planting a
-            // violating file: without this the gate reports itself, which is the
-            // most disorienting possible failure for a rule about bypassing the
-            // harness.
-            .filter { it.name != "DesktopTestHarnessEnforcementTest.kt" }
-            // IsolatedComposeTest is the documented lighter harness for pure Compose tests.
-            .filter { it.name != "IsolatedComposeTest.kt" }
-            // Check for direct calls to the deprecated and v2 entry points.
-            .filter { file ->
-                file.readLines().any { line ->
-                    line.contains("runDesktopComposeUiTest")
-                }
-            }
-            .filter { it.name !in allowedBypassFiles.keys }
-            .toList()
+        val bypassFiles =
+            desktopTestRoot
+                .walkTopDown()
+                .filter { it.isFile && it.extension == "kt" }
+                // The harness itself is allowed.
+                .filter { it.name != "DesktopAppHarness.kt" }
+                // This file, too, and not because it is allowed to bypass — because it
+                // NAMES the entry point it forbids. Its KDoc has to, to explain the
+                // rule, and so does the `contains` call below. Found by planting a
+                // violating file: without this the gate reports itself, which is the
+                // most disorienting possible failure for a rule about bypassing the
+                // harness.
+                .filter { it.name != "DesktopTestHarnessEnforcementTest.kt" }
+                // IsolatedComposeTest is the documented lighter harness for pure Compose tests.
+                .filter { it.name != "IsolatedComposeTest.kt" }
+                // Check for direct calls to the deprecated and v2 entry points.
+                .filter { file ->
+                    file.readLines().any { line ->
+                        line.contains("runDesktopComposeUiTest")
+                    }
+                }.filter { it.name !in allowedBypassFiles.keys }
+                .toList()
 
         if (bypassFiles.isEmpty()) return
 
         val fileList = bypassFiles.joinToString("\n") { "  ${it.name}" }
-        val allowedList = allowedBypassFiles.entries.joinToString("\n") { (name, reason) ->
-            "  $name — $reason"
-        }
+        val allowedList =
+            allowedBypassFiles.entries.joinToString("\n") { (name, reason) ->
+                "  $name — $reason"
+            }
         fail(
             buildString {
                 appendLine("Desktop UI tests that call runDesktopComposeUiTest directly:")

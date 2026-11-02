@@ -53,7 +53,6 @@ import org.jetbrains.kotlin.psi.KtNameReferenceExpression
  * @see NoRealDelayInTestRuleProvider for registration.
  */
 class NoRealDelayInTestRule(config: Config) : Rule(config, "", null) {
-
     private companion object {
         /**
          * Delays at or under this are tolerated: a short `delay` in a Robolectric or
@@ -109,11 +108,12 @@ class NoRealDelayInTestRule(config: Config) : Rule(config, "", null) {
         report(
             Finding(
                 entity = Entity.from(expression),
-                message = "delay($valueText) is a real-time block in tests. " +
-                    "Use advanceUntilIdle(), advanceTimeBy($valueText), or runCurrent() " +
-                    "from kotlinx.coroutines.test instead. If this is already under " +
-                    "runTest's virtual clock, suppress with @Suppress(\"NoRealDelayInTest\") " +
-                    "and a reason. $BAN_LIST_REF",
+                message =
+                    "delay($valueText) is a real-time block in tests. " +
+                        "Use advanceUntilIdle(), advanceTimeBy($valueText), or runCurrent() " +
+                        "from kotlinx.coroutines.test instead. If this is already under " +
+                        "runTest's virtual clock, suppress with @Suppress(\"NoRealDelayInTest\") " +
+                        "and a reason. $BAN_LIST_REF",
                 references = emptyList(),
                 suppressReasons = listOf("NoRealDelayInTest"),
             ),
@@ -151,11 +151,12 @@ class NoRealDelayInTestRule(config: Config) : Rule(config, "", null) {
         report(
             Finding(
                 entity = Entity.from(expression),
-                message = "Thread.sleep($valueText) is a real-time block in tests. " +
-                    "In Compose UI tests use composeTestRule.waitForIdle(). " +
-                    "In instrumented (emulator) tests where no alternative exists, " +
-                    "suppress with @Suppress(\"ThreadSleepInTest\") on the test function. " +
-                    "$BAN_LIST_REF",
+                message =
+                    "Thread.sleep($valueText) is a real-time block in tests. " +
+                        "In Compose UI tests use composeTestRule.waitForIdle(). " +
+                        "In instrumented (emulator) tests where no alternative exists, " +
+                        "suppress with @Suppress(\"ThreadSleepInTest\") on the test function. " +
+                        "$BAN_LIST_REF",
                 references = emptyList(),
                 suppressReasons = listOf("ThreadSleepInTest"),
             ),
@@ -168,10 +169,12 @@ class NoRealDelayInTestRule(config: Config) : Rule(config, "", null) {
  */
 class NoRealDelayInTestRuleProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("no-real-delay-in-test")
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf<RuleName, (Config) -> Rule>(
-            RuleName("NoRealDelayInTest") to { cfg: Config -> NoRealDelayInTestRule(cfg) },
-        ),
-    )
+
+    override fun instance(): RuleSet =
+        RuleSet(
+            ruleSetId,
+            mapOf<RuleName, (Config) -> Rule>(
+                RuleName("NoRealDelayInTest") to { cfg: Config -> NoRealDelayInTestRule(cfg) },
+            ),
+        )
 }

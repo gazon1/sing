@@ -48,7 +48,6 @@ import androidx.compose.ui.test.ExperimentalTestApi
  */
 @OptIn(ExperimentalTestApi::class)
 class A11yChecker(private val test: DesktopComposeUiTest) {
-
     /**
      * Returns one line per unlabelled clickable node; empty when the tree is clean.
      *
@@ -77,24 +76,26 @@ class A11yChecker(private val test: DesktopComposeUiTest) {
     fun scanScene(): A11yScan {
         val roots = test.mergedRoots()
         var offScreen = 0
-        val perRoot = roots.mapIndexed { index, root ->
-            val violations = mutableListOf<String>()
-            val tags = sortedSetOf<String>()
-            val texts = mutableListOf<String>()
-            root.visit { node ->
-                node.config.getOrNull(SemanticsProperties.TestTag)?.let { tags.add(it) }
-                node.config.getOrNull(SemanticsProperties.Text)
-                    ?.filter { it.text.isNotBlank() }
-                    ?.forEach { texts.add(it.text) }
-                if (!node.isUnlabelledClickable()) return@visit
-                if (node.isVisibleIn(root)) {
-                    violations += node.describe()
-                } else {
-                    offScreen++
+        val perRoot =
+            roots.mapIndexed { index, root ->
+                val violations = mutableListOf<String>()
+                val tags = sortedSetOf<String>()
+                val texts = mutableListOf<String>()
+                root.visit { node ->
+                    node.config.getOrNull(SemanticsProperties.TestTag)?.let { tags.add(it) }
+                    node.config
+                        .getOrNull(SemanticsProperties.Text)
+                        ?.filter { it.text.isNotBlank() }
+                        ?.forEach { texts.add(it.text) }
+                    if (!node.isUnlabelledClickable()) return@visit
+                    if (node.isVisibleIn(root)) {
+                        violations += node.describe()
+                    } else {
+                        offScreen++
+                    }
                 }
+                A11yRootScan(index = index, tags = tags, texts = texts, violations = violations)
             }
-            A11yRootScan(index = index, tags = tags, texts = texts, violations = violations)
-        }
         return A11yScan(roots = perRoot, offScreenSkipped = offScreen)
     }
 }
@@ -118,7 +119,6 @@ data class A11yRootScan(val index: Int, val tags: Set<String>, val texts: List<S
  *   because they are not on the screen.
  */
 data class A11yScan(val roots: List<A11yRootScan>, val offScreenSkipped: Int = 0) {
-
     /** How many roots the scan walked — 1 for a plain screen, 2 with a dialog or a popup. */
     val rootsScanned: Int get() = roots.size
 
@@ -192,23 +192,32 @@ private fun SemanticsNode.isUnlabelledClickable(): Boolean {
  * only Text/ContentDescription/TestTag reported every
  * `Modifier.clickable(onClickLabel = …)` as a violation, which is wrong.
  */
-private fun SemanticsNode.labelKind(): String = when {
-    config.getOrNull(SemanticsProperties.Text)?.any { it.isNotBlank() } == true -> "text"
+private fun SemanticsNode.labelKind(): String =
+    when {
+        config.getOrNull(SemanticsProperties.Text)?.any { it.isNotBlank() } == true -> {
+            "text"
+        }
 
-    config.getOrNull(SemanticsProperties.ContentDescription)?.any { it.isNotBlank() } == true ->
-        "contentDescription"
+        config.getOrNull(SemanticsProperties.ContentDescription)?.any { it.isNotBlank() } == true -> {
+            "contentDescription"
+        }
 
-    config.getOrNull(SemanticsActions.OnClick)?.label?.isNotBlank() == true -> "onClickLabel"
+        config.getOrNull(SemanticsActions.OnClick)?.label?.isNotBlank() == true -> {
+            "onClickLabel"
+        }
 
-    else -> config.getOrNull(SemanticsProperties.TestTag)?.let { "testTag=$it" } ?: ""
-}
+        else -> {
+            config.getOrNull(SemanticsProperties.TestTag)?.let { "testTag=$it" } ?: ""
+        }
+    }
 
 private fun SemanticsNode.describe(): String {
     val role = config.getOrNull(SemanticsProperties.Role)?.let { " role=$it" }.orEmpty()
     val center = boundsInRoot.center
-    val parentTag = generateSequence(this) { it.parent }
-        .mapNotNull { it.config.getOrNull(SemanticsProperties.TestTag) }
-        .firstOrNull()
+    val parentTag =
+        generateSequence(this) { it.parent }
+            .mapNotNull { it.config.getOrNull(SemanticsProperties.TestTag) }
+            .firstOrNull()
     val where = if (parentTag != null) " under testTag=$parentTag" else ""
     return "  - clickable at (${center.x}, ${center.y})$role$where" +
         " — no text, no contentDescription, no testTag" +
@@ -220,16 +229,19 @@ private fun SemanticsNode.describe(): String {
  * affordance is unlabelled rather than only where it sits. Coordinates alone
  * send you hunting through a layout file.
  */
-private fun SemanticsNode.subtreeHint(): String = buildList {
-    config.getOrNull(SemanticsProperties.Text)?.let { add("text=${it.joinToString(" / ")}") }
-    config.getOrNull(SemanticsProperties.ContentDescription)?.let {
-        add("contentDescription=${it.joinToString(" / ")}")
-    }
-    // Descendant text: a clickable wrapping a Text inherits nothing, but seeing
-    // the label that *is* in the subtree is what tells you the fix is to move it
-    // up rather than to invent a new string.
-    children.forEach { child ->
-        child.config.getOrNull(SemanticsProperties.Text)?.firstOrNull { it.isNotBlank() }
-            ?.let { add("childText=\"$it\"") }
-    }
-}.joinToString(" ").ifEmpty { "<no text anywhere in the subtree>" }.take(200)
+private fun SemanticsNode.subtreeHint(): String =
+    buildList {
+        config.getOrNull(SemanticsProperties.Text)?.let { add("text=${it.joinToString(" / ")}") }
+        config.getOrNull(SemanticsProperties.ContentDescription)?.let {
+            add("contentDescription=${it.joinToString(" / ")}")
+        }
+        // Descendant text: a clickable wrapping a Text inherits nothing, but seeing
+        // the label that *is* in the subtree is what tells you the fix is to move it
+        // up rather than to invent a new string.
+        children.forEach { child ->
+            child.config
+                .getOrNull(SemanticsProperties.Text)
+                ?.firstOrNull { it.isNotBlank() }
+                ?.let { add("childText=\"$it\"") }
+        }
+    }.joinToString(" ").ifEmpty { "<no text anywhere in the subtree>" }.take(200)

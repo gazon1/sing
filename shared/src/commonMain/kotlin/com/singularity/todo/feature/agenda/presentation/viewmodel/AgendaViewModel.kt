@@ -9,44 +9,49 @@ import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.platform.localTimeAt
 import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.core.platform.todayFlow
-import com.singularity.todo.core.ui.components.CountdownStateMachine
-import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.text.FieldOwnedText
+import com.singularity.todo.core.ui.MviViewModel
+import com.singularity.todo.core.ui.components.CountdownStateMachine
 import com.singularity.todo.feature.agenda.domain.logic.AgendaEvaluator
 import com.singularity.todo.feature.agenda.domain.logic.toDateRange
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
-import kotlinx.collections.immutable.persistentSetOf
-import kotlinx.collections.immutable.toImmutableSet
 import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.domain.model.BlockedBulkCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.Task
-import com.singularity.todo.feature.tasks.domain.model.TaskFilter
-import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import com.singularity.todo.feature.tasks.domain.model.TaskDraftKeys
+import com.singularity.todo.feature.tasks.domain.model.TaskFilter
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import com.singularity.todo.feature.tasks.domain.model.TaskSeriesId
 import com.singularity.todo.feature.tasks.domain.usecase.BlockedTasksException
 import com.singularity.todo.feature.tasks.presentation.state.DueDateOption
 import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
-import kotlinx.collections.immutable.toImmutableList
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
+
+// 18 functions: one handler per intent — the house shape of this screen. The
+// bulk-close path adds two of them (the question, and the confirmed close),
+// and a handler per intent is what keeps the intents from growing a private
+// helper each.
 
 /**
  * ViewModel for the Agenda screen.
@@ -65,10 +70,6 @@ import kotlin.concurrent.atomics.incrementAndFetch
  *        at runtime; future MRs will support switching definitions.
  * @param scope CoroutineScope for all coroutine work. Tests pass `this` (TestScope).
  */
-// 18 functions: one handler per intent — the house shape of this screen. The
-// bulk-close path adds two of them (the question, and the confirmed close),
-// and a handler per intent is what keeps the intents from growing a private
-// helper each.
 @Suppress("TooManyFunctions")
 @OptIn(ExperimentalCoroutinesApi::class, ExperimentalAtomicApi::class)
 class AgendaViewModel(
@@ -81,7 +82,6 @@ class AgendaViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
-
     /**
      * The definition being evaluated — stable reference.
      *
@@ -125,11 +125,12 @@ class AgendaViewModel(
     val pendingDelete = _pendingDelete.asStateFlow()
 
     /** Drives the undo snackbar countdown. Uses [UNDO_WINDOW_MS] and tick counting for virtual-time test compatibility. */
-    private val countdown = CountdownStateMachine(
-        scope = scope,
-        windowMs = UNDO_WINDOW_MS,
-        onExpired = { _pendingDelete.value = null },
-    )
+    private val countdown =
+        CountdownStateMachine(
+            scope = scope,
+            windowMs = UNDO_WINDOW_MS,
+            onExpired = { _pendingDelete.value = null },
+        )
 
     /** Exposes countdown progress to the screen's snackbar progress bar. */
     val countdownProgress: StateFlow<Float?> = countdown.progress
@@ -154,6 +155,10 @@ class AgendaViewModel(
      */
     private val deleteSequence = AtomicInt(0)
 
+    // Non-null default breaks the tie before computeGreeting() finishes.
+    // "Good evening" is the most common outcome; the computed value replaces it within
+    // the same runCurrent() window in tests, so there is no flash of the wrong greeting.
+
     /**
      * Drives the greeting computation.
      *
@@ -165,9 +170,6 @@ class AgendaViewModel(
      *
      * @see <docs/decisions/2026-10-18-greeting-init-no-runblocking.md>
      */
-    // Non-null default breaks the tie before computeGreeting() finishes.
-    // "Good evening" is the most common outcome; the computed value replaces it within
-    // the same runCurrent() window in tests, so there is no flash of the wrong greeting.
     private val _greeting = MutableStateFlow("Good evening")
     val greeting: StateFlow<String> = _greeting.asStateFlow()
 
@@ -197,35 +199,36 @@ class AgendaViewModel(
         }
 
         scope.launch {
-            _reloadTrigger.flatMapLatest { _ ->
-                todayFlow(deps.clock, deps.timeZone.current()).flatMapLatest { today ->
-                    // The projects are observed alongside the tasks: the row needs its
-                    // project's name and colour, and the lookup includes closed projects
-                    // so a badge never vanishes because the project was finished. The
-                    // projects are resolved here — once per list build — and ride on the
-                    // row item, so no row looks a project up.
-                    combine(
-                        deps.taskRepo.observeByFilter(TaskFilter.All)
-                            .distinctUntilChanged(), // skip recompute when task list unchanged
-                        deps.projectsRepository.observeAllIncludingClosed(),
-                    ) { tasks, projects -> tasks to projects }
-                        .onEach { (tasks, _) -> latestTasks.value = tasks }
-                        .map { (tasks, projects) ->
-                            val projectsById = projects.associateBy { it.id.value }
-                            AgendaUiState.Loaded(
-                                sections = AgendaEvaluator
-                                    .evaluate(tasks, definition, today, deps.clock.now(), projectsById)
-                                    .toImmutableList(),
-                                today = today,
-                                greeting = _greeting.value,
-                            )
-                        }
-                }
-            }
-                .catch { cause ->
+            _reloadTrigger
+                .flatMapLatest { _ ->
+                    todayFlow(deps.clock, deps.timeZone.current()).flatMapLatest { today ->
+                        // The projects are observed alongside the tasks: the row needs its
+                        // project's name and colour, and the lookup includes closed projects
+                        // so a badge never vanishes because the project was finished. The
+                        // projects are resolved here — once per list build — and ride on the
+                        // row item, so no row looks a project up.
+                        combine(
+                            deps.taskRepo
+                                .observeByFilter(TaskFilter.All)
+                                .distinctUntilChanged(), // skip recompute when task list unchanged
+                            deps.projectsRepository.observeAllIncludingClosed(),
+                        ) { tasks, projects -> tasks to projects }
+                            .onEach { (tasks, _) -> latestTasks.value = tasks }
+                            .map { (tasks, projects) ->
+                                val projectsById = projects.associateBy { it.id.value }
+                                AgendaUiState.Loaded(
+                                    sections =
+                                        AgendaEvaluator
+                                            .evaluate(tasks, definition, today, deps.clock.now(), projectsById)
+                                            .toImmutableList(),
+                                    today = today,
+                                    greeting = _greeting.value,
+                                )
+                            }
+                    }
+                }.catch { cause ->
                     setState(AgendaUiState.Error(message = cause.toMessage("Could not load agenda")))
-                }
-                .collect { fresh ->
+                }.collect { fresh ->
                     // Reconciliation goes through `updateState`, which is CAS-backed,
                     // because this collector and the selection handlers both write and
                     // the scope is multi-threaded. Reading `_state.value` and then
@@ -247,17 +250,18 @@ class AgendaViewModel(
     }
 
     /** Computes the time-of-day greeting from [greetingSettings] and the current clock hour. */
-    private suspend fun computeGreeting(): String = runCatchingCancellable {
-        val morningEnd = deps.greetingSettings.morningEndHour.first()
-        val afternoonEnd = deps.greetingSettings.afternoonEndHour.first()
-        // localTimeAt(Clock, TimeZone) hides the kotlinx-datetime bridge internally.
-        val hour = localTimeAt(deps.clock, deps.timeZone.current()).hour
-        when {
-            hour < morningEnd -> "Good morning"
-            hour < afternoonEnd -> "Good afternoon"
-            else -> "Good evening"
-        }
-    }.getOrElse { "" }
+    private suspend fun computeGreeting(): String =
+        runCatchingCancellable {
+            val morningEnd = deps.greetingSettings.morningEndHour.first()
+            val afternoonEnd = deps.greetingSettings.afternoonEndHour.first()
+            // localTimeAt(Clock, TimeZone) hides the kotlinx-datetime bridge internally.
+            val hour = localTimeAt(deps.clock, deps.timeZone.current()).hour
+            when {
+                hour < morningEnd -> "Good morning"
+                hour < afternoonEnd -> "Good afternoon"
+                else -> "Good evening"
+            }
+        }.getOrElse { "" }
 
     private fun AgendaUiState.Loaded.taskIds(): Set<TaskId> =
         sections.flatMapTo(mutableSetOf()) { section -> section.tasks.map { it.task.id } }
@@ -278,91 +282,129 @@ class AgendaViewModel(
     @Suppress("CyclomaticComplexMethod") // 14 intents is intentional; extract when this grows further
     override fun onIntent(intent: AgendaIntent) {
         when (intent) {
-            is AgendaIntent.TaskClicked -> with(intent) {
-                if ((currentState as? AgendaUiState.Loaded)?.isSelectionMode == true) {
-                    scope.launch { updateSelection(selectedIds(), toggled = taskId) }
-                } else {
-                    scope.launch { emit(AgendaUiEvent.NavigateToTask(taskId)) }
+            is AgendaIntent.TaskClicked -> {
+                with(intent) {
+                    if ((currentState as? AgendaUiState.Loaded)?.isSelectionMode == true) {
+                        scope.launch { updateSelection(selectedIds(), toggled = taskId) }
+                    } else {
+                        scope.launch { emit(AgendaUiEvent.NavigateToTask(taskId)) }
+                    }
                 }
             }
 
-            is AgendaIntent.TaskCheckClicked -> with(intent) {
-                scope.launch { handleTaskCheckClicked(taskId) }
-            }
-
-            is AgendaIntent.ConfirmBlockedClose -> with(intent) {
-                scope.launch {
-                    val request = (currentState as? AgendaUiState.Loaded)?.pendingBlockedClose
-                    if (request == null || request.taskId != taskId) return@launch
-                    setBlockedClose(null)
-                    deps.taskRepo.complete(taskId, force = true)
-                        .onFailure { report(it, TOGGLE_COMPLETE_FAILED, "Could not update task") }
+            is AgendaIntent.TaskCheckClicked -> {
+                with(intent) {
+                    scope.launch { handleTaskCheckClicked(taskId) }
                 }
             }
 
-            is AgendaIntent.DismissBlockedClose -> setBlockedClose(null)
-
-            is AgendaIntent.ConfirmBlockedBulkClose -> scope.launch { handleConfirmedBulkClose() }
-
-            is AgendaIntent.DismissBlockedBulkClose -> setBlockedBulkClose(null)
-
-            is AgendaIntent.TaskLongClicked -> with(intent) {
-                if ((currentState as? AgendaUiState.Loaded)?.isSelectionMode == true) {
-                    // Already in selection mode — ignore long-press, click handles selection.
-                } else {
-                    scope.launch { updateSelection(setOf(taskId)) }
+            is AgendaIntent.ConfirmBlockedClose -> {
+                with(intent) {
+                    scope.launch {
+                        val request = (currentState as? AgendaUiState.Loaded)?.pendingBlockedClose
+                        if (request == null || request.taskId != taskId) return@launch
+                        setBlockedClose(null)
+                        deps.taskRepo
+                            .complete(taskId, force = true)
+                            .onFailure { report(it, TOGGLE_COMPLETE_FAILED, "Could not update task") }
+                    }
                 }
             }
 
-            is AgendaIntent.TaskPinClicked -> with(intent) {
-                scope.launch {
-                    deps.taskRepo.togglePinned(taskId)
-                        .onFailure { report(it, TOGGLE_PINNED_FAILED, "Could not update task") }
+            is AgendaIntent.DismissBlockedClose -> {
+                setBlockedClose(null)
+            }
+
+            is AgendaIntent.ConfirmBlockedBulkClose -> {
+                scope.launch { handleConfirmedBulkClose() }
+            }
+
+            is AgendaIntent.DismissBlockedBulkClose -> {
+                setBlockedBulkClose(null)
+            }
+
+            is AgendaIntent.TaskLongClicked -> {
+                with(intent) {
+                    if ((currentState as? AgendaUiState.Loaded)?.isSelectionMode == true) {
+                        // Already in selection mode — ignore long-press, click handles selection.
+                    } else {
+                        scope.launch { updateSelection(setOf(taskId)) }
+                    }
                 }
             }
 
-            is AgendaIntent.TaskDeleteClicked -> with(intent) {
-                scope.launch { handleTaskDelete(intent.taskId) }
+            is AgendaIntent.TaskPinClicked -> {
+                with(intent) {
+                    scope.launch {
+                        deps.taskRepo
+                            .togglePinned(taskId)
+                            .onFailure { report(it, TOGGLE_PINNED_FAILED, "Could not update task") }
+                    }
+                }
+            }
+
+            is AgendaIntent.TaskDeleteClicked -> {
+                with(intent) {
+                    scope.launch { handleTaskDelete(intent.taskId) }
+                }
             }
 
             is AgendaIntent.UndoDeleteTapped -> {
                 scope.launch { handleUndoDeleteTapped() }
             }
 
-            is AgendaIntent.TaskExpandClicked -> with(intent) {
-                scope.launch { emit(AgendaUiEvent.ExpandTask(taskId)) }
+            is AgendaIntent.TaskExpandClicked -> {
+                with(intent) {
+                    scope.launch { emit(AgendaUiEvent.ExpandTask(taskId)) }
+                }
             }
 
-            is AgendaIntent.CreateInSection -> with(intent) {
-                scope.launch { handleCreateInSection(intent.sectionId) }
+            is AgendaIntent.CreateInSection -> {
+                with(intent) {
+                    scope.launch { handleCreateInSection(intent.sectionId) }
+                }
             }
 
-            is AgendaIntent.CreateOnDates -> with(intent) {
-                scope.launch { handleCreateOnDates(intent.dates) }
+            is AgendaIntent.CreateOnDates -> {
+                with(intent) {
+                    scope.launch { handleCreateOnDates(intent.dates) }
+                }
             }
 
-            is AgendaIntent.EnterSelectionMode -> with(intent) {
-                scope.launch { updateSelection(setOf(taskId)) }
+            is AgendaIntent.EnterSelectionMode -> {
+                with(intent) {
+                    scope.launch { updateSelection(setOf(taskId)) }
+                }
             }
 
-            is AgendaIntent.ToggleSelection -> with(intent) {
-                scope.launch { updateSelection(selectedIds(), toggled = taskId) }
+            is AgendaIntent.ToggleSelection -> {
+                with(intent) {
+                    scope.launch { updateSelection(selectedIds(), toggled = taskId) }
+                }
             }
 
-            is AgendaIntent.ExitSelectionMode -> with(intent) {
-                updateSelection(emptySet())
+            is AgendaIntent.ExitSelectionMode -> {
+                with(intent) {
+                    updateSelection(emptySet())
+                }
             }
 
-            is AgendaIntent.DeleteSelected -> with(intent) {
-                scope.launch { handleBulkDelete() }
+            is AgendaIntent.DeleteSelected -> {
+                with(intent) {
+                    scope.launch { handleBulkDelete() }
+                }
             }
 
-            is AgendaIntent.CompleteSelected -> with(intent) {
-                scope.launch { handleBulkComplete() }
+            is AgendaIntent.CompleteSelected -> {
+                with(intent) {
+                    scope.launch { handleBulkComplete() }
+                }
             }
 
-            is AgendaIntent.MergeSelectedSeries -> with(intent) {
-                scope.launch { handleMergeSeries() }
+            is AgendaIntent.MergeSelectedSeries -> {
+                with(intent) {
+                    scope.launch { handleMergeSeries() }
+                }
             }
 
             is AgendaIntent.Retry, is AgendaIntent.Reload -> {
@@ -383,10 +425,11 @@ class AgendaViewModel(
     private suspend fun handleTaskCheckClicked(taskId: TaskId) {
         val task = latestTasks.value.firstOrNull { it.id == taskId }
         if (task != null && task.completedAt == null) {
-            val completed = deps.taskRepo.complete(taskId).getOrElse {
-                report(it, TOGGLE_COMPLETE_FAILED, "Could not update task")
-                return
-            }
+            val completed =
+                deps.taskRepo.complete(taskId).getOrElse {
+                    report(it, TOGGLE_COMPLETE_FAILED, "Could not update task")
+                    return
+                }
             if (!completed) {
                 val blockers = Blocking.activeBlockers(task, latestTasks.value)
                 if (blockers.isEmpty()) {
@@ -411,7 +454,8 @@ class AgendaViewModel(
         }
         // Taking a task back into work is never gated — and it brings its
         // project back with it when that project was closed.
-        deps.completion.reopen(taskId)
+        deps.completion
+            .reopen(taskId)
             .onFailure { report(it, TOGGLE_COMPLETE_FAILED, "Could not update task") }
     }
 
@@ -422,10 +466,11 @@ class AgendaViewModel(
      * State, not an event: the dialog has to survive a rotation, and a one-shot
      * event is gone by the time the screen comes back.
      */
-    private fun setBlockedClose(request: BlockedCloseRequest?) = updateState { current ->
-        val loaded = current as? AgendaUiState.Loaded ?: return@updateState current
-        loaded.copy(pendingBlockedClose = request)
-    }
+    private fun setBlockedClose(request: BlockedCloseRequest?) =
+        updateState { current ->
+            val loaded = current as? AgendaUiState.Loaded ?: return@updateState current
+            loaded.copy(pendingBlockedClose = request)
+        }
 
     /**
      * Publishes the confirmation for a selection that cannot be closed without a
@@ -434,10 +479,11 @@ class AgendaViewModel(
      * The bulk counterpart of [setBlockedClose]: the same question, asked about
      * a selection. It is state, not an event, for the same reason.
      */
-    private fun setBlockedBulkClose(request: BlockedBulkCloseRequest?) = updateState { current ->
-        val loaded = current as? AgendaUiState.Loaded ?: return@updateState current
-        loaded.copy(pendingBlockedBulkClose = request)
-    }
+    private fun setBlockedBulkClose(request: BlockedBulkCloseRequest?) =
+        updateState { current ->
+            val loaded = current as? AgendaUiState.Loaded ?: return@updateState current
+            loaded.copy(pendingBlockedBulkClose = request)
+        }
 
     // ── Selection handlers ──────────────────────────────────────────────────────
 
@@ -448,8 +494,7 @@ class AgendaViewModel(
     // had to remember the second step, and nothing enforced that a new one would.
 
     /** The ids currently selected, read from the single state. */
-    private fun selectedIds(): Set<TaskId> =
-        (currentState as? AgendaUiState.Loaded)?.selectedTaskIds ?: emptySet()
+    private fun selectedIds(): Set<TaskId> = (currentState as? AgendaUiState.Loaded)?.selectedTaskIds ?: emptySet()
 
     /**
      * Write the selection and derive the mode from it.
@@ -465,13 +510,17 @@ class AgendaViewModel(
      *   task leaves selection mode, because the action row and the per-row
      *   checkbox are both driven by that flag.
      */
-    private fun updateSelection(ids: Set<TaskId>, toggled: TaskId? = null) = updateState { current ->
+    private fun updateSelection(
+        ids: Set<TaskId>,
+        toggled: TaskId? = null,
+    ) = updateState { current ->
         val loaded = current as? AgendaUiState.Loaded ?: return@updateState current
-        val next = when {
-            toggled == null -> ids
-            toggled in ids -> ids - toggled
-            else -> ids + toggled
-        }
+        val next =
+            when {
+                toggled == null -> ids
+                toggled in ids -> ids - toggled
+                else -> ids + toggled
+            }
         loaded.copy(
             isSelectionMode = next.isNotEmpty(),
             selectedTaskIds = next.toImmutableSet(),
@@ -524,10 +573,11 @@ class AgendaViewModel(
 
     /** The series the selected rows belong to, in the order they were selected. */
     private fun selectedSeriesIds(ids: Set<TaskId>): List<TaskSeriesId> {
-        val rows = (currentState as? AgendaUiState.Loaded)
-            ?.sections
-            ?.flatMap { it.tasks }
-            .orEmpty()
+        val rows =
+            (currentState as? AgendaUiState.Loaded)
+                ?.sections
+                ?.flatMap { it.tasks }
+                .orEmpty()
         return ids.mapNotNull { id -> rows.firstOrNull { it.task.id == id }?.task?.seriesId }.distinct()
     }
 
@@ -587,9 +637,11 @@ class AgendaViewModel(
                         BlockedBulkCloseRequest(
                             taskIds = ids,
                             blockedTaskIds = blocked,
-                            blockedTaskTitles = blocked.mapNotNull { id ->
-                                latestTasks.value.firstOrNull { it.id == id }?.title
-                            }.toImmutableList(),
+                            blockedTaskTitles =
+                                blocked
+                                    .mapNotNull { id ->
+                                        latestTasks.value.firstOrNull { it.id == id }?.title
+                                    }.toImmutableList(),
                         ),
                     )
                 } else {
@@ -612,12 +664,12 @@ class AgendaViewModel(
         setBlockedBulkClose(null)
         val ids = request.taskIds
         if (ids.isEmpty()) return
-        deps.taskMutations.bulkComplete(ids, force = true)
+        deps.taskMutations
+            .bulkComplete(ids, force = true)
             .onSuccess {
                 updateSelection(emptySet())
                 emit(AgendaUiEvent.BulkOperationDone(count = ids.size, operation = "completed"))
-            }
-            .onFailure { error ->
+            }.onFailure { error ->
                 crashReporter.report(error, BULK_COMPLETE_FAILED)
                 emit(AgendaUiEvent.BulkOperationDone(count = 0, operation = "completed", error = error.message))
             }
@@ -707,24 +759,30 @@ class AgendaViewModel(
      * `restore` re-uses the original id, so a repeated attempt is safe rather than
      * impossible — the timer bounds how long the offer stays up.
      */
-    private fun handleUndoDeleteTapped() = scope.launch {
-        val pending = _pendingDelete.value ?: return@launch
-        var failed = false
-        pending.taskIds.forEach { id ->
-            deps.taskRepo.restore(id)
-                .onFailure {
-                    failed = true
-                    report(it, RESTORE_FAILED, "Could not restore")
-                }
+    private fun handleUndoDeleteTapped() =
+        scope.launch {
+            val pending = _pendingDelete.value ?: return@launch
+            var failed = false
+            pending.taskIds.forEach { id ->
+                deps.taskRepo
+                    .restore(id)
+                    .onFailure {
+                        failed = true
+                        report(it, RESTORE_FAILED, "Could not restore")
+                    }
+            }
+            if (!failed) {
+                countdown.cancel()
+                _pendingDelete.value = null
+            }
         }
-        if (!failed) {
-            countdown.cancel()
-            _pendingDelete.value = null
-        }
-    }
 
     /** Reports a failure to the crash reporter and to the user. */
-    private suspend fun report(error: Throwable, label: String, message: String) {
+    private suspend fun report(
+        error: Throwable,
+        label: String,
+        message: String,
+    ) {
         crashReporter.report(error, label)
         emit(AgendaUiEvent.ShowError(message))
     }
@@ -751,18 +809,21 @@ class AgendaViewModel(
         // `todayAt` requires the zone explicitly (#91). It used to default to the
         // host's, which made a saved view resolve 'today' differently on two machines
         // with the same fake clock — a template that is not reproducible.
-        val resolvedDue = sectionPrefill.dueDate
-            ?: sectionPrefill.relativeDueDate
-                ?.toDateRange(todayAt(deps.clock, deps.timeZone.current()))
-                ?.from
+        val resolvedDue =
+            sectionPrefill.dueDate
+                ?: sectionPrefill.relativeDueDate
+                    ?.toDateRange(todayAt(deps.clock, deps.timeZone.current()))
+                    ?.from
 
         // Build a TaskDraft from the section prefill
-        val draft = TaskDraft(
-            // The prefill's title comes from outside the field, so the field never produced it.
-            title = FieldOwnedText.empty().seeded(sectionPrefill.title ?: ""),
-            dueDate = resolvedDue?.let { DueDateOption.Custom(it, it.toString()) }
-                ?: DueDateOption.None,
-        )
+        val draft =
+            TaskDraft(
+                // The prefill's title comes from outside the field, so the field never produced it.
+                title = FieldOwnedText.empty().seeded(sectionPrefill.title ?: ""),
+                dueDate =
+                    resolvedDue?.let { DueDateOption.Custom(it, it.toString()) }
+                        ?: DueDateOption.None,
+            )
 
         // Save to DraftStore under the section's key. The key is built in one
         // place — TaskDraftKeys — so the navigator that points the editor at it
@@ -785,10 +846,11 @@ class AgendaViewModel(
         val sorted = dates.sorted()
         if (sorted.isEmpty()) return
         val primary = sorted.first()
-        val draft = TaskDraft(
-            dueDate = DueDateOption.Custom(primary, primary.toString()),
-            extraDueDates = sorted.drop(1),
-        )
+        val draft =
+            TaskDraft(
+                dueDate = DueDateOption.Custom(primary, primary.toString()),
+                extraDueDates = sorted.drop(1),
+            )
         val key = TaskDraftKeys.AGENDA_MULTI_DATE
         deps.draftStore.save(key, draft, TaskDraft.serializer())
         emit(AgendaUiEvent.OpenCreateWithDates(key))

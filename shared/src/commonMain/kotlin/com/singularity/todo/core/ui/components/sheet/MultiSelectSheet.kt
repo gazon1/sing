@@ -88,22 +88,24 @@ fun <T> MultiSelectSheet(
                 )
             } else {
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 480.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 480.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
                     items(items, key = { it.key.toString() }) { item ->
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                // A modal sheet is its own window, so the
-                                // app-root testTagsAsResourceId does not reach
-                                // its rows.
-                                .mapTestTagsAsResourceIds()
-                                .then(item.testTag?.let { Modifier.testTag(it) } ?: Modifier)
-                                .clickable { onToggle(item.key) }
-                                .padding(vertical = 10.dp, horizontal = 4.dp),
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    // A modal sheet is its own window, so the
+                                    // app-root testTagsAsResourceId does not reach
+                                    // its rows.
+                                    .mapTestTagsAsResourceIds()
+                                    .then(item.testTag?.let { Modifier.testTag(it) } ?: Modifier)
+                                    .clickable { onToggle(item.key) }
+                                    .padding(vertical = 10.dp, horizontal = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
@@ -125,10 +127,11 @@ fun <T> MultiSelectSheet(
             androidx.compose.material3.Button(
                 onClick = onConfirm,
                 enabled = selectedKeys.isNotEmpty(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .semantics { contentDescription = confirmLabel }
-                    .then(confirmTestTag?.let { Modifier.testTag(it) } ?: Modifier),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .semantics { contentDescription = confirmLabel }
+                        .then(confirmTestTag?.let { Modifier.testTag(it) } ?: Modifier),
             ) {
                 Text(confirmLabel)
             }

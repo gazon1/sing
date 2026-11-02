@@ -69,7 +69,10 @@ class SimpleFilterBuilder {
      * @param matchAll When true, all added tags use matchAll semantics.
      *                 Defaults to false (OR semantics between tags).
      */
-    fun tag(name: String, matchAll: Boolean = false) {
+    fun tag(
+        name: String,
+        matchAll: Boolean = false,
+    ) {
         tagNames.add(name)
         if (matchAll) matchAllTags = true
     }
@@ -82,7 +85,10 @@ class SimpleFilterBuilder {
         due = condition
     }
 
-    fun customDueRange(from: LocalDate, to: LocalDate) {
+    fun customDueRange(
+        from: LocalDate,
+        to: LocalDate,
+    ) {
         due = SimpleFilter.DueCondition.CUSTOM
         customDueDate = from
         customDueDateEnd = to
@@ -104,21 +110,22 @@ class SimpleFilterBuilder {
         sortDescending = value
     }
 
-    fun build(): SimpleFilter = SimpleFilter(
-        states = states,
-        priorities = priorities,
-        tagNames = tagNames.toSet(),
-        matchAllTags = matchAllTags,
-        projectName = projectName,
-        due = due,
-        customDueDate = customDueDate,
-        customDueDateEnd = customDueDateEnd,
-        hasDescription = hasDescription,
-        pinned = pinned,
-        sortOrder = sortOrder,
-        sortDescending = sortDescending,
-        freeText = freeTextValue,
-    )
+    fun build(): SimpleFilter =
+        SimpleFilter(
+            states = states,
+            priorities = priorities,
+            tagNames = tagNames.toSet(),
+            matchAllTags = matchAllTags,
+            projectName = projectName,
+            due = due,
+            customDueDate = customDueDate,
+            customDueDateEnd = customDueDateEnd,
+            hasDescription = hasDescription,
+            pinned = pinned,
+            sortOrder = sortOrder,
+            sortDescending = sortDescending,
+            freeText = freeTextValue,
+        )
 }
 
 /**

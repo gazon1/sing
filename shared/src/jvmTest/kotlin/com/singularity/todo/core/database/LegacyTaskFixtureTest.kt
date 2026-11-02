@@ -26,7 +26,6 @@ import kotlin.test.assertEquals
  */
 @Tag("slow")
 class LegacyTaskFixtureTest {
-
     private lateinit var tempDir: File
     private lateinit var dbPath: String
 
@@ -74,15 +73,16 @@ class LegacyTaskFixtureTest {
         createSqlDriver().open(dbPath).use { connection ->
             insertLegacyTask(connection, id = "t1")
 
-            val row = connection.prepare("SELECT id, title, user_id, someday FROM tasks").use { statement ->
-                assertEquals(true, statement.step(), "the row must be there")
-                listOf(
-                    statement.getText(0),
-                    statement.getText(1),
-                    statement.getText(2),
-                    statement.getInt(3),
-                )
-            }
+            val row =
+                connection.prepare("SELECT id, title, user_id, someday FROM tasks").use { statement ->
+                    assertEquals(true, statement.step(), "the row must be there")
+                    listOf(
+                        statement.getText(0),
+                        statement.getText(1),
+                        statement.getText(2),
+                        statement.getInt(3),
+                    )
+                }
             assertEquals(listOf("t1", "Task t1", "u1", 0), row)
         }
     }
@@ -99,10 +99,11 @@ class LegacyTaskFixtureTest {
                 columns = mapOf("due_date" to "2026-10-22", "series_id" to "series-1"),
             )
 
-            val row = connection.prepare("SELECT title, due_date, series_id FROM tasks").use { statement ->
-                assertEquals(true, statement.step(), "the row must be there")
-                listOf(statement.getText(0), statement.getText(1), statement.getText(2))
-            }
+            val row =
+                connection.prepare("SELECT title, due_date, series_id FROM tasks").use { statement ->
+                    assertEquals(true, statement.step(), "the row must be there")
+                    listOf(statement.getText(0), statement.getText(1), statement.getText(2))
+                }
             assertEquals(listOf("Buy milk", "2026-10-22", "series-1"), row)
         }
     }
@@ -114,10 +115,11 @@ class LegacyTaskFixtureTest {
         createSqlDriver().open(dbPath).use { connection ->
             insertLegacyTask(connection, id = "t3")
 
-            val links = connection.prepare("SELECT outgoing_links FROM tasks").use { statement ->
-                assertEquals(true, statement.step(), "the row must be there")
-                statement.getText(0)
-            }
+            val links =
+                connection.prepare("SELECT outgoing_links FROM tasks").use { statement ->
+                    assertEquals(true, statement.step(), "the row must be there")
+                    statement.getText(0)
+                }
             assertEquals(
                 "[]",
                 links,
@@ -135,10 +137,11 @@ class LegacyTaskFixtureTest {
 
             insertLegacyTask(connection, id = "t4")
 
-            val row = connection.prepare("SELECT mystery, note FROM tasks").use { statement ->
-                assertEquals(true, statement.step(), "the row must be there")
-                listOf(statement.getInt(0), statement.getText(1))
-            }
+            val row =
+                connection.prepare("SELECT mystery, note FROM tasks").use { statement ->
+                    assertEquals(true, statement.step(), "the row must be there")
+                    listOf(statement.getInt(0), statement.getText(1))
+                }
             assertEquals(listOf(0, ""), row)
         }
     }

@@ -39,88 +39,95 @@ import kotlin.time.Clock
  * - [NoteEditor] — editing session, autosave, AI improve
  * - [NotePreview] — read-only view of a single note and its backlinks
  */
-fun notesModule(): org.koin.core.module.Module = module {
-    // ─── Repository ─────────────────────────────────────────────────────
+fun notesModule(): org.koin.core.module.Module =
+    module {
+        // ─── Repository ─────────────────────────────────────────────────────
 
-    single<NotesRepository> {
-        NotesRepositoryImpl(
-            noteDao = get(),
-            textIndex = get(),
-            clock = get(),
-            currentUser = get(),
-            syncRepository = get(),
-            unitOfWork = get(),
-        )
+        single<NotesRepository> {
+            NotesRepositoryImpl(
+                noteDao = get(),
+                textIndex = get(),
+                clock = get(),
+                currentUser = get(),
+                syncRepository = get(),
+                unitOfWork = get(),
+            )
+        }
+        single<InternalLinkRepository> {
+            InternalLinkRepositoryImpl(
+                noteDao = get(),
+                taskDao = get(),
+                textIndex = get(),
+                currentUser = get(),
+            )
+        }
+
+        // ─── ViewModels ─────────────────────────────────────────────────────
+
+        viewModel { NotesListViewModel(repo = get(), crashReporter = get()) }
+
+        // NoteEditor: ai is optional — improveNote is null when AI is not configured
+        // (the AI button will be hidden in UI when NoteAiController.isAvailable == false).
+        // proposals wire the note-AI-through-proposals flow (MR-A3): the editor saves the
+        // proposed change, and the note's own screen shows it for the user's word.
+        //
+        // `getOptionalOrNull`, not `getOrNull`: an AI binding that *exists* but cannot
+        // be created is a broken binding, not a missing feature, and it used to take
+        // the whole editor down in composition instead of degrading to "AI is not
+        // configured". The failure is logged, so a broken binding is still visible.
+        viewModel {
+            NoteEditor(
+                repo = get(),
+                linkRepo = get(),
+                idGen = get(),
+                ai =
+                    NoteAiController(
+                        improveNote =
+                            getOptionalOrNull<ImproveNoteUseCase> { reportBrokenAi(it) }
+                                ?.let(::improveNoteLambda),
+                        summarizeNote =
+                            getOptionalOrNull<SummarizeNoteUseCase> { reportBrokenAi(it) }
+                                ?.let(::summarizeNoteLambda),
+                        extractActions =
+                            getOptionalOrNull<ExtractActionsUseCase> { reportBrokenAi(it) }
+                                ?.let(::extractActionsLambda),
+                        rewriteNote =
+                            getOptionalOrNull<RewriteNoteUseCase> { reportBrokenAi(it) }
+                                ?.let(::rewriteNoteLambda),
+                        suggestTags =
+                            getOptionalOrNull<SuggestTagsUseCase> { reportBrokenAi(it) }
+                                ?.let(::suggestTagsLambda),
+                    ),
+                proposals = get<ProposalRepository>(),
+                log = get<Logger>(),
+                currentUser = get<ProfileAwareCurrentUser>(),
+                clock = get<Clock>(),
+                // scope omitted — the default derives its failure policy from crashReporter
+                crashReporter = get<CrashReportingPort>(),
+            )
+        }
+
+        // The AI's proposed changes to a note, and the user's answer to them. The note
+        // id is a runtime parameter — it arrives with the route.
+        viewModel { (noteId: NoteId) ->
+            NoteProposalsViewModel(
+                noteId = noteId,
+                proposals = get<ProposalRepository>(),
+                applyProposalItem = get<ApplyProposalItemUseCase>(),
+                editProposalItem = get<EditProposalItemUseCase>(),
+                currentUser = get<ProfileAwareCurrentUser>(),
+                crashReporter = get<CrashReportingPort>(),
+            )
+        }
+
+        viewModel {
+            NotePreview(
+                repo = get(),
+                linkRepo = get(),
+                crashReporter = get(),
+            )
+        }
     }
-    single<InternalLinkRepository> {
-        InternalLinkRepositoryImpl(
-            noteDao = get(),
-            taskDao = get(),
-            textIndex = get(),
-            currentUser = get(),
-        )
-    }
-
-    // ─── ViewModels ─────────────────────────────────────────────────────
-
-    viewModel { NotesListViewModel(repo = get(), crashReporter = get()) }
-
-    // NoteEditor: ai is optional — improveNote is null when AI is not configured
-    // (the AI button will be hidden in UI when NoteAiController.isAvailable == false).
-    // proposals wire the note-AI-through-proposals flow (MR-A3): the editor saves the
-    // proposed change, and the note's own screen shows it for the user's word.
-    //
-    // `getOptionalOrNull`, not `getOrNull`: an AI binding that *exists* but cannot
-    // be created is a broken binding, not a missing feature, and it used to take
-    // the whole editor down in composition instead of degrading to "AI is not
-    // configured". The failure is logged, so a broken binding is still visible.
-    viewModel {
-        NoteEditor(
-            repo = get(),
-            linkRepo = get(),
-            idGen = get(),
-            ai = NoteAiController(
-                improveNote = getOptionalOrNull<ImproveNoteUseCase> { reportBrokenAi(it) }
-                    ?.let(::improveNoteLambda),
-                summarizeNote = getOptionalOrNull<SummarizeNoteUseCase> { reportBrokenAi(it) }
-                    ?.let(::summarizeNoteLambda),
-                extractActions = getOptionalOrNull<ExtractActionsUseCase> { reportBrokenAi(it) }
-                    ?.let(::extractActionsLambda),
-                rewriteNote = getOptionalOrNull<RewriteNoteUseCase> { reportBrokenAi(it) }
-                    ?.let(::rewriteNoteLambda),
-                suggestTags = getOptionalOrNull<SuggestTagsUseCase> { reportBrokenAi(it) }
-                    ?.let(::suggestTagsLambda),
-            ),
-            proposals = get<ProposalRepository>(),
-            log = get<Logger>(),
-            currentUser = get<ProfileAwareCurrentUser>(),
-            clock = get<Clock>(),
-            // scope omitted — the default derives its failure policy from crashReporter
-            crashReporter = get<CrashReportingPort>(),
-        )
-    }
-
-    // The AI's proposed changes to a note, and the user's answer to them. The note
-    // id is a runtime parameter — it arrives with the route.
-    viewModel { (noteId: NoteId) ->
-        NoteProposalsViewModel(
-            noteId = noteId,
-            proposals = get<ProposalRepository>(),
-            applyProposalItem = get<ApplyProposalItemUseCase>(),
-            editProposalItem = get<EditProposalItemUseCase>(),
-            currentUser = get<ProfileAwareCurrentUser>(),
-            crashReporter = get<CrashReportingPort>(),
-        )
-    }
-
-    viewModel {
-        NotePreview(
-            repo = get(),
-            linkRepo = get(),
-            crashReporter = get(),
-        )
-    }
-}
 
 /**
  * Reports an AI binding that exists but cannot be created.

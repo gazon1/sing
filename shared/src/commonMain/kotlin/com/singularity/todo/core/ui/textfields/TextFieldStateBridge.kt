@@ -74,15 +74,16 @@ internal fun shouldPullExternalText(
     currentText: String,
     pushedValues: List<String> = emptyList(),
     isDeliberateRewrite: Boolean = false,
-): Boolean = if (isDeliberateRewrite) {
-    // A declared rewrite wins over whatever the field holds — but there is nothing to
-    // write when the field already shows that text.
-    externalText != currentText
-} else {
-    externalText != lastEmitted &&
-        externalText != currentText &&
-        pushedValues.none { it == externalText }
-}
+): Boolean =
+    if (isDeliberateRewrite) {
+        // A declared rewrite wins over whatever the field holds — but there is nothing to
+        // write when the field already shows that text.
+        externalText != currentText
+    } else {
+        externalText != lastEmitted &&
+            externalText != currentText &&
+            pushedValues.none { it == externalText }
+    }
 
 /**
  * Decides whether the field's text must be pushed upstream.
@@ -96,8 +97,10 @@ internal fun shouldPullExternalText(
  * @param externalText the upstream value.
  * @return `true` when [fieldText] must be pushed upstream.
  */
-internal fun shouldPushFieldText(fieldText: String, externalText: String): Boolean =
-    fieldText != externalText
+internal fun shouldPushFieldText(
+    fieldText: String,
+    externalText: String,
+): Boolean = fieldText != externalText
 
 /**
  * Decides whether the field's text must be pushed when the field leaves the composition.
@@ -137,7 +140,6 @@ internal fun shouldFlushOnDispose(
  * frame does not need.
  */
 private class BridgeHistory(initialText: String, initialRevision: Long?) {
-
     /** The last text the field held, seed included. */
     var lastEmitted: String = initialText
 
@@ -279,13 +281,14 @@ private fun rememberBridgedTextFieldState(
         if (isRewrite) {
             history.lastRevision = revision
         }
-        val shouldPull = shouldPullExternalText(
-            externalText = externalText,
-            lastEmitted = history.lastEmitted,
-            currentText = state.text.toString(),
-            pushedValues = history.pushedValues,
-            isDeliberateRewrite = isRewrite,
-        )
+        val shouldPull =
+            shouldPullExternalText(
+                externalText = externalText,
+                lastEmitted = history.lastEmitted,
+                currentText = state.text.toString(),
+                pushedValues = history.pushedValues,
+                isDeliberateRewrite = isRewrite,
+            )
         if (shouldPull) {
             state.setTextAndPlaceCursorAtEnd(externalText)
         }

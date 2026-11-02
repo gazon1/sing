@@ -3,20 +3,21 @@ package com.singularity.todo.core.backup
 import com.singularity.todo.core.database.ChecklistItemEntity
 import com.singularity.todo.core.database.LocalTimeFormats
 import com.singularity.todo.core.database.SyncColumns
-import com.singularity.todo.core.database.toWorkflowState
 import com.singularity.todo.core.database.TaskDependencyCrossRef
 import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.TaskReminderEntity
 import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.database.toLocalTimeOrNull
+import com.singularity.todo.core.database.toWorkflowState
 import com.singularity.todo.feature.timetracking.data.TimeEntryEntity
 import kotlinx.datetime.LocalTime
 import kotlinx.serialization.Serializable
 
+// ─── TaskDto ───────────────────────────────────────────────────────────────────
+
 /**
  * The task rows of a payload: the task itself, and the rows that hang off it.
  */
-// ─── TaskDto ───────────────────────────────────────────────────────────────────
 
 @Serializable
 data class TaskDto(

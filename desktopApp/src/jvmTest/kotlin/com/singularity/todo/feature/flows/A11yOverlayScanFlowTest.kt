@@ -59,7 +59,6 @@ import kotlin.time.Instant
 @Tag("slow")
 @Tag("slow:compose")
 class A11yOverlayScanFlowTest {
-
     /**
      * A bottom sheet opens its own root, and the scan walks it while it is open.
      *
@@ -101,9 +100,16 @@ class A11yOverlayScanFlowTest {
             // The app window behind the sheet has nothing to report; everything
             // the scan found belongs to the sheet's own root.
             assertTrue(
-                scan.roots.first().violations.isEmpty(),
+                scan.roots
+                    .first()
+                    .violations
+                    .isEmpty(),
                 "the app window behind the sheet has clickable nodes that announce " +
-                    "nothing:\n" + scan.roots.first().violations.joinToString("\n"),
+                    "nothing:\n" +
+                    scan.roots
+                        .first()
+                        .violations
+                        .joinToString("\n"),
             )
             if (sheetRoot.violations.isNotEmpty()) {
                 println(
@@ -197,9 +203,16 @@ class A11yOverlayScanFlowTest {
             // The app window behind the dialog has nothing to report; everything
             // the scan found belongs to the dialog's own root.
             assertTrue(
-                scan.roots.first().violations.isEmpty(),
+                scan.roots
+                    .first()
+                    .violations
+                    .isEmpty(),
                 "the app window behind the dialog has clickable nodes that announce " +
-                    "nothing:\n" + scan.roots.first().violations.joinToString("\n"),
+                    "nothing:\n" +
+                    scan.roots
+                        .first()
+                        .violations
+                        .joinToString("\n"),
             )
             if (dialogRoot.violations.isNotEmpty()) {
                 println(

@@ -38,52 +38,72 @@ data class BackupFailure(
  * A failure that is not one of ours keeps the code and the sentence it came with;
  * only the backup's own failures are translated.
  */
-fun backupFailure(error: Throwable, fallback: BackupFailure): BackupFailure =
+fun backupFailure(
+    error: Throwable,
+    fallback: BackupFailure,
+): BackupFailure =
     when (error) {
-        is ArchiveEnvelopeError.WrongPassword ->
+        is ArchiveEnvelopeError.WrongPassword -> {
             BackupFailure(WRONG_PASSWORD, "That password does not open the archive")
+        }
 
-        is ArchiveEnvelopeError.NotEncrypted ->
+        is ArchiveEnvelopeError.NotEncrypted -> {
             BackupFailure(NOT_ENCRYPTED, "That file is not an encrypted archive")
+        }
 
-        is ArchiveEnvelopeError.MissingPassword ->
+        is ArchiveEnvelopeError.MissingPassword -> {
             BackupFailure(MISSING_PASSWORD, "A backup needs a password")
+        }
 
-        is ArchiveEnvelopeError.UnsupportedArchiveVersion ->
+        is ArchiveEnvelopeError.UnsupportedArchiveVersion -> {
             BackupFailure(UNSUPPORTED_ARCHIVE_VERSION, "That archive is in a format this app does not read")
+        }
 
-        is ArchiveEnvelopeError.BrokenChain ->
+        is ArchiveEnvelopeError.BrokenChain -> {
             BackupFailure(BROKEN_CHAIN, "That archive's chain of changes is broken")
+        }
 
-        is ArchiveEnvelopeError.ChainTooLong ->
+        is ArchiveEnvelopeError.ChainTooLong -> {
             BackupFailure(CHAIN_TOO_LONG, "That archive carries more changes than this app reads")
+        }
 
-        is BackupPayloadError.ChecksumMismatch ->
+        is BackupPayloadError.ChecksumMismatch -> {
             BackupFailure(CHECKSUM_MISMATCH, "That archive's contents do not match its manifest")
+        }
 
-        is BackupPayloadError.MalformedManifest ->
+        is BackupPayloadError.MalformedManifest -> {
             BackupFailure(MALFORMED_MANIFEST, "That archive's manifest cannot be read")
+        }
 
-        is BackupPayloadError.UnsupportedFormatVersion ->
+        is BackupPayloadError.UnsupportedFormatVersion -> {
             BackupFailure(UNSUPPORTED_FORMAT_VERSION, "That archive's format is newer than this app")
+        }
 
-        is BackupPayloadError.UnsupportedSchemaVersion ->
+        is BackupPayloadError.UnsupportedSchemaVersion -> {
             BackupFailure(UNSUPPORTED_SCHEMA_VERSION, "That archive's data is newer than this app")
+        }
 
-        is BackupPayloadError.SchemaTooOld ->
+        is BackupPayloadError.SchemaTooOld -> {
             BackupFailure(SCHEMA_TOO_OLD, "That archive is too old for this app to restore")
+        }
 
-        is BackupStorageError.FileNotFound ->
+        is BackupStorageError.FileNotFound -> {
             BackupFailure(FILE_NOT_FOUND, "That backup is not on the device")
+        }
 
-        is BackupStorageError.DeviceNotAuthorized ->
+        is BackupStorageError.DeviceNotAuthorized -> {
             BackupFailure(DEVICE_NOT_AUTHORIZED, "This device is not allowed to back up on its own")
+        }
 
-        is AppError -> BackupFailure(error.code, error.message ?: fallback.message)
+        is AppError -> {
+            BackupFailure(error.code, error.message ?: fallback.message)
+        }
 
         // A failure that is not the backup's own keeps its own words: the person
         // is shown what went wrong, and the report is grouped by the fallback.
-        else -> BackupFailure(fallback.code, error.message ?: fallback.message)
+        else -> {
+            BackupFailure(fallback.code, error.message ?: fallback.message)
+        }
     }
 
 /** The password does not open the archive. */

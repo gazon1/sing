@@ -38,7 +38,6 @@ import kotlin.time.Instant
 @OptIn(ExperimentalCoroutinesApi::class)
 @org.junit.jupiter.api.Tag("fast")
 class FakeRepositoryFidelityTest {
-
     private val alice = UserId("alice")
     private val bob = UserId("bob")
 
@@ -55,7 +54,12 @@ class FakeRepositoryFidelityTest {
      */
     private val fixtureNow = Instant.fromEpochMilliseconds(0)
 
-    private fun project(id: String, uid: UserId, name: String = "P", parentId: ProjectId? = null) = Project(
+    private fun project(
+        id: String,
+        uid: UserId,
+        name: String = "P",
+        parentId: ProjectId? = null,
+    ) = Project(
         id = ProjectId(id),
         name = name,
         color = 0,
@@ -65,7 +69,10 @@ class FakeRepositoryFidelityTest {
         userId = uid,
     )
 
-    private fun task(id: String, uid: UserId) = Task(
+    private fun task(
+        id: String,
+        uid: UserId,
+    ) = Task(
         id = TaskId(id),
         title = "T",
         userId = uid,
@@ -73,7 +80,10 @@ class FakeRepositoryFidelityTest {
         updatedAt = fixtureNow,
     )
 
-    private fun tag(id: String, uid: UserId) = Tag(
+    private fun tag(
+        id: String,
+        uid: UserId,
+    ) = Tag(
         id = TagId(id),
         name = "Tag",
         color = 0,
@@ -82,7 +92,12 @@ class FakeRepositoryFidelityTest {
         userId = uid,
     )
 
-    private fun note(id: String, uid: UserId, title: String, body: String? = null) = Note(
+    private fun note(
+        id: String,
+        uid: UserId,
+        title: String,
+        body: String? = null,
+    ) = Note(
         id = NoteId(id),
         userId = uid,
         title = title,
@@ -95,212 +110,240 @@ class FakeRepositoryFidelityTest {
     // ─── Projects ─────────────────────────────────────────────────────────────
 
     @Test
-    fun `observeProject does not leak another user's project`() = runTest {
-        val auth = FakeAuthRepository(Session.Anonymous(alice))
-        val repo = FakeProjectsRepository(
-            currentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope),
-        )
-        repo.seed(project("p1", bob, "Bob's project"))
-        advanceUntilIdle()
+    fun `observeProject does not leak another user's project`() =
+        runTest {
+            val auth = FakeAuthRepository(Session.Anonymous(alice))
+            val repo =
+                FakeProjectsRepository(
+                    currentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope),
+                )
+            repo.seed(project("p1", bob, "Bob's project"))
+            advanceUntilIdle()
 
-        assertNull(
-            repo.observeProject(ProjectId("p1")).first(),
-            "alice must not observe bob's project",
-        )
-    }
-
-    @Test
-    fun `changes does not leak another user's project`() = runTest {
-        val auth = FakeAuthRepository(Session.Anonymous(alice))
-        val repo = FakeProjectsRepository(
-            currentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope),
-        )
-        repo.seed(project("p1", bob))
-        advanceUntilIdle()
-
-        assertNull(repo.changes(ProjectId("p1")).first(), "changes must be user-scoped")
-    }
+            assertNull(
+                repo.observeProject(ProjectId("p1")).first(),
+                "alice must not observe bob's project",
+            )
+        }
 
     @Test
-    fun `observeByParent does not leak another user's children`() = runTest {
-        val auth = FakeAuthRepository(Session.Anonymous(alice))
-        val repo = FakeProjectsRepository(
-            currentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope),
-        )
-        val root = project("root", alice)
-        repo.seed(root, project("child", bob, parentId = root.id))
-        advanceUntilIdle()
+    fun `changes does not leak another user's project`() =
+        runTest {
+            val auth = FakeAuthRepository(Session.Anonymous(alice))
+            val repo =
+                FakeProjectsRepository(
+                    currentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope),
+                )
+            repo.seed(project("p1", bob))
+            advanceUntilIdle()
 
-        assertTrue(
-            repo.observeByParent(root.id).first().isEmpty(),
-            "children of another user must not appear",
-        )
-    }
+            assertNull(repo.changes(ProjectId("p1")).first(), "changes must be user-scoped")
+        }
 
     @Test
-    fun `findByIdempotencyKey is scoped to the current user`() = runTest {
-        val auth = FakeAuthRepository(Session.Anonymous(alice))
-        val repo = FakeProjectsRepository(
-            currentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope),
-        )
-        repo.seed(project("p1", bob).copy(idempotencyKey = "shared-key"))
-        advanceUntilIdle()
+    fun `observeByParent does not leak another user's children`() =
+        runTest {
+            val auth = FakeAuthRepository(Session.Anonymous(alice))
+            val repo =
+                FakeProjectsRepository(
+                    currentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope),
+                )
+            val root = project("root", alice)
+            repo.seed(root, project("child", bob, parentId = root.id))
+            advanceUntilIdle()
 
-        assertNull(
-            repo.findByIdempotencyKey("shared-key"),
-            "a key collision must not resolve across users",
-        )
-    }
+            assertTrue(
+                repo.observeByParent(root.id).first().isEmpty(),
+                "children of another user must not appear",
+            )
+        }
 
     @Test
-    fun `setParent does not mutate another user's project`() = runTest {
-        val auth = FakeAuthRepository(Session.Anonymous(alice))
-        val repo = FakeProjectsRepository(
-            currentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope),
-        )
-        repo.seed(project("p1", bob), project("root", alice))
-        advanceUntilIdle()
+    fun `findByIdempotencyKey is scoped to the current user`() =
+        runTest {
+            val auth = FakeAuthRepository(Session.Anonymous(alice))
+            val repo =
+                FakeProjectsRepository(
+                    currentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope),
+                )
+            repo.seed(project("p1", bob).copy(idempotencyKey = "shared-key"))
+            advanceUntilIdle()
 
-        repo.setParent(ProjectId("p1"), ProjectId("root"), fixtureNow.toEpochMilliseconds())
+            assertNull(
+                repo.findByIdempotencyKey("shared-key"),
+                "a key collision must not resolve across users",
+            )
+        }
 
-        assertNull(
-            repo.observe(ProjectId("p1")).first()?.parentId,
-            "alice must not reparent bob's project",
-        )
-    }
+    @Test
+    fun `setParent does not mutate another user's project`() =
+        runTest {
+            val auth = FakeAuthRepository(Session.Anonymous(alice))
+            val repo =
+                FakeProjectsRepository(
+                    currentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope),
+                )
+            repo.seed(project("p1", bob), project("root", alice))
+            advanceUntilIdle()
+
+            repo.setParent(ProjectId("p1"), ProjectId("root"), fixtureNow.toEpochMilliseconds())
+
+            assertNull(
+                repo.observe(ProjectId("p1")).first()?.parentId,
+                "alice must not reparent bob's project",
+            )
+        }
 
     // ─── Tags ─────────────────────────────────────────────────────────────────
 
     @Test
-    fun `tag observe and get are user-scoped`() = runTest {
-        val auth = FakeAuthRepository(Session.Anonymous(alice))
-        val repo = FakeTagsRepository(
-            currentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope),
-        )
-        repo.seed(tag("t1", bob))
-        advanceUntilIdle()
+    fun `tag observe and get are user-scoped`() =
+        runTest {
+            val auth = FakeAuthRepository(Session.Anonymous(alice))
+            val repo =
+                FakeTagsRepository(
+                    currentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope),
+                )
+            repo.seed(tag("t1", bob))
+            advanceUntilIdle()
 
-        assertNull(repo.observe(TagId("t1")).first(), "observe must be user-scoped")
-        assertNull(repo.get(TagId("t1")), "get must be user-scoped")
-    }
-
-    @Test
-    fun `tag delete stamps the clock the fake was given`() = runTest {
-        val auth = FakeAuthRepository(Session.Anonymous(alice))
-        val stampedAt = Instant.fromEpochMilliseconds(1_700_000_000_000)
-        val repo = FakeTagsRepository(
-            currentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope),
-            clock = FakeClock(stampedAt),
-        )
-        repo.seed(tag("t1", alice))
-        advanceUntilIdle()
-
-        assertTrue(repo.delete(TagId("t1")).isSuccess)
-        val deletedAt = repo.observe(TagId("t1")).first()?.deletedAt
-        assertNotNull(deletedAt, "the tag should be soft-deleted, not removed")
-        // This used to assert `deletedAt > 1_000ms` — "a real timestamp, not the
-        // default" — which is what a wall-clock read produced and what no test
-        // should depend on. The sentinel could only distinguish "stamped" from
-        // "left at the default"; it could not catch the fake stamping from the
-        // wrong source. Naming the instant catches both: an unstamped entity is
-        // still epoch zero, and one stamped from anywhere else is a different
-        // value.
-        assertEquals(
-            stampedAt,
-            deletedAt,
-            "the fake must stamp exactly the clock it was given, not a different one",
-        )
-    }
+            assertNull(repo.observe(TagId("t1")).first(), "observe must be user-scoped")
+            assertNull(repo.get(TagId("t1")), "get must be user-scoped")
+        }
 
     @Test
-    fun `tag delete on a foreign tag fails instead of silently succeeding`() = runTest {
-        val auth = FakeAuthRepository(Session.Anonymous(alice))
-        val repo = FakeTagsRepository(
-            currentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope),
-        )
-        repo.seed(tag("t1", bob))
-        advanceUntilIdle()
+    fun `tag delete stamps the clock the fake was given`() =
+        runTest {
+            val auth = FakeAuthRepository(Session.Anonymous(alice))
+            val stampedAt = Instant.fromEpochMilliseconds(1_700_000_000_000)
+            val repo =
+                FakeTagsRepository(
+                    currentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope),
+                    clock = FakeClock(stampedAt),
+                )
+            repo.seed(tag("t1", alice))
+            advanceUntilIdle()
 
-        assertTrue(repo.delete(TagId("t1")).isFailure, "deleting another user's tag must fail")
-    }
+            assertTrue(repo.delete(TagId("t1")).isSuccess)
+            val deletedAt = repo.observe(TagId("t1")).first()?.deletedAt
+            assertNotNull(deletedAt, "the tag should be soft-deleted, not removed")
+            // This used to assert `deletedAt > 1_000ms` — "a real timestamp, not the
+            // default" — which is what a wall-clock read produced and what no test
+            // should depend on. The sentinel could only distinguish "stamped" from
+            // "left at the default"; it could not catch the fake stamping from the
+            // wrong source. Naming the instant catches both: an unstamped entity is
+            // still epoch zero, and one stamped from anywhere else is a different
+            // value.
+            assertEquals(
+                stampedAt,
+                deletedAt,
+                "the fake must stamp exactly the clock it was given, not a different one",
+            )
+        }
+
+    @Test
+    fun `tag delete on a foreign tag fails instead of silently succeeding`() =
+        runTest {
+            val auth = FakeAuthRepository(Session.Anonymous(alice))
+            val repo =
+                FakeTagsRepository(
+                    currentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope),
+                )
+            repo.seed(tag("t1", bob))
+            advanceUntilIdle()
+
+            assertTrue(repo.delete(TagId("t1")).isFailure, "deleting another user's tag must fail")
+        }
 
     // ─── Tasks ────────────────────────────────────────────────────────────────
 
     @Test
-    fun `task delete soft-deletes, so the row survives`() = runTest {
-        val auth = FakeAuthRepository(Session.Anonymous(alice))
-        val repo = FakeTaskRepository(explicitCurrentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope))
-        repo.seed(task("t1", alice))
-        advanceUntilIdle()
+    fun `task delete soft-deletes, so the row survives`() =
+        runTest {
+            val auth = FakeAuthRepository(Session.Anonymous(alice))
+            val repo =
+                FakeTaskRepository(explicitCurrentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope))
+            repo.seed(task("t1", alice))
+            advanceUntilIdle()
 
-        assertTrue(repo.delete(TaskId("t1")).isSuccess)
-        val stored = repo.observeAll().first().firstOrNull { it.id.value == "t1" }
-        assertNotNull(stored, "production soft-deletes; a hard delete loses the row")
-    }
-
-    @Test
-    fun `task update rejects an unknown id, like production read-before-write`() = runTest {
-        val auth = FakeAuthRepository(Session.Anonymous(alice))
-        val repo = FakeTaskRepository(explicitCurrentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope))
-        advanceUntilIdle()
-
-        assertTrue(
-            repo.update(task("missing", alice)).isFailure,
-            "production throws for a non-existent task; the fake accepted it",
-        )
-    }
+            assertTrue(repo.delete(TaskId("t1")).isSuccess)
+            val stored = repo.observeAll().first().firstOrNull { it.id.value == "t1" }
+            assertNotNull(stored, "production soft-deletes; a hard delete loses the row")
+        }
 
     @Test
-    fun `task update rejects another user's task`() = runTest {
-        val auth = FakeAuthRepository(Session.Anonymous(alice))
-        val repo = FakeTaskRepository(explicitCurrentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope))
-        repo.seed(task("t1", bob))
-        advanceUntilIdle()
+    fun `task update rejects an unknown id, like production read-before-write`() =
+        runTest {
+            val auth = FakeAuthRepository(Session.Anonymous(alice))
+            val repo =
+                FakeTaskRepository(explicitCurrentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope))
+            advanceUntilIdle()
 
-        assertTrue(repo.update(task("t1", bob).copy(title = "hijacked")).isFailure)
-    }
-
-    @Test
-    fun `task get and exists do not leak another user's task`() = runTest {
-        val auth = FakeAuthRepository(Session.Anonymous(alice))
-        val repo = FakeTaskRepository(explicitCurrentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope))
-        repo.seed(task("t1", bob))
-        advanceUntilIdle()
-
-        assertNull(repo.get(TaskId("t1")), "get must not return another user's task")
-        assertTrue(!repo.exists(TaskId("t1")), "exists must not report a foreign task")
-    }
+            assertTrue(
+                repo.update(task("missing", alice)).isFailure,
+                "production throws for a non-existent task; the fake accepted it",
+            )
+        }
 
     @Test
-    fun `task getTagIds is scoped to the owning user`() = runTest {
-        val auth = FakeAuthRepository(Session.Anonymous(alice))
-        val repo = FakeTaskRepository(explicitCurrentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope))
-        repo.seed(task("t1", bob).copy(tags = listOf(TagId("secret"))))
-        advanceUntilIdle()
+    fun `task update rejects another user's task`() =
+        runTest {
+            val auth = FakeAuthRepository(Session.Anonymous(alice))
+            val repo =
+                FakeTaskRepository(explicitCurrentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope))
+            repo.seed(task("t1", bob))
+            advanceUntilIdle()
 
-        assertTrue(
-            repo.getTagIds(TaskId("t1")).first().isEmpty(),
-            "tag ids of another user's task must not be observable",
-        )
-    }
+            assertTrue(repo.update(task("t1", bob).copy(title = "hijacked")).isFailure)
+        }
+
+    @Test
+    fun `task get and exists do not leak another user's task`() =
+        runTest {
+            val auth = FakeAuthRepository(Session.Anonymous(alice))
+            val repo =
+                FakeTaskRepository(explicitCurrentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope))
+            repo.seed(task("t1", bob))
+            advanceUntilIdle()
+
+            assertNull(repo.get(TaskId("t1")), "get must not return another user's task")
+            assertTrue(!repo.exists(TaskId("t1")), "exists must not report a foreign task")
+        }
+
+    @Test
+    fun `task getTagIds is scoped to the owning user`() =
+        runTest {
+            val auth = FakeAuthRepository(Session.Anonymous(alice))
+            val repo =
+                FakeTaskRepository(explicitCurrentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope))
+            repo.seed(task("t1", bob).copy(tags = listOf(TagId("secret"))))
+            advanceUntilIdle()
+
+            assertTrue(
+                repo.getTagIds(TaskId("t1")).first().isEmpty(),
+                "tag ids of another user's task must not be observable",
+            )
+        }
 
     // ─── Notes ────────────────────────────────────────────────────────────────
 
     @Test
-    fun `note search matches title only, as production does`() = runTest {
-        val auth = FakeAuthRepository(Session.Anonymous(alice))
-        val repo = FakeNotesRepository(
-            currentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope),
-        )
-        repo.seed(note("n1", alice, title = "Groceries"))
-        repo.seed(note("n2", alice, title = "Unrelated", body = "buy milk and groceries"))
-        advanceUntilIdle()
+    fun `note search matches title only, as production does`() =
+        runTest {
+            val auth = FakeAuthRepository(Session.Anonymous(alice))
+            val repo =
+                FakeNotesRepository(
+                    currentUser = FakeProfileAwareCurrentUser(auth, scope = backgroundScope),
+                )
+            repo.seed(note("n1", alice, title = "Groceries"))
+            repo.seed(note("n2", alice, title = "Unrelated", body = "buy milk and groceries"))
+            advanceUntilIdle()
 
-        val hits = repo.search("groceries", SearchMode.Word).first()
-        assertEquals(
-            listOf("n1"),
-            hits.map { it.id.value },
-            "production searches title only; body matches are a product question, not fake behaviour",
-        )
-    }
+            val hits = repo.search("groceries", SearchMode.Word).first()
+            assertEquals(
+                listOf("n1"),
+                hits.map { it.id.value },
+                "production searches title only; body matches are a product question, not fake behaviour",
+            )
+        }
 }

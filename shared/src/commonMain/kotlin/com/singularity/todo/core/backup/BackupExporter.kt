@@ -29,7 +29,6 @@ import kotlin.time.Clock
  * repository whose decisions nobody checks.
  */
 interface ArchiveExporter {
-
     /** Writes the archive described by [options]. */
     suspend fun export(options: ExportOptions): Result<BackupResult>
 }
@@ -205,8 +204,9 @@ class BackupExporter(
             // The archive's size is asked of the filesystem, not read back out of
             // it: `fs.readBytes` here would load the whole archive into memory a
             // second time, which is the cost the streaming encoder exists to avoid.
-            val byteSize = fs.stat(options.destPath)?.sizeBytes
-                ?: throw BackupStorageError.FileNotFound(options.destPath)
+            val byteSize =
+                fs.stat(options.destPath)?.sizeBytes
+                    ?: throw BackupStorageError.FileNotFound(options.destPath)
 
             // The change that follows this snapshot.
             //
@@ -257,7 +257,9 @@ class BackupExporter(
         val previous = state.rows.takeIf { it.isNotEmpty() }
 
         when (val plan = BackupDeltaPlanner.plan(previous, index, payload)) {
-            is BackupDeltaPlan.FreshBase -> restartChain(options, state, index, now)
+            is BackupDeltaPlan.FreshBase -> {
+                restartChain(options, state, index, now)
+            }
 
             is BackupDeltaPlan.Entry -> {
                 if (plan.payload.hasNoChanges()) {
@@ -298,11 +300,13 @@ class BackupExporter(
         val deltaPath = "${options.destPath}$DELTA_SUFFIX"
         fs.writeBytes(deltaPath, bytes)
 
-        val entries = state.entries + BackupChainEntry(
-            archivePath = options.destPath,
-            deltaPath = deltaPath,
-            byteSize = bytes.size.toLong(),
-        )
+        val entries =
+            state.entries +
+                BackupChainEntry(
+                    archivePath = options.destPath,
+                    deltaPath = deltaPath,
+                    byteSize = bytes.size.toLong(),
+                )
         val tooLong =
             entries.size > ArchiveFormat.MAX_CHAIN_ENTRIES ||
                 entries.sumOf { it.byteSize } > ArchiveFormat.MAX_CHAIN_BYTES

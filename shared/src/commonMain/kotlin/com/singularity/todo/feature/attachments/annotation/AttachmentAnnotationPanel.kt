@@ -35,10 +35,10 @@ import com.singularity.todo.core.attachments.annotation.AttachmentAnnotationId
 import com.singularity.todo.core.attachments.annotation.TextRange
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.IntentActions
-import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.text.SelectableText
+import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -63,9 +63,10 @@ fun AttachmentAnnotationPanel(
     modifier: Modifier = Modifier,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
-    val viewModel: AttachmentAnnotationViewModel = koinViewModel {
-        parametersOf(attachmentId)
-    }
+    val viewModel: AttachmentAnnotationViewModel =
+        koinViewModel {
+            parametersOf(attachmentId)
+        }
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     val onIntent = IntentActions<AttachmentAnnotationIntent> { viewModel.onIntent(it) }
 
@@ -221,22 +222,26 @@ private fun AnnotationEditorForm(
     val isEditing = draft.editing != null
     // The states are created above the quote field's visibility check: a state created
     // inside the `if` would be thrown away on the first recomposition.
-    val startState = rememberBridgedTextFieldState(
-        source = draft.startSource,
-        onTextChanged = { onIntent(AttachmentAnnotationIntent.DraftStartChanged(it)) },
-    )
-    val endState = rememberBridgedTextFieldState(
-        source = draft.endSource,
-        onTextChanged = { onIntent(AttachmentAnnotationIntent.DraftEndChanged(it)) },
-    )
-    val quoteState = rememberBridgedTextFieldState(
-        source = draft.quoteSource,
-        onTextChanged = { onIntent(AttachmentAnnotationIntent.DraftQuoteChanged(it)) },
-    )
-    val noteState = rememberBridgedTextFieldState(
-        source = draft.noteSource,
-        onTextChanged = { onIntent(AttachmentAnnotationIntent.DraftNoteChanged(it)) },
-    )
+    val startState =
+        rememberBridgedTextFieldState(
+            source = draft.startSource,
+            onTextChanged = { onIntent(AttachmentAnnotationIntent.DraftStartChanged(it)) },
+        )
+    val endState =
+        rememberBridgedTextFieldState(
+            source = draft.endSource,
+            onTextChanged = { onIntent(AttachmentAnnotationIntent.DraftEndChanged(it)) },
+        )
+    val quoteState =
+        rememberBridgedTextFieldState(
+            source = draft.quoteSource,
+            onTextChanged = { onIntent(AttachmentAnnotationIntent.DraftQuoteChanged(it)) },
+        )
+    val noteState =
+        rememberBridgedTextFieldState(
+            source = draft.noteSource,
+            onTextChanged = { onIntent(AttachmentAnnotationIntent.DraftNoteChanged(it)) },
+        )
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             text = if (isEditing) "Edit annotation" else "New annotation",
@@ -294,37 +299,43 @@ private fun annotationCountLabel(state: AttachmentAnnotationUiState): String {
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun AnnotationSheetContentPreview() = PreviewThemed(darkTheme = false) {
-    val attachmentId = AttachmentId.fromString("att_1")
-    val fresh = AttachmentAnnotation(
-        id = AttachmentAnnotationId.fromString("ann_1"),
-        range = TextRange(
-            attachmentId = attachmentId,
-            start = 0,
-            end = 5,
-            quote = "Hello",
-        ),
-        note = "Greeting to reword",
-        userId = UserId.anonymous,
-        createdAt = PreviewSamples.now,
-        updatedAt = PreviewSamples.now,
-    )
-    AnnotationSheetContent(
-        state = AttachmentAnnotationUiState.Content(
-            annotations = listOf(
-                ResolvedAnnotation(fresh, AnchorResolution.Exact(start = 0, end = 5)),
-                ResolvedAnnotation(
-                    annotation = fresh.copy(
-                        id = AttachmentAnnotationId.fromString("ann_2"),
-                        range = fresh.range.copy(quote = "Goodbye", start = 6, end = 13),
+private fun AnnotationSheetContentPreview() =
+    PreviewThemed(darkTheme = false) {
+        val attachmentId = AttachmentId.fromString("att_1")
+        val fresh =
+            AttachmentAnnotation(
+                id = AttachmentAnnotationId.fromString("ann_1"),
+                range =
+                    TextRange(
+                        attachmentId = attachmentId,
+                        start = 0,
+                        end = 5,
+                        quote = "Hello",
                     ),
-                    resolution = AnchorResolution.Stale,
+                note = "Greeting to reword",
+                userId = UserId.anonymous,
+                createdAt = PreviewSamples.now,
+                updatedAt = PreviewSamples.now,
+            )
+        AnnotationSheetContent(
+            state =
+                AttachmentAnnotationUiState.Content(
+                    annotations =
+                        listOf(
+                            ResolvedAnnotation(fresh, AnchorResolution.Exact(start = 0, end = 5)),
+                            ResolvedAnnotation(
+                                annotation =
+                                    fresh.copy(
+                                        id = AttachmentAnnotationId.fromString("ann_2"),
+                                        range = fresh.range.copy(quote = "Goodbye", start = 6, end = 13),
+                                    ),
+                                resolution = AnchorResolution.Stale,
+                            ),
+                        ),
+                    documentText = "Hello world",
+                    sheetOpen = true,
+                    draft = null,
                 ),
-            ),
-            documentText = "Hello world",
-            sheetOpen = true,
-            draft = null,
-        ),
-        onIntent = IntentActions<AttachmentAnnotationIntent> { },
-    )
-}
+            onIntent = IntentActions<AttachmentAnnotationIntent> { },
+        )
+    }

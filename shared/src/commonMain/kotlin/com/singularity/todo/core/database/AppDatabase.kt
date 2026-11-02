@@ -16,11 +16,11 @@ import com.singularity.todo.core.sync.RemoteConfigEntity
 import com.singularity.todo.core.sync.SyncDeadLetterDao
 import com.singularity.todo.core.sync.SyncDeadLetterEntity
 import com.singularity.todo.core.sync.SyncOutboxDao
-import com.singularity.todo.core.sync.SyncStateDao
+import com.singularity.todo.core.sync.SyncOutboxEntity
 import com.singularity.todo.core.sync.SyncShadowDao
 import com.singularity.todo.core.sync.SyncShadowEntity
+import com.singularity.todo.core.sync.SyncStateDao
 import com.singularity.todo.core.sync.SyncStateEntity
-import com.singularity.todo.core.sync.SyncOutboxEntity
 import com.singularity.todo.feature.calendarSync.data.CalendarImportEventDao
 import com.singularity.todo.feature.calendarSync.data.CalendarImportEventEntity
 import com.singularity.todo.feature.calendarSync.data.CalendarSyncStateDao
@@ -149,14 +149,20 @@ const val SCHEMA_VERSION = 53
 @ColumnTypeConverters(AttachmentConverters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
+
     abstract fun noteDao(): NoteDao
+
     abstract fun projectDao(): ProjectDao
+
     abstract fun tagDao(): TagDao
 
     /** The full-text index over the searchable kinds. See [FtsDao]. */
     abstract fun ftsDao(): FtsDao
+
     abstract fun syncOutboxDao(): SyncOutboxDao
+
     abstract fun syncDeadLetterDao(): SyncDeadLetterDao
+
     abstract fun syncStateDao(): SyncStateDao
 
     abstract fun syncShadowDao(): SyncShadowDao
@@ -164,26 +170,48 @@ abstract class AppDatabase : RoomDatabase() {
     // Google Calendar sync. Separate from calendarSyncTaskMapDao, which stays the
     // device-calendar path; see the two-port ADR for why they do not share a table.
     abstract fun calendarSyncStateDao(): CalendarSyncStateDao
+
     abstract fun googleEventShadowDao(): GoogleEventShadowDao
+
     abstract fun calendarImportEventDao(): CalendarImportEventDao
+
     abstract fun remoteConfigDao(): RemoteConfigDao
+
     abstract fun remoteConfigCacheDao(): RemoteConfigCacheDao
+
     abstract fun attachmentDao(): AttachmentDao
+
     abstract fun annotationDao(): AttachmentAnnotationDao
+
     abstract fun reminderDao(): ReminderDao
+
     abstract fun projectReminderDao(): ProjectReminderDao
+
     abstract fun checklistDao(): ChecklistDao
+
     abstract fun llmUsageDao(): LlmUsageDao
+
     abstract fun profileDao(): ProfileDao
+
     abstract fun agendaViewDao(): AgendaViewDao
+
     abstract fun calendarSyncTaskMapDao(): CalendarSyncTaskMapDao
+
     abstract fun savedSearchDao(): SavedSearchDao
+
     abstract fun tagGroupDao(): TagGroupDao
+
     abstract fun projectInheritedTagGroupDao(): ProjectInheritedTagGroupDao
+
     abstract fun timeEntryDao(): TimeEntryDao
+
     abstract fun proposalDao(): ProposalDao
+
     abstract fun proposalItemDao(): ProposalItemDao
+
     abstract fun ownerEraseDao(): OwnerEraseDao
+
     abstract fun ownerReassignDao(): OwnerReassignDao
+
     abstract fun ownerScopeDao(): OwnerScopeDao
 }

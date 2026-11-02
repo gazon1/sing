@@ -31,9 +31,10 @@ fun AgendaSettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
+        modifier =
+            modifier
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         SettingsSection(title = "Default View") {
@@ -76,9 +77,10 @@ fun AgendaSettingsScreen(
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun AgendaSettingsScreenLightPreview() = PreviewThemed(darkTheme = false) {
-    AgendaSettingsScreen(
-        state = SettingsUiState.Content(),
-        onIntent = {},
-    )
-}
+private fun AgendaSettingsScreenLightPreview() =
+    PreviewThemed(darkTheme = false) {
+        AgendaSettingsScreen(
+            state = SettingsUiState.Content(),
+            onIntent = {},
+        )
+    }

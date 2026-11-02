@@ -63,20 +63,22 @@ fun SectionEditorCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-        ),
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            ),
     ) {
         DragHandleRow(
             text = section.name,
             subtitle = section.selector.typeDescription,
             handleSide = HandleSide.Leading,
-            padding = androidx.compose.foundation.layout.PaddingValues(
-                start = 8.dp,
-                end = 4.dp,
-                top = 4.dp,
-                bottom = 4.dp,
-            ),
+            padding =
+                androidx.compose.foundation.layout.PaddingValues(
+                    start = 8.dp,
+                    end = 4.dp,
+                    top = 4.dp,
+                    bottom = 4.dp,
+                ),
             trailing = {
                 IconButton(
                     onClick = onMoveUp,

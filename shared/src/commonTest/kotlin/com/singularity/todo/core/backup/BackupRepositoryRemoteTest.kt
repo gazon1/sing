@@ -33,7 +33,6 @@ import kotlin.time.Instant
  */
 @Tag("fast")
 class BackupRepositoryRemoteTest {
-
     private val backupDir = "/backups"
 
     private class FixedClock(private val instant: Instant = Instant.fromEpochMilliseconds(1_700_000_000_000)) :
@@ -102,16 +101,17 @@ class BackupRepositoryRemoteTest {
             failure?.let { return Result.failure(it) }
             return Result.success(
                 RestoreResult(
-                    manifest = BackupManifest(
-                        formatVersion = BackupFormat.FORMAT_VERSION,
-                        appName = BackupFormat.APP_NAME,
-                        appVersion = "1",
-                        createdAtEpochMillis = 0L,
-                        userIdHash = "hash",
-                        schemaVersion = BackupFormat.SCHEMA_VERSION,
-                        entityCounts = EntityCounts(),
-                        payloadChecksum = "checksum",
-                    ),
+                    manifest =
+                        BackupManifest(
+                            formatVersion = BackupFormat.FORMAT_VERSION,
+                            appName = BackupFormat.APP_NAME,
+                            appVersion = "1",
+                            createdAtEpochMillis = 0L,
+                            userIdHash = "hash",
+                            schemaVersion = BackupFormat.SCHEMA_VERSION,
+                            entityCounts = EntityCounts(),
+                            payloadChecksum = "checksum",
+                        ),
                     entityCounts = EntityCounts(),
                     restoredAttachmentCount = 0,
                     missingAttachmentIds = emptyList(),
@@ -152,33 +152,36 @@ class BackupRepositoryRemoteTest {
      * "singularity_backup.zip".
      */
     @Test
-    fun `the cloud list reports the name, the date and the size`() = runTest {
-        val remote = FakeRemoteBackupService(
-            listed = listOf(
-                BucketObject(
-                    path = "u-1/singularity_backup_1.zip${RemoteBackupService.ENCRYPTED_SUFFIX}",
-                    updatedAtEpochMillis = 1_700_000_000_000,
-                    sizeBytes = 4096,
-                ),
-            ),
-        )
+    fun `the cloud list reports the name, the date and the size`() =
+        runTest {
+            val remote =
+                FakeRemoteBackupService(
+                    listed =
+                        listOf(
+                            BucketObject(
+                                path = "u-1/singularity_backup_1.zip${RemoteBackupService.ENCRYPTED_SUFFIX}",
+                                updatedAtEpochMillis = 1_700_000_000_000,
+                                sizeBytes = 4096,
+                            ),
+                        ),
+                )
 
-        val result = repository(MapFileSystem(), remote, RecordingImporter()).listRemote()
+            val result = repository(MapFileSystem(), remote, RecordingImporter()).listRemote()
 
-        val backup = result.getOrThrow().single()
-        assertEquals(
-            "u-1/singularity_backup_1.zip${RemoteBackupService.ENCRYPTED_SUFFIX}",
-            backup.ref,
-            "the ref is what the download takes",
-        )
-        assertEquals(
-            "singularity_backup_1.zip",
-            backup.name,
-            "the name is what the person reads — the sealed suffix is the bucket's business",
-        )
-        assertEquals(1_700_000_000_000, backup.updatedAtEpochMillis, "the bucket knows when it was written")
-        assertEquals(4096, backup.sizeBytes, "the bucket knows how big it is")
-    }
+            val backup = result.getOrThrow().single()
+            assertEquals(
+                "u-1/singularity_backup_1.zip${RemoteBackupService.ENCRYPTED_SUFFIX}",
+                backup.ref,
+                "the ref is what the download takes",
+            )
+            assertEquals(
+                "singularity_backup_1.zip",
+                backup.name,
+                "the name is what the person reads — the sealed suffix is the bucket's business",
+            )
+            assertEquals(1_700_000_000_000, backup.updatedAtEpochMillis, "the bucket knows when it was written")
+            assertEquals(4096, backup.sizeBytes, "the bucket knows how big it is")
+        }
 
     /**
      * The restore lands in the backup directory, under the ref's own name.
@@ -188,18 +191,20 @@ class BackupRepositoryRemoteTest {
      * of the backups does not look for it.
      */
     @Test
-    fun `a restore from the cloud lands in the backup directory and is imported`() = runTest {
-        val fs = MapFileSystem()
-        val remote = FakeRemoteBackupService(fs = fs)
-        val importer = RecordingImporter()
+    fun `a restore from the cloud lands in the backup directory and is imported`() =
+        runTest {
+            val fs = MapFileSystem()
+            val remote = FakeRemoteBackupService(fs = fs)
+            val importer = RecordingImporter()
 
-        val result = repository(fs, remote, importer)
-            .restoreFromCloud("u-1/singularity_backup_1.zip", "correct horse".toCharArray())
+            val result =
+                repository(fs, remote, importer)
+                    .restoreFromCloud("u-1/singularity_backup_1.zip", "correct horse".toCharArray())
 
-        assertTrue(result.isSuccess, "the restore must succeed: $result")
-        assertEquals(listOf("$backupDir/singularity_backup_1.zip"), remote.downloadedTo)
-        assertEquals(listOf("$backupDir/singularity_backup_1.zip"), importer.importedFrom)
-    }
+            assertTrue(result.isSuccess, "the restore must succeed: $result")
+            assertEquals(listOf("$backupDir/singularity_backup_1.zip"), remote.downloadedTo)
+            assertEquals(listOf("$backupDir/singularity_backup_1.zip"), importer.importedFrom)
+        }
 
     /**
      * An archive that could not be imported does not stay in the backup directory.
@@ -209,20 +214,22 @@ class BackupRepositoryRemoteTest {
      * restore that failed.
      */
     @Test
-    fun `an archive that could not be imported does not stay in the backup directory`() = runTest {
-        val fs = MapFileSystem()
-        val remote = FakeRemoteBackupService(fs = fs)
-        val importer = RecordingImporter(failure = IllegalStateException("the archive is not a zip"))
+    fun `an archive that could not be imported does not stay in the backup directory`() =
+        runTest {
+            val fs = MapFileSystem()
+            val remote = FakeRemoteBackupService(fs = fs)
+            val importer = RecordingImporter(failure = IllegalStateException("the archive is not a zip"))
 
-        val result = repository(fs, remote, importer)
-            .restoreFromCloud("u-1/singularity_backup_1.zip", "correct horse".toCharArray())
+            val result =
+                repository(fs, remote, importer)
+                    .restoreFromCloud("u-1/singularity_backup_1.zip", "correct horse".toCharArray())
 
-        assertTrue(result.isFailure, "a failed import must be reported: $result")
-        assertFalse(
-            fs.exists("$backupDir/singularity_backup_1.zip"),
-            "the fetched archive must not be left behind",
-        )
-    }
+            assertTrue(result.isFailure, "a failed import must be reported: $result")
+            assertFalse(
+                fs.exists("$backupDir/singularity_backup_1.zip"),
+                "the fetched archive must not be left behind",
+            )
+        }
 
     /**
      * The password does not survive the call — not even when the call failed early.
@@ -232,18 +239,20 @@ class BackupRepositoryRemoteTest {
      * survives a failed push is a secret that waits for the next attempt.
      */
     @Test
-    fun `the password is wiped even when the archive is not there`() = runTest {
-        val secret = "correct horse".toCharArray()
+    fun `the password is wiped even when the archive is not there`() =
+        runTest {
+            val secret = "correct horse".toCharArray()
 
-        val result = repository(MapFileSystem(), FakeRemoteBackupService(), RecordingImporter())
-            .push(BackupId("b-1"), secret)
+            val result =
+                repository(MapFileSystem(), FakeRemoteBackupService(), RecordingImporter())
+                    .push(BackupId("b-1"), secret)
 
-        assertTrue(result.isFailure, "there is no archive to push: $result")
-        assertTrue(
-            secret.all { it == '\u0000' },
-            "the password must not survive the call: ${secret.concatToString()}",
-        )
-    }
+            assertTrue(result.isFailure, "there is no archive to push: $result")
+            assertTrue(
+                secret.all { it == '\u0000' },
+                "the password must not survive the call: ${secret.concatToString()}",
+            )
+        }
 
     /**
      * A push carries the chain the archive belongs to.
@@ -254,36 +263,38 @@ class BackupRepositoryRemoteTest {
      * name: it is the one the person pushed.
      */
     @Test
-    fun `a push carries the base and the changes that follow the archive`() = runTest {
-        val fs = MapFileSystem()
-        fs.writeBytes("$backupDir/a.zip", byteArrayOf(1))
-        fs.writeBytes("$backupDir/b.zip", byteArrayOf(2))
-        fs.writeBytes("$backupDir/b.zip.delta", byteArrayOf(3))
-        val cursors = BackupCursorStore(fs = fs, dir = backupDir)
-        cursors.save(
-            UserId("u-1"),
-            BackupCursorState(
-                cursor = 10L,
-                baseArchivePath = "$backupDir/a.zip",
-                entries = listOf(
-                    BackupChainEntry(
-                        archivePath = "$backupDir/b.zip",
-                        deltaPath = "$backupDir/b.zip.delta",
-                        byteSize = 1L,
-                    ),
+    fun `a push carries the base and the changes that follow the archive`() =
+        runTest {
+            val fs = MapFileSystem()
+            fs.writeBytes("$backupDir/a.zip", byteArrayOf(1))
+            fs.writeBytes("$backupDir/b.zip", byteArrayOf(2))
+            fs.writeBytes("$backupDir/b.zip.delta", byteArrayOf(3))
+            val cursors = BackupCursorStore(fs = fs, dir = backupDir)
+            cursors.save(
+                UserId("u-1"),
+                BackupCursorState(
+                    cursor = 10L,
+                    baseArchivePath = "$backupDir/a.zip",
+                    entries =
+                        listOf(
+                            BackupChainEntry(
+                                archivePath = "$backupDir/b.zip",
+                                deltaPath = "$backupDir/b.zip.delta",
+                                byteSize = 1L,
+                            ),
+                        ),
                 ),
-            ),
-        )
-        val remote = FakeRemoteBackupService()
+            )
+            val remote = FakeRemoteBackupService()
 
-        val result = repository(fs, remote, RecordingImporter()).push(BackupId("b"), "horse".toCharArray())
+            val result = repository(fs, remote, RecordingImporter()).push(BackupId("b"), "horse".toCharArray())
 
-        assertTrue(result.isSuccess, "the push must succeed: $result")
-        val pushed = remote.uploaded.single()
-        assertEquals("$backupDir/a.zip", pushed.basePath, "the base of the chain is what travels")
-        assertEquals(listOf("$backupDir/b.zip.delta"), pushed.entries, "the changes travel with the base")
-        assertEquals("b.zip", pushed.name, "the object keeps the name of the archive that was pushed")
-    }
+            assertTrue(result.isSuccess, "the push must succeed: $result")
+            val pushed = remote.uploaded.single()
+            assertEquals("$backupDir/a.zip", pushed.basePath, "the base of the chain is what travels")
+            assertEquals(listOf("$backupDir/b.zip.delta"), pushed.entries, "the changes travel with the base")
+            assertEquals("b.zip", pushed.name, "the object keeps the name of the archive that was pushed")
+        }
 
     /**
      * A push of an archive that is not part of a chain carries that archive
@@ -294,19 +305,21 @@ class BackupRepositoryRemoteTest {
      * a backup that did not happen.
      */
     @Test
-    fun `a push of an archive outside a chain carries that archive alone`() = runTest {
-        val fs = MapFileSystem()
-        fs.writeBytes("$backupDir/lonely.zip", byteArrayOf(1))
-        val remote = FakeRemoteBackupService()
+    fun `a push of an archive outside a chain carries that archive alone`() =
+        runTest {
+            val fs = MapFileSystem()
+            fs.writeBytes("$backupDir/lonely.zip", byteArrayOf(1))
+            val remote = FakeRemoteBackupService()
 
-        val result = repository(fs, remote, RecordingImporter())
-            .push(BackupId("lonely"), "horse".toCharArray())
+            val result =
+                repository(fs, remote, RecordingImporter())
+                    .push(BackupId("lonely"), "horse".toCharArray())
 
-        assertTrue(result.isSuccess, "the push must succeed: $result")
-        val pushed = remote.uploaded.single()
-        assertEquals("$backupDir/lonely.zip", pushed.basePath)
-        assertTrue(pushed.entries.isEmpty(), "there are no changes to carry")
-    }
+            assertTrue(result.isSuccess, "the push must succeed: $result")
+            val pushed = remote.uploaded.single()
+            assertEquals("$backupDir/lonely.zip", pushed.basePath)
+            assertTrue(pushed.entries.isEmpty(), "there are no changes to carry")
+        }
 
     /**
      * The changes that came down with the archive are handed to the importer.
@@ -316,18 +329,20 @@ class BackupRepositoryRemoteTest {
      * changes are what the account looks like now.
      */
     @Test
-    fun `the changes that came down are applied after the archive`() = runTest {
-        val fs = MapFileSystem()
-        val change = "the-change".encodeToByteArray()
-        val remote = FakeRemoteBackupService(fs = fs, downloadedEntries = listOf(change))
-        val importer = RecordingImporter()
+    fun `the changes that came down are applied after the archive`() =
+        runTest {
+            val fs = MapFileSystem()
+            val change = "the-change".encodeToByteArray()
+            val remote = FakeRemoteBackupService(fs = fs, downloadedEntries = listOf(change))
+            val importer = RecordingImporter()
 
-        val result = repository(fs, remote, importer)
-            .restoreFromCloud("u-1/singularity_backup_1.zip", "correct horse".toCharArray())
+            val result =
+                repository(fs, remote, importer)
+                    .restoreFromCloud("u-1/singularity_backup_1.zip", "correct horse".toCharArray())
 
-        assertTrue(result.isSuccess, "the restore must succeed: $result")
-        assertEquals(listOf(listOf(change)), importer.importedEntries)
-    }
+            assertTrue(result.isSuccess, "the restore must succeed: $result")
+            assertEquals(listOf(listOf(change)), importer.importedEntries)
+        }
 
     /**
      * A download that fails is reported, and nothing is imported.
@@ -337,16 +352,18 @@ class BackupRepositoryRemoteTest {
      * that the bucket refused to serve it.
      */
     @Test
-    fun `a failed download is reported and nothing is imported`() = runTest {
-        val remote = FakeRemoteBackupService(downloadFailure = IllegalStateException("the bucket refused"))
-        val importer = RecordingImporter()
+    fun `a failed download is reported and nothing is imported`() =
+        runTest {
+            val remote = FakeRemoteBackupService(downloadFailure = IllegalStateException("the bucket refused"))
+            val importer = RecordingImporter()
 
-        val result = repository(MapFileSystem(), remote, importer)
-            .restoreFromCloud("u-1/singularity_backup_1.zip", "correct horse".toCharArray())
+            val result =
+                repository(MapFileSystem(), remote, importer)
+                    .restoreFromCloud("u-1/singularity_backup_1.zip", "correct horse".toCharArray())
 
-        assertTrue(result.isFailure, "a failed download must be reported: $result")
-        assertTrue(importer.importedFrom.isEmpty(), "nothing may be imported without the archive")
-    }
+            assertTrue(result.isFailure, "a failed download must be reported: $result")
+            assertTrue(importer.importedFrom.isEmpty(), "nothing may be imported without the archive")
+        }
 
     /**
      * A push by hand is sealed under the person's password.
@@ -355,20 +372,22 @@ class BackupRepositoryRemoteTest {
      * has a person in it.
      */
     @Test
-    fun `a push by hand is sealed under the password`() = runTest {
-        val fs = MapFileSystem()
-        fs.writeBytes("$backupDir/a.zip", byteArrayOf(1))
-        val remote = FakeRemoteBackupService()
+    fun `a push by hand is sealed under the password`() =
+        runTest {
+            val fs = MapFileSystem()
+            fs.writeBytes("$backupDir/a.zip", byteArrayOf(1))
+            val remote = FakeRemoteBackupService()
 
-        val result = repository(fs, remote, RecordingImporter())
-            .push(BackupId("a"), "horse".toCharArray())
+            val result =
+                repository(fs, remote, RecordingImporter())
+                    .push(BackupId("a"), "horse".toCharArray())
 
-        assertTrue(result.isSuccess, "the push must succeed: $result")
-        assertTrue(
-            remote.sealers.single() is ArchiveSealer.UnderPassword,
-            "a push by hand is sealed under the password the person typed",
-        )
-    }
+            assertTrue(result.isSuccess, "the push must succeed: $result")
+            assertTrue(
+                remote.sealers.single() is ArchiveSealer.UnderPassword,
+                "a push by hand is sealed under the password the person typed",
+            )
+        }
 
     /**
      * The scheduled push carries the chain too, and seals it under the device key.
@@ -383,47 +402,49 @@ class BackupRepositoryRemoteTest {
      * "the newest" is the first name in the alphabetical order.
      */
     @Test
-    fun `the scheduled push carries the base and the changes, under the device key`() = runTest {
-        val fs = MapFileSystem()
-        fs.writeBytes("$backupDir/a-new.zip", byteArrayOf(1))
-        fs.writeBytes("$backupDir/a-new.zip.delta", byteArrayOf(2))
-        fs.writeBytes("$backupDir/z-base.zip", byteArrayOf(3))
-        val cursors = BackupCursorStore(fs = fs, dir = backupDir)
-        cursors.save(
-            UserId("u-1"),
-            BackupCursorState(
-                cursor = 10L,
-                baseArchivePath = "$backupDir/z-base.zip",
-                entries = listOf(
-                    BackupChainEntry(
-                        archivePath = "$backupDir/a-new.zip",
-                        deltaPath = "$backupDir/a-new.zip.delta",
-                        byteSize = 1L,
-                    ),
+    fun `the scheduled push carries the base and the changes, under the device key`() =
+        runTest {
+            val fs = MapFileSystem()
+            fs.writeBytes("$backupDir/a-new.zip", byteArrayOf(1))
+            fs.writeBytes("$backupDir/a-new.zip.delta", byteArrayOf(2))
+            fs.writeBytes("$backupDir/z-base.zip", byteArrayOf(3))
+            val cursors = BackupCursorStore(fs = fs, dir = backupDir)
+            cursors.save(
+                UserId("u-1"),
+                BackupCursorState(
+                    cursor = 10L,
+                    baseArchivePath = "$backupDir/z-base.zip",
+                    entries =
+                        listOf(
+                            BackupChainEntry(
+                                archivePath = "$backupDir/a-new.zip",
+                                deltaPath = "$backupDir/a-new.zip.delta",
+                                byteSize = 1L,
+                            ),
+                        ),
                 ),
-            ),
-        )
-        val remote = FakeRemoteBackupService()
-        val repository = repository(fs, remote, RecordingImporter())
-        repository.authorizeScheduledBackup("horse".toCharArray()).getOrThrow()
+            )
+            val remote = FakeRemoteBackupService()
+            val repository = repository(fs, remote, RecordingImporter())
+            repository.authorizeScheduledBackup("horse".toCharArray()).getOrThrow()
 
-        val result = repository.pushScheduled()
+            val result = repository.pushScheduled()
 
-        assertTrue(result.isSuccess, "the scheduled push must succeed: $result")
-        // The authorization pushed once already — it seals the archive that is
-        // already in the cloud again — so the push under test is the last one.
-        val pushed = remote.uploaded.last()
-        assertEquals("$backupDir/z-base.zip", pushed.basePath, "the base of the chain is what travels")
-        assertEquals(
-            listOf("$backupDir/a-new.zip.delta"),
-            pushed.entries,
-            "the daily run carries the changes too — that is what makes it smaller than a snapshot",
-        )
-        assertTrue(
-            remote.sealers.last() is ArchiveSealer.UnderDeviceKey,
-            "the scheduled run is sealed under the device key, not under a password",
-        )
-    }
+            assertTrue(result.isSuccess, "the scheduled push must succeed: $result")
+            // The authorization pushed once already — it seals the archive that is
+            // already in the cloud again — so the push under test is the last one.
+            val pushed = remote.uploaded.last()
+            assertEquals("$backupDir/z-base.zip", pushed.basePath, "the base of the chain is what travels")
+            assertEquals(
+                listOf("$backupDir/a-new.zip.delta"),
+                pushed.entries,
+                "the daily run carries the changes too — that is what makes it smaller than a snapshot",
+            )
+            assertTrue(
+                remote.sealers.last() is ArchiveSealer.UnderDeviceKey,
+                "the scheduled run is sealed under the device key, not under a password",
+            )
+        }
 
     /**
      * Authorizing the device seals the archive in the cloud again.
@@ -434,25 +455,27 @@ class BackupRepositoryRemoteTest {
      * the person is told that it happened.
      */
     @Test
-    fun `authorizing the device seals the archive in the cloud again`() = runTest {
-        val fs = MapFileSystem()
-        fs.writeBytes("$backupDir/a.zip", byteArrayOf(1))
-        val remote = FakeRemoteBackupService()
+    fun `authorizing the device seals the archive in the cloud again`() =
+        runTest {
+            val fs = MapFileSystem()
+            fs.writeBytes("$backupDir/a.zip", byteArrayOf(1))
+            val remote = FakeRemoteBackupService()
 
-        val authorization = repository(fs, remote, RecordingImporter())
-            .authorizeScheduledBackup("horse".toCharArray())
-            .getOrThrow()
+            val authorization =
+                repository(fs, remote, RecordingImporter())
+                    .authorizeScheduledBackup("horse".toCharArray())
+                    .getOrThrow()
 
-        assertTrue(
-            authorization is ScheduledAuthorization.Repushed,
-            "the archive in the cloud was sealed again: $authorization",
-        )
-        assertEquals(1, remote.uploaded.size, "the archive was pushed once more")
-        assertTrue(
-            remote.sealers.single() is ArchiveSealer.UnderDeviceKey,
-            "the copy in the cloud is sealed under the device key, wrapped under the new password",
-        )
-    }
+            assertTrue(
+                authorization is ScheduledAuthorization.Repushed,
+                "the archive in the cloud was sealed again: $authorization",
+            )
+            assertEquals(1, remote.uploaded.size, "the archive was pushed once more")
+            assertTrue(
+                remote.sealers.single() is ArchiveSealer.UnderDeviceKey,
+                "the copy in the cloud is sealed under the device key, wrapped under the new password",
+            )
+        }
 
     /**
      * A device with no archive of its own is authorized anyway.
@@ -461,19 +484,21 @@ class BackupRepositoryRemoteTest {
      * scheduled run will have an archive to write.
      */
     @Test
-    fun `a device with no archive is authorized anyway`() = runTest {
-        val remote = FakeRemoteBackupService()
+    fun `a device with no archive is authorized anyway`() =
+        runTest {
+            val remote = FakeRemoteBackupService()
 
-        val authorization = repository(MapFileSystem(), remote, RecordingImporter())
-            .authorizeScheduledBackup("horse".toCharArray())
-            .getOrThrow()
+            val authorization =
+                repository(MapFileSystem(), remote, RecordingImporter())
+                    .authorizeScheduledBackup("horse".toCharArray())
+                    .getOrThrow()
 
-        assertTrue(
-            authorization is ScheduledAuthorization.Authorized,
-            "the device is authorized, and there was nothing to seal: $authorization",
-        )
-        assertTrue(remote.uploaded.isEmpty(), "nothing was pushed")
-    }
+            assertTrue(
+                authorization is ScheduledAuthorization.Authorized,
+                "the device is authorized, and there was nothing to seal: $authorization",
+            )
+            assertTrue(remote.uploaded.isEmpty(), "nothing was pushed")
+        }
 
     /**
      * A failed re-sealing does not undo the authorization.
@@ -484,18 +509,20 @@ class BackupRepositoryRemoteTest {
      * the two happened.
      */
     @Test
-    fun `a failed re-sealing leaves the device authorized and says so`() = runTest {
-        val fs = MapFileSystem()
-        fs.writeBytes("$backupDir/a.zip", byteArrayOf(1))
-        val remote = FakeRemoteBackupService(uploadFailure = IllegalStateException("the bucket refused"))
+    fun `a failed re-sealing leaves the device authorized and says so`() =
+        runTest {
+            val fs = MapFileSystem()
+            fs.writeBytes("$backupDir/a.zip", byteArrayOf(1))
+            val remote = FakeRemoteBackupService(uploadFailure = IllegalStateException("the bucket refused"))
 
-        val authorization = repository(fs, remote, RecordingImporter())
-            .authorizeScheduledBackup("horse".toCharArray())
-            .getOrThrow()
+            val authorization =
+                repository(fs, remote, RecordingImporter())
+                    .authorizeScheduledBackup("horse".toCharArray())
+                    .getOrThrow()
 
-        assertTrue(
-            authorization is ScheduledAuthorization.AuthorizedButNotRepushed,
-            "the device is authorized and the copy in the cloud was not: $authorization",
-        )
-    }
+            assertTrue(
+                authorization is ScheduledAuthorization.AuthorizedButNotRepushed,
+                "the device is authorized and the copy in the cloud was not: $authorization",
+            )
+        }
 }

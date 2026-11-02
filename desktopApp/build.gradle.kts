@@ -1,5 +1,5 @@
-import java.util.Properties
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.kotlinJvm)
@@ -22,10 +22,11 @@ val desktopAppVersion = (project.findProperty("desktopAppVersion") as String?) ?
 val desktopAppVersionCode =
     (project.findProperty("desktopAppVersionCode") as String?)?.toIntOrNull() ?: 0
 
-val coroutinesDebugAgent = configurations.create("coroutinesDebugAgent") {
-    isCanBeConsumed = false
-    isCanBeResolved = true
-}
+val coroutinesDebugAgent =
+    configurations.create("coroutinesDebugAgent") {
+        isCanBeConsumed = false
+        isCanBeResolved = true
+    }
 
 koinCompiler {
     // userLogs = true // uncomment to see detected definitions during development
@@ -52,7 +53,8 @@ composeCompiler {
 // compilation UP-TO-DATE: the new classification never reaches the bytecode,
 // and a contract change looks like it took effect when nothing changed.
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().configureEach {
-    inputs.file(composeStabilityConfiguration)
+    inputs
+        .file(composeStabilityConfiguration)
         .withPropertyName("composeStabilityConfiguration")
         .withPathSensitivity(PathSensitivity.RELATIVE)
 }
@@ -74,7 +76,10 @@ kotlin {
                 listOf(
                     "-P",
                     "plugin:androidx.compose.compiler.plugins.kotlin:reportsDestination=" +
-                        layout.buildDirectory.dir("compose_compiler_reports/desktop").get().asFile.absolutePath,
+                        layout.buildDirectory
+                            .dir("compose_compiler_reports/desktop")
+                            .get()
+                            .asFile.absolutePath,
                 ),
             )
         }
@@ -201,63 +206,65 @@ compose.desktop {
 // so we patch the .deb after packageDeb creates it using standard Debian tools.
 // ---------------------------------------------------------------------------
 
-val patchDebPostinst = tasks.register<DefaultTask>("patchDebPostinst") {
-    // Run after packageDeb. Not all formats produce a .deb, so the glob inside
-    // is the only part that can tolerate being a no-op when no .deb exists.
-    // packageDeb is created lazily by the compose-desktop plugin, so we access it
-    // by name string rather than a typed reference.
-    dependsOn("packageDeb")
+val patchDebPostinst =
+    tasks.register<DefaultTask>("patchDebPostinst") {
+        // Run after packageDeb. Not all formats produce a .deb, so the glob inside
+        // is the only part that can tolerate being a no-op when no .deb exists.
+        // packageDeb is created lazily by the compose-desktop plugin, so we access it
+        // by name string rather than a typed reference.
+        dependsOn("packageDeb")
 
-    // Resolve at configuration time so the doLast closure captures a plain File
-    // (config-cache serializable) instead of a Gradle script object reference.
-    val buildDir = layout.buildDirectory.asFile.get()
+        // Resolve at configuration time so the doLast closure captures a plain File
+        // (config-cache serializable) instead of a Gradle script object reference.
+        val buildDir = layout.buildDirectory.asFile.get()
 
-    doLast {
-        val debDir = buildDir.resolve("compose/binaries/main/deb")
-        val debFiles = debDir.listFiles { _, name -> name.endsWith(".deb") }
-            ?: error("No .deb files found in $debDir — packageDeb must run first")
+        doLast {
+            val debDir = buildDir.resolve("compose/binaries/main/deb")
+            val debFiles =
+                debDir.listFiles { _, name -> name.endsWith(".deb") }
+                    ?: error("No .deb files found in $debDir — packageDeb must run first")
 
-        for (debFile in debFiles) {
-            val tmpDir = buildDir.resolve("tmp-deb-patch/${debFile.nameWithoutExtension}")
-            tmpDir.mkdirs()
-            try {
-                // Use ProcessBuilder directly — avoids any Gradle DSL scope issues inside doLast.
-                val run = { cmd: List<String> ->
-                    val pb = ProcessBuilder(cmd)
-                    pb.redirectErrorStream(true)
-                    val result = pb.start().waitFor()
-                    if (result != 0) error("Command failed: $cmd  (exit $result)")
-                }
+            for (debFile in debFiles) {
+                val tmpDir = buildDir.resolve("tmp-deb-patch/${debFile.nameWithoutExtension}")
+                tmpDir.mkdirs()
+                try {
+                    // Use ProcessBuilder directly — avoids any Gradle DSL scope issues inside doLast.
+                    val run = { cmd: List<String> ->
+                        val pb = ProcessBuilder(cmd)
+                        pb.redirectErrorStream(true)
+                        val result = pb.start().waitFor()
+                        if (result != 0) error("Command failed: $cmd  (exit $result)")
+                    }
 
-                // Extract the package data and control files.
-                run(listOf("dpkg-deb", "-x", debFile.absolutePath, tmpDir.absolutePath))
-                run(listOf("dpkg-deb", "-e", debFile.absolutePath, "$tmpDir/DEBIAN"))
+                    // Extract the package data and control files.
+                    run(listOf("dpkg-deb", "-x", debFile.absolutePath, tmpDir.absolutePath))
+                    run(listOf("dpkg-deb", "-e", debFile.absolutePath, "$tmpDir/DEBIAN"))
 
-                val postinst = tmpDir.resolve("DEBIAN/postinst")
-                if (postinst.exists()) {
-                    // Replace with a no-op that handles all standard dpkg trigger arguments.
-                    // jpackage's original postinst called xdg-desktop-menu, which aborts on
-                    // headless Debian (no desktop-directories). This one just exits 0 (#686).
-                    postinst.writeText(
-                        """#!/bin/bash
+                    val postinst = tmpDir.resolve("DEBIAN/postinst")
+                    if (postinst.exists()) {
+                        // Replace with a no-op that handles all standard dpkg trigger arguments.
+                        // jpackage's original postinst called xdg-desktop-menu, which aborts on
+                        // headless Debian (no desktop-directories). This one just exits 0 (#686).
+                        postinst.writeText(
+                            """#!/bin/bash
 case "$1" in
     configure|abort-upgrade|abort-remove|abort-deconfigure)
         exit 0
         ;;
 esac
-"""
-                    )
-                    postinst.setExecutable(true)
-                }
+""",
+                        )
+                        postinst.setExecutable(true)
+                    }
 
-                // Repack the .deb in-place, replacing the original.
-                run(listOf("dpkg-deb", "-b", tmpDir.absolutePath, debFile.absolutePath))
-            } finally {
-                tmpDir.deleteRecursively()
+                    // Repack the .deb in-place, replacing the original.
+                    run(listOf("dpkg-deb", "-b", tmpDir.absolutePath, debFile.absolutePath))
+                } finally {
+                    tmpDir.deleteRecursively()
+                }
             }
         }
     }
-}
 
 // patchDebPostinst dependsOn "packageDeb" directly, so running
 // `packageDeb` automatically runs the patch too.
@@ -265,15 +272,13 @@ afterEvaluate {
     tasks.findByName("packageDeb")?.finalizedBy(patchDebPostinst)
 }
 
-
-
 // ---------------------------------------------------------------------------
-// detekt — static analysis + ktlint (via detekt-formatting plugin)
+// detekt — static analysis (semantics; formatting is ktlint CLI)
 // ---------------------------------------------------------------------------
 detekt {
     config.setFrom(rootProject.file("config/detekt/detekt.yml"))
     baseline = rootProject.file("config/detekt/baseline-desktopApp.xml")
-        ignoreFailures = false              // PR 3.3: enforcing — baseline covers accepted debt
+    ignoreFailures = false // PR 3.3: enforcing — baseline covers accepted debt
     source.setFrom("src/main/kotlin", "src/jvmTest/kotlin")
 }
 
@@ -287,14 +292,16 @@ detekt {
 // This module reads its OWN line of the record, so the number its test JVMs
 // run with is the number the record holds for this module.
 // `scripts/check-memory-budget.py` is what keeps the two in step.
-val memoryBudget = Properties().apply {
-    rootProject.file("config/docs/gradle-memory-budget.properties").inputStream().use { load(it) }
-}
-val testTaskHeap = memoryBudget.getProperty("test.heap.module.desktopApp")
-    ?: throw GradleException(
-        "config/docs/gradle-memory-budget.properties declares no test.heap.module.desktopApp — " +
-            "the heap of this module's test tasks has to be recorded somewhere."
-    )
+val memoryBudget =
+    Properties().apply {
+        rootProject.file("config/docs/gradle-memory-budget.properties").inputStream().use { load(it) }
+    }
+val testTaskHeap =
+    memoryBudget.getProperty("test.heap.module.desktopApp")
+        ?: throw GradleException(
+            "config/docs/gradle-memory-budget.properties declares no test.heap.module.desktopApp — " +
+                "the heap of this module's test tasks has to be recorded somewhere.",
+        )
 
 // JUnit Platform (Jupiter) — enables @Tag, @Nested, @ParameterizedTest, @TempDir, @AutoClose
 tasks.withType<Test>().configureEach {
@@ -329,19 +336,28 @@ tasks.withType<Test>().configureEach {
         systemProperty("junit.jupiter.execution.parallel.mode.default", "same_thread")
         systemProperty("junit.jupiter.execution.parallel.mode.classes.default", "same_thread")
 
-        val tags = (project.findProperty("test.tags") as String?)
-            ?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
+        val tags =
+            (project.findProperty("test.tags") as String?)
+                ?.split(",")
+                ?.map { it.trim() }
+                ?.filter { it.isNotEmpty() } ?: emptyList()
         when {
             tags.isEmpty() -> {
                 // Default: run everything EXCEPT @Tag("slow") — slow requires -Ptest.tags=slow
                 excludeTags("slow")
             }
+
             // `-Ptest.tags=all` applies no tag filter at all. JUnit's
             // includeTags() excludes untagged tests, so passing a tag list runs
             // only the tagged minority. See the deferred-backlog entry
             // `include-tags-excludes-untagged-tests`.
-            tags == listOf("all") -> Unit
-            else -> includeTags(*tags.toTypedArray())
+            tags == listOf("all") -> {
+                Unit
+            }
+
+            else -> {
+                includeTags(*tags.toTypedArray())
+            }
         }
     }
     // Forward the opt-in test switches from the Gradle CLI into the forked test JVM.
@@ -410,23 +426,28 @@ tasks.withType<Test>().configureEach {
     // DebugProbes.install() emits a dynamic-loading warning on JDK 21 and fails on JDK 22+.
     // Resolved eagerly as a plain String (not via CommandLineArgumentProvider) to avoid
     // capturing the Gradle script object, which breaks the configuration cache.
-    val coroutinesDebugAgentPath: String = configurations
-        .named("coroutinesDebugAgent").get()
-        .resolve()
-        .single { it.name.contains("debug") && it.name.endsWith(".jar") }
-        .absolutePath
+    val coroutinesDebugAgentPath: String =
+        configurations
+            .named("coroutinesDebugAgent")
+            .get()
+            .resolve()
+            .single { it.name.contains("debug") && it.name.endsWith(".jar") }
+            .absolutePath
     jvmArgs("-javaagent:$coroutinesDebugAgentPath")
     // Allure test reporting — results written to build/allure-results/
     // (#694) Eagerly resolved absolute path so the system property is a plain String,
     // not a Provider — systemProperty does not call `.get()` on a Provider the way
     // workingDir does, so lazy resolution silently did nothing before.
-    val allureDir = layout.buildDirectory.dir("allure-results").get().asFile.absoluteFile
+    val allureDir =
+        layout.buildDirectory
+            .dir("allure-results")
+            .get()
+            .asFile.absoluteFile
     systemProperty("allure.results.directory", allureDir.also { it.mkdirs() }.absolutePath)
 }
 
 dependencies {
-    detektPlugins(libs.detekt.formatting)   // wires ktlint into detekt so detektFormat fixes both
-    detektPlugins(project(":detekt-rules"))  // PassThroughUseCaseRule — flags thin wrappers in *UseCase.kt
+    detektPlugins(project(":detekt-rules")) // PassThroughUseCaseRule — flags thin wrappers in *UseCase.kt
     coroutinesDebugAgent(libs.kotlinx.coroutines.debug)
 }
 
@@ -438,4 +459,3 @@ dependencies {
 // No `kover { }` block: see settings.gradle.kts. Declaring the project plugin
 // here would fail with "an extension already registered with that name" — the
 // settings-level plugin applies it to every project itself.
-

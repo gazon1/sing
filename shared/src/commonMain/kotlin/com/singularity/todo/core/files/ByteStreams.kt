@@ -28,13 +28,16 @@ package com.singularity.todo.core.files
  * A sink takes what it is given and keeps it.
  */
 interface ByteSource {
-
     /**
      * Reads up to [length] bytes into [buffer], starting at [offset].
      *
      * @return the number of bytes read, or -1 when there is nothing left.
      */
-    fun read(buffer: ByteArray, offset: Int, length: Int): Int
+    fun read(
+        buffer: ByteArray,
+        offset: Int,
+        length: Int,
+    ): Int
 
     /**
      * Releases the source.
@@ -53,9 +56,12 @@ interface ByteSource {
  * was written.
  */
 interface ByteSink {
-
     /** Writes [length] bytes of [buffer], starting at [offset]. */
-    fun write(buffer: ByteArray, offset: Int, length: Int)
+    fun write(
+        buffer: ByteArray,
+        offset: Int,
+        length: Int,
+    )
 
     /**
      * Releases the sink.
@@ -93,10 +99,13 @@ fun ByteSource.readExactly(count: Int): ByteArray {
 
 /** A source that hands out the bytes it was given, in order. */
 class ByteArraySource(private val bytes: ByteArray) : ByteSource {
-
     private var position = 0
 
-    override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+    override fun read(
+        buffer: ByteArray,
+        offset: Int,
+        length: Int,
+    ): Int {
         if (position >= bytes.size) return -1
         val count = minOf(length, bytes.size - position)
         bytes.copyInto(buffer, offset, position, position + count)
@@ -109,10 +118,13 @@ class ByteArraySource(private val bytes: ByteArray) : ByteSource {
 
 /** A sink that keeps everything it is given. */
 class ByteArraySink : ByteSink {
-
     private var buffer = ByteArray(0)
 
-    override fun write(buffer: ByteArray, offset: Int, length: Int) {
+    override fun write(
+        buffer: ByteArray,
+        offset: Int,
+        length: Int,
+    ) {
         this.buffer += buffer.copyOfRange(offset, offset + length)
     }
 

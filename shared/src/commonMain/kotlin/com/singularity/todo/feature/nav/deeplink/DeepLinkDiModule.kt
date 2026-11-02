@@ -19,14 +19,15 @@ import org.koin.dsl.module
  * [TaskDeepLink] — в `tasksModule()`, [AgendaDeepLink] — в `agendaModule()`,
  * [AuthDeepLink] — рядом с остальными auth-привязками.
  */
-fun deepLinkModule(): Module = module {
-    single {
-        DeepLinkRegistry(
-            listOf(
-                get<TaskDeepLink>(),
-                get<AgendaDeepLink>(),
-                get<AuthDeepLink>(),
-            ),
-        )
+fun deepLinkModule(): Module =
+    module {
+        single {
+            DeepLinkRegistry(
+                listOf(
+                    get<TaskDeepLink>(),
+                    get<AgendaDeepLink>(),
+                    get<AuthDeepLink>(),
+                ),
+            )
+        }
     }
-}

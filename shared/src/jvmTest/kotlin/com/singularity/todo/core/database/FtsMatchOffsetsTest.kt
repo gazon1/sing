@@ -37,7 +37,6 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:data")
 class FtsMatchOffsetsTest {
-
     private lateinit var tempDir: File
     private lateinit var db: AppDatabase
 
@@ -54,106 +53,139 @@ class FtsMatchOffsetsTest {
     }
 
     @Test
-    fun `the row carries the position of the match`() = runTest {
-        seed(task(id = "t1", title = "Architecture of the house"))
+    fun `the row carries the position of the match`() =
+        runTest {
+            seed(task(id = "t1", title = "Architecture of the house"))
 
-        val row = db.ftsDao().watchTasks("u1", TextMatchQuery(listOf("arch"))).first().single()
+            val row =
+                db
+                    .ftsDao()
+                    .watchTasks("u1", TextMatchQuery(listOf("arch")))
+                    .first()
+                    .single()
 
-        val ranges = FtsOffsets.ranges(
-            row.offsets,
-            listOf(FtsColumn(SearchColumn.TITLE, row.task.title)),
-        )
+            val ranges =
+                FtsOffsets.ranges(
+                    row.offsets,
+                    listOf(FtsColumn(SearchColumn.TITLE, row.task.title)),
+                )
 
-        assertEquals(listOf(TextMatchRange(SearchColumn.TITLE, 0, 12)), ranges)
-        assertEquals(
-            "Architecture",
-            row.task.title.substring(ranges.single().start, ranges.single().end),
-        )
-    }
-
-    @Test
-    fun `the position of a match in an accented title is in characters`() = runTest {
-        // "Café au lait" — the accent is two bytes, so the byte offset and the
-        // character offset of the match are not the same number.
-        seed(task(id = "t1", title = "Café au lait"))
-
-        val row = db.ftsDao().watchTasks("u1", TextMatchQuery(listOf("cafe"))).first().single()
-
-        val ranges = FtsOffsets.ranges(
-            row.offsets,
-            listOf(FtsColumn(SearchColumn.TITLE, row.task.title)),
-        )
-
-        assertEquals(listOf(TextMatchRange(SearchColumn.TITLE, 0, 4)), ranges)
-        assertEquals(
-            "Café",
-            row.task.title.substring(ranges.single().start, ranges.single().end),
-        )
-    }
+            assertEquals(listOf(TextMatchRange(SearchColumn.TITLE, 0, 12)), ranges)
+            assertEquals(
+                "Architecture",
+                row.task.title.substring(ranges.single().start, ranges.single().end),
+            )
+        }
 
     @Test
-    fun `the position of a match after an accented character is in characters`() = runTest {
-        // "Ünicode plan" — the word stands after a two-byte character.
-        seed(task(id = "t1", title = "Ünicode plan"))
+    fun `the position of a match in an accented title is in characters`() =
+        runTest {
+            // "Café au lait" — the accent is two bytes, so the byte offset and the
+            // character offset of the match are not the same number.
+            seed(task(id = "t1", title = "Café au lait"))
 
-        val row = db.ftsDao().watchTasks("u1", TextMatchQuery(listOf("plan"))).first().single()
+            val row =
+                db
+                    .ftsDao()
+                    .watchTasks("u1", TextMatchQuery(listOf("cafe")))
+                    .first()
+                    .single()
 
-        val ranges = FtsOffsets.ranges(
-            row.offsets,
-            listOf(FtsColumn(SearchColumn.TITLE, row.task.title)),
-        )
+            val ranges =
+                FtsOffsets.ranges(
+                    row.offsets,
+                    listOf(FtsColumn(SearchColumn.TITLE, row.task.title)),
+                )
 
-        assertEquals(
-            "plan",
-            row.task.title.substring(ranges.single().start, ranges.single().end),
-        )
-    }
+            assertEquals(listOf(TextMatchRange(SearchColumn.TITLE, 0, 4)), ranges)
+            assertEquals(
+                "Café",
+                row.task.title.substring(ranges.single().start, ranges.single().end),
+            )
+        }
 
     @Test
-    fun `a record that matched in its description carries no range in its title`() = runTest {
-        seed(task(id = "t1", title = "The plan", description = "an architecture of the house"))
+    fun `the position of a match after an accented character is in characters`() =
+        runTest {
+            // "Ünicode plan" — the word stands after a two-byte character.
+            seed(task(id = "t1", title = "Ünicode plan"))
 
-        val row = db.ftsDao().watchTasks("u1", TextMatchQuery(listOf("architecture"))).first().single()
+            val row =
+                db
+                    .ftsDao()
+                    .watchTasks("u1", TextMatchQuery(listOf("plan")))
+                    .first()
+                    .single()
 
-        val ranges = FtsOffsets.ranges(
-            row.offsets,
-            listOf(
-                FtsColumn(SearchColumn.TITLE, row.task.title),
-                FtsColumn(SearchColumn.DESCRIPTION, row.task.description.orEmpty()),
-            ),
-        )
+            val ranges =
+                FtsOffsets.ranges(
+                    row.offsets,
+                    listOf(FtsColumn(SearchColumn.TITLE, row.task.title)),
+                )
 
-        assertTrue(ranges.none { it.column == SearchColumn.TITLE }, "the title does not carry the word")
-        assertEquals(
-            "architecture",
-            row.task.description.orEmpty().substring(
-                ranges.single { it.column == SearchColumn.DESCRIPTION }.start,
-                ranges.single { it.column == SearchColumn.DESCRIPTION }.end,
-            ),
-        )
-    }
+            assertEquals(
+                "plan",
+                row.task.title.substring(ranges.single().start, ranges.single().end),
+            )
+        }
+
+    @Test
+    fun `a record that matched in its description carries no range in its title`() =
+        runTest {
+            seed(task(id = "t1", title = "The plan", description = "an architecture of the house"))
+
+            val row =
+                db
+                    .ftsDao()
+                    .watchTasks("u1", TextMatchQuery(listOf("architecture")))
+                    .first()
+                    .single()
+
+            val ranges =
+                FtsOffsets.ranges(
+                    row.offsets,
+                    listOf(
+                        FtsColumn(SearchColumn.TITLE, row.task.title),
+                        FtsColumn(SearchColumn.DESCRIPTION, row.task.description.orEmpty()),
+                    ),
+                )
+
+            assertTrue(ranges.none { it.column == SearchColumn.TITLE }, "the title does not carry the word")
+            assertEquals(
+                "architecture",
+                row.task.description.orEmpty().substring(
+                    ranges.single { it.column == SearchColumn.DESCRIPTION }.start,
+                    ranges.single { it.column == SearchColumn.DESCRIPTION }.end,
+                ),
+            )
+        }
 
     private suspend fun seed(entity: TaskEntity) {
         db.taskDao().upsert(entity)
     }
 
-    private fun task(id: String, title: String, description: String? = null): TaskEntity = TaskEntity(
-        id = id,
-        title = title,
-        description = description,
-        projectId = null,
-        dueDate = null,
-        dueTime = null,
-        startDate = null,
-        startTime = null,
-        endDate = null,
-        endTime = null,
-        accentColor = null,
-        emoji = null,
-        completedAt = null,
-        archivedAt = null,
-        createdAt = 1_000L,
-        updatedAt = 1_000L,
-        userId = "u1",
-    )
+    private fun task(
+        id: String,
+        title: String,
+        description: String? = null,
+    ): TaskEntity =
+        TaskEntity(
+            id = id,
+            title = title,
+            description = description,
+            projectId = null,
+            dueDate = null,
+            dueTime = null,
+            startDate = null,
+            startTime = null,
+            endDate = null,
+            endTime = null,
+            accentColor = null,
+            emoji = null,
+            completedAt = null,
+            archivedAt = null,
+            createdAt = 1_000L,
+            updatedAt = 1_000L,
+            userId = "u1",
+        )
 }

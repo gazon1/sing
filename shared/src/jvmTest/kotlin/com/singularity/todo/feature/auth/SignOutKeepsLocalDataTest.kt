@@ -38,77 +38,91 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class SignOutKeepsLocalDataTest {
-
     private val owner = UserId("u1")
 
-    private fun note(id: String) = NoteEntity(
-        id = id,
-        userId = owner.value,
-        title = id,
-        bodyMarkdown = null,
-        bodyHtml = null,
-        parentNoteId = null,
-        createdAt = 1_000L,
-        updatedAt = 1_000L,
-        deletedAt = null,
-        archivedAt = null,
-    )
+    private fun note(id: String) =
+        NoteEntity(
+            id = id,
+            userId = owner.value,
+            title = id,
+            bodyMarkdown = null,
+            bodyHtml = null,
+            parentNoteId = null,
+            createdAt = 1_000L,
+            updatedAt = 1_000L,
+            deletedAt = null,
+            archivedAt = null,
+        )
 
-    private fun TestScope.repository(gateway: AuthGateway) = SupabaseAuthRepository(
-        log = testLogger(),
-        gateway = gateway,
-        localOwnerStore = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
-        scope = AutoCloseableCoroutineScope(coroutineContext),
-    )
+    private fun TestScope.repository(gateway: AuthGateway) =
+        SupabaseAuthRepository(
+            log = testLogger(),
+            gateway = gateway,
+            localOwnerStore = DataStoreSessionStore(newPreferencesStore(), FixedIdGenerator("dev")),
+            scope = AutoCloseableCoroutineScope(coroutineContext),
+        )
 
     @Test
-    fun `signing out with the server unreachable keeps local rows`() = runTest {
-        val db = FakeAppDatabase()
-        db.seedNotes(listOf(note("keep-me")))
-        val repo = repository(UnreachableGateway())
+    fun `signing out with the server unreachable keeps local rows`() =
+        runTest {
+            val db = FakeAppDatabase()
+            db.seedNotes(listOf(note("keep-me")))
+            val repo = repository(UnreachableGateway())
 
-        val result = repo.signOut()
+            val result = repo.signOut()
 
-        assertTrue(result.isSuccess, "signing out failed against an unreachable server")
-        assertEquals(
-            listOf("keep-me"),
-            db.noteDao().watchAll(owner.value).first().map { it.id },
-            "signing out erased local data — that is the switch path, not this one",
-        )
-    }
+            assertTrue(result.isSuccess, "signing out failed against an unreachable server")
+            assertEquals(
+                listOf("keep-me"),
+                db
+                    .noteDao()
+                    .watchAll(owner.value)
+                    .first()
+                    .map { it.id },
+                "signing out erased local data — that is the switch path, not this one",
+            )
+        }
 
     @Test
-    fun `signing out clears the session`() = runTest {
-        val gateway = UnreachableGateway()
-        val repo = repository(gateway)
+    fun `signing out clears the session`() =
+        runTest {
+            val gateway = UnreachableGateway()
+            val repo = repository(gateway)
 
-        repo.signOut()
+            repo.signOut()
 
-        assertNull(
-            (repo.currentSession.value as? Session.SignedIn)?.userId,
-            "signing out left the session signed in",
-        )
-    }
+            assertNull(
+                (repo.currentSession.value as? Session.SignedIn)?.userId,
+                "signing out left the session signed in",
+            )
+        }
 
     /** Fails every call, the way a device with no connectivity would. */
     private class UnreachableGateway : AuthGateway {
-        override suspend fun signUp(email: String, password: String): Result<RemoteSession> =
-            Result.failure(AppError.Network("offline"))
+        override suspend fun signUp(
+            email: String,
+            password: String,
+        ): Result<RemoteSession> = Result.failure(AppError.Network("offline"))
 
-        override suspend fun signIn(email: String, password: String): Result<RemoteSession> =
-            Result.failure(AppError.Network("offline"))
+        override suspend fun signIn(
+            email: String,
+            password: String,
+        ): Result<RemoteSession> = Result.failure(AppError.Network("offline"))
 
-        override suspend fun refresh(accessToken: String, refreshToken: String): Result<RemoteSession?> =
-            Result.failure(AppError.Network("offline"))
+        override suspend fun refresh(
+            accessToken: String,
+            refreshToken: String,
+        ): Result<RemoteSession?> = Result.failure(AppError.Network("offline"))
 
         override suspend fun updatePassword(newPassword: String): Result<Unit> =
             Result.failure(AppError.Network("offline"))
 
-        override suspend fun sendMagicLink(email: String): Result<Unit> =
-            Result.failure(AppError.Network("offline"))
+        override suspend fun sendMagicLink(email: String): Result<Unit> = Result.failure(AppError.Network("offline"))
 
-        override suspend fun verifyMagicLink(email: String, token: String): Result<RemoteSession> =
-            Result.failure(AppError.Network("offline"))
+        override suspend fun verifyMagicLink(
+            email: String,
+            token: String,
+        ): Result<RemoteSession> = Result.failure(AppError.Network("offline"))
 
         override suspend fun signOut(): Result<Unit> = Result.failure(AppError.Network("offline"))
 

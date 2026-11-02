@@ -7,8 +7,8 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
 
 /**
@@ -20,69 +20,74 @@ import kotlin.time.Duration.Companion.minutes
  */
 @Tag("fast")
 class AcpPermissionBrokerTest {
-
     private val timeout = 5.minutes
 
     @Test
-    fun `the oldest request is the one on screen`() = runTest {
-        val broker = AcpPermissionBroker(timeout)
+    fun `the oldest request is the one on screen`() =
+        runTest {
+            val broker = AcpPermissionBroker(timeout)
 
-        broker.begin(request("first"))
-        broker.begin(request("second"))
+            broker.begin(request("first"))
+            broker.begin(request("second"))
 
-        assertEquals("first", broker.onScreen()?.title, "The question that was asked first is asked first")
-    }
-
-    @Test
-    fun `a second request does not orphan the first`() = runTest {
-        val broker = AcpPermissionBroker(timeout)
-        val first = broker.begin(request("first"))
-        broker.begin(request("second"))
-
-        broker.answer(PermissionDecision.Declined)
-
-        assertTrue(first.isCompleted, "the first request is answered, not abandoned")
-        assertEquals(PermissionDecision.Declined, first.await())
-    }
+            assertEquals("first", broker.onScreen()?.title, "The question that was asked first is asked first")
+        }
 
     @Test
-    fun `the next request takes the screen when the first is answered`() = runTest {
-        val broker = AcpPermissionBroker(timeout)
-        broker.begin(request("first"))
-        broker.begin(request("second"))
+    fun `a second request does not orphan the first`() =
+        runTest {
+            val broker = AcpPermissionBroker(timeout)
+            val first = broker.begin(request("first"))
+            broker.begin(request("second"))
 
-        broker.answer(PermissionDecision.Declined)
+            broker.answer(PermissionDecision.Declined)
 
-        assertEquals("second", broker.onScreen()?.title, "and the reader is asked the next question")
-    }
-
-    @Test
-    fun `a finished request leaves the screen`() = runTest {
-        val broker = AcpPermissionBroker(timeout)
-        val decision = broker.begin(request("only"))
-
-        broker.answer(PermissionDecision.Declined)
-        broker.await(decision)
-
-        assertNull(broker.onScreen(), "Nothing is on screen once the request is answered")
-    }
+            assertTrue(first.isCompleted, "the first request is answered, not abandoned")
+            assertEquals(PermissionDecision.Declined, first.await())
+        }
 
     @Test
-    fun `declining refuses every request that is waiting`() = runTest {
-        val broker = AcpPermissionBroker(timeout)
-        val first = broker.begin(request("first"))
-        val second = broker.begin(request("second"))
+    fun `the next request takes the screen when the first is answered`() =
+        runTest {
+            val broker = AcpPermissionBroker(timeout)
+            broker.begin(request("first"))
+            broker.begin(request("second"))
 
-        broker.decline()
+            broker.answer(PermissionDecision.Declined)
 
-        assertEquals(PermissionDecision.Declined, first.await(), "the first is refused")
-        assertEquals(PermissionDecision.Declined, second.await(), "and so is the second")
-        assertNull(broker.onScreen(), "and nothing is left on screen")
-    }
+            assertEquals("second", broker.onScreen()?.title, "and the reader is asked the next question")
+        }
 
-    private fun request(title: String): AcpPermissionRequest = AcpPermissionRequest(
-        toolCallId = "call-$title",
-        title = title,
-        options = listOf(AcpPermissionOption(optionId = "allow", label = "Allow once", isRejection = false)),
-    )
+    @Test
+    fun `a finished request leaves the screen`() =
+        runTest {
+            val broker = AcpPermissionBroker(timeout)
+            val decision = broker.begin(request("only"))
+
+            broker.answer(PermissionDecision.Declined)
+            broker.await(decision)
+
+            assertNull(broker.onScreen(), "Nothing is on screen once the request is answered")
+        }
+
+    @Test
+    fun `declining refuses every request that is waiting`() =
+        runTest {
+            val broker = AcpPermissionBroker(timeout)
+            val first = broker.begin(request("first"))
+            val second = broker.begin(request("second"))
+
+            broker.decline()
+
+            assertEquals(PermissionDecision.Declined, first.await(), "the first is refused")
+            assertEquals(PermissionDecision.Declined, second.await(), "and so is the second")
+            assertNull(broker.onScreen(), "and nothing is left on screen")
+        }
+
+    private fun request(title: String): AcpPermissionRequest =
+        AcpPermissionRequest(
+            toolCallId = "call-$title",
+            title = title,
+            options = listOf(AcpPermissionOption(optionId = "allow", label = "Allow once", isRejection = false)),
+        )
 }

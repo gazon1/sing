@@ -12,17 +12,20 @@ import kotlinx.coroutines.CancellationException
  * the AI Agent's UUID instead of Personal's.
  */
 internal object BootstrapTheProfiles : ToolServerStartupStep {
-
     override val title: String = "bootstrap the profiles"
 
     override suspend fun run(context: ToolServerStartupContext): ToolServerStartup.Refused? {
-        val dependencies = checkNotNull(context.dependencies) {
-            "The order does not resolve the dependencies before this step."
-        }
+        val dependencies =
+            checkNotNull(context.dependencies) {
+                "The order does not resolve the dependencies before this step."
+            }
         bootstrap(dependencies, context.legacyLabel)
         return null
     }
 }
+
+// The profile bootstrap is best-effort: a failure here leaves the server on the
+// personal/default profile, which is a working server.
 
 /**
  * Seeds default profiles (Personal + AI Agent) and switches the active profile
@@ -39,18 +42,17 @@ internal object BootstrapTheProfiles : ToolServerStartupStep {
  * them under the AI Agent's scoped userId so they become visible after switching
  * in the UI. Safe to run repeatedly: only touches rows owned by `user_id = LOCAL_UID`.
  */
-// The profile bootstrap is best-effort: a failure here leaves the server on the
-// personal/default profile, which is a working server.
 @Suppress("TooGenericExceptionCaught") // best-effort: the server works on the default profile
 private suspend fun bootstrap(dependencies: ServerDependencies, profileCliArg: String?) {
     try {
         val bootstrapper: ProfileBootstrapper = dependencies.profileBootstrapper
         val activateName = profileNameToActivate(profileCliArg)
 
-        val result = bootstrapper.run(
-            seedExtras = listOf(ProfileBootstrapper.SeedProfile.AI_AGENT),
-            activateName = activateName,
-        )
+        val result =
+            bootstrapper.run(
+                seedExtras = listOf(ProfileBootstrapper.SeedProfile.AI_AGENT),
+                activateName = activateName,
+            )
         // --profile-id needs no row migration: the agent profile writes under its own
         // scoped id, and migrating live rows here would hide them from the app.
     } catch (e: CancellationException) {
@@ -74,9 +76,10 @@ private suspend fun bootstrap(dependencies: ServerDependencies, profileCliArg: S
  * The mapping is a value rather than a branch inside the bootstrap, so that the
  * legacy meaning can be checked without a database, a container and a process.
  */
-internal fun profileNameToActivate(legacyLabel: String?): String? = when (legacyLabel?.lowercase()) {
-    "ai-agent", "agent" -> "AI Agent"
+internal fun profileNameToActivate(legacyLabel: String?): String? =
+    when (legacyLabel?.lowercase()) {
+        "ai-agent", "agent" -> "AI Agent"
 
-    // "default", "personal", and every label nobody knows: the stored profile stays.
-    else -> null
-}
+        // "default", "personal", and every label nobody knows: the stored profile stays.
+        else -> null
+    }

@@ -13,7 +13,10 @@ import com.singularity.todo.feature.settings.presentation.nav.SettingsNavGraph
  * @param nav the outer navigation callbacks.
  * @param stacks the stacks the platform hoists.
  */
-fun EntryProviderScope<AppDestination>.settingsEntries(nav: NavCallbacks, stacks: AppNavStacks) {
+fun EntryProviderScope<AppDestination>.settingsEntries(
+    nav: NavCallbacks,
+    stacks: AppNavStacks,
+) {
     entry<AppDestination.Settings>(clazzContentKey = { it.stableContentKey() }) {
         SettingsNavGraph(
             navCallbacks = nav,

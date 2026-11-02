@@ -21,11 +21,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.refresh.RefreshableContent
+import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.CollectEvents
 import com.singularity.todo.core.ui.components.LoadingIndicator
-import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.core.ui.components.TaggedSnackbarHost
+import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.proposals.presentation.components.ProposalCardsSection
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.launch
@@ -72,49 +72,56 @@ fun ProposalsScreen(modifier: Modifier = Modifier) {
     ) { paddingValues ->
         RefreshableContent {
             when {
-                state.isLoading -> LoadingIndicator(modifier = Modifier.fillMaxSize().padding(paddingValues))
-
-                state.proposals.isEmpty() -> Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                        .padding(24.dp)
-                        .testTag(TestTags.PROPOSALS_EMPTY),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    SelectableText(
-                        text = "Nothing to propose",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                    )
-                    SelectableText(
-                        text = "Changes the assistant proposes show up here, waiting for you.",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+                state.isLoading -> {
+                    LoadingIndicator(modifier = Modifier.fillMaxSize().padding(paddingValues))
                 }
 
-                else -> LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    item {
+                state.proposals.isEmpty() -> {
+                    Column(
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .padding(paddingValues)
+                                .padding(24.dp)
+                                .testTag(TestTags.PROPOSALS_EMPTY),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
                         SelectableText(
-                            text = "Waiting for you",
+                            text = "Nothing to propose",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                         )
-                    }
-                    items(state.proposals, key = { it.id.value }) { proposal ->
-                        ProposalCardsSection(
-                            proposals = persistentListOf(proposal),
-                            onConfirm = { viewModel.onIntent(ProposalsIntent.Confirm(it)) },
-                            onReject = { itemId, reason ->
-                                viewModel.onIntent(ProposalsIntent.Reject(itemId, reason))
-                            },
-                            onConfirmAll = { viewModel.onIntent(ProposalsIntent.ConfirmAll(it)) },
-                            onDismiss = { viewModel.onIntent(ProposalsIntent.Dismiss(it)) },
-                            onEdit = { itemId, text -> viewModel.onIntent(ProposalsIntent.Edit(itemId, text)) },
-                            failures = state.failures,
+                        SelectableText(
+                            text = "Changes the assistant proposes show up here, waiting for you.",
+                            style = MaterialTheme.typography.bodyMedium,
                         )
+                    }
+                }
+
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize().padding(paddingValues),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        item {
+                            SelectableText(
+                                text = "Waiting for you",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                            )
+                        }
+                        items(state.proposals, key = { it.id.value }) { proposal ->
+                            ProposalCardsSection(
+                                proposals = persistentListOf(proposal),
+                                onConfirm = { viewModel.onIntent(ProposalsIntent.Confirm(it)) },
+                                onReject = { itemId, reason ->
+                                    viewModel.onIntent(ProposalsIntent.Reject(itemId, reason))
+                                },
+                                onConfirmAll = { viewModel.onIntent(ProposalsIntent.ConfirmAll(it)) },
+                                onDismiss = { viewModel.onIntent(ProposalsIntent.Dismiss(it)) },
+                                onEdit = { itemId, text -> viewModel.onIntent(ProposalsIntent.Edit(itemId, text)) },
+                                failures = state.failures,
+                            )
+                        }
                     }
                 }
             }

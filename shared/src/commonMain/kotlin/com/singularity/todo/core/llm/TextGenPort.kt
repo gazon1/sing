@@ -15,7 +15,11 @@ interface TextGenPort {
      *
      * Returns a [Flow] of string chunks (streaming), or a single result.
      */
-    suspend fun generate(prompt: String, systemPrompt: String? = null, model: String? = null): Result<String>
+    suspend fun generate(
+        prompt: String,
+        systemPrompt: String? = null,
+        model: String? = null,
+    ): Result<String>
 
     /**
      * Streams a chat response as it happens.
@@ -37,14 +41,20 @@ interface TextGenPort {
      *   belongs to the call and not to the port: a turn that is not about drawing a screen is
      *   not told about screens, and a turn that is told about them is told once, here.
      */
-    fun streamChat(message: String, instructions: String = ""): Flow<AgentEvent>
+    fun streamChat(
+        message: String,
+        instructions: String = "",
+    ): Flow<AgentEvent>
 
     /**
      * Fetches available models from the configured API endpoint.
      * Calls `GET <baseUrl>/models` with Bearer auth.
      * Returns a list of model IDs on success.
      */
-    suspend fun listModels(baseUrl: String, apiKey: String): Result<List<String>>
+    suspend fun listModels(
+        baseUrl: String,
+        apiKey: String,
+    ): Result<List<String>>
 }
 
 /**

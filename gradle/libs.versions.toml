@@ -342,7 +342,6 @@ kotlinx-io-core-jvm = { module = "org.jetbrains.kotlinx:kotlinx-io-core-jvm", ve
 ktor-io-jvm = { module = "io.ktor:ktor-io-jvm", version.ref = "ktor" }
 
 # Lint / Quality tools
-detekt-formatting = { module = "dev.detekt:detekt-rules-ktlint-wrapper", version.ref = "detekt" }
 detekt-api = { module = "dev.detekt:detekt-api", version.ref = "detekt" }
 detekt-test = { module = "dev.detekt:detekt-test", version.ref = "detekt" }
 detekt-test-utils = { module = "dev.detekt:detekt-test-utils", version.ref = "detekt" }

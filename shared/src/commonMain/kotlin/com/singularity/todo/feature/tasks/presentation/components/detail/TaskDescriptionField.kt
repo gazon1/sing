@@ -9,13 +9,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import com.singularity.todo.feature.tasks.presentation.theme.placeholderTextColor
+
 /**
  * Многострочное поле описания. Реальный текстовый ввод вместо статичного
  * Text — в оригинале это выглядело как кнопка, а не поле ввода.
@@ -31,16 +32,18 @@ fun TaskDescriptionField(
 ) {
     BasicTextField(
         state = descriptionState,
-        textStyle = LocalTextStyle.current.copy(
-            color = MaterialTheme.colorScheme.onSurface,
-            fontSize = 16.sp,
-            lineHeight = 22.sp,
-        ),
+        textStyle =
+            LocalTextStyle.current.copy(
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 16.sp,
+                lineHeight = 22.sp,
+            ),
         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = TaskSpacing.sm)
-            .semantics { contentDescription = "Task description" },
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(vertical = TaskSpacing.sm)
+                .semantics { contentDescription = "Task description" },
         decorator = { innerTextField ->
             if (descriptionState.text.isEmpty()) {
                 Text(
@@ -59,16 +62,18 @@ fun TaskDescriptionField(
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun TaskDescriptionFieldPreview() = PreviewThemed(darkTheme = false) {
-    TaskDescriptionField(
-        descriptionState = TextFieldState("Pick up the oat milk and the olive oil."),
-    )
-}
+private fun TaskDescriptionFieldPreview() =
+    PreviewThemed(darkTheme = false) {
+        TaskDescriptionField(
+            descriptionState = TextFieldState("Pick up the oat milk and the olive oil."),
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun TaskDescriptionFieldEmptyPreview() = PreviewThemed(darkTheme = false) {
-    TaskDescriptionField(
-        descriptionState = TextFieldState(""),
-    )
-}
+private fun TaskDescriptionFieldEmptyPreview() =
+    PreviewThemed(darkTheme = false) {
+        TaskDescriptionField(
+            descriptionState = TextFieldState(""),
+        )
+    }

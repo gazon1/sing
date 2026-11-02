@@ -22,7 +22,6 @@ import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
  * JSON, whose field order is an implementation detail.
  */
 object ProposalFingerprint {
-
     /** Unit separator — cannot appear in a tag name, title, or tag id. */
     private const val SEP = "\u001F"
 
@@ -32,12 +31,16 @@ object ProposalFingerprint {
      * Order-independent: two items that list the same tags in a different order are
      * the same proposal and must not both survive a rejection.
      */
-    fun of(kind: ProposalItemKind, targetId: String): String {
-        val canonical = listOf(
-            kind::class.simpleName ?: "Unknown",
-            targetId,
-            kind.fingerprintTarget,
-        ).joinToString(SEP)
+    fun of(
+        kind: ProposalItemKind,
+        targetId: String,
+    ): String {
+        val canonical =
+            listOf(
+                kind::class.simpleName ?: "Unknown",
+                targetId,
+                kind.fingerprintTarget,
+            ).joinToString(SEP)
         return digest(canonical)
     }
 

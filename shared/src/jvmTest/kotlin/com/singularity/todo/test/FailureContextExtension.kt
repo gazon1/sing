@@ -36,7 +36,6 @@ import java.time.Instant
 class FailureContextExtension :
     BeforeAllCallback,
     TestExecutionExceptionHandler {
-
     private lateinit var context: FailureContext
 
     override fun beforeAll(extensionContext: ExtensionContext) {
@@ -49,7 +48,10 @@ class FailureContextExtension :
      * The return type is `Unit` — to replace the exception, throw a new one.
      * This matches the JUnit Jupiter extension contract.
      */
-    override fun handleTestExecutionException(extensionContext: ExtensionContext, throwable: Throwable) {
+    override fun handleTestExecutionException(
+        extensionContext: ExtensionContext,
+        throwable: Throwable,
+    ) {
         // Write coroutine dump first — independent of the exception type.
         // Failures in writing the dump do not affect the original failure.
         writeCoroutineDump(extensionContext)
@@ -59,11 +61,12 @@ class FailureContextExtension :
 
         val label = context.label()
         val originalMessage = throwable.message ?: ""
-        val augmentedMessage = if (originalMessage.isBlank()) {
-            label
-        } else {
-            "$label${System.lineSeparator()}$originalMessage"
-        }
+        val augmentedMessage =
+            if (originalMessage.isBlank()) {
+                label
+            } else {
+                "$label${System.lineSeparator()}$originalMessage"
+            }
 
         // Throw the augmented exception — this replaces the original in the test result.
         throw AssertionError(augmentedMessage, throwable).apply {
@@ -82,8 +85,9 @@ class FailureContextExtension :
     private fun writeCoroutineDump(extensionContext: ExtensionContext) {
         runCatching {
             val testClass = extensionContext.requiredTestClass.simpleName
-            val buildDirPath = System.getProperty("shared.build.dir")
-                ?: return@runCatching
+            val buildDirPath =
+                System.getProperty("shared.build.dir")
+                    ?: return@runCatching
             val buildDir = File(buildDirPath)
             val diagnosticsDir = File(buildDir, "diagnostics/$testClass")
             diagnosticsDir.mkdirs()
@@ -108,14 +112,15 @@ data class FailureContext(val gitHash: String, val javaVersion: String, val time
     companion object {
         /** Runs git as a subprocess — failures are non-fatal, returns `"unknown"`. */
         fun capture(): FailureContext {
-            val gitHash = runCatching {
-                ProcessBuilder("git", "rev-parse", "--short=8", "HEAD")
-                    .start()
-                    .inputStream
-                    .bufferedReader()
-                    .readText()
-                    .trim()
-            }.getOrElse { "unknown" }
+            val gitHash =
+                runCatching {
+                    ProcessBuilder("git", "rev-parse", "--short=8", "HEAD")
+                        .start()
+                        .inputStream
+                        .bufferedReader()
+                        .readText()
+                        .trim()
+                }.getOrElse { "unknown" }
 
             return FailureContext(
                 gitHash = gitHash,

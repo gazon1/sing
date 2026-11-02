@@ -1,9 +1,9 @@
 package com.singularity.todo.core.sync
 
-import java.io.File
 import kotlinx.serialization.json.JsonObject
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
+import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -29,7 +29,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class SyncFieldAllowlistExportTest {
-
     @Test
     fun `the committed field lists are the ones the models declare`() {
         val committed = File(repoRoot(), "config/docs/sync-field-allowlist.json")
@@ -86,9 +85,9 @@ class SyncFieldAllowlistExportTest {
      * is not something to hard-code: a path that is right today and wrong after a
      * directory is renamed is a failure nobody can explain.
      */
-    private fun repoRoot(): File = generateSequence(File(System.getProperty("user.dir")).absoluteFile) {
-        it.parentFile
-    }
-        .firstOrNull { File(it, "config/docs/adr-corpus.json").isFile }
-        ?: error("could not find the repository root from ${System.getProperty("user.dir")}")
+    private fun repoRoot(): File =
+        generateSequence(File(System.getProperty("user.dir")).absoluteFile) {
+            it.parentFile
+        }.firstOrNull { File(it, "config/docs/adr-corpus.json").isFile }
+            ?: error("could not find the repository root from ${System.getProperty("user.dir")}")
 }

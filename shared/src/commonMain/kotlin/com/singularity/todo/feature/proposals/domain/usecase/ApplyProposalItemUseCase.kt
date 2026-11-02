@@ -1,20 +1,21 @@
 package com.singularity.todo.feature.proposals.domain.usecase
 
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.ids.ProposalItemId
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.notes.NoteId
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
-import com.singularity.todo.feature.proposals.domain.model.DecidedActor
-import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
-import com.singularity.todo.feature.proposals.domain.model.TaskValue
-import com.singularity.todo.feature.proposals.domain.model.ProposalItem
-import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
-import com.singularity.todo.feature.proposals.domain.model.isDecided
-import com.singularity.todo.feature.proposals.domain.model.isPending
-import com.singularity.todo.feature.proposals.domain.model.ProposalTarget
-import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.proposals.domain.model.DecidedActor
+import com.singularity.todo.feature.proposals.domain.model.ProposalItem
+import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
+import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
+import com.singularity.todo.feature.proposals.domain.model.ProposalTarget
+import com.singularity.todo.feature.proposals.domain.model.TaskValue
+import com.singularity.todo.feature.proposals.domain.model.isDecided
+import com.singularity.todo.feature.proposals.domain.model.isPending
+import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -24,7 +25,6 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
-import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Applies or refuses one AI-proposed change.
@@ -59,14 +59,16 @@ class ApplyProposalItemUseCase(
     private val planner: ProposalPlanner,
     private val dispatch: ProposalDispatch,
 ) {
-
     /**
      * Confirms [itemId]: claims it, then applies the change.
      *
      * @return the item in its post-decision state. A failure is a precondition or
      *   dispatch error, in which case the item is still `Pending` and nothing changed.
      */
-    suspend fun confirm(itemId: ProposalItemId, userId: UserId): Result<ProposalItem> {
+    suspend fun confirm(
+        itemId: ProposalItemId,
+        userId: UserId,
+    ): Result<ProposalItem> {
         // Whether the claim is standing, and whether it still has to be given back.
         var claimed = false
         var settled = false
@@ -90,41 +92,45 @@ class ApplyProposalItemUseCase(
                 // A scope that is already gone does not claim: the claim is the
                 // decision, and there is nobody left to make it.
                 currentCoroutineContext().ensureActive()
-                val claimedItem = withContext(NonCancellable) {
-                    val item = proposals.claim(
-                        itemId,
-                        ProposalItemStatus.Confirmed,
-                        ProposalItemStatus.Pending,
-                        DecidedActor.User,
-                        null,
-                        userId,
-                    )
-                    if (item != null) claimed = true
-                    item
-                }
-                    // Lost the race — the other tap decided it. Re-read, so the caller is
-                    // told what the item actually is now, instead of a stale pending copy.
-                    ?: return@runCatchingCancellable proposals.getItem(itemId) ?: stored
+                val claimedItem =
+                    withContext(NonCancellable) {
+                        val item =
+                            proposals.claim(
+                                itemId,
+                                ProposalItemStatus.Confirmed,
+                                ProposalItemStatus.Pending,
+                                DecidedActor.User,
+                                null,
+                                userId,
+                            )
+                        if (item != null) claimed = true
+                        item
+                    }
+                        // Lost the race — the other tap decided it. Re-read, so the caller is
+                        // told what the item actually is now, instead of a stale pending copy.
+                        ?: return@runCatchingCancellable proposals.getItem(itemId) ?: stored
 
                 // Everything that can fail after the claim happens inside this block: the
                 // rebuild of a stale plan and the dispatch itself. A failure that escaped it
                 // would leave the item confirmed although nothing was written — the very
                 // thing the release below exists to prevent.
-                val applied = runCatchingCancellable {
-                    // The plan was built from the row read before the claim. If the row
-                    // changed in between — the user edited the value while the confirm was
-                    // in flight — the plan is stale, and dispatching it would write the old
-                    // value over the new one.
-                    val effective = if (claimedItem.kind == stored.kind) plan else buildPlan(claimedItem, userId)
-                    dispatch.dispatch(effective, userId)
-                }
+                val applied =
+                    runCatchingCancellable {
+                        // The plan was built from the row read before the claim. If the row
+                        // changed in between — the user edited the value while the confirm was
+                        // in flight — the plan is stale, and dispatching it would write the old
+                        // value over the new one.
+                        val effective = if (claimedItem.kind == stored.kind) plan else buildPlan(claimedItem, userId)
+                        dispatch.dispatch(effective, userId)
+                    }
                 if (applied.isFailure) {
                     // The claim is the decision; the dispatch is the work. The work failed,
                     // so the decision must not stand on its own: the item goes back to
                     // Pending and the reason is reported next to it, where the user can read
                     // it and retry.
-                    val failure = applied.exceptionOrNull()
-                        ?: IllegalStateException("Proposal item $itemId could not be applied")
+                    val failure =
+                        applied.exceptionOrNull()
+                            ?: IllegalStateException("Proposal item $itemId could not be applied")
                     val released = releaseClaim(itemId, userId)
                     settled = true
                     throw released.exceptionOrNull()?.let { releaseFailure ->
@@ -156,8 +162,10 @@ class ApplyProposalItemUseCase(
      * The release runs in a context that is not cancelled: a cancellation is exactly the
      * moment where the claim would otherwise be left behind.
      */
-    private suspend fun releaseClaim(itemId: ProposalItemId, userId: UserId): Result<Unit> =
-        withContext(NonCancellable) { proposals.release(itemId, userId) }
+    private suspend fun releaseClaim(
+        itemId: ProposalItemId,
+        userId: UserId,
+    ): Result<Unit> = withContext(NonCancellable) { proposals.release(itemId, userId) }
 
     /**
      * Rejects [itemId], optionally recording [reason].
@@ -167,7 +175,11 @@ class ApplyProposalItemUseCase(
      * anyway but is not treated as usable feedback, because a one-word "no" tells
      * the model nothing it can act on.
      */
-    suspend fun reject(itemId: ProposalItemId, userId: UserId, reason: String? = null): Result<ProposalItem> =
+    suspend fun reject(
+        itemId: ProposalItemId,
+        userId: UserId,
+        reason: String? = null,
+    ): Result<ProposalItem> =
         runCatchingCancellable {
             val stored = proposals.getItem(itemId) ?: error("Proposal item $itemId not found")
             // A change that has not been decided can be turned down — including one
@@ -177,14 +189,15 @@ class ApplyProposalItemUseCase(
             check(!stored.status.isDecided) {
                 "This change was already ${stored.status.name.lowercase()}."
             }
-            val claimed = proposals.claim(
-                itemId,
-                ProposalItemStatus.Rejected,
-                stored.status,
-                DecidedActor.User,
-                reason?.trim()?.takeIf { it.isNotEmpty() },
-                userId,
-            ) ?: return@runCatchingCancellable stored
+            val claimed =
+                proposals.claim(
+                    itemId,
+                    ProposalItemStatus.Rejected,
+                    stored.status,
+                    DecidedActor.User,
+                    reason?.trim()?.takeIf { it.isNotEmpty() },
+                    userId,
+                ) ?: return@runCatchingCancellable stored
             proposals.refreshStatus(claimed.proposalId, userId)
             claimed
         }
@@ -197,9 +210,17 @@ class ApplyProposalItemUseCase(
      * (applied, failed) rather than a single Result — a batch where three of four
      * succeed is the normal case, not an error.
      */
-    suspend fun confirmAll(proposalId: com.singularity.todo.core.ids.ProposalId, userId: UserId): BatchResult {
-        val pending = proposals.watchProposal(proposalId).first()?.items.orEmpty()
-            .filter { it.status == ProposalItemStatus.Pending }
+    suspend fun confirmAll(
+        proposalId: com.singularity.todo.core.ids.ProposalId,
+        userId: UserId,
+    ): BatchResult {
+        val pending =
+            proposals
+                .watchProposal(proposalId)
+                .first()
+                ?.items
+                .orEmpty()
+                .filter { it.status == ProposalItemStatus.Pending }
         val applied = mutableListOf<ProposalItem>()
         val failed = mutableListOf<FailedItem>()
         pending.forEach { item ->
@@ -241,17 +262,24 @@ class ApplyProposalItemUseCase(
      * assumed a task. Now a change that does not say what it is about does not
      * compile, and one that says the wrong thing does not compile either.
      */
-    private suspend fun buildPlan(item: ProposalItem, userId: UserId): ProposalPlan {
+    private suspend fun buildPlan(
+        item: ProposalItem,
+        userId: UserId,
+    ): ProposalPlan {
         val kind = item.kind
         return when (val target = kind.target) {
             // A change this build cannot read is refused here — before the claim —
             // and the reason it carries is the reason the user reads. The change
             // stays on the card: it is not applied, it is not lost.
-            ProposalTarget.Unreadable -> error(kind.readFailure ?: "This change cannot be read.")
+            ProposalTarget.Unreadable -> {
+                error(kind.readFailure ?: "This change cannot be read.")
+            }
 
             // A creation has no row to read: the change named the id the thing
             // *will* have.
-            is ProposalTarget.Creation -> planner.planCreateItem(item, target.kind, userId)
+            is ProposalTarget.Creation -> {
+                planner.planCreateItem(item, target.kind, userId)
+            }
 
             is ProposalTarget.OnTask -> {
                 val task = tasks.get(TaskId(item.targetId))

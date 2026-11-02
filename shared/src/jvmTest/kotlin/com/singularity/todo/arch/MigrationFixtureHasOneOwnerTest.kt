@@ -35,21 +35,22 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class MigrationFixtureHasOneOwnerTest {
-
     /** The file that owns the fixture. */
     private val owner = "MigrationRoundTripSupport.kt"
 
     /** The migration tests that build a database of an older version. */
-    private val migrationTests: List<File> = databaseTests()
-        .filter { it.name.startsWith("Migration") && it.name.endsWith("Test.kt") }
-        .filterNot { it.name == "MigrationRoundTripTest.kt" }
+    private val migrationTests: List<File> =
+        databaseTests()
+            .filter { it.name.startsWith("Migration") && it.name.endsWith("Test.kt") }
+            .filterNot { it.name == "MigrationRoundTripTest.kt" }
 
     @Test
     fun `only the owner reads the exported schema`() {
-        val offenders = databaseTests()
-            .filterNot { it.name == owner }
-            .filter { it.readText().contains("setupQueries") }
-            .map { it.name }
+        val offenders =
+            databaseTests()
+                .filterNot { it.name == owner }
+                .filter { it.readText().contains("setupQueries") }
+                .map { it.name }
 
         assertTrue(
             offenders.isEmpty(),
@@ -61,9 +62,10 @@ class MigrationFixtureHasOneOwnerTest {
 
     @Test
     fun `every migration test builds its database through the shared fixture`() {
-        val offenders = migrationTests
-            .filterNot { it.readText().contains("applyExportedSchema(") }
-            .map { it.name }
+        val offenders =
+            migrationTests
+                .filterNot { it.readText().contains("applyExportedSchema(") }
+                .map { it.name }
 
         assertTrue(
             offenders.isEmpty(),
@@ -75,7 +77,8 @@ class MigrationFixtureHasOneOwnerTest {
 
     /** The Kotlin files of the database tests. */
     private fun databaseTests(): List<File> =
-        SourceScan.jvmTestSourcesRoot()
+        SourceScan
+            .jvmTestSourcesRoot()
             .resolve("com/singularity/todo/core/database")
             .listFiles { file -> file.isFile && file.name.endsWith(".kt") }
             ?.toList()

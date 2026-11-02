@@ -15,7 +15,6 @@ import java.io.File
  * silently reading nothing.
  */
 internal object SkillTables {
-
     /** The skill that publishes the text-field contract. */
     private const val TEXT_FIELD_SKILL = "singularity-todo-text-field-states/SKILL.md"
 
@@ -36,7 +35,10 @@ internal object SkillTables {
      * @return the rows that follow the header, each a list of trimmed cells.
      * @throws IllegalStateException if the skill has no table with that header.
      */
-    fun tableIn(skill: String, vararg header: String): List<List<String>> {
+    fun tableIn(
+        skill: String,
+        vararg header: String,
+    ): List<List<String>> {
         val expected = header.map { it.trim() }
         val lines = skillFile(skill).readLines()
         val headerIndex = lines.indexOfFirst { line -> cells(line) == expected }
@@ -44,7 +46,8 @@ internal object SkillTables {
             "the skill has no table with the header ${expected.joinToString(" | ")}"
         }
 
-        return lines.drop(headerIndex + 1)
+        return lines
+            .drop(headerIndex + 1)
             .takeWhile { it.trimStart().startsWith("|") }
             .map { line -> cells(line) }
             .filter { row -> row.size == expected.size }
@@ -54,11 +57,12 @@ internal object SkillTables {
     fun skillFile(): File = skillFile(TEXT_FIELD_SKILL)
 
     /** The file of the named skill. */
-    fun skillFile(skill: String): File = File(
-        System.getProperty("skills.root")
-            ?: error("skills.root system property is not set — see shared/build.gradle.kts"),
-        skill,
-    )
+    fun skillFile(skill: String): File =
+        File(
+            System.getProperty("skills.root")
+                ?: error("skills.root system property is not set — see shared/build.gradle.kts"),
+            skill,
+        )
 
     /**
      * The cells of a Markdown table row.
@@ -67,6 +71,10 @@ internal object SkillTables {
      */
     private fun cells(line: String): List<String> {
         if (!line.trimStart().startsWith("|")) return emptyList()
-        return line.trim().trim('|').split("|").map { cell -> cell.trim() }
+        return line
+            .trim()
+            .trim('|')
+            .split("|")
+            .map { cell -> cell.trim() }
     }
 }

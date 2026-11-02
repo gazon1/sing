@@ -15,7 +15,6 @@ import kotlin.test.assertNull
 
 @Tag("fast")
 class SurfaceControllerTest {
-
     @Test
     fun surfacesStartsEmpty() {
         val ctrl = SurfaceController()
@@ -29,9 +28,10 @@ class SurfaceControllerTest {
             UiEvent.CreateSurface(
                 surfaceId = SurfaceId("s1"),
                 rootId = NodeRef("r1"),
-                components = mapOf(
-                    "r1" to UiNode.Text("Hello"),
-                ),
+                components =
+                    mapOf(
+                        "r1" to UiNode.Text("Hello"),
+                    ),
             ),
         )
         assertEquals(1, ctrl.surfaces.value.size)
@@ -45,17 +45,19 @@ class SurfaceControllerTest {
             UiEvent.CreateSurface(
                 surfaceId = SurfaceId("s1"),
                 rootId = NodeRef("r1"),
-                components = mapOf(
-                    "r1" to UiNode.Text("Hello"),
-                ),
+                components =
+                    mapOf(
+                        "r1" to UiNode.Text("Hello"),
+                    ),
             ),
         )
         ctrl.apply(
             UiEvent.UpdateComponents(
                 surfaceId = SurfaceId("s1"),
-                components = mapOf(
-                    "r2" to UiNode.Text("World"),
-                ),
+                components =
+                    mapOf(
+                        "r2" to UiNode.Text("World"),
+                    ),
             ),
         )
         val surface = ctrl.surfaces.value[SurfaceId("s1")]
@@ -71,19 +73,25 @@ class SurfaceControllerTest {
             UiEvent.CreateSurface(
                 surfaceId = SurfaceId("s1"),
                 rootId = NodeRef("r1"),
-                components = mapOf(
-                    "r1" to UiNode.TextField(
-                        label = "Name",
-                        path = com.singularity.todo.feature.genui.schema.UiPath.of("name"),
-                        initial = "Bob",
+                components =
+                    mapOf(
+                        "r1" to
+                            UiNode.TextField(
+                                label = "Name",
+                                path =
+                                    com.singularity.todo.feature.genui.schema.UiPath
+                                        .of("name"),
+                                initial = "Bob",
+                            ),
                     ),
-                ),
             ),
         )
         ctrl.apply(
             UiEvent.UpdateData(
                 surfaceId = SurfaceId("s1"),
-                path = com.singularity.todo.feature.genui.schema.UiPath.of("name"),
+                path =
+                    com.singularity.todo.feature.genui.schema.UiPath
+                        .of("name"),
                 value = kotlinx.serialization.json.JsonPrimitive("Alice"),
             ),
         )
@@ -91,7 +99,10 @@ class SurfaceControllerTest {
         assertNotNull(surface)
         assertEquals(
             kotlinx.serialization.json.JsonPrimitive("Alice"),
-            surface.dataModel.get(com.singularity.todo.feature.genui.schema.UiPath.of("name")),
+            surface.dataModel.get(
+                com.singularity.todo.feature.genui.schema.UiPath
+                    .of("name"),
+            ),
         )
     }
 
@@ -154,19 +165,20 @@ class SurfaceControllerTest {
     }
 
     @Test
-    fun surfacesFlowEmitsOnEvent(): Unit = runTest {
-        val ctrl = SurfaceController()
-        val first = ctrl.surfaces.first()
-        assertEquals(emptyMap<SurfaceId, Surface>(), first)
+    fun surfacesFlowEmitsOnEvent(): Unit =
+        runTest {
+            val ctrl = SurfaceController()
+            val first = ctrl.surfaces.first()
+            assertEquals(emptyMap<SurfaceId, Surface>(), first)
 
-        ctrl.apply(
-            UiEvent.CreateSurface(
-                surfaceId = SurfaceId("s1"),
-                rootId = NodeRef("r1"),
-                components = mapOf("r1" to UiNode.Text("Hello")),
-            ),
-        )
-        // Value should now have s1
-        assertEquals(1, ctrl.surfaces.value.size)
-    }
+            ctrl.apply(
+                UiEvent.CreateSurface(
+                    surfaceId = SurfaceId("s1"),
+                    rootId = NodeRef("r1"),
+                    components = mapOf("r1" to UiNode.Text("Hello")),
+                ),
+            )
+            // Value should now have s1
+            assertEquals(1, ctrl.surfaces.value.size)
+        }
 }

@@ -18,7 +18,6 @@ import kotlinx.datetime.plus
  * Pure: the date is a parameter, never the wall clock.
  */
 object TimelinePeriods {
-
     /**
      * The periods [granularity] shows, starting at [today].
      *
@@ -26,7 +25,10 @@ object TimelinePeriods {
      * a week granularity with the week today belongs to, a month granularity
      * with the month today belongs to.
      */
-    fun forGranularity(granularity: PlansGranularity, today: LocalDate): List<TimelinePeriod> =
+    fun forGranularity(
+        granularity: PlansGranularity,
+        today: LocalDate,
+    ): List<TimelinePeriod> =
         when (granularity) {
             PlansGranularity.Day -> dayPeriods(today, granularity.periodCount)
             PlansGranularity.Week -> weekPeriods(today, granularity.periodCount)
@@ -34,16 +36,24 @@ object TimelinePeriods {
         }
 
     /** The last day covered by the periods of [granularity] starting at [today]. */
-    fun horizonEnd(granularity: PlansGranularity, today: LocalDate): LocalDate =
-        forGranularity(granularity, today).last().end
+    fun horizonEnd(
+        granularity: PlansGranularity,
+        today: LocalDate,
+    ): LocalDate = forGranularity(granularity, today).last().end
 
-    private fun dayPeriods(today: LocalDate, count: Int): List<TimelinePeriod> =
+    private fun dayPeriods(
+        today: LocalDate,
+        count: Int,
+    ): List<TimelinePeriod> =
         (0 until count).map { offset ->
             val day = today.plus(offset, DateTimeUnit.DAY)
             TimelinePeriod(id = "day:$day", start = day, end = day)
         }
 
-    private fun weekPeriods(today: LocalDate, count: Int): List<TimelinePeriod> {
+    private fun weekPeriods(
+        today: LocalDate,
+        count: Int,
+    ): List<TimelinePeriod> {
         val startOfThisWeek = today.minus(today.dayOfWeek.ordinal, DateTimeUnit.DAY)
         return (0 until count).map { offset ->
             val start = startOfThisWeek.plus(offset * 7, DateTimeUnit.DAY)
@@ -51,7 +61,10 @@ object TimelinePeriods {
         }
     }
 
-    private fun monthPeriods(today: LocalDate, count: Int): List<TimelinePeriod> {
+    private fun monthPeriods(
+        today: LocalDate,
+        count: Int,
+    ): List<TimelinePeriod> {
         val startOfThisMonth = LocalDate(today.year, today.month, 1)
         return (0 until count).map { offset ->
             val start = startOfThisMonth.plus(offset, DateTimeUnit.MONTH)

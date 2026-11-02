@@ -51,7 +51,10 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlin.time.Instant
 
 @Composable
-fun PomodoroScreen(timer: PomodoroTimer, taskListProvider: PomodoroTaskListProvider) {
+fun PomodoroScreen(
+    timer: PomodoroTimer,
+    taskListProvider: PomodoroTaskListProvider,
+) {
     val state by timer.state.collectAsStateWithLifecycle()
     val tasks by taskListProvider.tasks().collectAsStateWithLifecycle()
 
@@ -62,16 +65,17 @@ fun PomodoroScreen(timer: PomodoroTimer, taskListProvider: PomodoroTaskListProvi
 
     RefreshableContent {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(32.dp)
-                // The screen had no vertical scroll, and the refresh gesture
-                // needs something to drag. The scroll goes on the screen's own
-                // root, innermost, in the order the rest of the codebase uses:
-                // the column fills the screen, and its children are measured
-                // with an unbounded height so the content can be taller than
-                // the screen and still be reachable.
-                .verticalScroll(rememberScrollState()),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(32.dp)
+                    // The screen had no vertical scroll, and the refresh gesture
+                    // needs something to drag. The scroll goes on the screen's own
+                    // root, innermost, in the order the rest of the codebase uses:
+                    // the column fills the screen, and its children are measured
+                    // with an unbounded height so the content can be taller than
+                    // the screen and still be reachable.
+                    .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
@@ -133,11 +137,12 @@ fun PomodoroScreen(timer: PomodoroTimer, taskListProvider: PomodoroTaskListProvi
 // ===== Extracted components =====
 
 @Composable
-private fun phaseColorOf(phase: PomodoroPhase): Color = when (phase) {
-    PomodoroPhase.Work -> MaterialTheme.colorScheme.error
-    PomodoroPhase.ShortBreak -> MaterialTheme.colorScheme.primary
-    PomodoroPhase.LongBreak -> MaterialTheme.colorScheme.tertiary
-}
+private fun phaseColorOf(phase: PomodoroPhase): Color =
+    when (phase) {
+        PomodoroPhase.Work -> MaterialTheme.colorScheme.error
+        PomodoroPhase.ShortBreak -> MaterialTheme.colorScheme.primary
+        PomodoroPhase.LongBreak -> MaterialTheme.colorScheme.tertiary
+    }
 
 @Composable
 private fun TaskChipRow(
@@ -148,9 +153,10 @@ private fun TaskChipRow(
 ) {
     if (tasks.isNotEmpty()) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             tasks.forEach { task ->
@@ -180,7 +186,10 @@ private fun TaskChipRow(
 }
 
 @Composable
-private fun PhaseLabel(phase: PomodoroPhase, phaseColor: Color) {
+private fun PhaseLabel(
+    phase: PomodoroPhase,
+    phaseColor: Color,
+) {
     Text(
         text = phase.name.replace(Regex("([A-Z])"), " $1").trim(),
         style = MaterialTheme.typography.titleLarge,
@@ -262,18 +271,20 @@ private fun PomodoroControls(
 
         FilledIconButton(
             onClick = onPlayPause,
-            modifier = Modifier
-                .size(72.dp)
-                .testTag(
-                    if (isRunning) {
-                        TestTags.Pomodoro.PAUSE_BUTTON
-                    } else {
-                        TestTags.Pomodoro.PLAY_BUTTON
-                    },
+            modifier =
+                Modifier
+                    .size(72.dp)
+                    .testTag(
+                        if (isRunning) {
+                            TestTags.Pomodoro.PAUSE_BUTTON
+                        } else {
+                            TestTags.Pomodoro.PLAY_BUTTON
+                        },
+                    ),
+            colors =
+                IconButtonDefaults.filledIconButtonColors(
+                    containerColor = phaseColor,
                 ),
-            colors = IconButtonDefaults.filledIconButtonColors(
-                containerColor = phaseColor,
-            ),
         ) {
             Icon(
                 if (isRunning) Icons.Filled.Pause else Icons.Filled.PlayArrow,
@@ -304,9 +315,10 @@ private fun PomodoroContentPreview(
     val progress = pomodoroState.remainingSeconds.toFloat() / totalSeconds.toFloat()
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -366,44 +378,49 @@ private fun PomodoroContentPreview(
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun PomodoroScreenWorkPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    PomodoroContentPreview(
-        pomodoroState = PomodoroState(
-            phase = PomodoroPhase.Work,
-            remainingSeconds = 15 * 60, // 15 minutes remaining
-            completedCycles = 2,
-            isRunning = true,
-            taskId = "t1",
-        ),
-        tasks = persistentListOf(
-            com.singularity.todo.feature.tasks.domain.model.Task(
-                id = TaskId("t1"),
-                title = "Write documentation",
-                createdAt = Instant.fromEpochMilliseconds(0),
-                updatedAt = Instant.fromEpochMilliseconds(0),
-                userId = com.singularity.todo.core.ids.UserId.anonymous,
-            ),
-            com.singularity.todo.feature.tasks.domain.model.Task(
-                id = TaskId("t2"),
-                title = "Review PRs",
-                createdAt = Instant.fromEpochMilliseconds(0),
-                updatedAt = Instant.fromEpochMilliseconds(0),
-                userId = com.singularity.todo.core.ids.UserId.anonymous,
-            ),
-        ),
-    )
-}
+private fun PomodoroScreenWorkPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        PomodoroContentPreview(
+            pomodoroState =
+                PomodoroState(
+                    phase = PomodoroPhase.Work,
+                    remainingSeconds = 15 * 60, // 15 minutes remaining
+                    completedCycles = 2,
+                    isRunning = true,
+                    taskId = "t1",
+                ),
+            tasks =
+                persistentListOf(
+                    com.singularity.todo.feature.tasks.domain.model.Task(
+                        id = TaskId("t1"),
+                        title = "Write documentation",
+                        createdAt = Instant.fromEpochMilliseconds(0),
+                        updatedAt = Instant.fromEpochMilliseconds(0),
+                        userId = com.singularity.todo.core.ids.UserId.anonymous,
+                    ),
+                    com.singularity.todo.feature.tasks.domain.model.Task(
+                        id = TaskId("t2"),
+                        title = "Review PRs",
+                        createdAt = Instant.fromEpochMilliseconds(0),
+                        updatedAt = Instant.fromEpochMilliseconds(0),
+                        userId = com.singularity.todo.core.ids.UserId.anonymous,
+                    ),
+                ),
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun PomodoroScreenBreakPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    PomodoroContentPreview(
-        pomodoroState = PomodoroState(
-            phase = PomodoroPhase.ShortBreak,
-            remainingSeconds = 4 * 60, // 4 minutes remaining
-            completedCycles = 1,
-            isRunning = false,
-        ),
-        tasks = persistentListOf(),
-    )
-}
+private fun PomodoroScreenBreakPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        PomodoroContentPreview(
+            pomodoroState =
+                PomodoroState(
+                    phase = PomodoroPhase.ShortBreak,
+                    remainingSeconds = 4 * 60, // 4 minutes remaining
+                    completedCycles = 1,
+                    isRunning = false,
+                ),
+            tasks = persistentListOf(),
+        )
+    }

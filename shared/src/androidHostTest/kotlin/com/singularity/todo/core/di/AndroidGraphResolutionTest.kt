@@ -2,9 +2,9 @@ package com.singularity.todo.core.di
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.singularity.todo.core.attachments.AttachmentStorage
 import com.singularity.todo.core.backup.BackupCodec
 import com.singularity.todo.core.backup.BackupRepository
-import com.singularity.todo.core.attachments.AttachmentStorage
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.UnitOfWork
 import com.singularity.todo.core.files.FileOpener
@@ -41,6 +41,11 @@ import org.koin.dsl.koinApplication
 import org.robolectric.RobolectricTestRunner
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+
+// No `fast`/`slow` tag: this is a JUnit4 class under the Vintage engine, and
+// Jupiter's `@Tag` does not reach it — a tag here would read as "this can be
+// selected" and select nothing. `testAndroidHostTest` is exempt from the tag
+// filter for exactly that reason (shared/build.gradle.kts:519-543).
 
 /**
  * The Android Koin graph resolves for real, under a real [Context].
@@ -92,13 +97,8 @@ import kotlin.test.assertTrue
  * does not create, and a new Android binding is expected to be either resolvable here
  * or listed.
  */
-// No `fast`/`slow` tag: this is a JUnit4 class under the Vintage engine, and
-// Jupiter's `@Tag` does not reach it — a tag here would read as "this can be
-// selected" and select nothing. `testAndroidHostTest` is exempt from the tag
-// filter for exactly that reason (shared/build.gradle.kts:519-543).
 @RunWith(RobolectricTestRunner::class)
 class AndroidGraphResolutionTest {
-
     @Test
     fun `the android platform bindings resolve from the composed graph`() {
         val app = androidKoin()
@@ -193,11 +193,12 @@ class AndroidGraphResolutionTest {
      * the module would still let the rest of the graph resolve, and the port would be
      * unresolvable on the platform that needs it.
      */
-    private val deviceOnlyBindings: List<kotlin.reflect.KClass<*>> = listOf(
-        SecureStoragePort::class,
-        Haptic::class,
-        Notifier::class,
-    )
+    private val deviceOnlyBindings: List<kotlin.reflect.KClass<*>> =
+        listOf(
+            SecureStoragePort::class,
+            Haptic::class,
+            Notifier::class,
+        )
 
     /**
      * The graph, assembled the way `SingularityApp.onCreate` assembles it.
@@ -207,19 +208,20 @@ class AndroidGraphResolutionTest {
      * first `get` — but registering the context afterwards would make the first test
      * to touch a database fail for a reason that has nothing to do with DI.
      */
-    private fun androidKoin(): KoinApplication = koinApplication {
-        androidContext(ApplicationProvider.getApplicationContext<Context>())
-        @Suppress("KoinCompilationForInternal")
-        modules(
-            // The same set `SingularityApp.onCreate` loads, minus the app-update module
-            // (a Play Store client, and nothing here needs it). The logger module is
-            // part of the set: without it `co.touchlab.kermit.Logger` is unbound, and
-            // the first definition that wants a logger fails to be created.
-            listOf(platformModule(), coreLoggingModule()) +
-                domainModule() +
-                listOf(gateModule("https://github.com/singularity-todo/singularity/releases")),
-        )
-    }
+    private fun androidKoin(): KoinApplication =
+        koinApplication {
+            androidContext(ApplicationProvider.getApplicationContext<Context>())
+            @Suppress("KoinCompilationForInternal")
+            modules(
+                // The same set `SingularityApp.onCreate` loads, minus the app-update module
+                // (a Play Store client, and nothing here needs it). The logger module is
+                // part of the set: without it `co.touchlab.kermit.Logger` is unbound, and
+                // the first definition that wants a logger fails to be created.
+                listOf(platformModule(), coreLoggingModule()) +
+                    domainModule() +
+                    listOf(gateModule("https://github.com/singularity-todo/singularity/releases")),
+            )
+        }
 }
 
 /**
@@ -231,4 +233,6 @@ class AndroidGraphResolutionTest {
  */
 @OptIn(KoinInternalApi::class)
 private fun org.koin.core.Koin.registeredTypes(): Set<kotlin.reflect.KClass<*>> =
-    instanceRegistry.instances.values.map { it.beanDefinition.primaryType }.toSet()
+    instanceRegistry.instances.values
+        .map { it.beanDefinition.primaryType }
+        .toSet()

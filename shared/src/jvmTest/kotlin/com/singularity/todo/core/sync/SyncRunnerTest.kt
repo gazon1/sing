@@ -4,8 +4,8 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
-import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
 import com.singularity.todo.core.sync.work.FakeHlcFactory
+import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
 import com.singularity.todo.test.helpers.MutableClock
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
@@ -13,8 +13,8 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.time.Duration.Companion.minutes
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.minutes
 
 /**
  * The runner's *behaviour*, not its wiring.
@@ -34,173 +34,183 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class SyncRunnerTest {
-
     @Test
-    fun `auto-sync starts for a scope whose settings enable it`() = runTest {
-        val trigger = RecordingTrigger()
-        val scope = SyncScope("owner-1", "profile-1")
-        val state = FakeSyncStateRepository().apply {
-            setAutoSyncEnabled(scope, true)
-            setScheduledInterval(scope, 15.minutes)
+    fun `auto-sync starts for a scope whose settings enable it`() =
+        runTest {
+            val trigger = RecordingTrigger()
+            val scope = SyncScope("owner-1", "profile-1")
+            val state =
+                FakeSyncStateRepository().apply {
+                    setAutoSyncEnabled(scope, true)
+                    setScheduledInterval(scope, 15.minutes)
+                }
+            runner(trigger, state, FakeSyncScopeProvider(scope))
+
+            runCurrent()
+
+            assertEquals(listOf(15.minutes), trigger.started, "the scope's own interval, not a default")
         }
-        runner(trigger, state, FakeSyncScopeProvider(scope))
-
-        runCurrent()
-
-        assertEquals(listOf(15.minutes), trigger.started, "the scope's own interval, not a default")
-    }
 
     @Test
-    fun `auto-sync stops when the scope goes away`() = runTest {
-        val trigger = RecordingTrigger()
-        val scope = SyncScope("owner-1", "profile-1")
-        val state = FakeSyncStateRepository().apply { setAutoSyncEnabled(scope, true) }
-        val scopeProvider = FakeSyncScopeProvider(scope)
-        runner(trigger, state, scopeProvider)
+    fun `auto-sync stops when the scope goes away`() =
+        runTest {
+            val trigger = RecordingTrigger()
+            val scope = SyncScope("owner-1", "profile-1")
+            val state = FakeSyncStateRepository().apply { setAutoSyncEnabled(scope, true) }
+            val scopeProvider = FakeSyncScopeProvider(scope)
+            runner(trigger, state, scopeProvider)
 
-        runCurrent()
-        scopeProvider.set(null) // signed out, or no profile
-        runCurrent()
+            runCurrent()
+            scopeProvider.set(null) // signed out, or no profile
+            runCurrent()
 
-        assertEquals(1, trigger.stops, "a signed-out device must not keep a periodic trigger running")
-    }
-
-    @Test
-    fun `a profile with auto-sync off does not inherit one that has it on`() = runTest {
-        // The case that justifies watching the scope rather than the session. Two
-        // profiles of one account, one on and one off: a trigger that ignores the
-        // profile means the second profile syncs on the first one's schedule, or the
-        // first stops syncing because the second is not interested.
-        val trigger = RecordingTrigger()
-        val on = SyncScope("owner-1", "profile-a")
-        val off = SyncScope("owner-1", "profile-b")
-        val state = FakeSyncStateRepository().apply {
-            setAutoSyncEnabled(on, true)
-            setAutoSyncEnabled(off, false)
+            assertEquals(1, trigger.stops, "a signed-out device must not keep a periodic trigger running")
         }
-        val scopeProvider = FakeSyncScopeProvider(on)
-        runner(trigger, state, scopeProvider)
-
-        runCurrent()
-        assertEquals(1, trigger.started.size)
-
-        scopeProvider.set(off)
-        runCurrent()
-        assertEquals(
-            1,
-            trigger.stops,
-            "switching to a profile with auto-sync off must stop the trigger it was running",
-        )
-
-        scopeProvider.set(on)
-        runCurrent()
-        assertEquals(2, trigger.started.size, "switching back must start it again")
-    }
 
     @Test
-    fun `a new interval takes effect when the scope moves`() = runTest {
-        val trigger = RecordingTrigger()
-        val first = SyncScope("owner-1", "profile-1")
-        val second = SyncScope("owner-1", "profile-2")
-        val state = FakeSyncStateRepository().apply {
-            setAutoSyncEnabled(first, true)
-            setScheduledInterval(first, 15.minutes)
-            setAutoSyncEnabled(second, true)
-            setScheduledInterval(second, 30.minutes)
+    fun `a profile with auto-sync off does not inherit one that has it on`() =
+        runTest {
+            // The case that justifies watching the scope rather than the session. Two
+            // profiles of one account, one on and one off: a trigger that ignores the
+            // profile means the second profile syncs on the first one's schedule, or the
+            // first stops syncing because the second is not interested.
+            val trigger = RecordingTrigger()
+            val on = SyncScope("owner-1", "profile-a")
+            val off = SyncScope("owner-1", "profile-b")
+            val state =
+                FakeSyncStateRepository().apply {
+                    setAutoSyncEnabled(on, true)
+                    setAutoSyncEnabled(off, false)
+                }
+            val scopeProvider = FakeSyncScopeProvider(on)
+            runner(trigger, state, scopeProvider)
+
+            runCurrent()
+            assertEquals(1, trigger.started.size)
+
+            scopeProvider.set(off)
+            runCurrent()
+            assertEquals(
+                1,
+                trigger.stops,
+                "switching to a profile with auto-sync off must stop the trigger it was running",
+            )
+
+            scopeProvider.set(on)
+            runCurrent()
+            assertEquals(2, trigger.started.size, "switching back must start it again")
         }
-        val scopeProvider = FakeSyncScopeProvider(first)
-        runner(trigger, state, scopeProvider)
-
-        runCurrent()
-        scopeProvider.set(second)
-        runCurrent()
-
-        assertEquals(
-            listOf(15.minutes, 30.minutes),
-            trigger.started,
-            "the settings are read per emission, so a scope change reads the new scope's",
-        )
-    }
 
     @Test
-    fun `a settings-only change reaches the runner without moving the scope`() = runTest {
-        // #186 / #194, REQ CO-09.
-        //
-        // This was the test that named the defect: the runner reads the settings per
-        // emission, which looks like it re-reads them often enough to notice a change.
-        // It does not — the only thing it collected was the active scope, and a
-        // `StateFlow` does not emit when the value it is set to equals the value it
-        // already holds. Changing the sync interval — the one setting on the screen
-        // that exists to be changed — did nothing until the profile was switched or the
-        // app restarted.
-        //
-        // It was written asserting the broken behaviour and saying so, so that the fix
-        // would not be a test that only ever passed afterwards. The assertion below is
-        // the one that had to change.
-        val trigger = RecordingTrigger()
-        val scope = SyncScope("owner-1", "profile-1")
-        val state = FakeSyncStateRepository().apply {
-            setAutoSyncEnabled(scope, true)
-            setScheduledInterval(scope, 15.minutes)
+    fun `a new interval takes effect when the scope moves`() =
+        runTest {
+            val trigger = RecordingTrigger()
+            val first = SyncScope("owner-1", "profile-1")
+            val second = SyncScope("owner-1", "profile-2")
+            val state =
+                FakeSyncStateRepository().apply {
+                    setAutoSyncEnabled(first, true)
+                    setScheduledInterval(first, 15.minutes)
+                    setAutoSyncEnabled(second, true)
+                    setScheduledInterval(second, 30.minutes)
+                }
+            val scopeProvider = FakeSyncScopeProvider(first)
+            runner(trigger, state, scopeProvider)
+
+            runCurrent()
+            scopeProvider.set(second)
+            runCurrent()
+
+            assertEquals(
+                listOf(15.minutes, 30.minutes),
+                trigger.started,
+                "the settings are read per emission, so a scope change reads the new scope's",
+            )
         }
-        val scopeProvider = FakeSyncScopeProvider(scope)
-        runner(trigger, state, scopeProvider)
-
-        runCurrent()
-        state.setScheduledInterval(scope, 30.minutes)
-        runCurrent()
-
-        assertEquals(
-            listOf(15.minutes, 30.minutes),
-            trigger.started,
-            "the changed interval did not reach the trigger",
-        )
-    }
 
     @Test
-    fun `turning auto-sync off stops the trigger without moving the scope`() = runTest {
-        // The same defect in the other field, and the direction that silently burns
-        // battery: with auto-sync still on, the runner keeps asking for cycles the
-        // user has switched off.
-        val trigger = RecordingTrigger()
-        val scope = SyncScope("owner-1", "profile-1")
-        val state = FakeSyncStateRepository().apply { setAutoSyncEnabled(scope, true) }
-        runner(trigger, state, FakeSyncScopeProvider(scope))
+    fun `a settings-only change reaches the runner without moving the scope`() =
+        runTest {
+            // #186 / #194, REQ CO-09.
+            //
+            // This was the test that named the defect: the runner reads the settings per
+            // emission, which looks like it re-reads them often enough to notice a change.
+            // It does not — the only thing it collected was the active scope, and a
+            // `StateFlow` does not emit when the value it is set to equals the value it
+            // already holds. Changing the sync interval — the one setting on the screen
+            // that exists to be changed — did nothing until the profile was switched or the
+            // app restarted.
+            //
+            // It was written asserting the broken behaviour and saying so, so that the fix
+            // would not be a test that only ever passed afterwards. The assertion below is
+            // the one that had to change.
+            val trigger = RecordingTrigger()
+            val scope = SyncScope("owner-1", "profile-1")
+            val state =
+                FakeSyncStateRepository().apply {
+                    setAutoSyncEnabled(scope, true)
+                    setScheduledInterval(scope, 15.minutes)
+                }
+            val scopeProvider = FakeSyncScopeProvider(scope)
+            runner(trigger, state, scopeProvider)
 
-        runCurrent()
-        val stopsBefore = trigger.stops
-        state.setAutoSyncEnabled(scope, false)
-        runCurrent()
+            runCurrent()
+            state.setScheduledInterval(scope, 30.minutes)
+            runCurrent()
 
-        assertTrue(
-            trigger.stops > stopsBefore,
-            "turning auto-sync off did not stop the periodic trigger",
-        )
-    }
+            assertEquals(
+                listOf(15.minutes, 30.minutes),
+                trigger.started,
+                "the changed interval did not reach the trigger",
+            )
+        }
 
     @Test
-    fun `a sync that changes the cursor does not restart the trigger`() = runTest {
-        // The regression this fix could easily have introduced. `SyncState` carries
-        // `lastLsn`, `lastSuccessfulSyncAt` and `deviceId`, and observing the state
-        // whole means the trigger is cancelled and restarted after every cycle — so it
-        // is rearmed constantly and an interval can pass without one ever completing.
-        // Only a change to the two fields scheduling depends on may restart it.
-        val trigger = RecordingTrigger()
-        val scope = SyncScope("owner-1", "profile-1")
-        val state = FakeSyncStateRepository().apply { setAutoSyncEnabled(scope, true) }
-        runner(trigger, state, FakeSyncScopeProvider(scope))
+    fun `turning auto-sync off stops the trigger without moving the scope`() =
+        runTest {
+            // The same defect in the other field, and the direction that silently burns
+            // battery: with auto-sync still on, the runner keeps asking for cycles the
+            // user has switched off.
+            val trigger = RecordingTrigger()
+            val scope = SyncScope("owner-1", "profile-1")
+            val state = FakeSyncStateRepository().apply { setAutoSyncEnabled(scope, true) }
+            runner(trigger, state, FakeSyncScopeProvider(scope))
 
-        runCurrent()
-        val startsAfterFirst = trigger.startCalls
-        repeat(3) { state.setLastLsn(scope, 100L * (it + 1)) }
-        runCurrent()
+            runCurrent()
+            val stopsBefore = trigger.stops
+            state.setAutoSyncEnabled(scope, false)
+            runCurrent()
 
-        assertEquals(
-            startsAfterFirst,
-            trigger.startCalls,
-            "the periodic trigger was rearmed by a cursor advance",
-        )
-    }
+            assertTrue(
+                trigger.stops > stopsBefore,
+                "turning auto-sync off did not stop the periodic trigger",
+            )
+        }
+
+    @Test
+    fun `a sync that changes the cursor does not restart the trigger`() =
+        runTest {
+            // The regression this fix could easily have introduced. `SyncState` carries
+            // `lastLsn`, `lastSuccessfulSyncAt` and `deviceId`, and observing the state
+            // whole means the trigger is cancelled and restarted after every cycle — so it
+            // is rearmed constantly and an interval can pass without one ever completing.
+            // Only a change to the two fields scheduling depends on may restart it.
+            val trigger = RecordingTrigger()
+            val scope = SyncScope("owner-1", "profile-1")
+            val state = FakeSyncStateRepository().apply { setAutoSyncEnabled(scope, true) }
+            runner(trigger, state, FakeSyncScopeProvider(scope))
+
+            runCurrent()
+            val startsAfterFirst = trigger.startCalls
+            repeat(3) { state.setLastLsn(scope, 100L * (it + 1)) }
+            runCurrent()
+
+            assertEquals(
+                startsAfterFirst,
+                trigger.startCalls,
+                "the periodic trigger was rearmed by a cursor advance",
+            )
+        }
 
     // ── Infrastructure ──────────────────────────────────────────────────────
 
@@ -241,34 +251,36 @@ class SyncRunnerTest {
                 engineState = engineState,
                 monoNow = { MutableClock().now().toEpochMilliseconds() },
             )
-        val engine = SyncEngine(
-            log = Logger.withTag("SyncRunnerTest"),
-            api = FakeSyncApiClient(),
-            authRepository = FakeSyncAuthRepository(Session.SignedOut),
-            idGenerator = SequentialIdGenerator(),
-            stateRepository = state,
-            scopeProvider = scopeProvider,
-            shadowDao = shadow,
-            patchBuilder = fakeSyncPatchBuilder(shadow),
-            outboxService = outboxService,
-            _outboxDao = outboxDao,
-            _deadLetterDao = FakeSyncDeadLetterDao(),
-            syncAuthBridge = fakeSyncAuthBridge(FakeSyncAuthRepository(Session.SignedOut)),
-            writerProvider = { fakeSyncDocumentWriter() },
-            scheduler = FakeSyncWorkScheduler(),
-            clock = MutableClock(),
-            scope = scope,
-            crashReporter = NoOpCrashReportingPort(),
-            hlcFactory = FakeHlcFactory(),
-        )
+        val engine =
+            SyncEngine(
+                log = Logger.withTag("SyncRunnerTest"),
+                api = FakeSyncApiClient(),
+                authRepository = FakeSyncAuthRepository(Session.SignedOut),
+                idGenerator = SequentialIdGenerator(),
+                stateRepository = state,
+                scopeProvider = scopeProvider,
+                shadowDao = shadow,
+                patchBuilder = fakeSyncPatchBuilder(shadow),
+                outboxService = outboxService,
+                _outboxDao = outboxDao,
+                _deadLetterDao = FakeSyncDeadLetterDao(),
+                syncAuthBridge = fakeSyncAuthBridge(FakeSyncAuthRepository(Session.SignedOut)),
+                writerProvider = { fakeSyncDocumentWriter() },
+                scheduler = FakeSyncWorkScheduler(),
+                clock = MutableClock(),
+                scope = scope,
+                crashReporter = NoOpCrashReportingPort(),
+                hlcFactory = FakeHlcFactory(),
+            )
         return SyncRunner(
             engine = engine,
-            coordinator = SyncCoordinator(
-                // Never runs: nothing in this file asks for a cycle. The runner
-                // refuses one while signed out, and these tests are about scheduling.
-                runCycle = { SyncOutcome.NothingToDo },
-                scope = scope,
-            ),
+            coordinator =
+                SyncCoordinator(
+                    // Never runs: nothing in this file asks for a cycle. The runner
+                    // refuses one while signed out, and these tests are about scheduling.
+                    runCycle = { SyncOutcome.NothingToDo },
+                    scope = scope,
+                ),
             periodicTrigger = trigger,
             authRepository = FakeSyncAuthRepository(Session.SignedOut),
             stateRepository = state,

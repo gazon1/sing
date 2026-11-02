@@ -15,12 +15,12 @@ import com.singularity.todo.core.files.JvmFileSystem
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.test.fakes.FakeTasksSettingsRepository
 import com.singularity.todo.test.helpers.MutableClock
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
-import com.singularity.todo.test.fakes.FakeTasksSettingsRepository
 import org.junit.jupiter.api.Tag
 import java.io.File
 import kotlin.io.path.createTempDirectory
@@ -46,7 +46,6 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:data")
 class BackupAnnotationRoundTripTest {
-
     private lateinit var tempDir: File
     private lateinit var sourceDb: AppDatabase
     private lateinit var targetDb: AppDatabase
@@ -85,55 +84,60 @@ class BackupAnnotationRoundTripTest {
 
     private fun zipPath(name: String): String = File(tempDir, name).absolutePath
 
-    private fun exporter(db: AppDatabase) = BackupExporter(
-        taskDao = db.taskDao(),
-        noteDao = db.noteDao(),
-        projectDao = db.projectDao(),
-        tagDao = db.tagDao(),
-        reminderDao = db.reminderDao(),
-        projectReminderDao = db.projectReminderDao(),
-        checklistDao = db.checklistDao(),
-        tagGroupDao = db.tagGroupDao(),
-        projectTagGroupDao = db.projectInheritedTagGroupDao(),
-        savedSearchDao = db.savedSearchDao(),
-        timeEntryDao = db.timeEntryDao(),
-        profileDao = db.profileDao(),
-        attachmentDao = db.attachmentDao(),
-        annotationDao = db.annotationDao(),
-        agendaViewDao = db.agendaViewDao(),
-        codec = codec,
-        clock = clock,
-        fs = fs,
-        cursors = BackupCursorStore(fs = fs, dir = File(tempDir, "cursor").absolutePath),
-        backupDir = tempDir.absolutePath,
-    )
+    private fun exporter(db: AppDatabase) =
+        BackupExporter(
+            taskDao = db.taskDao(),
+            noteDao = db.noteDao(),
+            projectDao = db.projectDao(),
+            tagDao = db.tagDao(),
+            reminderDao = db.reminderDao(),
+            projectReminderDao = db.projectReminderDao(),
+            checklistDao = db.checklistDao(),
+            tagGroupDao = db.tagGroupDao(),
+            projectTagGroupDao = db.projectInheritedTagGroupDao(),
+            savedSearchDao = db.savedSearchDao(),
+            timeEntryDao = db.timeEntryDao(),
+            profileDao = db.profileDao(),
+            attachmentDao = db.attachmentDao(),
+            annotationDao = db.annotationDao(),
+            agendaViewDao = db.agendaViewDao(),
+            codec = codec,
+            clock = clock,
+            fs = fs,
+            cursors = BackupCursorStore(fs = fs, dir = File(tempDir, "cursor").absolutePath),
+            backupDir = tempDir.absolutePath,
+        )
 
-    private fun importer(db: AppDatabase) = BackupImporter(
-        log = Logger.withTag("BackupAnnotationRoundTripTest"),
-        taskDao = db.taskDao(),
-        noteDao = db.noteDao(),
-        projectDao = db.projectDao(),
-        tagDao = db.tagDao(),
-        reminderDao = db.reminderDao(),
-        projectReminderDao = db.projectReminderDao(),
-        checklistDao = db.checklistDao(),
-        tagGroupDao = db.tagGroupDao(),
-        projectTagGroupDao = db.projectInheritedTagGroupDao(),
-        savedSearchDao = db.savedSearchDao(),
-        timeEntryDao = db.timeEntryDao(),
-        profileDao = db.profileDao(),
-        agendaViewDao = db.agendaViewDao(),
-        attachmentDao = db.attachmentDao(),
-        annotationDao = db.annotationDao(),
-        attachmentStorage = AttachmentStorage(fs, File(tempDir, "attachment-files").absolutePath),
-        codec = codec,
-        clock = clock,
-        createFileSource = fileSourceFactory,
-        tasksSettings = FakeTasksSettingsRepository(),
-    )
+    private fun importer(db: AppDatabase) =
+        BackupImporter(
+            log = Logger.withTag("BackupAnnotationRoundTripTest"),
+            taskDao = db.taskDao(),
+            noteDao = db.noteDao(),
+            projectDao = db.projectDao(),
+            tagDao = db.tagDao(),
+            reminderDao = db.reminderDao(),
+            projectReminderDao = db.projectReminderDao(),
+            checklistDao = db.checklistDao(),
+            tagGroupDao = db.tagGroupDao(),
+            projectTagGroupDao = db.projectInheritedTagGroupDao(),
+            savedSearchDao = db.savedSearchDao(),
+            timeEntryDao = db.timeEntryDao(),
+            profileDao = db.profileDao(),
+            agendaViewDao = db.agendaViewDao(),
+            attachmentDao = db.attachmentDao(),
+            annotationDao = db.annotationDao(),
+            attachmentStorage = AttachmentStorage(fs, File(tempDir, "attachment-files").absolutePath),
+            codec = codec,
+            clock = clock,
+            createFileSource = fileSourceFactory,
+            tasksSettings = FakeTasksSettingsRepository(),
+        )
 
     /** An attachment whose bytes are not on this disk — the row is what matters here. */
-    private fun attachmentRow(id: String, localPath: String? = null) = AttachmentEntity(
+    private fun attachmentRow(
+        id: String,
+        localPath: String? = null,
+    ) = AttachmentEntity(
         id = id,
         taskId = "task-1",
         userId = user.value,
@@ -144,7 +148,11 @@ class BackupAnnotationRoundTripTest {
         updatedAt = 1_000L,
     )
 
-    private fun annotationRow(id: String, attachmentId: String, note: String) = AttachmentAnnotationEntity(
+    private fun annotationRow(
+        id: String,
+        attachmentId: String,
+        note: String,
+    ) = AttachmentAnnotationEntity(
         id = id,
         attachmentId = attachmentId,
         userId = user.value,
@@ -157,148 +165,159 @@ class BackupAnnotationRoundTripTest {
     )
 
     @Test
-    fun `an annotation written before an export is readable after the import`() = runTest {
-        sourceDb.attachmentDao().upsert(attachmentRow("att_1"))
-        sourceDb.annotationDao().upsert(annotationRow("ann_1", "att_1", "the second word"))
+    fun `an annotation written before an export is readable after the import`() =
+        runTest {
+            sourceDb.attachmentDao().upsert(attachmentRow("att_1"))
+            sourceDb.annotationDao().upsert(annotationRow("ann_1", "att_1", "the second word"))
 
-        val exported = exporter(sourceDb)
-            .export(
-                exportOptions {
-                    userId = user
-                    destPath = zipPath("round-trip.zip")
-                },
+            val exported =
+                exporter(sourceDb)
+                    .export(
+                        exportOptions {
+                            userId = user
+                            destPath = zipPath("round-trip.zip")
+                        },
+                    )
+            assertTrue(exported.isSuccess, "export failed: ${exported.exceptionOrNull()}")
+
+            // The manifest is where a dropped entity shows up as a count of zero — and a zero
+            // here is the only warning a user would ever get.
+            assertEquals(
+                1,
+                exported
+                    .getOrThrow()
+                    .manifest.entityCounts.attachmentAnnotations,
+                "the manifest counts the notes",
             )
-        assertTrue(exported.isSuccess, "export failed: ${exported.exceptionOrNull()}")
 
-        // The manifest is where a dropped entity shows up as a count of zero — and a zero
-        // here is the only warning a user would ever get.
-        assertEquals(
-            1,
-            exported.getOrThrow().manifest.entityCounts.attachmentAnnotations,
-            "the manifest counts the notes",
-        )
+            val restored =
+                importer(targetDb)
+                    .import(
+                        importOptions {
+                            sourcePath = zipPath("round-trip.zip")
+                            targetUserId = user
+                        },
+                    )
+            assertTrue(restored.isSuccess, "import failed: ${restored.exceptionOrNull()}")
 
-        val restored = importer(targetDb)
-            .import(
-                importOptions {
-                    sourcePath = zipPath("round-trip.zip")
-                    targetUserId = user
-                },
-            )
-        assertTrue(restored.isSuccess, "import failed: ${restored.exceptionOrNull()}")
-
-        val annotation = assertNotNull(
-            targetDb.annotationDao().listAllForUser(user.value).singleOrNull(),
-            "the note must come back",
-        )
-        assertEquals("ann_1", annotation.id)
-        assertEquals("att_1", annotation.attachmentId)
-        assertEquals(6, annotation.rangeStart)
-        assertEquals(10, annotation.rangeEnd)
-        assertEquals("beta", annotation.quote)
-        assertEquals("the second word", annotation.note)
-    }
+            val annotation =
+                assertNotNull(
+                    targetDb.annotationDao().listAllForUser(user.value).singleOrNull(),
+                    "the note must come back",
+                )
+            assertEquals("ann_1", annotation.id)
+            assertEquals("att_1", annotation.attachmentId)
+            assertEquals(6, annotation.rangeStart)
+            assertEquals(10, annotation.rangeEnd)
+            assertEquals("beta", annotation.quote)
+            assertEquals("the second word", annotation.note)
+        }
 
     @Test
-    fun `the restored annotation is reachable through the repository, not just as a row`() = runTest {
-        sourceDb.attachmentDao().upsert(attachmentRow("att_1"))
-        sourceDb.annotationDao().upsert(annotationRow("ann_1", "att_1", "kept"))
-        exporter(sourceDb)
-            .export(
-                exportOptions {
-                    userId = user
-                    destPath = zipPath("reachable.zip")
-                },
-            )
-            .getOrThrow()
-        importer(targetDb)
-            .import(
-                importOptions {
-                    sourcePath = zipPath("reachable.zip")
-                    targetUserId = user
-                },
-            )
-            .getOrThrow()
+    fun `the restored annotation is reachable through the repository, not just as a row`() =
+        runTest {
+            sourceDb.attachmentDao().upsert(attachmentRow("att_1"))
+            sourceDb.annotationDao().upsert(annotationRow("ann_1", "att_1", "kept"))
+            exporter(sourceDb)
+                .export(
+                    exportOptions {
+                        userId = user
+                        destPath = zipPath("reachable.zip")
+                    },
+                ).getOrThrow()
+            importer(targetDb)
+                .import(
+                    importOptions {
+                        sourcePath = zipPath("reachable.zip")
+                        targetUserId = user
+                    },
+                ).getOrThrow()
 
-        // The point of the round trip: the note is not merely a row that survived, it is a
-        // note the user can read back through the contract the panel injects.
-        val watched = AttachmentAnnotationRepositoryImpl(
-            dao = targetDb.annotationDao(),
-            clock = clock,
-            currentUser = FakeProfileAwareCurrentUser(initialUserId = user),
-        ).watchForAttachment(AttachmentId.fromString("att_1")).first()
+            // The point of the round trip: the note is not merely a row that survived, it is a
+            // note the user can read back through the contract the panel injects.
+            val watched =
+                AttachmentAnnotationRepositoryImpl(
+                    dao = targetDb.annotationDao(),
+                    clock = clock,
+                    currentUser = FakeProfileAwareCurrentUser(initialUserId = user),
+                ).watchForAttachment(AttachmentId.fromString("att_1")).first()
 
-        assertEquals(listOf("ann_1"), watched.map { it.id.value })
-        assertEquals("kept", watched.single().note)
-        assertIs<AnchorResolution.Exact>(
-            watched.single().anchorIn("alpha beta gamma"),
-            "the restored range still resolves against the file it was written for",
-        )
-    }
+            assertEquals(listOf("ann_1"), watched.map { it.id.value })
+            assertEquals("kept", watched.single().note)
+            assertIs<AnchorResolution.Exact>(
+                watched.single().anchorIn("alpha beta gamma"),
+                "the restored range still resolves against the file it was written for",
+            )
+        }
 
     @Test
-    fun `the attachment row is restored too, so the restored note has a parent`() = runTest {
-        sourceDb.attachmentDao().upsert(attachmentRow("att_1"))
-        sourceDb.annotationDao().upsert(annotationRow("ann_1", "att_1", "orphaned without this"))
-        exporter(sourceDb)
-            .export(
-                exportOptions {
-                    userId = user
-                    destPath = zipPath("parent.zip")
-                },
-            )
-            .getOrThrow()
-        importer(targetDb)
-            .import(
-                importOptions {
-                    sourcePath = zipPath("parent.zip")
-                    targetUserId = user
-                },
-            )
-            .getOrThrow()
+    fun `the attachment row is restored too, so the restored note has a parent`() =
+        runTest {
+            sourceDb.attachmentDao().upsert(attachmentRow("att_1"))
+            sourceDb.annotationDao().upsert(annotationRow("ann_1", "att_1", "orphaned without this"))
+            exporter(sourceDb)
+                .export(
+                    exportOptions {
+                        userId = user
+                        destPath = zipPath("parent.zip")
+                    },
+                ).getOrThrow()
+            importer(targetDb)
+                .import(
+                    importOptions {
+                        sourcePath = zipPath("parent.zip")
+                        targetUserId = user
+                    },
+                ).getOrThrow()
 
-        val restoredAttachment = targetDb.attachmentDao().getById("att_1", user.value)
+            val restoredAttachment = targetDb.attachmentDao().getById("att_1", user.value)
 
-        assertNotNull(
-            restoredAttachment,
-            "a restored file with no row is unreachable from the task it belonged to",
-        )
-        assertEquals(1, targetDb.annotationDao().listAllForUser(user.value).size)
-    }
+            assertNotNull(
+                restoredAttachment,
+                "a restored file with no row is unreachable from the task it belonged to",
+            )
+            assertEquals(1, targetDb.annotationDao().listAllForUser(user.value).size)
+        }
 
     @Test
-    fun `a payload written before annotations existed still decodes`() = runTest {
-        // An archive from a client whose payload has no `attachmentAnnotations` key at all.
-        // Without a default on the field the whole restore fails on a missing key, which
-        // would make adding this table a breaking change for every backup already on disk.
-        val payload = StableJson.encodeToString(
-            BackupPayload.serializer(),
-            BackupPayload(schemaVersion = BackupFormat.SCHEMA_VERSION),
-        ).encodeToByteArray()
-        val manifest = StableJson.encodeToString(
-            BackupManifest.serializer(),
-            BackupDomain.buildManifest(
-                appVersion = "test",
-                nowEpochMillis = 1L,
-                userId = user,
-                payloadBytes = payload,
-                counts = EntityCounts(),
-            ),
-        ).encodeToByteArray()
-        codec.export(manifest, payload, emptyList(), zipPath("legacy.zip"), fs).getOrThrow()
+    fun `a payload written before annotations existed still decodes`() =
+        runTest {
+            // An archive from a client whose payload has no `attachmentAnnotations` key at all.
+            // Without a default on the field the whole restore fails on a missing key, which
+            // would make adding this table a breaking change for every backup already on disk.
+            val payload =
+                StableJson
+                    .encodeToString(
+                        BackupPayload.serializer(),
+                        BackupPayload(schemaVersion = BackupFormat.SCHEMA_VERSION),
+                    ).encodeToByteArray()
+            val manifest =
+                StableJson
+                    .encodeToString(
+                        BackupManifest.serializer(),
+                        BackupDomain.buildManifest(
+                            appVersion = "test",
+                            nowEpochMillis = 1L,
+                            userId = user,
+                            payloadBytes = payload,
+                            counts = EntityCounts(),
+                        ),
+                    ).encodeToByteArray()
+            codec.export(manifest, payload, emptyList(), zipPath("legacy.zip"), fs).getOrThrow()
 
-        val result = importer(targetDb)
-            .import(
-                importOptions {
-                    sourcePath = zipPath("legacy.zip")
-                    targetUserId = user
-                },
+            val result =
+                importer(targetDb)
+                    .import(
+                        importOptions {
+                            sourcePath = zipPath("legacy.zip")
+                            targetUserId = user
+                        },
+                    )
+
+            assertTrue(
+                result.isSuccess,
+                "a pre-annotation backup must still restore: ${result.exceptionOrNull()}",
             )
-
-        assertTrue(
-            result.isSuccess,
-            "a pre-annotation backup must still restore: ${result.exceptionOrNull()}",
-        )
-        assertEquals(0, targetDb.annotationDao().listAllForUser(user.value).size)
-    }
+            assertEquals(0, targetDb.annotationDao().listAllForUser(user.value).size)
+        }
 }

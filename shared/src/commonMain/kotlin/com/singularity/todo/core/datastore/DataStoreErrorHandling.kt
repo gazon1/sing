@@ -36,13 +36,12 @@ import okio.IOException
  *   draft store passes a log line here; the rest have nothing to add. A silently
  *   swallowed I/O error is indistinguishable from a user who has no settings yet.
  */
-fun Flow<Preferences>.catchDataStoreIoError(
-    onError: (Throwable) -> Unit = {},
-): Flow<Preferences> = catch { e ->
-    if (e is IOException) {
-        onError(e)
-        emit(emptyPreferences())
-    } else {
-        throw e
+fun Flow<Preferences>.catchDataStoreIoError(onError: (Throwable) -> Unit = {}): Flow<Preferences> =
+    catch { e ->
+        if (e is IOException) {
+            onError(e)
+            emit(emptyPreferences())
+        } else {
+            throw e
+        }
     }
-}

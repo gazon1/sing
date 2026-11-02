@@ -22,7 +22,6 @@ data class ValidatedEvent(val event: UiEvent, val errors: List<A2uiError>)
  * that renders nothing because the tenth arrived early.
  */
 class A2uiValidator(private val catalog: A2uiCatalog) {
-
     /**
      * Validates [event] against the components already known for its surface.
      *
@@ -31,7 +30,10 @@ class A2uiValidator(private val catalog: A2uiCatalog) {
      *   are indistinguishable here, which is why an unresolved reference is a warning about one
      *   component rather than a rejection of the message.
      */
-    fun validate(event: UiEvent, known: Map<String, UiNode> = emptyMap()): ValidatedEvent {
+    fun validate(
+        event: UiEvent,
+        known: Map<String, UiNode> = emptyMap(),
+    ): ValidatedEvent {
         val surfaceId: SurfaceId = event.surfaceId()
         val combined: Map<String, UiNode> = known + event.incomingComponents()
         val errors: MutableList<A2uiError> = mutableListOf()
@@ -65,7 +67,10 @@ class A2uiValidator(private val catalog: A2uiCatalog) {
      * validation into a stack overflow — which is a crash rather than a rejection, and is exactly
      * the outcome this layer stopped having.
      */
-    private fun findCycles(all: Map<String, UiNode>, incoming: Set<String>): List<List<String>> {
+    private fun findCycles(
+        all: Map<String, UiNode>,
+        incoming: Set<String>,
+    ): List<List<String>> {
         val cycles: MutableList<List<String>> = mutableListOf()
         val seen: MutableSet<String> = mutableSetOf()
 
@@ -77,6 +82,7 @@ class A2uiValidator(private val catalog: A2uiCatalog) {
         }
         return cycles
     }
+
     private fun walk(
         id: String,
         all: Map<String, UiNode>,
@@ -104,10 +110,15 @@ class A2uiValidator(private val catalog: A2uiCatalog) {
 
     // ─── Checks ────────────────────────────────────────────────────────────
 
-    private fun unresolved(parent: String, ref: String, surfaceId: SurfaceId) = A2uiError(
+    private fun unresolved(
+        parent: String,
+        ref: String,
+        surfaceId: SurfaceId,
+    ) = A2uiError(
         code = A2uiErrorCode.UNKNOWN_NODE_REF,
-        message = "'$parent' refers to '$ref', which no message has defined. " +
-            "It may still arrive; if it does not, this component will not render.",
+        message =
+            "'$parent' refers to '$ref', which no message has defined. " +
+                "It may still arrive; if it does not, this component will not render.",
         pointer = "/components/$parent/children",
         surfaceId = surfaceId,
         severity = A2uiSeverity.ADVISORY,
@@ -135,10 +146,18 @@ class A2uiValidator(private val catalog: A2uiCatalog) {
         surfaceId = surfaceId,
         severity = A2uiSeverity.COMPONENT,
         componentId = ref,
-        allowed = catalog.components[childKind]?.allowedParents?.sorted().orEmpty(),
+        allowed =
+            catalog.components[childKind]
+                ?.allowedParents
+                ?.sorted()
+                .orEmpty(),
     )
 
-    private fun cyclic(closing: String, cycle: List<String>, surfaceId: SurfaceId) = A2uiError(
+    private fun cyclic(
+        closing: String,
+        cycle: List<String>,
+        surfaceId: SurfaceId,
+    ) = A2uiError(
         code = A2uiErrorCode.CYCLIC_REFERENCE,
         message = "Components reference each other: ${cycle.joinToString(" -> ")}.",
         pointer = "/components/$closing",
@@ -158,69 +177,74 @@ class A2uiValidator(private val catalog: A2uiCatalog) {
         if (error.severity == A2uiSeverity.COMPONENT) listOfNotNull(error.componentId) else emptyList()
 }
 
-private fun UiEvent.surfaceId(): SurfaceId = when (this) {
-    is UiEvent.CreateSurface -> surfaceId
-    is UiEvent.UpdateComponents -> surfaceId
-    is UiEvent.UpdateData -> surfaceId
-    is UiEvent.DeleteSurface -> surfaceId
-}
+private fun UiEvent.surfaceId(): SurfaceId =
+    when (this) {
+        is UiEvent.CreateSurface -> surfaceId
+        is UiEvent.UpdateComponents -> surfaceId
+        is UiEvent.UpdateData -> surfaceId
+        is UiEvent.DeleteSurface -> surfaceId
+    }
 
-private fun UiEvent.incomingComponents(): Map<String, UiNode> = when (this) {
-    is UiEvent.CreateSurface -> components
-    is UiEvent.UpdateComponents -> components
-    is UiEvent.UpdateData, is UiEvent.DeleteSurface -> emptyMap()
-}
+private fun UiEvent.incomingComponents(): Map<String, UiNode> =
+    when (this) {
+        is UiEvent.CreateSurface -> components
+        is UiEvent.UpdateComponents -> components
+        is UiEvent.UpdateData, is UiEvent.DeleteSurface -> emptyMap()
+    }
 
-private fun UiEvent.copyWithComponents(components: Map<String, UiNode>): UiEvent = when (this) {
-    is UiEvent.CreateSurface -> copy(components = components)
-    is UiEvent.UpdateComponents -> copy(components = components)
-    is UiEvent.UpdateData -> this
-    is UiEvent.DeleteSurface -> this
-}
+private fun UiEvent.copyWithComponents(components: Map<String, UiNode>): UiEvent =
+    when (this) {
+        is UiEvent.CreateSurface -> copy(components = components)
+        is UiEvent.UpdateComponents -> copy(components = components)
+        is UiEvent.UpdateData -> this
+        is UiEvent.DeleteSurface -> this
+    }
 
 /** Ids this node points at, whether it has one child, several, or a tab strip. */
-internal fun UiNode.childRefs(): List<String> = when (this) {
-    is UiNode.Column -> children.map { it.id }
+internal fun UiNode.childRefs(): List<String> =
+    when (this) {
+        is UiNode.Column -> children.map { it.id }
 
-    is UiNode.Row -> children.map { it.id }
+        is UiNode.Row -> children.map { it.id }
 
-    is UiNode.ListView -> children.map { it.id }
+        is UiNode.ListView -> children.map { it.id }
 
-    is UiNode.Card -> listOf(child.id)
+        is UiNode.Card -> listOf(child.id)
 
-    is UiNode.Modal -> listOf(child.id)
+        is UiNode.Modal -> listOf(child.id)
 
-    is UiNode.Tabs -> tabs.map { it.child.id }
+        is UiNode.Tabs -> tabs.map { it.child.id }
 
-    // Tab is the nested shape inside a tab strip, never a component the model places by id, so it
-    // points at its panel rather than being pointed at.
-    is UiNode.Tab -> listOf(child.id)
+        // Tab is the nested shape inside a tab strip, never a component the model places by id, so it
+        // points at its panel rather than being pointed at.
+        is UiNode.Tab -> listOf(child.id)
 
-    is UiNode.TaskCard, is UiNode.DueDate, is UiNode.ProjectChip -> emptyList()
+        is UiNode.TaskCard, is UiNode.DueDate, is UiNode.ProjectChip -> emptyList()
 
-    is UiNode.Text, is UiNode.Heading, is UiNode.Badge, is UiNode.Icon, is UiNode.Divider,
-    is UiNode.Button, is UiNode.TextField, is UiNode.Checkbox,
-    -> emptyList()
-}
+        is UiNode.Text, is UiNode.Heading, is UiNode.Badge, is UiNode.Icon, is UiNode.Divider,
+        is UiNode.Button, is UiNode.TextField, is UiNode.Checkbox,
+        -> emptyList()
+    }
 
 internal val UiNode.kind: String
-    get() = when (this) {
-        is UiNode.Text -> "text"
-        is UiNode.Heading -> "heading"
-        is UiNode.Button -> "button"
-        is UiNode.Column -> "column"
-        is UiNode.Row -> "row"
-        is UiNode.Card -> "card"
-        is UiNode.ListView -> "list"
-        is UiNode.Divider -> "divider"
-        is UiNode.Badge -> "badge"
-        is UiNode.TextField -> "text_field"
-        is UiNode.Checkbox -> "checkbox"
-        is UiNode.Tabs -> "tabs"
-        is UiNode.Icon -> "icon"
-        is UiNode.Modal -> "modal"
-        is UiNode.Tab -> "tab"
-        is UiNode.TaskCard -> "task_card"
-        is UiNode.DueDate -> "due_date"
-        is UiNode.ProjectChip -> "project_chip"
-    }
+    get() =
+        when (this) {
+            is UiNode.Text -> "text"
+            is UiNode.Heading -> "heading"
+            is UiNode.Button -> "button"
+            is UiNode.Column -> "column"
+            is UiNode.Row -> "row"
+            is UiNode.Card -> "card"
+            is UiNode.ListView -> "list"
+            is UiNode.Divider -> "divider"
+            is UiNode.Badge -> "badge"
+            is UiNode.TextField -> "text_field"
+            is UiNode.Checkbox -> "checkbox"
+            is UiNode.Tabs -> "tabs"
+            is UiNode.Icon -> "icon"
+            is UiNode.Modal -> "modal"
+            is UiNode.Tab -> "tab"
+            is UiNode.TaskCard -> "task_card"
+            is UiNode.DueDate -> "due_date"
+            is UiNode.ProjectChip -> "project_chip"
+        }

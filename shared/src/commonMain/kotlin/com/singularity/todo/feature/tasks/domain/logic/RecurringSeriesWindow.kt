@@ -51,7 +51,6 @@ import kotlinx.datetime.plus
  *   for the caller that supplies the anchor per base.
  */
 object RecurringSeriesWindow {
-
     /** How far ahead of the anchor the window looks, in days. */
     const val HORIZON_DAYS: Int = 14
 

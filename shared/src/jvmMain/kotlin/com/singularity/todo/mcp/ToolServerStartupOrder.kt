@@ -38,23 +38,23 @@ package com.singularity.todo.mcp
  * between the server being built and the entry point serving.
  */
 internal object ToolServerStartupOrder {
-
     /**
      * The steps, in the order they run.
      *
      * The list is the order: the runner walks it, and a test that pins it is what says
      * the order did not change by accident.
      */
-    val steps: List<ToolServerStartupStep> = listOf(
-        RefuseAnAmbiguousRequest,
-        WarnAboutADeprecatedArgument,
-        BuildTheGraph,
-        ResolveTheDependencies,
-        VerifyTheDatabase,
-        RefuseAnUnknownProfile,
-        BootstrapTheProfiles,
-        ReadTheConfiguration,
-        BuildTheServer,
-        InstallTheShutdownHook,
-    )
+    val steps: List<ToolServerStartupStep> =
+        listOf(
+            RefuseAnAmbiguousRequest,
+            WarnAboutADeprecatedArgument,
+            BuildTheGraph,
+            ResolveTheDependencies,
+            VerifyTheDatabase,
+            RefuseAnUnknownProfile,
+            BootstrapTheProfiles,
+            ReadTheConfiguration,
+            BuildTheServer,
+            InstallTheShutdownHook,
+        )
 }

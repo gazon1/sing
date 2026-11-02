@@ -17,7 +17,6 @@ import com.singularity.todo.core.reminders.ReminderOffset
  * repository boundary.
  */
 object SettingsDefaults {
-
     const val SCHEMA_VERSION: Int = 1
 
     // ── Appearance ────────────────────────────────────────────────────────

@@ -23,7 +23,6 @@ import kotlin.time.Instant
 @Tag("slow")
 @Tag("slow:compose")
 class AgendaSectionTagReachabilityFlowTest {
-
     @Test
     fun the_today_tab_exposes_the_today_section_in_the_merged_tree() =
         runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->

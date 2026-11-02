@@ -30,7 +30,6 @@ internal data class TaskVisibility(val hideCompleted: Boolean = false, val hideB
  * now named.
  */
 internal object ProjectTaskListDeriver {
-
     /**
      * How many tasks the detail list renders.
      *
@@ -73,10 +72,11 @@ internal object ProjectTaskListDeriver {
         tasks: List<Task>,
         visibility: TaskVisibility,
         blocked: Set<TaskId>,
-    ): List<Task> = tasks.filter { task ->
-        (!visibility.hideCompleted || task.completedAt == null) &&
-            (!visibility.hideBlocked || task.id !in blocked)
-    }
+    ): List<Task> =
+        tasks.filter { task ->
+            (!visibility.hideCompleted || task.completedAt == null) &&
+                (!visibility.hideBlocked || task.id !in blocked)
+        }
 
     /**
      * The filtered list, capped at [PREVIEW_LIMIT].
@@ -117,10 +117,11 @@ internal object ProjectTaskListDeriver {
     fun quickAddCandidates(
         all: List<Task>,
         projectId: ProjectId,
-    ): List<Task> = all
-        .filter { it.projectId != null && it.projectId != projectId && it.completedAt == null }
-        .sortedWith(
-            compareBy<Task, LocalDate?>(nullsLast()) { it.dueDate }
-                .thenByDescending { it.updatedAt },
-        )
+    ): List<Task> =
+        all
+            .filter { it.projectId != null && it.projectId != projectId && it.completedAt == null }
+            .sortedWith(
+                compareBy<Task, LocalDate?>(nullsLast()) { it.dueDate }
+                    .thenByDescending { it.updatedAt },
+            )
 }

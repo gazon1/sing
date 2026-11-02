@@ -21,7 +21,6 @@ import kotlin.time.Duration.Companion.minutes
  * asked and the screen that answered.
  */
 internal class AcpPermissionBroker(private val timeout: Duration = PERMISSION_TIMEOUT) {
-
     /**
      * The requests that are waiting for an answer, oldest first.
      *
@@ -111,11 +110,12 @@ internal class AcpPermissionBroker(private val timeout: Duration = PERMISSION_TI
      * one that has to know.
      */
     fun decline() {
-        val refused: List<PendingRequest> = synchronized(lock) {
-            val all = pending.toList()
-            pending.clear()
-            all
-        }
+        val refused: List<PendingRequest> =
+            synchronized(lock) {
+                val all = pending.toList()
+                pending.clear()
+                all
+            }
         refused.forEach { it.decision.complete(PermissionDecision.Declined) }
     }
 

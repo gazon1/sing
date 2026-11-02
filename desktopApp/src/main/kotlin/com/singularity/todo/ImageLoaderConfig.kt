@@ -18,13 +18,14 @@ import coil3.memory.MemoryCache
  * are local files, so the filesystem page cache is sufficient.
  */
 private fun buildDesktopImageLoader(coilContext: PlatformContext): ImageLoader =
-    ImageLoader.Builder(coilContext)
+    ImageLoader
+        .Builder(coilContext)
         .memoryCache {
-            MemoryCache.Builder()
+            MemoryCache
+                .Builder()
                 .maxSizePercent(coilContext, 0.10)
                 .build()
-        }
-        .build()
+        }.build()
 
 /**
  * Applies the desktop [ImageLoader] as the composition's singleton.

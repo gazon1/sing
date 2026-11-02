@@ -19,14 +19,13 @@ import java.lang.reflect.Method
  * [InvocationInterceptor.Invocation.proceed] in a loop to re-run the test body.
  */
 class RetryExtension : InvocationInterceptor {
-
     private val maxAttempts: Int =
         System.getProperty("retry.maxAttempts")?.toIntOrNull() ?: 1
 
     override fun interceptTestMethod(
         invocation: InvocationInterceptor.Invocation<Void>,
         invocationContext: ReflectiveInvocationContext<Method>,
-        extensionContext: ExtensionContext
+        extensionContext: ExtensionContext,
     ) {
         if (maxAttempts <= 1) {
             invocation.proceed()

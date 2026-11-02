@@ -27,7 +27,6 @@ import kotlin.text.Regex
  * `shared/build.gradle.kts`.
  */
 object TestTagsCatalog {
-
     /**
      * Path to [TestTags.kt] source, relative to the `:shared` module root.
      * `commonMain.root` points to `src/commonMain/kotlin`, so three parent levels up
@@ -82,6 +81,8 @@ object TestTagsCatalog {
         val objectStack = ArrayDeque<Pair<Int, String>>()
         // Depth of the `object TestTags` block itself; nothing outside it is a tag.
         var rootDepth: Int? = null
+        // The line `object TestTags` opens on; a declaration before it is not a tag.
+        var rootLine = -1
 
         // The comments are blanked and the literals are kept, because a declaration
         // is recognised by the *value* it holds — `= "prefix_${slug(name)}"` — and
@@ -94,6 +95,11 @@ object TestTagsCatalog {
         val lines = KotlinText.stripComments(source).lines()
         val depths = KotlinText.lineDepths(source)
 
+        // The owner of every line, resolved before any declaration is read: the
+        // declaration a line belongs to may start on an earlier line, so the owner
+        // has to be known first.
+        val ownersByLine = HashMap<Int, List<String>>()
+
         for ((index, code) in lines.withIndex()) {
             // The depth at the *start* of the line: an object header opens its block
             // on its own line, so the block's depth is the depth before it.
@@ -102,17 +108,19 @@ object TestTagsCatalog {
             OBJECT_REGEX.find(code)?.let { found ->
                 if (rootDepth == null && found.groupValues[1] == "TestTags") {
                     rootDepth = depth
+                    rootLine = index
                 }
                 objectStack.addLast(depth to found.groupValues[1])
             }
 
-            declRegex.find(code)?.let { found ->
-                if (rootDepth != null) {
-                    // Enclosing objects = everything on the stack opened below `object TestTags`.
-                    val owners = objectStack.filter { it.first > rootDepth }.map { it.second }
-                    result.add(build((owners + found.groupValues[1]).joinToString("."), found.groupValues[2]))
+            // Enclosing objects = everything on the stack opened below `object TestTags`.
+            val root = rootDepth
+            ownersByLine[index] =
+                if (root == null) {
+                    emptyList()
+                } else {
+                    objectStack.filter { it.first > root }.map { it.second }
                 }
-            }
 
             // An object opened at depth d is closed once the depth falls back to d.
             val endDepth = depths.getOrElse(index) { depth }
@@ -120,7 +128,69 @@ object TestTagsCatalog {
                 objectStack.removeLast()
             }
         }
+
+        // The declarations are read from *chunks* of lines, not from single lines.
+        //
+        // A declaration may be wrapped over several lines — a formatter that puts
+        // the parameters of a two-argument function on their own lines leaves the
+        // value on the line that closes the parameter list — and a per-line scan
+        // sees only the fragment `fun checklistItem(`, which holds no value and no
+        // name, so the declaration silently disappears from the catalogue.
+        //
+        // A chunk ends where the parentheses balance again, because a parameter
+        // list is the only thing in this file that spans lines: a constant is
+        // always a single line, and a function's value follows its closing
+        // parenthesis.
+        val codeOnly = KotlinText.stripCode(source).lines()
+        var index = 0
+        while (index < lines.size) {
+            val start = index
+            val chunk = StringBuilder()
+            var end = index
+            var balance = 0
+            while (end < lines.size) {
+                chunk.append(lines[end]).append('\n')
+                end++
+                balance += parenDelta(codeOnly, end - 1)
+                // A parameter list is still open: the declaration continues.
+                if (balance > 0) continue
+                if (declRegex.containsMatchIn(chunk)) break
+                // The declaration is complete but this regex does not describe
+                // it — unless the value sits on the next line.
+                val next = lines.getOrNull(end)
+                if (next == null || !next.trimStart().startsWith("=")) break
+            }
+
+            if (rootDepth != null && start > rootLine) {
+                declRegex.find(chunk)?.let { found ->
+                    val owners = ownersByLine[start].orEmpty()
+                    result.add(build((owners + found.groupValues[1]).joinToString("."), found.groupValues[2]))
+                }
+            }
+            index = end
+        }
         return result
+    }
+
+    /**
+     * The number of parentheses opened minus the number closed, on one line of a
+     * source whose literal contents are already blanked.
+     *
+     * The blanked text is what makes the count trustworthy: a parenthesis inside
+     * a string literal is not a parenthesis of the code.
+     */
+    private fun parenDelta(
+        codeOnly: List<String>,
+        index: Int,
+    ): Int {
+        var delta = 0
+        for (ch in codeOnly.getOrElse(index) { "" }) {
+            when (ch) {
+                '(' -> delta++
+                ')' -> delta--
+            }
+        }
+        return delta
     }
 
     /**
@@ -131,9 +201,13 @@ object TestTagsCatalog {
      * give the `:shared` module root, from which [TEST_TAGS_SOURCE] is relative.
      */
     private fun readTestTagsSource(): String {
-        val commonMainRoot = System.getProperty("commonMain.root")
-            ?: error("commonMain.root system property is not set — see shared/build.gradle.kts")
-        val moduleRoot = Paths.get(commonMainRoot).parent.parent.parent
+        val commonMainRoot =
+            System.getProperty("commonMain.root")
+                ?: error("commonMain.root system property is not set — see shared/build.gradle.kts")
+        val moduleRoot =
+            Paths
+                .get(commonMainRoot)
+                .parent.parent.parent
         return Files.readString(moduleRoot.resolve(TEST_TAGS_SOURCE))
     }
 }

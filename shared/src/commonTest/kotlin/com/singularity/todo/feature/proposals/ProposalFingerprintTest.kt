@@ -4,11 +4,11 @@ import com.singularity.todo.feature.proposals.domain.logic.ProposalFingerprint
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposedTimeEntry
 import com.singularity.todo.feature.proposals.domain.model.TaskValue
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
-import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 
 /**
  * The fingerprint is the mechanism that stops a rejected change coming back, so its
@@ -19,8 +19,10 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
  */
 @Tag("fast")
 class ProposalFingerprintTest {
-
-    private fun fp(kind: ProposalItemKind, target: String = "task-1") = ProposalFingerprint.of(kind, target)
+    private fun fp(
+        kind: ProposalItemKind,
+        target: String = "task-1",
+    ) = ProposalFingerprint.of(kind, target)
 
     @Test
     fun `same kind and target produce the same fingerprint`() {
@@ -80,12 +82,14 @@ class ProposalFingerprintTest {
 
     @Test
     fun `time entries fingerprint on their boundaries, not their order`() {
-        val a = ProposalItemKind.AddTimeEntries(
-            listOf(ProposedTimeEntry(100, 200), ProposedTimeEntry(300, 400)),
-        )
-        val b = ProposalItemKind.AddTimeEntries(
-            listOf(ProposedTimeEntry(300, 400), ProposedTimeEntry(100, 200)),
-        )
+        val a =
+            ProposalItemKind.AddTimeEntries(
+                listOf(ProposedTimeEntry(100, 200), ProposedTimeEntry(300, 400)),
+            )
+        val b =
+            ProposalItemKind.AddTimeEntries(
+                listOf(ProposedTimeEntry(300, 400), ProposedTimeEntry(100, 200)),
+            )
         assertEquals(fp(a), fp(b))
     }
 

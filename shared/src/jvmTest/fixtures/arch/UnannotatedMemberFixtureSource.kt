@@ -43,7 +43,6 @@ package com.singularity.todo.arch.fixtures
  */
 @Suppress("unused")
 class UnannotatedMemberFixtureTest {
-
     /**
      * The defect, exactly as it was written twice in `SingularityCatalogTest`
      * (PR #223): a test-shaped function that no annotation ever wires to JUnit.

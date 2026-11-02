@@ -28,7 +28,6 @@ import kotlin.time.Duration
  * what it can.
  */
 interface BackgroundWorkScheduler {
-
     /**
      * Ensure [jobId] runs on [schedule].
      *
@@ -38,7 +37,10 @@ interface BackgroundWorkScheduler {
      *
      * @throws IllegalArgumentException if [jobId] is not in the job catalogue.
      */
-    fun schedule(jobId: String, schedule: JobSchedule)
+    fun schedule(
+        jobId: String,
+        schedule: JobSchedule,
+    )
 
     /**
      * Re-arm [jobId] after it has just finished running.
@@ -47,7 +49,10 @@ interface BackgroundWorkScheduler {
      * finishing) chain instead of being dropped by KEEP, which is what happens when a
      * re-arm is issued while the current run is still in the RUNNING state.
      */
-    fun scheduleNext(jobId: String, schedule: JobSchedule) = schedule(jobId, schedule)
+    fun scheduleNext(
+        jobId: String,
+        schedule: JobSchedule,
+    ) = schedule(jobId, schedule)
 
     /** Cancel pending and running work for [jobId]. A no-op if it is not scheduled. */
     fun cancel(jobId: String)
@@ -76,7 +81,9 @@ interface BackgroundWorkScheduler {
  */
 sealed interface JobOutcome {
     data object Success : JobOutcome
+
     data class Skipped(val reason: String) : JobOutcome
+
     data class Failed(val error: Throwable) : JobOutcome
 }
 
@@ -111,6 +118,7 @@ interface BackgroundJob {
  */
 interface BackgroundJobCatalog {
     fun find(jobId: String): BackgroundJob?
+
     fun all(): List<BackgroundJob>
 }
 

@@ -52,7 +52,6 @@ data class GoogleCredentials(val accessToken: String, val refreshToken: String?,
  * screen — the most expensive failure this feature has.
  */
 interface GoogleCredentialStore {
-
     /**
      * The credential for [userId], or null when this profile has never authorised.
      *
@@ -62,7 +61,10 @@ interface GoogleCredentialStore {
     suspend fun load(userId: String): GoogleCredentials?
 
     /** Persists [credentials] for [userId], replacing anything already there. */
-    suspend fun save(userId: String, credentials: GoogleCredentials)
+    suspend fun save(
+        userId: String,
+        credentials: GoogleCredentials,
+    )
 
     /**
      * Forgets [userId]'s credential.
@@ -95,7 +97,6 @@ class SecureStorageGoogleCredentialStore(
     private val secureStorage: SecureStorage,
     private val json: Json = DEFAULT_JSON,
 ) : GoogleCredentialStore {
-
     override suspend fun load(userId: String): GoogleCredentials? {
         val access = secureStorage.read(googleCredentialKey(userId) + ":access") ?: return null
         val refresh = secureStorage.read(googleCredentialKey(userId) + ":refresh")
@@ -107,7 +108,10 @@ class SecureStorageGoogleCredentialStore(
         )
     }
 
-    override suspend fun save(userId: String, credentials: GoogleCredentials) {
+    override suspend fun save(
+        userId: String,
+        credentials: GoogleCredentials,
+    ) {
         // A credential with no refresh token is still written: it serves the foreground
         // sync that follows sign-in, and the UI can say "this will need re-authorising"
         // because `canRenew` is false. Discarding it would make a one-off foreground
@@ -139,20 +143,21 @@ class SecureStorageGoogleCredentialStore(
 }
 
 /** Parses Google's token-endpoint response into a [GoogleCredentials]. */
-internal fun parseTokenResponse(body: String): GoogleCredentials? = runCatching {
-    val obj = Json.parseToJsonElement(body).jsonObject
-    val access = obj["access_token"]?.asPrimitive() ?: return null
-    // Google's `expires_in` is seconds; a response without it is malformed rather than
-    // infinite, and treating it as "never expires" would hide a broken grant.
-    val expiresIn = obj["expires_in"]?.asPrimitive()?.toLongOrNull() ?: return null
-    GoogleCredentials(
-        accessToken = access,
-        // Absent on a refresh response, which is normal: Google only returns a new refresh
-        // token on a fresh grant, not when redeeming an existing one.
-        refreshToken = obj["refresh_token"]?.asPrimitive(),
-        expiresAtEpochMs = System.currentTimeMillis() + expiresIn * 1_000,
-    )
-}.getOrNull()
+internal fun parseTokenResponse(body: String): GoogleCredentials? =
+    runCatching {
+        val obj = Json.parseToJsonElement(body).jsonObject
+        val access = obj["access_token"]?.asPrimitive() ?: return null
+        // Google's `expires_in` is seconds; a response without it is malformed rather than
+        // infinite, and treating it as "never expires" would hide a broken grant.
+        val expiresIn = obj["expires_in"]?.asPrimitive()?.toLongOrNull() ?: return null
+        GoogleCredentials(
+            accessToken = access,
+            // Absent on a refresh response, which is normal: Google only returns a new refresh
+            // token on a fresh grant, not when redeeming an existing one.
+            refreshToken = obj["refresh_token"]?.asPrimitive(),
+            expiresAtEpochMs = System.currentTimeMillis() + expiresIn * 1_000,
+        )
+    }.getOrNull()
 
 private fun kotlinx.serialization.json.JsonElement.asPrimitive(): String? =
     (this as? JsonPrimitive)?.takeUnless { it is kotlinx.serialization.json.JsonNull }?.content

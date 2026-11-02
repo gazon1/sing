@@ -26,7 +26,6 @@ package com.singularity.todo.core.search
  * policy is in the feature, the way the repository keeps it everywhere else.
  */
 interface Searchable {
-
     /**
      * The surfaces of this record that a term may match.
      *

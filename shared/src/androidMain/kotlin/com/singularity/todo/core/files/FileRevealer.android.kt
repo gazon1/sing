@@ -28,10 +28,11 @@ class AndroidFileRevealer(private val context: Context) : FileRevealer {
         val uri = Uri.fromFile(folder)
 
         @Suppress("DEPRECATION")
-        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
-            flags = (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-            putExtra("android.provider.extra.INITIAL_URI", uri)
-        }
+        val intent =
+            Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                flags = (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                putExtra("android.provider.extra.INITIAL_URI", uri)
+            }
         return runCatchingCancellable { context.startActivity(intent) }.isSuccess
     }
 

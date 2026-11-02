@@ -48,7 +48,6 @@ import kotlinx.serialization.serializer
  * - event schema v1: initial release (2026-10-05)
  */
 object SyncContract {
-
     // ── Versions ───────────────────────────────────────────────────────────────
 
     /** Protocol version sent in every [DeltaPatch]. Events with a higher version are dropped. */
@@ -103,14 +102,15 @@ object SyncContract {
      * The descriptor is the model's own: the same one the encoder writes the
      * document from, so the names it holds are the names on the wire.
      */
-    private val MODEL_DESCRIPTORS: Map<DocType, SerialDescriptor> = mapOf(
-        DocType.Task to serializer<Task>().descriptor,
-        DocType.Note to serializer<Note>().descriptor,
-        DocType.Project to serializer<Project>().descriptor,
-        DocType.Tag to serializer<Tag>().descriptor,
-        DocType.TagGroup to serializer<TagGroup>().descriptor,
-        DocType.TimeEntry to serializer<TimeEntry>().descriptor,
-    )
+    private val MODEL_DESCRIPTORS: Map<DocType, SerialDescriptor> =
+        mapOf(
+            DocType.Task to serializer<Task>().descriptor,
+            DocType.Note to serializer<Note>().descriptor,
+            DocType.Project to serializer<Project>().descriptor,
+            DocType.Tag to serializer<Tag>().descriptor,
+            DocType.TagGroup to serializer<TagGroup>().descriptor,
+            DocType.TimeEntry to serializer<TimeEntry>().descriptor,
+        )
 
     /**
      * The names a device puts on the wire, per document type.
@@ -125,9 +125,10 @@ object SyncContract {
      * The order is the model's declaration order, which is the order the
      * encoder writes them in.
      */
-    val WIRE_FIELDS: Map<DocType, List<String>> = MODEL_DESCRIPTORS.mapValues { (_, descriptor) ->
-        descriptor.wireNames()
-    }
+    val WIRE_FIELDS: Map<DocType, List<String>> =
+        MODEL_DESCRIPTORS.mapValues { (_, descriptor) ->
+            descriptor.wireNames()
+        }
 
     /**
      * The names the server accepts in a patch, per document type.
@@ -136,23 +137,22 @@ object SyncContract {
      * server's `sync_field_allowlist` table holds, and the seed is generated
      * from it.
      */
-    val SERVER_FIELDS: Map<DocType, List<String>> = WIRE_FIELDS.mapValues { (_, fields) ->
-        fields - SERVER_OWNED
-    }
+    val SERVER_FIELDS: Map<DocType, List<String>> =
+        WIRE_FIELDS.mapValues { (_, fields) ->
+            fields - SERVER_OWNED
+        }
 
     /**
      * The names a device puts on the wire for [docType], or an empty list if the
      * type is not a known syncable document type.
      */
-    fun wireFieldsFor(docType: DocType): List<String> =
-        WIRE_FIELDS[docType] ?: emptyList()
+    fun wireFieldsFor(docType: DocType): List<String> = WIRE_FIELDS[docType] ?: emptyList()
 
     /**
      * The names the server accepts in a patch for [docType], or an empty list if the type
      * is not a known syncable document type.
      */
-    fun serverFieldsFor(docType: DocType): List<String> =
-        SERVER_FIELDS[docType] ?: emptyList()
+    fun serverFieldsFor(docType: DocType): List<String> = SERVER_FIELDS[docType] ?: emptyList()
 
     init {
         // Every document type needs a model, or its list would be missing and
@@ -171,5 +171,4 @@ object SyncContract {
  * `getElementName` returns the *serial* name, so a `@SerialName` comes out as
  * the wire name and not as the Kotlin property's name.
  */
-private fun SerialDescriptor.wireNames(): List<String> =
-    (0 until elementsCount).map { getElementName(it) }
+private fun SerialDescriptor.wireNames(): List<String> = (0 until elementsCount).map { getElementName(it) }

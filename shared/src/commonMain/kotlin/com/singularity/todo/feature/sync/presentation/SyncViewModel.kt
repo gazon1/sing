@@ -2,17 +2,18 @@ package com.singularity.todo.feature.sync.presentation
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.toAppError
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.sync.ConnectionTestResult
 import com.singularity.todo.core.sync.SyncEngineStatus
+import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.core.sync.SyncScope
 import com.singularity.todo.core.sync.SyncScopeProvider
 import com.singularity.todo.core.sync.SyncStateRepository
-import com.singularity.todo.core.sync.SyncRepository
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
-import com.singularity.todo.core.observability.CrashReportingPort
-import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -20,7 +21,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.CancellationException
 import kotlin.time.Duration.Companion.minutes
 
 /**
@@ -28,9 +28,13 @@ import kotlin.time.Duration.Companion.minutes
  */
 sealed interface SyncIntent : MviIntent {
     data object SyncNow : SyncIntent
+
     data class SetAutoSync(val enabled: Boolean) : SyncIntent
+
     data class SetInterval(val minutes: Int) : SyncIntent
+
     data object AcknowledgeError : SyncIntent
+
     data object TestConnection : SyncIntent
 }
 
@@ -162,8 +166,7 @@ class SyncViewModel(
                     } else {
                         stateRepository.observe(active).map { active to it }
                     }
-                }
-                .collect { pair ->
+                }.collect { pair ->
                     val active = pair?.first
                     val settings = pair?.second
                     syncMutex.withLock { currentScope = active }

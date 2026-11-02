@@ -46,7 +46,6 @@ import com.singularity.todo.core.security.ArchiveCrypto
  * this file is one of them.
  */
 object ArchiveCryptoGolden {
-
     /** The password the golden archive was sealed under. */
     const val PASSWORD = "correct horse battery staple"
 
@@ -168,19 +167,24 @@ fun ByteArray.toHex(): String = joinToString("") { byte -> "%02x".format(byte) }
  * So the construction lives in the fixture, and the golden bytes are the only
  * thing the platforms are compared on.
  */
-fun buildGoldenChain(crypto: ArchiveCrypto, key: ByteArray): ByteArray {
-    val prefix = ArchiveFormat.MAGIC.encodeToByteArray() +
-        byteArrayOf(ArchiveFormat.CHAIN_VERSION.toByte()) +
-        ArchiveCryptoGolden.chainSalt +
-        ArchiveCryptoGolden.chainNonce
+fun buildGoldenChain(
+    crypto: ArchiveCrypto,
+    key: ByteArray,
+): ByteArray {
+    val prefix =
+        ArchiveFormat.MAGIC.encodeToByteArray() +
+            byteArrayOf(ArchiveFormat.CHAIN_VERSION.toByte()) +
+            ArchiveCryptoGolden.chainSalt +
+            ArchiveCryptoGolden.chainNonce
     // The change is sealed with the prefix and its own place; the base is sealed
     // with the whole header, head included.
-    val body = crypto.seal(
-        key,
-        ArchiveCryptoGolden.chainEntryNonce,
-        ArchiveCryptoGolden.chainEntry,
-        prefix + 0.toBytes(),
-    )
+    val body =
+        crypto.seal(
+            key,
+            ArchiveCryptoGolden.chainEntryNonce,
+            ArchiveCryptoGolden.chainEntry,
+            prefix + 0.toBytes(),
+        )
     val head = ChainHead(count = 1, entriesLength = (ArchiveFormat.ENTRY_HEAD_BYTES + body.size).toLong())
     val header = prefix + head.toBytes()
     val sealedBase = crypto.seal(key, ArchiveCryptoGolden.chainNonce, ArchiveCryptoGolden.chainBase, header)
@@ -208,21 +212,23 @@ fun buildGoldenDeviceKeyContainer(crypto: ArchiveCrypto): ByteArray {
     val nonce = ArchiveCryptoGolden.deviceNonce
     val blockSalt = ArchiveCryptoGolden.blockSalt
     val blockNonce = ArchiveCryptoGolden.blockNonce
-    val prefix = ArchiveFormat.MAGIC.encodeToByteArray() +
-        byteArrayOf(ArchiveFormat.DEVICE_KEY_VERSION.toByte()) +
-        salt +
-        nonce
+    val prefix =
+        ArchiveFormat.MAGIC.encodeToByteArray() +
+            byteArrayOf(ArchiveFormat.DEVICE_KEY_VERSION.toByte()) +
+            salt +
+            nonce
     val head = ChainHead(count = 0, entriesLength = 0L)
 
     // The key block: the device key wrapped under the password, with the block's
     // own salt and the block's own marker as the authenticated data.
     val wrappingKey = crypto.deriveKey(ArchiveCryptoGolden.PASSWORD.toCharArray(), blockSalt)
-    val wrapped = crypto.seal(
-        wrappingKey,
-        blockNonce,
-        ArchiveCryptoGolden.deviceKey,
-        blockKeyAad(blockSalt),
-    )
+    val wrapped =
+        crypto.seal(
+            wrappingKey,
+            blockNonce,
+            ArchiveCryptoGolden.deviceKey,
+            blockKeyAad(blockSalt),
+        )
     val keyBlock = ArchiveKeyBlock(blockSalt, blockNonce, wrapped)
     val header = prefix + head.toBytes() + keyBlock.toBytes()
 

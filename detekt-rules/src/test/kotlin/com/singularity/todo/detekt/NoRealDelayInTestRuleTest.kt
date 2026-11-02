@@ -16,12 +16,12 @@ import kotlin.test.assertTrue
  * spellings Kotlin code actually uses bypassed the check entirely.
  */
 class NoRealDelayInTestRuleTest {
-
     private val rule = NoRealDelayInTestRule(TestConfig())
     private val languageSettings = FakeLanguageVersionSettings(ExplicitApiMode.STRICT)
 
     private fun findingsFor(delayArg: String): Int {
-        val code = """
+        val code =
+            """
             package com.singularity.todo.test
 
             class FlowTest {
@@ -29,7 +29,7 @@ class NoRealDelayInTestRuleTest {
                     delay($delayArg)
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         return rule.visitFile(ktFile, languageSettings).size
     }
@@ -74,7 +74,8 @@ class NoRealDelayInTestRuleTest {
 
     @Test
     fun `message quotes the original spelling`() {
-        val code = """
+        val code =
+            """
             package com.singularity.todo.test
 
             class FlowTest {
@@ -82,7 +83,7 @@ class NoRealDelayInTestRuleTest {
                     delay(1_000)
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         val findings = rule.visitFile(ktFile, languageSettings)
         assertEquals(1, findings.size)
@@ -94,7 +95,8 @@ class NoRealDelayInTestRuleTest {
 
     @Test
     fun `Thread_sleep is flagged`() {
-        val code = """
+        val code =
+            """
             package com.singularity.todo.test
 
             class FlowTest {
@@ -102,14 +104,15 @@ class NoRealDelayInTestRuleTest {
                     Thread.sleep(1_000)
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         assertEquals(1, rule.visitFile(ktFile, languageSettings).size)
     }
 
     @Test
     fun `Thread_sleep zero is not flagged`() {
-        val code = """
+        val code =
+            """
             package com.singularity.todo.test
 
             class FlowTest {
@@ -117,7 +120,7 @@ class NoRealDelayInTestRuleTest {
                     Thread.sleep(0)
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         assertEquals(0, rule.visitFile(ktFile, languageSettings).size)
     }

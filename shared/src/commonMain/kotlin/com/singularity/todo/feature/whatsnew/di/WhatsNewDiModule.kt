@@ -8,6 +8,7 @@ import org.koin.dsl.module
  *
  * Registers [WhatsNewPrefs] backed by the per-platform DataStore<Preferences>.
  */
-fun whatsNewModule() = module {
-    single { WhatsNewPrefs.create(get()) }
-}
+fun whatsNewModule() =
+    module {
+        single { WhatsNewPrefs.create(get()) }
+    }

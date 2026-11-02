@@ -13,8 +13,8 @@ import co.touchlab.kermit.Logger
 import com.singularity.todo.core.ai.ToolOutputJson
 import com.singularity.todo.feature.ai.prompts.Prompts
 import kotlinx.coroutines.CancellationException
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 
 /**
  * The task, as the user wrote it.
@@ -49,31 +49,32 @@ data class FirstStepOutput(val action: String, val doneWhen: String = "", val ra
  */
 class FirstStepTool(private val promptExecutor: PromptExecutor, private val model: LLModel) :
     SimpleTool<FirstStepInput>(TypeToken.of(FirstStepInput::class.java), NAME, DESCRIPTION) {
-
     private val logger = Logger.withTag("FirstStep")
 
     override suspend fun execute(args: FirstStepInput): String {
-        val p = prompt(Prompt.Empty, KoogClock.System) {
-            system(Prompts.firstStepSystem)
-            user(Prompts.firstStepUser(args.title, args.description))
-        }
+        val p =
+            prompt(Prompt.Empty, KoogClock.System) {
+                system(Prompts.firstStepSystem)
+                user(Prompts.firstStepUser(args.title, args.description))
+            }
         val response = promptExecutor.execute(p, model, emptyList())
         val text = extractText(response)
 
-        val output = try {
-            ToolOutputJson.decodeFromString(FirstStepOutput.serializer(), text)
-        } catch (cancellation: CancellationException) {
-            throw cancellation
-        } catch (failure: SerializationException) {
-            logger.w(failure) { "the model answered in prose" }
-            // The model answered in prose. The first non-empty line is the action, and
-            // the rest is the best guess at the outcome — a partial answer beats none.
-            val lines = text.lines().map { it.trim() }.filter { it.isNotEmpty() }
-            FirstStepOutput(
-                action = lines.firstOrNull().orEmpty(),
-                doneWhen = lines.getOrNull(1).orEmpty(),
-            )
-        }
+        val output =
+            try {
+                ToolOutputJson.decodeFromString(FirstStepOutput.serializer(), text)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (failure: SerializationException) {
+                logger.w(failure) { "the model answered in prose" }
+                // The model answered in prose. The first non-empty line is the action, and
+                // the rest is the best guess at the outcome — a partial answer beats none.
+                val lines = text.lines().map { it.trim() }.filter { it.isNotEmpty() }
+                FirstStepOutput(
+                    action = lines.firstOrNull().orEmpty(),
+                    doneWhen = lines.getOrNull(1).orEmpty(),
+                )
+            }
 
         return ToolOutputJson.encodeToString(FirstStepOutput.serializer(), output)
     }
@@ -93,6 +94,9 @@ class FirstStepTool(private val promptExecutor: PromptExecutor, private val mode
                 "would itself need a decision. Returns one action, not a plan."
 
         private fun extractText(response: Message.Assistant): String =
-            response.parts.filterIsInstance<MessagePart.Text>().joinToString("") { it.text }.trim()
+            response.parts
+                .filterIsInstance<MessagePart.Text>()
+                .joinToString("") { it.text }
+                .trim()
     }
 }

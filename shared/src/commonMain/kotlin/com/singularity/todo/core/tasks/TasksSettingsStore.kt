@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.map
  *                   that provides the raw staleness threshold flow and setter.
  */
 class TasksSettingsStore(private val repository: TasksSettingsRepository) {
-
     /**
      * Tasks settings section — currently just the staleness threshold.
      */
@@ -28,8 +27,9 @@ class TasksSettingsStore(private val repository: TasksSettingsRepository) {
 
     suspend fun process(intent: SettingsIntent.Tasks) {
         when (intent) {
-            is SettingsIntent.Tasks.UpdateStalenessThresholdDays ->
+            is SettingsIntent.Tasks.UpdateStalenessThresholdDays -> {
                 repository.setStalenessThresholdDays(intent.value)
+            }
         }
     }
 }

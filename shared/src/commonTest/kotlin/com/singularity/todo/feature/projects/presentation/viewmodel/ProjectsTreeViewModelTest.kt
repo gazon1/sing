@@ -27,111 +27,120 @@ import kotlin.time.Instant
  */
 @Tag("fast")
 class ProjectsTreeViewModelTest {
+    @Test
+    fun `the tree follows the projects`() =
+        runTest {
+            val repo = FakeProjectsRepository()
+            repo.seed(project("root", "Product"), project("child", "Website", parent = "root"))
+            val h = newHarness(repo)
+            advanceUntilIdle()
+
+            val state = h.vm.stateFlow.value as ProjectsTreeUiState.Loaded
+            assertEquals(listOf("root", "child"), state.nodes.map { it.id.value })
+            h.close()
+        }
 
     @Test
-    fun `the tree follows the projects`() = runTest {
-        val repo = FakeProjectsRepository()
-        repo.seed(project("root", "Product"), project("child", "Website", parent = "root"))
-        val h = newHarness(repo)
-        advanceUntilIdle()
+    fun `a project renamed elsewhere shows its new name`() =
+        runTest {
+            val repo = FakeProjectsRepository()
+            repo.seed(project("root", "Product"))
+            val h = newHarness(repo)
+            advanceUntilIdle()
 
-        val state = h.vm.stateFlow.value as ProjectsTreeUiState.Loaded
-        assertEquals(listOf("root", "child"), state.nodes.map { it.id.value })
-        h.close()
-    }
+            repo.add(project("root", "Renamed"))
+            advanceUntilIdle()
 
-    @Test
-    fun `a project renamed elsewhere shows its new name`() = runTest {
-        val repo = FakeProjectsRepository()
-        repo.seed(project("root", "Product"))
-        val h = newHarness(repo)
-        advanceUntilIdle()
-
-        repo.add(project("root", "Renamed"))
-        advanceUntilIdle()
-
-        val state = h.vm.stateFlow.value as ProjectsTreeUiState.Loaded
-        assertEquals(listOf("Renamed"), state.nodes.map { it.name })
-        h.close()
-    }
+            val state = h.vm.stateFlow.value as ProjectsTreeUiState.Loaded
+            assertEquals(listOf("Renamed"), state.nodes.map { it.name })
+            h.close()
+        }
 
     @Test
-    fun `folding a project away hides its children and keeps them folded`() = runTest {
-        val repo = FakeProjectsRepository()
-        repo.seed(project("root", "Product"), project("child", "Website", parent = "root"))
-        val h = newHarness(repo)
-        advanceUntilIdle()
+    fun `folding a project away hides its children and keeps them folded`() =
+        runTest {
+            val repo = FakeProjectsRepository()
+            repo.seed(project("root", "Product"), project("child", "Website", parent = "root"))
+            val h = newHarness(repo)
+            advanceUntilIdle()
 
-        h.vm.onIntent(ProjectsTreeIntent.ToggleExpanded(ProjectId("root")))
-        advanceUntilIdle()
+            h.vm.onIntent(ProjectsTreeIntent.ToggleExpanded(ProjectId("root")))
+            advanceUntilIdle()
 
-        val state = h.vm.stateFlow.value as ProjectsTreeUiState.Loaded
-        assertEquals(listOf("root"), state.nodes.map { it.id.value })
+            val state = h.vm.stateFlow.value as ProjectsTreeUiState.Loaded
+            assertEquals(listOf("root"), state.nodes.map { it.id.value })
 
-        // A project that arrives later does not unfold what the user folded.
-        repo.add(project("other", "Other"))
-        advanceUntilIdle()
-        assertEquals(
-            // The roots are ordered by name, so "Other" comes before "Product".
-            listOf("other", "root"),
-            (h.vm.stateFlow.value as ProjectsTreeUiState.Loaded).nodes.map { it.id.value },
+            // A project that arrives later does not unfold what the user folded.
+            repo.add(project("other", "Other"))
+            advanceUntilIdle()
+            assertEquals(
+                // The roots are ordered by name, so "Other" comes before "Product".
+                listOf("other", "root"),
+                (h.vm.stateFlow.value as ProjectsTreeUiState.Loaded).nodes.map { it.id.value },
+            )
+            h.close()
+        }
+
+    @Test
+    fun `the folding survives a new tree built over the same settings`() =
+        runTest {
+            val repo = FakeProjectsRepository()
+            repo.seed(project("root", "Product"), project("child", "Website", parent = "root"))
+            val settings = FakeProjectsTreeSettingsRepository()
+
+            val first = newHarness(repo, settings)
+            advanceUntilIdle()
+            first.vm.onIntent(ProjectsTreeIntent.ToggleExpanded(ProjectId("root")))
+            advanceUntilIdle()
+            assertEquals(
+                listOf("root"),
+                (first.vm.stateFlow.value as ProjectsTreeUiState.Loaded).nodes.map { it.id.value },
+            )
+            first.close()
+
+            // The menu is opened again: the tree is built anew, over the same settings.
+            val second = newHarness(repo, settings)
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf("root"),
+                (second.vm.stateFlow.value as ProjectsTreeUiState.Loaded).nodes.map { it.id.value },
+            )
+            second.close()
+        }
+
+    @Test
+    fun `unfolding a project shows its children again`() =
+        runTest {
+            val repo = FakeProjectsRepository()
+            repo.seed(project("root", "Product"), project("child", "Website", parent = "root"))
+            val h = newHarness(repo)
+            advanceUntilIdle()
+
+            h.vm.onIntent(ProjectsTreeIntent.ToggleExpanded(ProjectId("root")))
+            advanceUntilIdle()
+            h.vm.onIntent(ProjectsTreeIntent.ToggleExpanded(ProjectId("root")))
+            advanceUntilIdle()
+
+            val state = h.vm.stateFlow.value as ProjectsTreeUiState.Loaded
+            assertEquals(listOf("root", "child"), state.nodes.map { it.id.value })
+            h.close()
+        }
+
+    private fun project(
+        id: String,
+        name: String,
+        parent: String? = null,
+    ): Project =
+        Project(
+            id = ProjectId(id),
+            name = name,
+            color = 0,
+            createdAt = NOW,
+            updatedAt = NOW,
+            parentId = parent?.let { ProjectId(it) },
+            userId = UserId("test-user"),
         )
-        h.close()
-    }
-
-    @Test
-    fun `the folding survives a new tree built over the same settings`() = runTest {
-        val repo = FakeProjectsRepository()
-        repo.seed(project("root", "Product"), project("child", "Website", parent = "root"))
-        val settings = FakeProjectsTreeSettingsRepository()
-
-        val first = newHarness(repo, settings)
-        advanceUntilIdle()
-        first.vm.onIntent(ProjectsTreeIntent.ToggleExpanded(ProjectId("root")))
-        advanceUntilIdle()
-        assertEquals(
-            listOf("root"),
-            (first.vm.stateFlow.value as ProjectsTreeUiState.Loaded).nodes.map { it.id.value },
-        )
-        first.close()
-
-        // The menu is opened again: the tree is built anew, over the same settings.
-        val second = newHarness(repo, settings)
-        advanceUntilIdle()
-
-        assertEquals(
-            listOf("root"),
-            (second.vm.stateFlow.value as ProjectsTreeUiState.Loaded).nodes.map { it.id.value },
-        )
-        second.close()
-    }
-
-    @Test
-    fun `unfolding a project shows its children again`() = runTest {
-        val repo = FakeProjectsRepository()
-        repo.seed(project("root", "Product"), project("child", "Website", parent = "root"))
-        val h = newHarness(repo)
-        advanceUntilIdle()
-
-        h.vm.onIntent(ProjectsTreeIntent.ToggleExpanded(ProjectId("root")))
-        advanceUntilIdle()
-        h.vm.onIntent(ProjectsTreeIntent.ToggleExpanded(ProjectId("root")))
-        advanceUntilIdle()
-
-        val state = h.vm.stateFlow.value as ProjectsTreeUiState.Loaded
-        assertEquals(listOf("root", "child"), state.nodes.map { it.id.value })
-        h.close()
-    }
-
-    private fun project(id: String, name: String, parent: String? = null): Project = Project(
-        id = ProjectId(id),
-        name = name,
-        color = 0,
-        createdAt = NOW,
-        updatedAt = NOW,
-        parentId = parent?.let { ProjectId(it) },
-        userId = UserId("test-user"),
-    )
 
     private class Harness(val vm: ProjectsTreeViewModel, private val scope: AutoCloseableCoroutineScope) :
         AutoCloseable {

@@ -26,7 +26,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class AdrCorpusReadersAgreeTest {
-
     @Test
     fun `the app reads the corpus the gates read`() {
         val root = repoRoot()
@@ -34,10 +33,12 @@ class AdrCorpusReadersAgreeTest {
         assertTrue(corpus.isDirectory, "no corpus at $corpus")
 
         val config = AdrCorpusConfig.loadOrDefault(root.toString())
-        val kotlinSlugs = config.discover(corpus.toString())
-            .filter { config.isDecision(it) }
-            .map { it.substringAfterLast('/').removeSuffix(".md") }
-            .toSortedSet()
+        val kotlinSlugs =
+            config
+                .discover(corpus.toString())
+                .filter { config.isDecision(it) }
+                .map { it.substringAfterLast('/').removeSuffix(".md") }
+                .toSortedSet()
 
         val pythonSlugs = pythonDecisions(root)
 
@@ -60,28 +61,33 @@ class AdrCorpusReadersAgreeTest {
         val script = File(root, "scripts/adr_corpus.py")
         assertTrue(script.isFile, "no corpus reader at $script")
 
-        val process = ProcessBuilder(
-            "python3",
-            script.absolutePath,
-            "--decisions",
-        )
-            .directory(root)
-            .redirectErrorStream(false)
-            .start()
+        val process =
+            ProcessBuilder(
+                "python3",
+                script.absolutePath,
+                "--decisions",
+            ).directory(root)
+                .redirectErrorStream(false)
+                .start()
 
         val output = process.inputStream.bufferedReader().readText()
         val finished = process.waitFor()
         assertEquals(0, finished, "the Python corpus reader failed:\n$output")
 
-        val slugs = output.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toSortedSet()
+        val slugs =
+            output
+                .lineSequence()
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .toSortedSet()
         assertTrue(slugs.isNotEmpty(), "the Python reader found no decisions at all")
         return slugs
     }
 
     /** The repository root, found by walking up from the working directory. */
-    private fun repoRoot(): File = generateSequence(File(System.getProperty("user.dir")).absoluteFile) {
-        it.parentFile
-    }
-        .firstOrNull { File(it, "config/docs/adr-corpus.json").isFile }
-        ?: error("could not find the repository root from ${System.getProperty("user.dir")}")
+    private fun repoRoot(): File =
+        generateSequence(File(System.getProperty("user.dir")).absoluteFile) {
+            it.parentFile
+        }.firstOrNull { File(it, "config/docs/adr-corpus.json").isFile }
+            ?: error("could not find the repository root from ${System.getProperty("user.dir")}")
 }

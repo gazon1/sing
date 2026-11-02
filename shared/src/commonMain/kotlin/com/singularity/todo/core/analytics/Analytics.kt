@@ -23,7 +23,10 @@ interface Analytics {
      * @param event  Event name, e.g. [AnalyticsEvents.ADD_TASK].
      * @param params Key-value pairs, e.g. `AnalyticsEvents.PARAM_SOURCE to "agenda"`.
      */
-    fun logEvent(event: String, vararg params: Pair<String, Any>)
+    fun logEvent(
+        event: String,
+        vararg params: Pair<String, Any>,
+    )
 
     /**
      * Associates the current session with a distinct user identifier.

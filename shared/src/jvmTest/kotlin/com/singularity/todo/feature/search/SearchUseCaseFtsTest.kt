@@ -6,6 +6,7 @@ import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.sync.FakeSyncRepository
 import com.singularity.todo.feature.search.query.DefaultSearchQueryResolver
 import com.singularity.todo.feature.search.query.ProjectLookup
@@ -33,7 +34,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Clock
 import kotlin.time.Instant
-import com.singularity.todo.core.search.SearchMode
 
 /**
  * The search, over a real database and the real index.
@@ -54,7 +54,6 @@ import com.singularity.todo.core.search.SearchMode
 @Tag("slow")
 @Tag("slow:data")
 class SearchUseCaseFtsTest {
-
     private lateinit var tempDir: File
     private lateinit var db: AppDatabase
 
@@ -74,79 +73,87 @@ class SearchUseCaseFtsTest {
     }
 
     @Test
-    fun `the index answers the positive terms, and the search returns what it found`() = runTest {
-        // The index removes the diacritics, so it finds "Café au lait" for the
-        // term "cafe"; the rule folds them the same way, so the two halves of
-        // the rule answer the same question the same way.
-        seed(task(id = "t1", title = "Café au lait"))
+    fun `the index answers the positive terms, and the search returns what it found`() =
+        runTest {
+            // The index removes the diacritics, so it finds "Café au lait" for the
+            // term "cafe"; the rule folds them the same way, so the two halves of
+            // the rule answer the same question the same way.
+            seed(task(id = "t1", title = "Café au lait"))
 
-        val found = search("cafe")
+            val found = search("cafe")
 
-        assertEquals(
-            listOf("t1"),
-            found.tasks.map { it.record.id.value },
-            "the index answers the positive terms, and the rule must not filter them again",
-        )
-    }
-
-    @Test
-    fun `a negated term rules the record out`() = runTest {
-        seed(task(id = "t1", title = "Alpha report"), task(id = "t2", title = "Alpha and Beta"))
-
-        val found = search("alpha NOT beta")
-
-        assertEquals(
-            listOf("t1"),
-            found.tasks.map { it.record.id.value },
-            "the negated term is the rule's business, and the rule still holds it",
-        )
-    }
+            assertEquals(
+                listOf("t1"),
+                found.tasks.map { it.record.id.value },
+                "the index answers the positive terms, and the rule must not filter them again",
+            )
+        }
 
     @Test
-    fun `a negated term rules out exactly the records the positive term finds`() = runTest {
-        seed(task(id = "t1", title = "Café au lait"), task(id = "t2", title = "Coffee break"))
+    fun `a negated term rules the record out`() =
+        runTest {
+            seed(task(id = "t1", title = "Alpha report"), task(id = "t2", title = "Alpha and Beta"))
 
-        val positive = search("cafe")
-        val negated = search("cafe NOT cafe")
+            val found = search("alpha NOT beta")
 
-        assertEquals(
-            listOf("t1"),
-            positive.tasks.map { it.record.id.value },
-            "the index folds the diacritics, so \"cafe\" finds \"Café au lait\"",
-        )
-        assertEquals(
-            emptyList(),
-            negated.tasks.map { it.record.id.value },
-            "the rule folds the diacritics the way the index folds them, so \"NOT cafe\" " +
-                "rules out exactly the records \"cafe\" finds",
-        )
-    }
+            assertEquals(
+                listOf("t1"),
+                found.tasks.map { it.record.id.value },
+                "the negated term is the rule's business, and the rule still holds it",
+            )
+        }
 
     @Test
-    fun `a quoted phrase does not match the same words standing apart`() = runTest {
-        seed(task(id = "t1", title = "Write the quarterly report"), task(id = "t2", title = "quarterly annual report"))
+    fun `a negated term rules out exactly the records the positive term finds`() =
+        runTest {
+            seed(task(id = "t1", title = "Café au lait"), task(id = "t2", title = "Coffee break"))
 
-        val found = search("\"quarterly report\"")
+            val positive = search("cafe")
+            val negated = search("cafe NOT cafe")
 
-        assertEquals(
-            listOf("t1"),
-            found.tasks.map { it.record.id.value },
-            "a phrase is the words next to each other — the index asks for the phrase, and so does the rule",
-        )
-    }
+            assertEquals(
+                listOf("t1"),
+                positive.tasks.map { it.record.id.value },
+                "the index folds the diacritics, so \"cafe\" finds \"Café au lait\"",
+            )
+            assertEquals(
+                emptyList(),
+                negated.tasks.map { it.record.id.value },
+                "the rule folds the diacritics the way the index folds them, so \"NOT cafe\" " +
+                    "rules out exactly the records \"cafe\" finds",
+            )
+        }
 
     @Test
-    fun `a word that merely contains the term is not found`() = runTest {
-        seed(task(id = "t1", title = "airport"))
+    fun `a quoted phrase does not match the same words standing apart`() =
+        runTest {
+            seed(
+                task(id = "t1", title = "Write the quarterly report"),
+                task(id = "t2", title = "quarterly annual report"),
+            )
 
-        val found = search("port")
+            val found = search("\"quarterly report\"")
 
-        assertEquals(
-            emptyList(),
-            found.tasks.map { it.record.id.value },
-            "a term matches the beginning of a word, not its middle",
-        )
-    }
+            assertEquals(
+                listOf("t1"),
+                found.tasks.map { it.record.id.value },
+                "a phrase is the words next to each other — the index asks for the phrase, and so does the rule",
+            )
+        }
+
+    @Test
+    fun `a word that merely contains the term is not found`() =
+        runTest {
+            seed(task(id = "t1", title = "airport"))
+
+            val found = search("port")
+
+            assertEquals(
+                emptyList(),
+                found.tasks.map { it.record.id.value },
+                "a term matches the beginning of a word, not its middle",
+            )
+        }
 
     // ── the machinery ────────────────────────────────────────────────────────
 
@@ -155,25 +162,27 @@ class SearchUseCaseFtsTest {
 
     private val searchUseCase: SearchUseCase by lazy {
         SearchUseCase(
-            taskRepo = TaskRepositoryImpl(
-                taskDao = db.taskDao(),
-                textIndex = db.textIndex(currentUser),
-                clock = Clock.System,
-                currentUser = currentUser,
-                syncRepository = FakeSyncRepository(),
-                dependencyValidator = DependencyValidatorImpl(db.taskDao(), currentUser),
-                unitOfWork = FakeUnitOfWork(),
-            ),
+            taskRepo =
+                TaskRepositoryImpl(
+                    taskDao = db.taskDao(),
+                    textIndex = db.textIndex(currentUser),
+                    clock = Clock.System,
+                    currentUser = currentUser,
+                    syncRepository = FakeSyncRepository(),
+                    dependencyValidator = DependencyValidatorImpl(db.taskDao(), currentUser),
+                    unitOfWork = FakeUnitOfWork(),
+                ),
             noteRepo = FakeNotesRepository(),
             projectRepo = FakeProjectsRepository(),
             tagRepo = FakeTagsRepository(),
             textIndex = db.textIndex(currentUser),
-            queryResolver = DefaultSearchQueryResolver(
-                tagLookup = NO_TAGS,
-                projectLookup = NO_PROJECTS,
-                clock = FakeClock(NOW),
-                timeZone = TEST_TZ,
-            ),
+            queryResolver =
+                DefaultSearchQueryResolver(
+                    tagLookup = NO_TAGS,
+                    projectLookup = NO_PROJECTS,
+                    clock = FakeClock(NOW),
+                    timeZone = TEST_TZ,
+                ),
         )
     }
 
@@ -181,7 +190,10 @@ class SearchUseCaseFtsTest {
         tasks.forEach { task -> db.taskDao().upsert(task) }
     }
 
-    private fun task(id: String, title: String) = TaskEntity(
+    private fun task(
+        id: String,
+        title: String,
+    ) = TaskEntity(
         id = id,
         title = title,
         description = null,
@@ -205,12 +217,20 @@ class SearchUseCaseFtsTest {
         val NOW: Instant = Instant.fromEpochMilliseconds(1_760_000_000_000)
 
         /** No tag and no project exist in these tests, so every lookup misses. */
-        val NO_TAGS = object : TagLookup {
-            override suspend fun findByName(userId: String, name: String): TagLookupResult? = null
-        }
+        val NO_TAGS =
+            object : TagLookup {
+                override suspend fun findByName(
+                    userId: String,
+                    name: String,
+                ): TagLookupResult? = null
+            }
 
-        val NO_PROJECTS = object : ProjectLookup {
-            override suspend fun findByName(userId: String, name: String): ProjectLookupResult? = null
-        }
+        val NO_PROJECTS =
+            object : ProjectLookup {
+                override suspend fun findByName(
+                    userId: String,
+                    name: String,
+                ): ProjectLookupResult? = null
+            }
     }
 }

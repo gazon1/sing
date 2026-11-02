@@ -16,102 +16,116 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /** Wraps a [FakeSettingsRepository] as a [SettingsReader] for use in [OpenAiConfig.resolve]. */
-private fun FakeSettingsRepository.asSettingsReader() = object : SettingsReader {
-    override val aiProvider = this@asSettingsReader.aiProvider
-    override val aiBaseUrl = this@asSettingsReader.aiBaseUrl
-    override val aiModel = this@asSettingsReader.aiModel
-}
+private fun FakeSettingsRepository.asSettingsReader() =
+    object : SettingsReader {
+        override val aiProvider = this@asSettingsReader.aiProvider
+        override val aiBaseUrl = this@asSettingsReader.aiBaseUrl
+        override val aiModel = this@asSettingsReader.aiModel
+    }
 
 @Tag("fast")
 class OpenAiConfigTest {
+    @Test fun resolveReturnsEmptyKeyWhenNoKeyStored() =
+        runTest {
+            val secure = FakeSecureStorage()
+            val settings = FakeSettingsRepository()
 
-    @Test fun resolveReturnsEmptyKeyWhenNoKeyStored() = runTest {
-        val secure = FakeSecureStorage()
-        val settings = FakeSettingsRepository()
+            val cfg = OpenAiConfig.resolve(secure, settings.asSettingsReader())
 
-        val cfg = OpenAiConfig.resolve(secure, settings.asSettingsReader())
-
-        assertFalse(cfg.apiKey.isConfigured)
-        assertEquals(ApiKey.EMPTY, cfg.apiKey)
-    }
-
-    @Test fun resolveReadsStoredApiKey() = runTest {
-        val secure = FakeSecureStorage(mutableMapOf(OpenAiConfig.KEY_OPENAI to "sk-test"))
-        val settings = FakeSettingsRepository()
-
-        val cfg = OpenAiConfig.resolve(secure, settings.asSettingsReader())
-
-        assertTrue(cfg.apiKey.isConfigured)
-        assertEquals("sk-test", cfg.apiKey.value)
-    }
-
-    @Test fun resolveAppliesProviderDefaultUrlWhenSettingsHasBlankUrl() = runTest {
-        val secure = FakeSecureStorage(mutableMapOf(OpenAiConfig.KEY_OPENAI to "k"))
-        val settings = FakeSettingsRepository().apply {
-            setAiBaseUrl("")
+            assertFalse(cfg.apiKey.isConfigured)
+            assertEquals(ApiKey.EMPTY, cfg.apiKey)
         }
 
-        val cfg = OpenAiConfig.resolve(secure, settings.asSettingsReader())
+    @Test fun resolveReadsStoredApiKey() =
+        runTest {
+            val secure = FakeSecureStorage(mutableMapOf(OpenAiConfig.KEY_OPENAI to "sk-test"))
+            val settings = FakeSettingsRepository()
 
-        assertEquals(LlmProvider.OPENAI.defaultBaseUrl, cfg.baseUrl)
-    }
+            val cfg = OpenAiConfig.resolve(secure, settings.asSettingsReader())
 
-    @Test fun resolvePreservesCustomBaseUrlOverProviderDefault() = runTest {
-        val secure = FakeSecureStorage(mutableMapOf(OpenAiConfig.KEY_OPENAI to "k"))
-        val settings = FakeSettingsRepository().apply {
-            setAiBaseUrl("https://my-proxy.example.com/v1")
+            assertTrue(cfg.apiKey.isConfigured)
+            assertEquals("sk-test", cfg.apiKey.value)
         }
 
-        val cfg = OpenAiConfig.resolve(secure, settings.asSettingsReader())
+    @Test fun resolveAppliesProviderDefaultUrlWhenSettingsHasBlankUrl() =
+        runTest {
+            val secure = FakeSecureStorage(mutableMapOf(OpenAiConfig.KEY_OPENAI to "k"))
+            val settings =
+                FakeSettingsRepository().apply {
+                    setAiBaseUrl("")
+                }
 
-        assertEquals("https://my-proxy.example.com/v1", cfg.baseUrl)
-    }
+            val cfg = OpenAiConfig.resolve(secure, settings.asSettingsReader())
 
-    @Test fun resolveFallsBackToDefaultModelWhenSettingsBlank() = runTest {
-        val secure = FakeSecureStorage(mutableMapOf(OpenAiConfig.KEY_OPENAI to "k"))
-        val settings = FakeSettingsRepository().apply {
-            setAiModel("")
+            assertEquals(LlmProvider.OPENAI.defaultBaseUrl, cfg.baseUrl)
         }
 
-        val cfg = OpenAiConfig.resolve(secure, settings.asSettingsReader())
+    @Test fun resolvePreservesCustomBaseUrlOverProviderDefault() =
+        runTest {
+            val secure = FakeSecureStorage(mutableMapOf(OpenAiConfig.KEY_OPENAI to "k"))
+            val settings =
+                FakeSettingsRepository().apply {
+                    setAiBaseUrl("https://my-proxy.example.com/v1")
+                }
 
-        assertEquals(OpenAiConfig.DEFAULT_MODEL, cfg.defaultModelId)
-    }
+            val cfg = OpenAiConfig.resolve(secure, settings.asSettingsReader())
 
-    @Test fun resolveUsesStoredModelWhenSet() = runTest {
-        val secure = FakeSecureStorage(mutableMapOf(OpenAiConfig.KEY_OPENAI to "k"))
-        val settings = FakeSettingsRepository().apply {
-            setAiModel("gpt-4o")
+            assertEquals("https://my-proxy.example.com/v1", cfg.baseUrl)
         }
 
-        val cfg = OpenAiConfig.resolve(secure, settings.asSettingsReader())
+    @Test fun resolveFallsBackToDefaultModelWhenSettingsBlank() =
+        runTest {
+            val secure = FakeSecureStorage(mutableMapOf(OpenAiConfig.KEY_OPENAI to "k"))
+            val settings =
+                FakeSettingsRepository().apply {
+                    setAiModel("")
+                }
 
-        assertEquals("gpt-4o", cfg.defaultModelId)
-    }
+            val cfg = OpenAiConfig.resolve(secure, settings.asSettingsReader())
 
-    @Test fun resolveMapsUnknownProviderIdToOpenAi() = runTest {
-        val secure = FakeSecureStorage(mutableMapOf(OpenAiConfig.KEY_OPENAI to "k"))
-        val settings = FakeSettingsRepository().apply {
-            setAiProvider("anthropic")
+            assertEquals(OpenAiConfig.DEFAULT_MODEL, cfg.defaultModelId)
         }
 
-        val cfg = OpenAiConfig.resolve(secure, settings.asSettingsReader())
+    @Test fun resolveUsesStoredModelWhenSet() =
+        runTest {
+            val secure = FakeSecureStorage(mutableMapOf(OpenAiConfig.KEY_OPENAI to "k"))
+            val settings =
+                FakeSettingsRepository().apply {
+                    setAiModel("gpt-4o")
+                }
 
-        assertEquals(LlmProvider.OPENAI, cfg.provider)
-    }
+            val cfg = OpenAiConfig.resolve(secure, settings.asSettingsReader())
 
-    @Test fun resolveUsesOllamaDefaultUrlWhenProviderIsOllamaAndUrlBlank() = runTest {
-        val secure = FakeSecureStorage(mutableMapOf(OpenAiConfig.KEY_OPENAI to "k"))
-        val settings = FakeSettingsRepository().apply {
-            setAiProvider("ollama")
-            setAiBaseUrl("")
+            assertEquals("gpt-4o", cfg.defaultModelId)
         }
 
-        val cfg = OpenAiConfig.resolve(secure, settings.asSettingsReader())
+    @Test fun resolveMapsUnknownProviderIdToOpenAi() =
+        runTest {
+            val secure = FakeSecureStorage(mutableMapOf(OpenAiConfig.KEY_OPENAI to "k"))
+            val settings =
+                FakeSettingsRepository().apply {
+                    setAiProvider("anthropic")
+                }
 
-        assertEquals(LlmProvider.OLLAMA, cfg.provider)
-        assertEquals("http://localhost:11434/v1", cfg.baseUrl)
-    }
+            val cfg = OpenAiConfig.resolve(secure, settings.asSettingsReader())
+
+            assertEquals(LlmProvider.OPENAI, cfg.provider)
+        }
+
+    @Test fun resolveUsesOllamaDefaultUrlWhenProviderIsOllamaAndUrlBlank() =
+        runTest {
+            val secure = FakeSecureStorage(mutableMapOf(OpenAiConfig.KEY_OPENAI to "k"))
+            val settings =
+                FakeSettingsRepository().apply {
+                    setAiProvider("ollama")
+                    setAiBaseUrl("")
+                }
+
+            val cfg = OpenAiConfig.resolve(secure, settings.asSettingsReader())
+
+            assertEquals(LlmProvider.OLLAMA, cfg.provider)
+            assertEquals("http://localhost:11434/v1", cfg.baseUrl)
+        }
 
     // ─── resolveBaseUrl (pure) ─────────────────────────────────────────────────
 

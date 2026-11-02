@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
  */
 sealed interface ConnectionTestResult {
     data object Success : ConnectionTestResult
+
     data class Failure(val error: AppError) : ConnectionTestResult
 }
 

@@ -1,5 +1,7 @@
 package com.singularity.todo.feature.agenda.domain
 
+import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.feature.agenda.domain.logic.AgendaEvaluator
 import com.singularity.todo.feature.agenda.domain.logic.AgendaPresets
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
@@ -7,8 +9,6 @@ import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.domain.selector.SelectorContext
-import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -18,11 +18,11 @@ import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.plus
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
-import org.junit.jupiter.api.Tag
 
 /**
  * Catalog test for all [AgendaPresets] and factory functions.
@@ -39,15 +39,15 @@ import org.junit.jupiter.api.Tag
  */
 @Tag("fast")
 class AgendaPresetsCatalogTest {
-
     private val epoch0 = kotlin.time.Instant.fromEpochMilliseconds(0)
     private val today = LocalDate(2026, 10, 14) // reference "today" = Wednesday
 
-    private val context = SelectorContext(
-        today = today,
-        now = epoch0,
-        blockedIds = emptySet(),
-    )
+    private val context =
+        SelectorContext(
+            today = today,
+            now = epoch0,
+            blockedIds = emptySet(),
+        )
 
     // ─── Structure ────────────────────────────────────────────────────────
 
@@ -205,35 +205,38 @@ class AgendaPresetsCatalogTest {
     @Test
     fun `discard=false sections do not consume tasks`() {
         // Without discard, the same task can appear in both NoDate sections.
-        val def = AgendaDefinition(
-            title = "Test",
-            sections = listOf(
-                Section(
-                    id = "nodate1",
-                    name = "No Date 1",
-                    order = 0,
-                    selector = Selector.DateBucket(RelativeBucket.NoDate),
-                    discard = false,
-                ),
-                Section(
-                    id = "nodate2",
-                    name = "No Date 2",
-                    order = 1,
-                    selector = Selector.DateBucket(RelativeBucket.NoDate),
-                    discard = false,
-                ),
-            ),
-        )
-        val undated = Task(
-            id = TaskId("u1"),
-            title = "Undated",
-            createdAt = epoch0,
-            updatedAt = epoch0,
-            userId = UserId("test"),
-            kind = TaskKind.Task,
-            priority = TaskPriority.None,
-            dueDate = null,
-        )
+        val def =
+            AgendaDefinition(
+                title = "Test",
+                sections =
+                    listOf(
+                        Section(
+                            id = "nodate1",
+                            name = "No Date 1",
+                            order = 0,
+                            selector = Selector.DateBucket(RelativeBucket.NoDate),
+                            discard = false,
+                        ),
+                        Section(
+                            id = "nodate2",
+                            name = "No Date 2",
+                            order = 1,
+                            selector = Selector.DateBucket(RelativeBucket.NoDate),
+                            discard = false,
+                        ),
+                    ),
+            )
+        val undated =
+            Task(
+                id = TaskId("u1"),
+                title = "Undated",
+                createdAt = epoch0,
+                updatedAt = epoch0,
+                userId = UserId("test"),
+                kind = TaskKind.Task,
+                priority = TaskPriority.None,
+                dueDate = null,
+            )
         val result = AgendaEvaluator.evaluate(listOf(undated), def, today, context.now)
         val section1Count = result.find { it.name == "No Date 1" }?.tasks?.size ?: 0
         val section2Count = result.find { it.name == "No Date 2" }?.tasks?.size ?: 0
@@ -243,35 +246,38 @@ class AgendaPresetsCatalogTest {
 
     @Test
     fun `adjacent overlapping buckets with discard consume tasks once`() {
-        val task = Task(
-            id = TaskId("t1"),
-            title = "Today Task",
-            createdAt = epoch0,
-            updatedAt = epoch0,
-            userId = UserId("test"),
-            kind = TaskKind.Task,
-            priority = TaskPriority.None,
-            dueDate = today, // today → matches both Today and ThisWeek
-        )
-        val def = AgendaDefinition(
-            title = "Test",
-            sections = listOf(
-                Section(
-                    id = "today",
-                    name = "Today",
-                    order = 0,
-                    selector = Selector.DateBucket(RelativeBucket.Today),
-                    discard = true,
-                ),
-                Section(
-                    id = "thisweek",
-                    name = "This Week",
-                    order = 1,
-                    selector = Selector.DateBucket(RelativeBucket.ThisWeek),
-                    discard = true,
-                ),
-            ),
-        )
+        val task =
+            Task(
+                id = TaskId("t1"),
+                title = "Today Task",
+                createdAt = epoch0,
+                updatedAt = epoch0,
+                userId = UserId("test"),
+                kind = TaskKind.Task,
+                priority = TaskPriority.None,
+                dueDate = today, // today → matches both Today and ThisWeek
+            )
+        val def =
+            AgendaDefinition(
+                title = "Test",
+                sections =
+                    listOf(
+                        Section(
+                            id = "today",
+                            name = "Today",
+                            order = 0,
+                            selector = Selector.DateBucket(RelativeBucket.Today),
+                            discard = true,
+                        ),
+                        Section(
+                            id = "thisweek",
+                            name = "This Week",
+                            order = 1,
+                            selector = Selector.DateBucket(RelativeBucket.ThisWeek),
+                            discard = true,
+                        ),
+                    ),
+            )
         val result = AgendaEvaluator.evaluate(listOf(task), def, today, context.now)
         val todayCount = result.find { it.name == "Today" }?.tasks?.size ?: 0
         val weekCount = result.find { it.name == "This Week" }?.tasks?.size ?: 0

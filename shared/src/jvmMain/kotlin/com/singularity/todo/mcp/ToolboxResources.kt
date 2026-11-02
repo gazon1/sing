@@ -34,7 +34,6 @@ import kotlinx.serialization.json.put
  * ignored file must not be reachable by guessing its name.
  */
 class ToolboxResources(private val snapshot: ToolsetSnapshot, private val storage: AdrStorage?) {
-
     private val json = Json { prettyPrint = false }
 
     fun register(server: Server) {
@@ -98,56 +97,60 @@ class ToolboxResources(private val snapshot: ToolsetSnapshot, private val storag
      * Internal rather than private, for the same reason as `ToolboxTool.payload`: the
      * shape is a contract, and a contract no test pins is a contract a rename breaks.
      */
-    internal fun toolboxPayload(): JsonObject = buildJsonObject {
-        // The contract version, so a client reading the resource can tell whether the
-        // shape it knows is the shape this server speaks — the same reason
-        // `describe_toolbox` carries it.
-        put("surfaceContractVersion", McpToolCatalog.SURFACE_CONTRACT_VERSION)
-        put("buildVersion", snapshot.identity.buildVersion)
-        put("catalogFingerprint", snapshot.identity.catalogFingerprint)
-        put("activeToolsetFingerprint", snapshot.identity.activeToolsetFingerprint)
-        put("configurationStatus", snapshot.configurationStatus.name.lowercase())
-        put("tools", toolboxTools())
-    }
-
-    private fun toolboxTools(): JsonArray = buildJsonArray {
-        snapshot.registered.sortedBy { it.name }.forEach { tool ->
-            add(
-                buildJsonObject {
-                    put("name", tool.name)
-                    put("description", tool.description)
-                    put("domain", tool.domain)
-                },
-            )
+    internal fun toolboxPayload(): JsonObject =
+        buildJsonObject {
+            // The contract version, so a client reading the resource can tell whether the
+            // shape it knows is the shape this server speaks — the same reason
+            // `describe_toolbox` carries it.
+            put("surfaceContractVersion", McpToolCatalog.SURFACE_CONTRACT_VERSION)
+            put("buildVersion", snapshot.identity.buildVersion)
+            put("catalogFingerprint", snapshot.identity.catalogFingerprint)
+            put("activeToolsetFingerprint", snapshot.identity.activeToolsetFingerprint)
+            put("configurationStatus", snapshot.configurationStatus.name.lowercase())
+            put("tools", toolboxTools())
         }
-    }
 
-    internal fun decisionsPayload(): JsonObject = buildJsonObject {
-        val storage = this@ToolboxResources.storage
-        if (storage == null) {
-            put("available", false)
-            put("decisions", buildJsonArray { })
-            return@buildJsonObject
+    private fun toolboxTools(): JsonArray =
+        buildJsonArray {
+            snapshot.registered.sortedBy { it.name }.forEach { tool ->
+                add(
+                    buildJsonObject {
+                        put("name", tool.name)
+                        put("description", tool.description)
+                        put("domain", tool.domain)
+                    },
+                )
+            }
         }
-        put("available", true)
-        put("decisions", decisionIndex(storage))
-    }
+
+    internal fun decisionsPayload(): JsonObject =
+        buildJsonObject {
+            val storage = this@ToolboxResources.storage
+            if (storage == null) {
+                put("available", false)
+                put("decisions", buildJsonArray { })
+                return@buildJsonObject
+            }
+            put("available", true)
+            put("decisions", decisionIndex(storage))
+        }
 
     private fun tagEntry(tag: String): JsonObject = buildJsonObject { put("name", tag) }
 
-    private fun decisionIndex(storage: AdrStorage): JsonArray = buildJsonArray {
-        storage.listAdrs().forEach { adr ->
-            add(
-                buildJsonObject {
-                    put("slug", adr.slug)
-                    put("title", adr.title)
-                    put("date", adr.date)
-                    put("status", adr.status)
-                    put("tags", buildJsonArray { adr.tags.forEach { tag -> add(tagEntry(tag)) } })
-                },
-            )
+    private fun decisionIndex(storage: AdrStorage): JsonArray =
+        buildJsonArray {
+            storage.listAdrs().forEach { adr ->
+                add(
+                    buildJsonObject {
+                        put("slug", adr.slug)
+                        put("title", adr.title)
+                        put("date", adr.date)
+                        put("status", adr.status)
+                        put("tags", buildJsonArray { adr.tags.forEach { tag -> add(tagEntry(tag)) } })
+                    },
+                )
+            }
         }
-    }
 
     /**
      * The body of one decision, or a defined not-found.
@@ -160,14 +163,20 @@ class ToolboxResources(private val snapshot: ToolsetSnapshot, private val storag
     internal fun decisionBody(slug: String): String {
         val storage = this.storage
         return when {
-            storage == null -> "No corpus is available to this server."
+            storage == null -> {
+                "No corpus is available to this server."
+            }
 
-            !storage.isValidSlug(slug) -> "Not a decision slug: $slug"
+            !storage.isValidSlug(slug) -> {
+                "Not a decision slug: $slug"
+            }
 
-            else -> storage.readAdr(slug)?.let { adr ->
-                "# ${adr.title}\n\ndate: ${adr.date}\nstatus: ${adr.status}\n" +
-                    "tags: ${adr.tags}\n\n${adr.body}"
-            } ?: "No decision named '$slug'."
+            else -> {
+                storage.readAdr(slug)?.let { adr ->
+                    "# ${adr.title}\n\ndate: ${adr.date}\nstatus: ${adr.status}\n" +
+                        "tags: ${adr.tags}\n\n${adr.body}"
+                } ?: "No decision named '$slug'."
+            }
         }
     }
 

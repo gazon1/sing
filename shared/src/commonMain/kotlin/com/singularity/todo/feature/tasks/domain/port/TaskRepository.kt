@@ -21,7 +21,6 @@ import kotlinx.datetime.LocalDate
  * All observation variants automatically re-subscribe when the active user changes.
  */
 interface TaskRepository : SoftDeletable<Task, TaskId> {
-
     // ── GenericUserScopedRepository contract ─────────────────────────────────────
 
     /** Returns the ambient userId for this repository's scope. */
@@ -99,7 +98,10 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
      * @return `true` when the task was completed, `false` when the completion
      *   was refused because a prerequisite is still open.
      */
-    suspend fun complete(id: TaskId, force: Boolean = false): Result<Boolean>
+    suspend fun complete(
+        id: TaskId,
+        force: Boolean = false,
+    ): Result<Boolean>
 
     /**
      * Takes a completed task back into work.
@@ -142,7 +144,11 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
      * update would carry the completion back over the guard that has just
      * refused it.
      */
-    suspend fun moveDueDate(id: TaskId, nextDue: LocalDate, updatedAt: Long): Result<Unit>
+    suspend fun moveDueDate(
+        id: TaskId,
+        nextDue: LocalDate,
+        updatedAt: Long,
+    ): Result<Unit>
 
     /**
      * The ids among [taskIds] that have an open blocking prerequisite.
@@ -151,8 +157,15 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
      * list.
      */
     suspend fun blockedTaskIds(taskIds: Collection<TaskId>): Set<TaskId>
+
     suspend fun togglePinned(id: TaskId): Result<Unit>
-    suspend fun setTags(taskId: TaskId, tagIds: List<TagId>, actor: TagEditActor = TagEditActor.User): Result<Unit>
+
+    suspend fun setTags(
+        taskId: TaskId,
+        tagIds: List<TagId>,
+        actor: TagEditActor = TagEditActor.User,
+    ): Result<Unit>
+
     fun getTagIds(taskId: TaskId): Flow<List<TagId>>
 
     /**
@@ -161,7 +174,10 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
      *
      * For typed dependencies use [setDependency].
      */
-    suspend fun setDependencies(taskId: TaskId, deps: Set<TaskId>): Result<Unit>
+    suspend fun setDependencies(
+        taskId: TaskId,
+        deps: Set<TaskId>,
+    ): Result<Unit>
 
     /**
      * Adds or removes a single typed dependency edge.
@@ -171,7 +187,12 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
      * @param verb The semantic relationship from [from] to [to].
      * @param enabled `true` to insert the edge, `false` to remove it.
      */
-    suspend fun setDependency(from: TaskId, to: TaskId, verb: DependencyVerb, enabled: Boolean): Result<Unit>
+    suspend fun setDependency(
+        from: TaskId,
+        to: TaskId,
+        verb: DependencyVerb,
+        enabled: Boolean,
+    ): Result<Unit>
 
     /**
      * Replaces the full dependency set for [taskId] with [relations] (target → verb)
@@ -179,7 +200,10 @@ interface TaskRepository : SoftDeletable<Task, TaskId> {
      * enqueue. A verb change for an existing target is one upsert, not a
      * delete-then-add.
      */
-    suspend fun setDependencyRelations(taskId: TaskId, relations: Map<TaskId, DependencyVerb>): Result<Unit>
+    suspend fun setDependencyRelations(
+        taskId: TaskId,
+        relations: Map<TaskId, DependencyVerb>,
+    ): Result<Unit>
 
     suspend fun exists(id: TaskId): Boolean
 

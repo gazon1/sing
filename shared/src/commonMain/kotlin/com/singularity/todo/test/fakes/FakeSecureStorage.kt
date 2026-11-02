@@ -12,19 +12,22 @@ class FakeSecureStorage(
     private val backing: MutableMap<String, String> = mutableMapOf(),
     private val hardwareBacked: Boolean = true,
 ) : SecureStoragePort {
-
     private val mutex = Mutex()
 
     override suspend fun read(key: String): String? = mutex.withLock { backing[key] }
 
-    override suspend fun write(key: String, value: String) = mutex.withLock {
+    override suspend fun write(
+        key: String,
+        value: String,
+    ) = mutex.withLock {
         backing[key] = value
     }
 
-    override suspend fun delete(key: String) = mutex.withLock {
-        backing.remove(key)
-        Unit
-    }
+    override suspend fun delete(key: String) =
+        mutex.withLock {
+            backing.remove(key)
+            Unit
+        }
 
     override fun isHardwareBacked(): Boolean = hardwareBacked
 }

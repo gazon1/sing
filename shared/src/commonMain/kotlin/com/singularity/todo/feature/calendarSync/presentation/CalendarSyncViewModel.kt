@@ -1,19 +1,25 @@
 package com.singularity.todo.feature.calendarSync.presentation
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.runCatchingCancellable
+import com.singularity.todo.core.error.runCatchingResult
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.featureSlot.combineStates
-import com.singularity.todo.feature.calendarSync.domain.model.CalendarAppInfo
-import com.singularity.todo.feature.calendarSync.domain.model.CalendarSyncStatus
-import com.singularity.todo.feature.calendarSync.auth.GoogleCredentialStore
-import com.singularity.todo.feature.calendarSync.auth.GoogleAuthorizer
 import com.singularity.todo.feature.calendarSync.auth.GoogleAuthorizationRequest
+import com.singularity.todo.feature.calendarSync.auth.GoogleAuthorizer
+import com.singularity.todo.feature.calendarSync.auth.GoogleCredentialStore
 import com.singularity.todo.feature.calendarSync.auth.GoogleGrant
 import com.singularity.todo.feature.calendarSync.auth.PendingGoogleAuthorization
+import com.singularity.todo.feature.calendarSync.domain.model.CalendarAppInfo
+import com.singularity.todo.feature.calendarSync.domain.model.CalendarSyncStatus
 import com.singularity.todo.feature.calendarSync.domain.model.GoogleCalendarSummary
 import com.singularity.todo.feature.calendarSync.domain.model.ImportWindow
 import com.singularity.todo.feature.calendarSync.domain.port.CalendarAppQueries
@@ -21,20 +27,14 @@ import com.singularity.todo.feature.calendarSync.domain.port.CalendarEventSource
 import com.singularity.todo.feature.calendarSync.domain.port.CalendarProviderPort
 import com.singularity.todo.feature.calendarSync.domain.port.CalendarSyncRepository
 import com.singularity.todo.feature.calendarSync.domain.port.GoogleCalendarSettingsRepository
-import com.singularity.todo.core.auth.CurrentUser
-import com.singularity.todo.core.error.runCatchingCancellable
-import com.singularity.todo.core.error.runCatchingResult
 import com.singularity.todo.feature.calendarSync.sync.CalendarSyncOrchestrator
 import com.singularity.todo.feature.calendarSync.sync.GoogleSyncCoordinator
 import com.singularity.todo.feature.calendarSync.sync.SyncSource
-import com.singularity.todo.core.observability.CrashReportingPort
-import com.singularity.todo.core.observability.NoOpCrashReportingPort
-import com.singularity.todo.core.observability.reportingScope
-import kotlinx.coroutines.launch
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import kotlinx.datetime.Instant
 
 /**
@@ -236,8 +236,11 @@ enum class CalendarProvider {
  */
 sealed interface CalendarSyncIntent : MviIntent {
     data object LoadCalendars : CalendarSyncIntent
+
     data class SetEnabled(val enabled: Boolean) : CalendarSyncIntent
+
     data class SelectCalendar(val calendarId: String) : CalendarSyncIntent
+
     data object SyncNow : CalendarSyncIntent
 
     /**
@@ -254,6 +257,7 @@ sealed interface CalendarSyncIntent : MviIntent {
 
     /** Handled by the UI layer (rememberLauncherForActivityResult). */
     data object RequestPermission : CalendarSyncIntent
+
     data class SetPermission(val granted: Boolean) : CalendarSyncIntent
 
     /** Select which calendar app to sync to (null = system default). */
@@ -325,6 +329,9 @@ sealed interface CalendarSyncIntent : MviIntent {
     data class SetImportFromGoogle(val enabled: Boolean) : CalendarSyncIntent
 }
 
+// 19 functions: the screen drives two providers from one state holder — the system
+// calendar and Google — and each of them needs its own connect/refresh/load path.
+
 /**
  * Canonical ViewModel for calendar sync settings.
  *
@@ -350,8 +357,6 @@ sealed interface CalendarSyncIntent : MviIntent {
  *   [crashReporter] is chosen independently, so nothing would guarantee that a handled failure
  *   and an escaped background failure reach the same place.
  */
-// 19 functions: the screen drives two providers from one state holder — the system
-// calendar and Google — and each of them needs its own connect/refresh/load path.
 @Suppress("TooManyFunctions")
 class CalendarSyncViewModel(
     private val syncRepo: CalendarSyncRepository,
@@ -394,19 +399,21 @@ class CalendarSyncViewModel(
     private val crashReporter: CrashReportingPort = NoOpCrashReportingPort(),
     scope: AutoCloseableCoroutineScope = reportingScope(crashReporter),
 ) : MviViewModel<CalendarSyncUiState, CalendarSyncIntent, Nothing>(
-        initialState = CalendarSyncUiState(
-            importWindow = importWindow,
-            // The panel needs four seams, and it is offered only when all four can
-            // do their job here. Each port answers for itself, so the answer does not
-            // depend on which one the screen happened to ask first: the provider that
-            // talks to the calendar, the repository that stores the preference, the
-            // queries that list the apps to write into, and the scheduler that runs
-            // the sync afterwards.
-            deviceSyncSupported = calendarProvider.isSupported &&
-                syncRepo.isSupported &&
-                appQueries.isSupported &&
-                scheduler.isSupported,
-        ),
+        initialState =
+            CalendarSyncUiState(
+                importWindow = importWindow,
+                // The panel needs four seams, and it is offered only when all four can
+                // do their job here. Each port answers for itself, so the answer does not
+                // depend on which one the screen happened to ask first: the provider that
+                // talks to the calendar, the repository that stores the preference, the
+                // queries that list the apps to write into, and the scheduler that runs
+                // the sync afterwards.
+                deviceSyncSupported =
+                    calendarProvider.isSupported &&
+                        syncRepo.isSupported &&
+                        appQueries.isSupported &&
+                        scheduler.isSupported,
+            ),
         crashReporter = crashReporter,
         scope = scope,
     ) {
@@ -462,8 +469,9 @@ class CalendarSyncViewModel(
                 // and the field takes it as it stands. Nothing configured is
                 // nothing to seed — the field stays empty until the person types.
                 it.copy(
-                    googleClientId = clientId?.let { id -> it.googleClientId.seeded(id) }
-                        ?: it.googleClientId,
+                    googleClientId =
+                        clientId?.let { id -> it.googleClientId.seeded(id) }
+                            ?: it.googleClientId,
                     googleConfiguredClientId = clientId,
                 )
             }
@@ -472,23 +480,71 @@ class CalendarSyncViewModel(
 
     override fun onIntent(intent: CalendarSyncIntent) {
         when (intent) {
-            is CalendarSyncIntent.LoadCalendars -> loadCalendars()
-            is CalendarSyncIntent.SetEnabled -> setEnabled(intent.enabled)
-            is CalendarSyncIntent.SelectCalendar -> selectCalendar(intent.calendarId)
-            CalendarSyncIntent.SyncNow -> syncNow()
-            CalendarSyncIntent.SyncGoogleNow -> syncGoogleNow()
+            is CalendarSyncIntent.LoadCalendars -> {
+                loadCalendars()
+            }
+
+            is CalendarSyncIntent.SetEnabled -> {
+                setEnabled(intent.enabled)
+            }
+
+            is CalendarSyncIntent.SelectCalendar -> {
+                selectCalendar(intent.calendarId)
+            }
+
+            CalendarSyncIntent.SyncNow -> {
+                syncNow()
+            }
+
+            CalendarSyncIntent.SyncGoogleNow -> {
+                syncGoogleNow()
+            }
+
             is CalendarSyncIntent.RequestPermission -> { /* UI layer */ }
-            is CalendarSyncIntent.SetPermission -> setPermission(intent.granted)
-            is CalendarSyncIntent.SelectAppPackage -> selectAppPackage(intent.packageName)
-            is CalendarSyncIntent.SelectProvider -> selectProvider(intent.provider)
-            is CalendarSyncIntent.SetGoogleConnected -> setGoogleConnected(intent.connected)
-            CalendarSyncIntent.ConnectGoogle -> connectGoogle()
-            is CalendarSyncIntent.GoogleAuthorizationCompleted -> completeGoogleAuthorization(intent.grant)
-            is CalendarSyncIntent.GoogleAuthorizationFailed -> failGoogleAuthorization(intent.reason)
-            is CalendarSyncIntent.SetGoogleClientId -> setGoogleClientId(intent.clientId)
-            CalendarSyncIntent.SaveGoogleClientId -> saveGoogleClientId()
-            is CalendarSyncIntent.SelectGoogleCalendar -> selectGoogleCalendar(intent.calendarId)
-            is CalendarSyncIntent.SetImportFromGoogle -> setImportFromGoogle(intent.enabled)
+
+            is CalendarSyncIntent.SetPermission -> {
+                setPermission(intent.granted)
+            }
+
+            is CalendarSyncIntent.SelectAppPackage -> {
+                selectAppPackage(intent.packageName)
+            }
+
+            is CalendarSyncIntent.SelectProvider -> {
+                selectProvider(intent.provider)
+            }
+
+            is CalendarSyncIntent.SetGoogleConnected -> {
+                setGoogleConnected(intent.connected)
+            }
+
+            CalendarSyncIntent.ConnectGoogle -> {
+                connectGoogle()
+            }
+
+            is CalendarSyncIntent.GoogleAuthorizationCompleted -> {
+                completeGoogleAuthorization(intent.grant)
+            }
+
+            is CalendarSyncIntent.GoogleAuthorizationFailed -> {
+                failGoogleAuthorization(intent.reason)
+            }
+
+            is CalendarSyncIntent.SetGoogleClientId -> {
+                setGoogleClientId(intent.clientId)
+            }
+
+            CalendarSyncIntent.SaveGoogleClientId -> {
+                saveGoogleClientId()
+            }
+
+            is CalendarSyncIntent.SelectGoogleCalendar -> {
+                selectGoogleCalendar(intent.calendarId)
+            }
+
+            is CalendarSyncIntent.SetImportFromGoogle -> {
+                setImportFromGoogle(intent.enabled)
+            }
         }
     }
 
@@ -542,10 +598,11 @@ class CalendarSyncViewModel(
                         // The device is disconnected either way — the person asked for
                         // that, and the local credential is gone. What failed is the
                         // server's half, and the user is the only one who can cancel it.
-                        googleDisconnectError = revoked.exceptionOrNull()?.let { error ->
-                            "The account was disconnected on this device, but the grant was not " +
-                                "revoked: ${error.message ?: error::class.simpleName}"
-                        },
+                        googleDisconnectError =
+                            revoked.exceptionOrNull()?.let { error ->
+                                "The account was disconnected on this device, but the grant was not " +
+                                    "revoked: ${error.message ?: error::class.simpleName}"
+                            },
                     )
                 }
                 return@launch
@@ -572,12 +629,12 @@ class CalendarSyncViewModel(
     private fun connectGoogle() {
         vmScope.launch {
             updateState { it.copy(googleAuthorizing = true, googleSignInError = null) }
-            googleAuthorization.beginAuthorization()
+            googleAuthorization
+                .beginAuthorization()
                 .onSuccess { pending ->
                     pendingAuthorization = pending
                     updateState { it.copy(googleAuthorizationRequest = pending.request) }
-                }
-                .onFailure { error ->
+                }.onFailure { error ->
                     Logger.w(error) { "The Google sign-in could not be prepared" }
                     updateState {
                         it.copy(
@@ -611,7 +668,8 @@ class CalendarSyncViewModel(
             return
         }
         vmScope.launch {
-            googleAuthorization.redeem(pending, grant, currentUser.current.value)
+            googleAuthorization
+                .redeem(pending, grant, currentUser.current.value)
                 .onSuccess { credentials ->
                     pendingAuthorization = null
                     updateState {
@@ -625,8 +683,7 @@ class CalendarSyncViewModel(
                         )
                     }
                     refreshGoogleConnection()
-                }
-                .onFailure { error ->
+                }.onFailure { error ->
                     Logger.w(error) { "The Google grant could not be redeemed" }
                     pendingAuthorization = null
                     updateState {
@@ -772,24 +829,25 @@ class CalendarSyncViewModel(
             updateState { it.copy(isLoading = true) }
 
             // Load calendar apps and calendars in parallel
-            val apps = if (appQueries.isSupported) {
-                try {
-                    appQueries.listInstalled()
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    // Swallowed into an empty list, so the picker silently shows no apps and the
-                    // only trace was a warn line nothing reads.
-                    Logger.w(e) { "Failed to list installed calendar apps" }
-                    crashReporter.report(e, LIST_APPS_FAILED)
+            val apps =
+                if (appQueries.isSupported) {
+                    try {
+                        appQueries.listInstalled()
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        // Swallowed into an empty list, so the picker silently shows no apps and the
+                        // only trace was a warn line nothing reads.
+                        Logger.w(e) { "Failed to list installed calendar apps" }
+                        crashReporter.report(e, LIST_APPS_FAILED)
+                        emptyList()
+                    }
+                } else {
+                    // The port says it cannot do its job here. Asking anyway would answer
+                    // "you have no calendar apps" — an artifact of the platform, not a fact
+                    // about the user.
                     emptyList()
                 }
-            } else {
-                // The port says it cannot do its job here. Asking anyway would answer
-                // "you have no calendar apps" — an artifact of the platform, not a fact
-                // about the user.
-                emptyList()
-            }
             val calendarsResult = calendarProvider.getAvailableCalendars()
 
             calendarsResult
@@ -801,8 +859,7 @@ class CalendarSyncViewModel(
                             isLoading = false,
                         )
                     }
-                }
-                .onFailure {
+                }.onFailure {
                     // Nothing is set to "unsupported" here, and deliberately: the platform
                     // gate is the conjunction of the seams' own `isSupported` flags,
                     // which the screen reads and which know the answer without making a
@@ -875,26 +932,33 @@ class CalendarSyncViewModel(
             val outcome = googleSync.syncNow()
             updateState {
                 when (outcome) {
-                    is GoogleSyncCoordinator.Outcome.Completed -> it.copy(
-                        googleSyncing = false,
-                        googleSyncError = null,
-                        // Converted here, at the one seam where the two Instant
-                        // types meet, rather than making either side carry a
-                        // conversion it has no other use for.
-                        googleLastSyncedAt = Instant.fromEpochMilliseconds(
-                            googleSync.completedAt().toEpochMilliseconds(),
-                        ),
-                    )
+                    is GoogleSyncCoordinator.Outcome.Completed -> {
+                        it.copy(
+                            googleSyncing = false,
+                            googleSyncError = null,
+                            // Converted here, at the one seam where the two Instant
+                            // types meet, rather than making either side carry a
+                            // conversion it has no other use for.
+                            googleLastSyncedAt =
+                                Instant.fromEpochMilliseconds(
+                                    googleSync.completedAt().toEpochMilliseconds(),
+                                ),
+                        )
+                    }
 
-                    is GoogleSyncCoordinator.Outcome.Declined -> it.copy(
-                        googleSyncing = false,
-                        googleSyncError = outcome.reason,
-                    )
+                    is GoogleSyncCoordinator.Outcome.Declined -> {
+                        it.copy(
+                            googleSyncing = false,
+                            googleSyncError = outcome.reason,
+                        )
+                    }
 
-                    is GoogleSyncCoordinator.Outcome.Failed -> it.copy(
-                        googleSyncing = false,
-                        googleSyncError = outcome.reason,
-                    )
+                    is GoogleSyncCoordinator.Outcome.Failed -> {
+                        it.copy(
+                            googleSyncing = false,
+                            googleSyncError = outcome.reason,
+                        )
+                    }
                 }
             }
         }

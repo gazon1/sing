@@ -50,7 +50,6 @@ import org.jetbrains.kotlin.psi.KtUserType
  * @see 2026-10-22-compose-stability-contract
  */
 class NoMutableCollectionCastRule(config: Config) : Rule(config, "", null) {
-
     override fun visitBinaryWithTypeRHSExpression(expression: KtBinaryExpressionWithTypeRHS) {
         super.visitBinaryWithTypeRHSExpression(expression)
         checkCast(expression)
@@ -73,11 +72,12 @@ class NoMutableCollectionCastRule(config: Config) : Rule(config, "", null) {
         report(
             Finding(
                 entity = Entity.from(expression),
-                message = "Casting to '$name' breaks the stability contract: the Compose " +
-                    "compiler compares a stable value by equals, so a collection mutated " +
-                    "after the cast keeps comparing equal to its old contents and the UI " +
-                    "goes stale. Build the mutable collection first, then hand over an " +
-                    "immutable one (toImmutableList() / toImmutableSet() / toImmutableMap()).",
+                message =
+                    "Casting to '$name' breaks the stability contract: the Compose " +
+                        "compiler compares a stable value by equals, so a collection mutated " +
+                        "after the cast keeps comparing equal to its old contents and the UI " +
+                        "goes stale. Build the mutable collection first, then hand over an " +
+                        "immutable one (toImmutableList() / toImmutableSet() / toImmutableMap()).",
                 references = emptyList(),
                 suppressReasons = emptyList(),
             ),
@@ -85,12 +85,13 @@ class NoMutableCollectionCastRule(config: Config) : Rule(config, "", null) {
     }
 
     private companion object {
-        val MUTABLE_COLLECTIONS = setOf(
-            "MutableList",
-            "MutableSet",
-            "MutableMap",
-            "MutableCollection",
-        )
+        val MUTABLE_COLLECTIONS =
+            setOf(
+                "MutableList",
+                "MutableSet",
+                "MutableMap",
+                "MutableCollection",
+            )
     }
 }
 
@@ -100,10 +101,12 @@ class NoMutableCollectionCastRule(config: Config) : Rule(config, "", null) {
  */
 class NoMutableCollectionCastProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("no-mutable-collection-cast")
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf<RuleName, (Config) -> Rule>(
-            RuleName("NoMutableCollectionCast") to { cfg: Config -> NoMutableCollectionCastRule(cfg) },
-        ),
-    )
+
+    override fun instance(): RuleSet =
+        RuleSet(
+            ruleSetId,
+            mapOf<RuleName, (Config) -> Rule>(
+                RuleName("NoMutableCollectionCast") to { cfg: Config -> NoMutableCollectionCastRule(cfg) },
+            ),
+        )
 }

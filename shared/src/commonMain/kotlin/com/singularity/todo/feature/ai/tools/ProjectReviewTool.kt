@@ -32,17 +32,18 @@ class ProjectReviewTool(
     private val clock: Clock,
     private val timeZoneProvider: TimeZoneProvider,
 ) : SimpleTool<ProjectReviewInput>(TypeToken.of(ProjectReviewInput::class.java), NAME, DESCRIPTION) {
-
     override suspend fun execute(args: ProjectReviewInput): String {
-        val tasks = args.selection
-            ?.let { selection ->
-                TaskToolSupport.select(selection, taskRepository, clock, timeZoneProvider.current())
+        val tasks =
+            args.selection
+                ?.let { selection ->
+                    TaskToolSupport.select(selection, taskRepository, clock, timeZoneProvider.current())
+                }
+                ?: args.tasks
+        val p =
+            prompt(Prompt.Empty, KoogClock.System) {
+                system(Prompts.projectReviewSystem)
+                user(Prompts.projectReviewUser(args.projectName, tasks))
             }
-            ?: args.tasks
-        val p = prompt(Prompt.Empty, KoogClock.System) {
-            system(Prompts.projectReviewSystem)
-            user(Prompts.projectReviewUser(args.projectName, tasks))
-        }
         val response = promptExecutor.execute(p, model, emptyList())
         return extractText(response)
     }
@@ -52,6 +53,9 @@ class ProjectReviewTool(
         const val DESCRIPTION = "Review a project, identify risks, and suggest the next action."
 
         private fun extractText(response: Message.Assistant): String =
-            response.parts.filterIsInstance<MessagePart.Text>().joinToString("") { it.text }.trim()
+            response.parts
+                .filterIsInstance<MessagePart.Text>()
+                .joinToString("") { it.text }
+                .trim()
     }
 }

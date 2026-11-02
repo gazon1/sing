@@ -61,7 +61,10 @@ const val BLOCKED_COMPLETION_DISMISS = "Cancel"
  * @param taskTitle the title of the task that was asked about.
  * @param blockerTitles the titles of the prerequisites that are still open.
  */
-fun blockedCompletionText(taskTitle: String, blockerTitles: List<String>): String {
+fun blockedCompletionText(
+    taskTitle: String,
+    blockerTitles: List<String>,
+): String {
     val subject = if (taskTitle.isBlank()) "This task" else "“$taskTitle”"
     if (blockerTitles.isEmpty()) return "$subject has unfinished prerequisites."
     return "$subject has unfinished prerequisites:\n" +
@@ -109,13 +112,17 @@ const val BLOCKED_BULK_COMPLETION_TITLE = "Some tasks are blocked"
  * @param blockedTaskTitles the titles of the tasks in the way.
  * @param totalCount how many tasks the selection holds.
  */
-fun blockedBulkCompletionText(blockedTaskTitles: List<String>, totalCount: Int): String {
+fun blockedBulkCompletionText(
+    blockedTaskTitles: List<String>,
+    totalCount: Int,
+): String {
     val blocked = blockedTaskTitles.size
-    val subject = if (blocked == 1) {
-        "1 of the $totalCount selected tasks"
-    } else {
-        "$blocked of the $totalCount selected tasks"
-    }
+    val subject =
+        if (blocked == 1) {
+            "1 of the $totalCount selected tasks"
+        } else {
+            "$blocked of the $totalCount selected tasks"
+        }
     if (blockedTaskTitles.isEmpty()) return "$subject has unfinished prerequisites."
     return "$subject has unfinished prerequisites:\n" +
         blockedTaskTitles.joinToString(separator = "\n") { "• $it" }

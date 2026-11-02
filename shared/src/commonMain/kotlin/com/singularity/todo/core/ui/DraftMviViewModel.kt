@@ -1,14 +1,14 @@
 package com.singularity.todo.core.ui
 
 import co.touchlab.kermit.Logger
-import com.singularity.todo.core.observability.CrashReportingPort
-import com.singularity.todo.core.observability.NoOpCrashReportingPort
-import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.Either
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.error.toMessage
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.observability.reportingScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -101,7 +101,6 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
         crashReporter = crashReporter,
         scope = scope,
     ) {
-
     private val draftState = DraftState(initialDraft)
 
     /**
@@ -139,10 +138,12 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
             pushUiState(includeValidationError = false)
 
             // 3. Debounced silent autosave loop — starts only after restore settles.
-            draftState.current.drop(1)
+            draftState.current
+                .drop(1)
                 .debounce(autosaveDebounceMs.milliseconds)
                 .collect { current ->
-                    runCatchingCancellable { autosave(current) }.onSuccess { onAutosaved(current) }
+                    runCatchingCancellable { autosave(current) }
+                        .onSuccess { onAutosaved(current) }
                         .onFailure { onAutosaveError(it) }
                 }
         }
@@ -198,7 +199,10 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
      * Default is identity equality. Override for draft types that wrap an entity ID.
      * Example: `current.id == incoming.id` for a NoteDraft that wraps a [Note].
      */
-    protected open fun sameEntity(current: D, incoming: D): Boolean = current == incoming
+    protected open fun sameEntity(
+        current: D,
+        incoming: D,
+    ): Boolean = current == incoming
 
     /** Override to return a human-readable validation error, or null if valid. */
     protected abstract fun validate(draft: D): String?
@@ -213,14 +217,15 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
      * change and take the composition down rather than mark the draft invalid.
      */
     @Suppress("TooGenericExceptionCaught") // the point is to catch *anything* an open fun throws
-    private fun safeValidate(draft: D): String? = try {
-        validate(draft)
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Throwable) {
-        logger.e(e) { "validate failed: ${e.toMessage()}" }
-        e.toMessage("Validation failed")
-    }
+    private fun safeValidate(draft: D): String? =
+        try {
+            validate(draft)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            logger.e(e) { "validate failed: ${e.toMessage()}" }
+            e.toMessage("Validation failed")
+        }
 
     /** Persist the draft. Return [Either.Right] on success, [Either.Left] on failure. */
     protected abstract suspend fun persist(draft: D): Either<AppError, Unit>
@@ -362,14 +367,16 @@ abstract class DraftMviViewModel<D : Any, I : MviIntent, E : MviEvent>(
         onResult: (current: D, result: R) -> D?,
         onEvent: (result: R) -> E? = { null },
     ) {
-        effectJobs.remove(key)
+        effectJobs
+            .remove(key)
             ?.cancel()
-        effectJobs[key] = vmScope.launch {
-            val before = draftState.value
-            val result = operation(before)
-            onResult(before, result)?.let { updateDraft { _ -> it } }
-            onEvent(result)?.let { emit(it) }
-        }
+        effectJobs[key] =
+            vmScope.launch {
+                val before = draftState.value
+                val result = operation(before)
+                onResult(before, result)?.let { updateDraft { _ -> it } }
+                onEvent(result)?.let { emit(it) }
+            }
     }
 }
 

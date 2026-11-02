@@ -44,7 +44,6 @@ import org.jetbrains.kotlin.psi.KtValueArgumentList
  * @see AppErrorCodePolicy for the decision, split out so it is testable without PSI.
  */
 class AppErrorCodeRule(config: Config) : Rule(config, "", null) {
-
     override fun visitCallExpression(expression: KtCallExpression) {
         super.visitCallExpression(expression)
         if (!AppErrorCodePolicy.isAppErrorConstruction(expression)) return
@@ -68,7 +67,6 @@ class AppErrorCodeRule(config: Config) : Rule(config, "", null) {
  * surface is "run the whole engine" is a rule whose no-op failure mode is invisible.
  */
 internal object AppErrorCodePolicy {
-
     private const val QUALIFIED = "com.singularity.todo.core.error.AppError"
     private const val CODE_ARG = "code"
 
@@ -121,10 +119,12 @@ internal object AppErrorCodePolicy {
  */
 class AppErrorCodeProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("app-error-code")
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf<RuleName, (Config) -> Rule>(
-            RuleName("AppErrorCode") to { cfg: Config -> AppErrorCodeRule(cfg) },
-        ),
-    )
+
+    override fun instance(): RuleSet =
+        RuleSet(
+            ruleSetId,
+            mapOf<RuleName, (Config) -> Rule>(
+                RuleName("AppErrorCode") to { cfg: Config -> AppErrorCodeRule(cfg) },
+            ),
+        )
 }

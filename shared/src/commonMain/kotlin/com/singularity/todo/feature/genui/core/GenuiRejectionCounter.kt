@@ -25,7 +25,6 @@ private val logger = Logger.withTag("GenuiRejections")
  * question is which of them is common rather than which happened last.
  */
 class GenuiRejectionCounter {
-
     private val _counts = MutableStateFlow<Map<A2uiErrorCode, Int>>(emptyMap())
 
     /** Live tally, ordered by frequency by whoever renders it rather than by who recorded it. */
@@ -42,10 +41,11 @@ class GenuiRejectionCounter {
     }
 
     /** The tally as one line, most frequent first. Empty when nothing has been rejected. */
-    fun snapshot(): String = _counts.value
-        .entries
-        .sortedByDescending { it.value }
-        .joinToString(", ") { "${it.key.name}=${it.value}" }
+    fun snapshot(): String =
+        _counts.value
+            .entries
+            .sortedByDescending { it.value }
+            .joinToString(", ") { "${it.key.name}=${it.value}" }
 
     /** Logs [errors] and returns the running distribution, so a caller can log both in one line. */
     fun recordAndReport(errors: List<A2uiError>): String {

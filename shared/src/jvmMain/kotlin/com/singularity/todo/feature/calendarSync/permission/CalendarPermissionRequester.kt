@@ -15,9 +15,11 @@ import androidx.compose.runtime.Composable
  * part of it — so the flag outlived its reader and is gone.
  */
 @Composable
-actual fun rememberCalendarPermissionRequester(): CalendarPermissionRequester = object : CalendarPermissionRequester {
-    override val hasPermissions: Boolean get() = false
-    override fun requestPermissions() {
-        // No-op: there is nothing to request on a platform with no system calendar.
+actual fun rememberCalendarPermissionRequester(): CalendarPermissionRequester =
+    object : CalendarPermissionRequester {
+        override val hasPermissions: Boolean get() = false
+
+        override fun requestPermissions() {
+            // No-op: there is nothing to request on a platform with no system calendar.
+        }
     }
-}

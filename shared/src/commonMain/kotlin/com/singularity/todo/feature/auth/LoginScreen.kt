@@ -86,9 +86,10 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -145,9 +146,10 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
                     errorMessage = null
                     message = null
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag(TestTags.AUTH_TOGGLE_MODE_BUTTON),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .testTag(TestTags.AUTH_TOGGLE_MODE_BUTTON),
             ) {
                 Text(
                     if (form.value.isSignUp) {
@@ -162,9 +164,10 @@ fun LoginScreen(viewModel: AuthViewModel = koinViewModel()) {
 
             TextButton(
                 onClick = { viewModel.onIntent(AuthIntent.ContinueOffline) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag(TestTags.AUTH_CONTINUE_OFFLINE_BUTTON),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .testTag(TestTags.AUTH_CONTINUE_OFFLINE_BUTTON),
             ) {
                 Text("Continue Offline")
             }
@@ -196,17 +199,19 @@ private fun ServerConfigForm(
     val anonKeyState = rememberTextFieldState()
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
         Text(text = "Connect your server", style = MaterialTheme.typography.headlineSmall)
         Spacer(modifier = Modifier.height(8.dp))
         SelectableText(
-            text = "Paste the project URL and the anon key from your Supabase project settings. " +
-                "The anon key is publishable, not a secret.",
+            text =
+                "Paste the project URL and the anon key from your Supabase project settings. " +
+                    "The anon key is publishable, not a secret.",
             style = MaterialTheme.typography.bodySmall,
         )
 
@@ -215,9 +220,10 @@ private fun ServerConfigForm(
         OutlinedTextField(
             state = urlState,
             label = { Text("Project URL") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(TestTags.AUTH_SERVER_URL_INPUT),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .testTag(TestTags.AUTH_SERVER_URL_INPUT),
             lineLimits = TextFieldLineLimits.SingleLine,
         )
 
@@ -226,9 +232,10 @@ private fun ServerConfigForm(
         OutlinedTextField(
             state = anonKeyState,
             label = { Text("Anon key (publishable)") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(TestTags.AUTH_SERVER_KEY_INPUT),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .testTag(TestTags.AUTH_SERVER_KEY_INPUT),
             lineLimits = TextFieldLineLimits.SingleLine,
         )
 
@@ -246,9 +253,10 @@ private fun ServerConfigForm(
 
         Button(
             onClick = { onSave(urlState.text.toString(), anonKeyState.text.toString()) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(TestTags.AUTH_SAVE_SERVER_BUTTON),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .testTag(TestTags.AUTH_SAVE_SERVER_BUTTON),
         ) {
             Text("Save")
         }
@@ -257,9 +265,10 @@ private fun ServerConfigForm(
 
         TextButton(
             onClick = onContinueOffline,
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(TestTags.AUTH_CONTINUE_OFFLINE_BUTTON),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .testTag(TestTags.AUTH_CONTINUE_OFFLINE_BUTTON),
         ) {
             Text("Continue without an account")
         }
@@ -270,60 +279,64 @@ private fun ServerConfigForm(
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun LoginScreenFormPreview() = PreviewThemed(darkTheme = false) {
-    LoginScreenFormContent(
-        emailState = rememberTextFieldState("user@example.com"),
-        passwordState = rememberTextFieldState("password"),
-        isLoading = false,
-        errorMessage = null,
-        isSignUp = false,
-        onSignIn = {},
-        onToggleMode = {},
-    )
-}
+private fun LoginScreenFormPreview() =
+    PreviewThemed(darkTheme = false) {
+        LoginScreenFormContent(
+            emailState = rememberTextFieldState("user@example.com"),
+            passwordState = rememberTextFieldState("password"),
+            isLoading = false,
+            errorMessage = null,
+            isSignUp = false,
+            onSignIn = {},
+            onToggleMode = {},
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun LoginScreenLoadingPreview() = PreviewThemed(darkTheme = false) {
-    LoginScreenFormContent(
-        emailState = rememberTextFieldState("user@example.com"),
-        passwordState = rememberTextFieldState("password"),
-        isLoading = true,
-        errorMessage = null,
-        isSignUp = false,
-        onSignIn = {},
-        onToggleMode = {},
-    )
-}
+private fun LoginScreenLoadingPreview() =
+    PreviewThemed(darkTheme = false) {
+        LoginScreenFormContent(
+            emailState = rememberTextFieldState("user@example.com"),
+            passwordState = rememberTextFieldState("password"),
+            isLoading = true,
+            errorMessage = null,
+            isSignUp = false,
+            onSignIn = {},
+            onToggleMode = {},
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun LoginScreenDarkPreview() = PreviewThemed(darkTheme = true) {
-    LoginScreenFormContent(
-        emailState = rememberTextFieldState(),
-        passwordState = rememberTextFieldState(),
-        isLoading = false,
-        errorMessage = "Invalid email or password",
-        isSignUp = true,
-        onSignIn = {},
-        onToggleMode = {},
-    )
-}
+private fun LoginScreenDarkPreview() =
+    PreviewThemed(darkTheme = true) {
+        LoginScreenFormContent(
+            emailState = rememberTextFieldState(),
+            passwordState = rememberTextFieldState(),
+            isLoading = false,
+            errorMessage = "Invalid email or password",
+            isSignUp = true,
+            onSignIn = {},
+            onToggleMode = {},
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun LoginScreenMessagePreview() = PreviewThemed(darkTheme = false) {
-    LoginScreenFormContent(
-        emailState = rememberTextFieldState("user@example.com"),
-        passwordState = rememberTextFieldState("password"),
-        isLoading = false,
-        errorMessage = null,
-        message = "Account created. Check your email to confirm the address.",
-        isSignUp = true,
-        onSignIn = {},
-        onToggleMode = {},
-    )
-}
+private fun LoginScreenMessagePreview() =
+    PreviewThemed(darkTheme = false) {
+        LoginScreenFormContent(
+            emailState = rememberTextFieldState("user@example.com"),
+            passwordState = rememberTextFieldState("password"),
+            isLoading = false,
+            errorMessage = null,
+            message = "Account created. Check your email to confirm the address.",
+            isSignUp = true,
+            onSignIn = {},
+            onToggleMode = {},
+        )
+    }
 
 /**
  * Stateless preview variant of LoginScreen — mirrors the layout without
@@ -341,9 +354,10 @@ private fun LoginScreenFormContent(
     onToggleMode: () -> Unit,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {

@@ -47,7 +47,6 @@ class AndroidPomodoroTimer(
     private val timeTrackingRepo: TimeTrackingRepository,
     private val currentUser: ProfileAwareCurrentUser,
 ) : PomodoroTimer {
-
     private val _state = MutableStateFlow(initialState())
     override val state: StateFlow<PomodoroState> = _state.asStateFlow()
 
@@ -69,13 +68,14 @@ class AndroidPomodoroTimer(
         phaseEnded = false
         val now = clock.now().toEpochMilliseconds()
         val dur = config.phaseSecondsOf(_state.value.phase)
-        _state.value = _state.value.copy(
-            isRunning = true,
-            taskId = taskId,
-            remainingSeconds = dur,
-            phaseDurationSeconds = dur,
-            phaseStartedAtEpochMs = now,
-        )
+        _state.value =
+            _state.value.copy(
+                isRunning = true,
+                taskId = taskId,
+                remainingSeconds = dur,
+                phaseDurationSeconds = dur,
+                phaseStartedAtEpochMs = now,
+            )
         alarmScheduler.schedulePhaseEnd(now + dur * 1000L, taskId, _state.value.phase)
         startTicker()
     }
@@ -84,11 +84,12 @@ class AndroidPomodoroTimer(
         tickerJob?.cancel()
         val now = clock.now().toEpochMilliseconds()
         val remaining = recomputeRemaining(_state.value, now)
-        _state.value = _state.value.copy(
-            isRunning = false,
-            remainingSeconds = remaining,
-            phaseStartedAtEpochMs = null,
-        )
+        _state.value =
+            _state.value.copy(
+                isRunning = false,
+                remainingSeconds = remaining,
+                phaseStartedAtEpochMs = null,
+            )
         alarmScheduler.cancelPhaseEndAlarm()
     }
 
@@ -117,19 +118,20 @@ class AndroidPomodoroTimer(
 
     private fun startTicker() {
         tickerJob?.cancel()
-        tickerJob = scope.launch {
-            while (_state.value.isRunning) {
-                delay(1000.milliseconds)
-                val now = clock.now().toEpochMilliseconds()
-                val remaining = recomputeRemaining(_state.value, now)
-                if (remaining <= 0) {
-                    _state.value = _state.value.copy(remainingSeconds = 0)
-                    onPhaseComplete()
-                    break
+        tickerJob =
+            scope.launch {
+                while (_state.value.isRunning) {
+                    delay(1000.milliseconds)
+                    val now = clock.now().toEpochMilliseconds()
+                    val remaining = recomputeRemaining(_state.value, now)
+                    if (remaining <= 0) {
+                        _state.value = _state.value.copy(remainingSeconds = 0)
+                        onPhaseComplete()
+                        break
+                    }
+                    _state.value = _state.value.copy(remainingSeconds = remaining)
                 }
-                _state.value = _state.value.copy(remainingSeconds = remaining)
             }
-        }
     }
 
     private fun onPhaseComplete() {
@@ -145,7 +147,9 @@ class AndroidPomodoroTimer(
                 val endedAt = clock.now().toEpochMilliseconds()
                 scope.launch {
                     timeTrackingRepo.createManualEntry(
-                        taskId = com.singularity.todo.feature.tasks.domain.model.TaskId(taskId),
+                        taskId =
+                            com.singularity.todo.feature.tasks.domain.model
+                                .TaskId(taskId),
                         userId = currentUser.scopedUserId.value,
                         startedAt = startedAt,
                         endedAt = endedAt,
@@ -160,8 +164,9 @@ class AndroidPomodoroTimer(
         _state.value = nextPhase(_state.value, config)
     }
 
-    private fun initialState() = PomodoroState(
-        remainingSeconds = config.phaseSecondsOf(PomodoroPhase.Work),
-        phaseDurationSeconds = config.phaseSecondsOf(PomodoroPhase.Work),
-    )
+    private fun initialState() =
+        PomodoroState(
+            remainingSeconds = config.phaseSecondsOf(PomodoroPhase.Work),
+            phaseDurationSeconds = config.phaseSecondsOf(PomodoroPhase.Work),
+        )
 }

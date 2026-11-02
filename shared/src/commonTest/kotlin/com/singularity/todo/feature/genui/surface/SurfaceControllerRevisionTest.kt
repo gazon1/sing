@@ -20,7 +20,6 @@ import kotlin.test.assertEquals
  */
 @Tag("fast")
 class SurfaceControllerRevisionTest {
-
     private fun controllerWithSurface(id: String = "s1"): SurfaceController {
         val ctrl = SurfaceController()
         ctrl.apply(

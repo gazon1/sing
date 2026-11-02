@@ -25,7 +25,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class JvmNotifierTest {
-
     /**
      * Enough fresh probes that a race cannot pass.
      *
@@ -125,9 +124,10 @@ class JvmNotifierTest {
      */
     @Test
     fun `the real capability probe is stable across repeated fresh instances`() {
-        val answers = (1..PROBE_RUNS).map {
-            JvmNotifier(scope = CoroutineScope(Dispatchers.Unconfined)).isSupported
-        }
+        val answers =
+            (1..PROBE_RUNS).map {
+                JvmNotifier(scope = CoroutineScope(Dispatchers.Unconfined)).isSupported
+            }
 
         assertEquals(
             1,

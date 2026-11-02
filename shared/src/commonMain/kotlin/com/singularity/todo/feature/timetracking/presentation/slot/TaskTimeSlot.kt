@@ -8,8 +8,8 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.state.TaskTimeSlotIntent
 import com.singularity.todo.feature.timetracking.domain.TimeEntryKind
 import com.singularity.todo.feature.timetracking.domain.TimeEntrySource
-import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
 import com.singularity.todo.feature.timetracking.domain.model.TaskTimeSlotState
+import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -41,17 +41,16 @@ class TaskTimeSlot(
     private val scope: AutoCloseableCoroutineScope,
     taskFlow: StateFlow<Task?>,
 ) : FeatureSlot<TaskTimeSlotState, TaskTimeSlotIntent> {
-
     private val _state = MutableStateFlow<TaskTimeSlotState>(TaskTimeSlotState.Loading)
     override val state: StateFlow<TaskTimeSlotState> = _state.asStateFlow()
 
     init {
         scope.launch {
-            taskFlow.filterNotNull()
+            taskFlow
+                .filterNotNull()
                 .flatMapLatest {
                     timeTrackingRepo.watchEntries(taskId)
-                }
-                .collect { entries ->
+                }.collect { entries ->
                     // An error from a *write* is about that write, and the next
                     // emission is not news: the entry list is unchanged because
                     // the write never happened. Without this guard the refusal is
@@ -72,32 +71,47 @@ class TaskTimeSlot(
                     val openEntry = timeTrackingRepo.getOpenEntry(userId)
                     val workEntries = entries.filter { it.kind == TimeEntryKind.Work }
                     val totalMs = workEntries.sumOf { it.durationMs ?: 0L }
-                    _state.value = when {
-                        openEntry != null -> TaskTimeSlotState.Running(
-                            entry = openEntry,
-                            elapsedMs = 0L,
-                        )
+                    _state.value =
+                        when {
+                            openEntry != null -> {
+                                TaskTimeSlotState.Running(
+                                    entry = openEntry,
+                                    elapsedMs = 0L,
+                                )
+                            }
 
-                        workEntries.isEmpty() -> TaskTimeSlotState.Idle
+                            workEntries.isEmpty() -> {
+                                TaskTimeSlotState.Idle
+                            }
 
-                        else -> TaskTimeSlotState.Loaded(
-                            entries = workEntries.sortedByDescending { it.startedAt },
-                            totalWorkMs = totalMs,
-                        )
-                    }
+                            else -> {
+                                TaskTimeSlotState.Loaded(
+                                    entries = workEntries.sortedByDescending { it.startedAt },
+                                    totalWorkMs = totalMs,
+                                )
+                            }
+                        }
                 }
         }
     }
 
     override fun onIntent(intent: TaskTimeSlotIntent) {
         when (intent) {
-            is TaskTimeSlotIntent.Start -> start()
+            is TaskTimeSlotIntent.Start -> {
+                start()
+            }
 
-            is TaskTimeSlotIntent.Stop -> stop()
+            is TaskTimeSlotIntent.Stop -> {
+                stop()
+            }
 
-            is TaskTimeSlotIntent.CreateManual -> createManual(intent)
+            is TaskTimeSlotIntent.CreateManual -> {
+                createManual(intent)
+            }
 
-            is TaskTimeSlotIntent.Tick -> tick(intent.elapsedMs)
+            is TaskTimeSlotIntent.Tick -> {
+                tick(intent.elapsedMs)
+            }
 
             // Not `else -> { /* no-op */ }`, which is what it used to be. That
             // silence hid a real bug: `TaskDetailIntent.Domain.Start`
@@ -118,10 +132,12 @@ class TaskTimeSlot(
             // demand a branch for every intent in the *task* hierarchy too —
             // which is the overlap this fix is removing, not something to settle
             // in the same change.
-            else -> error(
-                "TaskTimeSlot received an intent it cannot handle: ${intent::class.simpleName}. " +
-                    "The coordinator must translate TaskDetailIntent.Domain.* into TaskTimeSlotIntent.*.",
-            )
+            else -> {
+                error(
+                    "TaskTimeSlot received an intent it cannot handle: ${intent::class.simpleName}. " +
+                        "The coordinator must translate TaskDetailIntent.Domain.* into TaskTimeSlotIntent.*.",
+                )
+            }
         }
     }
 
@@ -132,32 +148,36 @@ class TaskTimeSlot(
         // next successful emission (or the next failure) decides the state.
         if (current is TaskTimeSlotState.Error) _state.value = TaskTimeSlotState.Idle
         scope.launch {
-            timeTrackingRepo.startEntry(
-                taskId = taskId,
-                userId = currentUser.scopedUserId.value,
-                kind = TimeEntryKind.Work,
-                source = TimeEntrySource.Timer,
-            ).onFailure { error ->
-                // Not "the UI updates from the flow": when the *write* fails there
-                // is nothing for the flow to update from, and the chip would sit
-                // on Start forever with no log and no event. Three identical
-                // comments in one file is the smell that produced this — one
-                // wrong sentence, copied three times.
-                _state.value = TaskTimeSlotState.Error(
-                    error.message ?: "Не удалось запустить таймер",
-                )
-            }
+            timeTrackingRepo
+                .startEntry(
+                    taskId = taskId,
+                    userId = currentUser.scopedUserId.value,
+                    kind = TimeEntryKind.Work,
+                    source = TimeEntrySource.Timer,
+                ).onFailure { error ->
+                    // Not "the UI updates from the flow": when the *write* fails there
+                    // is nothing for the flow to update from, and the chip would sit
+                    // on Start forever with no log and no event. Three identical
+                    // comments in one file is the smell that produced this — one
+                    // wrong sentence, copied three times.
+                    _state.value =
+                        TaskTimeSlotState.Error(
+                            error.message ?: "Не удалось запустить таймер",
+                        )
+                }
         }
     }
 
     private fun stop() {
         if (_state.value is TaskTimeSlotState.Error) _state.value = TaskTimeSlotState.Idle
         scope.launch {
-            timeTrackingRepo.stopEntry(currentUser.scopedUserId.value)
+            timeTrackingRepo
+                .stopEntry(currentUser.scopedUserId.value)
                 .onFailure { error ->
-                    _state.value = TaskTimeSlotState.Error(
-                        error.message ?: "Не удалось остановить таймер",
-                    )
+                    _state.value =
+                        TaskTimeSlotState.Error(
+                            error.message ?: "Не удалось остановить таймер",
+                        )
                 }
         }
     }
@@ -165,18 +185,20 @@ class TaskTimeSlot(
     private fun createManual(intent: TaskTimeSlotIntent.CreateManual) {
         if (_state.value is TaskTimeSlotState.Error) _state.value = TaskTimeSlotState.Idle
         scope.launch {
-            timeTrackingRepo.createManualEntry(
-                taskId = taskId,
-                userId = currentUser.scopedUserId.value,
-                startedAt = intent.startedAtMs,
-                endedAt = intent.endedAtMs,
-                kind = intent.kind,
-                note = intent.note,
-            ).onFailure { error ->
-                _state.value = TaskTimeSlotState.Error(
-                    error.message ?: "Не удалось сохранить запись времени",
-                )
-            }
+            timeTrackingRepo
+                .createManualEntry(
+                    taskId = taskId,
+                    userId = currentUser.scopedUserId.value,
+                    startedAt = intent.startedAtMs,
+                    endedAt = intent.endedAtMs,
+                    kind = intent.kind,
+                    note = intent.note,
+                ).onFailure { error ->
+                    _state.value =
+                        TaskTimeSlotState.Error(
+                            error.message ?: "Не удалось сохранить запись времени",
+                        )
+                }
         }
     }
 

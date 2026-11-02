@@ -24,7 +24,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class NavContentKeyTest {
-
     @Test
     fun `a task's key is its id and nothing else`() {
         val withoutAView = TasksRoute.Detail(TaskId("t1"))
@@ -81,10 +80,12 @@ class NavContentKeyTest {
     @Test
     fun `two new-task screens that prefill different dates are two screens`() {
         val plain = AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()).stableContentKey()
-        val today = AppDestination.TasksGraph(
-            AppDestination.TasksStartRoute.Create(),
-            initialDueDate = LocalDate(2026, 10, 22),
-        ).stableContentKey()
+        val today =
+            AppDestination
+                .TasksGraph(
+                    AppDestination.TasksStartRoute.Create(),
+                    initialDueDate = LocalDate(2026, 10, 22),
+                ).stableContentKey()
 
         assertNotEquals(
             plain,
@@ -102,31 +103,32 @@ class NavContentKeyTest {
      */
     @Test
     fun `every destination has a content key`() {
-        val destinations = listOf(
-            AppDestination.Plans,
-            AppDestination.Pomodoro,
-            AppDestination.Statistics,
-            AppDestination.Calendar,
-            AppDestination.Notes,
-            AppDestination.AiChat,
-            AppDestination.Search,
-            AppDestination.Archive,
-            AppDestination.Settings,
-            AppDestination.AiUsage,
-            AppDestination.ProfileSwitcher,
-            AppDestination.AttachAccount,
-            AppDestination.ChangePassword,
-            AppDestination.MagicLinkConfirm(),
-            AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()),
-            AppDestination.TasksByProject(ProjectId("p1")),
-            AppDestination.ProjectEditor(ProjectId("p1")),
-            AppDestination.ProjectDetail(ProjectId("p1")),
-            AppDestination.AttachmentViewer(AttachmentId("a1")),
-            AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.List),
-            AppDestination.NotesGraph(AppDestination.NotesStartRoute.List),
-            AppDestination.CalendarGraph(),
-            AppDestination.AgendaGraph(AgendaStartRoute.Inbox),
-        )
+        val destinations =
+            listOf(
+                AppDestination.Plans,
+                AppDestination.Pomodoro,
+                AppDestination.Statistics,
+                AppDestination.Calendar,
+                AppDestination.Notes,
+                AppDestination.AiChat,
+                AppDestination.Search,
+                AppDestination.Archive,
+                AppDestination.Settings,
+                AppDestination.AiUsage,
+                AppDestination.ProfileSwitcher,
+                AppDestination.AttachAccount,
+                AppDestination.ChangePassword,
+                AppDestination.MagicLinkConfirm(),
+                AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()),
+                AppDestination.TasksByProject(ProjectId("p1")),
+                AppDestination.ProjectEditor(ProjectId("p1")),
+                AppDestination.ProjectDetail(ProjectId("p1")),
+                AppDestination.AttachmentViewer(AttachmentId("a1")),
+                AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.List),
+                AppDestination.NotesGraph(AppDestination.NotesStartRoute.List),
+                AppDestination.CalendarGraph(),
+                AppDestination.AgendaGraph(AgendaStartRoute.Inbox),
+            )
 
         destinations.forEach { destination ->
             assertTrue(

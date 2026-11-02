@@ -5,5 +5,9 @@ package com.singularity.todo.feature.tasks.domain.model
  * Implementation is provided by AttachmentsViewModel (via AttachmentsViewModelAttachmentSaver).
  */
 interface AttachmentSaver {
-    suspend fun save(taskId: TaskId, path: String, mimeType: String?): Result<Unit>
+    suspend fun save(
+        taskId: TaskId,
+        path: String,
+        mimeType: String?,
+    ): Result<Unit>
 }

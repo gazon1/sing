@@ -16,22 +16,26 @@ class WorkScheduleSettingsStore(private val workSchedule: WorkScheduleSettingsRe
      * Work schedule section — the time bounds and the working days.
      * Chained combine() calls avoid type-inference issues with 5-flow overloads.
      */
-    fun observe(): Flow<SettingsSection.WorkSchedule> = combine(
-        combine(workSchedule.dayStartMinutes, workSchedule.dayEndMinutes) { dayStart, dayEnd -> dayStart to dayEnd },
+    fun observe(): Flow<SettingsSection.WorkSchedule> =
         combine(
-            workSchedule.lunchStartMinutes,
-            workSchedule.lunchEndMinutes,
-        ) { lunchStart, lunchEnd -> lunchStart to lunchEnd },
-        workSchedule.workingDays,
-    ) { (dayStart, dayEnd), (lunchStart, lunchEnd), workingDays ->
-        SettingsSection.WorkSchedule(
-            dayStartMinutes = dayStart,
-            dayEndMinutes = dayEnd,
-            lunchStartMinutes = lunchStart,
-            lunchEndMinutes = lunchEnd,
-            workingDays = workingDays,
-        )
-    }
+            combine(
+                workSchedule.dayStartMinutes,
+                workSchedule.dayEndMinutes,
+            ) { dayStart, dayEnd -> dayStart to dayEnd },
+            combine(
+                workSchedule.lunchStartMinutes,
+                workSchedule.lunchEndMinutes,
+            ) { lunchStart, lunchEnd -> lunchStart to lunchEnd },
+            workSchedule.workingDays,
+        ) { (dayStart, dayEnd), (lunchStart, lunchEnd), workingDays ->
+            SettingsSection.WorkSchedule(
+                dayStartMinutes = dayStart,
+                dayEndMinutes = dayEnd,
+                lunchStartMinutes = lunchStart,
+                lunchEndMinutes = lunchEnd,
+                workingDays = workingDays,
+            )
+        }
 
     suspend fun process(intent: SettingsIntent.WorkSchedule) {
         when (intent) {

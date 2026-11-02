@@ -28,7 +28,6 @@ import org.jetbrains.kotlin.psi.KtSafeQualifiedExpression
  * @see NoViewModelScopeInProductionProvider for registration.
  */
 class NoViewModelScopeInProductionRule(config: Config) : Rule(config, "", null) {
-
     override fun visitKtFile(root: KtFile) {
         super.visitKtFile(root)
     }
@@ -75,9 +74,10 @@ class NoViewModelScopeInProductionRule(config: Config) : Rule(config, "", null) 
         report(
             Finding(
                 entity = Entity.from(expr),
-                message = "viewModelScope.$methodName is banned. " +
-                    "Use injected CoroutineScope instead: pass `scope: CoroutineScope` " +
-                    "as a constructor parameter and call scope.launch { ... }.",
+                message =
+                    "viewModelScope.$methodName is banned. " +
+                        "Use injected CoroutineScope instead: pass `scope: CoroutineScope` " +
+                        "as a constructor parameter and call scope.launch { ... }.",
                 references = emptyList(),
                 suppressReasons = emptyList(),
             ),
@@ -94,12 +94,14 @@ class NoViewModelScopeInProductionRule(config: Config) : Rule(config, "", null) 
  */
 class NoViewModelScopeInProductionProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("no-viewmodel-scope")
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf<RuleName, (Config) -> Rule>(
-            RuleName("NoViewModelScopeInProduction") to { cfg: Config ->
-                NoViewModelScopeInProductionRule(cfg)
-            },
-        ),
-    )
+
+    override fun instance(): RuleSet =
+        RuleSet(
+            ruleSetId,
+            mapOf<RuleName, (Config) -> Rule>(
+                RuleName("NoViewModelScopeInProduction") to { cfg: Config ->
+                    NoViewModelScopeInProductionRule(cfg)
+                },
+            ),
+        )
 }

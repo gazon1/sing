@@ -36,7 +36,6 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:migration")
 class Migration42To43Test {
-
     private lateinit var tempDir: File
     private lateinit var dbPath: String
 
@@ -51,8 +50,7 @@ class Migration42To43Test {
         tempDir.deleteRecursively()
     }
 
-    private fun sharedDir(): File =
-        File(System.getProperty("commonMain.root")!!).parentFile.parentFile.parentFile
+    private fun sharedDir(): File = File(System.getProperty("commonMain.root")!!).parentFile.parentFile.parentFile
 
     private fun openMigrated(): AppDatabase {
         createSqlDriver().open(dbPath).use { connection ->
@@ -78,68 +76,73 @@ class Migration42To43Test {
     }
 
     @Test
-    fun `the indexes exist after the upgrade`() = runTest {
-        val db = openMigrated()
-        try {
-            // The query runs on Room's own connection, so it reads the
-            // database the migration has just written.
-            val tables = db.useConnection(isReadOnly = true) { transactor ->
-                transactor.usePrepared(
-                    "SELECT name FROM sqlite_master " +
-                        "WHERE type = 'table' AND sql LIKE 'CREATE VIRTUAL TABLE%'",
-                ) { statement ->
-                    buildList {
-                        while (statement.step()) {
-                            add(statement.getText(0))
+    fun `the indexes exist after the upgrade`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                // The query runs on Room's own connection, so it reads the
+                // database the migration has just written.
+                val tables =
+                    db.useConnection(isReadOnly = true) { transactor ->
+                        transactor.usePrepared(
+                            "SELECT name FROM sqlite_master " +
+                                "WHERE type = 'table' AND sql LIKE 'CREATE VIRTUAL TABLE%'",
+                        ) { statement ->
+                            buildList {
+                                while (statement.step()) {
+                                    add(statement.getText(0))
+                                }
+                            }
                         }
                     }
-                }
-            }
 
-            assertEquals(
-                listOf("notes_fts", "projects_fts", "tags_fts", "tasks_fts"),
-                tables.sorted(),
-            )
-        } finally {
-            db.close()
+                assertEquals(
+                    listOf("notes_fts", "projects_fts", "tags_fts", "tasks_fts"),
+                    tables.sorted(),
+                )
+            } finally {
+                db.close()
+            }
         }
-    }
 
     @Test
-    fun `a row that predates the upgrade is found by the index`() = runTest {
-        val db = openMigrated()
-        try {
-            val found = db.ftsDao().watchTasks("u1", TextMatchQuery(listOf("quarter"))).first()
+    fun `a row that predates the upgrade is found by the index`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                val found = db.ftsDao().watchTasks("u1", TextMatchQuery(listOf("quarter"))).first()
 
-            assertEquals(
-                listOf("t-old"),
-                found.map { it.task.id },
-                "the rows that existed before the upgrade have to be in the index it creates",
-            )
-        } finally {
-            db.close()
+                assertEquals(
+                    listOf("t-old"),
+                    found.map { it.task.id },
+                    "the rows that existed before the upgrade have to be in the index it creates",
+                )
+            } finally {
+                db.close()
+            }
         }
-    }
 
     @Test
-    fun `the index holds no second copy of the text`() = runTest {
-        val db = openMigrated()
-        try {
-            val createSql = db.useConnection(isReadOnly = true) { transactor ->
-                transactor.usePrepared(
-                    "SELECT sql FROM sqlite_master WHERE name = 'tasks_fts'",
-                ) { statement ->
-                    check(statement.step()) { "the index must exist" }
-                    statement.getText(0)
-                }
-            }
+    fun `the index holds no second copy of the text`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                val createSql =
+                    db.useConnection(isReadOnly = true) { transactor ->
+                        transactor.usePrepared(
+                            "SELECT sql FROM sqlite_master WHERE name = 'tasks_fts'",
+                        ) { statement ->
+                            check(statement.step()) { "the index must exist" }
+                            statement.getText(0)
+                        }
+                    }
 
-            assertTrue(
-                createSql.contains("content=`tasks`"),
-                "the index must read the row from the content table, not keep its own copy: $createSql",
-            )
-        } finally {
-            db.close()
+                assertTrue(
+                    createSql.contains("content=`tasks`"),
+                    "the index must read the row from the content table, not keep its own copy: $createSql",
+                )
+            } finally {
+                db.close()
+            }
         }
-    }
 }

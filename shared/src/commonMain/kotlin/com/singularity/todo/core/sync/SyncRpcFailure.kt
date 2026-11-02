@@ -2,8 +2,8 @@ package com.singularity.todo.core.sync
 
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.TransportException
-import com.singularity.todo.core.error.TransportFailure
 import com.singularity.todo.core.error.TransportFacts
+import com.singularity.todo.core.error.TransportFailure
 
 /**
  * What a call to a database function can fail with — said in the project's words.
@@ -33,17 +33,17 @@ import com.singularity.todo.core.error.TransportFacts
  * transports, and the decision is the project's.
  */
 internal object SyncRpcFailure {
-
     /**
      * There is no project configured, so the function cannot be called.
      *
      * Not a transport failure: nothing was refused, nothing was attempted. The
      * person has to enter a project first, and the message says that.
      */
-    fun notConfigured(function: String): AppError = AppError.Validation(
-        "No Supabase project is configured, so $function cannot be called.",
-        code = "sync.not_configured",
-    )
+    fun notConfigured(function: String): AppError =
+        AppError.Validation(
+            "No Supabase project is configured, so $function cannot be called.",
+            code = "sync.not_configured",
+        )
 
     /**
      * The call was refused, or never arrived.
@@ -59,11 +59,12 @@ internal object SyncRpcFailure {
         function: String,
         cause: Throwable,
     ): TransportException {
-        val parts = listOfNotNull(
-            facts.statusCode?.toString(),
-            facts.serverCode?.takeIf { it.isNotBlank() },
-            facts.detail?.takeIf { it.isNotBlank() },
-        )
+        val parts =
+            listOfNotNull(
+                facts.statusCode?.toString(),
+                facts.serverCode?.takeIf { it.isNotBlank() },
+                facts.detail?.takeIf { it.isNotBlank() },
+            )
         val said = if (parts.isEmpty()) cause::class.simpleName.orEmpty() else parts.joinToString(": ")
         return TransportException(failure, "$function failed: $said", cause)
     }

@@ -25,7 +25,6 @@ import kotlinx.datetime.plus
  * heading and a logbook entry cannot name September differently.
  */
 object TimelineLabels {
-
     /** The name of the section that holds the work that is already late. */
     const val OVERDUE: String = "Overdue"
 
@@ -34,17 +33,22 @@ object TimelineLabels {
         granularity: PlansGranularity,
         period: TimelinePeriod,
         today: LocalDate,
-    ): String = when (granularity) {
-        PlansGranularity.Day -> dayLabel(period.start, today)
-        PlansGranularity.Week -> weekLabel(period)
-        PlansGranularity.Month -> monthLabel(period.start)
-    }
+    ): String =
+        when (granularity) {
+            PlansGranularity.Day -> dayLabel(period.start, today)
+            PlansGranularity.Week -> weekLabel(period)
+            PlansGranularity.Month -> monthLabel(period.start)
+        }
 
-    private fun dayLabel(date: LocalDate, today: LocalDate): String = when (date) {
-        today -> "Today"
-        today.plus(1, DateTimeUnit.DAY) -> "Tomorrow"
-        else -> "${weekdayAbbreviation(date.dayOfWeek)}, ${date.day} ${monthAbbreviation(date.month)}"
-    }
+    private fun dayLabel(
+        date: LocalDate,
+        today: LocalDate,
+    ): String =
+        when (date) {
+            today -> "Today"
+            today.plus(1, DateTimeUnit.DAY) -> "Tomorrow"
+            else -> "${weekdayAbbreviation(date.dayOfWeek)}, ${date.day} ${monthAbbreviation(date.month)}"
+        }
 
     private fun weekLabel(period: TimelinePeriod): String {
         val start = period.start

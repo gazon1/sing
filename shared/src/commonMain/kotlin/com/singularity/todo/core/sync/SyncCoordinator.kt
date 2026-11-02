@@ -121,12 +121,13 @@ internal class SyncCoordinator(
      * and failed when it may never have started.
      */
     @Suppress("TooGenericExceptionCaught") // a cycle may throw anything; the consumer must outlive it
-    private suspend fun runCycleCatching(): SyncOutcome = try {
-        runCycle()
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        log.e(e) { "Sync cycle threw; continuing" }
-        SyncOutcome.CouldNotStart(e.toAppError())
-    }
+    private suspend fun runCycleCatching(): SyncOutcome =
+        try {
+            runCycle()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            log.e(e) { "Sync cycle threw; continuing" }
+            SyncOutcome.CouldNotStart(e.toAppError())
+        }
 }

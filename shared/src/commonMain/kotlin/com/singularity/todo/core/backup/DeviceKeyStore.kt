@@ -26,7 +26,6 @@ import com.singularity.todo.core.security.SecureStoragePort
  * so a bucket read by someone who is not the person still yields nothing.
  */
 interface DeviceKeyStore {
-
     /**
      * The device key, generated on first use.
      *
@@ -82,7 +81,6 @@ class SecureStorageDeviceKeyStore(
     private val crypto: ArchiveCrypto,
     private val archive: EncryptedArchive,
 ) : DeviceKeyStore {
-
     override suspend fun deviceKey(): ByteArray {
         val stored = storage.read(DEVICE_KEY)
         if (stored != null) return decodeHex(stored)

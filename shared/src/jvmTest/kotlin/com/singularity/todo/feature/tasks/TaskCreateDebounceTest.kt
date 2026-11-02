@@ -3,23 +3,23 @@
 
 package com.singularity.todo.feature.tasks
 
-import com.singularity.todo.test.fakes.FakeClock
-import com.singularity.todo.test.fakes.TEST_TZ
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.draft.FakeDraftStore
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.MaterializeRecurringSeriesUseCase
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateDeps
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewModel
 import com.singularity.todo.test.fakes.FakeAttachmentRepository
 import com.singularity.todo.test.fakes.FakeChecklistRepository
+import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
-import com.singularity.todo.feature.tasks.domain.usecase.MaterializeRecurringSeriesUseCase
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeUnitOfWork
+import com.singularity.todo.test.fakes.TEST_TZ
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
@@ -46,7 +46,6 @@ import kotlin.time.Instant
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
 class TaskCreateDebounceTest {
-
     /**
      * A fixed instant, so a draft that resolves `DueDateOption.Today` gets a date
      * this file can state. The use case was handed `Clock.System` before #91, so
@@ -63,20 +62,22 @@ class TaskCreateDebounceTest {
     private val fakeAttachmentRepository = FakeAttachmentRepository()
 
     private fun createVm(scope: CoroutineScope): TaskCreateViewModel {
-        val deps = TaskCreateDeps(
-            createFromDraft = CreateTaskFromDraftUseCase(
-                fakeTaskRepo,
-                FakeClock(taskNow),
-                TEST_TZ,
-                fakeCurrentUser,
-                fakeChecklistRepository,
-                fakeAttachmentRepository,
-                FakeUnitOfWork(),
-                MaterializeRecurringSeriesUseCase(fakeTaskRepo, FakeUnitOfWork(), FakeClock(taskNow)),
-            ),
-            logger = Logger.withTag("TaskCreate"),
-            draftStore = fakeDraftStore,
-        )
+        val deps =
+            TaskCreateDeps(
+                createFromDraft =
+                    CreateTaskFromDraftUseCase(
+                        fakeTaskRepo,
+                        FakeClock(taskNow),
+                        TEST_TZ,
+                        fakeCurrentUser,
+                        fakeChecklistRepository,
+                        fakeAttachmentRepository,
+                        FakeUnitOfWork(),
+                        MaterializeRecurringSeriesUseCase(fakeTaskRepo, FakeUnitOfWork(), FakeClock(taskNow)),
+                    ),
+                logger = Logger.withTag("TaskCreate"),
+                draftStore = fakeDraftStore,
+            )
         return TaskCreateViewModel(
             deps = deps,
             initialDueDate = null,
@@ -89,62 +90,65 @@ class TaskCreateDebounceTest {
     private val draftKey get() = TaskCreateDeps.DRAFT_KEY
 
     @Test
-    fun `draft saved after debounce delay elapses`() = runTest {
-        val vm = createVm(backgroundScope)
-        // Wait for init coroutines to settle (restore + debounce collector)
-        advanceTimeBy(1_000)
-        runCurrent()
+    fun `draft saved after debounce delay elapses`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            // Wait for init coroutines to settle (restore + debounce collector)
+            advanceTimeBy(1_000)
+            runCurrent()
 
-        // Type a title — triggers a new debounce window
-        vm.onIntent(TaskCreateIntent.TitleChanged("Buy groceries"))
+            // Type a title — triggers a new debounce window
+            vm.onIntent(TaskCreateIntent.TitleChanged("Buy groceries"))
 
-        // Draft NOT saved yet — debounce hasn't fired (only 10ms elapsed, delay = 500ms)
-        assertNull(fakeDraftStore.load(draftKey, TaskDraft.serializer()))
+            // Draft NOT saved yet — debounce hasn't fired (only 10ms elapsed, delay = 500ms)
+            assertNull(fakeDraftStore.load(draftKey, TaskDraft.serializer()))
 
-        // Advance past the 500ms debounce delay
-        advanceTimeBy(510)
-        runCurrent()
+            // Advance past the 500ms debounce delay
+            advanceTimeBy(510)
+            runCurrent()
 
-        // Draft SHOULD be saved now
-        val saved = fakeDraftStore.load(draftKey, TaskDraft.serializer())
-        assertNotNull(saved)
-        assertEquals("Buy groceries", saved.title.text)
-    }
-
-    @Test
-    fun `draft NOT saved before debounce delay elapses`() = runTest {
-        val vm = createVm(backgroundScope)
-        advanceTimeBy(1_000)
-        runCurrent()
-
-        vm.onIntent(TaskCreateIntent.TitleChanged("Quick note"))
-        // Advance only 200ms — less than the 500ms debounce delay
-        advanceTimeBy(210)
-        runCurrent()
-
-        val saved = fakeDraftStore.load(draftKey, TaskDraft.serializer())
-        // debounce hasn't fired yet — still null
-        assertNull(saved)
-    }
+            // Draft SHOULD be saved now
+            val saved = fakeDraftStore.load(draftKey, TaskDraft.serializer())
+            assertNotNull(saved)
+            assertEquals("Buy groceries", saved.title.text)
+        }
 
     @Test
-    fun `draft cleared after successful save`() = runTest {
-        val vm = createVm(backgroundScope)
-        advanceTimeBy(1_000)
-        runCurrent()
+    fun `draft NOT saved before debounce delay elapses`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            advanceTimeBy(1_000)
+            runCurrent()
 
-        vm.onIntent(TaskCreateIntent.TitleChanged("Task to create"))
-        // Advance past debounce delay
-        advanceTimeBy(510)
-        runCurrent()
-        assertNotNull(fakeDraftStore.load(draftKey, TaskDraft.serializer()))
+            vm.onIntent(TaskCreateIntent.TitleChanged("Quick note"))
+            // Advance only 200ms — less than the 500ms debounce delay
+            advanceTimeBy(210)
+            runCurrent()
 
-        // Trigger save (title is non-blank → createTask is called)
-        vm.onIntent(TaskCreateIntent.SaveClicked)
-        // Wait for save + clear to complete
-        advanceTimeBy(1_000)
-        runCurrent()
+            val saved = fakeDraftStore.load(draftKey, TaskDraft.serializer())
+            // debounce hasn't fired yet — still null
+            assertNull(saved)
+        }
 
-        assertNull(fakeDraftStore.load(draftKey, TaskDraft.serializer()))
-    }
+    @Test
+    fun `draft cleared after successful save`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            vm.onIntent(TaskCreateIntent.TitleChanged("Task to create"))
+            // Advance past debounce delay
+            advanceTimeBy(510)
+            runCurrent()
+            assertNotNull(fakeDraftStore.load(draftKey, TaskDraft.serializer()))
+
+            // Trigger save (title is non-blank → createTask is called)
+            vm.onIntent(TaskCreateIntent.SaveClicked)
+            // Wait for save + clear to complete
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            assertNull(fakeDraftStore.load(draftKey, TaskDraft.serializer()))
+        }
 }

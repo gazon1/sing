@@ -36,7 +36,10 @@ interface BackupCodec {
      * Reads and parses the zip backup at [sourcePath].
      * Returns the decoded manifest, payload, and all attachment entries.
      */
-    suspend fun import(sourcePath: String, fs: FileSystem): Result<CodecReadResult>
+    suspend fun import(
+        sourcePath: String,
+        fs: FileSystem,
+    ): Result<CodecReadResult>
 
     /**
      * Reads and parses the zip backup from a [FileSource].

@@ -49,10 +49,12 @@ sealed interface UiPath {
         /** Parses a string like "items/0/label" into a UiPath. */
         fun parse(s: String): UiPath {
             if (s.isEmpty() || s == "/") return Root
-            val segments: List<String> = s.trimStart('/')
-                .split('/')
-                .map { it.trim() }
-                .filter { it.isNotEmpty() }
+            val segments: List<String> =
+                s
+                    .trimStart('/')
+                    .split('/')
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
             return segments.reversed().fold(Root as UiPath) { acc: UiPath, seg: String ->
                 when {
                     seg.all { it.isDigit() } -> Child(seg.toInt(), acc)
@@ -81,30 +83,36 @@ sealed interface UiPath {
  * Example: `UiPath.of("user", "name")` → Prop("user", Prop("name", Root)) → ["user", "name"]
  */
 fun UiPath.toSegmentList(): List<String> {
-    fun walk(p: UiPath, acc: List<String>): List<String> = when (p) {
-        is UiPath.Root -> acc
-        is UiPath.Child -> walk(p.tail, acc + p.index.toString())
-        is UiPath.Prop -> walk(p.tail, acc + p.name)
-        is UiPath.Leaf -> acc + p.segment.toString()
-    }
+    fun walk(
+        p: UiPath,
+        acc: List<String>,
+    ): List<String> =
+        when (p) {
+            is UiPath.Root -> acc
+            is UiPath.Child -> walk(p.tail, acc + p.index.toString())
+            is UiPath.Prop -> walk(p.tail, acc + p.name)
+            is UiPath.Leaf -> acc + p.segment.toString()
+        }
     return walk(this, emptyList())
 }
 
 /** Returns the string representation of this path (RFC 6901 style, without leading /). */
-fun UiPath.toPointer(): String = when (this) {
-    UiPath.Root -> ""
-    is UiPath.Child -> "${this.index}${tailSuffix()}"
-    is UiPath.Prop -> "${this.name}${tailSuffix()}"
-    is UiPath.Leaf -> this.segment.toString()
-}
+fun UiPath.toPointer(): String =
+    when (this) {
+        UiPath.Root -> ""
+        is UiPath.Child -> "${this.index}${tailSuffix()}"
+        is UiPath.Prop -> "${this.name}${tailSuffix()}"
+        is UiPath.Leaf -> this.segment.toString()
+    }
 
 private fun UiPath.tailSuffix(): String {
-    val tail: UiPath = when (this) {
-        is UiPath.Child -> this.tail
-        is UiPath.Prop -> this.tail
-        is UiPath.Leaf -> return ""
-        UiPath.Root -> return ""
-    }
+    val tail: UiPath =
+        when (this) {
+            is UiPath.Child -> this.tail
+            is UiPath.Prop -> this.tail
+            is UiPath.Leaf -> return ""
+            UiPath.Root -> return ""
+        }
     if (tail is UiPath.Root) return ""
     return "/" + tail.toPointer()
 }

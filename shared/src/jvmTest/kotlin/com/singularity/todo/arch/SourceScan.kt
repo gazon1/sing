@@ -36,11 +36,11 @@ import java.io.File
  * reflection, or a failure dropped in a loop where the value itself is used.
  */
 internal object SourceScan {
-
     /** Root of `commonMain` for this module, as set by the `jvmTest` task. */
     fun commonMainRoot(): File {
-        val root = System.getProperty("commonMain.root")
-            ?: error("commonMain.root system property is not set — see the jvmTest task config")
+        val root =
+            System.getProperty("commonMain.root")
+                ?: error("commonMain.root system property is not set — see the jvmTest task config")
         return File(root, "com/singularity/todo")
     }
 
@@ -60,8 +60,9 @@ internal object SourceScan {
     fun jvmTestResourcesRoot(): File = propertyRoot("jvmTestResources.root")
 
     private fun propertyRoot(name: String): File {
-        val root = System.getProperty(name)
-            ?: error("$name system property is not set — see the jvmTest task config")
+        val root =
+            System.getProperty(name)
+                ?: error("$name system property is not set — see the jvmTest task config")
         return File(root)
     }
 
@@ -76,7 +77,8 @@ internal object SourceScan {
     fun productionFiles(): List<File> = productionFileList
 
     private val productionFileList: List<File> by lazy {
-        commonMainRoot().walkTopDown()
+        commonMainRoot()
+            .walkTopDown()
             .filter { it.isFile && it.name.endsWith(".kt") }
             .filterNot { it.isTestDouble() }
             .toList()
@@ -115,7 +117,10 @@ internal object SourceScan {
      * Counting them here is what made **103 function bodies** in 27 files of
      * `:shared` end in the wrong place.
      */
-    fun bodyOf(source: String, openIndex: Int): String? {
+    fun bodyOf(
+        source: String,
+        openIndex: Int,
+    ): String? {
         if (openIndex < 0 || openIndex >= source.length || source[openIndex] != '{') return null
         val close = KotlinText.matchingBrace(source, openIndex)
         if (close < 0) return null
@@ -123,12 +128,17 @@ internal object SourceScan {
     }
 
     /** Index of the closing parenthesis matching the one at [openIndex], or -1. */
-    fun closingParen(source: String, openIndex: Int): Int {
+    fun closingParen(
+        source: String,
+        openIndex: Int,
+    ): Int {
         var depth = 0
         var i = openIndex
         while (i < source.length) {
             when (source[i]) {
-                '(' -> depth++
+                '(' -> {
+                    depth++
+                }
 
                 ')' -> {
                     depth--
@@ -147,7 +157,10 @@ internal object SourceScan {
      * `fun foo(x: Int = default()) { body }` — the `{` is not immediately after `)`.
      * Returns the text inside the braces (without the braces themselves), or null.
      */
-    fun methodBody(source: String, afterParenIndex: Int): String? {
+    fun methodBody(
+        source: String,
+        afterParenIndex: Int,
+    ): String? {
         var i = afterParenIndex + 1
         while (i < source.length && source[i].isWhitespace()) i++
         return bodyOf(source, i)
@@ -186,7 +199,10 @@ internal object SourceScan {
      *
      * Returns the text inside the braces, or null if the braces do not balance.
      */
-    private fun methodBodyFromStripped(stripped: String, funOffset: Int): String? {
+    private fun methodBodyFromStripped(
+        stripped: String,
+        funOffset: Int,
+    ): String? {
         var i = funOffset
         // Skip "fun <name>(" — the first '(' after "fun"
         while (i < stripped.length && stripped[i] != '(') i++

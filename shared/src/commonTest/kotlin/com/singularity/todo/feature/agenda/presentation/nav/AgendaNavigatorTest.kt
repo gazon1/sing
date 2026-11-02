@@ -19,7 +19,6 @@ import kotlin.test.assertNull
  */
 @Tag("fast")
 class AgendaNavigatorTest {
-
     private fun navigator(
         start: AgendaStartRoute,
         onExit: (AppDestination?) -> Unit,

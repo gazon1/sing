@@ -21,39 +21,44 @@ object BackupMigrations {
      * restorable on a v2 client.
      */
     private val v1ToV2: (JsonObject) -> JsonObject = { payload ->
-        val tasks = payload["tasks"]?.jsonArray?.map { task ->
-            val obj = task.jsonObject
-            JsonObject(
-                obj + mapOf(
-                    "parentTaskId" to JsonPrimitive(null),
-                    "estimateMinutes" to JsonPrimitive(null),
-                    "recurrenceRule" to JsonPrimitive(null),
-                    "outgoingLinks" to JsonArray(listOf()),
-                    "aiSuppressedTagIds" to JsonArray(listOf()),
-                ),
-            )
-        } ?: emptyList()
-        val notes = payload["notes"]?.jsonArray?.map { note ->
-            val obj = note.jsonObject
-            JsonObject(
-                obj + mapOf(
-                    "isPinned" to JsonPrimitive(false),
-                    "pinnedAt" to JsonPrimitive(null),
-                    "color" to JsonPrimitive(null),
-                    "sortOrder" to JsonPrimitive(0),
-                    "wordCount" to JsonPrimitive(0),
-                    "charCount" to JsonPrimitive(0),
-                    "outgoingLinks" to JsonArray(listOf()),
-                    "taskId" to JsonPrimitive(null),
-                ),
-            )
-        } ?: emptyList()
+        val tasks =
+            payload["tasks"]?.jsonArray?.map { task ->
+                val obj = task.jsonObject
+                JsonObject(
+                    obj +
+                        mapOf(
+                            "parentTaskId" to JsonPrimitive(null),
+                            "estimateMinutes" to JsonPrimitive(null),
+                            "recurrenceRule" to JsonPrimitive(null),
+                            "outgoingLinks" to JsonArray(listOf()),
+                            "aiSuppressedTagIds" to JsonArray(listOf()),
+                        ),
+                )
+            } ?: emptyList()
+        val notes =
+            payload["notes"]?.jsonArray?.map { note ->
+                val obj = note.jsonObject
+                JsonObject(
+                    obj +
+                        mapOf(
+                            "isPinned" to JsonPrimitive(false),
+                            "pinnedAt" to JsonPrimitive(null),
+                            "color" to JsonPrimitive(null),
+                            "sortOrder" to JsonPrimitive(0),
+                            "wordCount" to JsonPrimitive(0),
+                            "charCount" to JsonPrimitive(0),
+                            "outgoingLinks" to JsonArray(listOf()),
+                            "taskId" to JsonPrimitive(null),
+                        ),
+                )
+            } ?: emptyList()
         JsonObject(
-            payload + mapOf(
-                "tasks" to JsonArray(tasks),
-                "notes" to JsonArray(notes),
-                "schemaVersion" to JsonPrimitive(2),
-            ),
+            payload +
+                mapOf(
+                    "tasks" to JsonArray(tasks),
+                    "notes" to JsonArray(notes),
+                    "schemaVersion" to JsonPrimitive(2),
+                ),
         )
     }
 
@@ -68,10 +73,11 @@ object BackupMigrations {
      */
     private val v2ToV3: (JsonObject) -> JsonObject = { payload ->
         JsonObject(
-            payload + mapOf(
-                "agendaViews" to JsonArray(payload["agendaViews"]?.jsonArray ?: emptyList()),
-                "schemaVersion" to JsonPrimitive(3),
-            ),
+            payload +
+                mapOf(
+                    "agendaViews" to JsonArray(payload["agendaViews"]?.jsonArray ?: emptyList()),
+                    "schemaVersion" to JsonPrimitive(3),
+                ),
         )
     }
 
@@ -96,14 +102,16 @@ object BackupMigrations {
      * know the default to read it is one version away from a wrong answer.
      */
     private val v4ToV5: (JsonObject) -> JsonObject = { payload ->
-        val dependencies = payload["taskDependencies"]?.jsonArray?.map { dependency ->
-            JsonObject(dependency.jsonObject + mapOf("verb" to JsonPrimitive("BLOCKS")))
-        } ?: emptyList()
+        val dependencies =
+            payload["taskDependencies"]?.jsonArray?.map { dependency ->
+                JsonObject(dependency.jsonObject + mapOf("verb" to JsonPrimitive("BLOCKS")))
+            } ?: emptyList()
         JsonObject(
-            payload + mapOf(
-                "taskDependencies" to JsonArray(dependencies),
-                "schemaVersion" to JsonPrimitive(5),
-            ),
+            payload +
+                mapOf(
+                    "taskDependencies" to JsonArray(dependencies),
+                    "schemaVersion" to JsonPrimitive(5),
+                ),
         )
     }
 
@@ -118,14 +126,16 @@ object BackupMigrations {
      * from a wrong answer.
      */
     private val v5ToV6: (JsonObject) -> JsonObject = { payload ->
-        val tasks = payload["tasks"]?.jsonArray?.map { task ->
-            JsonObject(task.jsonObject + mapOf("workflowState" to JsonPrimitive("Open")))
-        } ?: emptyList()
+        val tasks =
+            payload["tasks"]?.jsonArray?.map { task ->
+                JsonObject(task.jsonObject + mapOf("workflowState" to JsonPrimitive("Open")))
+            } ?: emptyList()
         JsonObject(
-            payload + mapOf(
-                "tasks" to JsonArray(tasks),
-                "schemaVersion" to JsonPrimitive(6),
-            ),
+            payload +
+                mapOf(
+                    "tasks" to JsonArray(tasks),
+                    "schemaVersion" to JsonPrimitive(6),
+                ),
         )
     }
 
@@ -142,14 +152,15 @@ object BackupMigrations {
     }
 
     // Map<fromVersion, transform>
-    private val migrations: Map<Int, (JsonObject) -> JsonObject> = mapOf(
-        1 to v1ToV2,
-        2 to v2ToV3,
-        3 to v3ToV4,
-        4 to v4ToV5,
-        5 to v5ToV6,
-        6 to v6ToV7,
-    )
+    private val migrations: Map<Int, (JsonObject) -> JsonObject> =
+        mapOf(
+            1 to v1ToV2,
+            2 to v2ToV3,
+            3 to v3ToV4,
+            4 to v4ToV5,
+            5 to v5ToV6,
+            6 to v6ToV7,
+        )
 
     /**
      * Migrate a payload from `from` to `to` schema version.
@@ -161,7 +172,11 @@ object BackupMigrations {
      * whatever the DTO defaults happened to be. The symptom was "my data is
      * wrong", not "this backup is too old".
      */
-    fun migrate(payload: JsonObject, from: Int, to: Int = CURRENT): JsonObject {
+    fun migrate(
+        payload: JsonObject,
+        from: Int,
+        to: Int = CURRENT,
+    ): JsonObject {
         require(from <= to) { "from ($from) > to ($to)" }
         return (from until to).fold(payload) { acc, v ->
             val step = migrations[v] ?: error("no migration from schema v$v")

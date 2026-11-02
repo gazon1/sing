@@ -39,70 +39,71 @@ import kotlin.time.Clock
  *
  * @param fixedProfileId the profile this process works as, or null to use the stored one.
  */
-fun profileModule(fixedProfileId: ProfileId? = null): Module = module {
-    single<ProfileRepository> {
-        val dao = get<ProfileDao>()
-        val clock = get<Clock>()
-        val scope = createBackgroundScope(crashReportingFailureHandler(get<CrashReportingPort>()))
-        if (fixedProfileId != null) {
-            // Told which profile to work as: the stored active profile is none of this
-            // process's business, and asking for the store would take the file lock the
-            // application is holding. The store is resolved only on the other branch, so
-            // a fixed-profile process never constructs it at all.
-            ProfileRepositoryImpl(
-                profileDao = dao,
-                profileStateStore = null,
-                clock = clock,
-                scope = scope,
-                fixedProfileId = fixedProfileId,
-                contentResetterProvider = { get<com.singularity.todo.core.wipe.ContentResetter>() },
-                currentUserProvider = { get<ProfileAwareCurrentUser>() },
+fun profileModule(fixedProfileId: ProfileId? = null): Module =
+    module {
+        single<ProfileRepository> {
+            val dao = get<ProfileDao>()
+            val clock = get<Clock>()
+            val scope = createBackgroundScope(crashReportingFailureHandler(get<CrashReportingPort>()))
+            if (fixedProfileId != null) {
+                // Told which profile to work as: the stored active profile is none of this
+                // process's business, and asking for the store would take the file lock the
+                // application is holding. The store is resolved only on the other branch, so
+                // a fixed-profile process never constructs it at all.
+                ProfileRepositoryImpl(
+                    profileDao = dao,
+                    profileStateStore = null,
+                    clock = clock,
+                    scope = scope,
+                    fixedProfileId = fixedProfileId,
+                    contentResetterProvider = { get<com.singularity.todo.core.wipe.ContentResetter>() },
+                    currentUserProvider = { get<ProfileAwareCurrentUser>() },
+                )
+            } else {
+                ProfileRepositoryImpl(
+                    profileDao = dao,
+                    // The active profile's own file — the one thing in it is the profile
+                    // the user is working in.
+                    profileStateStore = get(named("profile_state")),
+                    // The file it used to live in, read once to move the key out of it.
+                    legacyProfileStateStore = get(named("user_settings")),
+                    clock = clock,
+                    scope = scope,
+                    contentResetterProvider = { get<com.singularity.todo.core.wipe.ContentResetter>() },
+                    currentUserProvider = { get<ProfileAwareCurrentUser>() },
+                )
+            }
+        }
+        single<ProfileAwareCurrentUser> {
+            ProfileAwareCurrentUser(
+                get<CurrentUser>(),
+                get<ProfileRepository>(),
+                createBackgroundScope(crashReportingFailureHandler(get<CrashReportingPort>())),
             )
-        } else {
-            ProfileRepositoryImpl(
-                profileDao = dao,
-                // The active profile's own file — the one thing in it is the profile
-                // the user is working in.
-                profileStateStore = get(named("profile_state")),
-                // The file it used to live in, read once to move the key out of it.
-                legacyProfileStateStore = get(named("user_settings")),
-                clock = clock,
-                scope = scope,
-                contentResetterProvider = { get<com.singularity.todo.core.wipe.ContentResetter>() },
-                currentUserProvider = { get<ProfileAwareCurrentUser>() },
+        }
+        factory { ProfileBootstrapper(get()) }
+        // Explicit lambda (not viewModelOf(::AccountSettingsViewModel)): Koin's reflective
+        // constructor resolution does NOT apply Kotlin default arguments. The constructor
+        // has defaults for crashReporter and scope, and viewModelOf fails to resolve them
+        // because reportingScope(get()) cannot be called reflectively. The explicit lambda
+        // applies Kotlin defaults at the call site. See #662.
+        //
+        // Only `crashReporter` is passed, and it is passed by name. `scope` is left to
+        // its own default, `reportingScope(crashReporter)` — passing a scope resolved
+        // independently is what `NoDivergentScopeAndReporter` is about, and the two
+        // custom rules together ask for exactly this shape: a named reporter, no
+        // separately-chosen scope.
+        viewModel {
+            AccountSettingsViewModel(
+                profileRepository = get(),
+                crashReporter = get(),
+            )
+        }
+        // Same issue as above: ChangePasswordViewModel has defaults for crashReporter and scope.
+        viewModel {
+            ChangePasswordViewModel(
+                authRepository = get(),
+                crashReporter = get(),
             )
         }
     }
-    single<ProfileAwareCurrentUser> {
-        ProfileAwareCurrentUser(
-            get<CurrentUser>(),
-            get<ProfileRepository>(),
-            createBackgroundScope(crashReportingFailureHandler(get<CrashReportingPort>())),
-        )
-    }
-    factory { ProfileBootstrapper(get()) }
-    // Explicit lambda (not viewModelOf(::AccountSettingsViewModel)): Koin's reflective
-    // constructor resolution does NOT apply Kotlin default arguments. The constructor
-    // has defaults for crashReporter and scope, and viewModelOf fails to resolve them
-    // because reportingScope(get()) cannot be called reflectively. The explicit lambda
-    // applies Kotlin defaults at the call site. See #662.
-    //
-    // Only `crashReporter` is passed, and it is passed by name. `scope` is left to
-    // its own default, `reportingScope(crashReporter)` — passing a scope resolved
-    // independently is what `NoDivergentScopeAndReporter` is about, and the two
-    // custom rules together ask for exactly this shape: a named reporter, no
-    // separately-chosen scope.
-    viewModel {
-        AccountSettingsViewModel(
-            profileRepository = get(),
-            crashReporter = get(),
-        )
-    }
-    // Same issue as above: ChangePasswordViewModel has defaults for crashReporter and scope.
-    viewModel {
-        ChangePasswordViewModel(
-            authRepository = get(),
-            crashReporter = get(),
-        )
-    }
-}

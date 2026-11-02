@@ -27,7 +27,6 @@ import kotlin.time.Clock
  * left to type, and nothing left to get wrong.
  */
 object ProposalBuilder {
-
     /**
      * Builds a single-item proposal for a task-bound action.
      *
@@ -99,16 +98,17 @@ object ProposalBuilder {
         val itemId = ProposalItemId.generate()
         val now = clock.now()
         val item = newItem(kind, targetId, itemId, proposalId)
-        val proposal = AiProposal(
-            id = proposalId,
-            targetKind = kind.target.targetKind,
-            targetId = targetId,
-            userId = userId,
-            source = source,
-            createdAt = now,
-            updatedAt = now,
-            items = listOf(item),
-        )
+        val proposal =
+            AiProposal(
+                id = proposalId,
+                targetKind = kind.target.targetKind,
+                targetId = targetId,
+                userId = userId,
+                source = source,
+                createdAt = now,
+                updatedAt = now,
+                items = listOf(item),
+            )
         return proposal to listOf(item)
     }
 
@@ -153,16 +153,17 @@ object ProposalBuilder {
         val proposalId = ProposalId.generate()
         val now = clock.now()
         val updatedItems = items.map { it.copy(proposalId = proposalId) }
-        val proposal = AiProposal(
-            id = proposalId,
-            targetKind = targetKindOf(updatedItems),
-            targetId = targetId,
-            userId = userId,
-            source = source,
-            createdAt = now,
-            updatedAt = now,
-            items = updatedItems,
-        )
+        val proposal =
+            AiProposal(
+                id = proposalId,
+                targetKind = targetKindOf(updatedItems),
+                targetId = targetId,
+                userId = userId,
+                source = source,
+                createdAt = now,
+                updatedAt = now,
+                items = updatedItems,
+            )
         return proposal to updatedItems
     }
 
@@ -174,12 +175,16 @@ object ProposalBuilder {
      * remembers one of them gets a card that says nothing or a rejection that does
      * not stick. So the item is built here.
      */
-    fun item(kind: ProposalItemKind, targetId: String): ProposalItem = newItem(
-        kind = kind,
-        targetId = targetId,
-        itemId = ProposalItemId.generate(),
-        proposalId = ProposalId.generate(),
-    )
+    fun item(
+        kind: ProposalItemKind,
+        targetId: String,
+    ): ProposalItem =
+        newItem(
+            kind = kind,
+            targetId = targetId,
+            itemId = ProposalItemId.generate(),
+            proposalId = ProposalId.generate(),
+        )
 
     /**
      * Refuses a change that is about something else than the id it was proposed
@@ -190,7 +195,10 @@ object ProposalBuilder {
      * a task that holds a note's change — a proposal the confirmation screen does
      * not show, and the user never sees.
      */
-    private fun requireTarget(kind: ProposalItemKind, expected: ProposalTargetKind) {
+    private fun requireTarget(
+        kind: ProposalItemKind,
+        expected: ProposalTargetKind,
+    ) {
         val declared = kind.target.targetKind
         require(declared == expected) {
             "The change is about ${declared.storageValue}, but it was proposed against a " +
@@ -205,7 +213,10 @@ object ProposalBuilder {
      * proposal about anything, and it is refused rather than addressed to whichever
      * change happened to come first.
      */
-    private fun requireTarget(items: List<ProposalItem>, expected: ProposalTargetKind) {
+    private fun requireTarget(
+        items: List<ProposalItem>,
+        expected: ProposalTargetKind,
+    ) {
         val declared = targetKindOf(items)
         require(declared == expected) {
             "The changes are about ${declared.storageValue}, but they were proposed against a " +
@@ -223,12 +234,13 @@ object ProposalBuilder {
         targetId: String,
         itemId: ProposalItemId,
         proposalId: ProposalId,
-    ): ProposalItem = ProposalItem.pending(
-        id = itemId,
-        proposalId = proposalId,
-        kind = kind,
-        targetId = targetId,
-        humanSummary = kind.humanSummary,
-        fingerprint = ProposalFingerprint.of(kind, targetId),
-    )
+    ): ProposalItem =
+        ProposalItem.pending(
+            id = itemId,
+            proposalId = proposalId,
+            kind = kind,
+            targetId = targetId,
+            humanSummary = kind.humanSummary,
+            fingerprint = ProposalFingerprint.of(kind, targetId),
+        )
 }

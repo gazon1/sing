@@ -8,7 +8,10 @@ import java.io.File
 class JvmFileSystem : FileSystem {
     override suspend fun readBytes(path: String): ByteArray = File(path).readBytes()
 
-    override suspend fun writeBytes(path: String, data: ByteArray) {
+    override suspend fun writeBytes(
+        path: String,
+        data: ByteArray,
+    ) {
         File(path).parentFile?.mkdirs()
         File(path).writeBytes(data)
     }
@@ -20,7 +23,10 @@ class JvmFileSystem : FileSystem {
      * not atomic — but the app's own files are all in one place, so the copy is
      * the exception rather than the rule.
      */
-    override suspend fun move(from: String, to: String) {
+    override suspend fun move(
+        from: String,
+        to: String,
+    ) {
         val source = File(from)
         val target = File(to)
         target.parentFile?.mkdirs()
@@ -59,8 +65,11 @@ class JvmFileSystem : FileSystem {
     override fun openRead(path: String): ByteSource {
         val stream = File(path).inputStream()
         return object : ByteSource {
-            override fun read(buffer: ByteArray, offset: Int, length: Int): Int =
-                stream.read(buffer, offset, length)
+            override fun read(
+                buffer: ByteArray,
+                offset: Int,
+                length: Int,
+            ): Int = stream.read(buffer, offset, length)
 
             override fun close() = stream.close()
         }
@@ -71,7 +80,11 @@ class JvmFileSystem : FileSystem {
         file.parentFile?.mkdirs()
         val stream = file.outputStream()
         return object : ByteSink {
-            override fun write(buffer: ByteArray, offset: Int, length: Int) {
+            override fun write(
+                buffer: ByteArray,
+                offset: Int,
+                length: Int,
+            ) {
                 stream.write(buffer, offset, length)
             }
 

@@ -39,31 +39,31 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class DesktopAppBootTest {
-
     @Test
-    fun shell_boots_into_the_today_agenda() = runDesktopAppTest {
-        waitForIdle()
+    fun shell_boots_into_the_today_agenda() =
+        runDesktopAppTest {
+            waitForIdle()
 
-        if (System.getProperty(DUMP_TREE_PROPERTY) == "true") {
-            println("=== SEMANTICS TREE START ===")
-            println(semanticsTree(maxDepth = 12))
-            println("=== SEMANTICS TREE END ===")
+            if (System.getProperty(DUMP_TREE_PROPERTY) == "true") {
+                println("=== SEMANTICS TREE START ===")
+                println(semanticsTree(maxDepth = 12))
+                println("=== SEMANTICS TREE END ===")
+            }
+
+            // Past the version gate and auth: the agenda's own empty state is only
+            // rendered once AppVersionGateScreen resolves to Allowed and AuthGuard
+            // lets its content through.
+            assertTextDisplayed("No tasks")
+
+            // The desktop chrome, not the Android bottom bar.
+            assertContentDescriptionDisplayed(DesktopShell.HAMBURGER)
+            assertContentDescriptionDisplayed(DesktopShell.FAB_ADD_TASK)
+            assertCurrentTab("Today")
+
+            // The agenda top bar's own actions.
+            assertTagDisplayed(TestTags.AGENDA_SAVED_VIEWS_BUTTON)
+            assertTagDisplayed(TestTags.AGENDA_SAVE_CURRENT_BUTTON)
         }
-
-        // Past the version gate and auth: the agenda's own empty state is only
-        // rendered once AppVersionGateScreen resolves to Allowed and AuthGuard
-        // lets its content through.
-        assertTextDisplayed("No tasks")
-
-        // The desktop chrome, not the Android bottom bar.
-        assertContentDescriptionDisplayed(DesktopShell.HAMBURGER)
-        assertContentDescriptionDisplayed(DesktopShell.FAB_ADD_TASK)
-        assertCurrentTab("Today")
-
-        // The agenda top bar's own actions.
-        assertTagDisplayed(TestTags.AGENDA_SAVED_VIEWS_BUTTON)
-        assertTagDisplayed(TestTags.AGENDA_SAVE_CURRENT_BUTTON)
-    }
 
     private companion object {
         const val DUMP_TREE_PROPERTY = "singularity.ui.dumpTree"

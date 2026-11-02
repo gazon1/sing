@@ -34,7 +34,6 @@ import kotlin.time.Clock
  */
 @Tag("fast")
 class ToolboxResourcesTest {
-
     private val temporaries = mutableListOf<Path>()
 
     @AfterTest
@@ -107,39 +106,46 @@ class ToolboxResourcesTest {
         return root
     }
 
-    private fun storage(root: Path): AdrStorage = AdrStorage(
-        host = object : HostEnvironmentPort {
-            override fun workingDirectory(): String = root.toString()
-            override fun homeDirectory(): String = root.toString()
-            override fun applicationDataDirectory(): String = root.resolve("data").toString()
-        },
-        clock = Clock.System,
-        timeZone = systemTimeZone,
-    )
+    private fun storage(root: Path): AdrStorage =
+        AdrStorage(
+            host =
+                object : HostEnvironmentPort {
+                    override fun workingDirectory(): String = root.toString()
 
-    private fun snapshot() = ToolsetSnapshot(
-        identity = ToolboxIdentity(
-            buildVersion = "1.2.3",
-            checkout = null,
-            catalogFingerprint = "catalog0000000000",
-            activeToolsetFingerprint = "active00000000000",
-        ),
-        registered = listOf(
-            ToolboxToolEntry(
-                name = "list_tasks",
-                description = "The list_tasks tool.",
-                domain = "tasks",
-                readOnly = true,
-                destructive = false,
-                idempotent = true,
-                requiredParameters = emptyList(),
-                optionalParameters = emptyList(),
-            ),
-        ),
-        disabled = emptyList(),
-        configurationStatus = ConfigurationStatus.CURRENT,
-        configurationFetchedAtEpochMillis = 1_700_000_000_000L,
-    )
+                    override fun homeDirectory(): String = root.toString()
+
+                    override fun applicationDataDirectory(): String = root.resolve("data").toString()
+                },
+            clock = Clock.System,
+            timeZone = systemTimeZone,
+        )
+
+    private fun snapshot() =
+        ToolsetSnapshot(
+            identity =
+                ToolboxIdentity(
+                    buildVersion = "1.2.3",
+                    checkout = null,
+                    catalogFingerprint = "catalog0000000000",
+                    activeToolsetFingerprint = "active00000000000",
+                ),
+            registered =
+                listOf(
+                    ToolboxToolEntry(
+                        name = "list_tasks",
+                        description = "The list_tasks tool.",
+                        domain = "tasks",
+                        readOnly = true,
+                        destructive = false,
+                        idempotent = true,
+                        requiredParameters = emptyList(),
+                        optionalParameters = emptyList(),
+                    ),
+                ),
+            disabled = emptyList(),
+            configurationStatus = ConfigurationStatus.CURRENT,
+            configurationFetchedAtEpochMillis = 1_700_000_000_000L,
+        )
 
     @Test
     fun `the resource uris are the contract they have always been`() {

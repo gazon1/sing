@@ -1,7 +1,7 @@
 package com.singularity.todo.test.fakes
 
-import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.platform.TimeZoneProvider
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteColor
 import com.singularity.todo.feature.notes.NoteId
@@ -14,8 +14,8 @@ import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
-import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
+import kotlin.time.Instant
 
 // ─── Task fixtures ─────────────────────────────────────────────────────────────
 
@@ -48,24 +48,25 @@ fun testTask(
     updatedAt: Instant = Instant.fromEpochMilliseconds(0),
     userId: UserId = TestUsers.DEFAULT,
     overrides: Task.() -> Unit = {},
-): Task = Task(
-    id = id,
-    title = title,
-    description = description,
-    priority = priority,
-    kind = kind,
-    projectId = projectId,
-    tags = tags,
-    dueDate = dueDate,
-    dueTime = dueTime,
-    completedAt = completedAt,
-    someday = someday,
-    archivedAt = archivedAt,
-    isPinned = isPinned,
-    createdAt = createdAt,
-    updatedAt = updatedAt,
-    userId = userId,
-).apply { overrides() }
+): Task =
+    Task(
+        id = id,
+        title = title,
+        description = description,
+        priority = priority,
+        kind = kind,
+        projectId = projectId,
+        tags = tags,
+        dueDate = dueDate,
+        dueTime = dueTime,
+        completedAt = completedAt,
+        someday = someday,
+        archivedAt = archivedAt,
+        isPinned = isPinned,
+        createdAt = createdAt,
+        updatedAt = updatedAt,
+        userId = userId,
+    ).apply { overrides() }
 
 // ─── Project fixtures ────────────────────────────────────────────────────────
 
@@ -83,15 +84,16 @@ fun testProject(
     createdAt: Instant = Instant.fromEpochMilliseconds(0),
     updatedAt: Instant = Instant.fromEpochMilliseconds(0),
     userId: UserId = TestUsers.DEFAULT,
-): Project = Project(
-    id = id,
-    name = name,
-    color = color,
-    closedAt = closedAt,
-    createdAt = createdAt,
-    updatedAt = updatedAt,
-    userId = userId,
-)
+): Project =
+    Project(
+        id = id,
+        name = name,
+        color = color,
+        closedAt = closedAt,
+        createdAt = createdAt,
+        updatedAt = updatedAt,
+        userId = userId,
+    )
 
 // ─── Note fixtures ─────────────────────────────────────────────────────────────
 
@@ -121,26 +123,27 @@ fun testNote(
     archivedAt: Instant? = null,
     userId: UserId = TestUsers.DEFAULT,
     overrides: Note.() -> Unit = {},
-): Note = Note(
-    id = id,
-    userId = userId,
-    title = title,
-    bodyMarkdown = bodyMarkdown,
-    bodyHtml = bodyHtml,
-    isFolder = isFolder,
-    parentNoteId = parentNoteId,
-    isPinned = isPinned,
-    pinnedAt = if (isPinned) Instant.fromEpochMilliseconds(0) else null,
-    color = color,
-    sortOrder = sortOrder,
-    wordCount = title.split(" ").size,
-    charCount = title.length,
-    outgoingLinks = emptyList(),
-    createdAt = createdAt,
-    updatedAt = updatedAt,
-    deletedAt = deletedAt,
-    archivedAt = archivedAt,
-).apply { overrides() }
+): Note =
+    Note(
+        id = id,
+        userId = userId,
+        title = title,
+        bodyMarkdown = bodyMarkdown,
+        bodyHtml = bodyHtml,
+        isFolder = isFolder,
+        parentNoteId = parentNoteId,
+        isPinned = isPinned,
+        pinnedAt = if (isPinned) Instant.fromEpochMilliseconds(0) else null,
+        color = color,
+        sortOrder = sortOrder,
+        wordCount = title.split(" ").size,
+        charCount = title.length,
+        outgoingLinks = emptyList(),
+        createdAt = createdAt,
+        updatedAt = updatedAt,
+        deletedAt = deletedAt,
+        archivedAt = archivedAt,
+    ).apply { overrides() }
 
 // ─── Time zone ───────────────────────────────────────────────────────────────
 
@@ -158,6 +161,7 @@ fun testNote(
  * means a specific offset should say so at the call site instead of inheriting
  * one.
  */
-val TEST_TZ: TimeZoneProvider = object : TimeZoneProvider {
-    override fun current(): TimeZone = TimeZone.UTC
-}
+val TEST_TZ: TimeZoneProvider =
+    object : TimeZoneProvider {
+        override fun current(): TimeZone = TimeZone.UTC
+    }

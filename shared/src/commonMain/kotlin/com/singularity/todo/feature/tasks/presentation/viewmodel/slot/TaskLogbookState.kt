@@ -35,8 +35,9 @@ sealed interface TaskLogbookState {
 
     /** Returns entries when [Loaded], or an empty list when [Empty]. */
     val allEntries: List<LogbookEntry>
-        get() = when (this) {
-            is Empty -> emptyList()
-            is Loaded -> entries
-        }
+        get() =
+            when (this) {
+                is Empty -> emptyList()
+                is Loaded -> entries
+            }
 }

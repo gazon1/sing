@@ -3,14 +3,14 @@ package com.singularity.todo.feature.flows.calendar
 import androidx.compose.ui.test.ExperimentalTestApi
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.test.fakes.TestUsers
-import com.singularity.todo.test.helpers.connectedCredential
-import com.singularity.todo.test.helpers.googleCalendarModule
 import com.singularity.todo.test.helpers.FakeCalendarEventSource
-import com.singularity.todo.test.helpers.FakeGoogleSettings
 import com.singularity.todo.test.helpers.FakeGoogleCredentialStore
+import com.singularity.todo.test.helpers.FakeGoogleSettings
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.clickContentDescriptionScrolled
 import com.singularity.todo.test.helpers.clickTag
+import com.singularity.todo.test.helpers.connectedCredential
+import com.singularity.todo.test.helpers.googleCalendarModule
 import com.singularity.todo.test.helpers.openDrawer
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import org.junit.jupiter.api.DisplayName
@@ -47,23 +47,25 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class CalendarSyncRenewScenarioTest {
-
     @Test
     @DisplayName("CAL-SYNC-RENEW-01 a grant that cannot renew is called out before it silently stops")
     fun a_grant_that_cannot_renew_is_called_out() =
         runDesktopAppTest(
-            overrides = googleCalendarModule(
-                credentials = FakeGoogleCredentialStore(
-                    initial = mapOf(
-                        // Seeded directly rather than clicked: the renewal warning is
-                        // reachable only from a credential that already has no refresh
-                        // token, and no amount of clicking in a JVM test produces one.
-                        TestUsers.DEFAULT.value to connectedCredential(canRenew = false),
-                    ),
+            overrides =
+                googleCalendarModule(
+                    credentials =
+                        FakeGoogleCredentialStore(
+                            initial =
+                                mapOf(
+                                    // Seeded directly rather than clicked: the renewal warning is
+                                    // reachable only from a credential that already has no refresh
+                                    // token, and no amount of clicking in a JVM test produces one.
+                                    TestUsers.DEFAULT.value to connectedCredential(canRenew = false),
+                                ),
+                        ),
+                    settings = FakeGoogleSettings(),
+                    eventSource = FakeCalendarEventSource(),
                 ),
-                settings = FakeGoogleSettings(),
-                eventSource = FakeCalendarEventSource(),
-            ),
         ) {
             openDrawer()
             clickContentDescriptionScrolled("Settings")

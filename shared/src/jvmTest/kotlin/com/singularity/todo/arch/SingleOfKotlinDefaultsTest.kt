@@ -38,7 +38,6 @@ import kotlin.test.fail
  */
 @Tag("fast")
 class SingleOfKotlinDefaultsTest {
-
     companion object {
         private const val PKG = "com.singularity.todo"
 
@@ -57,23 +56,25 @@ class SingleOfKotlinDefaultsTest {
          * the naive class-body scan cannot determine this reliably. The entry at
          * `AiToolsModule.android.kt` is inside a `//` comment and is not a real call site.
          */
-        private val ALLOWLIST = setOf(
-            // SavedAgendaSeedStore — no-arg constructor, verified safe 2026-10-16
-            "SavedAgendaSeedStore",
-            // StubAttachmentUploadService — no-arg constructor, verified safe 2026-10-16
-            "StubAttachmentUploadService",
-            // factoryOf(::Impl) inside a comment — not a real call site
-            "Impl",
-        )
+        private val ALLOWLIST =
+            setOf(
+                // SavedAgendaSeedStore — no-arg constructor, verified safe 2026-10-16
+                "SavedAgendaSeedStore",
+                // StubAttachmentUploadService — no-arg constructor, verified safe 2026-10-16
+                "StubAttachmentUploadService",
+                // factoryOf(::Impl) inside a comment — not a real call site
+                "Impl",
+            )
 
         /**
          * Matches a primary constructor parameter with a default value.
          * Handles: `param: Type = value`, `param: Type = value,`, `param: Type = value)`.
          * Excludes: `val param: Type` (no default), `override val param: Type = ...` (secondary).
          */
-        private val PARAM_WITH_DEFAULT_PATTERN = Regex(
-            """^\s*(?:val|var)\s+\w+\s*:\s*\S+\s*=\s*.+""",
-        )
+        private val PARAM_WITH_DEFAULT_PATTERN =
+            Regex(
+                """^\s*(?:val|var)\s+\w+\s*:\s*\S+\s*=\s*.+""",
+            )
 
         private fun KoFileDeclaration.packageName(): String {
             val normalizedPath = path.replace('\\', '/')
@@ -93,7 +94,8 @@ class SingleOfKotlinDefaultsTest {
      */
     @Test
     fun positiveControlDetectsClassWithDefaults() {
-        val synthetic = """
+        val synthetic =
+            """
             package com.example
 
             class Greeter(val greeting: String = "Hello", val count: Int = 1)
@@ -101,7 +103,7 @@ class SingleOfKotlinDefaultsTest {
             fun myModule() = module {
                 singleOf(::Greeter)
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val findings = scanForDefaultsInSynthetic(synthetic)
         if (findings.isEmpty()) {
@@ -129,20 +131,22 @@ class SingleOfKotlinDefaultsTest {
         val allowlistedClasses = ALLOWLIST.filterNot { it == "Impl" } // "Impl" is a comment match, skip
         if (allowlistedClasses.isEmpty()) return
 
-        val offenders = allowlistedClasses.mapNotNull { className ->
-            val candidates = scope.files
-                .filter { it.name.contains(className) }
-                .filter { file ->
-                    val primaryConstructor = extractPrimaryConstructor(file)
-                    primaryConstructor != null && hasDefaults(primaryConstructor)
+        val offenders =
+            allowlistedClasses.mapNotNull { className ->
+                val candidates =
+                    scope.files
+                        .filter { it.name.contains(className) }
+                        .filter { file ->
+                            val primaryConstructor = extractPrimaryConstructor(file)
+                            primaryConstructor != null && hasDefaults(primaryConstructor)
+                        }
+                if (candidates.isNotEmpty()) {
+                    val paths = candidates.map { it.path }.joinToString()
+                    "$className: found in $paths"
+                } else {
+                    null
                 }
-            if (candidates.isNotEmpty()) {
-                val paths = candidates.map { it.path }.joinToString()
-                "$className: found in $paths"
-            } else {
-                null
             }
-        }
 
         if (offenders.isNotEmpty()) {
             fail(
@@ -194,10 +198,11 @@ class SingleOfKotlinDefaultsTest {
                             "targets a class whose primary constructor has Kotlin default arguments. " +
                             "Rewrite as an explicit lambda that constructs the instance directly " +
                             "(e.g. `single { $targetClass(get()) }`), which applies Kotlin " +
-                            "defaults. See #662. Location: ${file.path}:${file.text.substring(
-                                0,
-                                call.range.first,
-                            ).count { it == '\n' } + 1}"
+                            "defaults. See #662. Location: ${file.path}:${file.text
+                                .substring(
+                                    0,
+                                    call.range.first,
+                                ).count { it == '\n' } + 1}"
                     }
                 }
             }
@@ -250,10 +255,11 @@ class SingleOfKotlinDefaultsTest {
         // matches the file name, or the first class in the file).
         val className = file.name.removeSuffix(".kt")
         // Try to find a constructor declaration in the class body.
-        val constructorPattern = Regex(
-            """class\s+$className\s*(?:constructor\s*)?\((.*?)\)""",
-            RegexOption.DOT_MATCHES_ALL,
-        )
+        val constructorPattern =
+            Regex(
+                """class\s+$className\s*(?:constructor\s*)?\((.*?)\)""",
+                RegexOption.DOT_MATCHES_ALL,
+            )
         return constructorPattern.find(file.text)?.groupValues?.getOrNull(1)
     }
 

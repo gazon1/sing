@@ -10,6 +10,7 @@ import kotlinx.serialization.Serializable
 value class TimeEntryId(val value: String) {
     companion object {
         fun generate() = TimeEntryId(nextId())
+
         fun fromString(value: String) = TimeEntryId(value)
     }
 }

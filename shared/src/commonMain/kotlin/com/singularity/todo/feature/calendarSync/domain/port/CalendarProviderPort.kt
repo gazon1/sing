@@ -13,7 +13,6 @@ import com.singularity.todo.feature.calendarSync.domain.model.CalendarSyncEvent
  * handle permission errors, calendar-not-found, etc.
  */
 interface CalendarProviderPort {
-
     /**
      * Whether this port can do its job on this platform.
      *
@@ -41,7 +40,10 @@ interface CalendarProviderPort {
      * Updates the existing system-calendar event [eventId] to match [event].
      * Returns the updated event ID (same as input).
      */
-    suspend fun updateEvent(eventId: Long, event: CalendarSyncEvent): Result<Long>
+    suspend fun updateEvent(
+        eventId: Long,
+        event: CalendarSyncEvent,
+    ): Result<Long>
 
     /**
      * Deletes the system-calendar event with ID [eventId].
@@ -58,5 +60,9 @@ interface CalendarProviderPort {
      * @param toMs      End of range (exclusive), UTC millis.
      * @return Map of taskId.value → system event ID.
      */
-    suspend fun queryEvents(calendarId: String?, fromMs: Long, toMs: Long): Result<Map<String, Long>>
+    suspend fun queryEvents(
+        calendarId: String?,
+        fromMs: Long,
+        toMs: Long,
+    ): Result<Map<String, Long>>
 }

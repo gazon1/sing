@@ -39,7 +39,6 @@ import org.jetbrains.kotlin.psi.KtProperty
  * @see PassThroughUseCaseProvider for how this rule is registered.
  */
 class PassThroughUseCaseRule(config: Config) : Rule(config, "", null) {
-
     override fun visitClassOrObject(classOrObject: KtClassOrObject) {
         super.visitClassOrObject(classOrObject)
         if (classOrObject !is KtClass) return
@@ -54,7 +53,10 @@ class PassThroughUseCaseRule(config: Config) : Rule(config, "", null) {
         }
     }
 
-    private fun checkFunction(psiClass: KtClass, function: KtNamedFunction) {
+    private fun checkFunction(
+        psiClass: KtClass,
+        function: KtNamedFunction,
+    ) {
         // Skip operators and private functions
         if (function.hasModifier(KtTokens.OPERATOR_KEYWORD)) return
         if (function.hasModifier(KtTokens.PRIVATE_KEYWORD)) return
@@ -85,14 +87,15 @@ class PassThroughUseCaseRule(config: Config) : Rule(config, "", null) {
         report(
             Finding(
                 entity = Entity.atName(function),
-                message = buildString {
-                    append("UseCase method '$methodName' is a pass-through to Repository.")
-                    append(" The method delegates to '${receiver.getReferencedName()}.$methodName'")
-                    append(" without adding logic.")
-                    append(" Call the repository directly from the ViewModel,")
-                    append(" or move real logic into this UseCase")
-                    append(" (validation, clock injection, ID generation, composition, 404 mapping).")
-                },
+                message =
+                    buildString {
+                        append("UseCase method '$methodName' is a pass-through to Repository.")
+                        append(" The method delegates to '${receiver.getReferencedName()}.$methodName'")
+                        append(" without adding logic.")
+                        append(" Call the repository directly from the ViewModel,")
+                        append(" or move real logic into this UseCase")
+                        append(" (validation, clock injection, ID generation, composition, 404 mapping).")
+                    },
                 references = emptyList(),
                 suppressReasons = emptyList(),
             ),
@@ -121,18 +124,22 @@ class PassThroughUseCaseRule(config: Config) : Rule(config, "", null) {
      * returned before reporting. It therefore could not flag the pattern AGENTS.md
      * describes as "enforced by rule". `PassThroughUseCaseRuleTest` pins both.
      */
-    private fun resolveReceiverType(psiClass: KtClass, receiver: KtNameReferenceExpression): String? {
+    private fun resolveReceiverType(
+        psiClass: KtClass,
+        receiver: KtNameReferenceExpression,
+    ): String? {
         val receiverName = receiver.getReferencedName()
 
-        val typeReference = psiClass.primaryConstructorParameters
-            .firstOrNull { it.name == receiverName }
-            ?.takeIf { it.hasValOrVar() }
-            ?.typeReference
-            ?: psiClass.declarations
-                .filterIsInstance<KtProperty>()
+        val typeReference =
+            psiClass.primaryConstructorParameters
                 .firstOrNull { it.name == receiverName }
+                ?.takeIf { it.hasValOrVar() }
                 ?.typeReference
-            ?: return null
+                ?: psiClass.declarations
+                    .filterIsInstance<KtProperty>()
+                    .firstOrNull { it.name == receiverName }
+                    ?.typeReference
+                ?: return null
 
         return typeReference.text // e.g. "ChecklistRepository"
     }
@@ -144,8 +151,10 @@ class PassThroughUseCaseRule(config: Config) : Rule(config, "", null) {
  */
 class PassThroughUseCaseProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("pass-through-use-case")
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf(RuleName("PassThroughUseCase") to { cfg: Config -> PassThroughUseCaseRule(cfg) }),
-    )
+
+    override fun instance(): RuleSet =
+        RuleSet(
+            ruleSetId,
+            mapOf(RuleName("PassThroughUseCase") to { cfg: Config -> PassThroughUseCaseRule(cfg) }),
+        )
 }

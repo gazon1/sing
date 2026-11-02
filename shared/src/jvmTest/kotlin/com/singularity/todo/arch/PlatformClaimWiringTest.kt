@@ -1,7 +1,7 @@
 package com.singularity.todo.arch
 
-import java.io.File
 import org.junit.jupiter.api.Tag
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
@@ -45,20 +45,21 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class PlatformClaimWiringTest {
-
     private companion object {
         /** Handed over by the jvmTest task; see the system properties in `shared/build.gradle.kts`. */
-        private fun root(name: String): File = File(
-            System.getProperty(name)
-                ?: error("$name is not set — see the jvmTest task config in shared/build.gradle.kts"),
-        )
+        private fun root(name: String): File =
+            File(
+                System.getProperty(name)
+                    ?: error("$name is not set — see the jvmTest task config in shared/build.gradle.kts"),
+            )
 
         /** Source set → the platform word a file there may legitimately claim for itself. */
-        private val SOURCE_SET_PLATFORM = mapOf(
-            "commonMain" to null,
-            "androidMain" to "android",
-            "jvmMain" to "jvm",
-        )
+        private val SOURCE_SET_PLATFORM =
+            mapOf(
+                "commonMain" to null,
+                "androidMain" to "android",
+                "jvmMain" to "jvm",
+            )
 
         /** "JVM", "Android" and "Desktop" are one platform: the desktop app *is* the JVM target. */
         private const val DESKTOP = "desktop"
@@ -66,14 +67,15 @@ class PlatformClaimWiringTest {
         /**
          * Opens a sentence claiming the file's own platform.
          *
-         * `[JvmReminderScheduler][com.singularity.todo...]`-style links are how a
-         * file points at a *neighbour*, and those documents are about the neighbour,
+         * Backticked KDoc links (like a reference to `JvmReminderScheduler`) are how
+         * a file points at a *neighbour*, and those documents are about the neighbour,
          * so the pattern is anchored to the start of the line.
          */
-        private val SELF_CLAIM = Regex(
-            "^(jvm|android|desktop)\\s+(stub|implementation)\\b|^(jvm|android|desktop)-only\\b",
-            RegexOption.IGNORE_CASE,
-        )
+        private val SELF_CLAIM =
+            Regex(
+                "^(jvm|android|desktop)\\s+(stub|implementation)\\b|^(jvm|android|desktop)-only\\b",
+                RegexOption.IGNORE_CASE,
+            )
 
         /**
          * First prose line of the file's own header KDoc, or null when the file
@@ -101,7 +103,12 @@ class PlatformClaimWiringTest {
                 if (line.isEmpty() || line.startsWith("package ") || line.startsWith("import ")) return@forEach
                 val isComment = line.startsWith("/**") || line.startsWith("*") || line.startsWith("//")
                 if (!isComment) return null
-                val prose = line.removePrefix("/**").removePrefix("//").removePrefix("*").trim()
+                val prose =
+                    line
+                        .removePrefix("/**")
+                        .removePrefix("//")
+                        .removePrefix("*")
+                        .trim()
                 if (prose.isEmpty()) return@forEach
                 return prose
             }
@@ -119,7 +126,11 @@ class PlatformClaimWiringTest {
 
             dir.walkTopDown().filter { it.isFile && it.name.endsWith(".kt") }.forEach { file ->
                 val claim = SELF_CLAIM.find(firstSentence(file.readText()) ?: "") ?: return@forEach
-                val claimed = claim.groupValues.drop(1).first { it.isNotEmpty() }.lowercase()
+                val claimed =
+                    claim.groupValues
+                        .drop(1)
+                        .first { it.isNotEmpty() }
+                        .lowercase()
                 val normalised = if (claimed == DESKTOP) "jvm" else claimed
                 if (normalised != expected) {
                     offenders += "${file.relativeTo(dir).path} ($sourceSet) claims \"${claim.value}\""

@@ -13,13 +13,14 @@ import org.koin.dsl.module
  * Provides [AppearanceSettingsRepository] and registers [AppearanceSettingsContributor]
  * as a [SettingsContributor].
  */
-fun appearanceSettingsModule(): org.koin.core.module.Module = module {
-    // Repository — backed by the shared DataStore
-    single<AppearanceSettingsRepository> { DataStoreAppearanceSettingsRepository(get()) }
+fun appearanceSettingsModule(): org.koin.core.module.Module =
+    module {
+        // Repository — backed by the shared DataStore
+        single<AppearanceSettingsRepository> { DataStoreAppearanceSettingsRepository(get()) }
 
-    // Store
-    single { AppearanceSettingsStore(get<AppearanceSettingsRepository>()) }
+        // Store
+        single { AppearanceSettingsStore(get<AppearanceSettingsRepository>()) }
 
-    // Contributor — registered as SettingsContributor so SettingsViewModel can discover it
-    single<AppearanceContributor> { AppearanceSettingsContributor(get()) }
-}
+        // Contributor — registered as SettingsContributor so SettingsViewModel can discover it
+        single<AppearanceContributor> { AppearanceSettingsContributor(get()) }
+    }

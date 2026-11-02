@@ -29,31 +29,38 @@ fun ProjectIcon(
     modifier: Modifier = Modifier,
 ) {
     when (val resolved = resolveProjectIcon(icon)) {
-        is ResolvedProjectIcon.Material -> Icon(
-            imageVector = com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegistry
-                .iconByKey(resolved.key)!!,
-            contentDescription = contentDescription,
-            tint = tint,
-            modifier = modifier.size(size),
-        )
-
-        is ResolvedProjectIcon.Emoji -> Box(
-            modifier = modifier.size(size),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = resolved.value,
-                color = tint,
-                fontSize = (size.value * 0.75f).sp,
-                textAlign = TextAlign.Center,
+        is ResolvedProjectIcon.Material -> {
+            Icon(
+                imageVector =
+                    com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegistry
+                        .iconByKey(resolved.key)!!,
+                contentDescription = contentDescription,
+                tint = tint,
+                modifier = modifier.size(size),
             )
         }
 
-        ResolvedProjectIcon.None -> Icon(
-            imageVector = Icons.Filled.Folder,
-            contentDescription = contentDescription,
-            tint = tint,
-            modifier = modifier.size(size),
-        )
+        is ResolvedProjectIcon.Emoji -> {
+            Box(
+                modifier = modifier.size(size),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = resolved.value,
+                    color = tint,
+                    fontSize = (size.value * 0.75f).sp,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+
+        ResolvedProjectIcon.None -> {
+            Icon(
+                imageVector = Icons.Filled.Folder,
+                contentDescription = contentDescription,
+                tint = tint,
+                modifier = modifier.size(size),
+            )
+        }
     }
 }

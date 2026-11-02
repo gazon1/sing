@@ -14,17 +14,26 @@ import kotlinx.coroutines.flow.flowOf
  * class and never binds it.
  */
 class NoopCalendarSyncRepositoryImpl : CalendarSyncRepository {
-
     /** The desktop has no system calendar this app may write to. */
     override val isSupported: Boolean = false
+
     override fun observeEnabled(): Flow<Boolean> = flowOf(false)
+
     override suspend fun setEnabled(enabled: Boolean) {}
+
     override fun observeTargetCalendarId(): Flow<String?> = flowOf(null)
+
     override suspend fun setTargetCalendarId(calendarId: String) {}
+
     override fun observeLastSyncedAt(): Flow<Long?> = flowOf(null)
+
     override suspend fun setLastSyncedAt(ts: Long) {}
+
     override fun observeStatus(): Flow<CalendarSyncStatus> = flowOf(CalendarSyncStatus.Disabled)
+
     override suspend fun setStatus(status: CalendarSyncStatus) {}
+
     override fun observeTargetAppPackage(): Flow<String?> = flowOf(null)
+
     override suspend fun setTargetAppPackage(packageName: String?) {}
 }

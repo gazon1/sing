@@ -50,7 +50,8 @@ import kotlinx.collections.immutable.persistentSetOf
 data class TaskUi(
     val id: TaskId,
     val title: String,
-    val project: String?, // null -> no badge
+    // null -> no badge
+    val project: String?,
     /**
      * The project's ARGB colour, or `null` when there is no project.
      *
@@ -84,10 +85,11 @@ data class TaskUi(
 /** Counters for the header / filter chips — computed from the list once. */
 data class TaskListStats(val total: Int, val active: Int, val completed: Int) {
     companion object {
-        fun from(tasks: List<TaskUi>): TaskListStats = TaskListStats(
-            total = tasks.size,
-            active = tasks.count { !it.isCompleted },
-            completed = tasks.count { it.isCompleted },
-        )
+        fun from(tasks: List<TaskUi>): TaskListStats =
+            TaskListStats(
+                total = tasks.size,
+                active = tasks.count { !it.isCompleted },
+                completed = tasks.count { it.isCompleted },
+            )
     }
 }

@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.tasks
 
+import app.cash.turbine.test
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
 import com.singularity.todo.core.database.ProjectEntity
@@ -12,15 +13,14 @@ import com.singularity.todo.core.database.TaskTagCrossRef
 import com.singularity.todo.core.database.contract.createSqlDriver
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
-import app.cash.turbine.test
 import kotlinx.coroutines.test.runTest
-import kotlin.test.AfterTest
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import java.io.File
 import java.nio.file.Files
+import kotlin.test.AfterTest
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
  * Verifies that [TaskDao.watchByTag], [TaskDao.watchByAnyTag], and
@@ -39,7 +39,6 @@ import java.nio.file.Files
 @Tag("slow")
 @Tag("slow:data")
 class TaskFilterInheritanceTest {
-
     private lateinit var db: AppDatabase
     private lateinit var tempDir: File
 
@@ -69,24 +68,27 @@ class TaskFilterInheritanceTest {
     private val p3 = project("p3", UID)
 
     // Direct cross-refs: t1→tg1, t3→tg1
-    private val directRefs = listOf(
-        TaskTagCrossRef(t1.id, tg1.id),
-        TaskTagCrossRef(t3.id, tg1.id),
-    )
+    private val directRefs =
+        listOf(
+            TaskTagCrossRef(t1.id, tg1.id),
+            TaskTagCrossRef(t3.id, tg1.id),
+        )
 
     // Inheritance joins
-    private val inheritanceJoins = listOf(
-        ProjectInheritedTagGroupCrossRef(p2.id, gg1.id),
-        ProjectInheritedTagGroupCrossRef(p3.id, gg2.id),
-    )
+    private val inheritanceJoins =
+        listOf(
+            ProjectInheritedTagGroupCrossRef(p2.id, gg1.id),
+            ProjectInheritedTagGroupCrossRef(p3.id, gg2.id),
+        )
 
     private fun buildDb() {
         tempDir = Files.createTempDirectory("singularity-filter-inheritance-").toFile()
         val dbFile = File(tempDir, "test.db")
-        db = AppDatabaseFactory.build(
-            driver = createSqlDriver(),
-            dbPath = dbFile.absolutePath,
-        )
+        db =
+            AppDatabaseFactory.build(
+                driver = createSqlDriver(),
+                dbPath = dbFile.absolutePath,
+            )
     }
 
     private suspend fun seed() {
@@ -125,115 +127,124 @@ class TaskFilterInheritanceTest {
     // ─── watchByTag ────────────────────────────────────────────────────────────
 
     @Test
-    fun `watchByTag — direct assignment — returns task`() = runTest {
-        buildDb()
-        seed()
-        db.taskDao().watchByTag(UID, tg1.id).test {
-            val ids = awaitItem().map { it.id }.toSet()
-            assertTrue(t1.id in ids, "t1 should be found (direct tag)")
-            assertTrue(t3.id in ids, "t3 should be found (direct tag)")
-            cancel()
+    fun `watchByTag — direct assignment — returns task`() =
+        runTest {
+            buildDb()
+            seed()
+            db.taskDao().watchByTag(UID, tg1.id).test {
+                val ids = awaitItem().map { it.id }.toSet()
+                assertTrue(t1.id in ids, "t1 should be found (direct tag)")
+                assertTrue(t3.id in ids, "t3 should be found (direct tag)")
+                cancel()
+            }
         }
-    }
 
     @Test
-    fun `watchByTag — inherited via project — returns task`() = runTest {
-        buildDb()
-        seed()
-        // tg2 belongs to gg1, and p2 inherits gg1; t2 is in p2
-        db.taskDao().watchByTag(UID, tg2.id).test {
-            val ids = awaitItem().map { it.id }.toSet()
-            assertTrue(t2.id in ids, "t2 should be found (inherited via p2→gg1)")
-            cancel()
+    fun `watchByTag — inherited via project — returns task`() =
+        runTest {
+            buildDb()
+            seed()
+            // tg2 belongs to gg1, and p2 inherits gg1; t2 is in p2
+            db.taskDao().watchByTag(UID, tg2.id).test {
+                val ids = awaitItem().map { it.id }.toSet()
+                assertTrue(t2.id in ids, "t2 should be found (inherited via p2→gg1)")
+                cancel()
+            }
         }
-    }
 
     @Test
-    fun `watchByTag — no association — returns empty`() = runTest {
-        buildDb()
-        seed()
-        // tg4 has no group → never inherited; no task directly tagged tg4
-        db.taskDao().watchByTag(UID, tg4.id).test {
-            assertEquals(emptyList<Any>(), awaitItem())
-            cancel()
+    fun `watchByTag — no association — returns empty`() =
+        runTest {
+            buildDb()
+            seed()
+            // tg4 has no group → never inherited; no task directly tagged tg4
+            db.taskDao().watchByTag(UID, tg4.id).test {
+                assertEquals(emptyList<Any>(), awaitItem())
+                cancel()
+            }
         }
-    }
 
     // ─── watchByAnyTag ─────────────────────────────────────────────────────────
 
     @Test
-    fun `watchByAnyTag — union of direct and inherited`() = runTest {
-        buildDb()
-        seed()
-        // tg1 (direct via t1/t3) ∪ tg2 (inherited via t2 in p2)
-        db.taskDao().watchByAnyTag(UID, listOf(tg1.id, tg2.id)).test {
-            val ids = awaitItem().map { it.id }.toSet()
-            assertTrue(t1.id in ids, "t1 (direct) should be found")
-            assertTrue(t2.id in ids, "t2 (inherited via p2) should be found")
-            assertTrue(t3.id in ids, "t3 (direct) should be found")
-            cancel()
+    fun `watchByAnyTag — union of direct and inherited`() =
+        runTest {
+            buildDb()
+            seed()
+            // tg1 (direct via t1/t3) ∪ tg2 (inherited via t2 in p2)
+            db.taskDao().watchByAnyTag(UID, listOf(tg1.id, tg2.id)).test {
+                val ids = awaitItem().map { it.id }.toSet()
+                assertTrue(t1.id in ids, "t1 (direct) should be found")
+                assertTrue(t2.id in ids, "t2 (inherited via p2) should be found")
+                assertTrue(t3.id in ids, "t3 (direct) should be found")
+                cancel()
+            }
         }
-    }
 
     @Test
-    fun `watchByAnyTag — only inherited tags — returns tasks`() = runTest {
-        buildDb()
-        seed()
-        // tg3 is only via p3's inheritance (gg2), no task directly tagged tg3
-        db.taskDao().watchByAnyTag(UID, listOf(tg3.id)).test {
-            val ids = awaitItem().map { it.id }.toSet()
-            assertTrue(t4.id in ids, "t4 should be found (inherited via p3→gg2)")
-            cancel()
+    fun `watchByAnyTag — only inherited tags — returns tasks`() =
+        runTest {
+            buildDb()
+            seed()
+            // tg3 is only via p3's inheritance (gg2), no task directly tagged tg3
+            db.taskDao().watchByAnyTag(UID, listOf(tg3.id)).test {
+                val ids = awaitItem().map { it.id }.toSet()
+                assertTrue(t4.id in ids, "t4 should be found (inherited via p3→gg2)")
+                cancel()
+            }
         }
-    }
 
     @Test
-    fun `watchByAnyTag — no match — returns empty`() = runTest {
-        buildDb()
-        seed()
-        db.taskDao().watchByAnyTag(UID, listOf(tg4.id)).test {
-            assertEquals(emptyList<Any>(), awaitItem())
-            cancel()
+    fun `watchByAnyTag — no match — returns empty`() =
+        runTest {
+            buildDb()
+            seed()
+            db.taskDao().watchByAnyTag(UID, listOf(tg4.id)).test {
+                assertEquals(emptyList<Any>(), awaitItem())
+                cancel()
+            }
         }
-    }
 
     // ─── watchByAllTags ────────────────────────────────────────────────────────
 
     @Test
-    fun `watchByAllTags — all direct tags — returns task`() = runTest {
-        buildDb()
-        seed()
-        db.taskDao().watchByAllTags(UID, listOf(tg1.id), 1).test {
-            val ids = awaitItem().map { it.id }.toSet()
-            assertTrue(t1.id in ids, "t1 should be found")
-            assertTrue(t3.id in ids, "t3 should be found")
-            cancel()
+    fun `watchByAllTags — all direct tags — returns task`() =
+        runTest {
+            buildDb()
+            seed()
+            db.taskDao().watchByAllTags(UID, listOf(tg1.id), 1).test {
+                val ids = awaitItem().map { it.id }.toSet()
+                assertTrue(t1.id in ids, "t1 should be found")
+                assertTrue(t3.id in ids, "t3 should be found")
+                cancel()
+            }
         }
-    }
 
     @Test
-    fun `watchByAllTags — both tags inherited via same group — satisfies matchAll`() = runTest {
-        buildDb()
-        seed()
-        // t2 in p2 which inherits gg1 (tg1, tg2); both filter tags are covered → matchAll
-        db.taskDao().watchByAllTags(UID, listOf(tg1.id, tg2.id), 2).test {
-            val ids = awaitItem().map { it.id }.toSet()
-            assertTrue(t2.id in ids, "t2 should be found (both covered via gg1 inheritance)")
-            cancel()
+    fun `watchByAllTags — both tags inherited via same group — satisfies matchAll`() =
+        runTest {
+            buildDb()
+            seed()
+            // t2 in p2 which inherits gg1 (tg1, tg2); both filter tags are covered → matchAll
+            db.taskDao().watchByAllTags(UID, listOf(tg1.id, tg2.id), 2).test {
+                val ids = awaitItem().map { it.id }.toSet()
+                assertTrue(t2.id in ids, "t2 should be found (both covered via gg1 inheritance)")
+                cancel()
+            }
         }
-    }
 
     @Test
-    fun `watchByAllTags — partial coverage — excluded`() = runTest {
-        buildDb()
-        seed()
-        // t2 inherits gg1 (tg1, tg2) but not gg2 (tg3); cannot satisfy {tg1, tg3}
-        db.taskDao().watchByAllTags(UID, listOf(tg1.id, tg3.id), 2).test {
-            val ids = awaitItem().map { it.id }.toSet()
-            assertTrue(t2.id !in ids, "t2 should NOT be found (incomplete coverage)")
-            cancel()
+    fun `watchByAllTags — partial coverage — excluded`() =
+        runTest {
+            buildDb()
+            seed()
+            // t2 inherits gg1 (tg1, tg2) but not gg2 (tg3); cannot satisfy {tg1, tg3}
+            db.taskDao().watchByAllTags(UID, listOf(tg1.id, tg3.id), 2).test {
+                val ids = awaitItem().map { it.id }.toSet()
+                assertTrue(t2.id !in ids, "t2 should NOT be found (incomplete coverage)")
+                cancel()
+            }
         }
-    }
 
     // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -272,7 +283,11 @@ class TaskFilterInheritanceTest {
         sync = SyncColumns(),
     )
 
-    private fun tag(id: String, userId: String, groupId: String?) = TagEntity(
+    private fun tag(
+        id: String,
+        userId: String,
+        groupId: String?,
+    ) = TagEntity(
         id = id,
         userId = userId,
         name = id,
@@ -286,7 +301,10 @@ class TaskFilterInheritanceTest {
         sync = SyncColumns(),
     )
 
-    private fun tagGroup(id: String, userId: String) = TagGroupEntity(
+    private fun tagGroup(
+        id: String,
+        userId: String,
+    ) = TagGroupEntity(
         id = id,
         userId = userId,
         name = id,
@@ -297,7 +315,10 @@ class TaskFilterInheritanceTest {
         sync = SyncColumns(),
     )
 
-    private fun project(id: String, userId: String) = ProjectEntity(
+    private fun project(
+        id: String,
+        userId: String,
+    ) = ProjectEntity(
         id = id,
         userId = userId,
         name = id,

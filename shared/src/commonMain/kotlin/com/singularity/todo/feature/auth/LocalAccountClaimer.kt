@@ -53,7 +53,6 @@ class LocalAccountClaimer(
     private val eraser: OwnerScopedEraser,
     private val calculator: OwnerCountsCalculator,
 ) {
-
     /**
      * Signs [email] in and hands the local rows to the account or removes them.
      *
@@ -71,85 +70,88 @@ class LocalAccountClaimer(
         email: String,
         password: String,
         disposition: LocalDataDisposition,
-    ): Flow<ClaimStep> = channelFlow {
-        val local = (authRepository.currentSession.value as? Session.Anonymous)?.userId
-        if (local == null) {
-            send(
-                ClaimStep.Refused(
-                    AppError.Validation(
-                        "Only a local session can be attached to an account",
-                        code = "auth.not_local",
+    ): Flow<ClaimStep> =
+        channelFlow {
+            val local = (authRepository.currentSession.value as? Session.Anonymous)?.userId
+            if (local == null) {
+                send(
+                    ClaimStep.Refused(
+                        AppError.Validation(
+                            "Only a local session can be attached to an account",
+                            code = "auth.not_local",
+                        ),
                     ),
-                ),
-            )
-            return@channelFlow
-        }
+                )
+                return@channelFlow
+            }
 
-        // Validated before anything is signed in, so a malformed address never reaches
-        // the network and a wrong password never reaches the database.
-        val address = AuthDomain.normalizeEmail(email)
-        val prepared = runCatchingResult {
-            AuthDomain.validateEmail(address)
-            AuthDomain.validatePassword(password)
-        }
+            // Validated before anything is signed in, so a malformed address never reaches
+            // the network and a wrong password never reaches the database.
+            val address = AuthDomain.normalizeEmail(email)
+            val prepared =
+                runCatchingResult {
+                    AuthDomain.validateEmail(address)
+                    AuthDomain.validatePassword(password)
+                }
 
-        send(ClaimStep.SigningIn)
-        // One refusal for both pre-move failures, because both leave the device exactly
-        // as it was — which is the whole reason they are checked before anything moves.
-        val signInFailure = prepared.exceptionOrNull()?.toAppError()
-            ?: authRepository.signIn(address, password).exceptionOrNull()?.toAppError()
-        if (signInFailure != null) {
-            // Nothing has moved, and the local session is still the live one.
-            send(ClaimStep.Refused(signInFailure))
-            return@channelFlow
-        }
+            send(ClaimStep.SigningIn)
+            // One refusal for both pre-move failures, because both leave the device exactly
+            // as it was — which is the whole reason they are checked before anything moves.
+            val signInFailure =
+                prepared.exceptionOrNull()?.toAppError()
+                    ?: authRepository.signIn(address, password).exceptionOrNull()?.toAppError()
+            if (signInFailure != null) {
+                // Nothing has moved, and the local session is still the live one.
+                send(ClaimStep.Refused(signInFailure))
+                return@channelFlow
+            }
 
-        val account = (authRepository.currentSession.value as? Session.SignedIn)?.userId
-        if (account == null) {
-            send(
-                ClaimStep.Restoring(
+            val account = (authRepository.currentSession.value as? Session.SignedIn)?.userId
+            if (account == null) {
+                send(
+                    ClaimStep.Restoring(
+                        local,
+                        AppError.Unauthorized(
+                            "Signing in left no session behind",
+                            code = "auth.no_session",
+                        ),
+                    ),
+                )
+                restoreLocalFlow(
                     local,
                     AppError.Unauthorized(
                         "Signing in left no session behind",
                         code = "auth.no_session",
                     ),
-                ),
-            )
-            restoreLocalFlow(
-                local,
-                AppError.Unauthorized(
-                    "Signing in left no session behind",
-                    code = "auth.no_session",
-                ),
-            ).collect { send(it) }
-            return@channelFlow
-        }
-
-        // Apply the chosen disposition; any failure triggers restore.
-        try {
-            when (disposition) {
-                is LocalDataDisposition.Keep -> {
-                    val resolved = resolver.resolve(local)
-                    val (reassignCounts, _) = calculator.compute(resolved)
-                    send(ClaimStep.MovingData(local, account, reassignCounts))
-                    reassigner.reassign(resolver.resolveMapping(local, account))
-                }
-
-                is LocalDataDisposition.Discard -> {
-                    val resolved = resolver.resolve(local)
-                    val (_, eraseCounts) = calculator.compute(resolved)
-                    send(ClaimStep.RemovingData(local, eraseCounts))
-                    eraser.erase(resolved)
-                }
+                ).collect { send(it) }
+                return@channelFlow
             }
-            send(ClaimStep.Done(disposition))
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: RuntimeException) {
-            send(ClaimStep.Restoring(local, e.toAppError()))
-            restoreLocalFlow(local, e.toAppError()).collect { send(it) }
+
+            // Apply the chosen disposition; any failure triggers restore.
+            try {
+                when (disposition) {
+                    is LocalDataDisposition.Keep -> {
+                        val resolved = resolver.resolve(local)
+                        val (reassignCounts, _) = calculator.compute(resolved)
+                        send(ClaimStep.MovingData(local, account, reassignCounts))
+                        reassigner.reassign(resolver.resolveMapping(local, account))
+                    }
+
+                    is LocalDataDisposition.Discard -> {
+                        val resolved = resolver.resolve(local)
+                        val (_, eraseCounts) = calculator.compute(resolved)
+                        send(ClaimStep.RemovingData(local, eraseCounts))
+                        eraser.erase(resolved)
+                    }
+                }
+                send(ClaimStep.Done(disposition))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: RuntimeException) {
+                send(ClaimStep.Restoring(local, e.toAppError()))
+                restoreLocalFlow(local, e.toAppError()).collect { send(it) }
+            }
         }
-    }
 
     /**
      * Performs the chosen disposition.
@@ -196,49 +198,53 @@ class LocalAccountClaimer(
      * beside a session that says otherwise — an account the user could not get into is
      * not one they asked to stay signed in to.
      */
-    private fun restoreLocalFlow(local: UserId, reason: AppError): Flow<ClaimStep> = channelFlow {
-        // Observed rather than fired and forgotten: a sign-out that failed leaves the
-        // credentials on the device while the session is about to say otherwise, and
-        // that is a different problem from the one the user triggered. The local session
-        // is still started — they keep their data and stay inside the app — but the
-        // next launch will restore the account from the token that never went away,
-        // so this has to be on the record rather than silently swallowed.
-        val signOutFailure = authRepository.signOut().exceptionOrNull()?.toAppError()
-        if (signOutFailure != null) {
-            send(ClaimStep.SignOutFailed(local, signOutFailure))
-        }
+    private fun restoreLocalFlow(
+        local: UserId,
+        reason: AppError,
+    ): Flow<ClaimStep> =
+        channelFlow {
+            // Observed rather than fired and forgotten: a sign-out that failed leaves the
+            // credentials on the device while the session is about to say otherwise, and
+            // that is a different problem from the one the user triggered. The local session
+            // is still started — they keep their data and stay inside the app — but the
+            // next launch will restore the account from the token that never went away,
+            // so this has to be on the record rather than silently swallowed.
+            val signOutFailure = authRepository.signOut().exceptionOrNull()?.toAppError()
+            if (signOutFailure != null) {
+                send(ClaimStep.SignOutFailed(local, signOutFailure))
+            }
 
-        authRepository.startLocalSession().fold(
-            onSuccess = {
-                // The sign-out failure is the more serious problem: the account's
-                // credentials are still on the device and the next launch will restore
-                // the account from them. Emit it as the terminal step so the caller
-                // can report it rather than the transfer error.
-                if (signOutFailure != null) {
-                    send(ClaimStep.Refused(signOutFailure))
-                } else {
-                    send(ClaimStep.Refused(reason))
-                }
-            },
-            onFailure = {
-                // The local session could not be re-established either. The rows are
-                // still on disk under `local`, and the login screen regenerates the
-                // same id on the next press, so the data is not lost — but the user has
-                // to press the button again, and saying so beats reporting silence.
-                send(
-                    ClaimStep.Refused(
-                        AppError.Persistence(
-                            "The account could not be attached, and the offline session could not be " +
-                                "restored either. Your data is still on this device — continue offline " +
-                                "to pick it up.",
-                            code = "auth.local_restore_failed",
-                            cause = signOutFailure ?: reason,
+            authRepository.startLocalSession().fold(
+                onSuccess = {
+                    // The sign-out failure is the more serious problem: the account's
+                    // credentials are still on the device and the next launch will restore
+                    // the account from them. Emit it as the terminal step so the caller
+                    // can report it rather than the transfer error.
+                    if (signOutFailure != null) {
+                        send(ClaimStep.Refused(signOutFailure))
+                    } else {
+                        send(ClaimStep.Refused(reason))
+                    }
+                },
+                onFailure = {
+                    // The local session could not be re-established either. The rows are
+                    // still on disk under `local`, and the login screen regenerates the
+                    // same id on the next press, so the data is not lost — but the user has
+                    // to press the button again, and saying so beats reporting silence.
+                    send(
+                        ClaimStep.Refused(
+                            AppError.Persistence(
+                                "The account could not be attached, and the offline session could not be " +
+                                    "restored either. Your data is still on this device — continue offline " +
+                                    "to pick it up.",
+                                code = "auth.local_restore_failed",
+                                cause = signOutFailure ?: reason,
+                            ),
                         ),
-                    ),
-                )
-            },
-        )
-    }
+                    )
+                },
+            )
+        }
 }
 
 /**
@@ -308,20 +314,23 @@ sealed interface ClaimStep {
 
 /** Human-readable outcome message for the UI after a claim completes. */
 internal val LocalDataDisposition.toastMessage: String
-    get() = when (this) {
-        is LocalDataDisposition.Keep -> {
-            val total = transferCounts.tasks + transferCounts.notes
-            if (total > 0) {
-                "${transferCounts.tasks} task${if (transferCounts.tasks != 1) "s" else ""} and " +
-                    "${transferCounts.notes} note${if (transferCounts.notes != 1) "s" else ""} " +
-                    "moved to your account"
-            } else {
-                "Your data is now linked to this account"
+    get() =
+        when (this) {
+            is LocalDataDisposition.Keep -> {
+                val total = transferCounts.tasks + transferCounts.notes
+                if (total > 0) {
+                    "${transferCounts.tasks} task${if (transferCounts.tasks != 1) "s" else ""} and " +
+                        "${transferCounts.notes} note${if (transferCounts.notes != 1) "s" else ""} " +
+                        "moved to your account"
+                } else {
+                    "Your data is now linked to this account"
+                }
+            }
+
+            is LocalDataDisposition.Discard -> {
+                "All local data removed from this device"
             }
         }
-
-        is LocalDataDisposition.Discard -> "All local data removed from this device"
-    }
 
 /** [AppError] from a throwable, matching the auth repository's own mapping. */
 private fun Throwable.toAppError(): AppError =

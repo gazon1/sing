@@ -1,7 +1,7 @@
 package com.singularity.todo.core.attachments
 
-import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.error.runCatchingCancellable
+import com.singularity.todo.core.files.FileSystem
 
 /**
  * Stores attachment files on disk via the [FileSystem] port.
@@ -22,24 +22,25 @@ class AttachmentStorage(private val fs: FileSystem, private val dir: String) {
         id: String,
         sourcePath: String,
         ext: String,
-    ): Result<String> = runCatchingCancellable {
-        val target = AttachmentDomain.buildLocalPath(dir, taskId, id, ext)
-        fs.ensureDir("$dir/$taskId")
-        val source = fs.openRead(sourcePath)
-        val sink = fs.openWrite(target)
-        try {
-            val buffer = ByteArray(8192)
-            while (true) {
-                val read = source.read(buffer, 0, buffer.size)
-                if (read < 0) break
-                sink.write(buffer, 0, read)
+    ): Result<String> =
+        runCatchingCancellable {
+            val target = AttachmentDomain.buildLocalPath(dir, taskId, id, ext)
+            fs.ensureDir("$dir/$taskId")
+            val source = fs.openRead(sourcePath)
+            val sink = fs.openWrite(target)
+            try {
+                val buffer = ByteArray(8192)
+                while (true) {
+                    val read = source.read(buffer, 0, buffer.size)
+                    if (read < 0) break
+                    sink.write(buffer, 0, read)
+                }
+            } finally {
+                source.close()
+                sink.close()
             }
-        } finally {
-            source.close()
-            sink.close()
+            target
         }
-        target
-    }
 
     /** Returns the size in bytes of the file at [path], or 0 if it does not exist. */
     suspend fun fileSize(path: String): Long = fs.stat(path)?.sizeBytes ?: 0L
@@ -53,40 +54,43 @@ class AttachmentStorage(private val fs: FileSystem, private val dir: String) {
         id: String,
         data: ByteArray,
         ext: String,
-    ): Result<String> = runCatchingCancellable {
-        val target = AttachmentDomain.buildLocalPath(dir, taskId, id, ext)
-        fs.ensureDir("$dir/$taskId")
-        fs.writeBytes(target, data)
-        target
-    }
+    ): Result<String> =
+        runCatchingCancellable {
+            val target = AttachmentDomain.buildLocalPath(dir, taskId, id, ext)
+            fs.ensureDir("$dir/$taskId")
+            fs.writeBytes(target, data)
+            target
+        }
 
     /**
      * Computes SHA-256 checksum of the file at `localPath`.
      * Used for deduplication and integrity verification.
      */
-    suspend fun computeChecksum(localPath: String): Result<String> = runCatchingCancellable {
-        val source = fs.openRead(localPath)
-        val hashingSink = okio.HashingSink.sha256(okio.blackholeSink())
-        try {
-            val buffer = ByteArray(8192)
-            while (true) {
-                val read = source.read(buffer, 0, buffer.size)
-                if (read < 0) break
-                val okioBuffer = okio.Buffer()
-                okioBuffer.write(buffer, 0, read)
-                hashingSink.write(okioBuffer, read.toLong())
+    suspend fun computeChecksum(localPath: String): Result<String> =
+        runCatchingCancellable {
+            val source = fs.openRead(localPath)
+            val hashingSink = okio.HashingSink.sha256(okio.blackholeSink())
+            try {
+                val buffer = ByteArray(8192)
+                while (true) {
+                    val read = source.read(buffer, 0, buffer.size)
+                    if (read < 0) break
+                    val okioBuffer = okio.Buffer()
+                    okioBuffer.write(buffer, 0, read)
+                    hashingSink.write(okioBuffer, read.toLong())
+                }
+            } finally {
+                source.close()
+                hashingSink.close()
             }
-        } finally {
-            source.close()
-            hashingSink.close()
+            hashingSink.hash.hex()
         }
-        hashingSink.hash.hex()
-    }
 
     /** Deletes the file at `path`. Returns `true` if the file existed. */
-    suspend fun deleteFile(path: String): Result<Boolean> = runCatchingCancellable {
-        fs.delete(path)
-    }
+    suspend fun deleteFile(path: String): Result<Boolean> =
+        runCatchingCancellable {
+            fs.delete(path)
+        }
 
     /** Returns `true` if a file exists at `path`. */
     suspend fun fileExists(path: String): Boolean = fs.exists(path)

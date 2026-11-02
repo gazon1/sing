@@ -10,7 +10,6 @@ package com.singularity.todo.core.sync
  * DataStoreSessionStore] is the implementation the DI graph binds.
  */
 interface DeviceIdProvider {
-
     /** Initializes and returns the device ID. Safe to call multiple times. */
     suspend fun getOrInitDeviceId(): String
 }

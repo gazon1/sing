@@ -29,25 +29,35 @@ import kotlin.time.Instant
  * unresolved in JVM test source sets.
  */
 object SavedAgendaViewFactory {
-
     /**
      * Creates a new [SavedAgendaView] for first-time save (Create mode).
      * Generates a fresh [SavedAgendaViewId] and sets [createdAt] = [updatedAt].
      */
-    fun create(userId: UserId, name: String, sectionsJson: String, now: Instant): SavedAgendaView = SavedAgendaView(
-        id = SavedAgendaViewId.generate(),
-        userId = userId,
-        name = name,
-        sectionsJson = sectionsJson,
-        createdAt = now,
-        updatedAt = now,
-    )
+    fun create(
+        userId: UserId,
+        name: String,
+        sectionsJson: String,
+        now: Instant,
+    ): SavedAgendaView =
+        SavedAgendaView(
+            id = SavedAgendaViewId.generate(),
+            userId = userId,
+            name = name,
+            sectionsJson = sectionsJson,
+            createdAt = now,
+            updatedAt = now,
+        )
 
     /**
      * Updates an existing [SavedAgendaView] with new name and sections.
      * Preserves [id], [userId], and [createdAt].
      */
-    fun update(source: SavedAgendaView, name: String, sectionsJson: String, now: Instant): SavedAgendaView =
+    fun update(
+        source: SavedAgendaView,
+        name: String,
+        sectionsJson: String,
+        now: Instant,
+    ): SavedAgendaView =
         source.copy(
             name = name,
             sectionsJson = sectionsJson,
@@ -58,12 +68,17 @@ object SavedAgendaViewFactory {
      * Duplicates a [SavedAgendaView] into a different user profile.
      * Generates a fresh [id], sets [userId] to [targetUserId], resets timestamps.
      */
-    fun duplicateForProfile(source: SavedAgendaView, targetUserId: UserId, now: Instant): SavedAgendaView = source.copy(
-        id = SavedAgendaViewId.generate(),
-        userId = targetUserId,
-        createdAt = now,
-        updatedAt = now,
-    )
+    fun duplicateForProfile(
+        source: SavedAgendaView,
+        targetUserId: UserId,
+        now: Instant,
+    ): SavedAgendaView =
+        source.copy(
+            id = SavedAgendaViewId.generate(),
+            userId = targetUserId,
+            createdAt = now,
+            updatedAt = now,
+        )
 }
 
 /**
@@ -84,10 +99,11 @@ fun AgendaDefinition.toSectionsJson(): String = StableJson.encodeToString(Agenda
  * pretend to be an empty agenda. An absent blob is an empty section list — a view
  * that never had sections is still a view.
  */
-fun decodeSavedSections(json: String?): List<Section>? = if (json == null) {
-    emptyList()
-} else {
-    runCatching {
-        StableJson.decodeFromString<AgendaDefinition>(json).sections
-    }.getOrNull()
-}
+fun decodeSavedSections(json: String?): List<Section>? =
+    if (json == null) {
+        emptyList()
+    } else {
+        runCatching {
+            StableJson.decodeFromString<AgendaDefinition>(json).sections
+        }.getOrNull()
+    }

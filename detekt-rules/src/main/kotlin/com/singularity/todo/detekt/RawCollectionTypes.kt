@@ -25,19 +25,19 @@ package com.singularity.todo.detekt
  * contradicts the other one.
  */
 internal object RawCollectionTypes {
-
     /** The names of the raw collection types, as the source spells them. */
-    val NAMES: Set<String> = setOf(
-        "List",
-        "MutableList",
-        "ArrayList",
-        "Set",
-        "MutableSet",
-        "HashSet",
-        "Map",
-        "MutableMap",
-        "HashMap",
-        "Collection",
-        "Array",
-    )
+    val NAMES: Set<String> =
+        setOf(
+            "List",
+            "MutableList",
+            "ArrayList",
+            "Set",
+            "MutableSet",
+            "HashSet",
+            "Map",
+            "MutableMap",
+            "HashMap",
+            "Collection",
+            "Array",
+        )
 }

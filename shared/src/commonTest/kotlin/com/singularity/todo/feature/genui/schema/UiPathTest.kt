@@ -6,7 +6,6 @@ import kotlin.test.assertEquals
 
 @Tag("fast")
 class UiPathTest {
-
     @Test
     fun parseReturnsRootForEmptyString() {
         assertEquals(UiPath.Root, UiPath.parse(""))
@@ -29,26 +28,30 @@ class UiPathTest {
     @Test
     fun parseHandlesMultipleSegments() {
         val result = UiPath.parse("items/0/label")
-        val expected = UiPath.Prop(
-            name = "items",
-            tail = UiPath.Child(
-                index = 0,
-                tail = UiPath.Prop("label", UiPath.Root),
-            ),
-        )
+        val expected =
+            UiPath.Prop(
+                name = "items",
+                tail =
+                    UiPath.Child(
+                        index = 0,
+                        tail = UiPath.Prop("label", UiPath.Root),
+                    ),
+            )
         assertEquals(expected, result)
     }
 
     @Test
     fun parseTreatsNumericSegmentsAsChildIndex() {
         val result = UiPath.parse("items/42/name")
-        val expected = UiPath.Prop(
-            name = "items",
-            tail = UiPath.Child(
-                index = 42,
-                tail = UiPath.Prop("name", UiPath.Root),
-            ),
-        )
+        val expected =
+            UiPath.Prop(
+                name = "items",
+                tail =
+                    UiPath.Child(
+                        index = 42,
+                        tail = UiPath.Prop("name", UiPath.Root),
+                    ),
+            )
         assertEquals(expected, result)
     }
 
@@ -76,10 +79,11 @@ class UiPathTest {
 
     @Test
     fun toPointerReturnsSegmentsSeparatedBySlash() {
-        val path = UiPath.Prop(
-            name = "items",
-            tail = UiPath.Child(0, UiPath.Prop("label", UiPath.Root)),
-        )
+        val path =
+            UiPath.Prop(
+                name = "items",
+                tail = UiPath.Child(0, UiPath.Prop("label", UiPath.Root)),
+            )
         assertEquals("items/0/label", path.toPointer())
     }
 }

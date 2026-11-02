@@ -8,17 +8,18 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDocument
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeTaskRepository
-import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import kotlin.time.Instant
 
 @Tag("fast")
 class TaskDocumentRoundTripTest {
     private class RecordingTaskRepository : FakeTaskRepository() {
         val documents = mutableListOf<TaskDocument>()
+
         override suspend fun upsert(document: TaskDocument): Task {
             documents += document
             return super.upsert(document)
@@ -41,19 +42,20 @@ class TaskDocumentRoundTripTest {
     )
 
     @Test
-    fun `the document that leaves is the document that arrives`() = runTest {
-        val repo = RecordingTaskRepository()
-        val writer = fakeSyncDocumentWriter(tasks = repo)
-        val original = task()
+    fun `the document that leaves is the document that arrives`() =
+        runTest {
+            val repo = RecordingTaskRepository()
+            val writer = fakeSyncDocumentWriter(tasks = repo)
+            val original = task()
 
-        val document = original.toJson() as JsonObject
+            val document = original.toJson() as JsonObject
 
-        writer.upsert(DocType.Task, document)
-        val received = repo.documents.single()
+            writer.upsert(DocType.Task, document)
+            val received = repo.documents.single()
 
-        assertEquals(original.title, received.task.title)
-        assertEquals(original.tags, received.tags)
-        assertEquals(original.blockedBy, received.blockedBy)
-        assertEquals(original.updatedAt, received.task.updatedAt)
-    }
+            assertEquals(original.title, received.task.title)
+            assertEquals(original.tags, received.tags)
+            assertEquals(original.blockedBy, received.blockedBy)
+            assertEquals(original.updatedAt, received.task.updatedAt)
+        }
 }

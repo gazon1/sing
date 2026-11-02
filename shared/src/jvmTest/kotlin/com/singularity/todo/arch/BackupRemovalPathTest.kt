@@ -1,8 +1,8 @@
 package com.singularity.todo.arch
 
 import com.singularity.todo.core.backup.BackupEntityKind
-import java.io.File
 import org.junit.jupiter.api.Tag
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -51,7 +51,6 @@ import kotlin.test.fail
 @Tag("slow")
 @Tag("slow:data")
 class BackupRemovalPathTest {
-
     @Test
     fun `every kind has a removal path`() {
         val sources = backupSources()
@@ -115,7 +114,8 @@ class BackupRemovalPathTest {
 
     @Test
     fun `a kind without a removal path is reported`() {
-        val dispatch = """
+        val dispatch =
+            """
             private suspend fun removeRow(
                 kind: BackupEntityKind,
                 key: String,
@@ -126,7 +126,7 @@ class BackupRemovalPathTest {
                     BackupEntityKind.NOTES -> noteDao.deleteForUser(key, userId.value)
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val branches = branchLabels(dispatch)
         val missing = kindsWithoutPath(setOf("TASKS", "NOTES", "PROJECTS"), branches)
@@ -142,38 +142,44 @@ class BackupRemovalPathTest {
 
     /** The production sources of the backup package. */
     private fun backupSources(): List<File> =
-        SourceScan.productionFiles()
+        SourceScan
+            .productionFiles()
             .filter { it.path.replace(File.separatorChar, '/').contains("/core/backup/") }
             .sortedBy { it.path }
 
     /** The constants of `BackupEntityKind`, read from the file that declares it. */
     private fun declaredKinds(sources: List<File>): Set<String> {
-        val file = sources.firstOrNull { ENUM_DECLARATION.containsMatchIn(it.readText()) }
-            ?: fail(
-                "No file in core/backup declares `enum class BackupEntityKind`. The kinds moved, " +
-                    "and this test has to follow them — or the kinds are gone, and the restore has " +
-                    "nothing to remove.",
-            )
+        val file =
+            sources.firstOrNull { ENUM_DECLARATION.containsMatchIn(it.readText()) }
+                ?: fail(
+                    "No file in core/backup declares `enum class BackupEntityKind`. The kinds moved, " +
+                        "and this test has to follow them — or the kinds are gone, and the restore has " +
+                        "nothing to remove.",
+                )
         val stripped = KotlinText.stripComments(file.readText())
-        val declaration = ENUM_DECLARATION.find(stripped)?.range?.first
-            ?: fail("The enum in ${file.path} cannot be read — this test cannot read it.")
+        val declaration =
+            ENUM_DECLARATION.find(stripped)?.range?.first
+                ?: fail("The enum in ${file.path} cannot be read — this test cannot read it.")
         val open = stripped.indexOf('{', declaration)
         val close = KotlinText.matchingBrace(stripped, open)
         if (close < 0) {
             fail("The enum in ${file.path} does not close — this test cannot read it.")
         }
-        return KIND_CONSTANT.findAll(stripped.substring(open + 1, close))
+        return KIND_CONSTANT
+            .findAll(stripped.substring(open + 1, close))
             .map { it.groupValues[1] }
             .toSet()
     }
 
     /** The `when (kind)` that deletes a row, and the kinds its branches name. */
     private fun removalDispatch(sources: List<File>): Dispatch {
-        val found = sources.flatMap { file ->
-            SourceScan.methods(file.readText())
-                .filter { DISPATCH_SUBJECT.containsMatchIn(it.body) }
-                .map { method -> Dispatch(file, method, branchLabels(method.body)) }
-        }
+        val found =
+            sources.flatMap { file ->
+                SourceScan
+                    .methods(file.readText())
+                    .filter { DISPATCH_SUBJECT.containsMatchIn(it.body) }
+                    .map { method -> Dispatch(file, method, branchLabels(method.body)) }
+            }
         if (found.isEmpty()) {
             fail(
                 "No `when (kind)` in core/backup. The importer used to delete a row in one, and " +
@@ -192,12 +198,13 @@ class BackupRemovalPathTest {
     }
 
     /** The kinds a dispatch names, read from its branches. */
-    private fun branchLabels(body: String): Set<String> =
-        BRANCH_LABEL.findAll(body).map { it.groupValues[1] }.toSet()
+    private fun branchLabels(body: String): Set<String> = BRANCH_LABEL.findAll(body).map { it.groupValues[1] }.toSet()
 
     /** The kinds that have no path, sorted. */
-    private fun kindsWithoutPath(kinds: Set<String>, branches: Set<String>): List<String> =
-        (kinds - branches).sorted()
+    private fun kindsWithoutPath(
+        kinds: Set<String>,
+        branches: Set<String>,
+    ): List<String> = (kinds - branches).sorted()
 
     /** The removal dispatch, and the kinds it names. */
     private class Dispatch(val file: File, val method: SourceScan.Method, val branches: Set<String>)
@@ -212,28 +219,29 @@ class BackupRemovalPathTest {
          * Inside a phase the order matters too: an annotation goes before the
          * attachment it belongs to, because the annotations are not cascaded either.
          */
-        val EXPECTED_ORDER = listOf(
-            // The children first.
-            "TASK_TAGS",
-            "TASK_DEPENDENCIES",
-            "CHECKLIST_ITEMS",
-            "PROJECT_TAG_GROUPS",
-            // Then the rows themselves.
-            "ATTACHMENT_ANNOTATIONS",
-            "ATTACHMENTS",
-            "AGENDA_VIEWS",
-            "SAVED_SEARCHES",
-            "TASK_REMINDERS",
-            "PROJECT_REMINDERS",
-            "TIME_ENTRIES",
-            // Then the rows the children hang off, last.
-            "TAGS",
-            "TAG_GROUPS",
-            "TASKS",
-            "NOTES",
-            "PROJECTS",
-            "PROFILES",
-        )
+        val EXPECTED_ORDER =
+            listOf(
+                // The children first.
+                "TASK_TAGS",
+                "TASK_DEPENDENCIES",
+                "CHECKLIST_ITEMS",
+                "PROJECT_TAG_GROUPS",
+                // Then the rows themselves.
+                "ATTACHMENT_ANNOTATIONS",
+                "ATTACHMENTS",
+                "AGENDA_VIEWS",
+                "SAVED_SEARCHES",
+                "TASK_REMINDERS",
+                "PROJECT_REMINDERS",
+                "TIME_ENTRIES",
+                // Then the rows the children hang off, last.
+                "TAGS",
+                "TAG_GROUPS",
+                "TASKS",
+                "NOTES",
+                "PROJECTS",
+                "PROFILES",
+            )
 
         /** The declaration of the kinds. */
         val ENUM_DECLARATION = Regex("""enum class BackupEntityKind\b""")

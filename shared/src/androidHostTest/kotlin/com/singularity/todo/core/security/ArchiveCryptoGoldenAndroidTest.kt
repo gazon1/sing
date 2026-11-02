@@ -45,17 +45,17 @@ import org.junit.Test
  * where the Android half of the archive is.
  */
 class ArchiveCryptoGoldenAndroidTest {
-
     private val crypto = AndroidArchiveCrypto()
     private val archive = EncryptedArchive(crypto)
 
     /** The phone derives the same key the golden archive was sealed under. */
     @Test
     fun `the phone derives the golden key`() {
-        val key = crypto.deriveKey(
-            ArchiveCryptoGolden.PASSWORD.toCharArray(),
-            ArchiveCryptoGolden.salt,
-        )
+        val key =
+            crypto.deriveKey(
+                ArchiveCryptoGolden.PASSWORD.toCharArray(),
+                ArchiveCryptoGolden.salt,
+            )
 
         assertEquals(
             "the key derivation must not drift between the platforms",
@@ -81,10 +81,11 @@ class ArchiveCryptoGoldenAndroidTest {
             archive.open(container, ArchiveCryptoGolden.PASSWORD.toCharArray()),
         )
 
-        val key = crypto.deriveKey(
-            ArchiveCryptoGolden.PASSWORD.toCharArray(),
-            ArchiveCryptoGolden.salt,
-        )
+        val key =
+            crypto.deriveKey(
+                ArchiveCryptoGolden.PASSWORD.toCharArray(),
+                ArchiveCryptoGolden.salt,
+            )
         val header = container.copyOfRange(0, ArchiveFormat.HEADER_BYTES)
         val sealed = crypto.seal(key, ArchiveCryptoGolden.nonce, ArchiveCryptoGolden.plaintext, header)
 
@@ -110,10 +111,11 @@ class ArchiveCryptoGoldenAndroidTest {
      */
     @Test
     fun `the phone agrees with the golden chain`() {
-        val key = crypto.deriveKey(
-            ArchiveCryptoGolden.PASSWORD.toCharArray(),
-            ArchiveCryptoGolden.chainSalt,
-        )
+        val key =
+            crypto.deriveKey(
+                ArchiveCryptoGolden.PASSWORD.toCharArray(),
+                ArchiveCryptoGolden.chainSalt,
+            )
 
         assertEquals(
             "the key derivation must not drift between the platforms",

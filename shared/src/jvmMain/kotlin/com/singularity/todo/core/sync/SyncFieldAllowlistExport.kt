@@ -1,6 +1,5 @@
 package com.singularity.todo.core.sync
 
-import java.io.File
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -8,6 +7,7 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
+import java.io.File
 import kotlin.system.exitProcess
 
 /**
@@ -48,7 +48,6 @@ import kotlin.system.exitProcess
  * by — and the two lists are the wire's names and the server's names.
  */
 object SyncFieldAllowlistExport {
-
     /** The version of the format. Bumped when the shape changes. */
     const val VERSION = 1
 
@@ -57,23 +56,24 @@ object SyncFieldAllowlistExport {
     /**
      * The lists as the compiled models declare them.
      */
-    fun export(): JsonObject = buildJsonObject {
-        put("version", VERSION)
-        put(
-            "docTypes",
-            buildJsonObject {
-                SyncContract.WIRE_FIELDS.forEach { (type, wire) ->
-                    put(
-                        type.key,
-                        buildJsonObject {
-                            put("wire", names(wire))
-                            put("serverWritable", names(SyncContract.serverFieldsFor(type)))
-                        },
-                    )
-                }
-            },
-        )
-    }
+    fun export(): JsonObject =
+        buildJsonObject {
+            put("version", VERSION)
+            put(
+                "docTypes",
+                buildJsonObject {
+                    SyncContract.WIRE_FIELDS.forEach { (type, wire) ->
+                        put(
+                            type.key,
+                            buildJsonObject {
+                                put("wire", names(wire))
+                                put("serverWritable", names(SyncContract.serverFieldsFor(type)))
+                            },
+                        )
+                    }
+                },
+            )
+        }
 
     private fun names(fields: List<String>): kotlinx.serialization.json.JsonArray =
         buildJsonArray {
@@ -106,8 +106,9 @@ object SyncFieldAllowlistExport {
         // A file that cannot be parsed is a file that does not say what the
         // models declare — the question stays the same, and the answer is a
         // failure with a message rather than a stack trace.
-        val actual = runCatching { Json.parseToJsonElement(target.readText()).jsonObject }
-            .getOrNull() ?: return false
+        val actual =
+            runCatching { Json.parseToJsonElement(target.readText()).jsonObject }
+                .getOrNull() ?: return false
         return actual == export()
     }
 }

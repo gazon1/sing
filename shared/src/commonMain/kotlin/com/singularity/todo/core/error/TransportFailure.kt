@@ -101,13 +101,14 @@ fun classifyTransportFailure(
     statusCode: Int?,
     serverCode: String?,
     answered: Boolean,
-): TransportFailure = when {
-    statusCode == 401 -> TransportFailure.UNAUTHORIZED
-    serverCode?.startsWith(PGRST_MISSING_PREFIX) == true -> TransportFailure.MISSING
-    statusCode == 404 -> TransportFailure.MISSING
-    answered -> TransportFailure.REJECTED
-    else -> TransportFailure.NETWORK
-}
+): TransportFailure =
+    when {
+        statusCode == 401 -> TransportFailure.UNAUTHORIZED
+        serverCode?.startsWith(PGRST_MISSING_PREFIX) == true -> TransportFailure.MISSING
+        statusCode == 404 -> TransportFailure.MISSING
+        answered -> TransportFailure.REJECTED
+        else -> TransportFailure.NETWORK
+    }
 
 /** PostgREST's own codes for "this function is not in the schema cache". */
 private const val PGRST_MISSING_PREFIX = "PGRST2"
@@ -128,12 +129,13 @@ fun transportError(
     cause: Throwable? = null,
     rejectedCode: String = "$area.${TransportFailure.REJECTED.codeSuffix}",
 ): AppError {
-    val code = when (failure) {
-        TransportFailure.UNAUTHORIZED -> "$area.${failure.codeSuffix}"
-        TransportFailure.MISSING -> "$area.${failure.codeSuffix}"
-        TransportFailure.NETWORK -> "$area.${failure.codeSuffix}"
-        TransportFailure.REJECTED -> rejectedCode
-    }
+    val code =
+        when (failure) {
+            TransportFailure.UNAUTHORIZED -> "$area.${failure.codeSuffix}"
+            TransportFailure.MISSING -> "$area.${failure.codeSuffix}"
+            TransportFailure.NETWORK -> "$area.${failure.codeSuffix}"
+            TransportFailure.REJECTED -> rejectedCode
+        }
     // The summary is what the person reads; the detail is what the person pastes
     // into a report. Both are in the message, and the code is what the dashboard
     // groups by.

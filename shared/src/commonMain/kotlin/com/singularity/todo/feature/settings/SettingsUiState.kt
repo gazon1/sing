@@ -60,17 +60,17 @@ sealed interface SettingsUiState {
         val ai: SettingsSection.Ai = SettingsSection.Ai(),
         val defaultAgendaView: SettingsSection.DefaultAgendaView = SettingsSection.DefaultAgendaView(),
         val tasks: SettingsSection.Tasks = SettingsSection.Tasks(),
-
-        // ── Ephemeral state (not persisted) ────────────────────────────────────
-        /** AI test result, fetched model list, fetch errors — UI-only state. */
+        /**
+         * Ephemeral state (not persisted).
+         *
+         * AI test result, fetched model list, fetch errors — UI-only state.
+         */
         val aiEphemeral: EphemeralState.Ai = EphemeralState.Ai(),
         /** Saved agenda views list — refreshed from DB on each observation. */
         val agendaEphemeral: EphemeralState.Agenda = EphemeralState.Agenda(),
         /** Log export loading / result — UI-only state. */
         val logExportEphemeral: EphemeralState.LogExport = EphemeralState.LogExport(),
-
-        // ── Error state ─────────────────────────────────────────────────────────
-        /** Shown as a snackbar; cleared on next successful action. */
+        /** Error state. Shown as a snackbar; cleared on next successful action. */
         val errorMessage: String? = null,
     ) : SettingsUiState {
         /**

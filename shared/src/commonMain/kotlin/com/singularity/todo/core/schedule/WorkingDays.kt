@@ -24,17 +24,17 @@ import kotlinx.datetime.isoDayNumber
  * has been stored yet.
  */
 object WorkingDays {
-
     /**
      * Monday to Friday — the set a user has before they touch the section.
      */
-    val DEFAULT: Set<DayOfWeek> = setOf(
-        DayOfWeek.MONDAY,
-        DayOfWeek.TUESDAY,
-        DayOfWeek.WEDNESDAY,
-        DayOfWeek.THURSDAY,
-        DayOfWeek.FRIDAY,
-    )
+    val DEFAULT: Set<DayOfWeek> =
+        setOf(
+            DayOfWeek.MONDAY,
+            DayOfWeek.TUESDAY,
+            DayOfWeek.WEDNESDAY,
+            DayOfWeek.THURSDAY,
+            DayOfWeek.FRIDAY,
+        )
 
     /**
      * The set as it is stored: the ISO day numbers (Monday = 1 … Sunday = 7),
@@ -58,7 +58,8 @@ object WorkingDays {
      */
     fun fromStorageString(raw: String): Set<DayOfWeek> {
         val byNumber = DayOfWeek.entries.associateBy { it.isoDayNumber }
-        return raw.split(',')
+        return raw
+            .split(',')
             .mapNotNull { it.trim().toIntOrNull() }
             .mapNotNull { byNumber[it] }
             .toSet()
@@ -76,11 +77,12 @@ object WorkingDays {
     fun fromLegacyFlags(
         saturdayIsWorkingDay: Boolean,
         sundayIsWorkingDay: Boolean,
-    ): Set<DayOfWeek> = buildSet {
-        addAll(DEFAULT)
-        if (saturdayIsWorkingDay) add(DayOfWeek.SATURDAY)
-        if (sundayIsWorkingDay) add(DayOfWeek.SUNDAY)
-    }
+    ): Set<DayOfWeek> =
+        buildSet {
+            addAll(DEFAULT)
+            if (saturdayIsWorkingDay) add(DayOfWeek.SATURDAY)
+            if (sundayIsWorkingDay) add(DayOfWeek.SUNDAY)
+        }
 
     /**
      * The two legacy booleans the set implies, for export formats that still
@@ -98,12 +100,13 @@ object WorkingDays {
  * `DayOfWeek.name` is the enum constant (`MONDAY`), which is a code, not a
  * label. The screen shows the label.
  */
-fun DayOfWeek.displayName(): String = when (this) {
-    DayOfWeek.MONDAY -> "Monday"
-    DayOfWeek.TUESDAY -> "Tuesday"
-    DayOfWeek.WEDNESDAY -> "Wednesday"
-    DayOfWeek.THURSDAY -> "Thursday"
-    DayOfWeek.FRIDAY -> "Friday"
-    DayOfWeek.SATURDAY -> "Saturday"
-    DayOfWeek.SUNDAY -> "Sunday"
-}
+fun DayOfWeek.displayName(): String =
+    when (this) {
+        DayOfWeek.MONDAY -> "Monday"
+        DayOfWeek.TUESDAY -> "Tuesday"
+        DayOfWeek.WEDNESDAY -> "Wednesday"
+        DayOfWeek.THURSDAY -> "Thursday"
+        DayOfWeek.FRIDAY -> "Friday"
+        DayOfWeek.SATURDAY -> "Saturday"
+        DayOfWeek.SUNDAY -> "Sunday"
+    }

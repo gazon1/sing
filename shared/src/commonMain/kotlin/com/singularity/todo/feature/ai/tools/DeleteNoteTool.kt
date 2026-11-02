@@ -34,23 +34,24 @@ class DeleteNoteTool(
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
 ) : SimpleTool<DeleteNoteInput>(TypeToken.of(DeleteNoteInput::class.java), NAME, DESCRIPTION) {
-
     override suspend fun execute(args: DeleteNoteInput): String {
-        val result = runCatchingCancellable {
-            NoteId.fromString(args.noteId) // validate
-            val userId = currentUser.scopedUserId.value
+        val result =
+            runCatchingCancellable {
+                NoteId.fromString(args.noteId) // validate
+                val userId = currentUser.scopedUserId.value
 
-            val (proposal, _) = ProposalBuilder.forNote(
-                kind = ProposalItemKind.DeleteNote(args.reason),
-                noteId = args.noteId,
-                userId = userId,
-                source = ProposalSource.Agent,
-                clock = clock,
-            )
+                val (proposal, _) =
+                    ProposalBuilder.forNote(
+                        kind = ProposalItemKind.DeleteNote(args.reason),
+                        noteId = args.noteId,
+                        userId = userId,
+                        source = ProposalSource.Agent,
+                        clock = clock,
+                    )
 
-            proposals.save(proposal).getOrThrow()
-            proposal.id.value to Unit
-        }
+                proposals.save(proposal).getOrThrow()
+                proposal.id.value to Unit
+            }
 
         return Json.encodeToString(
             DeleteNoteOutput.serializer(),

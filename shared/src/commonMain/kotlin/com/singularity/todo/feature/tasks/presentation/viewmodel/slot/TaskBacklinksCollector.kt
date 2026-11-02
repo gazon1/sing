@@ -35,14 +35,15 @@ class TaskBacklinksCollector(
         scope.launch {
             taskFlow.filterNotNull().collect { task ->
                 val linkRepo = collaboration.linkRepo
-                _state.value = if (linkRepo == null) {
-                    TaskBacklinksState()
-                } else {
-                    TaskBacklinksState(
-                        notes = linkRepo.getNotesLinkingToTask(task.id.value),
-                        tasks = linkRepo.getBacklinkTasks(task.id.value),
-                    )
-                }
+                _state.value =
+                    if (linkRepo == null) {
+                        TaskBacklinksState()
+                    } else {
+                        TaskBacklinksState(
+                            notes = linkRepo.getNotesLinkingToTask(task.id.value),
+                            tasks = linkRepo.getBacklinkTasks(task.id.value),
+                        )
+                    }
             }
         }
     }

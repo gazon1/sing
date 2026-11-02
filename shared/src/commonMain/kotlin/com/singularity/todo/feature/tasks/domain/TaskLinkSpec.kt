@@ -13,7 +13,6 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
  * старым производителем, переставала открываться новым матчером.
  */
 object TaskLinkSpec {
-
     /** Схема всех ссылок приложения. */
     const val SCHEME = "singularity"
 
@@ -46,8 +45,10 @@ object TaskLinkSpec {
     fun taskIdFromUri(text: String): TaskId? {
         val start = text.indexOf(MARKER)
         if (start < 0) return null
-        val id = text.substring(start + MARKER.length)
-            .takeWhile { it.isLetterOrDigit() || it == '-' }
+        val id =
+            text
+                .substring(start + MARKER.length)
+                .takeWhile { it.isLetterOrDigit() || it == '-' }
         return id.takeIf { it.isNotBlank() }?.let { TaskId(it) }
     }
 }

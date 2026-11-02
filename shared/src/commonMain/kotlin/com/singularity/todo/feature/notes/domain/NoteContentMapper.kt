@@ -17,7 +17,6 @@ import com.singularity.todo.feature.notes.domain.logic.extractOutgoingLinks
  * If a platform lacks rich-editor, use [markdownToHtmlSimple] as a fallback.
  */
 object NoteContentMapper {
-
     /**
      * Converts markdown to canonical HTML using the rich-editor library.
      * Used by [com.singularity.todo.feature.ai.tools.CreateNoteTool] to store notes

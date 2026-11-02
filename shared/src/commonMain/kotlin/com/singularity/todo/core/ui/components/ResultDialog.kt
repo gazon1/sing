@@ -18,7 +18,11 @@ import com.singularity.todo.core.ui.preview.noopClick
  * in TasksScreen, NoteEditorScreen, ProjectsScreen, and ChatScreen.
  */
 @Composable
-fun ResultDialog(title: String, text: String, onDismiss: () -> Unit) {
+fun ResultDialog(
+    title: String,
+    text: String,
+    onDismiss: () -> Unit,
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
@@ -27,9 +31,10 @@ fun ResultDialog(title: String, text: String, onDismiss: () -> Unit) {
         // Flows assert the dialog is present, not what it says: these messages are
         // user-facing copy that changes with the feature and is translated on this
         // device, so matching the text rots.
-        modifier = Modifier
-            .testTag(TestTags.RESULT_DIALOG)
-            .mapTestTagsAsResourceIds(),
+        modifier =
+            Modifier
+                .testTag(TestTags.RESULT_DIALOG)
+                .mapTestTagsAsResourceIds(),
     )
 }
 
@@ -37,20 +42,22 @@ fun ResultDialog(title: String, text: String, onDismiss: () -> Unit) {
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun ResultDialogSuccessPreview() = PreviewThemed(darkTheme = false) {
-    ResultDialog(
-        title = "Success",
-        text = "Your data has been exported successfully.",
-        onDismiss = noopClick,
-    )
-}
+private fun ResultDialogSuccessPreview() =
+    PreviewThemed(darkTheme = false) {
+        ResultDialog(
+            title = "Success",
+            text = "Your data has been exported successfully.",
+            onDismiss = noopClick,
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun ResultDialogErrorPreview() = PreviewThemed(darkTheme = true) {
-    ResultDialog(
-        title = "Error",
-        text = "Failed to connect to the server. Please check your internet connection.",
-        onDismiss = noopClick,
-    )
-}
+private fun ResultDialogErrorPreview() =
+    PreviewThemed(darkTheme = true) {
+        ResultDialog(
+            title = "Error",
+            text = "Failed to connect to the server. Please check your internet connection.",
+            onDismiss = noopClick,
+        )
+    }

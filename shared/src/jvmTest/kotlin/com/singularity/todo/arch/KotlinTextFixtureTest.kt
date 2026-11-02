@@ -35,11 +35,11 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class KotlinTextFixtureTest {
-
-    private val repoRoot: File = File(
-        System.getProperty("commonMain.root")
-            ?: error("commonMain.root is not set — see shared/build.gradle.kts"),
-    ).parentFile.parentFile.parentFile.parentFile
+    private val repoRoot: File =
+        File(
+            System.getProperty("commonMain.root")
+                ?: error("commonMain.root is not set — see shared/build.gradle.kts"),
+        ).parentFile.parentFile.parentFile.parentFile
 
     private val fixtureFile = File(repoRoot, "config/test-fixtures/kotlin-brace-matching.txt")
 
@@ -48,9 +48,10 @@ class KotlinTextFixtureTest {
 
     @Test
     fun every_shared_fixture_matches_its_agreed_body() {
-        val failures = loadFixtures()
-            .filter { KotlinText.blockBody(it.source) != it.expected }
-            .joinToString("\n") { "  ${it.id}: expected ${it.expected}, got ${KotlinText.blockBody(it.source)}" }
+        val failures =
+            loadFixtures()
+                .filter { KotlinText.blockBody(it.source) != it.expected }
+                .joinToString("\n") { "  ${it.id}: expected ${it.expected}, got ${KotlinText.blockBody(it.source)}" }
 
         assertTrue(
             failures.isEmpty(),

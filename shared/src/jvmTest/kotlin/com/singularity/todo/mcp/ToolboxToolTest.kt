@@ -28,8 +28,10 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class ToolboxToolTest {
-
-    private fun entry(name: String, domain: String = "tasks") = ToolboxToolEntry(
+    private fun entry(
+        name: String,
+        domain: String = "tasks",
+    ) = ToolboxToolEntry(
         name = name,
         description = "The $name tool.",
         domain = domain,
@@ -45,12 +47,13 @@ class ToolboxToolTest {
         disabled: List<ToolboxToolEntry> = emptyList(),
         unmatched: List<String> = emptyList(),
     ) = ToolsetSnapshot(
-        identity = ToolboxIdentity(
-            buildVersion = "1.2.3",
-            checkout = CheckoutInfo(sha = "abc123", dirty = false),
-            catalogFingerprint = "catalog0000000000",
-            activeToolsetFingerprint = "active00000000000",
-        ),
+        identity =
+            ToolboxIdentity(
+                buildVersion = "1.2.3",
+                checkout = CheckoutInfo(sha = "abc123", dirty = false),
+                catalogFingerprint = "catalog0000000000",
+                activeToolsetFingerprint = "active00000000000",
+            ),
         registered = registered,
         disabled = disabled,
         configurationStatus = ConfigurationStatus.CURRENT,
@@ -109,11 +112,13 @@ class ToolboxToolTest {
 
     @Test
     fun `a tool is reported with its own description`() {
-        val payload = ToolboxTool(snapshot())
-            .payload(listOf(entry("list_tasks", domain = "tasks")), emptyList(), false)
+        val payload =
+            ToolboxTool(snapshot())
+                .payload(listOf(entry("list_tasks", domain = "tasks")), emptyList(), false)
 
-        val domains = payload["toolset"]?.jsonObject?.get("domains")?.jsonObject
-            ?: error("no domains")
+        val domains =
+            payload["toolset"]?.jsonObject?.get("domains")?.jsonObject
+                ?: error("no domains")
         val tools = domains["tasks"]?.jsonObject?.get("tools")?.jsonArray ?: error("no tools")
         val tool = tools.first().jsonObject
         assertEquals("list_tasks", tool["name"]?.jsonPrimitive?.content)
@@ -158,8 +163,10 @@ class ToolboxToolTest {
 
         val payload = tool.payload(listOf(entry("list_tasks")), emptyList(), false)
 
-        val flags = payload["unmatchedFlags"]?.jsonArray
-            ?.map { it.jsonObject["name"]?.jsonPrimitive?.content }
+        val flags =
+            payload["unmatchedFlags"]
+                ?.jsonArray
+                ?.map { it.jsonObject["name"]?.jsonPrimitive?.content }
         assertEquals(listOf("old_tool"), flags)
     }
 

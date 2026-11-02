@@ -6,7 +6,6 @@ import kotlin.test.assertEquals
 
 @Tag("fast")
 class LlmProviderTest {
-
     @Test fun fromIdReturnsProviderForKnownId() {
         assertEquals(LlmProvider.OPENAI, LlmProvider.fromId("openai"))
         assertEquals(LlmProvider.OPENAI_COMPATIBLE, LlmProvider.fromId("openai-compatible"))

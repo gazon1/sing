@@ -40,14 +40,15 @@ package com.singularity.todo.feature.search.query
  * a grammar where `And` sometimes means one thing and sometimes another.
  */
 class QueryTokenizer(private val input: String) {
-
     /** The token stream for [input]. */
     fun tokens(): List<Token> {
         val out = mutableListOf<Token>()
         var pos = 0
         while (pos < input.length) {
             when {
-                input[pos].isWhitespace() -> pos++
+                input[pos].isWhitespace() -> {
+                    pos++
+                }
 
                 input[pos] == '(' -> {
                     out += Token.LParen
@@ -59,9 +60,13 @@ class QueryTokenizer(private val input: String) {
                     pos++
                 }
 
-                input[pos] == '"' -> pos = readQuoted(pos, out)
+                input[pos] == '"' -> {
+                    pos = readQuoted(pos, out)
+                }
 
-                else -> pos = readWord(pos, out)
+                else -> {
+                    pos = readWord(pos, out)
+                }
             }
         }
         return out
@@ -73,7 +78,10 @@ class QueryTokenizer(private val input: String) {
      * Returns the index just past what was consumed. Per R1, running out of input before
      * the closing quote is not an error — the token simply ends at the end of the input.
      */
-    private fun readQuoted(start: Int, out: MutableList<Token>): Int {
+    private fun readQuoted(
+        start: Int,
+        out: MutableList<Token>,
+    ): Int {
         val text = StringBuilder()
         var pos = start + 1
         while (pos < input.length && input[pos] != '"') {
@@ -99,7 +107,10 @@ class QueryTokenizer(private val input: String) {
      * recognised as a condition later, in the parser — which is what lets §3 G5 fall
      * through to free text for anything unrecognised.
      */
-    private fun readWord(start: Int, out: MutableList<Token>): Int {
+    private fun readWord(
+        start: Int,
+        out: MutableList<Token>,
+    ): Int {
         val text = StringBuilder()
         var pos = start
         while (pos < input.length && !input[pos].isWhitespace() && input[pos] != '(' && input[pos] != ')') {
@@ -109,12 +120,13 @@ class QueryTokenizer(private val input: String) {
         val word = text.toString()
         // R3: keyword recognition is case-insensitive and happens here, at the lexical
         // layer, so no downstream rule has to re-check it.
-        out += when {
-            word.equals(KEYWORD_AND, ignoreCase = true) -> Token.And
-            word.equals(KEYWORD_OR, ignoreCase = true) -> Token.Or
-            word.equals(KEYWORD_NOT, ignoreCase = true) -> Token.Not
-            else -> Token.Word(word)
-        }
+        out +=
+            when {
+                word.equals(KEYWORD_AND, ignoreCase = true) -> Token.And
+                word.equals(KEYWORD_OR, ignoreCase = true) -> Token.Or
+                word.equals(KEYWORD_NOT, ignoreCase = true) -> Token.Not
+                else -> Token.Word(word)
+            }
         return pos
     }
 
@@ -168,8 +180,12 @@ class QueryTokenizer(private val input: String) {
         }
 
         override val length: Int get() = text.length
+
         override fun get(index: Int): Char = text[index]
-        override fun subSequence(startIndex: Int, endIndex: Int): CharSequence =
-            text.subSequence(startIndex, endIndex)
+
+        override fun subSequence(
+            startIndex: Int,
+            endIndex: Int,
+        ): CharSequence = text.subSequence(startIndex, endIndex)
     }
 }

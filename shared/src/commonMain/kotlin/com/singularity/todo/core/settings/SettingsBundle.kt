@@ -24,7 +24,6 @@ import kotlinx.datetime.DayOfWeek
  * - Domain types (enums, value objects) are used directly rather than raw strings.
  */
 sealed interface SettingsSection {
-
     // ── Appearance ────────────────────────────────────────────────────────────
 
     /** Appearance: theme mode, accent color, font scale. */
@@ -105,7 +104,6 @@ sealed interface SettingsSection {
  * (transient flags).
  */
 sealed interface EphemeralState {
-
     data class Ai(
         val testResult: AiTestResult = AiTestResult.Idle,
         val models: List<String> = emptyList(),
@@ -148,12 +146,13 @@ sealed interface EphemeralState {
  * and the thing to verify first if a settings control is ever found inert.
  */
 sealed interface SettingsIntent : com.singularity.todo.core.ui.MviIntent {
-
     // ── Appearance ────────────────────────────────────────────────────────────
 
     sealed interface Appearance : SettingsIntent {
         data class UpdateThemeMode(val value: ThemeMode) : Appearance
+
         data class UpdateAccentColor(val value: String) : Appearance
+
         data class UpdateFontSizeScale(val value: Float) : Appearance
     }
 
@@ -180,7 +179,9 @@ sealed interface SettingsIntent : com.singularity.todo.core.ui.MviIntent {
 
         /** API key — written directly to SecureStorage, never debounced through apply(). */
         data class UpdateApiKey(val value: String) : Ai
+
         data object TestConnection : Ai
+
         data object FetchModels : Ai
     }
 
@@ -188,8 +189,11 @@ sealed interface SettingsIntent : com.singularity.todo.core.ui.MviIntent {
 
     sealed interface Notifications : SettingsIntent {
         data class UpdateEnabled(val value: Boolean) : Notifications
+
         data class UpdateSound(val value: Boolean) : Notifications
+
         data class UpdateVibration(val value: Boolean) : Notifications
+
         data class UpdateReminderDefault(val value: ReminderOffset) : Notifications
     }
 
@@ -197,8 +201,11 @@ sealed interface SettingsIntent : com.singularity.todo.core.ui.MviIntent {
 
     sealed interface WorkSchedule : SettingsIntent {
         data class UpdateWorkDayStart(val minutes: Int) : WorkSchedule
+
         data class UpdateWorkDayEnd(val minutes: Int) : WorkSchedule
+
         data class UpdateWorkLunchStart(val minutes: Int) : WorkSchedule
+
         data class UpdateWorkLunchEnd(val minutes: Int) : WorkSchedule
 
         /**
@@ -216,6 +223,7 @@ sealed interface SettingsIntent : com.singularity.todo.core.ui.MviIntent {
 
     sealed interface Greeting : SettingsIntent {
         data class UpdateMorningEnd(val hour: Int) : Greeting
+
         data class UpdateAfternoonEnd(val hour: Int) : Greeting
     }
 

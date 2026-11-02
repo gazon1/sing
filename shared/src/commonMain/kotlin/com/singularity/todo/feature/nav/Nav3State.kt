@@ -9,12 +9,12 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.rememberDecoratedNavEntries
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import com.singularity.todo.feature.nav.deeplink.DeepLinkTarget
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
 
 /**
  * State holder for Navigation 3 multi-back-stack navigation.
@@ -48,10 +48,11 @@ class Nav3State internal constructor(
      * a reselect arriving while no screen is collecting (the tab is not composed) must not
      * suspend the tap handler or grow an unbounded queue.
      */
-    private val _reselectEvents = MutableSharedFlow<NavKey>(
-        extraBufferCapacity = 1,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST,
-    )
+    private val _reselectEvents =
+        MutableSharedFlow<NavKey>(
+            extraBufferCapacity = 1,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST,
+        )
 
     /** Reselect events for the active tab. See [_reselectEvents]. */
     val reselectEvents: SharedFlow<NavKey> = _reselectEvents.asSharedFlow()
@@ -100,9 +101,10 @@ class Nav3State internal constructor(
      * Use this instead of [backStackFor] at call sites that cannot meaningfully continue
      * without a stack — a silent `null` there turns into an empty `NavDisplay` entry list.
      */
-    fun requireBackStackFor(route: NavKey): NavBackStack<NavKey> = checkNotNull(backStackFor(route)) {
-        "Nav3State: no back stack for route=$route. Top-level routes: ${backStacks.keys}."
-    }
+    fun requireBackStackFor(route: NavKey): NavBackStack<NavKey> =
+        checkNotNull(backStackFor(route)) {
+            "Nav3State: no back stack for route=$route. Top-level routes: ${backStacks.keys}."
+        }
 
     var topLevelRoute: NavKey
         get() = topLevelRouteState.value
@@ -161,27 +163,30 @@ class Nav3State internal constructor(
         entryDecorators: ImmutableList<androidx.navigation3.runtime.NavEntryDecorator<NavKey>>,
     ): List<NavEntry<NavKey>> {
         val viewModelStoreDecorator = rememberViewModelStoreNavEntryDecorator<NavKey>()
-        val decoratedEntries = backStacks.mapValues { (_, stack) ->
-            val decorators = buildList {
-                add(viewModelStoreDecorator)
-                addAll(entryDecorators)
-                // Always include SaveableStateHolder for state preservation across tab swaps.
-                // The ViewModelStore decorator requires it to provide SavedStateHandle.
-                add(rememberSaveableStateHolderNavEntryDecorator())
+        val decoratedEntries =
+            backStacks.mapValues { (_, stack) ->
+                val decorators =
+                    buildList {
+                        add(viewModelStoreDecorator)
+                        addAll(entryDecorators)
+                        // Always include SaveableStateHolder for state preservation across tab swaps.
+                        // The ViewModelStore decorator requires it to provide SavedStateHandle.
+                        add(rememberSaveableStateHolderNavEntryDecorator())
+                    }
+                rememberDecoratedNavEntries(
+                    backStack = stack,
+                    entryDecorators = decorators,
+                    entryProvider = { key: NavKey ->
+                        @Suppress("UNCHECKED_CAST")
+                        entryProvider(key as AppDestination) as NavEntry<NavKey>
+                    },
+                )
             }
-            rememberDecoratedNavEntries(
-                backStack = stack,
-                entryDecorators = decorators,
-                entryProvider = { key: NavKey ->
-                    @Suppress("UNCHECKED_CAST")
-                    entryProvider(key as AppDestination) as NavEntry<NavKey>
-                },
-            )
-        }
-        val result = getTopLevelRoutesInUse().flatMap {
-            decoratedEntries[it]
-                ?: emptyList()
-        }
+        val result =
+            getTopLevelRoutesInUse().flatMap {
+                decoratedEntries[it]
+                    ?: emptyList()
+            }
         // Fallback: never yield an empty entry list, which would render a blank
         // shell. If every resolved stack is empty, reseed the start stack and
         // return its entries.
@@ -199,14 +204,15 @@ class Nav3State internal constructor(
     // Targeted, not "all non-empty stacks": every back stack is seeded with its key at
     // composition, so an isNotEmpty filter would always include every top-level route and
     // NavDisplay would render the last one (Settings) instead of the current tab.
-    private fun getTopLevelRoutesInUse(): List<NavKey> = if (topLevelRoute == startRoute) {
-        listOf(startRoute)
-    } else {
-        listOf(startRoute, topLevelRoute)
-    }
+    private fun getTopLevelRoutesInUse(): List<NavKey> =
+        if (topLevelRoute == startRoute) {
+            listOf(startRoute)
+        } else {
+            listOf(startRoute, topLevelRoute)
+        }
 }
 
-/**
+/*
  * Handles navigation events (forward and back) by updating [state].
  *
  * @param state The [Nav3State] instance to mutate.
@@ -244,8 +250,7 @@ data class NavCallbacks(val navigate: (AppDestination) -> Unit, val goBack: () -
  * Topmost route in the current stack — the deepest screen the user is on.
  * Used by both shells to decide the FAB and back behavior.
  */
-fun Nav3State.topMostRoute(): NavKey =
-    requireBackStackFor(topLevelRoute).lastOrNull() ?: topLevelRoute
+fun Nav3State.topMostRoute(): NavKey = requireBackStackFor(topLevelRoute).lastOrNull() ?: topLevelRoute
 
 class Navigator(private val state: Nav3State) {
     /**
@@ -262,11 +267,12 @@ class Navigator(private val state: Nav3State) {
      */
     fun open(target: AppNavKey) {
         val stack = state.requireBackStackFor(state.topLevelRoute)
-        val from = (stack.lastOrNull() ?: state.topLevelRoute) as? AppNavKey
-            ?: error(
-                "Navigator.open: current context ${stack.lastOrNull()} of " +
-                    "top-level ${state.topLevelRoute} is not an AppNavKey.",
-            )
+        val from =
+            (stack.lastOrNull() ?: state.topLevelRoute) as? AppNavKey
+                ?: error(
+                    "Navigator.open: current context ${stack.lastOrNull()} of " +
+                        "top-level ${state.topLevelRoute} is not an AppNavKey.",
+                )
 
         when (NavigationPolicy.resolve(from, target)) {
             OpenAction.SwitchTab -> state.onTabTapped(target)
@@ -305,12 +311,13 @@ class Navigator(private val state: Nav3State) {
      */
     fun goBack(): Boolean {
         val currentStack = state.requireBackStackFor(state.topLevelRoute)
-        val currentRoute = currentStack.lastOrNull()
-            ?: run {
-                // Fallback: an empty stack would leave the shell blank; reseed.
-                currentStack.add(state.topLevelRoute)
-                return false
-            }
+        val currentRoute =
+            currentStack.lastOrNull()
+                ?: run {
+                    // Fallback: an empty stack would leave the shell blank; reseed.
+                    currentStack.add(state.topLevelRoute)
+                    return false
+                }
 
         if (currentRoute == state.topLevelRoute) {
             // At a tab root: only switch tabs when there is a distinct previous tab.

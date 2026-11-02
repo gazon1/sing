@@ -12,9 +12,9 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class OverlayStateTest {
-
     private sealed class Sheet {
         data object PickColor : Sheet()
+
         data object PickIcon : Sheet()
     }
 

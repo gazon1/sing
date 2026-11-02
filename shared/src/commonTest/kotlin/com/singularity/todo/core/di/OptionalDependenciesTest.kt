@@ -20,7 +20,6 @@ import kotlin.test.assertNull
  */
 @Tag("fast")
 class OptionalDependenciesTest {
-
     /** A type whose binding throws when it is created. */
     private class Broken
 
@@ -30,13 +29,14 @@ class OptionalDependenciesTest {
     @Test
     fun a_missing_definition_is_not_reported() {
         var reported: Throwable? = null
-        val app = koinApplication {
-            modules(
-                module {
-                    single<Holder> { Holder(getOptionalOrNull<Broken> { reported = it }) }
-                },
-            )
-        }
+        val app =
+            koinApplication {
+                modules(
+                    module {
+                        single<Holder> { Holder(getOptionalOrNull<Broken> { reported = it }) }
+                    },
+                )
+            }
         try {
             assertNull(app.koin.get<Holder>().optional)
             assertNull(
@@ -51,14 +51,15 @@ class OptionalDependenciesTest {
     @Test
     fun a_broken_definition_is_reported_and_resolves_to_null() {
         var reported: Throwable? = null
-        val app = koinApplication {
-            modules(
-                module {
-                    factory<Broken> { error("the binding is broken") }
-                    single<Holder> { Holder(getOptionalOrNull<Broken> { reported = it }) }
-                },
-            )
-        }
+        val app =
+            koinApplication {
+                modules(
+                    module {
+                        factory<Broken> { error("the binding is broken") }
+                        single<Holder> { Holder(getOptionalOrNull<Broken> { reported = it }) }
+                    },
+                )
+            }
         try {
             assertNull(
                 app.koin.get<Holder>().optional,

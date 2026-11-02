@@ -25,13 +25,15 @@ import androidx.compose.ui.layout.onGloballyPositioned
  */
 @Stable
 class SpotlightAnchorRegistry {
-
     private val anchors = mutableStateMapOf<SpotlightAnchorId, Rect>()
 
     /** Current root-space bounds of [id], or null while it has not been laid out. */
     operator fun get(id: SpotlightAnchorId): Rect? = anchors[id]
 
-    internal fun register(id: SpotlightAnchorId, bounds: Rect) {
+    internal fun register(
+        id: SpotlightAnchorId,
+        bounds: Rect,
+    ) {
         anchors[id] = bounds
     }
 

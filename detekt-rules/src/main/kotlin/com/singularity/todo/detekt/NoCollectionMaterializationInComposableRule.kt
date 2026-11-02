@@ -1,5 +1,6 @@
 package com.singularity.todo.detekt
 
+import com.intellij.psi.PsiElement
 import dev.detekt.api.Config
 import dev.detekt.api.Entity
 import dev.detekt.api.Finding
@@ -8,12 +9,11 @@ import dev.detekt.api.RuleName
 import dev.detekt.api.RuleSet
 import dev.detekt.api.RuleSetId
 import dev.detekt.api.RuleSetProvider
-import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.psi.KtCallExpression
-import org.jetbrains.kotlin.psi.KtValueArgument
 import org.jetbrains.kotlin.psi.KtLambdaArgument
 import org.jetbrains.kotlin.psi.KtLambdaExpression
 import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtValueArgument
 
 /**
  * A `@Composable` must not materialise a collection in its own body.
@@ -86,7 +86,6 @@ import org.jetbrains.kotlin.psi.KtNamedFunction
  * @see 2026-10-22-compose-stability-contract
  */
 class NoCollectionMaterializationInComposableRule(config: Config) : Rule(config, "", null) {
-
     override fun visitNamedFunction(function: KtNamedFunction) {
         super.visitNamedFunction(function)
         if (!function.isComposable()) return
@@ -99,11 +98,12 @@ class NoCollectionMaterializationInComposableRule(config: Config) : Rule(config,
                 report(
                     Finding(
                         entity = Entity.from(call),
-                        message = "A @Composable materialises a collection in its own body ($factory). " +
-                            "The collection is rebuilt on every recomposition of this composable, so " +
-                            "the promise of stability never starts. Build it where it belongs: in the " +
-                            "state that owns it, in remember { }, or in a top-level val — and hand " +
-                            "that instance over unchanged.",
+                        message =
+                            "A @Composable materialises a collection in its own body ($factory). " +
+                                "The collection is rebuilt on every recomposition of this composable, so " +
+                                "the promise of stability never starts. Build it where it belongs: in the " +
+                                "state that owns it, in remember { }, or in a top-level val — and hand " +
+                                "that instance over unchanged.",
                         references = emptyList(),
                         suppressReasons = emptyList(),
                     ),
@@ -175,19 +175,20 @@ class NoCollectionMaterializationInComposableRule(config: Config) : Rule(config,
         val argument = parent as? KtValueArgument
         val argumentName = argument?.getArgumentName()?.asName?.asString()
         if (argumentName != null && argumentName.startsWith(EVENT_PREFIX)) return true
-        val call = when (val parent = this.parent) {
-            is KtCallExpression -> parent
+        val call =
+            when (val parent = this.parent) {
+                is KtCallExpression -> parent
 
-            // A trailing lambda sits in the call's lambda argument list, and
-            // the argument list entry is the lambda's parent.
-            is KtLambdaArgument -> parent.parent as? KtCallExpression
+                // A trailing lambda sits in the call's lambda argument list, and
+                // the argument list entry is the lambda's parent.
+                is KtLambdaArgument -> parent.parent as? KtCallExpression
 
-            // A lambda written in the value list is wrapped in a value
-            // argument, whose parent is the argument list.
-            is KtValueArgument -> parent.parent?.parent as? KtCallExpression
+                // A lambda written in the value list is wrapped in a value
+                // argument, whose parent is the argument list.
+                is KtValueArgument -> parent.parent?.parent as? KtCallExpression
 
-            else -> null
-        } ?: return false
+                else -> null
+            } ?: return false
         val callee = call.calleeExpression?.text ?: return false
         return callee in COMPUTATION_CALLS
     }
@@ -241,16 +242,17 @@ class NoCollectionMaterializationInComposableRule(config: Config) : Rule(config,
          * keys change. A collection built there is not rebuilt on every
          * recomposition, and the rule has nothing to say about it.
          */
-        val COMPUTATION_CALLS = setOf(
-            "remember",
-            "rememberSaveable",
-            "derivedStateOf",
-            "produceState",
-            "snapshotFlow",
-            "LaunchedEffect",
-            "DisposableEffect",
-            "SideEffect",
-        )
+        val COMPUTATION_CALLS =
+            setOf(
+                "remember",
+                "rememberSaveable",
+                "derivedStateOf",
+                "produceState",
+                "snapshotFlow",
+                "LaunchedEffect",
+                "DisposableEffect",
+                "SideEffect",
+            )
     }
 }
 
@@ -260,12 +262,14 @@ class NoCollectionMaterializationInComposableRule(config: Config) : Rule(config,
  */
 class NoCollectionMaterializationInComposableProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("no-collection-materialization-in-composable")
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf<RuleName, (Config) -> Rule>(
-            RuleName("NoCollectionMaterializationInComposable") to { cfg: Config ->
-                NoCollectionMaterializationInComposableRule(cfg)
-            },
-        ),
-    )
+
+    override fun instance(): RuleSet =
+        RuleSet(
+            ruleSetId,
+            mapOf<RuleName, (Config) -> Rule>(
+                RuleName("NoCollectionMaterializationInComposable") to { cfg: Config ->
+                    NoCollectionMaterializationInComposableRule(cfg)
+                },
+            ),
+        )
 }

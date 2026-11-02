@@ -19,7 +19,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class FormatStringTest {
-
     @Test
     fun aPlainStringHasNoSegments() {
         val segments = segmentsOf("just text")
@@ -115,7 +114,6 @@ class FormatStringTest {
 /** The functions themselves, including the date ones that reuse the project's formatters. */
 @Tag("fast")
 class BuiltinFunctionsTest {
-
     private val registry = A2uiFunctionRegistry()
     private val today = LocalDate(2026, 10, 5)
 
@@ -167,15 +165,18 @@ class BuiltinFunctionsTest {
     fun aFunctionSeesTheDataModelItWasGiven() {
         val model = DataModel()
         model.set(UiPath.parse("/user/name"), JsonPrimitive("Ada"))
-        val reads = A2uiFunctionRegistry(
-            mapOf("whoami" to A2uiFunction { _, ctx -> ctx.dataModel.get(UiPath.parse("/user/name")) }),
-        )
+        val reads =
+            A2uiFunctionRegistry(
+                mapOf("whoami" to A2uiFunction { _, ctx -> ctx.dataModel.get(UiPath.parse("/user/name")) }),
+            )
         val result = reads.call("whoami", emptyList(), A2uiFunctionContext(today, model))
         assertEquals("Ada", assertNotNull(result).jsonPrimitive.content)
     }
 
-    private fun call(name: String, args: List<kotlinx.serialization.json.JsonElement>): String? =
-        registry.call(name, args, context())?.let { (it as JsonPrimitive).content }
+    private fun call(
+        name: String,
+        args: List<kotlinx.serialization.json.JsonElement>,
+    ): String? = registry.call(name, args, context())?.let { (it as JsonPrimitive).content }
 
     private fun context(): A2uiFunctionContext = A2uiFunctionContext(today, DataModel())
 }

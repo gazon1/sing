@@ -10,7 +10,6 @@ import android.app.Activity
  * All implementations must be safe to call from the main thread.
  */
 interface UpdateStorePort {
-
     /**
      * Returns true if an update is available from this store and the
      * current platform supports showing it.

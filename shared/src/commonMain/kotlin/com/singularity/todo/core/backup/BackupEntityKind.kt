@@ -21,7 +21,6 @@ package com.singularity.todo.core.backup
  * See `docs/decisions/2026-10-27-the-removal-order-is-a-declaration.md`.
  */
 enum class BackupEntityKind(val removalPhase: BackupRemovalPhase) {
-
     /** The rows that need their parent alive: the links, and the rows that hang off one. */
     TASK_TAGS(BackupRemovalPhase.CHILDREN_FIRST),
 
@@ -99,7 +98,6 @@ enum class BackupEntityKind(val removalPhase: BackupRemovalPhase) {
  * See `docs/decisions/2026-10-27-the-removal-order-is-a-declaration.md`.
  */
 enum class BackupRemovalPhase {
-
     /** The rows that need their parent alive: the links, and the rows that hang off one. */
     CHILDREN_FIRST,
 

@@ -30,7 +30,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class JvmReminderRearmTest {
-
     private val now = 1_800_000_000_000L
 
     /** A scheduler that records what it was asked to arm, and fails on chosen ids. */
@@ -49,9 +48,15 @@ class JvmReminderRearmTest {
             scheduled += reminder.id
         }
 
-        override suspend fun cancel(id: ReminderId, userId: UserId) = Unit
+        override suspend fun cancel(
+            id: ReminderId,
+            userId: UserId,
+        ) = Unit
 
-        override suspend fun cancelByTask(taskId: TaskId, userId: UserId) = Unit
+        override suspend fun cancelByTask(
+            taskId: TaskId,
+            userId: UserId,
+        ) = Unit
     }
 
     private fun reminder(
@@ -75,22 +80,24 @@ class JvmReminderRearmTest {
      * fire because an unrelated 18:00 one hit a bad unit.
      */
     @Test
-    fun `one reminder that fails to arm does not abandon the rest`() = runTest {
-        val scheduler = RecordingScheduler(failing = setOf("r1"))
-        val seen = mutableListOf<String>()
+    fun `one reminder that fails to arm does not abandon the rest`() =
+        runTest {
+            val scheduler = RecordingScheduler(failing = setOf("r1"))
+            val seen = mutableListOf<String>()
 
-        val report = JvmReminderRearm.run(
-            scheduler = scheduler,
-            reminders = listOf(reminder(index = 1), reminder(index = 2), reminder(index = 3)),
-            nowEpochMs = now,
-            onFailure = { r, _ -> seen += r.id.value },
-        )
+            val report =
+                JvmReminderRearm.run(
+                    scheduler = scheduler,
+                    reminders = listOf(reminder(index = 1), reminder(index = 2), reminder(index = 3)),
+                    nowEpochMs = now,
+                    onFailure = { r, _ -> seen += r.id.value },
+                )
 
-        assertEquals(listOf("r2", "r3"), scheduler.scheduled.map { it.value })
-        assertEquals(listOf("r1"), seen, "the failure must be reported, not swallowed")
-        assertEquals(2, report.armed)
-        assertEquals(listOf(ReminderId("r1")), report.failed)
-    }
+            assertEquals(listOf("r2", "r3"), scheduler.scheduled.map { it.value })
+            assertEquals(listOf("r1"), seen, "the failure must be reported, not swallowed")
+            assertEquals(2, report.armed)
+            assertEquals(listOf(ReminderId("r1")), report.failed)
+        }
 
     /**
      * A failure is counted and named, never quietly dropped.
@@ -100,17 +107,19 @@ class JvmReminderRearmTest {
      * batch that never ran.
      */
     @Test
-    fun `the report names what failed so it can be logged`() = runTest {
-        val report = JvmReminderRearm.run(
-            scheduler = RecordingScheduler(failing = setOf("r0", "r2")),
-            reminders = listOf(reminder(index = 0), reminder(index = 1), reminder(index = 2)),
-            nowEpochMs = now,
-        )
+    fun `the report names what failed so it can be logged`() =
+        runTest {
+            val report =
+                JvmReminderRearm.run(
+                    scheduler = RecordingScheduler(failing = setOf("r0", "r2")),
+                    reminders = listOf(reminder(index = 0), reminder(index = 1), reminder(index = 2)),
+                    nowEpochMs = now,
+                )
 
-        assertEquals(1, report.armed)
-        assertEquals(2, report.failed.size)
-        assertTrue("FAILED" in report.describe(), "the summary must be loud, got: ${report.describe()}")
-    }
+            assertEquals(1, report.armed)
+            assertEquals(2, report.failed.size)
+            assertTrue("FAILED" in report.describe(), "the summary must be loud, got: ${report.describe()}")
+        }
 
     /**
      * Nothing is armed on a host that cannot arm.
@@ -120,22 +129,24 @@ class JvmReminderRearmTest {
      * broken one in the only place anyone looks.
      */
     @Test
-    fun `an unsupported platform arms nothing and says so`() = runTest {
-        val scheduler = RecordingScheduler(supported = false)
+    fun `an unsupported platform arms nothing and says so`() =
+        runTest {
+            val scheduler = RecordingScheduler(supported = false)
 
-        val report = JvmReminderRearm.run(
-            scheduler = scheduler,
-            reminders = listOf(reminder(index = 0), reminder(index = 1)),
-            nowEpochMs = now,
-        )
+            val report =
+                JvmReminderRearm.run(
+                    scheduler = scheduler,
+                    reminders = listOf(reminder(index = 0), reminder(index = 1)),
+                    nowEpochMs = now,
+                )
 
-        assertTrue(scheduler.scheduled.isEmpty())
-        assertEquals(false, report.supported)
-        assertTrue(
-            "cannot" in report.describe(),
-            "the summary must distinguish 'cannot arm' from 'armed nothing'; got ${report.describe()}",
-        )
-    }
+            assertTrue(scheduler.scheduled.isEmpty())
+            assertEquals(false, report.supported)
+            assertTrue(
+                "cannot" in report.describe(),
+                "the summary must distinguish 'cannot arm' from 'armed nothing'; got ${report.describe()}",
+            )
+        }
 
     /**
      * A reminder whose moment has passed is not armed.
@@ -144,38 +155,43 @@ class JvmReminderRearmTest {
      * bulk pass does not generate a failure for every reminder in the past.
      */
     @Test
-    fun `reminders already past due are skipped, not attempted`() = runTest {
-        val scheduler = RecordingScheduler()
+    fun `reminders already past due are skipped, not attempted`() =
+        runTest {
+            val scheduler = RecordingScheduler()
 
-        val report = JvmReminderRearm.run(
-            scheduler = scheduler,
-            reminders = listOf(
-                reminder(index = 0, fireAt = now - 1),
-                reminder(index = 1, fireAt = now),
-                reminder(index = 2, fireAt = now + 1),
-            ),
-            nowEpochMs = now,
-        )
+            val report =
+                JvmReminderRearm.run(
+                    scheduler = scheduler,
+                    reminders =
+                        listOf(
+                            reminder(index = 0, fireAt = now - 1),
+                            reminder(index = 1, fireAt = now),
+                            reminder(index = 2, fireAt = now + 1),
+                        ),
+                    nowEpochMs = now,
+                )
 
-        assertEquals(listOf("r2"), scheduler.scheduled.map { it.value })
-        assertEquals(2, report.skippedPastDue)
-    }
+            assertEquals(listOf("r2"), scheduler.scheduled.map { it.value })
+            assertEquals(2, report.skippedPastDue)
+        }
 
     /** The happy path, so the failure tests above are not the only thing exercised. */
     @Test
-    fun `every future reminder is armed`() = runTest {
-        val scheduler = RecordingScheduler()
+    fun `every future reminder is armed`() =
+        runTest {
+            val scheduler = RecordingScheduler()
 
-        val report = JvmReminderRearm.run(
-            scheduler = scheduler,
-            reminders = listOf(reminder(index = 0), reminder(index = 1)),
-            nowEpochMs = now,
-        )
+            val report =
+                JvmReminderRearm.run(
+                    scheduler = scheduler,
+                    reminders = listOf(reminder(index = 0), reminder(index = 1)),
+                    nowEpochMs = now,
+                )
 
-        assertEquals(2, report.armed)
-        assertTrue(report.failed.isEmpty())
-        assertTrue(report.supported)
-    }
+            assertEquals(2, report.armed)
+            assertTrue(report.failed.isEmpty())
+            assertTrue(report.supported)
+        }
 
     /**
      * Calling it twice must not stack duplicate timers.
@@ -186,15 +202,16 @@ class JvmReminderRearmTest {
      * this is a documented precondition rather than something this class enforces.
      */
     @Test
-    fun `re-arming is safe to repeat because it is a launch-time pass`() = runTest {
-        val scheduler = RecordingScheduler()
-        val reminders = listOf(reminder(index = 0))
+    fun `re-arming is safe to repeat because it is a launch-time pass`() =
+        runTest {
+            val scheduler = RecordingScheduler()
+            val reminders = listOf(reminder(index = 0))
 
-        val first = JvmReminderRearm.run(scheduler, reminders, now)
-        val second = JvmReminderRearm.run(scheduler, reminders, now)
+            val first = JvmReminderRearm.run(scheduler, reminders, now)
+            val second = JvmReminderRearm.run(scheduler, reminders, now)
 
-        assertEquals(1, first.armed)
-        assertEquals(1, second.armed, "a second launch must re-request the arm, not accumulate")
-        assertTrue("already past due" in second.describe() || "re-armed 1" in second.describe())
-    }
+            assertEquals(1, first.armed)
+            assertEquals(1, second.armed, "a second launch must re-request the arm, not accumulate")
+            assertTrue("already past due" in second.describe() || "re-armed 1" in second.describe())
+        }
 }

@@ -4,11 +4,11 @@ import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.serialization.TypeToken
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.proposals.domain.logic.ProposalBuilder
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
-import com.singularity.todo.feature.projects.domain.model.ProjectId
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlin.time.Clock
@@ -34,23 +34,24 @@ class DeleteProjectTool(
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
 ) : SimpleTool<DeleteProjectInput>(TypeToken.of(DeleteProjectInput::class.java), NAME, DESCRIPTION) {
-
     override suspend fun execute(args: DeleteProjectInput): String {
-        val result = runCatchingCancellable {
-            ProjectId.fromString(args.projectId) // validate
-            val userId = currentUser.scopedUserId.value
+        val result =
+            runCatchingCancellable {
+                ProjectId.fromString(args.projectId) // validate
+                val userId = currentUser.scopedUserId.value
 
-            val (proposal, _) = ProposalBuilder.forTarget(
-                kind = ProposalItemKind.DeleteProject(args.reason),
-                targetId = args.projectId,
-                userId = userId,
-                source = ProposalSource.Agent,
-                clock = clock,
-            )
+                val (proposal, _) =
+                    ProposalBuilder.forTarget(
+                        kind = ProposalItemKind.DeleteProject(args.reason),
+                        targetId = args.projectId,
+                        userId = userId,
+                        source = ProposalSource.Agent,
+                        clock = clock,
+                    )
 
-            proposals.save(proposal).getOrThrow()
-            proposal.id.value to Unit
-        }
+                proposals.save(proposal).getOrThrow()
+                proposal.id.value to Unit
+            }
 
         return Json.encodeToString(
             DeleteProjectOutput.serializer(),

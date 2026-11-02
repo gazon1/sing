@@ -4,7 +4,6 @@ import com.singularity.todo.feature.proposals.domain.model.NoteValue
 import com.singularity.todo.feature.proposals.domain.model.ProjectValue
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemStatus
-import com.singularity.todo.feature.proposals.domain.model.isPending
 import com.singularity.todo.feature.proposals.domain.model.ProposedNote
 import com.singularity.todo.feature.proposals.domain.model.ProposedProject
 import com.singularity.todo.feature.proposals.domain.model.ProposedTag
@@ -12,6 +11,7 @@ import com.singularity.todo.feature.proposals.domain.model.ProposedTask
 import com.singularity.todo.feature.proposals.domain.model.ProposedTimeEntry
 import com.singularity.todo.feature.proposals.domain.model.TagValue
 import com.singularity.todo.feature.proposals.domain.model.TaskValue
+import com.singularity.todo.feature.proposals.domain.model.isPending
 import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
@@ -59,7 +59,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class ProposalMapperTest {
-
     @Test
     fun `every kind survives the round trip`() {
         samples().forEach { kind ->
@@ -87,7 +86,8 @@ class ProposalMapperTest {
     fun `every task value this build knows has a sample`() {
         assertEquals(
             TaskValue.serializer().sealedNames(),
-            samples().filterIsInstance<ProposalItemKind.SetTaskField>()
+            samples()
+                .filterIsInstance<ProposalItemKind.SetTaskField>()
                 .map { it.value::class.simpleName }
                 .toSet(),
             "a task field arrived without a sample — it would not be covered by the round trip",
@@ -98,7 +98,8 @@ class ProposalMapperTest {
     fun `every note value this build knows has a sample`() {
         assertEquals(
             NoteValue.serializer().sealedNames(),
-            samples().filterIsInstance<ProposalItemKind.SetNoteField>()
+            samples()
+                .filterIsInstance<ProposalItemKind.SetNoteField>()
                 .map { it.value::class.simpleName }
                 .toSet(),
             "a note field arrived without a sample — it would not be covered by the round trip",
@@ -109,7 +110,8 @@ class ProposalMapperTest {
     fun `every project value this build knows has a sample`() {
         assertEquals(
             ProjectValue.serializer().sealedNames(),
-            samples().filterIsInstance<ProposalItemKind.SetProjectField>()
+            samples()
+                .filterIsInstance<ProposalItemKind.SetProjectField>()
                 .map { it.value::class.simpleName }
                 .toSet(),
             "a project field arrived without a sample — it would not be covered by the round trip",
@@ -120,7 +122,8 @@ class ProposalMapperTest {
     fun `every tag value this build knows has a sample`() {
         assertEquals(
             TagValue.serializer().sealedNames(),
-            samples().filterIsInstance<ProposalItemKind.SetTagField>()
+            samples()
+                .filterIsInstance<ProposalItemKind.SetTagField>()
                 .map { it.value::class.simpleName }
                 .toSet(),
             "a tag field arrived without a sample — it would not be covered by the round trip",
@@ -132,10 +135,11 @@ class ProposalMapperTest {
         // "No due date" is a value the task can hold, and it is written as an empty
         // string — the shape the rows written before the typed dictionary already have.
         // A codec that could not read it would drop the change from the card.
-        val cleared = listOf(
-            ProposalItemKind.SetTaskField(TaskValue.DueDate(null)),
-            ProposalItemKind.SetTaskField(TaskValue.DueTime(null)),
-        )
+        val cleared =
+            listOf(
+                ProposalItemKind.SetTaskField(TaskValue.DueDate(null)),
+                ProposalItemKind.SetTaskField(TaskValue.DueTime(null)),
+            )
 
         cleared.forEach { kind ->
             val encoded = kind.toJsonString()
@@ -168,10 +172,11 @@ class ProposalMapperTest {
     fun `a blob that is not a blob keeps the change`() {
         val encoded = "not json at all"
 
-        val decoded = assertNotNull(
-            decodeKind(encoded) as? ProposalItemKind.Unknown,
-            "the change is kept — as the change this build cannot read",
-        )
+        val decoded =
+            assertNotNull(
+                decodeKind(encoded) as? ProposalItemKind.Unknown,
+                "the change is kept — as the change this build cannot read",
+            )
 
         assertEquals(encoded, decoded.raw, "the blob is kept exactly as it was found")
         assertTrue(
@@ -256,16 +261,17 @@ class ProposalMapperTest {
         // as "waiting" would make the change applicable again — and it may already
         // have been applied, so applying it a second time is the one thing this
         // must not do.
-        val entity = ProposalItemEntity(
-            id = "pi_1",
-            proposalId = "prop_1",
-            kindJson = ProposalItemKind.SetTaskField(TaskValue.Title("Buy milk")).toJsonString(),
-            targetId = "t1",
-            humanSummary = "Set the title to Buy milk",
-            status = "Applied",
-            fingerprint = "fp_1",
-            sortOrder = 0,
-        )
+        val entity =
+            ProposalItemEntity(
+                id = "pi_1",
+                proposalId = "prop_1",
+                kindJson = ProposalItemKind.SetTaskField(TaskValue.Title("Buy milk")).toJsonString(),
+                targetId = "t1",
+                humanSummary = "Set the title to Buy milk",
+                status = "Applied",
+                fingerprint = "fp_1",
+                sortOrder = 0,
+            )
 
         val item = entity.toDomain()
 
@@ -308,85 +314,78 @@ class ProposalMapperTest {
  * The list is the coverage: a kind added to the vocabulary without a sample here
  * fails the coverage test above.
  */
-private fun samples(): List<ProposalItemKind> = listOf(
-    // Every task field.
-    ProposalItemKind.SetTaskField(TaskValue.Title("Buy milk")),
-    ProposalItemKind.SetTaskField(TaskValue.Description("Semi-skimmed")),
-    ProposalItemKind.SetTaskField(TaskValue.Priority(TaskPriority.High)),
-    ProposalItemKind.SetTaskField(TaskValue.DueDate(LocalDate(2026, 10, 22))),
-    ProposalItemKind.SetTaskField(TaskValue.DueTime(LocalTime(9, 30))),
-    ProposalItemKind.SetTaskField(TaskValue.Status(TaskStatus.Active)),
-    ProposalItemKind.SetTaskField(TaskValue.EstimateMinutes(30)),
-    ProposalItemKind.SetTaskField(TaskValue.Kind(TaskKind.Note)),
-    ProposalItemKind.SetTaskField(TaskValue.Project("project-1")),
-    ProposalItemKind.SetTaskField(TaskValue.Someday(true)),
-
-    // A value this build cannot read, for each of the four dictionaries. The field
-    // is one this build does not know — which is what a row written by an older
-    // build looks like. The change stays; the value carries the reason.
-    ProposalItemKind.SetTaskField(TaskValue.Unreadable("Priority", "very high")),
-    ProposalItemKind.SetNoteField(NoteValue.Unreadable("Colour", "blue")),
-    ProposalItemKind.SetProjectField(ProjectValue.Unreadable("Colour", "blue")),
-    ProposalItemKind.SetTagField(TagValue.Unreadable("Colour", "blue")),
-
-    // Every note field.
-    ProposalItemKind.SetNoteField(NoteValue.Title("Agenda")),
-    ProposalItemKind.SetNoteField(NoteValue.Body("<p>Buy milk</p>")),
-    ProposalItemKind.SetNoteField(NoteValue.Summary("Milk")),
-
-    // Every project field.
-    ProposalItemKind.SetProjectField(ProjectValue.Name("Kitchen")),
-    ProposalItemKind.SetProjectField(ProjectValue.Description("Renovation")),
-    ProposalItemKind.SetProjectField(ProjectValue.Color(0xFF2196F3.toInt())),
-    ProposalItemKind.SetProjectField(ProjectValue.Icon("kitchen")),
-
-    // Every tag field.
-    ProposalItemKind.SetTagField(TagValue.Name("chore")),
-    ProposalItemKind.SetTagField(TagValue.Color(0xFF9E9E9E.toInt())),
-
-    // The collection kinds.
-    ProposalItemKind.SetTaskTags(listOf("tag-1", "tag-2")),
-    ProposalItemKind.AddTags(listOf("chore", "errand")),
-    ProposalItemKind.RemoveTags(listOf("tag-3")),
-    ProposalItemKind.AddChecklistItems(listOf("buy", "cook")),
-    ProposalItemKind.AddSubtasks(listOf("Pick up milk")),
-    ProposalItemKind.AddTimeEntries(listOf(ProposedTimeEntry(1_000L, 3_600L, "walk"))),
-
-    // The change this build cannot read. A kind that arrives in the vocabulary has
-    // to be covered here too: the round trip has to hold for it, or the change a
-    // user cannot read would be a change that disappears on the way to the database.
-    ProposalItemKind.Unknown("""{"type":"ArchiveEverything"}"""),
-
-    // The creations.
-    ProposalItemKind.CreateTask(
-        ProposedTask(
-            title = "Buy milk",
-            description = "Semi-skimmed",
-            priority = TaskPriority.High,
-            kind = TaskKind.Task,
-            projectId = "project-1",
-            parentTaskId = "task-0",
-            tagIds = listOf("tag-1"),
-            dueDate = LocalDate(2026, 10, 22),
-            dueTime = LocalTime(9, 30),
-            someday = false,
+private fun samples(): List<ProposalItemKind> =
+    listOf(
+        // Every task field.
+        ProposalItemKind.SetTaskField(TaskValue.Title("Buy milk")),
+        ProposalItemKind.SetTaskField(TaskValue.Description("Semi-skimmed")),
+        ProposalItemKind.SetTaskField(TaskValue.Priority(TaskPriority.High)),
+        ProposalItemKind.SetTaskField(TaskValue.DueDate(LocalDate(2026, 10, 22))),
+        ProposalItemKind.SetTaskField(TaskValue.DueTime(LocalTime(9, 30))),
+        ProposalItemKind.SetTaskField(TaskValue.Status(TaskStatus.Active)),
+        ProposalItemKind.SetTaskField(TaskValue.EstimateMinutes(30)),
+        ProposalItemKind.SetTaskField(TaskValue.Kind(TaskKind.Note)),
+        ProposalItemKind.SetTaskField(TaskValue.Project("project-1")),
+        ProposalItemKind.SetTaskField(TaskValue.Someday(true)),
+        // A value this build cannot read, for each of the four dictionaries. The field
+        // is one this build does not know — which is what a row written by an older
+        // build looks like. The change stays; the value carries the reason.
+        ProposalItemKind.SetTaskField(TaskValue.Unreadable("Priority", "very high")),
+        ProposalItemKind.SetNoteField(NoteValue.Unreadable("Colour", "blue")),
+        ProposalItemKind.SetProjectField(ProjectValue.Unreadable("Colour", "blue")),
+        ProposalItemKind.SetTagField(TagValue.Unreadable("Colour", "blue")),
+        // Every note field.
+        ProposalItemKind.SetNoteField(NoteValue.Title("Agenda")),
+        ProposalItemKind.SetNoteField(NoteValue.Body("<p>Buy milk</p>")),
+        ProposalItemKind.SetNoteField(NoteValue.Summary("Milk")),
+        // Every project field.
+        ProposalItemKind.SetProjectField(ProjectValue.Name("Kitchen")),
+        ProposalItemKind.SetProjectField(ProjectValue.Description("Renovation")),
+        ProposalItemKind.SetProjectField(ProjectValue.Color(0xFF2196F3.toInt())),
+        ProposalItemKind.SetProjectField(ProjectValue.Icon("kitchen")),
+        // Every tag field.
+        ProposalItemKind.SetTagField(TagValue.Name("chore")),
+        ProposalItemKind.SetTagField(TagValue.Color(0xFF9E9E9E.toInt())),
+        // The collection kinds.
+        ProposalItemKind.SetTaskTags(listOf("tag-1", "tag-2")),
+        ProposalItemKind.AddTags(listOf("chore", "errand")),
+        ProposalItemKind.RemoveTags(listOf("tag-3")),
+        ProposalItemKind.AddChecklistItems(listOf("buy", "cook")),
+        ProposalItemKind.AddSubtasks(listOf("Pick up milk")),
+        ProposalItemKind.AddTimeEntries(listOf(ProposedTimeEntry(1_000L, 3_600L, "walk"))),
+        // The change this build cannot read. A kind that arrives in the vocabulary has
+        // to be covered here too: the round trip has to hold for it, or the change a
+        // user cannot read would be a change that disappears on the way to the database.
+        ProposalItemKind.Unknown("""{"type":"ArchiveEverything"}"""),
+        // The creations.
+        ProposalItemKind.CreateTask(
+            ProposedTask(
+                title = "Buy milk",
+                description = "Semi-skimmed",
+                priority = TaskPriority.High,
+                kind = TaskKind.Task,
+                projectId = "project-1",
+                parentTaskId = "task-0",
+                tagIds = listOf("tag-1"),
+                dueDate = LocalDate(2026, 10, 22),
+                dueTime = LocalTime(9, 30),
+                someday = false,
+            ),
         ),
-    ),
-    ProposalItemKind.CreateProject(
-        ProposedProject(name = "Kitchen", description = "Renovation", color = 0xFF2196F3.toInt(), icon = "kitchen"),
-    ),
-    ProposalItemKind.CreateNote(
-        ProposedNote(title = "Agenda", bodyHtml = "<p>Buy milk</p>", isFolder = false, parentNoteId = "note-0"),
-    ),
-    ProposalItemKind.CreateTag(ProposedTag(name = "chore", color = 0xFF9E9E9E.toInt())),
-    ProposalItemKind.ExtractActions(listOf("Buy milk", "Call the vet")),
-
-    // The deletions.
-    ProposalItemKind.DeleteNote("it is a draft"),
-    ProposalItemKind.DeleteTask("it is done"),
-    ProposalItemKind.DeleteProject("it is empty"),
-    ProposalItemKind.DeleteTag("it is unused"),
-)
+        ProposalItemKind.CreateProject(
+            ProposedProject(name = "Kitchen", description = "Renovation", color = 0xFF2196F3.toInt(), icon = "kitchen"),
+        ),
+        ProposalItemKind.CreateNote(
+            ProposedNote(title = "Agenda", bodyHtml = "<p>Buy milk</p>", isFolder = false, parentNoteId = "note-0"),
+        ),
+        ProposalItemKind.CreateTag(ProposedTag(name = "chore", color = 0xFF9E9E9E.toInt())),
+        ProposalItemKind.ExtractActions(listOf("Buy milk", "Call the vet")),
+        // The deletions.
+        ProposalItemKind.DeleteNote("it is a draft"),
+        ProposalItemKind.DeleteTask("it is done"),
+        ProposalItemKind.DeleteProject("it is empty"),
+        ProposalItemKind.DeleteTag("it is unused"),
+    )
 
 /**
  * The names of the variants a sealed serializer knows.

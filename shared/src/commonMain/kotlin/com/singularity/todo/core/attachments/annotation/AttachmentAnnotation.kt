@@ -41,6 +41,5 @@ data class AttachmentAnnotation(
      * Derived rather than stored: a column would have to be rewritten every time the file
      * changes, and there is no writer standing where the file changes.
      */
-    fun isStaleIn(documentText: String): Boolean =
-        anchorIn(documentText) is AnchorResolution.Stale
+    fun isStaleIn(documentText: String): Boolean = anchorIn(documentText) is AnchorResolution.Stale
 }
