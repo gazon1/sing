@@ -58,6 +58,24 @@ object BackupMigrations {
     }
 
     /**
+     * v2 → v3: a payload can carry the saved agenda views.
+     *
+     * A v2 payload knows about the dependency edges and nothing else. The new
+     * list defaults to empty in the serializable class, so a v2 payload is
+     * restorable on a v3 client without any field-level transformation — but the
+     * payload that comes out of this migration says so, rather than leaving the
+     * reader to know the default to read it.
+     */
+    private val v2ToV3: (JsonObject) -> JsonObject = { payload ->
+        JsonObject(
+            payload + mapOf(
+                "agendaViews" to JsonArray(payload["agendaViews"]?.jsonArray ?: emptyList()),
+                "schemaVersion" to JsonPrimitive(3),
+            ),
+        )
+    }
+
+    /**
      * v3 → v4: Add 8 new entity types.
      *
      * All new list fields default to empty in the serializable class, so a v3 payload
@@ -90,6 +108,28 @@ object BackupMigrations {
     }
 
     /**
+     * v5 → v6: a task record carries the state the user claimed for its work.
+     *
+     * A v5 payload has no such field, so every task comes back as `Open` — which
+     * is what "nothing claimed" means. The transform says so on every task
+     * rather than leaving it to the default in the DTO: the payload that is
+     * written after the migration is the payload that says what its tasks mean,
+     * and a reader that has to know the default to read it is one version away
+     * from a wrong answer.
+     */
+    private val v5ToV6: (JsonObject) -> JsonObject = { payload ->
+        val tasks = payload["tasks"]?.jsonArray?.map { task ->
+            JsonObject(task.jsonObject + mapOf("workflowState" to JsonPrimitive("Open")))
+        } ?: emptyList()
+        JsonObject(
+            payload + mapOf(
+                "tasks" to JsonArray(tasks),
+                "schemaVersion" to JsonPrimitive(6),
+            ),
+        )
+    }
+
+    /**
      * v6 → v7: a payload can carry the rows that were removed.
      *
      * The new field is optional and defaults to empty, so a v6 payload says
@@ -104,19 +144,28 @@ object BackupMigrations {
     // Map<fromVersion, transform>
     private val migrations: Map<Int, (JsonObject) -> JsonObject> = mapOf(
         1 to v1ToV2,
+        2 to v2ToV3,
         3 to v3ToV4,
         4 to v4ToV5,
+        5 to v5ToV6,
         6 to v6ToV7,
     )
 
     /**
      * Migrate a payload from `from` to `to` schema version.
      * Applies migrations sequentially: v1→v2→v3→...→to
+     *
+     * A step that is not registered is an **error**, not a no-op. The fold used
+     * to skip it, so a payload written at a version the chain does not cover
+     * walked over the gap and came out as the payload it went in as — with
+     * whatever the DTO defaults happened to be. The symptom was "my data is
+     * wrong", not "this backup is too old".
      */
     fun migrate(payload: JsonObject, from: Int, to: Int = CURRENT): JsonObject {
         require(from <= to) { "from ($from) > to ($to)" }
         return (from until to).fold(payload) { acc, v ->
-            migrations[v]?.invoke(acc) ?: acc
+            val step = migrations[v] ?: error("no migration from schema v$v")
+            step(acc)
         }
     }
 }

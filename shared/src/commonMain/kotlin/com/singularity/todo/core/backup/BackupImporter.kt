@@ -535,7 +535,7 @@ class BackupImporter(
         for (att in attachments) {
             val entryName = "${att.id}.dat"
             val bytes = attachmentBytes[entryName]
-            if (bytes != null) {
+            if (bytes != null && isIntact(att, bytes)) {
                 try {
                     val ext = att.mimeType?.substringAfterLast('/') ?: ""
                     // Both halves matter, and neither subsumes the other.
@@ -572,8 +572,9 @@ class BackupImporter(
                     missingIds.add(att.id)
                 }
             } else {
-                // The row is still inserted when the bytes are absent: the attachment exists
-                // as a record of what was there, marked by a null `localPath` rather than by
+                // The row is still inserted when the bytes are absent — or when they
+                // are not the bytes the row describes: the attachment exists as a
+                // record of what was there, marked by a null `localPath` rather than by
                 // its absence, and dropping it would also orphan the annotations written
                 // against it.
                 attachmentDao.upsert(
@@ -584,6 +585,29 @@ class BackupImporter(
         }
 
         return AttachmentOutcome(restored = restoredCount, missing = missingIds)
+    }
+
+    /**
+     * Whether the bytes in the archive are the bytes the row describes.
+     *
+     * The payload carries the size and the checksum of every attachment, and
+     * neither was checked: an entry that was truncated on the way in was written
+     * to the disk and counted as restored. "Present" is not "intact" — the record
+     * that says how big the file is and what it hashes to is in the same row as
+     * the entry, and it was sitting there unused.
+     *
+     * A row that says nothing about the file cannot say it is damaged, so only
+     * the emptiness of the entry is a verdict in that case — an entry with no
+     * bytes is a truncated one.
+     */
+    private fun isIntact(att: AttachmentDto, bytes: ByteArray): Boolean {
+        if (bytes.isEmpty()) return false
+        val expectedChecksum = att.checksum
+        if (expectedChecksum != null) {
+            return BackupDomain.sha256Hex(bytes).equals(expectedChecksum, ignoreCase = true)
+        }
+        val expectedSize = att.fileSizeBytes
+        return expectedSize <= 0L || bytes.size.toLong() == expectedSize
     }
 
     /** What the attachment files did: how many landed, and which did not. */

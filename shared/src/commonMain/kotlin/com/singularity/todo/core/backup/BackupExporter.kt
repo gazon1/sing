@@ -171,10 +171,27 @@ class BackupExporter(
                 }
             }
 
-            // 6. Write zip
-            codec
-                .export(manifestBytes, payloadBytes, attachmentEntries, options.destPath, fs)
-                .getOrThrow()
+            // 6. Write zip, then move it into place.
+            //
+            // The archive is written under a temporary name and moved over the
+            // destination only once it is whole. An export that fails half way
+            // — an attachment that is not on the disk, a disk that fills up —
+            // used to leave the destination file behind, and the next scheduled
+            // push uploads exactly that file: it is the newest one in the
+            // directory, and it is not a backup.
+            val temporary = "${options.destPath}$TEMPORARY_SUFFIX"
+            try {
+                codec
+                    .export(manifestBytes, payloadBytes, attachmentEntries, temporary, fs)
+                    .getOrThrow()
+                fs.move(temporary, options.destPath)
+            } finally {
+                // A temporary file that did not become the archive is litter, and
+                // litter in the backup directory is a file the person may see.
+                if (fs.exists(temporary)) {
+                    runCatchingCancellable { fs.delete(temporary) }
+                }
+            }
 
             // The archive's size is asked of the filesystem, not read back out of
             // it: `fs.readBytes` here would load the whole archive into memory a
@@ -331,5 +348,13 @@ class BackupExporter(
     private companion object {
         /** The suffix of the file the change is written to, beside the snapshot. */
         const val DELTA_SUFFIX = ".delta"
+
+        /**
+         * The suffix of the file the archive is written to before it is moved.
+         *
+         * Not `.zip`: the backup directory is scanned for `.zip`, and a
+         * half-written archive must not be one of the files that scan finds.
+         */
+        const val TEMPORARY_SUFFIX = ".tmp"
     }
 }
