@@ -124,6 +124,15 @@ sealed interface TaskDetailIntent : MviIntent {
             Domain,
             TaskEntityIntent
 
+        /**
+         * Puts a removed tag back on the task.
+         *
+         * The undo of [RemoveTag]: the tag is one of the task's tags again.
+         */
+        data class RestoreTag(val tagId: TagId) :
+            Domain,
+            TaskEntityIntent
+
         // ── Checklist ───────────────────────────────────────────────────────
 
         data class ToggleChecklistItem(val item: ChecklistItem) :

@@ -2,6 +2,7 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
+import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.DependencyVerb
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -40,6 +42,12 @@ class TaskEntitySlot(
     private val children: TaskChildrenDeps,
     private val scope: AutoCloseableCoroutineScope,
     private val taskFlow: StateFlow<Task?>,
+    /**
+     * A tag was taken off the task, and the user may want it back.
+     *
+     * The tag travels whole: the toast says its name, and the undo needs its id.
+     */
+    private val onUndoRemoveTag: (Tag) -> Unit = {},
     private val onError: (String) -> Unit,
 ) : FeatureSlot<TaskEntityState, TaskEntityIntent> {
     private val _state = MutableStateFlow(TaskEntityState())
@@ -118,12 +126,11 @@ class TaskEntitySlot(
                 mutate(task, intent) { copy(projectId = intent.projectId) }
             }
 
-            is TaskDetailIntent.Domain.SetTags -> {
-                setTags(task, intent.tagIds)
-            }
-
-            is TaskDetailIntent.Domain.RemoveTag -> {
-                setTags(task, task.tags - intent.tagId)
+            is TaskDetailIntent.Domain.SetTags,
+            is TaskDetailIntent.Domain.RemoveTag,
+            is TaskDetailIntent.Domain.RestoreTag,
+            -> {
+                handleTagIntent(task, intent)
             }
 
             is TaskDetailIntent.Domain.SetKind -> {
@@ -182,6 +189,54 @@ class TaskEntitySlot(
     }
 
     /**
+     * Handles the three intents that write the tags of the task.
+     *
+     * They live together because they are one decision — what the tag set of
+     * the task is — read, written and put back.
+     */
+    private fun handleTagIntent(
+        task: Task,
+        intent: TaskEntityIntent,
+    ) {
+        when (intent) {
+            is TaskDetailIntent.Domain.SetTags -> {
+                setTags(task, intent.tagIds)
+            }
+
+            is TaskDetailIntent.Domain.RemoveTag -> {
+                // The tag is read before the write: afterwards the state no longer
+                // holds it, and the undo would have nothing to say.
+                val tag = _state.value.tags.firstOrNull { it.id == intent.tagId }
+                removeTag(task, intent.tagId, tag)
+            }
+
+            is TaskDetailIntent.Domain.RestoreTag -> {
+                restoreTag(intent.tagId)
+            }
+
+            else -> {
+                Unit
+            }
+        }
+    }
+
+    /**
+     * Puts a removed tag back on the task.
+     *
+     * The tags are read from the repository rather than from the task the screen
+     * last saw: the write that removed the tag may not have come back through
+     * the flow yet, and a tag added to a stale list is a tag twice.
+     */
+    private fun restoreTag(tagId: TagId) =
+        scope.launch {
+            val current = core.taskRepo.getTagIds(taskId).first()
+            if (tagId in current) return@launch
+            core.taskRepo
+                .setTags(taskId, current + tagId)
+                .onFailure { onError("Failed to set tags") }
+        }
+
+    /**
      * Writes the tags of the task.
      *
      * The tags live in a cross-ref table, and the path that writes them is the
@@ -199,6 +254,24 @@ class TaskEntitySlot(
     ) = scope.launch {
         core.taskRepo
             .setTags(task.id, tagIds)
+            .onFailure { onError("Failed to set tags") }
+    }
+
+    /**
+     * Takes a tag off the task and offers to put it back.
+     *
+     * A tag is one of the task's tags: the write is the same one [setTags] makes,
+     * and the difference is only that the user is told what happened and given a
+     * way back — a tap on a 14dp icon is a mis-tap as often as it is a decision.
+     */
+    private fun removeTag(
+        task: Task,
+        tagId: TagId,
+        tag: Tag?,
+    ) = scope.launch {
+        core.taskRepo
+            .setTags(task.id, task.tags - tagId)
+            .onSuccess { if (tag != null) onUndoRemoveTag(tag) }
             .onFailure { onError("Failed to set tags") }
     }
 

@@ -152,7 +152,16 @@ class TaskDetailCoordinator(
     /** Flushes any pending debounced title/description edits before navigation. */
     fun flushDraft() = draft.flush()
 
-    private val entity = TaskEntitySlot(taskId, deps.core, deps.children, vmScope, taskFlow, ::reportError)
+    private val entity =
+        TaskEntitySlot(
+            taskId = taskId,
+            core = deps.core,
+            children = deps.children,
+            scope = vmScope,
+            taskFlow = taskFlow,
+            onError = ::reportError,
+            onUndoRemoveTag = { tryEmit(TaskDetailUiEvent.UndoRemoveTag(it.id, it.name)) },
+        )
 
     private val completion =
         TaskCompletionSlot(
@@ -511,6 +520,7 @@ class TaskDetailCoordinator(
             is TaskDetailIntent.Domain.SetProject,
             is TaskDetailIntent.Domain.SetTags,
             is TaskDetailIntent.Domain.RemoveTag,
+            is TaskDetailIntent.Domain.RestoreTag,
             is TaskDetailIntent.Domain.SetKind,
             is TaskDetailIntent.Domain.ToggleSomeday,
             is TaskDetailIntent.Domain.TogglePinned,

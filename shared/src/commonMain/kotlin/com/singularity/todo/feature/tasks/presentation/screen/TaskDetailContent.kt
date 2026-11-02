@@ -157,6 +157,18 @@ fun TaskDetailContent(
                     )
                 }
 
+                is TaskDetailUiEvent.UndoRemoveTag -> {
+                    notifications.send(
+                        Notification.Undo(
+                            title = "Tag \"${event.tagName}\" removed",
+                            actionLabel = "Undo",
+                            onAction = {
+                                coordinator.onIntent(TaskDetailIntent.Domain.RestoreTag(event.tagId))
+                            },
+                        ),
+                    )
+                }
+
                 is TaskDetailUiEvent.UndoDeleteSeries -> {
                     notifications.send(
                         Notification.Undo(

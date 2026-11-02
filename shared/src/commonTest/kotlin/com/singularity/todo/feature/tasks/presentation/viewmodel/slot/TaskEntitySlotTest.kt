@@ -219,6 +219,78 @@ class TaskEntitySlotTest {
             )
         }
 
+    // ─── The undo of a removed tag ────────────────────────────────────────────
+
+    @Test
+    fun `removing a tag offers an undo`() =
+        runTest {
+            val fakes = SlotFakes()
+            val tagA =
+                com.singularity.todo.feature.tags.TagId
+                    .fromString("tag-a")
+            fakes.taskRepo.seed(task("t1").copy(tags = listOf(tagA)))
+            fakes.tagsRepo.seed(tag(tagA, "A"))
+            val undone = mutableListOf<com.singularity.todo.feature.tags.Tag>()
+            val source = TaskSource(task("t1").copy(tags = listOf(tagA)))
+            val slot =
+                TaskEntitySlot(
+                    taskId = TaskId("t1"),
+                    core = fakes.core(),
+                    children = fakes.children(),
+                    scope = testSlotScope(backgroundScope),
+                    taskFlow = source.state,
+                    onUndoRemoveTag = { undone += it },
+                    onError = {},
+                )
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.RemoveTag(tagA))
+            runCurrent()
+
+            assertEquals(1, undone.size, "the user must be offered a way back")
+            assertEquals("A", undone.single().name)
+            assertTrue(
+                fakes.taskRepo.tasks.value["t1"]
+                    ?.tags
+                    ?.isEmpty() == true,
+                "the tag must be off the task",
+            )
+        }
+
+    @Test
+    fun `the undo puts the tag back`() =
+        runTest {
+            val fakes = SlotFakes()
+            val tagA =
+                com.singularity.todo.feature.tags.TagId
+                    .fromString("tag-a")
+            fakes.taskRepo.seed(task("t1").copy(tags = listOf(tagA)))
+            fakes.tagsRepo.seed(tag(tagA, "A"))
+            val source = TaskSource(task("t1").copy(tags = listOf(tagA)))
+            val slot =
+                TaskEntitySlot(
+                    taskId = TaskId("t1"),
+                    core = fakes.core(),
+                    children = fakes.children(),
+                    scope = testSlotScope(backgroundScope),
+                    taskFlow = source.state,
+                    onError = {},
+                )
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.RemoveTag(tagA))
+            runCurrent()
+            slot.onIntent(TaskDetailIntent.Domain.RestoreTag(tagA))
+            runCurrent()
+
+            assertEquals(
+                listOf(tagA),
+                fakes.taskRepo.tasks.value["t1"]
+                    ?.tags,
+                "the tag must come back — once",
+            )
+        }
+
     @Test
     fun `project resolves from the task's project id`() =
         runTest {
