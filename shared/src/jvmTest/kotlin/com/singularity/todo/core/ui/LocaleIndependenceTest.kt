@@ -1,13 +1,17 @@
 package com.singularity.todo.core.ui
 
 import com.singularity.todo.core.database.LocalTimeFormats
+import com.singularity.todo.feature.backup.formatBackupDate
 import kotlinx.datetime.LocalTime
+import kotlinx.datetime.TimeZone
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.parallel.Isolated
 import java.util.Locale
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 /**
  * The numbers the app writes are the app's own, whatever the device says.
@@ -40,6 +44,37 @@ class LocaleIndependenceTest {
             assertEquals("14:30:05", LocalTimeFormats.format(LocalTime(14, 30, 5)))
             assertEquals("07", formatPadded(7))
             assertEquals("1.5", formatDecimal(1.5, 1))
+        }
+    }
+
+    /**
+     * The second wire format: the backup stamp is written into the backup file and
+     * read back by the importer, so it has to hold the same digits as the clock.
+     */
+    @Test
+    fun `the backup stamp keeps ASCII digits under an Arabic device locale`() {
+        withArabicDefaultLocale {
+            val millis = Instant.parse("2026-10-30T14:30:00Z").toEpochMilliseconds()
+            assertEquals("2026-10-30 14:30", formatBackupDate(millis, TimeZone.UTC))
+        }
+    }
+
+    /**
+     * The precondition of the two tests above.
+     *
+     * If this JDK's `ar-EG` data does not localize the digits, then `"%02d".format(7)`
+     * is "07" whatever the locale is — and the assertions above would pass with the
+     * bug present, proving nothing. A JDK whose locale data differs has to say so
+     * loudly here instead of letting the test go quietly vacuous.
+     */
+    @Test
+    fun `the Arabic locale localizes the digits, or the other assertions prove nothing`() {
+        withArabicDefaultLocale {
+            assertNotEquals(
+                "07",
+                "%02d".format(7),
+                "this JDK does not localize digits for ar-EG — the assertions above are vacuous",
+            )
         }
     }
 
