@@ -41,7 +41,7 @@ import kotlin.time.Instant
  * is the only operation involved and a generic would buy a `Number.toString()` that
  * has to be re-implemented per type anyway.
  */
-private fun Int.padded(): String = toString().padStart(2, '0')
+private fun Int.padded(): String = formatPadded(this)
 
 private fun Long.padded(): String = toString().padStart(2, '0')
 
@@ -67,6 +67,18 @@ fun formatDecimal(
     val fraction = (magnitude % scale).toString().padStart(decimals, '0')
     return sign + (magnitude / scale) + if (decimals > 0) ".$fraction" else ""
 }
+
+/**
+ * An integer in the app's own digits: `7` → `"07"`, `2026` → `"2026"`.
+ *
+ * `"%02d".format(x)` is the same trap as `"%.1f"`: it follows the device
+ * locale, and on an Arabic phone it writes "١٤" where the app means "14".
+ * The digits are the app's own, so they are padded by hand.
+ */
+fun formatPadded(
+    value: Int,
+    digits: Int = 2,
+): String = value.toString().padStart(digits, '0')
 
 /**
  * Elapsed milliseconds as a clock: "4:07", or "1:02:03" once past an hour.

@@ -31,6 +31,7 @@ import com.singularity.todo.core.settings.SettingsSection
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
+import com.singularity.todo.core.ui.formatPadded
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.textfields.rememberAnchoredTextFieldState
 import com.singularity.todo.feature.settings.SettingsUiState
@@ -201,10 +202,10 @@ private fun TimeSlider(
 private fun formatMinutes(minutes: Int): String {
     val h = minutes / 60
     val m = minutes % 60
-    return "%02d:%02d".format(h, m)
+    return "${formatPadded(h)}:${formatPadded(m)}"
 }
 
-private fun formatHour(hour: Int): String = "%d:00".format(hour)
+private fun formatHour(hour: Int): String = "$hour:00"
 
 // ===== Preview =====
 

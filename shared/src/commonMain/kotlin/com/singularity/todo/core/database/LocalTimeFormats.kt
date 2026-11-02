@@ -27,6 +27,17 @@ object LocalTimeFormats {
         return LocalTime(hour, minute, second)
     }
 
-    /** Formats as `HH:mm:ss` (zero-padded). */
-    fun format(time: LocalTime): String = "%02d:%02d:%02d".format(time.hour, time.minute, time.second)
+    /**
+     * Formats as `HH:mm:ss` (zero-padded).
+     *
+     * Padded by hand, not with `"%02d:%02d:%02d".format(...)`: that formats in the
+     * *device's* locale, and on an Arabic phone it writes "١٤:٣٠:٠٠" into the
+     * database — which [parse] then rejects, because `toInt()` does not read
+     * Arabic-Indic digits. This is the wire format: Room, backup DTOs and AI tool
+     * inputs all read it back.
+     */
+    fun format(time: LocalTime): String =
+        "${time.hour.paddedTime()}:${time.minute.paddedTime()}:${time.second.paddedTime()}"
 }
+
+private fun Int.paddedTime(): String = toString().padStart(2, '0')

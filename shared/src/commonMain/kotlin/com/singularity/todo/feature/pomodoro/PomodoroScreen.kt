@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.formatPadded
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
 import com.singularity.todo.core.ui.text.SelectableText
@@ -236,7 +237,7 @@ private fun CircularProgressRing(
             val minutes = remainingSeconds / 60
             val seconds = remainingSeconds % 60
             Text(
-                text = "%02d:%02d".format(minutes, seconds),
+                text = "${formatPadded(minutes)}:${formatPadded(seconds)}",
                 style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold),
                 modifier = Modifier.testTag(TestTags.Pomodoro.TIMER_LABEL),
             )
