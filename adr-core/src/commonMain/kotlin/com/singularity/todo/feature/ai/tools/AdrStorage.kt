@@ -493,19 +493,7 @@ class AdrStorage(
                 "${CORPUS_CONFIG_PATH} -> frontmatter.knownKeys, so the normalizer would " +
                 "reject this file as structurally broken"
         }
-        val rebuilt =
-            buildList {
-                add("status: $status")
-                if (resolved != null) add("superseded-by: $resolved")
-                if (reviewed != null) add("review-by: $reviewed")
-                val kept =
-                    lines.subList(1, end).filterNot { line ->
-                        line.startsWith("status:") || line.startsWith("superseded-by:") ||
-                            line.startsWith("superseded_by:") || line.startsWith("review-by:") ||
-                            line.startsWith("review_by:")
-                    }
-                addAll(kept)
-            }
+        val rebuilt = rebuiltFrontmatter(lines, end, status, resolved, reviewed)
         val out =
             buildString {
                 append("---").append('\n')
@@ -520,6 +508,39 @@ class AdrStorage(
         path.writeText(out, Charsets.UTF_8)
         return path.toString()
     }
+
+    /**
+     * The frontmatter lines to write: the three known keys first, then the lines the file
+     * already had that are not one of them.
+     *
+     * A job of its own, split out of [updateAdr] — and split out because that method had
+     * grown past detekt's `LongMethod` limit once the formatter started putting the body
+     * of an expression on its own line.
+     *
+     * @param lines the whole file, one entry per line.
+     * @param end the index of the closing `---` fence.
+     * @param resolved the slug this decision is superseded by, or null.
+     * @param reviewed the ISO date this decision is due to be revisited on, or null.
+     */
+    private fun rebuiltFrontmatter(
+        lines: List<String>,
+        end: Int,
+        status: String,
+        resolved: String?,
+        reviewed: String?,
+    ): List<String> =
+        buildList {
+            add("status: $status")
+            if (resolved != null) add("superseded-by: $resolved")
+            if (reviewed != null) add("review-by: $reviewed")
+            val kept =
+                lines.subList(1, end).filterNot { line ->
+                    line.startsWith("status:") || line.startsWith("superseded-by:") ||
+                        line.startsWith("superseded_by:") || line.startsWith("review-by:") ||
+                        line.startsWith("review_by:")
+                }
+            addAll(kept)
+        }
 
     // ─── Data classes ─────────────────────────────────────────────────────────
 
