@@ -175,6 +175,11 @@ class BackupImporter(
     private fun migrate(payload: BackupPayload, payloadBytes: ByteArray): BackupPayload =
         if (payload.schemaVersion > BackupFormat.SCHEMA_VERSION) {
             throw BackupPayloadError.UnsupportedSchemaVersion(payload.schemaVersion)
+        } else if (payload.schemaVersion < BackupFormat.MIN_SUPPORTED_SCHEMA_VERSION) {
+            // A version below the first one is not an older build's payload, it
+            // is a payload nobody can read — and it says so the way every other
+            // unreadable payload says so.
+            throw BackupPayloadError.SchemaTooOld(payload.schemaVersion)
         } else if (payload.schemaVersion < BackupFormat.SCHEMA_VERSION) {
             val jsonObj = json.parseToJsonElement(payloadBytes.decodeToString()).jsonObject
             val migrated = BackupMigrations.migrate(jsonObj, payload.schemaVersion)

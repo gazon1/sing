@@ -179,17 +179,26 @@ class BackupExporter(
             // used to leave the destination file behind, and the next scheduled
             // push uploads exactly that file: it is the newest one in the
             // directory, and it is not a backup.
-            val temporary = "${options.destPath}$TEMPORARY_SUFFIX"
-            try {
+            val temporary = temporarySiblingOf(options.destPath)
+            if (temporary == null) {
+                // A destination the person picked on Android is a document, not a
+                // file: there is no sibling to write next to it and no rename to
+                // make. The archive goes straight into the document.
                 codec
-                    .export(manifestBytes, payloadBytes, attachmentEntries, temporary, fs)
+                    .export(manifestBytes, payloadBytes, attachmentEntries, options.destPath, fs)
                     .getOrThrow()
-                fs.move(temporary, options.destPath)
-            } finally {
-                // A temporary file that did not become the archive is litter, and
-                // litter in the backup directory is a file the person may see.
-                if (fs.exists(temporary)) {
-                    runCatchingCancellable { fs.delete(temporary) }
+            } else {
+                try {
+                    codec
+                        .export(manifestBytes, payloadBytes, attachmentEntries, temporary, fs)
+                        .getOrThrow()
+                    fs.move(temporary, options.destPath)
+                } finally {
+                    // A temporary file that did not become the archive is litter,
+                    // and litter in the backup directory is a file the person may see.
+                    if (fs.exists(temporary)) {
+                        runCatchingCancellable { fs.delete(temporary) }
+                    }
                 }
             }
 
@@ -344,6 +353,21 @@ class BackupExporter(
         val dir = backupDir.trimEnd('/', '\\')
         return destPath == dir || destPath.startsWith("$dir/") || destPath.startsWith("$dir\\")
     }
+
+    /**
+     * The file the archive is written to before it is moved over the
+     * destination, or `null` when the destination has no sibling to write one
+     * next to.
+     *
+     * A `content://` URI is a document in somebody else's provider: the
+     * provider owns the name, there is no directory to put a temporary file
+     * in, and a rename is not a thing a document does. Writing the archive
+     * beside it and moving it over it cannot work, so the document is written
+     * directly — which is what the export did before the temporary file
+     * existed, and what the Android picker needs.
+     */
+    private fun temporarySiblingOf(destPath: String): String? =
+        if (destPath.startsWith("content:")) null else "$destPath$TEMPORARY_SUFFIX"
 
     private companion object {
         /** The suffix of the file the change is written to, beside the snapshot. */

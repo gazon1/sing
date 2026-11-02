@@ -1,9 +1,11 @@
 package com.singularity.todo.core.backup
 
 import com.singularity.todo.core.attachments.AttachmentEntity
+import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.JvmFileSystem
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.test.fakes.FakeAppDatabase
+import com.singularity.todo.test.fakes.MapFileSystem
 import java.io.File
 import java.nio.file.Files
 import kotlin.test.AfterTest
@@ -48,7 +50,7 @@ class BackupExportAtomicityTest {
 
     private val backupDir: String get() = File(tempDir, "backups").absolutePath
 
-    private fun exporter() = BackupExporter(
+    private fun exporter(fileSystem: FileSystem = fs) = BackupExporter(
         taskDao = db.taskDao(),
         noteDao = db.noteDao(),
         projectDao = db.projectDao(),
@@ -66,8 +68,8 @@ class BackupExportAtomicityTest {
         agendaViewDao = db.agendaViewDao(),
         codec = JvmBackupCodec(),
         clock = Clock.System,
-        fs = fs,
-        cursors = BackupCursorStore(fs = fs, dir = File(tempDir, "cursor").absolutePath),
+        fs = fileSystem,
+        cursors = BackupCursorStore(fs = fileSystem, dir = File(tempDir, "cursor").absolutePath),
         backupDir = backupDir,
     )
 
@@ -125,6 +127,31 @@ class BackupExportAtomicityTest {
             listOf("whole.zip"),
             File(backupDir).listFiles()?.map { it.name }.orEmpty(),
             "the backup directory must hold the archive and nothing else",
+        )
+    }
+
+    /**
+     * A destination the person picked on Android is a document, not a file.
+     *
+     * The Android file saver hands back a `content://` URI. There is no sibling
+     * to write a temporary file next to and no rename to make, so the archive
+     * goes straight into the document — a temporary file would be a path that
+     * cannot exist, and an export that ends in "Export failed" is worse than
+     * one that leaves a half-written document behind.
+     */
+    @Test
+    fun `a document destination is written directly, with no temporary file`() = runTest {
+        val mapFs = MapFileSystem()
+        val destPath = "content://com.android.externalstorage.documents/document/primary:backup.zip"
+        val result = exporter(mapFs).export(
+            ExportOptions(userId = owner, destPath = destPath, includeAttachments = true),
+        )
+
+        assertTrue(result.isSuccess, "the export must succeed: ${result.exceptionOrNull()}")
+        assertEquals(
+            listOf(destPath),
+            mapFs.storedFiles().keys.toList(),
+            "the archive must be written into the document itself, with no temporary file beside it",
         )
     }
 }

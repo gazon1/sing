@@ -152,7 +152,11 @@ open class JvmSecureStorage : SecureStoragePort {
             val stored = secretToolRead(fallbackKeyName)?.takeIf { it.isNotBlank() }
             if (stored != null) {
                 return try {
-                    SecretKeySpec(java.util.Base64.getDecoder().decode(stored), "AES")
+                    // The MIME decoder skips the whitespace a keyring may have
+                    // wrapped the value in. The plain decoder would refuse it and
+                    // the key would be regenerated, which orphans every entry in
+                    // the fallback file.
+                    SecretKeySpec(java.util.Base64.getMimeDecoder().decode(stored), "AES")
                 } catch (_: IllegalArgumentException) {
                     null
                 } ?: regenerateKey()
