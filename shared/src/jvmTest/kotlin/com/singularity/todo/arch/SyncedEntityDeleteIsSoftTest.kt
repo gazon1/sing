@@ -306,6 +306,15 @@ class SyncedEntityDeleteIsSoftTest {
      *  - `= softDelete(id)` — `TaskRepositoryImpl`, an expression body with no brace at
      *    all. Read to the end of the line.
      *  - `= dao.hardDelete(id)` for the negative case.
+     *
+     * And the body can sit on the line BELOW the `=` — the shape ktlint's
+     * multiline-expression-wrapping produces when the expression does not fit:
+     *
+     *     override suspend fun delete(id: NoteId): Result<Unit> =
+     *         runCatchingCancellable { … }
+     *
+     * A reader that takes the line right after the `=` reads an empty string there and
+     * reports five soft deletes as hard ones.
      */
     private fun deleteBody(source: String): String? {
         val signature =
@@ -315,13 +324,16 @@ class SyncedEntityDeleteIsSoftTest {
         val equals = afterSignature.indexOf('=')
         if (equals < 0) return null
         val afterEquals = afterSignature.substring(equals + 1)
-        val firstLine = afterEquals.lineSequence().first()
+        // The body may start on the NEXT line: ktlint's multiline-expression-wrapping
+        // puts the body below the `=` when it does not fit, so the line right after the
+        // `=` can be empty. The first NON-EMPTY line is the one that carries the body.
+        val firstLine = afterEquals.lineSequence().firstOrNull { it.isNotBlank() } ?: ""
         val brace = firstLine.indexOf('{')
-        // No brace on the signature's own line: the body is an expression and the
-        // member ends with that line. The search is bounded to the first line on
-        // purpose — an unbounded one finds the `{` of the *next* member, so
-        // `= softDelete(id)` (TaskRepositoryImpl, a soft delete) was read as a block
-        // belonging to whatever came next and reported as not soft.
+        // No brace on the body's own line: the body is an expression and the member
+        // ends with that line. The search is bounded to that line on purpose — an
+        // unbounded one finds the `{` of the *next* member, so `= softDelete(id)`
+        // (TaskRepositoryImpl, a soft delete) was read as a block belonging to whatever
+        // came next and reported as not soft.
         if (brace < 0) return firstLine.trim()
         return bracedBlock(afterEquals.substring(brace)) ?: afterEquals
     }

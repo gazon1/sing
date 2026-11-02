@@ -177,12 +177,22 @@ class DiFacadeTest {
         val offenders = mutableListOf<String>()
         var depth = 0
         var enclosingFns = mutableListOf<String>()
+        // A function whose body opens on a LATER line: `fun name(): Module =` followed
+        // by `module {` on the next line — the shape ktlint's multiline-expression-wrapping
+        // produces. The name is known before the body starts, so the body must not be
+        // treated as finished until its brace has been seen.
+        var bodyPending = false
 
         source.lines().forEachIndexed { index, rawLine ->
             val line = rawLine.trim()
 
             // A top-level `fun name(` opens a function body at depth 0.
             if (depth == 0 && line.startsWith("fun ")) {
+                if (bodyPending) {
+                    // The previous function never opened a body — it has none, and a
+                    // brace-less function cannot enclose anything. It is over.
+                    enclosingFns.clear()
+                }
                 enclosingFns.add(
                     line
                         .substringAfter("fun ")
@@ -191,6 +201,8 @@ class DiFacadeTest {
                         .substringBefore(":")
                         .trim(),
                 )
+                // The body opens here only if this line carries the brace.
+                bodyPending = !line.contains('{')
             }
 
             val firstToken =
@@ -206,7 +218,11 @@ class DiFacadeTest {
 
             depth += line.count { it == '{' }
             depth -= line.count { it == '}' }
-            if (depth <= 0) {
+            if (depth > 0) {
+                // The body has started — the function is no longer "pending".
+                bodyPending = false
+            }
+            if (depth <= 0 && !bodyPending) {
                 depth = 0
                 enclosingFns.clear()
             }
