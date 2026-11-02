@@ -28,8 +28,10 @@ internal fun formatRussianDueDate(date: LocalDate?): String? {
  * The editor used to print the raw ISO date ("2026-10-30") while the list showed
  * "Пт, 30 окт 2026" — one date, two shapes, on the same phone.
  */
-internal fun formatRussianDueDateWithTime(date: LocalDate, time: LocalTime?): String =
-    formatRussianDueDate(date) + (time?.let { " ${it.toString().take(5)}" } ?: "")
+internal fun formatRussianDueDateWithTime(
+    date: LocalDate,
+    time: LocalTime?,
+): String = formatRussianDueDate(date) + (time?.let { " ${it.toString().take(5)}" } ?: "")
 
 /**
  * Says a number of dates the way a person says it: "1 date", "2 dates".

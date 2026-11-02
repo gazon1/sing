@@ -56,7 +56,10 @@ private fun Long.padded(): String = toString().padStart(2, '0')
  * [decimals] is the number of digits after the dot; `0` gives an integer.
  * Rounds half away from zero, like `%.1f` does.
  */
-fun formatDecimal(value: Double, decimals: Int): String {
+fun formatDecimal(
+    value: Double,
+    decimals: Int,
+): String {
     var scale = 1L
     repeat(decimals) { scale *= 10 }
     val magnitude = floor(abs(value) * scale + 0.5).toLong()
