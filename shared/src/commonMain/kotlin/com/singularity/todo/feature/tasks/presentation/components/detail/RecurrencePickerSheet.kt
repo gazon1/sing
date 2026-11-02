@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.formatRussianDueDate
 import com.singularity.todo.core.ui.components.sheet.DatePickerSheet
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
@@ -511,7 +512,7 @@ private fun TerminationSection(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
-                text = endDate.toString(),
+                text = formatRussianDueDate(endDate) ?: endDate.toString(),
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(

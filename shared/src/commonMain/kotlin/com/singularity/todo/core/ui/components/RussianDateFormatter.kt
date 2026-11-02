@@ -2,10 +2,11 @@ package com.singularity.todo.core.ui.components
 
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 import kotlinx.datetime.Month
 
 /**
- * Formats a due date as a short Russian label: "Сб, 05 сент 2026".
+ * Formats a date as a short Russian label: "Сб, 05 сент 2026".
  * Returns `null` when [date] is `null`.
  */
 internal fun formatRussianDueDate(date: LocalDate?): String? {
@@ -19,6 +20,16 @@ internal fun formatRussianDueDate(date: LocalDate?): String? {
             .padStart(2, '0')
     } ${shortMonth(date.month)} ${date.year}"
 }
+
+/**
+ * The date a task editor row shows: the same label the agenda list shows, with
+ * the time appended when there is one.
+ *
+ * The editor used to print the raw ISO date ("2026-10-30") while the list showed
+ * "Пт, 30 окт 2026" — one date, two shapes, on the same phone.
+ */
+internal fun formatRussianDueDateWithTime(date: LocalDate, time: LocalTime?): String =
+    formatRussianDueDate(date) + (time?.let { " ${it.toString().take(5)}" } ?: "")
 
 /**
  * Says a number of dates the way a person says it: "1 date", "2 dates".

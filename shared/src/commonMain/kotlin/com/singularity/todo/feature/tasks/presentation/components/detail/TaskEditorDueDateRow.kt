@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.formatRussianDateList
+import com.singularity.todo.core.ui.components.formatRussianDueDateWithTime
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
 import kotlinx.collections.immutable.ImmutableList
@@ -113,7 +114,7 @@ fun TaskEditorDueDateRow(
 /**
  * The label of the due-date row.
  *
- * One date reads exactly as it did before the series existed — the ISO date, and
+ * One date reads exactly as the agenda list reads it — the same date label, and
  * the time next to it. Several dates read as a list, because a row that showed
  * only the first of them would hide the fact that there are others.
  */
@@ -124,10 +125,5 @@ private fun dueDateRowLabel(
 ): String {
     if (date == null) return "Добавить дату"
     if (dates.size > 1) return formatRussianDateList(dates)
-    val dateStr = date.toString()
-    return if (time != null) {
-        "$dateStr ${time.toString().take(5)}"
-    } else {
-        dateStr
-    }
+    return formatRussianDueDateWithTime(date, time)
 }

@@ -50,6 +50,7 @@ import com.singularity.todo.core.text.OwnedText
 import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.DialogState
+import com.singularity.todo.core.ui.components.formatRussianDueDateWithTime
 import com.singularity.todo.core.ui.components.rememberDialogState
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewSamples
@@ -434,8 +435,7 @@ private fun StartDateRow(
     val label =
         when {
             startDate == null -> "No start date"
-            startTime != null -> "$startDate $startTime"
-            else -> startDate.toString()
+            else -> formatRussianDueDateWithTime(startDate, startTime)
         }
     TaskAttributeCard(
         icon = Icons.Filled.CalendarToday,
@@ -633,15 +633,7 @@ private fun dueDateLabel(
     time: LocalTime?,
 ): String {
     if (date == null) return "Добавить дату"
-    val dateStr = date.toString()
-    return if (time != null) {
-        "$dateStr ${
-            time.toString()
-                .take(5)
-        }"
-    } else {
-        dateStr
-    }
+    return formatRussianDueDateWithTime(date, time)
 }
 
 // ===== Preview =====
