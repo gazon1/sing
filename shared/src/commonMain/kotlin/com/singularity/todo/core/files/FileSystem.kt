@@ -43,8 +43,18 @@ interface FileSystem {
      * — and the files where that matters are the bookkeeping ones, where a
      * truncated file is a lost chain.
      *
-     * The move stays within one filesystem: a move across two is a copy, and a
-     * copy is not atomic.
+     * The target is replaced, not merged: what is at [to] afterwards is [from]
+     * and nothing else. The replacement is a single rename, so a reader never
+     * finds the target missing in between.
+     *
+     * The move stays within one filesystem: a move across two cannot be atomic,
+     * so it is refused (`java.nio.file.AtomicMoveNotSupportedException`) rather
+     * than copied.
+     *
+     * A [from] that is not there raises the platform's own exception —
+     * `java.nio.file.NoSuchFileException` on both JVM and Android — because the
+     * port does not wrap errors. The in-memory double throws its own
+     * `NoSuchFileException` instead, and says so in its KDoc.
      */
     suspend fun move(
         from: String,

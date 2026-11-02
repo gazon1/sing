@@ -1,6 +1,7 @@
 package com.singularity.todo.core.backup
 
 import com.singularity.todo.core.attachments.AttachmentEntity
+import com.singularity.todo.core.database.TaskEntity
 import com.singularity.todo.core.files.FileSystem
 import com.singularity.todo.core.files.JvmFileSystem
 import com.singularity.todo.core.ids.UserId
@@ -12,6 +13,7 @@ import java.io.File
 import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -160,4 +162,85 @@ class BackupExportAtomicityTest {
                 "the archive must be written into the document itself, with no temporary file beside it",
             )
         }
+
+    /**
+     * A change that cannot be written leaves the previous one intact.
+     *
+     * The change that follows the snapshot is written under a temporary name
+     * and moved over the real one, so a write that fails half way — a disk that
+     * fills up — must leave the previous change as it was. Half a change is a
+     * change that cannot be read, and a change that cannot be read costs the
+     * chain.
+     */
+    @Test
+    fun `a failed change write leaves the previous change intact`() =
+        runTest {
+            val destPath = "$backupDir/chain.zip"
+            db.taskDao().upsert(task("t-1", "before"))
+            exporter().export(ExportOptions(userId = owner, destPath = destPath))
+            db.taskDao().upsert(task("t-1", "after"))
+            exporter().export(ExportOptions(userId = owner, destPath = destPath))
+            val change = File("$destPath.delta").readBytes()
+            assertTrue(change.isNotEmpty(), "the second export must have written a change")
+
+            db.taskDao().upsert(task("t-1", "later"))
+            val result =
+                exporter(failingChangeWrites(fs)).export(
+                    ExportOptions(userId = owner, destPath = destPath),
+                )
+
+            assertTrue(result.isFailure, "the export must fail: the change cannot be written")
+            assertContentEquals(
+                change,
+                File("$destPath.delta").readBytes(),
+                "the previous change must survive a failed write",
+            )
+            assertFalse(
+                File("$destPath.delta.tmp").exists(),
+                "the failed change must leave no litter behind",
+            )
+        }
+
+    /**
+     * A filesystem whose change writes fail.
+     *
+     * The change goes through a temporary file, so the failure is injected
+     * there: that is the write that would have left half a change behind.
+     */
+    private fun failingChangeWrites(delegate: FileSystem): FileSystem =
+        object : FileSystem by delegate {
+            override suspend fun writeBytes(
+                path: String,
+                data: ByteArray,
+            ) {
+                if (path.endsWith(".delta.tmp")) {
+                    throw IllegalStateException("the disk is full")
+                }
+                delegate.writeBytes(path, data)
+            }
+        }
+
+    /** The task, as the database holds it. */
+    private fun task(
+        id: String,
+        title: String,
+    ) = TaskEntity(
+        id = id,
+        title = title,
+        description = null,
+        projectId = null,
+        dueDate = null,
+        dueTime = null,
+        startDate = null,
+        startTime = null,
+        endDate = null,
+        endTime = null,
+        accentColor = null,
+        emoji = null,
+        completedAt = null,
+        archivedAt = null,
+        createdAt = 1L,
+        updatedAt = 1L,
+        userId = owner.value,
+    )
 }
