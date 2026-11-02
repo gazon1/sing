@@ -12,9 +12,10 @@ import kotlin.test.fail
  *
  * `core/di/Modules.kt` is a **facade aggregator**, not a source of truth: it composes the
  * per-domain `*DiModule.kt` functions and registers the few bindings that must land at
- * root scope. The rule is that `single { }`, `factory { }` and `viewModel { }` declarations
- * appear **only inside a facade function** — never loose in the file body, and never in a
- * `*DiModule.kt`.
+ * root scope. The rule is that a `single { }`, `factory { }` or `viewModel { }` declaration
+ * lives inside a function that builds a module — never loose in the file body. In the
+ * aggregator that function is one of the facades; in a per-domain `*DiModule.kt` it is
+ * the domain's own `*Module()` factory.
  *
  * ## Why a rule that passes on its first run
  *
@@ -337,22 +338,32 @@ class DiFacadeTest {
         }
     }
 
+    /**
+     * A per-domain `*DiModule.kt` declares bindings — the ADR puts them there — but it
+     * declares them inside a module function, never loose in the file body.
+     *
+     * The filter is on [KoFileDeclaration.nameWithExtension], not on `name`: Konsist's
+     * `name` is the file name WITHOUT its extension, so `name.endsWith("DiModule.kt")`
+     * matched nothing and this test scanned no file at all. A guard that never runs
+     * is not a guard.
+     */
     @Test
-    fun `per-domain DiModule files declare no bindings`() {
+    fun `per-domain DiModule files declare no loose bindings`() {
         val offenders =
             scope.files
-                .filter { it.name.endsWith("DiModule.kt") }
+                .filter { it.nameWithExtension.endsWith("DiModule.kt") }
                 .filter { it.packageName().startsWith("$PKG.core.di") }
                 .filter { file ->
-                    bindingDeclarationsIn(file.codeOnly(), facadeNames = emptySet()).isNotEmpty()
+                    bindingDeclarationsIn(file.codeOnly(), facadeNames = emptySet())
+                        .any { it.endsWith("<file body>") }
                 }.map { it.path }
 
         if (offenders.isNotEmpty()) {
             fail(
-                "A per-domain *DiModule.kt declares Koin bindings directly. Each must return a " +
-                    "single `module { }` built from its feature's declarations, so the " +
-                    "aggregator in core/di/Modules.kt stays the only place that composes them. " +
-                    "Offenders: $offenders",
+                "A per-domain *DiModule.kt declares a Koin binding loose in the file body. " +
+                    "Each must return a single `module { }` built from its feature's " +
+                    "declarations, so the aggregator in core/di/Modules.kt stays the only " +
+                    "place that composes them. Offenders: $offenders",
             )
         }
     }
