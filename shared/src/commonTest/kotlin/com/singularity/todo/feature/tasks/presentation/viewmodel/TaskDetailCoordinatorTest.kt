@@ -232,6 +232,7 @@ class TaskDetailCoordinatorTest {
                     TaskDetailIntent.Domain.AddChecklistItem("item"),
                     TaskDetailIntent.Domain.ToggleSubtask(task("c1")),
                     TaskDetailIntent.Domain.DeleteSubtask(task("c1")),
+                    TaskDetailIntent.Domain.RestoreSubtask(TaskId("c1")),
                     TaskDetailIntent.Domain.AddSubtask("child"),
                     TaskDetailIntent.Domain.SetReminder(com.singularity.todo.core.reminders.ReminderOffset.AT_DUE),
                     TaskDetailIntent.Domain.DeleteReminder,

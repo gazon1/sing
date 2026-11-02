@@ -23,6 +23,9 @@ sealed interface TaskDetailUiEvent : MviEvent {
     /** A checklist item was deleted, and the user may want it back. */
     data class UndoDeleteChecklistItem(val item: ChecklistItem) : TaskDetailUiEvent
 
+    /** A subtask was deleted, and the user may want it back. */
+    data class UndoDeleteSubtask(val taskId: TaskId, val title: String) : TaskDetailUiEvent
+
     /**
      * The whole series was deleted, and the user may want it back.
      *

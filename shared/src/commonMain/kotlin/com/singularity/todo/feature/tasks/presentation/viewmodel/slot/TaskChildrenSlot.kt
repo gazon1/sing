@@ -48,6 +48,8 @@ class TaskChildrenSlot(
     private val onBlockedClose: (BlockedCloseRequest) -> Unit,
     /** A checklist item was deleted, and the user may want it back. */
     private val onUndoDeleteChecklistItem: (ChecklistItem) -> Unit = {},
+    /** A subtask was deleted, and the user may want it back. */
+    private val onUndoDeleteSubtask: (Task) -> Unit = {},
 ) : FeatureSlot<TaskChildrenState, TaskChildrenIntent> {
     private val _state = MutableStateFlow(TaskChildrenState())
     override val state: StateFlow<TaskChildrenState> = _state.asStateFlow()
@@ -100,6 +102,10 @@ class TaskChildrenSlot(
 
             is TaskDetailIntent.Domain.RestoreChecklistItem -> {
                 restoreChecklistItem(intent.item)
+            }
+
+            is TaskDetailIntent.Domain.RestoreSubtask -> {
+                restoreSubtask(intent.taskId)
             }
         }
     }
@@ -195,10 +201,26 @@ class TaskChildrenSlot(
         }
     }
 
+    /**
+     * Soft-deletes the subtask and offers to put it back.
+     *
+     * A subtask is a task, so the write is the same soft delete the task screen
+     * uses — and the undo is the same restore.
+     */
     private fun deleteSubtask(subtask: Task) =
         scope.launch {
             core.taskRepo
                 .softDelete(subtask.id)
+                .onSuccess { onUndoDeleteSubtask(subtask) }
                 .onFailure { onError("Delete subtask failed") }
+        }
+
+    /** Puts a soft-deleted subtask back under its parent. */
+    private fun restoreSubtask(taskId: TaskId) =
+        scope.launch {
+            core.taskRepo
+                .restore(taskId)
+                .onSuccess { onSaved("Subtask restored") }
+                .onFailure { onError("Restore failed") }
         }
 }

@@ -183,6 +183,18 @@ fun TaskDetailContent(
                     )
                 }
 
+                is TaskDetailUiEvent.UndoDeleteSubtask -> {
+                    notifications.send(
+                        Notification.Undo(
+                            title = "Subtask \"${event.title}\" deleted",
+                            actionLabel = "Undo",
+                            onAction = {
+                                coordinator.onIntent(TaskDetailIntent.Domain.RestoreSubtask(event.taskId))
+                            },
+                        ),
+                    )
+                }
+
                 is TaskDetailUiEvent.UndoDeleteSeries -> {
                     notifications.send(
                         Notification.Undo(

@@ -31,6 +31,7 @@ class TaskChildrenSlotTest {
         onBlockedClose: (BlockedCloseRequest) -> Unit = {},
         onSaved: (String) -> Unit = {},
         onUndoDeleteChecklistItem: (ChecklistItem) -> Unit = {},
+        onUndoDeleteSubtask: (Task) -> Unit = {},
     ) = TaskChildrenSlot(
         taskId = TaskId("t1"),
         core = fakes.core(),
@@ -43,6 +44,7 @@ class TaskChildrenSlotTest {
         onSaved = onSaved,
         onBlockedClose = onBlockedClose,
         onUndoDeleteChecklistItem = onUndoDeleteChecklistItem,
+        onUndoDeleteSubtask = onUndoDeleteSubtask,
     )
 
     @Test
@@ -225,6 +227,57 @@ class TaskChildrenSlotTest {
                 "Buy milk",
                 fakes.checklistRepo.items.value[item.id.value]
                     ?.title,
+            )
+        }
+
+    @Test
+    fun `deleting a subtask offers an undo`() =
+        runTest {
+            val fakes = SlotFakes()
+            val child = task("c1", title = "Child")
+            fakes.taskRepo.seed(task("t1"), child)
+            val source = TaskSource(task("t1"))
+            val undone = mutableListOf<Task>()
+            val slot =
+                slot(
+                    fakes,
+                    source,
+                    backgroundScope,
+                    onUndoDeleteSubtask = { undone += it },
+                )
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.DeleteSubtask(child))
+            runCurrent()
+
+            assertEquals(1, undone.size, "the user must be offered a way back")
+            assertEquals("Child", undone.single().title)
+        }
+
+    @Test
+    fun `the undo puts the subtask back`() =
+        runTest {
+            val fakes = SlotFakes()
+            val child = task("c1", title = "Child")
+            fakes.taskRepo.seed(task("t1"), child)
+            val source = TaskSource(task("t1"))
+            val slot = slot(fakes, source, backgroundScope)
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.DeleteSubtask(child))
+            runCurrent()
+            assertNotNull(
+                fakes.taskRepo.tasks.value["c1"]
+                    ?.archivedAt,
+            )
+
+            slot.onIntent(TaskDetailIntent.Domain.RestoreSubtask(TaskId("c1")))
+            runCurrent()
+
+            assertNull(
+                fakes.taskRepo.tasks.value["c1"]
+                    ?.archivedAt,
+                "the subtask must come back from the trash",
             )
         }
 

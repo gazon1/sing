@@ -168,6 +168,16 @@ sealed interface TaskDetailIntent : MviIntent {
             Domain,
             TaskChildrenIntent
 
+        /**
+         * Puts a removed subtask back.
+         *
+         * The undo of [DeleteSubtask]: the subtask was soft-deleted, so it comes
+         * back with a restore of its own id.
+         */
+        data class RestoreSubtask(val taskId: TaskId) :
+            Domain,
+            TaskChildrenIntent
+
         data class AddSubtask(val title: String) :
             Domain,
             TaskChildrenIntent

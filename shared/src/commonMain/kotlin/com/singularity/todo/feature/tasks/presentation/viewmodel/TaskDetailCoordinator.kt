@@ -188,6 +188,7 @@ class TaskDetailCoordinator(
             onSaved = ::reportSaved,
             onBlockedClose = ::raiseBlockedClose,
             onUndoDeleteChecklistItem = { tryEmit(TaskDetailUiEvent.UndoDeleteChecklistItem(it)) },
+            onUndoDeleteSubtask = { tryEmit(TaskDetailUiEvent.UndoDeleteSubtask(it.id, it.title)) },
         )
 
     private val reminders =
@@ -541,6 +542,7 @@ class TaskDetailCoordinator(
             is TaskDetailIntent.Domain.ToggleSubtask,
             is TaskDetailIntent.Domain.DeleteSubtask,
             is TaskDetailIntent.Domain.RestoreChecklistItem,
+            is TaskDetailIntent.Domain.RestoreSubtask,
             is TaskDetailIntent.Domain.AddSubtask,
             -> {
                 children.onIntent(intent)
