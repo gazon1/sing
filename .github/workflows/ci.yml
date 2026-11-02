@@ -225,12 +225,16 @@ jobs:
       # venv + sgate + junitparser + yamllint + actionlint + shellcheck, once.
       # See .github/actions/setup-python-tools/action.yml for what each of the
       # four earlier attempts at installing these was missing.
+      # ktlint comes with it: the preflight below checks for it, and a preflight
+      # that asks for a tool this job never installs fails on every run.
       - name: Set up gate tooling
         uses: ./.github/actions/setup-python-tools
+        with:
+          with-kt-lint: 'true'
 
       # The gate-tooling preflight: every tool the gate suite shells out to
-      # (sgate, junitparser, lychee, yamllint, actionlint, shellcheck) must be
-      # present, and the preflight names the fix when one is not.
+      # (sgate, junitparser, lychee, yamllint, actionlint, shellcheck, ktlint)
+      # must be present, and the preflight names the fix when one is not.
       #
       # It ran only in check.sh, so a CI job whose tool install silently
       # degraded discovered the missing tool as a gate traceback — a
