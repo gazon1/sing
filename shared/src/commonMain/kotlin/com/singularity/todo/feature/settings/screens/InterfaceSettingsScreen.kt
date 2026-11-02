@@ -41,6 +41,7 @@ import com.singularity.todo.core.ui.components.ColorSwatch
 import com.singularity.todo.core.ui.components.SettingsActionRow
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.contrastingForeground
+import com.singularity.todo.core.ui.formatDecimal
 import com.singularity.todo.core.ui.onboarding.OnboardingSettingsRepository
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.theme.SingularityAccents
@@ -189,7 +190,7 @@ private fun FontSizeSlider(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text("Scale", style = MaterialTheme.typography.bodyMedium)
-            Text("%.0f%%".format(value * 100), style = MaterialTheme.typography.bodyMedium)
+            Text(formatDecimal((value * 100).toDouble(), 0) + "%", style = MaterialTheme.typography.bodyMedium)
         }
         Slider(
             value = value,

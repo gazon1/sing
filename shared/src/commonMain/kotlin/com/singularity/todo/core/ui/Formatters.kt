@@ -4,6 +4,8 @@ import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.Month
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlin.math.abs
+import kotlin.math.floor
 import kotlin.time.Instant
 
 /*
@@ -42,6 +44,29 @@ import kotlin.time.Instant
 private fun Int.padded(): String = toString().padStart(2, '0')
 
 private fun Long.padded(): String = toString().padStart(2, '0')
+
+/**
+ * A decimal number in the app's own format: `1.5`, `0.0`, `12.34`.
+ *
+ * `"%.1f".format(x)` has no locale on the JVM, so it follows the *device*: a
+ * phone set to Russian renders "0,0" inside an English screen. Formatting by
+ * hand keeps the output the same everywhere, for the same reason the padding
+ * helpers below do.
+ *
+ * [decimals] is the number of digits after the dot; `0` gives an integer.
+ * Rounds half away from zero, like `%.1f` does.
+ */
+fun formatDecimal(
+    value: Double,
+    decimals: Int,
+): String {
+    var scale = 1L
+    repeat(decimals) { scale *= 10 }
+    val magnitude = floor(abs(value) * scale + 0.5).toLong()
+    val sign = if (value < 0) "-" else ""
+    val fraction = (magnitude % scale).toString().padStart(decimals, '0')
+    return sign + (magnitude / scale) + if (decimals > 0) ".$fraction" else ""
+}
 
 /**
  * Elapsed milliseconds as a clock: "4:07", or "1:02:03" once past an hour.

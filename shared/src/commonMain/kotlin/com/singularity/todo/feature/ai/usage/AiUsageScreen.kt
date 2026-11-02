@@ -25,6 +25,7 @@ import com.singularity.todo.core.observability.DailyUsage
 import com.singularity.todo.core.observability.ModelUsage
 import com.singularity.todo.core.observability.ToolUsage
 import com.singularity.todo.core.ui.components.LoadingIndicator
+import com.singularity.todo.core.ui.formatDecimal
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.text.SelectableText
 import org.koin.compose.viewmodel.koinViewModel
@@ -222,14 +223,14 @@ private fun ModelUsageRow(model: ModelUsage) {
 
 private fun formatTokens(tokens: Long): String =
     when {
-        tokens >= 1_000_000 -> "%.1fM".format(tokens / 1_000_000.0)
-        tokens >= 1_000 -> "%.1fK".format(tokens / 1_000.0)
+        tokens >= 1_000_000 -> formatDecimal(tokens / 1_000_000.0, 1) + "M"
+        tokens >= 1_000 -> formatDecimal(tokens / 1_000.0, 1) + "K"
         else -> tokens.toString()
     }
 
 private fun formatCost(micros: Long): String {
     val dollars = micros / 1_000_000.0
-    return "$${"%.4f".format(dollars)}"
+    return "$" + formatDecimal(dollars, 4)
 }
 
 // ===== Preview =====

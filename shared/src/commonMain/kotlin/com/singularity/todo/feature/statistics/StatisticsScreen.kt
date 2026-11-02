@@ -42,6 +42,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
+import com.singularity.todo.core.ui.formatDecimal
 import com.singularity.todo.core.ui.formatDuration
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.text.SelectableText
@@ -202,7 +203,7 @@ private fun TasksTabContent(state: StatisticsUiState) {
             )
             StatCard(
                 title = "Avg/Day",
-                value = "%.1f".format(snapshot?.averagePerDay ?: 0.0),
+                value = formatDecimal(snapshot?.averagePerDay ?: 0.0, 1),
                 modifier = Modifier.weight(1f),
             )
         }
@@ -491,7 +492,7 @@ private fun ProjectTimeRow(
         )
         Spacer(Modifier.width(8.dp))
         Text(
-            text = "%.0f%%".format(fraction * 100),
+            text = formatDecimal(fraction * 100, 0) + "%",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
