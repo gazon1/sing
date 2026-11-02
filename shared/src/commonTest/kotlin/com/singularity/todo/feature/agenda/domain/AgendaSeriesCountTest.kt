@@ -25,40 +25,48 @@ import kotlin.test.assertNull
  */
 @Tag("fast")
 class AgendaSeriesCountTest {
-
     private val today: LocalDate = LocalDate(2026, Month.SEPTEMBER, 16)
 
-    private fun task(id: String, seriesId: TaskSeriesId? = null): Task = Task(
-        id = TaskId(id),
-        title = "Task $id",
-        kind = TaskKind.Task,
-        dueDate = today,
-        createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
-        updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0),
-        userId = UserId("test-user"),
-        seriesId = seriesId,
-    )
+    private fun task(
+        id: String,
+        seriesId: TaskSeriesId? = null,
+    ): Task =
+        Task(
+            id = TaskId(id),
+            title = "Task $id",
+            kind = TaskKind.Task,
+            dueDate = today,
+            createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+            updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+            userId = UserId("test-user"),
+            seriesId = seriesId,
+        )
 
-    private fun rowsOf(tasks: List<Task>) = AgendaEvaluator.evaluate(
-        tasks,
-        AgendaDefinition(
-            title = "Test",
-            sections = listOf(Section("s", "s", 0, Selector.Anything)),
-        ),
-        today,
-        kotlin.time.Instant.fromEpochMilliseconds(0),
-    ).singleOrNull()?.tasks.orEmpty()
+    private fun rowsOf(tasks: List<Task>) =
+        AgendaEvaluator
+            .evaluate(
+                tasks,
+                AgendaDefinition(
+                    title = "Test",
+                    sections = listOf(Section("s", "s", 0, Selector.Anything)),
+                ),
+                today,
+                kotlin.time.Instant.fromEpochMilliseconds(0),
+            ).singleOrNull()
+            ?.tasks
+            .orEmpty()
 
     @Test
     fun `a row of a series carries the number of dates of the series`() {
         val series = TaskSeriesId("s1")
-        val rows = rowsOf(
-            listOf(
-                task("t1", series),
-                task("t2", series),
-                task("t3", series),
-            ),
-        )
+        val rows =
+            rowsOf(
+                listOf(
+                    task("t1", series),
+                    task("t2", series),
+                    task("t3", series),
+                ),
+            )
 
         assertEquals(listOf(3, 3, 3), rows.map { it.seriesDates })
     }
@@ -72,13 +80,14 @@ class AgendaSeriesCountTest {
 
     @Test
     fun `two series carry their own counts`() {
-        val rows = rowsOf(
-            listOf(
-                task("t1", TaskSeriesId("s1")),
-                task("t2", TaskSeriesId("s1")),
-                task("t3", TaskSeriesId("s2")),
-            ),
-        )
+        val rows =
+            rowsOf(
+                listOf(
+                    task("t1", TaskSeriesId("s1")),
+                    task("t2", TaskSeriesId("s1")),
+                    task("t3", TaskSeriesId("s2")),
+                ),
+            )
 
         assertEquals(listOf("t1" to 2, "t2" to 2, "t3" to 1), rows.map { it.task.id.value to it.seriesDates })
     }

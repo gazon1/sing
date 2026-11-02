@@ -27,13 +27,19 @@ actual suspend fun createKoogPromptExecutor(
  * OkHttp HTTP backend on Android without leaking it into commonMain —
  * the JVM side has its own copy.
  */
-internal fun buildExecutor(cfg: OpenAiConfig) = ai.koog.prompt.executor.llms.MultiLLMPromptExecutor(
-    mapOf(
-        ai.koog.prompt.llm.OpenAILLMProvider to ai.koog.prompt.executor.clients.openai.OpenAILLMClient(
-            apiKey = cfg.apiKey.value,
-            settings = ai.koog.prompt.executor.clients.openai.OpenAIClientSettings(baseUrl = cfg.baseUrl),
-            httpClientFactory = ai.koog.http.client.okhttp.OkHttpKoogHttpClient.Factory(),
-            clock = ai.koog.utils.time.KoogClock.System,
+internal fun buildExecutor(cfg: OpenAiConfig) =
+    ai.koog.prompt.executor.llms.MultiLLMPromptExecutor(
+        mapOf(
+            ai.koog.prompt.llm.OpenAILLMProvider to
+                ai.koog.prompt.executor.clients.openai.OpenAILLMClient(
+                    apiKey = cfg.apiKey.value,
+                    settings =
+                        ai.koog.prompt.executor.clients.openai
+                            .OpenAIClientSettings(baseUrl = cfg.baseUrl),
+                    httpClientFactory =
+                        ai.koog.http.client.okhttp.OkHttpKoogHttpClient
+                            .Factory(),
+                    clock = ai.koog.utils.time.KoogClock.System,
+                ),
         ),
-    ),
-)
+    )

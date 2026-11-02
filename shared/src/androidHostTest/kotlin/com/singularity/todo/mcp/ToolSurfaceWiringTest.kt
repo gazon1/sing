@@ -10,14 +10,19 @@ import com.singularity.todo.feature.ai.McpToolCatalog
 import com.singularity.todo.feature.ai.WriteBehavior
 import com.singularity.todo.feature.gate.gateModule
 import com.singularity.todo.test.fakes.FakeSecureStorage
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
 import org.robolectric.RobolectricTestRunner
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+// No `fast`/`slow` tag: this is a JUnit4 class under the Vintage engine, and
+// Jupiter's `@Tag` does not reach it — a tag here would read as "this can be
+// selected" and select nothing. `testAndroidHostTest` is exempt from the tag
+// filter for exactly that reason (shared/build.gradle.kts:519-543).
 
 /**
  * The Android toolbox that is *wired* must be the toolbox that is *declared*.
@@ -43,28 +48,24 @@ import org.robolectric.RobolectricTestRunner
  * The same exclusion is on record in `AndroidGraphResolutionTest`, which documents the
  * three bindings that cannot be created off a device.
  */
-// No `fast`/`slow` tag: this is a JUnit4 class under the Vintage engine, and
-// Jupiter's `@Tag` does not reach it — a tag here would read as "this can be
-// selected" and select nothing. `testAndroidHostTest` is exempt from the tag
-// filter for exactly that reason (shared/build.gradle.kts:519-543).
 @RunWith(RobolectricTestRunner::class)
 class ToolSurfaceWiringTest {
-
     @Test
     fun `the wired toolbox is the declared toolbox`() {
-        val app = koinApplication {
-            androidContext(ApplicationProvider.getApplicationContext<Context>())
-            allowOverride(true)
-            @Suppress("KoinCompilationForInternal")
-            modules(
-                listOf(platformModule(), coreLoggingModule()) +
-                    domainModule() +
-                    listOf(
-                        gateModule("https://github.com/singularity-todo/singularity/releases"),
-                        module { single<SecureStoragePort> { FakeSecureStorage() } },
-                    ),
-            )
-        }
+        val app =
+            koinApplication {
+                androidContext(ApplicationProvider.getApplicationContext<Context>())
+                allowOverride(true)
+                @Suppress("KoinCompilationForInternal")
+                modules(
+                    listOf(platformModule(), coreLoggingModule()) +
+                        domainModule() +
+                        listOf(
+                            gateModule("https://github.com/singularity-todo/singularity/releases"),
+                            module { single<SecureStoragePort> { FakeSecureStorage() } },
+                        ),
+                )
+            }
         try {
             val tools: List<Tool<*, *>> = app.koin.get()
             val declared = McpToolCatalog.catalog
@@ -108,17 +109,21 @@ class ToolSurfaceWiringTest {
             // platform only.
             for (entry in declared) {
                 when (entry.writeBehavior) {
-                    WriteBehavior.DIRECT_WRITE_EXCEPTION -> assertTrue(
-                        !entry.exceptionReason.isNullOrBlank(),
-                        "${entry.name} writes directly and says nothing about why it sits " +
-                            "outside the proposal pipeline",
-                    )
+                    WriteBehavior.DIRECT_WRITE_EXCEPTION -> {
+                        assertTrue(
+                            !entry.exceptionReason.isNullOrBlank(),
+                            "${entry.name} writes directly and says nothing about why it sits " +
+                                "outside the proposal pipeline",
+                        )
+                    }
 
-                    else -> assertTrue(
-                        entry.exceptionReason == null,
-                        "${entry.name} is ${entry.writeBehavior} and still carries an " +
-                            "exception reason",
-                    )
+                    else -> {
+                        assertTrue(
+                            entry.exceptionReason == null,
+                            "${entry.name} is ${entry.writeBehavior} and still carries an " +
+                                "exception reason",
+                        )
+                    }
                 }
             }
         } finally {

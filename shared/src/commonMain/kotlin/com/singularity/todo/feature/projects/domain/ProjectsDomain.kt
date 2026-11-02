@@ -14,7 +14,6 @@ import kotlin.time.Instant
  * No dependencies — fully testable without mocks or Compose.
  */
 object ProjectsDomain {
-
     /**
      * Maximum project name length, counted in visible characters.
      *
@@ -33,16 +32,23 @@ object ProjectsDomain {
      *
      * @return `null` when the name is acceptable, otherwise the reason it is not.
      */
-    fun validateName(name: String): AppError.Validation? = when {
-        name.isBlank() -> AppError.Validation("Name cannot be blank", code = "project.name.blank")
+    fun validateName(name: String): AppError.Validation? =
+        when {
+            name.isBlank() -> {
+                AppError.Validation("Name cannot be blank", code = "project.name.blank")
+            }
 
-        name.visibleLength() > MAX_NAME_LENGTH -> AppError.Validation(
-            "Name too long (max $MAX_NAME_LENGTH characters)",
-            code = "project.name.too_long",
-        )
+            name.visibleLength() > MAX_NAME_LENGTH -> {
+                AppError.Validation(
+                    "Name too long (max $MAX_NAME_LENGTH characters)",
+                    code = "project.name.too_long",
+                )
+            }
 
-        else -> null
-    }
+            else -> {
+                null
+            }
+        }
 
     /**
      * Validates a [CreateProjectInput].
@@ -72,23 +78,24 @@ object ProjectsDomain {
         createdAt: Instant,
         updatedAt: Instant,
         userId: UserId,
-    ): Project = Project(
-        id = id,
-        name = input.name.trim(),
-        color = input.color,
-        icon = input.icon,
-        description = input.description,
-        createdAt = createdAt,
-        updatedAt = updatedAt,
-        isDefault = false,
-        dueDate = null,
-        team = null,
-        isDeleted = false,
-        deletedAt = null,
-        parentId = input.parentId,
-        sortOrder = 0,
-        idempotencyKey = null,
-        externalId = null,
-        userId = userId,
-    )
+    ): Project =
+        Project(
+            id = id,
+            name = input.name.trim(),
+            color = input.color,
+            icon = input.icon,
+            description = input.description,
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+            isDefault = false,
+            dueDate = null,
+            team = null,
+            isDeleted = false,
+            deletedAt = null,
+            parentId = input.parentId,
+            sortOrder = 0,
+            idempotencyKey = null,
+            externalId = null,
+            userId = userId,
+        )
 }

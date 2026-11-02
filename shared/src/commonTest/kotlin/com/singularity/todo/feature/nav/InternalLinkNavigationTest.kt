@@ -18,7 +18,6 @@ import kotlin.test.assertNull
  */
 @Tag("fast")
 class InternalLinkNavigationTest {
-
     @Test
     fun `a note link opens the note`() {
         val destination = internalLinkDestination(InternalLinkTarget(InternalLinkSchemes.NOTE, "n1"))

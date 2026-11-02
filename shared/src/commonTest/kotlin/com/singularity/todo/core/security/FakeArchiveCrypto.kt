@@ -29,7 +29,6 @@ import com.singularity.todo.core.files.ByteSource
  * archives are not the same bytes" must not depend on a random number generator.
  */
 internal class FakeArchiveCrypto : ArchiveCrypto {
-
     /** How many bytes the fake has handed out — the stand-in for the random source. */
     private var handed = 0
 
@@ -44,18 +43,31 @@ internal class FakeArchiveCrypto : ArchiveCrypto {
     override fun randomBytes(count: Int): ByteArray =
         ByteArray(count) { index -> ((handed + index) % 251).toByte() }.also { handed += count }
 
-    override fun deriveKey(password: CharArray, salt: ByteArray): ByteArray =
+    override fun deriveKey(
+        password: CharArray,
+        salt: ByteArray,
+    ): ByteArray =
         ByteArray(password.size + salt.size) { index ->
             if (index < password.size) password[index].code.toByte() else salt[index - password.size]
         }
 
-    override fun seal(key: ByteArray, nonce: ByteArray, plaintext: ByteArray, aad: ByteArray): ByteArray {
+    override fun seal(
+        key: ByteArray,
+        nonce: ByteArray,
+        plaintext: ByteArray,
+        aad: ByteArray,
+    ): ByteArray {
         lastNonce = nonce
         lastAad = aad
         return xor(plaintext, key) + tag(key, nonce, aad)
     }
 
-    override fun open(key: ByteArray, nonce: ByteArray, ciphertext: ByteArray, aad: ByteArray): ByteArray {
+    override fun open(
+        key: ByteArray,
+        nonce: ByteArray,
+        ciphertext: ByteArray,
+        aad: ByteArray,
+    ): ByteArray {
         if (ciphertext.size < TAG_BYTES) throw IllegalStateException("the ciphertext is too short to be sealed")
         val body = ciphertext.copyOfRange(0, ciphertext.size - TAG_BYTES)
         val tag = ciphertext.copyOfRange(ciphertext.size - TAG_BYTES, ciphertext.size)
@@ -63,12 +75,24 @@ internal class FakeArchiveCrypto : ArchiveCrypto {
         return xor(body, key)
     }
 
-    override fun seal(source: ByteSource, sink: ByteSink, key: ByteArray, nonce: ByteArray, aad: ByteArray) {
+    override fun seal(
+        source: ByteSource,
+        sink: ByteSink,
+        key: ByteArray,
+        nonce: ByteArray,
+        aad: ByteArray,
+    ) {
         val sealed = seal(key, nonce, source.readAll(), aad)
         sink.write(sealed, 0, sealed.size)
     }
 
-    override fun open(source: ByteSource, sink: ByteSink, key: ByteArray, nonce: ByteArray, aad: ByteArray) {
+    override fun open(
+        source: ByteSource,
+        sink: ByteSink,
+        key: ByteArray,
+        nonce: ByteArray,
+        aad: ByteArray,
+    ) {
         val plain = open(key, nonce, source.readAll(), aad)
         sink.write(plain, 0, plain.size)
     }
@@ -90,7 +114,10 @@ internal class FakeArchiveCrypto : ArchiveCrypto {
         return collected
     }
 
-    private fun xor(bytes: ByteArray, key: ByteArray): ByteArray =
+    private fun xor(
+        bytes: ByteArray,
+        key: ByteArray,
+    ): ByteArray =
         ByteArray(bytes.size) { index ->
             ((bytes[index].toLong() xor key[index % key.size].toLong()) and 0xFF).toByte()
         }
@@ -102,7 +129,11 @@ internal class FakeArchiveCrypto : ArchiveCrypto {
      * honestly: *was this sealed with this key?* A wrong password has to fail
      * here, exactly as it fails on the GCM tag.
      */
-    private fun tag(key: ByteArray, nonce: ByteArray, aad: ByteArray): ByteArray {
+    private fun tag(
+        key: ByteArray,
+        nonce: ByteArray,
+        aad: ByteArray,
+    ): ByteArray {
         var acc = 7L
         for (byte in key) acc = acc * 31 + byte
         for (byte in nonce) acc = acc * 31 + byte

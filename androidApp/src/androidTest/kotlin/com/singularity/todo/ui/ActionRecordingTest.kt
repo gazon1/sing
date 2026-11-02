@@ -31,7 +31,6 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 @LargeTest
 class ActionRecordingTest : InstrumentedTestBase() {
-
     /**
      * A tap is in the log, with the element it touched.
      *

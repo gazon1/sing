@@ -25,14 +25,21 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
  * @return the destination to open, or null when the link names nothing the app
  *   knows how to show.
  */
-fun internalLinkDestination(target: InternalLinkTarget): AppDestination? = when (target.scheme) {
-    InternalLinkSchemes.NOTE -> AppDestination.NotesGraph(
-        AppDestination.NotesStartRoute.Preview(NoteId.fromString(target.id)),
-    )
+fun internalLinkDestination(target: InternalLinkTarget): AppDestination? =
+    when (target.scheme) {
+        InternalLinkSchemes.NOTE -> {
+            AppDestination.NotesGraph(
+                AppDestination.NotesStartRoute.Preview(NoteId.fromString(target.id)),
+            )
+        }
 
-    InternalLinkSchemes.TASK -> AppDestination.TasksGraph(
-        AppDestination.TasksStartRoute.Detail(TaskId.fromString(target.id)),
-    )
+        InternalLinkSchemes.TASK -> {
+            AppDestination.TasksGraph(
+                AppDestination.TasksStartRoute.Detail(TaskId.fromString(target.id)),
+            )
+        }
 
-    else -> null
-}
+        else -> {
+            null
+        }
+    }

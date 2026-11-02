@@ -92,6 +92,11 @@ data class SyncStateEntity(
     }
 }
 
+// One function per settable column is what a DAO is; splitting it to satisfy a count
+// would scatter one table's write surface across several interfaces and make the
+// cross-field invariants harder to read, not easier. The twelfth member is
+// `attachmentsSyncEnabled`, which is scoped like every other setting on this table.
+
 /**
  * DAO for [SyncStateEntity], keyed by owner and profile.
  *
@@ -99,66 +104,100 @@ data class SyncStateEntity(
  * null: sync has to work on a device that has never synced this scope, and a missing
  * row is the normal first-run state, not an error to propagate.
  */
-// One function per settable column is what a DAO is; splitting it to satisfy a count
-// would scatter one table's write surface across several interfaces and make the
-// cross-field invariants harder to read, not easier. The twelfth member is
-// `attachmentsSyncEnabled`, which is scoped like every other setting on this table.
 @Suppress("TooManyFunctions")
 @Dao
 interface SyncStateDao {
     @Query("SELECT * FROM sync_state WHERE owner_id = :ownerId AND profile_id = :profileId")
-    suspend fun get(ownerId: String, profileId: String): SyncStateEntity?
+    suspend fun get(
+        ownerId: String,
+        profileId: String,
+    ): SyncStateEntity?
 
     @Query("SELECT * FROM sync_state WHERE owner_id = :ownerId AND profile_id = :profileId")
-    fun observe(ownerId: String, profileId: String): Flow<SyncStateEntity?>
+    fun observe(
+        ownerId: String,
+        profileId: String,
+    ): Flow<SyncStateEntity?>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertIfAbsent(entity: SyncStateEntity)
 
     @Query("UPDATE sync_state SET last_lsn = :lsn WHERE owner_id = :ownerId AND profile_id = :profileId")
-    suspend fun setLastLsn(ownerId: String, profileId: String, lsn: Long)
+    suspend fun setLastLsn(
+        ownerId: String,
+        profileId: String,
+        lsn: Long,
+    )
 
     @Query(
         "UPDATE sync_state SET last_successful_sync_at = :at " +
             "WHERE owner_id = :ownerId AND profile_id = :profileId",
     )
-    suspend fun setLastSuccessfulSyncAt(ownerId: String, profileId: String, at: Long)
+    suspend fun setLastSuccessfulSyncAt(
+        ownerId: String,
+        profileId: String,
+        at: Long,
+    )
 
     @Query(
         "UPDATE sync_state SET device_id = :deviceId " +
             "WHERE owner_id = :ownerId AND profile_id = :profileId",
     )
-    suspend fun setDeviceId(ownerId: String, profileId: String, deviceId: String)
+    suspend fun setDeviceId(
+        ownerId: String,
+        profileId: String,
+        deviceId: String,
+    )
 
     @Query(
         "UPDATE sync_state SET auto_sync_enabled = :enabled " +
             "WHERE owner_id = :ownerId AND profile_id = :profileId",
     )
-    suspend fun setAutoSyncEnabled(ownerId: String, profileId: String, enabled: Boolean)
+    suspend fun setAutoSyncEnabled(
+        ownerId: String,
+        profileId: String,
+        enabled: Boolean,
+    )
 
     @Query(
         "UPDATE sync_state SET scheduled_interval_minutes = :minutes " +
             "WHERE owner_id = :ownerId AND profile_id = :profileId",
     )
-    suspend fun setScheduledIntervalMinutes(ownerId: String, profileId: String, minutes: Int)
+    suspend fun setScheduledIntervalMinutes(
+        ownerId: String,
+        profileId: String,
+        minutes: Int,
+    )
 
     @Query(
         "UPDATE sync_state SET enabled_triggers = :triggers " +
             "WHERE owner_id = :ownerId AND profile_id = :profileId",
     )
-    suspend fun setEnabledTriggers(ownerId: String, profileId: String, triggers: String)
+    suspend fun setEnabledTriggers(
+        ownerId: String,
+        profileId: String,
+        triggers: String,
+    )
 
     @Query(
         "UPDATE sync_state SET seed_completed = :completed " +
             "WHERE owner_id = :ownerId AND profile_id = :profileId",
     )
-    suspend fun setSeedCompleted(ownerId: String, profileId: String, completed: Boolean)
+    suspend fun setSeedCompleted(
+        ownerId: String,
+        profileId: String,
+        completed: Boolean,
+    )
 
     @Query(
         "UPDATE sync_state SET attachments_sync_enabled = :enabled " +
             "WHERE owner_id = :ownerId AND profile_id = :profileId",
     )
-    suspend fun setAttachmentsSyncEnabled(ownerId: String, profileId: String, enabled: Boolean)
+    suspend fun setAttachmentsSyncEnabled(
+        ownerId: String,
+        profileId: String,
+        enabled: Boolean,
+    )
 
     @Query("DELETE FROM sync_state")
     suspend fun clearAll()

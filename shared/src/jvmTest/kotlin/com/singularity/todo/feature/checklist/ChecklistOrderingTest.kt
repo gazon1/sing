@@ -44,11 +44,11 @@ import kotlin.test.assertEquals
  */
 @Tag("fast")
 class ChecklistOrderingTest {
-
     private fun repo(): ChecklistRepository {
-        val auth = FakeAuthRepository(
-            initialSession = Session.SignedIn(UserId("u1"), "test@test.com", "token", "refresh"),
-        )
+        val auth =
+            FakeAuthRepository(
+                initialSession = Session.SignedIn(UserId("u1"), "test@test.com", "token", "refresh"),
+            )
         val currentUser = FakeProfileAwareCurrentUser(authRepository = auth)
         val db = FakeAppDatabase()
         // The scoped checklist read resolves ownership through the parent task, so the
@@ -63,53 +63,69 @@ class ChecklistOrderingTest {
         )
     }
 
-    private fun ownedTask(id: String) = TaskEntity(
-        id = id, title = "T", description = null, projectId = null,
-        dueDate = null, dueTime = null,
-        startDate = null, startTime = null, endDate = null, endTime = null,
-        accentColor = null, emoji = null,
-        completedAt = null, someday = false,
-        archivedAt = null, isPinned = false, createdAt = 0, updatedAt = 0,
-        userId = "u1",
-    )
+    private fun ownedTask(id: String) =
+        TaskEntity(
+            id = id,
+            title = "T",
+            description = null,
+            projectId = null,
+            dueDate = null,
+            dueTime = null,
+            startDate = null,
+            startTime = null,
+            endDate = null,
+            endTime = null,
+            accentColor = null,
+            emoji = null,
+            completedAt = null,
+            someday = false,
+            archivedAt = null,
+            isPinned = false,
+            createdAt = 0,
+            updatedAt = 0,
+            userId = "u1",
+        )
 
     @Test
-    fun `an item added after a batch is ordered last`() = runTest {
-        val repo = repo()
-        val taskId = "t-order"
+    fun `an item added after a batch is ordered last`() =
+        runTest {
+            val repo = repo()
+            val taskId = "t-order"
 
-        repo.createBatch(
-            taskId,
-            listOf(
-                ChecklistItem(ChecklistItemId.generate(), taskId, "first", false, 0),
-                ChecklistItem(ChecklistItemId.generate(), taskId, "second", false, 1),
-            ),
-        ).getOrThrow()
+            repo
+                .createBatch(
+                    taskId,
+                    listOf(
+                        ChecklistItem(ChecklistItemId.generate(), taskId, "first", false, 0),
+                        ChecklistItem(ChecklistItemId.generate(), taskId, "second", false, 1),
+                    ),
+                ).getOrThrow()
 
-        // `createBatch` renumbers 0,1. An `addItem` also claims 0 — the tie the
-        // DAO cannot resolve by sort_order, and which rowid then decides.
-        repo.addItem(taskId, "third").getOrThrow()
+            // `createBatch` renumbers 0,1. An `addItem` also claims 0 — the tie the
+            // DAO cannot resolve by sort_order, and which rowid then decides.
+            repo.addItem(taskId, "third").getOrThrow()
 
-        val titles = repo.watchByTask(taskId).first().map { it.title }
-        assertEquals(
-            listOf("first", "second", "third"),
-            titles,
-            "an item added to a list must come after the items already in it",
-        )
-    }
+            val titles = repo.watchByTask(taskId).first().map { it.title }
+            assertEquals(
+                listOf("first", "second", "third"),
+                titles,
+                "an item added to a list must come after the items already in it",
+            )
+        }
 
     @Test
-    fun `items added one after another keep their order`() = runTest {
-        val repo = repo()
-        val taskId = "t-seq"
+    fun `items added one after another keep their order`() =
+        runTest {
+            val repo = repo()
+            val taskId = "t-seq"
 
-        repo.addItem(taskId, "a").getOrThrow()
-        repo.addItem(taskId, "b").getOrThrow()
-        repo.addItem(taskId, "c").getOrThrow()
+            repo.addItem(taskId, "a").getOrThrow()
+            repo.addItem(taskId, "b").getOrThrow()
+            repo.addItem(taskId, "c").getOrThrow()
 
-        assertEquals(
-            listOf("a", "b", "c"),
-            repo.watchByTask(taskId).first().map { it.title },
-        )
-    }
+            assertEquals(
+                listOf("a", "b", "c"),
+                repo.watchByTask(taskId).first().map { it.title },
+            )
+        }
 }

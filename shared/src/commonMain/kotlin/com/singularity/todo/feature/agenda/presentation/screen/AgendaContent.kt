@@ -6,8 +6,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -28,32 +28,33 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import com.singularity.todo.core.ui.components.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import com.singularity.todo.core.refresh.RefreshableContent
-import com.singularity.todo.core.ui.onboarding.SpotlightAnchorId
-import com.singularity.todo.core.ui.onboarding.SpotlightAnchorRegistry
-import com.singularity.todo.core.ui.onboarding.spotlightAnchor
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.refresh.RefreshableContent
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.EmptyState
+import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.menu.onSecondaryClick
+import com.singularity.todo.core.ui.onboarding.SpotlightAnchorId
+import com.singularity.todo.core.ui.onboarding.SpotlightAnchorRegistry
+import com.singularity.todo.core.ui.onboarding.spotlightAnchor
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaRowItem
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
-import com.singularity.todo.feature.agenda.domain.model.toTaskUi
 import com.singularity.todo.feature.agenda.domain.model.RenderedSection
+import com.singularity.todo.feature.agenda.domain.model.toTaskUi
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskMarking
 import com.singularity.todo.feature.tasks.presentation.components.list.SwipeableTaskRow
@@ -66,7 +67,6 @@ import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
-import androidx.compose.runtime.getValue
 
 /**
  * Content composable for the Agenda screen.
@@ -121,7 +121,10 @@ fun AgendaContent(
     var contextMenuTask by remember { mutableStateOf<TaskUi?>(null) }
     var contextMenuOffset by remember { mutableStateOf<DpOffset?>(null) }
 
-    fun openContextMenu(taskUi: TaskUi, offset: DpOffset) {
+    fun openContextMenu(
+        taskUi: TaskUi,
+        offset: DpOffset,
+    ) {
         contextMenuTask = taskUi
         contextMenuOffset = offset
     }
@@ -137,13 +140,14 @@ fun AgendaContent(
     // Merging is offered when the selection spans exactly two series: one series
     // is already one piece of work, and three is a question this action does not
     // answer.
-    val selectedSeriesIds = (state as? AgendaUiState.Loaded)
-        ?.sections
-        ?.flatMap { it.tasks }
-        ?.filter { it.task.id in selectedTaskIds }
-        ?.mapNotNull { it.task.seriesId }
-        ?.distinct()
-        .orEmpty()
+    val selectedSeriesIds =
+        (state as? AgendaUiState.Loaded)
+            ?.sections
+            ?.flatMap { it.tasks }
+            ?.filter { it.task.id in selectedTaskIds }
+            ?.mapNotNull { it.task.seriesId }
+            ?.distinct()
+            .orEmpty()
     val canMergeSeries = selectedSeriesIds.size == 2
 
     Scaffold(
@@ -183,9 +187,10 @@ fun AgendaContent(
                                 )
                             }
                         },
-                        colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        ),
+                        colors =
+                            TopAppBarDefaults.topAppBarColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            ),
                     )
                 } else {
                     TopAppBar(
@@ -205,8 +210,9 @@ fun AgendaContent(
                             if (onMultiDateCreate != null) {
                                 IconButton(
                                     onClick = onMultiDateCreate,
-                                    modifier = Modifier
-                                        .testTag(TestTags.AGENDA_MULTI_DATE_BUTTON),
+                                    modifier =
+                                        Modifier
+                                            .testTag(TestTags.AGENDA_MULTI_DATE_BUTTON),
                                 ) {
                                     Icon(
                                         Icons.Outlined.DateRange,
@@ -217,9 +223,13 @@ fun AgendaContent(
                             if (onSavedViewsClick != null) {
                                 IconButton(
                                     onClick = onSavedViewsClick,
-                                    modifier = Modifier
-                                        .testTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON)
-                                        .spotlightAnchorIfRegistered(SpotlightAnchorId.SavedViews, spotlightRegistry),
+                                    modifier =
+                                        Modifier
+                                            .testTag(TestTags.AGENDA_SAVED_VIEWS_BUTTON)
+                                            .spotlightAnchorIfRegistered(
+                                                SpotlightAnchorId.SavedViews,
+                                                spotlightRegistry,
+                                            ),
                                 ) {
                                     Icon(Icons.Default.Bookmark, contentDescription = "Saved views")
                                 }
@@ -227,17 +237,22 @@ fun AgendaContent(
                             if (onSaveCurrentClick != null) {
                                 IconButton(
                                     onClick = onSaveCurrentClick,
-                                    modifier = Modifier
-                                        .testTag(TestTags.AGENDA_SAVE_CURRENT_BUTTON)
-                                        .spotlightAnchorIfRegistered(SpotlightAnchorId.SaveCurrent, spotlightRegistry),
+                                    modifier =
+                                        Modifier
+                                            .testTag(TestTags.AGENDA_SAVE_CURRENT_BUTTON)
+                                            .spotlightAnchorIfRegistered(
+                                                SpotlightAnchorId.SaveCurrent,
+                                                spotlightRegistry,
+                                            ),
                                 ) {
                                     Icon(Icons.Default.BookmarkAdd, contentDescription = "Save current agenda")
                                 }
                             }
                         },
-                        colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = MaterialTheme.colorScheme.surface,
-                        ),
+                        colors =
+                            TopAppBarDefaults.topAppBarColors(
+                                containerColor = MaterialTheme.colorScheme.surface,
+                            ),
                     )
                 }
             }
@@ -248,9 +263,10 @@ fun AgendaContent(
             when (state) {
                 is AgendaUiState.Loading -> {
                     Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(paddingValues),
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .padding(paddingValues),
                         contentAlignment = Alignment.Center,
                     ) {
                         CircularProgressIndicator()
@@ -259,9 +275,10 @@ fun AgendaContent(
 
                 is AgendaUiState.Error -> {
                     Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(paddingValues),
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .padding(paddingValues),
                         contentAlignment = Alignment.Center,
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -320,9 +337,10 @@ private fun AgendaList(
 ) {
     LazyColumn(
         state = listState,
-        modifier = modifier
-            .fillMaxSize()
-            .widthIn(max = 640.dp),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .widthIn(max = 640.dp),
         contentPadding = PaddingValues(vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(0.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -346,16 +364,18 @@ private fun AgendaList(
             ) { rowItem ->
                 val task = rowItem.task
                 val isSelected = task.id in selectedTaskIds
-                val taskUi = remember(task, rowItem, isSelected) {
-                    rowItem.toTaskUi(isSelected)
-                }
-                val rightClickModifier = if (!isSelectionMode) {
-                    Modifier.onSecondaryClick { offset ->
-                        onOpenContextMenu(taskUi, offset)
+                val taskUi =
+                    remember(task, rowItem, isSelected) {
+                        rowItem.toTaskUi(isSelected)
                     }
-                } else {
-                    Modifier
-                }
+                val rightClickModifier =
+                    if (!isSelectionMode) {
+                        Modifier.onSecondaryClick { offset ->
+                            onOpenContextMenu(taskUi, offset)
+                        }
+                    } else {
+                        Modifier
+                    }
                 SwipeableTaskRow(
                     onDelete = { onIntent(AgendaIntent.TaskDeleteClicked(task.id)) },
                     secondaryClickModifier = rightClickModifier,
@@ -371,11 +391,12 @@ private fun AgendaList(
                                     onIntent(AgendaIntent.TaskClicked(task.id))
                                 }
                             },
-                            onLongClick = if (!isSelectionMode) {
-                                { onOpenContextMenu(taskUi, DpOffset.Zero) }
-                            } else {
-                                null
-                            },
+                            onLongClick =
+                                if (!isSelectionMode) {
+                                    { onOpenContextMenu(taskUi, DpOffset.Zero) }
+                                } else {
+                                    null
+                                },
                             showDivider = true,
                         )
                     },
@@ -386,11 +407,16 @@ private fun AgendaList(
 }
 
 @Composable
-private fun AgendaSectionHeader(name: String, badge: Int?, onAddClick: (() -> Unit)?) {
+private fun AgendaSectionHeader(
+    name: String,
+    badge: Int?,
+    onAddClick: (() -> Unit)?,
+) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         androidx.compose.foundation.layout.Row(
             modifier = Modifier.fillMaxWidth(),
@@ -420,175 +446,219 @@ private fun AgendaSectionHeader(name: String, badge: Int?, onAddClick: (() -> Un
 
 @Preview
 @Composable
-private fun AgendaContentLoadingPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    AgendaContent(
-        state = AgendaUiState.Loading,
-        title = "Agenda",
-        onIntent = {},
-    )
-}
+private fun AgendaContentLoadingPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        AgendaContent(
+            state = AgendaUiState.Loading,
+            title = "Agenda",
+            onIntent = {},
+        )
+    }
 
 @Preview
 @Composable
-private fun AgendaContentErrorPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    AgendaContent(
-        state = AgendaUiState.Error(message = "Failed to load agenda"),
-        title = "Agenda",
-        onIntent = {},
-    )
-}
+private fun AgendaContentErrorPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        AgendaContent(
+            state = AgendaUiState.Error(message = "Failed to load agenda"),
+            title = "Agenda",
+            onIntent = {},
+        )
+    }
 
 @Preview
 @Composable
-private fun AgendaContentEmptyPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    AgendaContent(
-        state = AgendaUiState.Loaded(
-            sections = persistentListOf(),
-            today = PreviewSamples.today,
-        ),
-        title = "Agenda",
-        onIntent = {},
-    )
-}
+private fun AgendaContentEmptyPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        AgendaContent(
+            state =
+                AgendaUiState.Loaded(
+                    sections = persistentListOf(),
+                    today = PreviewSamples.today,
+                ),
+            title = "Agenda",
+            onIntent = {},
+        )
+    }
 
 @Preview
 @Composable
-private fun AgendaContentLoadedPreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    val today = PreviewSamples.today
-    val yesterday = today.minus(1, DateTimeUnit.DAY)
-    val tomorrow = today.plus(1, DateTimeUnit.DAY)
+private fun AgendaContentLoadedPreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        val today = PreviewSamples.today
+        val yesterday = today.minus(1, DateTimeUnit.DAY)
+        val tomorrow = today.plus(1, DateTimeUnit.DAY)
 
-    val overdueTask = PreviewSamples.task(
-        id = "t1",
-        title = "Overdue task",
-        dueDate = yesterday,
-        completed = false,
-    )
-    val todayTask = PreviewSamples.task(
-        id = "t2",
-        title = "Due today",
-        dueDate = today,
-        completed = false,
-    )
-    val completedTask = PreviewSamples.task(
-        id = "t3",
-        title = "Completed task",
-        dueDate = today,
-        completed = true,
-    )
-    val pinnedTask = PreviewSamples.task(
-        id = "t4",
-        title = "Pinned task",
-        dueDate = tomorrow,
-        pinned = true,
-    )
-    val noDateTask = PreviewSamples.task(
-        id = "t5",
-        title = "No date set",
-        dueDate = null,
-        completed = false,
-    )
+        val overdueTask =
+            PreviewSamples.task(
+                id = "t1",
+                title = "Overdue task",
+                dueDate = yesterday,
+                completed = false,
+            )
+        val todayTask =
+            PreviewSamples.task(
+                id = "t2",
+                title = "Due today",
+                dueDate = today,
+                completed = false,
+            )
+        val completedTask =
+            PreviewSamples.task(
+                id = "t3",
+                title = "Completed task",
+                dueDate = today,
+                completed = true,
+            )
+        val pinnedTask =
+            PreviewSamples.task(
+                id = "t4",
+                title = "Pinned task",
+                dueDate = tomorrow,
+                pinned = true,
+            )
+        val noDateTask =
+            PreviewSamples.task(
+                id = "t5",
+                title = "No date set",
+                dueDate = null,
+                completed = false,
+            )
 
-    AgendaContent(
-        state = AgendaUiState.Loaded(
-            sections = persistentListOf(
-                RenderedSection(
-                    id = "overdue",
-                    name = "Overdue",
-                    tasks = persistentListOf(
-                        AgendaRowItem(task = overdueTask, markings = persistentSetOf(TaskMarking.Overdue)),
-                    ),
-                    badge = 1,
+        AgendaContent(
+            state =
+                AgendaUiState.Loaded(
+                    sections =
+                        persistentListOf(
+                            RenderedSection(
+                                id = "overdue",
+                                name = "Overdue",
+                                tasks =
+                                    persistentListOf(
+                                        AgendaRowItem(
+                                            task = overdueTask,
+                                            markings = persistentSetOf(TaskMarking.Overdue),
+                                        ),
+                                    ),
+                                badge = 1,
+                            ),
+                            RenderedSection(
+                                id = "today",
+                                name = "Today",
+                                tasks = persistentListOf(AgendaRowItem(task = todayTask, markings = persistentSetOf())),
+                                badge = null,
+                            ),
+                            RenderedSection(
+                                id = "completed",
+                                name = "Completed",
+                                tasks =
+                                    persistentListOf(
+                                        AgendaRowItem(
+                                            task = completedTask,
+                                            markings = persistentSetOf(TaskMarking.Completed),
+                                        ),
+                                    ),
+                                badge = null,
+                            ),
+                            RenderedSection(
+                                id = "upcoming",
+                                name = "Upcoming",
+                                tasks =
+                                    persistentListOf(
+                                        AgendaRowItem(
+                                            task = pinnedTask,
+                                            markings = persistentSetOf(TaskMarking.Pinned),
+                                        ),
+                                        AgendaRowItem(
+                                            task = noDateTask,
+                                            markings = persistentSetOf(TaskMarking.NoDate),
+                                        ),
+                                    ),
+                                badge = null,
+                            ),
+                        ),
+                    today = today,
                 ),
-                RenderedSection(
-                    id = "today",
-                    name = "Today",
-                    tasks = persistentListOf(AgendaRowItem(task = todayTask, markings = persistentSetOf())),
-                    badge = null,
-                ),
-                RenderedSection(
-                    id = "completed",
-                    name = "Completed",
-                    tasks = persistentListOf(
-                        AgendaRowItem(task = completedTask, markings = persistentSetOf(TaskMarking.Completed)),
-                    ),
-                    badge = null,
-                ),
-                RenderedSection(
-                    id = "upcoming",
-                    name = "Upcoming",
-                    tasks = persistentListOf(
-                        AgendaRowItem(task = pinnedTask, markings = persistentSetOf(TaskMarking.Pinned)),
-                        AgendaRowItem(task = noDateTask, markings = persistentSetOf(TaskMarking.NoDate)),
-                    ),
-                    badge = null,
-                ),
-            ),
-            today = today,
-        ),
-        title = "My Agenda",
-        onIntent = {},
-        onSavedViewsClick = {},
-        onSaveCurrentClick = {},
-    )
-}
+            title = "My Agenda",
+            onIntent = {},
+            onSavedViewsClick = {},
+            onSaveCurrentClick = {},
+        )
+    }
 
 @Preview
 @Composable
-private fun AgendaContentSelectionModePreview() = PreviewThemed(darkTheme = false, useSurface = false) {
-    val today = PreviewSamples.today
+private fun AgendaContentSelectionModePreview() =
+    PreviewThemed(darkTheme = false, useSurface = false) {
+        val today = PreviewSamples.today
 
-    val task1 = PreviewSamples.task(id = "t1", title = "Task 1", dueDate = today)
-    val task2 = PreviewSamples.task(id = "t2", title = "Task 2", dueDate = today)
+        val task1 = PreviewSamples.task(id = "t1", title = "Task 1", dueDate = today)
+        val task2 = PreviewSamples.task(id = "t2", title = "Task 2", dueDate = today)
 
-    AgendaContent(
-        state = AgendaUiState.Loaded(
-            sections = persistentListOf(
-                RenderedSection(
-                    id = "today",
-                    name = "Today",
-                    tasks = persistentListOf(
-                        AgendaRowItem(task = task1, markings = persistentSetOf()),
-                        AgendaRowItem(task = task2, markings = persistentSetOf()),
-                    ),
-                    badge = null,
+        AgendaContent(
+            state =
+                AgendaUiState.Loaded(
+                    sections =
+                        persistentListOf(
+                            RenderedSection(
+                                id = "today",
+                                name = "Today",
+                                tasks =
+                                    persistentListOf(
+                                        AgendaRowItem(task = task1, markings = persistentSetOf()),
+                                        AgendaRowItem(task = task2, markings = persistentSetOf()),
+                                    ),
+                                badge = null,
+                            ),
+                        ),
+                    today = today,
+                    isSelectionMode = true,
+                    selectedTaskIds = persistentSetOf(TaskId.fromString("t1")),
                 ),
-            ),
-            today = today,
-            isSelectionMode = true,
-            selectedTaskIds = persistentSetOf(TaskId.fromString("t1")),
-        ),
-        title = "Agenda",
-        onIntent = {},
-    )
-}
+            title = "Agenda",
+            onIntent = {},
+        )
+    }
 
 @Preview
 @Composable
-private fun AgendaContentDarkPreview() = PreviewThemed(darkTheme = true, useSurface = false) {
-    val today = PreviewSamples.today
+private fun AgendaContentDarkPreview() =
+    PreviewThemed(darkTheme = true, useSurface = false) {
+        val today = PreviewSamples.today
 
-    AgendaContent(
-        state = AgendaUiState.Loaded(
-            sections = persistentListOf(
-                RenderedSection(
-                    id = "today",
-                    name = "Today",
-                    tasks = persistentListOf(
-                        AgendaRowItem(task = PreviewSamples.task(id = "t1", title = "Review PR", dueDate = today)),
-                        AgendaRowItem(task = PreviewSamples.task(id = "t2", title = "Send report", dueDate = today)),
-                    ),
-                    badge = null,
+        AgendaContent(
+            state =
+                AgendaUiState.Loaded(
+                    sections =
+                        persistentListOf(
+                            RenderedSection(
+                                id = "today",
+                                name = "Today",
+                                tasks =
+                                    persistentListOf(
+                                        AgendaRowItem(
+                                            task = PreviewSamples.task(id = "t1", title = "Review PR", dueDate = today),
+                                        ),
+                                        AgendaRowItem(
+                                            task =
+                                                PreviewSamples.task(
+                                                    id = "t2",
+                                                    title = "Send report",
+                                                    dueDate = today,
+                                                ),
+                                        ),
+                                    ),
+                                badge = null,
+                            ),
+                        ),
+                    today = today,
                 ),
-            ),
-            today = today,
-        ),
-        title = "Agenda",
-        onIntent = {},
-        onSavedViewsClick = {},
-        onSaveCurrentClick = {},
-    )
-}
+            title = "Agenda",
+            onIntent = {},
+            onSavedViewsClick = {},
+            onSaveCurrentClick = {},
+        )
+    }
 
 /**
  * Registers [id] as a spotlight target only when a registry is in play.

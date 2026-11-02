@@ -10,12 +10,12 @@ import ai.koog.prompt.message.MessagePart
 import ai.koog.serialization.TypeToken
 import ai.koog.utils.time.KoogClock
 import co.touchlab.kermit.Logger
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import kotlinx.coroutines.CancellationException
 
-/**
+/*
  * Factory functions for creating Koog [SimpleTool] instances.
  *
  * Instead of one class file per tool, use these inline factories.
@@ -46,30 +46,35 @@ inline fun <reified I : @Serializable Any, reified O : @Serializable Any> llmToo
     noinline userPrompt: (I) -> String,
     outputSerializer: KSerializer<O>,
     noinline outputBlock: (String) -> O = { text -> Json.decodeFromString(text) },
-): (PromptExecutor, LLModel) -> SimpleTool<I> = { promptExecutor, model ->
-    object : SimpleTool<I>(TypeToken.of(I::class.java), name, description) {
-        override suspend fun execute(args: I): String {
-            val p = prompt(Prompt.Empty, KoogClock.System) {
-                system(systemPrompt)
-                user(userPrompt(args))
+): (PromptExecutor, LLModel) -> SimpleTool<I> =
+    { promptExecutor, model ->
+        object : SimpleTool<I>(TypeToken.of(I::class.java), name, description) {
+            override suspend fun execute(args: I): String {
+                val p =
+                    prompt(Prompt.Empty, KoogClock.System) {
+                        system(systemPrompt)
+                        user(userPrompt(args))
+                    }
+                val response = promptExecutor.execute(p, model, emptyList())
+                val text = extractText(response)
+                return try {
+                    Json.encodeToString(outputSerializer, outputBlock(text))
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    logger.w(e) { "failed" }
+                    // Fallback: try direct decode
+                    Json.encodeToString(outputSerializer, outputBlock(text))
+                }
             }
-            val response = promptExecutor.execute(p, model, emptyList())
-            val text = extractText(response)
-            return try {
-                Json.encodeToString(outputSerializer, outputBlock(text))
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.w(e) { "failed" }
-                // Fallback: try direct decode
-                Json.encodeToString(outputSerializer, outputBlock(text))
-            }
-        }
 
-        private fun extractText(response: Message.Assistant): String =
-            response.parts.filterIsInstance<MessagePart.Text>().joinToString("") { it.text }.trim()
+            private fun extractText(response: Message.Assistant): String =
+                response.parts
+                    .filterIsInstance<MessagePart.Text>()
+                    .joinToString("") { it.text }
+                    .trim()
+        }
     }
-}
 
 /**
  * Creates a data-only tool that reads from repositories — no LLM call.
@@ -87,11 +92,12 @@ inline fun <reified I : @Serializable Any, reified O : @Serializable Any> dataTo
     name: String,
     description: String,
     noinline block: suspend (I) -> String,
-): () -> SimpleTool<I> = {
-    object : SimpleTool<I>(TypeToken.of(I::class.java), name, description) {
-        override suspend fun execute(args: I): String = block(args)
+): () -> SimpleTool<I> =
+    {
+        object : SimpleTool<I>(TypeToken.of(I::class.java), name, description) {
+            override suspend fun execute(args: I): String = block(args)
+        }
     }
-}
 
 // ─── Pre-built LLM tool factories ──────────────────────────────────────────────
 

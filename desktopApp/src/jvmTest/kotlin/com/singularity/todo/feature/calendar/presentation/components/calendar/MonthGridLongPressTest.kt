@@ -12,15 +12,15 @@ import com.singularity.todo.feature.calendar.presentation.theme.ProvideCalendarP
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.helpers.longClickTag
 import com.singularity.todo.test.helpers.runIsolatedComposeTest
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
-import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.persistentMapOf
 
 /**
  * The long press on a calendar cell.
@@ -40,78 +40,81 @@ import kotlinx.collections.immutable.persistentMapOf
  */
 @Tag("fast")
 class MonthGridLongPressTest {
-
     private val anchor = LocalDate(2026, 10, 1)
     private val busyDay = LocalDate(2026, 10, 20)
     private val emptyDay = LocalDate(2026, 10, 21)
 
-    private fun tasksByDate(): ImmutableMap<LocalDate, ImmutableList<CalendarTaskUi>> = persistentMapOf(
-        busyDay to persistentListOf(
-            CalendarTaskUi(
-                id = TaskId("task-1"),
-                title = "Pay the rent",
-                date = busyDay,
-            ),
-        ),
-    )
+    private fun tasksByDate(): ImmutableMap<LocalDate, ImmutableList<CalendarTaskUi>> =
+        persistentMapOf(
+            busyDay to
+                persistentListOf(
+                    CalendarTaskUi(
+                        id = TaskId("task-1"),
+                        title = "Pay the rent",
+                        date = busyDay,
+                    ),
+                ),
+        )
 
     @Test
-    fun `a long press on a day with tasks enters the selection mode`() = runIsolatedComposeTest {
-        var selectionStarted: LocalDate? = null
-        var emptyCellPressed: LocalDate? = null
+    fun `a long press on a day with tasks enters the selection mode`() =
+        runIsolatedComposeTest {
+            var selectionStarted: LocalDate? = null
+            var emptyCellPressed: LocalDate? = null
 
-        setContent {
-            ProvideCalendarPalette {
-                MaterialTheme {
-                    MonthGridView(
-                        monthAnchor = anchor,
-                        today = anchor,
-                        selectedDate = anchor,
-                        tasksByDate = tasksByDate(),
-                        onDayClick = {},
-                        onTaskClick = {},
-                        onMonthPageChanged = {},
-                        onEmptyCellLongPress = { emptyCellPressed = it },
-                        onDayLongPress = { selectionStarted = it },
-                        modifier = Modifier.size(420.dp, 600.dp),
-                    )
+            setContent {
+                ProvideCalendarPalette {
+                    MaterialTheme {
+                        MonthGridView(
+                            monthAnchor = anchor,
+                            today = anchor,
+                            selectedDate = anchor,
+                            tasksByDate = tasksByDate(),
+                            onDayClick = {},
+                            onTaskClick = {},
+                            onMonthPageChanged = {},
+                            onEmptyCellLongPress = { emptyCellPressed = it },
+                            onDayLongPress = { selectionStarted = it },
+                            modifier = Modifier.size(420.dp, 600.dp),
+                        )
+                    }
                 }
             }
+
+            longClickTag(TestTags.calendarDay("2026-10-20"))
+
+            assertEquals(busyDay, selectionStarted, "a day with tasks starts the selection")
+            assertNull(emptyCellPressed, "a day with tasks is not an empty cell")
         }
-
-        longClickTag(TestTags.calendarDay("2026-10-20"))
-
-        assertEquals(busyDay, selectionStarted, "a day with tasks starts the selection")
-        assertNull(emptyCellPressed, "a day with tasks is not an empty cell")
-    }
 
     @Test
-    fun `a long press on an empty day keeps its old meaning`() = runIsolatedComposeTest {
-        var selectionStarted: LocalDate? = null
-        var emptyCellPressed: LocalDate? = null
+    fun `a long press on an empty day keeps its old meaning`() =
+        runIsolatedComposeTest {
+            var selectionStarted: LocalDate? = null
+            var emptyCellPressed: LocalDate? = null
 
-        setContent {
-            ProvideCalendarPalette {
-                MaterialTheme {
-                    MonthGridView(
-                        monthAnchor = anchor,
-                        today = anchor,
-                        selectedDate = anchor,
-                        tasksByDate = tasksByDate(),
-                        onDayClick = {},
-                        onTaskClick = {},
-                        onMonthPageChanged = {},
-                        onEmptyCellLongPress = { emptyCellPressed = it },
-                        onDayLongPress = { selectionStarted = it },
-                        modifier = Modifier.size(420.dp, 600.dp),
-                    )
+            setContent {
+                ProvideCalendarPalette {
+                    MaterialTheme {
+                        MonthGridView(
+                            monthAnchor = anchor,
+                            today = anchor,
+                            selectedDate = anchor,
+                            tasksByDate = tasksByDate(),
+                            onDayClick = {},
+                            onTaskClick = {},
+                            onMonthPageChanged = {},
+                            onEmptyCellLongPress = { emptyCellPressed = it },
+                            onDayLongPress = { selectionStarted = it },
+                            modifier = Modifier.size(420.dp, 600.dp),
+                        )
+                    }
                 }
             }
+
+            longClickTag(TestTags.calendarDay("2026-10-21"))
+
+            assertEquals(emptyDay, emptyCellPressed, "an empty day still means one task on that day")
+            assertNull(selectionStarted, "an empty day does not start a selection")
         }
-
-        longClickTag(TestTags.calendarDay("2026-10-21"))
-
-        assertEquals(emptyDay, emptyCellPressed, "an empty day still means one task on that day")
-        assertNull(selectionStarted, "an empty day does not start a selection")
-    }
 }

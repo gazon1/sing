@@ -54,10 +54,11 @@ internal const val MAX_VISIBLE_MARKINGS = 3
  * asks for the blocked and the overdue markings to be on the row at the same
  * time — which a single "special" icon could not express.
  */
-private val ConveyedElsewhere = setOf(
-    TaskMarking.Completed,
-    TaskMarking.NoDate,
-)
+private val ConveyedElsewhere =
+    setOf(
+        TaskMarking.Completed,
+        TaskMarking.NoDate,
+    )
 
 /**
  * The marks on a task row: what is this task marked with?
@@ -78,9 +79,10 @@ fun TaskMarkingsRow(
     markings: ImmutableSet<TaskMarking>,
     modifier: Modifier = Modifier,
 ) {
-    val shown = markings
-        .filter { it !in ConveyedElsewhere }
-        .sortedBy { it.displayOrder }
+    val shown =
+        markings
+            .filter { it !in ConveyedElsewhere }
+            .sortedBy { it.displayOrder }
     if (shown.isEmpty()) return
 
     val visible = shown.take(MAX_VISIBLE_MARKINGS)
@@ -107,17 +109,18 @@ fun TaskMarkingsRow(
 }
 
 /** The icon that stands for this marking. */
-private fun TaskMarking.icon(): ImageVector = when (this) {
-    TaskMarking.InProgress -> Icons.Default.PlayArrow
-    TaskMarking.NextUp -> Icons.Default.Schedule
-    TaskMarking.Blocked -> Icons.Default.Block
-    TaskMarking.FollowUp -> Icons.Default.Flag
-    TaskMarking.Pinned -> Icons.Default.PushPin
-    TaskMarking.Recurring -> Icons.Default.Repeat
-    TaskMarking.Overdue -> Icons.Default.Schedule
-    TaskMarking.NoDate -> Icons.Default.Schedule
-    TaskMarking.Completed -> Icons.Default.Schedule
-}
+private fun TaskMarking.icon(): ImageVector =
+    when (this) {
+        TaskMarking.InProgress -> Icons.Default.PlayArrow
+        TaskMarking.NextUp -> Icons.Default.Schedule
+        TaskMarking.Blocked -> Icons.Default.Block
+        TaskMarking.FollowUp -> Icons.Default.Flag
+        TaskMarking.Pinned -> Icons.Default.PushPin
+        TaskMarking.Recurring -> Icons.Default.Repeat
+        TaskMarking.Overdue -> Icons.Default.Schedule
+        TaskMarking.NoDate -> Icons.Default.Schedule
+        TaskMarking.Completed -> Icons.Default.Schedule
+    }
 
 /**
  * What the mark means, for a screen reader.
@@ -125,17 +128,18 @@ private fun TaskMarking.icon(): ImageVector = when (this) {
  * The icons are distinct, but distinctness is a claim about pixels; this is
  * the claim about the fact, and it is the one a screen reader gets to read.
  */
-private fun TaskMarking.contentDescription(): String = when (this) {
-    TaskMarking.InProgress -> "Задача в работе"
-    TaskMarking.NextUp -> "Следующая задача"
-    TaskMarking.Blocked -> "Задача заблокирована зависимостями"
-    TaskMarking.FollowUp -> "Задача продолжает другую"
-    TaskMarking.Pinned -> "Задача закреплена"
-    TaskMarking.Recurring -> "Повторяющаяся задача"
-    TaskMarking.Overdue -> "Просроченная задача"
-    TaskMarking.NoDate -> "Задача без даты"
-    TaskMarking.Completed -> "Задача выполнена"
-}
+private fun TaskMarking.contentDescription(): String =
+    when (this) {
+        TaskMarking.InProgress -> "Задача в работе"
+        TaskMarking.NextUp -> "Следующая задача"
+        TaskMarking.Blocked -> "Задача заблокирована зависимостями"
+        TaskMarking.FollowUp -> "Задача продолжает другую"
+        TaskMarking.Pinned -> "Задача закреплена"
+        TaskMarking.Recurring -> "Повторяющаяся задача"
+        TaskMarking.Overdue -> "Просроченная задача"
+        TaskMarking.NoDate -> "Задача без даты"
+        TaskMarking.Completed -> "Задача выполнена"
+    }
 
 /**
  * The colour of the mark.
@@ -146,14 +150,15 @@ private fun TaskMarking.contentDescription(): String = when (this) {
  * news.
  */
 @Composable
-private fun TaskMarking.tint(): Color = when (this) {
-    TaskMarking.Blocked -> TaskSemanticColors.Danger
-    TaskMarking.InProgress -> MaterialTheme.colorScheme.primary
-    TaskMarking.NextUp -> MaterialTheme.colorScheme.primary
-    TaskMarking.FollowUp -> MaterialTheme.colorScheme.onSecondaryContainer
-    TaskMarking.Pinned -> MaterialTheme.colorScheme.primary
-    TaskMarking.Recurring -> mutedTextColor()
-    TaskMarking.Overdue -> TaskSemanticColors.Danger
-    TaskMarking.NoDate -> mutedTextColor()
-    TaskMarking.Completed -> mutedTextColor()
-}
+private fun TaskMarking.tint(): Color =
+    when (this) {
+        TaskMarking.Blocked -> TaskSemanticColors.Danger
+        TaskMarking.InProgress -> MaterialTheme.colorScheme.primary
+        TaskMarking.NextUp -> MaterialTheme.colorScheme.primary
+        TaskMarking.FollowUp -> MaterialTheme.colorScheme.onSecondaryContainer
+        TaskMarking.Pinned -> MaterialTheme.colorScheme.primary
+        TaskMarking.Recurring -> mutedTextColor()
+        TaskMarking.Overdue -> TaskSemanticColors.Danger
+        TaskMarking.NoDate -> mutedTextColor()
+        TaskMarking.Completed -> mutedTextColor()
+    }

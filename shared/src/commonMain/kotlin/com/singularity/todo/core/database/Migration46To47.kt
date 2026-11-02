@@ -43,7 +43,6 @@ import androidx.sqlite.execSQL
  * @see Migration45To46
  */
 class Migration46To47 : Migration(46, 47) {
-
     override suspend fun migrate(connection: SQLiteConnection) {
         connection.execSQL(
             "ALTER TABLE `tasks` ADD COLUMN `workflow_state` TEXT NOT NULL DEFAULT 'Open'",

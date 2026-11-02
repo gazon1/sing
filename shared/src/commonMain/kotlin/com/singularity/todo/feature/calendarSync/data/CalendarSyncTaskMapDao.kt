@@ -42,7 +42,6 @@ data class CalendarSyncTaskMapEntity(
  */
 @Dao
 interface CalendarSyncTaskMapDao {
-
     /** Observe all mappings for a given user. */
     @Query("SELECT * FROM calendar_sync_task_map WHERE user_id = :userId")
     fun observeAll(userId: String): Flow<List<CalendarSyncTaskMapEntity>>
@@ -53,11 +52,17 @@ interface CalendarSyncTaskMapDao {
 
     /** Get the event ID for a specific task, if any (task must belong to [userId]). */
     @Query("SELECT event_id FROM calendar_sync_task_map WHERE task_id = :taskId AND user_id = :userId")
-    suspend fun getEventId(taskId: String, userId: String): Long?
+    suspend fun getEventId(
+        taskId: String,
+        userId: String,
+    ): Long?
 
     /** Get the full mapping entity for a specific task, if any (task must belong to [userId]). */
     @Query("SELECT * FROM calendar_sync_task_map WHERE task_id = :taskId AND user_id = :userId")
-    suspend fun getByTaskId(taskId: String, userId: String): CalendarSyncTaskMapEntity?
+    suspend fun getByTaskId(
+        taskId: String,
+        userId: String,
+    ): CalendarSyncTaskMapEntity?
 
     /** Insert or replace a mapping. Caller must populate [CalendarSyncTaskMapEntity.userId]. */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -65,11 +70,17 @@ interface CalendarSyncTaskMapDao {
 
     /** Delete the mapping for a specific task. */
     @Query("DELETE FROM calendar_sync_task_map WHERE task_id = :taskId AND user_id = :userId")
-    suspend fun delete(taskId: String, userId: String)
+    suspend fun delete(
+        taskId: String,
+        userId: String,
+    )
 
     /** Delete the mapping for a specific system calendar event ID. */
     @Query("DELETE FROM calendar_sync_task_map WHERE event_id = :eventId AND user_id = :userId")
-    suspend fun deleteByEventId(eventId: Long, userId: String)
+    suspend fun deleteByEventId(
+        eventId: Long,
+        userId: String,
+    )
 
     /**
      * Delete all mappings for tasks not in the given set, scoped to [userId].
@@ -79,7 +90,10 @@ interface CalendarSyncTaskMapDao {
      * Always pass [userId] — no exceptions.
      */
     @Query("DELETE FROM calendar_sync_task_map WHERE user_id = :userId AND task_id NOT IN (:taskIds)")
-    suspend fun deleteStale(taskIds: List<String>, userId: String)
+    suspend fun deleteStale(
+        taskIds: List<String>,
+        userId: String,
+    )
 
     /**
      * Delete all rows that have NULL [userId] — legacy rows from before the multi-profile

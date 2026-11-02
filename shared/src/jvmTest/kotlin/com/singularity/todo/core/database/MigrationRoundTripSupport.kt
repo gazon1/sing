@@ -54,19 +54,20 @@ import kotlin.test.assertTrue
 internal const val ROUND_TRIP_ANCHOR_ID = "round-trip-anchor"
 
 /** The stored form of the columns the anchor row cannot leave empty. */
-private val ANCHOR_VALUES: Map<String, String> = mapOf(
-    "id" to "'$ROUND_TRIP_ANCHOR_ID'",
-    "title" to "'Round trip anchor'",
-    "priority" to "'None'",
-    "kind" to "'Task'",
-    "sync_status" to "'LOCAL_ONLY'",
-    "user_id" to "'round-trip-user'",
-    "someday" to "0",
-    "is_pinned" to "0",
-    "created_at" to "1",
-    "updated_at" to "1",
-    "server_version" to "0",
-)
+private val ANCHOR_VALUES: Map<String, String> =
+    mapOf(
+        "id" to "'$ROUND_TRIP_ANCHOR_ID'",
+        "title" to "'Round trip anchor'",
+        "priority" to "'None'",
+        "kind" to "'Task'",
+        "sync_status" to "'LOCAL_ONLY'",
+        "user_id" to "'round-trip-user'",
+        "someday" to "0",
+        "is_pinned" to "0",
+        "created_at" to "1",
+        "updated_at" to "1",
+        "server_version" to "0",
+    )
 
 /** The placeholder Room writes into the exported DDL. */
 private const val TABLE_NAME = "\${TABLE_NAME}"
@@ -77,26 +78,27 @@ private const val TABLE_NAME = "\${TABLE_NAME}"
  * The database that comes out has to be the schema the head declares, and the
  * row that went in has to still be there.
  */
-internal fun roundTripFrom(version: Int) = runTest {
-    val directory = Files.createTempDirectory("room-round-trip-$version-").toFile()
-    val dbPath = File(directory, "fixture.db").absolutePath
-    try {
-        seedFixture(version, dbPath)
-        val database = AppDatabaseFactory.build(createSqlDriver(), dbPath)
+internal fun roundTripFrom(version: Int) =
+    runTest {
+        val directory = Files.createTempDirectory("room-round-trip-$version-").toFile()
+        val dbPath = File(directory, "fixture.db").absolutePath
         try {
-            assertEquals(
-                1L,
-                anchorCount(database),
-                "the anchor row must survive the chain from v$version — a migration that " +
-                    "produces the right schema and loses the data is still a broken upgrade",
-            )
+            seedFixture(version, dbPath)
+            val database = AppDatabaseFactory.build(createSqlDriver(), dbPath)
+            try {
+                assertEquals(
+                    1L,
+                    anchorCount(database),
+                    "the anchor row must survive the chain from v$version — a migration that " +
+                        "produces the right schema and loses the data is still a broken upgrade",
+                )
+            } finally {
+                database.close()
+            }
         } finally {
-            database.close()
+            directory.deleteRecursively()
         }
-    } finally {
-        directory.deleteRecursively()
     }
-}
 
 /**
  * The exported schema of [version] — the one place that knows where they live.
@@ -107,8 +109,9 @@ internal fun roundTripFrom(version: Int) = runTest {
  * reads like a missing export rather than like a wrong path.
  */
 internal fun schemaFile(version: Int): File {
-    val root = System.getProperty("commonMain.root")
-        ?: error("the commonMain.root system property is not set — see shared/build.gradle.kts")
+    val root =
+        System.getProperty("commonMain.root")
+            ?: error("the commonMain.root system property is not set — see shared/build.gradle.kts")
     val module = File(root).parentFile.parentFile.parentFile
     return File(module, "schemas/com.singularity.todo.core.database.AppDatabase/$version.json")
 }
@@ -124,7 +127,10 @@ internal fun schemaFile(version: Int): File {
  * could drift from the export and from the other copies, and each of which had to
  * be found again by whoever read the next migration.
  */
-internal fun applyExportedSchema(version: Int, connection: SQLiteConnection) {
+internal fun applyExportedSchema(
+    version: Int,
+    connection: SQLiteConnection,
+) {
     val database = exportedSchema(version)
     for (entity in database["entities"]!!.jsonArray) {
         val table = entity.jsonObject
@@ -134,7 +140,9 @@ internal fun applyExportedSchema(version: Int, connection: SQLiteConnection) {
         )
         for (index in table["indices"]?.jsonArray.orEmpty()) {
             connection.execSQL(
-                index.jsonObject["createSql"]!!.jsonPrimitive.content.replace(TABLE_NAME, tableName),
+                index.jsonObject["createSql"]!!
+                    .jsonPrimitive.content
+                    .replace(TABLE_NAME, tableName),
             )
         }
     }
@@ -148,7 +156,8 @@ internal fun applyExportedSchema(version: Int, connection: SQLiteConnection) {
 private fun exportedSchema(version: Int): JsonObject {
     val schema = schemaFile(version)
     assertTrue(schema.isFile, "the exported schema of v$version is missing at $schema")
-    return Json.parseToJsonElement(schema.readText())
+    return Json
+        .parseToJsonElement(schema.readText())
         .jsonObject["database"]!!
         .jsonObject
 }
@@ -159,7 +168,10 @@ private fun exportedSchema(version: Int): JsonObject {
  * The schema comes from [applyExportedSchema]; the row is the point: a schema
  * that survives the chain while the data in it does not is not an upgrade.
  */
-private fun seedFixture(version: Int, dbPath: String) {
+private fun seedFixture(
+    version: Int,
+    dbPath: String,
+) {
     val database = exportedSchema(version)
     createSqlDriver().open(dbPath).use { connection ->
         applyExportedSchema(version, connection)
@@ -174,32 +186,40 @@ private fun seedFixture(version: Int, dbPath: String) {
  * from [ANCHOR_VALUES] where the column is one the anchor knows, and from the
  * column's affinity where it is not.
  */
-private fun insertAnchor(connection: SQLiteConnection, database: JsonObject) {
-    val tasks = database["entities"]!!.jsonArray
-        .map { it.jsonObject }
-        .first { it["tableName"]!!.jsonPrimitive.content == "tasks" }
-    val required = tasks["fields"]!!.jsonArray
-        .map { it.jsonObject }
-        .filter { it.flag("notNull") && "defaultValue" !in it }
+private fun insertAnchor(
+    connection: SQLiteConnection,
+    database: JsonObject,
+) {
+    val tasks =
+        database["entities"]!!
+            .jsonArray
+            .map { it.jsonObject }
+            .first { it["tableName"]!!.jsonPrimitive.content == "tasks" }
+    val required =
+        tasks["fields"]!!
+            .jsonArray
+            .map { it.jsonObject }
+            .filter { it.flag("notNull") && "defaultValue" !in it }
     val columns = required.joinToString(", ") { it["columnName"]!!.jsonPrimitive.content }
-    val values = required.joinToString(", ") { column ->
-        val name = column["columnName"]!!.jsonPrimitive.content
-        ANCHOR_VALUES[name] ?: fallbackValue(column["affinity"]!!.jsonPrimitive.content)
-    }
+    val values =
+        required.joinToString(", ") { column ->
+            val name = column["columnName"]!!.jsonPrimitive.content
+            ANCHOR_VALUES[name] ?: fallbackValue(column["affinity"]!!.jsonPrimitive.content)
+        }
     connection.execSQL("INSERT INTO tasks ($columns) VALUES ($values)")
 }
 
 /** A value of the shape the column's affinity asks for. */
-private fun fallbackValue(affinity: String): String = when (affinity.uppercase()) {
-    "INTEGER" -> "0"
-    "REAL" -> "0.0"
-    "BLOB" -> "X'00'"
-    else -> "'round-trip'"
-}
+private fun fallbackValue(affinity: String): String =
+    when (affinity.uppercase()) {
+        "INTEGER" -> "0"
+        "REAL" -> "0.0"
+        "BLOB" -> "X'00'"
+        else -> "'round-trip'"
+    }
 
 /** Whether a JSON object carries a true flag. */
-private fun JsonObject.flag(name: String): Boolean =
-    (this[name] as? JsonPrimitive)?.booleanOrNull == true
+private fun JsonObject.flag(name: String): Boolean = (this[name] as? JsonPrimitive)?.booleanOrNull == true
 
 /** How many anchor rows the upgraded database holds. */
 private suspend fun anchorCount(database: AppDatabase): Long =

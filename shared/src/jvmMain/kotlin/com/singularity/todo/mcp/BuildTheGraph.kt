@@ -19,7 +19,6 @@ import org.koin.core.context.startKoin
  * thing, and the process leaves with the code the refusal carries.
  */
 internal object BuildTheGraph : ToolServerStartupStep {
-
     override val title: String = "build the graph"
 
     override suspend fun run(context: ToolServerStartupContext): ToolServerStartup.Refused? {
@@ -32,6 +31,10 @@ internal object BuildTheGraph : ToolServerStartupStep {
         }
         return null
     }
+
+    // The server's start-up has to fail in one place, whatever the failure was: a missing
+    // dependency, a locked store, a broken native library. The caller gets a JSON-RPC error
+    // and a non-zero exit code, not a stack trace.
 
     /**
      * Starts Koin with the shared JVM platform module and the shared domain module.
@@ -47,20 +50,18 @@ internal object BuildTheGraph : ToolServerStartupStep {
      * the settings file this server does open, for the AI configuration, does not
      * say anything about which profile the user is working in.
      */
-    // The server's start-up has to fail in one place, whatever the failure was: a missing
-    // dependency, a locked store, a broken native library. The caller gets a JSON-RPC error
-    // and a non-zero exit code, not a stack trace.
     @Suppress("TooGenericExceptionCaught") // start-up has to fail in one place, whatever the failure was
-    private fun startTheContainer(fixedProfileId: String?): Boolean = try {
-        startKoin {
-            modules(
-                listOf(platformModule(), coreLoggingModule()) +
-                    domainModule(fixedProfileId?.let(ProfileId::fromString)),
-            )
+    private fun startTheContainer(fixedProfileId: String?): Boolean =
+        try {
+            startKoin {
+                modules(
+                    listOf(platformModule(), coreLoggingModule()) +
+                        domainModule(fixedProfileId?.let(ProfileId::fromString)),
+                )
+            }
+            true
+        } catch (e: Throwable) {
+            startupLog.e(e) { "Koin initialization failed: ${e.message}" }
+            false
         }
-        true
-    } catch (e: Throwable) {
-        startupLog.e(e) { "Koin initialization failed: ${e.message}" }
-        false
-    }
 }

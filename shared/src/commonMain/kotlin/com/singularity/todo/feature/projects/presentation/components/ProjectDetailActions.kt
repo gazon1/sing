@@ -30,21 +30,31 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 @Stable
 @JvmInline
 value class ProjectDetailActions(private val block: (ProjectDetailIntent) -> Unit) {
-
     // ── Sheet openers ───────────────────────────────────────────────────────
 
     fun onOpenColorSheet() = block(ProjectDetailIntent.Routing.OpenColorSheet)
+
     fun onOpenIconSheet() = block(ProjectDetailIntent.Routing.OpenIconSheet)
+
     fun onOpenParentSheet(currentParentId: ProjectId?) =
         block(ProjectDetailIntent.Routing.OpenParentSheet(currentParentId))
+
     fun onOpenDueDateSheet() = block(ProjectDetailIntent.Routing.OpenDueDateSheet)
+
     fun onOpenChildrenSheet() = block(ProjectDetailIntent.Routing.OpenChildrenSheet)
+
     fun onOpenInheritedTagGroupsSheet() = block(ProjectDetailIntent.Routing.OpenInheritedTagGroupsSheet)
+
     fun onOpenDeleteSheet() = block(ProjectDetailIntent.Routing.OpenDeleteSheet)
+
     fun onOpenArchiveSheet() = block(ProjectDetailIntent.Routing.OpenArchiveSheet)
+
     fun onOpenCloseSheet() = block(ProjectDetailIntent.Routing.OpenCloseSheet)
+
     fun onOpenReminderSheet() = block(ProjectDetailIntent.Routing.OpenReminderSheet)
+
     fun onOpenAttachmentSheet() = block(ProjectDetailIntent.Routing.OpenAttachmentSheet)
+
     fun onNavigateToChild(projectId: ProjectId) = block(ProjectDetailIntent.Routing.NavigateToChild(projectId))
 
     // ── Visibility ──────────────────────────────────────────────────────────

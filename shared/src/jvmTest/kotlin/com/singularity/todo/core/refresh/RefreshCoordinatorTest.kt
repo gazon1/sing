@@ -38,7 +38,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class RefreshCoordinatorTest {
-
     private fun TestScope.scope(): AutoCloseableCoroutineScope =
         AutoCloseableCoroutineScope(StandardTestDispatcher(testScheduler))
 
@@ -92,9 +91,10 @@ class RefreshCoordinatorTest {
     @Test
     fun `a failed archive step does not stop the synchronisation`() =
         runTest {
-            val archiver = FakeCompletedTaskArchiver(
-                outcome = Result.failure(IllegalStateException("the archive step failed")),
-            )
+            val archiver =
+                FakeCompletedTaskArchiver(
+                    outcome = Result.failure(IllegalStateException("the archive step failed")),
+                )
             val sync = FakeSyncRepository()
             val coordinator = RefreshCoordinator(archiver, sync, scope())
 

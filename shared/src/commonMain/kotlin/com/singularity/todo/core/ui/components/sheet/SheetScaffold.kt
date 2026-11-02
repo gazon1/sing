@@ -14,8 +14,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 
 /**
  * Scaffold для picker-sheet-ов с actions-строкой.
@@ -33,10 +33,13 @@ fun SheetScaffold(
         // overflowed the sheet on a 1080x2400 phone, which pushed Clear/Cancel/OK
         // below the screen edge — untappable, and invisible to the accessibility
         // tree, so UI tests could not reach them either.
-        modifier = modifier.fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp)
-            .padding(bottom = 24.dp), // insets уже даёт ModalBottomSheet
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 24.dp),
+        // insets уже даёт ModalBottomSheet
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         content()

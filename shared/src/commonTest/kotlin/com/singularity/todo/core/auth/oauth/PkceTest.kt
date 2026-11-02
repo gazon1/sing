@@ -20,7 +20,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class PkceTest {
-
     /**
      * The vector from RFC 7636, Appendix B.
      *

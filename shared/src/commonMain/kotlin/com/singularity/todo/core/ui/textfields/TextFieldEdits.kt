@@ -41,7 +41,10 @@ internal fun fieldTextFlow(state: TextFieldState): Flow<String> =
  * @param onEdited invoked on every edit of the field's text.
  */
 @Composable
-fun ObserveTextFieldEdits(state: TextFieldState, onEdited: () -> Unit) {
+fun ObserveTextFieldEdits(
+    state: TextFieldState,
+    onEdited: () -> Unit,
+) {
     val callback by rememberUpdatedState(onEdited)
     LaunchedEffect(state) {
         fieldTextFlow(state)

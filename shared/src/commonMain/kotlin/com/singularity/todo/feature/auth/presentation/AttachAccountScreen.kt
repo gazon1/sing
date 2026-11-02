@@ -24,7 +24,6 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
-import com.singularity.todo.core.ui.components.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.CollectEvents
+import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.text.SelectableText
 import com.singularity.todo.feature.auth.AuthFormFields
@@ -67,9 +67,7 @@ import org.koin.compose.viewmodel.koinViewModel
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AttachAccountScreen(
-    viewModel: AuthViewModel = koinViewModel(),
-) {
+fun AttachAccountScreen(viewModel: AuthViewModel = koinViewModel()) {
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     val localData by viewModel.localData.collectAsStateWithLifecycle()
     val navigator = LocalAppNavigator.current
@@ -148,33 +146,35 @@ fun AttachAccountScreen(
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun AttachAccountScreenPreview() = PreviewThemed(darkTheme = false) {
-    AttachAccountScreenContent(
-        emailState = rememberTextFieldState("user@example.com"),
-        passwordState = rememberTextFieldState("password"),
-        disposition = LocalDataDisposition.Keep(ReassignCounts(tasks = 12, notes = 3), LocalDataSummary(12, 3)),
-        isLoading = false,
-        errorMessage = null,
-        onDispositionChange = {},
-        onSubmit = {},
-        onBack = {},
-    )
-}
+private fun AttachAccountScreenPreview() =
+    PreviewThemed(darkTheme = false) {
+        AttachAccountScreenContent(
+            emailState = rememberTextFieldState("user@example.com"),
+            passwordState = rememberTextFieldState("password"),
+            disposition = LocalDataDisposition.Keep(ReassignCounts(tasks = 12, notes = 3), LocalDataSummary(12, 3)),
+            isLoading = false,
+            errorMessage = null,
+            onDispositionChange = {},
+            onSubmit = {},
+            onBack = {},
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun AttachAccountScreenUnansweredPreview() = PreviewThemed(darkTheme = false) {
-    AttachAccountScreenContent(
-        emailState = rememberTextFieldState("user@example.com"),
-        passwordState = rememberTextFieldState("password"),
-        disposition = null,
-        isLoading = false,
-        errorMessage = null,
-        onDispositionChange = {},
-        onSubmit = {},
-        onBack = {},
-    )
-}
+private fun AttachAccountScreenUnansweredPreview() =
+    PreviewThemed(darkTheme = false) {
+        AttachAccountScreenContent(
+            emailState = rememberTextFieldState("user@example.com"),
+            passwordState = rememberTextFieldState("password"),
+            disposition = null,
+            isLoading = false,
+            errorMessage = null,
+            onDispositionChange = {},
+            onSubmit = {},
+            onBack = {},
+        )
+    }
 
 @Composable
 internal fun AttachAccountScreenContent(
@@ -209,10 +209,11 @@ internal fun AttachAccountScreenContent(
         modifier = modifier,
     ) { paddingValues ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 32.dp, vertical = 16.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(horizontal = 32.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top,
         ) {
@@ -308,8 +309,9 @@ private fun LocalDataChoice(
     // Remember the previous Keep data so Cancel in DiscardConfirmation can restore it.
     var previousKeep by remember { mutableStateOf<LocalDataDisposition.Keep?>(null) }
 
-    val previewSummary = (selected as? LocalDataDisposition.Keep)?.summary
-        ?: LocalDataSummary(0, 0)
+    val previewSummary =
+        (selected as? LocalDataDisposition.Keep)?.summary
+            ?: LocalDataSummary(0, 0)
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
@@ -325,10 +327,12 @@ private fun LocalDataChoice(
                 onClick = {
                     // Re-selecting Keep replaces any Discard selection with the current
                     // Keep counts (the full counts from summarise() are in selected).
-                    val counts = (selected as? LocalDataDisposition.Keep)?.transferCounts
-                        ?: ReassignCounts()
-                    val summary = (selected as? LocalDataDisposition.Keep)?.summary
-                        ?: LocalDataSummary(0, 0)
+                    val counts =
+                        (selected as? LocalDataDisposition.Keep)?.transferCounts
+                            ?: ReassignCounts()
+                    val summary =
+                        (selected as? LocalDataDisposition.Keep)?.summary
+                            ?: LocalDataSummary(0, 0)
                     onSelect(LocalDataDisposition.Keep(counts, summary))
                 },
                 shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
@@ -345,8 +349,9 @@ private fun LocalDataChoice(
                     }
                     // Embed the EraseCounts from summarise() so the confirmation panel
                     // can show exactly what will be deleted.
-                    val counts = (selected as? LocalDataDisposition.Discard)?.eraseCounts
-                        ?: EraseCounts()
+                    val counts =
+                        (selected as? LocalDataDisposition.Discard)?.eraseCounts
+                            ?: EraseCounts()
                     onSelect(LocalDataDisposition.Discard(counts))
                 },
                 shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
@@ -363,11 +368,12 @@ private fun LocalDataChoice(
                 val counts = selected.transferCounts
                 val total = OwnerOperationCounts.sum(counts)
                 Text(
-                    text = if (total > 0) {
-                        "They move to this account and sync from now on. ($total rows total)"
-                    } else {
-                        "They move to this account and sync from now on."
-                    },
+                    text =
+                        if (total > 0) {
+                            "They move to this account and sync from now on. ($total rows total)"
+                        } else {
+                            "They move to this account and sync from now on."
+                        },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.testTag(TestTags.AUTH_ATTACH_DISPOSITION_HINT),
@@ -378,10 +384,11 @@ private fun LocalDataChoice(
                 DiscardConfirmation(
                     eraseCounts = selected.eraseCounts,
                     onCancel = {
-                        val restored = previousKeep ?: LocalDataDisposition.Keep(
-                            ReassignCounts(),
-                            LocalDataSummary(0, 0),
-                        )
+                        val restored =
+                            previousKeep ?: LocalDataDisposition.Keep(
+                                ReassignCounts(),
+                                LocalDataSummary(0, 0),
+                            )
                         onSelect(restored)
                     },
                 )
@@ -421,11 +428,12 @@ private fun DiscardConfirmation(
         Spacer(modifier = Modifier.height(12.dp))
 
         // Summary line: primary counts a person can reason about
-        val taskNote = buildString {
-            if (eraseCounts.tasks > 0) append("${eraseCounts.tasks} tasks")
-            if (eraseCounts.tasks > 0 && eraseCounts.notes > 0) append(", ")
-            if (eraseCounts.notes > 0) append("${eraseCounts.notes} notes")
-        }
+        val taskNote =
+            buildString {
+                if (eraseCounts.tasks > 0) append("${eraseCounts.tasks} tasks")
+                if (eraseCounts.tasks > 0 && eraseCounts.notes > 0) append(", ")
+                if (eraseCounts.notes > 0) append("${eraseCounts.notes} notes")
+            }
         if (taskNote.isNotEmpty()) {
             Text(
                 text = taskNote,
@@ -437,12 +445,13 @@ private fun DiscardConfirmation(
         // Expanded breakdown for the curious
         val childRows = eraseCounts.childRows
         val syncRows = eraseCounts.syncTotal
-        val detailParts = buildList {
-            if (childRows > 0) add("$childRows child rows")
-            if (eraseCounts.projects > 0) add("${eraseCounts.projects} projects")
-            if (eraseCounts.tags > 0) add("${eraseCounts.tags} tags")
-            if (syncRows > 0) add("$syncRows sync rows")
-        }
+        val detailParts =
+            buildList {
+                if (childRows > 0) add("$childRows child rows")
+                if (eraseCounts.projects > 0) add("${eraseCounts.projects} projects")
+                if (eraseCounts.tags > 0) add("${eraseCounts.tags} tags")
+                if (syncRows > 0) add("$syncRows sync rows")
+            }
         if (detailParts.isNotEmpty()) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
@@ -467,9 +476,10 @@ private fun DiscardConfirmation(
             Button(
                 onClick = onConfirm,
                 modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error,
-                ),
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                    ),
             ) {
                 Text("Delete forever")
             }

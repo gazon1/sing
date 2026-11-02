@@ -35,13 +35,18 @@ import com.singularity.todo.feature.notes.extractPreviewText
  * Card with the appropriate color scheme and click/swipe modifiers.
  */
 @Composable
-internal fun NoteCardContent(note: Note, isSelected: Boolean, modifier: Modifier = Modifier) {
-    val containerColor = when {
-        isSelected -> MaterialTheme.colorScheme.primaryContainer
-        note.isFolder -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
-        note.color != null -> Color(note.color.value).copy(alpha = 0.15f)
-        else -> MaterialTheme.colorScheme.surface
-    }
+internal fun NoteCardContent(
+    note: Note,
+    isSelected: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val containerColor =
+        when {
+            isSelected -> MaterialTheme.colorScheme.primaryContainer
+            note.isFolder -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
+            note.color != null -> Color(note.color.value).copy(alpha = 0.15f)
+            else -> MaterialTheme.colorScheme.surface
+        }
     Card(
         // Identity tag, for tests that already hold a NoteId (see desktopApp's
         // NotesScreenTest).
@@ -51,15 +56,17 @@ internal fun NoteCardContent(note: Note, isSelected: Boolean, modifier: Modifier
         // every tag below it — a tag on the inner Row is visible in the unmerged
         // tree only, which no end-to-end test can address. The title-based tag
         // lives on the item's outer node instead; see `SwipeableNoteCard`.
-        modifier = modifier
-            .fillMaxWidth()
-            .testTag(TestTags.noteItem(note.id.value)),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .testTag(TestTags.noteItem(note.id.value)),
         colors = CardDefaults.cardColors(containerColor = containerColor),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -78,9 +85,10 @@ internal fun NoteCardContent(note: Note, isSelected: Boolean, modifier: Modifier
                             imageVector = Icons.Default.PushPin,
                             contentDescription = "Pinned",
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier
-                                .size(16.dp)
-                                .padding(start = 4.dp),
+                            modifier =
+                                Modifier
+                                    .size(16.dp)
+                                    .padding(start = 4.dp),
                         )
                     }
                 }
@@ -135,23 +143,27 @@ fun NoteCard(
     trailing: @Composable RowScope.() -> Unit = { DefaultNoteCardTrailing(note) },
 ) {
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .testTag(TestTags.noteItem(note.id.value))
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = when {
-                isSelected -> MaterialTheme.colorScheme.primaryContainer
-                note.isFolder -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
-                note.color != null -> Color(note.color.value).copy(alpha = 0.15f)
-                else -> MaterialTheme.colorScheme.surface
-            },
-        ),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .testTag(TestTags.noteItem(note.id.value))
+                .clickable(onClick = onClick),
+        colors =
+            CardDefaults.cardColors(
+                containerColor =
+                    when {
+                        isSelected -> MaterialTheme.colorScheme.primaryContainer
+                        note.isFolder -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
+                        note.color != null -> Color(note.color.value).copy(alpha = 0.15f)
+                        else -> MaterialTheme.colorScheme.surface
+                    },
+            ),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -165,7 +177,10 @@ fun NoteCard(
  * Default body content for [NoteCard] — title with optional pin indicator and preview text.
  */
 @Composable
-internal fun RowScope.DefaultNoteCardBody(note: Note, isSelected: Boolean) {
+internal fun RowScope.DefaultNoteCardBody(
+    note: Note,
+    isSelected: Boolean,
+) {
     Column(modifier = Modifier.weight(1f)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -180,9 +195,10 @@ internal fun RowScope.DefaultNoteCardBody(note: Note, isSelected: Boolean) {
                     imageVector = Icons.Default.PushPin,
                     contentDescription = "Pinned",
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .size(16.dp)
-                        .padding(start = 4.dp),
+                    modifier =
+                        Modifier
+                            .size(16.dp)
+                            .padding(start = 4.dp),
                 )
             }
         }

@@ -44,9 +44,7 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:konsist")
 class ProposalLifecycleStaysInTheDomainTest {
-
     companion object {
-
         /**
          * The names a surface may not use to talk about a status.
          *
@@ -71,21 +69,20 @@ class ProposalLifecycleStaysInTheDomainTest {
             CommonMainKonsistScope.scope.files
 
         /** A surface: a file under a `presentation` package directory. */
-        private fun KoFileDeclaration.isSurface(): Boolean =
-            path.replace('\\', '/').contains("/presentation/")
+        private fun KoFileDeclaration.isSurface(): Boolean = path.replace('\\', '/').contains("/presentation/")
 
-        private fun KoFileDeclaration.fileName(): String =
-            path.replace('\\', '/').substringAfterLast('/')
+        private fun KoFileDeclaration.fileName(): String = path.replace('\\', '/').substringAfterLast('/')
 
         private fun KoFileDeclaration.codeOnly(): String = KotlinText.stripComments(text)
     }
 
     @Test
     fun `no surface names a proposal item's status`() {
-        val offenders = files
-            .filter { it.isSurface() }
-            .filter { file -> file.imports.any { it.shortName() in FORBIDDEN_STATUS_NAMES } }
-            .map { it.path }
+        val offenders =
+            files
+                .filter { it.isSurface() }
+                .filter { file -> file.imports.any { it.shortName() in FORBIDDEN_STATUS_NAMES } }
+                .map { it.path }
 
         assertTrue(
             offenders.isEmpty(),
@@ -105,10 +102,11 @@ class ProposalLifecycleStaysInTheDomainTest {
         // The status is now what the changes say it is, so there is nothing for a
         // surface to name: the proposal answers "is anything still waiting" and the
         // surface asks it.
-        val offenders = files
-            .filter { it.isSurface() }
-            .filter { file -> file.imports.any { it.shortName() in FORBIDDEN_STATUS_NAMES } }
-            .map { it.path }
+        val offenders =
+            files
+                .filter { it.isSurface() }
+                .filter { file -> file.imports.any { it.shortName() in FORBIDDEN_STATUS_NAMES } }
+                .map { it.path }
 
         assertTrue(
             offenders.isEmpty(),
@@ -124,10 +122,11 @@ class ProposalLifecycleStaysInTheDomainTest {
         // of them is naming the status — it just does it without spelling the type.
         // So the rule covers them too, or it covers a rename of the type and nothing
         // else.
-        val offenders = files
-            .filter { it.isSurface() }
-            .filter { file -> file.imports.any { it.shortName() in FORBIDDEN_PREDICATE_NAMES } }
-            .map { it.path }
+        val offenders =
+            files
+                .filter { it.isSurface() }
+                .filter { file -> file.imports.any { it.shortName() in FORBIDDEN_PREDICATE_NAMES } }
+                .map { it.path }
 
         assertTrue(
             offenders.isEmpty(),
@@ -138,11 +137,12 @@ class ProposalLifecycleStaysInTheDomainTest {
 
     @Test
     fun `the wording of a decision is declared in one place`() {
-        val offenders = files
-            .filter { it.fileName() != "ProposalDecisionStyle.kt" }
-            .filter { it.fileName() != "ProposalDecisionStyles.kt" }
-            .filter { file -> file.codeOnly().contains("ProposalDecisionStyle(") }
-            .map { it.path }
+        val offenders =
+            files
+                .filter { it.fileName() != "ProposalDecisionStyle.kt" }
+                .filter { it.fileName() != "ProposalDecisionStyles.kt" }
+                .filter { file -> file.codeOnly().contains("ProposalDecisionStyle(") }
+                .map { it.path }
 
         assertTrue(
             offenders.isEmpty(),

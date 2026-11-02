@@ -7,10 +7,10 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.singularity.todo.core.datastore.catchDataStoreIoError
 import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.sync.DeviceIdProvider
-import kotlin.uuid.Uuid
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlin.uuid.Uuid
 
 /**
  * The pre-upgrade token store, and the current home of the device id.
@@ -43,7 +43,6 @@ class DataStoreSessionStore(private val dataStore: DataStore<Preferences>, priva
     // The sync seam takes the device id from here — it is not a secret and is
     // stored in plain DataStore by design (DeviceIdProvider).
     DeviceIdProvider {
-
     companion object {
         val ACCESS_TOKEN = stringPreferencesKey("auth_access_token")
         val REFRESH_TOKEN = stringPreferencesKey("auth_refresh_token")
@@ -70,15 +69,18 @@ class DataStoreSessionStore(private val dataStore: DataStore<Preferences>, priva
         const val LOCAL_OWNER_PREFIX = "local:"
     }
 
-    val accessToken: Flow<String?> = dataStore.data
-        .catchDataStoreIoError()
-        .map { it[ACCESS_TOKEN] }
-    val refreshToken: Flow<String?> = dataStore.data
-        .catchDataStoreIoError()
-        .map { it[REFRESH_TOKEN] }
-    val userEmail: Flow<String?> = dataStore.data
-        .catchDataStoreIoError()
-        .map { it[USER_EMAIL] }
+    val accessToken: Flow<String?> =
+        dataStore.data
+            .catchDataStoreIoError()
+            .map { it[ACCESS_TOKEN] }
+    val refreshToken: Flow<String?> =
+        dataStore.data
+            .catchDataStoreIoError()
+            .map { it[REFRESH_TOKEN] }
+    val userEmail: Flow<String?> =
+        dataStore.data
+            .catchDataStoreIoError()
+            .map { it[USER_EMAIL] }
 
     // Per-process nonce so two processes sharing one SQLite file mint distinct node ids.
     private val processNonce: String = Uuid.random().toString().take(8)
@@ -88,13 +90,15 @@ class DataStoreSessionStore(private val dataStore: DataStore<Preferences>, priva
 
     override suspend fun getOrInitDeviceId(): String {
         _deviceId?.let { return it }
-        val prefs = dataStore.data
-            .catchDataStoreIoError()
-            .first()
+        val prefs =
+            dataStore.data
+                .catchDataStoreIoError()
+                .first()
         val stored = prefs[DEVICE_ID]
-        val id = stored ?: idGenerator.next().also { newId ->
-            dataStore.edit { it[DEVICE_ID] = newId }
-        }
+        val id =
+            stored ?: idGenerator.next().also { newId ->
+                dataStore.edit { it[DEVICE_ID] = newId }
+            }
         val nodeId = "$id:$processNonce"
         _deviceId = nodeId
         return nodeId
@@ -120,9 +124,10 @@ class DataStoreSessionStore(private val dataStore: DataStore<Preferences>, priva
      * `2026-10-05-anonymous-is-local-only-and-signing-in-offers-a-choice`.
      */
     suspend fun getOrInitLocalOwnerId(): String {
-        val prefs = dataStore.data
-            .catchDataStoreIoError()
-            .first()
+        val prefs =
+            dataStore.data
+                .catchDataStoreIoError()
+                .first()
         prefs[LOCAL_OWNER_ID]?.let { return it }
         val created = LOCAL_OWNER_PREFIX + idGenerator.next()
         dataStore.edit { it[LOCAL_OWNER_ID] = created }

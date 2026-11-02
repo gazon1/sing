@@ -88,7 +88,6 @@ class GoogleTokenClient(
     private val httpClient: HttpClient = createHttpClient(),
     private val clientId: String? = null,
 ) : GoogleTokenExchange {
-
     /**
      * The client id, for the calls that need one.
      *
@@ -96,9 +95,10 @@ class GoogleTokenClient(
      *   and the refresh cannot be performed without it, and saying so is better than
      *   sending an empty one and reporting Google's own answer to it.
      */
-    private fun requiredClientId(): String = clientId ?: throw GoogleAuthorizationException(
-        "The Google client id is not configured, so the token cannot be requested",
-    )
+    private fun requiredClientId(): String =
+        clientId ?: throw GoogleAuthorizationException(
+            "The Google client id is not configured, so the token cannot be requested",
+        )
 
     /**
      * Redeems an authorization [code] for a durable credential.
@@ -113,19 +113,21 @@ class GoogleTokenClient(
         redirectUri: String,
         codeVerifier: String?,
     ): GoogleCredentials {
-        val params = ParametersBuilder().apply {
-            append("client_id", requiredClientId())
-            append("code", code)
-            append("grant_type", "authorization_code")
-            append("redirect_uri", redirectUri)
-            // The one parameter that makes this grant renewable. Without it Google returns
-            // an access token and no refresh token, and the account is usable for an hour.
-            append("access_type", "offline")
-            // Without this, a second sign-in while a grant is live silently omits the
-            // refresh token — the user has consented, and gets nothing they can keep.
-            append("prompt", "consent")
-            codeVerifier?.let { append("code_verifier", it) }
-        }.build()
+        val params =
+            ParametersBuilder()
+                .apply {
+                    append("client_id", requiredClientId())
+                    append("code", code)
+                    append("grant_type", "authorization_code")
+                    append("redirect_uri", redirectUri)
+                    // The one parameter that makes this grant renewable. Without it Google returns
+                    // an access token and no refresh token, and the account is usable for an hour.
+                    append("access_type", "offline")
+                    // Without this, a second sign-in while a grant is live silently omits the
+                    // refresh token — the user has consented, and gets nothing they can keep.
+                    append("prompt", "consent")
+                    codeVerifier?.let { append("code_verifier", it) }
+                }.build()
 
         // A grant with no refresh token is still returned: it serves the foreground sync
         // that follows sign-in. `canRenew` reports that it will not last, so the caller can
@@ -142,11 +144,13 @@ class GoogleTokenClient(
      * thing that guarantees that carry-over.
      */
     override suspend fun refresh(refreshToken: String): GoogleCredentials {
-        val params = ParametersBuilder().apply {
-            append("client_id", requiredClientId())
-            append("refresh_token", refreshToken)
-            append("grant_type", "refresh_token")
-        }.build()
+        val params =
+            ParametersBuilder()
+                .apply {
+                    append("client_id", requiredClientId())
+                    append("refresh_token", refreshToken)
+                    append("grant_type", "refresh_token")
+                }.build()
         // Carry the existing token forward: this response has none, and dropping it would
         // mean the *next* refresh has nothing to present.
         return performTokenRequest(params).copy(refreshToken = refreshToken)
@@ -164,12 +168,15 @@ class GoogleTokenClient(
      * is already dead is a success, not a failure.
      */
     override suspend fun revoke(refreshToken: String) {
-        val response = httpClient.submitForm(
-            url = REVOKE_ENDPOINT,
-            formParameters = ParametersBuilder().apply {
-                append("token", refreshToken)
-            }.build(),
-        )
+        val response =
+            httpClient.submitForm(
+                url = REVOKE_ENDPOINT,
+                formParameters =
+                    ParametersBuilder()
+                        .apply {
+                            append("token", refreshToken)
+                        }.build(),
+            )
         if (response.status != HttpStatusCode.OK) {
             throw GoogleAuthorizationException(
                 "Google refused to revoke the token (HTTP ${response.status.value})",
@@ -178,10 +185,11 @@ class GoogleTokenClient(
     }
 
     private suspend fun performTokenRequest(params: Parameters): GoogleCredentials {
-        val response = httpClient.submitForm(
-            url = TOKEN_ENDPOINT,
-            formParameters = params,
-        )
+        val response =
+            httpClient.submitForm(
+                url = TOKEN_ENDPOINT,
+                formParameters = params,
+            )
         val body = response.bodyAsText()
         if (response.status != HttpStatusCode.OK) {
             throw translate(response.status, body)
@@ -200,40 +208,52 @@ class GoogleTokenClient(
      * [CalendarSyncException.PermissionRevokedException] so the caller stops and asks the
      * user to reconnect, instead of burning its retry budget on a dead credential.
      */
-    private fun translate(status: HttpStatusCode, body: String): CalendarSyncException {
+    private fun translate(
+        status: HttpStatusCode,
+        body: String,
+    ): CalendarSyncException {
         val error = runCatching { parseTokenResponseError(body) }.getOrNull()
         return when {
-            error == "invalid_grant" ->
+            error == "invalid_grant" -> {
                 CalendarSyncException.PermissionRevokedException(
                     "The Google grant was revoked or has expired; the user has to reconnect",
                 )
+            }
 
-            error == "invalid_client" ->
+            error == "invalid_client" -> {
                 CalendarSyncException.PermissionRevokedException(
                     "The Google client id is not registered for this application",
                 )
+            }
 
-            status == HttpStatusCode.TooManyRequests ->
+            status == HttpStatusCode.TooManyRequests -> {
                 CalendarSyncException.TransientSyncException("Google rate limit reached", null)
+            }
 
-            status.value >= 500 ->
+            status.value >= 500 -> {
                 CalendarSyncException.TransientSyncException("Google token endpoint is unavailable", null)
+            }
 
-            else -> CalendarSyncException.NetworkSyncException(
-                "Google returned ${status.value} from the token endpoint" +
-                    (error?.let { " ($it)" } ?: ""),
-                null,
-            )
+            else -> {
+                CalendarSyncException.NetworkSyncException(
+                    "Google returned ${status.value} from the token endpoint" +
+                        (error?.let { " ($it)" } ?: ""),
+                    null,
+                )
+            }
         }
     }
 
-    private fun parseTokenResponseError(body: String): String? = runCatching {
-        val root = kotlinx.serialization.json.Json.parseToJsonElement(body)
-        (root as? kotlinx.serialization.json.JsonObject)
-            ?.get("error")
-            ?.let { it as? kotlinx.serialization.json.JsonPrimitive }
-            ?.content
-    }.getOrNull()
+    private fun parseTokenResponseError(body: String): String? =
+        runCatching {
+            val root =
+                kotlinx.serialization.json.Json
+                    .parseToJsonElement(body)
+            (root as? kotlinx.serialization.json.JsonObject)
+                ?.get("error")
+                ?.let { it as? kotlinx.serialization.json.JsonPrimitive }
+                ?.content
+        }.getOrNull()
 
     companion object {
         /** Google's OAuth 2.0 token endpoint. */

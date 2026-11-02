@@ -2,10 +2,10 @@ package com.singularity.todo
 
 import com.singularity.todo.core.di.platformModule
 import com.singularity.todo.test.helpers.testPlatformModule
+import org.junit.jupiter.api.Tag
 import org.koin.core.annotation.KoinInternalApi
 import org.koin.core.module.Module
 import org.koin.dsl.koinApplication
-import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
@@ -23,7 +23,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class TestPlatformModuleParityTest {
-
     @Test
     fun `production DAO bindings all exist in the test platform module`() {
         val production = daoTypes(listOf(platformModule()))

@@ -25,7 +25,6 @@ import kotlinx.coroutines.flow.combine
  */
 internal class AuthProfileSyncScopeProvider(authRepository: AuthRepository, profileRepository: ProfileRepository) :
     SyncScopeProvider {
-
     override val current: Flow<SyncScope?> =
         combine(authRepository.currentSession, profileRepository.activeProfileId) { session, profileId ->
             val ownerId = (session as? Session.SignedIn)?.userId?.value

@@ -31,7 +31,6 @@ import androidx.sqlite.execSQL
  * @see com.singularity.todo.feature.tags.domain.TagDomain
  */
 class Migration47To48 : Migration(47, 48) {
-
     override suspend fun migrate(connection: SQLiteConnection) {
         connection.execSQL(
             "ALTER TABLE `tags` ADD COLUMN `name_normalized` TEXT NOT NULL DEFAULT ''",

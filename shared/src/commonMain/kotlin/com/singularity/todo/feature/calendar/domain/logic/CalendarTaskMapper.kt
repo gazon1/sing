@@ -13,7 +13,6 @@ import kotlinx.datetime.LocalDate
  * No side effects, no dependencies on Compose or Android — fully testable.
  */
 object CalendarTaskMapper {
-
     /**
      * Converts a [Task] to [CalendarTaskUi].
      *
@@ -21,12 +20,17 @@ object CalendarTaskMapper {
      * @param today Used to compute OVERDUE status.
      * @param isRecurring Whether this task has an active recurring reminder.
      */
-    fun toCalendarTaskUi(task: Task, today: LocalDate, isRecurring: Boolean = false): CalendarTaskUi {
-        val status = when {
-            task.isCompleted -> CalendarTaskStatus.DONE
-            TaskComputed.isOverdue(task, today) -> CalendarTaskStatus.OVERDUE
-            else -> CalendarTaskStatus.PENDING
-        }
+    fun toCalendarTaskUi(
+        task: Task,
+        today: LocalDate,
+        isRecurring: Boolean = false,
+    ): CalendarTaskUi {
+        val status =
+            when {
+                task.isCompleted -> CalendarTaskStatus.DONE
+                TaskComputed.isOverdue(task, today) -> CalendarTaskStatus.OVERDUE
+                else -> CalendarTaskStatus.PENDING
+            }
         return CalendarTaskUi(
             id = task.id,
             title = task.title,

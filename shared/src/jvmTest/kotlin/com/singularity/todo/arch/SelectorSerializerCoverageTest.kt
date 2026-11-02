@@ -35,12 +35,13 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class SelectorSerializerCoverageTest {
-
-    private val commonMainRoot: Path = run {
-        val root = System.getProperty("commonMain.root")
-            ?: error("commonMain.root system property is not set — see shared/build.gradle.kts")
-        Paths.get(root)
-    }
+    private val commonMainRoot: Path =
+        run {
+            val root =
+                System.getProperty("commonMain.root")
+                    ?: error("commonMain.root system property is not set — see shared/build.gradle.kts")
+            Paths.get(root)
+        }
 
     private fun source(relativePath: String): String {
         val file = commonMainRoot.resolve(relativePath)
@@ -63,9 +64,10 @@ class SelectorSerializerCoverageTest {
     private fun declaredVariants(): Set<String> {
         val selectorSource = source("com/singularity/todo/feature/agenda/domain/model/Selector.kt")
         val serialName = Regex("""^\s*@SerialName\("([^"]+)"\)\s*$""")
-        val declaration = Regex(
-            """^\s*(?:data\s+)?(?:class|object)\s+\w+.*:\s*Selector\s*(?:\{.*)?$""",
-        )
+        val declaration =
+            Regex(
+                """^\s*(?:data\s+)?(?:class|object)\s+\w+.*:\s*Selector\s*(?:\{.*)?$""",
+            )
         val variants = mutableSetOf<String>()
         val lines = selectorSource.lines()
         lines.forEachIndexed { index, line ->
@@ -86,10 +88,11 @@ class SelectorSerializerCoverageTest {
     private fun registeredVariants(): Set<String> {
         val serializerSource =
             source("com/singularity/todo/feature/agenda/domain/model/SelectorSerializer.kt")
-        val entries = Regex("""put\(\s*"([^"]+)"""", RegexOption.DOT_MATCHES_ALL)
-            .findAll(serializerSource)
-            .map { it.groupValues[1] }
-            .toSet()
+        val entries =
+            Regex("""put\(\s*"([^"]+)"""", RegexOption.DOT_MATCHES_ALL)
+                .findAll(serializerSource)
+                .map { it.groupValues[1] }
+                .toSet()
         assertTrue(
             entries.isNotEmpty(),
             "no registry entries found in SelectorSerializer.kt — the scan is broken",

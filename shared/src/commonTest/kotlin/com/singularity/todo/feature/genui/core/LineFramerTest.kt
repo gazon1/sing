@@ -17,7 +17,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class LineFramerTest {
-
     private val message = """{"createSurface":{"surfaceId":"s1","rootId":"t1"}}"""
 
     @Test
@@ -149,12 +148,13 @@ class LineFramerTest {
 
     @Test
     fun aResponseSplitAcrossManyTinyFragmentsStillYieldsEveryMessage() {
-        val response = """
+        val response =
+            """
             first line of prose
             {"createSurface":{"surfaceId":"s1","rootId":"t1","components":[]}}
             {"updateData":{"surfaceId":"s1","path":"/name","value":"Ada"}}
             trailing thought
-        """.trimIndent()
+            """.trimIndent()
         val framer = LineFramer()
         val produced = mutableListOf<FramedLine>()
         for (character in response) {

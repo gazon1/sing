@@ -17,82 +17,87 @@ import kotlin.test.assertTrue
  * legal shape that differs by exactly one thing.
  */
 class AppErrorCodeRuleTest {
-
     private val rule = AppErrorCodeRule(TestConfig())
     private val languageSettings = FakeLanguageVersionSettings(ExplicitApiMode.STRICT)
 
     private fun findingsFor(body: String): List<dev.detekt.api.Finding> {
-        val code = """
+        val code =
+            """
             package com.example
 
             import com.singularity.todo.core.error.AppError
 
             $body
-        """.trimIndent()
+            """.trimIndent()
         return rule.visitFile(compileContentForTest(code, "com.example"), languageSettings)
     }
 
     @Test
     fun `a validation without a code is flagged`() {
-        val findings = findingsFor(
-            """
-            fun check(title: String) {
-                if (title.isBlank()) throw AppError.Validation("Title cannot be blank")
-            }
-            """.trimIndent(),
-        )
+        val findings =
+            findingsFor(
+                """
+                fun check(title: String) {
+                    if (title.isBlank()) throw AppError.Validation("Title cannot be blank")
+                }
+                """.trimIndent(),
+            )
         assertEquals(1, findings.size, findings.map { it.message }.toString())
         assertTrue(findings[0].message.contains("error.validation"), findings[0].message)
     }
 
     @Test
     fun `a validation with a code is not flagged`() {
-        val findings = findingsFor(
-            """
-            fun check(title: String) {
-                if (title.isBlank()) {
-                    throw AppError.Validation("Title cannot be blank", code = "task.title.blank")
+        val findings =
+            findingsFor(
+                """
+                fun check(title: String) {
+                    if (title.isBlank()) {
+                        throw AppError.Validation("Title cannot be blank", code = "task.title.blank")
+                    }
                 }
-            }
-            """.trimIndent(),
-        )
+                """.trimIndent(),
+            )
         assertEquals(0, findings.size, findings.map { it.message }.toString())
     }
 
     @Test
     fun `a code alongside a cause is recognised`() {
         // The named argument is not in first position, and `cause` must not be mistaken for it.
-        val findings = findingsFor(
-            """
-            fun check() {
-                throw AppError.NotFound("Task gone", cause = IllegalStateException("x"), code = "task.not_found")
-            }
-            """.trimIndent(),
-        )
+        val findings =
+            findingsFor(
+                """
+                fun check() {
+                    throw AppError.NotFound("Task gone", cause = IllegalStateException("x"), code = "task.not_found")
+                }
+                """.trimIndent(),
+            )
         assertEquals(0, findings.size, findings.map { it.message }.toString())
     }
 
     @Test
     fun `a cause without a code is still flagged`() {
-        val findings = findingsFor(
-            """
-            fun check() {
-                throw AppError.Persistence("write failed", cause = IllegalStateException("disk"))
-            }
-            """.trimIndent(),
-        )
+        val findings =
+            findingsFor(
+                """
+                fun check() {
+                    throw AppError.Persistence("write failed", cause = IllegalStateException("disk"))
+                }
+                """.trimIndent(),
+            )
         assertEquals(1, findings.size, "a cause is not a code")
     }
 
     @Test
     fun `the fully qualified spelling is flagged`() {
-        val findings = findingsFor(
-            """
-            fun check() {
-                throw com.singularity.todo.core.error.AppError.Network("timeout")
-            }
-            """.trimIndent(),
-        )
+        val findings =
+            findingsFor(
+                """
+                fun check() {
+                    throw com.singularity.todo.core.error.AppError.Network("timeout")
+                }
+                """.trimIndent(),
+            )
         assertEquals(1, findings.size, "a fully qualified construction is the same construction")
     }
 
@@ -102,21 +107,23 @@ class AppErrorCodeRuleTest {
         // matched nothing: a file that imports AppError writes `AppError.Validation(…)`, and the
         // import is not in the text a rule sees. This test exists so that mistake cannot come
         // back as a "passing" rule.
-        val findings = findingsFor(
-            """
-            fun check() { throw AppError.Unauthorized("no session") }
-            """.trimIndent(),
-        )
+        val findings =
+            findingsFor(
+                """
+                fun check() { throw AppError.Unauthorized("no session") }
+                """.trimIndent(),
+            )
         assertEquals(1, findings.size, "the simple-name receiver must match")
     }
 
     @Test
     fun `an unrelated construction is not flagged`() {
-        val findings = findingsFor(
-            """
-            fun check() { println("Title cannot be blank") }
-            """.trimIndent(),
-        )
+        val findings =
+            findingsFor(
+                """
+                fun check() { println("Title cannot be blank") }
+                """.trimIndent(),
+            )
         assertEquals(0, findings.size)
     }
 

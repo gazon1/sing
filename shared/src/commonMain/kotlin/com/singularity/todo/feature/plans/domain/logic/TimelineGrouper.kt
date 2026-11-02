@@ -33,7 +33,6 @@ import kotlinx.datetime.LocalDate
  * - A period with **no tasks** is not a section: an empty day is not a heading.
  */
 object TimelineGrouper {
-
     /** The id of the section that holds the work that is already late. */
     const val OVERDUE_ID: String = "overdue"
 
@@ -63,29 +62,31 @@ object TimelineGrouper {
         val sections = mutableListOf<TimelineSection>()
 
         if (overdue.isNotEmpty()) {
-            sections += TimelineSection(
-                id = OVERDUE_ID,
-                label = TimelineLabels.OVERDUE,
-                period = null,
-                tasks = overdue.map { it.toRow(today, blockedIds, seriesCount) }.toImmutableList(),
-            )
+            sections +=
+                TimelineSection(
+                    id = OVERDUE_ID,
+                    label = TimelineLabels.OVERDUE,
+                    period = null,
+                    tasks = overdue.map { it.toRow(today, blockedIds, seriesCount) }.toImmutableList(),
+                )
         }
 
         for (period in TimelinePeriods.forGranularity(granularity, today)) {
             val inPeriod = upcoming.filter { period.contains(it.dueDate!!) }
             if (inPeriod.isEmpty()) continue
-            sections += TimelineSection(
-                id = period.id,
-                label = TimelineLabels.forPeriod(granularity, period, today),
-                period = period,
-                // The date a task added from this section carries. It has to be
-                // inside the period, or the task lands in another section than
-                // the one it was added from — and it must not be in the past,
-                // or the task is born overdue. So: today when the period holds
-                // it, and the period's first day otherwise.
-                prefillDate = if (period.contains(today)) today else period.start,
-                tasks = inPeriod.map { it.toRow(today, blockedIds, seriesCount) }.toImmutableList(),
-            )
+            sections +=
+                TimelineSection(
+                    id = period.id,
+                    label = TimelineLabels.forPeriod(granularity, period, today),
+                    period = period,
+                    // The date a task added from this section carries. It has to be
+                    // inside the period, or the task lands in another section than
+                    // the one it was added from — and it must not be in the past,
+                    // or the task is born overdue. So: today when the period holds
+                    // it, and the period's first day otherwise.
+                    prefillDate = if (period.contains(today)) today else period.start,
+                    tasks = inPeriod.map { it.toRow(today, blockedIds, seriesCount) }.toImmutableList(),
+                )
         }
 
         return sections
@@ -95,9 +96,10 @@ object TimelineGrouper {
         today: LocalDate,
         blockedIds: Set<TaskId>,
         seriesCount: Map<String, Int>,
-    ): TimelineTask = TimelineTask(
-        task = this,
-        markings = computeTaskMarkings(this, today, isBlocked = id in blockedIds),
-        seriesDates = seriesId?.let { seriesCount[it.value] },
-    )
+    ): TimelineTask =
+        TimelineTask(
+            task = this,
+            markings = computeTaskMarkings(this, today, isBlocked = id in blockedIds),
+            seriesDates = seriesId?.let { seriesCount[it.value] },
+        )
 }

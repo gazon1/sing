@@ -33,17 +33,20 @@ import com.singularity.todo.feature.projects.presentation.state.ProjectDetailInt
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiEvent
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiState
 import com.singularity.todo.feature.projects.presentation.viewmodel.ProjectDetailViewModel
-import kotlinx.coroutines.launch
-import kotlin.time.Clock
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.coroutines.launch
+import kotlin.time.Clock
 
 // ─── Content ─────────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Suppress("LongMethod")
 @Composable
-fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier = Modifier) {
+fun ProjectDetailContent(
+    viewModel: ProjectDetailViewModel,
+    modifier: Modifier = Modifier,
+) {
     val nav = LocalProjectsNavigator.current
     val state by viewModel.stateFlow.collectAsStateWithLifecycle()
     val lastEditedAt by viewModel.lastEditedAt.collectAsStateWithLifecycle()
@@ -57,19 +60,26 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
 
     CollectEvents(viewModel.events) { event ->
         when (event) {
-            ProjectDetailUiEvent.NavigateBack -> nav.back()
-
-            is ProjectDetailUiEvent.ShowError -> scope.launch {
-                snackbarHostState.showSnackbar(event.message)
+            ProjectDetailUiEvent.NavigateBack -> {
+                nav.back()
             }
 
-            is ProjectDetailUiEvent.UndoDeleteTask -> scope.launch {
-                val result = snackbarHostState.showSnackbar(
-                    message = "Task deleted",
-                    actionLabel = "Undo",
-                )
-                if (result == SnackbarResult.ActionPerformed) {
-                    viewModel.onIntent(ProjectDetailIntent.Domain.RestoreTask(event.taskId))
+            is ProjectDetailUiEvent.ShowError -> {
+                scope.launch {
+                    snackbarHostState.showSnackbar(event.message)
+                }
+            }
+
+            is ProjectDetailUiEvent.UndoDeleteTask -> {
+                scope.launch {
+                    val result =
+                        snackbarHostState.showSnackbar(
+                            message = "Task deleted",
+                            actionLabel = "Undo",
+                        )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        viewModel.onIntent(ProjectDetailIntent.Domain.RestoreTask(event.taskId))
+                    }
                 }
             }
         }
@@ -96,41 +106,50 @@ fun ProjectDetailContent(viewModel: ProjectDetailViewModel, modifier: Modifier =
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         when (val s = state) {
-            ProjectDetailUiState.Loading -> LoadingIndicator(Modifier.padding(padding))
+            ProjectDetailUiState.Loading -> {
+                LoadingIndicator(Modifier.padding(padding))
+            }
 
-            is ProjectDetailUiState.Error -> EmptyState(
-                title = s.message,
-                modifier = Modifier.padding(padding),
-            )
-
-            ProjectDetailUiState.NotFound -> EmptyState(
-                title = "Project not found",
-                modifier = Modifier.padding(padding),
-            )
-
-            is ProjectDetailUiState.Content -> Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .imePadding(),
-            ) {
-                ProjectHeroSection(
-                    ui = s.ui,
-                    lastEditedAt = lastEditedAt,
-                    now = clock.now(),
-                    nameSource = draftState.nameSource,
-                    descriptionSource = draftState.descriptionSource,
-                    actions = actions,
+            is ProjectDetailUiState.Error -> {
+                EmptyState(
+                    title = s.message,
+                    modifier = Modifier.padding(padding),
                 )
-                ProjectMetaChipsRow(ui = s.ui, actions = actions)
-                ProjectBodySection(
-                    ui = s.ui,
-                    hideCompleted = s.hideCompleted,
-                    hideBlocked = s.hideBlocked,
-                    availableTasks = s.availableTasks,
-                    actions = actions,
-                    nav = nav,
+            }
+
+            ProjectDetailUiState.NotFound -> {
+                EmptyState(
+                    title = "Project not found",
+                    modifier = Modifier.padding(padding),
                 )
+            }
+
+            is ProjectDetailUiState.Content -> {
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(padding)
+                            .imePadding(),
+                ) {
+                    ProjectHeroSection(
+                        ui = s.ui,
+                        lastEditedAt = lastEditedAt,
+                        now = clock.now(),
+                        nameSource = draftState.nameSource,
+                        descriptionSource = draftState.descriptionSource,
+                        actions = actions,
+                    )
+                    ProjectMetaChipsRow(ui = s.ui, actions = actions)
+                    ProjectBodySection(
+                        ui = s.ui,
+                        hideCompleted = s.hideCompleted,
+                        hideBlocked = s.hideBlocked,
+                        availableTasks = s.availableTasks,
+                        actions = actions,
+                        nav = nav,
+                    )
+                }
             }
         }
     }
@@ -190,25 +209,27 @@ private fun ProjectDetailSheets(
         BottomSheetHost(onDismiss = { sheets.dismissSheet() }) {
             ProjectDetailSheetsHost(
                 activeSheet = sheets.sheet,
-                currentContent = content?.let { c ->
-                    CurrentProjectContent(
-                        name = c.ui.project.name,
-                        color = c.ui.project.color,
-                        icon = c.ui.project.icon,
-                        parentId = c.ui.parent?.id,
-                        dueDate = c.ui.project.dueDate,
-                        isArchived = c.ui.project.isDeleted,
-                        openTaskCount = c.ui.totalCount - c.ui.completedCount,
-                        childProjects = c.ui.childProjects,
-                        reminderOffset = c.ui.reminderOffsetMinutes?.let { m ->
-                            ReminderOffset.entries.firstOrNull { it.minutes == m }
-                        },
-                        defaultReminderOffset = c.ui.defaultReminderOffset,
-                        actions = actions,
-                        tagGroups = c.tagGroups,
-                        inheritedTagGroupIds = c.ui.inheritedTagGroupIds,
-                    )
-                },
+                currentContent =
+                    content?.let { c ->
+                        CurrentProjectContent(
+                            name = c.ui.project.name,
+                            color = c.ui.project.color,
+                            icon = c.ui.project.icon,
+                            parentId = c.ui.parent?.id,
+                            dueDate = c.ui.project.dueDate,
+                            isArchived = c.ui.project.isDeleted,
+                            openTaskCount = c.ui.totalCount - c.ui.completedCount,
+                            childProjects = c.ui.childProjects,
+                            reminderOffset =
+                                c.ui.reminderOffsetMinutes?.let { m ->
+                                    ReminderOffset.entries.firstOrNull { it.minutes == m }
+                                },
+                            defaultReminderOffset = c.ui.defaultReminderOffset,
+                            actions = actions,
+                            tagGroups = c.tagGroups,
+                            inheritedTagGroupIds = c.ui.inheritedTagGroupIds,
+                        )
+                    },
                 parentOptions = content?.parentOptions ?: persistentListOf(),
                 tagGroups = content?.tagGroups ?: persistentListOf(),
                 inheritedTagGroupIds = content?.ui?.inheritedTagGroupIds ?: persistentSetOf(),
@@ -237,38 +258,65 @@ private fun rememberProjectDetailActions(
     sheets: OverlayState<ActiveSheet>,
     nav: ProjectsNavigator,
     viewModel: ProjectDetailViewModel,
-): ProjectDetailActions = remember(sheets, nav, viewModel) {
-    ProjectDetailActions { intent ->
-        when (intent) {
-            is ProjectDetailIntent.Routing.OpenColorSheet -> sheets.show(ActiveSheet.PickColor)
+): ProjectDetailActions =
+    remember(sheets, nav, viewModel) {
+        ProjectDetailActions { intent ->
+            when (intent) {
+                is ProjectDetailIntent.Routing.OpenColorSheet -> {
+                    sheets.show(ActiveSheet.PickColor)
+                }
 
-            is ProjectDetailIntent.Routing.OpenIconSheet -> sheets.show(ActiveSheet.PickIcon)
+                is ProjectDetailIntent.Routing.OpenIconSheet -> {
+                    sheets.show(ActiveSheet.PickIcon)
+                }
 
-            is ProjectDetailIntent.Routing.OpenParentSheet -> sheets.show(
-                ActiveSheet.PickParent(intent.currentParentId),
-            )
+                is ProjectDetailIntent.Routing.OpenParentSheet -> {
+                    sheets.show(
+                        ActiveSheet.PickParent(intent.currentParentId),
+                    )
+                }
 
-            is ProjectDetailIntent.Routing.OpenDueDateSheet -> sheets.show(ActiveSheet.PickDueDate)
+                is ProjectDetailIntent.Routing.OpenDueDateSheet -> {
+                    sheets.show(ActiveSheet.PickDueDate)
+                }
 
-            is ProjectDetailIntent.Routing.OpenChildrenSheet -> sheets.show(ActiveSheet.ShowChildren)
+                is ProjectDetailIntent.Routing.OpenChildrenSheet -> {
+                    sheets.show(ActiveSheet.ShowChildren)
+                }
 
-            is ProjectDetailIntent.Routing.OpenInheritedTagGroupsSheet -> sheets.show(
-                ActiveSheet.PickInheritedTagGroups,
-            )
+                is ProjectDetailIntent.Routing.OpenInheritedTagGroupsSheet -> {
+                    sheets.show(
+                        ActiveSheet.PickInheritedTagGroups,
+                    )
+                }
 
-            is ProjectDetailIntent.Routing.OpenDeleteSheet -> sheets.show(ActiveSheet.ConfirmDelete)
+                is ProjectDetailIntent.Routing.OpenDeleteSheet -> {
+                    sheets.show(ActiveSheet.ConfirmDelete)
+                }
 
-            is ProjectDetailIntent.Routing.OpenArchiveSheet -> sheets.show(ActiveSheet.ConfirmArchive)
+                is ProjectDetailIntent.Routing.OpenArchiveSheet -> {
+                    sheets.show(ActiveSheet.ConfirmArchive)
+                }
 
-            is ProjectDetailIntent.Routing.OpenCloseSheet -> sheets.show(ActiveSheet.ConfirmClose)
+                is ProjectDetailIntent.Routing.OpenCloseSheet -> {
+                    sheets.show(ActiveSheet.ConfirmClose)
+                }
 
-            is ProjectDetailIntent.Routing.OpenReminderSheet -> sheets.show(ActiveSheet.PickReminder)
+                is ProjectDetailIntent.Routing.OpenReminderSheet -> {
+                    sheets.show(ActiveSheet.PickReminder)
+                }
 
-            is ProjectDetailIntent.Routing.OpenAttachmentSheet -> sheets.show(ActiveSheet.AddAttachment)
+                is ProjectDetailIntent.Routing.OpenAttachmentSheet -> {
+                    sheets.show(ActiveSheet.AddAttachment)
+                }
 
-            is ProjectDetailIntent.Routing.NavigateToChild -> nav.openDetail(intent.projectId)
+                is ProjectDetailIntent.Routing.NavigateToChild -> {
+                    nav.openDetail(intent.projectId)
+                }
 
-            is ProjectDetailIntent.Domain -> viewModel.onIntent(intent)
+                is ProjectDetailIntent.Domain -> {
+                    viewModel.onIntent(intent)
+                }
+            }
         }
     }
-}

@@ -11,5 +11,8 @@ package com.singularity.todo.core.attachments
 class StubAttachmentUploadService {
     suspend fun upload(attachment: Attachment): Result<String> = Result.success(attachment.localPath ?: "")
 
-    suspend fun download(remotePath: String, targetPath: String): Result<Unit> = Result.success(Unit)
+    suspend fun download(
+        remotePath: String,
+        targetPath: String,
+    ): Result<Unit> = Result.success(Unit)
 }

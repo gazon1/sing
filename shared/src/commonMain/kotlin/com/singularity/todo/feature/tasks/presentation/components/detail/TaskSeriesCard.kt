@@ -23,8 +23,8 @@ import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.formatRussianShortDate
 import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.feature.tasks.domain.model.Task
-import kotlinx.collections.immutable.ImmutableList
 import com.singularity.todo.feature.tasks.domain.model.TaskId
+import kotlinx.collections.immutable.ImmutableList
 
 /**
  * The card that tells the user the task on screen is one occurrence of a series.
@@ -74,12 +74,13 @@ fun TaskSeriesCard(
                 members.forEach { member ->
                     val date = member.dueDate
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onOpenMember(member.id) }
-                            .testTag(TestTags.TaskSeries.MEMBER)
-                            .mapTestTagsAsResourceIds()
-                            .padding(vertical = 4.dp),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { onOpenMember(member.id) }
+                                .testTag(TestTags.TaskSeries.MEMBER)
+                                .mapTestTagsAsResourceIds()
+                                .padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
@@ -102,21 +103,24 @@ fun TaskSeriesCard(
                 ) {
                     TextButton(
                         onClick = onApplyToAll,
-                        modifier = Modifier
-                            .testTag(TestTags.TaskSeries.APPLY_TO_ALL)
-                            .mapTestTagsAsResourceIds(),
+                        modifier =
+                            Modifier
+                                .testTag(TestTags.TaskSeries.APPLY_TO_ALL)
+                                .mapTestTagsAsResourceIds(),
                     ) { Text("Применить ко всем") }
                     TextButton(
                         onClick = onDetach,
-                        modifier = Modifier
-                            .testTag(TestTags.TaskSeries.DETACH)
-                            .mapTestTagsAsResourceIds(),
+                        modifier =
+                            Modifier
+                                .testTag(TestTags.TaskSeries.DETACH)
+                                .mapTestTagsAsResourceIds(),
                     ) { Text("Оставить отдельно") }
                     TextButton(
                         onClick = onDeleteSeries,
-                        modifier = Modifier
-                            .testTag(TestTags.TaskSeries.DELETE)
-                            .mapTestTagsAsResourceIds(),
+                        modifier =
+                            Modifier
+                                .testTag(TestTags.TaskSeries.DELETE)
+                                .mapTestTagsAsResourceIds(),
                     ) { Text("Удалить серию") }
                 }
             }

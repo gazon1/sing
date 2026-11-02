@@ -17,7 +17,6 @@ import kotlin.math.max
 @Serializable
 @JvmInline
 value class Hlc(val encoded: String) : Comparable<Hlc> {
-
     val physical: Long get() = encoded.substringBefore(':').toLongOrNull() ?: 0L
     val counter: Int get() = encoded.split(':').getOrNull(1)?.toIntOrNull() ?: 0
     val node: String get() = encoded.substringAfterLast(':')
@@ -30,7 +29,11 @@ value class Hlc(val encoded: String) : Comparable<Hlc> {
         /**
          * Creates a new HLC tick — called on every local event.
          */
-        fun tick(last: Hlc?, node: String, nowMillis: Long): Hlc {
+        fun tick(
+            last: Hlc?,
+            node: String,
+            nowMillis: Long,
+        ): Hlc {
             val lastPhysical = last?.physical ?: 0L
             val lastCounter = last?.counter ?: 0
 
@@ -43,19 +46,32 @@ value class Hlc(val encoded: String) : Comparable<Hlc> {
         /**
          * Merges a received remote HLC with local — called on every received message.
          */
-        fun tock(local: Hlc, remote: Hlc, node: String, nowMillis: Long): Hlc {
+        fun tock(
+            local: Hlc,
+            remote: Hlc,
+            node: String,
+            nowMillis: Long,
+        ): Hlc {
             val maxPhysical = max(max(local.physical, remote.physical), nowMillis)
 
-            val counter = when (maxPhysical) {
-                local.physical if maxPhysical == remote.physical ->
-                    max(local.counter, remote.counter) + 1
+            val counter =
+                when (maxPhysical) {
+                    local.physical if maxPhysical == remote.physical -> {
+                        max(local.counter, remote.counter) + 1
+                    }
 
-                local.physical -> local.counter + 1
+                    local.physical -> {
+                        local.counter + 1
+                    }
 
-                remote.physical -> remote.counter + 1
+                    remote.physical -> {
+                        remote.counter + 1
+                    }
 
-                else -> 0
-            }
+                    else -> {
+                        0
+                    }
+                }
 
             return Hlc("$maxPhysical:$counter:$node")
         }
@@ -68,7 +84,11 @@ value class Hlc(val encoded: String) : Comparable<Hlc> {
         /**
          * Creates an HLC from components.
          */
-        fun of(physical: Long, counter: Int, node: String): Hlc = Hlc("$physical:$counter:$node")
+        fun of(
+            physical: Long,
+            counter: Int,
+            node: String,
+        ): Hlc = Hlc("$physical:$counter:$node")
 
         /**
          * Zero HLC for initialization.

@@ -28,52 +28,53 @@ internal typealias BackupRowIndex = Map<BackupEntityKind, Map<String, Long>>
  * the manifest's checksum, and this says nothing about it.
  */
 internal object BackupRows {
-
     /** The kinds whose rows are always carried whole, changed or not. */
-    val LINK_KINDS: Set<BackupEntityKind> = setOf(
-        BackupEntityKind.TASK_TAGS,
-        BackupEntityKind.TASK_DEPENDENCIES,
-        BackupEntityKind.PROJECT_TAG_GROUPS,
-    )
+    val LINK_KINDS: Set<BackupEntityKind> =
+        setOf(
+            BackupEntityKind.TASK_TAGS,
+            BackupEntityKind.TASK_DEPENDENCIES,
+            BackupEntityKind.PROJECT_TAG_GROUPS,
+        )
 
     /** What the rows of [payload] look like, kind by kind. */
-    fun index(payload: BackupPayload): BackupRowIndex = buildMap {
-        put(BackupEntityKind.TASKS, rows(payload.tasks, TaskDto.serializer()) { it.id })
-        put(BackupEntityKind.NOTES, rows(payload.notes, NoteDto.serializer()) { it.id })
-        put(BackupEntityKind.PROJECTS, rows(payload.projects, ProjectDto.serializer()) { it.id })
-        put(BackupEntityKind.TAGS, rows(payload.tags, TagDto.serializer()) { it.id })
-        put(BackupEntityKind.ATTACHMENTS, rows(payload.attachments, AttachmentDto.serializer()) { it.id })
-        put(
-            BackupEntityKind.ATTACHMENT_ANNOTATIONS,
-            rows(payload.attachmentAnnotations, AttachmentAnnotationDto.serializer()) { it.id },
-        )
-        put(BackupEntityKind.TASK_TAGS, rows(payload.taskTags, TaskTagDto.serializer()) { it.linkKey() })
-        put(
-            BackupEntityKind.TASK_DEPENDENCIES,
-            rows(payload.taskDependencies, TaskDependencyDto.serializer()) { it.linkKey() },
-        )
-        put(BackupEntityKind.AGENDA_VIEWS, rows(payload.agendaViews, AgendaViewDto.serializer()) { it.id })
-        put(
-            BackupEntityKind.TASK_REMINDERS,
-            rows(payload.taskReminders, TaskReminderDto.serializer()) { it.id },
-        )
-        put(
-            BackupEntityKind.PROJECT_REMINDERS,
-            rows(payload.projectReminders, ProjectReminderDto.serializer()) { it.id },
-        )
-        put(
-            BackupEntityKind.CHECKLIST_ITEMS,
-            rows(payload.checklistItems, ChecklistItemDto.serializer()) { it.id },
-        )
-        put(BackupEntityKind.TAG_GROUPS, rows(payload.tagGroups, TagGroupDto.serializer()) { it.id })
-        put(
-            BackupEntityKind.PROJECT_TAG_GROUPS,
-            rows(payload.projectTagGroups, ProjectTagGroupDto.serializer()) { it.linkKey() },
-        )
-        put(BackupEntityKind.SAVED_SEARCHES, rows(payload.savedSearches, SavedSearchDto.serializer()) { it.id })
-        put(BackupEntityKind.TIME_ENTRIES, rows(payload.timeEntries, TimeEntryDto.serializer()) { it.id })
-        put(BackupEntityKind.PROFILES, rows(payload.profiles, ProfileDto.serializer()) { it.id })
-    }
+    fun index(payload: BackupPayload): BackupRowIndex =
+        buildMap {
+            put(BackupEntityKind.TASKS, rows(payload.tasks, TaskDto.serializer()) { it.id })
+            put(BackupEntityKind.NOTES, rows(payload.notes, NoteDto.serializer()) { it.id })
+            put(BackupEntityKind.PROJECTS, rows(payload.projects, ProjectDto.serializer()) { it.id })
+            put(BackupEntityKind.TAGS, rows(payload.tags, TagDto.serializer()) { it.id })
+            put(BackupEntityKind.ATTACHMENTS, rows(payload.attachments, AttachmentDto.serializer()) { it.id })
+            put(
+                BackupEntityKind.ATTACHMENT_ANNOTATIONS,
+                rows(payload.attachmentAnnotations, AttachmentAnnotationDto.serializer()) { it.id },
+            )
+            put(BackupEntityKind.TASK_TAGS, rows(payload.taskTags, TaskTagDto.serializer()) { it.linkKey() })
+            put(
+                BackupEntityKind.TASK_DEPENDENCIES,
+                rows(payload.taskDependencies, TaskDependencyDto.serializer()) { it.linkKey() },
+            )
+            put(BackupEntityKind.AGENDA_VIEWS, rows(payload.agendaViews, AgendaViewDto.serializer()) { it.id })
+            put(
+                BackupEntityKind.TASK_REMINDERS,
+                rows(payload.taskReminders, TaskReminderDto.serializer()) { it.id },
+            )
+            put(
+                BackupEntityKind.PROJECT_REMINDERS,
+                rows(payload.projectReminders, ProjectReminderDto.serializer()) { it.id },
+            )
+            put(
+                BackupEntityKind.CHECKLIST_ITEMS,
+                rows(payload.checklistItems, ChecklistItemDto.serializer()) { it.id },
+            )
+            put(BackupEntityKind.TAG_GROUPS, rows(payload.tagGroups, TagGroupDto.serializer()) { it.id })
+            put(
+                BackupEntityKind.PROJECT_TAG_GROUPS,
+                rows(payload.projectTagGroups, ProjectTagGroupDto.serializer()) { it.linkKey() },
+            )
+            put(BackupEntityKind.SAVED_SEARCHES, rows(payload.savedSearches, SavedSearchDto.serializer()) { it.id })
+            put(BackupEntityKind.TIME_ENTRIES, rows(payload.timeEntries, TimeEntryDto.serializer()) { it.id })
+            put(BackupEntityKind.PROFILES, rows(payload.profiles, ProfileDto.serializer()) { it.id })
+        }
 
     /**
      * The rows of [current] that are not the rows [previous] held: the new ones

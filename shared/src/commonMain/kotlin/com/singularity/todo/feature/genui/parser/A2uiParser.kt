@@ -45,7 +45,6 @@ class A2uiParser(
      */
     usage: GenuiUsageCounter = GenuiUsageCounter(),
 ) {
-
     private val messages: A2uiMessageDecoder = A2uiMessageDecoder(catalog, usage)
 
     /** The running tally of which component kinds a model actually draws. */
@@ -88,10 +87,12 @@ class A2uiParser(
         if (declared != null && declared > A2UI_CURRENT_SCHEMA_VERSION) {
             return A2uiParseOutcome.Failed(unsupportedVersion(declared))
         }
-        val operation: String = OPERATIONS.firstOrNull { it in envelope }
-            ?: return A2uiParseOutcome.Failed(unknownOperation())
-        val body: JsonObject = envelope[operation] as? JsonObject
-            ?: return A2uiParseOutcome.Failed(operationIsNotAnObject(operation))
+        val operation: String =
+            OPERATIONS.firstOrNull { it in envelope }
+                ?: return A2uiParseOutcome.Failed(unknownOperation())
+        val body: JsonObject =
+            envelope[operation] as? JsonObject
+                ?: return A2uiParseOutcome.Failed(operationIsNotAnObject(operation))
         return messages.decode(operation, body)
     }
 
@@ -100,9 +101,10 @@ class A2uiParser(
      *
      * For callers that already have lines — the release-note payload is whole lines, not tokens.
      */
-    fun parseStream(lines: Flow<String>): Flow<A2uiParseOutcome> = flow {
-        lines.collect { line -> emit(parseLine(line)) }
-    }
+    fun parseStream(lines: Flow<String>): Flow<A2uiParseOutcome> =
+        flow {
+            lines.collect { line -> emit(parseLine(line)) }
+        }
 
     /**
      * Reassembles a stream of model output fragments into lines, then classifies each one.
@@ -111,11 +113,12 @@ class A2uiParser(
      * then gives a surface is a reply with both parts, and reporting the sentence to the model as a
      * contract violation would be the worst possible answer to a user who asked a question.
      */
-    fun parseTokens(tokens: Flow<String>): Flow<A2uiParseOutcome> = flow {
-        val framer: LineFramer = LineFramer()
-        tokens.collect { chunk -> framer.accept(chunk).forEach { emit(it.asOutcome()) } }
-        framer.finish().forEach { emit(it.asOutcome()) }
-    }
+    fun parseTokens(tokens: Flow<String>): Flow<A2uiParseOutcome> =
+        flow {
+            val framer: LineFramer = LineFramer()
+            tokens.collect { chunk -> framer.accept(chunk).forEach { emit(it.asOutcome()) } }
+            framer.finish().forEach { emit(it.asOutcome()) }
+        }
 
     /**
      * A framed line that has not been read yet, as an outcome of its own.
@@ -124,29 +127,33 @@ class A2uiParser(
      * has said what it is, and re-reporting it would put a sentence the user is reading into the
      * correction prompt.
      */
-    private fun FramedLine.asOutcome(): A2uiParseOutcome = when (this) {
-        is FramedLine.Message -> parseLine(text)
-        is FramedLine.Prose -> A2uiParseOutcome.Skipped(A2uiErrorCode.MALFORMED_LINE, "prose")
-        is FramedLine.Dropped -> A2uiParseOutcome.Skipped(A2uiErrorCode.LINE_TOO_LONG, reason)
-    }
+    private fun FramedLine.asOutcome(): A2uiParseOutcome =
+        when (this) {
+            is FramedLine.Message -> parseLine(text)
+            is FramedLine.Prose -> A2uiParseOutcome.Skipped(A2uiErrorCode.MALFORMED_LINE, "prose")
+            is FramedLine.Dropped -> A2uiParseOutcome.Skipped(A2uiErrorCode.LINE_TOO_LONG, reason)
+        }
 
     // ─── Envelope rejections ───────────────────────────────────────────────
 
-    private fun unreadable(detail: String): A2uiParseOutcome.Failed = A2uiParseOutcome.Failed(
-        A2uiError(
-            code = A2uiErrorCode.MALFORMED_LINE,
-            message = "The line looks like a message but is $detail.",
-            pointer = "/",
-            severity = A2uiSeverity.MESSAGE,
-        ),
-    )
+    private fun unreadable(detail: String): A2uiParseOutcome.Failed =
+        A2uiParseOutcome.Failed(
+            A2uiError(
+                code = A2uiErrorCode.MALFORMED_LINE,
+                message = "The line looks like a message but is $detail.",
+                pointer = "/",
+                severity = A2uiSeverity.MESSAGE,
+            ),
+        )
 
-    private fun unsupportedVersion(declared: Int): A2uiError = A2uiError(
-        code = A2uiErrorCode.UNSUPPORTED_SCHEMA_VERSION,
-        message = "This client implements schema version $A2UI_CURRENT_SCHEMA_VERSION; " +
-            "the message declares $declared.",
-        pointer = "/schemaVersion",
-    )
+    private fun unsupportedVersion(declared: Int): A2uiError =
+        A2uiError(
+            code = A2uiErrorCode.UNSUPPORTED_SCHEMA_VERSION,
+            message =
+                "This client implements schema version $A2UI_CURRENT_SCHEMA_VERSION; " +
+                    "the message declares $declared.",
+            pointer = "/schemaVersion",
+        )
 
     /**
      * The legal operations travel with the rejection.
@@ -154,18 +161,20 @@ class A2uiParser(
      * A model that guessed an operation name cannot infer the right one, and a message saying only
      * "no known operation" is the one rejection text it has least to act on.
      */
-    private fun unknownOperation(): A2uiError = A2uiError(
-        code = A2uiErrorCode.UNKNOWN_OPERATION,
-        message = "No known operation in this message.",
-        pointer = "/",
-        allowed = OPERATIONS.sorted(),
-    )
+    private fun unknownOperation(): A2uiError =
+        A2uiError(
+            code = A2uiErrorCode.UNKNOWN_OPERATION,
+            message = "No known operation in this message.",
+            pointer = "/",
+            allowed = OPERATIONS.sorted(),
+        )
 
-    private fun operationIsNotAnObject(operation: String): A2uiError = A2uiError(
-        code = A2uiErrorCode.MALFORMED_LINE,
-        message = "'$operation' is not a JSON object.",
-        pointer = "/$operation",
-    )
+    private fun operationIsNotAnObject(operation: String): A2uiError =
+        A2uiError(
+            code = A2uiErrorCode.MALFORMED_LINE,
+            message = "'$operation' is not a JSON object.",
+            pointer = "/$operation",
+        )
 
     companion object {
         /** Current A2UI schema version. Events with schemaVersion > this are rejected. */
@@ -175,9 +184,10 @@ class A2uiParser(
         val OPERATIONS: Set<String> = setOf("createSurface", "updateComponents", "updateData", "deleteSurface")
 
         @OptIn(ExperimentalSerializationApi::class)
-        val defaultJson = Json {
-            ignoreUnknownKeys = true
-            isLenient = true
-        }
+        val defaultJson =
+            Json {
+                ignoreUnknownKeys = true
+                isLenient = true
+            }
     }
 }

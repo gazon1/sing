@@ -68,7 +68,6 @@ class GoogleTaskApplier(
     private val timeZone: () -> TimeZone = { TimeZone.currentSystemDefault() },
     private val logger: Logger = Logger.withTag("GoogleTaskApplier"),
 ) {
-
     /** What one applier pass did, so a caller can report it without re-deriving anything. */
     data class ApplyResult(
         /** Foreign events turned into tasks. */
@@ -114,13 +113,14 @@ class GoogleTaskApplier(
         val event = row.toGoogleEvent()
         // A cancelled event, or one the mapper cannot describe, has no task to create — so
         // the null is checked *before* the write, not reported as a failed write.
-        val task = GoogleEventTaskMapper.newTask(
-            event,
-            TaskId(idGenerator.next()),
-            userId,
-            clock.now(),
-            timeZone(),
-        )
+        val task =
+            GoogleEventTaskMapper.newTask(
+                event,
+                TaskId(idGenerator.next()),
+                userId,
+                clock.now(),
+                timeZone(),
+            )
         if (task == null) {
             logger.w { "Could not import Google event ${row.eventId}: it is not a task-shaped event" }
             return false
@@ -193,7 +193,10 @@ class GoogleTaskApplier(
      * two fields the app has no model for. Only the app-owned fields come from the task, so a
      * task with no location cannot blank a real one on the user's calendar.
      */
-    suspend fun desiredEventFor(taskId: TaskId, remote: GoogleEvent): GoogleEvent? {
+    suspend fun desiredEventFor(
+        taskId: TaskId,
+        remote: GoogleEvent,
+    ): GoogleEvent? {
         val task = taskRepository.get(taskId) ?: return null
         return remote.copy(
             title = task.title,
@@ -213,7 +216,9 @@ class GoogleTaskApplier(
      * them drift.
      */
     suspend fun desiredEvents(calendarId: String): List<GoogleEvent> =
-        taskRepository.observeAll().first()
+        taskRepository
+            .observeAll()
+            .first()
             .filter { it.belongsOnACalendar }
             .map { it.asDesiredEvent(calendarId) }
 
@@ -294,7 +299,10 @@ class GoogleTaskApplier(
     /**
      * Writes [updated], reporting whether both layers of the call agreed that it landed.
      */
-    private suspend fun writeUpdatedTask(taskId: TaskId, updated: Task): Boolean {
+    private suspend fun writeUpdatedTask(
+        taskId: TaskId,
+        updated: Task,
+    ): Boolean {
         // `update` returns a `Result` of its own, so the wrapper only reports whether the
         // call *threw*. Checking the outer layer alone would read every business rejection
         // — a validator, a constraint — as a successful write, and then move the reminders
@@ -331,16 +339,29 @@ class GoogleTaskApplier(
      * never saw, and the notification layer already has a defined behaviour for a
      * past-due reminder.
      */
-    private suspend fun moveReminders(before: Task, after: Task): Int {
+    private suspend fun moveReminders(
+        before: Task,
+        after: Task,
+    ): Int {
         val tz = timeZone()
-        val oldDue = before.dueDate?.atTime(before.dueTime ?: MIDNIGHT)?.toInstant(tz)?.toEpochMilliseconds()
-        val newDue = after.dueDate?.atTime(after.dueTime ?: MIDNIGHT)?.toInstant(tz)?.toEpochMilliseconds()
+        val oldDue =
+            before.dueDate
+                ?.atTime(before.dueTime ?: MIDNIGHT)
+                ?.toInstant(tz)
+                ?.toEpochMilliseconds()
+        val newDue =
+            after.dueDate
+                ?.atTime(after.dueTime ?: MIDNIGHT)
+                ?.toInstant(tz)
+                ?.toEpochMilliseconds()
         if (oldDue == null || newDue == null || oldDue == newDue) return 0
 
         val deltaMs = newDue - oldDue
         val taskId = before.id
         var moved = 0
-        reminderRepository.watchByTask(taskId).first()
+        reminderRepository
+            .watchByTask(taskId)
+            .first()
             .filter { it.recurringPattern == null }
             .forEach { reminder ->
                 val shifted = reminder.copy(fireAt = reminder.fireAt + deltaMs)
@@ -351,10 +372,11 @@ class GoogleTaskApplier(
                     // fires at the *old* time and the new time is never armed at all.
                     // Cancel first because Android's alarm is keyed by reminder id, and
                     // re-scheduling without cancelling leaves the old one in place.
-                    val rescheduled = runCatchingResult {
-                        reminderScheduler.cancel(shifted.id, userId)
-                        reminderScheduler.schedule(shifted)
-                    }
+                    val rescheduled =
+                        runCatchingResult {
+                            reminderScheduler.cancel(shifted.id, userId)
+                            reminderScheduler.schedule(shifted)
+                        }
                     if (rescheduled.isFailure) {
                         // Counted, not thrown: a failed alarm leaves the notification late,
                         // which is recoverable, whereas throwing here would abandon the rest
@@ -373,25 +395,28 @@ class GoogleTaskApplier(
         return moved
     }
 
-    private fun Task.withEdits(edits: GoogleEventTaskMapper.TaskEdits): Task = copy(
-        // A remotely-cleared title still has to leave the task with a name; `Task.title`
-        // is not nullable, so the same placeholder the mapper uses applies here.
-        title = if (GoogleEventTaskMapper.TaskField.Title in edits.changed) {
-            edits.title ?: GoogleEventTaskMapper.UNTITLED
-        } else {
-            title
-        },
-        description = if (GoogleEventTaskMapper.TaskField.Description in edits.changed) {
-            edits.description
-        } else {
-            description
-        },
-        dueDate = if (GoogleEventTaskMapper.TaskField.DueDate in edits.changed) edits.dueDate else dueDate,
-        dueTime = if (GoogleEventTaskMapper.TaskField.DueTime in edits.changed) edits.dueTime else dueTime,
-        endDate = if (GoogleEventTaskMapper.TaskField.EndDate in edits.changed) edits.endDate else endDate,
-        endTime = if (GoogleEventTaskMapper.TaskField.EndTime in edits.changed) edits.endTime else endTime,
-        updatedAt = clock.now(),
-    )
+    private fun Task.withEdits(edits: GoogleEventTaskMapper.TaskEdits): Task =
+        copy(
+            // A remotely-cleared title still has to leave the task with a name; `Task.title`
+            // is not nullable, so the same placeholder the mapper uses applies here.
+            title =
+                if (GoogleEventTaskMapper.TaskField.Title in edits.changed) {
+                    edits.title ?: GoogleEventTaskMapper.UNTITLED
+                } else {
+                    title
+                },
+            description =
+                if (GoogleEventTaskMapper.TaskField.Description in edits.changed) {
+                    edits.description
+                } else {
+                    description
+                },
+            dueDate = if (GoogleEventTaskMapper.TaskField.DueDate in edits.changed) edits.dueDate else dueDate,
+            dueTime = if (GoogleEventTaskMapper.TaskField.DueTime in edits.changed) edits.dueTime else dueTime,
+            endDate = if (GoogleEventTaskMapper.TaskField.EndDate in edits.changed) edits.endDate else endDate,
+            endTime = if (GoogleEventTaskMapper.TaskField.EndTime in edits.changed) edits.endTime else endTime,
+            updatedAt = clock.now(),
+        )
 
     /**
      * Rebuilds the event a staged import row came from.
@@ -402,21 +427,22 @@ class GoogleTaskApplier(
      * alongside it records the same values: the merge's ancestor is this shape, not the
      * full original.
      */
-    private fun CalendarImportEventEntity.toGoogleEvent() = GoogleEvent(
-        id = GoogleEventId(eventId),
-        calendarId = calendarId,
-        title = title,
-        description = description,
-        startsAt = startsAt?.let { Instant.fromEpochMilliseconds(it) },
-        endsAt = endsAt?.let { Instant.fromEpochMilliseconds(it) },
-        allDay = allDay,
-        location = location,
-        recurrenceRule = recurrenceRule,
-        status = GoogleEventStatus.Confirmed,
-        etag = etag,
-        updatedAt = null,
-        taskId = null,
-    )
+    private fun CalendarImportEventEntity.toGoogleEvent() =
+        GoogleEvent(
+            id = GoogleEventId(eventId),
+            calendarId = calendarId,
+            title = title,
+            description = description,
+            startsAt = startsAt?.let { Instant.fromEpochMilliseconds(it) },
+            endsAt = endsAt?.let { Instant.fromEpochMilliseconds(it) },
+            allDay = allDay,
+            location = location,
+            recurrenceRule = recurrenceRule,
+            status = GoogleEventStatus.Confirmed,
+            etag = etag,
+            updatedAt = null,
+            taskId = null,
+        )
 
     private companion object {
         val MIDNIGHT = LocalTime(0, 0)

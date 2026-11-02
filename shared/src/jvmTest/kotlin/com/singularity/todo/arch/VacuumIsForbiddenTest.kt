@@ -46,14 +46,14 @@ import kotlin.test.fail
  */
 @Tag("fast")
 class VacuumIsForbiddenTest {
-
     @Test
     fun the_scanner_finds_a_vacuum() {
-        val source = """
+        val source =
+            """
             fun compact(path: String) {
                 driver.execute("VACUUM")
             }
-        """.trimIndent()
+            """.trimIndent()
         assertTrue(
             mentionsVacuum(source),
             "a VACUUM in a string literal is the shape this gate is looking for",
@@ -65,14 +65,15 @@ class VacuumIsForbiddenTest {
         // The word in a comment must not stand in for the statement. Otherwise the
         // file that explains why VACUUM is forbidden is the file the gate reports,
         // and the gate is allowlisted on its first day.
-        val source = """
+        val source =
+            """
             /**
              * Never run a VACUUM here: it renumbers the rowid the index points at.
              */
             fun compact(path: String) {
                 driver.execute("PRAGMA optimize")
             }
-        """.trimIndent()
+            """.trimIndent()
         assertTrue(
             !mentionsVacuum(source),
             "a comment mentioning VACUUM is not a VACUUM",
@@ -81,10 +82,11 @@ class VacuumIsForbiddenTest {
 
     @Test
     fun the_scanner_finds_a_vacuum_in_a_raw_query() {
-        val source = """
+        val source =
+            """
             @Query("VACUUM")
             fun compact(): Unit
-        """.trimIndent()
+            """.trimIndent()
         assertTrue(mentionsVacuum(source))
     }
 
@@ -98,10 +100,11 @@ class VacuumIsForbiddenTest {
 
     @Test
     fun no_production_code_runs_a_vacuum() {
-        val offenders = productionSources()
-            .map { it to mentionsVacuum(KotlinText.stripComments(it.readText())) }
-            .filter { (_, mentions) -> mentions }
-            .map { (file, _) -> file.name }
+        val offenders =
+            productionSources()
+                .map { it to mentionsVacuum(KotlinText.stripComments(it.readText())) }
+                .filter { (_, mentions) -> mentions }
+                .map { (file, _) -> file.name }
 
         if (offenders.isNotEmpty()) {
             fail(
@@ -156,8 +159,7 @@ class VacuumIsForbiddenTest {
      * The comments are blanked first: a file that explains why `VACUUM` is
      * forbidden has to be able to say so.
      */
-    private fun mentionsVacuum(source: String): Boolean =
-        VACUUM.containsMatchIn(KotlinText.stripComments(source))
+    private fun mentionsVacuum(source: String): Boolean = VACUUM.containsMatchIn(KotlinText.stripComments(source))
 
     private companion object {
         val VACUUM = Regex("""\bVACUUM\b""", RegexOption.IGNORE_CASE)
@@ -171,11 +173,12 @@ class VacuumIsForbiddenTest {
          */
         fun sourceRoots(): Map<String, File> {
             val roots = mutableMapOf<String, File>()
-            val properties = mapOf(
-                "commonMain" to "commonMain.root",
-                "androidMain" to "androidMain.root",
-                "jvmMain" to "jvmMain.root",
-            )
+            val properties =
+                mapOf(
+                    "commonMain" to "commonMain.root",
+                    "androidMain" to "androidMain.root",
+                    "jvmMain" to "jvmMain.root",
+                )
             properties.forEach { (sourceSet, property) ->
                 val path = System.getProperty(property) ?: return@forEach
                 val root = File(path)
@@ -187,7 +190,8 @@ class VacuumIsForbiddenTest {
         /** Every production `.kt` file of every source set that can reach the database. */
         fun productionSources(): List<File> =
             sourceRoots().values.flatMap { root ->
-                root.walkTopDown()
+                root
+                    .walkTopDown()
                     .filter { it.isFile && it.name.endsWith(".kt") }
                     .filterNot { file -> with(SourceScan) { file.isTestDouble() } }
                     .toList()

@@ -11,9 +11,9 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import co.touchlab.kermit.Logger
-import kotlin.time.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
 
 /**
  * WorkManager implementation of [BackgroundWorkScheduler].
@@ -42,23 +42,27 @@ class AndroidBackgroundWorkScheduler(
     private val logger: Logger = Logger.withTag("AndroidBackgroundWork"),
     private val zone: TimeZone = TimeZone.currentSystemDefault(),
 ) : BackgroundWorkScheduler {
-
     private val workManager = WorkManager.getInstance(context)
 
-    override fun schedule(jobId: String, schedule: JobSchedule) {
+    override fun schedule(
+        jobId: String,
+        schedule: JobSchedule,
+    ) {
         requireRegistered(jobId)
         when (schedule) {
-            JobSchedule.OnDemand -> runNow(jobId)
+            JobSchedule.OnDemand -> {
+                runNow(jobId)
+            }
 
             is JobSchedule.Periodic -> {
                 val interval = maxOf(schedule.interval, MIN_PERIODIC_INTERVAL)
-                val request = PeriodicWorkRequestBuilder<BackgroundJobWorker>(
-                    java.time.Duration.ofMillis(interval.inWholeMilliseconds),
-                )
-                    .setConstraints(constraints(jobId))
-                    .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF)
-                    .setInputData(inputData(jobId, schedule))
-                    .build()
+                val request =
+                    PeriodicWorkRequestBuilder<BackgroundJobWorker>(
+                        java.time.Duration.ofMillis(interval.inWholeMilliseconds),
+                    ).setConstraints(constraints(jobId))
+                        .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF)
+                        .setInputData(inputData(jobId, schedule))
+                        .build()
                 workManager.enqueueUniquePeriodicWork(
                     workName(jobId),
                     ExistingPeriodicWorkPolicy.KEEP,
@@ -74,20 +78,25 @@ class AndroidBackgroundWorkScheduler(
         }
     }
 
-    override fun scheduleNext(jobId: String, schedule: JobSchedule) {
+    override fun scheduleNext(
+        jobId: String,
+        schedule: JobSchedule,
+    ) {
         requireRegistered(jobId)
         when (schedule) {
-            JobSchedule.OnDemand -> runNow(jobId)
+            JobSchedule.OnDemand -> {
+                runNow(jobId)
+            }
 
             is JobSchedule.Periodic -> {
                 val interval = maxOf(schedule.interval, MIN_PERIODIC_INTERVAL)
-                val request = PeriodicWorkRequestBuilder<BackgroundJobWorker>(
-                    java.time.Duration.ofMillis(interval.inWholeMilliseconds),
-                )
-                    .setConstraints(constraints(jobId))
-                    .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF)
-                    .setInputData(inputData(jobId, schedule))
-                    .build()
+                val request =
+                    PeriodicWorkRequestBuilder<BackgroundJobWorker>(
+                        java.time.Duration.ofMillis(interval.inWholeMilliseconds),
+                    ).setConstraints(constraints(jobId))
+                        .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF)
+                        .setInputData(inputData(jobId, schedule))
+                        .build()
                 workManager.enqueueUniquePeriodicWork(
                     workName(jobId),
                     ExistingPeriodicWorkPolicy.KEEP,
@@ -118,10 +127,11 @@ class AndroidBackgroundWorkScheduler(
         delay: kotlin.time.Duration,
         policy: ExistingWorkPolicy = ExistingWorkPolicy.KEEP,
     ) {
-        val builder = OneTimeWorkRequestBuilder<BackgroundJobWorker>()
-            .setConstraints(constraints(jobId))
-            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF)
-            .setInputData(inputData(jobId, schedule))
+        val builder =
+            OneTimeWorkRequestBuilder<BackgroundJobWorker>()
+                .setConstraints(constraints(jobId))
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF)
+                .setInputData(inputData(jobId, schedule))
         if (delay > kotlin.time.Duration.ZERO) {
             builder.setInitialDelay(java.time.Duration.ofMillis(delay.inWholeMilliseconds))
         }
@@ -152,10 +162,15 @@ class AndroidBackgroundWorkScheduler(
      * re-arms into `OnDemand`, which runs once more and then stops. That is the right
      * shape for `runNow`.
      */
-    private fun inputData(jobId: String, schedule: JobSchedule): Data = Data.Builder()
-        .putString(BackgroundJobWorker.KEY_JOB_ID, jobId)
-        .putString(BackgroundJobWorker.KEY_SCHEDULE, JobScheduleCodec.encode(schedule))
-        .build()
+    private fun inputData(
+        jobId: String,
+        schedule: JobSchedule,
+    ): Data =
+        Data
+            .Builder()
+            .putString(BackgroundJobWorker.KEY_JOB_ID, jobId)
+            .putString(BackgroundJobWorker.KEY_SCHEDULE, JobScheduleCodec.encode(schedule))
+            .build()
 
     private fun constraints(jobId: String): Constraints {
         val requiresNetwork = catalog.find(jobId)?.requiresNetwork ?: true

@@ -16,7 +16,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class DestinationKindTest {
-
     @Test
     fun isTabRecognisesBottomBarTabs() {
         assertTrue(DestinationKind.isTab(AppDestination.AgendaGraph(AgendaStartRoute.Inbox)))
@@ -94,23 +93,24 @@ class DestinationKindTest {
 
     @Test
     fun classificationIsMutuallyExclusiveAcrossThreeBuckets() {
-        val all = listOf(
-            AppDestination.AgendaGraph(AgendaStartRoute.Inbox),
-            AppDestination.AgendaGraph(AgendaStartRoute.Today),
-            AppDestination.AgendaGraph(AgendaStartRoute.Upcoming),
-            AppDestination.Plans,
-            AppDestination.Pomodoro,
-            AppDestination.Statistics,
-            AppDestination.Notes,
-            AppDestination.AiChat,
-            AppDestination.Search,
-            AppDestination.Archive,
-            AppDestination.Settings,
-            AppDestination.Calendar,
-            AppDestination.AiUsage,
-            AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()),
-            AppDestination.ProjectEditor(),
-        )
+        val all =
+            listOf(
+                AppDestination.AgendaGraph(AgendaStartRoute.Inbox),
+                AppDestination.AgendaGraph(AgendaStartRoute.Today),
+                AppDestination.AgendaGraph(AgendaStartRoute.Upcoming),
+                AppDestination.Plans,
+                AppDestination.Pomodoro,
+                AppDestination.Statistics,
+                AppDestination.Notes,
+                AppDestination.AiChat,
+                AppDestination.Search,
+                AppDestination.Archive,
+                AppDestination.Settings,
+                AppDestination.Calendar,
+                AppDestination.AiUsage,
+                AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()),
+                AppDestination.ProjectEditor(),
+            )
         all.forEach { dest ->
             val tab = DestinationKind.isTab(dest)
             val menu = DestinationKind.isMenuEntry(dest)

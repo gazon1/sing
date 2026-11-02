@@ -3,7 +3,6 @@ package com.singularity.todo.feature.agenda.domain.logic
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.AgendaRowItem
 import com.singularity.todo.feature.agenda.domain.model.RenderedSection
-import kotlinx.collections.immutable.toImmutableList
 import com.singularity.todo.feature.agenda.domain.model.Section
 import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.domain.selector.SelectorContext
@@ -13,8 +12,9 @@ import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.domain.logic.computeTaskMarkings
 import com.singularity.todo.feature.tasks.domain.logic.seriesSizes
 import com.singularity.todo.feature.tasks.domain.model.Task
-import kotlin.time.Instant
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.datetime.LocalDate
+import kotlin.time.Instant
 
 /**
  * Pure agenda evaluation engine.
@@ -30,7 +30,6 @@ import kotlinx.datetime.LocalDate
  * 4. Wrap remaining tasks in [AgendaRowItem] with their computed markings.
  */
 object AgendaEvaluator {
-
     /**
      * Evaluates [definition] against [tasks] and returns rendered sections.
      *
@@ -59,12 +58,13 @@ object AgendaEvaluator {
         // blocking one: `FollowUp` asks whether the task is in this set, not whether
         // some other task points at it.
         val followUpIds = tasks.filter { it.followsUp.isNotEmpty() }.map { it.id }.toSet()
-        val context = SelectorContext(
-            today = today,
-            now = now,
-            blockedIds = blockedIds,
-            followUpIds = followUpIds,
-        )
+        val context =
+            SelectorContext(
+                today = today,
+                now = now,
+                blockedIds = blockedIds,
+                followUpIds = followUpIds,
+            )
         return definition.sections
             .sortedBy { it.order }
             .mapNotNull { section ->
@@ -78,20 +78,23 @@ object AgendaEvaluator {
                 RenderedSection(
                     id = section.effectiveId,
                     name = section.name,
-                    tasks = matched.map { task ->
-                        val project = task.projectId?.value?.let { projectsById[it] }
-                        AgendaRowItem(
-                            task = task,
-                            markings = computeTaskMarkings(
-                                task = task,
-                                today = today,
-                                isBlocked = task.id in blockedIds,
-                            ),
-                            seriesDates = task.seriesId?.let { seriesSizes[it.value] },
-                            project = project?.name,
-                            projectColor = project?.color,
-                        )
-                    }.toImmutableList(),
+                    tasks =
+                        matched
+                            .map { task ->
+                                val project = task.projectId?.value?.let { projectsById[it] }
+                                AgendaRowItem(
+                                    task = task,
+                                    markings =
+                                        computeTaskMarkings(
+                                            task = task,
+                                            today = today,
+                                            isBlocked = task.id in blockedIds,
+                                        ),
+                                    seriesDates = task.seriesId?.let { seriesSizes[it.value] },
+                                    project = project?.name,
+                                    projectColor = project?.color,
+                                )
+                            }.toImmutableList(),
                     badge = matched.size.takeIf { it > 0 },
                     prefill = section.prefill,
                 )
@@ -112,6 +115,9 @@ object AgendaEvaluator {
         message = "Use selector.matches(task, context) directly",
         replaceWith = ReplaceWith("selector.matches(task, context)"),
     )
-    fun matches(task: Task, selector: Selector, context: SelectorContext): Boolean =
-        selector.matches(task, context)
+    fun matches(
+        task: Task,
+        selector: Selector,
+        context: SelectorContext,
+    ): Boolean = selector.matches(task, context)
 }

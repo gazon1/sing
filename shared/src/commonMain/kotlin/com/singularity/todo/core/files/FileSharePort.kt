@@ -19,5 +19,8 @@ interface FileSharePort {
      * @return `true` if a share was started, `false` if the platform refused.
      *   The platform may refuse if no app can handle [mimeType].
      */
-    fun shareFile(filePath: String, mimeType: String): Boolean
+    fun shareFile(
+        filePath: String,
+        mimeType: String,
+    ): Boolean
 }

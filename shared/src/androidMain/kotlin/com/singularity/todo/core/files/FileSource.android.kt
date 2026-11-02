@@ -12,13 +12,14 @@ import java.io.File
  * [android.content.ContentResolver.openInputStream] directly.
  */
 class AndroidFileSource(private val context: Context, private val path: String) : FileSource {
-    override suspend fun readBytes(): ByteArray = if (path.startsWith("content://")) {
-        val uri = Uri.parse(path)
-        context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-            ?: throw java.io.FileNotFoundException("Cannot open: $uri")
-    } else {
-        File(path).readBytes()
-    }
+    override suspend fun readBytes(): ByteArray =
+        if (path.startsWith("content://")) {
+            val uri = Uri.parse(path)
+            context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                ?: throw java.io.FileNotFoundException("Cannot open: $uri")
+        } else {
+            File(path).readBytes()
+        }
 }
 
 /**

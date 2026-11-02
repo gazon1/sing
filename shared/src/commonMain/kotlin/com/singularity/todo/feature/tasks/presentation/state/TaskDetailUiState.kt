@@ -12,8 +12,8 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.presentation.viewmodel.slot.LogbookEntry
 import com.singularity.todo.feature.timetracking.domain.model.TaskTimeSlotState
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 
 /**
@@ -110,7 +110,9 @@ data class TaskDetailUi(
  */
 sealed interface TaskDetailUiState {
     data object Loading : TaskDetailUiState
+
     data class Error(val message: String) : TaskDetailUiState
+
     data class Loaded(
         val ui: TaskDetailUi,
         val extras: TaskDetailExtras,

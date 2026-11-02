@@ -10,7 +10,6 @@ package com.singularity.todo.core.search
  * The number belongs to the search, so it lives with the search.
  */
 object SearchLimits {
-
     /**
      * How many notes a search answers with.
      *

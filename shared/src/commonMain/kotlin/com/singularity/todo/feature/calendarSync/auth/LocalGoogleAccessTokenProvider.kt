@@ -1,8 +1,8 @@
 package com.singularity.todo.feature.calendarSync.auth
 
 import com.singularity.todo.core.auth.SecureStorage
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.error.runCatchingCancellable
+import com.singularity.todo.core.ids.UserId
 
 /**
  * The access token, renewed on the device.
@@ -26,7 +26,6 @@ class LocalGoogleAccessTokenProvider(
     private val secureStorage: SecureStorage,
     private val tokenClientFactory: (String) -> GoogleTokenExchange,
 ) : GoogleAccessTokenProvider {
-
     override suspend fun accessToken(userId: UserId): String? {
         val stored = credentialStore.load(userId.value)
         if (stored == null) return null
@@ -35,9 +34,10 @@ class LocalGoogleAccessTokenProvider(
         val refreshToken = stored.refreshToken
         val clientId = clientIdResolver.resolve(secureStorage)?.clientId
         if (refreshToken == null || clientId == null) return null
-        val renewed = runCatchingCancellable {
-            tokenClientFactory(clientId).refresh(refreshToken)
-        }.getOrNull()
+        val renewed =
+            runCatchingCancellable {
+                tokenClientFactory(clientId).refresh(refreshToken)
+            }.getOrNull()
 
         return if (renewed == null) {
             // The grant is gone. Clearing it turns "every call fails" into "the

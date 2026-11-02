@@ -1,9 +1,9 @@
 package com.singularity.todo.core.error
 
+import kotlinx.coroutines.CancellationException
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
-import kotlinx.coroutines.CancellationException
 
 /**
  * Runs [block] and captures its result, without swallowing [CancellationException].

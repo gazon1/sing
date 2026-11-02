@@ -14,7 +14,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class CalendarDateSelectionTest {
-
     private val first = LocalDate(2026, 10, 5)
     private val second = LocalDate(2026, 10, 12)
 

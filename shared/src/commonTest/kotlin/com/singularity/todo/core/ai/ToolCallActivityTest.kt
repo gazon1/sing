@@ -6,8 +6,8 @@ import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.prompt.Prompt
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.streaming.StreamFrame
-import ai.koog.utils.time.KoogClock
 import ai.koog.serialization.TypeToken
+import ai.koog.utils.time.KoogClock
 import com.singularity.todo.core.llm.AgentEvent
 import com.singularity.todo.core.llm.ToolCallStatus
 import kotlinx.coroutines.flow.Flow
@@ -59,11 +59,11 @@ private class FailingTool : SimpleTool<Unit>(TypeToken.of(Unit::class.java), NAM
  */
 @Tag("fast")
 class ToolCallActivityTest {
-
-    private fun conversation(): Prompt = prompt(Prompt.Empty, KoogClock.System) {
-        system("you are a test")
-        user("hello")
-    }
+    private fun conversation(): Prompt =
+        prompt(Prompt.Empty, KoogClock.System) {
+            system("you are a test")
+            user("hello")
+        }
 
     /**
      * The model's rounds, one after the other.
@@ -86,115 +86,133 @@ class ToolCallActivityTest {
     private fun scripted(vararg rounds: List<StreamFrame>): ScriptedModel = ScriptedModel(rounds.toList())
 
     @Test
-    fun theTextArrivesAsDeltas() = runTest {
-        val events = ToolCallLoop(tools = emptyList())
-            .run(conversation()) { _, _ ->
-                flowOf(StreamFrame.TextDelta("Hello "), StreamFrame.TextDelta("there"))
-            }
-            .toList()
+    fun theTextArrivesAsDeltas() =
+        runTest {
+            val events =
+                ToolCallLoop(tools = emptyList())
+                    .run(conversation()) { _, _ ->
+                        flowOf(StreamFrame.TextDelta("Hello "), StreamFrame.TextDelta("there"))
+                    }.toList()
 
-        val text = events.filterIsInstance<AgentEvent.TextDelta>().joinToString("") { it.text }
-        assertEquals("Hello there", text, "The deltas add up to the answer")
-    }
-
-    @Test
-    fun aTurnEndsWithCompletion() = runTest {
-        val events = ToolCallLoop(tools = emptyList())
-            .run(conversation()) { _, _ -> flowOf(StreamFrame.TextDelta("done")) }
-            .toList()
-
-        assertTrue(
-            events.last() is AgentEvent.TurnCompleted,
-            "The turn says it finished: ${events.last()}",
-        )
-    }
+            val text = events.filterIsInstance<AgentEvent.TextDelta>().joinToString("") { it.text }
+            assertEquals("Hello there", text, "The deltas add up to the answer")
+        }
 
     @Test
-    fun aToolCallIsAnnouncedBeforeItRuns() = runTest {
-        val tool = AnsweringTool()
-        val model = scripted(
-            listOf(StreamFrame.ToolCallComplete(id = "c1", name = AnsweringTool.NAME, content = "{}")),
-            listOf(StreamFrame.TextDelta("done")),
-        )
+    fun aTurnEndsWithCompletion() =
+        runTest {
+            val events =
+                ToolCallLoop(tools = emptyList())
+                    .run(conversation()) { _, _ -> flowOf(StreamFrame.TextDelta("done")) }
+                    .toList()
 
-        val events = ToolCallLoop(tools = listOf(tool))
-            .run(conversation()) { _, _ -> model.next() }
-            .toList()
-
-        val calls = events.filterIsInstance<AgentEvent.ToolCallUpdated>()
-        assertEquals(2, calls.size, "The call is announced and then reported: ${calls.size}")
-        assertEquals(ToolCallStatus.RUNNING, calls.first().status, "It was running first")
-        assertEquals(ToolCallStatus.COMPLETED, calls.last().status, "And then it completed")
-        assertTrue(tool.ran, "The tool actually ran")
-    }
+            assertTrue(
+                events.last() is AgentEvent.TurnCompleted,
+                "The turn says it finished: ${events.last()}",
+            )
+        }
 
     @Test
-    fun aFailedToolIsVisible() = runTest {
-        val model = scripted(
-            listOf(StreamFrame.ToolCallComplete(id = "c1", name = FailingTool.NAME, content = "{}")),
-            listOf(StreamFrame.TextDelta("done")),
-        )
+    fun aToolCallIsAnnouncedBeforeItRuns() =
+        runTest {
+            val tool = AnsweringTool()
+            val model =
+                scripted(
+                    listOf(StreamFrame.ToolCallComplete(id = "c1", name = AnsweringTool.NAME, content = "{}")),
+                    listOf(StreamFrame.TextDelta("done")),
+                )
 
-        val events = ToolCallLoop(tools = listOf(FailingTool()))
-            .run(conversation()) { _, _ -> model.next() }
-            .toList()
+            val events =
+                ToolCallLoop(tools = listOf(tool))
+                    .run(conversation()) { _, _ -> model.next() }
+                    .toList()
 
-        val calls = events.filterIsInstance<AgentEvent.ToolCallUpdated>()
-        assertEquals(ToolCallStatus.FAILED, calls.last().status, "The failure is shown, not swallowed")
-    }
-
-    @Test
-    fun aCallCarriesTheNameTheModelUsed() = runTest {
-        val model = scripted(
-            listOf(StreamFrame.ToolCallComplete(id = "c1", name = AnsweringTool.NAME, content = "{}")),
-            listOf(StreamFrame.TextDelta("done")),
-        )
-
-        val events = ToolCallLoop(tools = listOf(AnsweringTool()))
-            .run(conversation()) { _, _ -> model.next() }
-            .toList()
-
-        val calls = events.filterIsInstance<AgentEvent.ToolCallUpdated>()
-        assertEquals(AnsweringTool.NAME, calls.first().name, "The card names the tool the model asked for")
-    }
+            val calls = events.filterIsInstance<AgentEvent.ToolCallUpdated>()
+            assertEquals(2, calls.size, "The call is announced and then reported: ${calls.size}")
+            assertEquals(ToolCallStatus.RUNNING, calls.first().status, "It was running first")
+            assertEquals(ToolCallStatus.COMPLETED, calls.last().status, "And then it completed")
+            assertTrue(tool.ran, "The tool actually ran")
+        }
 
     @Test
-    fun aCallWithoutAnIdentifierStillGetsOne() = runTest {
-        val model = scripted(
-            listOf(StreamFrame.ToolCallComplete(id = null, name = AnsweringTool.NAME, content = "{}")),
-            listOf(StreamFrame.TextDelta("done")),
-        )
+    fun aFailedToolIsVisible() =
+        runTest {
+            val model =
+                scripted(
+                    listOf(StreamFrame.ToolCallComplete(id = "c1", name = FailingTool.NAME, content = "{}")),
+                    listOf(StreamFrame.TextDelta("done")),
+                )
 
-        val events = ToolCallLoop(tools = listOf(AnsweringTool()))
-            .run(conversation()) { _, _ -> model.next() }
-            .toList()
+            val events =
+                ToolCallLoop(tools = listOf(FailingTool()))
+                    .run(conversation()) { _, _ -> model.next() }
+                    .toList()
 
-        val calls = events.filterIsInstance<AgentEvent.ToolCallUpdated>()
-        assertTrue(calls.all { it.id.isNotBlank() }, "A card needs a name: ${calls.map { it.id }}")
-        assertEquals(1, calls.map { it.id }.distinct().size, "And one card per call")
-    }
+            val calls = events.filterIsInstance<AgentEvent.ToolCallUpdated>()
+            assertEquals(ToolCallStatus.FAILED, calls.last().status, "The failure is shown, not swallowed")
+        }
 
     @Test
-    fun aCallCarriesASummary() = runTest {
-        val model = scripted(
-            listOf(
-                StreamFrame.ToolCallComplete(
-                    id = "c1",
-                    name = AnsweringTool.NAME,
-                    content = """{"id":"t-42"}""",
-                ),
-            ),
-            listOf(StreamFrame.TextDelta("done")),
-        )
+    fun aCallCarriesTheNameTheModelUsed() =
+        runTest {
+            val model =
+                scripted(
+                    listOf(StreamFrame.ToolCallComplete(id = "c1", name = AnsweringTool.NAME, content = "{}")),
+                    listOf(StreamFrame.TextDelta("done")),
+                )
 
-        val events = ToolCallLoop(tools = listOf(AnsweringTool()))
-            .run(conversation()) { _, _ -> model.next() }
-            .toList()
+            val events =
+                ToolCallLoop(tools = listOf(AnsweringTool()))
+                    .run(conversation()) { _, _ -> model.next() }
+                    .toList()
 
-        val calls = events.filterIsInstance<AgentEvent.ToolCallUpdated>()
-        assertTrue(
-            calls.last().summary?.contains("t-42") == true,
-            "The summary names what was touched: ${calls.last().summary}",
-        )
-    }
+            val calls = events.filterIsInstance<AgentEvent.ToolCallUpdated>()
+            assertEquals(AnsweringTool.NAME, calls.first().name, "The card names the tool the model asked for")
+        }
+
+    @Test
+    fun aCallWithoutAnIdentifierStillGetsOne() =
+        runTest {
+            val model =
+                scripted(
+                    listOf(StreamFrame.ToolCallComplete(id = null, name = AnsweringTool.NAME, content = "{}")),
+                    listOf(StreamFrame.TextDelta("done")),
+                )
+
+            val events =
+                ToolCallLoop(tools = listOf(AnsweringTool()))
+                    .run(conversation()) { _, _ -> model.next() }
+                    .toList()
+
+            val calls = events.filterIsInstance<AgentEvent.ToolCallUpdated>()
+            assertTrue(calls.all { it.id.isNotBlank() }, "A card needs a name: ${calls.map { it.id }}")
+            assertEquals(1, calls.map { it.id }.distinct().size, "And one card per call")
+        }
+
+    @Test
+    fun aCallCarriesASummary() =
+        runTest {
+            val model =
+                scripted(
+                    listOf(
+                        StreamFrame.ToolCallComplete(
+                            id = "c1",
+                            name = AnsweringTool.NAME,
+                            content = """{"id":"t-42"}""",
+                        ),
+                    ),
+                    listOf(StreamFrame.TextDelta("done")),
+                )
+
+            val events =
+                ToolCallLoop(tools = listOf(AnsweringTool()))
+                    .run(conversation()) { _, _ -> model.next() }
+                    .toList()
+
+            val calls = events.filterIsInstance<AgentEvent.ToolCallUpdated>()
+            assertTrue(
+                calls.last().summary?.contains("t-42") == true,
+                "The summary names what was touched: ${calls.last().summary}",
+            )
+        }
 }

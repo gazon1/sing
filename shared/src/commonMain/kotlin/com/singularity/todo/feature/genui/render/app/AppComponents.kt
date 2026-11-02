@@ -20,16 +20,16 @@ import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.core.ui.components.formatDueChip
 import com.singularity.todo.core.ui.components.formatRussianDueDate
 import com.singularity.todo.feature.genui.catalog.UiNode
-import com.singularity.todo.feature.tasks.domain.model.TaskMarking
-import com.singularity.todo.feature.tasks.presentation.components.list.TaskMarkingsRow
 import com.singularity.todo.feature.genui.render.ComponentRegistry
 import com.singularity.todo.feature.genui.render.DataContext
 import com.singularity.todo.feature.genui.render.LocalGenuiOnAction
 import com.singularity.todo.feature.genui.render.genuiTag
 import com.singularity.todo.feature.genui.render.resolveText
+import com.singularity.todo.feature.tasks.domain.model.TaskMarking
+import com.singularity.todo.feature.tasks.presentation.components.list.TaskMarkingsRow
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
-import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -53,28 +53,43 @@ internal fun ComponentRegistry.registerAppComponents() {
 }
 
 @Composable
-private fun TaskCardView(card: UiNode.TaskCard, ctx: DataContext, modifier: Modifier) {
+private fun TaskCardView(
+    card: UiNode.TaskCard,
+    ctx: DataContext,
+    modifier: Modifier,
+) {
     val title: String = ctx.resolveText(card.title)
     val onAction = LocalGenuiOnAction.current
     val today = remember(ctx.clock) { todayAt(ctx.clock, TimeZone.currentSystemDefault()) }
-    val dueText: String? = if (card.duePath != null) {
-        ctx.valueWithoutCount(card.duePath).collectAsStateWithLifecycle(initialValue = null).value.text()
-    } else {
-        null
-    }
-    val projectName: String? = if (card.projectPath != null) {
-        ctx.valueWithoutCount(card.projectPath).collectAsStateWithLifecycle(initialValue = null).value.text()
-    } else {
-        null
-    }
+    val dueText: String? =
+        if (card.duePath != null) {
+            ctx
+                .valueWithoutCount(card.duePath)
+                .collectAsStateWithLifecycle(initialValue = null)
+                .value
+                .text()
+        } else {
+            null
+        }
+    val projectName: String? =
+        if (card.projectPath != null) {
+            ctx
+                .valueWithoutCount(card.projectPath)
+                .collectAsStateWithLifecycle(initialValue = null)
+                .value
+                .text()
+        } else {
+            null
+        }
 
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .genuiTag("task_card_${title.take(16).replace(" ", "_")}", "Task: $title")
-            .tapWhen(card.action != null) {
-                onAction(ctx.surfaceId, card.action.orEmpty(), null)
-            },
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .genuiTag("task_card_${title.take(16).replace(" ", "_")}", "Task: $title")
+                .tapWhen(card.action != null) {
+                    onAction(ctx.surfaceId, card.action.orEmpty(), null)
+                },
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
@@ -103,13 +118,18 @@ private fun TaskCardView(card: UiNode.TaskCard, ctx: DataContext, modifier: Modi
 }
 
 @Composable
-private fun DueDateView(due: UiNode.DueDate, ctx: DataContext, modifier: Modifier) {
+private fun DueDateView(
+    due: UiNode.DueDate,
+    ctx: DataContext,
+    modifier: Modifier,
+) {
     val today = remember(ctx.clock) { todayAt(ctx.clock, TimeZone.currentSystemDefault()) }
-    val bound: JsonElement? = if (due.path != null) {
-        ctx.valueWithoutCount(due.path).collectAsStateWithLifecycle(initialValue = null).value
-    } else {
-        null
-    }
+    val bound: JsonElement? =
+        if (due.path != null) {
+            ctx.valueWithoutCount(due.path).collectAsStateWithLifecycle(initialValue = null).value
+        } else {
+            null
+        }
     val raw: String? = bound.text() ?: due.value
     if (raw == null) return
     Chip(
@@ -119,12 +139,17 @@ private fun DueDateView(due: UiNode.DueDate, ctx: DataContext, modifier: Modifie
 }
 
 @Composable
-private fun ProjectChipView(chip: UiNode.ProjectChip, ctx: DataContext, modifier: Modifier) {
-    val bound: JsonElement? = if (chip.path != null) {
-        ctx.valueWithoutCount(chip.path).collectAsStateWithLifecycle(initialValue = null).value
-    } else {
-        null
-    }
+private fun ProjectChipView(
+    chip: UiNode.ProjectChip,
+    ctx: DataContext,
+    modifier: Modifier,
+) {
+    val bound: JsonElement? =
+        if (chip.path != null) {
+            ctx.valueWithoutCount(chip.path).collectAsStateWithLifecycle(initialValue = null).value
+        } else {
+            null
+        }
     val name: String? = bound.text() ?: chip.name
     if (name == null) return
     Chip(
@@ -141,7 +166,10 @@ private fun ProjectChipView(chip: UiNode.ProjectChip, ctx: DataContext, modifier
  * question about what tapping a project should do, and that belongs to a caller that has an answer.
  */
 @Composable
-private fun Chip(label: String, modifier: Modifier = Modifier) {
+private fun Chip(
+    label: String,
+    modifier: Modifier = Modifier,
+) {
     // The empty onClick is deliberate: the chip is disabled, so the lambda is never reached, and
     // Material3's parameter is not nullable. Mirrors the same decision in DetailMetaChip.
     @Suppress("NoEmptyOnClickLambda")
@@ -160,12 +188,20 @@ private fun Chip(label: String, modifier: Modifier = Modifier) {
  * "Today, 09:00" is written once, in `core/ui/components/Formatters.kt`; a second implementation
  * here would drift from it the first time either changed.
  */
-private fun dueDateText(raw: String, today: LocalDate, style: UiNode.DueStyle): String {
+private fun dueDateText(
+    raw: String,
+    today: LocalDate,
+    style: UiNode.DueStyle,
+): String {
     val date: LocalDate = runCatching { LocalDate.parse(raw.take(10)) }.getOrNull() ?: return raw
     return when (style) {
-        UiNode.DueStyle.Relative -> formatDueChip(date, null, today)?.text ?: date.toString()
+        UiNode.DueStyle.Relative -> {
+            formatDueChip(date, null, today)?.text ?: date.toString()
+        }
 
-        UiNode.DueStyle.Absolute -> formatRussianDueDate(date) ?: date.toString()
+        UiNode.DueStyle.Absolute -> {
+            formatRussianDueDate(date) ?: date.toString()
+        }
 
         UiNode.DueStyle.Both -> {
             val relative: String = formatDueChip(date, null, today)?.text ?: date.toString()
@@ -179,5 +215,7 @@ private fun dueDateText(raw: String, today: LocalDate, style: UiNode.DueStyle): 
 private fun JsonElement?.text(): String? = (this as? JsonPrimitive)?.contentOrNull
 
 /** Adds a tap only when there is an action, so a non-interactive card does not look interactive. */
-private fun Modifier.tapWhen(enabled: Boolean, onClick: () -> Unit): Modifier =
-    if (enabled) this.clickable(onClick = onClick) else this
+private fun Modifier.tapWhen(
+    enabled: Boolean,
+    onClick: () -> Unit,
+): Modifier = if (enabled) this.clickable(onClick = onClick) else this

@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.Flow
  */
 @Dao
 interface AttachmentAnnotationDao {
-
     // ─── UserId-scoped reads ─────────────────────────────────────────────────────
 
     @Query(
@@ -22,12 +21,18 @@ interface AttachmentAnnotationDao {
             "WHERE attachment_id = :attachmentId AND user_id = :userId AND deleted_at IS NULL " +
             "ORDER BY created_at ASC",
     )
-    fun watchByAttachmentForUser(attachmentId: String, userId: String): Flow<List<AttachmentAnnotationEntity>>
+    fun watchByAttachmentForUser(
+        attachmentId: String,
+        userId: String,
+    ): Flow<List<AttachmentAnnotationEntity>>
 
     @Query(
         "SELECT * FROM attachment_annotations WHERE id = :id AND user_id = :userId AND deleted_at IS NULL",
     )
-    suspend fun getByIdForUser(id: String, userId: String): AttachmentAnnotationEntity?
+    suspend fun getByIdForUser(
+        id: String,
+        userId: String,
+    ): AttachmentAnnotationEntity?
 
     /** Backup export: every row for the profile, deleted ones included so a restore is lossless. */
     @Query("SELECT * FROM attachment_annotations WHERE user_id = :userId")
@@ -42,7 +47,12 @@ interface AttachmentAnnotationDao {
         "UPDATE attachment_annotations SET note = :note, updated_at = :ts " +
             "WHERE id = :id AND user_id = :userId AND deleted_at IS NULL",
     )
-    suspend fun updateNoteForUser(id: String, note: String, ts: Long, userId: String): Int
+    suspend fun updateNoteForUser(
+        id: String,
+        note: String,
+        ts: Long,
+        userId: String,
+    ): Int
 
     /**
      * Soft delete — the row stays, so a sync that has not run yet cannot bring it back.
@@ -55,7 +65,11 @@ interface AttachmentAnnotationDao {
         "UPDATE attachment_annotations SET deleted_at = :ts, updated_at = :ts " +
             "WHERE id = :id AND user_id = :userId AND deleted_at IS NULL",
     )
-    suspend fun softDeleteForUser(id: String, ts: Long, userId: String): Int
+    suspend fun softDeleteForUser(
+        id: String,
+        ts: Long,
+        userId: String,
+    ): Int
 
     /**
      * Hard-deletes every annotation of [userId] — soft-deleted rows included.
@@ -76,5 +90,8 @@ interface AttachmentAnnotationDao {
      * @return the number of rows removed.
      */
     @Query("DELETE FROM attachment_annotations WHERE id = :id AND user_id = :userId")
-    suspend fun deleteForUser(id: String, userId: String): Int
+    suspend fun deleteForUser(
+        id: String,
+        userId: String,
+    ): Int
 }

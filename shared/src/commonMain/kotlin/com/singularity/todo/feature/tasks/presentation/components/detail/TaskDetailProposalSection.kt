@@ -3,21 +3,21 @@ package com.singularity.todo.feature.tasks.presentation.components.detail
 import androidx.compose.runtime.Composable
 import com.singularity.todo.core.ids.ProposalId
 import com.singularity.todo.core.ids.ProposalItemId
+import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
-import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.proposals.domain.model.AiProposal
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
 import com.singularity.todo.feature.proposals.domain.model.ProposalTargetKind
 import com.singularity.todo.feature.proposals.domain.model.TaskValue
-import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.proposals.presentation.components.ProposalCardsSection
+import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
-import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
 
 /**
  * Pending AI proposals for a task, as a stack of cards.
@@ -59,41 +59,44 @@ fun TaskDetailProposalSection(
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun TaskDetailProposalSectionPreview() = PreviewThemed(darkTheme = false) {
-    val proposalId = ProposalId.fromString("prop_1")
-    TaskDetailProposalSection(
-        proposals = persistentListOf(
-            AiProposal(
-                id = proposalId,
-                targetKind = ProposalTargetKind.Task,
-                targetId = "t1",
-                userId = UserId.anonymous,
-                source = ProposalSource.Detail,
-                createdAt = PreviewSamples.now,
-                updatedAt = PreviewSamples.now,
-                items = listOf(
-                    ProposalItem.pending(
-                        id = ProposalItemId.fromString("pi_1"),
-                        proposalId = proposalId,
-                        kind = ProposalItemKind.SetTaskField(TaskValue.Priority(TaskPriority.High)),
+private fun TaskDetailProposalSectionPreview() =
+    PreviewThemed(darkTheme = false) {
+        val proposalId = ProposalId.fromString("prop_1")
+        TaskDetailProposalSection(
+            proposals =
+                persistentListOf(
+                    AiProposal(
+                        id = proposalId,
+                        targetKind = ProposalTargetKind.Task,
                         targetId = "t1",
-                        humanSummary = "Set the priority to High",
-                        fingerprint = "set-priority-high",
-                    ),
-                    ProposalItem.pending(
-                        id = ProposalItemId.fromString("pi_2"),
-                        proposalId = proposalId,
-                        kind = ProposalItemKind.AddSubtasks(listOf("Draft the outline")),
-                        targetId = "t1",
-                        humanSummary = "Add the subtask “Draft the outline”",
-                        fingerprint = "add-subtask-outline",
+                        userId = UserId.anonymous,
+                        source = ProposalSource.Detail,
+                        createdAt = PreviewSamples.now,
+                        updatedAt = PreviewSamples.now,
+                        items =
+                            listOf(
+                                ProposalItem.pending(
+                                    id = ProposalItemId.fromString("pi_1"),
+                                    proposalId = proposalId,
+                                    kind = ProposalItemKind.SetTaskField(TaskValue.Priority(TaskPriority.High)),
+                                    targetId = "t1",
+                                    humanSummary = "Set the priority to High",
+                                    fingerprint = "set-priority-high",
+                                ),
+                                ProposalItem.pending(
+                                    id = ProposalItemId.fromString("pi_2"),
+                                    proposalId = proposalId,
+                                    kind = ProposalItemKind.AddSubtasks(listOf("Draft the outline")),
+                                    targetId = "t1",
+                                    humanSummary = "Add the subtask “Draft the outline”",
+                                    fingerprint = "add-subtask-outline",
+                                ),
+                            ),
                     ),
                 ),
-            ),
-        ),
-        onConfirm = { },
-        onReject = { _, _ -> },
-        onConfirmAll = { },
-        onDismiss = { },
-    )
-}
+            onConfirm = { },
+            onReject = { _, _ -> },
+            onConfirmAll = { },
+            onDismiss = { },
+        )
+    }

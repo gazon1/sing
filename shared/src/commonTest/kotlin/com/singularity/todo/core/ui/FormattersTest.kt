@@ -18,7 +18,6 @@ import kotlin.time.Instant
  */
 @Tag("fast")
 class FormattersTest {
-
     @Test
     fun `elapsed under an hour is minutes and seconds`() {
         assertEquals("0:00", formatElapsed(0))

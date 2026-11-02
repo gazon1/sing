@@ -24,7 +24,6 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 sealed interface TasksRoute : AppNavKey {
-
     /**
      * A task's detail screen.
      *

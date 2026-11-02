@@ -22,12 +22,12 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class RunCatchingCancellableTest {
-
     @Test
-    fun `success is returned as-is`() = runTest {
-        val result = runCatchingCancellable { 42 }
-        assertEquals(42, result.getOrNull())
-    }
+    fun `success is returned as-is`() =
+        runTest {
+            val result = runCatchingCancellable { 42 }
+            assertEquals(42, result.getOrNull())
+        }
 
     @Test
     fun `ordinary exception becomes a failure`() {

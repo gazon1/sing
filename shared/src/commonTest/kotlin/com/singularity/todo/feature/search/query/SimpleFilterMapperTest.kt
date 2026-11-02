@@ -11,7 +11,6 @@ import kotlin.test.assertTrue
 
 @Tag("fast")
 class SimpleFilterMapperTest {
-
     private val mapper = SimpleFilterMapper()
 
     // ─── fromQuery ───────────────────────────────────────────────────────────
@@ -136,14 +135,16 @@ class SimpleFilterMapperTest {
 
     @Test
     fun `Or throws UnsupportedSimpleFilterException`() {
-        val query = Query(
-            condition = Condition.Or(
-                listOf(
-                    Condition.HasTag("work"),
-                    Condition.HasTag("home"),
-                ),
-            ),
-        )
+        val query =
+            Query(
+                condition =
+                    Condition.Or(
+                        listOf(
+                            Condition.HasTag("work"),
+                            Condition.HasTag("home"),
+                        ),
+                    ),
+            )
         val result = mapper.fromQuery(query)
         assertTrue(result.isFailure)
     }
@@ -164,11 +165,12 @@ class SimpleFilterMapperTest {
 
     @Test
     fun `sortOrder and sortDescending are passed through`() {
-        val query = Query(
-            condition = Condition.HasText("test"),
-            sortOrder = SortOrder.PRIORITY,
-            sortDescending = true,
-        )
+        val query =
+            Query(
+                condition = Condition.HasText("test"),
+                sortOrder = SortOrder.PRIORITY,
+                sortDescending = true,
+            )
         val result = mapper.fromQuery(query)
         val filter = result.getOrNull()!!
         assertEquals(SortOrder.PRIORITY, filter.sortOrder)
@@ -177,14 +179,16 @@ class SimpleFilterMapperTest {
 
     @Test
     fun `complex query with unsupported condition throws`() {
-        val query = Query(
-            condition = Condition.And(
-                listOf(
-                    Condition.HasTag("work"),
-                    Condition.IsArchived,
-                ),
-            ),
-        )
+        val query =
+            Query(
+                condition =
+                    Condition.And(
+                        listOf(
+                            Condition.HasTag("work"),
+                            Condition.IsArchived,
+                        ),
+                    ),
+            )
         val result = mapper.fromQuery(query)
         assertTrue(result.isFailure)
     }
@@ -228,10 +232,11 @@ class SimpleFilterMapperTest {
 
     @Test
     fun `filter with multiple tags and matchAll maps to HasAllTags`() {
-        val filter = simpleFilter {
-            tag("work", matchAll = true)
-            tag("home", matchAll = true)
-        }
+        val filter =
+            simpleFilter {
+                tag("work", matchAll = true)
+                tag("home", matchAll = true)
+            }
         val result = mapper.toQuery(filter)
         val query = result.getOrNull()!!
         assertIs<Condition.HasAllTags>(query.condition)
@@ -259,9 +264,10 @@ class SimpleFilterMapperTest {
 
     @Test
     fun `filter with CUSTOM due throws UnsupportedSimpleFilterException`() {
-        val filter = simpleFilter {
-            due(SimpleFilter.DueCondition.CUSTOM)
-        }
+        val filter =
+            simpleFilter {
+                due(SimpleFilter.DueCondition.CUSTOM)
+            }
         val result = mapper.toQuery(filter)
         assertTrue(result.isFailure)
     }
@@ -293,11 +299,12 @@ class SimpleFilterMapperTest {
 
     @Test
     fun `filter preserves sortOrder and sortDescending`() {
-        val filter = SimpleFilter(
-            states = setOf(TaskStatus.Active),
-            sortOrder = SortOrder.PRIORITY,
-            sortDescending = true,
-        )
+        val filter =
+            SimpleFilter(
+                states = setOf(TaskStatus.Active),
+                sortOrder = SortOrder.PRIORITY,
+                sortDescending = true,
+            )
         val result = mapper.toQuery(filter)
         val query = result.getOrNull()!!
         assertEquals(SortOrder.PRIORITY, query.sortOrder)
@@ -306,11 +313,12 @@ class SimpleFilterMapperTest {
 
     @Test
     fun `filter with multiple conditions wraps in AND`() {
-        val filter = simpleFilter {
-            state(TaskStatus.Active)
-            priority(TaskPriority.High)
-            tag("work")
-        }
+        val filter =
+            simpleFilter {
+                state(TaskStatus.Active)
+                priority(TaskPriority.High)
+                tag("work")
+            }
         val result = mapper.toQuery(filter)
         val query = result.getOrNull()!!
         assertIs<Condition.And>(query.condition)

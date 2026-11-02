@@ -74,8 +74,7 @@ fun <VM, S> testVmContext(
     stateOf: (VM) -> StateFlow<S>,
     scope: TestScope,
     backgroundScope: CoroutineScope,
-): TestVmContext<VM, S> =
-    TestVmContext(vm, stateOf(vm), scope, backgroundScope)
+): TestVmContext<VM, S> = TestVmContext(vm, stateOf(vm), scope, backgroundScope)
 
 /**
  * Overload that extracts [TestScope.backgroundScope] automatically.
@@ -85,5 +84,4 @@ fun <VM, S> testVmContext(
     vm: VM,
     stateOf: (VM) -> StateFlow<S>,
     scope: TestScope,
-): TestVmContext<VM, S> =
-    TestVmContext(vm, stateOf(vm), scope, scope.backgroundScope)
+): TestVmContext<VM, S> = TestVmContext(vm, stateOf(vm), scope, scope.backgroundScope)

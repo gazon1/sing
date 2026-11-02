@@ -28,7 +28,6 @@ import kotlinx.coroutines.test.runCurrent
  * harness builds the scope that kind needs.
  */
 enum class VmScope {
-
     /**
      * The ViewModel's work is the test's work.
      *
@@ -124,10 +123,15 @@ fun <VM, S> TestScope.testVm(
  * [VmScope.Background] is the background scope itself: the marker keeps the
  * ViewModel's work out of [advanceUntilIdle]'s way.
  */
-private fun TestScope.scopeFor(kind: VmScope): AutoCloseableCoroutineScope = when (kind) {
-    VmScope.Foreground -> AutoCloseableCoroutineScope(
-        coroutineContext + Job(backgroundScope.coroutineContext[Job]),
-    )
+private fun TestScope.scopeFor(kind: VmScope): AutoCloseableCoroutineScope =
+    when (kind) {
+        VmScope.Foreground -> {
+            AutoCloseableCoroutineScope(
+                coroutineContext + Job(backgroundScope.coroutineContext[Job]),
+            )
+        }
 
-    VmScope.Background -> testScope(backgroundScope)
-}
+        VmScope.Background -> {
+            testScope(backgroundScope)
+        }
+    }

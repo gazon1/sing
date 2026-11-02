@@ -30,64 +30,75 @@ import kotlin.time.Duration
  */
 @Tag("fast")
 class JobScheduleMathTest {
-
     companion object {
         private val utc = TimeZone.UTC
 
-        private fun at(year: Int, month: Int, day: Int, hour: Int, minute: Int = 0): LocalDateTime =
-            LocalDate(year, month, day).atTime(hour, minute)
+        private fun at(
+            year: Int,
+            month: Int,
+            day: Int,
+            hour: Int,
+            minute: Int = 0,
+        ): LocalDateTime = LocalDate(year, month, day).atTime(hour, minute)
 
         @JvmStatic
-        fun nextOccurrenceCases(): List<Arguments> = listOf(
-            // ── Daily ────────────────────────────────────────────────────────
-            Arguments.of(JobSchedule.Daily(3, 0), at(2026, 10, 6, 0, 5), at(2026, 10, 6, 3, 0)),
-            // Strictly-after: equal is not "now", so it rolls to tomorrow.
-            Arguments.of(JobSchedule.Daily(3, 0), at(2026, 10, 6, 3, 0), at(2026, 10, 7, 3, 0)),
-            Arguments.of(JobSchedule.Daily(3, 0), at(2026, 10, 6, 23, 59), at(2026, 10, 7, 3, 0)),
-            Arguments.of(JobSchedule.Daily(3, 0), at(2026, 10, 6, 2, 59), at(2026, 10, 6, 3, 0)),
-            Arguments.of(JobSchedule.Daily(3, 0), at(2026, 10, 31, 4, 0), at(2026, 11, 1, 3, 0)),
-            // ── Weekly ───────────────────────────────────────────────────────
-            Arguments.of(JobSchedule.Weekly(DayOfWeek.MONDAY, 9, 0), at(2026, 10, 5, 8, 0), at(2026, 10, 5, 9, 0)),
-            Arguments.of(JobSchedule.Weekly(DayOfWeek.MONDAY, 9, 0), at(2026, 10, 5, 9, 0), at(2026, 10, 12, 9, 0)),
-            // Tuesday → next Monday is six days, not seven.
-            Arguments.of(JobSchedule.Weekly(DayOfWeek.MONDAY, 9, 0), at(2026, 10, 6, 8, 0), at(2026, 10, 12, 9, 0)),
-            Arguments.of(JobSchedule.Weekly(DayOfWeek.SUNDAY, 9, 0), at(2026, 10, 5, 10, 0), at(2026, 10, 11, 9, 0)),
-            // ── No boundary ──────────────────────────────────────────────────
-            Arguments.of(JobSchedule.OnDemand, at(2026, 10, 6, 12, 0), null),
-            Arguments.of(JobSchedule.Periodic(Duration.parse("PT15M")), at(2026, 10, 6, 12, 0), null),
-            // ── Calendar edges ───────────────────────────────────────────────
-            Arguments.of(JobSchedule.Daily(3, 0), at(2026, 12, 31, 23, 0), at(2027, 1, 1, 3, 0)),
-            Arguments.of(JobSchedule.Daily(3, 0), at(2028, 2, 29, 4, 0), at(2028, 3, 1, 3, 0)),
-        )
+        fun nextOccurrenceCases(): List<Arguments> =
+            listOf(
+                // ── Daily ────────────────────────────────────────────────────────
+                Arguments.of(JobSchedule.Daily(3, 0), at(2026, 10, 6, 0, 5), at(2026, 10, 6, 3, 0)),
+                // Strictly-after: equal is not "now", so it rolls to tomorrow.
+                Arguments.of(JobSchedule.Daily(3, 0), at(2026, 10, 6, 3, 0), at(2026, 10, 7, 3, 0)),
+                Arguments.of(JobSchedule.Daily(3, 0), at(2026, 10, 6, 23, 59), at(2026, 10, 7, 3, 0)),
+                Arguments.of(JobSchedule.Daily(3, 0), at(2026, 10, 6, 2, 59), at(2026, 10, 6, 3, 0)),
+                Arguments.of(JobSchedule.Daily(3, 0), at(2026, 10, 31, 4, 0), at(2026, 11, 1, 3, 0)),
+                // ── Weekly ───────────────────────────────────────────────────────
+                Arguments.of(JobSchedule.Weekly(DayOfWeek.MONDAY, 9, 0), at(2026, 10, 5, 8, 0), at(2026, 10, 5, 9, 0)),
+                Arguments.of(JobSchedule.Weekly(DayOfWeek.MONDAY, 9, 0), at(2026, 10, 5, 9, 0), at(2026, 10, 12, 9, 0)),
+                // Tuesday → next Monday is six days, not seven.
+                Arguments.of(JobSchedule.Weekly(DayOfWeek.MONDAY, 9, 0), at(2026, 10, 6, 8, 0), at(2026, 10, 12, 9, 0)),
+                Arguments.of(
+                    JobSchedule.Weekly(DayOfWeek.SUNDAY, 9, 0),
+                    at(2026, 10, 5, 10, 0),
+                    at(2026, 10, 11, 9, 0),
+                ),
+                // ── No boundary ──────────────────────────────────────────────────
+                Arguments.of(JobSchedule.OnDemand, at(2026, 10, 6, 12, 0), null),
+                Arguments.of(JobSchedule.Periodic(Duration.parse("PT15M")), at(2026, 10, 6, 12, 0), null),
+                // ── Calendar edges ───────────────────────────────────────────────
+                Arguments.of(JobSchedule.Daily(3, 0), at(2026, 12, 31, 23, 0), at(2027, 1, 1, 3, 0)),
+                Arguments.of(JobSchedule.Daily(3, 0), at(2028, 2, 29, 4, 0), at(2028, 3, 1, 3, 0)),
+            )
 
         @JvmStatic
-        fun weeklyCases(): List<Arguments> = listOf(
-            Arguments.of(JobSchedule.Weekly(DayOfWeek.MONDAY, 9, 0), at(2026, 10, 5, 8, 0)),
-            Arguments.of(JobSchedule.Weekly(DayOfWeek.MONDAY, 9, 0), at(2026, 10, 5, 9, 0)),
-            Arguments.of(JobSchedule.Weekly(DayOfWeek.MONDAY, 9, 0), at(2026, 10, 6, 8, 0)),
-            Arguments.of(JobSchedule.Weekly(DayOfWeek.SUNDAY, 9, 0), at(2026, 10, 5, 10, 0)),
-        )
+        fun weeklyCases(): List<Arguments> =
+            listOf(
+                Arguments.of(JobSchedule.Weekly(DayOfWeek.MONDAY, 9, 0), at(2026, 10, 5, 8, 0)),
+                Arguments.of(JobSchedule.Weekly(DayOfWeek.MONDAY, 9, 0), at(2026, 10, 5, 9, 0)),
+                Arguments.of(JobSchedule.Weekly(DayOfWeek.MONDAY, 9, 0), at(2026, 10, 6, 8, 0)),
+                Arguments.of(JobSchedule.Weekly(DayOfWeek.SUNDAY, 9, 0), at(2026, 10, 5, 10, 0)),
+            )
 
         @JvmStatic
-        fun delayUntilCases(): List<Arguments> = listOf(
-            Arguments.of(JobSchedule.OnDemand, at(2026, 10, 6, 12, 0), utc, true),
-            Arguments.of(JobSchedule.Daily(3, 0), at(2026, 10, 6, 3, 0), utc, false),
-            Arguments.of(JobSchedule.Daily(3, 0), at(2026, 10, 6, 2, 59), utc, false),
-            Arguments.of(JobSchedule.Daily(3, 0), at(2026, 10, 6, 23, 59), utc, false),
-            Arguments.of(JobSchedule.Daily(3, 0), at(2026, 10, 6, 0, 0), utc, false),
-            Arguments.of(JobSchedule.Weekly(DayOfWeek.WEDNESDAY, 3, 0), at(2026, 10, 6, 3, 0), utc, false),
-            Arguments.of(JobSchedule.Weekly(DayOfWeek.WEDNESDAY, 3, 0), at(2026, 10, 6, 2, 59), utc, false),
-            Arguments.of(JobSchedule.Weekly(DayOfWeek.WEDNESDAY, 3, 0), at(2026, 10, 6, 23, 59), utc, false),
-            Arguments.of(JobSchedule.Weekly(DayOfWeek.WEDNESDAY, 3, 0), at(2026, 10, 6, 0, 0), utc, false),
-            // Europe/Berlin springs forward on 2026-03-29; a 03:00 daily job that lands on
-            // the skipped hour must still produce a usable delay.
-            Arguments.of(
-                JobSchedule.Daily(3, 0),
-                at(2026, 3, 29, 1, 30),
-                TimeZone.of("Europe/Berlin"),
-                false,
-            ),
-        )
+        fun delayUntilCases(): List<Arguments> =
+            listOf(
+                Arguments.of(JobSchedule.OnDemand, at(2026, 10, 6, 12, 0), utc, true),
+                Arguments.of(JobSchedule.Daily(3, 0), at(2026, 10, 6, 3, 0), utc, false),
+                Arguments.of(JobSchedule.Daily(3, 0), at(2026, 10, 6, 2, 59), utc, false),
+                Arguments.of(JobSchedule.Daily(3, 0), at(2026, 10, 6, 23, 59), utc, false),
+                Arguments.of(JobSchedule.Daily(3, 0), at(2026, 10, 6, 0, 0), utc, false),
+                Arguments.of(JobSchedule.Weekly(DayOfWeek.WEDNESDAY, 3, 0), at(2026, 10, 6, 3, 0), utc, false),
+                Arguments.of(JobSchedule.Weekly(DayOfWeek.WEDNESDAY, 3, 0), at(2026, 10, 6, 2, 59), utc, false),
+                Arguments.of(JobSchedule.Weekly(DayOfWeek.WEDNESDAY, 3, 0), at(2026, 10, 6, 23, 59), utc, false),
+                Arguments.of(JobSchedule.Weekly(DayOfWeek.WEDNESDAY, 3, 0), at(2026, 10, 6, 0, 0), utc, false),
+                // Europe/Berlin springs forward on 2026-03-29; a 03:00 daily job that lands on
+                // the skipped hour must still produce a usable delay.
+                Arguments.of(
+                    JobSchedule.Daily(3, 0),
+                    at(2026, 3, 29, 1, 30),
+                    TimeZone.of("Europe/Berlin"),
+                    false,
+                ),
+            )
     }
 
     @ParameterizedTest

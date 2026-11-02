@@ -31,7 +31,10 @@ interface TimeEntryDao {
     suspend fun getOpenEntry(userId: String): TimeEntryEntity?
 
     @Query("SELECT * FROM time_entries WHERE id = :id AND user_id = :userId LIMIT 1")
-    suspend fun getByIdForUser(id: String, userId: String): TimeEntryEntity?
+    suspend fun getByIdForUser(
+        id: String,
+        userId: String,
+    ): TimeEntryEntity?
 
     @Query(
         """
@@ -43,7 +46,11 @@ interface TimeEntryDao {
         ORDER BY started_at DESC
         """,
     )
-    fun watchForUserInRange(userId: String, startMs: Long, endMs: Long): Flow<List<TimeEntryEntity>>
+    fun watchForUserInRange(
+        userId: String,
+        startMs: Long,
+        endMs: Long,
+    ): Flow<List<TimeEntryEntity>>
 
     // ── Mutations ─────────────────────────────────────────────────────────────
 
@@ -51,18 +58,35 @@ interface TimeEntryDao {
     suspend fun upsert(entity: TimeEntryEntity)
 
     @Query("UPDATE time_entries SET ended_at = :endedAt, updated_at = :updatedAt WHERE id = :id AND user_id = :userId")
-    suspend fun stopEntry(id: String, endedAt: Long, updatedAt: Long, userId: String): Int
+    suspend fun stopEntry(
+        id: String,
+        endedAt: Long,
+        updatedAt: Long,
+        userId: String,
+    ): Int
 
     @Query("UPDATE time_entries SET note = :note, updated_at = :updatedAt WHERE id = :id AND user_id = :userId")
-    suspend fun updateNote(id: String, note: String?, updatedAt: Long, userId: String): Int
+    suspend fun updateNote(
+        id: String,
+        note: String?,
+        updatedAt: Long,
+        userId: String,
+    ): Int
 
     @Query(
         "UPDATE time_entries SET deleted_at = :deletedAt, updated_at = :deletedAt WHERE id = :id AND user_id = :userId",
     )
-    suspend fun softDelete(id: String, deletedAt: Long, userId: String): Int
+    suspend fun softDelete(
+        id: String,
+        deletedAt: Long,
+        userId: String,
+    ): Int
 
     @Query("DELETE FROM time_entries WHERE id = :id AND user_id = :userId")
-    suspend fun delete(id: String, userId: String): Int
+    suspend fun delete(
+        id: String,
+        userId: String,
+    ): Int
 
     /** Full-table export — all time entries for a user, including deleted ones. */
     @Query("SELECT * FROM time_entries WHERE user_id = :userId")

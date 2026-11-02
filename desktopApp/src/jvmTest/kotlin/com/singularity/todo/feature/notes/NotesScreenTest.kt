@@ -25,7 +25,6 @@ import kotlin.time.Instant
 @Tag("slow")
 @Tag("slow:compose")
 class NotesScreenTest {
-
     private val testUserId = UserId("test-user")
     private val epoch = Instant.fromEpochMilliseconds(0)
 
@@ -77,64 +76,67 @@ class NotesScreenTest {
     )
 
     @Test
-    fun swipeable_note_card_shows_title() = runIsolatedComposeTest {
-        val note = sampleNote("n1", "Meeting Notes", "Discuss **Q4 goals** with the team")
+    fun swipeable_note_card_shows_title() =
+        runIsolatedComposeTest {
+            val note = sampleNote("n1", "Meeting Notes", "Discuss **Q4 goals** with the team")
 
-        setContent {
-            SwipeableNoteCard(
-                note = note,
-                isSelected = false,
-                isSelectionMode = false,
-                navigator = PreviewNotesNavigator(),
-                onLongClick = {},
-                onDelete = {},
-                onTogglePin = {},
-                onToggleSelection = {},
-            )
+            setContent {
+                SwipeableNoteCard(
+                    note = note,
+                    isSelected = false,
+                    isSelectionMode = false,
+                    navigator = PreviewNotesNavigator(),
+                    onLongClick = {},
+                    onDelete = {},
+                    onTogglePin = {},
+                    onToggleSelection = {},
+                )
+            }
+
+            assertTagExists(TestTags.noteItem("n1"))
         }
-
-        assertTagExists(TestTags.noteItem("n1"))
-    }
 
     @Test
-    fun folder_note_card_renders() = runIsolatedComposeTest {
-        val folderNote = sampleFolderNote("n2", "Work Folder")
+    fun folder_note_card_renders() =
+        runIsolatedComposeTest {
+            val folderNote = sampleFolderNote("n2", "Work Folder")
 
-        setContent {
-            SwipeableNoteCard(
-                note = folderNote,
-                isSelected = false,
-                isSelectionMode = false,
-                navigator = PreviewNotesNavigator(),
-                onLongClick = {},
-                onDelete = {},
-                onTogglePin = {},
-                onToggleSelection = {},
-            )
+            setContent {
+                SwipeableNoteCard(
+                    note = folderNote,
+                    isSelected = false,
+                    isSelectionMode = false,
+                    navigator = PreviewNotesNavigator(),
+                    onLongClick = {},
+                    onDelete = {},
+                    onTogglePin = {},
+                    onToggleSelection = {},
+                )
+            }
+
+            assertTagExists(TestTags.noteItem("n2"))
         }
-
-        assertTagExists(TestTags.noteItem("n2"))
-    }
 
     @Test
-    fun archived_note_card_renders() = runIsolatedComposeTest {
-        val archivedNote = sampleArchivedNote("n3", "Old Note")
+    fun archived_note_card_renders() =
+        runIsolatedComposeTest {
+            val archivedNote = sampleArchivedNote("n3", "Old Note")
 
-        setContent {
-            SwipeableNoteCard(
-                note = archivedNote,
-                isSelected = false,
-                isSelectionMode = false,
-                navigator = PreviewNotesNavigator(),
-                onLongClick = {},
-                onDelete = {},
-                onTogglePin = {},
-                onToggleSelection = {},
-            )
+            setContent {
+                SwipeableNoteCard(
+                    note = archivedNote,
+                    isSelected = false,
+                    isSelectionMode = false,
+                    navigator = PreviewNotesNavigator(),
+                    onLongClick = {},
+                    onDelete = {},
+                    onTogglePin = {},
+                    onToggleSelection = {},
+                )
+            }
+
+            assertTagExists(TestTags.noteItem("n3"))
         }
-
-        assertTagExists(TestTags.noteItem("n3"))
-    }
 
     /**
      * The card is addressable by *both* of its identifiers in the merged tree.
@@ -149,23 +151,24 @@ class NotesScreenTest {
      * never learns the generated ULID.
      */
     @Test
-    fun note_card_is_addressable_by_id_and_by_title() = runIsolatedComposeTest {
-        val note = sampleNote("n1", "Meeting Notes", "Discuss **Q4 goals** with the team")
+    fun note_card_is_addressable_by_id_and_by_title() =
+        runIsolatedComposeTest {
+            val note = sampleNote("n1", "Meeting Notes", "Discuss **Q4 goals** with the team")
 
-        setContent {
-            SwipeableNoteCard(
-                note = note,
-                isSelected = false,
-                isSelectionMode = false,
-                navigator = PreviewNotesNavigator(),
-                onLongClick = {},
-                onDelete = {},
-                onTogglePin = {},
-                onToggleSelection = {},
-            )
+            setContent {
+                SwipeableNoteCard(
+                    note = note,
+                    isSelected = false,
+                    isSelectionMode = false,
+                    navigator = PreviewNotesNavigator(),
+                    onLongClick = {},
+                    onDelete = {},
+                    onTogglePin = {},
+                    onToggleSelection = {},
+                )
+            }
+
+            assertTagExists(TestTags.noteItem("n1"))
+            assertTagExists(TestTags.noteItemByTitle("Meeting Notes"))
         }
-
-        assertTagExists(TestTags.noteItem("n1"))
-        assertTagExists(TestTags.noteItemByTitle("Meeting Notes"))
-    }
 }

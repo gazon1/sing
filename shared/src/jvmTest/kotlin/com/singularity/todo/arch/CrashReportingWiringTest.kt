@@ -40,7 +40,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class CrashReportingWiringTest {
-
     companion object {
         private val files: List<KoFileDeclaration> =
             CommonMainKonsistScope.scope.files
@@ -79,9 +78,10 @@ class CrashReportingWiringTest {
         // against `failureHandler: CoroutineExceptionHandler = loggingBackgroundFailureHandler()`,
         // which is exactly the process-wide policy this migration removed. Asserting the type
         // and not the absence of a default is the same heuristic mistake the regexes made.
-        val param = Regex(
-            """fun createBackgroundScope\(\s*(\w+):\s*CoroutineExceptionHandler\s*([,)=])""",
-        ).find(factory)
+        val param =
+            Regex(
+                """fun createBackgroundScope\(\s*(\w+):\s*CoroutineExceptionHandler\s*([,)=])""",
+            ).find(factory)
         assertTrue(
             param != null,
             "createBackgroundScope must take its CoroutineExceptionHandler. A scope without " +

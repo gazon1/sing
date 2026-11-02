@@ -12,7 +12,6 @@ import com.singularity.todo.feature.tasks.domain.model.Task
  * Per ADR 2026-09-22-explicit-overload-removal, userId is no longer a method parameter.
  */
 interface InternalLinkRepository {
-
     /**
      * The notes offered for a link.
      *
@@ -21,10 +20,16 @@ interface InternalLinkRepository {
      *   states it, so that the suggestion list never answers from a rule the
      *   caller did not name.
      */
-    suspend fun searchNotes(query: String, mode: SearchMode): List<Note>
+    suspend fun searchNotes(
+        query: String,
+        mode: SearchMode,
+    ): List<Note>
 
     /** The tasks offered for a link. See [searchNotes]. */
-    suspend fun searchTasks(query: String, mode: SearchMode): List<Task>
+    suspend fun searchTasks(
+        query: String,
+        mode: SearchMode,
+    ): List<Task>
 
     /** Returns notes that link TO the given noteId via note:// URL scheme, for the active user. */
     suspend fun getBacklinkNotes(noteId: String): List<Note>

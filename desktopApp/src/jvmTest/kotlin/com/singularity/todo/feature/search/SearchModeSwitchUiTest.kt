@@ -3,9 +3,9 @@
 package com.singularity.todo.feature.search
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.search.presentation.SearchModeSwitch
-import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTagNotExists
 import com.singularity.todo.test.helpers.clickText
@@ -26,44 +26,47 @@ import kotlin.test.assertEquals
 @OptIn(ExperimentalTestApi::class)
 @Tag("slow")
 class SearchModeSwitchUiTest {
-
     @Test
-    fun `the switch shows both modes`() = runIsolatedComposeTest {
-        setContent {
-            SearchModeSwitch(mode = SearchMode.Word, onModeChange = {})
+    fun `the switch shows both modes`() =
+        runIsolatedComposeTest {
+            setContent {
+                SearchModeSwitch(mode = SearchMode.Word, onModeChange = {})
+            }
+
+            assertTagDisplayed(TestTags.SEARCH_MODE_WORD)
+            assertTagDisplayed(TestTags.SEARCH_MODE_CONTAINS)
         }
 
-        assertTagDisplayed(TestTags.SEARCH_MODE_WORD)
-        assertTagDisplayed(TestTags.SEARCH_MODE_CONTAINS)
-    }
-
     @Test
-    fun `the word mode says nothing about the cost`() = runIsolatedComposeTest {
-        setContent {
-            SearchModeSwitch(mode = SearchMode.Word, onModeChange = {})
+    fun `the word mode says nothing about the cost`() =
+        runIsolatedComposeTest {
+            setContent {
+                SearchModeSwitch(mode = SearchMode.Word, onModeChange = {})
+            }
+
+            assertTagNotExists(TestTags.SEARCH_MODE_CONTAINS_NOTE)
         }
 
-        assertTagNotExists(TestTags.SEARCH_MODE_CONTAINS_NOTE)
-    }
-
     @Test
-    fun `the contains mode says what it costs`() = runIsolatedComposeTest {
-        setContent {
-            SearchModeSwitch(mode = SearchMode.Contains, onModeChange = {})
+    fun `the contains mode says what it costs`() =
+        runIsolatedComposeTest {
+            setContent {
+                SearchModeSwitch(mode = SearchMode.Contains, onModeChange = {})
+            }
+
+            assertTagDisplayed(TestTags.SEARCH_MODE_CONTAINS_NOTE)
         }
 
-        assertTagDisplayed(TestTags.SEARCH_MODE_CONTAINS_NOTE)
-    }
-
     @Test
-    fun `choosing the contains mode says so`() = runIsolatedComposeTest {
-        var chosen: SearchMode? = null
-        setContent {
-            SearchModeSwitch(mode = SearchMode.Word, onModeChange = { chosen = it })
+    fun `choosing the contains mode says so`() =
+        runIsolatedComposeTest {
+            var chosen: SearchMode? = null
+            setContent {
+                SearchModeSwitch(mode = SearchMode.Word, onModeChange = { chosen = it })
+            }
+
+            clickText("Contains")
+
+            assertEquals(SearchMode.Contains, chosen)
         }
-
-        clickText("Contains")
-
-        assertEquals(SearchMode.Contains, chosen)
-    }
 }

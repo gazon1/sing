@@ -11,7 +11,6 @@ import kotlinx.serialization.json.JsonPrimitive
  * `updateData` has told it whose name that is.
  */
 sealed interface TemplateSegment {
-
     /** Text that is shown as written. */
     data class Literal(val text: String) : TemplateSegment
 
@@ -25,6 +24,7 @@ sealed interface TemplateSegment {
 /** One argument of a [TemplateSegment.Call]: either a literal or a nested expression. */
 sealed interface TemplateArg {
     data class Literal(val value: JsonElement) : TemplateArg
+
     data class Nested(val segment: TemplateSegment) : TemplateArg
 }
 
@@ -40,6 +40,7 @@ data class TemplateError(val reason: String)
  */
 sealed interface TemplateParse {
     data class Ok(val segments: List<TemplateSegment>) : TemplateParse
+
     data class Invalid(val error: TemplateError) : TemplateParse
 }
 
@@ -65,7 +66,6 @@ sealed interface TemplateParse {
  * because the data it reads has usually not arrived yet.
  */
 object FormatString {
-
     /**
      * Splits [template] into segments.
      *
@@ -83,7 +83,6 @@ object FormatString {
      * ends up with a jump out of a nested conditional in four places.
      */
     private class Reader(private val template: String) {
-
         private val segments: MutableList<TemplateSegment> = mutableListOf()
         private val literal: StringBuilder = StringBuilder()
         private var index: Int = 0
@@ -120,7 +119,9 @@ object FormatString {
             val end: Int = findClosingBrace(template, index + 1)
             if (end < 0) return TemplateParse.Invalid(TemplateError("unclosed \${ at position $index"))
             return when (val expression: Expression = readExpression(template.substring(index + 2, end))) {
-                is Expression.Invalid -> TemplateParse.Invalid(expression.error)
+                is Expression.Invalid -> {
+                    TemplateParse.Invalid(expression.error)
+                }
 
                 else -> {
                     segments += asSegment(expression)
@@ -153,7 +154,10 @@ object FormatString {
      * reported to the model instead of rendering as an empty string in front of a user who will
      * believe it.
      */
-    fun validate(template: String, knownFunctions: Set<String>): TemplateError? {
+    fun validate(
+        template: String,
+        knownFunctions: Set<String>,
+    ): TemplateError? {
         val parsed: TemplateParse = parse(template)
         if (parsed is TemplateParse.Invalid) return parsed.error
         val segments: List<TemplateSegment> = (parsed as TemplateParse.Ok).segments
@@ -167,12 +171,17 @@ object FormatString {
     }
 
     /** The index of the `}` closing the `{` at [open], or -1. */
-    private fun findClosingBrace(text: String, open: Int): Int {
+    private fun findClosingBrace(
+        text: String,
+        open: Int,
+    ): Int {
         var depth: Int = 0
         var index: Int = open
         while (index < text.length) {
             when (text[index]) {
-                '{' -> depth += 1
+                '{' -> {
+                    depth += 1
+                }
 
                 '}' -> {
                     depth -= 1
@@ -203,20 +212,23 @@ object FormatString {
             return Expression.Invalid(TemplateError("'$name' is not a function name"))
         }
         val inner: String = text.substring(open + 1, text.length - 1)
-        val args: List<TemplateArg> = splitArguments(inner).map { raw: String ->
-            val trimmed: String = raw.trim()
-            when {
-                trimmed.startsWith("\${") && trimmed.endsWith("}") -> {
-                    val nested: Expression = readExpression(trimmed.substring(2, trimmed.length - 1))
-                    if (nested is Expression.Invalid) {
-                        return Expression.Invalid(nested.error)
+        val args: List<TemplateArg> =
+            splitArguments(inner).map { raw: String ->
+                val trimmed: String = raw.trim()
+                when {
+                    trimmed.startsWith("\${") && trimmed.endsWith("}") -> {
+                        val nested: Expression = readExpression(trimmed.substring(2, trimmed.length - 1))
+                        if (nested is Expression.Invalid) {
+                            return Expression.Invalid(nested.error)
+                        }
+                        TemplateArg.Nested(asSegment(nested))
                     }
-                    TemplateArg.Nested(asSegment(nested))
-                }
 
-                else -> TemplateArg.Literal(readLiteral(trimmed))
+                    else -> {
+                        TemplateArg.Literal(readLiteral(trimmed))
+                    }
+                }
             }
-        }
         return Expression.Call(name, args)
     }
 
@@ -250,29 +262,38 @@ object FormatString {
                     current.clear()
                 }
 
-                else -> current.append(character)
+                else -> {
+                    current.append(character)
+                }
             }
         }
         if (current.isNotBlank()) parts += current.toString()
         return parts
     }
 
-    private fun readLiteral(text: String): JsonElement = when {
-        text.startsWith("\"") && text.endsWith("\"") && text.length >= 2 ->
-            JsonPrimitive(text.substring(1, text.length - 1))
+    private fun readLiteral(text: String): JsonElement =
+        when {
+            text.startsWith("\"") && text.endsWith("\"") && text.length >= 2 -> {
+                JsonPrimitive(text.substring(1, text.length - 1))
+            }
 
-        else -> JsonPrimitive(text)
-    }
+            else -> {
+                JsonPrimitive(text)
+            }
+        }
 
-    private fun asSegment(expression: Expression): TemplateSegment = when (expression) {
-        is Expression.Path -> TemplateSegment.Path(expression.path)
-        is Expression.Call -> TemplateSegment.Call(expression.name, expression.args)
-        is Expression.Invalid -> TemplateSegment.Literal("")
-    }
+    private fun asSegment(expression: Expression): TemplateSegment =
+        when (expression) {
+            is Expression.Path -> TemplateSegment.Path(expression.path)
+            is Expression.Call -> TemplateSegment.Call(expression.name, expression.args)
+            is Expression.Invalid -> TemplateSegment.Literal("")
+        }
 
     private sealed interface Expression {
         data class Path(val path: String) : Expression
+
         data class Call(val name: String, val args: List<TemplateArg>) : Expression
+
         data class Invalid(val error: TemplateError) : Expression
     }
 }

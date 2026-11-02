@@ -20,7 +20,6 @@ import kotlinx.coroutines.flow.map
  * which is the practical reason the catalog stayed small.
  */
 class ComponentStore(initial: Map<String, UiNode> = emptyMap()) {
-
     private val state: MutableStateFlow<Map<String, UiNode>> = MutableStateFlow(initial)
 
     /** The whole component map. Collected only where the root itself is being resolved. */

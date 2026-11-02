@@ -14,7 +14,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class ZoomTransformTest {
-
     @Test
     fun `the identity transform is one times scale and no offset`() {
         val t = ZoomTransform()
@@ -63,16 +62,18 @@ class ZoomTransformTest {
         // The image-space point that currently sits under the centroid. Deriving it
         // from the transform is the whole assertion — asserting a hard-coded number
         // here would test arithmetic I had already decided on rather than the property.
-        val underFingers = Offset(
-            x = (centroid.x - before.offset.x) / before.scale,
-            y = (centroid.y - before.offset.y) / before.scale,
-        )
+        val underFingers =
+            Offset(
+                x = (centroid.x - before.offset.x) / before.scale,
+                y = (centroid.y - before.offset.y) / before.scale,
+            )
 
         val after = before.zoomBy(2f, centroid)
-        val mapped = Offset(
-            x = underFingers.x * after.scale + after.offset.x,
-            y = underFingers.y * after.scale + after.offset.y,
-        )
+        val mapped =
+            Offset(
+                x = underFingers.x * after.scale + after.offset.x,
+                y = underFingers.y * after.scale + after.offset.y,
+            )
 
         assertEquals(centroid.x, mapped.x, 0.01f)
         assertEquals(centroid.y, mapped.y, 0.01f)
@@ -95,15 +96,17 @@ class ZoomTransformTest {
         var t = ZoomTransform()
         repeat(3) {
             val centroid = Offset(120f, 80f)
-            val underFingers = Offset(
-                x = (centroid.x - t.offset.x) / t.scale,
-                y = (centroid.y - t.offset.y) / t.scale,
-            )
+            val underFingers =
+                Offset(
+                    x = (centroid.x - t.offset.x) / t.scale,
+                    y = (centroid.y - t.offset.y) / t.scale,
+                )
             t = t.zoomBy(1.4f, centroid)
-            val mapped = Offset(
-                x = underFingers.x * t.scale + t.offset.x,
-                y = underFingers.y * t.scale + t.offset.y,
-            )
+            val mapped =
+                Offset(
+                    x = underFingers.x * t.scale + t.offset.x,
+                    y = underFingers.y * t.scale + t.offset.y,
+                )
             assertEquals(
                 centroid.x,
                 mapped.x,
@@ -125,15 +128,17 @@ class ZoomTransformTest {
         // growing.
         val start = ZoomTransform(scale = 4f, offset = Offset(-30f, 12f))
         val centroid = Offset(60f, 60f)
-        val underFingers = Offset(
-            x = (centroid.x - start.offset.x) / start.scale,
-            y = (centroid.y - start.offset.y) / start.scale,
-        )
+        val underFingers =
+            Offset(
+                x = (centroid.x - start.offset.x) / start.scale,
+                y = (centroid.y - start.offset.y) / start.scale,
+            )
         val after = start.zoomBy(0.5f, centroid)
-        val mapped = Offset(
-            x = underFingers.x * after.scale + after.offset.x,
-            y = underFingers.y * after.scale + after.offset.y,
-        )
+        val mapped =
+            Offset(
+                x = underFingers.x * after.scale + after.offset.x,
+                y = underFingers.y * after.scale + after.offset.y,
+            )
         assertEquals(centroid.x, mapped.x, 0.01f)
         assertEquals(centroid.y, mapped.y, 0.01f)
     }

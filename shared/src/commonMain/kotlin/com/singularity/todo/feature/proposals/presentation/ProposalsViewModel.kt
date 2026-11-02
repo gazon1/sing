@@ -95,7 +95,6 @@ class ProposalsViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
-
     /**
      * The five operations, in one place.
      *
@@ -104,18 +103,20 @@ class ProposalsViewModel(
      * [ProposalDecisions] and this screen brings its own wording, its own
      * failure store and its own error sink.
      */
-    private val decisions = ProposalDecisions(
-        applyProposalItem = applyProposalItem,
-        editProposalItem = editProposalItem,
-        style = ProposalDecisionStyles.reviewScreen,
-        errors = ProposalErrorSink { label, _, error ->
-            // The ViewModel's own error path: it reports the failure to the crash
-            // reporter and shows it as a one-shot event. The failure is rethrown
-            // into that path because the path is what reports it.
-            emitError(label, ProposalsUiEvent::ShowError) { throw error }
-        },
-        userId = { currentUser.scopedUserId.value },
-    )
+    private val decisions =
+        ProposalDecisions(
+            applyProposalItem = applyProposalItem,
+            editProposalItem = editProposalItem,
+            style = ProposalDecisionStyles.reviewScreen,
+            errors =
+                ProposalErrorSink { label, _, error ->
+                    // The ViewModel's own error path: it reports the failure to the crash
+                    // reporter and shows it as a one-shot event. The failure is rethrown
+                    // into that path because the path is what reports it.
+                    emitError(label, ProposalsUiEvent::ShowError) { throw error }
+                },
+            userId = { currentUser.scopedUserId.value },
+        )
 
     /**
      * The reasons, mirrored into the state the screen draws from.
@@ -124,11 +125,12 @@ class ProposalsViewModel(
      * screen shows them. A reason kept inside the screen's own state alone was
      * lost on every rebuild.
      */
-    private val failureWatch = vmScope.launch {
-        decisions.failures.collect { reasons ->
-            updateState { state -> state.copy(failures = reasons.toImmutableMap()) }
+    private val failureWatch =
+        vmScope.launch {
+            decisions.failures.collect { reasons ->
+                updateState { state -> state.copy(failures = reasons.toImmutableMap()) }
+            }
         }
-    }
 
     /**
      * The collector of what is waiting.
@@ -138,17 +140,19 @@ class ProposalsViewModel(
      * can never observe a half-built ViewModel — the invariant
      * `NoCoroutineLaunchInInit` exists to protect.
      */
-    private val pendingWatch = vmScope.launch {
-        // The domain answers "is anything still waiting": a surface that asks
-        // the status itself has opinions about the lifecycle, and the
-        // lifecycle is not the surface's.
-        proposals.watchWaitingProposals()
-            .collect { list ->
-                updateState { state ->
-                    state.copy(isLoading = false, proposals = list.toImmutableList())
+    private val pendingWatch =
+        vmScope.launch {
+            // The domain answers "is anything still waiting": a surface that asks
+            // the status itself has opinions about the lifecycle, and the
+            // lifecycle is not the surface's.
+            proposals
+                .watchWaitingProposals()
+                .collect { list ->
+                    updateState { state ->
+                        state.copy(isLoading = false, proposals = list.toImmutableList())
+                    }
                 }
-            }
-    }
+        }
 
     /** The collector stops with the ViewModel. */
     override fun onCleared() {
@@ -159,17 +163,27 @@ class ProposalsViewModel(
 
     override fun onIntent(intent: ProposalsIntent) {
         when (intent) {
-            is ProposalsIntent.Confirm -> vmScope.launch { decisions.applyChange(intent.itemId) }
-
-            is ProposalsIntent.Reject -> vmScope.launch { decisions.turnDownChange(intent.itemId, intent.reason) }
-
-            is ProposalsIntent.ConfirmAll -> vmScope.launch { decisions.applyAll(intent.proposalId) }
-
-            is ProposalsIntent.Dismiss -> vmScope.launch {
-                decisions.dismiss { waiting(intent.proposalId) }
+            is ProposalsIntent.Confirm -> {
+                vmScope.launch { decisions.applyChange(intent.itemId) }
             }
 
-            is ProposalsIntent.Edit -> vmScope.launch { decisions.changeValue(intent.itemId, intent.text) }
+            is ProposalsIntent.Reject -> {
+                vmScope.launch { decisions.turnDownChange(intent.itemId, intent.reason) }
+            }
+
+            is ProposalsIntent.ConfirmAll -> {
+                vmScope.launch { decisions.applyAll(intent.proposalId) }
+            }
+
+            is ProposalsIntent.Dismiss -> {
+                vmScope.launch {
+                    decisions.dismiss { waiting(intent.proposalId) }
+                }
+            }
+
+            is ProposalsIntent.Edit -> {
+                vmScope.launch { decisions.changeValue(intent.itemId, intent.text) }
+            }
         }
     }
 
@@ -181,5 +195,9 @@ class ProposalsViewModel(
      * may have changed since.
      */
     private suspend fun waiting(proposalId: ProposalId): List<ProposalItem> =
-        proposals.watchProposal(proposalId).first()?.pendingItems.orEmpty()
+        proposals
+            .watchProposal(proposalId)
+            .first()
+            ?.pendingItems
+            .orEmpty()
 }

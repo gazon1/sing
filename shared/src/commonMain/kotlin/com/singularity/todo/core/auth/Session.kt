@@ -8,9 +8,12 @@ import com.singularity.todo.core.ids.UserId
  */
 sealed interface Session {
     data object Loading : Session
+
     data object SignedOut : Session
+
     data class SignedIn(val userId: UserId, val email: String, val accessToken: String, val refreshToken: String) :
         Session
+
     data class Anonymous(val userId: UserId) : Session
 }
 
@@ -31,8 +34,9 @@ sealed interface Session {
  * been established.
  */
 val Session.accountIdOrNull: UserId?
-    get() = when (this) {
-        is Session.SignedIn -> userId
-        is Session.Anonymous -> userId
-        Session.Loading, Session.SignedOut -> null
-    }
+    get() =
+        when (this) {
+            is Session.SignedIn -> userId
+            is Session.Anonymous -> userId
+            Session.Loading, Session.SignedOut -> null
+        }

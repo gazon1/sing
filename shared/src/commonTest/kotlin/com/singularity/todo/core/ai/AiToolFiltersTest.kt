@@ -39,7 +39,6 @@ private class FileLevelTool : SimpleTool<Unit>(TypeToken.of(Unit::class.java), N
  */
 @Tag("fast")
 class AiToolFiltersTest {
-
     /** A tool declared inside another class. */
     private class NestedTool : SimpleTool<Unit>(TypeToken.of(Unit::class.java), NAME, DESCRIPTION) {
         override suspend fun execute(args: Unit): String = "{}"

@@ -18,7 +18,6 @@ open class NotesNavigator(
     private val backStack: NavBackStack<NotesRoute>,
     protected val onExitGraph: (AppDestination?) -> Unit,
 ) {
-
     /** Push a note preview onto the stack. */
     open fun openPreview(noteId: NoteId) {
         backStack.add(NotesRoute.Preview(noteId))

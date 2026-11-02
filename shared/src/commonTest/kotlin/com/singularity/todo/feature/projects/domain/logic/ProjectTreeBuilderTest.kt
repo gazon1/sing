@@ -19,16 +19,17 @@ import kotlin.time.Instant
  */
 @Tag("fast")
 class ProjectTreeBuilderTest {
-
     @Test
     fun `a child sits under its parent`() {
-        val nodes = ProjectTreeBuilder.build(
-            projects = listOf(
-                project("root", "Product"),
-                project("child", "Website", parent = "root"),
-            ),
-            collapsedIds = emptySet(),
-        )
+        val nodes =
+            ProjectTreeBuilder.build(
+                projects =
+                    listOf(
+                        project("root", "Product"),
+                        project("child", "Website", parent = "root"),
+                    ),
+                collapsedIds = emptySet(),
+            )
 
         assertEquals(listOf("root", "child"), nodes.map { it.id.value })
         assertEquals(0, nodes[0].depth)
@@ -37,10 +38,11 @@ class ProjectTreeBuilderTest {
 
     @Test
     fun `a project whose parent is gone is a root`() {
-        val nodes = ProjectTreeBuilder.build(
-            projects = listOf(project("orphan", "Orphan", parent = "missing")),
-            collapsedIds = emptySet(),
-        )
+        val nodes =
+            ProjectTreeBuilder.build(
+                projects = listOf(project("orphan", "Orphan", parent = "missing")),
+                collapsedIds = emptySet(),
+            )
 
         assertEquals(1, nodes.size)
         assertEquals(0, nodes[0].depth, "a project whose parent is gone belongs at the top level")
@@ -48,26 +50,30 @@ class ProjectTreeBuilderTest {
 
     @Test
     fun `a closed project is not in the tree`() {
-        val nodes = ProjectTreeBuilder.build(
-            projects = listOf(
-                project("open", "Open"),
-                project("closed", "Closed", closed = true),
-            ),
-            collapsedIds = emptySet(),
-        )
+        val nodes =
+            ProjectTreeBuilder.build(
+                projects =
+                    listOf(
+                        project("open", "Open"),
+                        project("closed", "Closed", closed = true),
+                    ),
+                collapsedIds = emptySet(),
+            )
 
         assertEquals(listOf("open"), nodes.map { it.id.value })
     }
 
     @Test
     fun `a project without children carries no expander`() {
-        val nodes = ProjectTreeBuilder.build(
-            projects = listOf(
-                project("root", "Product"),
-                project("childless", "Childless", parent = "root"),
-            ),
-            collapsedIds = emptySet(),
-        )
+        val nodes =
+            ProjectTreeBuilder.build(
+                projects =
+                    listOf(
+                        project("root", "Product"),
+                        project("childless", "Childless", parent = "root"),
+                    ),
+                collapsedIds = emptySet(),
+            )
 
         assertTrue(nodes.first { it.id.value == "root" }.hasChildren)
         assertFalse(nodes.first { it.id.value == "childless" }.hasChildren)
@@ -75,13 +81,15 @@ class ProjectTreeBuilderTest {
 
     @Test
     fun `a collapsed project hides its children`() {
-        val nodes = ProjectTreeBuilder.build(
-            projects = listOf(
-                project("root", "Product"),
-                project("child", "Website", parent = "root"),
-            ),
-            collapsedIds = setOf(ProjectId("root")),
-        )
+        val nodes =
+            ProjectTreeBuilder.build(
+                projects =
+                    listOf(
+                        project("root", "Product"),
+                        project("child", "Website", parent = "root"),
+                    ),
+                collapsedIds = setOf(ProjectId("root")),
+            )
 
         assertEquals(listOf("root"), nodes.map { it.id.value })
         assertTrue(nodes.single().hasChildren, "the project still has children — it just hides them")
@@ -90,13 +98,15 @@ class ProjectTreeBuilderTest {
 
     @Test
     fun `a cycle does not hang the tree and loses nothing`() {
-        val nodes = ProjectTreeBuilder.build(
-            projects = listOf(
-                project("a", "A", parent = "b"),
-                project("b", "B", parent = "a"),
-            ),
-            collapsedIds = emptySet(),
-        )
+        val nodes =
+            ProjectTreeBuilder.build(
+                projects =
+                    listOf(
+                        project("a", "A", parent = "b"),
+                        project("b", "B", parent = "a"),
+                    ),
+                collapsedIds = emptySet(),
+            )
 
         assertEquals(
             setOf("a", "b"),
@@ -110,16 +120,17 @@ class ProjectTreeBuilderTest {
         name: String,
         parent: String? = null,
         closed: Boolean = false,
-    ): Project = Project(
-        id = ProjectId(id),
-        name = name,
-        color = 0,
-        createdAt = NOW,
-        updatedAt = NOW,
-        parentId = parent?.let { ProjectId(it) },
-        closedAt = if (closed) NOW else null,
-        userId = UserId("test-user"),
-    )
+    ): Project =
+        Project(
+            id = ProjectId(id),
+            name = name,
+            color = 0,
+            createdAt = NOW,
+            updatedAt = NOW,
+            parentId = parent?.let { ProjectId(it) },
+            closedAt = if (closed) NOW else null,
+            userId = UserId("test-user"),
+        )
 
     private companion object {
         val NOW: Instant = Instant.parse("2026-09-16T10:00:00Z")

@@ -70,14 +70,15 @@ data class RemoteConfigSnapshot(
          * Returns a default snapshot used when no cached config exists
          * and the network is unavailable.
          */
-        fun defaults(): RemoteConfigSnapshot = RemoteConfigSnapshot(
-            schemaVersion = CURRENT_SCHEMA_VERSION,
-            fetchedAtEpochMillis = 0L,
-            minSupportedVersion = null,
-            maintenanceBanner = null,
-            modelFlags = emptyMap(),
-            mcpToolFlags = emptyMap(),
-        )
+        fun defaults(): RemoteConfigSnapshot =
+            RemoteConfigSnapshot(
+                schemaVersion = CURRENT_SCHEMA_VERSION,
+                fetchedAtEpochMillis = 0L,
+                minSupportedVersion = null,
+                maintenanceBanner = null,
+                modelFlags = emptyMap(),
+                mcpToolFlags = emptyMap(),
+            )
     }
 
     /**

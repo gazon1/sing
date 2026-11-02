@@ -8,9 +8,9 @@ import com.singularity.todo.core.tasks.TasksSettingsRepository
 import com.singularity.todo.feature.checklist.domain.port.ChecklistRepository
 import com.singularity.todo.feature.tasks.domain.logic.TaskSelectionResolver
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
-import kotlin.time.Clock
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
+import kotlin.time.Clock
 
 /** Which task to read. */
 @Serializable
@@ -45,21 +45,21 @@ class GetTaskTool(
     private val timeZoneProvider: TimeZoneProvider,
     private val tasksSettingsRepository: TasksSettingsRepository,
 ) : SimpleTool<GetTaskInput>(TypeToken.of(GetTaskInput::class.java), NAME, DESCRIPTION) {
-
     override suspend fun execute(args: GetTaskInput): String {
         val all = taskRepository.observeByFilter(TaskSelectionResolver.baseFilter()).first()
         val task = all.firstOrNull { it.id.value == args.taskId }
 
-        val output = if (task == null) {
-            GetTaskOutput(found = false, reason = "There is no task with id \"${args.taskId}\".")
-        } else {
-            val context = TaskToolSupport.context(all, clock, timeZoneProvider.current())
-            val stalenessDays = tasksSettingsRepository.stalenessThresholdDays.first()
-            GetTaskOutput(
-                found = true,
-                task = TaskToolSupport.detail(task, all, context, stalenessDays, checklistRepository),
-            )
-        }
+        val output =
+            if (task == null) {
+                GetTaskOutput(found = false, reason = "There is no task with id \"${args.taskId}\".")
+            } else {
+                val context = TaskToolSupport.context(all, clock, timeZoneProvider.current())
+                val stalenessDays = tasksSettingsRepository.stalenessThresholdDays.first()
+                GetTaskOutput(
+                    found = true,
+                    task = TaskToolSupport.detail(task, all, context, stalenessDays, checklistRepository),
+                )
+            }
 
         return ToolOutputJson.encodeToString(GetTaskOutput.serializer(), output)
     }

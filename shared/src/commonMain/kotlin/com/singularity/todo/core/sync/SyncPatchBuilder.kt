@@ -35,7 +35,11 @@ internal class SyncPatchBuilder(
      *
      * The diff base is the CONFIRMED state, not this one: see the comment on `base`.
      */
-    suspend fun build(entity: SyncableEntity, scope: SyncScope, nowMillis: Long): DeltaPatch {
+    suspend fun build(
+        entity: SyncableEntity,
+        scope: SyncScope,
+        nowMillis: Long,
+    ): DeltaPatch {
         val state = entity.toJson()
         val encoded = json.encodeToString(JsonObject.serializer(), state)
         val typeKey = entity.docType.key
@@ -48,25 +52,26 @@ internal class SyncPatchBuilder(
         val base = decode(shadow?.confirmedJson ?: EMPTY_STATE)
         val ops = diff(base, state)
 
-        val patch = DeltaPatch(
-            patchId = idGenerator.next(),
-            entityId = entity.syncId,
-            entityType = entity.docType,
-            // From the shadow, not from the entity. The entity's own copy is written
-            // by the local repositories, which have no idea what the server said, so it
-            // stayed 0 forever and every patch claimed the server had never seen the
-            // row. The shadow is where the engine records what the server confirmed.
-            baseVersion = shadow?.serverVersion ?: 0,
-            isDelete = false,
-            ops = ops,
-            // The clock the server orders by. Taken from the factory rather than from
-            // the wall clock, so two patches authored in the same millisecond still
-            // have a total order — and so a patch authored on a device whose clock is
-            // minutes behind wins against a field the ahead device never touched,
-            // while losing against one it touched later. That is the hybrid part.
-            hlc = hlcFactory.tick(),
-            timestampMs = nowMillis,
-        )
+        val patch =
+            DeltaPatch(
+                patchId = idGenerator.next(),
+                entityId = entity.syncId,
+                entityType = entity.docType,
+                // From the shadow, not from the entity. The entity's own copy is written
+                // by the local repositories, which have no idea what the server said, so it
+                // stayed 0 forever and every patch claimed the server had never seen the
+                // row. The shadow is where the engine records what the server confirmed.
+                baseVersion = shadow?.serverVersion ?: 0,
+                isDelete = false,
+                ops = ops,
+                // The clock the server orders by. Taken from the factory rather than from
+                // the wall clock, so two patches authored in the same millisecond still
+                // have a total order — and so a patch authored on a device whose clock is
+                // minutes behind wins against a field the ahead device never touched,
+                // while losing against one it touched later. That is the hybrid part.
+                hlc = hlcFactory.tick(),
+                timestampMs = nowMillis,
+            )
 
         shadowDao.upsert(
             SyncShadowEntity(
@@ -93,8 +98,7 @@ internal class SyncPatchBuilder(
         return patch
     }
 
-    private fun decode(encoded: String): JsonObject =
-        json.decodeFromString(JsonObject.serializer(), encoded)
+    private fun decode(encoded: String): JsonObject = json.decodeFromString(JsonObject.serializer(), encoded)
 
     /**
      * Field-level difference between the base the server will have and the local state.
@@ -103,7 +107,10 @@ internal class SyncPatchBuilder(
      * omission. Sending only the changed fields and leaving removals implicit would
      * make a cleared field indistinguishable from one the client never knew about.
      */
-    internal fun diff(base: JsonObject, next: JsonObject): List<FieldChange> {
+    internal fun diff(
+        base: JsonObject,
+        next: JsonObject,
+    ): List<FieldChange> {
         val ops = mutableListOf<FieldChange>()
 
         for ((field, value) in next) {
@@ -132,7 +139,10 @@ internal class SyncPatchBuilder(
      * correct, so choosing them would be an invented semantic rather than an
      * implemented one. The field's own clock decides the winner.
      */
-    private fun change(field: String, value: JsonElement): FieldChange =
+    private fun change(
+        field: String,
+        value: JsonElement,
+    ): FieldChange =
         if (value is JsonNull) {
             FieldChange(field = field, op = FieldOp.UNSET, value = null)
         } else {

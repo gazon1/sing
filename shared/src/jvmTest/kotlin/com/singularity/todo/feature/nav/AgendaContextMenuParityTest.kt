@@ -22,19 +22,21 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class AgendaContextMenuParityTest {
+    private val commonMainRoot: String =
+        System.getProperty("commonMain.root")
+            ?: error("commonMain.root system property is not set — see shared/build.gradle.kts")
 
-    private val commonMainRoot: String = System.getProperty("commonMain.root")
-        ?: error("commonMain.root system property is not set — see shared/build.gradle.kts")
-
-    private val source: String = File(
-        "$commonMainRoot/com/singularity/todo/feature/agenda/presentation/nav/AgendaNavGraph.kt",
-    ).readText()
+    private val source: String =
+        File(
+            "$commonMainRoot/com/singularity/todo/feature/agenda/presentation/nav/AgendaNavGraph.kt",
+        ).readText()
 
     /** The `entry<AgendaStartRoute.X> { ... }` blocks, by route name. */
-    private val entries: Map<String, String> = source
-        .split("entry<AgendaStartRoute.")
-        .drop(1)
-        .associate { part -> part.substringBefore(">") to part }
+    private val entries: Map<String, String> =
+        source
+            .split("entry<AgendaStartRoute.")
+            .drop(1)
+            .associate { part -> part.substringBefore(">") to part }
 
     @Test
     fun `every task section of the agenda gets the context menu host`() {
@@ -76,23 +78,25 @@ class AgendaContextMenuParityTest {
 
     private companion object {
         /** The task sections — every one of them shows the menu. */
-        val SECTIONS_WITH_MENU = listOf(
-            "Inbox",
-            "Today",
-            "Upcoming",
-            "Project",
-            "Tag",
-            "Blocked",
-            "Stagnant",
-            "Overdue",
-        )
+        val SECTIONS_WITH_MENU =
+            listOf(
+                "Inbox",
+                "Today",
+                "Upcoming",
+                "Project",
+                "Tag",
+                "Blocked",
+                "Stagnant",
+                "Overdue",
+            )
 
         /** The saved-view sections — they list views, not tasks, so no task menu. */
-        val SECTIONS_WITHOUT_MENU = listOf(
-            "SavedAgendaList",
-            "SavedAgendaResults",
-            "SavedAgendaEdit",
-            "SavedAgendaCreate",
-        )
+        val SECTIONS_WITHOUT_MENU =
+            listOf(
+                "SavedAgendaList",
+                "SavedAgendaResults",
+                "SavedAgendaEdit",
+                "SavedAgendaCreate",
+            )
     }
 }

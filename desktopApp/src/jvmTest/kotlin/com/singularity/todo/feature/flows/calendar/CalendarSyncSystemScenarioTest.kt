@@ -44,34 +44,34 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class CalendarSyncSystemScenarioTest {
-
     @Test
     @DisplayName("CAL-SYNC-SYSTEM-01 the system panel says why it cannot work and leaves Google selectable")
-    fun the_system_panel_says_why_it_cannot_work() = runDesktopAppTest {
-        openDrawer()
-        clickContentDescriptionScrolled("Settings")
-        clickTag(TestTags.settingsTab("Calendar"))
+    fun the_system_panel_says_why_it_cannot_work() =
+        runDesktopAppTest {
+            openDrawer()
+            clickContentDescriptionScrolled("Settings")
+            clickTag(TestTags.settingsTab("Calendar"))
 
-        // The message names the constraint *and* reassures the user their tasks are
-        // unaffected — a bare "unsupported" reads as data loss.
-        assertTagDisplayed(TestTags.CalendarSync.SYSTEM_UNAVAILABLE)
-        // The full sentence, not a prefix: `assertTextDisplayed` matches the node's whole
-        // text exactly, so a substring here fails on a node that is present and correct.
-        // The selector name itself is spelled out nowhere in this file because
-        // `HarnessConventionTest` counts a selector call written in a *comment* as a raw
-        // call, and a comment is the one place this rule is easiest to trip.
-        assertTextDisplayed(
-            "System calendar sync needs Android. Your tasks are unaffected — they stay in the app.",
-        )
+            // The message names the constraint *and* reassures the user their tasks are
+            // unaffected — a bare "unsupported" reads as data loss.
+            assertTagDisplayed(TestTags.CalendarSync.SYSTEM_UNAVAILABLE)
+            // The full sentence, not a prefix: `assertTextDisplayed` matches the node's whole
+            // text exactly, so a substring here fails on a node that is present and correct.
+            // The selector name itself is spelled out nowhere in this file because
+            // `HarnessConventionTest` counts a selector call written in a *comment* as a raw
+            // call, and a comment is the one place this rule is easiest to trip.
+            assertTextDisplayed(
+                "System calendar sync needs Android. Your tasks are unaffected — they stay in the app.",
+            )
 
-        // And the working alternative is still offered. This is the assertion that
-        // would have failed before the gates were moved below the selector.
-        assertTagExists(TestTags.CalendarSync.providerSegment("Google Calendar"))
+            // And the working alternative is still offered. This is the assertion that
+            // would have failed before the gates were moved below the selector.
+            assertTagExists(TestTags.CalendarSync.providerSegment("Google Calendar"))
 
-        // Crucially: no enable switch and no empty picker over providers that were
-        // never queried. Rendering controls for a calendar that cannot exist is how
-        // a user ends up toggling something that only looks like it works.
-        assertTagNotExists(TestTags.CalendarSync.SYSTEM_ENABLE_SWITCH)
-        assertTagNotExists(TestTags.CalendarSync.SYSTEM_SYNC_NOW_BUTTON)
-    }
+            // Crucially: no enable switch and no empty picker over providers that were
+            // never queried. Rendering controls for a calendar that cannot exist is how
+            // a user ends up toggling something that only looks like it works.
+            assertTagNotExists(TestTags.CalendarSync.SYSTEM_ENABLE_SWITCH)
+            assertTagNotExists(TestTags.CalendarSync.SYSTEM_SYNC_NOW_BUTTON)
+        }
 }

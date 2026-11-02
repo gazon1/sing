@@ -18,7 +18,6 @@ import kotlin.test.assertTrue
  * query with a constant, which cleared what the user had typed.
  */
 class NoDroppedUiStatePropertyRuleTest {
-
     private val rule = NoDroppedUiStatePropertyRule(TestConfig())
     private val languageSettings = FakeLanguageVersionSettings(ExplicitApiMode.STRICT)
 

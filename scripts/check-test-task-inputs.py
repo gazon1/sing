@@ -99,16 +99,30 @@ SYSTEM_PROPERTY_RE = re.compile(r'systemProperty\(\s*"(?P<name>[A-Za-z][A-Za-z0-
 ROOT_LOOKAHEAD = 400
 
 # `inputs.dir(<expr>)` / `inputs.file(<expr>)` / `inputs.files(<expr>, …)`.
-INPUT_RE = re.compile(r'inputs\.(?:dir|files?)\((?P<body>.*?)\)\s*(?:\.|\n|$)', re.S)
+#
+# The whitespace between `inputs` and the call is part of the pattern: the
+# formatter wraps a call chain into several lines, so `inputs` and `.file(…`
+# end up on different lines, and a pattern that requires them on one line
+# stops seeing the declarations that are there — which reads as a gate
+# reporting missing inputs on a tree that declares them.
+INPUT_RE = re.compile(r'inputs\s*\.\s*(?:dir|files?)\((?P<body>.*?)\)\s*(?:\.|\n|$)', re.S)
 
 # Path-ish argument inside an inputs call. The BASE is captured as well as the path:
 # `rootProject.file("config/detekt/detekt.yml")` and
 # `layout.projectDirectory.dir("config/detekt/detekt.yml")` are the same directory from
 # two different modules' points of view, and dropping the base resolved one of them
 # against the wrong root.
+#
+# The whitespace around the dot is part of the pattern, for the same reason it is in
+# `INPUT_RE`: the formatter wraps a call chain into several lines, so
+# `layout.projectDirectory` and `.dir("…")` end up on different lines. A pattern that
+# requires them on one line stops seeing the declarations that are there — and a
+# declaration the parser cannot see is a declaration the gate does not check, which
+# is the same hole as a missing declaration, with the opposite sign.
 PATH_ARG_RE = re.compile(
     r'(?P<base>layout\.projectDirectory|rootProject\.projectDirectory|rootProject|project)'
-    r'\.(?:dir|file)\(\s*"(?P<path>[^"]+)"\s*\)'
+    r'\s*\.\s*(?:dir|file)\(\s*"(?P<path>[^"]+)"\s*\)',
+    re.S,
 )
 
 # Only top-level module build files. build-logic holds convention plugins, which

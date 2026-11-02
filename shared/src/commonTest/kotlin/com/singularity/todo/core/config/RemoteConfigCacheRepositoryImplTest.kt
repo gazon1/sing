@@ -43,7 +43,6 @@ private const val TEST_READ_TIMEOUT_MS = 50L
  */
 @Tag("fast")
 class RemoteConfigCacheRepositoryImplTest {
-
     /**
      * The port under test.
      *
@@ -73,115 +72,127 @@ class RemoteConfigCacheRepositoryImplTest {
      * decode — which would silently hand back the defaults and make this row
      * indistinguishable from no row at all.
      */
-    private fun cachedRow() = RemoteConfigCacheEntity(
-        snapshotJson = """{"schemaVersion":1,"fetchedAtEpochMillis":0,""" +
-            """"maintenanceBanner":null,"minSupportedVersion":{"name":"2.0.0","code":20}}""",
-        fetchedAtEpochMillis = 0L,
-    )
+    private fun cachedRow() =
+        RemoteConfigCacheEntity(
+            snapshotJson =
+                """{"schemaVersion":1,"fetchedAtEpochMillis":0,""" +
+                    """"maintenanceBanner":null,"minSupportedVersion":{"name":"2.0.0","code":20}}""",
+            fetchedAtEpochMillis = 0L,
+        )
 
     @Test
-    fun `a read that blocks ends at the port's deadline instead of hanging`() = runTest {
-        // The read blocks and ignores cancellation — the shape a deadline in the
-        // caller's own coroutine cannot end.
-        val dao = FakeRemoteConfigCacheDao(
-            cached = cachedRow(),
-            readBehaviour = ReadBehaviour.Blocks,
-        )
-        val repo = repo(dao = dao)
+    fun `a read that blocks ends at the port's deadline instead of hanging`() =
+        runTest {
+            // The read blocks and ignores cancellation — the shape a deadline in the
+            // caller's own coroutine cannot end.
+            val dao =
+                FakeRemoteConfigCacheDao(
+                    cached = cachedRow(),
+                    readBehaviour = ReadBehaviour.Blocks,
+                )
+            val repo = repo(dao = dao)
 
-        val snapshot = repo.snapshot()
+            val snapshot = repo.snapshot()
 
-        assertEquals(
-            RemoteConfigSnapshot.defaults(),
-            snapshot,
-            "a read that missed the deadline must serve the last known good snapshot — " +
-                "the defaults until the first successful read — and not wait for the row",
-        )
-    }
-
-    @Test
-    fun `the port gives up at its own deadline, not later and not never`() = runTest {
-        // Without this, a test that waited for the production deadline would pass just as
-        // happily: virtual time makes five seconds as instant as fifty milliseconds, so the
-        // only way to know which deadline was honoured is to look at the clock.
-        val dao = FakeRemoteConfigCacheDao(
-            cached = cachedRow(),
-            readBehaviour = ReadBehaviour.Blocks,
-        )
-        val repo = repo(dao = dao)
-
-        repo.snapshot()
-
-        assertEquals(
-            TEST_READ_TIMEOUT_MS,
-            testScheduler.currentTime,
-            "the port must give up at its deadline: virtual time was ${testScheduler.currentTime} ms",
-        )
-    }
+            assertEquals(
+                RemoteConfigSnapshot.defaults(),
+                snapshot,
+                "a read that missed the deadline must serve the last known good snapshot — " +
+                    "the defaults until the first successful read — and not wait for the row",
+            )
+        }
 
     @Test
-    fun `the port bounds its read by the port's own deadline`() = runTest {
-        // The bound and the deadline a caller imposes are one number, written down once.
-        // This is the port's half of that: the default deadline it enforces is the port's
-        // own constant, not a second literal that could drift away from it.
-        val dao = FakeRemoteConfigCacheDao(
-            cached = cachedRow(),
-            readBehaviour = ReadBehaviour.Blocks,
-        )
-        val repo = RemoteConfigCacheRepositoryImpl(
-            cacheDao = dao,
-            syncApi = FakeRemoteConfigApiClient(),
-            clock = FakeClock(),
-            readScope = CoroutineScope(StandardTestDispatcher(testScheduler) + SupervisorJob()),
-        )
+    fun `the port gives up at its own deadline, not later and not never`() =
+        runTest {
+            // Without this, a test that waited for the production deadline would pass just as
+            // happily: virtual time makes five seconds as instant as fifty milliseconds, so the
+            // only way to know which deadline was honoured is to look at the clock.
+            val dao =
+                FakeRemoteConfigCacheDao(
+                    cached = cachedRow(),
+                    readBehaviour = ReadBehaviour.Blocks,
+                )
+            val repo = repo(dao = dao)
 
-        repo.snapshot()
+            repo.snapshot()
 
-        assertEquals(
-            RemoteConfigPort.READ_TIMEOUT_MS,
-            testScheduler.currentTime,
-            "the port's default deadline must be the port's own constant",
-        )
-    }
+            assertEquals(
+                TEST_READ_TIMEOUT_MS,
+                testScheduler.currentTime,
+                "the port must give up at its deadline: virtual time was ${testScheduler.currentTime} ms",
+            )
+        }
 
     @Test
-    fun `a refresh that blocks fails with the port's timeout code`() = runTest {
-        // `refresh` returns a Result, so a read that misses the deadline is a failure —
-        // the shape every caller of this method already handles.
-        val api = FakeRemoteConfigApiClient(fetchBehaviour = FetchBehaviour.Blocks)
-        val repo = repo(api = api)
+    fun `the port bounds its read by the port's own deadline`() =
+        runTest {
+            // The bound and the deadline a caller imposes are one number, written down once.
+            // This is the port's half of that: the default deadline it enforces is the port's
+            // own constant, not a second literal that could drift away from it.
+            val dao =
+                FakeRemoteConfigCacheDao(
+                    cached = cachedRow(),
+                    readBehaviour = ReadBehaviour.Blocks,
+                )
+            val repo =
+                RemoteConfigCacheRepositoryImpl(
+                    cacheDao = dao,
+                    syncApi = FakeRemoteConfigApiClient(),
+                    clock = FakeClock(),
+                    readScope = CoroutineScope(StandardTestDispatcher(testScheduler) + SupervisorJob()),
+                )
 
-        val result = repo.refresh()
+            repo.snapshot()
 
-        assertTrue(result.isFailure, "a refresh that never came back must fail: $result")
-        val error = result.exceptionOrNull()
-        assertIs<AppError.Network>(error)
-        assertEquals(
-            RemoteConfigPort.READ_TIMEOUT_CODE,
-            error.code,
-            "the timeout needs its own code: it is a slow disk, not a broken config server",
-        )
-    }
-
-    @Test
-    fun `a read that comes back in time is served`() = runTest {
-        // The bound must not cost a healthy read anything.
-        val dao = FakeRemoteConfigCacheDao(cached = cachedRow())
-        val repo = repo(dao = dao)
-
-        val snapshot = repo.snapshot()
-
-        assertEquals(AppVersion("2.0.0", code = 20), snapshot.minSupportedVersion)
-        assertEquals(0L, testScheduler.currentTime, "a read that answers immediately waits for nothing")
-    }
+            assertEquals(
+                RemoteConfigPort.READ_TIMEOUT_MS,
+                testScheduler.currentTime,
+                "the port's default deadline must be the port's own constant",
+            )
+        }
 
     @Test
-    fun `a read that fails still reaches the caller`() = runTest {
-        // The bound is not a licence to swallow failures: a read that throws is still a
-        // failed read, and the caller is still the one that decides what to do about it.
-        val dao = FakeRemoteConfigCacheDao(readBehaviour = ReadBehaviour.Throws)
-        val repo = repo(dao = dao)
+    fun `a refresh that blocks fails with the port's timeout code`() =
+        runTest {
+            // `refresh` returns a Result, so a read that misses the deadline is a failure —
+            // the shape every caller of this method already handles.
+            val api = FakeRemoteConfigApiClient(fetchBehaviour = FetchBehaviour.Blocks)
+            val repo = repo(api = api)
 
-        assertFailsWith<IllegalStateException> { repo.snapshot() }
-    }
+            val result = repo.refresh()
+
+            assertTrue(result.isFailure, "a refresh that never came back must fail: $result")
+            val error = result.exceptionOrNull()
+            assertIs<AppError.Network>(error)
+            assertEquals(
+                RemoteConfigPort.READ_TIMEOUT_CODE,
+                error.code,
+                "the timeout needs its own code: it is a slow disk, not a broken config server",
+            )
+        }
+
+    @Test
+    fun `a read that comes back in time is served`() =
+        runTest {
+            // The bound must not cost a healthy read anything.
+            val dao = FakeRemoteConfigCacheDao(cached = cachedRow())
+            val repo = repo(dao = dao)
+
+            val snapshot = repo.snapshot()
+
+            assertEquals(AppVersion("2.0.0", code = 20), snapshot.minSupportedVersion)
+            assertEquals(0L, testScheduler.currentTime, "a read that answers immediately waits for nothing")
+        }
+
+    @Test
+    fun `a read that fails still reaches the caller`() =
+        runTest {
+            // The bound is not a licence to swallow failures: a read that throws is still a
+            // failed read, and the caller is still the one that decides what to do about it.
+            val dao = FakeRemoteConfigCacheDao(readBehaviour = ReadBehaviour.Throws)
+            val repo = repo(dao = dao)
+
+            assertFailsWith<IllegalStateException> { repo.snapshot() }
+        }
 }

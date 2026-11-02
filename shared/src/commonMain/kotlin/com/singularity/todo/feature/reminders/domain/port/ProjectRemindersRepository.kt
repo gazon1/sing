@@ -12,7 +12,6 @@ import kotlinx.coroutines.flow.Flow
  * to the current user, and every write asserts ownership before it lands.
  */
 interface ProjectRemindersRepository {
-
     /** All project reminders for the current user, soonest first. */
     fun observeAll(): Flow<List<com.singularity.todo.feature.reminders.ProjectReminder>>
 
@@ -41,7 +40,10 @@ interface ProjectRemindersRepository {
     suspend fun delete(id: com.singularity.todo.feature.reminders.ProjectReminderId): Result<Unit>
 
     /** Deletes a reminder by [id] for an explicit [userId]. Used by the fire receiver. */
-    suspend fun delete(id: com.singularity.todo.feature.reminders.ProjectReminderId, userId: UserId): Result<Unit>
+    suspend fun delete(
+        id: com.singularity.todo.feature.reminders.ProjectReminderId,
+        userId: UserId,
+    ): Result<Unit>
 
     /** Deletes every reminder attached to [projectId]. */
     suspend fun deleteByProject(projectId: ProjectId): Result<Unit>

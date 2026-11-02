@@ -59,7 +59,6 @@ expect fun buildTimeGoogleClientId(): BuildTimeGoogleClientConfig?
  * order is a security decision rather than a convenience one.
  */
 class GoogleClientIdResolver(private val buildTime: () -> BuildTimeGoogleClientConfig? = ::buildTimeGoogleClientId) {
-
     companion object {
         /** Key in the secure store. A client id is not a secret; this is namespacing, not secrecy. */
         const val KEY_CLIENT_ID = "google.calendar_client_id"
@@ -84,7 +83,10 @@ class GoogleClientIdResolver(private val buildTime: () -> BuildTimeGoogleClientC
      * are indistinguishable at the next read, and the failure would surface as an OAuth
      * error from Google several screens later.
      */
-    suspend fun store(store: SecureStorage, clientId: String) {
+    suspend fun store(
+        store: SecureStorage,
+        clientId: String,
+    ) {
         require(clientId.isNotBlank()) { "refusing to store a blank Google client id" }
         store.write(KEY_CLIENT_ID, clientId)
     }

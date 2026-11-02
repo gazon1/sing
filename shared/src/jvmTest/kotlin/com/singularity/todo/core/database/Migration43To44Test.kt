@@ -32,7 +32,6 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:migration")
 class Migration43To44Test {
-
     private lateinit var tempDir: File
     private lateinit var dbPath: String
 
@@ -47,8 +46,7 @@ class Migration43To44Test {
         tempDir.deleteRecursively()
     }
 
-    private fun sharedDir(): File =
-        File(System.getProperty("commonMain.root")!!).parentFile.parentFile.parentFile
+    private fun sharedDir(): File = File(System.getProperty("commonMain.root")!!).parentFile.parentFile.parentFile
 
     private fun openMigrated(): AppDatabase {
         createSqlDriver().open(dbPath).use { connection ->
@@ -69,62 +67,68 @@ class Migration43To44Test {
     }
 
     @Test
-    fun `the column exists after the upgrade`() = runTest {
-        val db = openMigrated()
-        try {
-            val columns = db.useConnection(isReadOnly = true) { transactor ->
-                transactor.usePrepared("PRAGMA table_info(projects)") { statement ->
-                    buildList {
-                        while (statement.step()) {
-                            add(statement.getText(1))
+    fun `the column exists after the upgrade`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                val columns =
+                    db.useConnection(isReadOnly = true) { transactor ->
+                        transactor.usePrepared("PRAGMA table_info(projects)") { statement ->
+                            buildList {
+                                while (statement.step()) {
+                                    add(statement.getText(1))
+                                }
+                            }
                         }
                     }
-                }
-            }
 
-            assertTrue(
-                "closed_at" in columns,
-                "the upgrade must add the column the project model reads: $columns",
-            )
-        } finally {
-            db.close()
+                assertTrue(
+                    "closed_at" in columns,
+                    "the upgrade must add the column the project model reads: $columns",
+                )
+            } finally {
+                db.close()
+            }
         }
-    }
 
     @Test
-    fun `a project that predates the upgrade reads back as open`() = runTest {
-        val db = openMigrated()
-        try {
-            val row = db.useConnection(isReadOnly = true) { transactor ->
-                transactor.usePrepared("SELECT closed_at FROM projects WHERE id = 'p-old'") { statement ->
-                    assertTrue(statement.step(), "the project must survive the upgrade")
-                    if (statement.isNull(0)) null else statement.getLong(0)
-                }
-            }
+    fun `a project that predates the upgrade reads back as open`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                val row =
+                    db.useConnection(isReadOnly = true) { transactor ->
+                        transactor.usePrepared("SELECT closed_at FROM projects WHERE id = 'p-old'") { statement ->
+                            assertTrue(statement.step(), "the project must survive the upgrade")
+                            if (statement.isNull(0)) null else statement.getLong(0)
+                        }
+                    }
 
-            assertNull(row, "a project that existed before the upgrade is an open project")
-        } finally {
-            db.close()
+                assertNull(row, "a project that existed before the upgrade is an open project")
+            } finally {
+                db.close()
+            }
         }
-    }
 
     @Test
-    fun `a project can be closed after the upgrade`() = runTest {
-        val db = openMigrated()
-        try {
-            val rows = db.projectDao().closeForUser("p-old", 2000L, "u1")
-            assertEquals(1, rows, "the close must reach the row")
+    fun `a project can be closed after the upgrade`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                val rows = db.projectDao().closeForUser("p-old", 2000L, "u1")
+                assertEquals(1, rows, "the close must reach the row")
 
-            val row = db.useConnection(isReadOnly = true) { transactor ->
-                transactor.usePrepared("SELECT closed_at FROM projects WHERE id = 'p-old'") { statement ->
-                    assertTrue(statement.step())
-                    statement.getLong(0)
-                }
+                val row =
+                    db.useConnection(isReadOnly = true) { transactor ->
+                        transactor.usePrepared("SELECT closed_at FROM projects WHERE id = 'p-old'") { statement ->
+                            assertTrue(statement.step())
+                            statement.getLong(0)
+                        }
+                    }
+
+                assertEquals(2000L, row, "the column must be writable after the upgrade")
+            } finally {
+                db.close()
             }
-
-            assertEquals(2000L, row, "the column must be writable after the upgrade")
-        } finally {
-            db.close()
         }
-    }
 }

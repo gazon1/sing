@@ -9,7 +9,6 @@ import kotlin.test.assertTrue
 
 @Tag("fast")
 class EitherTest {
-
     @Test
     fun `Left isLeft returns true`() {
         val result: Either<String, Int> = Either.Left("error")
@@ -27,20 +26,22 @@ class EitherTest {
     @Test
     fun `fold with Left calls left branch`() {
         val result: Either<String, Int> = Either.Left("error")
-        val folded = result.fold(
-            left = { "LEFT: $it" },
-            right = { "RIGHT: $it" },
-        )
+        val folded =
+            result.fold(
+                left = { "LEFT: $it" },
+                right = { "RIGHT: $it" },
+            )
         assertEquals("LEFT: error", folded)
     }
 
     @Test
     fun `fold with Right calls right branch`() {
         val result: Either<String, Int> = Either.Right(42)
-        val folded = result.fold(
-            left = { "LEFT: $it" },
-            right = { "RIGHT: $it" },
-        )
+        val folded =
+            result.fold(
+                left = { "LEFT: $it" },
+                right = { "RIGHT: $it" },
+            )
         assertEquals("RIGHT: 42", folded)
     }
 

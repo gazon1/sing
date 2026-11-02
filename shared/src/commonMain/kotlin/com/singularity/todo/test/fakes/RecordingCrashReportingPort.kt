@@ -31,7 +31,6 @@ import com.singularity.todo.core.observability.CrashReportingPort
  * and prove nothing — the mistake this repository has made twice.
  */
 class RecordingCrashReportingPort : CrashReportingPort {
-
     /** Every `(throwable, issueKey)` pair handed to [report], in call order. */
     val reports: MutableList<Pair<Throwable, String>> = mutableListOf()
 
@@ -54,7 +53,10 @@ class RecordingCrashReportingPort : CrashReportingPort {
         data class Breadcrumb(val message: String) : Event
     }
 
-    override fun report(error: Throwable, issueKey: String) {
+    override fun report(
+        error: Throwable,
+        issueKey: String,
+    ) {
         reports += error to issueKey
         events += Event.Reported(error, issueKey)
     }

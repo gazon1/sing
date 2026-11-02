@@ -16,6 +16,7 @@ import androidx.compose.runtime.compositionLocalOf
  * cross-graph navigation. This is intentional — the outer navigator is always
  * available as a fallback.
  */
-val LocalAppNavigator = compositionLocalOf<NavCallbacks> {
-    error("AppNavigator not provided — wrap with the shell")
-}
+val LocalAppNavigator =
+    compositionLocalOf<NavCallbacks> {
+        error("AppNavigator not provided — wrap with the shell")
+    }

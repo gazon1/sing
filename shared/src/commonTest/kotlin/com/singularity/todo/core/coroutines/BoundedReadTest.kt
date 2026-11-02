@@ -65,7 +65,6 @@ private suspend fun blockingRead(): String {
  */
 @Tag("fast")
 class BoundedReadTest {
-
     /**
      * A scope of its own for the read, on the test's scheduler.
      *
@@ -85,88 +84,96 @@ class BoundedReadTest {
         )
 
     @Test
-    fun `a read that ignores cancellation is abandoned at the deadline`() = runTest {
-        val scope = readScope()
+    fun `a read that ignores cancellation is abandoned at the deadline`() =
+        runTest {
+            val scope = readScope()
 
-        val outcome = scope.boundedRead(DEADLINE_MS) { blockingRead() }
+            val outcome = scope.boundedRead(DEADLINE_MS) { blockingRead() }
 
-        assertIs<BoundedReadResult.TimedOut>(outcome)
-        assertEquals(
-            DEADLINE_MS,
-            testScheduler.currentTime,
-            "the wait must end at the deadline: virtual time was ${testScheduler.currentTime} ms",
-        )
-    }
-
-    @Test
-    fun `a read that comes back in time is served`() = runTest {
-        val scope = readScope()
-
-        val outcome = scope.boundedRead(DEADLINE_MS) { "value" }
-
-        val completed = assertIs<BoundedReadResult.Completed<String>>(outcome)
-        assertEquals("value", completed.value)
-        assertEquals(0L, testScheduler.currentTime, "a read that answers immediately waits for nothing")
-    }
-
-    @Test
-    fun `the deadline is the one the caller passed`() = runTest {
-        val scope = readScope()
-
-        scope.boundedRead(A_CALLER_CHOSEN_DEADLINE_MS) { blockingRead() }
-
-        assertEquals(
-            A_CALLER_CHOSEN_DEADLINE_MS,
-            testScheduler.currentTime,
-            "the bound must be the caller's own number, not a constant hidden in the primitive",
-        )
-    }
-
-    @Test
-    fun `a read that fails reaches the caller`() = runTest {
-        val scope = readScope()
-
-        val result = runCatchingCancellable {
-            scope.boundedRead(DEADLINE_MS) { throw IllegalStateException("read failed") }
+            assertIs<BoundedReadResult.TimedOut>(outcome)
+            assertEquals(
+                DEADLINE_MS,
+                testScheduler.currentTime,
+                "the wait must end at the deadline: virtual time was ${testScheduler.currentTime} ms",
+            )
         }
 
-        val failure = result.exceptionOrNull()
-        assertIs<IllegalStateException>(failure)
-        assertEquals("read failed", failure.message)
-    }
-
     @Test
-    fun `a read that answers null is not a read that timed out`() = runTest {
-        val scope = readScope()
+    fun `a read that comes back in time is served`() =
+        runTest {
+            val scope = readScope()
 
-        val outcome = scope.boundedRead(DEADLINE_MS) { null as String? }
+            val outcome = scope.boundedRead(DEADLINE_MS) { "value" }
 
-        val completed = assertIs<BoundedReadResult.Completed<String?>>(outcome)
-        assertNull(completed.value, "a read that answers null answers null")
-    }
-
-    @Test
-    fun `a read that fails after the caller gave up on it is reported, not dropped`() = runTest {
-        val failures = mutableListOf<Throwable>()
-        val scope = readScope()
-
-        val outcome = scope.boundedRead(
-            timeoutMs = DEADLINE_MS,
-            onAbandonedFailure = { failures += it },
-        ) {
-            blockingRead()
-            throw IllegalStateException("failed late")
+            val completed = assertIs<BoundedReadResult.Completed<String>>(outcome)
+            assertEquals("value", completed.value)
+            assertEquals(0L, testScheduler.currentTime, "a read that answers immediately waits for nothing")
         }
 
-        assertIs<BoundedReadResult.TimedOut>(outcome)
-        assertTrue(failures.isEmpty(), "the failure happens after the deadline, not before it")
+    @Test
+    fun `the deadline is the one the caller passed`() =
+        runTest {
+            val scope = readScope()
 
-        // The abandoned read is still running: it fails only once the scheduler has
-        // carried it past its own block.
-        advanceUntilIdle()
+            scope.boundedRead(A_CALLER_CHOSEN_DEADLINE_MS) { blockingRead() }
 
-        val failure = failures.singleOrNull()
-        assertIs<IllegalStateException>(failure)
-        assertEquals("failed late", failure.message)
-    }
+            assertEquals(
+                A_CALLER_CHOSEN_DEADLINE_MS,
+                testScheduler.currentTime,
+                "the bound must be the caller's own number, not a constant hidden in the primitive",
+            )
+        }
+
+    @Test
+    fun `a read that fails reaches the caller`() =
+        runTest {
+            val scope = readScope()
+
+            val result =
+                runCatchingCancellable {
+                    scope.boundedRead(DEADLINE_MS) { throw IllegalStateException("read failed") }
+                }
+
+            val failure = result.exceptionOrNull()
+            assertIs<IllegalStateException>(failure)
+            assertEquals("read failed", failure.message)
+        }
+
+    @Test
+    fun `a read that answers null is not a read that timed out`() =
+        runTest {
+            val scope = readScope()
+
+            val outcome = scope.boundedRead(DEADLINE_MS) { null as String? }
+
+            val completed = assertIs<BoundedReadResult.Completed<String?>>(outcome)
+            assertNull(completed.value, "a read that answers null answers null")
+        }
+
+    @Test
+    fun `a read that fails after the caller gave up on it is reported, not dropped`() =
+        runTest {
+            val failures = mutableListOf<Throwable>()
+            val scope = readScope()
+
+            val outcome =
+                scope.boundedRead(
+                    timeoutMs = DEADLINE_MS,
+                    onAbandonedFailure = { failures += it },
+                ) {
+                    blockingRead()
+                    throw IllegalStateException("failed late")
+                }
+
+            assertIs<BoundedReadResult.TimedOut>(outcome)
+            assertTrue(failures.isEmpty(), "the failure happens after the deadline, not before it")
+
+            // The abandoned read is still running: it fails only once the scheduler has
+            // carried it past its own block.
+            advanceUntilIdle()
+
+            val failure = failures.singleOrNull()
+            assertIs<IllegalStateException>(failure)
+            assertEquals("failed late", failure.message)
+        }
 }

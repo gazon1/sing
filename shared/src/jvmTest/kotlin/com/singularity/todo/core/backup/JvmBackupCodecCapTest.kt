@@ -12,21 +12,22 @@ import kotlin.test.assertFailsWith
 @Tag("fast")
 class JvmBackupCodecCapTest {
     @Test
-    fun oversizedArchiveThrows() = runTest {
-        val fs = MapFileSystem()
-        val codec = JvmBackupCodec()
-        val baos = ByteArrayOutputStream()
-        ZipOutputStream(baos).use { zos ->
-            zos.putNextEntry(ZipEntry(BackupFormat.ENTRY_MANIFEST))
-            zos.write("{}".toByteArray())
-            zos.closeEntry()
-            zos.putNextEntry(ZipEntry(BackupFormat.ENTRY_PAYLOAD))
-            zos.write(ByteArray(65 * 1024 * 1024))
-            zos.closeEntry()
+    fun oversizedArchiveThrows() =
+        runTest {
+            val fs = MapFileSystem()
+            val codec = JvmBackupCodec()
+            val baos = ByteArrayOutputStream()
+            ZipOutputStream(baos).use { zos ->
+                zos.putNextEntry(ZipEntry(BackupFormat.ENTRY_MANIFEST))
+                zos.write("{}".toByteArray())
+                zos.closeEntry()
+                zos.putNextEntry(ZipEntry(BackupFormat.ENTRY_PAYLOAD))
+                zos.write(ByteArray(65 * 1024 * 1024))
+                zos.closeEntry()
+            }
+            fs.writeBytes("/tmp/big.zip", baos.toByteArray())
+            assertFailsWith<IllegalStateException> {
+                codec.import("/tmp/big.zip", fs).getOrThrow()
+            }
         }
-        fs.writeBytes("/tmp/big.zip", baos.toByteArray())
-        assertFailsWith<IllegalStateException> {
-            codec.import("/tmp/big.zip", fs).getOrThrow()
-        }
-    }
 }

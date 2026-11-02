@@ -7,8 +7,8 @@ import com.singularity.todo.feature.tasks.domain.logic.TaskComputed
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
-import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
+import kotlin.time.Instant
 
 /**
  * Context passed to [Selector.matches] containing everything the matching logic needs
@@ -55,92 +55,133 @@ data class SelectorContext(
  *
  * @see Selector
  */
-fun Selector.matches(task: Task, context: SelectorContext): Boolean = when (this) {
-    is Selector.DateBucket -> matches(task, context.today)
+fun Selector.matches(
+    task: Task,
+    context: SelectorContext,
+): Boolean =
+    when (this) {
+        is Selector.DateBucket -> {
+            matches(task, context.today)
+        }
 
-    is Selector.DateRange ->
-        task.dueDate != null &&
-            task.dueDate >= from && task.dueDate <= to
+        is Selector.DateRange -> {
+            task.dueDate != null &&
+                task.dueDate >= from && task.dueDate <= to
+        }
 
-    is Selector.Statuses -> when {
-        statuses.isEmpty() -> false
+        is Selector.Statuses -> {
+            when {
+                statuses.isEmpty() -> {
+                    false
+                }
 
-        TaskStatus.All in statuses -> true
+                TaskStatus.All in statuses -> {
+                    true
+                }
 
-        else -> {
-            val activeMatch = TaskStatus.Active in statuses && !task.isCompleted
-            val completedMatch = TaskStatus.Completed in statuses && task.isCompleted
-            activeMatch || completedMatch
+                else -> {
+                    val activeMatch = TaskStatus.Active in statuses && !task.isCompleted
+                    val completedMatch = TaskStatus.Completed in statuses && task.isCompleted
+                    activeMatch || completedMatch
+                }
+            }
+        }
+
+        is Selector.Priorities -> {
+            if (atMost) {
+                priorities.contains(task.priority)
+            } else {
+                !priorities.contains(task.priority)
+            }
+        }
+
+        is Selector.Tags -> {
+            when {
+                ids.isEmpty() && matchAll -> true
+
+                // empty+matchAll is trivially true
+                ids.isEmpty() -> false
+
+                matchAll -> ids.all { task.tags.contains(it) }
+
+                else -> ids.any { task.tags.contains(it) }
+            }
+        }
+
+        is Selector.Projects -> {
+            ids.contains(task.projectId)
+        }
+
+        is Selector.Pinned -> {
+            task.isPinned
+        }
+
+        is Selector.Completed -> {
+            task.isCompleted
+        }
+
+        // The overdue rule has one owner: TaskComputed.isOverdue. A task that is
+        // trashed is not overdue, and this selector must not say otherwise.
+        is Selector.Overdue -> {
+            TaskComputed.isOverdue(task, context.today)
+        }
+
+        // BLOCKED: task is in the set of tasks blocked by an unfinished dependency.
+        // BLOCKED takes precedence over STAGNANT in health classification, so a blocked
+        // task that is also stale does NOT match this selector.
+        is Selector.Blocked -> {
+            task.id in context.blockedIds
+        }
+
+        // The stored state, independent of completion on the task itself; a *section*
+        // of work is not where a finished task belongs, so completion wins here.
+        is Selector.WorkflowState -> {
+            !task.isCompleted && task.workflowState == state
+        }
+
+        // The ordering graph: a task that follows up on another is not waiting for it,
+        // which is exactly why this reads a different context set than Blocked.
+        is Selector.FollowUp -> {
+            task.id in context.followUpIds
+        }
+
+        // STAGNANT: undated, incomplete, and not touched for long enough.
+        // Excludes blocked tasks (BLOCKED has higher health precedence).
+        // Uses lastActivityOf so that a recently-completed task is not flagged as stagnant
+        // (completedAt is recent, so max(completedAt, updatedAt) is recent).
+        is Selector.Stagnant -> {
+            task.id !in context.blockedIds &&
+                task.dueDate == null &&
+                !task.isCompleted &&
+                context.now - context.lastActivityOf(task) >= threshold
+        }
+
+        // Uses the selector's pre-compiled pattern: see [Selector.Regexp.compiled].
+        is Selector.Regexp -> {
+            compiled.containsMatchIn(task.title)
+        }
+
+        is Selector.AllOf -> {
+            children.all { it.matches(task, context) }
+        }
+
+        is Selector.AnyOf -> {
+            children.any { it.matches(task, context) }
+        }
+
+        is Selector.Not -> {
+            !child.matches(task, context)
+        }
+
+        is Selector.Anything -> {
+            true
+        }
+
+        is Selector.TimeOfDay -> {
+            val taskMinutes = task.dueTime?.let { it.hour * 60 + it.minute } ?: return false
+            taskMinutes in minStartMinutes..maxEndMinutes
         }
     }
-
-    is Selector.Priorities -> if (atMost) {
-        priorities.contains(task.priority)
-    } else {
-        !priorities.contains(task.priority)
-    }
-
-    is Selector.Tags -> when {
-        ids.isEmpty() && matchAll -> true
-
-        // empty+matchAll is trivially true
-        ids.isEmpty() -> false
-
-        matchAll -> ids.all { task.tags.contains(it) }
-
-        else -> ids.any { task.tags.contains(it) }
-    }
-
-    is Selector.Projects -> ids.contains(task.projectId)
-
-    is Selector.Pinned -> task.isPinned
-
-    is Selector.Completed -> task.isCompleted
-
-    // The overdue rule has one owner: TaskComputed.isOverdue. A task that is
-    // trashed is not overdue, and this selector must not say otherwise.
-    is Selector.Overdue -> TaskComputed.isOverdue(task, context.today)
-
-    // BLOCKED: task is in the set of tasks blocked by an unfinished dependency.
-    // BLOCKED takes precedence over STAGNANT in health classification, so a blocked
-    // task that is also stale does NOT match this selector.
-    is Selector.Blocked -> task.id in context.blockedIds
-
-    // The stored state, independent of completion on the task itself; a *section*
-    // of work is not where a finished task belongs, so completion wins here.
-    is Selector.WorkflowState ->
-        !task.isCompleted && task.workflowState == state
-
-    // The ordering graph: a task that follows up on another is not waiting for it,
-    // which is exactly why this reads a different context set than Blocked.
-    is Selector.FollowUp -> task.id in context.followUpIds
-
-    // STAGNANT: undated, incomplete, and not touched for long enough.
-    // Excludes blocked tasks (BLOCKED has higher health precedence).
-    // Uses lastActivityOf so that a recently-completed task is not flagged as stagnant
-    // (completedAt is recent, so max(completedAt, updatedAt) is recent).
-    is Selector.Stagnant ->
-        task.id !in context.blockedIds &&
-            task.dueDate == null &&
-            !task.isCompleted &&
-            context.now - context.lastActivityOf(task) >= threshold
-
-    // Uses the selector's pre-compiled pattern: see [Selector.Regexp.compiled].
-    is Selector.Regexp -> compiled.containsMatchIn(task.title)
-
-    is Selector.AllOf -> children.all { it.matches(task, context) }
-
-    is Selector.AnyOf -> children.any { it.matches(task, context) }
-
-    is Selector.Not -> !child.matches(task, context)
-
-    is Selector.Anything -> true
-
-    is Selector.TimeOfDay -> {
-        val taskMinutes = task.dueTime?.let { it.hour * 60 + it.minute } ?: return false
-        taskMinutes in minStartMinutes..maxEndMinutes
-    }
-}
 
 /**
  * Matches a [Selector.DateBucket] against [task] using [today].
@@ -148,15 +189,23 @@ fun Selector.matches(task: Task, context: SelectorContext): Boolean = when (this
  * Exposed as a separate named function so `DateBucket` has its own dedicated
  * dispatch point — matching the per-variant convention used throughout this package.
  */
-private fun Selector.DateBucket.matches(task: Task, today: LocalDate): Boolean {
+private fun Selector.DateBucket.matches(
+    task: Task,
+    today: LocalDate,
+): Boolean {
     val range = bucket.toDateRange(today)
     return when (bucket) {
-        RelativeBucket.Overdue -> TaskComputed.isOverdue(task, today)
+        RelativeBucket.Overdue -> {
+            TaskComputed.isOverdue(task, today)
+        }
 
-        RelativeBucket.NoDate -> task.dueDate == null
+        RelativeBucket.NoDate -> {
+            task.dueDate == null
+        }
 
-        else ->
+        else -> {
             task.dueDate != null &&
                 task.dueDate >= range.from && task.dueDate <= range.to
+        }
     }
 }

@@ -31,24 +31,24 @@ import kotlin.time.Instant
 @Tag("slow")
 @Tag("slow:compose")
 class StatisticsHealthTabFlowTest {
-
     @Test
-    fun the_health_tab_is_reachable_and_carries_its_own_id() = runDesktopAppTest(
-        clock = CLOCK,
-        checkA11y = true,
-    ) {
-        tapTab("Statistics")
+    fun the_health_tab_is_reachable_and_carries_its_own_id() =
+        runDesktopAppTest(
+            clock = CLOCK,
+            checkA11y = true,
+        ) {
+            tapTab("Statistics")
 
-        assertTagDisplayed(TestTags.STATISTICS_TAB_TASKS)
-        assertTagDisplayed(TestTags.STATISTICS_TAB_TIME)
-        assertTagDisplayed(TestTags.STATISTICS_TAB_HEALTH)
+            assertTagDisplayed(TestTags.STATISTICS_TAB_TASKS)
+            assertTagDisplayed(TestTags.STATISTICS_TAB_TIME)
+            assertTagDisplayed(TestTags.STATISTICS_TAB_HEALTH)
 
-        clickTag(TestTags.STATISTICS_TAB_HEALTH)
+            clickTag(TestTags.STATISTICS_TAB_HEALTH)
 
-        assertTagDisplayed(TestTags.HEALTH_BUCKET_BLOCKED)
-        assertTagDisplayed(TestTags.HEALTH_BUCKET_OVERDUE)
-        assertTagDisplayed(TestTags.HEALTH_BUCKET_STAGNANT)
-    }
+            assertTagDisplayed(TestTags.HEALTH_BUCKET_BLOCKED)
+            assertTagDisplayed(TestTags.HEALTH_BUCKET_OVERDUE)
+            assertTagDisplayed(TestTags.HEALTH_BUCKET_STAGNANT)
+        }
 
     private companion object {
         val FIXED_NOW: Instant = Instant.parse("2026-09-16T10:00:00Z")

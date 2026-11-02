@@ -6,11 +6,14 @@ import com.singularity.todo.core.ids.IdGenerator
 import com.singularity.todo.core.llm.AgentActivityState
 import com.singularity.todo.core.llm.AgentEvent
 import com.singularity.todo.core.llm.AgentTurnOutcome
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.observability.reportingScope
+import com.singularity.todo.core.text.FieldOwnedText
+import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.core.ui.MviEvent
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
-import com.singularity.todo.core.text.FieldOwnedText
-import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.feature.ai.TextGenPort
 import com.singularity.todo.feature.genui.engine.SurfaceTurn
 import com.singularity.todo.feature.genui.engine.SurfaceTurnFactory
@@ -18,13 +21,10 @@ import com.singularity.todo.feature.genui.surface.SurfaceId
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.serialization.json.JsonElement
-import com.singularity.todo.core.observability.CrashReportingPort
-import com.singularity.todo.core.observability.NoOpCrashReportingPort
-import com.singularity.todo.core.observability.reportingScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonElement
 import kotlin.coroutines.coroutineContext
 
 /**
@@ -53,7 +53,6 @@ class ChatViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
-
     data class State(
         val messages: ImmutableList<ChatMessage> = persistentListOf(),
         /**
@@ -99,6 +98,7 @@ class ChatViewModel(
 
     sealed interface Intent : MviIntent {
         data class InputChanged(val text: String) : Intent
+
         data object Send : Intent
 
         /**
@@ -161,7 +161,10 @@ class ChatViewModel(
      * an action identifier back at them would put a protocol detail where a person is looking. The
      * press still reaches the model, phrased as an event in the conversation.
      */
-    private fun act(name: String, context: JsonElement?) = turn(
+    private fun act(
+        name: String,
+        context: JsonElement?,
+    ) = turn(
         userText = name,
         prompt = actionPrompt(name, context),
         showUserMessage = false,
@@ -173,7 +176,11 @@ class ChatViewModel(
      * @param showUserMessage false for a press, so the conversation keeps showing only what people
      *   actually said.
      */
-    private fun turn(userText: String, prompt: String, showUserMessage: Boolean) = vmScope.launch {
+    private fun turn(
+        userText: String,
+        prompt: String,
+        showUserMessage: Boolean,
+    ) = vmScope.launch {
         if (_state.value.isLoading) return@launch
 
         val assistantId = newId()
@@ -193,17 +200,18 @@ class ChatViewModel(
                 surfaceError = null,
                 activity = AgentActivityState(),
                 turnOutcome = null,
-                messages = (
-                    current.messages +
-                        (
-                            if (showUserMessage) {
-                                listOf(ChatMessage(newId(), ChatRole.User, userText.trim()))
-                            } else {
-                                emptyList()
-                            }
-                        ) +
-                        ChatMessage(assistantId, ChatRole.Assistant, "")
-                ).toImmutableList(),
+                messages =
+                    (
+                        current.messages +
+                            (
+                                if (showUserMessage) {
+                                    listOf(ChatMessage(newId(), ChatRole.User, userText.trim()))
+                                } else {
+                                    emptyList()
+                                }
+                            ) +
+                            ChatMessage(assistantId, ChatRole.Assistant, "")
+                    ).toImmutableList(),
             )
         }
 
@@ -254,15 +262,19 @@ class ChatViewModel(
      * reads everything else. The bound data comes along because a press without it is a press the
      * model cannot act on: which task was pressed matters as much as what was pressed.
      */
-    private fun actionPrompt(name: String, context: JsonElement?): String = buildString {
-        append("The user pressed \"$name\" on the screen you showed.")
-        if (context != null) {
-            append(" It was bound to: ")
-            append(context)
-            append('.')
+    private fun actionPrompt(
+        name: String,
+        context: JsonElement?,
+    ): String =
+        buildString {
+            append("The user pressed \"$name\" on the screen you showed.")
+            if (context != null) {
+                append(" It was bound to: ")
+                append(context)
+                append('.')
+            }
+            append(" Continue the conversation.")
         }
-        append(" Continue the conversation.")
-    }
 
     /**
      * Asks the model, once, and folds what comes back into the screen.
@@ -291,13 +303,19 @@ class ChatViewModel(
                         applyReply(assistantId, collected.toString().trim(), null)
                     }
 
-                    is AgentEvent.ToolCallUpdated -> applyToolCall(event)
-
-                    is AgentEvent.PlanUpdated -> updateState { state ->
-                        state.copy(activity = state.activity + event)
+                    is AgentEvent.ToolCallUpdated -> {
+                        applyToolCall(event)
                     }
 
-                    AgentEvent.TurnCompleted -> completed = true
+                    is AgentEvent.PlanUpdated -> {
+                        updateState { state ->
+                            state.copy(activity = state.activity + event)
+                        }
+                    }
+
+                    AgentEvent.TurnCompleted -> {
+                        completed = true
+                    }
                 }
             }
         } catch (cancellation: CancellationException) {
@@ -361,16 +379,22 @@ class ChatViewModel(
         }
     }
 
-    private fun applyReply(assistantId: String, text: String, surfaceId: SurfaceId?) {
+    private fun applyReply(
+        assistantId: String,
+        text: String,
+        surfaceId: SurfaceId?,
+    ) {
         updateState { state ->
             state.copy(
-                messages = state.messages.map { message: ChatMessage ->
-                    if (message.id != assistantId) {
-                        message
-                    } else {
-                        message.copy(content = text, surfaceId = surfaceId)
-                    }
-                }.toImmutableList(),
+                messages =
+                    state.messages
+                        .map { message: ChatMessage ->
+                            if (message.id != assistantId) {
+                                message
+                            } else {
+                                message.copy(content = text, surfaceId = surfaceId)
+                            }
+                        }.toImmutableList(),
             )
         }
     }

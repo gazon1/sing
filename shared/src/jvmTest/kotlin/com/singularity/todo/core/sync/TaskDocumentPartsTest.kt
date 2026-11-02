@@ -8,7 +8,6 @@ import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskDocument
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeTaskRepository
-import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import org.junit.jupiter.api.Tag
@@ -16,6 +15,7 @@ import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 /**
  * The wire carries the fields the sending device knew about, and a field that
@@ -34,7 +34,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class TaskDocumentPartsTest {
-
     private class RecordingTaskRepository : FakeTaskRepository() {
         val documents = mutableListOf<TaskDocument>()
 
@@ -65,74 +64,85 @@ class TaskDocumentPartsTest {
      * The keys are the ones the sync allow-list sends: the tags and the
      * dependencies, under the wire names the model gives them.
      */
-    private fun wireDocument(task: Task, without: Set<String> = emptySet()): JsonObject {
+    private fun wireDocument(
+        task: Task,
+        without: Set<String> = emptySet(),
+    ): JsonObject {
         val encoded = task.toJson()
         return JsonObject(encoded.filterKeys { it !in without })
     }
 
     @Test
-    fun `a document with the tags key says what it carries`() = runTest {
-        val repo = RecordingTaskRepository()
-        val writer = fakeSyncDocumentWriter(tasks = repo)
-        val tag = TagId("tag-1")
+    fun `a document with the tags key says what it carries`() =
+        runTest {
+            val repo = RecordingTaskRepository()
+            val writer = fakeSyncDocumentWriter(tasks = repo)
+            val tag = TagId("tag-1")
 
-        writer.upsert(DocType.Task, wireDocument(task(tags = listOf(tag))))
+            writer.upsert(DocType.Task, wireDocument(task(tags = listOf(tag))))
 
-        assertEquals(listOf(tag), repo.documents.single().tags, "the document says what it carries")
-    }
-
-    @Test
-    fun `a document without the tags key says nothing about the tags`() = runTest {
-        val repo = RecordingTaskRepository()
-        val writer = fakeSyncDocumentWriter(tasks = repo)
-
-        writer.upsert(DocType.Task, wireDocument(task(tags = listOf(TagId("tag-1"))), without = setOf(TAGS_WIRE_NAME)))
-
-        assertNull(repo.documents.single().tags, "the document says nothing about the tags")
-    }
+            assertEquals(listOf(tag), repo.documents.single().tags, "the document says what it carries")
+        }
 
     @Test
-    fun `a document with the dependsOn key says what it carries`() = runTest {
-        val repo = RecordingTaskRepository()
-        val writer = fakeSyncDocumentWriter(tasks = repo)
-        val dependency = TaskId("t2")
+    fun `a document without the tags key says nothing about the tags`() =
+        runTest {
+            val repo = RecordingTaskRepository()
+            val writer = fakeSyncDocumentWriter(tasks = repo)
 
-        writer.upsert(DocType.Task, wireDocument(task(blockedBy = setOf(dependency))))
+            writer.upsert(
+                DocType.Task,
+                wireDocument(task(tags = listOf(TagId("tag-1"))), without = setOf(TAGS_WIRE_NAME)),
+            )
 
-        assertEquals(
-            setOf(dependency),
-            repo.documents.single().blockedBy,
-            "the document says what it carries",
-        )
-    }
-
-    @Test
-    fun `a document without the dependsOn key says nothing about the dependencies`() = runTest {
-        val repo = RecordingTaskRepository()
-        val writer = fakeSyncDocumentWriter(tasks = repo)
-
-        writer.upsert(
-            DocType.Task,
-            wireDocument(task(blockedBy = setOf(TaskId("t2"))), without = setOf(BLOCKED_BY_WIRE_NAME)),
-        )
-
-        assertNull(repo.documents.single().blockedBy, "the document says nothing about the dependencies")
-    }
+            assertNull(repo.documents.single().tags, "the document says nothing about the tags")
+        }
 
     @Test
-    fun `a document that carries the parts says nothing about the others`() = runTest {
-        val repo = RecordingTaskRepository()
-        val writer = fakeSyncDocumentWriter(tasks = repo)
+    fun `a document with the dependsOn key says what it carries`() =
+        runTest {
+            val repo = RecordingTaskRepository()
+            val writer = fakeSyncDocumentWriter(tasks = repo)
+            val dependency = TaskId("t2")
 
-        writer.upsert(
-            DocType.Task,
-            wireDocument(task(tags = listOf(TagId("tag-1"))), without = setOf(BLOCKED_BY_WIRE_NAME)),
-        )
+            writer.upsert(DocType.Task, wireDocument(task(blockedBy = setOf(dependency))))
 
-        val document = repo.documents.single()
-        assertEquals(listOf(TagId("tag-1")), document.tags, "the tags are said")
-        assertNull(document.blockedBy, "the dependencies are not")
-    }
+            assertEquals(
+                setOf(dependency),
+                repo.documents.single().blockedBy,
+                "the document says what it carries",
+            )
+        }
+
+    @Test
+    fun `a document without the dependsOn key says nothing about the dependencies`() =
+        runTest {
+            val repo = RecordingTaskRepository()
+            val writer = fakeSyncDocumentWriter(tasks = repo)
+
+            writer.upsert(
+                DocType.Task,
+                wireDocument(task(blockedBy = setOf(TaskId("t2"))), without = setOf(BLOCKED_BY_WIRE_NAME)),
+            )
+
+            assertNull(repo.documents.single().blockedBy, "the document says nothing about the dependencies")
+        }
+
+    @Test
+    fun `a document that carries the parts says nothing about the others`() =
+        runTest {
+            val repo = RecordingTaskRepository()
+            val writer = fakeSyncDocumentWriter(tasks = repo)
+
+            writer.upsert(
+                DocType.Task,
+                wireDocument(task(tags = listOf(TagId("tag-1"))), without = setOf(BLOCKED_BY_WIRE_NAME)),
+            )
+
+            val document = repo.documents.single()
+            assertEquals(listOf(TagId("tag-1")), document.tags, "the tags are said")
+            assertNull(document.blockedBy, "the dependencies are not")
+        }
 
     /**
      * The double has to keep the parts the document does not carry.
@@ -143,25 +153,28 @@ class TaskDocumentPartsTest {
      * production, which is the worst way for a double to lie.
      */
     @Test
-    fun `the double keeps the parts the document does not carry`() = runTest {
-        val repo = FakeTaskRepository()
-        repo.upsert(TaskDocument.of(task(tags = listOf(TagId("tag-1")))))
-        val before = repo.tasks.value.getValue("t1")
+    fun `the double keeps the parts the document does not carry`() =
+        runTest {
+            val repo = FakeTaskRepository()
+            repo.upsert(TaskDocument.of(task(tags = listOf(TagId("tag-1")))))
+            val before = repo.tasks.value.getValue("t1")
 
-        repo.upsert(
-            TaskDocument(
-                task = before,
-                tags = null,
-                blockedBy = null,
-            ),
-        )
+            repo.upsert(
+                TaskDocument(
+                    task = before,
+                    tags = null,
+                    blockedBy = null,
+                ),
+            )
 
-        assertEquals(
-            listOf(TagId("tag-1")),
-            repo.tasks.value.getValue("t1").tags,
-            "the tags the document said nothing about are still there",
-        )
-    }
+            assertEquals(
+                listOf(TagId("tag-1")),
+                repo.tasks.value
+                    .getValue("t1")
+                    .tags,
+                "the tags the document said nothing about are still there",
+            )
+        }
 
     /**
      * The double has to take the claim when there is one.
@@ -172,48 +185,54 @@ class TaskDocumentPartsTest {
      * absence leaves alone.
      */
     @Test
-    fun `the double takes the claim when the document carries one`() = runTest {
-        val repo = FakeTaskRepository()
-        repo.upsert(TaskDocument.of(task(tags = listOf(TagId("tag-1")))))
+    fun `the double takes the claim when the document carries one`() =
+        runTest {
+            val repo = FakeTaskRepository()
+            repo.upsert(TaskDocument.of(task(tags = listOf(TagId("tag-1")))))
 
-        repo.upsert(
-            TaskDocument(
-                task = repo.tasks.value.getValue("t1"),
-                tags = listOf(TagId("tag-2")),
-                blockedBy = null,
-            ),
-        )
+            repo.upsert(
+                TaskDocument(
+                    task = repo.tasks.value.getValue("t1"),
+                    tags = listOf(TagId("tag-2")),
+                    blockedBy = null,
+                ),
+            )
 
-        assertEquals(
-            listOf(TagId("tag-2")),
-            repo.tasks.value.getValue("t1").tags,
-            "the tags of the document are the tags of the task",
-        )
-    }
+            assertEquals(
+                listOf(TagId("tag-2")),
+                repo.tasks.value
+                    .getValue("t1")
+                    .tags,
+                "the tags of the document are the tags of the task",
+            )
+        }
 
     /**
      * The dependencies are parts like the tags, and the double has to keep the
      * ones the document says nothing about.
      */
     @Test
-    fun `the double keeps the dependencies the document does not carry`() = runTest {
-        val repo = FakeTaskRepository()
-        repo.upsert(TaskDocument.of(task(blockedBy = setOf(TaskId("t2")))))
+    fun `the double keeps the dependencies the document does not carry`() =
+        runTest {
+            val repo = FakeTaskRepository()
+            repo.upsert(TaskDocument.of(task(blockedBy = setOf(TaskId("t2")))))
 
-        repo.upsert(
-            TaskDocument(
-                task = repo.tasks.value.getValue("t1"),
-                tags = null,
-                blockedBy = null,
-            ),
-        )
+            repo.upsert(
+                TaskDocument(
+                    task = repo.tasks.value.getValue("t1"),
+                    tags = null,
+                    blockedBy = null,
+                ),
+            )
 
-        assertEquals(
-            setOf(TaskId("t2")),
-            repo.tasks.value.getValue("t1").blockedBy,
-            "the dependencies of the task are still the dependencies of the task",
-        )
-    }
+            assertEquals(
+                setOf(TaskId("t2")),
+                repo.tasks.value
+                    .getValue("t1")
+                    .blockedBy,
+                "the dependencies of the task are still the dependencies of the task",
+            )
+        }
 
     /**
      * The reader looks the parts up by their wire names, and the model writes

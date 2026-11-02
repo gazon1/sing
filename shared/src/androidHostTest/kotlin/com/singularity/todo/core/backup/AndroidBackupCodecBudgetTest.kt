@@ -43,7 +43,6 @@ import java.util.zip.ZipOutputStream
  * the only shape Vintage accepts.
  */
 class AndroidBackupCodecBudgetTest {
-
     /**
      * An archive that expands past the byte budget is refused.
      *
@@ -58,8 +57,9 @@ class AndroidBackupCodecBudgetTest {
             val codec = AndroidBackupCodec()
             fs.writeBytes("/tmp/big.zip", zipWithEntry(BackupFormat.ENTRY_PAYLOAD, oversizedEntry()))
 
-            val failure = runCatchingCancellable { codec.import("/tmp/big.zip", fs).getOrThrow() }
-                .exceptionOrNull()
+            val failure =
+                runCatchingCancellable { codec.import("/tmp/big.zip", fs).getOrThrow() }
+                    .exceptionOrNull()
 
             assertTrue(
                 "the decoder read an archive past its budget instead of refusing it: $failure",
@@ -81,8 +81,9 @@ class AndroidBackupCodecBudgetTest {
             val codec = AndroidBackupCodec()
             fs.writeBytes("/tmp/many.zip", zipWithEntries(ArchiveBudget.MAX_ENTRIES + 1))
 
-            val failure = runCatchingCancellable { codec.import("/tmp/many.zip", fs).getOrThrow() }
-                .exceptionOrNull()
+            val failure =
+                runCatchingCancellable { codec.import("/tmp/many.zip", fs).getOrThrow() }
+                    .exceptionOrNull()
 
             assertTrue(
                 "the decoder read more entries than its budget allows instead of refusing it: $failure",
@@ -92,7 +93,10 @@ class AndroidBackupCodecBudgetTest {
     }
 
     /** A zip holding one entry whose content is [content]. */
-    private fun zipWithEntry(name: String, content: ByteArray): ByteArray {
+    private fun zipWithEntry(
+        name: String,
+        content: ByteArray,
+    ): ByteArray {
         val out = ByteArrayOutputStream()
         ZipOutputStream(out).use { zos ->
             zos.putNextEntry(ZipEntry(name))
@@ -115,6 +119,5 @@ class AndroidBackupCodecBudgetTest {
     }
 
     /** One byte more than the budget allows. */
-    private fun oversizedEntry(): ByteArray =
-        ByteArray((ArchiveBudget.MAX_TOTAL_BYTES + 1).toInt())
+    private fun oversizedEntry(): ByteArray = ByteArray((ArchiveBudget.MAX_TOTAL_BYTES + 1).toInt())
 }

@@ -21,12 +21,12 @@ data class SmartRewriteOutput(val newTitle: String)
 
 class SmartRewriteTool(private val promptExecutor: PromptExecutor, private val model: LLModel) :
     SimpleTool<SmartRewriteInput>(TypeToken.of(SmartRewriteInput::class.java), NAME, DESCRIPTION) {
-
     override suspend fun execute(args: SmartRewriteInput): String {
-        val p = prompt(Prompt.Empty, KoogClock.System) {
-            system(Prompts.smartRewriteSystem)
-            user(Prompts.smartRewriteUser(args.rawIdea))
-        }
+        val p =
+            prompt(Prompt.Empty, KoogClock.System) {
+                system(Prompts.smartRewriteSystem)
+                user(Prompts.smartRewriteUser(args.rawIdea))
+            }
         val response = promptExecutor.execute(p, model, emptyList())
         val text = extractText(response)
         return Json.encodeToString(SmartRewriteOutput.serializer(), SmartRewriteOutput(text.trim()))
@@ -37,6 +37,9 @@ class SmartRewriteTool(private val promptExecutor: PromptExecutor, private val m
         const val DESCRIPTION = "Craft a concise, actionable task title from a raw idea."
 
         private fun extractText(response: Message.Assistant): String =
-            response.parts.filterIsInstance<MessagePart.Text>().joinToString("") { it.text }.trim()
+            response.parts
+                .filterIsInstance<MessagePart.Text>()
+                .joinToString("") { it.text }
+                .trim()
     }
 }

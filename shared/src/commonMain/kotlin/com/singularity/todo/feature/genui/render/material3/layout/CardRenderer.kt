@@ -9,13 +9,15 @@ import com.singularity.todo.feature.genui.render.ComponentRegistry
 import com.singularity.todo.feature.genui.render.genuiTag
 import com.singularity.todo.feature.genui.render.material3.RenderSingle
 
-internal fun ComponentRegistry.registerCard(): Unit = register("card") { node, ctx, modifier ->
-    val c = node as UiNode.Card
-    Surface(
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        modifier = modifier
-            .genuiTag("card", "Card")
-            .padding(4.dp),
-    ) { RenderSingle(c.child, ctx) }
-}
+internal fun ComponentRegistry.registerCard(): Unit =
+    register("card") { node, ctx, modifier ->
+        val c = node as UiNode.Card
+        Surface(
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            modifier =
+                modifier
+                    .genuiTag("card", "Card")
+                    .padding(4.dp),
+        ) { RenderSingle(c.child, ctx) }
+    }

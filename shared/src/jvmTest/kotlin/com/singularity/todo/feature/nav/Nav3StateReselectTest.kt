@@ -24,7 +24,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class Nav3StateReselectTest {
-
     private val start: NavKey = AppDestination.AgendaGraph(AgendaStartRoute.Today)
     private val other: NavKey = AppDestination.NotesGraph()
 
@@ -84,46 +83,49 @@ class Nav3StateReselectTest {
     // ── Reselect ───────────────────────────────────────────────────────────
 
     @Test
-    fun `tapping the active tab does not change the route`() = runTest {
-        val s = state(other)
-        s.onTabTapped(other)
+    fun `tapping the active tab does not change the route`() =
+        runTest {
+            val s = state(other)
+            s.onTabTapped(other)
 
-        s.onTabTapped(other)
+            s.onTabTapped(other)
 
-        assertEquals(other, s.topLevelRoute)
-    }
-
-    @Test
-    fun `tapping the active tab emits a reselect event`() = runTest {
-        val s = state(other)
-        s.onTabTapped(other)
-
-        // The flow has no replay: in production the screen's LaunchedEffect is already
-        // collecting when the user taps, so the collector must start BEFORE the tap.
-        val received = async { s.reselectEvents.first() }
-        runCurrent()
-
-        s.onTabTapped(other)
-
-        assertEquals(other, received.await())
-    }
+            assertEquals(other, s.topLevelRoute)
+        }
 
     @Test
-    fun `tapping a different tab emits no reselect event`() = runTest {
-        val s = state(other)
+    fun `tapping the active tab emits a reselect event`() =
+        runTest {
+            val s = state(other)
+            s.onTabTapped(other)
 
-        val received = async { s.reselectEvents.first() }
-        runCurrent()
+            // The flow has no replay: in production the screen's LaunchedEffect is already
+            // collecting when the user taps, so the collector must start BEFORE the tap.
+            val received = async { s.reselectEvents.first() }
+            runCurrent()
 
-        // Switching tabs is not a reselect — nothing should arrive, so `first()` stays
-        // suspended. Assert the route moved, then cancel the pending collector.
-        s.onTabTapped(other)
+            s.onTabTapped(other)
 
-        assertEquals(other, s.topLevelRoute)
-        assertEquals(start, s.previousTopLevelRoute)
-        assertTrue(received.isActive, "a tab switch must not emit a reselect event")
-        received.cancel()
-    }
+            assertEquals(other, received.await())
+        }
+
+    @Test
+    fun `tapping a different tab emits no reselect event`() =
+        runTest {
+            val s = state(other)
+
+            val received = async { s.reselectEvents.first() }
+            runCurrent()
+
+            // Switching tabs is not a reselect — nothing should arrive, so `first()` stays
+            // suspended. Assert the route moved, then cancel the pending collector.
+            s.onTabTapped(other)
+
+            assertEquals(other, s.topLevelRoute)
+            assertEquals(start, s.previousTopLevelRoute)
+            assertTrue(received.isActive, "a tab switch must not emit a reselect event")
+            received.cancel()
+        }
 
     // ── Navigator.open — the policy facade (REQ-NAV-001) ─────────────────
     //
@@ -156,19 +158,20 @@ class Nav3StateReselectTest {
     }
 
     @Test
-    fun `reopening the active tab through open emits a reselect and touches no stack`() = runTest {
-        val s = state(AppDestination.Plans)
-        val navigator = Navigator(s)
-        navigator.open(AppDestination.Plans)
-        val stackSize = s.requireBackStackFor(s.topLevelRoute).size
+    fun `reopening the active tab through open emits a reselect and touches no stack`() =
+        runTest {
+            val s = state(AppDestination.Plans)
+            val navigator = Navigator(s)
+            navigator.open(AppDestination.Plans)
+            val stackSize = s.requireBackStackFor(s.topLevelRoute).size
 
-        val received = async { s.reselectEvents.first() }
-        runCurrent()
-        navigator.open(AppDestination.Plans)
+            val received = async { s.reselectEvents.first() }
+            runCurrent()
+            navigator.open(AppDestination.Plans)
 
-        assertEquals(AppDestination.Plans, received.await())
-        assertEquals(stackSize, s.requireBackStackFor(s.topLevelRoute).size)
-    }
+            assertEquals(AppDestination.Plans, received.await())
+            assertEquals(stackSize, s.requireBackStackFor(s.topLevelRoute).size)
+        }
 
     @Test
     fun `open of a bare nested start route fails before touching the stack`() {
@@ -176,9 +179,10 @@ class Nav3StateReselectTest {
         val navigator = Navigator(s)
         val before = s.requireBackStackFor(s.topLevelRoute).toList()
 
-        val error = assertFailsWith<IllegalArgumentException> {
-            navigator.open(AppDestination.TasksStartRoute.Create())
-        }
+        val error =
+            assertFailsWith<IllegalArgumentException> {
+                navigator.open(AppDestination.TasksStartRoute.Create())
+            }
 
         assertTrue(
             error.message.orEmpty().contains("$start"),

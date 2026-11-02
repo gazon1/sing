@@ -22,7 +22,6 @@ class InternalLinkRepositoryImpl(
     private val textIndex: SearchTextIndex,
     private val currentUser: ProfileAwareCurrentUser,
 ) : InternalLinkRepository {
-
     /**
      * The notes offered for a link, in the mode the caller states.
      *
@@ -30,16 +29,22 @@ class InternalLinkRepositoryImpl(
      * asks. The contains mode the index cannot answer (it stores words, not
      * character positions), so the titles are read and matched in memory.
      */
-    override suspend fun searchNotes(query: String, mode: SearchMode): List<Note> {
+    override suspend fun searchNotes(
+        query: String,
+        mode: SearchMode,
+    ): List<Note> {
         if (query.isBlank()) return emptyList()
         val rule = FreeTextRule.singleTerm(query)
         return when (rule.plan(mode)) {
-            is TextMatchPlan.Narrowed ->
+            is TextMatchPlan.Narrowed -> {
                 textIndex.recentNoteTitles(rule.indexQuery(mode), limit = SUGGESTION_LIMIT)
+            }
 
             TextMatchPlan.BroadScan -> {
                 val userId = currentUser.scopedUserId.value.value
-                noteDao.watchAll(userId).first()
+                noteDao
+                    .watchAll(userId)
+                    .first()
                     .map { note -> note.toNote() }
                     .filter { note -> mode.matches(note, query) }
                     .sortedByDescending { note -> note.updatedAt }
@@ -52,16 +57,22 @@ class InternalLinkRepositoryImpl(
      * The tasks offered for a link, in the mode the caller states.
      * See [searchNotes].
      */
-    override suspend fun searchTasks(query: String, mode: SearchMode): List<Task> {
+    override suspend fun searchTasks(
+        query: String,
+        mode: SearchMode,
+    ): List<Task> {
         if (query.isBlank()) return emptyList()
         val rule = FreeTextRule.singleTerm(query)
         return when (rule.plan(mode)) {
-            is TextMatchPlan.Narrowed ->
+            is TextMatchPlan.Narrowed -> {
                 textIndex.recentTaskTitles(rule.indexQuery(mode), limit = SUGGESTION_LIMIT)
+            }
 
             TextMatchPlan.BroadScan -> {
                 val userId = currentUser.scopedUserId.value.value
-                taskDao.watchActive(userId).first()
+                taskDao
+                    .watchActive(userId)
+                    .first()
                     .map { task -> task.toTask() }
                     .filter { task -> mode.matches(task, query) }
                     .sortedByDescending { task -> task.updatedAt }

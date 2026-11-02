@@ -18,7 +18,6 @@ package com.singularity.todo.core.links
  * @see InternalLinks — how a link is built and read.
  */
 object InternalLinkSchemes {
-
     /** Scheme of a link that points at a note. */
     const val NOTE = "note"
 
@@ -59,7 +58,6 @@ object InternalLinkSchemes {
  * @property id the identifier of the target.
  */
 data class InternalLinkTarget(val scheme: String, val id: String) {
-
     /** The `scheme://` prefix this target belongs to. */
     val prefix: String get() = scheme + InternalLinkSchemes.SEPARATOR
 
@@ -86,7 +84,6 @@ data class InternalLinkMatch(val range: IntRange, val target: InternalLinkTarget
  * @see InternalLinkSchemes — the vocabulary itself.
  */
 object InternalLinks {
-
     private val ID_REGEX = Regex("^${InternalLinkSchemes.ID_PATTERN}$")
 
     /**
@@ -105,10 +102,11 @@ object InternalLinks {
      * The lookbehind is what keeps a foreign scheme from contributing: the scheme
      * has to start where a word starts.
      */
-    private val LINK_REGEX = Regex(
-        "(?<![A-Za-z0-9+.-])($SCHEME_SOURCE)" +
-            "${InternalLinkSchemes.SEPARATOR}(${InternalLinkSchemes.ID_PATTERN})",
-    )
+    private val LINK_REGEX =
+        Regex(
+            "(?<![A-Za-z0-9+.-])($SCHEME_SOURCE)" +
+                "${InternalLinkSchemes.SEPARATOR}(${InternalLinkSchemes.ID_PATTERN})",
+        )
 
     /**
      * Builds the URL of a link.
@@ -116,7 +114,10 @@ object InternalLinks {
      * @param scheme one of [InternalLinkSchemes.ALL].
      * @param id the identifier of the target.
      */
-    fun urlFor(scheme: String, id: String): String = scheme + InternalLinkSchemes.SEPARATOR + id
+    fun urlFor(
+        scheme: String,
+        id: String,
+    ): String = scheme + InternalLinkSchemes.SEPARATOR + id
 
     /** True when [scheme] is one the app owns. */
     fun isInternalScheme(scheme: String): Boolean = scheme in InternalLinkSchemes.ALL
@@ -147,8 +148,10 @@ object InternalLinks {
      * @param text the text to scan.
      */
     fun findIn(text: String): List<InternalLinkMatch> =
-        LINK_REGEX.findAll(text).mapNotNull { match ->
-            val target = parse(match.value) ?: return@mapNotNull null
-            InternalLinkMatch(match.range, target)
-        }.toList()
+        LINK_REGEX
+            .findAll(text)
+            .mapNotNull { match ->
+                val target = parse(match.value) ?: return@mapNotNull null
+                InternalLinkMatch(match.range, target)
+            }.toList()
 }

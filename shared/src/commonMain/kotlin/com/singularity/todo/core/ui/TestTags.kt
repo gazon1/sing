@@ -3,6 +3,11 @@ package com.singularity.todo.core.ui
 import com.singularity.todo.core.reminders.ReminderOffset
 import kotlinx.datetime.DayOfWeek
 
+// The one flat namespace for every automation tag is the point of this object: a
+// tag must be findable from a Compose call site, a unit test, and a Maestro flow
+// without any of them learning a sub-object path. Splitting it to satisfy the
+// function-count rule would break every existing call site and flow for no gain.
+
 /**
  * Test tag constants for UI test identification.
  *
@@ -44,10 +49,6 @@ import kotlinx.datetime.DayOfWeek
  * tells you *that* the catalogue is stale before you spend minutes finding out.
  * The pre-push hook runs it for you whenever the push touches this file.
  */
-// The one flat namespace for every automation tag is the point of this object: a
-// tag must be findable from a Compose call site, a unit test, and a Maestro flow
-// without any of them learning a sub-object path. Splitting it to satisfy the
-// function-count rule would break every existing call site and flow for no gain.
 @Suppress("TooManyFunctions")
 object TestTags {
     // ─── Global ──────────────────────────────────────────────────────────────
@@ -295,7 +296,10 @@ object TestTags {
      * the label is user-facing copy and a tag built from it would break in another
      * locale.
      */
-    fun dependencyVerb(taskId: String, verb: String) = "dependency_verb_${slug(taskId)}_${verb.lowercase()}"
+    fun dependencyVerb(
+        taskId: String,
+        verb: String,
+    ) = "dependency_verb_${slug(taskId)}_${verb.lowercase()}"
 
     /** Workflow-state row in the task editor attribute list. */
     const val TASK_EDITOR_WORKFLOW_STATE_ROW = "task_editor_workflow_state_row"
@@ -351,21 +355,30 @@ object TestTags {
      * Derived from the item's id and title, slugified the same way as [taskItem].
      */
     @Suppress("UnusedParameter")
-    fun checklistItem(id: String, title: String) = "checklist_item_${slug(title)}"
+    fun checklistItem(
+        id: String,
+        title: String,
+    ) = "checklist_item_${slug(title)}"
 
     /**
      * Dynamic tag of the form `checklist_item_checkbox_<slug>` — the toggle/checkbox
      * for each checklist item row.
      */
     @Suppress("UnusedParameter")
-    fun checklistItemCheckbox(id: String, title: String) = "checklist_item_checkbox_${slug(title)}"
+    fun checklistItemCheckbox(
+        id: String,
+        title: String,
+    ) = "checklist_item_checkbox_${slug(title)}"
 
     /**
      * Dynamic tag of the form `checklist_item_delete_<slug>` — the delete (×) button
      * for each checklist item row.
      */
     @Suppress("UnusedParameter")
-    fun checklistItemDelete(id: String, title: String) = "checklist_item_delete_${slug(title)}"
+    fun checklistItemDelete(
+        id: String,
+        title: String,
+    ) = "checklist_item_delete_${slug(title)}"
 
     // ─── Subtasks ─────────────────────────────────────────────────────────────
 

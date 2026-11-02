@@ -19,14 +19,15 @@ import kotlin.test.assertTrue
  * never reaches the Android resource-id layer — Maestro `id:` selectors silently fail.
  */
 class NoPopupWithoutResourceIdMappingTest {
-
     private val languageSettings = FakeLanguageVersionSettings(ExplicitApiMode.STRICT)
 
-    private fun findings(rule: NoPopupWithoutResourceIdMapping, code: String) =
-        rule.visitFile(
-            compileContentForTest(code.trimIndent(), Path.of("Fixture.kt")),
-            languageSettings,
-        )
+    private fun findings(
+        rule: NoPopupWithoutResourceIdMapping,
+        code: String,
+    ) = rule.visitFile(
+        compileContentForTest(code.trimIndent(), Path.of("Fixture.kt")),
+        languageSettings,
+    )
 
     private fun rule() = NoPopupWithoutResourceIdMapping(TestConfig())
 

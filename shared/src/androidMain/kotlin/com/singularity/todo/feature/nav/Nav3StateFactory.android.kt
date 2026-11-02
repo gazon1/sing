@@ -33,15 +33,17 @@ actual fun rememberNav3State(): Nav3State {
     val topLevelRoutes: Set<NavKey> =
         DestinationKind.tabs.toSet() + DestinationKind.menuEntries.toSet()
 
-    val topLevelRouteState: MutableState<NavKey> = remember(startRoute) {
-        mutableStateOf(startRoute)
-    }
+    val topLevelRouteState: MutableState<NavKey> =
+        remember(startRoute) {
+            mutableStateOf(startRoute)
+        }
 
     val savedStateConfig = navSavedStateConfig()
 
-    val backStacks = topLevelRoutes.associateWith { key ->
-        rememberNavBackStack(savedStateConfig, key)
-    }
+    val backStacks =
+        topLevelRoutes.associateWith { key ->
+            rememberNavBackStack(savedStateConfig, key)
+        }
 
     return remember(startRoute, topLevelRoutes) {
         Nav3State(startRoute, topLevelRouteState, backStacks)

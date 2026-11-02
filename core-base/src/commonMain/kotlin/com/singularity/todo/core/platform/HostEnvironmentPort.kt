@@ -27,7 +27,6 @@ package com.singularity.todo.core.platform
  * defined rather than an NPE on `System.getProperty` returning null.
  */
 interface HostEnvironmentPort {
-
     /** The directory the process was launched from, or an empty string if unknown. */
     fun workingDirectory(): String
 

@@ -15,7 +15,10 @@ import org.koin.core.parameter.parametersOf
 @OptIn(ExperimentalMaterial3Api::class)
 @Suppress("VIEW_MODEL_IN_COMPOSABLE")
 @Composable
-fun ProjectDetailScreen(projectId: ProjectId, modifier: Modifier = Modifier) {
+fun ProjectDetailScreen(
+    projectId: ProjectId,
+    modifier: Modifier = Modifier,
+) {
     val viewModel: ProjectDetailViewModel = koinViewModel { parametersOf(projectId) }
     ProjectDetailContent(viewModel = viewModel, modifier = modifier)
 }

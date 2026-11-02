@@ -40,7 +40,6 @@ class TaskReopenUseCase(
     private val projectRepo: ProjectsRepository,
     private val clock: Clock,
 ) {
-
     /**
      * Takes the task back into work, and opens its project if that project was
      * closed.
@@ -49,15 +48,16 @@ class TaskReopenUseCase(
      *
      * @param taskId the task to reopen.
      */
-    suspend fun reopen(taskId: TaskId): Result<Unit> = runCatchingCancellable {
-        val task = taskRepo.get(taskId)
-        taskRepo.reopen(taskId).getOrThrow()
-        val projectId = task?.projectId ?: return@runCatchingCancellable
-        // The project is only opened when it is actually closed: reopening an
-        // open project would be a write that says nothing.
-        val project = projectRepo.observeProject(projectId).firstOrNull()
-        if (project?.closedAt != null) {
-            projectRepo.reopen(projectId, clock.now().toEpochMilliseconds()).getOrThrow()
+    suspend fun reopen(taskId: TaskId): Result<Unit> =
+        runCatchingCancellable {
+            val task = taskRepo.get(taskId)
+            taskRepo.reopen(taskId).getOrThrow()
+            val projectId = task?.projectId ?: return@runCatchingCancellable
+            // The project is only opened when it is actually closed: reopening an
+            // open project would be a write that says nothing.
+            val project = projectRepo.observeProject(projectId).firstOrNull()
+            if (project?.closedAt != null) {
+                projectRepo.reopen(projectId, clock.now().toEpochMilliseconds()).getOrThrow()
+            }
         }
-    }
 }

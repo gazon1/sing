@@ -43,13 +43,15 @@ import org.koin.core.context.GlobalContext
 class AlarmReceiver :
     BroadcastReceiver(),
     KoinComponent {
-
     private val log = Logger.withTag("AlarmReceiver")
 
     private val handler: AlarmHandler by inject()
     private val crashReporter: CrashReportingPort by inject()
 
-    override fun onReceive(context: Context, intent: Intent) {
+    override fun onReceive(
+        context: Context,
+        intent: Intent,
+    ) {
         // Defensive: ensure Koin is initialized before injecting dependencies.
         // On some Android versions the BroadcastReceiver can fire before Application.onCreate.
         if (GlobalContext.getOrNull() == null) {
@@ -58,14 +60,15 @@ class AlarmReceiver :
             return
         }
         val pendingResult = goAsync()
-        val scope = CoroutineScope(
-            Dispatchers.IO +
-                SupervisorJob() +
-                CoroutineExceptionHandler { _, e ->
-                    log.e(e) { "AlarmReceiver failed" }
-                    crashReporter.report(e, "alarm.receiver_failed")
-                },
-        )
+        val scope =
+            CoroutineScope(
+                Dispatchers.IO +
+                    SupervisorJob() +
+                    CoroutineExceptionHandler { _, e ->
+                        log.e(e) { "AlarmReceiver failed" }
+                        crashReporter.report(e, "alarm.receiver_failed")
+                    },
+            )
         scope.launch {
             try {
                 when (intent.action) {
@@ -122,12 +125,17 @@ class AlarmReceiver :
         get() = getStringExtra(EXTRA_REMINDER_ID)?.let(::ReminderId)
 
     private val Intent.userIdOrNull: com.singularity.todo.core.ids.UserId?
-        get() = getStringExtra(EXTRA_USER_ID)?.let { com.singularity.todo.core.ids.UserId(it) }
+        get() =
+            getStringExtra(EXTRA_USER_ID)?.let {
+                com.singularity.todo.core.ids
+                    .UserId(it)
+            }
 
     private val Intent.phaseOrNull: PomodoroPhase?
-        get() = getStringExtra(EXTRA_PHASE)?.let { phaseName ->
-            runCatching { PomodoroPhase.valueOf(phaseName) }.getOrNull()
-        }
+        get() =
+            getStringExtra(EXTRA_PHASE)?.let { phaseName ->
+                runCatching { PomodoroPhase.valueOf(phaseName) }.getOrNull()
+            }
 
     // ─── Companion ──────────────────────────────────────────────────────────────
 

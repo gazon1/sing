@@ -24,8 +24,8 @@ import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.tasks.domain.model.TaskMarking
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSpacing
-import com.singularity.todo.feature.tasks.presentation.theme.mutedTextColor
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSemanticColors
+import com.singularity.todo.feature.tasks.presentation.theme.mutedTextColor
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentSetOf
 
@@ -54,8 +54,9 @@ fun TaskMetaRow(
 ) {
     // One fact, four sources: the row shows nothing when there is nothing to show.
     // The repeat badge is a marking now, so `markings.isNotEmpty()` covers it.
-    val hasSomethingToShow = dueLabel != null || project != null ||
-        markings.isNotEmpty() || seriesDates != null
+    val hasSomethingToShow =
+        dueLabel != null || project != null ||
+            markings.isNotEmpty() || seriesDates != null
     if (!hasSomethingToShow) return
 
     val isOverdue = TaskMarking.Overdue in markings
@@ -99,14 +100,18 @@ fun TaskMetaRow(
  * многоточием и не вытесняет дату из строки (FR-031).
  */
 @Composable
-private fun ProjectBadge(name: String, color: Int?) {
+private fun ProjectBadge(
+    name: String,
+    color: Int?,
+) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (color != null) {
             Box(
-                modifier = Modifier
-                    .size(TaskListSizes.MetaIcon)
-                    .clip(CircleShape)
-                    .background(Color(color)),
+                modifier =
+                    Modifier
+                        .size(TaskListSizes.MetaIcon)
+                        .clip(CircleShape)
+                        .background(Color(color)),
             )
             Spacer(Modifier.width(TaskListSpacing.Xxs))
         }

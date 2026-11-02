@@ -126,7 +126,6 @@ enum class WriteBehavior {
  * Koog tool class.
  */
 object McpToolCatalog {
-
     /**
      * The version of the contract an agent reads.
      *
@@ -178,340 +177,335 @@ object McpToolCatalog {
      * The description of each tool is not here — it belongs to the tool class.
      * See the object documentation above.
      */
-    val catalog: List<ToolEntry> = listOf(
-        // ── Tasks ──────────────────────────────────────────────────────────────
-        ToolEntry(
-            name = "create_task",
-            writeBehavior = WriteBehavior.PROPOSAL_WRITE,
-            toolClass = CreateTaskTool::class,
-            domain = "tasks",
-            // The tool proposes: two calls with the same input are two proposals,
-            // each naming the task it would create. It is not idempotent any more.
-            annotations = ToolAnnotations(),
-        ),
-        ToolEntry(
-            name = "update_task",
-            writeBehavior = WriteBehavior.PROPOSAL_WRITE,
-            toolClass = UpdateTaskTool::class,
-            domain = "tasks",
-            annotations = ToolAnnotations(),
-        ),
-        ToolEntry(
-            name = "delete_task",
-            writeBehavior = WriteBehavior.PROPOSAL_WRITE,
-            toolClass = DeleteTaskTool::class,
-            domain = "tasks",
-            annotations = ToolAnnotations(destructiveHint = true),
-        ),
-        ToolEntry(
-            name = "list_tasks",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = ListTasksTool::class,
-            domain = "tasks",
-            annotations = ToolAnnotations(readOnlyHint = true),
-        ),
-        ToolEntry(
-            name = "get_task",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = GetTaskTool::class,
-            domain = "tasks",
-            annotations = ToolAnnotations(readOnlyHint = true),
-        ),
-        ToolEntry(
-            name = "write_task_proposal",
-            writeBehavior = WriteBehavior.PROPOSAL_WRITE,
-            toolClass = WriteTaskProposalTool::class,
-            domain = "tasks",
-            annotations = ToolAnnotations(),
-        ),
-        ToolEntry(
-            name = "search_tasks",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = SearchTasksTool::class,
-            domain = "tasks",
-            annotations = ToolAnnotations(readOnlyHint = true),
-        ),
-        ToolEntry(
-            name = "first_step",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = FirstStepTool::class,
-            domain = "tasks",
-            annotations = ToolAnnotations(readOnlyHint = true),
-        ),
-        ToolEntry(
-            name = "decompose_and_create",
-            writeBehavior = WriteBehavior.PROPOSAL_WRITE,
-            toolClass = DecomposeAndCreateTool::class,
-            domain = "tasks",
-            annotations = ToolAnnotations(),
-        ),
-        ToolEntry(
-            name = "list_linked_tasks",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = ListLinkedTasksTool::class,
-            domain = "tasks",
-            annotations = ToolAnnotations(readOnlyHint = true),
-        ),
-
-        // ── Projects ─────────────────────────────────────────────────────────
-        ToolEntry(
-            name = "create_project",
-            writeBehavior = WriteBehavior.PROPOSAL_WRITE,
-            toolClass = CreateProjectTool::class,
-            domain = "projects",
-            // The tool proposes: two calls with the same input are two proposals.
-            annotations = ToolAnnotations(),
-        ),
-        ToolEntry(
-            name = "update_project",
-            writeBehavior = WriteBehavior.PROPOSAL_WRITE,
-            toolClass = UpdateProjectTool::class,
-            domain = "projects",
-            // The tool proposes: two calls with the same input are two proposals.
-            annotations = ToolAnnotations(),
-        ),
-        ToolEntry(
-            name = "delete_project",
-            writeBehavior = WriteBehavior.PROPOSAL_WRITE,
-            toolClass = DeleteProjectTool::class,
-            domain = "projects",
-            annotations = ToolAnnotations(destructiveHint = true),
-        ),
-        ToolEntry(
-            name = "list_projects",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = ListProjectsTool::class,
-            domain = "projects",
-            annotations = ToolAnnotations(readOnlyHint = true),
-        ),
-        ToolEntry(
-            name = "get_project",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = GetProjectTool::class,
-            domain = "projects",
-            annotations = ToolAnnotations(readOnlyHint = true),
-        ),
-
-        // ── Notes ─────────────────────────────────────────────────────────────
-        ToolEntry(
-            name = "create_note",
-            writeBehavior = WriteBehavior.PROPOSAL_WRITE,
-            toolClass = CreateNoteTool::class,
-            domain = "notes",
-            // The tool proposes: two calls with the same input are two proposals.
-            annotations = ToolAnnotations(),
-        ),
-        ToolEntry(
-            name = "update_note",
-            writeBehavior = WriteBehavior.PROPOSAL_WRITE,
-            toolClass = UpdateNoteTool::class,
-            domain = "notes",
-            // The tool proposes: two calls with the same input are two proposals.
-            annotations = ToolAnnotations(),
-        ),
-        ToolEntry(
-            name = "delete_note",
-            writeBehavior = WriteBehavior.PROPOSAL_WRITE,
-            toolClass = DeleteNoteTool::class,
-            domain = "notes",
-            annotations = ToolAnnotations(destructiveHint = true),
-        ),
-        ToolEntry(
-            name = "get_note",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = GetNoteTool::class,
-            domain = "notes",
-            annotations = ToolAnnotations(readOnlyHint = true),
-        ),
-        ToolEntry(
-            name = "get_daily_note",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = GetDailyNoteTool::class,
-            domain = "notes",
-            annotations = ToolAnnotations(readOnlyHint = true),
-        ),
-
-        // ── Tags ─────────────────────────────────────────────────────────────
-        ToolEntry(
-            name = "create_tag",
-            writeBehavior = WriteBehavior.PROPOSAL_WRITE,
-            toolClass = CreateTagTool::class,
-            domain = "tags",
-            // The tool proposes: two calls with the same name are two proposals,
-            // each naming the tag it would create, and nothing enforces that a tag
-            // name is unique. It is not idempotent any more.
-            annotations = ToolAnnotations(),
-        ),
-        ToolEntry(
-            name = "delete_tag",
-            writeBehavior = WriteBehavior.PROPOSAL_WRITE,
-            toolClass = DeleteTagTool::class,
-            domain = "tags",
-            annotations = ToolAnnotations(destructiveHint = true),
-        ),
-
-        // ── ADR ──────────────────────────────────────────────────────────────
-        ToolEntry(
-            name = "write_adr",
-            writeBehavior = WriteBehavior.DIRECT_WRITE_EXCEPTION,
-            exceptionReason = "Writes a decision file under the project's decisions directory, not user data.",
-            toolClass = WriteAdrTool::class,
-            domain = "adr",
-            annotations = ToolAnnotations(openWorldHint = true),
-        ),
-        ToolEntry(
-            name = "list_adrs",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = ListAdrsTool::class,
-            domain = "adr",
-            annotations = ToolAnnotations(readOnlyHint = true),
-        ),
-        ToolEntry(
-            name = "update_adr",
-            writeBehavior = WriteBehavior.DIRECT_WRITE_EXCEPTION,
-            exceptionReason = "Writes a decision file under the project's decisions directory, not user data.",
-            toolClass = UpdateAdrTool::class,
-            domain = "adr",
-            annotations = ToolAnnotations(openWorldHint = true),
-        ),
-        ToolEntry(
-            name = "read_adr",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = ReadAdrTool::class,
-            domain = "adr",
-            annotations = ToolAnnotations(readOnlyHint = true),
-        ),
-        ToolEntry(
-            name = "list_open_deferred",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = ListOpenDeferredTool::class,
-            domain = "adr",
-            annotations = ToolAnnotations(readOnlyHint = true),
-        ),
-        ToolEntry(
-            name = "search_decisions",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = SearchDecisionsTool::class,
-            domain = "adr",
-            annotations = ToolAnnotations(readOnlyHint = true),
-        ),
-
-        // ── Documents ───────────────────────────────────────────────────────
-        ToolEntry(
-            name = "search_docs",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = SearchDocsTool::class,
-            domain = "docs",
-            annotations = ToolAnnotations(readOnlyHint = true),
-        ),
-
-        // ── AI Write Tools ──────────────────────────────────────────────────
-        ToolEntry(
-            name = "refine_task",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = RefineTaskTool::class,
-            domain = "ai",
-            annotations = ToolAnnotations(),
-        ),
-        ToolEntry(
-            name = "smart_rewrite",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = SmartRewriteTool::class,
-            domain = "ai",
-            annotations = ToolAnnotations(),
-        ),
-        ToolEntry(
-            name = "generate_description",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = GenerateDescriptionTool::class,
-            domain = "ai",
-            annotations = ToolAnnotations(),
-        ),
-        ToolEntry(
-            name = "decompose_task",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = DecomposeTaskTool::class,
-            domain = "ai",
-            annotations = ToolAnnotations(),
-        ),
-        ToolEntry(
-            name = "generate_checklist",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = GenerateChecklistTool::class,
-            domain = "ai",
-            annotations = ToolAnnotations(),
-        ),
-        ToolEntry(
-            name = "pick_time",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = PickTimeTool::class,
-            domain = "ai",
-            annotations = ToolAnnotations(),
-        ),
-        ToolEntry(
-            name = "cluster_tasks",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = ClusterTasksTool::class,
-            domain = "ai",
-            annotations = ToolAnnotations(),
-        ),
-        ToolEntry(
-            name = "cluster_notes",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = ClusterNotesTool::class,
-            domain = "ai",
-            annotations = ToolAnnotations(),
-        ),
-        ToolEntry(
-            name = "project_review",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = ProjectReviewTool::class,
-            domain = "ai",
-            annotations = ToolAnnotations(),
-        ),
-        ToolEntry(
-            name = "weekly_plan",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = WeeklyPlanTool::class,
-            domain = "ai",
-            annotations = ToolAnnotations(),
-        ),
-        ToolEntry(
-            name = "improve_note",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = ImproveNoteTool::class,
-            domain = "ai",
-            annotations = ToolAnnotations(),
-        ),
-        ToolEntry(
-            name = "summarize_note",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = SummarizeNoteTool::class,
-            domain = "ai",
-            annotations = ToolAnnotations(),
-        ),
-        ToolEntry(
-            name = "extract_actions",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = ExtractActionsTool::class,
-            domain = "ai",
-            annotations = ToolAnnotations(),
-        ),
-        ToolEntry(
-            name = "rewrite_note",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = RewriteNoteTool::class,
-            domain = "ai",
-            annotations = ToolAnnotations(),
-        ),
-        ToolEntry(
-            name = "suggest_tags",
-            writeBehavior = WriteBehavior.READ_ONLY,
-            toolClass = SuggestTagsTool::class,
-            domain = "ai",
-            annotations = ToolAnnotations(),
-        ),
-    ).also { checkClassification(it) }
+    val catalog: List<ToolEntry> =
+        listOf(
+            // ── Tasks ──────────────────────────────────────────────────────────────
+            ToolEntry(
+                name = "create_task",
+                writeBehavior = WriteBehavior.PROPOSAL_WRITE,
+                toolClass = CreateTaskTool::class,
+                domain = "tasks",
+                // The tool proposes: two calls with the same input are two proposals,
+                // each naming the task it would create. It is not idempotent any more.
+                annotations = ToolAnnotations(),
+            ),
+            ToolEntry(
+                name = "update_task",
+                writeBehavior = WriteBehavior.PROPOSAL_WRITE,
+                toolClass = UpdateTaskTool::class,
+                domain = "tasks",
+                annotations = ToolAnnotations(),
+            ),
+            ToolEntry(
+                name = "delete_task",
+                writeBehavior = WriteBehavior.PROPOSAL_WRITE,
+                toolClass = DeleteTaskTool::class,
+                domain = "tasks",
+                annotations = ToolAnnotations(destructiveHint = true),
+            ),
+            ToolEntry(
+                name = "list_tasks",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = ListTasksTool::class,
+                domain = "tasks",
+                annotations = ToolAnnotations(readOnlyHint = true),
+            ),
+            ToolEntry(
+                name = "get_task",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = GetTaskTool::class,
+                domain = "tasks",
+                annotations = ToolAnnotations(readOnlyHint = true),
+            ),
+            ToolEntry(
+                name = "write_task_proposal",
+                writeBehavior = WriteBehavior.PROPOSAL_WRITE,
+                toolClass = WriteTaskProposalTool::class,
+                domain = "tasks",
+                annotations = ToolAnnotations(),
+            ),
+            ToolEntry(
+                name = "search_tasks",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = SearchTasksTool::class,
+                domain = "tasks",
+                annotations = ToolAnnotations(readOnlyHint = true),
+            ),
+            ToolEntry(
+                name = "first_step",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = FirstStepTool::class,
+                domain = "tasks",
+                annotations = ToolAnnotations(readOnlyHint = true),
+            ),
+            ToolEntry(
+                name = "decompose_and_create",
+                writeBehavior = WriteBehavior.PROPOSAL_WRITE,
+                toolClass = DecomposeAndCreateTool::class,
+                domain = "tasks",
+                annotations = ToolAnnotations(),
+            ),
+            ToolEntry(
+                name = "list_linked_tasks",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = ListLinkedTasksTool::class,
+                domain = "tasks",
+                annotations = ToolAnnotations(readOnlyHint = true),
+            ),
+            // ── Projects ─────────────────────────────────────────────────────────
+            ToolEntry(
+                name = "create_project",
+                writeBehavior = WriteBehavior.PROPOSAL_WRITE,
+                toolClass = CreateProjectTool::class,
+                domain = "projects",
+                // The tool proposes: two calls with the same input are two proposals.
+                annotations = ToolAnnotations(),
+            ),
+            ToolEntry(
+                name = "update_project",
+                writeBehavior = WriteBehavior.PROPOSAL_WRITE,
+                toolClass = UpdateProjectTool::class,
+                domain = "projects",
+                // The tool proposes: two calls with the same input are two proposals.
+                annotations = ToolAnnotations(),
+            ),
+            ToolEntry(
+                name = "delete_project",
+                writeBehavior = WriteBehavior.PROPOSAL_WRITE,
+                toolClass = DeleteProjectTool::class,
+                domain = "projects",
+                annotations = ToolAnnotations(destructiveHint = true),
+            ),
+            ToolEntry(
+                name = "list_projects",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = ListProjectsTool::class,
+                domain = "projects",
+                annotations = ToolAnnotations(readOnlyHint = true),
+            ),
+            ToolEntry(
+                name = "get_project",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = GetProjectTool::class,
+                domain = "projects",
+                annotations = ToolAnnotations(readOnlyHint = true),
+            ),
+            // ── Notes ─────────────────────────────────────────────────────────────
+            ToolEntry(
+                name = "create_note",
+                writeBehavior = WriteBehavior.PROPOSAL_WRITE,
+                toolClass = CreateNoteTool::class,
+                domain = "notes",
+                // The tool proposes: two calls with the same input are two proposals.
+                annotations = ToolAnnotations(),
+            ),
+            ToolEntry(
+                name = "update_note",
+                writeBehavior = WriteBehavior.PROPOSAL_WRITE,
+                toolClass = UpdateNoteTool::class,
+                domain = "notes",
+                // The tool proposes: two calls with the same input are two proposals.
+                annotations = ToolAnnotations(),
+            ),
+            ToolEntry(
+                name = "delete_note",
+                writeBehavior = WriteBehavior.PROPOSAL_WRITE,
+                toolClass = DeleteNoteTool::class,
+                domain = "notes",
+                annotations = ToolAnnotations(destructiveHint = true),
+            ),
+            ToolEntry(
+                name = "get_note",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = GetNoteTool::class,
+                domain = "notes",
+                annotations = ToolAnnotations(readOnlyHint = true),
+            ),
+            ToolEntry(
+                name = "get_daily_note",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = GetDailyNoteTool::class,
+                domain = "notes",
+                annotations = ToolAnnotations(readOnlyHint = true),
+            ),
+            // ── Tags ─────────────────────────────────────────────────────────────
+            ToolEntry(
+                name = "create_tag",
+                writeBehavior = WriteBehavior.PROPOSAL_WRITE,
+                toolClass = CreateTagTool::class,
+                domain = "tags",
+                // The tool proposes: two calls with the same name are two proposals,
+                // each naming the tag it would create, and nothing enforces that a tag
+                // name is unique. It is not idempotent any more.
+                annotations = ToolAnnotations(),
+            ),
+            ToolEntry(
+                name = "delete_tag",
+                writeBehavior = WriteBehavior.PROPOSAL_WRITE,
+                toolClass = DeleteTagTool::class,
+                domain = "tags",
+                annotations = ToolAnnotations(destructiveHint = true),
+            ),
+            // ── ADR ──────────────────────────────────────────────────────────────
+            ToolEntry(
+                name = "write_adr",
+                writeBehavior = WriteBehavior.DIRECT_WRITE_EXCEPTION,
+                exceptionReason = "Writes a decision file under the project's decisions directory, not user data.",
+                toolClass = WriteAdrTool::class,
+                domain = "adr",
+                annotations = ToolAnnotations(openWorldHint = true),
+            ),
+            ToolEntry(
+                name = "list_adrs",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = ListAdrsTool::class,
+                domain = "adr",
+                annotations = ToolAnnotations(readOnlyHint = true),
+            ),
+            ToolEntry(
+                name = "update_adr",
+                writeBehavior = WriteBehavior.DIRECT_WRITE_EXCEPTION,
+                exceptionReason = "Writes a decision file under the project's decisions directory, not user data.",
+                toolClass = UpdateAdrTool::class,
+                domain = "adr",
+                annotations = ToolAnnotations(openWorldHint = true),
+            ),
+            ToolEntry(
+                name = "read_adr",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = ReadAdrTool::class,
+                domain = "adr",
+                annotations = ToolAnnotations(readOnlyHint = true),
+            ),
+            ToolEntry(
+                name = "list_open_deferred",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = ListOpenDeferredTool::class,
+                domain = "adr",
+                annotations = ToolAnnotations(readOnlyHint = true),
+            ),
+            ToolEntry(
+                name = "search_decisions",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = SearchDecisionsTool::class,
+                domain = "adr",
+                annotations = ToolAnnotations(readOnlyHint = true),
+            ),
+            // ── Documents ───────────────────────────────────────────────────────
+            ToolEntry(
+                name = "search_docs",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = SearchDocsTool::class,
+                domain = "docs",
+                annotations = ToolAnnotations(readOnlyHint = true),
+            ),
+            // ── AI Write Tools ──────────────────────────────────────────────────
+            ToolEntry(
+                name = "refine_task",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = RefineTaskTool::class,
+                domain = "ai",
+                annotations = ToolAnnotations(),
+            ),
+            ToolEntry(
+                name = "smart_rewrite",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = SmartRewriteTool::class,
+                domain = "ai",
+                annotations = ToolAnnotations(),
+            ),
+            ToolEntry(
+                name = "generate_description",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = GenerateDescriptionTool::class,
+                domain = "ai",
+                annotations = ToolAnnotations(),
+            ),
+            ToolEntry(
+                name = "decompose_task",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = DecomposeTaskTool::class,
+                domain = "ai",
+                annotations = ToolAnnotations(),
+            ),
+            ToolEntry(
+                name = "generate_checklist",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = GenerateChecklistTool::class,
+                domain = "ai",
+                annotations = ToolAnnotations(),
+            ),
+            ToolEntry(
+                name = "pick_time",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = PickTimeTool::class,
+                domain = "ai",
+                annotations = ToolAnnotations(),
+            ),
+            ToolEntry(
+                name = "cluster_tasks",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = ClusterTasksTool::class,
+                domain = "ai",
+                annotations = ToolAnnotations(),
+            ),
+            ToolEntry(
+                name = "cluster_notes",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = ClusterNotesTool::class,
+                domain = "ai",
+                annotations = ToolAnnotations(),
+            ),
+            ToolEntry(
+                name = "project_review",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = ProjectReviewTool::class,
+                domain = "ai",
+                annotations = ToolAnnotations(),
+            ),
+            ToolEntry(
+                name = "weekly_plan",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = WeeklyPlanTool::class,
+                domain = "ai",
+                annotations = ToolAnnotations(),
+            ),
+            ToolEntry(
+                name = "improve_note",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = ImproveNoteTool::class,
+                domain = "ai",
+                annotations = ToolAnnotations(),
+            ),
+            ToolEntry(
+                name = "summarize_note",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = SummarizeNoteTool::class,
+                domain = "ai",
+                annotations = ToolAnnotations(),
+            ),
+            ToolEntry(
+                name = "extract_actions",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = ExtractActionsTool::class,
+                domain = "ai",
+                annotations = ToolAnnotations(),
+            ),
+            ToolEntry(
+                name = "rewrite_note",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = RewriteNoteTool::class,
+                domain = "ai",
+                annotations = ToolAnnotations(),
+            ),
+            ToolEntry(
+                name = "suggest_tags",
+                writeBehavior = WriteBehavior.READ_ONLY,
+                toolClass = SuggestTagsTool::class,
+                domain = "ai",
+                annotations = ToolAnnotations(),
+            ),
+        ).also { checkClassification(it) }
 
     /**
      * The classification has to be well-formed before anything reads it.

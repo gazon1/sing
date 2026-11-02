@@ -21,8 +21,8 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertIs
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -52,16 +52,16 @@ private class FailingTemplatesRepository : FakeNotesRepository() {
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
 class NotesListViewModelTest {
-
     /** Mirrors `NotesListViewModel`'s debounce window; must be ≥ the real one. */
     private val searchDebounceMs = 200L
 
     private val fakeNotesRepo = FakeNotesRepository()
 
-    private fun TestScope.createVm() = NotesListViewModel(
-        repo = fakeNotesRepo,
-        scope = testScope(backgroundScope),
-    )
+    private fun TestScope.createVm() =
+        NotesListViewModel(
+            repo = fakeNotesRepo,
+            scope = testScope(backgroundScope),
+        )
 
     /** Reads the one state snapshot the screen actually renders. */
     private fun NotesListViewModel.listState() =
@@ -83,20 +83,22 @@ class NotesListViewModelTest {
         fakeNotesRepo.createWithContent(NoteId("n-${title.hashCode()}"), title, "", "").getOrThrow()
 
     @Test
-    fun `initial filter is All`() = runTest {
-        val vm = createVm()
-        advanceUntilIdle()
-        testScheduler.runCurrent()
-        assertEquals(NoteFilter.All, vm.uiState().filter)
-    }
+    fun `initial filter is All`() =
+        runTest {
+            val vm = createVm()
+            advanceUntilIdle()
+            testScheduler.runCurrent()
+            assertEquals(NoteFilter.All, vm.uiState().filter)
+        }
 
     @Test
-    fun `initial sort order is UpdatedDesc`() = runTest {
-        val vm = createVm()
-        advanceUntilIdle()
-        testScheduler.runCurrent()
-        assertEquals(NoteSortOrder.UpdatedDesc, vm.uiState().sortOrder)
-    }
+    fun `initial sort order is UpdatedDesc`() =
+        runTest {
+            val vm = createVm()
+            advanceUntilIdle()
+            testScheduler.runCurrent()
+            assertEquals(NoteSortOrder.UpdatedDesc, vm.uiState().sortOrder)
+        }
 
     /**
      * The id the screen opens the editor on must be the id the repository persisted.
@@ -105,156 +107,163 @@ class NotesListViewModelTest {
      * was really created. See `2026-09-28-mr5-vm-hygiene`.
      */
     @Test
-    fun `createNoteWithTitle navigates to the id the repository persisted`() = runTest {
-        val vm = createVm()
-        advanceUntilIdle()
-        runCurrent()
+    fun `createNoteWithTitle navigates to the id the repository persisted`() =
+        runTest {
+            val vm = createVm()
+            advanceUntilIdle()
+            runCurrent()
 
-        vm.createNoteWithTitle("Fresh note")
-        advanceUntilIdle()
-        runCurrent()
+            vm.createNoteWithTitle("Fresh note")
+            advanceUntilIdle()
+            runCurrent()
 
-        val navigated = vm.events.first()
-        assertIs<NotesUiEvent.NavigateToEditor>(navigated, "expected a navigation event, got $navigated")
-        assertEquals(
-            fakeNotesRepo.notes.keys.toList(),
-            listOf(navigated.noteId.value),
-            "the editor must open the note that was actually created",
-        )
-    }
-
-    @Test
-    fun `setFilter updates filter state`() = runTest {
-        val vm = createVm()
-        advanceUntilIdle()
-        testScheduler.runCurrent()
-        vm.onIntent(NotesIntent.SetFilter(NoteFilter.Pinned))
-        advanceUntilIdle()
-        testScheduler.runCurrent()
-        assertEquals(NoteFilter.Pinned, vm.uiState().filter)
-    }
+            val navigated = vm.events.first()
+            assertIs<NotesUiEvent.NavigateToEditor>(navigated, "expected a navigation event, got $navigated")
+            assertEquals(
+                fakeNotesRepo.notes.keys.toList(),
+                listOf(navigated.noteId.value),
+                "the editor must open the note that was actually created",
+            )
+        }
 
     @Test
-    fun `archive intent removes the note from the All list`() = runTest {
-        val id = seedNote("First")
-        val vm = createVm()
-        advanceUntilIdle()
-        runCurrent()
-        assertEquals(listOf(id), vm.listState().unpinned.map { it.id })
-
-        vm.onIntent(NotesIntent.Archive(id))
-        advanceUntilIdle()
-        runCurrent()
-
-        assertEquals(
-            emptyList(),
-            vm.listState().unpinned.map { it.id },
-            "an archived note must not stay in the All list",
-        )
-    }
+    fun `setFilter updates filter state`() =
+        runTest {
+            val vm = createVm()
+            advanceUntilIdle()
+            testScheduler.runCurrent()
+            vm.onIntent(NotesIntent.SetFilter(NoteFilter.Pinned))
+            advanceUntilIdle()
+            testScheduler.runCurrent()
+            assertEquals(NoteFilter.Pinned, vm.uiState().filter)
+        }
 
     @Test
-    fun `unarchive intent restores the note into the All list`() = runTest {
-        val id = seedNote("First")
-        fakeNotesRepo.archive(id)
-        val vm = createVm()
-        advanceUntilIdle()
-        runCurrent()
+    fun `archive intent removes the note from the All list`() =
+        runTest {
+            val id = seedNote("First")
+            val vm = createVm()
+            advanceUntilIdle()
+            runCurrent()
+            assertEquals(listOf(id), vm.listState().unpinned.map { it.id })
 
-        vm.onIntent(NotesIntent.SetFilter(NoteFilter.Archived))
-        advanceUntilIdle()
-        runCurrent()
-        assertEquals(listOf(id), vm.listState().unpinned.map { it.id })
+            vm.onIntent(NotesIntent.Archive(id))
+            advanceUntilIdle()
+            runCurrent()
 
-        vm.onIntent(NotesIntent.Unarchive(id))
-        advanceUntilIdle()
-        runCurrent()
-
-        vm.onIntent(NotesIntent.SetFilter(NoteFilter.All))
-        advanceUntilIdle()
-        runCurrent()
-        assertEquals(
-            listOf(id),
-            vm.listState().unpinned.map { it.id },
-            "an unarchived note must be back in the All list",
-        )
-    }
+            assertEquals(
+                emptyList(),
+                vm.listState().unpinned.map { it.id },
+                "an archived note must not stay in the All list",
+            )
+        }
 
     @Test
-    fun `search query is applied after the debounce window`() = runTest {
-        seedNote("Groceries")
-        val vm = createVm()
-        advanceUntilIdle()
-        runCurrent()
-        val allBefore = vm.listState().unpinned.size
-        assertEquals(1, allBefore, "the seeded note must be in the unfiltered list")
+    fun `unarchive intent restores the note into the All list`() =
+        runTest {
+            val id = seedNote("First")
+            fakeNotesRepo.archive(id)
+            val vm = createVm()
+            advanceUntilIdle()
+            runCurrent()
 
-        vm.onIntent(NotesIntent.SearchQueryChanged("zzz-no-such-note"))
-        // Nothing has settled yet — the debounce has not elapsed.
-        runCurrent()
-        assertEquals(
-            allBefore,
-            vm.listState().unpinned.size,
-            "the list must not re-query before the debounce window closes",
-        )
+            vm.onIntent(NotesIntent.SetFilter(NoteFilter.Archived))
+            advanceUntilIdle()
+            runCurrent()
+            assertEquals(listOf(id), vm.listState().unpinned.map { it.id })
 
-        advanceTimeBy(searchDebounceMs + 1)
-        advanceUntilIdle()
-        runCurrent()
-        assertEquals(
-            emptyList(),
-            vm.listState().unpinned,
-            "a query that matches nothing must empty the list",
-        )
-        assertEquals("zzz-no-such-note", vm.uiState().searchQuery.text)
-    }
+            vm.onIntent(NotesIntent.Unarchive(id))
+            advanceUntilIdle()
+            runCurrent()
 
-    @Test
-    fun `a matching query narrows the list`() = runTest {
-        seedNote("Groceries")
-        seedNote("Reading list")
-        val vm = createVm()
-        advanceUntilIdle()
-        runCurrent()
-        assertEquals(2, vm.listState().unpinned.size)
-
-        vm.onIntent(NotesIntent.SearchQueryChanged("Grocer"))
-        advanceTimeBy(searchDebounceMs + 1)
-        advanceUntilIdle()
-        runCurrent()
-
-        assertEquals(
-            listOf("Groceries"),
-            vm.listState().unpinned.map { it.title },
-            "only the title-matching note may survive the query",
-        )
-    }
+            vm.onIntent(NotesIntent.SetFilter(NoteFilter.All))
+            advanceUntilIdle()
+            runCurrent()
+            assertEquals(
+                listOf(id),
+                vm.listState().unpinned.map { it.id },
+                "an unarchived note must be back in the All list",
+            )
+        }
 
     @Test
-    fun `clearing the search query restores the unfiltered list`() = runTest {
-        seedNote("Groceries")
-        val vm = createVm()
-        advanceUntilIdle()
-        runCurrent()
-        val all = vm.listState().unpinned.size
-        assertEquals(1, all)
+    fun `search query is applied after the debounce window`() =
+        runTest {
+            seedNote("Groceries")
+            val vm = createVm()
+            advanceUntilIdle()
+            runCurrent()
+            val allBefore = vm.listState().unpinned.size
+            assertEquals(1, allBefore, "the seeded note must be in the unfiltered list")
 
-        vm.onIntent(NotesIntent.SearchQueryChanged("zzz-no-such-note"))
-        advanceTimeBy(searchDebounceMs + 1)
-        advanceUntilIdle()
-        runCurrent()
-        assertEquals(emptyList(), vm.listState().unpinned)
+            vm.onIntent(NotesIntent.SearchQueryChanged("zzz-no-such-note"))
+            // Nothing has settled yet — the debounce has not elapsed.
+            runCurrent()
+            assertEquals(
+                allBefore,
+                vm.listState().unpinned.size,
+                "the list must not re-query before the debounce window closes",
+            )
 
-        vm.onIntent(NotesIntent.SearchQueryChanged(""))
-        advanceTimeBy(searchDebounceMs + 1)
-        advanceUntilIdle()
-        runCurrent()
-        assertEquals(
-            all,
-            vm.listState().unpinned.size,
-            "clearing the query must bring the whole list back",
-        )
-    }
+            advanceTimeBy(searchDebounceMs + 1)
+            advanceUntilIdle()
+            runCurrent()
+            assertEquals(
+                emptyList(),
+                vm.listState().unpinned,
+                "a query that matches nothing must empty the list",
+            )
+            assertEquals("zzz-no-such-note", vm.uiState().searchQuery.text)
+        }
+
+    @Test
+    fun `a matching query narrows the list`() =
+        runTest {
+            seedNote("Groceries")
+            seedNote("Reading list")
+            val vm = createVm()
+            advanceUntilIdle()
+            runCurrent()
+            assertEquals(2, vm.listState().unpinned.size)
+
+            vm.onIntent(NotesIntent.SearchQueryChanged("Grocer"))
+            advanceTimeBy(searchDebounceMs + 1)
+            advanceUntilIdle()
+            runCurrent()
+
+            assertEquals(
+                listOf("Groceries"),
+                vm.listState().unpinned.map { it.title },
+                "only the title-matching note may survive the query",
+            )
+        }
+
+    @Test
+    fun `clearing the search query restores the unfiltered list`() =
+        runTest {
+            seedNote("Groceries")
+            val vm = createVm()
+            advanceUntilIdle()
+            runCurrent()
+            val all = vm.listState().unpinned.size
+            assertEquals(1, all)
+
+            vm.onIntent(NotesIntent.SearchQueryChanged("zzz-no-such-note"))
+            advanceTimeBy(searchDebounceMs + 1)
+            advanceUntilIdle()
+            runCurrent()
+            assertEquals(emptyList(), vm.listState().unpinned)
+
+            vm.onIntent(NotesIntent.SearchQueryChanged(""))
+            advanceTimeBy(searchDebounceMs + 1)
+            advanceUntilIdle()
+            runCurrent()
+            assertEquals(
+                all,
+                vm.listState().unpinned.size,
+                "clearing the query must bring the whole list back",
+            )
+        }
 
     // ── Continuity across a failure ──────────────────────────────────────────
 
@@ -268,35 +277,36 @@ class NotesListViewModelTest {
      * so the list could never come back.
      */
     @Test
-    fun `a repository failure keeps the query, the filter and the sort order`() = runTest {
-        val repo = FailingTemplatesRepository()
-        val vm = NotesListViewModel(repo = repo, scope = testScope(backgroundScope))
-        advanceUntilIdle()
-        runCurrent()
+    fun `a repository failure keeps the query, the filter and the sort order`() =
+        runTest {
+            val repo = FailingTemplatesRepository()
+            val vm = NotesListViewModel(repo = repo, scope = testScope(backgroundScope))
+            advanceUntilIdle()
+            runCurrent()
 
-        vm.onIntent(NotesIntent.SetFilter(NoteFilter.Pinned))
-        vm.onIntent(NotesIntent.SetSortOrder(NoteSortOrder.TitleAsc))
-        vm.onIntent(NotesIntent.SearchQueryChanged("groceries"))
-        advanceTimeBy(searchDebounceMs + 1)
-        advanceUntilIdle()
-        runCurrent()
+            vm.onIntent(NotesIntent.SetFilter(NoteFilter.Pinned))
+            vm.onIntent(NotesIntent.SetSortOrder(NoteSortOrder.TitleAsc))
+            vm.onIntent(NotesIntent.SearchQueryChanged("groceries"))
+            advanceTimeBy(searchDebounceMs + 1)
+            advanceUntilIdle()
+            runCurrent()
 
-        val loaded = assertIs<NotesUiState.Content>(vm.stateFlow.value)
-        assertEquals("groceries", loaded.searchQuery.text)
-        assertEquals(NoteFilter.Pinned, loaded.filter)
-        assertEquals(NoteSortOrder.TitleAsc, loaded.sortOrder)
+            val loaded = assertIs<NotesUiState.Content>(vm.stateFlow.value)
+            assertEquals("groceries", loaded.searchQuery.text)
+            assertEquals(NoteFilter.Pinned, loaded.filter)
+            assertEquals(NoteSortOrder.TitleAsc, loaded.sortOrder)
 
-        // The repository fails on the next emission.
-        repo.failOnNextEmission = true
-        repo.createWithContent(NoteId("n-fail"), "Trigger", "", "").getOrThrow()
-        advanceUntilIdle()
-        runCurrent()
+            // The repository fails on the next emission.
+            repo.failOnNextEmission = true
+            repo.createWithContent(NoteId("n-fail"), "Trigger", "", "").getOrThrow()
+            advanceUntilIdle()
+            runCurrent()
 
-        val failed = assertIs<NotesUiState.Error>(vm.stateFlow.value)
-        assertEquals("groceries", failed.searchQuery.text, "a failure must not clear the query")
-        assertEquals(NoteFilter.Pinned, failed.filter, "a failure must not reset the filter chip")
-        assertEquals(NoteSortOrder.TitleAsc, failed.sortOrder, "a failure must not reset the sort order")
-    }
+            val failed = assertIs<NotesUiState.Error>(vm.stateFlow.value)
+            assertEquals("groceries", failed.searchQuery.text, "a failure must not clear the query")
+            assertEquals(NoteFilter.Pinned, failed.filter, "a failure must not reset the filter chip")
+            assertEquals(NoteSortOrder.TitleAsc, failed.sortOrder, "a failure must not reset the sort order")
+        }
 
     // ── Delete / Undo ──────────────────────────────────────────────────
 
@@ -311,76 +321,78 @@ class NotesListViewModelTest {
      * list so the user can undo before the window closes.
      */
     @Test
-    fun `delete commits at the repository and offers undo`() = runTest {
-        val id = seedNote("Doomed")
-        val vm = createVm()
-        advanceUntilIdle()
-        runCurrent()
-        assertEquals(1, vm.listState().unpinned.size)
-
-        val events = mutableListOf<NotesUiEvent>()
-        val collector = launch { vm.events.collect { events += it } }
-        try {
-            vm.onIntent(NotesIntent.Delete(id))
-            runCurrent()
-
-            val undoDelete = events.filterIsInstance<NotesUiEvent.UndoDelete>().singleOrNull()
-            assertNotNull(undoDelete, "UndoDelete must be emitted: $events")
-            assertEquals(id, undoDelete.noteId)
-            assertEquals("Doomed", undoDelete.title)
-
-            // Persistence and rendering are separate claims: the write is committed
-            // immediately, and the list follows once that change reaches its state.
-            assertEquals(
-                0,
-                vm.listState().unpinned.size,
-                "a delete that has been committed must not still be listed",
-            )
-
-            // And the window closing changes nothing about the write — it only ends
-            // the offer.
-            advanceTimeBy(undoWindowMs + 1)
+    fun `delete commits at the repository and offers undo`() =
+        runTest {
+            val id = seedNote("Doomed")
+            val vm = createVm()
             advanceUntilIdle()
             runCurrent()
-            assertNull(vm.pendingDelete.value, "the undo window must close on its own")
-            assertEquals(0, vm.listState().unpinned.size)
-        } finally {
-            collector.cancel()
+            assertEquals(1, vm.listState().unpinned.size)
+
+            val events = mutableListOf<NotesUiEvent>()
+            val collector = launch { vm.events.collect { events += it } }
+            try {
+                vm.onIntent(NotesIntent.Delete(id))
+                runCurrent()
+
+                val undoDelete = events.filterIsInstance<NotesUiEvent.UndoDelete>().singleOrNull()
+                assertNotNull(undoDelete, "UndoDelete must be emitted: $events")
+                assertEquals(id, undoDelete.noteId)
+                assertEquals("Doomed", undoDelete.title)
+
+                // Persistence and rendering are separate claims: the write is committed
+                // immediately, and the list follows once that change reaches its state.
+                assertEquals(
+                    0,
+                    vm.listState().unpinned.size,
+                    "a delete that has been committed must not still be listed",
+                )
+
+                // And the window closing changes nothing about the write — it only ends
+                // the offer.
+                advanceTimeBy(undoWindowMs + 1)
+                advanceUntilIdle()
+                runCurrent()
+                assertNull(vm.pendingDelete.value, "the undo window must close on its own")
+                assertEquals(0, vm.listState().unpinned.size)
+            } finally {
+                collector.cancel()
+            }
         }
-    }
 
     /**
      * Tapping Undo restores the note and cancels the pending delete.
      */
     @Test
-    fun `undo restores a note that was really deleted`() = runTest {
-        val id = seedNote("UndoMe")
-        val vm = createVm()
-        advanceUntilIdle()
-        runCurrent()
-        assertEquals(1, vm.listState().unpinned.size)
-
-        try {
-            vm.onIntent(NotesIntent.Delete(id))
-            runCurrent()
-            assertEquals(0, vm.listState().unpinned.size, "the delete is committed, not deferred")
-
-            // Tap Undo — now there is a real deleted row to restore.
-            vm.onIntent(NotesIntent.UndoDelete(id))
+    fun `undo restores a note that was really deleted`() =
+        runTest {
+            val id = seedNote("UndoMe")
+            val vm = createVm()
             advanceUntilIdle()
             runCurrent()
-            assertEquals(1, vm.listState().unpinned.size, "note must be restored")
-            assertNull(vm.pendingDelete.value, "a successful reversal closes the offer")
+            assertEquals(1, vm.listState().unpinned.size)
 
-            // Advance past the former undo window — the restored note must survive it.
-            advanceTimeBy(undoWindowMs + 1)
-            advanceUntilIdle()
-            runCurrent()
-            assertEquals(1, vm.listState().unpinned.size, "restored note must not be deleted after window")
-        } finally {
-            Unit
+            try {
+                vm.onIntent(NotesIntent.Delete(id))
+                runCurrent()
+                assertEquals(0, vm.listState().unpinned.size, "the delete is committed, not deferred")
+
+                // Tap Undo — now there is a real deleted row to restore.
+                vm.onIntent(NotesIntent.UndoDelete(id))
+                advanceUntilIdle()
+                runCurrent()
+                assertEquals(1, vm.listState().unpinned.size, "note must be restored")
+                assertNull(vm.pendingDelete.value, "a successful reversal closes the offer")
+
+                // Advance past the former undo window — the restored note must survive it.
+                advanceTimeBy(undoWindowMs + 1)
+                advanceUntilIdle()
+                runCurrent()
+                assertEquals(1, vm.listState().unpinned.size, "restored note must not be deleted after window")
+            } finally {
+                Unit
+            }
         }
-    }
 
     /**
      * A second delete supersedes the first: the single undo affordance moves to the
@@ -392,39 +404,40 @@ class NotesListViewModelTest {
      * can still undo, not about which one gets deleted.
      */
     @Test
-    fun `a new delete supersedes the previous pending delete`() = runTest {
-        val first = seedNote("First")
-        val second = seedNote("Second")
-        val vm = createVm()
-        advanceUntilIdle()
-        runCurrent()
+    fun `a new delete supersedes the previous pending delete`() =
+        runTest {
+            val first = seedNote("First")
+            val second = seedNote("Second")
+            val vm = createVm()
+            advanceUntilIdle()
+            runCurrent()
 
-        vm.onIntent(NotesIntent.Delete(first))
-        runCurrent()
-        assertEquals(first, vm.pendingDelete.value?.noteId, "first delete must set pendingDelete")
+            vm.onIntent(NotesIntent.Delete(first))
+            runCurrent()
+            assertEquals(first, vm.pendingDelete.value?.noteId, "first delete must set pendingDelete")
 
-        vm.onIntent(NotesIntent.Delete(second))
-        runCurrent()
-        assertEquals(second, vm.pendingDelete.value?.noteId, "second delete must supersede first")
+            vm.onIntent(NotesIntent.Delete(second))
+            runCurrent()
+            assertEquals(second, vm.pendingDelete.value?.noteId, "second delete must supersede first")
 
-        // Both writes are committed, so the list is empty — supersession is about
-        // which note can still be undone, not about which one gets deleted.
-        assertEquals(
-            emptyList(),
-            vm.listState().unpinned.map { it.id },
-            "each delete commits its own write",
-        )
+            // Both writes are committed, so the list is empty — supersession is about
+            // which note can still be undone, not about which one gets deleted.
+            assertEquals(
+                emptyList(),
+                vm.listState().unpinned.map { it.id },
+                "each delete commits its own write",
+            )
 
-        // Undo applies to the newer delete only.
-        vm.onIntent(NotesIntent.UndoDelete(second))
-        advanceUntilIdle()
-        runCurrent()
-        assertEquals(
-            listOf(second),
-            vm.listState().unpinned.map { it.id },
-            "undo restores the newer delete; the superseded one stays deleted",
-        )
-    }
+            // Undo applies to the newer delete only.
+            vm.onIntent(NotesIntent.UndoDelete(second))
+            advanceUntilIdle()
+            runCurrent()
+            assertEquals(
+                listOf(second),
+                vm.listState().unpinned.map { it.id },
+                "undo restores the newer delete; the superseded one stays deleted",
+            )
+        }
 
     /**
      * Bulk delete reports too, and attempts every note even after one fails.
@@ -435,35 +448,36 @@ class NotesListViewModelTest {
      * one failure is surfaced.
      */
     @Test
-    fun `a bulk delete that fails still attempts the rest and says so`() = runTest {
-        val first = seedNote("One")
-        val second = seedNote("Two")
-        val third = seedNote("Three")
-        val vm = createVm()
-        advanceUntilIdle()
-        runCurrent()
-        val events = mutableListOf<NotesUiEvent>()
-        val collector = launch { vm.events.collect { events += it } }
-        try {
-            vm.onIntent(NotesIntent.EnterSelection(first))
-            vm.onIntent(NotesIntent.ToggleSelection(second))
-            vm.onIntent(NotesIntent.ToggleSelection(third))
-            runCurrent()
-
-            fakeNotesRepo.deleteOverride = Result.failure(AppError.Persistence("disk is full"))
-
-            vm.onIntent(NotesIntent.DeleteSelected)
+    fun `a bulk delete that fails still attempts the rest and says so`() =
+        runTest {
+            val first = seedNote("One")
+            val second = seedNote("Two")
+            val third = seedNote("Three")
+            val vm = createVm()
             advanceUntilIdle()
             runCurrent()
+            val events = mutableListOf<NotesUiEvent>()
+            val collector = launch { vm.events.collect { events += it } }
+            try {
+                vm.onIntent(NotesIntent.EnterSelection(first))
+                vm.onIntent(NotesIntent.ToggleSelection(second))
+                vm.onIntent(NotesIntent.ToggleSelection(third))
+                runCurrent()
 
-            assertNotNull(
-                events.filterIsInstance<NotesUiEvent.Error>().singleOrNull(),
-                "a bulk delete that failed on every note reported nothing: $events",
-            )
-        } finally {
-            collector.cancel()
+                fakeNotesRepo.deleteOverride = Result.failure(AppError.Persistence("disk is full"))
+
+                vm.onIntent(NotesIntent.DeleteSelected)
+                advanceUntilIdle()
+                runCurrent()
+
+                assertNotNull(
+                    events.filterIsInstance<NotesUiEvent.Error>().singleOrNull(),
+                    "a bulk delete that failed on every note reported nothing: $events",
+                )
+            } finally {
+                collector.cancel()
+            }
         }
-    }
 
     /**
      * Diagnostic: does selecting a note reach the state the screen renders?
@@ -478,39 +492,41 @@ class NotesListViewModelTest {
      * passes, the suspected bug is disproved and the bridge is left alone.
      */
     @Test
-    fun `selection reaches the rendered state while the source lists are idle`() = runTest {
-        val id = seedNote("Selectable")
-        val vm = createVm()
-        advanceUntilIdle()
-        runCurrent()
+    fun `selection reaches the rendered state while the source lists are idle`() =
+        runTest {
+            val id = seedNote("Selectable")
+            val vm = createVm()
+            advanceUntilIdle()
+            runCurrent()
 
-        vm.onIntent(NotesIntent.EnterSelection(id))
-        runCurrent()
+            vm.onIntent(NotesIntent.EnterSelection(id))
+            runCurrent()
 
-        val content = assertIs<NotesUiState.Content>(vm.stateFlow.value)
-        assertEquals(
-            setOf(id),
-            content.list.selectedIds,
-            "a selection must be visible in the state the screen renders",
-        )
-        assertTrue(content.list.isSelectionMode)
-    }
+            val content = assertIs<NotesUiState.Content>(vm.stateFlow.value)
+            assertEquals(
+                setOf(id),
+                content.list.selectedIds,
+                "a selection must be visible in the state the screen renders",
+            )
+            assertTrue(content.list.isSelectionMode)
+        }
 
     /** Leaving selection mode must clear the rendered state too. */
     @Test
-    fun `exiting selection mode clears the rendered state`() = runTest {
-        val id = seedNote("Selectable")
-        val vm = createVm()
-        advanceUntilIdle()
-        runCurrent()
+    fun `exiting selection mode clears the rendered state`() =
+        runTest {
+            val id = seedNote("Selectable")
+            val vm = createVm()
+            advanceUntilIdle()
+            runCurrent()
 
-        vm.onIntent(NotesIntent.EnterSelection(id))
-        runCurrent()
-        vm.onIntent(NotesIntent.ExitSelection)
-        runCurrent()
+            vm.onIntent(NotesIntent.EnterSelection(id))
+            runCurrent()
+            vm.onIntent(NotesIntent.ExitSelection)
+            runCurrent()
 
-        val content = assertIs<NotesUiState.Content>(vm.stateFlow.value)
-        assertEquals(emptySet(), content.list.selectedIds)
-        assertFalse(content.list.isSelectionMode)
-    }
+            val content = assertIs<NotesUiState.Content>(vm.stateFlow.value)
+            assertEquals(emptySet(), content.list.selectedIds)
+            assertFalse(content.list.isSelectionMode)
+        }
 }

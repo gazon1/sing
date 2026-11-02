@@ -8,7 +8,6 @@ import kotlin.test.assertNull
 
 @Tag("fast")
 class FormattersTest {
-
     // ─── formatDueChip ────────────────────────────────────────────────────────────
 
     @Test

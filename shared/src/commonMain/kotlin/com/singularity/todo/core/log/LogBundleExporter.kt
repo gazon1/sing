@@ -43,27 +43,29 @@ open class LogBundleExporter(
      * @return the path to the created archive, or a failure if the archive
      *   could not be written.
      */
-    open suspend fun export(): Result<String> = runCatchingCancellable {
-        val timestamp = BUNDLE_STAMP.format(nowInSystemZone())
-        val archiveName = "singularity-logs-$timestamp.zip"
-        val archivePath = "$logDirectory/$archiveName"
+    open suspend fun export(): Result<String> =
+        runCatchingCancellable {
+            val timestamp = BUNDLE_STAMP.format(nowInSystemZone())
+            val archiveName = "singularity-logs-$timestamp.zip"
+            val archivePath = "$logDirectory/$archiveName"
 
-        val files = collectLogFiles()
-        val manifestBytes = """{"type":"log-bundle","timestamp":"$timestamp"}""".toByteArray()
-        val payloadBytes = buildPayload(files)
+            val files = collectLogFiles()
+            val manifestBytes = """{"type":"log-bundle","timestamp":"$timestamp"}""".toByteArray()
+            val payloadBytes = buildPayload(files)
 
-        backupCodec.export(
-            // Names to paths, not names to bytes: the codec streams each log file
-            // into the zip rather than holding them all in memory here.
-            attachments = files.map { (name, path) -> name to path },
-            manifestBytes = manifestBytes,
-            payloadBytes = payloadBytes,
-            destPath = archivePath,
-            fs = fileSystem,
-        ).getOrThrow()
+            backupCodec
+                .export(
+                    // Names to paths, not names to bytes: the codec streams each log file
+                    // into the zip rather than holding them all in memory here.
+                    attachments = files.map { (name, path) -> name to path },
+                    manifestBytes = manifestBytes,
+                    payloadBytes = payloadBytes,
+                    destPath = archivePath,
+                    fs = fileSystem,
+                ).getOrThrow()
 
-        archivePath
-    }
+            archivePath
+        }
 
     private suspend fun buildPayload(files: List<Pair<String, String>>): ByteArray {
         val sb = StringBuilder()
@@ -97,14 +99,15 @@ open class LogBundleExporter(
          * A UTC stamp would have made an export filed under one day and read under
          * another.
          */
-        val BUNDLE_STAMP: DateTimeFormat<LocalDateTime> = LocalDateTime.Format {
-            year(Padding.ZERO)
-            monthNumber(Padding.ZERO)
-            day(Padding.ZERO)
-            chars("-")
-            hour(Padding.ZERO)
-            minute(Padding.ZERO)
-            second(Padding.ZERO)
-        }
+        val BUNDLE_STAMP: DateTimeFormat<LocalDateTime> =
+            LocalDateTime.Format {
+                year(Padding.ZERO)
+                monthNumber(Padding.ZERO)
+                day(Padding.ZERO)
+                chars("-")
+                hour(Padding.ZERO)
+                minute(Padding.ZERO)
+                second(Padding.ZERO)
+            }
     }
 }

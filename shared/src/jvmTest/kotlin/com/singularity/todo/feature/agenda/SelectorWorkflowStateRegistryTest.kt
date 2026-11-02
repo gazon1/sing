@@ -27,51 +27,52 @@ import kotlin.test.assertEquals
  */
 @Tag("fast")
 class SelectorWorkflowStateRegistryTest {
-
-    private val expectedTypeTags = setOf(
-        "DateBucket",
-        "DateRange",
-        "Tags",
-        "Statuses",
-        "Priorities",
-        "Projects",
-        "Pinned",
-        "Completed",
-        "Overdue",
-        "Blocked",
-        "WorkflowState",
-        "FollowUp",
-        "Stagnant",
-        "Regexp",
-        "AllOf",
-        "AnyOf",
-        "Not",
-        "Anything",
-        "TimeOfDay",
-    )
+    private val expectedTypeTags =
+        setOf(
+            "DateBucket",
+            "DateRange",
+            "Tags",
+            "Statuses",
+            "Priorities",
+            "Projects",
+            "Pinned",
+            "Completed",
+            "Overdue",
+            "Blocked",
+            "WorkflowState",
+            "FollowUp",
+            "Stagnant",
+            "Regexp",
+            "AllOf",
+            "AnyOf",
+            "Not",
+            "Anything",
+            "TimeOfDay",
+        )
 
     /** One instance per variant, the full hierarchy. */
-    private val everyVariant = listOf(
-        Selector.DateBucket(RelativeBucket.Overdue),
-        Selector.DateRange(LocalDate(2025, 1, 1), LocalDate(2025, 1, 31)),
-        Selector.Tags(setOf(TagId("t1"))),
-        Selector.Statuses(setOf(TaskStatus.Active)),
-        Selector.Priorities(setOf(TaskPriority.High)),
-        Selector.Projects(setOf(ProjectId("p1"))),
-        Selector.Pinned,
-        Selector.Completed,
-        Selector.Overdue,
-        Selector.Blocked,
-        Selector.WorkflowState(TaskWorkflowState.InProgress),
-        Selector.FollowUp,
-        Selector.Stagnant(),
-        Selector.Regexp(".*"),
-        Selector.AllOf(listOf(Selector.Pinned, Selector.Not(Selector.Completed))),
-        Selector.AnyOf(listOf(Selector.Pinned, Selector.Overdue)),
-        Selector.Not(Selector.Completed),
-        Selector.Anything,
-        Selector.TimeOfDay(540, 719),
-    )
+    private val everyVariant =
+        listOf(
+            Selector.DateBucket(RelativeBucket.Overdue),
+            Selector.DateRange(LocalDate(2025, 1, 1), LocalDate(2025, 1, 31)),
+            Selector.Tags(setOf(TagId("t1"))),
+            Selector.Statuses(setOf(TaskStatus.Active)),
+            Selector.Priorities(setOf(TaskPriority.High)),
+            Selector.Projects(setOf(ProjectId("p1"))),
+            Selector.Pinned,
+            Selector.Completed,
+            Selector.Overdue,
+            Selector.Blocked,
+            Selector.WorkflowState(TaskWorkflowState.InProgress),
+            Selector.FollowUp,
+            Selector.Stagnant(),
+            Selector.Regexp(".*"),
+            Selector.AllOf(listOf(Selector.Pinned, Selector.Not(Selector.Completed))),
+            Selector.AnyOf(listOf(Selector.Pinned, Selector.Overdue)),
+            Selector.Not(Selector.Completed),
+            Selector.Anything,
+            Selector.TimeOfDay(540, 719),
+        )
 
     @Test
     fun `the registry covers every variant, counted against a literal`() {
@@ -97,10 +98,11 @@ class SelectorWorkflowStateRegistryTest {
 
     @Test
     fun `a workflow-state selector carries its state through JSON`() {
-        val encoded = StableJson.encodeToString(
-            SelectorSerializer,
-            Selector.WorkflowState(TaskWorkflowState.NextUp),
-        )
+        val encoded =
+            StableJson.encodeToString(
+                SelectorSerializer,
+                Selector.WorkflowState(TaskWorkflowState.NextUp),
+            )
 
         assertEquals(
             Selector.WorkflowState(TaskWorkflowState.NextUp),

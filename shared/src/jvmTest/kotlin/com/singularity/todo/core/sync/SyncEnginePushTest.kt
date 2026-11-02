@@ -8,10 +8,10 @@ import com.singularity.todo.core.coroutines.testScope
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.serialization.StableJson
-import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
 import com.singularity.todo.core.sync.work.FakeHlcFactory
-import kotlinx.coroutines.test.TestScope
+import com.singularity.todo.core.sync.work.FakeSyncWorkScheduler
 import com.singularity.todo.test.helpers.MutableClock
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -60,9 +60,10 @@ class SyncEnginePushTest {
         policy: PatchRetryPolicy = PatchRetryPolicy(),
     ): Triple<SyncEngine, FakeSyncOutboxDao, FakeSyncDeadLetterDao> {
         val engineScope = testScope(scope.backgroundScope)
-        val auth = FakeSyncAuthRepository(
-            Session.SignedIn(UserId.generate(), "t@x.com", "access", "refresh"),
-        )
+        val auth =
+            FakeSyncAuthRepository(
+                Session.SignedIn(UserId.generate(), "t@x.com", "access", "refresh"),
+            )
         val state = SyncEngineState(log, NoOpCrashReportingPort())
         val outboxService =
             OutboxService(
@@ -72,33 +73,34 @@ class SyncEnginePushTest {
                 engineState = state,
                 monoNow = { clock.now().toEpochMilliseconds() },
             )
-        val engine = SyncEngine(
-            log = log,
-            api = api,
-            authRepository = auth,
-            idGenerator = SequentialIdGenerator(),
-            // push() does not read the scope or the cursor, but the engine needs both
-            // wired. Supplied here rather than defaulted so that a future push() that
-            // does read the cursor is testing a real row, not a fresh one.
-            stateRepository = FakeSyncStateRepository(),
-            // One shadow for both: the builder writes the in-flight marker and the
-            // engine settles it, so two instances would test a system where the
-            // halves cannot see each other.
-            shadowDao = shadow,
-            patchBuilder = fakeSyncPatchBuilder(shadow),
-            outboxService = outboxService,
-            _outboxDao = outbox,
-            _deadLetterDao = deadLetter,
-            syncAuthBridge = fakeSyncAuthBridge(auth),
-            writerProvider = { fakeSyncDocumentWriter() },
-            scopeProvider = FakeSyncScopeProvider(SyncScope("owner-push", "profile-1")),
-            scheduler = FakeSyncWorkScheduler(),
-            retryPolicy = policy,
-            clock = clock,
-            scope = engineScope,
-            crashReporter = NoOpCrashReportingPort(),
-            hlcFactory = FakeHlcFactory(),
-        )
+        val engine =
+            SyncEngine(
+                log = log,
+                api = api,
+                authRepository = auth,
+                idGenerator = SequentialIdGenerator(),
+                // push() does not read the scope or the cursor, but the engine needs both
+                // wired. Supplied here rather than defaulted so that a future push() that
+                // does read the cursor is testing a real row, not a fresh one.
+                stateRepository = FakeSyncStateRepository(),
+                // One shadow for both: the builder writes the in-flight marker and the
+                // engine settles it, so two instances would test a system where the
+                // halves cannot see each other.
+                shadowDao = shadow,
+                patchBuilder = fakeSyncPatchBuilder(shadow),
+                outboxService = outboxService,
+                _outboxDao = outbox,
+                _deadLetterDao = deadLetter,
+                syncAuthBridge = fakeSyncAuthBridge(auth),
+                writerProvider = { fakeSyncDocumentWriter() },
+                scopeProvider = FakeSyncScopeProvider(SyncScope("owner-push", "profile-1")),
+                scheduler = FakeSyncWorkScheduler(),
+                retryPolicy = policy,
+                clock = clock,
+                scope = engineScope,
+                crashReporter = NoOpCrashReportingPort(),
+                hlcFactory = FakeHlcFactory(),
+            )
 
         return Triple(engine, outbox, deadLetter)
     }
@@ -123,147 +125,181 @@ class SyncEnginePushTest {
                 profileId = profileId,
                 entityId = "entity-$patchId",
                 entityType = DocType.Task.key,
-                payload = StableJson.encodeToString(
-                    DeltaPatch(
-                        patchId = patchId,
-                        entityId = "entity-$patchId",
-                        entityType = DocType.Task,
-                        baseVersion = 0,
+                payload =
+                    StableJson.encodeToString(
+                        DeltaPatch(
+                            patchId = patchId,
+                            entityId = "entity-$patchId",
+                            entityType = DocType.Task,
+                            baseVersion = 0,
+                        ),
                     ),
-                ),
                 createdAt = createdAt,
                 attempts = attempts,
             ),
         )
     }
 
-    private fun rejecting(patchId: String, error: String = "server busy") = PatchResult(
+    private fun rejecting(
+        patchId: String,
+        error: String = "server busy",
+    ) = PatchResult(
         patchId = patchId,
         ok = false,
         error = error,
     )
 
     @Test
-    fun `a rejected patch is retried later, not on the next cycle`() = runTest {
-        val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(rejecting("p1"))))
-        val (engine, outbox, dead) = engine(api, this)
-        outbox.seed("p1")
+    fun `a rejected patch is retried later, not on the next cycle`() =
+        runTest {
+            val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(rejecting("p1"))))
+            val (engine, outbox, dead) = engine(api, this)
+            outbox.seed("p1")
 
-        engine.push()
+            engine.push()
 
-        val row = outbox.rows.single()
-        assertEquals(1, row.attempts)
-        assertNotNull(row.nextAttemptAt, "a failed patch must be deferred")
-        // A real delay, not a zero that reads as "deferred" while behaving as "now".
-        assertTrue(
-            (row.nextAttemptAt ?: 0) - clock.millis > 0,
-            "nextAttemptAt must be in the future",
-        )
-        assertTrue(dead.rows.isEmpty())
-    }
+            val row = outbox.rows.single()
+            assertEquals(1, row.attempts)
+            assertNotNull(row.nextAttemptAt, "a failed patch must be deferred")
+            // A real delay, not a zero that reads as "deferred" while behaving as "now".
+            assertTrue(
+                (row.nextAttemptAt ?: 0) - clock.millis > 0,
+                "nextAttemptAt must be in the future",
+            )
+            assertTrue(dead.rows.isEmpty())
+        }
 
     @Test
-    fun `a deferred patch is not sent again before its time`() = runTest {
-        val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(rejecting("p1"))))
-        val (engine, outbox, dead) = engine(api, this)
-        outbox.seed("p1")
+    fun `a deferred patch is not sent again before its time`() =
+        runTest {
+            val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(rejecting("p1"))))
+            val (engine, outbox, dead) = engine(api, this)
+            outbox.seed("p1")
 
-        engine.push()
-        assertEquals(1, api.pushCalls.size)
+            engine.push()
+            assertEquals(1, api.pushCalls.size)
 
-        // Second cycle immediately after: the patch is still deferred, so there is
-        // nothing to send. Before the fix this sent it again, and every cycle after.
-        engine.push()
-        assertEquals(1, api.pushCalls.size, "the deferred patch was re-sent immediately")
+            // Second cycle immediately after: the patch is still deferred, so there is
+            // nothing to send. Before the fix this sent it again, and every cycle after.
+            engine.push()
+            assertEquals(1, api.pushCalls.size, "the deferred patch was re-sent immediately")
 
-        // Once the backoff has elapsed, it goes out again.
-        outbox.rows.single().let { row ->
-            outbox.rows[0] = row.copy(nextAttemptAt = clock.millis - 1)
+            // Once the backoff has elapsed, it goes out again.
+            outbox.rows.single().let { row ->
+                outbox.rows[0] = row.copy(nextAttemptAt = clock.millis - 1)
+            }
+            engine.push()
+            assertEquals(2, api.pushCalls.size, "an elapsed backoff must allow a retry")
         }
-        engine.push()
-        assertEquals(2, api.pushCalls.size, "an elapsed backoff must allow a retry")
-    }
 
     // ── #178: the version the server reported is the base the next patch claims ──
 
     @Test
-    fun `the version the server reported becomes the base of the next patch`() = runTest {
-        // The defect this pins: the client parsed `newVersion` out of every response
-        // and then dropped it, so every patch it ever sent claimed the server had never
-        // seen the row — including the tenth edit to a row the server had been applying
-        // for days. Reading the entity's own `syncServerVersion` could not have caught
-        // it either: that field is written by the local repositories, which have no way
-        // to know what the server said.
-        val api = FakeSyncApiClient()
-        val (engine, outbox, _) = engine(api, this)
+    fun `the version the server reported becomes the base of the next patch`() =
+        runTest {
+            // The defect this pins: the client parsed `newVersion` out of every response
+            // and then dropped it, so every patch it ever sent claimed the server had never
+            // seen the row — including the tenth edit to a row the server had been applying
+            // for days. Reading the entity's own `syncServerVersion` could not have caught
+            // it either: that field is written by the local repositories, which have no way
+            // to know what the server said.
+            val api = FakeSyncApiClient()
+            val (engine, outbox, _) = engine(api, this)
 
-        assertTrue(engine.enqueue(entity("title" to "first", id = "e-1")).isSuccess)
-        val firstPatchId = outbox.rows.single().patchId
-        api.pushResponses.addLast(BatchPushResponse(listOf(PatchResult(firstPatchId, ok = true, newVersion = 7))))
-        assertTrue(engine.push().isSuccess)
+            assertTrue(engine.enqueue(entity("title" to "first", id = "e-1")).isSuccess)
+            val firstPatchId = outbox.rows.single().patchId
+            api.pushResponses.addLast(BatchPushResponse(listOf(PatchResult(firstPatchId, ok = true, newVersion = 7))))
+            assertTrue(engine.push().isSuccess)
 
-        // Second edit, after the server has answered.
-        assertTrue(engine.enqueue(entity("title" to "second", id = "e-1")).isSuccess)
-        api.pushResponses.addLast(BatchPushResponse(listOf(PatchResult("unused", ok = true))))
-        assertTrue(engine.push().isSuccess)
+            // Second edit, after the server has answered.
+            assertTrue(engine.enqueue(entity("title" to "second", id = "e-1")).isSuccess)
+            api.pushResponses.addLast(BatchPushResponse(listOf(PatchResult("unused", ok = true))))
+            assertTrue(engine.push().isSuccess)
 
-        assertEquals(7L, api.pushCalls.last().patches.single().baseVersion)
-    }
-
-    @Test
-    fun `a response with no version does not reset one the client already had`() = runTest {
-        // `COALESCE` on the confirm query, and the reason it is there: binding a null
-        // would store a null, and the next patch would claim a base the server has
-        // moved past — which it answers with a refusal.
-        val api = FakeSyncApiClient()
-        val shadow = FakeSyncShadowDao()
-        val (engine, outbox, _) = engine(api, this, shadow = shadow)
-
-        assertTrue(engine.enqueue(entity("title" to "first", id = "e-1")).isSuccess)
-        val firstPatchId = outbox.rows.single().patchId
-        api.pushResponses.addLast(BatchPushResponse(listOf(PatchResult(firstPatchId, ok = true, newVersion = 7))))
-        assertTrue(engine.push().isSuccess)
-
-        assertTrue(engine.enqueue(entity("title" to "second", id = "e-1")).isSuccess)
-        val secondPatchId = outbox.rows.single().patchId
-        api.pushResponses.addLast(BatchPushResponse(listOf(PatchResult(secondPatchId, ok = true, newVersion = null))))
-        assertTrue(engine.push().isSuccess)
-
-        assertTrue(engine.enqueue(entity("title" to "third", id = "e-1")).isSuccess)
-        api.pushResponses.addLast(BatchPushResponse(listOf(PatchResult("unused", ok = true))))
-        assertTrue(engine.push().isSuccess)
-
-        assertEquals(
-            7L,
-            api.pushCalls.last().patches.single().baseVersion,
-            "a response with no version must leave the stored one alone",
-        )
-    }
+            assertEquals(
+                7L,
+                api.pushCalls
+                    .last()
+                    .patches
+                    .single()
+                    .baseVersion,
+            )
+        }
 
     @Test
-    fun `a first patch still claims the server has never seen the row`() = runTest {
-        val api = FakeSyncApiClient()
-        val (engine, _, _) = engine(api, this)
+    fun `a response with no version does not reset one the client already had`() =
+        runTest {
+            // `COALESCE` on the confirm query, and the reason it is there: binding a null
+            // would store a null, and the next patch would claim a base the server has
+            // moved past — which it answers with a refusal.
+            val api = FakeSyncApiClient()
+            val shadow = FakeSyncShadowDao()
+            val (engine, outbox, _) = engine(api, this, shadow = shadow)
 
-        assertTrue(engine.enqueue(entity("title" to "first", id = "e-1")).isSuccess)
-        api.pushResponses.addLast(BatchPushResponse(listOf(PatchResult("p", ok = true))))
-        assertTrue(engine.push().isSuccess)
+            assertTrue(engine.enqueue(entity("title" to "first", id = "e-1")).isSuccess)
+            val firstPatchId = outbox.rows.single().patchId
+            api.pushResponses.addLast(BatchPushResponse(listOf(PatchResult(firstPatchId, ok = true, newVersion = 7))))
+            assertTrue(engine.push().isSuccess)
 
-        assertEquals(0L, api.pushCalls.last().patches.single().baseVersion)
-    }
+            assertTrue(engine.enqueue(entity("title" to "second", id = "e-1")).isSuccess)
+            val secondPatchId = outbox.rows.single().patchId
+            api.pushResponses.addLast(
+                BatchPushResponse(listOf(PatchResult(secondPatchId, ok = true, newVersion = null))),
+            )
+            assertTrue(engine.push().isSuccess)
+
+            assertTrue(engine.enqueue(entity("title" to "third", id = "e-1")).isSuccess)
+            api.pushResponses.addLast(BatchPushResponse(listOf(PatchResult("unused", ok = true))))
+            assertTrue(engine.push().isSuccess)
+
+            assertEquals(
+                7L,
+                api.pushCalls
+                    .last()
+                    .patches
+                    .single()
+                    .baseVersion,
+                "a response with no version must leave the stored one alone",
+            )
+        }
+
+    @Test
+    fun `a first patch still claims the server has never seen the row`() =
+        runTest {
+            val api = FakeSyncApiClient()
+            val (engine, _, _) = engine(api, this)
+
+            assertTrue(engine.enqueue(entity("title" to "first", id = "e-1")).isSuccess)
+            api.pushResponses.addLast(BatchPushResponse(listOf(PatchResult("p", ok = true))))
+            assertTrue(engine.push().isSuccess)
+
+            assertEquals(
+                0L,
+                api.pushCalls
+                    .last()
+                    .patches
+                    .single()
+                    .baseVersion,
+            )
+        }
 
     /** A [SyncableEntity] with the JSON the test controls field by field. */
     private class TestEntity(private val fields: JsonObject, override val syncId: String) : SyncableEntity {
         override val docType: DocType = DocType.Task
         override val syncServerVersion: Long = 0
         override val syncHlc: Hlc? = null
+
         override fun toJson(): JsonObject = fields
     }
 
-    private fun entity(vararg pairs: Pair<String, String>, id: String): TestEntity = TestEntity(
-        fields = buildJsonObject { for ((k, v) in pairs) put(k, JsonPrimitive(v)) },
-        syncId = id,
-    )
+    private fun entity(
+        vararg pairs: Pair<String, String>,
+        id: String,
+    ): TestEntity =
+        TestEntity(
+            fields = buildJsonObject { for ((k, v) in pairs) put(k, JsonPrimitive(v)) },
+            syncId = id,
+        )
 
     // ── PU-05: the attempt counter is state, not a local variable ──────────────
     //
@@ -273,88 +309,92 @@ class SyncEnginePushTest {
     // to *elapse*, which means moving time, and there was no clock to move.
 
     @Test
-    fun `an attempt count persisted by an earlier run is read back, not restarted`() = runTest {
-        // The defect this pins: an implementation that keeps the attempt count in a
-        // local variable dead-letters nothing until this process has failed the patch
-        // maxAttempts times itself. Across a restart — the common case, since backoff
-        // is measured in hours — that never happens and the row retries forever.
-        val policy = PatchRetryPolicy(baseDelayMs = 1, maxDelayMs = 1, maxAttempts = 3)
-        val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(rejecting("p1"))))
-        val (engine, outbox, dead) = engine(api, this, policy = policy)
+    fun `an attempt count persisted by an earlier run is read back, not restarted`() =
+        runTest {
+            // The defect this pins: an implementation that keeps the attempt count in a
+            // local variable dead-letters nothing until this process has failed the patch
+            // maxAttempts times itself. Across a restart — the common case, since backoff
+            // is measured in hours — that never happens and the row retries forever.
+            val policy = PatchRetryPolicy(baseDelayMs = 1, maxDelayMs = 1, maxAttempts = 3)
+            val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(rejecting("p1"))))
+            val (engine, outbox, dead) = engine(api, this, policy = policy)
 
-        // What a previous run left behind: nine failures already recorded.
-        outbox.seed("p1", attempts = 2)
-        outbox.rows[0] = outbox.rows[0].copy(nextAttemptAt = clock.millis - 1)
-        engine.push()
-
-        val parked = dead.rows.singleOrNull()
-        assertNotNull(
-            parked,
-            "one more failure past the limit must park the row; " +
-                "attempts still in the outbox: ${outbox.rows.map { it.attempts }}",
-        )
-        assertEquals(3, parked.attempts)
-    }
-
-    @Test
-    fun `a deferral is eligible again once the clock has moved past it`() = runTest {
-        val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(rejecting("p1"))))
-        val (engine, outbox, _) = engine(api, this)
-        outbox.seed("p1")
-
-        engine.push()
-        assertEquals(1, api.pushCalls.size)
-        val deferredUntil = outbox.rows.single().nextAttemptAt
-        assertNotNull(deferredUntil, "the first failure must defer rather than retry at once")
-
-        // Still before the deferral: not eligible, and no second request goes out.
-        clock.advanceBy(1)
-        engine.push()
-        assertEquals(1, api.pushCalls.size, "a deferral must hold until the clock reaches it")
-
-        // Past it: eligible, with no real waiting anywhere in the test.
-        clock.advanceBy((deferredUntil ?: 0) - clock.millis + 1)
-        engine.push()
-        assertEquals(2, api.pushCalls.size, "an elapsed deferral must allow the retry")
-    }
-
-    @Test
-    fun `a patch past the attempt limit moves to the dead letter store`() = runTest {
-        val policy = PatchRetryPolicy(baseDelayMs = 1, maxDelayMs = 1, maxAttempts = 3)
-        val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(rejecting("p1"))))
-        val (engine, outbox, dead) = engine(api, this, policy = policy)
-        outbox.seed("p1")
-
-        repeat(3) {
-            // Expire the backoff between attempts so the patch is eligible each time.
-            if (outbox.rows.isNotEmpty()) {
-                outbox.rows[0] = outbox.rows[0].copy(nextAttemptAt = clock.millis - 1)
-            }
+            // What a previous run left behind: nine failures already recorded.
+            outbox.seed("p1", attempts = 2)
+            outbox.rows[0] = outbox.rows[0].copy(nextAttemptAt = clock.millis - 1)
             engine.push()
+
+            val parked = dead.rows.singleOrNull()
+            assertNotNull(
+                parked,
+                "one more failure past the limit must park the row; " +
+                    "attempts still in the outbox: ${outbox.rows.map { it.attempts }}",
+            )
+            assertEquals(3, parked.attempts)
         }
 
-        assertTrue(outbox.rows.isEmpty(), "an exhausted patch must leave the outbox")
-        val parked = dead.rows.single()
-        assertEquals("p1", parked.patchId)
-        assertEquals(3, parked.attempts)
-        assertEquals("server busy", parked.lastError)
-    }
+    @Test
+    fun `a deferral is eligible again once the clock has moved past it`() =
+        runTest {
+            val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(rejecting("p1"))))
+            val (engine, outbox, _) = engine(api, this)
+            outbox.seed("p1")
+
+            engine.push()
+            assertEquals(1, api.pushCalls.size)
+            val deferredUntil = outbox.rows.single().nextAttemptAt
+            assertNotNull(deferredUntil, "the first failure must defer rather than retry at once")
+
+            // Still before the deferral: not eligible, and no second request goes out.
+            clock.advanceBy(1)
+            engine.push()
+            assertEquals(1, api.pushCalls.size, "a deferral must hold until the clock reaches it")
+
+            // Past it: eligible, with no real waiting anywhere in the test.
+            clock.advanceBy((deferredUntil ?: 0) - clock.millis + 1)
+            engine.push()
+            assertEquals(2, api.pushCalls.size, "an elapsed deferral must allow the retry")
+        }
 
     @Test
-    fun `a dead-lettered patch is not retried by later cycles`() = runTest {
-        val policy = PatchRetryPolicy(baseDelayMs = 1, maxDelayMs = 1, maxAttempts = 1)
-        val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(rejecting("p1"))))
-        val (engine, outbox, dead) = engine(api, this, policy = policy)
-        outbox.seed("p1")
+    fun `a patch past the attempt limit moves to the dead letter store`() =
+        runTest {
+            val policy = PatchRetryPolicy(baseDelayMs = 1, maxDelayMs = 1, maxAttempts = 3)
+            val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(rejecting("p1"))))
+            val (engine, outbox, dead) = engine(api, this, policy = policy)
+            outbox.seed("p1")
 
-        engine.push()
-        assertEquals(1, api.pushCalls.size)
-        assertEquals(1, dead.rows.size)
+            repeat(3) {
+                // Expire the backoff between attempts so the patch is eligible each time.
+                if (outbox.rows.isNotEmpty()) {
+                    outbox.rows[0] = outbox.rows[0].copy(nextAttemptAt = clock.millis - 1)
+                }
+                engine.push()
+            }
 
-        engine.push()
-        engine.push()
-        assertEquals(1, api.pushCalls.size, "a dead-lettered patch must not be retried")
-    }
+            assertTrue(outbox.rows.isEmpty(), "an exhausted patch must leave the outbox")
+            val parked = dead.rows.single()
+            assertEquals("p1", parked.patchId)
+            assertEquals(3, parked.attempts)
+            assertEquals("server busy", parked.lastError)
+        }
+
+    @Test
+    fun `a dead-lettered patch is not retried by later cycles`() =
+        runTest {
+            val policy = PatchRetryPolicy(baseDelayMs = 1, maxDelayMs = 1, maxAttempts = 1)
+            val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(rejecting("p1"))))
+            val (engine, outbox, dead) = engine(api, this, policy = policy)
+            outbox.seed("p1")
+
+            engine.push()
+            assertEquals(1, api.pushCalls.size)
+            assertEquals(1, dead.rows.size)
+
+            engine.push()
+            engine.push()
+            assertEquals(1, api.pushCalls.size, "a dead-lettered patch must not be retried")
+        }
 
     @Test
     fun `the backoff grows and is capped`() {
@@ -370,58 +410,65 @@ class SyncEnginePushTest {
     }
 
     @Test
-    fun `a non-retriable rejection is dropped rather than backed off`() = runTest {
-        // `too_old` is the protocol's "your base version is behind, stop sending this".
-        val api = FakeSyncApiClient(
-            pushResponse = BatchPushResponse(listOf(rejecting("p1", error = "too_old"))),
-        )
-        val (engine, outbox, dead) = engine(api, this)
-        outbox.seed("p1")
+    fun `a non-retriable rejection is dropped rather than backed off`() =
+        runTest {
+            // `too_old` is the protocol's "your base version is behind, stop sending this".
+            val api =
+                FakeSyncApiClient(
+                    pushResponse = BatchPushResponse(listOf(rejecting("p1", error = "too_old"))),
+                )
+            val (engine, outbox, dead) = engine(api, this)
+            outbox.seed("p1")
 
-        engine.push()
+            engine.push()
 
-        assertTrue(outbox.rows.isEmpty(), "an unacceptable patch must not linger")
-        assertTrue(dead.rows.isEmpty(), "and must not be dead-lettered either")
-    }
-
-    @Test
-    fun `a successful patch leaves the outbox`() = runTest {
-        val api = FakeSyncApiClient(
-            pushResponse = BatchPushResponse(listOf(PatchResult(patchId = "p1", ok = true))),
-        )
-        val (engine, outbox, dead) = engine(api, this)
-        outbox.seed("p1")
-
-        val summary = engine.push().getOrThrow()
-
-        assertEquals(1, summary.succeeded)
-        assertEquals(0, summary.failed)
-        assertTrue(outbox.rows.isEmpty())
-        assertNull(outbox.rows.firstOrNull()?.lastError)
-    }
+            assertTrue(outbox.rows.isEmpty(), "an unacceptable patch must not linger")
+            assertTrue(dead.rows.isEmpty(), "and must not be dead-lettered either")
+        }
 
     @Test
-    fun `one failing patch does not hold up the others in the batch`() = runTest {
-        val api = FakeSyncApiClient(
-            pushResponse = BatchPushResponse(
-                listOf(
-                    PatchResult(patchId = "ok1", ok = true),
-                    rejecting("bad1"),
-                    PatchResult(patchId = "ok2", ok = true),
-                ),
-            ),
-        )
-        val (engine, outbox, dead) = engine(api, this)
-        outbox.seed("ok1", createdAt = 1)
-        outbox.seed("bad1", createdAt = 2)
-        outbox.seed("ok2", createdAt = 3)
+    fun `a successful patch leaves the outbox`() =
+        runTest {
+            val api =
+                FakeSyncApiClient(
+                    pushResponse = BatchPushResponse(listOf(PatchResult(patchId = "p1", ok = true))),
+                )
+            val (engine, outbox, dead) = engine(api, this)
+            outbox.seed("p1")
 
-        val summary = engine.push().getOrThrow()
+            val summary = engine.push().getOrThrow()
 
-        assertEquals(2, summary.succeeded)
-        assertEquals(1, summary.failed)
-        assertEquals(listOf("bad1"), outbox.rows.map { it.patchId })
-    }
+            assertEquals(1, summary.succeeded)
+            assertEquals(0, summary.failed)
+            assertTrue(outbox.rows.isEmpty())
+            assertNull(outbox.rows.firstOrNull()?.lastError)
+        }
+
+    @Test
+    fun `one failing patch does not hold up the others in the batch`() =
+        runTest {
+            val api =
+                FakeSyncApiClient(
+                    pushResponse =
+                        BatchPushResponse(
+                            listOf(
+                                PatchResult(patchId = "ok1", ok = true),
+                                rejecting("bad1"),
+                                PatchResult(patchId = "ok2", ok = true),
+                            ),
+                        ),
+                )
+            val (engine, outbox, dead) = engine(api, this)
+            outbox.seed("ok1", createdAt = 1)
+            outbox.seed("bad1", createdAt = 2)
+            outbox.seed("ok2", createdAt = 3)
+
+            val summary = engine.push().getOrThrow()
+
+            assertEquals(2, summary.succeeded)
+            assertEquals(1, summary.failed)
+            assertEquals(listOf("bad1"), outbox.rows.map { it.patchId })
+        }
 
     // ─── Shadow settling ──────────────────────────────────────────────────────
     //
@@ -432,92 +479,97 @@ class SyncEnginePushTest {
     // a state that does not exist there.
 
     @Test
-    fun `a rejected patch leaves the shadow where the server is`() = runTest {
-        val shadow = FakeSyncShadowDao()
-        val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(rejecting("p1"))))
-        val (engine, outbox, _) = engine(api, this, shadow = shadow)
-        outbox.seed("p1")
-        shadow.upsert(
-            SyncShadowEntity(
-                ownerId = "owner-push",
-                profileId = "profile-1",
-                entityType = DocType.Task.key,
-                entityId = "entity-p1",
-                confirmedJson = "{\"title\":\"A\"}",
-                inFlightJson = "{\"title\":\"B\"}",
-                inFlightPatchId = "p1",
-            ),
-        )
+    fun `a rejected patch leaves the shadow where the server is`() =
+        runTest {
+            val shadow = FakeSyncShadowDao()
+            val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(rejecting("p1"))))
+            val (engine, outbox, _) = engine(api, this, shadow = shadow)
+            outbox.seed("p1")
+            shadow.upsert(
+                SyncShadowEntity(
+                    ownerId = "owner-push",
+                    profileId = "profile-1",
+                    entityType = DocType.Task.key,
+                    entityId = "entity-p1",
+                    confirmedJson = "{\"title\":\"A\"}",
+                    inFlightJson = "{\"title\":\"B\"}",
+                    inFlightPatchId = "p1",
+                ),
+            )
 
-        engine.push()
+            engine.push()
 
-        val row = shadow.state("owner-push", "profile-1", DocType.Task.key, "entity-p1")
-        assertEquals("{\"title\":\"A\"}", row?.confirmedJson, "a rejected patch must not advance it")
-        // The marker is still held: the patch is only deferred, and a retry of the same
-        // patch must still be able to promote.
-        assertEquals("p1", row?.inFlightPatchId)
-    }
-
-    @Test
-    fun `a dead-lettered patch releases its in-flight marker`() = runTest {
-        val shadow = FakeSyncShadowDao()
-        val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(rejecting("p1"))))
-        val policy = PatchRetryPolicy()
-        val (engine, outbox, dead) = engine(
-            api = api,
-            scope = this,
-            shadow = shadow,
-            policy = policy,
-        )
-        outbox.seed("p1", attempts = policy.maxAttempts)
-        shadow.upsert(
-            SyncShadowEntity(
-                ownerId = "owner-push",
-                profileId = "profile-1",
-                entityType = DocType.Task.key,
-                entityId = "entity-p1",
-                confirmedJson = "{\"title\":\"A\"}",
-                inFlightJson = "{\"title\":\"B\"}",
-                inFlightPatchId = "p1",
-            ),
-        )
-
-        engine.push()
-
-        assertEquals(1, dead.rows.size, "the patch must be set aside, not dropped")
-        val row = shadow.state("owner-push", "profile-1", DocType.Task.key, "entity-p1")
-        assertEquals(null, row?.inFlightPatchId, "an abandoned patch must not keep the marker")
-        assertEquals(
-            "{\"title\":\"A\"}",
-            row?.confirmedJson,
-            "the next edit re-diffs from what the server really has, so those fields go again",
-        )
-    }
+            val row = shadow.state("owner-push", "profile-1", DocType.Task.key, "entity-p1")
+            assertEquals("{\"title\":\"A\"}", row?.confirmedJson, "a rejected patch must not advance it")
+            // The marker is still held: the patch is only deferred, and a retry of the same
+            // patch must still be able to promote.
+            assertEquals("p1", row?.inFlightPatchId)
+        }
 
     @Test
-    fun `a permanently rejected patch releases its marker too`() = runTest {
-        val shadow = FakeSyncShadowDao()
-        val api = FakeSyncApiClient(
-            pushResponse = BatchPushResponse(listOf(PatchResult("p1", ok = false, error = "too_old"))),
-        )
-        val (engine, outbox, dead) = engine(api, this, shadow = shadow)
-        outbox.seed("p1")
-        shadow.upsert(
-            SyncShadowEntity(
-                ownerId = "owner-push",
-                profileId = "profile-1",
-                entityType = DocType.Task.key,
-                entityId = "entity-p1",
-                confirmedJson = "{\"title\":\"A\"}",
-                inFlightJson = "{\"title\":\"B\"}",
-                inFlightPatchId = "p1",
-            ),
-        )
+    fun `a dead-lettered patch releases its in-flight marker`() =
+        runTest {
+            val shadow = FakeSyncShadowDao()
+            val api = FakeSyncApiClient(pushResponse = BatchPushResponse(listOf(rejecting("p1"))))
+            val policy = PatchRetryPolicy()
+            val (engine, outbox, dead) =
+                engine(
+                    api = api,
+                    scope = this,
+                    shadow = shadow,
+                    policy = policy,
+                )
+            outbox.seed("p1", attempts = policy.maxAttempts)
+            shadow.upsert(
+                SyncShadowEntity(
+                    ownerId = "owner-push",
+                    profileId = "profile-1",
+                    entityType = DocType.Task.key,
+                    entityId = "entity-p1",
+                    confirmedJson = "{\"title\":\"A\"}",
+                    inFlightJson = "{\"title\":\"B\"}",
+                    inFlightPatchId = "p1",
+                ),
+            )
 
-        engine.push()
+            engine.push()
 
-        assertTrue(dead.rows.isEmpty(), "a non-retriable rejection is not a dead letter")
-        val row = shadow.state("owner-push", "profile-1", DocType.Task.key, "entity-p1")
-        assertEquals(null, row?.inFlightPatchId, "the row is gone, so the marker must go with it")
-    }
+            assertEquals(1, dead.rows.size, "the patch must be set aside, not dropped")
+            val row = shadow.state("owner-push", "profile-1", DocType.Task.key, "entity-p1")
+            assertEquals(null, row?.inFlightPatchId, "an abandoned patch must not keep the marker")
+            assertEquals(
+                "{\"title\":\"A\"}",
+                row?.confirmedJson,
+                "the next edit re-diffs from what the server really has, so those fields go again",
+            )
+        }
+
+    @Test
+    fun `a permanently rejected patch releases its marker too`() =
+        runTest {
+            val shadow = FakeSyncShadowDao()
+            val api =
+                FakeSyncApiClient(
+                    pushResponse = BatchPushResponse(listOf(PatchResult("p1", ok = false, error = "too_old"))),
+                )
+            val (engine, outbox, dead) = engine(api, this, shadow = shadow)
+            outbox.seed("p1")
+            shadow.upsert(
+                SyncShadowEntity(
+                    ownerId = "owner-push",
+                    profileId = "profile-1",
+                    entityType = DocType.Task.key,
+                    entityId = "entity-p1",
+                    confirmedJson = "{\"title\":\"A\"}",
+                    inFlightJson = "{\"title\":\"B\"}",
+                    inFlightPatchId = "p1",
+                ),
+            )
+
+            engine.push()
+
+            assertTrue(dead.rows.isEmpty(), "a non-retriable rejection is not a dead letter")
+            val row = shadow.state("owner-push", "profile-1", DocType.Task.key, "entity-p1")
+            assertEquals(null, row?.inFlightPatchId, "the row is gone, so the marker must go with it")
+        }
 }

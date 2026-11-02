@@ -16,22 +16,24 @@ data class ListLinkedTasksOutput(val tasks: List<TaskSummary>)
 
 class ListLinkedTasksTool(private val taskRepository: TaskRepository) :
     SimpleTool<ListLinkedTasksInput>(TypeToken.of(ListLinkedTasksInput::class.java), NAME, DESCRIPTION) {
-
     override suspend fun execute(args: ListLinkedTasksInput): String {
-        val tasks = taskRepository.observeByFilter(TaskFilter.ByProject(ProjectId(args.projectId))).first()
-            .map {
-                TaskSummary(
-                    id = it.id.value,
-                    title = it.title,
-                    projectId = it.projectId?.value,
-                    dueDate = it.dueDate?.toString(),
-                    priority = it.priority.name,
-                    tags = it.tags.map { tag -> tag.value },
-                    status = if (it.isCompleted) "completed" else "active",
-                    estimateMinutes = it.estimateMinutes,
-                    isPinned = it.isPinned,
-                )
-            }
+        val tasks =
+            taskRepository
+                .observeByFilter(TaskFilter.ByProject(ProjectId(args.projectId)))
+                .first()
+                .map {
+                    TaskSummary(
+                        id = it.id.value,
+                        title = it.title,
+                        projectId = it.projectId?.value,
+                        dueDate = it.dueDate?.toString(),
+                        priority = it.priority.name,
+                        tags = it.tags.map { tag -> tag.value },
+                        status = if (it.isCompleted) "completed" else "active",
+                        estimateMinutes = it.estimateMinutes,
+                        isPinned = it.isPinned,
+                    )
+                }
         return kotlinx.serialization.json.Json.encodeToString(
             ListLinkedTasksOutput.serializer(),
             ListLinkedTasksOutput(tasks),

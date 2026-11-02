@@ -94,7 +94,6 @@ internal class ToolCallLoop(
     private val maxRounds: Int = DEFAULT_MAX_ROUNDS,
     json: Json = Json { ignoreUnknownKeys = true },
 ) {
-
     private val toolsByName: Map<String, Tool<*, *>> = tools.associateBy { it.descriptor.name }
 
     private val descriptors: List<ToolDescriptor> = tools.map { it.descriptor }
@@ -112,47 +111,50 @@ internal class ToolCallLoop(
     fun run(
         initialPrompt: Prompt,
         stream: (Prompt, List<ToolDescriptor>) -> Flow<StreamFrame>,
-    ): Flow<AgentEvent> = flow {
-        var current = initialPrompt
-        var toolRounds = 0
+    ): Flow<AgentEvent> =
+        flow {
+            var current = initialPrompt
+            var toolRounds = 0
 
-        while (true) {
-            val outcome = streamRound(current, descriptors, "r$toolRounds", stream) { emit(AgentEvent.TextDelta(it)) }
+            while (true) {
+                val outcome =
+                    streamRound(current, descriptors, "r$toolRounds", stream) { emit(AgentEvent.TextDelta(it)) }
 
-            if (outcome.calls.isEmpty()) {
-                emit(AgentEvent.TurnCompleted)
-                return@flow
-            }
+                if (outcome.calls.isEmpty()) {
+                    emit(AgentEvent.TurnCompleted)
+                    return@flow
+                }
 
-            val results = outcome.calls.map { pending ->
-                val call = pending.call
-                // The call is announced before it runs, so a card appears while the tool is
-                // still working rather than after it has already finished.
-                emit(AgentEvent.ToolCallUpdated(pending.id, call.tool, ToolCallStatus.RUNNING))
-                val result = execute(call)
-                emit(
-                    AgentEvent.ToolCallUpdated(
-                        id = pending.id,
-                        name = call.tool,
-                        status = if (result.isError) ToolCallStatus.FAILED else ToolCallStatus.COMPLETED,
-                        summary = toolCallSummary(call.tool, call.argsJson.toString()),
-                    ),
-                )
-                result
-            }
-            current = conversationWith(current, outcome, results)
-            toolRounds++
+                val results =
+                    outcome.calls.map { pending ->
+                        val call = pending.call
+                        // The call is announced before it runs, so a card appears while the tool is
+                        // still working rather than after it has already finished.
+                        emit(AgentEvent.ToolCallUpdated(pending.id, call.tool, ToolCallStatus.RUNNING))
+                        val result = execute(call)
+                        emit(
+                            AgentEvent.ToolCallUpdated(
+                                id = pending.id,
+                                name = call.tool,
+                                status = if (result.isError) ToolCallStatus.FAILED else ToolCallStatus.COMPLETED,
+                                summary = toolCallSummary(call.tool, call.argsJson.toString()),
+                            ),
+                        )
+                        result
+                    }
+                current = conversationWith(current, outcome, results)
+                toolRounds++
 
-            if (toolRounds >= maxRounds) {
-                // The cap is reached. The calls of this round were honoured above; the model
-                // now gets one round with no tools, so it answers in words rather than asking
-                // again.
-                streamRound(current, emptyList(), "r${toolRounds + 1}", stream) { emit(AgentEvent.TextDelta(it)) }
-                emit(AgentEvent.TurnCompleted)
-                return@flow
+                if (toolRounds >= maxRounds) {
+                    // The cap is reached. The calls of this round were honoured above; the model
+                    // now gets one round with no tools, so it answers in words rather than asking
+                    // again.
+                    streamRound(current, emptyList(), "r${toolRounds + 1}", stream) { emit(AgentEvent.TextDelta(it)) }
+                    emit(AgentEvent.TurnCompleted)
+                    return@flow
+                }
             }
         }
-    }
 
     /**
      * One pass of the model over the conversation.
@@ -190,13 +192,16 @@ internal class ToolCallLoop(
                     // settled here, once, and used on both sides.
                     val id = frame.id ?: "${callPrefix}_call_$callSeq"
                     callSeq++
-                    calls += PendingCall(
-                        id = id,
-                        call = MessagePart.Tool.Call(id = id, tool = frame.name, args = frame.content),
-                    )
+                    calls +=
+                        PendingCall(
+                            id = id,
+                            call = MessagePart.Tool.Call(id = id, tool = frame.name, args = frame.content),
+                        )
                 }
 
-                else -> Unit
+                else -> {
+                    Unit
+                }
             }
         }
 
@@ -213,15 +218,19 @@ internal class ToolCallLoop(
         current: Prompt,
         outcome: RoundOutcome,
         results: List<MessagePart.Tool.Result>,
-    ): Prompt = prompt(current, KoogClock.System) {
-        assistant(
-            buildList {
-                if (outcome.text.isNotBlank()) add(MessagePart.Text(outcome.text))
-                addAll(outcome.calls.map { it.call })
-            },
-        )
-        user { results.forEach { toolResult(it) } }
-    }
+    ): Prompt =
+        prompt(current, KoogClock.System) {
+            assistant(
+                buildList {
+                    if (outcome.text.isNotBlank()) add(MessagePart.Text(outcome.text))
+                    addAll(outcome.calls.map { it.call })
+                },
+            )
+            user { results.forEach { toolResult(it) } }
+        }
+
+    // A tool may throw anything, and a failed tool is an answer the model can read rather
+    // than the end of the conversation. Cancellation is re-thrown above the general catch.
 
     /**
      * Runs one call and turns its outcome into something the model can read.
@@ -229,12 +238,11 @@ internal class ToolCallLoop(
      * A failure is a result, not a crash: the model asked, and the honest answer is that the
      * call did not succeed. Throwing would end the conversation over one failed tool.
      */
-    // A tool may throw anything, and a failed tool is an answer the model can read rather
-    // than the end of the conversation. Cancellation is re-thrown above the general catch.
     @Suppress("TooGenericExceptionCaught")
     private suspend fun execute(call: MessagePart.Tool.Call): MessagePart.Tool.Result {
-        val tool = toolsByName[call.tool]
-            ?: return failure(call, "There is no tool named \"${call.tool}\".")
+        val tool =
+            toolsByName[call.tool]
+                ?: return failure(call, "There is no tool named \"${call.tool}\".")
 
         return try {
             @Suppress("UNCHECKED_CAST")
@@ -259,12 +267,17 @@ internal class ToolCallLoop(
      * The model is the one that can fix this, so the message says what to look at: the
      * names and the allowed values are in the tool's own description.
      */
-    private fun malformedArguments(call: MessagePart.Tool.Call, malformed: Throwable): String =
+    private fun malformedArguments(
+        call: MessagePart.Tool.Call,
+        malformed: Throwable,
+    ): String =
         "The arguments did not fit the tool \"${call.tool}\" (${malformed.message}). " +
             "Check the argument names and the allowed values in the tool's description."
 
-    private fun failure(call: MessagePart.Tool.Call, message: String): MessagePart.Tool.Result =
-        MessagePart.Tool.Result(call.id, call.tool, message, isError = true)
+    private fun failure(
+        call: MessagePart.Tool.Call,
+        message: String,
+    ): MessagePart.Tool.Result = MessagePart.Tool.Result(call.id, call.tool, message, isError = true)
 
     /** What one round of the model produced. */
     private data class RoundOutcome(val text: String, val calls: List<PendingCall>)

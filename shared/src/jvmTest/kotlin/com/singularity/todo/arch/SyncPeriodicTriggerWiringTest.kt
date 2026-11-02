@@ -2,8 +2,8 @@ package com.singularity.todo.arch
 
 import com.singularity.todo.core.sync.DelayLoopSyncPeriodicTrigger
 import com.singularity.todo.core.sync.SyncPeriodicTrigger
-import java.io.File
 import org.junit.jupiter.api.Tag
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -35,7 +35,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class SyncPeriodicTriggerWiringTest {
-
     /**
      * Source roots, handed over by the jvmTest task as `commonMain.root`,
      * `jvmMain.root` and `androidMain.root`.
@@ -50,13 +49,14 @@ class SyncPeriodicTriggerWiringTest {
      * the whole worktree — declaring the repo root would make :shared:jvmTest re-run on
      * a change to any file anywhere.
      */
-    private fun sourceRoot(property: String): File = File(
-        System.getProperty(property)
-            ?: error(
-                "$property system property is not set — " +
-                    "see the jvmTest task config in shared/build.gradle.kts",
-            ),
-    )
+    private fun sourceRoot(property: String): File =
+        File(
+            System.getProperty(property)
+                ?: error(
+                    "$property system property is not set — " +
+                        "see the jvmTest task config in shared/build.gradle.kts",
+                ),
+        )
 
     private val commonMainRoot: File = sourceRoot("commonMain.root")
     private val jvmMainRoot: File = sourceRoot("jvmMain.root")
@@ -104,11 +104,13 @@ class SyncPeriodicTriggerWiringTest {
         assertTrue(syncCore.isDirectory, "sync core not found")
 
         val pattern = Regex("""\bis\s+(NoOpSyncScheduler|JvmSyncScheduler|AndroidSyncScheduler)\b""")
-        val offenders = syncCore.walkTopDown()
-            .filter { it.isFile && it.extension == "kt" }
-            .filter { file -> pattern.containsMatchIn(stripCommentsAndStrings(file.readText())) }
-            .map { it.name }
-            .toList()
+        val offenders =
+            syncCore
+                .walkTopDown()
+                .filter { it.isFile && it.extension == "kt" }
+                .filter { file -> pattern.containsMatchIn(stripCommentsAndStrings(file.readText())) }
+                .map { it.name }
+                .toList()
 
         assertTrue(
             offenders.isEmpty(),

@@ -49,24 +49,33 @@ enum class SyncTrigger {
          * removed again, or a hand-edited row, should cost one missing trigger and not a
          * sync that cannot start.
          */
-        fun parseCsv(raw: String?): Set<SyncTrigger> = when {
-            raw == null || raw.isBlank() -> entries.toSet()
+        fun parseCsv(raw: String?): Set<SyncTrigger> =
+            when {
+                raw == null || raw.isBlank() -> {
+                    entries.toSet()
+                }
 
-            raw == NONE -> emptySet()
+                raw == NONE -> {
+                    emptySet()
+                }
 
-            else -> raw.split(',')
-                .mapNotNull { name -> entries.find { it.name == name } }
-                .toSet()
-        }
+                else -> {
+                    raw
+                        .split(',')
+                        .mapNotNull { name -> entries.find { it.name == name } }
+                        .toSet()
+                }
+            }
 
         /**
          * Writes the CSV, sorted by declaration order so the stored value is stable and a
          * diff of the preferences file is readable.
          */
-        fun toCsv(triggers: Set<SyncTrigger>): String = if (triggers.isEmpty()) {
-            NONE
-        } else {
-            triggers.sortedBy { it.ordinal }.joinToString(",") { it.name }
-        }
+        fun toCsv(triggers: Set<SyncTrigger>): String =
+            if (triggers.isEmpty()) {
+                NONE
+            } else {
+                triggers.sortedBy { it.ordinal }.joinToString(",") { it.name }
+            }
     }
 }

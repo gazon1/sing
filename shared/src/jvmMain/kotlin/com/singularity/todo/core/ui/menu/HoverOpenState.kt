@@ -20,7 +20,11 @@ import kotlinx.coroutines.delay
  * @param onOpen called after [delayMs] of continuous hover when not already open
  */
 @Composable
-fun rememberHoverOpenState(delayMs: Long, isOpen: Boolean, onOpen: () -> Unit): HoverOpenState {
+fun rememberHoverOpenState(
+    delayMs: Long,
+    isOpen: Boolean,
+    onOpen: () -> Unit,
+): HoverOpenState {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
 

@@ -24,7 +24,11 @@ import okio.Path
  * @param version Human-readable version string shown in [logStartup].
  * @param logDirectory Directory where rolling log files are written. Created if absent.
  */
-expect fun initLogging(isDebug: Boolean, version: String, logDirectory: Path)
+expect fun initLogging(
+    isDebug: Boolean,
+    version: String,
+    logDirectory: Path,
+)
 
 /**
  * The file writer installed by the most recent [initLogging], or `null` if logging was never

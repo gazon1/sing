@@ -33,7 +33,6 @@ import kotlinx.serialization.json.JsonObject
  * `VendorSdkConfinementTest` state a rule an author can check against.
  */
 class PostgrestSyncRpc(private val clients: SupabaseClientProvider) : SyncRpc {
-
     /**
      * The raw body is returned rather than a decoded value because the two calls
      * this makes have different shapes — an object and an array — and the parsing
@@ -41,7 +40,10 @@ class PostgrestSyncRpc(private val clients: SupabaseClientProvider) : SyncRpc {
      * it asked for.
      */
     @Suppress("TooGenericExceptionCaught")
-    override suspend fun call(function: String, params: JsonObject): String {
+    override suspend fun call(
+        function: String,
+        params: JsonObject,
+    ): String {
         val postgrest = client(function)
         return try {
             postgrest.rpc(function, params).data
@@ -61,6 +63,7 @@ class PostgrestSyncRpc(private val clients: SupabaseClientProvider) : SyncRpc {
         }
     }
 
-    private suspend fun client(function: String): Postgrest = clients.client()?.postgrest
-        ?: throw SyncRpcFailure.notConfigured(function)
+    private suspend fun client(function: String): Postgrest =
+        clients.client()?.postgrest
+            ?: throw SyncRpcFailure.notConfigured(function)
 }

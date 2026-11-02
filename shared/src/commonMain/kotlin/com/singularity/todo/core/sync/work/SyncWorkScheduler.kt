@@ -16,7 +16,6 @@ package com.singularity.todo.core.sync.work
  *   have. Fires on an interval, and survives process death.
  */
 interface SyncWorkScheduler {
-
     /**
      * Enqueues a one-shot push job.
      * Uses `ExistingWorkPolicy.KEEP` — subsequent calls while a job is running

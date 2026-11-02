@@ -16,7 +16,6 @@ import okio.ByteString.Companion.encodeUtf8
  * приложение её просто не откроет.
  */
 object AuthLinkSpec {
-
     /** Схема всех ссылок приложения. */
     const val SCHEME = "singularity"
 
@@ -35,8 +34,10 @@ object AuthLinkSpec {
      * @param email адрес, который подтверждается.
      * @param token токен подтверждения.
      */
-    fun uri(email: String, token: String): String =
-        "$SCHEME://$HOST?email=${encodeQueryValue(email)}&token=${encodeQueryValue(token)}"
+    fun uri(
+        email: String,
+        token: String,
+    ): String = "$SCHEME://$HOST?email=${encodeQueryValue(email)}&token=${encodeQueryValue(token)}"
 
     /**
      * Percent-кодирование значения query-параметра по RFC 3986.

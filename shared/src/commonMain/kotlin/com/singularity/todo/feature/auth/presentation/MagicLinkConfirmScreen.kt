@@ -24,7 +24,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import com.singularity.todo.core.ui.components.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,9 +39,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.core.ui.components.ButtonSpinner
 import com.singularity.todo.core.ui.components.CollectEvents
-import com.singularity.todo.core.ui.textfields.ObserveTextFieldEdits
+import com.singularity.todo.core.ui.components.TopAppBar
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.text.SelectableText
+import com.singularity.todo.core.ui.textfields.ObserveTextFieldEdits
 import com.singularity.todo.feature.auth.AuthIntent
 import com.singularity.todo.feature.auth.AuthUiEvent
 import com.singularity.todo.feature.auth.AuthUiState
@@ -229,10 +229,11 @@ private fun MagicLinkConfirmScaffold(
         modifier = modifier,
     ) { paddingValues ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 32.dp, vertical = 16.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(horizontal = 32.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top,
             content = content,
@@ -286,9 +287,10 @@ private fun MagicLinkVerifyForm(
     OutlinedTextField(
         state = emailState,
         label = { Text("Email") },
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag(TestTags.AUTH_ATTACH_EMAIL_INPUT),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .testTag(TestTags.AUTH_ATTACH_EMAIL_INPUT),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
         lineLimits = TextFieldLineLimits.SingleLine,
         enabled = emailEnabled,
@@ -299,9 +301,10 @@ private fun MagicLinkVerifyForm(
     OutlinedTextField(
         state = tokenState,
         label = { Text("Code from email") },
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag(TOKEN_TAG),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .testTag(TOKEN_TAG),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
         lineLimits = TextFieldLineLimits.SingleLine,
     )
@@ -330,16 +333,18 @@ private fun MagicLinkVerifyForm(
 
     if (isLoading) {
         ButtonSpinner(
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(TestTags.AUTH_LOADING),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .testTag(TestTags.AUTH_LOADING),
         )
     } else {
         Button(
             onClick = onSubmit,
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(SUBMIT_TAG),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .testTag(SUBMIT_TAG),
             enabled = emailState.text.isNotBlank() && tokenState.text.isNotBlank(),
         ) {
             Text("Verify")
@@ -360,19 +365,20 @@ private fun MagicLinkVerifyForm(
 // ===== Preview =====
 
 @Composable
-private fun MagicLinkConfirmScreenPreview() = PreviewThemed(darkTheme = false) {
-    MagicLinkConfirmScreenContent(
-        emailState = rememberTextFieldState("user@example.com"),
-        tokenState = rememberTextFieldState(),
-        isLoading = false,
-        errorMessage = null,
-        message = null,
-        onFieldEdited = {},
-        onSubmit = {},
-        onResend = {},
-        onBack = {},
-    )
-}
+private fun MagicLinkConfirmScreenPreview() =
+    PreviewThemed(darkTheme = false) {
+        MagicLinkConfirmScreenContent(
+            emailState = rememberTextFieldState("user@example.com"),
+            tokenState = rememberTextFieldState(),
+            isLoading = false,
+            errorMessage = null,
+            message = null,
+            onFieldEdited = {},
+            onSubmit = {},
+            onResend = {},
+            onBack = {},
+        )
+    }
 
 @Composable
 internal fun MagicLinkConfirmScreenContent(

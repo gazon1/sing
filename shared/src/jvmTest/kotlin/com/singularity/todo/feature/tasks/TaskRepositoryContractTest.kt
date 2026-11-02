@@ -5,8 +5,8 @@ package com.singularity.todo.feature.tasks
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.database.AppDatabase
 import com.singularity.todo.core.database.AppDatabaseFactory
-import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.database.contract.createSqlDriver
+import com.singularity.todo.core.database.textIndex
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.sync.FakeSyncRepository
 import com.singularity.todo.core.sync.SyncRepository
@@ -20,8 +20,7 @@ import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeTaskRepository
-import java.io.File
-import java.nio.file.Files
+import com.singularity.todo.test.fakes.FakeUnitOfWork
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -29,6 +28,8 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
+import java.io.File
+import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -36,7 +37,6 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import com.singularity.todo.test.fakes.FakeUnitOfWork
 
 /**
  * Verifies that [TaskRepository] implementations satisfy the same contract,
@@ -65,224 +65,251 @@ import com.singularity.todo.test.fakes.FakeUnitOfWork
 @Tag("slow")
 @Tag("slow:data")
 abstract class TaskRepositoryContractTest {
-
     private val alice = UserId("alice")
     private val bob = UserId("bob")
 
     /** Creates a repository scoped to [userId]. Called once per test by the base class. */
     protected abstract suspend fun newRepository(userId: UserId): TaskRepository
 
-    private fun task(id: String, uid: UserId = alice, title: String = "T"): Task = Task(
-        id = TaskId(id),
-        title = title,
-        userId = uid,
-        createdAt = kotlin.time.Clock.System.now(),
-        updatedAt = kotlin.time.Clock.System.now(),
-    )
+    private fun task(
+        id: String,
+        uid: UserId = alice,
+        title: String = "T",
+    ): Task =
+        Task(
+            id = TaskId(id),
+            title = title,
+            userId = uid,
+            createdAt =
+                kotlin.time.Clock.System
+                    .now(),
+            updatedAt =
+                kotlin.time.Clock.System
+                    .now(),
+        )
 
     // ─── Creation ───────────────────────────────────────────────────────────────
 
     @Test
-    fun `create emits the task through observeAll`() = runTest {
-        val repo = newRepository(alice)
-        repo.create(task("t1"))
-        advanceUntilIdle()
-        assertTrue(repo.observeAll().first().any { it.id.value == "t1" })
-    }
+    fun `create emits the task through observeAll`() =
+        runTest {
+            val repo = newRepository(alice)
+            repo.create(task("t1"))
+            advanceUntilIdle()
+            assertTrue(repo.observeAll().first().any { it.id.value == "t1" })
+        }
 
     @Test
-    fun `create returns the created task`() = runTest {
-        val repo = newRepository(alice)
-        val result = repo.create(task("t1", title = "Buy milk"))
-        assertTrue(result.isSuccess)
-        assertEquals("Buy milk", result.getOrNull()?.title)
-    }
+    fun `create returns the created task`() =
+        runTest {
+            val repo = newRepository(alice)
+            val result = repo.create(task("t1", title = "Buy milk"))
+            assertTrue(result.isSuccess)
+            assertEquals("Buy milk", result.getOrNull()?.title)
+        }
 
     // ─── Series ───────────────────────────────────────────────────────────────
 
     @Test
-    fun `createSeries writes every member and they share one series id`() = runTest {
-        val repo = newRepository(alice)
-        val seriesId = TaskSeriesId("series-1")
-        val members = listOf(
-            task("s1", title = "Pay the rent").copy(seriesId = seriesId, dueDate = LocalDate(2026, 10, 5)),
-            task("s2", title = "Pay the rent").copy(seriesId = seriesId, dueDate = LocalDate(2026, 10, 12)),
-            task("s3", title = "Pay the rent").copy(seriesId = seriesId, dueDate = LocalDate(2026, 10, 19)),
-        )
+    fun `createSeries writes every member and they share one series id`() =
+        runTest {
+            val repo = newRepository(alice)
+            val seriesId = TaskSeriesId("series-1")
+            val members =
+                listOf(
+                    task("s1", title = "Pay the rent").copy(seriesId = seriesId, dueDate = LocalDate(2026, 10, 5)),
+                    task("s2", title = "Pay the rent").copy(seriesId = seriesId, dueDate = LocalDate(2026, 10, 12)),
+                    task("s3", title = "Pay the rent").copy(seriesId = seriesId, dueDate = LocalDate(2026, 10, 19)),
+                )
 
-        val result = repo.createSeries(members)
-        assertTrue(result.isSuccess)
-        advanceUntilIdle()
+            val result = repo.createSeries(members)
+            assertTrue(result.isSuccess)
+            advanceUntilIdle()
 
-        val stored = repo.observeSeries(seriesId).first()
-        assertEquals(3, stored.size, "every member of the series is written")
-        assertTrue(stored.all { it.seriesId == seriesId })
-    }
-
-    @Test
-    fun `createSeries writes a task that stands alone`() = runTest {
-        val repo = newRepository(alice)
-        // The draft of a single date is written through the same call: it is a
-        // batch of one row with no series id. A write path that insists on a
-        // series id refuses the ordinary task, and the task never reaches the
-        // screen.
-        val solo = task("t1", title = "Buy milk")
-
-        val result = repo.createSeries(listOf(solo))
-
-        assertTrue(result.isSuccess, "a task that stands alone is written: ${result.exceptionOrNull()}")
-        advanceUntilIdle()
-        assertTrue(repo.observeAll().first().any { it.id.value == "t1" })
-    }
+            val stored = repo.observeSeries(seriesId).first()
+            assertEquals(3, stored.size, "every member of the series is written")
+            assertTrue(stored.all { it.seriesId == seriesId })
+        }
 
     @Test
-    fun `updateAll writes every member`() = runTest {
-        val repo = newRepository(alice)
-        val seriesId = TaskSeriesId("series-2")
-        val members = listOf(
-            task("u1").copy(seriesId = seriesId),
-            task("u2").copy(seriesId = seriesId),
-        )
-        repo.createSeries(members)
-        advanceUntilIdle()
+    fun `createSeries writes a task that stands alone`() =
+        runTest {
+            val repo = newRepository(alice)
+            // The draft of a single date is written through the same call: it is a
+            // batch of one row with no series id. A write path that insists on a
+            // series id refuses the ordinary task, and the task never reaches the
+            // screen.
+            val solo = task("t1", title = "Buy milk")
 
-        val result = repo.updateAll(members.map { it.copy(title = "Changed") })
-        assertTrue(result.isSuccess)
-        advanceUntilIdle()
+            val result = repo.createSeries(listOf(solo))
 
-        val stored = repo.observeSeries(seriesId).first()
-        assertEquals(2, stored.size)
-        assertTrue(stored.all { it.title == "Changed" }, "the change reached every member")
-    }
+            assertTrue(result.isSuccess, "a task that stands alone is written: ${result.exceptionOrNull()}")
+            advanceUntilIdle()
+            assertTrue(repo.observeAll().first().any { it.id.value == "t1" })
+        }
 
     @Test
-    fun `updateAll refuses a member that does not exist`() = runTest {
-        val repo = newRepository(alice)
-        val seriesId = TaskSeriesId("series-3")
-        val members = listOf(
-            task("v1").copy(seriesId = seriesId),
-            task("v2").copy(seriesId = seriesId),
-        )
-        repo.createSeries(members)
-        advanceUntilIdle()
+    fun `updateAll writes every member`() =
+        runTest {
+            val repo = newRepository(alice)
+            val seriesId = TaskSeriesId("series-2")
+            val members =
+                listOf(
+                    task("u1").copy(seriesId = seriesId),
+                    task("u2").copy(seriesId = seriesId),
+                )
+            repo.createSeries(members)
+            advanceUntilIdle()
 
-        val result = repo.updateAll(members.map { it.copy(title = "Changed") } + task("ghost"))
-        assertTrue(result.isFailure, "an upsert onto a missing row would invent a member")
-    }
+            val result = repo.updateAll(members.map { it.copy(title = "Changed") })
+            assertTrue(result.isSuccess)
+            advanceUntilIdle()
+
+            val stored = repo.observeSeries(seriesId).first()
+            assertEquals(2, stored.size)
+            assertTrue(stored.all { it.title == "Changed" }, "the change reached every member")
+        }
 
     @Test
-    fun `observeSeries is scoped to the current user`() = runTest {
-        val aliceRepo = newRepository(alice)
-        val bobRepo = newRepository(bob)
-        val seriesId = TaskSeriesId("series-4")
-        aliceRepo.createSeries(listOf(task("w1").copy(seriesId = seriesId)))
-        advanceUntilIdle()
+    fun `updateAll refuses a member that does not exist`() =
+        runTest {
+            val repo = newRepository(alice)
+            val seriesId = TaskSeriesId("series-3")
+            val members =
+                listOf(
+                    task("v1").copy(seriesId = seriesId),
+                    task("v2").copy(seriesId = seriesId),
+                )
+            repo.createSeries(members)
+            advanceUntilIdle()
 
-        assertEquals(0, bobRepo.observeSeries(seriesId).first().size, "another profile sees nothing")
-    }
+            val result = repo.updateAll(members.map { it.copy(title = "Changed") } + task("ghost"))
+            assertTrue(result.isFailure, "an upsert onto a missing row would invent a member")
+        }
+
+    @Test
+    fun `observeSeries is scoped to the current user`() =
+        runTest {
+            val aliceRepo = newRepository(alice)
+            val bobRepo = newRepository(bob)
+            val seriesId = TaskSeriesId("series-4")
+            aliceRepo.createSeries(listOf(task("w1").copy(seriesId = seriesId)))
+            advanceUntilIdle()
+
+            assertEquals(0, bobRepo.observeSeries(seriesId).first().size, "another profile sees nothing")
+        }
 
     // ─── User scoping ───────────────────────────────────────────────────────────
 
     @Test
-    fun `observeAll returns only the current user's tasks`() = runTest {
-        val aliceRepo = newRepository(alice)
-        aliceRepo.create(task("t1", alice))
-        aliceRepo.create(task("t2", bob)) // bob's task — must not appear
-        advanceUntilIdle()
-        val aliceTasks = aliceRepo.observeAll().first()
-        assertTrue(aliceTasks.all { it.userId == alice }, "observeAll must be user-scoped")
-        assertEquals(1, aliceTasks.size)
-    }
+    fun `observeAll returns only the current user's tasks`() =
+        runTest {
+            val aliceRepo = newRepository(alice)
+            aliceRepo.create(task("t1", alice))
+            aliceRepo.create(task("t2", bob)) // bob's task — must not appear
+            advanceUntilIdle()
+            val aliceTasks = aliceRepo.observeAll().first()
+            assertTrue(aliceTasks.all { it.userId == alice }, "observeAll must be user-scoped")
+            assertEquals(1, aliceTasks.size)
+        }
 
     @Test
-    fun `get returns null for another user's task`() = runTest {
-        val aliceRepo = newRepository(alice)
-        aliceRepo.create(task("t1", bob))
-        advanceUntilIdle()
-        // The task exists in the DB but belongs to bob — alice's user-scoped get returns null
-        assertNull(aliceRepo.get(TaskId("t1")))
-    }
+    fun `get returns null for another user's task`() =
+        runTest {
+            val aliceRepo = newRepository(alice)
+            aliceRepo.create(task("t1", bob))
+            advanceUntilIdle()
+            // The task exists in the DB but belongs to bob — alice's user-scoped get returns null
+            assertNull(aliceRepo.get(TaskId("t1")))
+        }
 
     // ─── Update ─────────────────────────────────────────────────────────────────
 
     @Test
-    fun `update on a non-existent task fails`() = runTest {
-        val repo = newRepository(alice)
-        val result = repo.update(task("nonexistent", alice))
-        assertTrue(result.isFailure)
-        assertIs<IllegalArgumentException>(result.exceptionOrNull())
-    }
+    fun `update on a non-existent task fails`() =
+        runTest {
+            val repo = newRepository(alice)
+            val result = repo.update(task("nonexistent", alice))
+            assertTrue(result.isFailure)
+            assertIs<IllegalArgumentException>(result.exceptionOrNull())
+        }
 
     @Test
-    fun `update on another user's task fails`() = runTest {
-        val aliceRepo = newRepository(alice)
-        aliceRepo.create(task("t1", bob))
-        advanceUntilIdle()
-        val result = aliceRepo.update(task("t1", bob).copy(title = "hijacked"))
-        assertTrue(result.isFailure, "update must fail for foreign task")
-    }
+    fun `update on another user's task fails`() =
+        runTest {
+            val aliceRepo = newRepository(alice)
+            aliceRepo.create(task("t1", bob))
+            advanceUntilIdle()
+            val result = aliceRepo.update(task("t1", bob).copy(title = "hijacked"))
+            assertTrue(result.isFailure, "update must fail for foreign task")
+        }
 
     @Test
-    fun `update changes the title`() = runTest {
-        val repo = newRepository(alice)
-        repo.create(task("t1"))
-        advanceUntilIdle()
-        repo.update(task("t1").copy(title = "Updated title"))
-        advanceUntilIdle()
-        val t1 = repo.observeAll().first().first { it.id.value == "t1" }
-        assertEquals("Updated title", t1.title)
-    }
+    fun `update changes the title`() =
+        runTest {
+            val repo = newRepository(alice)
+            repo.create(task("t1"))
+            advanceUntilIdle()
+            repo.update(task("t1").copy(title = "Updated title"))
+            advanceUntilIdle()
+            val t1 = repo.observeAll().first().first { it.id.value == "t1" }
+            assertEquals("Updated title", t1.title)
+        }
 
     // ─── Soft delete ────────────────────────────────────────────────────────────
 
     @Test
-    fun `delete is soft — the row survives in observeByFilter Trash`() = runTest {
-        val repo = newRepository(alice)
-        repo.create(task("t1"))
-        advanceUntilIdle()
-        repo.delete(TaskId("t1"))
-        advanceUntilIdle()
-        // Soft-delete sets archivedAt; the row survives in the database and appears in Trash
-        assertTrue(repo.observeByFilter(TaskFilter.Trash).first().any { it.id.value == "t1" })
-    }
+    fun `delete is soft — the row survives in observeByFilter Trash`() =
+        runTest {
+            val repo = newRepository(alice)
+            repo.create(task("t1"))
+            advanceUntilIdle()
+            repo.delete(TaskId("t1"))
+            advanceUntilIdle()
+            // Soft-delete sets archivedAt; the row survives in the database and appears in Trash
+            assertTrue(repo.observeByFilter(TaskFilter.Trash).first().any { it.id.value == "t1" })
+        }
 
     // ─── Complete ───────────────────────────────────────────────────────────────
 
     @Test
-    fun `complete stamps completed_at`() = runTest {
-        val repo = newRepository(alice)
-        repo.create(task("t1"))
-        advanceUntilIdle()
-        repo.complete(TaskId("t1")).getOrThrow()
-        advanceUntilIdle()
-        val t1 = repo.observeAll().first().first { it.id.value == "t1" }
-        assertNotNull(t1.completedAt)
-    }
+    fun `complete stamps completed_at`() =
+        runTest {
+            val repo = newRepository(alice)
+            repo.create(task("t1"))
+            advanceUntilIdle()
+            repo.complete(TaskId("t1")).getOrThrow()
+            advanceUntilIdle()
+            val t1 = repo.observeAll().first().first { it.id.value == "t1" }
+            assertNotNull(t1.completedAt)
+        }
 
     @Test
-    fun `complete then reopen clears completed_at`() = runTest {
-        val repo = newRepository(alice)
-        repo.create(task("t1"))
-        advanceUntilIdle()
-        repo.complete(TaskId("t1")).getOrThrow()
-        advanceUntilIdle()
-        repo.reopen(TaskId("t1")).getOrThrow()
-        advanceUntilIdle()
-        val t1 = repo.observeAll().first().first { it.id.value == "t1" }
-        assertNull(t1.completedAt)
-    }
+    fun `complete then reopen clears completed_at`() =
+        runTest {
+            val repo = newRepository(alice)
+            repo.create(task("t1"))
+            advanceUntilIdle()
+            repo.complete(TaskId("t1")).getOrThrow()
+            advanceUntilIdle()
+            repo.reopen(TaskId("t1")).getOrThrow()
+            advanceUntilIdle()
+            val t1 = repo.observeAll().first().first { it.id.value == "t1" }
+            assertNull(t1.completedAt)
+        }
 
     // ─── Filter ────────────────────────────────────────────────────────────────
 
     @Test
-    fun `observeByFilter All returns all non-archived tasks`() = runTest {
-        val repo = newRepository(alice)
-        repo.create(task("t1"))
-        repo.create(task("t2"))
-        advanceUntilIdle()
-        val tasks = repo.observeByFilter(TaskFilter.All).first()
-        assertEquals(2, tasks.size)
-    }
+    fun `observeByFilter All returns all non-archived tasks`() =
+        runTest {
+            val repo = newRepository(alice)
+            repo.create(task("t1"))
+            repo.create(task("t2"))
+            advanceUntilIdle()
+            val tasks = repo.observeByFilter(TaskFilter.All).first()
+            assertEquals(2, tasks.size)
+        }
 
     /**
      * Regression: tasks with `dueDate = null` must be returned by `observeByFilter(All)`,
@@ -291,38 +318,41 @@ abstract class TaskRepositoryContractTest {
      * auth context), causing repository queries to return no results for the real user.
      */
     @Test
-    fun `observeByFilter All returns an undated task alongside dated ones`() = runTest {
-        val repo = newRepository(alice)
-        repo.create(task("dated-1").copy(dueDate = LocalDate(2026, 1, 1)))
-        repo.create(task("undated-1")) // dueDate = null
-        advanceUntilIdle()
-        val tasks = repo.observeByFilter(TaskFilter.All).first()
-        assertEquals(2, tasks.size)
-        assertEquals(
-            "undated-1",
-            tasks.first { it.id.value == "undated-1" }.id.value,
-        )
-        assertEquals(
-            null,
-            tasks.first { it.id.value == "undated-1" }.dueDate,
-        )
-    }
+    fun `observeByFilter All returns an undated task alongside dated ones`() =
+        runTest {
+            val repo = newRepository(alice)
+            repo.create(task("dated-1").copy(dueDate = LocalDate(2026, 1, 1)))
+            repo.create(task("undated-1")) // dueDate = null
+            advanceUntilIdle()
+            val tasks = repo.observeByFilter(TaskFilter.All).first()
+            assertEquals(2, tasks.size)
+            assertEquals(
+                "undated-1",
+                tasks.first { it.id.value == "undated-1" }.id.value,
+            )
+            assertEquals(
+                null,
+                tasks.first { it.id.value == "undated-1" }.dueDate,
+            )
+        }
 
     // ─── Exists ────────────────────────────────────────────────────────────────
 
     @Test
-    fun `exists returns false for unknown id`() = runTest {
-        val repo = newRepository(alice)
-        assertFalse(repo.exists(TaskId("unknown")))
-    }
+    fun `exists returns false for unknown id`() =
+        runTest {
+            val repo = newRepository(alice)
+            assertFalse(repo.exists(TaskId("unknown")))
+        }
 
     @Test
-    fun `exists returns true for a created task`() = runTest {
-        val repo = newRepository(alice)
-        repo.create(task("t1"))
-        advanceUntilIdle()
-        assertTrue(repo.exists(TaskId("t1")))
-    }
+    fun `exists returns true for a created task`() =
+        runTest {
+            val repo = newRepository(alice)
+            repo.create(task("t1"))
+            advanceUntilIdle()
+            assertTrue(repo.exists(TaskId("t1")))
+        }
 }
 
 // ─── Fake implementation ────────────────────────────────────────────────────────
@@ -352,7 +382,6 @@ class FakeTaskRepositoryContractTest : TaskRepositoryContractTest() {
  */
 @Tag("slow")
 class RoomTaskRepositoryContractTest : TaskRepositoryContractTest() {
-
     // One database per test class, shared across all test methods — same shape as the
     // sibling Room tests (AppDatabaseFactoryJvmTest, DesktopRestartSmokeTest).
     //
@@ -361,17 +390,19 @@ class RoomTaskRepositoryContractTest : TaskRepositoryContractTest() {
     // `Room.inMemoryDatabaseBuilder<T>()`, which is a JVM-only API — unreachable from
     // the commonMain `AppDatabaseFactory`. A temp file exercises the production path
     // end to end, including `applyOnceToFile` (WAL) and the registered migrations.
-    private val tempDirLazy = lazy {
-        Files.createTempDirectory("singularity-task-contract-").toFile()
-    }
+    private val tempDirLazy =
+        lazy {
+            Files.createTempDirectory("singularity-task-contract-").toFile()
+        }
     private val tempDir: File by tempDirLazy
 
-    private val dbLazy = lazy {
-        AppDatabaseFactory.build(
-            driver = createSqlDriver(),
-            dbPath = File(tempDir, "tasks.db").absolutePath,
-        )
-    }
+    private val dbLazy =
+        lazy {
+            AppDatabaseFactory.build(
+                driver = createSqlDriver(),
+                dbPath = File(tempDir, "tasks.db").absolutePath,
+            )
+        }
     private val db: AppDatabase by dbLazy
 
     // A @AfterTest rather than deleteOnExit: the database holds a SQLite file

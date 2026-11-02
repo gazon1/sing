@@ -85,7 +85,6 @@ class ArchiveKeyBlock(
  * archive it was written by.
  */
 internal object ArchiveContainerReader {
-
     /**
      * The container's header.
      *
@@ -97,10 +96,11 @@ internal object ArchiveContainerReader {
     fun read(source: ByteSource): ArchiveContainer {
         val prefix = readPrefix(source)
         val version = prefix[ArchiveFormat.MAGIC.length].toInt() and 0xFF
-        val salt = prefix.copyOfRange(
-            ArchiveFormat.MAGIC.length + 1,
-            ArchiveFormat.MAGIC.length + 1 + ArchiveFormat.SALT_BYTES,
-        )
+        val salt =
+            prefix.copyOfRange(
+                ArchiveFormat.MAGIC.length + 1,
+                ArchiveFormat.MAGIC.length + 1 + ArchiveFormat.SALT_BYTES,
+            )
         val nonce = prefix.copyOfRange(ArchiveFormat.MAGIC.length + 1 + ArchiveFormat.SALT_BYTES, prefix.size)
 
         if (version == 1) {
@@ -114,8 +114,11 @@ internal object ArchiveContainerReader {
             )
         }
 
-        val headBytes = source.readOrNull(ArchiveFormat.HEAD_BYTES)
-            ?: throw ArchiveEnvelopeError.NotEncrypted(IllegalStateException("a version-$version header ends early"))
+        val headBytes =
+            source.readOrNull(ArchiveFormat.HEAD_BYTES)
+                ?: throw ArchiveEnvelopeError.NotEncrypted(
+                    IllegalStateException("a version-$version header ends early"),
+                )
         val head = ChainHead.fromBytes(headBytes)
 
         if (version == 2) {
@@ -129,8 +132,11 @@ internal object ArchiveContainerReader {
             )
         }
 
-        val keyBytes = source.readOrNull(ArchiveFormat.KEY_BLOCK_BYTES)
-            ?: throw ArchiveEnvelopeError.NotEncrypted(IllegalStateException("a version-$version header ends early"))
+        val keyBytes =
+            source.readOrNull(ArchiveFormat.KEY_BLOCK_BYTES)
+                ?: throw ArchiveEnvelopeError.NotEncrypted(
+                    IllegalStateException("a version-$version header ends early"),
+                )
         return ArchiveContainer(
             version = version,
             prefix = prefix,
@@ -151,8 +157,9 @@ internal object ArchiveContainerReader {
      *   not read.
      */
     private fun readPrefix(source: ByteSource): ByteArray {
-        val header = source.readOrNull(ArchiveFormat.PREFIX_BYTES)
-            ?: throw ArchiveEnvelopeError.NotEncrypted()
+        val header =
+            source.readOrNull(ArchiveFormat.PREFIX_BYTES)
+                ?: throw ArchiveEnvelopeError.NotEncrypted()
         checkMagic(header)
         val version = header[ArchiveFormat.MAGIC.length].toInt() and 0xFF
         if (version !in ArchiveFormat.READABLE_VERSIONS) {

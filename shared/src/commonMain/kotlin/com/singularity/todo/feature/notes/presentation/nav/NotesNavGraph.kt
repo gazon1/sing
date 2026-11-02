@@ -8,10 +8,10 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.singularity.todo.feature.nav.AppDestination
-import com.singularity.todo.feature.nav.rememberAppEntryDecorators
 import com.singularity.todo.feature.nav.NavCallbacks
 import com.singularity.todo.feature.nav.NotesRoute
 import com.singularity.todo.feature.nav.SystemBackHandler
+import com.singularity.todo.feature.nav.rememberAppEntryDecorators
 import com.singularity.todo.feature.nav.rememberAppNavBackStack
 import com.singularity.todo.feature.nav.stableContentKey
 import com.singularity.todo.feature.notes.presentation.screen.NoteEditorScreen
@@ -41,9 +41,10 @@ fun NotesNavGraph(
 ) {
     val stack: NavBackStack<NotesRoute> = backStack ?: rememberAppNavBackStack(start)
     val onExitGraph: (AppDestination?) -> Unit = navCallbacks.graphExit
-    val navigator = remember(stack, onExitGraph) {
-        NotesNavigator(stack, onExitGraph)
-    }
+    val navigator =
+        remember(stack, onExitGraph) {
+            NotesNavigator(stack, onExitGraph)
+        }
     CompositionLocalProvider(
         LocalNotesNavigator provides navigator,
     ) {
@@ -65,8 +66,9 @@ fun NotesNavGraph(
  * nested graph — the map from each [NotesRoute] variant to the screen that renders it.
  */
 @Composable
-internal fun notesScreenEntryProvider() = entryProvider {
-    entry<NotesRoute.List>(clazzContentKey = { it.stableContentKey() }) { NotesListScreen(it) }
-    entry<NotesRoute.Preview>(clazzContentKey = { it.stableContentKey() }) { route -> NotePreviewScreen(route) }
-    entry<NotesRoute.Editor>(clazzContentKey = { it.stableContentKey() }) { route -> NoteEditorScreen(route) }
-}
+internal fun notesScreenEntryProvider() =
+    entryProvider {
+        entry<NotesRoute.List>(clazzContentKey = { it.stableContentKey() }) { NotesListScreen(it) }
+        entry<NotesRoute.Preview>(clazzContentKey = { it.stableContentKey() }) { route -> NotePreviewScreen(route) }
+        entry<NotesRoute.Editor>(clazzContentKey = { it.stableContentKey() }) { route -> NoteEditorScreen(route) }
+    }

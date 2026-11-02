@@ -11,7 +11,6 @@ package com.singularity.todo.core.security
  * keychain (e.g. Android Keystore, Linux libsecret) or a derived-file fallback.
  */
 interface SecureStoragePort {
-
     /**
      * Reads a value by [key].
      * @return the stored value, or `null` if the key is absent.
@@ -23,7 +22,10 @@ interface SecureStoragePort {
      * On platforms with a keyring (Android Keystore, Linux libsecret), the value
      * is stored in hardware-backed secure storage.
      */
-    suspend fun write(key: String, value: String)
+    suspend fun write(
+        key: String,
+        value: String,
+    )
 
     /**
      * Removes [key] and its associated value.

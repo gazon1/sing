@@ -2,13 +2,13 @@ package com.singularity.todo.feature.projects.presentation.viewmodel
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.toMessage
+import com.singularity.todo.core.notifications.NotificationsSettingsRepository
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
+import com.singularity.todo.core.settings.SettingsDefaults
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.core.ui.debounce.Debouncer
-import com.singularity.todo.core.notifications.NotificationsSettingsRepository
-import com.singularity.todo.core.settings.SettingsDefaults
 import com.singularity.todo.feature.projects.domain.model.Project
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
@@ -23,8 +23,6 @@ import com.singularity.todo.feature.projects.presentation.state.ProjectCloseConf
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailIntent
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiEvent
 import com.singularity.todo.feature.projects.presentation.state.ProjectDetailUiState
-import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.toImmutableList
 import com.singularity.todo.feature.reminders.domain.port.ProjectRemindersRepository
 import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
 import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
@@ -34,9 +32,9 @@ import com.singularity.todo.feature.tasks.domain.model.TaskKind
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskUseCase
 import com.singularity.todo.feature.tasks.domain.usecase.UpdateTaskUseCase
-import kotlin.time.Clock
-import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Instant
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -47,7 +45,9 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
-import kotlinx.collections.immutable.toImmutableSet
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Instant
 
 /**
  * ViewModel for [com.singularity.todo.feature.projects.presentation.screen.ProjectDetailScreen].
@@ -90,7 +90,6 @@ class ProjectDetailViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
-
     // ─── UI State ───────────────────────────────────────────────────────────────
 
     // The three flows below are inputs to the state `combine` in [init], not part of
@@ -154,12 +153,13 @@ class ProjectDetailViewModel(
      * `init` reads it — see [draftState] for why that ordering is load-bearing
      * rather than cosmetic.
      */
-    private val reminderCoordinator = ProjectReminderCoordinator(
-        projectId = projectId,
-        project = { _projectFlow.value },
-        reminders = projectReminders,
-        defaultOffset = notificationsSettings.reminderDefault,
-    )
+    private val reminderCoordinator =
+        ProjectReminderCoordinator(
+            projectId = projectId,
+            project = { _projectFlow.value },
+            reminders = projectReminders,
+            defaultOffset = notificationsSettings.reminderDefault,
+        )
 
     /**
      * The ViewModel's own slot for the pair, feeding the second `combine`.
@@ -170,12 +170,13 @@ class ProjectDetailViewModel(
      * repository's own default so this class does not silently become a second
      * source of truth for what "no setting" means.
      */
-    private val reminderOffsetsFlow = MutableStateFlow(
-        ReminderOffsets(
-            current = null,
-            default = SettingsDefaults.Notifications.REMINDER_DEFAULT,
-        ),
-    )
+    private val reminderOffsetsFlow =
+        MutableStateFlow(
+            ReminderOffsets(
+                current = null,
+                default = SettingsDefaults.Notifications.REMINDER_DEFAULT,
+            ),
+        )
 
     /**
      * Draft state — single source of truth for editable name/description.
@@ -197,7 +198,8 @@ class ProjectDetailViewModel(
         vmScope.launch {
             @Suppress("TooGenericExceptionCaught")
             try {
-                projectRepo.observe(projectId)
+                projectRepo
+                    .observe(projectId)
                     .onStart { emit(null) }
                     .collect { project ->
                         _projectFlow.value = project
@@ -231,7 +233,8 @@ class ProjectDetailViewModel(
                 if (project == null) {
                     emptyList()
                 } else {
-                    allProjects.filter { it.id != project.id && it.parentId == null && !it.isDeleted }
+                    allProjects
+                        .filter { it.id != project.id && it.parentId == null && !it.isDeleted }
                         .map { ParentOption(it.id, it.name, it.id == project.parentId) }
                 }
             }.collect { parentOptionsFlow.value = it }
@@ -239,7 +242,8 @@ class ProjectDetailViewModel(
 
         // Quick-add picker candidates
         vmScope.launch {
-            taskRepo.observeByFilter(TaskFilter.All)
+            taskRepo
+                .observeByFilter(TaskFilter.All)
                 .map { all -> ProjectTaskListDeriver.quickAddCandidates(all, projectId) }
                 .collect { availableTasksFlow.value = it }
         }
@@ -277,61 +281,69 @@ class ProjectDetailViewModel(
         // subscription — `flatMapLatest` restarts its upstream on every trigger emission.
         vmScope.launch {
             val hasProject = _projectFlow.map { it != null }.distinctUntilChanged()
-            val projectStateRaw = combine(
-                _projectFlow,
-                hasProject.flatMapLatest { loaded ->
-                    if (!loaded) flowOf(emptyList()) else taskRepo.observeByFilter(TaskFilter.ByProject(projectId))
-                },
-                hasProject.flatMapLatest { loaded ->
-                    if (!loaded) flowOf(emptyList()) else projectRepo.observeChildrenOf(projectId)
-                },
-                // The parent stream does depend on a field, so it stays on the object.
-                _projectFlow.flatMapLatest { p ->
-                    if (p == null || p.parentId == null) flowOf(null) else projectRepo.observe(p.parentId)
-                },
-                visibilityFlow,
-            ) { project, tasks, childProjects, parent, visibility ->
-                when {
-                    project == null -> ProjectDetailUiState.Loading
-
-                    project.isDeleted -> ProjectDetailUiState.NotFound
-
-                    else -> {
-                        // `blockedIds` is resolved against the unfiltered list and only
-                        // when the filter is on — see ProjectTaskListDeriver.
-                        val blocked = if (visibility.hideBlocked) {
-                            ProjectTaskListDeriver.blockedIds(tasks)
-                        } else {
-                            emptySet()
+            val projectStateRaw =
+                combine(
+                    _projectFlow,
+                    hasProject.flatMapLatest { loaded ->
+                        if (!loaded) flowOf(emptyList()) else taskRepo.observeByFilter(TaskFilter.ByProject(projectId))
+                    },
+                    hasProject.flatMapLatest { loaded ->
+                        if (!loaded) flowOf(emptyList()) else projectRepo.observeChildrenOf(projectId)
+                    },
+                    // The parent stream does depend on a field, so it stays on the object.
+                    _projectFlow.flatMapLatest { p ->
+                        if (p == null || p.parentId == null) flowOf(null) else projectRepo.observe(p.parentId)
+                    },
+                    visibilityFlow,
+                ) { project, tasks, childProjects, parent, visibility ->
+                    when {
+                        project == null -> {
+                            ProjectDetailUiState.Loading
                         }
-                        ProjectDetailUiState.Content(
-                            ui = ProjectDetailUi(
-                                project = project,
-                                tasks = ProjectTaskListDeriver.preview(tasks, visibility, blocked),
-                                // Counts come from the *unfiltered* list: "5 of 23"
-                                // must not become "5 of 5" when rows are hidden.
-                                totalCount = ProjectTaskListDeriver.totalCount(tasks),
-                                completedCount = ProjectTaskListDeriver.completedCount(tasks),
-                                childProjects = childProjects.toImmutableList(),
-                                parent = parent,
-                                inheritedTagGroupIds = project.inheritedTagGroupIds.toImmutableSet(),
-                            ),
-                            hideCompleted = visibility.hideCompleted,
-                            hideBlocked = visibility.hideBlocked,
-                            parentOptions = persistentListOf(),
-                            availableTasks = persistentListOf(),
-                            tagGroups = persistentListOf(),
-                        )
+
+                        project.isDeleted -> {
+                            ProjectDetailUiState.NotFound
+                        }
+
+                        else -> {
+                            // `blockedIds` is resolved against the unfiltered list and only
+                            // when the filter is on — see ProjectTaskListDeriver.
+                            val blocked =
+                                if (visibility.hideBlocked) {
+                                    ProjectTaskListDeriver.blockedIds(tasks)
+                                } else {
+                                    emptySet()
+                                }
+                            ProjectDetailUiState.Content(
+                                ui =
+                                    ProjectDetailUi(
+                                        project = project,
+                                        tasks = ProjectTaskListDeriver.preview(tasks, visibility, blocked),
+                                        // Counts come from the *unfiltered* list: "5 of 23"
+                                        // must not become "5 of 5" when rows are hidden.
+                                        totalCount = ProjectTaskListDeriver.totalCount(tasks),
+                                        completedCount = ProjectTaskListDeriver.completedCount(tasks),
+                                        childProjects = childProjects.toImmutableList(),
+                                        parent = parent,
+                                        inheritedTagGroupIds = project.inheritedTagGroupIds.toImmutableSet(),
+                                    ),
+                                hideCompleted = visibility.hideCompleted,
+                                hideBlocked = visibility.hideBlocked,
+                                parentOptions = persistentListOf(),
+                                availableTasks = persistentListOf(),
+                                tagGroups = persistentListOf(),
+                            )
+                        }
                     }
                 }
-            }
-            val projectState = projectStateRaw.combine(_loadErrorFlow) { state, err ->
-                if (err != null && state is ProjectDetailUiState.Loading) {
-                    ProjectDetailUiState.Error(err)
-                } else {
-                    state
+            val projectState =
+                projectStateRaw.combine(_loadErrorFlow) { state, err ->
+                    if (err != null && state is ProjectDetailUiState.Loading) {
+                        ProjectDetailUiState.Error(err)
+                    } else {
+                        state
+                    }
                 }
-            }
             combine(
                 combine(
                     projectState,
@@ -345,10 +357,11 @@ class ProjectDetailViewModel(
                             parentOptions = parentOptions.toImmutableList(),
                             availableTasks = availableTasks.toImmutableList(),
                             tagGroups = tagGroups.toImmutableList(),
-                            ui = state.ui.copy(
-                                reminderOffsetMinutes = offsets.current,
-                                defaultReminderOffset = offsets.default,
-                            ),
+                            ui =
+                                state.ui.copy(
+                                    reminderOffsetMinutes = offsets.current,
+                                    defaultReminderOffset = offsets.default,
+                                ),
                         )
                     } else {
                         state
@@ -404,19 +417,29 @@ class ProjectDetailViewModel(
     override fun onIntent(intent: ProjectDetailIntent.Domain) {
         when (intent) {
             // ── Visibility ──────────────────────────────────────────────────
-            is ProjectDetailIntent.Domain.ToggleHideCompleted -> hideCompletedFlow.value = !hideCompletedFlow.value
+            is ProjectDetailIntent.Domain.ToggleHideCompleted -> {
+                hideCompletedFlow.value = !hideCompletedFlow.value
+            }
 
-            is ProjectDetailIntent.Domain.ToggleHideBlocked -> hideBlockedFlow.value = !hideBlockedFlow.value
+            is ProjectDetailIntent.Domain.ToggleHideBlocked -> {
+                hideBlockedFlow.value = !hideBlockedFlow.value
+            }
 
-            is ProjectDetailIntent.Domain.SetReminder -> setReminder(intent.offsetMinutes)
+            is ProjectDetailIntent.Domain.SetReminder -> {
+                setReminder(intent.offsetMinutes)
+            }
 
             // ── Inline edits — debounced, written to draft StateFlows ────────
-            is ProjectDetailIntent.Domain.UpdateName -> draftState.setName(intent.name)
+            is ProjectDetailIntent.Domain.UpdateName -> {
+                draftState.setName(intent.name)
+            }
 
-            is ProjectDetailIntent.Domain.UpdateDescription -> draftState.setDescription(
-                intent.description
-                    ?: "",
-            )
+            is ProjectDetailIntent.Domain.UpdateDescription -> {
+                draftState.setDescription(
+                    intent.description
+                        ?: "",
+                )
+            }
 
             // ── Pickers ─────────────────────────────────────────────────────
             is ProjectDetailIntent.Domain.UpdateColor -> {
@@ -450,22 +473,30 @@ class ProjectDetailViewModel(
                 mutate { copy(isDeleted = !isDeleted) }
             }
 
-            is ProjectDetailIntent.Domain.Delete -> vmScope.launch {
-                deleteProject(projectId)
-                    .onSuccess { emit(ProjectDetailUiEvent.NavigateBack) }
-                    .onFailure { emit(ProjectDetailUiEvent.ShowError(it.toMessage("Delete failed"))) }
+            is ProjectDetailIntent.Domain.Delete -> {
+                vmScope.launch {
+                    deleteProject(projectId)
+                        .onSuccess { emit(ProjectDetailUiEvent.NavigateBack) }
+                        .onFailure { emit(ProjectDetailUiEvent.ShowError(it.toMessage("Delete failed"))) }
+                }
             }
 
             // ── Close ──────────────────────────────────────────────────────
-            is ProjectDetailIntent.Domain.CloseProject -> vmScope.launch {
-                runClose(force = false)
+            is ProjectDetailIntent.Domain.CloseProject -> {
+                vmScope.launch {
+                    runClose(force = false)
+                }
             }
 
-            is ProjectDetailIntent.Domain.ConfirmCloseProject -> vmScope.launch {
-                runClose(force = true)
+            is ProjectDetailIntent.Domain.ConfirmCloseProject -> {
+                vmScope.launch {
+                    runClose(force = true)
+                }
             }
 
-            is ProjectDetailIntent.Domain.DismissCloseProject -> pendingCloseConfirmation.value = null
+            is ProjectDetailIntent.Domain.DismissCloseProject -> {
+                pendingCloseConfirmation.value = null
+            }
 
             // ── Tasks ──────────────────────────────────────────────────────
             is ProjectDetailIntent.Domain.CreateTask -> {
@@ -482,24 +513,31 @@ class ProjectDetailViewModel(
                 }
             }
 
-            is ProjectDetailIntent.Domain.MoveTaskToProject ->
+            is ProjectDetailIntent.Domain.MoveTaskToProject -> {
                 emitError("Move task failed", ProjectDetailUiEvent::ShowError) {
                     updateTask.invoke(intent.taskId) { it.copy(projectId = projectId) }
                 }
+            }
 
-            is ProjectDetailIntent.Domain.ToggleTaskPin ->
+            is ProjectDetailIntent.Domain.ToggleTaskPin -> {
                 emitError("Pin failed", ProjectDetailUiEvent::ShowError) {
                     taskRepo.togglePinned(intent.taskId)
                 }
-
-            is ProjectDetailIntent.Domain.DeleteTask -> vmScope.launch {
-                taskRepo.softDelete(intent.taskId)
-                    .onSuccess { vmScope.launch { emit(ProjectDetailUiEvent.UndoDeleteTask(intent.taskId)) } }
-                    .onFailure { tryEmit(ProjectDetailUiEvent.ShowError(it.toMessage("Delete task failed"))) }
             }
 
-            is ProjectDetailIntent.Domain.RestoreTask -> vmScope.launch {
-                taskRepo.restore(intent.taskId)
+            is ProjectDetailIntent.Domain.DeleteTask -> {
+                vmScope.launch {
+                    taskRepo
+                        .softDelete(intent.taskId)
+                        .onSuccess { vmScope.launch { emit(ProjectDetailUiEvent.UndoDeleteTask(intent.taskId)) } }
+                        .onFailure { tryEmit(ProjectDetailUiEvent.ShowError(it.toMessage("Delete task failed"))) }
+                }
+            }
+
+            is ProjectDetailIntent.Domain.RestoreTask -> {
+                vmScope.launch {
+                    taskRepo.restore(intent.taskId)
+                }
             }
         }
     }
@@ -517,20 +555,23 @@ class ProjectDetailViewModel(
      */
     private suspend fun runClose(force: Boolean) {
         if (force) pendingCloseConfirmation.value = null
-        closeProject.close(projectId, force)
+        closeProject
+            .close(projectId, force)
             .onSuccess { outcome ->
                 when (outcome) {
-                    is ProjectCloseOutcome.Closed ->
+                    is ProjectCloseOutcome.Closed -> {
                         emit(ProjectDetailUiEvent.NavigateBack)
+                    }
 
-                    is ProjectCloseOutcome.NeedsConfirmation ->
-                        pendingCloseConfirmation.value = ProjectCloseConfirmation(
-                            blockedTaskTitles = outcome.blockedTasks.map { it.title }.toImmutableList(),
-                            openTaskCount = outcome.openTaskCount,
-                        )
+                    is ProjectCloseOutcome.NeedsConfirmation -> {
+                        pendingCloseConfirmation.value =
+                            ProjectCloseConfirmation(
+                                blockedTaskTitles = outcome.blockedTasks.map { it.title }.toImmutableList(),
+                                openTaskCount = outcome.openTaskCount,
+                            )
+                    }
                 }
-            }
-            .onFailure { emit(ProjectDetailUiEvent.ShowError(it.toMessage("Close failed"))) }
+            }.onFailure { emit(ProjectDetailUiEvent.ShowError(it.toMessage("Close failed"))) }
     }
 
     /**
@@ -559,13 +600,17 @@ class ProjectDetailViewModel(
     private fun setReminder(offsetMinutes: Int?) {
         vmScope.launch {
             when (val outcome = reminderCoordinator.set(offsetMinutes)) {
-                is SetReminderOutcome.NoDueDate ->
+                is SetReminderOutcome.NoDueDate -> {
                     emit(ProjectDetailUiEvent.ShowError("Set a due date before adding a reminder."))
+                }
 
-                is SetReminderOutcome.Failed ->
+                is SetReminderOutcome.Failed -> {
                     emit(ProjectDetailUiEvent.ShowError("Reminder: ${outcome.cause.message}"))
+                }
 
-                is SetReminderOutcome.Applied, is SetReminderOutcome.Removed -> Unit
+                is SetReminderOutcome.Applied, is SetReminderOutcome.Removed -> {
+                    Unit
+                }
             }
         }
     }

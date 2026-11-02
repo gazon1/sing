@@ -14,7 +14,6 @@ import kotlin.time.Duration
  * platform then batched anyway.
  */
 internal class AndroidSyncPeriodicTrigger(private val scheduler: SyncWorkScheduler) : SyncPeriodicTrigger {
-
     override fun start(interval: Duration) {
         scheduler.enqueuePeriodic(interval.inWholeMilliseconds)
     }

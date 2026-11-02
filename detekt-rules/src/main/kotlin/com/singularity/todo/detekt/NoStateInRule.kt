@@ -36,7 +36,6 @@ import org.jetbrains.kotlin.psi.KtNameReferenceExpression
  * @see NoStateInRuleProvider for registration.
  */
 class NoStateInRule(config: Config) : Rule(config, "", null) {
-
     override fun visitKtFile(root: KtFile) {
         super.visitKtFile(root)
     }
@@ -54,21 +53,24 @@ class NoStateInRule(config: Config) : Rule(config, "", null) {
         report(
             Finding(
                 entity = Entity.from(expr),
-                message = ".stateIn(...) is banned in production VMs. " +
-                    "Use plain MutableStateFlow + scope.launch { }.collect {} instead. " +
-                    "If this is a genuine read-through VM, suppress with " +
-                    "@Suppress(\"NoStateIn\") and a reason rather than an opt-in annotation.",
+                message =
+                    ".stateIn(...) is banned in production VMs. " +
+                        "Use plain MutableStateFlow + scope.launch { }.collect {} instead. " +
+                        "If this is a genuine read-through VM, suppress with " +
+                        "@Suppress(\"NoStateIn\") and a reason rather than an opt-in annotation.",
                 references = emptyList(),
                 suppressReasons = listOf("NoStateIn"),
             ),
         )
     }
-    private fun hasCombineStateInOptIn(cls: KtClass): Boolean = cls.annotationEntries.any { entry ->
-        entry.typeReference?.text == "OptIn" &&
-            entry.valueArguments.any { arg ->
-                arg.getArgumentExpression()?.text == "CombineStateInReadThrough::class"
-            }
-    }
+
+    private fun hasCombineStateInOptIn(cls: KtClass): Boolean =
+        cls.annotationEntries.any { entry ->
+            entry.typeReference?.text == "OptIn" &&
+                entry.valueArguments.any { arg ->
+                    arg.getArgumentExpression()?.text == "CombineStateInReadThrough::class"
+                }
+        }
 }
 
 /**
@@ -76,10 +78,12 @@ class NoStateInRule(config: Config) : Rule(config, "", null) {
  */
 class NoStateInRuleProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("no-state-in")
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf<RuleName, (Config) -> Rule>(
-            RuleName("NoStateIn") to { cfg: Config -> NoStateInRule(cfg) },
-        ),
-    )
+
+    override fun instance(): RuleSet =
+        RuleSet(
+            ruleSetId,
+            mapOf<RuleName, (Config) -> Rule>(
+                RuleName("NoStateIn") to { cfg: Config -> NoStateInRule(cfg) },
+            ),
+        )
 }

@@ -53,17 +53,18 @@ class ServerDependencies(
          *
          * The one place in the server that knows about the global context.
          */
-        fun fromKoin(): ServerDependencies = GlobalContext.get().let { koin ->
-            ServerDependencies(
-                tools = koin.get(),
-                database = koin.get(),
-                remoteConfig = koin.get(),
-                profileBootstrapper = koin.get(),
-                currentUser = koin.get(),
-                recorder = koin.getOrNull(),
-                adrStorage = koin.getOrNull(),
-                dataDirectory = koin.get<HostEnvironmentPort>().applicationDataDirectory(),
-            )
-        }
+        fun fromKoin(): ServerDependencies =
+            GlobalContext.get().let { koin ->
+                ServerDependencies(
+                    tools = koin.get(),
+                    database = koin.get(),
+                    remoteConfig = koin.get(),
+                    profileBootstrapper = koin.get(),
+                    currentUser = koin.get(),
+                    recorder = koin.getOrNull(),
+                    adrStorage = koin.getOrNull(),
+                    dataDirectory = koin.get<HostEnvironmentPort>().applicationDataDirectory(),
+                )
+            }
     }
 }

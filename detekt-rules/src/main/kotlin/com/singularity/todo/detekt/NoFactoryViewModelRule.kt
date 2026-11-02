@@ -26,7 +26,6 @@ import org.jetbrains.kotlin.psi.KtNameReferenceExpression
  * @see NoFactoryViewModelProvider for registration.
  */
 class NoFactoryViewModelRule(config: Config) : Rule(config, "", null) {
-
     override fun visitCallExpression(expression: KtCallExpression) {
         // Without super the tree traversal stops at this node and nested calls
         // (e.g. `factory` inside `module { ... }`) are never visited.
@@ -55,14 +54,20 @@ class NoFactoryViewModelRule(config: Config) : Rule(config, "", null) {
         (lambdaArguments.singleOrNull()?.getArgumentExpression() as? KtLambdaExpression)
             ?: (valueArguments.firstOrNull()?.getArgumentExpression() as? KtLambdaExpression)
 
-    private fun collectCtorCalls(element: PsiElement, acc: MutableList<KtCallExpression>) {
+    private fun collectCtorCalls(
+        element: PsiElement,
+        acc: MutableList<KtCallExpression>,
+    ) {
         for (child in element.children) {
             if (child is KtCallExpression) acc.add(child)
             collectCtorCalls(child, acc)
         }
     }
 
-    private fun collectOfType(element: PsiElement, acc: MutableList<KtCallableReferenceExpression>) {
+    private fun collectOfType(
+        element: PsiElement,
+        acc: MutableList<KtCallableReferenceExpression>,
+    ) {
         for (child in element.children) {
             if (child is KtCallableReferenceExpression) acc.add(child)
             collectOfType(child, acc)
@@ -76,9 +81,10 @@ class NoFactoryViewModelRule(config: Config) : Rule(config, "", null) {
         report(
             Finding(
                 entity = Entity.from(expression),
-                message = "ViewModels must not be registered with factory/factoryOf — " +
-                    "use viewModel { } or viewModelOf(::...) so the instance is lifecycle-bound " +
-                    "and its injected AutoCloseableCoroutineScope gets closed.",
+                message =
+                    "ViewModels must not be registered with factory/factoryOf — " +
+                        "use viewModel { } or viewModelOf(::...) so the instance is lifecycle-bound " +
+                        "and its injected AutoCloseableCoroutineScope gets closed.",
                 references = emptyList(),
                 suppressReasons = emptyList(),
             ),
@@ -96,10 +102,12 @@ class NoFactoryViewModelRule(config: Config) : Rule(config, "", null) {
  */
 class NoFactoryViewModelProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("no-factory-viewmodel")
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf<RuleName, (Config) -> Rule>(
-            RuleName("NoFactoryViewModel") to { cfg: Config -> NoFactoryViewModelRule(cfg) },
-        ),
-    )
+
+    override fun instance(): RuleSet =
+        RuleSet(
+            ruleSetId,
+            mapOf<RuleName, (Config) -> Rule>(
+                RuleName("NoFactoryViewModel") to { cfg: Config -> NoFactoryViewModelRule(cfg) },
+            ),
+        )
 }

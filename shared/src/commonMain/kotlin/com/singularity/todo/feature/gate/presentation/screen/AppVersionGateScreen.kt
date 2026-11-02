@@ -100,9 +100,10 @@ private fun AppVersionGateContent(
 
             is AppVersionGateState.Blocked -> {
                 Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(32.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(32.dp),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
@@ -120,10 +121,11 @@ private fun AppVersionGateContent(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = buildString {
-                            append("Your version (${state.currentVersion}) is no longer supported.\n")
-                            append("Please update to ${state.minSupportedVersion} or newer to continue.")
-                        },
+                        text =
+                            buildString {
+                                append("Your version (${state.currentVersion}) is no longer supported.\n")
+                                append("Please update to ${state.minSupportedVersion} or newer to continue.")
+                            },
                         style = MaterialTheme.typography.bodyLarge,
                         textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

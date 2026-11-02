@@ -25,10 +25,11 @@ import androidx.compose.ui.unit.dp
 fun AttachmentPlaceholderSheet(onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp)
-                .padding(bottom = 32.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+                    .padding(bottom = 32.dp),
         ) {
             Text("Attachments", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(16.dp))

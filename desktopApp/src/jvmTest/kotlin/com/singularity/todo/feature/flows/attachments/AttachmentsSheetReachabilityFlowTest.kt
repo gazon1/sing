@@ -39,49 +39,50 @@ import kotlin.time.Instant
 @Tag("slow")
 @Tag("slow:compose")
 class AttachmentsSheetReachabilityFlowTest {
+    @Test
+    fun task_detail_opens_the_attachments_sheet() =
+        runDesktopAppTest(
+            clock = CLOCK,
+            checkA11y = true,
+        ) { koin ->
+            tasks(koin).given(due = today, title = "Task with an attachment")
+
+            tapTab("Today")
+            awaitTag(TestTags.taskItem("Task with an attachment")).performClick()
+            awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+
+            // The affordance: a row on the task that opens the attachments sheet.
+            // It sits below the fold of the test window, so it is scrolled to first.
+            scrollToTag(TestTags.ATTACHMENTS_ADD_FILE_ROW)
+            assertTagDisplayed(TestTags.ATTACHMENTS_ADD_FILE_ROW)
+            awaitTag(TestTags.ATTACHMENTS_ADD_FILE_ROW).performClick()
+
+            // The sheet is up — its URL field is the thing that was unreachable.
+            assertTagDisplayed(TestTags.ATTACHMENTS_URL_INPUT)
+            assertTagDisplayed(TestTags.ATTACHMENTS_ADD_URL_BUTTON)
+        }
 
     @Test
-    fun task_detail_opens_the_attachments_sheet() = runDesktopAppTest(
-        clock = CLOCK,
-        checkA11y = true,
-    ) { koin ->
-        tasks(koin).given(due = today, title = "Task with an attachment")
+    fun the_sheet_file_picker_is_not_the_row_that_opens_the_sheet() =
+        runDesktopAppTest(
+            clock = CLOCK,
+            checkA11y = true,
+        ) { koin ->
+            tasks(koin).given(due = today, title = "Task with a file attachment")
 
-        tapTab("Today")
-        awaitTag(TestTags.taskItem("Task with an attachment")).performClick()
-        awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
+            tapTab("Today")
+            awaitTag(TestTags.taskItem("Task with a file attachment")).performClick()
+            awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
 
-        // The affordance: a row on the task that opens the attachments sheet.
-        // It sits below the fold of the test window, so it is scrolled to first.
-        scrollToTag(TestTags.ATTACHMENTS_ADD_FILE_ROW)
-        assertTagDisplayed(TestTags.ATTACHMENTS_ADD_FILE_ROW)
-        awaitTag(TestTags.ATTACHMENTS_ADD_FILE_ROW).performClick()
+            scrollToTag(TestTags.ATTACHMENTS_ADD_FILE_ROW)
+            awaitTag(TestTags.ATTACHMENTS_ADD_FILE_ROW).performClick()
+            assertTagDisplayed(TestTags.ATTACHMENTS_URL_INPUT)
 
-        // The sheet is up — its URL field is the thing that was unreachable.
-        assertTagDisplayed(TestTags.ATTACHMENTS_URL_INPUT)
-        assertTagDisplayed(TestTags.ATTACHMENTS_ADD_URL_BUTTON)
-    }
-
-    @Test
-    fun the_sheet_file_picker_is_not_the_row_that_opens_the_sheet() = runDesktopAppTest(
-        clock = CLOCK,
-        checkA11y = true,
-    ) { koin ->
-        tasks(koin).given(due = today, title = "Task with a file attachment")
-
-        tapTab("Today")
-        awaitTag(TestTags.taskItem("Task with a file attachment")).performClick()
-        awaitTag(TestTags.TASK_EDITOR_TITLE_INPUT)
-
-        scrollToTag(TestTags.ATTACHMENTS_ADD_FILE_ROW)
-        awaitTag(TestTags.ATTACHMENTS_ADD_FILE_ROW).performClick()
-        assertTagDisplayed(TestTags.ATTACHMENTS_URL_INPUT)
-
-        // Two different controls, two different ids: the row opens the sheet, the
-        // button inside it picks a file. One id for both made the flow's tap
-        // ambiguous — it could hit either.
-        assertTagDisplayed(TestTags.ATTACHMENTS_PICK_FILE_BUTTON)
-    }
+            // Two different controls, two different ids: the row opens the sheet, the
+            // button inside it picks a file. One id for both made the flow's tap
+            // ambiguous — it could hit either.
+            assertTagDisplayed(TestTags.ATTACHMENTS_PICK_FILE_BUTTON)
+        }
 
     private companion object {
         /** Mid-month, so no assertion in this file straddles a boundary. */

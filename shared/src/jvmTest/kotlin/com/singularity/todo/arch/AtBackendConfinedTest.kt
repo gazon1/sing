@@ -1,7 +1,7 @@
 package com.singularity.todo.arch
 
-import java.io.File
 import org.junit.jupiter.api.Tag
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -50,7 +50,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class AtBackendConfinedTest {
-
     /**
      * Production sources across every source set of `:shared`.
      *
@@ -58,14 +57,17 @@ class AtBackendConfinedTest {
      * to `<module>/src`. Test sources are excluded: this rule is about what ships.
      */
     private fun productionSources(): List<File> {
-        val root = System.getProperty("commonMain.root")
-            ?: error(
-                "commonMain.root system property is not set — " +
-                    "see the jvmTest task config in shared/build.gradle.kts",
-            )
-        val sourceRoot = File(root).parentFile?.parentFile
-            ?: error("cannot locate the module source root above $root")
-        return sourceRoot.walkTopDown()
+        val root =
+            System.getProperty("commonMain.root")
+                ?: error(
+                    "commonMain.root system property is not set — " +
+                        "see the jvmTest task config in shared/build.gradle.kts",
+                )
+        val sourceRoot =
+            File(root).parentFile?.parentFile
+                ?: error("cannot locate the module source root above $root")
+        return sourceRoot
+            .walkTopDown()
             .filter { it.isFile && it.extension == "kt" }
             .filterNot { it.path.contains("${File.separator}jvmTest${File.separator}") }
             .filterNot { it.path.contains("${File.separator}commonTest${File.separator}") }
@@ -75,9 +77,10 @@ class AtBackendConfinedTest {
 
     @Test
     fun `no production source shells out to the at daemon`() {
-        val offenders = productionSources()
-            .mapNotNull { file -> findViolation(file.readText())?.let { file.name to it } }
-            .toList()
+        val offenders =
+            productionSources()
+                .mapNotNull { file -> findViolation(file.readText())?.let { file.name to it } }
+                .toList()
 
         assertEquals(
             emptyList(),
@@ -100,13 +103,14 @@ class AtBackendConfinedTest {
      */
     @Test
     fun `the rule still recognises every way the backend was reached`() {
-        val samples = listOf(
-            """val p = ProcessBuilder("at", "-m", "1800")""" to "ProcessBuilder with at",
-            """val p = ProcessBuilder(listOf("atq"))""" to "ProcessBuilder with atq",
-            """val p = ProcessBuilder("atrm", jobId)""" to "ProcessBuilder with atrm",
-            """val p = ProcessBuilder(listOf("/usr/bin/atrm"))""" to "absolute path to atrm",
-            """Runtime.getRuntime().exec(arrayOf("at", "job"))""" to "Runtime.exec with at",
-        )
+        val samples =
+            listOf(
+                """val p = ProcessBuilder("at", "-m", "1800")""" to "ProcessBuilder with at",
+                """val p = ProcessBuilder(listOf("atq"))""" to "ProcessBuilder with atq",
+                """val p = ProcessBuilder("atrm", jobId)""" to "ProcessBuilder with atrm",
+                """val p = ProcessBuilder(listOf("/usr/bin/atrm"))""" to "absolute path to atrm",
+                """Runtime.getRuntime().exec(arrayOf("at", "job"))""" to "Runtime.exec with at",
+            )
 
         for ((source, description) in samples) {
             assertTrue(
@@ -126,12 +130,13 @@ class AtBackendConfinedTest {
      */
     @Test
     fun `the rule ignores at that is not a command name`() {
-        val benign = listOf(
-            "val format = \"at %s\"",
-            "fun concatenate(a: String, b: String) = a + b",
-            "// it ran atq across every at job on the host",
-            "val data = readText(\"data.txt\")",
-        )
+        val benign =
+            listOf(
+                "val format = \"at %s\"",
+                "fun concatenate(a: String, b: String) = a + b",
+                "// it ran atq across every at job on the host",
+                "val data = readText(\"data.txt\")",
+            )
 
         for (source in benign) {
             assertTrue(
@@ -165,11 +170,12 @@ class AtBackendConfinedTest {
          * Tolerates `ProcessBuilder("at"` and `ProcessBuilder(listOf("atq"` alike, because
          * a rule that only recognises one spelling is a rule that survives being renamed.
          */
-        val AT_LAUNCHER = Regex(
-            "(ProcessBuilder\\s*\\(|Runtime\\s*\\.\\s*getRuntime\\s*\\(\\s*\\)\\s*\\.\\s*exec\\s*\\(\\s*)" +
-                "(listOf\\s*\\(\\s*|arrayOf\\s*\\(\\s*)?\\(?\\s*\"/?[\\w./-]*/?(at|atq|atrm)\"",
-            RegexOption.IGNORE_CASE,
-        )
+        val AT_LAUNCHER =
+            Regex(
+                "(ProcessBuilder\\s*\\(|Runtime\\s*\\.\\s*getRuntime\\s*\\(\\s*\\)\\s*\\.\\s*exec\\s*\\(\\s*)" +
+                    "(listOf\\s*\\(\\s*|arrayOf\\s*\\(\\s*)?\\(?\\s*\"/?[\\w./-]*/?(at|atq|atrm)\"",
+                RegexOption.IGNORE_CASE,
+            )
 
         /**
          * The job-list and cancel utilities, matched wherever they appear as a literal.

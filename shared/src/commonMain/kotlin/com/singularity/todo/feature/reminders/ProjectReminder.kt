@@ -55,20 +55,22 @@ value class ProjectReminderId(val value: String) {
 
 // ─── Mapping ─────────────────────────────────────────────────────────────────
 
-fun ProjectReminderEntity.toProjectReminder() = ProjectReminder(
-    id = ProjectReminderId(id),
-    projectId = ProjectId(projectId),
-    userId = UserId(userId),
-    fireAt = fireAt,
-    lastFiredAt = lastFiredAt,
-)
+fun ProjectReminderEntity.toProjectReminder() =
+    ProjectReminder(
+        id = ProjectReminderId(id),
+        projectId = ProjectId(projectId),
+        userId = UserId(userId),
+        fireAt = fireAt,
+        lastFiredAt = lastFiredAt,
+    )
 
-fun ProjectReminder.toEntity(now: Long) = ProjectReminderEntity(
-    id = id.value,
-    projectId = projectId.value,
-    userId = userId.value,
-    fireAt = fireAt,
-    lastFiredAt = lastFiredAt,
-    createdAt = now,
-    updatedAt = now,
-)
+fun ProjectReminder.toEntity(now: Long) =
+    ProjectReminderEntity(
+        id = id.value,
+        projectId = projectId.value,
+        userId = userId.value,
+        fireAt = fireAt,
+        lastFiredAt = lastFiredAt,
+        createdAt = now,
+        updatedAt = now,
+    )

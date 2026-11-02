@@ -30,7 +30,6 @@ import kotlin.test.assertTrue
 @Tag("slow:data")
 @EnabledOnOs(OS.LINUX)
 class FileSharePortContractTest {
-
     private val sut = JvmFileSharePort()
 
     @Test

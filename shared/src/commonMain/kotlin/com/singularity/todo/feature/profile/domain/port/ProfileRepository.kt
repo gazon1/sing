@@ -13,7 +13,6 @@ import kotlinx.coroutines.flow.StateFlow
  * key lives in DataStore (survives DB resets and wipes).
  */
 interface ProfileRepository : GenericUserScopedRepository<Profile, ProfileId> {
-
     /** Watch the currently active profile. Emits the default if none selected. */
     fun activeProfile(): Flow<Profile>
 

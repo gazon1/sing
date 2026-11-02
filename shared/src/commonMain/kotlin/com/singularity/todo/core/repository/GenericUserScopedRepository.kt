@@ -53,7 +53,6 @@ import kotlinx.coroutines.flow.Flow
  *           [ProjectId][com.singularity.todo.core.ids.ProjectId]).
  */
 interface GenericUserScopedRepository<E, ID> {
-
     /**
      * Observes all entities for the currently authenticated user.
      * Re-subscribes automatically when the user changes.
@@ -109,7 +108,6 @@ interface GenericUserScopedRepository<E, ID> {
  * [Note][com.singularity.todo.feature.notes.domain.model.Note].
  */
 interface SoftDeletable<E, ID> {
-
     /**
      * Restores a soft-deleted entity by [id].
      * No-op if the entity does not support soft-delete or is not deleted.

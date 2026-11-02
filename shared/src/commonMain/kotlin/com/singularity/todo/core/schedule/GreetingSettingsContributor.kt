@@ -18,7 +18,6 @@ interface GreetingContributor : SettingsContributor<SettingsSection.Greeting, Se
  * Registration: `single<SettingsContributor> { GreetingSettingsContributor(get()) }`.
  */
 class GreetingSettingsContributor(private val store: GreetingSettingsStore) : GreetingContributor {
-
     override val section: SettingsSection.Greeting = SettingsSection.Greeting()
 
     override fun observe(): Flow<SettingsSection.Greeting> = store.observe()

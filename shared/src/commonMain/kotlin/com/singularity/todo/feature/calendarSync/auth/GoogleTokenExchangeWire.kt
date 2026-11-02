@@ -32,7 +32,6 @@ import kotlinx.serialization.json.put
  * deployments to keep in step, and the difference between them is one word.
  */
 internal object GoogleTokenExchangeWire {
-
     /** The Edge Function that redeems the code and holds the refresh token. */
     const val FUNCTION_NAME = "google-oauth-exchange"
 
@@ -43,10 +42,11 @@ internal object GoogleTokenExchangeWire {
      * server once, and the server trades it for a token it keeps — the device
      * never sees the refresh token.
      */
-    fun exchangeRequest(code: String): JsonObject = buildJsonObject {
-        put("action", "exchange")
-        put("code", code)
-    }
+    fun exchangeRequest(code: String): JsonObject =
+        buildJsonObject {
+            put("action", "exchange")
+            put("code", code)
+        }
 
     /**
      * The request that asks for the token the server already holds.
@@ -54,14 +54,16 @@ internal object GoogleTokenExchangeWire {
      * No code travels: the server knows which account it is talking about, from
      * the session the call is made with.
      */
-    fun tokenRequest(): JsonObject = buildJsonObject {
-        put("action", "token")
-    }
+    fun tokenRequest(): JsonObject =
+        buildJsonObject {
+            put("action", "token")
+        }
 
     /** The request that cancels the grant on the server. */
-    fun revokeRequest(): JsonObject = buildJsonObject {
-        put("action", "revoke")
-    }
+    fun revokeRequest(): JsonObject =
+        buildJsonObject {
+            put("action", "revoke")
+        }
 
     /**
      * Whether the server's answer to a revoke means the grant is gone.
@@ -82,9 +84,10 @@ internal object GoogleTokenExchangeWire {
      * than "the server refused the request", and it is the same advice whichever
      * call was refused.
      */
-    fun noCloudServerConfigured(): GoogleAuthorizationException = GoogleAuthorizationException(
-        "No cloud server is configured. Add your Supabase project in the Account settings first.",
-    )
+    fun noCloudServerConfigured(): GoogleAuthorizationException =
+        GoogleAuthorizationException(
+            "No cloud server is configured. Add your Supabase project in the Account settings first.",
+        )
 
     private const val HTTP_OK = 200
     private const val HTTP_NOT_FOUND = 404
@@ -116,8 +119,9 @@ internal fun JsonObject.readGoogleCredentials(): GoogleCredentials {
     return GoogleCredentials(
         accessToken = token,
         refreshToken = null,
-        expiresAtEpochMs = this["expires_at_ms"]?.jsonPrimitive?.longOrNull
-            ?: System.currentTimeMillis() + DEFAULT_GOOGLE_TOKEN_EXPIRY_MS,
+        expiresAtEpochMs =
+            this["expires_at_ms"]?.jsonPrimitive?.longOrNull
+                ?: System.currentTimeMillis() + DEFAULT_GOOGLE_TOKEN_EXPIRY_MS,
     )
 }
 

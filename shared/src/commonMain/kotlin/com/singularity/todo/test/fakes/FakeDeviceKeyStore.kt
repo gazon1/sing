@@ -20,7 +20,6 @@ import com.singularity.todo.core.backup.EncryptedArchive
  * bytes would test nothing about the thing it stands for.
  */
 class FakeDeviceKeyStore(private val archive: EncryptedArchive) : DeviceKeyStore {
-
     /** The key, as it was generated. */
     private var key: ByteArray? = null
 
@@ -34,8 +33,7 @@ class FakeDeviceKeyStore(private val archive: EncryptedArchive) : DeviceKeyStore
      * A copy of the key: the caller wipes what it gets, and the store keeps
      * its own — a key that the caller can erase is a key that is gone.
      */
-    override suspend fun deviceKey(): ByteArray =
-        (key ?: ByteArray(32) { it.toByte() }.also { key = it }).copyOf()
+    override suspend fun deviceKey(): ByteArray = (key ?: ByteArray(32) { it.toByte() }.also { key = it }).copyOf()
 
     override suspend fun keyBlock(): ArchiveKeyBlock? = block
 

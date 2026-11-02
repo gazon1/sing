@@ -15,11 +15,12 @@ import kotlin.time.Clock
  * `Clock.System` here is the one place in the codebase allowed to name it — it is the
  * composition root, and the rule exists so that everything *below* a root is testable.
  */
-fun adrStorage(): AdrStorage = AdrStorage(
-    host = JvmHostEnvironment(),
-    clock = Clock.System,
-    timeZone = systemTimeZone,
-)
+fun adrStorage(): AdrStorage =
+    AdrStorage(
+        host = JvmHostEnvironment(),
+        clock = Clock.System,
+        timeZone = systemTimeZone,
+    )
 
 fun main(args: Array<String>) {
     val exitCode = AdrCli(adrStorage(), System.out, System.err).run(args.toList())

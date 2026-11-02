@@ -1,7 +1,7 @@
 package com.singularity.todo.arch
 
-import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.Test
 import java.io.File
 import kotlin.test.assertTrue
 import kotlin.test.fail
@@ -46,7 +46,6 @@ import kotlin.test.fail
  */
 @Tag("fast")
 class ViewModelInitOrderTest {
-
     @Test
     fun `no ViewModel reads a property before its initializer runs`() {
         val violations = mutableListOf<String>()
@@ -79,10 +78,11 @@ class ViewModelInitOrderTest {
         assertTrue(withInit > 5, "expected several ViewModels with init blocks, found $withInit")
     }
 
-    private fun viewModelFiles(): List<File> = File(commonMainRoot)
-        .walkTopDown()
-        .filter { it.isFile && it.name.endsWith("ViewModel.kt") }
-        .toList()
+    private fun viewModelFiles(): List<File> =
+        File(commonMainRoot)
+            .walkTopDown()
+            .filter { it.isFile && it.name.endsWith("ViewModel.kt") }
+            .toList()
 
     private fun findViolations(file: File): List<String> {
         val lines = file.readText().lines()
@@ -165,8 +165,9 @@ class ViewModelInitOrderTest {
     }
 
     private companion object {
-        val commonMainRoot: String = System.getProperty("commonMain.root")
-            ?: error("commonMain.root is not set — see the jvmTest config in shared/build.gradle.kts")
+        val commonMainRoot: String =
+            System.getProperty("commonMain.root")
+                ?: error("commonMain.root is not set — see the jvmTest config in shared/build.gradle.kts")
 
         val CLASS_DECL = Regex("""^\s*(?:internal |data |open |abstract |sealed )*class\s+\w+""")
         val PROPERTY_DECL = Regex("""^\s{4}(?:private |internal |override |public |protected )*(?:val|var) (\w+)""")

@@ -5,12 +5,12 @@ import com.singularity.todo.core.backup.ArchiveFormat
 import com.singularity.todo.core.backup.EncryptedArchive
 import com.singularity.todo.core.files.ByteArraySink
 import com.singularity.todo.core.files.ByteArraySource
+import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
-import org.junit.jupiter.api.Tag
 
 /**
  * The real cryptography, on the JVM.
@@ -32,7 +32,6 @@ import org.junit.jupiter.api.Tag
  */
 @Tag("fast")
 class JvmArchiveCryptoTest {
-
     private val crypto = JvmArchiveCrypto()
     private val archive = EncryptedArchive(crypto)
 
@@ -97,10 +96,11 @@ class JvmArchiveCryptoTest {
     @Test
     fun `the real cipher refuses a tampered header`() {
         val sealed = archive.seal(plaintext, password)
-        val tampered = sealed.copyOf().also { copy ->
-            val last = ArchiveFormat.HEADER_BYTES - 1
-            copy[last] = (copy[last] + 1).toByte()
-        }
+        val tampered =
+            sealed.copyOf().also { copy ->
+                val last = ArchiveFormat.HEADER_BYTES - 1
+                copy[last] = (copy[last] + 1).toByte()
+            }
 
         assertFailsWith<ArchiveEnvelopeError.WrongPassword> {
             archive.open(tampered, password)

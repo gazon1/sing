@@ -40,7 +40,6 @@ import org.koin.core.context.GlobalContext
 @RunWith(AndroidJUnit4::class)
 @LargeTest
 class AppStartupTest : InstrumentedTestBase() {
-
     /**
      * The APK under test must be assembled with the auth bypass.
      *
@@ -125,6 +124,10 @@ class AppStartupTest : InstrumentedTestBase() {
     /** The session the app is in, read from the app's own Koin graph. */
     private fun currentSession(): Session =
         runCatching {
-            GlobalContext.getOrNull()?.get<AuthRepository>()?.currentSession?.value
+            GlobalContext
+                .getOrNull()
+                ?.get<AuthRepository>()
+                ?.currentSession
+                ?.value
         }.getOrNull() ?: Session.Loading
 }

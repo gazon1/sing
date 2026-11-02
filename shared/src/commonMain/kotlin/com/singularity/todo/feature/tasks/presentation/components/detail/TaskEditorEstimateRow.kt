@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -22,7 +23,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.tasks.presentation.theme.TaskSpacing
-import androidx.compose.material3.MaterialTheme
 
 /**
  * Renders the estimate attribute row in the task editor.
@@ -42,21 +42,21 @@ fun TaskEditorEstimateRow(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .testTag(TestTags.TASK_EDITOR_ESTIMATE_ROW)
-            // No clickable() at all when the callback is null — see TaskEditorPriorityRow.
-            .then(
-                if (onEstimateClick != null) {
-                    Modifier.clickable { onEstimateClick() }
-                } else {
-                    Modifier
-                },
-            )
-            .padding(
-                horizontal = TaskSpacing.cardPaddingHorizontal,
-                vertical = TaskSpacing.cardPaddingVertical,
-            ),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .testTag(TestTags.TASK_EDITOR_ESTIMATE_ROW)
+                // No clickable() at all when the callback is null — see TaskEditorPriorityRow.
+                .then(
+                    if (onEstimateClick != null) {
+                        Modifier.clickable { onEstimateClick() }
+                    } else {
+                        Modifier
+                    },
+                ).padding(
+                    horizontal = TaskSpacing.cardPaddingHorizontal,
+                    vertical = TaskSpacing.cardPaddingVertical,
+                ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val hasEstimate = estimateMinutes != null
@@ -97,8 +97,9 @@ internal fun estimateRowLabel(minutes: Int?): String {
     return formatEstimate(minutes)
 }
 
-internal fun formatEstimate(minutes: Int): String = when {
-    minutes < 60 -> "$minutes min"
-    minutes % 60 == 0 -> "${minutes / 60} h"
-    else -> "${minutes / 60} h ${minutes % 60} min"
-}
+internal fun formatEstimate(minutes: Int): String =
+    when {
+        minutes < 60 -> "$minutes min"
+        minutes % 60 == 0 -> "${minutes / 60} h"
+        else -> "${minutes / 60} h ${minutes % 60} min"
+    }

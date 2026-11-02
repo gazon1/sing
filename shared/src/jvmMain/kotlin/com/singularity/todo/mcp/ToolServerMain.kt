@@ -3,17 +3,21 @@ package com.singularity.todo.mcp
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.log.RedactingLogWriter
 import com.singularity.todo.core.log.StderrLogWriter
-import io.modelcontextprotocol.kotlin.sdk.server.Server
-import io.modelcontextprotocol.kotlin.sdk.server.StdioServerTransport
 import io.ktor.utils.io.asSink
 import io.ktor.utils.io.asSource
 import io.ktor.utils.io.jvm.javaio.toByteReadChannel
 import io.ktor.utils.io.streams.asByteWriteChannel
+import io.modelcontextprotocol.kotlin.sdk.server.Server
+import io.modelcontextprotocol.kotlin.sdk.server.StdioServerTransport
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.buffered
 import java.io.OutputStreamWriter
 import kotlin.system.exitProcess
+
+// The process entry point: the JVM has to stay alive until the client closes standard
+// input, and a scope that is launched and forgotten would be torn down with the
+// `main` frame. `runBlocking` is the one place a blocking bridge belongs.
 
 /**
  * The MCP tool server, as a function rather than an entry point.
@@ -64,35 +68,35 @@ import kotlin.system.exitProcess
  * "what does the server do when it cannot start?" could only be answered by reading
  * the whole sequence.
  */
-// The process entry point: the JVM has to stay alive until the client closes standard
-// input, and a scope that is launched and forgotten would be torn down with the
-// `main` frame. `runBlocking` is the one place a blocking bridge belongs.
 @Suppress("NoRunBlocking") // the process entry point: the JVM stays up until the client leaves
-fun runToolServer(args: Array<String>): Unit = runBlocking {
-    // Standard output is the protocol channel and nothing else: from here on, every
-    // print in this process — this application's log, a library's start-up banner —
-    // goes to standard error. See [ProtocolStdout] for why a client that parses
-    // standard output strictly would otherwise lose the tool access entirely.
-    // The logger is pointed at standard error before anything can be logged, so the
-    // server's own log lines never depend on the redirect that follows. See
-    // [StderrLogWriter] for why the two are kept apart.
-    installStderrLogging()
-    val protocolOut = ProtocolStdout.reserve()
+fun runToolServer(args: Array<String>): Unit =
+    runBlocking {
+        // Standard output is the protocol channel and nothing else: from here on, every
+        // print in this process — this application's log, a library's start-up banner —
+        // goes to standard error. See [ProtocolStdout] for why a client that parses
+        // standard output strictly would otherwise lose the tool access entirely.
+        // The logger is pointed at standard error before anything can be logged, so the
+        // server's own log lines never depend on the redirect that follows. See
+        // [StderrLogWriter] for why the two are kept apart.
+        installStderrLogging()
+        val protocolOut = ProtocolStdout.reserve()
 
-    val selection = parseProfileSelection(args)
+        val selection = parseProfileSelection(args)
 
-    when (val startup = startToolServer(selection)) {
-        is ToolServerStartup.Refused -> {
-            // The refusal is a value, not an exit buried in the middle of a sequence:
-            // the client is told why on the protocol channel, and the process leaves
-            // with the code the refusal names.
-            writeJsonRpcError(protocolOut, startup.code, startup.message)
-            exitProcess(startup.exitCode)
+        when (val startup = startToolServer(selection)) {
+            is ToolServerStartup.Refused -> {
+                // The refusal is a value, not an exit buried in the middle of a sequence:
+                // the client is told why on the protocol channel, and the process leaves
+                // with the code the refusal names.
+                writeJsonRpcError(protocolOut, startup.code, startup.message)
+                exitProcess(startup.exitCode)
+            }
+
+            is ToolServerStartup.Ready -> {
+                serve(startup.server, startup.sessionContext, protocolOut)
+            }
         }
-
-        is ToolServerStartup.Ready -> serve(startup.server, startup.sessionContext, protocolOut)
     }
-}
 
 /**
  * Serves the client until it closes standard input.
@@ -104,11 +108,20 @@ fun runToolServer(args: Array<String>): Unit = runBlocking {
  * tear those coroutines down before a single JSON-RPC frame is read. So the wait
  * belongs here, and only here.
  */
-private suspend fun serve(server: Server, sessionContext: SessionContextHolder, protocolOut: ProtocolStdout) {
-    val transport = StdioServerTransport(
-        input = System.`in`.toByteReadChannel().asSource().buffered(),
-        output = protocolOut.asByteWriteChannel().asSink().buffered(),
-    )
+private suspend fun serve(
+    server: Server,
+    sessionContext: SessionContextHolder,
+    protocolOut: ProtocolStdout,
+) {
+    val transport =
+        StdioServerTransport(
+            input =
+                System.`in`
+                    .toByteReadChannel()
+                    .asSource()
+                    .buffered(),
+            output = protocolOut.asByteWriteChannel().asSink().buffered(),
+        )
 
     val session = server.createSession(transport)
     // The session is known immediately; the client's name is not — it arrives with the
@@ -144,7 +157,11 @@ private fun installStderrLogging() {
  * detail of the failure goes to the log, because the caller is not the party that can
  * act on it and a file path is not a thing an agent needs to be told.
  */
-private fun writeJsonRpcError(protocolOut: ProtocolStdout, code: Int, message: String) {
+private fun writeJsonRpcError(
+    protocolOut: ProtocolStdout,
+    code: Int,
+    message: String,
+) {
     val stream = protocolOut.asPrintStream()
     OutputStreamWriter(stream, Charsets.UTF_8).use { it.write(jsonRpcError(code, message) + "\n") }
 }

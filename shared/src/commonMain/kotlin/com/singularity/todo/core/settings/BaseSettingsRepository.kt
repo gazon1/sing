@@ -23,24 +23,34 @@ import kotlin.enums.EnumEntries
  * ```
  */
 abstract class BaseSettingsRepository(internal val dataStore: DataStore<Preferences>) {
+    protected fun boolPref(
+        name: String,
+        default: Boolean,
+    ): BooleanPref = BooleanPref(PrefSpec(dataStore, booleanPreferencesKey(name), default))
 
-    protected fun boolPref(name: String, default: Boolean): BooleanPref =
-        BooleanPref(PrefSpec(dataStore, booleanPreferencesKey(name), default))
+    protected fun intPref(
+        name: String,
+        default: Int,
+        range: IntRange? = null,
+    ): IntPref = IntPref(PrefSpec(dataStore, intPreferencesKey(name), default, range))
 
-    protected fun intPref(name: String, default: Int, range: IntRange? = null): IntPref =
-        IntPref(PrefSpec(dataStore, intPreferencesKey(name), default, range))
+    protected fun stringPref(
+        name: String,
+        default: String,
+    ): StringPref = StringPref(PrefSpec(dataStore, stringPreferencesKey(name), default))
 
-    protected fun stringPref(name: String, default: String): StringPref =
-        StringPref(PrefSpec(dataStore, stringPreferencesKey(name), default))
-
-    protected fun floatPref(name: String, default: Float): FloatPref =
-        FloatPref(PrefSpec(dataStore, floatPreferencesKey(name), default))
+    protected fun floatPref(
+        name: String,
+        default: Float,
+    ): FloatPref = FloatPref(PrefSpec(dataStore, floatPreferencesKey(name), default))
 
     protected fun nullableStringPref(name: String): NullableStringPref =
         NullableStringPref(dataStore, stringPreferencesKey(name))
 
-    protected fun stringSetPref(name: String, default: Set<String> = emptySet()): StringSetPref =
-        StringSetPref(PrefSpec(dataStore, stringSetPreferencesKey(name), default))
+    protected fun stringSetPref(
+        name: String,
+        default: Set<String> = emptySet(),
+    ): StringSetPref = StringSetPref(PrefSpec(dataStore, stringSetPreferencesKey(name), default))
 
     protected fun <T : Enum<T>> enumPref(
         name: String,
@@ -49,5 +59,8 @@ abstract class BaseSettingsRepository(internal val dataStore: DataStore<Preferen
     ): EnumPref<T> = EnumPref(dataStore, stringPreferencesKey(name), default, entries)
 
     /** Convenience: form a namespaced preference key string. */
-    protected fun nsKey(namespace: String, name: String): String = "$namespace.$name"
+    protected fun nsKey(
+        namespace: String,
+        name: String,
+    ): String = "$namespace.$name"
 }

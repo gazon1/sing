@@ -30,91 +30,98 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class JvmReminderFireRunnerTest {
-
     @Test
-    fun `profile is resolved before the reminder is fired`() = runTest {
-        val order = mutableListOf<String>()
+    fun `profile is resolved before the reminder is fired`() =
+        runTest {
+            val order = mutableListOf<String>()
 
-        JvmReminderFireRunner.fireAfterProfileResolution(
-            resolveProfile = { order += "resolve-profile" },
-            fire = {
-                order += "fire"
-                ReminderDelivery.Outcome.Posted
-            },
-        )
-
-        assertEquals(
-            listOf("resolve-profile", "fire"),
-            order,
-            "firing before the profile is resolved yields NotFound for a reminder that exists",
-        )
-    }
-
-    @Test
-    fun `fire reads the profile that bootstrap resolved`() = runTest {
-        var activeProfile: String? = null
-        var profileAtFireTime: String? = null
-
-        val outcome = JvmReminderFireRunner.fireAfterProfileResolution(
-            resolveProfile = { activeProfile = "personal" },
-            fire = {
-                profileAtFireTime = activeProfile
-                ReminderDelivery.Outcome.Posted
-            },
-        )
-
-        assertEquals("personal", profileAtFireTime)
-        assertEquals(ReminderDelivery.Outcome.Posted, outcome)
-    }
-
-    @Test
-    fun `each fire observes the profile its own bootstrap resolved`() = runTest {
-        // Two requests in one graph: the second bootstrap can land on a different profile,
-        // and a cached read from the first would make the second fire against the wrong
-        // row. Asserting per-call rather than once at the end is the whole point.
-        val seen = mutableListOf<String>()
-
-        suspend fun fireOnce(profile: String) = JvmReminderFireRunner.fireAfterProfileResolution(
-            resolveProfile = { seen += "resolve:$profile" },
-            fire = {
-                seen += "fire:$profile"
-                ReminderDelivery.Outcome.Posted
-            },
-        )
-
-        fireOnce("personal")
-        fireOnce("work")
-
-        assertEquals(listOf("resolve:personal", "fire:personal", "resolve:work", "fire:work"), seen)
-    }
-
-    @Test
-    fun `a failed profile resolution never fires`() = runTest {
-        var fired = false
-
-        assertFailsWith<IllegalStateException> {
             JvmReminderFireRunner.fireAfterProfileResolution(
-                resolveProfile = { error("no profile for --profile=ghost") },
+                resolveProfile = { order += "resolve-profile" },
                 fire = {
-                    fired = true
+                    order += "fire"
                     ReminderDelivery.Outcome.Posted
                 },
             )
-        }
 
-        assertTrue(!fired, "a fire against an unresolved graph reports NotFound for a row that exists")
-    }
+            assertEquals(
+                listOf("resolve-profile", "fire"),
+                order,
+                "firing before the profile is resolved yields NotFound for a reminder that exists",
+            )
+        }
 
     @Test
-    fun `the outcome is returned unchanged`() = runTest {
-        // The three outcomes are load-bearing: NoNotifier is the only evidence that a
-        // reminder was armed and could not be shown. Collapsing it to Posted would lose it.
-        for (expected in ReminderDelivery.Outcome.entries) {
-            val actual = JvmReminderFireRunner.fireAfterProfileResolution(
-                resolveProfile = {},
-                fire = { expected },
-            )
-            assertEquals(expected, actual)
+    fun `fire reads the profile that bootstrap resolved`() =
+        runTest {
+            var activeProfile: String? = null
+            var profileAtFireTime: String? = null
+
+            val outcome =
+                JvmReminderFireRunner.fireAfterProfileResolution(
+                    resolveProfile = { activeProfile = "personal" },
+                    fire = {
+                        profileAtFireTime = activeProfile
+                        ReminderDelivery.Outcome.Posted
+                    },
+                )
+
+            assertEquals("personal", profileAtFireTime)
+            assertEquals(ReminderDelivery.Outcome.Posted, outcome)
         }
-    }
+
+    @Test
+    fun `each fire observes the profile its own bootstrap resolved`() =
+        runTest {
+            // Two requests in one graph: the second bootstrap can land on a different profile,
+            // and a cached read from the first would make the second fire against the wrong
+            // row. Asserting per-call rather than once at the end is the whole point.
+            val seen = mutableListOf<String>()
+
+            suspend fun fireOnce(profile: String) =
+                JvmReminderFireRunner.fireAfterProfileResolution(
+                    resolveProfile = { seen += "resolve:$profile" },
+                    fire = {
+                        seen += "fire:$profile"
+                        ReminderDelivery.Outcome.Posted
+                    },
+                )
+
+            fireOnce("personal")
+            fireOnce("work")
+
+            assertEquals(listOf("resolve:personal", "fire:personal", "resolve:work", "fire:work"), seen)
+        }
+
+    @Test
+    fun `a failed profile resolution never fires`() =
+        runTest {
+            var fired = false
+
+            assertFailsWith<IllegalStateException> {
+                JvmReminderFireRunner.fireAfterProfileResolution(
+                    resolveProfile = { error("no profile for --profile=ghost") },
+                    fire = {
+                        fired = true
+                        ReminderDelivery.Outcome.Posted
+                    },
+                )
+            }
+
+            assertTrue(!fired, "a fire against an unresolved graph reports NotFound for a row that exists")
+        }
+
+    @Test
+    fun `the outcome is returned unchanged`() =
+        runTest {
+            // The three outcomes are load-bearing: NoNotifier is the only evidence that a
+            // reminder was armed and could not be shown. Collapsing it to Posted would lose it.
+            for (expected in ReminderDelivery.Outcome.entries) {
+                val actual =
+                    JvmReminderFireRunner.fireAfterProfileResolution(
+                        resolveProfile = {},
+                        fire = { expected },
+                    )
+                assertEquals(expected, actual)
+            }
+        }
 }

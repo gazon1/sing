@@ -1,12 +1,13 @@
 package com.singularity.todo.core.di
 
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.config.RemoteConfigPort
 import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.coroutines.loggingBackgroundFailureHandler
 import com.singularity.todo.core.platform.monoClockMillis
+import com.singularity.todo.core.sync.DataStoreHlcStore
 import com.singularity.todo.core.sync.DataStoreSyncPrefs
 import com.singularity.todo.core.sync.HlcFactory
-import com.singularity.todo.core.sync.DataStoreHlcStore
 import com.singularity.todo.core.sync.HlcStore
 import com.singularity.todo.core.sync.OutboxService
 import com.singularity.todo.core.sync.PatchRetryPolicy
@@ -16,7 +17,6 @@ import com.singularity.todo.core.sync.PullPhase
 import com.singularity.todo.core.sync.PushPhase
 import com.singularity.todo.core.sync.RemoteConfigRepository
 import com.singularity.todo.core.sync.RemoteConfigRepositoryImpl
-import com.singularity.todo.core.config.RemoteConfigPort
 import com.singularity.todo.core.sync.RoomSyncStateRepository
 import com.singularity.todo.core.sync.SeedPlanner
 import com.singularity.todo.core.sync.SupabaseSyncApiClient
@@ -38,11 +38,11 @@ import com.singularity.todo.core.sync.SyncStateRepository
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
+import com.singularity.todo.feature.sync.presentation.SyncViewModel
 import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.feature.tags.domain.port.TagGroupRepository
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
 import com.singularity.todo.feature.timetracking.domain.port.TimeTrackingRepository
-import com.singularity.todo.feature.sync.presentation.SyncViewModel
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.scope.Scope
 import org.koin.dsl.module
@@ -70,183 +70,184 @@ import org.koin.dsl.module
  * `SyncBootstrapper` after `SyncEngine` has already been instantiated.  The
  * reference therefore does not cause a cycle at resolution time.
  */
-fun syncModule(): org.koin.core.module.Module = module {
-    // ─── Transport / RPC ───────────────────────────────────────────────────
+fun syncModule(): org.koin.core.module.Module =
+    module {
+        // ─── Transport / RPC ───────────────────────────────────────────────────
 
-    // HlcFactory is internal; SyncEngine depends on it.
-    single {
-        HlcFactory(
-            deviceIdProvider = get(),
-            clock = get(),
-            scope = get(),
-            hlcStore = get(),
-        )
+        // HlcFactory is internal; SyncEngine depends on it.
+        single {
+            HlcFactory(
+                deviceIdProvider = get(),
+                clock = get(),
+                scope = get(),
+                hlcStore = get(),
+            )
+        }
+
+        single<HlcStore> { DataStoreHlcStore(get()) }
+
+        // The transport is built over the RPC port rather than over the vendor client,
+        // so the parsing — where a 64-bit log position is read, and where a malformed
+        // response has to become an AppError — is testable without a network.
+        single<SyncRpc> { PostgrestSyncRpc(get()) }
+        single<SyncApiClient> { SupabaseSyncApiClient(get<SyncRpc>()) }
+
+        // SyncPrefs: DataStore-backed (not in-memory).
+        single<SyncPrefs> { DataStoreSyncPrefs(get(), get(), clock = get()) }
+
+        // Patches are built here rather than inside SyncEngine, so the diff has one
+        // owner and can be tested without a push path.
+        single { SyncPatchBuilder(shadowDao = get(), hlcFactory = get(), idGenerator = get()) }
+
+        // ─── SyncEngine bootstrap ──────────────────────────────────────────────
+
+        // Bridges auth session changes to the sync scheduler.
+        // Extracted from SyncEngine.init {} so the session-collecting logic owns its
+        // own scope and can be tested independently.
+        single {
+            SyncAuthBridge(
+                authRepository = get(),
+                scheduler = get(),
+                scope = get(),
+            )
+        }
+
+        // SyncEngine is internal — feature modules must use SyncRepository.
+        // Takes the per-scope state repository (for LSN tracking), the scope provider
+        // (whose (owner, profile) the cycle applies to), the shadow store (the base a
+        // diff is taken against) and SyncWorkScheduler (for auth-session init).
+        //
+        // PushPhase and PullPhase are constructed here so they receive the same
+        // SyncEngineState holder that the engine exposes. All three share the same
+        // MutableStateFlows and the same SyncPhaseReporter, keeping phase-ending
+        // rules in one place.
+        //
+        // #177 fix: SyncBootstrapper is created AFTER the engine, and is given the engine
+        // as a constructor parameter. Its init {} runs during this call and registers all
+        // pull handlers. Previously it was a standalone single {} that nobody retrieved, so
+        // Koin never instantiated it and zero handlers were registered in production.
+        single { syncEngine() }
+
+        // Force bootstrapper instantiation so its init {} runs and registers handlers.
+        //
+        // There is deliberately **no** `single { get<SyncEngine>() }` here. There used to
+        // be, and it was a second definition of the same type: in Koin the last
+        // definition wins, so this one replaced the real engine binding — and then the
+        // bootstrapper's `get<SyncEngine>()` resolved *this* binding, which resolves
+        // itself. The result was a `StackOverflowError` on the first MCP tool call,
+        // after `singularity-todo MCP server started` had already been printed (#512).
+        //
+        // The comment that used to sit here claimed "the engine single {} has executed
+        // above, so get<SyncEngine>() returns the cached engine". That was true only if
+        // something had already forced the engine; nothing had, because every binding is
+        // lazy until something asks for it.
+        // PullEventHandler: extracted event-handling logic (protocol version guard,
+        // JsonObject validation, CREATED/UPDATED/RESTORED/DELETED dispatch) so it lives
+        // in one place and the Konsist rule "SyncBootstrapper must not own event-handling
+        // logic" stays green. Created before SyncBootstrapper so it can be passed in.
+        single {
+            PullEventHandler(writer = get())
+        }
+
+        single {
+            SyncBootstrapper(engine = get<SyncEngine>(), writer = get(), pullEventHandler = get())
+        }
+
+        // Backoff policy for rejected patches. One instance so the outbox, the push path
+        // and the settings screen all agree on what "too many attempts" means.
+        //
+        // Explicit lambda, not `singleOf(::PatchRetryPolicy)`: Koin resolves the constructor
+        // reflectively and does NOT apply Kotlin default arguments, so `singleOf` demands a
+        // `Long` in the graph for `baseDelayMs` and `maxDelayMs` and fails at resolution time
+        // with NoDefinitionFoundException. Constructing it here applies those defaults.
+        single { PatchRetryPolicy() }
+
+        // Per-scope sync state, in the database rather than in flat preferences — the
+        // download cursor is meaningless without knowing whose cursor it is. The legacy
+        // DataStore values are adopted once, by the first scope to initialise.
+        single<SyncStateRepository> {
+            RoomSyncStateRepository(dao = get(), legacyPrefs = get(), idGenerator = get())
+        }
+
+        // Single owner of the sync cycle. Every trigger — periodic, user-initiated,
+        // WorkManager — requests through it, so two cycles cannot overlap.
+        //
+        // The engine is resolved to a local rather than looked up inside the lambda:
+        // a `get()` nested in a lambda argument is outside what the Koin compiler
+        // plugin can verify, and an unverifiable graph is exactly the state this
+        // project refuses to build with.
+        single {
+            val engine = get<SyncEngine>()
+            SyncCoordinator(runCycle = { engine.syncOnce() }, scope = get())
+        }
+
+        // SyncRunner is internal.
+        single { syncRunner() }
+
+        // Public facade.
+        single<SyncRepository> {
+            SyncRepositoryImpl(
+                engine = get(),
+                runner = get(),
+                coordinator = get(),
+                api = get(),
+                authRepository = get(),
+            )
+        }
+
+        // RemoteConfigRepository (Supabase endpoint credentials — kept in core/sync, not renamed).
+        single<RemoteConfigRepository> { RemoteConfigRepositoryImpl(get(), get()) }
+
+        // RemoteConfigPort: Room + network-backed runtime config snapshot.
+        // Consumes SyncApiClient (stub in MR-2) and Clock.
+        single<RemoteConfigPort> {
+            com.singularity.todo.core.config.RemoteConfigCacheRepositoryImpl(
+                cacheDao = get(),
+                syncApi = get(),
+                log = get(),
+                clock = get(),
+                // The scope the bounded read runs in, created here rather than left to the
+                // implementation's default, for the same reason the AuthRepository's scope
+                // is created here: the dispatcher is the platform layer's job, and the
+                // failure handler — mandatory, per `createBackgroundScope` — is attached by
+                // the factory that owns it. One place to forget is one too many.
+                readScope = createBackgroundScope(loggingBackgroundFailureHandler()),
+            )
+        }
+
+        // SyncDocumentWriter: the one statement of "which repository stores which DocType".
+        // Registered before the engine and the bootstrapper so both get the same table —
+        // two lists would be two answers to that question. See #203.
+        single { syncDocumentWriter() }
+
+        // SeedPlanner: the one-time upload of data that existed before sign-in. It
+        // shares the bootstrapper's reach into the feature repositories for the same
+        // reason — a bootstrapper is the one place that knows every entity type.
+        single { seedPlanner() }
+
+        // ─── Sync ViewModel ─────────────────────────────────────────────────
+
+        // The sync scope is the one place that needs both the session and the
+        // profile, which is why it is bound here and not in coreModule(): sync
+        // state is keyed by (owner, profile), and neither half identifies a scope
+        // on its own.
+        single<SyncScopeProvider> { AuthProfileSyncScopeProvider(get(), get()) }
+
+        // Named, not positional: every parameter below is a different type, and a positional
+        // call silently reorders them the moment one moves.
+        //
+        // No `scope =` here on purpose. The ViewModel derives its own from crashReporter, so the
+        // two failure paths cannot end up at different destinations. Passing both independently
+        // is what NoDivergentScopeAndReporter reports.
+        viewModel {
+            SyncViewModel(
+                repository = get(),
+                stateRepository = get(),
+                scopeProvider = get(),
+                crashReporter = get(),
+            )
+        }
     }
-
-    single<HlcStore> { DataStoreHlcStore(get()) }
-
-    // The transport is built over the RPC port rather than over the vendor client,
-    // so the parsing — where a 64-bit log position is read, and where a malformed
-    // response has to become an AppError — is testable without a network.
-    single<SyncRpc> { PostgrestSyncRpc(get()) }
-    single<SyncApiClient> { SupabaseSyncApiClient(get<SyncRpc>()) }
-
-    // SyncPrefs: DataStore-backed (not in-memory).
-    single<SyncPrefs> { DataStoreSyncPrefs(get(), get(), clock = get()) }
-
-    // Patches are built here rather than inside SyncEngine, so the diff has one
-    // owner and can be tested without a push path.
-    single { SyncPatchBuilder(shadowDao = get(), hlcFactory = get(), idGenerator = get()) }
-
-    // ─── SyncEngine bootstrap ──────────────────────────────────────────────
-
-    // Bridges auth session changes to the sync scheduler.
-    // Extracted from SyncEngine.init {} so the session-collecting logic owns its
-    // own scope and can be tested independently.
-    single {
-        SyncAuthBridge(
-            authRepository = get(),
-            scheduler = get(),
-            scope = get(),
-        )
-    }
-
-    // SyncEngine is internal — feature modules must use SyncRepository.
-    // Takes the per-scope state repository (for LSN tracking), the scope provider
-    // (whose (owner, profile) the cycle applies to), the shadow store (the base a
-    // diff is taken against) and SyncWorkScheduler (for auth-session init).
-    //
-    // PushPhase and PullPhase are constructed here so they receive the same
-    // SyncEngineState holder that the engine exposes. All three share the same
-    // MutableStateFlows and the same SyncPhaseReporter, keeping phase-ending
-    // rules in one place.
-    //
-    // #177 fix: SyncBootstrapper is created AFTER the engine, and is given the engine
-    // as a constructor parameter. Its init {} runs during this call and registers all
-    // pull handlers. Previously it was a standalone single {} that nobody retrieved, so
-    // Koin never instantiated it and zero handlers were registered in production.
-    single { syncEngine() }
-
-    // Force bootstrapper instantiation so its init {} runs and registers handlers.
-    //
-    // There is deliberately **no** `single { get<SyncEngine>() }` here. There used to
-    // be, and it was a second definition of the same type: in Koin the last
-    // definition wins, so this one replaced the real engine binding — and then the
-    // bootstrapper's `get<SyncEngine>()` resolved *this* binding, which resolves
-    // itself. The result was a `StackOverflowError` on the first MCP tool call,
-    // after `singularity-todo MCP server started` had already been printed (#512).
-    //
-    // The comment that used to sit here claimed "the engine single {} has executed
-    // above, so get<SyncEngine>() returns the cached engine". That was true only if
-    // something had already forced the engine; nothing had, because every binding is
-    // lazy until something asks for it.
-    // PullEventHandler: extracted event-handling logic (protocol version guard,
-    // JsonObject validation, CREATED/UPDATED/RESTORED/DELETED dispatch) so it lives
-    // in one place and the Konsist rule "SyncBootstrapper must not own event-handling
-    // logic" stays green. Created before SyncBootstrapper so it can be passed in.
-    single {
-        PullEventHandler(writer = get())
-    }
-
-    single {
-        SyncBootstrapper(engine = get<SyncEngine>(), writer = get(), pullEventHandler = get())
-    }
-
-    // Backoff policy for rejected patches. One instance so the outbox, the push path
-    // and the settings screen all agree on what "too many attempts" means.
-    //
-    // Explicit lambda, not `singleOf(::PatchRetryPolicy)`: Koin resolves the constructor
-    // reflectively and does NOT apply Kotlin default arguments, so `singleOf` demands a
-    // `Long` in the graph for `baseDelayMs` and `maxDelayMs` and fails at resolution time
-    // with NoDefinitionFoundException. Constructing it here applies those defaults.
-    single { PatchRetryPolicy() }
-
-    // Per-scope sync state, in the database rather than in flat preferences — the
-    // download cursor is meaningless without knowing whose cursor it is. The legacy
-    // DataStore values are adopted once, by the first scope to initialise.
-    single<SyncStateRepository> {
-        RoomSyncStateRepository(dao = get(), legacyPrefs = get(), idGenerator = get())
-    }
-
-    // Single owner of the sync cycle. Every trigger — periodic, user-initiated,
-    // WorkManager — requests through it, so two cycles cannot overlap.
-    //
-    // The engine is resolved to a local rather than looked up inside the lambda:
-    // a `get()` nested in a lambda argument is outside what the Koin compiler
-    // plugin can verify, and an unverifiable graph is exactly the state this
-    // project refuses to build with.
-    single {
-        val engine = get<SyncEngine>()
-        SyncCoordinator(runCycle = { engine.syncOnce() }, scope = get())
-    }
-
-    // SyncRunner is internal.
-    single { syncRunner() }
-
-    // Public facade.
-    single<SyncRepository> {
-        SyncRepositoryImpl(
-            engine = get(),
-            runner = get(),
-            coordinator = get(),
-            api = get(),
-            authRepository = get(),
-        )
-    }
-
-    // RemoteConfigRepository (Supabase endpoint credentials — kept in core/sync, not renamed).
-    single<RemoteConfigRepository> { RemoteConfigRepositoryImpl(get(), get()) }
-
-    // RemoteConfigPort: Room + network-backed runtime config snapshot.
-    // Consumes SyncApiClient (stub in MR-2) and Clock.
-    single<RemoteConfigPort> {
-        com.singularity.todo.core.config.RemoteConfigCacheRepositoryImpl(
-            cacheDao = get(),
-            syncApi = get(),
-            log = get(),
-            clock = get(),
-            // The scope the bounded read runs in, created here rather than left to the
-            // implementation's default, for the same reason the AuthRepository's scope
-            // is created here: the dispatcher is the platform layer's job, and the
-            // failure handler — mandatory, per `createBackgroundScope` — is attached by
-            // the factory that owns it. One place to forget is one too many.
-            readScope = createBackgroundScope(loggingBackgroundFailureHandler()),
-        )
-    }
-
-    // SyncDocumentWriter: the one statement of "which repository stores which DocType".
-    // Registered before the engine and the bootstrapper so both get the same table —
-    // two lists would be two answers to that question. See #203.
-    single { syncDocumentWriter() }
-
-    // SeedPlanner: the one-time upload of data that existed before sign-in. It
-    // shares the bootstrapper's reach into the feature repositories for the same
-    // reason — a bootstrapper is the one place that knows every entity type.
-    single { seedPlanner() }
-
-    // ─── Sync ViewModel ─────────────────────────────────────────────────
-
-    // The sync scope is the one place that needs both the session and the
-    // profile, which is why it is bound here and not in coreModule(): sync
-    // state is keyed by (owner, profile), and neither half identifies a scope
-    // on its own.
-    single<SyncScopeProvider> { AuthProfileSyncScopeProvider(get(), get()) }
-
-    // Named, not positional: every parameter below is a different type, and a positional
-    // call silently reorders them the moment one moves.
-    //
-    // No `scope =` here on purpose. The ViewModel derives its own from crashReporter, so the
-    // two failure paths cannot end up at different destinations. Passing both independently
-    // is what NoDivergentScopeAndReporter reports.
-    viewModel {
-        SyncViewModel(
-            repository = get(),
-            stateRepository = get(),
-            scopeProvider = get(),
-            crashReporter = get(),
-        )
-    }
-}
 
 // ─── Binding bodies ─────────────────────────────────────────────────────────
 //

@@ -59,8 +59,13 @@ def kotlin_alias_regex() -> re.Pattern[str]:
     every metacharacter in it is a Python metacharacter too.
     """
     source = KOTLIN_GATE.read_text(encoding="utf-8")
-    marker = "TAG_ALIAS_IMPORT = Regex("
+    # The formatter may break the assignment across lines, so the marker is
+    # the declaration and the `Regex(` that follows it — not one shape of it.
+    # The declaration is looked for by its assignment, because the name alone
+    # also appears where the regex is used.
+    marker = "TAG_ALIAS_IMPORT ="
     start = source.index(marker)
+    start = source.index("Regex(", start) + len("Regex(")
     quote = '"' * 3
     literal_start = source.index(quote, start) + 3
     literal_end = source.index(quote, literal_start)

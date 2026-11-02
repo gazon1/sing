@@ -31,17 +31,18 @@ fun ColorSwatch(
     content: @Composable () -> Unit = {},
 ) {
     Box(
-        modifier = modifier
-            .touchTarget(TaskListSizes.MinTouchTarget)
-            .size(size)
-            .clip(CircleShape)
-            .background(color)
-            .semantics {
-                this.contentDescription = if (selected) "$name, selected" else name
-                role = Role.Button
-            }
-            .then(if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.outline, CircleShape) else Modifier)
-            .clickable(onClick = onClick),
+        modifier =
+            modifier
+                .touchTarget(TaskListSizes.MinTouchTarget)
+                .size(size)
+                .clip(CircleShape)
+                .background(color)
+                .semantics {
+                    this.contentDescription = if (selected) "$name, selected" else name
+                    role = Role.Button
+                }.then(
+                    if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.outline, CircleShape) else Modifier,
+                ).clickable(onClick = onClick),
         contentAlignment = androidx.compose.ui.Alignment.Center,
     ) {
         content()

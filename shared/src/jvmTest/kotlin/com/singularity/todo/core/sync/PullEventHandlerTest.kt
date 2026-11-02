@@ -9,9 +9,9 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.testTask
 import kotlinx.coroutines.flow.first
-import kotlinx.datetime.DateTimeUnit
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -49,7 +49,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class PullEventHandlerTest {
-
     private val log = Logger.withTag("PullEventHandlerTest")
     private val noOpCrashReporter = NoOpCrashReportingPort()
 
@@ -64,12 +63,13 @@ class PullEventHandlerTest {
     private fun TestScope.handler(
         deleteDocument: suspend (DocType, String) -> Result<Unit> = { _, _ -> Result.success(Unit) },
         crashReporter: CrashReportingPort = noOpCrashReporter,
-    ): PullEventHandler = PullEventHandler(
-        writer = makeWriter(),
-        log = log,
-        crashReporter = crashReporter,
-        deleteDocument = deleteDocument,
-    )
+    ): PullEventHandler =
+        PullEventHandler(
+            writer = makeWriter(),
+            log = log,
+            crashReporter = crashReporter,
+            deleteDocument = deleteDocument,
+        )
 
     private fun payload(vararg pairs: Pair<String, String>): JsonObject =
         JsonObject(pairs.associate { (k, v) -> k to JsonPrimitive(v) })
@@ -89,176 +89,195 @@ class PullEventHandlerTest {
         protocolVersion = protocolVersion,
     )
 
-    private fun deletedEvent() = SyncEvent(
-        serverLsn = 1L,
-        entityId = "task-1",
-        entityType = DocType.Task,
-        eventType = SyncEventType.DELETED,
-        data = null,
-        createdAt = 0L,
-        hlc = null,
-        protocolVersion = SyncProtocol.CURRENT_PROTOCOL_VERSION,
-    )
-
-    // ─── Protocol version guard ─────────────────────────────────────────
-
-    @Test
-    fun `protocol version newer than current → Skipped`() = runTest {
-        val h = handler()
-        val outcome = h.handleEvent(
-            event(SyncEventType.CREATED, protocolVersion = SyncProtocol.CURRENT_PROTOCOL_VERSION + 1),
-        ) { }
-
-        assertIs<ApplyOutcome.Skipped>(outcome)
-        assertEquals(
-            "protocol version ${SyncProtocol.CURRENT_PROTOCOL_VERSION + 1} is newer than ${SyncProtocol.CURRENT_PROTOCOL_VERSION}",
-            outcome.reason,
-        )
-    }
-
-    @Test
-    fun `current protocol version → not skipped`() = runTest {
-        val h = handler()
-        val outcome = h.handleEvent(event(SyncEventType.CREATED)) { }
-
-        assertIs<ApplyOutcome.Applied>(outcome)
-    }
-
-    // ─── Payload validation ───────────────────────────────────────────
-
-    @Test
-    fun `null data → Skipped`() = runTest {
-        val h = handler()
-        val e = SyncEvent(
+    private fun deletedEvent() =
+        SyncEvent(
             serverLsn = 1L,
-            entityId = "e1",
+            entityId = "task-1",
             entityType = DocType.Task,
-            eventType = SyncEventType.CREATED,
+            eventType = SyncEventType.DELETED,
             data = null,
             createdAt = 0L,
             hlc = null,
             protocolVersion = SyncProtocol.CURRENT_PROTOCOL_VERSION,
         )
-        val outcome = h.handleEvent(e) { }
 
-        assertIs<ApplyOutcome.Skipped>(outcome)
-        assertEquals("the event carries no document", outcome.reason)
-    }
+    // ─── Protocol version guard ─────────────────────────────────────────
 
     @Test
-    fun `JsonNull data → Skipped`() = runTest {
-        val h = handler()
-        val outcome = h.handleEvent(
-            event(SyncEventType.CREATED, data = JsonNull),
-        ) { }
+    fun `protocol version newer than current → Skipped`() =
+        runTest {
+            val h = handler()
+            val outcome =
+                h.handleEvent(
+                    event(SyncEventType.CREATED, protocolVersion = SyncProtocol.CURRENT_PROTOCOL_VERSION + 1),
+                ) { }
 
-        assertIs<ApplyOutcome.Skipped>(outcome)
-        assertEquals("the event carries no document", outcome.reason)
-    }
+            assertIs<ApplyOutcome.Skipped>(outcome)
+            assertEquals(
+                "protocol version ${SyncProtocol.CURRENT_PROTOCOL_VERSION + 1} is newer than ${SyncProtocol.CURRENT_PROTOCOL_VERSION}",
+                outcome.reason,
+            )
+        }
 
     @Test
-    fun `non-object data → Skipped`() = runTest {
-        val h = handler()
-        val outcome = h.handleEvent(
-            event(SyncEventType.CREATED, data = JsonPrimitive("string")),
-        ) { }
+    fun `current protocol version → not skipped`() =
+        runTest {
+            val h = handler()
+            val outcome = h.handleEvent(event(SyncEventType.CREATED)) { }
 
-        assertIs<ApplyOutcome.Skipped>(outcome)
-        assertEquals("the event payload is not a document", outcome.reason)
-    }
+            assertIs<ApplyOutcome.Applied>(outcome)
+        }
+
+    // ─── Payload validation ───────────────────────────────────────────
+
+    @Test
+    fun `null data → Skipped`() =
+        runTest {
+            val h = handler()
+            val e =
+                SyncEvent(
+                    serverLsn = 1L,
+                    entityId = "e1",
+                    entityType = DocType.Task,
+                    eventType = SyncEventType.CREATED,
+                    data = null,
+                    createdAt = 0L,
+                    hlc = null,
+                    protocolVersion = SyncProtocol.CURRENT_PROTOCOL_VERSION,
+                )
+            val outcome = h.handleEvent(e) { }
+
+            assertIs<ApplyOutcome.Skipped>(outcome)
+            assertEquals("the event carries no document", outcome.reason)
+        }
+
+    @Test
+    fun `JsonNull data → Skipped`() =
+        runTest {
+            val h = handler()
+            val outcome =
+                h.handleEvent(
+                    event(SyncEventType.CREATED, data = JsonNull),
+                ) { }
+
+            assertIs<ApplyOutcome.Skipped>(outcome)
+            assertEquals("the event carries no document", outcome.reason)
+        }
+
+    @Test
+    fun `non-object data → Skipped`() =
+        runTest {
+            val h = handler()
+            val outcome =
+                h.handleEvent(
+                    event(SyncEventType.CREATED, data = JsonPrimitive("string")),
+                ) { }
+
+            assertIs<ApplyOutcome.Skipped>(outcome)
+            assertEquals("the event payload is not a document", outcome.reason)
+        }
 
     // ─── applyRemote outcomes ──────────────────────────────────────────
 
     @Test
-    fun `applyRemote SerializationException → Skipped`() = runTest {
-        val h = handler()
-        val ex = SerializationException("Unrecognisable format")
-        val outcome = h.handleEvent(event(SyncEventType.CREATED)) { throw ex }
+    fun `applyRemote SerializationException → Skipped`() =
+        runTest {
+            val h = handler()
+            val ex = SerializationException("Unrecognisable format")
+            val outcome = h.handleEvent(event(SyncEventType.CREATED)) { throw ex }
 
-        assertIs<ApplyOutcome.Skipped>(outcome)
-        assertEquals("the event payload does not decode: Unrecognisable format", outcome.reason)
-    }
-
-    @Test
-    fun `a task document with a rule and no series id → Skipped, not Failed`() = runTest {
-        // A document from a device that predates the series model. The row is the
-        // forbidden shape (FR-001), and the same bytes arrive on every delivery —
-        // so retrying it would wedge the account's pull forever. The event is
-        // skipped and nothing is stored; the sender's repaired series arrives on
-        // its next push.
-        val tasks = FakeTaskRepository()
-        val writer = fakeSyncDocumentWriter(tasks = tasks)
-        val weekly = RecurrenceSpec.Interval(RecurrenceBase.FROM_DUE, 1, DateTimeUnit.WEEK)
-        val legacy = testTask(id = TaskId("legacy"), title = "Buy bread").copy(recurrence = weekly)
-
-        val h = handler()
-        val outcome = h.handleEvent(event(SyncEventType.CREATED, data = legacy.toJson())) {
-            writer.upsert(DocType.Task, legacy.toJson())
+            assertIs<ApplyOutcome.Skipped>(outcome)
+            assertEquals("the event payload does not decode: Unrecognisable format", outcome.reason)
         }
 
-        assertIs<ApplyOutcome.Skipped>(outcome)
-        assertTrue(outcome.reason.contains("series id"), outcome.reason)
-        assertTrue(tasks.observeAll().first().isEmpty(), "the forbidden shape was not stored")
-    }
-
     @Test
-    fun `applyRemote other exception → Failed with crash report`() = runTest {
-        val crashReporter = CapturingCrashReporter()
-        val h = handler(crashReporter = crashReporter)
-        val ex = IllegalStateException("Disk full")
-        var called = false
+    fun `a task document with a rule and no series id → Skipped, not Failed`() =
+        runTest {
+            // A document from a device that predates the series model. The row is the
+            // forbidden shape (FR-001), and the same bytes arrive on every delivery —
+            // so retrying it would wedge the account's pull forever. The event is
+            // skipped and nothing is stored; the sender's repaired series arrives on
+            // its next push.
+            val tasks = FakeTaskRepository()
+            val writer = fakeSyncDocumentWriter(tasks = tasks)
+            val weekly = RecurrenceSpec.Interval(RecurrenceBase.FROM_DUE, 1, DateTimeUnit.WEEK)
+            val legacy = testTask(id = TaskId("legacy"), title = "Buy bread").copy(recurrence = weekly)
 
-        val outcome = h.handleEvent(event(SyncEventType.CREATED)) {
-            called = true
-            throw ex
+            val h = handler()
+            val outcome =
+                h.handleEvent(event(SyncEventType.CREATED, data = legacy.toJson())) {
+                    writer.upsert(DocType.Task, legacy.toJson())
+                }
+
+            assertIs<ApplyOutcome.Skipped>(outcome)
+            assertTrue(outcome.reason.contains("series id"), outcome.reason)
+            assertTrue(tasks.observeAll().first().isEmpty(), "the forbidden shape was not stored")
         }
 
-        assertIs<ApplyOutcome.Failed>(outcome)
-        assertEquals("the write did not happen: Disk full", outcome.reason)
-        assertEquals(1, crashReporter.reported.size)
-        assertEquals(ex, crashReporter.reported[0].first)
-        assertEquals("sync.apply_failed", crashReporter.reported[0].second)
-        assertTrue(called)
-    }
+    @Test
+    fun `applyRemote other exception → Failed with crash report`() =
+        runTest {
+            val crashReporter = CapturingCrashReporter()
+            val h = handler(crashReporter = crashReporter)
+            val ex = IllegalStateException("Disk full")
+            var called = false
+
+            val outcome =
+                h.handleEvent(event(SyncEventType.CREATED)) {
+                    called = true
+                    throw ex
+                }
+
+            assertIs<ApplyOutcome.Failed>(outcome)
+            assertEquals("the write did not happen: Disk full", outcome.reason)
+            assertEquals(1, crashReporter.reported.size)
+            assertEquals(ex, crashReporter.reported[0].first)
+            assertEquals("sync.apply_failed", crashReporter.reported[0].second)
+            assertTrue(called)
+        }
 
     @Test
-    fun `CancellationException escapes`() = runTest {
-        val h = handler()
-        assertThrows<kotlinx.coroutines.CancellationException> {
-            h.handleEvent(event(SyncEventType.CREATED)) {
-                throw kotlinx.coroutines.CancellationException()
+    fun `CancellationException escapes`() =
+        runTest {
+            val h = handler()
+            assertThrows<kotlinx.coroutines.CancellationException> {
+                h.handleEvent(event(SyncEventType.CREATED)) {
+                    throw kotlinx.coroutines.CancellationException()
+                }
             }
         }
-    }
 
     // ─── DELETED branch ───────────────────────────────────────────────
 
     @Test
-    fun `DELETED with successful delete → Applied`() = runTest {
-        var deleted = false
-        val h = handler(deleteDocument = { type: DocType, id: String ->
-            deleted = true
-            assertEquals(DocType.Task, type)
-            assertEquals("task-1", id)
-            Result.success(Unit)
-        })
+    fun `DELETED with successful delete → Applied`() =
+        runTest {
+            var deleted = false
+            val h =
+                handler(deleteDocument = { type: DocType, id: String ->
+                    deleted = true
+                    assertEquals(DocType.Task, type)
+                    assertEquals("task-1", id)
+                    Result.success(Unit)
+                })
 
-        val outcome = h.handleEvent(deletedEvent()) { }
+            val outcome = h.handleEvent(deletedEvent()) { }
 
-        assertIs<ApplyOutcome.Applied>(outcome)
-        assertTrue(deleted)
-    }
+            assertIs<ApplyOutcome.Applied>(outcome)
+            assertTrue(deleted)
+        }
 
     @Test
-    fun `DELETED with failed delete → Failed`() = runTest {
-        val ex = IllegalStateException("Row not found")
-        val h = handler(deleteDocument = { _: DocType, _: String -> Result.failure(ex) })
+    fun `DELETED with failed delete → Failed`() =
+        runTest {
+            val ex = IllegalStateException("Row not found")
+            val h = handler(deleteDocument = { _: DocType, _: String -> Result.failure(ex) })
 
-        val outcome = h.handleEvent(deletedEvent()) { }
+            val outcome = h.handleEvent(deletedEvent()) { }
 
-        assertIs<ApplyOutcome.Failed>(outcome)
-        assertEquals("the delete did not happen: Row not found", outcome.reason)
-    }
+            assertIs<ApplyOutcome.Failed>(outcome)
+            assertEquals("the delete did not happen: Row not found", outcome.reason)
+        }
 }
 
 // ======================================================================
@@ -268,7 +287,10 @@ class PullEventHandlerTest {
 private class CapturingCrashReporter : CrashReportingPort {
     val reported = mutableListOf<Pair<Throwable, String>>()
 
-    override fun report(error: Throwable, issueKey: String) {
+    override fun report(
+        error: Throwable,
+        issueKey: String,
+    ) {
         reported += error to issueKey
     }
 

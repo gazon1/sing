@@ -35,9 +35,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.components.SettingsSection
 import com.singularity.todo.core.ui.components.SettingsSwitchRow
+import com.singularity.todo.core.ui.mapTestTagsAsResourceIds
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.feature.search.query.SimpleFilter
 import com.singularity.todo.feature.search.query.SortOrder
@@ -98,11 +98,12 @@ fun SimpleFilterSheet(
         modifier = Modifier.mapTestTagsAsResourceIds(),
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 32.dp),
         ) {
             // ── Header ─────────────────────────────────────────────────────
             Row(
@@ -117,22 +118,24 @@ fun SimpleFilterSheet(
                 Row {
                     TextButton(
                         onClick = onDismiss,
-                        modifier = Modifier
-                            .testTag(TestTags.SearchFilter.CANCEL_BUTTON)
-                            .mapTestTagsAsResourceIds(),
+                        modifier =
+                            Modifier
+                                .testTag(TestTags.SearchFilter.CANCEL_BUTTON)
+                                .mapTestTagsAsResourceIds(),
                     ) {
                         Text("Cancel")
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     TextButton(
                         onClick = {
-                            val hasNonDefault = localStates != null ||
-                                localPriorities.isNotEmpty() ||
-                                localDue != SimpleFilter.DueCondition.NONE ||
-                                localHasDescription != null ||
-                                localPinned != null ||
-                                localSortOrder != SortOrder.DUE ||
-                                localSortDescending
+                            val hasNonDefault =
+                                localStates != null ||
+                                    localPriorities.isNotEmpty() ||
+                                    localDue != SimpleFilter.DueCondition.NONE ||
+                                    localHasDescription != null ||
+                                    localPinned != null ||
+                                    localSortOrder != SortOrder.DUE ||
+                                    localSortDescending
                             onApply(
                                 if (hasNonDefault) {
                                     SimpleFilter(
@@ -149,9 +152,10 @@ fun SimpleFilterSheet(
                                 },
                             )
                         },
-                        modifier = Modifier
-                            .testTag(TestTags.SearchFilter.APPLY_BUTTON)
-                            .mapTestTagsAsResourceIds(),
+                        modifier =
+                            Modifier
+                                .testTag(TestTags.SearchFilter.APPLY_BUTTON)
+                                .mapTestTagsAsResourceIds(),
                     ) {
                         Text("Apply")
                     }
@@ -301,7 +305,10 @@ private fun PriorityChips(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun DueChips(selected: SimpleFilter.DueCondition, onSelectionChange: (SimpleFilter.DueCondition) -> Unit) {
+private fun DueChips(
+    selected: SimpleFilter.DueCondition,
+    onSelectionChange: (SimpleFilter.DueCondition) -> Unit,
+) {
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -361,27 +368,30 @@ private fun SortChips(
 @OptIn(ExperimentalMaterial3Api::class)
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun SimpleFilterSheetPreview() = PreviewThemed(darkTheme = false) {
-    SimpleFilterSheet(
-        initialFilter = SimpleFilter(
-            states = setOf(TaskStatus.Active),
-            priorities = setOf(TaskPriority.High),
-            due = SimpleFilter.DueCondition.TODAY,
-            sortOrder = SortOrder.PRIORITY,
-            sortDescending = true,
-        ),
-        onApply = {},
-        onDismiss = {},
-    )
-}
+private fun SimpleFilterSheetPreview() =
+    PreviewThemed(darkTheme = false) {
+        SimpleFilterSheet(
+            initialFilter =
+                SimpleFilter(
+                    states = setOf(TaskStatus.Active),
+                    priorities = setOf(TaskPriority.High),
+                    due = SimpleFilter.DueCondition.TODAY,
+                    sortOrder = SortOrder.PRIORITY,
+                    sortDescending = true,
+                ),
+            onApply = {},
+            onDismiss = {},
+        )
+    }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun SimpleFilterSheetEmptyPreview() = PreviewThemed(darkTheme = false) {
-    SimpleFilterSheet(
-        initialFilter = null,
-        onApply = {},
-        onDismiss = {},
-    )
-}
+private fun SimpleFilterSheetEmptyPreview() =
+    PreviewThemed(darkTheme = false) {
+        SimpleFilterSheet(
+            initialFilter = null,
+            onApply = {},
+            onDismiss = {},
+        )
+    }

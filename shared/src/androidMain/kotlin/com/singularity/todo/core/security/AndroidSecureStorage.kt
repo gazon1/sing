@@ -36,11 +36,12 @@ import java.io.File
  * install" as the one behaviour nothing covers.
  */
 class AndroidSecureStorage(context: Context) : SecureStoragePort {
-
     private val prefs: SharedPreferences by lazy {
-        val masterKey = MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
+        val masterKey =
+            MasterKey
+                .Builder(context)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
 
         SecureStoreRecovery.openOrErase(
             open = { createPrefs(context, masterKey) },
@@ -48,7 +49,10 @@ class AndroidSecureStorage(context: Context) : SecureStoragePort {
         )
     }
 
-    private fun createPrefs(context: Context, masterKey: MasterKey): SharedPreferences =
+    private fun createPrefs(
+        context: Context,
+        masterKey: MasterKey,
+    ): SharedPreferences =
         EncryptedSharedPreferences.create(
             context,
             PREFS_NAME,
@@ -63,17 +67,22 @@ class AndroidSecureStorage(context: Context) : SecureStoragePort {
         }
     }
 
-    override suspend fun read(key: String): String? = withContext(Dispatchers.IO) {
-        prefs.getString(key, null)
-    }
+    override suspend fun read(key: String): String? =
+        withContext(Dispatchers.IO) {
+            prefs.getString(key, null)
+        }
 
-    override suspend fun write(key: String, value: String) = withContext(Dispatchers.IO) {
+    override suspend fun write(
+        key: String,
+        value: String,
+    ) = withContext(Dispatchers.IO) {
         prefs.edit { putString(key, value) }
     }
 
-    override suspend fun delete(key: String) = withContext(Dispatchers.IO) {
-        prefs.edit { remove(key) }
-    }
+    override suspend fun delete(key: String) =
+        withContext(Dispatchers.IO) {
+            prefs.edit { remove(key) }
+        }
 
     override fun isHardwareBacked(): Boolean = true
 

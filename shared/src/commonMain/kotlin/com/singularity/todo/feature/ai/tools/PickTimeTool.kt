@@ -21,12 +21,12 @@ data class PickTimeOutput(val suggestedTime: String)
 
 class PickTimeTool(private val promptExecutor: PromptExecutor, private val model: LLModel) :
     SimpleTool<PickTimeInput>(TypeToken.of(PickTimeInput::class.java), NAME, DESCRIPTION) {
-
     override suspend fun execute(args: PickTimeInput): String {
-        val p = prompt(Prompt.Empty, KoogClock.System) {
-            system(Prompts.pickTimeSystem)
-            user(Prompts.pickTimeUser(args.title, args.description))
-        }
+        val p =
+            prompt(Prompt.Empty, KoogClock.System) {
+                system(Prompts.pickTimeSystem)
+                user(Prompts.pickTimeUser(args.title, args.description))
+            }
         val response = promptExecutor.execute(p, model, emptyList())
         val text = extractText(response)
         return Json.encodeToString(PickTimeOutput.serializer(), PickTimeOutput(text.trim()))
@@ -37,6 +37,9 @@ class PickTimeTool(private val promptExecutor: PromptExecutor, private val model
         const val DESCRIPTION = "Suggest the best time slot for today or tomorrow for a task."
 
         private fun extractText(response: Message.Assistant): String =
-            response.parts.filterIsInstance<MessagePart.Text>().joinToString("") { it.text }.trim()
+            response.parts
+                .filterIsInstance<MessagePart.Text>()
+                .joinToString("") { it.text }
+                .trim()
     }
 }

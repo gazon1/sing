@@ -25,7 +25,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class AuthFailureTest {
-
     /** The code for an unconfigured project is the one the dashboard groups by. */
     @Test
     fun `the unconfigured project has its own code`() {

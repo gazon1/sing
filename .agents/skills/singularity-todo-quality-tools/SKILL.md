@@ -1,6 +1,6 @@
 ---
 name: singularity-todo-quality-tools
-description: Run detekt, ktlint, and kover on the Singularity Todo KMP project. Use whenever you need to check code quality, auto-fix formatting, generate coverage reports, or run the full check pipeline. Covers detekt 2.0.0-alpha.6 (Kotlin 2.4.10 compatible), ktlint bundled via detekt-rules-ktlint-wrapper, and kover 0.9.9 for coverage.
+description: Run detekt, ktlint, and kover on the Singularity Todo KMP project. Use whenever you need to check code quality, auto-fix formatting, generate coverage reports, or run the full check pipeline. Covers detekt 2.0.0-alpha.6 (Kotlin 2.4.10 compatible), the standalone ktlint CLI 1.8.0 for formatting, and kover 0.9.9 for coverage.
 ---
 
 # Quality Tools — detekt, ktlint, kover
@@ -10,24 +10,26 @@ description: Run detekt, ktlint, and kover on the Singularity Todo KMP project. 
 | Tool | Version | Role |
 |---|---|---|
 | **detekt** | 2.0.0-alpha.6 | Static analysis: logic, complexity, naming, performance, exceptions |
-| **ktlint** | via `detekt-rules-ktlint-wrapper` | Formatting, imports, whitespace — runs inside detekt |
+| **ktlint** | 1.8.0 (standalone CLI) | Formatting, imports, whitespace — a separate tool, not a detekt plugin |
 | **kover** | 0.9.9 | Code coverage for `shared` (all KMP source sets) + `desktopApp` |
 
 **Why detekt 2.x alpha?** — Stable 1.23.8 was compiled against Kotlin 2.0.21 and refuses to run under Kotlin 2.4.10. 2.0.0-alpha.6 explicitly targets Kotlin 2.4.10 (2.0.0-alpha.3 was for Kotlin 2.3.21).
 
 ## Key conventions
 
-- `detekt 2.x` removed `detektFormat` — auto-fix is **merged into the `detekt` task** itself when `autoCorrect=true` in the ktlint config section
-- ktlint rules are configured under the `ktlint:` top-level key in `config/detekt/detekt.yml`, **not** in the `style:` section
-- ktlint rule IDs are **kebab-case** (e.g. `no-wildcard-imports`, `max-line-length`)
+- ktlint is a **standalone CLI** (pinned in `config/toolchain-versions.env`), not a detekt plugin: detekt owns the semantics, ktlint owns the layout, and neither one corrects the other's findings
+- ktlint rules are configured in **`.editorconfig`** (`ktlint_*` keys), not in `config/detekt/detekt.yml` — that file holds the semantic rules only
+- ktlint rule IDs are **kebab-case** (e.g. `no-wildcard-imports`, `max-line-length`), and they are switched off with `ktlint_standard_<rule-id> = disabled`
 - Baseline files at `config/detekt/baseline-{shared,desktopApp}.xml` absorb existing violations — **do not edit them manually**
 - Configuration cache is **ON** (`gradle.properties`) — all tools are CC-compatible
 
 ## Just recipes
 
 ```bash
-just lint            # run detekt analysis (shared + desktopApp) — enforcing
-just detekt-fix      # report detekt + ktlint violations (--auto-correct is broken; see ADR 2026-10-09)
+just lint            # run ktlint and detekt — enforcing
+just ktlint          # check the formatting with the ktlint CLI (seconds)
+just ktlint-fix      # format the tree with the ktlint CLI
+just detekt-fix      # report detekt violations (--auto-correct is broken; see ADR 2026-10-09)
 just detekt-baseline # regenerate baseline files (manual-fix pass)
 just coverage        # aggregated kover XML → build/reports/kover/
 just coverage-html   # aggregated kover HTML → build/reports/kover/html/
@@ -40,6 +42,10 @@ just tcheck          # full pipeline: tests + assembleDebug + lint
 ## Direct Gradle commands
 
 ```bash
+# ktlint — the formatting, as a standalone tool
+python3 scripts/ktlint-lint.py                                  # check (enforcing)
+python3 scripts/ktlint-lint.py --format                         # format
+
 # detekt
 ./gradlew :shared:detekt :desktopApp:detekt                    # check (enforcing)
 ./gradlew :shared:detekt --rerun-tasks                        # force rerun
@@ -197,29 +203,27 @@ are only present when a coroutine test actually died.
 
 | File | Purpose |
 |---|---|
-| `config/detekt/detekt.yml` | Shared detekt + ktlint rules (single source of truth) |
+| `config/detekt/detekt.yml` | Shared detekt rules — the semantics (single source of truth) |
 | `config/detekt/baseline-shared.xml` | Baseline of current violations for `shared` module |
 | `config/detekt/baseline-desktopApp.xml` | Baseline of current violations for `desktopApp` module |
-| `.editorconfig` | ktlint formatting preferences (`max_line_length = 140`) |
+| `.editorconfig` | ktlint formatting preferences (`max_line_length = 120`, `ktlint_code_style = ktlint_official`) |
 
-## Config format for ktlint rules (detekt 2.x)
+## Config format for ktlint rules (`.editorconfig`)
 
-ktlint rules live under the **`ktlint:` top-level key**, not inside `style:`:
+ktlint reads **`.editorconfig`**, and there are no ktlint rules in
+`config/detekt/detekt.yml` any more:
 
-```yaml
-ktlint:
-  active: true
-  code_style: ktlint_official
-  auto_correct: true
-  no-wildcard-imports:
-    active: true
-  max-line-length:
-    active: false          # disabled; .editorconfig owns this
+```ini
+[*.{kt,kts}]
+max_line_length = 120
+ktlint_code_style = ktlint_official
+ktlint_standard_backing-property-naming = disabled   # the canonical `_state`
 ```
 
-**Common ktlint rule IDs** (kebab-case):
+**Common ktlint rule IDs** (kebab-case; the key that switches one off is
+`ktlint_standard_<rule-id> = disabled`):
 - `no-wildcard-imports` — forbids `import foo.*`
-- `max-line-length` — line length (set `max_line_length = 140` in `.editorconfig`)
+- `max-line-length` — line length (set `max_line_length = 120` in `.editorconfig`)
 - `indent` — indentation (default: 4 spaces, respects `.editorconfig`)
 - `no-semi` — no semicolons
 - `no-trailing-spaces`
@@ -258,11 +262,10 @@ plugins {
 // fails the build with "an extension already registered with that name".
 ```
 
-**2. Add `dependencies` block with `detektPlugins`:**
+**2. Add `dependencies` block (no `detektPlugins` — formatting is ktlint's):**
 ```kotlin
 dependencies {
     // ... existing deps ...
-    detektPlugins(libs.detekt.formatting)  // ktlint formatting rules (REQUIRED)
 }
 ```
 
@@ -361,19 +364,14 @@ In detekt 2.x, `TooManyFunctions` uses `allowedFunctionsPerFile` (not `allowedFu
 ```
 0 number of total findings
 ```
-Check that `ktlint:` is a **top-level** key in `detekt.yml` (not nested under `style:`). ktlint rules require their own section. Rule IDs are **kebab-case** (`no-wildcard-imports`), not PascalCase.
+The ktlint rules live in **`.editorconfig`**, not in `config/detekt/detekt.yml` — detekt owns the semantics only. Run `just ktlint` (or `python3 scripts/ktlint-lint.py`) and read the rule ID it reports: rule IDs are **kebab-case** (`no-wildcard-imports`), not PascalCase.
 
 ### "Property 'ktlint' is misspelled" error
 ```
 Property 'ktlint' is misspelled or does not exist.
 Allowed properties: [comments, complexity, config, console-reports, coroutines, empty-blocks, exceptions, naming, performance, potential-bugs, processors, style]
 ```
-The `detekt-formatting` plugin (ktlint wrapper) is **not registered** in the module's `dependencies {}`. Add:
-```kotlin
-dependencies {
-    detektPlugins(libs.detekt.formatting)
-}
-```
+This is a **stale config**: a `ktlint:` section was left in `config/detekt/detekt.yml`. The formatting layer is the standalone ktlint CLI — the section does not belong in detekt's config any more. Delete it and configure ktlint in `.editorconfig`.
 
 ### Configuration cache errors
 ```

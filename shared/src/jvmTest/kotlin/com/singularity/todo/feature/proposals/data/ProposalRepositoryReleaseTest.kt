@@ -43,19 +43,19 @@ import kotlin.time.Clock
  */
 @Tag("slow")
 class ProposalRepositoryReleaseTest {
-
     private val user = UserId("release-user")
     private val other = UserId("someone-else")
 
     private val tempDirLazy = lazy { Files.createTempDirectory("singularity-proposal-release-").toFile() }
     private val tempDir: File by tempDirLazy
 
-    private val dbLazy = lazy {
-        AppDatabaseFactory.build(
-            driver = createSqlDriver(),
-            dbPath = File(tempDir, "proposals.db").absolutePath,
-        )
-    }
+    private val dbLazy =
+        lazy {
+            AppDatabaseFactory.build(
+                driver = createSqlDriver(),
+                dbPath = File(tempDir, "proposals.db").absolutePath,
+            )
+        }
     private val db: AppDatabase by dbLazy
 
     @AfterTest
@@ -64,114 +64,132 @@ class ProposalRepositoryReleaseTest {
         if (tempDirLazy.isInitialized()) tempDir.deleteRecursively()
     }
 
-    private fun repository(forUser: UserId) = ProposalRepositoryImpl(
-        dao = db.proposalDao(),
-        items = db.proposalItemDao(),
-        clock = Clock.System,
-        currentUser = FakeProfileAwareCurrentUser(forUser),
-    )
-
-    @Test
-    fun `a confirmed change goes back to waiting`() = runTest {
-        val repo = repository(user)
-        val itemId = seed(repo, user)
-        repo.claim(itemId, ProposalItemStatus.Confirmed, ProposalItemStatus.Pending, DecidedActor.User, null, user)
-
-        val released = repo.release(itemId, user)
-
-        assertTrue(released.isSuccess, "the release of a confirmed change succeeds: $released")
-        assertEquals(
-            ProposalItemStatus.Pending,
-            repo.getItem(itemId)?.status,
-            "the change is waiting again, because it was never applied",
+    private fun repository(forUser: UserId) =
+        ProposalRepositoryImpl(
+            dao = db.proposalDao(),
+            items = db.proposalItemDao(),
+            clock = Clock.System,
+            currentUser = FakeProfileAwareCurrentUser(forUser),
         )
-    }
 
     @Test
-    fun `a change that was never confirmed is not put back`() = runTest {
-        val repo = repository(user)
-        val itemId = seed(repo, user)
+    fun `a confirmed change goes back to waiting`() =
+        runTest {
+            val repo = repository(user)
+            val itemId = seed(repo, user)
+            repo.claim(itemId, ProposalItemStatus.Confirmed, ProposalItemStatus.Pending, DecidedActor.User, null, user)
 
-        val released = repo.release(itemId, user)
+            val released = repo.release(itemId, user)
 
-        assertTrue(released.isFailure, "there was nothing to put back: $released")
-        assertEquals(ProposalItemStatus.Pending, repo.getItem(itemId)?.status)
-    }
-
-    @Test
-    fun `a change of another user is not put back`() = runTest {
-        val owner = repository(user)
-        val itemId = seed(owner, user)
-        owner.claim(itemId, ProposalItemStatus.Confirmed, ProposalItemStatus.Pending, DecidedActor.User, null, user)
-
-        val released = repository(other).release(itemId, other)
-
-        assertTrue(released.isFailure, "the change is not the other user's to put back: $released")
-        assertEquals(
-            ProposalItemStatus.Confirmed,
-            owner.getItem(itemId)?.status,
-            "the change stays confirmed for the user who confirmed it",
-        )
-    }
+            assertTrue(released.isSuccess, "the release of a confirmed change succeeds: $released")
+            assertEquals(
+                ProposalItemStatus.Pending,
+                repo.getItem(itemId)?.status,
+                "the change is waiting again, because it was never applied",
+            )
+        }
 
     @Test
-    fun `a refused change is not put back`() = runTest {
-        val repo = repository(user)
-        val itemId = seed(repo, user)
-        repo.claim(itemId, ProposalItemStatus.Rejected, ProposalItemStatus.Pending, DecidedActor.User, "not now", user)
+    fun `a change that was never confirmed is not put back`() =
+        runTest {
+            val repo = repository(user)
+            val itemId = seed(repo, user)
 
-        val released = repo.release(itemId, user)
+            val released = repo.release(itemId, user)
 
-        assertTrue(released.isFailure, "a refusal is not a claim: $released")
-        assertEquals(ProposalItemStatus.Rejected, repo.getItem(itemId)?.status)
-    }
+            assertTrue(released.isFailure, "there was nothing to put back: $released")
+            assertEquals(ProposalItemStatus.Pending, repo.getItem(itemId)?.status)
+        }
 
     @Test
-    fun `a change is put back after the profile switched`() = runTest {
-        val owner = repository(user)
-        val itemId = seed(owner, user)
-        owner.claim(itemId, ProposalItemStatus.Confirmed, ProposalItemStatus.Pending, DecidedActor.User, null, user)
+    fun `a change of another user is not put back`() =
+        runTest {
+            val owner = repository(user)
+            val itemId = seed(owner, user)
+            owner.claim(itemId, ProposalItemStatus.Confirmed, ProposalItemStatus.Pending, DecidedActor.User, null, user)
 
-        // The profile switched between the claim and the release: the screen moved on,
-        // or the user opened another profile. The guard is the user's — the row still
-        // belongs to the user who confirmed it — so the change goes back to waiting
-        // even though the current profile is somebody else's.
-        val released = repository(other).release(itemId, user)
+            val released = repository(other).release(itemId, other)
 
-        assertTrue(released.isSuccess, "the release belongs to the user who confirmed it: $released")
-        assertEquals(
-            ProposalItemStatus.Pending,
-            owner.getItem(itemId)?.status,
-            "the change waits again, because it was never applied",
-        )
-    }
+            assertTrue(released.isFailure, "the change is not the other user's to put back: $released")
+            assertEquals(
+                ProposalItemStatus.Confirmed,
+                owner.getItem(itemId)?.status,
+                "the change stays confirmed for the user who confirmed it",
+            )
+        }
+
+    @Test
+    fun `a refused change is not put back`() =
+        runTest {
+            val repo = repository(user)
+            val itemId = seed(repo, user)
+            repo.claim(
+                itemId,
+                ProposalItemStatus.Rejected,
+                ProposalItemStatus.Pending,
+                DecidedActor.User,
+                "not now",
+                user,
+            )
+
+            val released = repo.release(itemId, user)
+
+            assertTrue(released.isFailure, "a refusal is not a claim: $released")
+            assertEquals(ProposalItemStatus.Rejected, repo.getItem(itemId)?.status)
+        }
+
+    @Test
+    fun `a change is put back after the profile switched`() =
+        runTest {
+            val owner = repository(user)
+            val itemId = seed(owner, user)
+            owner.claim(itemId, ProposalItemStatus.Confirmed, ProposalItemStatus.Pending, DecidedActor.User, null, user)
+
+            // The profile switched between the claim and the release: the screen moved on,
+            // or the user opened another profile. The guard is the user's — the row still
+            // belongs to the user who confirmed it — so the change goes back to waiting
+            // even though the current profile is somebody else's.
+            val released = repository(other).release(itemId, user)
+
+            assertTrue(released.isSuccess, "the release belongs to the user who confirmed it: $released")
+            assertEquals(
+                ProposalItemStatus.Pending,
+                owner.getItem(itemId)?.status,
+                "the change waits again, because it was never applied",
+            )
+        }
 
     /** Stores a proposal with one waiting change, and returns the change's id. */
-    private suspend fun seed(repo: ProposalRepositoryImpl, owner: UserId): ProposalItemId {
+    private suspend fun seed(
+        repo: ProposalRepositoryImpl,
+        owner: UserId,
+    ): ProposalItemId {
         val proposalId = ProposalId.generate()
         val itemId = ProposalItemId.generate()
-        repo.save(
-            AiProposal(
-                id = proposalId,
-                targetKind = ProposalTargetKind.Task,
-                targetId = "task-1",
-                userId = owner,
-                source = ProposalSource.Agent,
-                createdAt = Clock.System.now(),
-                updatedAt = Clock.System.now(),
-                items = listOf(
-                    ProposalItem(
-                        id = itemId,
-                        proposalId = proposalId,
-                        kind = ProposalItemKind.SetTaskField(TaskValue.Title("Buy milk")),
-                        targetId = "task-1",
-                        humanSummary = "Set the title to «Buy milk»",
-                        status = ProposalItemStatus.Pending,
-                        fingerprint = "fingerprint-1",
-                    ),
+        repo
+            .save(
+                AiProposal(
+                    id = proposalId,
+                    targetKind = ProposalTargetKind.Task,
+                    targetId = "task-1",
+                    userId = owner,
+                    source = ProposalSource.Agent,
+                    createdAt = Clock.System.now(),
+                    updatedAt = Clock.System.now(),
+                    items =
+                        listOf(
+                            ProposalItem(
+                                id = itemId,
+                                proposalId = proposalId,
+                                kind = ProposalItemKind.SetTaskField(TaskValue.Title("Buy milk")),
+                                targetId = "task-1",
+                                humanSummary = "Set the title to «Buy milk»",
+                                status = ProposalItemStatus.Pending,
+                                fingerprint = "fingerprint-1",
+                            ),
+                        ),
                 ),
-            ),
-        ).getOrThrow()
+            ).getOrThrow()
         return itemId
     }
 }

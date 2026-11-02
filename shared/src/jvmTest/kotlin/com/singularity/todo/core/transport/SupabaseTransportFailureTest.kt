@@ -19,11 +19,11 @@ import io.ktor.util.Attributes
 import io.ktor.util.date.GMTDate
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.InternalAPI
-import kotlin.coroutines.CoroutineContext
-import kotlin.coroutines.EmptyCoroutineContext
 import kotlinx.coroutines.Job
 import kotlinx.serialization.json.JsonNull
 import org.junit.jupiter.api.Tag
+import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -48,7 +48,6 @@ import kotlin.test.assertEquals
  */
 @Tag("fast")
 class SupabaseTransportFailureTest {
-
     /**
      * A storage failure carries its code in `error`, not in a PostgREST code.
      *
@@ -58,11 +57,12 @@ class SupabaseTransportFailureTest {
      */
     @Test
     fun `a storage failure keeps the server's own code`() {
-        val error = RestException(
-            error = "Bucket not found",
-            description = "The bucket does not exist",
-            response = StubResponse(HttpStatusCode.NotFound),
-        )
+        val error =
+            RestException(
+                error = "Bucket not found",
+                description = "The bucket does not exist",
+                response = StubResponse(HttpStatusCode.NotFound),
+            )
 
         val facts = SupabaseTransportFailure.facts(error)
 
@@ -84,13 +84,14 @@ class SupabaseTransportFailureTest {
      */
     @Test
     fun `a PostgREST code wins over the error string`() {
-        val error = PostgrestRestException(
-            message = "Could not find the function",
-            hint = "The function is not in the schema cache",
-            details = JsonNull,
-            code = "PGRST202",
-            response = StubResponse(HttpStatusCode.NotFound),
-        )
+        val error =
+            PostgrestRestException(
+                message = "Could not find the function",
+                hint = "The function is not in the schema cache",
+                details = JsonNull,
+                code = "PGRST202",
+                response = StubResponse(HttpStatusCode.NotFound),
+            )
 
         val facts = SupabaseTransportFailure.facts(error)
 
@@ -124,22 +125,24 @@ private class StubResponse(override val status: HttpStatusCode) : HttpResponse()
 @OptIn(InternalAPI::class)
 private fun stubCall(status: HttpStatusCode): HttpClientCall {
     val client = HttpClient(StubEngine(status))
-    val request = HttpRequestData(
-        url = Url("https://project.supabase.co/storage/v1/object/backups/a.zip"),
-        method = HttpMethod.Post,
-        headers = Headers.Empty,
-        body = EmptyContent,
-        executionContext = Job(),
-        attributes = Attributes(),
-    )
-    val response = HttpResponseData(
-        statusCode = status,
-        requestTime = GMTDate(0),
-        headers = Headers.Empty,
-        version = HttpProtocolVersion.HTTP_1_1,
-        body = ByteReadChannel.Empty,
-        callContext = EmptyCoroutineContext,
-    )
+    val request =
+        HttpRequestData(
+            url = Url("https://project.supabase.co/storage/v1/object/backups/a.zip"),
+            method = HttpMethod.Post,
+            headers = Headers.Empty,
+            body = EmptyContent,
+            executionContext = Job(),
+            attributes = Attributes(),
+        )
+    val response =
+        HttpResponseData(
+            statusCode = status,
+            requestTime = GMTDate(0),
+            headers = Headers.Empty,
+            version = HttpProtocolVersion.HTTP_1_1,
+            body = ByteReadChannel.Empty,
+            callContext = EmptyCoroutineContext,
+        )
     return HttpClientCall(client, request, response)
 }
 
@@ -148,12 +151,13 @@ private fun stubCall(status: HttpStatusCode): HttpClientCall {
 private class StubEngine(private val status: HttpStatusCode) : HttpClientEngineBase("stub") {
     override val config: HttpClientEngineConfig = HttpClientEngineConfig()
 
-    override suspend fun execute(data: HttpRequestData): HttpResponseData = HttpResponseData(
-        statusCode = status,
-        requestTime = GMTDate(0),
-        headers = Headers.Empty,
-        version = HttpProtocolVersion.HTTP_1_1,
-        body = ByteReadChannel.Empty,
-        callContext = EmptyCoroutineContext,
-    )
+    override suspend fun execute(data: HttpRequestData): HttpResponseData =
+        HttpResponseData(
+            statusCode = status,
+            requestTime = GMTDate(0),
+            headers = Headers.Empty,
+            version = HttpProtocolVersion.HTTP_1_1,
+            body = ByteReadChannel.Empty,
+            callContext = EmptyCoroutineContext,
+        )
 }

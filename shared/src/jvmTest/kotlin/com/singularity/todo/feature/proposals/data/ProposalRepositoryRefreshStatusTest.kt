@@ -50,8 +50,9 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class ProposalRepositoryRefreshStatusTest {
-
-    private val clock = com.singularity.todo.test.fakes.FakeClock()
+    private val clock =
+        com.singularity.todo.test.fakes
+            .FakeClock()
     private val log = Logger.withTag("ProposalRepositoryRefreshStatusTest")
     private val userId = UserId("test-user")
 
@@ -83,8 +84,11 @@ class ProposalRepositoryRefreshStatusTest {
     /** Only [getItemsForProposal] and [updateProposalStatus] are on this test's path. */
     private class EmptyProposalDao : ProposalDao {
         override suspend fun upsertProposal(entity: AiProposalEntity) = Unit
+
         override suspend fun getProposal(id: String): AiProposalEntity? = null
+
         override fun watchProposal(id: String): Flow<AiProposalEntity?> = flowOf(null)
+
         override fun watchProposalsForTarget(
             targetId: String,
             targetKind: String,
@@ -105,14 +109,17 @@ class ProposalRepositoryRefreshStatusTest {
 
     private class EmptyProposalItemDao : ProposalItemDao {
         override suspend fun upsertItem(entity: ProposalItemEntity) = Unit
+
         override suspend fun getItem(id: String): ProposalItemEntity? = null
-        override fun watchItemsForProposal(proposalId: String): Flow<List<ProposalItemEntity>> =
-            flowOf(emptyList())
 
-        override suspend fun getItemsForProposal(proposalId: String): List<ProposalItemEntity> =
-            emptyList()
+        override fun watchItemsForProposal(proposalId: String): Flow<List<ProposalItemEntity>> = flowOf(emptyList())
 
-        override suspend fun countItemsWithFingerprint(proposalId: String, fingerprint: String): Int = 0
+        override suspend fun getItemsForProposal(proposalId: String): List<ProposalItemEntity> = emptyList()
+
+        override suspend fun countItemsWithFingerprint(
+            proposalId: String,
+            fingerprint: String,
+        ): Int = 0
 
         override suspend fun updatePendingItem(
             userId: String,
@@ -132,11 +139,21 @@ class ProposalRepositoryRefreshStatusTest {
             reason: String?,
         ): Int = 0
 
-        override suspend fun retractPendingItems(proposalId: String, userId: String): Int = 0
+        override suspend fun retractPendingItems(
+            proposalId: String,
+            userId: String,
+        ): Int = 0
 
-        override suspend fun releaseClaim(userId: String, id: String, actor: String): Int = 0
+        override suspend fun releaseClaim(
+            userId: String,
+            id: String,
+            actor: String,
+        ): Int = 0
 
-        override suspend fun rejectedFingerprints(userId: String, limit: Int): List<String> = emptyList()
+        override suspend fun rejectedFingerprints(
+            userId: String,
+            limit: Int,
+        ): List<String> = emptyList()
 
         override suspend fun deleteAllForUser(userId: String): Int = 0
     }
@@ -155,43 +172,45 @@ class ProposalRepositoryRefreshStatusTest {
     )
 
     @Test
-    fun `a status that was not recomputed is reported`() = runTest {
-        val reporter = RecordingCrashReportingPort()
-        val dao = UnwritableStatusDao(EmptyProposalDao())
-        val repository = repository(dao, EmptyProposalItemDao(), reporter)
+    fun `a status that was not recomputed is reported`() =
+        runTest {
+            val reporter = RecordingCrashReportingPort()
+            val dao = UnwritableStatusDao(EmptyProposalDao())
+            val repository = repository(dao, EmptyProposalItemDao(), reporter)
 
-        val result = repository.refreshStatus(ProposalId("p-1"), userId)
+            val result = repository.refreshStatus(ProposalId("p-1"), userId)
 
-        assertTrue(result.isFailure, "the caller still gets a failure to react to")
-        assertEquals(
-            listOf("proposals.refresh_status_failed"),
-            reporter.reports.map { it.second },
-            "the issue key is the stable handle an operator greps for",
-        )
-        assertTrue(
-            dao.updateAttempts == 1,
-            "and the recomputation really was attempted, so the report is about the write " +
-                "failing rather than about refreshStatus never running",
-        )
-    }
+            assertTrue(result.isFailure, "the caller still gets a failure to react to")
+            assertEquals(
+                listOf("proposals.refresh_status_failed"),
+                reporter.reports.map { it.second },
+                "the issue key is the stable handle an operator greps for",
+            )
+            assertTrue(
+                dao.updateAttempts == 1,
+                "and the recomputation really was attempted, so the report is about the write " +
+                    "failing rather than about refreshStatus never running",
+            )
+        }
 
     @Test
-    fun `a status that was recomputed reports nothing`() = runTest {
-        // The negative case. Without it, an implementation that reported unconditionally
-        // would pass the control above and bury real failures in noise on the happy path,
-        // which is the overwhelming majority of calls.
-        val reporter = RecordingCrashReportingPort()
-        val dao = UnwritableStatusDao(EmptyProposalDao()).apply { rejectUpdates = false }
-        val repository = repository(dao, EmptyProposalItemDao(), reporter)
+    fun `a status that was recomputed reports nothing`() =
+        runTest {
+            // The negative case. Without it, an implementation that reported unconditionally
+            // would pass the control above and bury real failures in noise on the happy path,
+            // which is the overwhelming majority of calls.
+            val reporter = RecordingCrashReportingPort()
+            val dao = UnwritableStatusDao(EmptyProposalDao()).apply { rejectUpdates = false }
+            val repository = repository(dao, EmptyProposalItemDao(), reporter)
 
-        val result = repository.refreshStatus(ProposalId("p-1"), userId)
+            val result = repository.refreshStatus(ProposalId("p-1"), userId)
 
-        assertTrue(result.isSuccess)
-        assertEquals(
-            emptyList(),
-            reporter.reports,
-            "the happy path is the overwhelming majority of calls; reporting it would bury " +
-                "the failures this requirement exists to surface",
-        )
-    }
+            assertTrue(result.isSuccess)
+            assertEquals(
+                emptyList(),
+                reporter.reports,
+                "the happy path is the overwhelming majority of calls; reporting it would bury " +
+                    "the failures this requirement exists to surface",
+            )
+        }
 }

@@ -13,13 +13,16 @@ import com.singularity.todo.core.backup.ScheduledAuthorization
  */
 fun authorizationMessage(authorization: ScheduledAuthorization): String =
     when (authorization) {
-        is ScheduledAuthorization.Repushed ->
+        is ScheduledAuthorization.Repushed -> {
             "This device can now back up on its own, and the archive in the cloud opens with your new password"
+        }
 
-        is ScheduledAuthorization.Authorized ->
+        is ScheduledAuthorization.Authorized -> {
             "This device can now back up on its own"
+        }
 
-        is ScheduledAuthorization.AuthorizedButNotRepushed ->
+        is ScheduledAuthorization.AuthorizedButNotRepushed -> {
             "This device can now back up on its own, but the archive in the cloud was not updated — " +
                 "it still opens with the password it was made with"
+        }
     }

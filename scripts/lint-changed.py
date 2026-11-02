@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""lint-changed.py — detekt over the changed files only.
+"""lint-changed.py — the scoped lint: ktlint and detekt over the changed files.
 
 Why
 ---
@@ -12,6 +12,10 @@ times to fix four mechanical findings that were visible in seconds.
 This runs the same rules over the changed files only: the same config, the same
 baseline, the same rule set as the module's own `detekt` task, with a smaller
 input. A finding here is the finding CI reports.
+
+The formatting is checked over the same files, with the same script the CI job
+and the pre-push hook use — so the three surfaces cannot disagree about what
+the formatting rules are.
 
 What "changed" means
 --------------------
@@ -146,6 +150,22 @@ def kotlin_files(paths: list[str]) -> list[pathlib.Path]:
     return files
 
 
+def ktlint_command(files: list[pathlib.Path]) -> list[str]:
+    """The ktlint invocation that checks exactly these files.
+
+    The same script the CI job and the pre-push hook run, so the three
+    surfaces cannot disagree about what the formatting rules are.
+    """
+    launcher = os.environ.get('LINT_CHANGED_KTLINT')
+    if not launcher:
+        launcher = sys.executable
+    return [
+        launcher,
+        str(ROOT / 'scripts' / 'ktlint-lint.py'),
+        *[str(path.relative_to(ROOT)) for path in files],
+    ]
+
+
 def gradle_command(files: list[pathlib.Path]) -> list[str]:
     """The Gradle invocation that lints exactly these files."""
     launcher = os.environ.get('LINT_CHANGED_GRADLE')
@@ -263,7 +283,8 @@ def main(argv: list[str]) -> int:
 
     if not findings:
         print('lint-changed: no findings.')
-        return 0 if process.returncode == 0 else 1
+        ktlint_code = run_ktlint(files)
+        return 0 if process.returncode == 0 and ktlint_code == 0 else 1
 
     print(f'\nlint-changed: {len(findings)} finding(s):')
     for finding in findings:
@@ -272,7 +293,20 @@ def main(argv: list[str]) -> int:
             f"{finding['rule']}  {finding['message']}"
         )
     print('\nThe report with the whole messages: <module>/build/reports/detekt/changed.md')
+    run_ktlint(files)
     return 1
+
+
+def run_ktlint(files: list[pathlib.Path]) -> int:
+    """The formatting check over the changed files. 0 when there is nothing to report."""
+    command = ktlint_command(files)
+    print('\nlint-changed: running ktlint over the changed files…')
+    process = subprocess.run(
+        command,
+        cwd=ROOT,
+        check=False,
+    )
+    return process.returncode
 
 
 if __name__ == '__main__':

@@ -16,12 +16,12 @@ import kotlinx.coroutines.flow.map
 class DataStoreDefaultAgendaViewSettingsRepository(dataStore: DataStore<Preferences>) :
     BaseSettingsRepository(dataStore),
     DefaultAgendaViewSettingsRepository {
-
     private val rawPref = nullableStringPref(nsKey(SettingsNamespace.AGENDA, "default_view_id"))
 
-    override val defaultViewId: Flow<SavedAgendaViewId?> = rawPref.flow.map { raw ->
-        raw?.let { runCatching { SavedAgendaViewId.fromString(it) }.getOrNull() }
-    }
+    override val defaultViewId: Flow<SavedAgendaViewId?> =
+        rawPref.flow.map { raw ->
+            raw?.let { runCatching { SavedAgendaViewId.fromString(it) }.getOrNull() }
+        }
 
     override suspend fun setDefaultViewId(id: SavedAgendaViewId?) {
         rawPref.set(id?.raw)

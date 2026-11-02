@@ -93,10 +93,11 @@ data class ToolCallContext(val sessionId: String? = null, val client: String? = 
  * the file mechanics differ between platforms.
  */
 object ToolCallEventFormat {
-    private val json = Json {
-        encodeDefaults = true
-        prettyPrint = false
-    }
+    private val json =
+        Json {
+            encodeDefaults = true
+            prettyPrint = false
+        }
 
     fun toLine(event: ToolCallEvent): String = json.encodeToString(ToolCallEvent.serializer(), event)
 }
@@ -176,11 +177,12 @@ class ToolCallRecorder(
             throw e
         } catch (e: Throwable) {
             val classified = classify(e)
-            outcome = if (classified?.business == true) {
-                ToolCallOutcome.BUSINESS_ERROR
-            } else {
-                ToolCallOutcome.INTERNAL_ERROR
-            }
+            outcome =
+                if (classified?.business == true) {
+                    ToolCallOutcome.BUSINESS_ERROR
+                } else {
+                    ToolCallOutcome.INTERNAL_ERROR
+                }
             errorCode = classified?.code ?: "internal"
             throw e
         } finally {

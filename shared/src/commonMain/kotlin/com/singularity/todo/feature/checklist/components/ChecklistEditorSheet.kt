@@ -96,9 +96,10 @@ private fun ChecklistAddRow(onAdd: (String) -> Unit) {
     ) {
         OutlinedTextField(
             state = textState,
-            modifier = Modifier
-                .weight(1f)
-                .testTag(TestTags.CHECKLIST_ADD_INPUT),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .testTag(TestTags.CHECKLIST_ADD_INPUT),
             placeholder = { Text("Add item...") },
             lineLimits = TextFieldLineLimits.SingleLine,
         )
@@ -123,39 +124,42 @@ private fun ChecklistAddRow(onAdd: (String) -> Unit) {
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun ChecklistEditorSheetEmptyPreview() = PreviewThemed(darkTheme = false) {
-    ChecklistEditorSheet(
-        taskId = TaskId("t1"),
-        items = persistentListOf(),
-        onAdd = { },
-        onToggle = { },
-        onDelete = { },
-        onDismiss = noopClick,
-    )
-}
+private fun ChecklistEditorSheetEmptyPreview() =
+    PreviewThemed(darkTheme = false) {
+        ChecklistEditorSheet(
+            taskId = TaskId("t1"),
+            items = persistentListOf(),
+            onAdd = { },
+            onToggle = { },
+            onDelete = { },
+            onDismiss = noopClick,
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun ChecklistEditorSheetWithItemsPreview() = PreviewThemed(darkTheme = false) {
-    ChecklistEditorSheet(
-        taskId = TaskId("t1"),
-        items = persistentListOf(
-            ChecklistItem(
-                id = ChecklistItemId.fromString("cli_1"),
-                taskId = "t1",
-                title = "Draft the outline",
-                isCompleted = true,
-            ),
-            ChecklistItem(
-                id = ChecklistItemId.fromString("cli_2"),
-                taskId = "t1",
-                title = "Send it to the reviewer",
-                isCompleted = false,
-            ),
-        ),
-        onAdd = { },
-        onToggle = { },
-        onDelete = { },
-        onDismiss = noopClick,
-    )
-}
+private fun ChecklistEditorSheetWithItemsPreview() =
+    PreviewThemed(darkTheme = false) {
+        ChecklistEditorSheet(
+            taskId = TaskId("t1"),
+            items =
+                persistentListOf(
+                    ChecklistItem(
+                        id = ChecklistItemId.fromString("cli_1"),
+                        taskId = "t1",
+                        title = "Draft the outline",
+                        isCompleted = true,
+                    ),
+                    ChecklistItem(
+                        id = ChecklistItemId.fromString("cli_2"),
+                        taskId = "t1",
+                        title = "Send it to the reviewer",
+                        isCompleted = false,
+                    ),
+                ),
+            onAdd = { },
+            onToggle = { },
+            onDelete = { },
+            onDismiss = noopClick,
+        )
+    }

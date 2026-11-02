@@ -13,7 +13,6 @@ import com.singularity.todo.core.notifications.Notifier
  *   opt into the interesting case rather than inherit it.
  */
 class FakeNotifier(private val supported: Boolean = true) : Notifier {
-
     /** One entry per [post] call, in call order. */
     val posts = mutableListOf<Post>()
 
@@ -22,7 +21,12 @@ class FakeNotifier(private val supported: Boolean = true) : Notifier {
 
     override val isSupported: Boolean get() = supported
 
-    override fun post(tag: String, title: String, body: String, viewId: String?) {
+    override fun post(
+        tag: String,
+        title: String,
+        body: String,
+        viewId: String?,
+    ) {
         posts += Post(tag, title, body, viewId)
     }
 }

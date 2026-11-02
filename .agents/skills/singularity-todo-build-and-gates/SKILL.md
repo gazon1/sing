@@ -28,11 +28,29 @@ just tests::impact    # the tests this change can break (a map over the tree)
 ./gw :desktopApp:test     # Desktop UI tests (the `test` task, not `jvmTest`)
 ./gw :shared:exportToolSurface   # regenerate config/docs/tool-surface.json
 
-just lint        # detekt (every module, with its baseline), enforcing
-just detekt-fix  # auto-fix detekt and ktlint in place
+just lint        # ktlint + detekt (every module, with its baseline), enforcing
+just ktlint      # the formatting check on its own (seconds)
+just ktlint-fix  # format the tree with ktlint
+just detekt-fix  # auto-fix what detekt can correct
 
 python3 scripts/detekt-summary.py   # detekt findings by rule, not an XML dump
 ```
+
+### Format after every Kotlin edit
+
+```bash
+just ktlint-fix   # ktlint CLI rewrites the tree — seconds, no Gradle daemon
+just ktlint        # check only
+```
+
+A Kotlin edit is followed by the **formatter**, not by a lint round. Layout
+(wrapping, imports, indentation, trailing commas) is ktlint's job and the CLI
+does it in seconds; detekt owns the semantics and costs a Gradle run. Without
+the format step, every formatting finding costs a full lint round trip.
+
+Run `just ktlint-fix` right after writing Kotlin, then `just lint` when the
+change is otherwise done. See ADR
+`2026-11-02-ktlint-cli-replaces-the-detekt-formatting-layer.md`.
 
 ### The map of affected tests — `just tests::impact`
 

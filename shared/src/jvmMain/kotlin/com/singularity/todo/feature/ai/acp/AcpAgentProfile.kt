@@ -72,34 +72,36 @@ data class AcpAgentProfile(
  * preselection stops meaning anything.
  */
 object AcpAgentRegistry {
-
     /** The Gemini CLI, in the mode that speaks the Agent Client Protocol. */
-    val gemini = AcpAgentProfile(
-        id = "gemini-cli",
-        displayName = "Gemini CLI",
-        command = "gemini",
-        args = listOf("--experimental-acp"),
-        description = "The Gemini CLI in its Agent Client Protocol mode.",
-        isDefault = true,
-    )
+    val gemini =
+        AcpAgentProfile(
+            id = "gemini-cli",
+            displayName = "Gemini CLI",
+            command = "gemini",
+            args = listOf("--experimental-acp"),
+            description = "The Gemini CLI in its Agent Client Protocol mode.",
+            isDefault = true,
+        )
 
     /** The bridge that puts Claude Code on the protocol. Needs a Node runtime. */
-    val claude = AcpAgentProfile(
-        id = "claude-code",
-        displayName = "Claude Code",
-        command = "npx",
-        args = listOf("@agentclientprotocol/claude-agent-acp"),
-        description = "The Claude Code bridge. Needs a Node runtime and the bridge installed.",
-    )
+    val claude =
+        AcpAgentProfile(
+            id = "claude-code",
+            displayName = "Claude Code",
+            command = "npx",
+            args = listOf("@agentclientprotocol/claude-agent-acp"),
+            description = "The Claude Code bridge. Needs a Node runtime and the bridge installed.",
+        )
 
     /** The bridge that puts Codex on the protocol. Needs a Node runtime. */
-    val codex = AcpAgentProfile(
-        id = "codex",
-        displayName = "Codex",
-        command = "npx",
-        args = listOf("@agentclientprotocol/codex-acp"),
-        description = "The Codex bridge. Needs a Node runtime and the bridge installed.",
-    )
+    val codex =
+        AcpAgentProfile(
+            id = "codex",
+            displayName = "Codex",
+            command = "npx",
+            args = listOf("@agentclientprotocol/codex-acp"),
+            description = "The Codex bridge. Needs a Node runtime and the bridge installed.",
+        )
 
     /** Every known agent, in the order the user reads them. */
     val entries: List<AcpAgentProfile> = listOf(gemini, claude, codex)

@@ -12,8 +12,8 @@ import com.singularity.todo.feature.proposals.domain.logic.ProposalFingerprint
 import com.singularity.todo.feature.proposals.domain.logic.ProposalOperation
 import com.singularity.todo.feature.proposals.domain.model.ProposalItem
 import com.singularity.todo.feature.proposals.domain.model.ProposalItemKind
-import com.singularity.todo.feature.proposals.domain.model.ReadResult
 import com.singularity.todo.feature.proposals.domain.model.ProposalSource
+import com.singularity.todo.feature.proposals.domain.model.ReadResult
 import com.singularity.todo.feature.proposals.domain.port.ProposalRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
@@ -80,44 +80,47 @@ class WriteTaskProposalTool(
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
 ) : SimpleTool<WriteTaskProposalInput>(TypeToken.of(WriteTaskProposalInput::class.java), NAME, DESCRIPTION) {
-
     override suspend fun execute(args: WriteTaskProposalInput): String {
         val operation = args.operation.trim().lowercase()
 
         validate(args, operation)?.let { problem -> return failure(args, problem) }
 
-        val kind = when (val read = kindFor(operation, ProposalOperation.toItem(operation, args.value, args.items))) {
-            is ReadResult.Ok -> read.value
-            is ReadResult.Rejected -> return failure(args, read.reason)
-        }
+        val kind =
+            when (val read = kindFor(operation, ProposalOperation.toItem(operation, args.value, args.items))) {
+                is ReadResult.Ok -> read.value
+                is ReadResult.Rejected -> return failure(args, read.reason)
+            }
 
         val taskId = TaskId.fromString(args.taskId)
         if (taskRepository.get(taskId) == null) {
             return failure(args, "There is no task with id \"${args.taskId}\".")
         }
 
-        val result = runCatchingCancellable {
-            val userId = currentUser.scopedUserId.value
-            val item = ProposalItem.pending(
-                id = ProposalItemId.generate(),
-                proposalId = ProposalId.generate(),
-                kind = kind,
-                targetId = taskId.value,
-                humanSummary = kind.humanSummary,
-                fingerprint = ProposalFingerprint.of(kind, taskId.value),
-            )
+        val result =
+            runCatchingCancellable {
+                val userId = currentUser.scopedUserId.value
+                val item =
+                    ProposalItem.pending(
+                        id = ProposalItemId.generate(),
+                        proposalId = ProposalId.generate(),
+                        kind = kind,
+                        targetId = taskId.value,
+                        humanSummary = kind.humanSummary,
+                        fingerprint = ProposalFingerprint.of(kind, taskId.value),
+                    )
 
-            val (proposal, _) = ProposalBuilder.multiForTask(
-                items = listOf(item),
-                taskId = taskId,
-                userId = userId,
-                source = ProposalSource.Agent,
-                clock = clock,
-            )
+                val (proposal, _) =
+                    ProposalBuilder.multiForTask(
+                        items = listOf(item),
+                        taskId = taskId,
+                        userId = userId,
+                        source = ProposalSource.Agent,
+                        clock = clock,
+                    )
 
-            proposals.save(proposal).getOrThrow()
-            proposal
-        }
+                proposals.save(proposal).getOrThrow()
+                proposal
+            }
 
         val proposal = result.getOrNull()
         return ToolOutputJson.encodeToString(
@@ -138,18 +141,27 @@ class WriteTaskProposalTool(
      * The message names the operations that exist, or the thing that is missing, so
      * the model can fix the call and try again instead of guessing.
      */
-    private fun validate(args: WriteTaskProposalInput, operation: String): String? = when {
-        operation !in ProposalOperation.NAMES ->
-            "Unknown operation \"${args.operation}\". Allowed: ${ProposalOperation.NAMES.joinToString(", ")}."
+    private fun validate(
+        args: WriteTaskProposalInput,
+        operation: String,
+    ): String? =
+        when {
+            operation !in ProposalOperation.NAMES -> {
+                "Unknown operation \"${args.operation}\". Allowed: ${ProposalOperation.NAMES.joinToString(", ")}."
+            }
 
-        ProposalOperation.needsValue(operation) && args.value.isNullOrBlank() ->
-            "The operation \"$operation\" needs a value."
+            ProposalOperation.needsValue(operation) && args.value.isNullOrBlank() -> {
+                "The operation \"$operation\" needs a value."
+            }
 
-        ProposalOperation.needsItems(operation) && args.items.isEmpty() ->
-            "The operation \"$operation\" needs at least one item."
+            ProposalOperation.needsItems(operation) && args.items.isEmpty() -> {
+                "The operation \"$operation\" needs at least one item."
+            }
 
-        else -> null
-    }
+            else -> {
+                null
+            }
+        }
 
     /**
      * The line the user reads.
@@ -157,19 +169,25 @@ class WriteTaskProposalTool(
      * The reason is part of it: a proposal the user cannot see the point of is a
      * proposal the user will decline without reading.
      */
-    private fun summary(what: String, reason: String?): String =
-        if (reason.isNullOrBlank()) what else "$what — $reason"
+    private fun summary(
+        what: String,
+        reason: String?,
+    ): String = if (reason.isNullOrBlank()) what else "$what — $reason"
 
-    private fun failure(args: WriteTaskProposalInput, message: String): String = ToolOutputJson.encodeToString(
-        WriteTaskProposalOutput.serializer(),
-        WriteTaskProposalOutput(
-            taskId = args.taskId,
-            proposalId = "",
-            proposalCreated = false,
-            summary = "",
-            error = message,
-        ),
-    )
+    private fun failure(
+        args: WriteTaskProposalInput,
+        message: String,
+    ): String =
+        ToolOutputJson.encodeToString(
+            WriteTaskProposalOutput.serializer(),
+            WriteTaskProposalOutput(
+                taskId = args.taskId,
+                proposalId = "",
+                proposalCreated = false,
+                summary = "",
+                error = message,
+            ),
+        )
 
     companion object {
         const val NAME = "write_task_proposal"
@@ -205,18 +223,26 @@ class WriteTaskProposalTool(
     private fun kindFor(
         operation: String,
         outcome: ProposalOperation.Outcome,
-    ): ReadResult<ProposalItemKind> = when (outcome) {
-        is ProposalOperation.Outcome.Proposed -> ReadResult.Ok(outcome.kind)
+    ): ReadResult<ProposalItemKind> =
+        when (outcome) {
+            is ProposalOperation.Outcome.Proposed -> {
+                ReadResult.Ok(outcome.kind)
+            }
 
-        is ProposalOperation.Outcome.UnknownOperation ->
-            ReadResult.Rejected("The operation \"$operation\" could not be turned into a change.")
+            is ProposalOperation.Outcome.UnknownOperation -> {
+                ReadResult.Rejected("The operation \"$operation\" could not be turned into a change.")
+            }
 
-        is ProposalOperation.Outcome.MissingValue ->
-            ReadResult.Rejected("The operation \"$operation\" needs a value.")
+            is ProposalOperation.Outcome.MissingValue -> {
+                ReadResult.Rejected("The operation \"$operation\" needs a value.")
+            }
 
-        is ProposalOperation.Outcome.UnreadableValue -> ReadResult.Rejected(outcome.reason)
+            is ProposalOperation.Outcome.UnreadableValue -> {
+                ReadResult.Rejected(outcome.reason)
+            }
 
-        is ProposalOperation.Outcome.EmptyChange ->
-            ReadResult.Rejected("The operation \"$operation\" needs at least one item.")
-    }
+            is ProposalOperation.Outcome.EmptyChange -> {
+                ReadResult.Rejected("The operation \"$operation\" needs at least one item.")
+            }
+        }
 }

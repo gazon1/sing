@@ -10,12 +10,15 @@ import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegis
  */
 sealed interface ResolvedProjectIcon {
     data class Material(val key: String) : ResolvedProjectIcon
+
     data class Emoji(val value: String) : ResolvedProjectIcon
+
     data object None : ResolvedProjectIcon
 }
 
-fun resolveProjectIcon(icon: String?): ResolvedProjectIcon = when {
-    icon.isNullOrBlank() -> ResolvedProjectIcon.None
-    ProjectIconRegistry.iconByKey(icon) != null -> ResolvedProjectIcon.Material(icon)
-    else -> ResolvedProjectIcon.Emoji(icon)
-}
+fun resolveProjectIcon(icon: String?): ResolvedProjectIcon =
+    when {
+        icon.isNullOrBlank() -> ResolvedProjectIcon.None
+        ProjectIconRegistry.iconByKey(icon) != null -> ResolvedProjectIcon.Material(icon)
+        else -> ResolvedProjectIcon.Emoji(icon)
+    }

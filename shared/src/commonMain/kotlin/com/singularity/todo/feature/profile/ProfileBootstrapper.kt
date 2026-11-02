@@ -27,7 +27,6 @@ class ProfileBootstrapper(
     private val repository: ProfileRepository,
     private val logger: Logger = Logger.withTag("ProfileBootstrapper"),
 ) {
-
     /**
      * Run seed + activate in one shot.
      *
@@ -55,31 +54,32 @@ class ProfileBootstrapper(
         val seedTuples = seedExtras.map { Triple(it.name, it.emoji, it.colorIdx) }
         repository.ensureDefaults(extraProfiles = seedTuples)
         val profiles = repository.observeAll().first().associateBy { it.name }
-        val activated = if (activateName != null) {
-            profiles[activateName]?.also { profile ->
-                // Unwrapped, and it has to be. The returned id is not a status the caller
-                // logs — mcp/Main.kt:164 reads it and, on a non-null id, runs
-                // retromigrateRowsToAgentScope, which moves every row owned by the
-                // unscoped local user id into a scope keyed on this profile. A switch
-                // that failed but still returned an id therefore migrated the rows into a
-                // namespace the server is not running under. Returning null instead would
-                // conflate "nothing asked for a switch" with "the switch failed", which
-                // are different situations and which the caller cannot otherwise tell
-                // apart.
-                //
-                // Throwing is safe: the only production caller already wraps the whole
-                // bootstrap in a try/catch that logs and continues against the default
-                // profile (mcp/Main.kt:175-179). So the throw lands in a handler that
-                // exists, says why, and does not reach the migration.
-                repository.switchTo(profile.id).getOrThrow()
-                logger.i { "ProfileBootstrapper: activated profile (${profile.id.value})" }
-            } ?: run {
-                logger.w { "ProfileBootstrapper: '$activateName' not found after seed" }
+        val activated =
+            if (activateName != null) {
+                profiles[activateName]?.also { profile ->
+                    // Unwrapped, and it has to be. The returned id is not a status the caller
+                    // logs — mcp/Main.kt:164 reads it and, on a non-null id, runs
+                    // retromigrateRowsToAgentScope, which moves every row owned by the
+                    // unscoped local user id into a scope keyed on this profile. A switch
+                    // that failed but still returned an id therefore migrated the rows into a
+                    // namespace the server is not running under. Returning null instead would
+                    // conflate "nothing asked for a switch" with "the switch failed", which
+                    // are different situations and which the caller cannot otherwise tell
+                    // apart.
+                    //
+                    // Throwing is safe: the only production caller already wraps the whole
+                    // bootstrap in a try/catch that logs and continues against the default
+                    // profile (mcp/Main.kt:175-179). So the throw lands in a handler that
+                    // exists, says why, and does not reach the migration.
+                    repository.switchTo(profile.id).getOrThrow()
+                    logger.i { "ProfileBootstrapper: activated profile (${profile.id.value})" }
+                } ?: run {
+                    logger.w { "ProfileBootstrapper: '$activateName' not found after seed" }
+                    null
+                }
+            } else {
                 null
             }
-        } else {
-            null
-        }
         return ProfileBootstrapResult(
             created = profiles.keys - alreadyExisted.keys,
             activated = activated?.id,

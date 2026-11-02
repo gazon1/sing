@@ -34,52 +34,54 @@ import kotlin.test.assertTrue
 @Tag("slow:data")
 @EnabledOnOs(OS.LINUX)
 class FileRevealerContractTest {
-
     private val sut = JvmFileRevealer()
 
     @Test
-    fun `revealAttachmentsFolder answers with a boolean instead of throwing`() = runTest {
-        val folder = File(System.getProperty("java.io.tmpdir"), "revealer-${System.nanoTime()}")
-        try {
-            val outcome = runCatching { sut.revealAttachmentsFolder(folder.absolutePath) }
-            assertTrue(
-                outcome.isSuccess,
-                "revealAttachmentsFolder propagated instead of reporting: ${outcome.exceptionOrNull()}",
-            )
-        } finally {
-            folder.deleteRecursively()
+    fun `revealAttachmentsFolder answers with a boolean instead of throwing`() =
+        runTest {
+            val folder = File(System.getProperty("java.io.tmpdir"), "revealer-${System.nanoTime()}")
+            try {
+                val outcome = runCatching { sut.revealAttachmentsFolder(folder.absolutePath) }
+                assertTrue(
+                    outcome.isSuccess,
+                    "revealAttachmentsFolder propagated instead of reporting: ${outcome.exceptionOrNull()}",
+                )
+            } finally {
+                folder.deleteRecursively()
+            }
         }
-    }
 
     @Test
-    fun `revealAttachmentsFolder creates the folder before asking`() = runTest {
-        val parent = File(System.getProperty("java.io.tmpdir"), "revealer-parent-${System.nanoTime()}")
-        val folder = File(parent, "nested")
-        try {
-            sut.revealAttachmentsFolder(folder.absolutePath)
-            assertTrue(
-                folder.exists(),
-                "the folder the user was sent to must exist even when nothing opened it",
-            )
-        } finally {
-            parent.deleteRecursively()
+    fun `revealAttachmentsFolder creates the folder before asking`() =
+        runTest {
+            val parent = File(System.getProperty("java.io.tmpdir"), "revealer-parent-${System.nanoTime()}")
+            val folder = File(parent, "nested")
+            try {
+                sut.revealAttachmentsFolder(folder.absolutePath)
+                assertTrue(
+                    folder.exists(),
+                    "the folder the user was sent to must exist even when nothing opened it",
+                )
+            } finally {
+                parent.deleteRecursively()
+            }
         }
-    }
 
     @Test
-    fun `a host that cannot open a window is answered with false, not an exception`() = runTest {
-        // No AWT probe: whether this host can open a window is the thing under
-        // test, so asserting it in the test would assume the answer. What is
-        // fixed is the shape of the failure — a refusal, never an escape.
-        val folder = File(System.getProperty("java.io.tmpdir"), "revealer-${System.nanoTime()}")
-        try {
-            val opened = sut.revealAttachmentsFolder(folder.absolutePath)
-            assertFalse(
-                opened && !folder.exists(),
-                "reported opening a folder it never created",
-            )
-        } finally {
-            folder.deleteRecursively()
+    fun `a host that cannot open a window is answered with false, not an exception`() =
+        runTest {
+            // No AWT probe: whether this host can open a window is the thing under
+            // test, so asserting it in the test would assume the answer. What is
+            // fixed is the shape of the failure — a refusal, never an escape.
+            val folder = File(System.getProperty("java.io.tmpdir"), "revealer-${System.nanoTime()}")
+            try {
+                val opened = sut.revealAttachmentsFolder(folder.absolutePath)
+                assertFalse(
+                    opened && !folder.exists(),
+                    "reported opening a folder it never created",
+                )
+            } finally {
+                folder.deleteRecursively()
+            }
         }
-    }
 }

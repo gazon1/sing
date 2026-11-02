@@ -10,7 +10,6 @@ package com.singularity.todo.feature.calendarSync.domain.model
  * Weekdays are encoded as ISO numbers: Mon=1 … Sun=7.
  */
 sealed interface RecurrenceRule {
-
     /** Fires every day. */
     data object Daily : RecurrenceRule
 

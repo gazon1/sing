@@ -16,7 +16,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class TaskDetailDraftStateTest {
-
     private fun newState(initial: TaskDetailDraft = TaskDetailDraft.empty()) = TaskDetailDraftState(initial)
 
     /**

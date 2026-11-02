@@ -13,12 +13,11 @@ import com.singularity.todo.core.log.initLogging
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.crashReportingFailureHandler
 import com.singularity.todo.core.version.appVersion
-import org.koin.core.module.Module
+import com.singularity.todo.core.work.BackgroundWorkBootstrapper
 import com.singularity.todo.feature.calendarSync.sync.CalendarSyncOrchestrator
 import com.singularity.todo.feature.calendarSync.work.GOOGLE_SYNC_INTERVAL_MINUTES
 import com.singularity.todo.feature.calendarSync.work.GoogleSyncPeriodicTrigger
 import com.singularity.todo.feature.gate.gateModule
-import com.singularity.todo.core.work.BackgroundWorkBootstrapper
 import com.singularity.todo.feature.profile.ProfileBootstrapper
 import com.singularity.todo.feature.tasks.domain.usecase.RepairRecurringSeriesUseCase
 import com.singularity.todo.update.AppUpdateGate
@@ -31,6 +30,7 @@ import okio.Path.Companion.toPath
 import org.koin.android.ext.android.getKoin
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
+import org.koin.core.module.Module
 import org.koin.dsl.module
 import kotlin.time.Duration.Companion.minutes
 
@@ -40,29 +40,30 @@ private const val PLAY_STORE_URI = "market://details?id=com.singularity.todo"
  * Koin module for app-update store bindings.
  * Must be included after [gateModule] so that [RemoteConfigPort] is available.
  */
-private fun appUpdateModule() = module {
-    // AppUpdateManager — only needed for Google Play
-    single { AppUpdateManagerFactory.create(get<android.content.Context>()) }
+private fun appUpdateModule() =
+    module {
+        // AppUpdateManager — only needed for Google Play
+        single { AppUpdateManagerFactory.create(get<android.content.Context>()) }
 
-    // Shared preferences for cooldown tracking
-    single { AppUpdatePrefs.create(get()) }
+        // Shared preferences for cooldown tracking
+        single { AppUpdatePrefs.create(get()) }
 
-    // Update store implementations
-    single { GooglePlayUpdateStore(get()) }
-    single { RuStoreUpdateStore(get()) }
-    single { DirectUrlUpdateStore(get(), "https://play.google.com/store/apps/details?id=com.singularity.todo") }
+        // Update store implementations
+        single { GooglePlayUpdateStore(get()) }
+        single { RuStoreUpdateStore(get()) }
+        single { DirectUrlUpdateStore(get(), "https://play.google.com/store/apps/details?id=com.singularity.todo") }
 
-    // Coordinator
-    single {
-        AppUpdateGate(
-            googlePlayStore = get(),
-            ruStore = get(),
-            directUrlStore = get(),
-            remoteConfigPort = get(),
-            prefs = get(),
-        )
+        // Coordinator
+        single {
+            AppUpdateGate(
+                googlePlayStore = get(),
+                ruStore = get(),
+                directUrlStore = get(),
+                remoteConfigPort = get(),
+                prefs = get(),
+            )
+        }
     }
-}
 
 /**
  * Application class — the canonical place to start Koin.
@@ -83,7 +84,6 @@ private fun appUpdateModule() = module {
  * boundary can quietly erode. This is the only one.
  */
 open class SingularityApp : Application() {
-
     /**
      * Extra Koin modules contributed by the build configuration.
      *
@@ -105,7 +105,10 @@ open class SingularityApp : Application() {
      */
     open fun extraKoinModules(): List<Module> {
         if (BuildConfig.TEST_AUTH_BYPASS) {
-            return listOf(com.singularity.todo.test.stubs.testAuthModule())
+            return listOf(
+                com.singularity.todo.test.stubs
+                    .testAuthModule(),
+            )
         }
         return emptyList()
     }
@@ -164,7 +167,8 @@ open class SingularityApp : Application() {
         // work, KEEP), so there is no "have I started" flag to own, and the worker
         // re-reads `isConfigured` on every run, so an account connected after launch is
         // picked up without a restart.
-        getKoin().get<GoogleSyncPeriodicTrigger>()
+        getKoin()
+            .get<GoogleSyncPeriodicTrigger>()
             .start(GOOGLE_SYNC_INTERVAL_MINUTES.minutes)
         // Seed the default 'Personal' profile on first launch (idempotent). The
         // profile switcher and the saved-view copy-to-profile picker list
@@ -182,7 +186,9 @@ open class SingularityApp : Application() {
             // Adopt legacy repeating tasks into series: a task that carries a rule and no
             // series id is the shape the old one-row roll-forward left behind, and without
             // this pass it never gains its materialised future.
-            getKoin().get<RepairRecurringSeriesUseCase>().invoke()
+            getKoin()
+                .get<RepairRecurringSeriesUseCase>()
+                .invoke()
                 .onFailure { error ->
                     android.util.Log.w("repair-recurring-series", "The recurring-series repair failed", error)
                 }

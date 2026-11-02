@@ -32,7 +32,6 @@ import kotlin.time.Instant
 @Tag("slow")
 @Tag("slow:data")
 class AdrStorageUpdateTest {
-
     private val temporaries = mutableListOf<File>()
 
     @AfterTest
@@ -43,7 +42,9 @@ class AdrStorageUpdateTest {
 
     private class FakeHost(private val workingDir: String, private val homeDir: String) : HostEnvironmentPort {
         override fun workingDirectory(): String = workingDir
+
         override fun homeDirectory(): String = homeDir
+
         override fun applicationDataDirectory(): String = homeDir + "/.singularity-todo"
     }
 
@@ -60,7 +61,10 @@ class AdrStorageUpdateTest {
         )
     }
 
-    private fun AdrStorage.seed(slug: String, body: String = BODY): Path {
+    private fun AdrStorage.seed(
+        slug: String,
+        body: String = BODY,
+    ): Path {
         writeAdr(slug, "A title for $slug", listOf("arch"), body)
         return Path.of(filePath(slug))
     }
@@ -82,11 +86,13 @@ class AdrStorageUpdateTest {
         val storage = storage()
         storage.writeAdr("2026-10-10-contract", "A title", listOf("adr"), "Body.")
         val corpus = AdrCorpusConfig.DEFAULT
-        val block = Path.of(storage.filePath("2026-10-10-contract"))
-            .readText()
-            .lines()
-            .drop(1)
-            .takeWhile { it.trim() != "---" }
+        val block =
+            Path
+                .of(storage.filePath("2026-10-10-contract"))
+                .readText()
+                .lines()
+                .drop(1)
+                .takeWhile { it.trim() != "---" }
         val keys = block.map { it.substringBefore(':') }.filter { it.isNotBlank() }
         assertTrue(keys.isNotEmpty(), "no frontmatter was written at all")
         val unknown = keys.filterNot { corpus.isKnownFrontmatterKey(it) }
@@ -104,9 +110,13 @@ class AdrStorageUpdateTest {
         storage.seed(slug)
         storage.updateAdr(slug, "accepted", null, "2027-01-01")
         val corpus = AdrCorpusConfig.DEFAULT
-        val block = Path.of(storage.filePath(slug)).readText().lines()
-            .drop(1)
-            .takeWhile { it.trim() != "---" }
+        val block =
+            Path
+                .of(storage.filePath(slug))
+                .readText()
+                .lines()
+                .drop(1)
+                .takeWhile { it.trim() != "---" }
         val keys = block.map { it.substringBefore(':') }.filter { it.isNotBlank() }
         assertTrue(keys.contains("review-by"), "updateAdr did not write the review-by date")
         val unknown = keys.filterNot { corpus.isKnownFrontmatterKey(it) }
@@ -133,10 +143,14 @@ class AdrStorageUpdateTest {
         assertEquals("open", AdrCorpusConfig.DEFAULT.newAdrStatus)
     }
 
-    private fun AdrStorage.field(slug: String, name: String): String? =
+    private fun AdrStorage.field(
+        slug: String,
+        name: String,
+    ): String? =
         Regex("""(?m)^${Regex.escape(name)}: (.*)$""")
             .find(Path.of(filePath(slug)).readText())
-            ?.groupValues?.get(1)
+            ?.groupValues
+            ?.get(1)
             ?.trim()
 
     /**
@@ -220,9 +234,10 @@ class AdrStorageUpdateTest {
         val path = storage.seed(SLUG)
         val before = path.readText()
 
-        val failure = assertFailsWith<IllegalArgumentException> {
-            storage.updateAdr(SLUG, status = "superseded")
-        }
+        val failure =
+            assertFailsWith<IllegalArgumentException> {
+                storage.updateAdr(SLUG, status = "superseded")
+            }
 
         assertTrue(failure.message!!.contains("requires supersededBy"), failure.message!!)
         assertEquals(before, path.readText(), "a refused update must not write")
@@ -233,9 +248,10 @@ class AdrStorageUpdateTest {
         val storage = storage()
         storage.seed(SLUG)
 
-        val failure = assertFailsWith<IllegalArgumentException> {
-            storage.updateAdr(SLUG, status = "superseded", supersededBy = "2026-10-10-nothing-here")
-        }
+        val failure =
+            assertFailsWith<IllegalArgumentException> {
+                storage.updateAdr(SLUG, status = "superseded", supersededBy = "2026-10-10-nothing-here")
+            }
 
         assertTrue(failure.message!!.contains("does not exist"), failure.message!!)
     }
@@ -272,9 +288,10 @@ class AdrStorageUpdateTest {
         val storage = storage()
         storage.seed(SLUG)
 
-        val failure = assertFailsWith<IllegalArgumentException> {
-            storage.updateAdr(SLUG, status = "archived")
-        }
+        val failure =
+            assertFailsWith<IllegalArgumentException> {
+                storage.updateAdr(SLUG, status = "archived")
+            }
 
         assertTrue(failure.message!!.contains("archive"), failure.message!!)
     }
@@ -284,9 +301,10 @@ class AdrStorageUpdateTest {
         val storage = storage()
         storage.seed(SLUG)
 
-        val failure = assertFailsWith<IllegalArgumentException> {
-            storage.updateAdr(SLUG, status = "CLOSED")
-        }
+        val failure =
+            assertFailsWith<IllegalArgumentException> {
+                storage.updateAdr(SLUG, status = "CLOSED")
+            }
 
         assertTrue(failure.message!!.contains("Invalid status"), failure.message!!)
     }
@@ -295,9 +313,10 @@ class AdrStorageUpdateTest {
     fun `creating an ADR is not this tool's job`() {
         val storage = storage()
 
-        val failure = assertFailsWith<IllegalStateException> {
-            storage.updateAdr(SLUG, status = "accepted")
-        }
+        val failure =
+            assertFailsWith<IllegalStateException> {
+                storage.updateAdr(SLUG, status = "accepted")
+            }
 
         assertTrue(failure.message!!.contains("writeAdr"), failure.message!!)
         assertTrue(!Path.of(storage.filePath(SLUG)).exists(), "a refused update must not create the file")

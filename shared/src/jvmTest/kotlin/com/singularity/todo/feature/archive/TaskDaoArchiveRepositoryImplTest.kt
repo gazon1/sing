@@ -13,6 +13,7 @@ import com.singularity.todo.core.sync.FakeSyncRepository
 import com.singularity.todo.feature.archive.data.TaskDaoArchiveRepositoryImpl
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.test.fakes.FakeUnitOfWork
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
@@ -24,7 +25,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Clock
-import com.singularity.todo.test.fakes.FakeUnitOfWork
 
 /**
  * Bulk archive has to reach the sync outbox, not just the database.
@@ -38,7 +38,6 @@ import com.singularity.todo.test.fakes.FakeUnitOfWork
 @Tag("slow")
 @Tag("slow:data")
 class TaskDaoArchiveRepositoryImplTest {
-
     private val user = UserId("u1")
 
     private lateinit var tempDir: File
@@ -47,21 +46,24 @@ class TaskDaoArchiveRepositoryImplTest {
     private lateinit var repo: TaskDaoArchiveRepositoryImpl
 
     @BeforeTest
-    fun setUp() = runTest {
-        tempDir = Files.createTempDirectory("singularity-archive-").toFile()
-        db = AppDatabaseFactory.build(createSqlDriver(), File(tempDir, "singularity.db").absolutePath)
-        sync = FakeSyncRepository(this)
-        repo = TaskDaoArchiveRepositoryImpl(
-            taskDao = db.taskDao(),
-            clock = Clock.System,
-            currentUser = FakeProfileAwareCurrentUser(
-                FakeAuthRepository(Session.Anonymous(user)),
-                scope = backgroundScope,
-            ),
-            syncRepository = sync,
-            unitOfWork = FakeUnitOfWork(),
-        )
-    }
+    fun setUp() =
+        runTest {
+            tempDir = Files.createTempDirectory("singularity-archive-").toFile()
+            db = AppDatabaseFactory.build(createSqlDriver(), File(tempDir, "singularity.db").absolutePath)
+            sync = FakeSyncRepository(this)
+            repo =
+                TaskDaoArchiveRepositoryImpl(
+                    taskDao = db.taskDao(),
+                    clock = Clock.System,
+                    currentUser =
+                        FakeProfileAwareCurrentUser(
+                            FakeAuthRepository(Session.Anonymous(user)),
+                            scope = backgroundScope,
+                        ),
+                    syncRepository = sync,
+                    unitOfWork = FakeUnitOfWork(),
+                )
+        }
 
     @AfterTest
     fun tearDown() {
@@ -69,7 +71,11 @@ class TaskDaoArchiveRepositoryImplTest {
         tempDir.deleteRecursively()
     }
 
-    private fun task(id: String, uid: String, completed: Boolean) = TaskEntity(
+    private fun task(
+        id: String,
+        uid: String,
+        completed: Boolean,
+    ) = TaskEntity(
         id = id,
         title = "T",
         description = null,
@@ -92,65 +98,69 @@ class TaskDaoArchiveRepositoryImplTest {
     )
 
     @Test
-    fun `bulk archive enqueues every newly archived task`() = runTest {
-        db.taskDao().upsert(task("a", user.value, completed = true))
-        db.taskDao().upsert(task("b", user.value, completed = true))
-        db.taskDao().upsert(task("open", user.value, completed = false))
+    fun `bulk archive enqueues every newly archived task`() =
+        runTest {
+            db.taskDao().upsert(task("a", user.value, completed = true))
+            db.taskDao().upsert(task("b", user.value, completed = true))
+            db.taskDao().upsert(task("open", user.value, completed = false))
 
-        val result = repo.archiveCompletedTasks()
+            val result = repo.archiveCompletedTasks()
 
-        assertTrue(result.isSuccess, "archive failed: ${result.exceptionOrNull()}")
-        assertEquals(2, result.getOrThrow(), "only completed tasks should be archived")
-        val enqueuedIds = sync.enqueuedEntities.map { it.syncId }.toSet()
-        assertEquals(setOf("a", "b"), enqueuedIds, "each newly archived task must be pushed")
-    }
-
-    @Test
-    fun `bulk archive does not enqueue another user's tasks`() = runTest {
-        db.taskDao().upsert(task("mine", user.value, completed = true))
-        db.taskDao().upsert(task("theirs", "u2", completed = true))
-
-        val result = repo.archiveCompletedTasks()
-
-        assertEquals(1, result.getOrThrow())
-        assertEquals(
-            listOf("mine"),
-            sync.enqueuedEntities.map { it.syncId },
-            "another user's task must neither be archived nor pushed",
-        )
-        assertEquals(null, db.taskDao().getById("theirs")?.archivedAt)
-    }
+            assertTrue(result.isSuccess, "archive failed: ${result.exceptionOrNull()}")
+            assertEquals(2, result.getOrThrow(), "only completed tasks should be archived")
+            val enqueuedIds = sync.enqueuedEntities.map { it.syncId }.toSet()
+            assertEquals(setOf("a", "b"), enqueuedIds, "each newly archived task must be pushed")
+        }
 
     @Test
-    fun `bulk archive does not tell the server that the work has no tags`() = runTest {
-        db.taskDao().upsert(task("a", user.value, completed = true))
-        db.taskDao().upsertTagCrossRefForUser("a", "tag-1", user.value)
+    fun `bulk archive does not enqueue another user's tasks`() =
+        runTest {
+            db.taskDao().upsert(task("mine", user.value, completed = true))
+            db.taskDao().upsert(task("theirs", "u2", completed = true))
 
-        val result = repo.archiveCompletedTasks()
+            val result = repo.archiveCompletedTasks()
 
-        assertTrue(result.isSuccess, "archive failed: ${result.exceptionOrNull()}")
-        // The row on its own carries no tags — they live in a cross-ref table —
-        // and on the wire an empty tag list says "the work has no tags". The
-        // server would apply that, and every other device would lose the tags
-        // on the next pull.
-        val pushed = sync.enqueuedEntities.last()
-        assertEquals(
-            listOf("tag-1"),
-            (pushed as com.singularity.todo.feature.tasks.domain.model.Task).tags.map { it.value },
-            "the pushed task carries the tags the database holds",
-        )
-    }
+            assertEquals(1, result.getOrThrow())
+            assertEquals(
+                listOf("mine"),
+                sync.enqueuedEntities.map { it.syncId },
+                "another user's task must neither be archived nor pushed",
+            )
+            assertEquals(null, db.taskDao().getById("theirs")?.archivedAt)
+        }
 
     @Test
-    fun `already archived tasks are not re-pushed`() = runTest {
-        db.taskDao().upsert(task("old", user.value, completed = true))
-        db.taskDao().archiveCompletedForUser(Clock.System.now().toEpochMilliseconds(), user.value)
-        sync.enqueuedEntities.clear()
+    fun `bulk archive does not tell the server that the work has no tags`() =
+        runTest {
+            db.taskDao().upsert(task("a", user.value, completed = true))
+            db.taskDao().upsertTagCrossRefForUser("a", "tag-1", user.value)
 
-        // A second sweep with nothing new to archive should push nothing.
-        val result = repo.archiveCompletedTasks()
+            val result = repo.archiveCompletedTasks()
 
-        assertEquals(0, result.getOrThrow())
-        assertTrue(sync.enqueuedEntities.isEmpty(), "no new rows means nothing to push")
-    }
+            assertTrue(result.isSuccess, "archive failed: ${result.exceptionOrNull()}")
+            // The row on its own carries no tags — they live in a cross-ref table —
+            // and on the wire an empty tag list says "the work has no tags". The
+            // server would apply that, and every other device would lose the tags
+            // on the next pull.
+            val pushed = sync.enqueuedEntities.last()
+            assertEquals(
+                listOf("tag-1"),
+                (pushed as com.singularity.todo.feature.tasks.domain.model.Task).tags.map { it.value },
+                "the pushed task carries the tags the database holds",
+            )
+        }
+
+    @Test
+    fun `already archived tasks are not re-pushed`() =
+        runTest {
+            db.taskDao().upsert(task("old", user.value, completed = true))
+            db.taskDao().archiveCompletedForUser(Clock.System.now().toEpochMilliseconds(), user.value)
+            sync.enqueuedEntities.clear()
+
+            // A second sweep with nothing new to archive should push nothing.
+            val result = repo.archiveCompletedTasks()
+
+            assertEquals(0, result.getOrThrow())
+            assertTrue(sync.enqueuedEntities.isEmpty(), "no new rows means nothing to push")
+        }
 }

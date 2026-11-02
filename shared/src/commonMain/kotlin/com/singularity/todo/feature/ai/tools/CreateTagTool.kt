@@ -14,8 +14,12 @@ import kotlin.time.Clock
 @Serializable
 data class CreateTagInput(
     val name: String,
-    /** ARGB integer color. Prefer [colorHex] for cross-client MCP callers. */
-    val color: Int = 0xFF9E9E9E.toInt(), // ARGB grey default
+    /**
+     * ARGB integer color. Prefer [colorHex] for cross-client MCP callers.
+     *
+     * Default: 0xFF9E9E9E (ARGB grey).
+     */
+    val color: Int = 0xFF9E9E9E.toInt(),
     /**
      * Optional hex-string override for [color]. Accepted forms:
      *  - `"#RRGGBB"` (alpha assumed 0xFF)
@@ -53,7 +57,6 @@ class CreateTagTool(
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
 ) : SimpleTool<CreateTagInput>(TypeToken.of(CreateTagInput::class.java), NAME, DESCRIPTION) {
-
     override suspend fun execute(args: CreateTagInput): String {
         val name = args.name.trim()
         if (name.isEmpty()) {
@@ -62,36 +65,47 @@ class CreateTagTool(
 
         // The id the tag will have if the user says yes.
         val tagId = TagId.generate()
-        val kind = ProposalItemKind.CreateTag(
-            ProposedTag(
-                name = name,
-                color = parseColor(args.colorHex, defaultColor = args.color),
-            ),
-        )
+        val kind =
+            ProposalItemKind.CreateTag(
+                ProposedTag(
+                    name = name,
+                    color = parseColor(args.colorHex, defaultColor = args.color),
+                ),
+            )
 
-        val result = proposeChange(
-            proposals = proposals,
-            userId = currentUser.scopedUserId.value,
-            clock = clock,
-            items = proposalItems(listOf(kind), tagId.value),
-            targetId = tagId.value,
-        )
+        val result =
+            proposeChange(
+                proposals = proposals,
+                userId = currentUser.scopedUserId.value,
+                clock = clock,
+                items = proposalItems(listOf(kind), tagId.value),
+                targetId = tagId.value,
+            )
 
         return ToolOutputJson.encodeToString(
             CreateTagOutput.serializer(),
             CreateTagOutput(
                 proposalCreated = result.isSuccess,
-                proposalId = result.getOrNull()?.id?.value.orEmpty(),
+                proposalId =
+                    result
+                        .getOrNull()
+                        ?.id
+                        ?.value
+                        .orEmpty(),
                 name = name,
                 error = result.exceptionOrNull()?.message,
             ),
         )
     }
 
-    private fun failure(name: String, message: String): String = ToolOutputJson.encodeToString(
-        CreateTagOutput.serializer(),
-        CreateTagOutput(proposalCreated = false, proposalId = "", name = name, error = message),
-    )
+    private fun failure(
+        name: String,
+        message: String,
+    ): String =
+        ToolOutputJson.encodeToString(
+            CreateTagOutput.serializer(),
+            CreateTagOutput(proposalCreated = false, proposalId = "", name = name, error = message),
+        )
 
     companion object {
         const val NAME = "create_tag"

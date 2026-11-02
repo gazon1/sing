@@ -1,6 +1,6 @@
 package com.singularity.todo.unwritten
 
-/**
+/*
  * The analysis, with no dependency on KSP.
  *
  * Split out deliberately. The question — "is this property read anywhere and written
@@ -36,18 +36,10 @@ data class Declaration(
  * object and *writes* the property; `state.isLoading` only reads. Conflating them is what
  * made the regex prototype report 63 candidates whose first entry was healthy code.
  */
-data class Reference(
-    val owner: String,
-    val name: String,
-    val isWrite: Boolean,
-)
+data class Reference(val owner: String, val name: String, val isWrite: Boolean)
 
 /** One reported property, with the reason it survived every exemption. */
-data class Finding(
-    val owner: String,
-    val name: String,
-    val explanation: String,
-)
+data class Finding(val owner: String, val name: String, val explanation: String)
 
 /**
  * Properties whose owner name marks them as UI state.
@@ -60,13 +52,14 @@ data class Finding(
 private val STATE_OWNER_SUFFIXES = listOf("UiState", "State")
 
 /** Owners whose properties are written by a framework rather than by Kotlin code. */
-private val FRAMEWORK_WRITTEN_OWNERS = listOf(
-    // Room generates the DAO, the entity's constructor and its column mappings.
-    "Dao",
-    "Entity",
-    // kotlinx.serialization writes the backing fields reflectively from the constructor.
-    "Serializable",
-)
+private val FRAMEWORK_WRITTEN_OWNERS =
+    listOf(
+        // Room generates the DAO, the entity's constructor and its column mappings.
+        "Dao",
+        "Entity",
+        // kotlinx.serialization writes the backing fields reflectively from the constructor.
+        "Serializable",
+    )
 
 fun isStateOwner(owner: String): Boolean {
     val simpleName = owner.substringAfterLast('.')
@@ -114,19 +107,21 @@ fun findNeverWritten(
         // defects into one gate.
         if (key !in reads) continue
 
-        findings += Finding(
-            owner = declaration.owner,
-            name = declaration.name,
-            explanation = if (declaration.isConstructorParameter) {
-                "'${declaration.name}' is a state property that this module reads and never " +
-                    "assigns. It has a default value, so the screen renders a constant and " +
-                    "believes it is showing something the user or a pass can change."
-            } else {
-                "'${declaration.name}' is a state property that this module reads and never " +
-                    "assigns. No code path can change it, so whatever the screen renders for " +
-                    "it is fixed at construction."
-            },
-        )
+        findings +=
+            Finding(
+                owner = declaration.owner,
+                name = declaration.name,
+                explanation =
+                    if (declaration.isConstructorParameter) {
+                        "'${declaration.name}' is a state property that this module reads and never " +
+                            "assigns. It has a default value, so the screen renders a constant and " +
+                            "believes it is showing something the user or a pass can change."
+                    } else {
+                        "'${declaration.name}' is a state property that this module reads and never " +
+                            "assigns. No code path can change it, so whatever the screen renders for " +
+                            "it is fixed at construction."
+                    },
+            )
     }
 
     // Stable order: a gate that reshuffles its findings between runs cannot be

@@ -41,21 +41,23 @@ fun TaskEditorStateSheet(
     ) {
         TaskWorkflowState.entries.forEach { state ->
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag(state.testTag())
-                    .then(if (enabled) Modifier.clickable { onSelect(state) } else Modifier)
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .testTag(state.testTag())
+                        .then(if (enabled) Modifier.clickable { onSelect(state) } else Modifier)
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     text = state.label(),
                     style = MaterialTheme.typography.bodyLarge,
-                    color = if (enabled) {
-                        MaterialTheme.colorScheme.onSurface
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
+                    color =
+                        if (enabled) {
+                            MaterialTheme.colorScheme.onSurface
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
                     modifier = Modifier.weight(1f),
                 )
                 RadioButton(
@@ -73,19 +75,21 @@ fun TaskEditorStateSheet(
  * Keyed on the enum, not on the wire name or the stored value: those are stable and
  * this is copy.
  */
-internal fun TaskWorkflowState.label(): String = when (this) {
-    TaskWorkflowState.Open -> "No state"
-    TaskWorkflowState.NextUp -> "Next up"
-    TaskWorkflowState.InProgress -> "In progress"
-}
+internal fun TaskWorkflowState.label(): String =
+    when (this) {
+        TaskWorkflowState.Open -> "No state"
+        TaskWorkflowState.NextUp -> "Next up"
+        TaskWorkflowState.InProgress -> "In progress"
+    }
 
 /**
  * The stable test tag for a state option.
  *
  * Keyed on the enum, not on [label]: the labels are user-facing copy.
  */
-internal fun TaskWorkflowState.testTag(): String = when (this) {
-    TaskWorkflowState.Open -> TestTags.WORKFLOW_STATE_OPTION_OPEN
-    TaskWorkflowState.NextUp -> TestTags.WORKFLOW_STATE_OPTION_NEXT_UP
-    TaskWorkflowState.InProgress -> TestTags.WORKFLOW_STATE_OPTION_IN_PROGRESS
-}
+internal fun TaskWorkflowState.testTag(): String =
+    when (this) {
+        TaskWorkflowState.Open -> TestTags.WORKFLOW_STATE_OPTION_OPEN
+        TaskWorkflowState.NextUp -> TestTags.WORKFLOW_STATE_OPTION_NEXT_UP
+        TaskWorkflowState.InProgress -> TestTags.WORKFLOW_STATE_OPTION_IN_PROGRESS
+    }

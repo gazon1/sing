@@ -33,8 +33,7 @@ enum class BackAction {
  * @param imeVisible whether the keyboard is showing.
  * @return what the back press does.
  */
-fun backAction(imeVisible: Boolean): BackAction =
-    if (imeVisible) BackAction.HideKeyboard else BackAction.Leave
+fun backAction(imeVisible: Boolean): BackAction = if (imeVisible) BackAction.HideKeyboard else BackAction.Leave
 
 /**
  * A back press that closes the keyboard before it leaves the screen.

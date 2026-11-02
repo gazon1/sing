@@ -8,20 +8,18 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
-import kotlinx.collections.immutable.persistentSetOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.singularity.todo.core.ui.components.BlockedBulkCompletionDialog
 import com.singularity.todo.core.ui.components.BlockedCompletionDialog
 import com.singularity.todo.core.ui.components.CollectEvents
-import com.singularity.todo.core.ui.components.sheet.MultiDatePickerSheet
 import com.singularity.todo.core.ui.components.TaggedSnackbarHost
+import com.singularity.todo.core.ui.components.sheet.MultiDatePickerSheet
 import com.singularity.todo.core.ui.onboarding.SpotlightContent
 import com.singularity.todo.core.ui.onboarding.SpotlightOverlay
 import com.singularity.todo.core.ui.onboarding.rememberSpotlightTour
@@ -29,17 +27,19 @@ import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.AgendaIntent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiEvent
 import com.singularity.todo.feature.agenda.domain.model.AgendaUiState
-import com.singularity.todo.feature.agenda.presentation.viewmodel.PendingDelete
 import com.singularity.todo.feature.agenda.presentation.nav.AgendaNavigator
 import com.singularity.todo.feature.agenda.presentation.nav.LocalAgendaNavigator
 import com.singularity.todo.feature.agenda.presentation.viewmodel.AgendaViewModel
+import com.singularity.todo.feature.agenda.presentation.viewmodel.PendingDelete
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaSeedStore
 import com.singularity.todo.feature.tasks.domain.logic.TaskSeriesPlanner
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
-import androidx.compose.runtime.getValue
 
 /**
  * Root composable for the Agenda screen.
@@ -71,9 +71,10 @@ fun AgendaScreen(
         ->
     },
 ) {
-    val vm: AgendaViewModel = koinViewModel {
-        parametersOf(definition)
-    }
+    val vm: AgendaViewModel =
+        koinViewModel {
+            parametersOf(definition)
+        }
     val state by vm.stateFlow.collectAsStateWithLifecycle()
     val pendingDelete by vm.pendingDelete.collectAsStateWithLifecycle()
     val countdownProgress by vm.countdownProgress.collectAsStateWithLifecycle()
@@ -175,7 +176,10 @@ fun AgendaScreen(
  * budget.
  */
 @Composable
-private fun BlockedBulkCloseDialog(state: AgendaUiState, vm: AgendaViewModel) {
+private fun BlockedBulkCloseDialog(
+    state: AgendaUiState,
+    vm: AgendaViewModel,
+) {
     val request = (state as? AgendaUiState.Loaded)?.pendingBlockedBulkClose ?: return
     BlockedBulkCompletionDialog(
         blockedTaskTitles = request.blockedTaskTitles,
@@ -199,15 +203,23 @@ private fun handleAgendaEvent(
     scope: CoroutineScope,
 ) {
     when (event) {
-        is AgendaUiEvent.NavigateToTask -> navigator.openTask(event.taskId)
+        is AgendaUiEvent.NavigateToTask -> {
+            navigator.openTask(event.taskId)
+        }
 
-        is AgendaUiEvent.ShowTaskContextMenu -> navigator.showTaskContextMenu(event.taskId)
+        is AgendaUiEvent.ShowTaskContextMenu -> {
+            navigator.showTaskContextMenu(event.taskId)
+        }
 
         is AgendaUiEvent.ExpandTask -> { /* expand handled by AgendaContent via routing state */ }
 
-        is AgendaUiEvent.CreateInSection -> navigator.openCreateInSection(event.sectionId)
+        is AgendaUiEvent.CreateInSection -> {
+            navigator.openCreateInSection(event.sectionId)
+        }
 
-        is AgendaUiEvent.OpenCreateWithDates -> navigator.openCreateWithDates(event.draftKey)
+        is AgendaUiEvent.OpenCreateWithDates -> {
+            navigator.openCreateWithDates(event.draftKey)
+        }
 
         is AgendaUiEvent.ShowError -> {
             scope.launch {
@@ -216,11 +228,12 @@ private fun handleAgendaEvent(
         }
 
         is AgendaUiEvent.BulkOperationDone -> {
-            val message = if (event.error != null) {
-                "Failed to ${event.operation}: ${event.error}"
-            } else {
-                "${event.count} task${if (event.count != 1) "s" else ""} ${event.operation}"
-            }
+            val message =
+                if (event.error != null) {
+                    "Failed to ${event.operation}: ${event.error}"
+                } else {
+                    "${event.count} task${if (event.count != 1) "s" else ""} ${event.operation}"
+                }
             scope.launch {
                 snackbarHostState.showSnackbar(message = message, duration = SnackbarDuration.Short)
             }
@@ -257,7 +270,10 @@ private fun MultiDateTaskPicker(
  * have pushed the screen over.
  */
 @Composable
-private fun BlockedCloseDialog(state: AgendaUiState, vm: AgendaViewModel) {
+private fun BlockedCloseDialog(
+    state: AgendaUiState,
+    vm: AgendaViewModel,
+) {
     val request = (state as? AgendaUiState.Loaded)?.pendingBlockedClose ?: return
     BlockedCompletionDialog(
         taskTitle = request.taskTitle,
@@ -297,11 +313,12 @@ private fun UndoSnackbar(
             snackbarHostState.currentSnackbarData?.dismiss()
             return@LaunchedEffect
         }
-        val result = snackbarHostState.showSnackbar(
-            message = "\"${pending.label}\" deleted",
-            actionLabel = "Undo",
-            duration = SnackbarDuration.Indefinite,
-        )
+        val result =
+            snackbarHostState.showSnackbar(
+                message = "\"${pending.label}\" deleted",
+                actionLabel = "Undo",
+                duration = SnackbarDuration.Indefinite,
+            )
         if (result == SnackbarResult.ActionPerformed) onUndo()
     }
 }

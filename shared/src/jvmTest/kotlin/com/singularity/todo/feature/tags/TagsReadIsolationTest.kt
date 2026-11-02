@@ -13,6 +13,7 @@ import com.singularity.todo.feature.tags.data.TagsRepositoryImpl
 import com.singularity.todo.test.fakes.FakeAppDatabase
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
+import com.singularity.todo.test.fakes.FakeUnitOfWork
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
@@ -20,7 +21,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.time.Clock
-import com.singularity.todo.test.fakes.FakeUnitOfWork
 
 /**
  * Read-isolation for tag observation.
@@ -33,32 +33,38 @@ import com.singularity.todo.test.fakes.FakeUnitOfWork
  */
 @Tag("fast")
 class TagsReadIsolationTest {
-
     private val currentUserId = UserId("u1")
     private val otherUserId = UserId("u2")
 
-    private suspend fun setup() = FakeAppDatabase().also { db ->
-        db.tagDao().upsert(tag("t-mine", currentUserId, deletedAt = null))
-        db.tagDao().upsert(tag("t-theirs", otherUserId, deletedAt = null))
-        db.tagDao().upsert(tag("t-deleted", currentUserId, deletedAt = 1_000L))
-    }
+    private suspend fun setup() =
+        FakeAppDatabase().also { db ->
+            db.tagDao().upsert(tag("t-mine", currentUserId, deletedAt = null))
+            db.tagDao().upsert(tag("t-theirs", otherUserId, deletedAt = null))
+            db.tagDao().upsert(tag("t-deleted", currentUserId, deletedAt = 1_000L))
+        }
 
-    private fun tag(id: String, userId: UserId, deletedAt: Long?): TagEntity = TagEntity(
-        id = id,
-        userId = userId.value,
-        name = id,
-        nameNormalized = id.trim().lowercase(),
-        color = 0,
-        sortOrder = 0,
-        createdAt = 1_000_000_000L,
-        updatedAt = 1_000_000_000L,
-        deletedAt = deletedAt,
-    )
+    private fun tag(
+        id: String,
+        userId: UserId,
+        deletedAt: Long?,
+    ): TagEntity =
+        TagEntity(
+            id = id,
+            userId = userId.value,
+            name = id,
+            nameNormalized = id.trim().lowercase(),
+            color = 0,
+            sortOrder = 0,
+            createdAt = 1_000_000_000L,
+            updatedAt = 1_000_000_000L,
+            deletedAt = deletedAt,
+        )
 
     private fun repository(db: FakeAppDatabase): TagsRepository {
-        val currentUser = FakeProfileAwareCurrentUser(
-            authRepository = FakeAuthRepository(Session.Anonymous(currentUserId)),
-        )
+        val currentUser =
+            FakeProfileAwareCurrentUser(
+                authRepository = FakeAuthRepository(Session.Anonymous(currentUserId)),
+            )
         return TagsRepositoryImpl(
             tagDao = db.tagDao(),
             clock = Clock.System,
@@ -69,23 +75,26 @@ class TagsReadIsolationTest {
     }
 
     @Test
-    fun observeTag_returnsOwnTag() = runTest {
-        val db = setup()
-        val observed = repository(db).observeTag(TagId.fromString("t-mine")).first()
-        assertEquals(TagId.fromString("t-mine"), observed?.id)
-    }
+    fun observeTag_returnsOwnTag() =
+        runTest {
+            val db = setup()
+            val observed = repository(db).observeTag(TagId.fromString("t-mine")).first()
+            assertEquals(TagId.fromString("t-mine"), observed?.id)
+        }
 
     @Test
-    fun observeTag_doesNotLeakAnotherUsersTag() = runTest {
-        val db = setup()
-        val observed = repository(db).observeTag(TagId.fromString("t-theirs")).first()
-        assertNull(observed, "a tag owned by another profile must not be observable")
-    }
+    fun observeTag_doesNotLeakAnotherUsersTag() =
+        runTest {
+            val db = setup()
+            val observed = repository(db).observeTag(TagId.fromString("t-theirs")).first()
+            assertNull(observed, "a tag owned by another profile must not be observable")
+        }
 
     @Test
-    fun observeTag_doesNotLeakSoftDeletedTag() = runTest {
-        val db = setup()
-        val observed = repository(db).observeTag(TagId.fromString("t-deleted")).first()
-        assertNull(observed, "a soft-deleted tag must not be observable")
-    }
+    fun observeTag_doesNotLeakSoftDeletedTag() =
+        runTest {
+            val db = setup()
+            val observed = repository(db).observeTag(TagId.fromString("t-deleted")).first()
+            assertNull(observed, "a soft-deleted tag must not be observable")
+        }
 }

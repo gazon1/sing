@@ -13,19 +13,19 @@ import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.agenda.presentation.viewmodel.Draft
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaDeps
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaDraftState
+import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaEvent
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaIntent
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaScreenMode
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaSeedStore
-import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaEvent
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaViewModel
 import com.singularity.todo.feature.agenda.presentation.viewmodel.SavedAgendaViewState
 import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeSavedAgendaViewsRepository
 import com.singularity.todo.test.helpers.testVm
-import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Tag
 import kotlin.test.AfterTest
@@ -49,7 +49,6 @@ import kotlin.time.Instant
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
 class SavedAgendaViewModelTest {
-
     private val fakeRepo = FakeSavedAgendaViewsRepository()
     private val seedStore = SavedAgendaSeedStore()
 
@@ -61,17 +60,18 @@ class SavedAgendaViewModelTest {
     // Named factory parameter used because the global testVm has optional `afterInit`
     // after `factory`, which blocks trailing-lambda syntax without causing recursive
     // type inference in the local extension function's return type.
-    private fun TestScope.testVm(mode: SavedAgendaScreenMode) = testVm(
-        stateAccessor = { vm: SavedAgendaViewModel -> vm.stateFlow },
-        factory = { scope ->
-            SavedAgendaViewModel(
-                deps = SavedAgendaDeps(repo = fakeRepo, clock = FakeClock(SAVED_AGENDA_NOW), log = Logger),
-                mode = mode,
-                seedStore = seedStore,
-                scope = scope,
-            )
-        },
-    )
+    private fun TestScope.testVm(mode: SavedAgendaScreenMode) =
+        testVm(
+            stateAccessor = { vm: SavedAgendaViewModel -> vm.stateFlow },
+            factory = { scope ->
+                SavedAgendaViewModel(
+                    deps = SavedAgendaDeps(repo = fakeRepo, clock = FakeClock(SAVED_AGENDA_NOW), log = Logger),
+                    mode = mode,
+                    seedStore = seedStore,
+                    scope = scope,
+                )
+            },
+        )
 
     // Named factory for tests that need event-listening via afterInit.
     // Returns (TestVmContext, events list) so the test body can assert on events.
@@ -136,9 +136,10 @@ class SavedAgendaViewModelTest {
         draft.seed(Draft.seeded("Test", original))
         assertFalse(draft.state.isDirty)
 
-        val reordered = listOf(
-            Section(id = "a", name = "A", order = 1, selector = Selector.DateBucket(RelativeBucket.Today)),
-        )
+        val reordered =
+            listOf(
+                Section(id = "a", name = "A", order = 1, selector = Selector.DateBucket(RelativeBucket.Today)),
+            )
         draft.reorderSections(reordered)
         assertTrue(draft.state.isDirty)
         assertEquals(reordered, draft.state.sections)
@@ -147,112 +148,120 @@ class SavedAgendaViewModelTest {
     // ─── Edit mode ────────────────────────────────────────────────────────────────
 
     @Test
-    fun editModeLoadsViewAndSeedsDraft() = runTest {
-        val viewId = SavedAgendaViewId.generate()
-        fakeRepo.upsertSync(
-            SavedAgendaView(
-                id = viewId,
-                userId = UserId("test-user"),
-                name = "My View",
-                sectionsJson = """{"title":"My View","sections":[]}""",
-                createdAt = SAVED_AGENDA_NOW,
-                updatedAt = SAVED_AGENDA_NOW,
-            ),
-        )
+    fun editModeLoadsViewAndSeedsDraft() =
+        runTest {
+            val viewId = SavedAgendaViewId.generate()
+            fakeRepo.upsertSync(
+                SavedAgendaView(
+                    id = viewId,
+                    userId = UserId("test-user"),
+                    name = "My View",
+                    sectionsJson = """{"title":"My View","sections":[]}""",
+                    createdAt = SAVED_AGENDA_NOW,
+                    updatedAt = SAVED_AGENDA_NOW,
+                ),
+            )
 
-        val ctx = testVm(SavedAgendaScreenMode.Edit(viewId))
-        ctx.act { }
+            val ctx = testVm(SavedAgendaScreenMode.Edit(viewId))
+            ctx.act { }
 
-        val state = ctx.state.value
-        assertIs<SavedAgendaViewState.Editing>(state)
-        assertEquals("My View", state.draft.name.text)
-        assertEquals("My View", state.draft.originalName)
-        assertTrue(state.draft.initialized)
-        assertFalse(state.draft.isDirty)
-        assertNotNull(state.view)
-        assertFalse(state.decodeError)
-    }
-
-    @Test
-    fun editModeEmitsNotFoundWhenViewMissing() = runTest {
-        val viewId = SavedAgendaViewId.generate()
-        val ctx = testVm(SavedAgendaScreenMode.Edit(viewId))
-        ctx.act { }
-
-        assertIs<SavedAgendaViewState.NotFound>(ctx.state.value)
-    }
+            val state = ctx.state.value
+            assertIs<SavedAgendaViewState.Editing>(state)
+            assertEquals("My View", state.draft.name.text)
+            assertEquals("My View", state.draft.originalName)
+            assertTrue(state.draft.initialized)
+            assertFalse(state.draft.isDirty)
+            assertNotNull(state.view)
+            assertFalse(state.decodeError)
+        }
 
     @Test
-    fun nameChangedSetsIsDirty() = runTest {
-        val viewId = SavedAgendaViewId.generate()
-        fakeRepo.upsertSync(
-            SavedAgendaView(
-                id = viewId,
-                userId = UserId("test-user"),
-                name = "Original",
-                sectionsJson = """{"title":"Original","sections":[]}""",
-                createdAt = SAVED_AGENDA_NOW,
-                updatedAt = SAVED_AGENDA_NOW,
-            ),
-        )
+    fun editModeEmitsNotFoundWhenViewMissing() =
+        runTest {
+            val viewId = SavedAgendaViewId.generate()
+            val ctx = testVm(SavedAgendaScreenMode.Edit(viewId))
+            ctx.act { }
 
-        val ctx = testVm(SavedAgendaScreenMode.Edit(viewId))
-        ctx.act { onIntent(SavedAgendaIntent.NameChanged("Modified")) }
-
-        val state = ctx.state.value
-        assertIs<SavedAgendaViewState.Editing>(state)
-        assertEquals("Modified", state.draft.name.text)
-        assertEquals("Original", state.draft.originalName)
-        assertTrue(state.draft.isDirty)
-    }
+            assertIs<SavedAgendaViewState.NotFound>(ctx.state.value)
+        }
 
     @Test
-    fun sectionsReorderedSetsIsDirty() = runTest {
-        val viewId = SavedAgendaViewId.generate()
-        fakeRepo.upsertSync(
-            SavedAgendaView(
-                id = viewId,
-                userId = UserId("test-user"),
-                name = "Test",
-                sectionsJson = """{"title":"Test","sections":[{"name":"Today","order":0,"selector":{"type":"DateBucket","bucket":"Today"}}]}""",
-                createdAt = SAVED_AGENDA_NOW,
-                updatedAt = SAVED_AGENDA_NOW,
-            ),
-        )
+    fun nameChangedSetsIsDirty() =
+        runTest {
+            val viewId = SavedAgendaViewId.generate()
+            fakeRepo.upsertSync(
+                SavedAgendaView(
+                    id = viewId,
+                    userId = UserId("test-user"),
+                    name = "Original",
+                    sectionsJson = """{"title":"Original","sections":[]}""",
+                    createdAt = SAVED_AGENDA_NOW,
+                    updatedAt = SAVED_AGENDA_NOW,
+                ),
+            )
 
-        val ctx = testVm(SavedAgendaScreenMode.Edit(viewId))
-        val reordered = listOf(
-            Section("today", "Today", order = 1, selector = Selector.DateBucket(RelativeBucket.Today)),
-        )
-        ctx.act { onIntent(SavedAgendaIntent.SectionsReordered(reordered)) }
+            val ctx = testVm(SavedAgendaScreenMode.Edit(viewId))
+            ctx.act { onIntent(SavedAgendaIntent.NameChanged("Modified")) }
 
-        val state = ctx.state.value
-        assertIs<SavedAgendaViewState.Editing>(state)
-        assertTrue(state.draft.isDirty)
-    }
+            val state = ctx.state.value
+            assertIs<SavedAgendaViewState.Editing>(state)
+            assertEquals("Modified", state.draft.name.text)
+            assertEquals("Original", state.draft.originalName)
+            assertTrue(state.draft.isDirty)
+        }
 
     @Test
-    fun saveUpsertsViewWithUpdatedName() = runTest {
-        val viewId = SavedAgendaViewId.generate()
-        fakeRepo.upsertSync(
-            SavedAgendaView(
-                id = viewId,
-                userId = UserId("test-user"),
-                name = "Original",
-                sectionsJson = """{"title":"Original","sections":[]}""",
-                createdAt = SAVED_AGENDA_NOW,
-                updatedAt = SAVED_AGENDA_NOW,
-            ),
-        )
+    fun sectionsReorderedSetsIsDirty() =
+        runTest {
+            val viewId = SavedAgendaViewId.generate()
+            fakeRepo.upsertSync(
+                SavedAgendaView(
+                    id = viewId,
+                    userId = UserId("test-user"),
+                    name = "Test",
+                    sectionsJson =
+                        """{"title":"Test","sections":[{"name":"Today","order":0,"selector":""" +
+                            """{"type":"DateBucket","bucket":"Today"}}]}""",
+                    createdAt = SAVED_AGENDA_NOW,
+                    updatedAt = SAVED_AGENDA_NOW,
+                ),
+            )
 
-        val ctx = testVm(SavedAgendaScreenMode.Edit(viewId))
-        ctx.act { onIntent(SavedAgendaIntent.NameChanged("Modified")) }
-        ctx.act { onIntent(SavedAgendaIntent.Save) }
+            val ctx = testVm(SavedAgendaScreenMode.Edit(viewId))
+            val reordered =
+                listOf(
+                    Section("today", "Today", order = 1, selector = Selector.DateBucket(RelativeBucket.Today)),
+                )
+            ctx.act { onIntent(SavedAgendaIntent.SectionsReordered(reordered)) }
 
-        val saved = fakeRepo.getById(viewId.raw)
-        assertNotNull(saved)
-        assertEquals("Modified", saved.name)
-    }
+            val state = ctx.state.value
+            assertIs<SavedAgendaViewState.Editing>(state)
+            assertTrue(state.draft.isDirty)
+        }
+
+    @Test
+    fun saveUpsertsViewWithUpdatedName() =
+        runTest {
+            val viewId = SavedAgendaViewId.generate()
+            fakeRepo.upsertSync(
+                SavedAgendaView(
+                    id = viewId,
+                    userId = UserId("test-user"),
+                    name = "Original",
+                    sectionsJson = """{"title":"Original","sections":[]}""",
+                    createdAt = SAVED_AGENDA_NOW,
+                    updatedAt = SAVED_AGENDA_NOW,
+                ),
+            )
+
+            val ctx = testVm(SavedAgendaScreenMode.Edit(viewId))
+            ctx.act { onIntent(SavedAgendaIntent.NameChanged("Modified")) }
+            ctx.act { onIntent(SavedAgendaIntent.Save) }
+
+            val saved = fakeRepo.getById(viewId.raw)
+            assertNotNull(saved)
+            assertEquals("Modified", saved.name)
+        }
 
     /**
      * The double-save guard, pinned.
@@ -268,170 +277,180 @@ class SavedAgendaViewModelTest {
      * leaves the store identical. Hence the gate and the count.
      */
     @Test
-    fun anEditDuringAnInFlightSaveDoesNotReEnableTheSaveButton() = runTest {
-        val viewId = SavedAgendaViewId.generate()
-        fakeRepo.upsertSync(
-            SavedAgendaView(
-                id = viewId,
-                userId = UserId("test-user"),
-                name = "Original",
-                sectionsJson = """{"title":"Original","sections":[]}""",
-                createdAt = SAVED_AGENDA_NOW,
-                updatedAt = SAVED_AGENDA_NOW,
-            ),
-        )
+    fun anEditDuringAnInFlightSaveDoesNotReEnableTheSaveButton() =
+        runTest {
+            val viewId = SavedAgendaViewId.generate()
+            fakeRepo.upsertSync(
+                SavedAgendaView(
+                    id = viewId,
+                    userId = UserId("test-user"),
+                    name = "Original",
+                    sectionsJson = """{"title":"Original","sections":[]}""",
+                    createdAt = SAVED_AGENDA_NOW,
+                    updatedAt = SAVED_AGENDA_NOW,
+                ),
+            )
 
-        val writeStarted = CompletableDeferred<Unit>()
-        val releaseWrite = CompletableDeferred<Unit>()
-        fakeRepo.upsertGate = {
-            writeStarted.complete(Unit)
-            releaseWrite.await()
+            val writeStarted = CompletableDeferred<Unit>()
+            val releaseWrite = CompletableDeferred<Unit>()
+            fakeRepo.upsertGate = {
+                writeStarted.complete(Unit)
+                releaseWrite.await()
+            }
+
+            val ctx = testVm(SavedAgendaScreenMode.Edit(viewId))
+            ctx.act { onIntent(SavedAgendaIntent.NameChanged("Modified")) }
+
+            ctx.vm.onIntent(SavedAgendaIntent.Save)
+            writeStarted.await()
+
+            // The save is parked inside the repository. The user keeps typing —
+            // every draft intent republishes state through emitEditingState.
+            ctx.vm.onIntent(SavedAgendaIntent.NameChanged("Modified again"))
+
+            val inFlight = ctx.vm.stateFlow.value
+            assertIs<SavedAgendaViewState.Editing>(inFlight)
+            assertTrue(
+                inFlight.isSaving,
+                "a draft edit re-enabled Save while a write was in flight, so the next tap writes twice",
+            )
+            assertFalse(inFlight.canSave, "the save button must stay disabled while the write is in flight")
+
+            // And the second Save really is dropped by the VM, not merely by the
+            // button being disabled.
+            ctx.vm.onIntent(SavedAgendaIntent.Save)
+            releaseWrite.complete(Unit)
+            ctx.act { }
+
+            assertEquals(1, fakeRepo.upsertCount, "Save wrote more than once for one user action")
         }
 
-        val ctx = testVm(SavedAgendaScreenMode.Edit(viewId))
-        ctx.act { onIntent(SavedAgendaIntent.NameChanged("Modified")) }
+    @Test
+    fun deleteRemovesViewFromRepo() =
+        runTest {
+            val viewId = SavedAgendaViewId.generate()
+            fakeRepo.upsertSync(
+                SavedAgendaView(
+                    id = viewId,
+                    userId = UserId("test-user"),
+                    name = "To Delete",
+                    sectionsJson = """{"title":"To Delete","sections":[]}""",
+                    createdAt = SAVED_AGENDA_NOW,
+                    updatedAt = SAVED_AGENDA_NOW,
+                ),
+            )
 
-        ctx.vm.onIntent(SavedAgendaIntent.Save)
-        writeStarted.await()
+            val ctx = testVm(SavedAgendaScreenMode.Edit(viewId))
+            ctx.act { onIntent(SavedAgendaIntent.Delete) }
 
-        // The save is parked inside the repository. The user keeps typing —
-        // every draft intent republishes state through emitEditingState.
-        ctx.vm.onIntent(SavedAgendaIntent.NameChanged("Modified again"))
-
-        val inFlight = ctx.vm.stateFlow.value
-        assertIs<SavedAgendaViewState.Editing>(inFlight)
-        assertTrue(
-            inFlight.isSaving,
-            "a draft edit re-enabled Save while a write was in flight, so the next tap writes twice",
-        )
-        assertFalse(inFlight.canSave, "the save button must stay disabled while the write is in flight")
-
-        // And the second Save really is dropped by the VM, not merely by the
-        // button being disabled.
-        ctx.vm.onIntent(SavedAgendaIntent.Save)
-        releaseWrite.complete(Unit)
-        ctx.act { }
-
-        assertEquals(1, fakeRepo.upsertCount, "Save wrote more than once for one user action")
-    }
+            val saved = fakeRepo.getById(viewId.raw)
+            assertNull(saved)
+        }
 
     @Test
-    fun deleteRemovesViewFromRepo() = runTest {
-        val viewId = SavedAgendaViewId.generate()
-        fakeRepo.upsertSync(
-            SavedAgendaView(
-                id = viewId,
-                userId = UserId("test-user"),
-                name = "To Delete",
-                sectionsJson = """{"title":"To Delete","sections":[]}""",
-                createdAt = SAVED_AGENDA_NOW,
-                updatedAt = SAVED_AGENDA_NOW,
-            ),
-        )
+    fun deleteEmitsDeleteSuccessSoScreenCanPop() =
+        runTest {
+            val viewId = SavedAgendaViewId.generate()
+            fakeRepo.upsertSync(
+                SavedAgendaView(
+                    id = viewId,
+                    userId = UserId("test-user"),
+                    name = "To Delete",
+                    sectionsJson = """{"title":"To Delete","sections":[]}""",
+                    createdAt = SAVED_AGENDA_NOW,
+                    updatedAt = SAVED_AGENDA_NOW,
+                ),
+            )
 
-        val ctx = testVm(SavedAgendaScreenMode.Edit(viewId))
-        ctx.act { onIntent(SavedAgendaIntent.Delete) }
+            val events = mutableListOf<SavedAgendaEvent>()
+            val ctx = testVmWithEvents(SavedAgendaScreenMode.Edit(viewId), events)
 
-        val saved = fakeRepo.getById(viewId.raw)
-        assertNull(saved)
-    }
+            ctx.act { onIntent(SavedAgendaIntent.Delete) }
 
-    @Test
-    fun deleteEmitsDeleteSuccessSoScreenCanPop() = runTest {
-        val viewId = SavedAgendaViewId.generate()
-        fakeRepo.upsertSync(
-            SavedAgendaView(
-                id = viewId,
-                userId = UserId("test-user"),
-                name = "To Delete",
-                sectionsJson = """{"title":"To Delete","sections":[]}""",
-                createdAt = SAVED_AGENDA_NOW,
-                updatedAt = SAVED_AGENDA_NOW,
-            ),
-        )
-
-        val events = mutableListOf<SavedAgendaEvent>()
-        val ctx = testVmWithEvents(SavedAgendaScreenMode.Edit(viewId), events)
-
-        ctx.act { onIntent(SavedAgendaIntent.Delete) }
-
-        assertTrue(
-            events.any { it is SavedAgendaEvent.DeleteSuccess },
-            "DeleteSuccess must be emitted so the screen can pop back to the list",
-        )
-    }
+            assertTrue(
+                events.any { it is SavedAgendaEvent.DeleteSuccess },
+                "DeleteSuccess must be emitted so the screen can pop back to the list",
+            )
+        }
 
     // ─── Create mode ─────────────────────────────────────────────────────────────
 
     @Test
-    fun createModeSeedsDraftFromSeed() = runTest {
-        val seed = AgendaDefinition(
-            title = "Fresh View",
-            sections = listOf(
-                Section("today", "Today", order = 0, selector = Selector.DateBucket(RelativeBucket.Today)),
-            ),
-        )
+    fun createModeSeedsDraftFromSeed() =
+        runTest {
+            val seed =
+                AgendaDefinition(
+                    title = "Fresh View",
+                    sections =
+                        listOf(
+                            Section("today", "Today", order = 0, selector = Selector.DateBucket(RelativeBucket.Today)),
+                        ),
+                )
 
-        val ctx = testVm(SavedAgendaScreenMode.Create(seed))
-        ctx.act { }
+            val ctx = testVm(SavedAgendaScreenMode.Create(seed))
+            ctx.act { }
 
-        val state = ctx.state.value
-        assertIs<SavedAgendaViewState.Editing>(state)
-        assertNull(state.view)
-        assertEquals("Fresh View", state.draft.name.text)
-        assertEquals("Fresh View", state.draft.originalName)
-        assertTrue(state.draft.initialized)
-        assertFalse(state.draft.isDirty)
-        assertEquals(1, state.draft.sections.size)
-    }
-
-    @Test
-    fun createModeNameChangedSetsIsDirty() = runTest {
-        val seed = AgendaDefinition(title = "Seed", sections = emptyList())
-        val ctx = testVm(SavedAgendaScreenMode.Create(seed))
-        ctx.act { onIntent(SavedAgendaIntent.NameChanged("Custom Name")) }
-
-        val state = ctx.state.value
-        assertIs<SavedAgendaViewState.Editing>(state)
-        assertEquals("Custom Name", state.draft.name.text)
-        assertTrue(state.draft.isDirty)
-    }
+            val state = ctx.state.value
+            assertIs<SavedAgendaViewState.Editing>(state)
+            assertNull(state.view)
+            assertEquals("Fresh View", state.draft.name.text)
+            assertEquals("Fresh View", state.draft.originalName)
+            assertTrue(state.draft.initialized)
+            assertFalse(state.draft.isDirty)
+            assertEquals(1, state.draft.sections.size)
+        }
 
     @Test
-    fun createModeSaveCreatesNewView() = runTest {
-        val seed = AgendaDefinition(title = "Brand New", sections = emptyList())
-        val ctx = testVm(SavedAgendaScreenMode.Create(seed))
-        ctx.act { onIntent(SavedAgendaIntent.NameChanged("Brand New Custom")) }
-        ctx.act { onIntent(SavedAgendaIntent.Save) }
+    fun createModeNameChangedSetsIsDirty() =
+        runTest {
+            val seed = AgendaDefinition(title = "Seed", sections = emptyList())
+            val ctx = testVm(SavedAgendaScreenMode.Create(seed))
+            ctx.act { onIntent(SavedAgendaIntent.NameChanged("Custom Name")) }
 
-        val allViews = fakeRepo.getAll()
-        assertTrue(allViews.isNotEmpty(), "Expected at least one view, got ${allViews.size}")
-        assertEquals("Brand New Custom", allViews.first().name)
-    }
+            val state = ctx.state.value
+            assertIs<SavedAgendaViewState.Editing>(state)
+            assertEquals("Custom Name", state.draft.name.text)
+            assertTrue(state.draft.isDirty)
+        }
 
     @Test
-    fun createModeDeleteIsNoOp() = runTest {
-        val seed = AgendaDefinition(title = "To Delete", sections = emptyList())
-        val ctx = testVm(SavedAgendaScreenMode.Create(seed))
-        ctx.act { onIntent(SavedAgendaIntent.Delete) }
+    fun createModeSaveCreatesNewView() =
+        runTest {
+            val seed = AgendaDefinition(title = "Brand New", sections = emptyList())
+            val ctx = testVm(SavedAgendaScreenMode.Create(seed))
+            ctx.act { onIntent(SavedAgendaIntent.NameChanged("Brand New Custom")) }
+            ctx.act { onIntent(SavedAgendaIntent.Save) }
 
-        val allViews = fakeRepo.getAll()
-        assertTrue(allViews.isEmpty())
-    }
+            val allViews = fakeRepo.getAll()
+            assertTrue(allViews.isNotEmpty(), "Expected at least one view, got ${allViews.size}")
+            assertEquals("Brand New Custom", allViews.first().name)
+        }
+
+    @Test
+    fun createModeDeleteIsNoOp() =
+        runTest {
+            val seed = AgendaDefinition(title = "To Delete", sections = emptyList())
+            val ctx = testVm(SavedAgendaScreenMode.Create(seed))
+            ctx.act { onIntent(SavedAgendaIntent.Delete) }
+
+            val allViews = fakeRepo.getAll()
+            assertTrue(allViews.isEmpty())
+        }
 
     // ─── canSave derivation ──────────────────────────────────────────────────────
 
     @Test
-    fun canSaveIsFalseWhenNotDirty() = runTest {
-        val seed = AgendaDefinition(title = "Test", sections = emptyList())
-        val ctx = testVm(SavedAgendaScreenMode.Create(seed))
-        ctx.act { }
+    fun canSaveIsFalseWhenNotDirty() =
+        runTest {
+            val seed = AgendaDefinition(title = "Test", sections = emptyList())
+            val ctx = testVm(SavedAgendaScreenMode.Create(seed))
+            ctx.act { }
 
-        val state = ctx.state.value
-        assertIs<SavedAgendaViewState.Editing>(state)
-        // After seeding: initialized=true, name=Test, isDirty=false → canSave=false
-        assertFalse(state.canSave, "canSave should be false when not dirty")
-    }
+            val state = ctx.state.value
+            assertIs<SavedAgendaViewState.Editing>(state)
+            // After seeding: initialized=true, name=Test, isDirty=false → canSave=false
+            assertFalse(state.canSave, "canSave should be false when not dirty")
+        }
 
     // ─── markSaved ───────────────────────────────────────────────────────────
 
@@ -472,12 +491,13 @@ class SavedAgendaViewModelTest {
     @Test
     fun factoryCreateGeneratesNewId() {
         val now = Instant.fromEpochMilliseconds(1_000_000)
-        val view = SavedAgendaViewFactory.create(
-            UserId("user-1"),
-            "My View",
-            """{"title":"My View","sections":[]}""",
-            now,
-        )
+        val view =
+            SavedAgendaViewFactory.create(
+                UserId("user-1"),
+                "My View",
+                """{"title":"My View","sections":[]}""",
+                now,
+            )
 
         assertEquals(UserId("user-1"), view.userId)
         assertEquals("My View", view.name)
@@ -491,18 +511,25 @@ class SavedAgendaViewModelTest {
     @Test
     fun factoryUpdatePreservesIdAndUserIdAndCreatedAt() {
         val now = Instant.fromEpochMilliseconds(1_000_000)
-        val original = SavedAgendaView(
-            id = com.singularity.todo.feature.agenda.SavedAgendaViewId("original-id"),
-            userId = UserId("user-1"),
-            name = "Original",
-            sectionsJson = """{"title":"Original","sections":[]}""",
-            createdAt = Instant.fromEpochMilliseconds(500_000),
-            updatedAt = Instant.fromEpochMilliseconds(800_000),
-        )
+        val original =
+            SavedAgendaView(
+                id =
+                    com.singularity.todo.feature.agenda
+                        .SavedAgendaViewId("original-id"),
+                userId = UserId("user-1"),
+                name = "Original",
+                sectionsJson = """{"title":"Original","sections":[]}""",
+                createdAt = Instant.fromEpochMilliseconds(500_000),
+                updatedAt = Instant.fromEpochMilliseconds(800_000),
+            )
 
         val updated = SavedAgendaViewFactory.update(original, "Updated", """{"title":"Updated","sections":[]}""", now)
 
-        assertEquals(com.singularity.todo.feature.agenda.SavedAgendaViewId("original-id"), updated.id)
+        assertEquals(
+            com.singularity.todo.feature.agenda
+                .SavedAgendaViewId("original-id"),
+            updated.id,
+        )
         assertEquals(UserId("user-1"), updated.userId)
         assertEquals(Instant.fromEpochMilliseconds(500_000), updated.createdAt)
         assertEquals(now, updated.updatedAt)
@@ -512,14 +539,17 @@ class SavedAgendaViewModelTest {
     @Test
     fun factoryDuplicateForProfileRegeneratesIdAndChangesUserId() {
         val now = Instant.fromEpochMilliseconds(1_000_000)
-        val original = SavedAgendaView(
-            id = com.singularity.todo.feature.agenda.SavedAgendaViewId("original-id"),
-            userId = UserId("user-1"),
-            name = "Shared View",
-            sectionsJson = """{"title":"Shared View","sections":[]}""",
-            createdAt = Instant.fromEpochMilliseconds(500_000),
-            updatedAt = Instant.fromEpochMilliseconds(800_000),
-        )
+        val original =
+            SavedAgendaView(
+                id =
+                    com.singularity.todo.feature.agenda
+                        .SavedAgendaViewId("original-id"),
+                userId = UserId("user-1"),
+                name = "Shared View",
+                sectionsJson = """{"title":"Shared View","sections":[]}""",
+                createdAt = Instant.fromEpochMilliseconds(500_000),
+                updatedAt = Instant.fromEpochMilliseconds(800_000),
+            )
 
         val copy = SavedAgendaViewFactory.duplicateForProfile(original, UserId("user-2"), now)
 

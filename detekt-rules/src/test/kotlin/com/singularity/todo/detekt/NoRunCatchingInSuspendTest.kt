@@ -9,19 +9,19 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class NoRunCatchingInSuspendTest {
-
     private val rule = NoRunCatchingInSuspend(TestConfig())
     private val languageSettings = FakeLanguageVersionSettings(ExplicitApiMode.STRICT)
 
     @Test
     fun `runCatching in suspend function is flagged`() {
-        val code = """
+        val code =
+            """
             package com.example
             import kotlin.runCatching
             suspend fun doWork() {
                 runCatching { riskyCall() }
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         val findings = rule.visitFile(ktFile, languageSettings)
         assertEquals(1, findings.size)
@@ -30,13 +30,14 @@ class NoRunCatchingInSuspendTest {
 
     @Test
     fun `runCatching in non-suspend is not flagged`() {
-        val code = """
+        val code =
+            """
             package com.example
             import kotlin.runCatching
             fun doWork() {
                 runCatching { riskyCall() }
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         val findings = rule.visitFile(ktFile, languageSettings)
         assertEquals(0, findings.size, "Non-suspend functions are not checked")
@@ -44,13 +45,14 @@ class NoRunCatchingInSuspendTest {
 
     @Test
     fun `runCatchingCancellable in suspend is not flagged`() {
-        val code = """
+        val code =
+            """
             package com.example
             import kotlin.coroutines.CancellationException
             suspend fun doWork() {
                 runCatchingCancellable { riskyCall() }
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         val findings = rule.visitFile(ktFile, languageSettings)
         assertEquals(0, findings.size, "runCatchingCancellable is safe")
@@ -61,7 +63,8 @@ class NoRunCatchingInSuspendTest {
         // The shape that got through. The activation note in detekt.yml says the tree reported
         // zero violations after the migration; it reported zero because the walk stopped at
         // named functions, and `SyncPrefs` carries exactly this.
-        val code = """
+        val code =
+            """
             package com.example
             import kotlin.runCatching
             fun start(scope: CoroutineScope) {
@@ -69,7 +72,7 @@ class NoRunCatchingInSuspendTest {
                     runCatching { riskyCall() }
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         val findings = rule.visitFile(ktFile, languageSettings)
         assertEquals(1, findings.size)
@@ -78,13 +81,14 @@ class NoRunCatchingInSuspendTest {
 
     @Test
     fun `runCatching in an async lambda is flagged`() {
-        val code = """
+        val code =
+            """
             package com.example
             import kotlin.runCatching
             fun start(scope: CoroutineScope) = scope.async {
                 runCatching { riskyCall() }
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         assertEquals(1, rule.visitFile(ktFile, languageSettings).size)
     }
@@ -93,7 +97,8 @@ class NoRunCatchingInSuspendTest {
     fun `runCatching in a non-suspending lambda is not flagged`() {
         // The polarity of the allowlist. `forEach` takes an ordinary lambda, so this one is
         // genuinely not on a coroutine and flagging it would be a false positive.
-        val code = """
+        val code =
+            """
             package com.example
             import kotlin.runCatching
             fun run(items: List<Int>) {
@@ -101,7 +106,7 @@ class NoRunCatchingInSuspendTest {
                     runCatching { it.toString() }
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         assertEquals(
             0,
@@ -114,7 +119,8 @@ class NoRunCatchingInSuspendTest {
     fun `runCatching below a non-suspend function inside a launch lambda is not flagged`() {
         // The walk stops at the first boundary in either direction. A plain function nested
         // inside a suspend lambda is a new frame and must not inherit from its caller.
-        val code = """
+        val code =
+            """
             package com.example
             import kotlin.runCatching
             fun start(scope: CoroutineScope) {
@@ -125,21 +131,22 @@ class NoRunCatchingInSuspendTest {
             fun helper() {
                 runCatching { riskyCall() }
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         assertEquals(0, rule.visitFile(ktFile, languageSettings).size)
     }
 
     @Test
     fun `runCatchingCancellable in a launch lambda is not flagged`() {
-        val code = """
+        val code =
+            """
             package com.example
             fun start(scope: CoroutineScope) {
                 scope.launch {
                     runCatchingCancellable { riskyCall() }
                 }
             }
-        """.trimIndent()
+            """.trimIndent()
         val ktFile = compileContentForTest(code, "com.example")
         assertEquals(0, rule.visitFile(ktFile, languageSettings).size)
     }

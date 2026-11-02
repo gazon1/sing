@@ -7,7 +7,6 @@ import kotlin.test.assertTrue
 
 @Tag("fast")
 class HlcTest {
-
     @Test
     fun `tick creates increasing timestamps`() {
         val node = "node1"

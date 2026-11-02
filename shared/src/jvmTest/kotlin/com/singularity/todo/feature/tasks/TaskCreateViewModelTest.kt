@@ -3,8 +3,6 @@
 
 package com.singularity.todo.feature.tasks
 
-import com.singularity.todo.test.fakes.FakeClock
-import com.singularity.todo.test.fakes.TEST_TZ
 import co.touchlab.kermit.Logger
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.draft.FakeDraftStore
@@ -13,6 +11,7 @@ import com.singularity.todo.core.text.FieldOwnedText
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.usecase.CreateTaskFromDraftUseCase
+import com.singularity.todo.feature.tasks.domain.usecase.MaterializeRecurringSeriesUseCase
 import com.singularity.todo.feature.tasks.presentation.state.TaskCreateIntent
 import com.singularity.todo.feature.tasks.presentation.state.TaskDraft
 import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateDeps
@@ -20,10 +19,11 @@ import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateViewM
 import com.singularity.todo.test.fakes.FakeAttachmentRepository
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeChecklistRepository
+import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
-import com.singularity.todo.feature.tasks.domain.usecase.MaterializeRecurringSeriesUseCase
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.FakeUnitOfWork
+import com.singularity.todo.test.fakes.TEST_TZ
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
@@ -35,8 +35,8 @@ import kotlinx.datetime.Month
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Instant
@@ -55,7 +55,6 @@ import kotlin.time.Instant
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
 class TaskCreateViewModelTest {
-
     /**
      * A fixed instant, so a draft that resolves `DueDateOption.Today` gets a date
      * this file can state. The use case was handed `Clock.System` before #91, so
@@ -67,29 +66,34 @@ class TaskCreateViewModelTest {
     private val testUserId = UserId("test-user")
     private val fakeTaskRepo = FakeTaskRepository()
     private val fakeDraftStore = FakeDraftStore()
-    private val fakeCurrentUser = FakeProfileAwareCurrentUser(
-        FakeAuthRepository(
-            initialSession = com.singularity.todo.core.auth.Session.Anonymous(testUserId),
-        ),
-    )
+    private val fakeCurrentUser =
+        FakeProfileAwareCurrentUser(
+            FakeAuthRepository(
+                initialSession =
+                    com.singularity.todo.core.auth.Session
+                        .Anonymous(testUserId),
+            ),
+        )
     private val fakeChecklistRepository = FakeChecklistRepository()
     private val fakeAttachmentRepository = FakeAttachmentRepository()
 
     private fun createVm(scope: CoroutineScope): TaskCreateViewModel {
-        val deps = TaskCreateDeps(
-            createFromDraft = CreateTaskFromDraftUseCase(
-                fakeTaskRepo,
-                FakeClock(taskNow),
-                TEST_TZ,
-                fakeCurrentUser,
-                fakeChecklistRepository,
-                fakeAttachmentRepository,
-                FakeUnitOfWork(),
-                MaterializeRecurringSeriesUseCase(fakeTaskRepo, FakeUnitOfWork(), FakeClock(taskNow)),
-            ),
-            logger = Logger.withTag("TaskCreateTest"),
-            draftStore = fakeDraftStore,
-        )
+        val deps =
+            TaskCreateDeps(
+                createFromDraft =
+                    CreateTaskFromDraftUseCase(
+                        fakeTaskRepo,
+                        FakeClock(taskNow),
+                        TEST_TZ,
+                        fakeCurrentUser,
+                        fakeChecklistRepository,
+                        fakeAttachmentRepository,
+                        FakeUnitOfWork(),
+                        MaterializeRecurringSeriesUseCase(fakeTaskRepo, FakeUnitOfWork(), FakeClock(taskNow)),
+                    ),
+                logger = Logger.withTag("TaskCreateTest"),
+                draftStore = fakeDraftStore,
+            )
         return TaskCreateViewModel(
             deps = deps,
             initialDueDate = null,
@@ -104,141 +108,178 @@ class TaskCreateViewModelTest {
     // ─── Draft restore (seed-if-empty) ────────────────────────────────────────
 
     @Test
-    fun `draft restored from store on init subsequent save uses restored title`() = runTest {
-        // Pre-seed a draft
-        fakeDraftStore.save(
-            draftKey,
-            TaskDraft(title = FieldOwnedText.empty().seeded("Restored task")),
-            TaskDraft.serializer(),
-        )
-        val vm = createVm(backgroundScope)
-        advanceTimeBy(1_000)
-        runCurrent()
-        // Draft was restored (seed-if-empty pattern: restore only if current is initial).
-        // Verify by saving without typing — should create task with restored title.
-        vm.onIntent(TaskCreateIntent.SaveClicked)
-        advanceTimeBy(1_000)
-        runCurrent()
-        assertEquals(1, fakeTaskRepo.tasks.value.size)
-        assertEquals("Restored task", fakeTaskRepo.tasks.value.values.first().title)
-    }
+    fun `draft restored from store on init subsequent save uses restored title`() =
+        runTest {
+            // Pre-seed a draft
+            fakeDraftStore.save(
+                draftKey,
+                TaskDraft(title = FieldOwnedText.empty().seeded("Restored task")),
+                TaskDraft.serializer(),
+            )
+            val vm = createVm(backgroundScope)
+            advanceTimeBy(1_000)
+            runCurrent()
+            // Draft was restored (seed-if-empty pattern: restore only if current is initial).
+            // Verify by saving without typing — should create task with restored title.
+            vm.onIntent(TaskCreateIntent.SaveClicked)
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertEquals(1, fakeTaskRepo.tasks.value.size)
+            assertEquals(
+                "Restored task",
+                fakeTaskRepo.tasks.value.values
+                    .first()
+                    .title,
+            )
+        }
 
     // ─── SaveClicked — blank title ───────────────────────────────────────────
 
     @Test
-    fun `SaveClicked with blank title does not create task`() = runTest {
-        val vm = createVm(backgroundScope)
-        advanceTimeBy(1_000)
-        runCurrent()
-        assertEquals(0, fakeTaskRepo.tasks.value.size)
-        vm.onIntent(TaskCreateIntent.SaveClicked)
-        advanceTimeBy(1_000)
-        runCurrent()
-        assertEquals(0, fakeTaskRepo.tasks.value.size)
-    }
+    fun `SaveClicked with blank title does not create task`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertEquals(0, fakeTaskRepo.tasks.value.size)
+            vm.onIntent(TaskCreateIntent.SaveClicked)
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertEquals(0, fakeTaskRepo.tasks.value.size)
+        }
 
     // ─── SaveClicked — valid title ───────────────────────────────────────────
 
     @Test
-    fun `SaveClicked with valid title creates task in repository`() = runTest {
-        val vm = createVm(backgroundScope)
-        advanceTimeBy(1_000)
-        runCurrent()
-        vm.onIntent(TaskCreateIntent.TitleChanged("New task"))
-        advanceTimeBy(1_000)
-        runCurrent()
-        vm.onIntent(TaskCreateIntent.SaveClicked)
-        // Wait for save coroutine to complete
-        advanceTimeBy(1_000)
-        runCurrent()
-        assertEquals(1, fakeTaskRepo.tasks.value.size)
-        assertEquals("New task", fakeTaskRepo.tasks.value.values.first().title)
-    }
+    fun `SaveClicked with valid title creates task in repository`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.TitleChanged("New task"))
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.SaveClicked)
+            // Wait for save coroutine to complete
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertEquals(1, fakeTaskRepo.tasks.value.size)
+            assertEquals(
+                "New task",
+                fakeTaskRepo.tasks.value.values
+                    .first()
+                    .title,
+            )
+        }
 
     @Test
-    fun `SaveClicked with description creates task with description`() = runTest {
-        val vm = createVm(backgroundScope)
-        advanceTimeBy(1_000)
-        runCurrent()
-        vm.onIntent(TaskCreateIntent.TitleChanged("Task with desc"))
-        vm.onIntent(TaskCreateIntent.DescriptionChanged("Some description"))
-        advanceTimeBy(1_000)
-        runCurrent()
-        vm.onIntent(TaskCreateIntent.SaveClicked)
-        advanceTimeBy(1_000)
-        runCurrent()
-        assertEquals(1, fakeTaskRepo.tasks.value.size)
-        assertEquals("Some description", fakeTaskRepo.tasks.value.values.first().description)
-    }
+    fun `SaveClicked with description creates task with description`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.TitleChanged("Task with desc"))
+            vm.onIntent(TaskCreateIntent.DescriptionChanged("Some description"))
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.SaveClicked)
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertEquals(1, fakeTaskRepo.tasks.value.size)
+            assertEquals(
+                "Some description",
+                fakeTaskRepo.tasks.value.values
+                    .first()
+                    .description,
+            )
+        }
 
     @Test
-    fun `SaveClicked with priority creates task with priority`() = runTest {
-        val vm = createVm(backgroundScope)
-        advanceTimeBy(1_000)
-        runCurrent()
-        vm.onIntent(TaskCreateIntent.TitleChanged("Important task"))
-        vm.onIntent(TaskCreateIntent.SetPriority(TaskPriority.High))
-        advanceTimeBy(1_000)
-        runCurrent()
-        vm.onIntent(TaskCreateIntent.SaveClicked)
-        advanceTimeBy(1_000)
-        runCurrent()
-        assertEquals(TaskPriority.High, fakeTaskRepo.tasks.value.values.first().priority)
-    }
+    fun `SaveClicked with priority creates task with priority`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.TitleChanged("Important task"))
+            vm.onIntent(TaskCreateIntent.SetPriority(TaskPriority.High))
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.SaveClicked)
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertEquals(
+                TaskPriority.High,
+                fakeTaskRepo.tasks.value.values
+                    .first()
+                    .priority,
+            )
+        }
 
     // ─── SaveClicked — clears draft ─────────────────────────────────────────
 
     @Test
-    fun `SaveClicked clears draft after successful save`() = runTest {
-        val vm = createVm(backgroundScope)
-        advanceTimeBy(1_000)
-        runCurrent()
-        vm.onIntent(TaskCreateIntent.TitleChanged("To be cleared"))
-        advanceTimeBy(1_000)
-        runCurrent()
-        vm.onIntent(TaskCreateIntent.SaveClicked)
-        advanceTimeBy(1_000)
-        runCurrent()
-        // Draft should be cleared from store
-        assertNull(fakeDraftStore.load(draftKey, TaskDraft.serializer()))
-    }
+    fun `SaveClicked clears draft after successful save`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.TitleChanged("To be cleared"))
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.SaveClicked)
+            advanceTimeBy(1_000)
+            runCurrent()
+            // Draft should be cleared from store
+            assertNull(fakeDraftStore.load(draftKey, TaskDraft.serializer()))
+        }
 
     // ─── DueDate ────────────────────────────────────────────────────────────
 
     @Test
-    fun `SetDueDate with valid date creates task with that date`() = runTest {
-        val date = LocalDate(2026, Month.OCTOBER, 5)
-        val vm = createVm(backgroundScope)
-        advanceTimeBy(1_000)
-        runCurrent()
-        vm.onIntent(TaskCreateIntent.TitleChanged("Dated task"))
-        vm.onIntent(TaskCreateIntent.SetDueDate(date))
-        advanceTimeBy(1_000)
-        runCurrent()
-        vm.onIntent(TaskCreateIntent.SaveClicked)
-        advanceTimeBy(1_000)
-        runCurrent()
-        assertEquals(date, fakeTaskRepo.tasks.value.values.first().dueDate)
-    }
+    fun `SetDueDate with valid date creates task with that date`() =
+        runTest {
+            val date = LocalDate(2026, Month.OCTOBER, 5)
+            val vm = createVm(backgroundScope)
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.TitleChanged("Dated task"))
+            vm.onIntent(TaskCreateIntent.SetDueDate(date))
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.SaveClicked)
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertEquals(
+                date,
+                fakeTaskRepo.tasks.value.values
+                    .first()
+                    .dueDate,
+            )
+        }
 
     @Test
-    fun `DueDateCleared removes dueDate from created task`() = runTest {
-        val date = LocalDate(2026, Month.OCTOBER, 5)
-        val vm = createVm(backgroundScope)
-        advanceTimeBy(1_000)
-        runCurrent()
-        vm.onIntent(TaskCreateIntent.TitleChanged("Date test"))
-        vm.onIntent(TaskCreateIntent.SetDueDate(date))
-        advanceTimeBy(1_000)
-        runCurrent()
-        vm.onIntent(TaskCreateIntent.DueDateCleared)
-        advanceTimeBy(1_000)
-        runCurrent()
-        vm.onIntent(TaskCreateIntent.SaveClicked)
-        advanceTimeBy(1_000)
-        runCurrent()
-        assertNull(fakeTaskRepo.tasks.value.values.first().dueDate)
-    }
+    fun `DueDateCleared removes dueDate from created task`() =
+        runTest {
+            val date = LocalDate(2026, Month.OCTOBER, 5)
+            val vm = createVm(backgroundScope)
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.TitleChanged("Date test"))
+            vm.onIntent(TaskCreateIntent.SetDueDate(date))
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.DueDateCleared)
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.SaveClicked)
+            advanceTimeBy(1_000)
+            runCurrent()
+            assertNull(
+                fakeTaskRepo.tasks.value.values
+                    .first()
+                    .dueDate,
+            )
+        }
 
     // ─── Several dates ──────────────────────────────────────────────────────
     //
@@ -246,126 +287,141 @@ class TaskCreateViewModelTest {
     // sharing one series id. A draft with one date stays an ordinary task.
 
     @Test
-    fun `SetDueDates with three dates creates three tasks that share one series id`() = runTest {
-        val dates = setOf(
-            LocalDate(2026, Month.OCTOBER, 5),
-            LocalDate(2026, Month.OCTOBER, 12),
-            LocalDate(2026, Month.OCTOBER, 19),
-        )
-        val vm = createVm(backgroundScope)
-        advanceTimeBy(1_000)
-        runCurrent()
-        vm.onIntent(TaskCreateIntent.TitleChanged("Pay the rent"))
-        vm.onIntent(TaskCreateIntent.SetDueDates(dates))
-        advanceTimeBy(1_000)
-        runCurrent()
-        vm.onIntent(TaskCreateIntent.SaveClicked)
-        advanceTimeBy(1_000)
-        runCurrent()
+    fun `SetDueDates with three dates creates three tasks that share one series id`() =
+        runTest {
+            val dates =
+                setOf(
+                    LocalDate(2026, Month.OCTOBER, 5),
+                    LocalDate(2026, Month.OCTOBER, 12),
+                    LocalDate(2026, Month.OCTOBER, 19),
+                )
+            val vm = createVm(backgroundScope)
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.TitleChanged("Pay the rent"))
+            vm.onIntent(TaskCreateIntent.SetDueDates(dates))
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.SaveClicked)
+            advanceTimeBy(1_000)
+            runCurrent()
 
-        val created = fakeTaskRepo.tasks.value.values
-        assertEquals(3, created.size, "one task per date")
-        val seriesIds = created.map { it.seriesId }.toSet()
-        assertEquals(1, seriesIds.size, "every member shares one series id")
-        assertTrue(seriesIds.first() != null, "a series of three is a series")
-        val createdDates = created.mapNotNull { it.dueDate }.sorted()
-        val expectedDates = dates.toList().sorted()
-        assertEquals(expectedDates, createdDates, "each member keeps its own date")
-    }
-
-    @Test
-    fun `SetDueDates with one date creates an ordinary task`() = runTest {
-        val vm = createVm(backgroundScope)
-        advanceTimeBy(1_000)
-        runCurrent()
-        vm.onIntent(TaskCreateIntent.TitleChanged("Single"))
-        vm.onIntent(TaskCreateIntent.SetDueDates(setOf(LocalDate(2026, Month.OCTOBER, 5))))
-        advanceTimeBy(1_000)
-        runCurrent()
-        vm.onIntent(TaskCreateIntent.SaveClicked)
-        advanceTimeBy(1_000)
-        runCurrent()
-
-        val created = fakeTaskRepo.tasks.value.values
-        assertEquals(1, created.size)
-        assertNull(created.first().seriesId, "one date is not a series")
-    }
+            val created = fakeTaskRepo.tasks.value.values
+            assertEquals(3, created.size, "one task per date")
+            val seriesIds = created.map { it.seriesId }.toSet()
+            assertEquals(1, seriesIds.size, "every member shares one series id")
+            assertTrue(seriesIds.first() != null, "a series of three is a series")
+            val createdDates = created.mapNotNull { it.dueDate }.sorted()
+            val expectedDates = dates.toList().sorted()
+            assertEquals(expectedDates, createdDates, "each member keeps its own date")
+        }
 
     @Test
-    fun `SetDueDates with no dates clears the date`() = runTest {
-        val vm = createVm(backgroundScope)
-        advanceTimeBy(1_000)
-        runCurrent()
-        vm.onIntent(TaskCreateIntent.TitleChanged("Undated"))
-        vm.onIntent(TaskCreateIntent.SetDueDates(setOf(LocalDate(2026, Month.OCTOBER, 5))))
-        advanceTimeBy(1_000)
-        runCurrent()
-        vm.onIntent(TaskCreateIntent.SetDueDates(emptySet()))
-        advanceTimeBy(1_000)
-        runCurrent()
-        vm.onIntent(TaskCreateIntent.SaveClicked)
-        advanceTimeBy(1_000)
-        runCurrent()
+    fun `SetDueDates with one date creates an ordinary task`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.TitleChanged("Single"))
+            vm.onIntent(TaskCreateIntent.SetDueDates(setOf(LocalDate(2026, Month.OCTOBER, 5))))
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.SaveClicked)
+            advanceTimeBy(1_000)
+            runCurrent()
 
-        assertNull(fakeTaskRepo.tasks.value.values.first().dueDate)
-    }
+            val created = fakeTaskRepo.tasks.value.values
+            assertEquals(1, created.size)
+            assertNull(created.first().seriesId, "one date is not a series")
+        }
 
     @Test
-    fun `a second date drops the repeat rule and says so`() = runTest {
-        val vm = createVm(backgroundScope)
-        advanceTimeBy(1_000)
-        runCurrent()
-        vm.onIntent(TaskCreateIntent.TitleChanged("Recurring"))
-        vm.onIntent(
-            TaskCreateIntent.SetRecurrence(
-                RecurrenceSpec.Interval(
-                    base = RecurrenceSpec.RecurrenceBase.FROM_DUE,
-                    amount = 1,
-                    unit = DateTimeUnit.WEEK,
+    fun `SetDueDates with no dates clears the date`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.TitleChanged("Undated"))
+            vm.onIntent(TaskCreateIntent.SetDueDates(setOf(LocalDate(2026, Month.OCTOBER, 5))))
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.SetDueDates(emptySet()))
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.SaveClicked)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            assertNull(
+                fakeTaskRepo.tasks.value.values
+                    .first()
+                    .dueDate,
+            )
+        }
+
+    @Test
+    fun `a second date drops the repeat rule and says so`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.TitleChanged("Recurring"))
+            vm.onIntent(
+                TaskCreateIntent.SetRecurrence(
+                    RecurrenceSpec.Interval(
+                        base = RecurrenceSpec.RecurrenceBase.FROM_DUE,
+                        amount = 1,
+                        unit = DateTimeUnit.WEEK,
+                    ),
                 ),
-            ),
-        )
-        advanceTimeBy(1_000)
-        runCurrent()
-        vm.onIntent(
-            TaskCreateIntent.SetDueDates(
-                setOf(LocalDate(2026, Month.OCTOBER, 5), LocalDate(2026, Month.OCTOBER, 12)),
-            ),
-        )
-        runCurrent()
+            )
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(
+                TaskCreateIntent.SetDueDates(
+                    setOf(LocalDate(2026, Month.OCTOBER, 5), LocalDate(2026, Month.OCTOBER, 12)),
+                ),
+            )
+            runCurrent()
 
-        assertEquals(
-            "Повтор отменён: выбрано несколько дат",
-            vm.state.value.error,
-            "the user is told that the rule was dropped",
-        )
-        vm.onIntent(TaskCreateIntent.SaveClicked)
-        advanceTimeBy(1_000)
-        runCurrent()
+            assertEquals(
+                "Повтор отменён: выбрано несколько дат",
+                vm.state.value.error,
+                "the user is told that the rule was dropped",
+            )
+            vm.onIntent(TaskCreateIntent.SaveClicked)
+            advanceTimeBy(1_000)
+            runCurrent()
 
-        val created = fakeTaskRepo.tasks.value.values
-        assertEquals(2, created.size)
-        assertTrue(created.all { it.recurrence == null }, "a series never holds a rule")
-    }
+            val created = fakeTaskRepo.tasks.value.values
+            assertEquals(2, created.size)
+            assertTrue(created.all { it.recurrence == null }, "a series never holds a rule")
+        }
 
     // ─── Race guard (compareAndSet) ─────────────────────────────────────────
     @Test
-    fun `parallel SaveClicked calls are guarded by compareAndSet — only one save`() = runTest {
-        val vm = createVm(backgroundScope)
-        advanceTimeBy(1_000)
-        runCurrent()
-        vm.onIntent(TaskCreateIntent.TitleChanged("Raced task"))
+    fun `parallel SaveClicked calls are guarded by compareAndSet — only one save`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.TitleChanged("Raced task"))
 
-        // Fire two saves synchronously — second is blocked by compareAndSet guard
-        vm.onIntent(TaskCreateIntent.SaveClicked)
-        vm.onIntent(TaskCreateIntent.SaveClicked)
+            // Fire two saves synchronously — second is blocked by compareAndSet guard
+            vm.onIntent(TaskCreateIntent.SaveClicked)
+            vm.onIntent(TaskCreateIntent.SaveClicked)
 
-        advanceTimeBy(1_000)
-        runCurrent()
-        // Exactly one task created — the guard prevented double-save
-        assertEquals(1, fakeTaskRepo.tasks.value.size)
-        assertEquals("Raced task", fakeTaskRepo.tasks.value.values.first().title)
-    }
+            advanceTimeBy(1_000)
+            runCurrent()
+            // Exactly one task created — the guard prevented double-save
+            assertEquals(1, fakeTaskRepo.tasks.value.size)
+            assertEquals(
+                "Raced task",
+                fakeTaskRepo.tasks.value.values
+                    .first()
+                    .title,
+            )
+        }
 
     // ─── Dirty flag / save-enable contract ──────────────────────────────────
     //
@@ -381,72 +437,76 @@ class TaskCreateViewModelTest {
     // `DraftMviViewModel` exposes a plain StateFlow, so `state.value` is enough.
 
     @Test
-    fun `TitleChanged marks the draft dirty and enables save`() = runTest {
-        val vm = createVm(backgroundScope)
-        advanceTimeBy(1_000)
-        runCurrent()
+    fun `TitleChanged marks the draft dirty and enables save`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            advanceTimeBy(1_000)
+            runCurrent()
 
-        assertFalse(vm.state.value.isDirty, "a freshly restored draft is not dirty")
-        assertFalse(vm.state.value.isSaveEnabled, "blank title must not enable save")
+            assertFalse(vm.state.value.isDirty, "a freshly restored draft is not dirty")
+            assertFalse(vm.state.value.isSaveEnabled, "blank title must not enable save")
 
-        vm.onIntent(TaskCreateIntent.TitleChanged("Buy milk"))
-        runCurrent()
+            vm.onIntent(TaskCreateIntent.TitleChanged("Buy milk"))
+            runCurrent()
 
-        assertTrue(vm.state.value.isDirty, "an edit must mark the draft dirty")
-        assertTrue(vm.state.value.isSaveEnabled, "a non-blank title must enable save")
-    }
-
-    @Test
-    fun `clearing the title disables save again`() = runTest {
-        val vm = createVm(backgroundScope)
-        advanceTimeBy(1_000)
-        runCurrent()
-
-        vm.onIntent(TaskCreateIntent.TitleChanged("Buy milk"))
-        runCurrent()
-        assertTrue(vm.state.value.isSaveEnabled)
-
-        vm.onIntent(TaskCreateIntent.TitleChanged("   "))
-        runCurrent()
-
-        assertFalse(
-            vm.state.value.isSaveEnabled,
-            "whitespace is blank: save must disable without the draft being reverted to pristine",
-        )
-        assertTrue(vm.state.value.isDirty, "still dirty — the user did edit, then cleared it")
-    }
+            assertTrue(vm.state.value.isDirty, "an edit must mark the draft dirty")
+            assertTrue(vm.state.value.isSaveEnabled, "a non-blank title must enable save")
+        }
 
     @Test
-    fun `Discard clears the autosaved draft`() = runTest {
-        val vm = createVm(backgroundScope)
-        advanceTimeBy(1_000)
-        runCurrent()
-        vm.onIntent(TaskCreateIntent.TitleChanged("To be discarded"))
-        advanceTimeBy(1_000)
-        runCurrent()
-        // make sure it was autosaved
-        assertNotNull(fakeDraftStore.load(draftKey, TaskDraft.serializer()))
-        vm.onIntent(TaskCreateIntent.Discard)
-        runCurrent()
-        assertNull(fakeDraftStore.load(draftKey, TaskDraft.serializer()))
-    }
+    fun `clearing the title disables save again`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            vm.onIntent(TaskCreateIntent.TitleChanged("Buy milk"))
+            runCurrent()
+            assertTrue(vm.state.value.isSaveEnabled)
+
+            vm.onIntent(TaskCreateIntent.TitleChanged("   "))
+            runCurrent()
+
+            assertFalse(
+                vm.state.value.isSaveEnabled,
+                "whitespace is blank: save must disable without the draft being reverted to pristine",
+            )
+            assertTrue(vm.state.value.isDirty, "still dirty — the user did edit, then cleared it")
+        }
 
     @Test
-    fun `a blank title rejects save with a validation error and creates nothing`() = runTest {
-        val vm = createVm(backgroundScope)
-        advanceTimeBy(1_000)
-        runCurrent()
+    fun `Discard clears the autosaved draft`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            advanceTimeBy(1_000)
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.TitleChanged("To be discarded"))
+            advanceTimeBy(1_000)
+            runCurrent()
+            // make sure it was autosaved
+            assertNotNull(fakeDraftStore.load(draftKey, TaskDraft.serializer()))
+            vm.onIntent(TaskCreateIntent.Discard)
+            runCurrent()
+            assertNull(fakeDraftStore.load(draftKey, TaskDraft.serializer()))
+        }
 
-        // Type, then clear: the draft is dirty but invalid.
-        vm.onIntent(TaskCreateIntent.TitleChanged("Buy milk"))
-        vm.onIntent(TaskCreateIntent.TitleChanged(""))
-        runCurrent()
-        vm.onIntent(TaskCreateIntent.SaveClicked)
-        advanceTimeBy(1_000)
-        runCurrent()
+    @Test
+    fun `a blank title rejects save with a validation error and creates nothing`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            advanceTimeBy(1_000)
+            runCurrent()
 
-        assertEquals(0, fakeTaskRepo.tasks.value.size, "an invalid draft must not reach the repository")
-        assertEquals("Title is required", vm.state.value.error)
-        assertFalse(vm.state.value.isSaving, "a rejected save must clear isSaving, not wedge the button")
-    }
+            // Type, then clear: the draft is dirty but invalid.
+            vm.onIntent(TaskCreateIntent.TitleChanged("Buy milk"))
+            vm.onIntent(TaskCreateIntent.TitleChanged(""))
+            runCurrent()
+            vm.onIntent(TaskCreateIntent.SaveClicked)
+            advanceTimeBy(1_000)
+            runCurrent()
+
+            assertEquals(0, fakeTaskRepo.tasks.value.size, "an invalid draft must not reach the repository")
+            assertEquals("Title is required", vm.state.value.error)
+            assertFalse(vm.state.value.isSaving, "a rejected save must clear isSaving, not wedge the button")
+        }
 }

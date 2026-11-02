@@ -30,9 +30,11 @@ data class ApplyResult(
  * to it, and the model gets that reason.
  */
 class A2uiMessageProcessor(private val validator: A2uiValidator, private val controller: SurfaceController) {
-
     /** Parses, validates and applies one line of model output. */
-    fun process(line: String, parser: com.singularity.todo.feature.genui.parser.A2uiParser): A2uiParseOutcome {
+    fun process(
+        line: String,
+        parser: com.singularity.todo.feature.genui.parser.A2uiParser,
+    ): A2uiParseOutcome {
         val outcome: A2uiParseOutcome = parser.parseLine(line)
         if (outcome is A2uiParseOutcome.Parsed) {
             apply(outcome.event, outcome.errors)
@@ -45,16 +47,20 @@ class A2uiMessageProcessor(private val validator: A2uiValidator, private val con
      *
      * @return the applied event and every reason, so the caller can both render and report.
      */
-    fun apply(event: UiEvent, parseErrors: List<A2uiError> = emptyList()): ApplyResult {
+    fun apply(
+        event: UiEvent,
+        parseErrors: List<A2uiError> = emptyList(),
+    ): ApplyResult {
         val surfaceId: SurfaceId = event.surfaceId()
         if (!isApplicable(event, surfaceId)) {
-            val error: A2uiError = A2uiError(
-                code = A2uiErrorCode.UNKNOWN_SURFACE,
-                message = "No open surface '$surfaceId'. Send createSurface first.",
-                pointer = "/${event.operationName()}/surfaceId",
-                surfaceId = surfaceId,
-                severity = A2uiSeverity.MESSAGE,
-            )
+            val error: A2uiError =
+                A2uiError(
+                    code = A2uiErrorCode.UNKNOWN_SURFACE,
+                    message = "No open surface '$surfaceId'. Send createSurface first.",
+                    pointer = "/${event.operationName()}/surfaceId",
+                    surfaceId = surfaceId,
+                    severity = A2uiSeverity.MESSAGE,
+                )
             return ApplyResult(event, parseErrors + error, applied = false)
         }
 
@@ -72,22 +78,28 @@ class A2uiMessageProcessor(private val validator: A2uiValidator, private val con
      * reported rather than applied, because replacing a surface underneath a model that is still
      * streaming into it leaves the two halves describing different things.
      */
-    private fun isApplicable(event: UiEvent, surfaceId: SurfaceId): Boolean = when (event) {
-        is UiEvent.CreateSurface -> controller.snapshot(surfaceId) == null
-        else -> controller.snapshot(surfaceId) != null
+    private fun isApplicable(
+        event: UiEvent,
+        surfaceId: SurfaceId,
+    ): Boolean =
+        when (event) {
+            is UiEvent.CreateSurface -> controller.snapshot(surfaceId) == null
+            else -> controller.snapshot(surfaceId) != null
+        }
+}
+
+private fun UiEvent.surfaceId(): SurfaceId =
+    when (this) {
+        is UiEvent.CreateSurface -> surfaceId
+        is UiEvent.UpdateComponents -> surfaceId
+        is UiEvent.UpdateData -> surfaceId
+        is UiEvent.DeleteSurface -> surfaceId
     }
-}
 
-private fun UiEvent.surfaceId(): SurfaceId = when (this) {
-    is UiEvent.CreateSurface -> surfaceId
-    is UiEvent.UpdateComponents -> surfaceId
-    is UiEvent.UpdateData -> surfaceId
-    is UiEvent.DeleteSurface -> surfaceId
-}
-
-private fun UiEvent.operationName(): String = when (this) {
-    is UiEvent.CreateSurface -> "createSurface"
-    is UiEvent.UpdateComponents -> "updateComponents"
-    is UiEvent.UpdateData -> "updateData"
-    is UiEvent.DeleteSurface -> "deleteSurface"
-}
+private fun UiEvent.operationName(): String =
+    when (this) {
+        is UiEvent.CreateSurface -> "createSurface"
+        is UiEvent.UpdateComponents -> "updateComponents"
+        is UiEvent.UpdateData -> "updateData"
+        is UiEvent.DeleteSurface -> "deleteSurface"
+    }

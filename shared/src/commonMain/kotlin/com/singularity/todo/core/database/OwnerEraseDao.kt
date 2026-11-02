@@ -46,7 +46,6 @@ import androidx.room3.Query
 @Dao
 @Suppress("TooManyFunctions")
 interface OwnerEraseDao {
-
     // ── Children: no `user_id`, reached through their parent ───────────────────
 
     /** Tag cross-references held by [taskIds]. Run before deleting those tasks. */
@@ -59,7 +58,10 @@ interface OwnerEraseDao {
         )
         """,
     )
-    suspend fun deleteTagRefs(taskIds: List<String>, scopedUserIds: List<String>): Int
+    suspend fun deleteTagRefs(
+        taskIds: List<String>,
+        scopedUserIds: List<String>,
+    ): Int
 
     /**
      * Dependency rows naming [taskIds] — **both** directions.
@@ -81,7 +83,10 @@ interface OwnerEraseDao {
         )
         """,
     )
-    suspend fun deleteDependencies(taskIds: List<String>, scopedUserIds: List<String>): Int
+    suspend fun deleteDependencies(
+        taskIds: List<String>,
+        scopedUserIds: List<String>,
+    ): Int
 
     /** Checklist items hung off [taskIds]. Run before deleting those tasks. */
     @Query(
@@ -93,7 +98,10 @@ interface OwnerEraseDao {
         )
         """,
     )
-    suspend fun deleteChecklistItems(taskIds: List<String>, scopedUserIds: List<String>): Int
+    suspend fun deleteChecklistItems(
+        taskIds: List<String>,
+        scopedUserIds: List<String>,
+    ): Int
 
     /**
      * Inherited tag groups of the owner's projects. Run before deleting those projects.
@@ -110,7 +118,10 @@ interface OwnerEraseDao {
         )
         """,
     )
-    suspend fun deleteInheritedTagGroups(projectIds: List<String>, scopedUserIds: List<String>): Int
+    suspend fun deleteInheritedTagGroups(
+        projectIds: List<String>,
+        scopedUserIds: List<String>,
+    ): Int
 
     // ── Parents: they carry their own `user_id` ────────────────────────────────
 
@@ -153,7 +164,10 @@ interface OwnerEraseDao {
         )
         """,
     )
-    suspend fun countTagRefs(taskIds: List<String>, scopedUserIds: List<String>): Int
+    suspend fun countTagRefs(
+        taskIds: List<String>,
+        scopedUserIds: List<String>,
+    ): Int
 
     /** @see deleteDependencies */
     @Query(
@@ -169,7 +183,10 @@ interface OwnerEraseDao {
         )
         """,
     )
-    suspend fun countDependencies(taskIds: List<String>, scopedUserIds: List<String>): Int
+    suspend fun countDependencies(
+        taskIds: List<String>,
+        scopedUserIds: List<String>,
+    ): Int
 
     /** @see deleteChecklistItems */
     @Query(
@@ -181,7 +198,10 @@ interface OwnerEraseDao {
         )
         """,
     )
-    suspend fun countChecklistItems(taskIds: List<String>, scopedUserIds: List<String>): Int
+    suspend fun countChecklistItems(
+        taskIds: List<String>,
+        scopedUserIds: List<String>,
+    ): Int
 
     /** @see deleteInheritedTagGroups */
     @Query(
@@ -193,7 +213,10 @@ interface OwnerEraseDao {
         )
         """,
     )
-    suspend fun countInheritedTagGroups(projectIds: List<String>, scopedUserIds: List<String>): Int
+    suspend fun countInheritedTagGroups(
+        projectIds: List<String>,
+        scopedUserIds: List<String>,
+    ): Int
 
     /** @see deleteTasks */
     @Query("SELECT COUNT(*) FROM tasks WHERE user_id IN (:scopedUserIds)")

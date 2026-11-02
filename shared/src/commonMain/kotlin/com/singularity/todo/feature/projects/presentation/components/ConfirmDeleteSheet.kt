@@ -11,7 +11,11 @@ import com.singularity.todo.core.ui.text.SelectableText
  * Confirmation dialog for project deletion.
  */
 @Composable
-fun ConfirmDeleteSheet(projectName: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+fun ConfirmDeleteSheet(
+    projectName: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Delete project?") },

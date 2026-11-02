@@ -12,20 +12,25 @@ import com.singularity.todo.core.text.Revisioned
 import com.singularity.todo.core.text.StaticText
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.serializer
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.serializer
 import kotlin.time.Instant
 
 @Serializable
 @JvmInline
 value class NoteId(val value: String) {
     companion object {
-        fun generate() = NoteId(com.singularity.todo.core.ids.nextId())
+        fun generate() =
+            NoteId(
+                com.singularity.todo.core.ids
+                    .nextId(),
+            )
+
         fun fromString(value: String) = NoteId(value)
     }
 }
@@ -128,7 +133,6 @@ data class Note(
     val hlc: Hlc? = null,
 ) : SyncableEntity,
     Searchable {
-
     /**
      * The surfaces a note is searched by (F3): its title.
      *
@@ -167,6 +171,7 @@ data class CreateNoteInput(
 /** UI state for the note editor screen. */
 sealed interface EditorState {
     data object Empty : EditorState
+
     data class Editing(
         val id: String,
         val title: Revisioned<String>,
@@ -221,10 +226,11 @@ sealed interface EditorState {
          * replacements does not move: the title is not a rewrite, and the field must
          * not take it for one.
          */
-        fun withTitle(newTitle: String): Editing = copy(
-            title = title.typed(newTitle),
-            isDirty = true,
-        )
+        fun withTitle(newTitle: String): Editing =
+            copy(
+                title = title.typed(newTitle),
+                isDirty = true,
+            )
 
         /**
          * The user typed a new body.
@@ -232,16 +238,18 @@ sealed interface EditorState {
          * A keystroke is the editor's own change, so the count of the body's
          * replacements does not move — the same rule the title follows.
          */
-        fun withBody(newHtml: String): Editing = copy(
-            html = html.typed(newHtml),
-            isDirty = true,
-        )
+        fun withBody(newHtml: String): Editing =
+            copy(
+                html = html.typed(newHtml),
+                isDirty = true,
+            )
     }
 }
 
 /** Result of an AI note improvement action. */
 sealed interface NoteAiResult {
     data class Improved(val title: String, val body: String) : NoteAiResult
+
     data class Error(val message: String) : NoteAiResult
 }
 
@@ -259,18 +267,21 @@ enum class NoteAiAction {
 /** Result of a summarize action. */
 sealed interface SummarizeResult {
     data class Ok(val summary: String) : SummarizeResult
+
     data class Error(val message: String) : SummarizeResult
 }
 
 /** Result of an extract-actions action. */
 sealed interface ExtractActionsResult {
     data class Ok(val actions: List<String>) : ExtractActionsResult
+
     data class Error(val message: String) : ExtractActionsResult
 }
 
 /** Result of a suggest-tags action. */
 sealed interface SuggestTagsResult {
     data class Ok(val tags: List<String>) : SuggestTagsResult
+
     data class Error(val message: String) : SuggestTagsResult
 }
 

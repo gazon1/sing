@@ -8,14 +8,24 @@ import com.singularity.todo.feature.projects.domain.model.ProjectId
  */
 sealed interface ActiveSheet {
     data object PickColor : ActiveSheet
+
     data object PickIcon : ActiveSheet
+
     data class PickParent(val current: ProjectId?) : ActiveSheet
+
     data object ConfirmDelete : ActiveSheet
+
     data object ConfirmArchive : ActiveSheet
+
     data object ConfirmClose : ActiveSheet
+
     data object PickReminder : ActiveSheet
+
     data object AddAttachment : ActiveSheet
+
     data object PickDueDate : ActiveSheet
+
     data object ShowChildren : ActiveSheet
+
     data object PickInheritedTagGroups : ActiveSheet
 }

@@ -18,12 +18,10 @@ import androidx.navigation3.runtime.deeplink.DeepLinkRequest
  * @param links упорядоченный список ссылок, которые реестр проверяет по очереди.
  */
 class DeepLinkRegistry(private val links: List<AppDeepLink>) {
-
     /**
      * Возвращает цель для [request] или `null`, если ни одна ссылка не подошла.
      *
      * Неизвестная ссылка — тихий no-op: приложение остаётся на стартовой вкладке.
      */
-    fun resolve(request: DeepLinkRequest): DeepLinkTarget? =
-        links.firstNotNullOfOrNull { it.match(request) }
+    fun resolve(request: DeepLinkRequest): DeepLinkTarget? = links.firstNotNullOfOrNull { it.match(request) }
 }

@@ -22,18 +22,18 @@ import kotlin.time.Instant
  */
 @Tag("fast")
 class SelectorRegexpCompiledTest {
-
     private val today = LocalDate(2026, 1, 1)
     private val now = Instant.parse("2026-01-01T00:00:00Z")
     private val context = SelectorContext(today = today, now = now, blockedIds = emptySet())
 
-    private fun task(title: String) = Task(
-        id = TaskId("t-${title.hashCode()}"),
-        title = title,
-        createdAt = now,
-        updatedAt = now,
-        userId = UserId("u"),
-    )
+    private fun task(title: String) =
+        Task(
+            id = TaskId("t-${title.hashCode()}"),
+            title = title,
+            createdAt = now,
+            updatedAt = now,
+            userId = UserId("u"),
+        )
 
     // ─── Matching is unchanged ────────────────────────────────────────────────
 
@@ -90,10 +90,11 @@ class SelectorRegexpCompiledTest {
         // A saved agenda view round-trips through JSON; the memo must not appear in it.
         val original = Selector.Regexp("^Weekly")
         original.matches(task("Weekly x"), context)
-        val encoded = com.singularity.todo.core.serialization.StableJson.encodeToString(
-            Selector.Regexp.serializer(),
-            original,
-        )
+        val encoded =
+            com.singularity.todo.core.serialization.StableJson.encodeToString(
+                Selector.Regexp.serializer(),
+                original,
+            )
         assertFalse(encoded.contains("compiled"), "the memo must not be serialised: $encoded")
     }
 
@@ -101,14 +102,16 @@ class SelectorRegexpCompiledTest {
     fun `a deserialized selector still matches`() {
         val original = Selector.Regexp("^Weekly")
         original.matches(task("Weekly x"), context)
-        val encoded = com.singularity.todo.core.serialization.StableJson.encodeToString(
-            Selector.Regexp.serializer(),
-            original,
-        )
-        val decoded = com.singularity.todo.core.serialization.StableJson.decodeFromString(
-            Selector.Regexp.serializer(),
-            encoded,
-        )
+        val encoded =
+            com.singularity.todo.core.serialization.StableJson.encodeToString(
+                Selector.Regexp.serializer(),
+                original,
+            )
+        val decoded =
+            com.singularity.todo.core.serialization.StableJson.decodeFromString(
+                Selector.Regexp.serializer(),
+                encoded,
+            )
         assertEquals(original, decoded)
         assertTrue(decoded.matches(task("Weekly y"), context), "a fresh instance must compile on demand")
     }

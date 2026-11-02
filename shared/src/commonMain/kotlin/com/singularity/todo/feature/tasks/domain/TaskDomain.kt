@@ -24,16 +24,16 @@ import kotlin.time.Instant
  * No dependencies - fully testable without mocks.
  */
 object TaskDomain {
-
     /**
      * Validates task title.
      * @return [Either.Right] with trimmed title on success, [Either.Left] with [AppError.Validation] on failure.
      */
-    fun validateTitle(title: String): Either<AppError.Validation, String> = if (title.isNotBlank()) {
-        Either.Right(title.trim())
-    } else {
-        Either.Left(AppError.Validation("Title cannot be blank", code = "task.title.blank"))
-    }
+    fun validateTitle(title: String): Either<AppError.Validation, String> =
+        if (title.isNotBlank()) {
+            Either.Right(title.trim())
+        } else {
+            Either.Left(AppError.Validation("Title cannot be blank", code = "task.title.blank"))
+        }
 
     /**
      * Creates a new TaskId.
@@ -63,10 +63,11 @@ object TaskDomain {
         someday: Boolean = false,
         recurrence: RecurrenceSpec? = null,
     ): Either<AppError.Validation, CreateTaskInput> {
-        val trimmed: String = when (val v = validateTitle(title)) {
-            is Either.Left -> return v
-            is Either.Right -> v.value
-        }
+        val trimmed: String =
+            when (val v = validateTitle(title)) {
+                is Either.Left -> return v
+                is Either.Right -> v.value
+            }
         return Either.Right(
             CreateTaskInput(
                 title = trimmed,
@@ -101,29 +102,30 @@ object TaskDomain {
         createdAt: Instant,
         updatedAt: Instant,
         userId: UserId,
-    ): Task = Task(
-        id = id,
-        title = input.title,
-        description = input.description,
-        priority = input.priority,
-        kind = input.kind,
-        projectId = input.projectId,
-        parentTaskId = input.parentTaskId,
-        tags = input.tagIds,
-        dueDate = input.dueDate,
-        dueTime = input.dueTime,
-        startDate = input.startDate,
-        startTime = input.startTime,
-        endDate = input.endDate,
-        endTime = input.endTime,
-        accentColor = input.accentColor,
-        emoji = input.emoji,
-        someday = input.someday,
-        recurrence = input.recurrence,
-        createdAt = createdAt,
-        updatedAt = updatedAt,
-        userId = userId,
-    )
+    ): Task =
+        Task(
+            id = id,
+            title = input.title,
+            description = input.description,
+            priority = input.priority,
+            kind = input.kind,
+            projectId = input.projectId,
+            parentTaskId = input.parentTaskId,
+            tags = input.tagIds,
+            dueDate = input.dueDate,
+            dueTime = input.dueTime,
+            startDate = input.startDate,
+            startTime = input.startTime,
+            endDate = input.endDate,
+            endTime = input.endTime,
+            accentColor = input.accentColor,
+            emoji = input.emoji,
+            someday = input.someday,
+            recurrence = input.recurrence,
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+            userId = userId,
+        )
 
     /**
      * True when [term] matches [task] under [mode]'s rule.
@@ -139,93 +141,127 @@ object TaskDomain {
      * @param task the task to look at.
      * @param term the term to look for.
      */
-    fun matches(mode: SearchMode, task: Task, term: String): Boolean =
-        mode.matches(task, term)
+    fun matches(
+        mode: SearchMode,
+        task: Task,
+        term: String,
+    ): Boolean = mode.matches(task, term)
 
     /**
      * Checks if a task matches the given filter.
      * Pure predicate function - fully testable.
      */
-    fun matchesFilter(task: Task, filter: TaskFilter, today: kotlinx.datetime.LocalDate): Boolean = when (filter) {
-        is TaskFilter.Today -> task.dueDate == today && !task.isTrashed && !task.someday
-
-        is TaskFilter.Upcoming -> task.dueDate != null && task.dueDate > today && !task.isTrashed && !task.someday
-
-        is TaskFilter.Someday -> task.someday && !task.isTrashed
-
-        is TaskFilter.Inbox -> !task.someday && !task.isTrashed
-
-        is TaskFilter.Pinned -> task.isPinned && !task.isTrashed
-
-        is TaskFilter.Trash -> task.isTrashed
-
-        is TaskFilter.All -> !task.isTrashed
-
-        is TaskFilter.ByProject -> task.projectId == filter.id && !task.isTrashed
-
-        is TaskFilter.ByTag -> task.tags.contains(filter.id) && !task.isTrashed
-
-        // The filter states the mode it searches in (F6, F8) — the word mode is
-        // the rule of the full-text index, so that the in-memory rule and the
-        // index answer the same question.
-        is TaskFilter.Search -> filter.mode.matches(task, filter.query)
-
-        is TaskFilter.ByDateRange ->
-            task.dueDate != null &&
-                task.dueDate >= filter.from && task.dueDate <= filter.to && !task.isTrashed
-
-        is TaskFilter.ByStatuses -> {
-            val trashed = task.isTrashed
-            !trashed && when {
-                TaskStatus.All in filter.statuses -> true
-                TaskStatus.Active in filter.statuses && !task.isCompleted -> true
-                TaskStatus.Completed in filter.statuses && task.isCompleted -> true
-                else -> false
+    fun matchesFilter(
+        task: Task,
+        filter: TaskFilter,
+        today: kotlinx.datetime.LocalDate,
+    ): Boolean =
+        when (filter) {
+            is TaskFilter.Today -> {
+                task.dueDate == today && !task.isTrashed && !task.someday
             }
-        }
 
-        is TaskFilter.ByTags -> {
-            when {
-                filter.ids.isEmpty() -> {
-                    // Empty tag set: matchAll=false → nothing matches; matchAll=true → trivially true
-                    filter.matchAll
-                }
+            is TaskFilter.Upcoming -> {
+                task.dueDate != null && task.dueDate > today && !task.isTrashed && !task.someday
+            }
 
-                filter.matchAll -> {
-                    filter.ids.all { id -> task.tags.contains(id) }
-                }
+            is TaskFilter.Someday -> {
+                task.someday && !task.isTrashed
+            }
 
-                else -> {
-                    filter.ids.any { id -> task.tags.contains(id) }
-                }
-            } && !task.isTrashed
-        }
+            is TaskFilter.Inbox -> {
+                !task.someday && !task.isTrashed
+            }
 
-        is TaskFilter.ByPriorities -> {
-            filter.priorities.contains(task.priority) && !task.isTrashed
-        }
+            is TaskFilter.Pinned -> {
+                task.isPinned && !task.isTrashed
+            }
 
-        is TaskFilter.ByRegexp -> {
-            val pattern = filter.pattern
-            if (pattern.isEmpty()) {
+            is TaskFilter.Trash -> {
+                task.isTrashed
+            }
+
+            is TaskFilter.All -> {
                 !task.isTrashed
-            } else {
-                task.title.contains(pattern, ignoreCase = true) && !task.isTrashed
+            }
+
+            is TaskFilter.ByProject -> {
+                task.projectId == filter.id && !task.isTrashed
+            }
+
+            is TaskFilter.ByTag -> {
+                task.tags.contains(filter.id) && !task.isTrashed
+            }
+
+            // The filter states the mode it searches in (F6, F8) — the word mode is
+            // the rule of the full-text index, so that the in-memory rule and the
+            // index answer the same question.
+            is TaskFilter.Search -> {
+                filter.mode.matches(task, filter.query)
+            }
+
+            is TaskFilter.ByDateRange -> {
+                task.dueDate != null &&
+                    task.dueDate >= filter.from && task.dueDate <= filter.to && !task.isTrashed
+            }
+
+            is TaskFilter.ByStatuses -> {
+                val trashed = task.isTrashed
+                !trashed &&
+                    when {
+                        TaskStatus.All in filter.statuses -> true
+                        TaskStatus.Active in filter.statuses && !task.isCompleted -> true
+                        TaskStatus.Completed in filter.statuses && task.isCompleted -> true
+                        else -> false
+                    }
+            }
+
+            is TaskFilter.ByTags -> {
+                when {
+                    filter.ids.isEmpty() -> {
+                        // Empty tag set: matchAll=false → nothing matches; matchAll=true → trivially true
+                        filter.matchAll
+                    }
+
+                    filter.matchAll -> {
+                        filter.ids.all { id -> task.tags.contains(id) }
+                    }
+
+                    else -> {
+                        filter.ids.any { id -> task.tags.contains(id) }
+                    }
+                } && !task.isTrashed
+            }
+
+            is TaskFilter.ByPriorities -> {
+                filter.priorities.contains(task.priority) && !task.isTrashed
+            }
+
+            is TaskFilter.ByRegexp -> {
+                val pattern = filter.pattern
+                if (pattern.isEmpty()) {
+                    !task.isTrashed
+                } else {
+                    task.title.contains(pattern, ignoreCase = true) && !task.isTrashed
+                }
+            }
+
+            is TaskFilter.ByDateBucket -> {
+                val range = filter.bucket.toDateRange(filter.today)
+                when (filter.bucket) {
+                    RelativeBucket.Overdue -> {
+                        TaskComputed.isOverdue(task, filter.today)
+                    }
+
+                    RelativeBucket.NoDate -> {
+                        task.dueDate == null && !task.isTrashed
+                    }
+
+                    else -> {
+                        task.dueDate != null && task.dueDate >= range.from && task.dueDate <= range.to &&
+                            !task.isTrashed
+                    }
+                }
             }
         }
-
-        is TaskFilter.ByDateBucket -> {
-            val range = filter.bucket.toDateRange(filter.today)
-            when (filter.bucket) {
-                RelativeBucket.Overdue ->
-                    TaskComputed.isOverdue(task, filter.today)
-
-                RelativeBucket.NoDate ->
-                    task.dueDate == null && !task.isTrashed
-
-                else ->
-                    task.dueDate != null && task.dueDate >= range.from && task.dueDate <= range.to && !task.isTrashed
-            }
-        }
-    }
 }

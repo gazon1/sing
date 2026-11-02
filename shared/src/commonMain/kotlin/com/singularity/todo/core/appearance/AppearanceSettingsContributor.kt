@@ -17,7 +17,6 @@ interface AppearanceContributor : SettingsContributor<SettingsSection.Appearance
  * Contributes the Appearance settings section to the unified settings UI.
  */
 class AppearanceSettingsContributor(private val store: AppearanceSettingsStore) : AppearanceContributor {
-
     override val section: SettingsSection.Appearance = SettingsSection.Appearance()
 
     override fun observe(): Flow<SettingsSection.Appearance> = store.observe()

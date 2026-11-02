@@ -18,7 +18,6 @@ import com.singularity.todo.feature.tasks.domain.model.TaskId
  * so that no caller persists a reminder that will never fire.
  */
 interface ReminderScheduler {
-
     /**
      * Whether this platform can actually arm an alarm for a [Reminder].
      *
@@ -72,7 +71,10 @@ interface ReminderScheduler {
      * paths (deleting a task, dropping a due date) fail for no reason, and would leave
      * the user unable to tidy up rows written by an older build.
      */
-    suspend fun cancel(id: ReminderId, userId: UserId)
+    suspend fun cancel(
+        id: ReminderId,
+        userId: UserId,
+    )
 
     /**
      * Cancels all scheduled alarms for every reminder attached to [taskId].
@@ -80,5 +82,8 @@ interface ReminderScheduler {
      *
      * No-op on an unsupported platform, for the same reason as [cancel].
      */
-    suspend fun cancelByTask(taskId: TaskId, userId: UserId)
+    suspend fun cancelByTask(
+        taskId: TaskId,
+        userId: UserId,
+    )
 }

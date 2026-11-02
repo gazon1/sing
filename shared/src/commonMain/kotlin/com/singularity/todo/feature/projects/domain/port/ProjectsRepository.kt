@@ -8,18 +8,18 @@ import com.singularity.todo.feature.projects.domain.model.ProjectDocument
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import kotlinx.coroutines.flow.Flow
 
-/**
- * Contract for projects persistence.
- */
 // 13 functions: the project's whole contract in one place. Splitting it into
 // a live-projects contract and a closed-projects contract would move a
 // boundary nobody asked for — every caller that touches a project touches
 // both sides of it.
+
+/**
+ * Contract for projects persistence.
+ */
 @Suppress("TooManyFunctions")
 interface ProjectsRepository :
     GenericUserScopedRepository<Project, ProjectId>,
     SoftDeletable<Project, ProjectId> {
-
     /**
      * Upserts a project from a remote sync event.
      * Does NOT emit repository-level change events — caller handles observability.
@@ -94,8 +94,18 @@ interface ProjectsRepository :
     /** Changes to a project (for inline-edit debounce). */
     fun changes(id: ProjectId): Flow<Project?>
 
-    suspend fun setParent(id: ProjectId, parentId: ProjectId?, updatedAt: Long)
-    suspend fun setSortOrder(id: ProjectId, sortOrder: Int, updatedAt: Long)
+    suspend fun setParent(
+        id: ProjectId,
+        parentId: ProjectId?,
+        updatedAt: Long,
+    )
+
+    suspend fun setSortOrder(
+        id: ProjectId,
+        sortOrder: Int,
+        updatedAt: Long,
+    )
+
     suspend fun findByIdempotencyKey(key: String): Project?
 
     /**
@@ -111,7 +121,10 @@ interface ProjectsRepository :
      * @param id the project to close.
      * @param closedAt the moment the work was declared finished.
      */
-    suspend fun close(id: ProjectId, closedAt: Long): Result<Unit>
+    suspend fun close(
+        id: ProjectId,
+        closedAt: Long,
+    ): Result<Unit>
 
     /**
      * Opens a closed project again: its work is not finished after all.
@@ -122,5 +135,8 @@ interface ProjectsRepository :
      * @param id the project to open.
      * @param updatedAt the moment the project was opened.
      */
-    suspend fun reopen(id: ProjectId, updatedAt: Long): Result<Unit>
+    suspend fun reopen(
+        id: ProjectId,
+        updatedAt: Long,
+    ): Result<Unit>
 }

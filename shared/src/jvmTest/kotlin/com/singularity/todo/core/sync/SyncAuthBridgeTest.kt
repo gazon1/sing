@@ -36,7 +36,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class SyncAuthBridgeTest {
-
     private val log = Logger.withTag("SyncAuthBridgeTest")
 
     private fun TestScope.bridge(
@@ -45,12 +44,13 @@ class SyncAuthBridgeTest {
     ): Pair<SyncAuthBridge, FakeSyncAuthRepository> {
         val scope: AutoCloseableCoroutineScope = testScope(backgroundScope)
         val auth = FakeSyncAuthRepository(session)
-        val bridge = SyncAuthBridge(
-            authRepository = auth,
-            scheduler = scheduler,
-            scope = scope,
-            log = log,
-        )
+        val bridge =
+            SyncAuthBridge(
+                authRepository = auth,
+                scheduler = scheduler,
+                scope = scope,
+                log = log,
+            )
         return bridge to auth
     }
 
@@ -58,131 +58,143 @@ class SyncAuthBridgeTest {
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun `initial SignedIn calls enqueuePush`() = runTest {
-        val scheduler = FakeSyncWorkScheduler()
-        val (bridge, _) = bridge(
-            scheduler = scheduler,
-            session = Session.SignedIn(UserId("uid"), "e@x.com", "acc", "ref"),
-        )
+    fun `initial SignedIn calls enqueuePush`() =
+        runTest {
+            val scheduler = FakeSyncWorkScheduler()
+            val (bridge, _) =
+                bridge(
+                    scheduler = scheduler,
+                    session = Session.SignedIn(UserId("uid"), "e@x.com", "acc", "ref"),
+                )
 
-        runCurrent()
+            runCurrent()
 
-        assertTrue(scheduler.enqueuePushCalled, "SignedIn must call enqueuePush")
-        assertFalse(scheduler.cancelPushCalled, "SignedIn must not call cancelPush")
+            assertTrue(scheduler.enqueuePushCalled, "SignedIn must call enqueuePush")
+            assertFalse(scheduler.cancelPushCalled, "SignedIn must not call cancelPush")
 
-        bridge.close()
-    }
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    @Test
-    fun `initial SignedOut calls cancelPush`() = runTest {
-        val scheduler = FakeSyncWorkScheduler()
-        val (bridge, _) = bridge(scheduler = scheduler, session = Session.SignedOut)
-
-        runCurrent()
-
-        assertTrue(scheduler.cancelPushCalled, "SignedOut must call cancelPush")
-        assertFalse(scheduler.enqueuePushCalled, "SignedOut must not call enqueuePush")
-
-        bridge.close()
-    }
+            bridge.close()
+        }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun `initial Anonymous calls cancelPush`() = runTest {
-        val scheduler = FakeSyncWorkScheduler()
-        val (bridge, _) = bridge(
-            scheduler = scheduler,
-            session = Session.Anonymous(UserId.generate()),
-        )
+    fun `initial SignedOut calls cancelPush`() =
+        runTest {
+            val scheduler = FakeSyncWorkScheduler()
+            val (bridge, _) = bridge(scheduler = scheduler, session = Session.SignedOut)
 
-        runCurrent()
+            runCurrent()
 
-        assertTrue(scheduler.cancelPushCalled, "Anonymous must call cancelPush")
-        assertFalse(scheduler.enqueuePushCalled, "Anonymous must not call enqueuePush")
+            assertTrue(scheduler.cancelPushCalled, "SignedOut must call cancelPush")
+            assertFalse(scheduler.enqueuePushCalled, "SignedOut must not call enqueuePush")
 
-        bridge.close()
-    }
+            bridge.close()
+        }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `initial Anonymous calls cancelPush`() =
+        runTest {
+            val scheduler = FakeSyncWorkScheduler()
+            val (bridge, _) =
+                bridge(
+                    scheduler = scheduler,
+                    session = Session.Anonymous(UserId.generate()),
+                )
+
+            runCurrent()
+
+            assertTrue(scheduler.cancelPushCalled, "Anonymous must call cancelPush")
+            assertFalse(scheduler.enqueuePushCalled, "Anonymous must not call enqueuePush")
+
+            bridge.close()
+        }
 
     // ─── transitions ─────────────────────────────────────────────────────────
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun `SignedOut to SignedIn fires enqueuePush`() = runTest {
-        val scheduler = FakeSyncWorkScheduler()
-        val (bridge, auth) = bridge(scheduler = scheduler, session = Session.SignedOut)
+    fun `SignedOut to SignedIn fires enqueuePush`() =
+        runTest {
+            val scheduler = FakeSyncWorkScheduler()
+            val (bridge, auth) = bridge(scheduler = scheduler, session = Session.SignedOut)
 
-        scheduler.reset()
-        auth.signIn()
+            scheduler.reset()
+            auth.signIn()
 
-        runCurrent()
+            runCurrent()
 
-        assertTrue(scheduler.enqueuePushCalled, "after sign-in, enqueuePush must fire")
-        assertFalse(scheduler.cancelPushCalled, "after sign-in, cancelPush must not fire")
+            assertTrue(scheduler.enqueuePushCalled, "after sign-in, enqueuePush must fire")
+            assertFalse(scheduler.cancelPushCalled, "after sign-in, cancelPush must not fire")
 
-        bridge.close()
-    }
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    @Test
-    fun `SignedIn to SignedOut fires cancelPush`() = runTest {
-        val scheduler = FakeSyncWorkScheduler()
-        val (bridge, auth) = bridge(
-            scheduler = scheduler,
-            session = Session.SignedIn(UserId("uid"), "e@x.com", "acc", "ref"),
-        )
-
-        scheduler.reset()
-        auth.set(Session.SignedOut)
-
-        runCurrent()
-
-        assertTrue(scheduler.cancelPushCalled, "after sign-out, cancelPush must fire")
-        assertFalse(scheduler.enqueuePushCalled, "after sign-out, enqueuePush must not fire")
-
-        bridge.close()
-    }
+            bridge.close()
+        }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun `Anonymous to SignedIn fires enqueuePush`() = runTest {
-        val scheduler = FakeSyncWorkScheduler()
-        val (bridge, auth) = bridge(
-            scheduler = scheduler,
-            session = Session.Anonymous(UserId.generate()),
-        )
+    fun `SignedIn to SignedOut fires cancelPush`() =
+        runTest {
+            val scheduler = FakeSyncWorkScheduler()
+            val (bridge, auth) =
+                bridge(
+                    scheduler = scheduler,
+                    session = Session.SignedIn(UserId("uid"), "e@x.com", "acc", "ref"),
+                )
 
-        scheduler.reset()
-        auth.signIn()
+            scheduler.reset()
+            auth.set(Session.SignedOut)
 
-        runCurrent()
+            runCurrent()
 
-        assertTrue(scheduler.enqueuePushCalled, "after anonymous→SignedIn, enqueuePush must fire")
+            assertTrue(scheduler.cancelPushCalled, "after sign-out, cancelPush must fire")
+            assertFalse(scheduler.enqueuePushCalled, "after sign-out, enqueuePush must not fire")
 
-        bridge.close()
-    }
+            bridge.close()
+        }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `Anonymous to SignedIn fires enqueuePush`() =
+        runTest {
+            val scheduler = FakeSyncWorkScheduler()
+            val (bridge, auth) =
+                bridge(
+                    scheduler = scheduler,
+                    session = Session.Anonymous(UserId.generate()),
+                )
+
+            scheduler.reset()
+            auth.signIn()
+
+            runCurrent()
+
+            assertTrue(scheduler.enqueuePushCalled, "after anonymous→SignedIn, enqueuePush must fire")
+
+            bridge.close()
+        }
 
     // ─── close ─────────────────────────────────────────────────────────────
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun `close cancels the bridge scope`() = runTest {
-        val scheduler = FakeSyncWorkScheduler()
-        val (bridge, auth) = bridge(
-            scheduler = scheduler,
-            session = Session.SignedIn(UserId("uid"), "e@x.com", "acc", "ref"),
-        )
+    fun `close cancels the bridge scope`() =
+        runTest {
+            val scheduler = FakeSyncWorkScheduler()
+            val (bridge, auth) =
+                bridge(
+                    scheduler = scheduler,
+                    session = Session.SignedIn(UserId("uid"), "e@x.com", "acc", "ref"),
+                )
 
-        runCurrent()
-        assertTrue(scheduler.enqueuePushCalled, "precondition: SignedIn must have called enqueuePush")
+            runCurrent()
+            assertTrue(scheduler.enqueuePushCalled, "precondition: SignedIn must have called enqueuePush")
 
-        // Transition to SignedOut first, which triggers cancelPush via session change.
-        // Then closing the bridge cancels its scope, which terminates the collector.
-        scheduler.reset()
-        auth.set(Session.SignedOut)
-        runCurrent()
-        assertTrue(scheduler.cancelPushCalled, "sign-out must call cancelPush")
+            // Transition to SignedOut first, which triggers cancelPush via session change.
+            // Then closing the bridge cancels its scope, which terminates the collector.
+            scheduler.reset()
+            auth.set(Session.SignedOut)
+            runCurrent()
+            assertTrue(scheduler.cancelPushCalled, "sign-out must call cancelPush")
 
-        bridge.close()
-    }
+            bridge.close()
+        }
 }

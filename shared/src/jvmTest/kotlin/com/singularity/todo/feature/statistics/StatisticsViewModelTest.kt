@@ -25,7 +25,6 @@ import kotlin.time.Instant
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
 class StatisticsViewModelTest {
-
     private val testUserId = UserId("test-user")
 
     /**
@@ -35,7 +34,10 @@ class StatisticsViewModelTest {
      */
     private val testNow: Instant = Instant.parse("2026-01-15T12:00:00Z")
 
-    private fun task(id: String, completed: Boolean = false): Task {
+    private fun task(
+        id: String,
+        completed: Boolean = false,
+    ): Task {
         val now = testNow
         return Task(
             id = TaskId.fromString(id),
@@ -47,46 +49,47 @@ class StatisticsViewModelTest {
         )
     }
 
-    private fun TestScope.createVm(
-        repo: FakeTaskRepository = FakeTaskRepository(),
-    ): StatisticsViewModel {
+    private fun TestScope.createVm(repo: FakeTaskRepository = FakeTaskRepository()): StatisticsViewModel {
         val clock = FakeClock(testNow)
         val currentUser = FakeProfileAwareCurrentUser()
         val timeTracking = FakeTimeTrackingRepository(clock)
         val projects = FakeProjectsRepository(currentUser)
         val settings = FakeSettingsRepository(testUserId.value)
         return StatisticsViewModel(
-            deps = StatisticsDeps(
-                taskRepository = repo,
-                timeTrackingRepo = timeTracking,
-                projectsRepo = projects,
-                currentUser = currentUser,
-                clock = clock,
-                settingsRepository = settings,
-            ),
+            deps =
+                StatisticsDeps(
+                    taskRepository = repo,
+                    timeTrackingRepo = timeTracking,
+                    projectsRepo = projects,
+                    currentUser = currentUser,
+                    clock = clock,
+                    settingsRepository = settings,
+                ),
             scope = testScope(backgroundScope),
         )
     }
 
     @Test
-    fun `marks task complete and statistics reactively update`() = runTest {
-        val repo = FakeTaskRepository()
-        repo.seed(task("t1"))
-        repo.seed(task("t2"))
+    fun `marks task complete and statistics reactively update`() =
+        runTest {
+            val repo = FakeTaskRepository()
+            repo.seed(task("t1"))
+            repo.seed(task("t2"))
 
-        val vm = createVm(repo)
-        advanceUntilIdle()
+            val vm = createVm(repo)
+            advanceUntilIdle()
 
-        repo.complete(TaskId.fromString("t1"))
+            repo.complete(TaskId.fromString("t1"))
 
-        // Without active collection the state stays at initial loading=true.
-        assertTrue(vm.stateFlow.value.loading, "Without active collection, loading=true stays")
-    }
+            // Without active collection the state stays at initial loading=true.
+            assertTrue(vm.stateFlow.value.loading, "Without active collection, loading=true stays")
+        }
 
     @Test
-    fun `state exposes StateFlow shape`() = runTest {
-        val vm = createVm()
-        advanceUntilIdle()
-        assertTrue(vm.stateFlow.value.loading)
-    }
+    fun `state exposes StateFlow shape`() =
+        runTest {
+            val vm = createVm()
+            advanceUntilIdle()
+            assertTrue(vm.stateFlow.value.loading)
+        }
 }

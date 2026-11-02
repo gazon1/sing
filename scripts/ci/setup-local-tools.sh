@@ -8,6 +8,7 @@
 #   - yamllint       the "YAML is structurally valid" gate
 #   - shellcheck     actionlint's shellcheck integration
 #   - actionlint     the "GitHub workflows are valid" gate
+#   - ktlint         the "Kotlin is formatted" check
 #
 # Why a venv, and why uv: CI installs exactly this, in exactly this shape, through
 # .github/actions/setup-python-tools. The four ways this was installed before all
@@ -213,6 +214,28 @@ if [ -x "$ACTIONLINT_SHARED" ]; then
     echo "    actionlint -> $ACTIONLINT_SHARED"
 fi
 
+# ktlint has no Python distribution either: CI downloads the pinned release
+# asset, and the same download happens here so a local run and a CI run of the
+# formatting check agree.
+#
+# The jar is a shared-store citizen like actionlint: one copy per version on
+# the machine, not one per checkout.
+echo "==> installing the pinned ktlint"
+KTLINT_SHARED="$(shared_binary ktlint "$KTLINT_VERSION")"
+mkdir -p "$(dirname "$KTLINT_SHARED")"
+if [ ! -x "$KTLINT_SHARED" ]; then
+    if bash "$ROOT/scripts/ci/install-ktlint.sh" "$(dirname "$KTLINT_SHARED")" "$KTLINT_VERSION"; then
+        echo "    ktlint $KTLINT_VERSION -> the shared store"
+    else
+        echo "    ktlint could not be installed — the 'Kotlin is formatted' check" >&2
+        echo "    will fail until it is on PATH. The preflight will say so." >&2
+    fi
+fi
+if [ -x "$KTLINT_SHARED" ]; then
+    ln -sfn "$KTLINT_SHARED" "$VENV/bin/ktlint"
+    echo "    ktlint -> $KTLINT_SHARED"
+fi
+
 cat <<MSG
 
 The gate suite is ready. Put the venv on PATH for this shell:
@@ -223,7 +246,7 @@ The gate CLI now serves this checkout:
 
     "$VENV/bin/python" -c 'import pathlib, sgate; print(pathlib.Path(sgate.__file__).resolve().parent)'
 
-The pinned binaries (lychee, shellcheck, actionlint) are shared, by version:
+The pinned binaries (lychee, shellcheck, actionlint, ktlint) are shared, by version:
 
     $TOOLS_ROOT/<tool>-<version>/bin/<tool>
 

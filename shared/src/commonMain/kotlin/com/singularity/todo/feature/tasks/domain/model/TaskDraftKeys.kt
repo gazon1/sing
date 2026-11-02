@@ -18,7 +18,6 @@ package com.singularity.todo.feature.tasks.domain.model
  * @see com.singularity.todo.feature.tasks.presentation.viewmodel.TaskCreateDeps.DRAFT_KEY
  */
 object TaskDraftKeys {
-
     /**
      * The generic create-editor draft.
      *

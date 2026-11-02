@@ -30,7 +30,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class TaskWireFieldNamesTest {
-
     @Test
     fun `the serialized task keeps the dependsOn key`() {
         val json = task().toJson()
@@ -61,14 +60,15 @@ class TaskWireFieldNamesTest {
         )
     }
 
-    private fun task(): Task = Task(
-        id = TaskId("task-1"),
-        title = "Task",
-        kind = TaskKind.Task,
-        priority = TaskPriority.None,
-        blockedBy = setOf(TaskId("task-2")),
-        createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
-        updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0),
-        userId = UserId("test-user"),
-    )
+    private fun task(): Task =
+        Task(
+            id = TaskId("task-1"),
+            title = "Task",
+            kind = TaskKind.Task,
+            priority = TaskPriority.None,
+            blockedBy = setOf(TaskId("task-2")),
+            createdAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+            updatedAt = kotlin.time.Instant.fromEpochMilliseconds(0),
+            userId = UserId("test-user"),
+        )
 }

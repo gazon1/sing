@@ -5,6 +5,7 @@ import com.singularity.todo.core.database.AgendaViewDao
 import com.singularity.todo.core.database.AgendaViewEntity
 import com.singularity.todo.core.database.toEpochMillis
 import com.singularity.todo.core.database.toInstant
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.repository.assertCanWrite
 import com.singularity.todo.core.repository.observeForCurrentUser
@@ -16,27 +17,27 @@ import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
-import com.singularity.todo.core.error.runCatchingCancellable
 
 class SavedAgendaViewsRepositoryImpl(
     private val agendaViewDao: AgendaViewDao,
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock = Clock.System,
 ) : SavedAgendaViewsRepository {
-
     // ─── GenericUserScopedRepository ──────────────────────────────────────────
 
     override suspend fun currentUserId(): String = currentUser.scopedUserId.value.value
 
-    override fun observeAll(): Flow<List<SavedAgendaView>> = currentUser.observeForCurrentUser { uid ->
-        agendaViewDao.watchAll(uid.value).map { entities ->
-            entities.map { it.toDomain() }.filter { it.isDecodable() }
+    override fun observeAll(): Flow<List<SavedAgendaView>> =
+        currentUser.observeForCurrentUser { uid ->
+            agendaViewDao.watchAll(uid.value).map { entities ->
+                entities.map { it.toDomain() }.filter { it.isDecodable() }
+            }
         }
-    }
 
-    override fun observe(id: SavedAgendaViewId): Flow<SavedAgendaView?> = currentUser.observeForCurrentUser { uid ->
-        agendaViewDao.watchById(uid.value, id.raw).map { it?.toDomain()?.takeIf { it.isDecodable() } }
-    }
+    override fun observe(id: SavedAgendaViewId): Flow<SavedAgendaView?> =
+        currentUser.observeForCurrentUser { uid ->
+            agendaViewDao.watchById(uid.value, id.raw).map { it?.toDomain()?.takeIf { it.isDecodable() } }
+        }
 
     override suspend fun get(id: SavedAgendaViewId): SavedAgendaView? {
         val uid = currentUser.scopedUserId.value
@@ -57,16 +58,17 @@ class SavedAgendaViewsRepositoryImpl(
 
     override suspend fun update(item: SavedAgendaView): Result<SavedAgendaView> = upsert(item)
 
-    override suspend fun upsert(view: SavedAgendaView): Result<SavedAgendaView> = runCatchingCancellable {
-        val uid = currentUser.scopedUserId.value
-        // Legacy rows may hold the "" sentinel; normalise to UserId.anonymous so
-        // assertCanWrite treats both consistently with other repositories.
-        val entityUserId = if (view.userId.value == "") UserId.anonymous else view.userId
-        currentUser.assertCanWrite(entityId = view.id.raw, entityUserId = entityUserId)
-        val toInsert = view.copy(userId = uid)
-        agendaViewDao.upsert(toInsert.toEntity())
-        toInsert
-    }
+    override suspend fun upsert(view: SavedAgendaView): Result<SavedAgendaView> =
+        runCatchingCancellable {
+            val uid = currentUser.scopedUserId.value
+            // Legacy rows may hold the "" sentinel; normalise to UserId.anonymous so
+            // assertCanWrite treats both consistently with other repositories.
+            val entityUserId = if (view.userId.value == "") UserId.anonymous else view.userId
+            currentUser.assertCanWrite(entityId = view.id.raw, entityUserId = entityUserId)
+            val toInsert = view.copy(userId = uid)
+            agendaViewDao.upsert(toInsert.toEntity())
+            toInsert
+        }
 
     /**
      * The one sanctioned cross-profile write: the copy is stamped with the
@@ -78,22 +80,27 @@ class SavedAgendaViewsRepositoryImpl(
      * `userId` with the current scoped user, which would silently file the
      * copy under the source profile instead of the target one.
      */
-    override suspend fun duplicateForProfile(view: SavedAgendaView, targetUserId: String): Result<SavedAgendaView> {
+    override suspend fun duplicateForProfile(
+        view: SavedAgendaView,
+        targetUserId: String,
+    ): Result<SavedAgendaView> {
         val now = clock.now()
-        val copy = view.copy(
-            id = SavedAgendaViewId.generate(),
-            userId = UserId(targetUserId),
-            createdAt = now,
-            updatedAt = now,
-        )
+        val copy =
+            view.copy(
+                id = SavedAgendaViewId.generate(),
+                userId = UserId(targetUserId),
+                createdAt = now,
+                updatedAt = now,
+            )
         agendaViewDao.upsert(copy.toEntity())
         return Result.success(copy)
     }
 
-    override suspend fun delete(id: SavedAgendaViewId): Result<Unit> = runCatchingCancellable {
-        val uid = currentUser.scopedUserId.value
-        agendaViewDao.delete(uid.value, id.raw)
-    }
+    override suspend fun delete(id: SavedAgendaViewId): Result<Unit> =
+        runCatchingCancellable {
+            val uid = currentUser.scopedUserId.value
+            agendaViewDao.delete(uid.value, id.raw)
+        }
 
     /**
      * Hard-deletes every saved view of the active profile.
@@ -106,28 +113,31 @@ class SavedAgendaViewsRepositoryImpl(
      * The views are local content — they are not part of the sync protocol —
      * so nothing is pushed for them.
      */
-    override suspend fun deleteAllForCurrentProfile(): Result<Int> = runCatchingCancellable {
-        val uid = currentUser.scopedUserId.value.value
-        agendaViewDao.deleteAllForUser(uid)
-    }
+    override suspend fun deleteAllForCurrentProfile(): Result<Int> =
+        runCatchingCancellable {
+            val uid = currentUser.scopedUserId.value.value
+            agendaViewDao.deleteAllForUser(uid)
+        }
 
     // ─── Mapping ───────────────────────────────────────────────────────────────
 
-    private fun AgendaViewEntity.toDomain(): SavedAgendaView = SavedAgendaView(
-        id = SavedAgendaViewId.fromString(id),
-        userId = UserId(userId),
-        name = name,
-        sectionsJson = sectionsJson,
-        createdAt = createdAt.toInstant(),
-        updatedAt = updatedAt.toInstant(),
-    )
+    private fun AgendaViewEntity.toDomain(): SavedAgendaView =
+        SavedAgendaView(
+            id = SavedAgendaViewId.fromString(id),
+            userId = UserId(userId),
+            name = name,
+            sectionsJson = sectionsJson,
+            createdAt = createdAt.toInstant(),
+            updatedAt = updatedAt.toInstant(),
+        )
 
-    private fun SavedAgendaView.toEntity(): AgendaViewEntity = AgendaViewEntity(
-        id = id.raw,
-        userId = userId.value,
-        name = name,
-        sectionsJson = sectionsJson,
-        createdAt = createdAt.toEpochMillis(),
-        updatedAt = updatedAt.toEpochMillis(),
-    )
+    private fun SavedAgendaView.toEntity(): AgendaViewEntity =
+        AgendaViewEntity(
+            id = id.raw,
+            userId = userId.value,
+            name = name,
+            sectionsJson = sectionsJson,
+            createdAt = createdAt.toEpochMillis(),
+            updatedAt = updatedAt.toEpochMillis(),
+        )
 }

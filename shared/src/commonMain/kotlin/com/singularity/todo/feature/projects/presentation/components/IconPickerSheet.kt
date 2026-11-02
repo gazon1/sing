@@ -15,7 +15,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import com.singularity.todo.core.ui.touchTarget
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -25,17 +24,41 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.projects.presentation.theme.ProjectIconRegistry
 import com.singularity.todo.feature.tasks.presentation.theme.TaskListSizes
 
-private val COMMON_EMOJIS = listOf(
-    "🚀", "🎯", "💡", "🔥", "⭐", "❤️", "✅", "📌", "🏠", "💼",
-    "📚", "🎵", "🐾", "✈️", "🏥", "🛒", "💻", "🔧", "🎨", "📊",
-)
+private val COMMON_EMOJIS =
+    listOf(
+        "🚀",
+        "🎯",
+        "💡",
+        "🔥",
+        "⭐",
+        "❤️",
+        "✅",
+        "📌",
+        "🏠",
+        "💼",
+        "📚",
+        "🎵",
+        "🐾",
+        "✈️",
+        "🏥",
+        "🛒",
+        "💻",
+        "🔧",
+        "🎨",
+        "📊",
+    )
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun IconPickerSheet(currentIcon: String?, onPick: (String?) -> Unit, onDismiss: () -> Unit) {
+fun IconPickerSheet(
+    currentIcon: String?,
+    onPick: (String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
     Column(modifier = Modifier.padding(24.dp)) {
         Text("Icon", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(16.dp))
@@ -48,25 +71,26 @@ fun IconPickerSheet(currentIcon: String?, onPick: (String?) -> Unit, onDismiss: 
                 Icon(
                     icon,
                     contentDescription = key,
-                    tint = if (key == currentIcon) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                    modifier = Modifier
-                        .touchTarget(TaskListSizes.MinTouchTarget)
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .clickable { onPick(key) }
-                        .background(
-                            if (key == currentIcon) {
-                                MaterialTheme.colorScheme.primaryContainer
-                            } else {
-                                Color.Transparent
-                            },
-                            CircleShape,
-                        )
-                        .padding(8.dp),
+                    tint =
+                        if (key == currentIcon) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    modifier =
+                        Modifier
+                            .touchTarget(TaskListSizes.MinTouchTarget)
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .clickable { onPick(key) }
+                            .background(
+                                if (key == currentIcon) {
+                                    MaterialTheme.colorScheme.primaryContainer
+                                } else {
+                                    Color.Transparent
+                                },
+                                CircleShape,
+                            ).padding(8.dp),
                 )
             }
         }
@@ -83,7 +107,10 @@ fun IconPickerSheet(currentIcon: String?, onPick: (String?) -> Unit, onDismiss: 
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun EmojiSection(currentIcon: String?, onPick: (String?) -> Unit) {
+private fun EmojiSection(
+    currentIcon: String?,
+    onPick: (String?) -> Unit,
+) {
     Text("Emoji", style = MaterialTheme.typography.titleSmall)
     Spacer(Modifier.height(8.dp))
     FlowRow(
@@ -93,20 +120,20 @@ private fun EmojiSection(currentIcon: String?, onPick: (String?) -> Unit) {
         COMMON_EMOJIS.forEach { emoji ->
             Text(
                 text = emoji,
-                modifier = Modifier
-                    .touchTarget(TaskListSizes.MinTouchTarget)
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .clickable { onPick(emoji) }
-                    .background(
-                        if (emoji == currentIcon) {
-                            MaterialTheme.colorScheme.primaryContainer
-                        } else {
-                            Color.Transparent
-                        },
-                        CircleShape,
-                    )
-                    .padding(8.dp),
+                modifier =
+                    Modifier
+                        .touchTarget(TaskListSizes.MinTouchTarget)
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .clickable { onPick(emoji) }
+                        .background(
+                            if (emoji == currentIcon) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else {
+                                Color.Transparent
+                            },
+                            CircleShape,
+                        ).padding(8.dp),
             )
         }
     }

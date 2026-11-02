@@ -22,7 +22,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class BackupDestinationTest {
-
     @Test
     fun `a file name lands inside the backup directory`() {
         assertEquals(
@@ -34,9 +33,10 @@ class BackupDestinationTest {
     /** A path with a separator is a path, and paths are refused. */
     @Test
     fun `a path is refused instead of being followed`() {
-        val failure = assertFailsWith<IllegalArgumentException> {
-            resolveBackupDestination("/data/backups", "../elsewhere/backup.zip")
-        }
+        val failure =
+            assertFailsWith<IllegalArgumentException> {
+                resolveBackupDestination("/data/backups", "../elsewhere/backup.zip")
+            }
 
         assertTrue(failure.message.orEmpty().contains("file name"), "got ${failure.message}")
     }

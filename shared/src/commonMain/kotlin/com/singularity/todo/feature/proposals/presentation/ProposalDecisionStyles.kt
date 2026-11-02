@@ -16,22 +16,22 @@ package com.singularity.todo.feature.proposals.presentation
  * The values themselves are unchanged; only their address moved.
  */
 object ProposalDecisionStyles {
-
     /**
      * The review screen — the screen where the waiting changes are listed.
      *
      * A dismissed proposal keeps no reason per change: the proposal's own status
      * says what became of it.
      */
-    val reviewScreen = ProposalDecisionStyle(
-        apply = "Apply the change",
-        reject = "Reject the change",
-        applyAll = "Apply the changes",
-        applyOne = "Apply the change",
-        dismiss = "Dismiss the proposal",
-        dismissOne = null,
-        change = "Change the proposal",
-    )
+    val reviewScreen =
+        ProposalDecisionStyle(
+            apply = "Apply the change",
+            reject = "Reject the change",
+            applyAll = "Apply the changes",
+            applyOne = "Apply the change",
+            dismiss = "Dismiss the proposal",
+            dismissOne = null,
+            change = "Change the proposal",
+        )
 
     /**
      * The note editor — the changes waiting for a decision on one note.
@@ -40,16 +40,17 @@ object ProposalDecisionStyles {
      * has always dropped it, and the shared operations keep that as it was
      * rather than changing what the model is told.
      */
-    val noteEditor = ProposalDecisionStyle(
-        apply = "Apply the change",
-        reject = "Reject the change",
-        applyAll = "Apply the changes",
-        applyOne = "Apply the change",
-        dismiss = "Turn the changes down",
-        dismissOne = "Turn the change down",
-        change = "Change the proposal",
-        storesRejectionReason = false,
-    )
+    val noteEditor =
+        ProposalDecisionStyle(
+            apply = "Apply the change",
+            reject = "Reject the change",
+            applyAll = "Apply the changes",
+            applyOne = "Apply the change",
+            dismiss = "Turn the changes down",
+            dismissOne = "Turn the change down",
+            change = "Change the proposal",
+            storesRejectionReason = false,
+        )
 
     /**
      * The task detail — the changes waiting for a decision on one task.
@@ -59,15 +60,16 @@ object ProposalDecisionStyles {
      * changes failed is a normal outcome, but the user is told which changes it
      * was.
      */
-    val taskDetail = ProposalDecisionStyle(
-        apply = "Confirm",
-        reject = "Reject",
-        applyAll = "Apply",
-        applyOne = "Apply",
-        dismiss = "Dismiss",
-        dismissOne = null,
-        change = "Change",
-        failureText = ProposalFailureText { label, error -> "$label failed: ${error.message}" },
-        batchFailureText = { count -> "$count items could not be applied" },
-    )
+    val taskDetail =
+        ProposalDecisionStyle(
+            apply = "Confirm",
+            reject = "Reject",
+            applyAll = "Apply",
+            applyOne = "Apply",
+            dismiss = "Dismiss",
+            dismissOne = null,
+            change = "Change",
+            failureText = ProposalFailureText { label, error -> "$label failed: ${error.message}" },
+            batchFailureText = { count -> "$count items could not be applied" },
+        )
 }

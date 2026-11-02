@@ -32,14 +32,16 @@ actual fun rememberCalendarPermissionRequester(): CalendarPermissionRequester {
         )
     }
 
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions(),
-    ) { result ->
-        hasPermissions = result.values.all { it }
-    }
+    val launcher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestMultiplePermissions(),
+        ) { result ->
+            hasPermissions = result.values.all { it }
+        }
 
     return object : CalendarPermissionRequester {
         override val hasPermissions: Boolean get() = hasPermissions
+
         override fun requestPermissions() {
             launcher.launch(CalendarPermissionContracts.PERMISSIONS)
         }

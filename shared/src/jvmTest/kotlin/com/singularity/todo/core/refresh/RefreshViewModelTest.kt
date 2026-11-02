@@ -27,7 +27,6 @@ import kotlin.test.assertIs
  */
 @Tag("fast")
 class RefreshViewModelTest {
-
     /**
      * The scope the coordinator's run lives in.
      *
@@ -46,15 +45,16 @@ class RefreshViewModelTest {
             val sync = FakeSyncRepository()
             val events = mutableListOf<RefreshUiEvent>()
 
-            val ctx = testVm(
-                stateAccessor = { vm: RefreshViewModel -> vm.stateFlow },
-                afterInit = { vm, bgScope -> bgScope.launch { vm.events.collect { events += it } } },
-            ) { scope ->
-                RefreshViewModel(
-                    coordinator = RefreshCoordinator(archiver, sync, coordinatorScope()),
-                    scope = scope,
-                )
-            }
+            val ctx =
+                testVm(
+                    stateAccessor = { vm: RefreshViewModel -> vm.stateFlow },
+                    afterInit = { vm, bgScope -> bgScope.launch { vm.events.collect { events += it } } },
+                ) { scope ->
+                    RefreshViewModel(
+                        coordinator = RefreshCoordinator(archiver, sync, coordinatorScope()),
+                        scope = scope,
+                    )
+                }
 
             assertIs<RefreshUiState.Idle>(ctx.state.value)
 
@@ -81,21 +81,23 @@ class RefreshViewModelTest {
     @Test
     fun `the flag comes down even when the refresh failed`() =
         runTest {
-            val archiver = FakeCompletedTaskArchiver(
-                outcome = Result.failure(IllegalStateException("the archive step failed")),
-            )
+            val archiver =
+                FakeCompletedTaskArchiver(
+                    outcome = Result.failure(IllegalStateException("the archive step failed")),
+                )
             val sync = FakeSyncRepository()
             val events = mutableListOf<RefreshUiEvent>()
 
-            val ctx = testVm(
-                stateAccessor = { vm: RefreshViewModel -> vm.stateFlow },
-                afterInit = { vm, bgScope -> bgScope.launch { vm.events.collect { events += it } } },
-            ) { scope ->
-                RefreshViewModel(
-                    coordinator = RefreshCoordinator(archiver, sync, coordinatorScope()),
-                    scope = scope,
-                )
-            }
+            val ctx =
+                testVm(
+                    stateAccessor = { vm: RefreshViewModel -> vm.stateFlow },
+                    afterInit = { vm, bgScope -> bgScope.launch { vm.events.collect { events += it } } },
+                ) { scope ->
+                    RefreshViewModel(
+                        coordinator = RefreshCoordinator(archiver, sync, coordinatorScope()),
+                        scope = scope,
+                    )
+                }
 
             ctx.act { onIntent(RefreshIntent.Refresh) }
             awaitState { ctx.state.value is RefreshUiState.Idle }
@@ -112,14 +114,15 @@ class RefreshViewModelTest {
             val archiver = FakeCompletedTaskArchiver(outcome = Result.success(1)).also { it.gate = gate }
             val sync = FakeSyncRepository()
 
-            val ctx = testVm(
-                stateAccessor = { vm: RefreshViewModel -> vm.stateFlow },
-            ) { scope ->
-                RefreshViewModel(
-                    coordinator = RefreshCoordinator(archiver, sync, coordinatorScope()),
-                    scope = scope,
-                )
-            }
+            val ctx =
+                testVm(
+                    stateAccessor = { vm: RefreshViewModel -> vm.stateFlow },
+                ) { scope ->
+                    RefreshViewModel(
+                        coordinator = RefreshCoordinator(archiver, sync, coordinatorScope()),
+                        scope = scope,
+                    )
+                }
 
             // Nobody is listening: the screen "left" before the refresh finished.
             ctx.act { onIntent(RefreshIntent.Refresh) }
@@ -141,14 +144,15 @@ class RefreshViewModelTest {
             val archiver = FakeCompletedTaskArchiver(outcome = Result.success(1)).also { it.gate = gate }
             val sync = FakeSyncRepository()
 
-            val ctx = testVm(
-                stateAccessor = { vm: RefreshViewModel -> vm.stateFlow },
-            ) { scope ->
-                RefreshViewModel(
-                    coordinator = RefreshCoordinator(archiver, sync, coordinatorScope()),
-                    scope = scope,
-                )
-            }
+            val ctx =
+                testVm(
+                    stateAccessor = { vm: RefreshViewModel -> vm.stateFlow },
+                ) { scope ->
+                    RefreshViewModel(
+                        coordinator = RefreshCoordinator(archiver, sync, coordinatorScope()),
+                        scope = scope,
+                    )
+                }
 
             ctx.act { onIntent(RefreshIntent.Refresh) }
             ctx.act { onIntent(RefreshIntent.Refresh) }

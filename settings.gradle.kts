@@ -104,7 +104,12 @@ plugins {
 // 3000+ of them.
 //
 // ── The switch itself ─────────────────────────────────────────────────────────
-val coverageProperty = providers.gradleProperty("coverage.enabled").getOrElse("true").trim().lowercase()
+val coverageProperty =
+    providers
+        .gradleProperty("coverage.enabled")
+        .getOrElse("true")
+        .trim()
+        .lowercase()
 require(coverageProperty == "true" || coverageProperty == "false") {
     "the property 'coverage.enabled' is '$coverageProperty', and it is a boolean — pass " +
         "'-Pcoverage.enabled=true' or '-Pcoverage.enabled=false'. A value nobody reads " +
@@ -131,23 +136,28 @@ val coverageEnabled = coverageProperty == "true"
 // A population that selects `slow` is the full one. An absent population means
 // the default run, which excludes `slow` and therefore measures the fast
 // population.
-val testPopulations = java.util.Properties().apply {
-    rootDir.resolve("config/test-populations.properties").inputStream().use { load(it) }
-}
+val testPopulations =
+    java.util.Properties().apply {
+        rootDir.resolve("config/test-populations.properties").inputStream().use { load(it) }
+    }
 val testPopulation = providers.gradleProperty("test.population").getOrElse("")
 val testTags = providers.gradleProperty("test.tags").getOrElse("")
-val selectedTags = when {
-    testPopulation.isNotEmpty() -> {
-        val declared = testPopulations.getProperty(testPopulation)
-        require(declared != null) {
-            "unknown test population '$testPopulation' — the known ones are: " +
-                testPopulations.stringPropertyNames().sorted().joinToString(", ") +
-                " (config/test-populations.properties)"
+val selectedTags =
+    when {
+        testPopulation.isNotEmpty() -> {
+            val declared = testPopulations.getProperty(testPopulation)
+            require(declared != null) {
+                "unknown test population '$testPopulation' — the known ones are: " +
+                    testPopulations.stringPropertyNames().sorted().joinToString(", ") +
+                    " (config/test-populations.properties)"
+            }
+            declared
         }
-        declared
-    }
-    else -> testTags
-}.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+
+        else -> {
+            testTags
+        }
+    }.split(",").map { it.trim() }.filter { it.isNotEmpty() }
 val measuredFullPopulation = selectedTags.any { it == "slow" }
 
 // Floors rounded down from measured values, one set per population.
@@ -414,10 +424,12 @@ include(":tools:unwritten-properties")
 // has to run both configurations. `scripts/check-pro-licence-boundary.py` is what keeps
 // that honest: it proves the free configuration really is free, which is otherwise a
 // claim nothing would notice being false.
-val withPro: Boolean = providers.gradleProperty("withPro")
-    .orElse("false")
-    .map { it.toBoolean() }
-    .get()
+val withPro: Boolean =
+    providers
+        .gradleProperty("withPro")
+        .orElse("false")
+        .map { it.toBoolean() }
+        .get()
 if (withPro) {
     include(":pro")
 }

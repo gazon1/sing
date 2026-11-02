@@ -8,24 +8,25 @@ import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.observability.CrashReportingPort
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
+import com.singularity.todo.core.observability.reportingScope
 import com.singularity.todo.core.ui.MviIntent
 import com.singularity.todo.core.ui.MviViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
-import com.singularity.todo.core.observability.CrashReportingPort
-import com.singularity.todo.core.observability.NoOpCrashReportingPort
-import com.singularity.todo.core.observability.reportingScope
 
 /**
  * Intents for the auth screen.
  */
 sealed interface AuthIntent : MviIntent {
     data class SignIn(val email: String, val password: String) : AuthIntent
+
     data class SignUp(val email: String, val password: String) : AuthIntent
 
     /**
@@ -39,6 +40,7 @@ sealed interface AuthIntent : MviIntent {
     data object ContinueOffline : AuthIntent
 
     data object SignOut : AuthIntent
+
     data object ResetState : AuthIntent
 
     /**
@@ -150,9 +152,10 @@ class AuthViewModel(
      * state would mean a count re-rendering the whole auth screen whenever a task is
      * created.
      */
-    private val _localData = MutableStateFlow<LocalDataDisposition>(
-        LocalDataDisposition.Keep(ReassignCounts(), LocalDataSummary(0, 0)),
-    )
+    private val _localData =
+        MutableStateFlow<LocalDataDisposition>(
+            LocalDataDisposition.Keep(ReassignCounts(), LocalDataSummary(0, 0)),
+        )
     val localData: StateFlow<LocalDataDisposition> = _localData.asStateFlow()
 
     init {
@@ -219,7 +222,10 @@ class AuthViewModel(
             .onFailure { _localData.value = LocalDataDisposition.Keep(ReassignCounts(), LocalDataSummary(0, 0)) }
     }
 
-    private fun signIn(email: String, password: String) {
+    private fun signIn(
+        email: String,
+        password: String,
+    ) {
         vmScope.launch {
             if (_state.value is AuthUiState.Loading) return@launch
             updateState { AuthUiState.Loading }
@@ -237,7 +243,10 @@ class AuthViewModel(
         }
     }
 
-    private fun signUp(email: String, password: String) {
+    private fun signUp(
+        email: String,
+        password: String,
+    ) {
         vmScope.launch {
             if (_state.value is AuthUiState.Loading) return@launch
             updateState { AuthUiState.Loading }
@@ -371,7 +380,10 @@ class AuthViewModel(
         }
     }
 
-    private fun verifyMagicLink(email: String, token: String) {
+    private fun verifyMagicLink(
+        email: String,
+        token: String,
+    ) {
         vmScope.launch {
             if (_state.value is AuthUiState.Loading) return@launch
             updateState { AuthUiState.Loading }

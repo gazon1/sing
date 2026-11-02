@@ -11,7 +11,9 @@ import kotlinx.serialization.Serializable
 value class UserId(val value: String) {
     companion object {
         fun generate() = UserId(nextId())
+
         fun fromString(value: String) = UserId(value)
+
         val anonymous = UserId("anonymous")
     }
 }

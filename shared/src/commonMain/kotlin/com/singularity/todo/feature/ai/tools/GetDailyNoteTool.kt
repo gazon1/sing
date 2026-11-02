@@ -14,16 +14,21 @@ data class GetDailyNoteOutput(val id: String?, val title: String?, val bodyMarkd
 
 class GetDailyNoteTool(private val notesRepo: NotesRepository) :
     SimpleTool<GetDailyNoteInput>(TypeToken.of(GetDailyNoteInput::class.java), NAME, DESCRIPTION) {
-
     override suspend fun execute(args: GetDailyNoteInput): String {
-        val pid = args.projectId?.let { com.singularity.todo.feature.projects.domain.model.ProjectId.fromString(it) }
+        val pid =
+            args.projectId?.let {
+                com.singularity.todo.feature.projects.domain.model.ProjectId
+                    .fromString(it)
+            }
         val note = notesRepo.getDailyNote(args.dateKey, pid)
-        val output = if (note != null) {
-            GetDailyNoteOutput(note.id.value, note.title, note.bodyMarkdown)
-        } else {
-            GetDailyNoteOutput(null, null, null)
-        }
-        return kotlinx.serialization.json.Json.encodeToString(GetDailyNoteOutput.serializer(), output)
+        val output =
+            if (note != null) {
+                GetDailyNoteOutput(note.id.value, note.title, note.bodyMarkdown)
+            } else {
+                GetDailyNoteOutput(null, null, null)
+            }
+        return kotlinx.serialization.json.Json
+            .encodeToString(GetDailyNoteOutput.serializer(), output)
     }
 
     companion object {

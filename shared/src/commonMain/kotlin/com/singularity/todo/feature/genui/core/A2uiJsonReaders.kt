@@ -28,8 +28,7 @@ internal fun JsonObject.optionalInt(name: String): Int? = this[name].asIntOrNull
 
 internal fun JsonObject.optionalBoolean(name: String): Boolean? = this[name].asBooleanOrNull()
 
-internal fun JsonObject.direction(): UiNode.Direction =
-    enumOf(this["direction"], UiNode.Direction.Vertical)
+internal fun JsonObject.direction(): UiNode.Direction = enumOf(this["direction"], UiNode.Direction.Vertical)
 
 /**
  * Reads an enumerated property, falling back rather than failing.
@@ -37,7 +36,10 @@ internal fun JsonObject.direction(): UiNode.Direction =
  * The catalog's `values` list is the real check — a model is told the legal values when it gets
  * one wrong. This only has to keep an unknown name from becoming an exception on the way there.
  */
-internal inline fun <reified T : Enum<T>> enumOf(element: JsonElement?, fallback: T): T {
+internal inline fun <reified T : Enum<T>> enumOf(
+    element: JsonElement?,
+    fallback: T,
+): T {
     val name: String = element.asStringOrNull() ?: return fallback
     return runCatching { enumValueOf<T>(name) }.getOrDefault(fallback)
 }

@@ -34,7 +34,6 @@ import com.singularity.todo.core.files.ByteSource
  * caller.
  */
 interface BackupBucket {
-
     /**
      * Puts what [source] yields at [path], replacing what was there.
      *
@@ -45,7 +44,11 @@ interface BackupBucket {
      *   before the first byte arrives — it is what the request is lengthened with,
      *   and a wrong number is a truncated upload.
      */
-    suspend fun upload(path: String, source: ByteSource, sizeBytes: Long)
+    suspend fun upload(
+        path: String,
+        source: ByteSource,
+        sizeBytes: Long,
+    )
 
     /**
      * Writes what is stored at [path] into [sink].
@@ -53,7 +56,10 @@ interface BackupBucket {
      * The sink is closed by the caller, not here: the bucket does not own the file
      * the archive lands in.
      */
-    suspend fun download(path: String, sink: ByteSink)
+    suspend fun download(
+        path: String,
+        sink: ByteSink,
+    )
 
     /** The objects under [prefix]. */
     suspend fun list(prefix: String): List<BucketObject>

@@ -18,23 +18,24 @@ import java.util.concurrent.TimeUnit
  * job is in flight are idempotent rather than stacking duplicate syncs.
  */
 class AndroidSyncWorkScheduler(private val context: Context) : SyncWorkScheduler {
-
     private val workManager: WorkManager
         get() = WorkManager.getInstance(context)
 
-    private val constraints = Constraints.Builder()
-        .setRequiresBatteryNotLow(true)
-        .build()
+    private val constraints =
+        Constraints
+            .Builder()
+            .setRequiresBatteryNotLow(true)
+            .build()
 
     override fun enqueuePush() {
-        val request = OneTimeWorkRequestBuilder<SyncOutboxWorker>()
-            .setConstraints(constraints)
-            .setBackoffCriteria(
-                BackoffPolicy.EXPONENTIAL,
-                30,
-                TimeUnit.SECONDS,
-            )
-            .build()
+        val request =
+            OneTimeWorkRequestBuilder<SyncOutboxWorker>()
+                .setConstraints(constraints)
+                .setBackoffCriteria(
+                    BackoffPolicy.EXPONENTIAL,
+                    30,
+                    TimeUnit.SECONDS,
+                ).build()
 
         workManager.enqueueUniqueWork(
             SyncOutboxWorker.WORK_NAME,
@@ -52,14 +53,14 @@ class AndroidSyncWorkScheduler(private val context: Context) : SyncWorkScheduler
         // a flex shorter than 5. Ask for less than that and it throws at enqueue
         // time, taking the session-change collector down with it.
         val period = maxOf(intervalMillis, MIN_PERIODIC_MILLIS)
-        val request = PeriodicWorkRequestBuilder<SyncOutboxWorker>(period, TimeUnit.MILLISECONDS)
-            .setConstraints(constraints)
-            .setBackoffCriteria(
-                BackoffPolicy.EXPONENTIAL,
-                30,
-                TimeUnit.SECONDS,
-            )
-            .build()
+        val request =
+            PeriodicWorkRequestBuilder<SyncOutboxWorker>(period, TimeUnit.MILLISECONDS)
+                .setConstraints(constraints)
+                .setBackoffCriteria(
+                    BackoffPolicy.EXPONENTIAL,
+                    30,
+                    TimeUnit.SECONDS,
+                ).build()
 
         workManager.enqueueUniquePeriodicWork(
             SyncOutboxWorker.PERIODIC_WORK_NAME,

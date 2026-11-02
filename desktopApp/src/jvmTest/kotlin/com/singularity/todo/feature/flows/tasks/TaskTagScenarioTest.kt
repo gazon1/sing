@@ -62,7 +62,6 @@ import kotlin.time.Instant
 @Tag("slow")
 @Tag("slow:compose")
 class TaskTagScenarioTest {
-
     @Test
     @DisplayName("TASK-TAG-01 a new tag is created where the task's tags are chosen")
     fun a_new_tag_is_created_where_the_tags_are_chosen() =
@@ -142,9 +141,16 @@ class TaskTagScenarioTest {
     }
 
     /** How many tags the user has. */
-    private suspend fun tagCount(koin: Koin): Int = realTime {
-        withTimeout(TIMEOUT_MS) { koin.get<TagsRepository>().observeAll().first().size }
-    }
+    private suspend fun tagCount(koin: Koin): Int =
+        realTime {
+            withTimeout(TIMEOUT_MS) {
+                koin
+                    .get<TagsRepository>()
+                    .observeAll()
+                    .first()
+                    .size
+            }
+        }
 
     /**
      * Asserts that the task carries the tag of that name.
@@ -153,18 +159,28 @@ class TaskTagScenarioTest {
      * through the task's own write path, so the row shows the tag a moment
      * after the sheet hands the selection over.
      */
-    private suspend fun assertTaskCarriesTag(koin: Koin, taskTitle: String, tagName: String) = realTime {
-        val tagId = withTimeout(TIMEOUT_MS) {
-            koin.get<TagsRepository>().observeAll()
-                .first { tags -> tags.any { it.name == tagName } }
-                .first { it.name == tagName }
-                .id
-        }
-        val task = withTimeout(TIMEOUT_MS) {
-            koin.get<TaskRepository>().observeAll()
-                .first { tasks -> tasks.any { it.title == taskTitle && it.tags.contains(tagId) } }
-                .first { it.title == taskTitle }
-        }
+    private suspend fun assertTaskCarriesTag(
+        koin: Koin,
+        taskTitle: String,
+        tagName: String,
+    ) = realTime {
+        val tagId =
+            withTimeout(TIMEOUT_MS) {
+                koin
+                    .get<TagsRepository>()
+                    .observeAll()
+                    .first { tags -> tags.any { it.name == tagName } }
+                    .first { it.name == tagName }
+                    .id
+            }
+        val task =
+            withTimeout(TIMEOUT_MS) {
+                koin
+                    .get<TaskRepository>()
+                    .observeAll()
+                    .first { tasks -> tasks.any { it.title == taskTitle && it.tags.contains(tagId) } }
+                    .first { it.title == taskTitle }
+            }
         assertTrue(
             task.tags.contains(tagId),
             "the tag created in the picker must be applied to the task",

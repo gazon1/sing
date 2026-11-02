@@ -29,7 +29,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class AcpSessionEventTest {
-
     @Test
     fun `a lifecycle event reaches the log under its own tag`() {
         val log = CapturedLog()
@@ -48,13 +47,14 @@ class AcpSessionEventTest {
 
     @Test
     fun `every lifecycle event reads as one line that carries its facts`() {
-        val events = listOf(
-            AcpSessionEvent.Connected(agentName = "fake-agent", agentVersion = "1.0", protocolVersion = 1),
-            AcpSessionEvent.SessionOpened(sessionId = "session-1"),
-            AcpSessionEvent.PermissionRequested(toolCallId = "call-1", title = "Read file"),
-            AcpSessionEvent.Disconnected(reason = "the agent stopped"),
-            AcpSessionEvent.ProcessTreeTerminated(processes = 3),
-        )
+        val events =
+            listOf(
+                AcpSessionEvent.Connected(agentName = "fake-agent", agentVersion = "1.0", protocolVersion = 1),
+                AcpSessionEvent.SessionOpened(sessionId = "session-1"),
+                AcpSessionEvent.PermissionRequested(toolCallId = "call-1", title = "Read file"),
+                AcpSessionEvent.Disconnected(reason = "the agent stopped"),
+                AcpSessionEvent.ProcessTreeTerminated(processes = 3),
+            )
 
         events.forEach { event ->
             val line = event.describe()
@@ -77,17 +77,22 @@ class AcpSessionEventTest {
  * logging configuration alone.
  */
 private class CapturedLog {
-
     /** Each line as `tag: message`. */
     val lines = mutableListOf<String>()
 
     /** A logger that writes into this capture. */
     fun logger(tag: String = "acp-session"): Logger {
-        val writer = object : LogWriter() {
-            override fun log(severity: Severity, message: String, tag: String, throwable: Throwable?) {
-                lines.add("$tag: $message")
+        val writer =
+            object : LogWriter() {
+                override fun log(
+                    severity: Severity,
+                    message: String,
+                    tag: String,
+                    throwable: Throwable?,
+                ) {
+                    lines.add("$tag: $message")
+                }
             }
-        }
         return Logger(mutableLoggerConfigInit(writer), tag)
     }
 }

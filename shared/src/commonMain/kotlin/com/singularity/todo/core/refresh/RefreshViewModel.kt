@@ -43,7 +43,6 @@ class RefreshViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
-
     override fun onIntent(intent: RefreshIntent) {
         when (intent) {
             RefreshIntent.Refresh -> refresh()

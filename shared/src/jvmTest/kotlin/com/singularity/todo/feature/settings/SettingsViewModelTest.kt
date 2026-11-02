@@ -13,17 +13,16 @@ import com.singularity.todo.core.schedule.GreetingSettingsStore
 import com.singularity.todo.core.schedule.WorkScheduleContributor
 import com.singularity.todo.core.schedule.WorkScheduleSettingsContributor
 import com.singularity.todo.core.schedule.WorkScheduleSettingsStore
+import com.singularity.todo.core.settings.SettingsIntent
+import com.singularity.todo.core.settings.ThemeMode
 import com.singularity.todo.core.tasks.TasksContributor
 import com.singularity.todo.core.tasks.TasksSettingsContributor
 import com.singularity.todo.core.tasks.TasksSettingsStore
-import com.singularity.todo.core.settings.SettingsIntent
-import com.singularity.todo.core.settings.ThemeMode
 import com.singularity.todo.feature.agenda.DefaultAgendaViewContributor
 import com.singularity.todo.feature.agenda.DefaultAgendaViewSettingsContributor
 import com.singularity.todo.feature.agenda.DefaultAgendaViewSettingsStore
 import com.singularity.todo.feature.ai.AiContributor
 import com.singularity.todo.feature.ai.AiSettingsContributor
-import com.singularity.todo.test.fakes.FakeTextGen
 import com.singularity.todo.feature.ai.data.AiSettingsStore
 import com.singularity.todo.test.fakes.FakeFileRevealer
 import com.singularity.todo.test.fakes.FakeFileSharePort
@@ -32,6 +31,7 @@ import com.singularity.todo.test.fakes.FakeSavedAgendaViewsRepository
 import com.singularity.todo.test.fakes.FakeSecureStorage
 import com.singularity.todo.test.fakes.FakeSettingsRepository
 import com.singularity.todo.test.fakes.FakeTasksSettingsRepository
+import com.singularity.todo.test.fakes.FakeTextGen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -51,7 +51,6 @@ import kotlin.test.assertIs
 @OptIn(ExperimentalCoroutinesApi::class)
 @Tag("fast")
 class SettingsViewModelTest {
-
     private val fakeStorage = FakeSecureStorage()
     private val fakeSettings = FakeSettingsRepository()
     private val fakeSavedAgendaViews = FakeSavedAgendaViewsRepository()
@@ -79,9 +78,10 @@ class SettingsViewModelTest {
 
         // Default agenda view contributor
         val defaultAgendaViewStore = DefaultAgendaViewSettingsStore(fakeSettings.defaultAgendaView)
-        val defaultAgendaViewContributor: DefaultAgendaViewContributor = DefaultAgendaViewSettingsContributor(
-            defaultAgendaViewStore,
-        )
+        val defaultAgendaViewContributor: DefaultAgendaViewContributor =
+            DefaultAgendaViewSettingsContributor(
+                defaultAgendaViewStore,
+            )
 
         // Tasks contributor
         val fakeTasksSettings = FakeTasksSettingsRepository()
@@ -107,213 +107,229 @@ class SettingsViewModelTest {
     // ─── Initial state ─────────────────────────────────────────────────────────
 
     @Test
-    fun `initial state is Content`() = runTest {
-        val vm = createVm(backgroundScope)
-        // Advance until all VM collectors have drained (multiple passes needed
+    fun `initial state is Content`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
-        advanceUntilIdle()
-        runCurrent()
-        val state = vm.stateFlow.value as SettingsUiState.Content
-        assertEquals(ThemeMode.System, state.appearance.themeMode)
-        assertEquals("blue", state.appearance.accentColor)
-        assertEquals(1f, state.appearance.fontSizeScale)
-        assertEquals(true, state.notifications.enabled)
-    }
+            advanceUntilIdle()
+            runCurrent()
+            val state = vm.stateFlow.value as SettingsUiState.Content
+            assertEquals(ThemeMode.System, state.appearance.themeMode)
+            assertEquals("blue", state.appearance.accentColor)
+            assertEquals(1f, state.appearance.fontSizeScale)
+            assertEquals(true, state.notifications.enabled)
+        }
 
     // ─── Appearance ─────────────────────────────────────────────────────────────
     // Appearance has no contributor; state uses defaults. Test verifies defaults.
 
     @Test
-    fun `initial appearance state has correct defaults`() = runTest {
-        val vm = createVm(backgroundScope)
-        // Advance until all VM collectors have drained (multiple passes needed
+    fun `initial appearance state has correct defaults`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
-        advanceUntilIdle()
-        runCurrent()
-        val state = vm.stateFlow.value as SettingsUiState.Content
-        assertEquals(ThemeMode.System, state.appearance.themeMode)
-        assertEquals("blue", state.appearance.accentColor)
-        assertEquals(1f, state.appearance.fontSizeScale)
-    }
+            advanceUntilIdle()
+            runCurrent()
+            val state = vm.stateFlow.value as SettingsUiState.Content
+            assertEquals(ThemeMode.System, state.appearance.themeMode)
+            assertEquals("blue", state.appearance.accentColor)
+            assertEquals(1f, state.appearance.fontSizeScale)
+        }
 
     // ─── Notifications ─────────────────────────────────────────────────────────
 
     @Test
-    fun `Notifications UpdateEnabled updates state`() = runTest {
-        val vm = createVm(backgroundScope)
-        // Advance until all VM collectors have drained (multiple passes needed
+    fun `Notifications UpdateEnabled updates state`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
-        advanceUntilIdle()
-        runCurrent()
-        vm.onIntent(SettingsIntent.Notifications.UpdateEnabled(false))
-        // Advance until all VM collectors have drained (multiple passes needed
+            advanceUntilIdle()
+            runCurrent()
+            vm.onIntent(SettingsIntent.Notifications.UpdateEnabled(false))
+            // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
-        advanceUntilIdle()
-        runCurrent()
-        val state = vm.stateFlow.value as SettingsUiState.Content
-        assertEquals(false, state.notifications.enabled)
-    }
+            advanceUntilIdle()
+            runCurrent()
+            val state = vm.stateFlow.value as SettingsUiState.Content
+            assertEquals(false, state.notifications.enabled)
+        }
 
     // ─── Work Schedule ────────────────────────────────────────────────────────
 
     @Test
-    fun `WorkSchedule UpdateWorkDayStart updates state`() = runTest {
-        val vm = createVm(backgroundScope)
-        // Advance until all VM collectors have drained (multiple passes needed
+    fun `WorkSchedule UpdateWorkDayStart updates state`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
-        advanceUntilIdle()
-        runCurrent()
-        vm.onIntent(SettingsIntent.WorkSchedule.UpdateWorkDayStart(600))
-        // Advance until all VM collectors have drained (multiple passes needed
+            advanceUntilIdle()
+            runCurrent()
+            vm.onIntent(SettingsIntent.WorkSchedule.UpdateWorkDayStart(600))
+            // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
-        advanceUntilIdle()
-        runCurrent()
-        val state = vm.stateFlow.value as SettingsUiState.Content
-        assertEquals(600, state.workSchedule.dayStartMinutes)
-    }
+            advanceUntilIdle()
+            runCurrent()
+            val state = vm.stateFlow.value as SettingsUiState.Content
+            assertEquals(600, state.workSchedule.dayStartMinutes)
+        }
 
     // ─── Greeting ─────────────────────────────────────────────────────────────
 
     @Test
-    fun `Greeting UpdateMorningEnd updates state`() = runTest {
-        val vm = createVm(backgroundScope)
-        // Advance until all VM collectors have drained (multiple passes needed
+    fun `Greeting UpdateMorningEnd updates state`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
-        advanceUntilIdle()
-        runCurrent()
-        vm.onIntent(SettingsIntent.Greeting.UpdateMorningEnd(10))
-        // Advance until all VM collectors have drained (multiple passes needed
+            advanceUntilIdle()
+            runCurrent()
+            vm.onIntent(SettingsIntent.Greeting.UpdateMorningEnd(10))
+            // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
-        advanceUntilIdle()
-        runCurrent()
-        val state = vm.stateFlow.value as SettingsUiState.Content
-        assertEquals(10, state.greeting.morningEndHour)
-    }
+            advanceUntilIdle()
+            runCurrent()
+            val state = vm.stateFlow.value as SettingsUiState.Content
+            assertEquals(10, state.greeting.morningEndHour)
+        }
 
     // ─── Tasks ────────────────────────────────────────────────────────────────
 
     @Test
-    fun `Tasks UpdateStalenessThresholdDays updates state`() = runTest {
-        val vm = createVm(backgroundScope)
-        advanceUntilIdle()
-        runCurrent()
-        vm.onIntent(SettingsIntent.Tasks.UpdateStalenessThresholdDays(42))
-        advanceUntilIdle()
-        runCurrent()
-        val state = vm.stateFlow.value as SettingsUiState.Content
-        assertEquals(42, state.tasks.stalenessThresholdDays)
-    }
+    fun `Tasks UpdateStalenessThresholdDays updates state`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            advanceUntilIdle()
+            runCurrent()
+            vm.onIntent(SettingsIntent.Tasks.UpdateStalenessThresholdDays(42))
+            advanceUntilIdle()
+            runCurrent()
+            val state = vm.stateFlow.value as SettingsUiState.Content
+            assertEquals(42, state.tasks.stalenessThresholdDays)
+        }
 
     // ─── AI ─────────────────────────────────────────────────────────────────
 
     @Test
-    fun `Ai UpdateProvider changes provider`() = runTest {
-        val vm = createVm(backgroundScope)
-        // Advance until all VM collectors have drained (multiple passes needed
+    fun `Ai UpdateProvider changes provider`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
-        advanceUntilIdle()
-        runCurrent()
-        val job = backgroundScope.launch {
-            vm.onIntent(SettingsIntent.Ai.UpdateProvider(com.singularity.todo.core.llm.LlmProvider.OLLAMA))
+            advanceUntilIdle()
+            runCurrent()
+            val job =
+                backgroundScope.launch {
+                    vm.onIntent(SettingsIntent.Ai.UpdateProvider(com.singularity.todo.core.llm.LlmProvider.OLLAMA))
+                }
+            job.join()
+            // Advance until all VM collectors have drained (multiple passes needed
+// because advanceUntilIdle() may return before background coroutines settle.
+            advanceUntilIdle()
+            runCurrent()
+            val state = vm.stateFlow.value as SettingsUiState.Content
+            assertEquals("ollama", state.ai.provider.id)
         }
-        job.join()
-        // Advance until all VM collectors have drained (multiple passes needed
-// because advanceUntilIdle() may return before background coroutines settle.
-        advanceUntilIdle()
-        runCurrent()
-        val state = vm.stateFlow.value as SettingsUiState.Content
-        assertEquals("ollama", state.ai.provider.id)
-    }
 
     @Test
-    fun `Ai TestConnection returns Error on missing API key`() = runTest {
-        val vm = createVm(backgroundScope)
-        // Advance until all VM collectors have drained (multiple passes needed
+    fun `Ai TestConnection returns Error on missing API key`() =
+        runTest {
+            val vm = createVm(backgroundScope)
+            // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
-        advanceUntilIdle()
-        runCurrent()
-        backgroundScope.launch {
-            vm.onIntent(SettingsIntent.Ai.TestConnection)
+            advanceUntilIdle()
+            runCurrent()
+            backgroundScope.launch {
+                vm.onIntent(SettingsIntent.Ai.TestConnection)
+            }
+            // Let the VM's scope (backgroundScope) process the launched coroutines
+            repeat(10) { advanceUntilIdle() }
+            runCurrent()
+            val state = vm.stateFlow.value as SettingsUiState.Content
+            val testResult = state.aiEphemeral.testResult
+            assertIs<AiTestResult.Error>(testResult)
+            assertEquals("API key not configured", testResult.message)
         }
-        // Let the VM's scope (backgroundScope) process the launched coroutines
-        repeat(10) { advanceUntilIdle() }
-        runCurrent()
-        val state = vm.stateFlow.value as SettingsUiState.Content
-        val testResult = state.aiEphemeral.testResult
-        assertIs<AiTestResult.Error>(testResult)
-        assertEquals("API key not configured", testResult.message)
-    }
 
     @Test
-    fun `Ai TestConnection returns Ok on success`() = runTest {
-        fakeStorage.write("ai_key_openai", "sk-test")
-        val vm = createVm(backgroundScope)
-        // Advance until all VM collectors have drained (multiple passes needed
+    fun `Ai TestConnection returns Ok on success`() =
+        runTest {
+            fakeStorage.write("ai_key_openai", "sk-test")
+            val vm = createVm(backgroundScope)
+            // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
-        advanceUntilIdle()
-        runCurrent()
-        val job = backgroundScope.launch {
-            vm.onIntent(SettingsIntent.Ai.TestConnection)
+            advanceUntilIdle()
+            runCurrent()
+            val job =
+                backgroundScope.launch {
+                    vm.onIntent(SettingsIntent.Ai.TestConnection)
+                }
+            job.join()
+            // Advance until all VM collectors have drained (multiple passes needed
+// because advanceUntilIdle() may return before background coroutines settle.
+            advanceUntilIdle()
+            runCurrent()
+            val state = vm.stateFlow.value as SettingsUiState.Content
+            val testResult = state.aiEphemeral.testResult
+            assertIs<AiTestResult.Ok>(testResult)
         }
-        job.join()
-        // Advance until all VM collectors have drained (multiple passes needed
-// because advanceUntilIdle() may return before background coroutines settle.
-        advanceUntilIdle()
-        runCurrent()
-        val state = vm.stateFlow.value as SettingsUiState.Content
-        val testResult = state.aiEphemeral.testResult
-        assertIs<AiTestResult.Ok>(testResult)
-    }
 
     @Test
-    fun `Ai TestConnection returns Error on failure`() = runTest {
-        fakeStorage.write("ai_key_openai", "sk-test")
-        val textGen = FakeTextGen(failureMessage = "kaboom")
-        val aiStore = AiSettingsStore(fakeStorage, fakeSettings, textGen)
-        val aiContributor: AiContributor = AiSettingsContributor(aiStore)
-        val notificationsStore = NotificationsSettingsStore(fakeSettings.notifications)
-        val notificationsContributor: NotificationsContributor = NotificationsSettingsContributor(notificationsStore)
-        val workScheduleStore = WorkScheduleSettingsStore(fakeSettings.workSchedule)
-        val workScheduleContributor: WorkScheduleContributor = WorkScheduleSettingsContributor(workScheduleStore)
-        val greetingStore = GreetingSettingsStore(fakeSettings.greeting)
-        val greetingContributor: GreetingContributor = GreetingSettingsContributor(greetingStore)
-        val defaultAgendaViewStore = DefaultAgendaViewSettingsStore(fakeSettings.defaultAgendaView)
-        val defaultAgendaViewContributor: DefaultAgendaViewContributor = DefaultAgendaViewSettingsContributor(
-            defaultAgendaViewStore,
-        )
-        val fakeTasksSettings = FakeTasksSettingsRepository()
-        val tasksSettingsStore = TasksSettingsStore(fakeTasksSettings)
-        val tasksContributor: TasksContributor = TasksSettingsContributor(tasksSettingsStore)
+    fun `Ai TestConnection returns Error on failure`() =
+        runTest {
+            fakeStorage.write("ai_key_openai", "sk-test")
+            val textGen = FakeTextGen(failureMessage = "kaboom")
+            val aiStore = AiSettingsStore(fakeStorage, fakeSettings, textGen)
+            val aiContributor: AiContributor = AiSettingsContributor(aiStore)
+            val notificationsStore = NotificationsSettingsStore(fakeSettings.notifications)
+            val notificationsContributor: NotificationsContributor =
+                NotificationsSettingsContributor(notificationsStore)
+            val workScheduleStore = WorkScheduleSettingsStore(fakeSettings.workSchedule)
+            val workScheduleContributor: WorkScheduleContributor = WorkScheduleSettingsContributor(workScheduleStore)
+            val greetingStore = GreetingSettingsStore(fakeSettings.greeting)
+            val greetingContributor: GreetingContributor = GreetingSettingsContributor(greetingStore)
+            val defaultAgendaViewStore = DefaultAgendaViewSettingsStore(fakeSettings.defaultAgendaView)
+            val defaultAgendaViewContributor: DefaultAgendaViewContributor =
+                DefaultAgendaViewSettingsContributor(
+                    defaultAgendaViewStore,
+                )
+            val fakeTasksSettings = FakeTasksSettingsRepository()
+            val tasksSettingsStore = TasksSettingsStore(fakeTasksSettings)
+            val tasksContributor: TasksContributor = TasksSettingsContributor(tasksSettingsStore)
 
-        val vm = SettingsViewModel(
-            scope = testScope(backgroundScope),
-            appearanceContributor = null,
-            notificationsContributor = notificationsContributor,
-            workScheduleContributor = workScheduleContributor,
-            greetingContributor = greetingContributor,
-            aiContributor = aiContributor,
-            defaultAgendaViewContributor = defaultAgendaViewContributor,
-            tasksContributor = tasksContributor,
-            savedAgendaViewsRepo = fakeSavedAgendaViews,
-            fileRevealer = FakeFileRevealer(),
-            logBundleExporter = FakeLogBundleExporter(),
-            fileSharePort = FakeFileSharePort(),
-        )
-        // Advance until all VM collectors have drained (multiple passes needed
+            val vm =
+                SettingsViewModel(
+                    scope = testScope(backgroundScope),
+                    appearanceContributor = null,
+                    notificationsContributor = notificationsContributor,
+                    workScheduleContributor = workScheduleContributor,
+                    greetingContributor = greetingContributor,
+                    aiContributor = aiContributor,
+                    defaultAgendaViewContributor = defaultAgendaViewContributor,
+                    tasksContributor = tasksContributor,
+                    savedAgendaViewsRepo = fakeSavedAgendaViews,
+                    fileRevealer = FakeFileRevealer(),
+                    logBundleExporter = FakeLogBundleExporter(),
+                    fileSharePort = FakeFileSharePort(),
+                )
+            // Advance until all VM collectors have drained (multiple passes needed
 // because advanceUntilIdle() may return before background coroutines settle.
-        advanceUntilIdle()
-        runCurrent()
-        val job = backgroundScope.launch {
-            vm.onIntent(SettingsIntent.Ai.TestConnection)
+            advanceUntilIdle()
+            runCurrent()
+            val job =
+                backgroundScope.launch {
+                    vm.onIntent(SettingsIntent.Ai.TestConnection)
+                }
+            job.join()
+            // Advance until all VM collectors have drained (multiple passes needed
+// because advanceUntilIdle() may return before background coroutines settle.
+            advanceUntilIdle()
+            runCurrent()
+            val state = vm.stateFlow.value as SettingsUiState.Content
+            val testResult = state.aiEphemeral.testResult
+            assertIs<AiTestResult.Error>(testResult)
+            assertEquals("kaboom", testResult.message)
         }
-        job.join()
-        // Advance until all VM collectors have drained (multiple passes needed
-// because advanceUntilIdle() may return before background coroutines settle.
-        advanceUntilIdle()
-        runCurrent()
-        val state = vm.stateFlow.value as SettingsUiState.Content
-        val testResult = state.aiEphemeral.testResult
-        assertIs<AiTestResult.Error>(testResult)
-        assertEquals("kaboom", testResult.message)
-    }
 }

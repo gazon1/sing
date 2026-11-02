@@ -7,7 +7,6 @@ import kotlin.test.assertTrue
 
 @Tag("fast")
 class PromptsTest {
-
     @Test
     fun `refineUser includes title and description`() {
         val result = Prompts.refineUser("Buy milk", "Get 2% milk")

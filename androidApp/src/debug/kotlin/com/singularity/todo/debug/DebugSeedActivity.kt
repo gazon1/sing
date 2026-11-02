@@ -13,23 +13,23 @@ import com.singularity.todo.core.wipe.ContentResetter
 import com.singularity.todo.feature.notes.domain.port.NotesRepository
 import com.singularity.todo.feature.profile.Profile
 import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
-import com.singularity.todo.test.stubs.TestAuthStubs
 import com.singularity.todo.feature.profile.ProfileId
 import com.singularity.todo.feature.profile.domain.port.ProfileRepository
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.domain.port.ProjectsRepository
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
+import com.singularity.todo.test.stubs.TestAuthStubs
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
-import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 
 /**
  * Debug-only activity that seeds tasks, notes, and projects via deep-link without UI.
@@ -121,7 +121,6 @@ import kotlinx.datetime.toLocalDateTime
 class DebugSeedActivity :
     Activity(),
     KoinComponent {
-
     override fun onResume() {
         super.onResume()
         val uri = intent?.data ?: return finish()
@@ -185,15 +184,16 @@ class DebugSeedActivity :
             return
         }
         val now = Clock.System.now()
-        val newProfile = Profile(
-            id = ProfileId.generate(),
-            name = profileName,
-            emoji = "🔹",
-            colorIdx = 0,
-            isDefault = false,
-            createdAt = now,
-            updatedAt = now,
-        )
+        val newProfile =
+            Profile(
+                id = ProfileId.generate(),
+                name = profileName,
+                emoji = "🔹",
+                colorIdx = 0,
+                isDefault = false,
+                createdAt = now,
+                updatedAt = now,
+            )
         profileRepo.create(newProfile)
         profileRepo.switchTo(newProfile.id)
     }
@@ -212,14 +212,17 @@ class DebugSeedActivity :
         projectsRepo: ProjectsRepository,
         currentUser: ProfileAwareCurrentUser,
     ) {
-        val writer = SeedWriter(
-            tasks = taskRepo,
-            notes = notesRepo,
-            projects = projectsRepo,
-            currentUser = currentUser,
-        )
+        val writer =
+            SeedWriter(
+                tasks = taskRepo,
+                notes = notesRepo,
+                projects = projectsRepo,
+                currentUser = currentUser,
+            )
         when {
-            params.containsKey("task") -> seedTask(params, writer)
+            params.containsKey("task") -> {
+                seedTask(params, writer)
+            }
 
             params.containsKey("note") -> {
                 val spec = NoteSeed(title = params["note"]!!)
@@ -237,23 +240,30 @@ class DebugSeedActivity :
                 }
             }
 
-            params.containsKey("project") -> writer.writeProject(
-                ProjectSeed(
-                    name = params["project"]!!,
-                    color = 0xFF2196F3.toInt(), // blue ARGB — deterministic default
-                    stamp = Clock.System.now(),
-                    // A flow that has to tap a project in the menu's tree asks
-                    // for its id: a generated id is one a flow cannot write down.
-                    id = params["id"]?.let { ProjectId.fromString(it) },
-                ),
-            )
+            params.containsKey("project") -> {
+                writer.writeProject(
+                    ProjectSeed(
+                        name = params["project"]!!,
+                        color = 0xFF2196F3.toInt(), // blue ARGB — deterministic default
+                        stamp = Clock.System.now(),
+                        // A flow that has to tap a project in the menu's tree asks
+                        // for its id: a generated id is one a flow cannot write down.
+                        id = params["id"]?.let { ProjectId.fromString(it) },
+                    ),
+                )
+            }
 
             // Profile creation and switch are handled by switchToProfileIfRequested.
-            params.containsKey("profile") -> Unit
+            params.containsKey("profile") -> {
+                Unit
+            }
         }
     }
 
-    private suspend fun seedTask(params: Map<String, String>, writer: SeedWriter) {
+    private suspend fun seedTask(
+        params: Map<String, String>,
+        writer: SeedWriter,
+    ) {
         val title = params["task"]!!
         // A task stamped "now" is never stagnant: the health window is 21 days
         // without movement, and a flow cannot reach that bucket by seeding a
@@ -261,16 +271,17 @@ class DebugSeedActivity :
         // is what the stagnation bucket is defined by.
         val stamp = params["updatedAt"]?.let { resolveInstant(it) } ?: Clock.System.now()
 
-        val result = writer.writeTask(
-            TaskSeed(
-                title = title,
-                description = params["desc"],
-                dueDate = params["due"]?.let { resolveDate(it) },
-                stamp = stamp,
-                dependsOnTitle = params["blockedBy"],
-                id = params["id"]?.let(TaskId::fromString),
-            ),
-        )
+        val result =
+            writer.writeTask(
+                TaskSeed(
+                    title = title,
+                    description = params["desc"],
+                    dueDate = params["due"]?.let { resolveDate(it) },
+                    stamp = stamp,
+                    dependsOnTitle = params["blockedBy"],
+                    id = params["id"]?.let(TaskId::fromString),
+                ),
+            )
         android.util.Log.i("DebugSeedActivity", "task '$title' was ${result.outcome}")
         // A dependency is what makes a task *blocked* — a different bucket from
         // "stale", and one a fresh task can never be. The dependency is named by
@@ -388,7 +399,8 @@ class DebugSeedActivity :
                 // to invalidate it, damage the store it lives in, or recover
                 // from it.
                 val sessionStore: SecureSessionManager by inject()
-                TestAuthStubs.installSignedInSession(sessionStore, this@DebugSeedActivity)
+                TestAuthStubs
+                    .installSignedInSession(sessionStore, this@DebugSeedActivity)
                     .onFailure {
                         android.util.Log.e("DebugSeedActivity", "the session could not be installed", it)
                     }
@@ -403,10 +415,12 @@ class DebugSeedActivity :
                 }
             }
 
-            else -> android.util.Log.w(
-                "DebugSeedActivity",
-                "Unknown session state '$state'; expected 'anonymous', 'signedout' or 'signedin'",
-            )
+            else -> {
+                android.util.Log.w(
+                    "DebugSeedActivity",
+                    "Unknown session state '$state'; expected 'anonymous', 'signedout' or 'signedin'",
+                )
+            }
         }
     }
 
@@ -472,6 +486,7 @@ class DebugSeedActivity :
         projectsRepo: ProjectsRepository,
     ) {
         if (prefixes.isEmpty()) return
+
         fun matches(candidate: String) = prefixes.any { candidate.startsWith(it) }
 
         // observeAll() is user-scoped and drops deleted rows, so a single
@@ -489,20 +504,20 @@ class DebugSeedActivity :
         android.util.Log.i("DebugSeedActivity", "cleanup($prefixes) removed $removed entities")
     }
 
-    private fun parseParams(uri: Uri): Map<String, String> = uri.encodedQuery
-        ?.split("&")
-        ?.mapNotNull { part ->
-            val kv = part.split("=", limit = 2)
-            if (kv.size == 2) {
-                val key = Uri.decode(kv[0])
-                val value = Uri.decode(kv[1])
-                if (key.isNotBlank() && value.isNotBlank()) key to value else null
-            } else {
-                null
-            }
-        }
-        ?.toMap()
-        ?: emptyMap()
+    private fun parseParams(uri: Uri): Map<String, String> =
+        uri.encodedQuery
+            ?.split("&")
+            ?.mapNotNull { part ->
+                val kv = part.split("=", limit = 2)
+                if (kv.size == 2) {
+                    val key = Uri.decode(kv[0])
+                    val value = Uri.decode(kv[1])
+                    if (key.isNotBlank() && value.isNotBlank()) key to value else null
+                } else {
+                    null
+                }
+            }?.toMap()
+            ?: emptyMap()
 
     /**
      * Resolves a date expression to [LocalDate].
@@ -514,14 +529,20 @@ class DebugSeedActivity :
      * - `YYYY-MM-DD` — exact ISO date
      */
     private fun resolveDate(expr: String): LocalDate {
-        val today = Clock.System.now()
-            .toLocalDateTime(TimeZone.currentSystemDefault())
-            .date
+        val today =
+            Clock.System
+                .now()
+                .toLocalDateTime(TimeZone.currentSystemDefault())
+                .date
 
         return when (expr.lowercase()) {
-            "today" -> today
+            "today" -> {
+                today
+            }
 
-            "tomorrow" -> LocalDate.fromEpochDays(today.toEpochDays() + 1)
+            "tomorrow" -> {
+                LocalDate.fromEpochDays(today.toEpochDays() + 1)
+            }
 
             else -> {
                 val relMatch = Regex("^([+-]?)(\\d+)d$").matchEntire(expr.lowercase())
@@ -553,7 +574,9 @@ class DebugSeedActivity :
     private fun resolveInstant(expr: String): Instant {
         val now = Clock.System.now()
         return when (expr.lowercase()) {
-            "now" -> now
+            "now" -> {
+                now
+            }
 
             else -> {
                 val relMatch = Regex("^([+-]?)(\\d+)d$").matchEntire(expr.lowercase())

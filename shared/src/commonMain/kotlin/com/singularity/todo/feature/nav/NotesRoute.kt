@@ -15,7 +15,6 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 sealed interface NotesRoute : AppNavKey {
-
     /** List / home screen — the single entry point of the notes nested graph. */
     @Serializable
     data object List : NotesRoute

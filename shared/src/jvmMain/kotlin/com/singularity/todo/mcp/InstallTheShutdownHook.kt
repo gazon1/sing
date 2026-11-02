@@ -11,13 +11,13 @@ import org.koin.core.context.stopKoin
  * server, so the server has to exist.
  */
 internal object InstallTheShutdownHook : ToolServerStartupStep {
-
     override val title: String = "install the shutdown hook"
 
     override suspend fun run(context: ToolServerStartupContext): ToolServerStartup.Refused? {
-        val server = checkNotNull(context.server) {
-            "The order does not build the server before this step."
-        }
+        val server =
+            checkNotNull(context.server) {
+                "The order does not build the server before this step."
+            }
         install(server)
         return null
     }

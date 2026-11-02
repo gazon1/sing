@@ -1,6 +1,5 @@
 package com.singularity.todo.mcp
 import com.singularity.todo.feature.ai.McpToolCatalog
-import java.io.File
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -8,6 +7,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import java.io.File
 
 /**
  * The tool surface, exported from the **compiled** declarations.
@@ -57,7 +57,6 @@ import kotlinx.serialization.json.put
  * catalogue's source.
  */
 object ToolSurfaceExport {
-
     /**
      * The version of the format. Bumped when the shape changes.
      *
@@ -74,36 +73,37 @@ object ToolSurfaceExport {
      *   there, or a class that does not declare the name the catalogue gave it. A
      *   surface that cannot be read must not be exported as a smaller one.
      */
-    fun surface(): JsonObject = buildJsonObject {
-        put("version", VERSION)
-        // The contract version the export describes. The export says which tools exist
-        // under which contract, so a reader can tell "this build exposes three more
-        // tools" from "this build speaks a different contract".
-        put("surfaceContractVersion", McpToolCatalog.SURFACE_CONTRACT_VERSION)
-        put(
-            "tools",
-            buildJsonArray {
-                McpToolCatalog.catalog
-                    .sortedBy { it.name }
-                    .forEach { entry ->
-                        add(toolJson(entry))
-                    }
-            },
-        )
-        // The flag key space: the names a remote configuration may use to switch a tool
-        // off. It is the tools' names and nothing else — the same strings the client
-        // calls — so declaring it here makes the space checkable: a configuration, or a
-        // document, can be compared with it.
-        put(
-            "flagKeys",
-            buildJsonArray {
-                McpToolCatalog.catalog
-                    .map { it.name }
-                    .sorted()
-                    .forEach { name -> add(JsonPrimitive(name)) }
-            },
-        )
-    }
+    fun surface(): JsonObject =
+        buildJsonObject {
+            put("version", VERSION)
+            // The contract version the export describes. The export says which tools exist
+            // under which contract, so a reader can tell "this build exposes three more
+            // tools" from "this build speaks a different contract".
+            put("surfaceContractVersion", McpToolCatalog.SURFACE_CONTRACT_VERSION)
+            put(
+                "tools",
+                buildJsonArray {
+                    McpToolCatalog.catalog
+                        .sortedBy { it.name }
+                        .forEach { entry ->
+                            add(toolJson(entry))
+                        }
+                },
+            )
+            // The flag key space: the names a remote configuration may use to switch a tool
+            // off. It is the tools' names and nothing else — the same strings the client
+            // calls — so declaring it here makes the space checkable: a configuration, or a
+            // document, can be compared with it.
+            put(
+                "flagKeys",
+                buildJsonArray {
+                    McpToolCatalog.catalog
+                        .map { it.name }
+                        .sorted()
+                        .forEach { name -> add(JsonPrimitive(name)) }
+                },
+            )
+        }
 
     private fun toolJson(entry: McpToolCatalog.ToolEntry): JsonObject {
         val clazz = entry.toolClass
@@ -137,9 +137,13 @@ object ToolSurfaceExport {
      * The Kotlin compiler compiles a `const val` in a companion object as a static field
      * of the containing class, so that is where the constant is read from.
      */
-    private fun constant(clazz: Class<*>, name: String): String {
-        val field = clazz.declaredFields.firstOrNull { it.name == name }
-            ?: error("${clazz.simpleName} does not declare a $name constant")
+    private fun constant(
+        clazz: Class<*>,
+        name: String,
+    ): String {
+        val field =
+            clazz.declaredFields.firstOrNull { it.name == name }
+                ?: error("${clazz.simpleName} does not declare a $name constant")
         field.isAccessible = true
         return field.get(null) as? String
             ?: error("${clazz.simpleName}.$name is not a string")

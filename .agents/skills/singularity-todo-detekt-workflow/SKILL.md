@@ -47,8 +47,28 @@ just lint
 
 For each reported violation, open the file and fix it by hand. Common patterns:
 - **Naming** (FunctionNaming, VariableNaming, etc.): rename
-- **Style** (ArgumentListWrapping, ImportOrdering, etc.): reformat by hand
 - **Complexity** (LongMethod, TooManyFunctions): split or suppress with `@Suppress`
+
+Layout (ArgumentListWrapping, ImportOrdering, indentation) is **not** detekt's job
+anymore — it is ktlint's. Do not reformat by hand; run the formatter:
+
+```bash
+just ktlint-fix     # ktlint CLI rewrites the tree in seconds
+just ktlint         # check only
+```
+
+### 2b. Format after every Kotlin edit
+
+Run the formatter **right after** you write Kotlin, before you lint:
+
+```bash
+just ktlint-fix
+```
+
+A formatting violation caught by the lint round is a wasted round trip. The
+formatter is a separate, fast tool — it does not wait for detekt, and it does
+not need a Gradle daemon. See ADR
+`2026-11-02-ktlint-cli-replaces-the-detekt-formatting-layer.md`.
 
 ### Custom rules that bite in Composables
 
@@ -95,10 +115,12 @@ See `singularity-todo-detekt-rules-authoring` for the PSI-level pitfalls.
 - **mcp-server**: `mcp-server/build.gradle.kts` + `mcp-server/detekt-baseline.xml`
 - **androidApp**: `androidApp/build.gradle.kts` + `androidApp/detekt-baseline.xml`
 
-Ktlint rules are in the `ktlint:` section of `config/detekt/detekt.yml`. Key settings:
-- `auto_correct: true` — works only when detekt runs one module per invocation with `--rerun-tasks` (see above); multi-module invocations rewrite only the last task
-- `indent: auto_correct: false` (manual fix needed due to IntelliJ NPE)
-- `max-line-length: active: false` (`.editorconfig` owns `max_line_length = 140`)
+Ktlint is a **standalone CLI** — its rules live in `.editorconfig` under the
+`ktlint_*` keys, not in detekt's config. See ADR
+`2026-11-02-ktlint-cli-replaces-the-detekt-formatting-layer.md`. Key settings:
+- `ktlint_code_style = ktlint_official` — the code style, plus per-rule
+  `ktlint_<rule-id> = disabled` opt-outs
+- `.editorconfig` owns `max_line_length = 120`; detekt's own `MaxLineLength` is off
 
 ## See also
 

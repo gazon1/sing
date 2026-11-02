@@ -23,7 +23,10 @@ class CrossUserWriteException(message: String) : IllegalStateException(message)
  * @throws CrossUserWriteException when [entityUserId] is neither the current
  *         scoped user nor [UserId.anonymous].
  */
-fun ProfileAwareCurrentUser.assertCanWrite(entityId: String, entityUserId: UserId) {
+fun ProfileAwareCurrentUser.assertCanWrite(
+    entityId: String,
+    entityUserId: UserId,
+) {
     val currentUid = scopedUserId.value
     if (entityUserId != currentUid && entityUserId != UserId.anonymous) {
         throw CrossUserWriteException(

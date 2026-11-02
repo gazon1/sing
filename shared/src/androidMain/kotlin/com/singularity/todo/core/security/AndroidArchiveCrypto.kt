@@ -28,13 +28,14 @@ import javax.crypto.spec.SecretKeySpec
  * it". The golden test is what keeps the two halves equal.
  */
 class AndroidArchiveCrypto : ArchiveCrypto {
-
     private val random = SecureRandom()
 
-    override fun randomBytes(count: Int): ByteArray =
-        ByteArray(count).also { random.nextBytes(it) }
+    override fun randomBytes(count: Int): ByteArray = ByteArray(count).also { random.nextBytes(it) }
 
-    override fun deriveKey(password: CharArray, salt: ByteArray): ByteArray {
+    override fun deriveKey(
+        password: CharArray,
+        salt: ByteArray,
+    ): ByteArray {
         val spec = PBEKeySpec(password, salt, ArchiveCryptoParams.ITERATIONS, ArchiveCryptoParams.KEY_BITS)
         return try {
             SecretKeyFactory.getInstance(ArchiveCryptoParams.KDF).generateSecret(spec).encoded
@@ -45,7 +46,12 @@ class AndroidArchiveCrypto : ArchiveCrypto {
         }
     }
 
-    override fun seal(key: ByteArray, nonce: ByteArray, plaintext: ByteArray, aad: ByteArray): ByteArray {
+    override fun seal(
+        key: ByteArray,
+        nonce: ByteArray,
+        plaintext: ByteArray,
+        aad: ByteArray,
+    ): ByteArray {
         val cipher = Cipher.getInstance(ArchiveCryptoParams.TRANSFORM)
         cipher.init(
             Cipher.ENCRYPT_MODE,
@@ -56,7 +62,12 @@ class AndroidArchiveCrypto : ArchiveCrypto {
         return cipher.doFinal(plaintext)
     }
 
-    override fun open(key: ByteArray, nonce: ByteArray, ciphertext: ByteArray, aad: ByteArray): ByteArray {
+    override fun open(
+        key: ByteArray,
+        nonce: ByteArray,
+        ciphertext: ByteArray,
+        aad: ByteArray,
+    ): ByteArray {
         val cipher = Cipher.getInstance(ArchiveCryptoParams.TRANSFORM)
         cipher.init(
             Cipher.DECRYPT_MODE,
@@ -73,7 +84,13 @@ class AndroidArchiveCrypto : ArchiveCrypto {
         }
     }
 
-    override fun seal(source: ByteSource, sink: ByteSink, key: ByteArray, nonce: ByteArray, aad: ByteArray) {
+    override fun seal(
+        source: ByteSource,
+        sink: ByteSink,
+        key: ByteArray,
+        nonce: ByteArray,
+        aad: ByteArray,
+    ) {
         val cipher = encrypting(key, nonce, aad)
         val buffer = ByteArray(CHUNK_BYTES)
         while (true) {
@@ -85,7 +102,13 @@ class AndroidArchiveCrypto : ArchiveCrypto {
         write(sink, cipher.doFinal())
     }
 
-    override fun open(source: ByteSource, sink: ByteSink, key: ByteArray, nonce: ByteArray, aad: ByteArray) {
+    override fun open(
+        source: ByteSource,
+        sink: ByteSink,
+        key: ByteArray,
+        nonce: ByteArray,
+        aad: ByteArray,
+    ) {
         val cipher = decrypting(key, nonce, aad)
         val buffer = ByteArray(CHUNK_BYTES)
         while (true) {
@@ -102,7 +125,11 @@ class AndroidArchiveCrypto : ArchiveCrypto {
         }
     }
 
-    private fun encrypting(key: ByteArray, nonce: ByteArray, aad: ByteArray): Cipher =
+    private fun encrypting(
+        key: ByteArray,
+        nonce: ByteArray,
+        aad: ByteArray,
+    ): Cipher =
         Cipher.getInstance(ArchiveCryptoParams.TRANSFORM).apply {
             init(
                 Cipher.ENCRYPT_MODE,
@@ -112,7 +139,11 @@ class AndroidArchiveCrypto : ArchiveCrypto {
             updateAAD(aad)
         }
 
-    private fun decrypting(key: ByteArray, nonce: ByteArray, aad: ByteArray): Cipher =
+    private fun decrypting(
+        key: ByteArray,
+        nonce: ByteArray,
+        aad: ByteArray,
+    ): Cipher =
         Cipher.getInstance(ArchiveCryptoParams.TRANSFORM).apply {
             init(
                 Cipher.DECRYPT_MODE,
@@ -122,7 +153,10 @@ class AndroidArchiveCrypto : ArchiveCrypto {
             updateAAD(aad)
         }
 
-    private fun write(sink: ByteSink, bytes: ByteArray) {
+    private fun write(
+        sink: ByteSink,
+        bytes: ByteArray,
+    ) {
         if (bytes.isNotEmpty()) sink.write(bytes, 0, bytes.size)
     }
 

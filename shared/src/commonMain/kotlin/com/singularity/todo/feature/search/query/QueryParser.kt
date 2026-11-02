@@ -43,7 +43,6 @@ package com.singularity.todo.feature.search.query
  * @param tokens Pre-tokenized input from [QueryTokenizer].
  */
 abstract class QueryParser(protected val tokens: List<QueryTokenizer.Token>) {
-
     /** Word rules that produce a [Condition]; first match wins (§4). */
     protected abstract val conditionMatches: List<ConditionMatch>
 
@@ -61,9 +60,10 @@ abstract class QueryParser(protected val tokens: List<QueryTokenizer.Token>) {
      * providing a default keeps a half-parseable base class from being instantiable by
      * accident.
      */
-    open fun parse(): Query = throw UnsupportedOperationException(
-        "QueryParser.parse() must be overridden by a concrete implementation",
-    )
+    open fun parse(): Query =
+        throw UnsupportedOperationException(
+            "QueryParser.parse() must be overridden by a concrete implementation",
+        )
 
     // ─── Match data classes ─────────────────────────────────────────────────
 

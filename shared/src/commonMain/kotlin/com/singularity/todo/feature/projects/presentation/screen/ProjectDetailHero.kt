@@ -30,21 +30,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import com.singularity.todo.core.ui.contrastingForeground
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.text.OwnedText
-import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
+import com.singularity.todo.core.ui.contrastingForeground
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
+import com.singularity.todo.core.ui.textfields.rememberBridgedTextFieldState
 import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.projects.presentation.components.ProjectDetailActions
-import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
 import com.singularity.todo.feature.projects.presentation.components.ProjectIcon
+import com.singularity.todo.feature.projects.presentation.model.ProjectDetailUi
 import com.singularity.todo.feature.tags.domain.model.TagGroupId
-import kotlin.time.ExperimentalTime
-import kotlin.time.Instant
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 /**
  * Hero section of [ProjectDetailScreen]: project icon, name editor, description editor,
@@ -71,32 +71,36 @@ fun ProjectHeroSection(
 ) {
     // The state is created here, above the description field's visibility check: a state
     // created inside the `if` would be thrown away the moment the field is re-composed.
-    val nameState = rememberBridgedTextFieldState(
-        source = nameSource,
-        onTextChanged = actions::onUpdateName,
-    )
-    val descriptionState = rememberBridgedTextFieldState(
-        source = descriptionSource,
-        onTextChanged = actions::onUpdateDescription,
-    )
+    val nameState =
+        rememberBridgedTextFieldState(
+            source = nameSource,
+            onTextChanged = actions::onUpdateName,
+        )
+    val descriptionState =
+        rememberBridgedTextFieldState(
+            source = descriptionSource,
+            onTextChanged = actions::onUpdateDescription,
+        )
 
     val projectColor = Color(ui.project.color)
 
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(16.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(CircleShape)
-                    .background(projectColor)
-                    .clickable(
-                        onClickLabel = "Change project icon and color",
-                        onClick = actions::onOpenColorSheet,
-                    ),
+                modifier =
+                    Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(projectColor)
+                        .clickable(
+                            onClickLabel = "Change project icon and color",
+                            onClick = actions::onOpenColorSheet,
+                        ),
                 contentAlignment = Alignment.Center,
             ) {
                 ProjectIcon(
@@ -110,9 +114,10 @@ fun ProjectHeroSection(
             Column(modifier = Modifier.weight(1f)) {
                 BasicTextField(
                     state = nameState,
-                    textStyle = MaterialTheme.typography.headlineSmall.copy(
-                        color = MaterialTheme.colorScheme.onSurface,
-                    ),
+                    textStyle =
+                        MaterialTheme.typography.headlineSmall.copy(
+                            color = MaterialTheme.colorScheme.onSurface,
+                        ),
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -120,9 +125,10 @@ fun ProjectHeroSection(
                     Spacer(Modifier.height(4.dp))
                     BasicTextField(
                         state = descriptionState,
-                        textStyle = MaterialTheme.typography.bodyMedium.copy(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        ),
+                        textStyle =
+                            MaterialTheme.typography.bodyMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            ),
                         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -147,11 +153,16 @@ fun ProjectHeroSection(
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ProjectMetaChipsRow(ui: ProjectDetailUi, actions: ProjectDetailActions, modifier: Modifier = Modifier) {
+fun ProjectMetaChipsRow(
+    ui: ProjectDetailUi,
+    actions: ProjectDetailActions,
+    modifier: Modifier = Modifier,
+) {
     FlowRow(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         ui.project.dueDate?.let { date ->
@@ -206,37 +217,41 @@ fun ProjectMetaChipsRow(ui: ProjectDetailUi, actions: ProjectDetailActions, modi
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun ProjectHeroSectionPreview() = PreviewThemed(darkTheme = false) {
-    ProjectHeroSection(
-        ui = previewProjectDetailUi(),
-        lastEditedAt = PreviewSamples.now,
-        now = PreviewSamples.now,
-        nameSource = OwnedText("Website redesign", 0),
-        descriptionSource = OwnedText("Ship the new landing page by the end of the sprint.", 0),
-        actions = ProjectDetailActions.Empty,
-    )
-}
+private fun ProjectHeroSectionPreview() =
+    PreviewThemed(darkTheme = false) {
+        ProjectHeroSection(
+            ui = previewProjectDetailUi(),
+            lastEditedAt = PreviewSamples.now,
+            now = PreviewSamples.now,
+            nameSource = OwnedText("Website redesign", 0),
+            descriptionSource = OwnedText("Ship the new landing page by the end of the sprint.", 0),
+            actions = ProjectDetailActions.Empty,
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun ProjectMetaChipsRowPreview() = PreviewThemed(darkTheme = false) {
-    ProjectMetaChipsRow(
-        ui = previewProjectDetailUi(),
-        actions = ProjectDetailActions.Empty,
-    )
-}
+private fun ProjectMetaChipsRowPreview() =
+    PreviewThemed(darkTheme = false) {
+        ProjectMetaChipsRow(
+            ui = previewProjectDetailUi(),
+            actions = ProjectDetailActions.Empty,
+        )
+    }
 
 private fun previewProjectDetailUi(): ProjectDetailUi {
-    val project = PreviewSamples.project(
-        id = "p1",
-        name = "Website redesign",
-        color = 0xFF2196F3.toInt(),
-        description = "Ship the new landing page by the end of the sprint.",
-    ).copy(
-        dueDate = PreviewSamples.today,
-        parentId = ProjectId("p0"),
-        inheritedTagGroupIds = setOf(TagGroupId("tg1")),
-    )
+    val project =
+        PreviewSamples
+            .project(
+                id = "p1",
+                name = "Website redesign",
+                color = 0xFF2196F3.toInt(),
+                description = "Ship the new landing page by the end of the sprint.",
+            ).copy(
+                dueDate = PreviewSamples.today,
+                parentId = ProjectId("p0"),
+                inheritedTagGroupIds = setOf(TagGroupId("tg1")),
+            )
     return ProjectDetailUi(
         project = project,
         tasks = listOf(PreviewSamples.task(id = "t1", title = "Design the hero section")),

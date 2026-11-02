@@ -31,9 +31,9 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class AppEntryParityTest {
-
-    private val commonMainRoot: String = System.getProperty("commonMain.root")
-        ?: error("commonMain.root system property is not set — see shared/build.gradle.kts")
+    private val commonMainRoot: String =
+        System.getProperty("commonMain.root")
+            ?: error("commonMain.root system property is not set — see shared/build.gradle.kts")
 
     /** `shared/src` — the root both platform source sets hang off. */
     private val sharedSrcRoot: String = File(commonMainRoot).parentFile.parentFile.path
@@ -43,8 +43,7 @@ class AppEntryParityTest {
         return file.readText()
     }
 
-    private fun sourceOf(vararg paths: String): List<String> =
-        paths.map { readSource(File(it)) }
+    private fun sourceOf(vararg paths: String): List<String> = paths.map { readSource(File(it)) }
 
     /** The `entry<AppDestination.X>` declarations in a source text. */
     private fun destinationsIn(source: String): List<String> =
@@ -52,18 +51,19 @@ class AppEntryParityTest {
 
     @Test
     fun `the entry providers cover exactly the expected destinations`() {
-        val declared = sourceOf(
-            "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/AppEntries.kt",
-            "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/AgendaEntries.kt",
-            "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/CalendarEntries.kt",
-            "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/NotesEntries.kt",
-            "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/PlansEntries.kt",
-            "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/ProjectsEntries.kt",
-            "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/SearchEntries.kt",
-            "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/SettingsEntries.kt",
-            "$sharedSrcRoot/androidMain/kotlin/com/singularity/todo/feature/nav/AndroidNavEntries.kt",
-            "$sharedSrcRoot/jvmMain/kotlin/com/singularity/todo/feature/nav/JvmNavEntries.kt",
-        ).flatMap { destinationsIn(it) }.toSet()
+        val declared =
+            sourceOf(
+                "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/AppEntries.kt",
+                "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/AgendaEntries.kt",
+                "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/CalendarEntries.kt",
+                "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/NotesEntries.kt",
+                "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/PlansEntries.kt",
+                "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/ProjectsEntries.kt",
+                "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/SearchEntries.kt",
+                "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/SettingsEntries.kt",
+                "$sharedSrcRoot/androidMain/kotlin/com/singularity/todo/feature/nav/AndroidNavEntries.kt",
+                "$sharedSrcRoot/jvmMain/kotlin/com/singularity/todo/feature/nav/JvmNavEntries.kt",
+            ).flatMap { destinationsIn(it) }.toSet()
 
         assertEquals(
             EXPECTED_DESTINATIONS,
@@ -74,16 +74,17 @@ class AppEntryParityTest {
 
     @Test
     fun `every destination but the platform-specific ones is declared in common code`() {
-        val inCommon = sourceOf(
-            "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/AppEntries.kt",
-            "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/AgendaEntries.kt",
-            "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/CalendarEntries.kt",
-            "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/NotesEntries.kt",
-            "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/PlansEntries.kt",
-            "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/ProjectsEntries.kt",
-            "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/SearchEntries.kt",
-            "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/SettingsEntries.kt",
-        ).flatMap { destinationsIn(it) }.toSet()
+        val inCommon =
+            sourceOf(
+                "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/AppEntries.kt",
+                "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/AgendaEntries.kt",
+                "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/CalendarEntries.kt",
+                "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/NotesEntries.kt",
+                "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/PlansEntries.kt",
+                "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/ProjectsEntries.kt",
+                "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/SearchEntries.kt",
+                "$sharedSrcRoot/commonMain/kotlin/com/singularity/todo/feature/nav/entries/SettingsEntries.kt",
+            ).flatMap { destinationsIn(it) }.toSet()
 
         assertEquals(
             EXPECTED_DESTINATIONS - PLATFORM_SPECIFIC_DESTINATIONS,
@@ -94,12 +95,16 @@ class AppEntryParityTest {
 
     @Test
     fun `the tasks graph entry is declared on both platforms`() {
-        val android = destinationsIn(
-            readSource(File("$sharedSrcRoot/androidMain/kotlin/com/singularity/todo/feature/nav/AndroidNavEntries.kt")),
-        )
-        val desktop = destinationsIn(
-            readSource(File("$sharedSrcRoot/jvmMain/kotlin/com/singularity/todo/feature/nav/JvmNavEntries.kt")),
-        )
+        val android =
+            destinationsIn(
+                readSource(
+                    File("$sharedSrcRoot/androidMain/kotlin/com/singularity/todo/feature/nav/AndroidNavEntries.kt"),
+                ),
+            )
+        val desktop =
+            destinationsIn(
+                readSource(File("$sharedSrcRoot/jvmMain/kotlin/com/singularity/todo/feature/nav/JvmNavEntries.kt")),
+            )
 
         assertTrue("TasksGraph" in android, "Android must declare the tasks graph entry.")
         assertTrue("TasksGraph" in desktop, "Desktop must declare the tasks graph entry.")
@@ -114,32 +119,33 @@ class AppEntryParityTest {
          * it has no entry and no production opener — the documented unwired
          * surface in `docs/navigation.md`.
          */
-        val EXPECTED_DESTINATIONS = setOf(
-            "Plans",
-            "Pomodoro",
-            "Statistics",
-            "Calendar",
-            "Notes",
-            "AiChat",
-            "Proposals",
-            "Search",
-            "Archive",
-            "Settings",
-            "AiUsage",
-            "ProfileSwitcher",
-            "AttachAccount",
-            "ChangePassword",
-            "MagicLinkConfirm",
-            "ProjectEditor",
-            "ProjectDetail",
-            "AttachmentViewer",
-            "ProjectsGraph",
-            "TasksGraph",
-            "NotesGraph",
-            "CalendarGraph",
-            "AgendaGraph",
-            "ExternalAgent",
-        )
+        val EXPECTED_DESTINATIONS =
+            setOf(
+                "Plans",
+                "Pomodoro",
+                "Statistics",
+                "Calendar",
+                "Notes",
+                "AiChat",
+                "Proposals",
+                "Search",
+                "Archive",
+                "Settings",
+                "AiUsage",
+                "ProfileSwitcher",
+                "AttachAccount",
+                "ChangePassword",
+                "MagicLinkConfirm",
+                "ProjectEditor",
+                "ProjectDetail",
+                "AttachmentViewer",
+                "ProjectsGraph",
+                "TasksGraph",
+                "NotesGraph",
+                "CalendarGraph",
+                "AgendaGraph",
+                "ExternalAgent",
+            )
 
         /**
          * The destinations whose entry stays platform-specific: the pushed tasks

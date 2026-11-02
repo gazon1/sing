@@ -82,7 +82,6 @@ import org.jetbrains.kotlin.psi.psiUtil.anyDescendantOfType
  * @see NoPopupWithoutResourceIdMappingProvider for registration.
  */
 class NoPopupWithoutResourceIdMapping(config: Config) : Rule(config, "", null) {
-
     override fun visitCallExpression(expression: KtCallExpression) {
         super.visitCallExpression(expression)
         if (isPreviewOrTestContext(expression)) return
@@ -104,10 +103,11 @@ class NoPopupWithoutResourceIdMapping(config: Config) : Rule(config, "", null) {
         // lambda that is the last positional argument (the content lambda).
         val lambda = contentLambda(expression) ?: return
 
-        val hasTestTagInside = lambda.anyDescendantOfType<KtCallExpression> { call ->
-            val name = (call.calleeExpression as? KtNameReferenceExpression)?.text
-            name == "testTag"
-        }
+        val hasTestTagInside =
+            lambda.anyDescendantOfType<KtCallExpression> { call ->
+                val name = (call.calleeExpression as? KtNameReferenceExpression)?.text
+                name == "testTag"
+            }
         if (!hasTestTagInside) return
 
         // Flag the entire Popup call expression.
@@ -174,20 +174,28 @@ class NoPopupWithoutResourceIdMapping(config: Config) : Rule(config, "", null) {
                     // mapTestTagsAsResourceIds() is a function call, so the
                     // selector is a KtCallExpression whose callee is the name
                     // reference — not a bare KtNameReferenceExpression.
-                    val name = when (selector) {
-                        is KtNameReferenceExpression -> selector.text
+                    val name =
+                        when (selector) {
+                            is KtNameReferenceExpression -> {
+                                selector.text
+                            }
 
-                        is org.jetbrains.kotlin.psi.KtCallExpression ->
-                            (selector.calleeExpression as? KtNameReferenceExpression)?.text
+                            is org.jetbrains.kotlin.psi.KtCallExpression -> {
+                                (selector.calleeExpression as? KtNameReferenceExpression)?.text
+                            }
 
-                        else -> null
-                    }
+                            else -> {
+                                null
+                            }
+                        }
                     if (name == "mapTestTagsAsResourceIds") return true
                     // Keep walking the receiver chain
                     current = current.receiverExpression
                 }
 
-                else -> return false
+                else -> {
+                    return false
+                }
             }
         }
         return false
@@ -211,9 +219,10 @@ class NoPopupWithoutResourceIdMapping(config: Config) : Rule(config, "", null) {
         var current: org.jetbrains.kotlin.psi.KtElement? = element
         while (current != null) {
             if (current is org.jetbrains.kotlin.psi.KtNamedFunction) {
-                val hasPreview = current.annotationEntries.any {
-                    it.shortName?.asString() == "Preview"
-                }
+                val hasPreview =
+                    current.annotationEntries.any {
+                        it.shortName?.asString() == "Preview"
+                    }
                 if (hasPreview) return true
             }
             current = current.parent as? org.jetbrains.kotlin.psi.KtElement
@@ -221,17 +230,21 @@ class NoPopupWithoutResourceIdMapping(config: Config) : Rule(config, "", null) {
         return false
     }
 
-    private fun reportFinding(expression: KtCallExpression, calleeName: String) {
+    private fun reportFinding(
+        expression: KtCallExpression,
+        calleeName: String,
+    ) {
         report(
             Finding(
                 entity = Entity.from(expression),
-                message = "ModalBottomSheet / Popup / AlertDialog / DropdownMenu `$calleeName` " +
-                    "receives a testTag inside its content lambda but does not apply " +
-                    "`mapTestTagsAsResourceIds()` to the Popup's root modifier. " +
-                    "The testTag will not propagate through the Popup window boundary: " +
-                    "Maestro `id:` selectors targeting this element will silently fail. " +
-                    "Fix: add `.mapTestTagsAsResourceIds()` to the $calleeName call's " +
-                    "own `modifier` parameter, or to the Modifier chain on the root element.",
+                message =
+                    "ModalBottomSheet / Popup / AlertDialog / DropdownMenu `$calleeName` " +
+                        "receives a testTag inside its content lambda but does not apply " +
+                        "`mapTestTagsAsResourceIds()` to the Popup's root modifier. " +
+                        "The testTag will not propagate through the Popup window boundary: " +
+                        "Maestro `id:` selectors targeting this element will silently fail. " +
+                        "Fix: add `.mapTestTagsAsResourceIds()` to the $calleeName call's " +
+                        "own `modifier` parameter, or to the Modifier chain on the root element.",
                 references = emptyList(),
                 suppressReasons = emptyList(),
             ),
@@ -244,20 +257,22 @@ class NoPopupWithoutResourceIdMapping(config: Config) : Rule(config, "", null) {
          * window context on Android. Each requires `mapTestTagsAsResourceIds()` on
          * the root modifier for inner testTags to reach the Android resource-id layer.
          */
-        private val POPUP_CONTAINERS = setOf(
-            "ModalBottomSheet",
-            "Popup",
-            "AlertDialog",
-            "DropdownMenu",
-        )
+        private val POPUP_CONTAINERS =
+            setOf(
+                "ModalBottomSheet",
+                "Popup",
+                "AlertDialog",
+                "DropdownMenu",
+            )
 
-        private val TEST_SOURCE_SETS = listOf(
-            "commonTest",
-            "jvmTest",
-            "androidTest",
-            "iosTest",
-            "jsTest",
-        )
+        private val TEST_SOURCE_SETS =
+            listOf(
+                "commonTest",
+                "jvmTest",
+                "androidTest",
+                "iosTest",
+                "jsTest",
+            )
     }
 }
 
@@ -266,12 +281,14 @@ class NoPopupWithoutResourceIdMapping(config: Config) : Rule(config, "", null) {
  */
 class NoPopupWithoutResourceIdMappingProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("popup-test-tag")
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf<RuleName, (Config) -> Rule>(
-            RuleName("NoPopupWithoutResourceIdMapping") to { cfg: Config ->
-                NoPopupWithoutResourceIdMapping(cfg)
-            },
-        ),
-    )
+
+    override fun instance(): RuleSet =
+        RuleSet(
+            ruleSetId,
+            mapOf<RuleName, (Config) -> Rule>(
+                RuleName("NoPopupWithoutResourceIdMapping") to { cfg: Config ->
+                    NoPopupWithoutResourceIdMapping(cfg)
+                },
+            ),
+        )
 }

@@ -5,6 +5,7 @@ import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
 import android.provider.CalendarContract
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.feature.calendarSync.domain.model.CalendarSyncEvent
 import com.singularity.todo.feature.calendarSync.domain.port.CalendarProviderPort
 import com.singularity.todo.feature.calendarSync.domain.port.CalendarSyncRepository
@@ -14,7 +15,6 @@ import com.singularity.todo.feature.tasks.domain.TaskLinkSpec
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
-import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Android implementation of [CalendarProviderPort] using ContentResolver.
@@ -40,52 +40,58 @@ class AndroidCalendarProvider(
     private val accountNameProvider: () -> String,
     private val syncRepo: CalendarSyncRepository,
 ) : CalendarProviderPort {
-
     private val contentResolver: ContentResolver
         get() = context.contentResolver
 
     /** Lazily resolves the target app package from settings. null = use system default. */
     private suspend fun resolveAppPackage(): String? = syncRepo.observeTargetAppPackage().firstOrNull()
 
-    override suspend fun getAvailableCalendars(): Result<Map<String, String>> = withContext(Dispatchers.IO) {
-        runCatchingCancellable {
-            translateExceptions {
-                val projection = arrayOf(
-                    CalendarContract.Calendars._ID,
-                    CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
-                    CalendarContract.Calendars.ACCOUNT_NAME,
-                )
-                val uri = CalendarContract.Calendars.CONTENT_URI
-                val selection = "${CalendarContract.Calendars.VISIBLE} = 1"
-                val calendars = mutableMapOf<String, String>()
-                contentResolver.query(uri, projection, selection, null, null)?.use { cursor ->
-                    val idIdx = cursor.getColumnIndexOrThrow(CalendarContract.Calendars._ID)
-                    val nameIdx = cursor.getColumnIndexOrThrow(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME)
-                    while (cursor.moveToNext()) {
-                        val id = cursor.getString(idIdx)
-                        val name = cursor.getString(nameIdx) ?: id
-                        calendars[id] = name
+    override suspend fun getAvailableCalendars(): Result<Map<String, String>> =
+        withContext(Dispatchers.IO) {
+            runCatchingCancellable {
+                translateExceptions {
+                    val projection =
+                        arrayOf(
+                            CalendarContract.Calendars._ID,
+                            CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
+                            CalendarContract.Calendars.ACCOUNT_NAME,
+                        )
+                    val uri = CalendarContract.Calendars.CONTENT_URI
+                    val selection = "${CalendarContract.Calendars.VISIBLE} = 1"
+                    val calendars = mutableMapOf<String, String>()
+                    contentResolver.query(uri, projection, selection, null, null)?.use { cursor ->
+                        val idIdx = cursor.getColumnIndexOrThrow(CalendarContract.Calendars._ID)
+                        val nameIdx = cursor.getColumnIndexOrThrow(CalendarContract.Calendars.CALENDAR_DISPLAY_NAME)
+                        while (cursor.moveToNext()) {
+                            val id = cursor.getString(idIdx)
+                            val name = cursor.getString(nameIdx) ?: id
+                            calendars[id] = name
+                        }
                     }
+                    calendars
                 }
-                calendars
-            }
-        }.recoverCatching { throw it }
-    }
+            }.recoverCatching { throw it }
+        }
 
-    override suspend fun insertEvent(event: CalendarSyncEvent): Result<Long> = withContext(Dispatchers.IO) {
-        runCatchingCancellable {
-            translateExceptions {
-                val appPkg = resolveAppPackage()
-                val values = toContentValues(event, accountNameProvider(), appPkg)
-                val uri = contentResolver.insert(CalendarContract.Events.CONTENT_URI, values)
-                    ?: throw IllegalStateException("Insert returned null URI")
-                val eventId = ContentUris.parseId(uri)
-                eventId
-            }
-        }.recoverCatching { throw it }
-    }
+    override suspend fun insertEvent(event: CalendarSyncEvent): Result<Long> =
+        withContext(Dispatchers.IO) {
+            runCatchingCancellable {
+                translateExceptions {
+                    val appPkg = resolveAppPackage()
+                    val values = toContentValues(event, accountNameProvider(), appPkg)
+                    val uri =
+                        contentResolver.insert(CalendarContract.Events.CONTENT_URI, values)
+                            ?: throw IllegalStateException("Insert returned null URI")
+                    val eventId = ContentUris.parseId(uri)
+                    eventId
+                }
+            }.recoverCatching { throw it }
+        }
 
-    override suspend fun updateEvent(eventId: Long, event: CalendarSyncEvent): Result<Long> =
+    override suspend fun updateEvent(
+        eventId: Long,
+        event: CalendarSyncEvent,
+    ): Result<Long> =
         withContext(Dispatchers.IO) {
             runCatchingCancellable {
                 translateExceptions {
@@ -101,60 +107,71 @@ class AndroidCalendarProvider(
             }.recoverCatching { throw it }
         }
 
-    override suspend fun deleteEvent(eventId: Long): Result<Unit> = withContext(Dispatchers.IO) {
-        runCatchingCancellable {
-            translateExceptions {
-                val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId)
-                val rows = contentResolver.delete(uri, null, null)
-                if (rows == 0) {
-                    throw IllegalStateException("Delete affected 0 rows for eventId=$eventId")
-                }
-            }
-        }.recoverCatching { throw it }
-    }
-
-    override suspend fun queryEvents(calendarId: String?, fromMs: Long, toMs: Long): Result<Map<String, Long>> =
+    override suspend fun deleteEvent(eventId: Long): Result<Unit> =
         withContext(Dispatchers.IO) {
             runCatchingCancellable {
                 translateExceptions {
-                    val projection = arrayOf(
-                        CalendarContract.Events._ID,
-                        CalendarContract.Events.DTSTART,
-                        CalendarContract.Events.DTEND,
-                        CalendarContract.Events.DESCRIPTION,
-                    )
-                    val selection = buildString {
-                        append("(${CalendarContract.Events.DTSTART} >= ? AND ${CalendarContract.Events.DTSTART} < ?)")
-                        if (calendarId != null) {
-                            append(" AND ${CalendarContract.Events.CALENDAR_ID} = ?")
+                    val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId)
+                    val rows = contentResolver.delete(uri, null, null)
+                    if (rows == 0) {
+                        throw IllegalStateException("Delete affected 0 rows for eventId=$eventId")
+                    }
+                }
+            }.recoverCatching { throw it }
+        }
+
+    override suspend fun queryEvents(
+        calendarId: String?,
+        fromMs: Long,
+        toMs: Long,
+    ): Result<Map<String, Long>> =
+        withContext(Dispatchers.IO) {
+            runCatchingCancellable {
+                translateExceptions {
+                    val projection =
+                        arrayOf(
+                            CalendarContract.Events._ID,
+                            CalendarContract.Events.DTSTART,
+                            CalendarContract.Events.DTEND,
+                            CalendarContract.Events.DESCRIPTION,
+                        )
+                    val selection =
+                        buildString {
+                            append(
+                                "(${CalendarContract.Events.DTSTART} >= ? AND ${CalendarContract.Events.DTSTART} < ?)",
+                            )
+                            if (calendarId != null) {
+                                append(" AND ${CalendarContract.Events.CALENDAR_ID} = ?")
+                            }
+                            append(" AND ${CalendarContract.Events.ACCOUNT_NAME} = ?")
                         }
-                        append(" AND ${CalendarContract.Events.ACCOUNT_NAME} = ?")
-                    }
-                    val args = if (calendarId != null) {
-                        arrayOf(fromMs.toString(), toMs.toString(), calendarId, accountNameProvider())
-                    } else {
-                        arrayOf(fromMs.toString(), toMs.toString(), accountNameProvider())
-                    }
+                    val args =
+                        if (calendarId != null) {
+                            arrayOf(fromMs.toString(), toMs.toString(), calendarId, accountNameProvider())
+                        } else {
+                            arrayOf(fromMs.toString(), toMs.toString(), accountNameProvider())
+                        }
 
                     val result = mutableMapOf<String, Long>()
-                    contentResolver.query(
-                        CalendarContract.Events.CONTENT_URI,
-                        projection,
-                        selection,
-                        args,
-                        null,
-                    )?.use { cursor ->
-                        val idIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events._ID)
-                        val descIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events.DESCRIPTION)
-                        while (cursor.moveToNext()) {
-                            val eventId = cursor.getLong(idIdx)
-                            val desc = cursor.getString(descIdx) ?: ""
-                            val taskId = TaskLinkSpec.taskIdFromUri(desc)
-                            if (taskId != null) {
-                                result[taskId.value] = eventId
+                    contentResolver
+                        .query(
+                            CalendarContract.Events.CONTENT_URI,
+                            projection,
+                            selection,
+                            args,
+                            null,
+                        )?.use { cursor ->
+                            val idIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events._ID)
+                            val descIdx = cursor.getColumnIndexOrThrow(CalendarContract.Events.DESCRIPTION)
+                            while (cursor.moveToNext()) {
+                                val eventId = cursor.getLong(idIdx)
+                                val desc = cursor.getString(descIdx) ?: ""
+                                val taskId = TaskLinkSpec.taskIdFromUri(desc)
+                                if (taskId != null) {
+                                    result[taskId.value] = eventId
+                                }
                             }
                         }
-                    }
                     result
                 }
             }.recoverCatching { throw it }
@@ -165,14 +182,18 @@ class AndroidCalendarProvider(
         accountName: String,
         appPackage: String?,
     ): ContentValues {
-        val tz = java.util.TimeZone.getDefault().id
+        val tz =
+            java.util.TimeZone
+                .getDefault()
+                .id
         val cv = ContentValues()
         // Fails loudly rather than defaulting: this used to be `?: 1L`, so a calendar id
         // that was not numeric silently wrote the event into calendar 1 — a real calendar,
         // belonging to someone, that the user never chose. A wrong-write is harder to
         // notice and to undo than a refused one.
-        val calendarId = syncEvent.calendarId.toLongOrNull()
-            ?: throw CalendarSyncException.CalendarNotFoundException(syncEvent.calendarId)
+        val calendarId =
+            syncEvent.calendarId.toLongOrNull()
+                ?: throw CalendarSyncException.CalendarNotFoundException(syncEvent.calendarId)
         cv.put(CalendarContract.Events.CALENDAR_ID, calendarId)
         cv.put(CalendarContract.Events.TITLE, syncEvent.title)
         cv.put(CalendarContract.Events.DESCRIPTION, syncEvent.description)

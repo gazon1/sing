@@ -19,7 +19,10 @@ object LocalTimeSerializer : KSerializer<LocalTime> {
     override val descriptor: SerialDescriptor =
         PrimitiveSerialDescriptor("kotlinx.datetime.LocalTime", PrimitiveKind.STRING)
 
-    override fun serialize(encoder: Encoder, value: LocalTime) {
+    override fun serialize(
+        encoder: Encoder,
+        value: LocalTime,
+    ) {
         encoder.encodeString(LocalTimeFormats.format(value))
     }
 

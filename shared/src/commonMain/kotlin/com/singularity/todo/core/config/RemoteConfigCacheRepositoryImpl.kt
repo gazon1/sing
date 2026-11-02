@@ -8,12 +8,12 @@ import com.singularity.todo.core.coroutines.loggingBackgroundFailureHandler
 import com.singularity.todo.core.error.AppError
 import com.singularity.todo.core.serialization.StableJson
 import com.singularity.todo.core.sync.SyncApiClient
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.JsonObject
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
 import kotlin.time.Clock
 
 /**
@@ -62,19 +62,21 @@ internal class RemoteConfigCacheRepositoryImpl(
     private val readTimeoutMs: Long = RemoteConfigPort.READ_TIMEOUT_MS,
     private val readScope: CoroutineScope = createBackgroundScope(loggingBackgroundFailureHandler()),
 ) : RemoteConfigPort {
-
     private val _snapshot: MutableStateFlow<RemoteConfigSnapshot> =
         MutableStateFlow(RemoteConfigSnapshot.defaults())
 
     override fun observe(): StateFlow<RemoteConfigSnapshot> = _snapshot.asStateFlow()
 
     override suspend fun snapshot(): RemoteConfigSnapshot {
-        val outcome = readScope.boundedRead(
-            timeoutMs = readTimeoutMs,
-            onAbandonedFailure = ::logAbandonedReadFailure,
-        ) { readCachedSnapshot() }
+        val outcome =
+            readScope.boundedRead(
+                timeoutMs = readTimeoutMs,
+                onAbandonedFailure = ::logAbandonedReadFailure,
+            ) { readCachedSnapshot() }
         return when (outcome) {
-            is BoundedReadResult.Completed -> outcome.value
+            is BoundedReadResult.Completed -> {
+                outcome.value
+            }
 
             BoundedReadResult.TimedOut -> {
                 // The read is still running; it may yet succeed and `observe()` will publish
@@ -89,12 +91,15 @@ internal class RemoteConfigCacheRepositoryImpl(
     }
 
     override suspend fun refresh(): Result<RemoteConfigSnapshot> {
-        val outcome = readScope.boundedRead(
-            timeoutMs = readTimeoutMs,
-            onAbandonedFailure = ::logAbandonedReadFailure,
-        ) { refreshInternal() }
+        val outcome =
+            readScope.boundedRead(
+                timeoutMs = readTimeoutMs,
+                onAbandonedFailure = ::logAbandonedReadFailure,
+            ) { refreshInternal() }
         return when (outcome) {
-            is BoundedReadResult.Completed -> outcome.value
+            is BoundedReadResult.Completed -> {
+                outcome.value
+            }
 
             BoundedReadResult.TimedOut -> {
                 log.w { "Remote config refresh did not finish within $readTimeoutMs ms" }
@@ -116,11 +121,12 @@ internal class RemoteConfigCacheRepositoryImpl(
      */
     private suspend fun readCachedSnapshot(): RemoteConfigSnapshot {
         val cached = cacheDao.getDefault()
-        val result = if (cached != null) {
-            deserializeOrDefaults(cached.snapshotJson)
-        } else {
-            RemoteConfigSnapshot.defaults()
-        }
+        val result =
+            if (cached != null) {
+                deserializeOrDefaults(cached.snapshotJson)
+            } else {
+                RemoteConfigSnapshot.defaults()
+            }
         _snapshot.value = result
         return result
     }
@@ -142,10 +148,11 @@ internal class RemoteConfigCacheRepositoryImpl(
                     val cached = snapshot()
                     return Result.failure(Exception("Remote config schema validation failed"))
                 }
-                val entity = RemoteConfigCacheEntity(
-                    snapshotJson = StableJson.encodeToString(RemoteConfigSnapshot.serializer(), validated),
-                    fetchedAtEpochMillis = clock.now().toEpochMilliseconds(),
-                )
+                val entity =
+                    RemoteConfigCacheEntity(
+                        snapshotJson = StableJson.encodeToString(RemoteConfigSnapshot.serializer(), validated),
+                        fetchedAtEpochMillis = clock.now().toEpochMilliseconds(),
+                    )
                 cacheDao.upsert(entity)
                 _snapshot.value = validated
                 log.d { "Remote config refreshed, schemaVersion=${validated.schemaVersion}" }
@@ -181,18 +188,19 @@ internal class RemoteConfigCacheRepositoryImpl(
      */
     private fun lastKnownGood(): RemoteConfigSnapshot = _snapshot.value
 
-    private fun deserializeOrDefaults(json: String): RemoteConfigSnapshot = try {
-        val element = StableJson.parseToJsonElement(json)
-        val jsonObj = element as? JsonObject
-        if (jsonObj != null) {
-            RemoteConfigSnapshot.validate(jsonObj) ?: RemoteConfigSnapshot.defaults()
-        } else {
+    private fun deserializeOrDefaults(json: String): RemoteConfigSnapshot =
+        try {
+            val element = StableJson.parseToJsonElement(json)
+            val jsonObj = element as? JsonObject
+            if (jsonObj != null) {
+                RemoteConfigSnapshot.validate(jsonObj) ?: RemoteConfigSnapshot.defaults()
+            } else {
+                RemoteConfigSnapshot.defaults()
+            }
+        } catch (e: Throwable) {
+            log.w(e) { "Failed to deserialize cached RemoteConfigSnapshot, using defaults" }
             RemoteConfigSnapshot.defaults()
         }
-    } catch (e: Throwable) {
-        log.w(e) { "Failed to deserialize cached RemoteConfigSnapshot, using defaults" }
-        RemoteConfigSnapshot.defaults()
-    }
 
     companion object {
         /**

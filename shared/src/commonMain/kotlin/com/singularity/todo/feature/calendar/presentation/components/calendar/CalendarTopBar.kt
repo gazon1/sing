@@ -11,15 +11,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.runtime.Composable
-import androidx.compose.material3.Icon
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import com.singularity.todo.core.ui.components.LocalScreenActions
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -27,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.components.LocalScreenActions
 import com.singularity.todo.core.ui.components.ShellOverride
 import com.singularity.todo.core.ui.touchTarget
 import com.singularity.todo.feature.calendar.domain.model.CalendarViewMode
@@ -73,25 +73,26 @@ fun CalendarTopBar(
                     modifier = Modifier.testTag(TestTags.CALENDAR_MONTH_TITLE),
                 )
             },
-            navigationIcon = if (onBack != null) {
-                {
-                    IconButton(onClick = onBack, modifier = Modifier.testTag(TestTags.TOP_BAR_BACK_BUTTON)) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            navigationIcon =
+                if (onBack != null) {
+                    {
+                        IconButton(onClick = onBack, modifier = Modifier.testTag(TestTags.TOP_BAR_BACK_BUTTON)) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
                     }
-                }
-            } else {
-                null
-            },
-
+                } else {
+                    null
+                },
         )
         // The controls stay in the screen. The shell's bar has room for a title
         // and a back button, and not for a view-mode dropdown and a month
         // pager: a calendar whose month cannot be changed is not a calendar.
         Row(
-            modifier = modifier
-                .fillMaxWidth()
-                .background(palette.background)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier =
+                modifier
+                    .fillMaxWidth()
+                    .background(palette.background)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -101,10 +102,11 @@ fun CalendarTopBar(
     }
 
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(palette.background)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .background(palette.background)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
@@ -162,10 +164,11 @@ private fun CalendarControls(
             Icons.Default.CalendarToday,
             contentDescription = "Open mini calendar",
             tint = palette.textSecondary,
-            modifier = Modifier
-                .touchTarget(TaskListSizes.MinTouchTarget)
-                .size(20.dp)
-                .clickable { onIntent(CalendarIntent.ToggleMiniCalendar) },
+            modifier =
+                Modifier
+                    .touchTarget(TaskListSizes.MinTouchTarget)
+                    .size(20.dp)
+                    .clickable { onIntent(CalendarIntent.ToggleMiniCalendar) },
         )
 
         Spacer(Modifier.width(12.dp))
@@ -174,29 +177,32 @@ private fun CalendarControls(
             Icons.Default.ChevronLeft,
             contentDescription = "Previous",
             tint = palette.textSecondary,
-            modifier = Modifier
-                .touchTarget(TaskListSizes.MinTouchTarget)
-                .size(20.dp)
-                .clickable { onIntent(CalendarIntent.GoPrevious) },
+            modifier =
+                Modifier
+                    .touchTarget(TaskListSizes.MinTouchTarget)
+                    .size(20.dp)
+                    .clickable { onIntent(CalendarIntent.GoPrevious) },
         )
         Spacer(Modifier.width(8.dp))
         Text(
             text = "Today",
             color = palette.textSecondary,
             fontSize = 14.sp,
-            modifier = Modifier
-                .touchTarget(TaskListSizes.MinTouchTarget)
-                .clickable { onIntent(CalendarIntent.GoToday) },
+            modifier =
+                Modifier
+                    .touchTarget(TaskListSizes.MinTouchTarget)
+                    .clickable { onIntent(CalendarIntent.GoToday) },
         )
         Spacer(Modifier.width(8.dp))
         Icon(
             Icons.Default.ChevronRight,
             contentDescription = "Next",
             tint = palette.textSecondary,
-            modifier = Modifier
-                .touchTarget(TaskListSizes.MinTouchTarget)
-                .size(20.dp)
-                .clickable { onIntent(CalendarIntent.GoNext) },
+            modifier =
+                Modifier
+                    .touchTarget(TaskListSizes.MinTouchTarget)
+                    .size(20.dp)
+                    .clickable { onIntent(CalendarIntent.GoNext) },
         )
 
         // The "Filter" icon + label that used to close the bar were removed for the

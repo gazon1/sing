@@ -31,22 +31,23 @@ import com.singularity.todo.feature.genui.render.material3.layout.registerRow
  * ```
  */
 object Material3Catalog {
-    fun install(registry: ComponentRegistry) = registry.apply {
-        registerText()
-        registerHeading()
-        registerButton()
-        registerColumn()
-        registerRow()
-        registerCard()
-        registerList()
-        registerDivider()
-        registerBadge()
-        registerTextField()
-        registerCheckbox()
-        registerTabs()
-        registerIcon()
-        registerModal()
-    }
+    fun install(registry: ComponentRegistry) =
+        registry.apply {
+            registerText()
+            registerHeading()
+            registerButton()
+            registerColumn()
+            registerRow()
+            registerCard()
+            registerList()
+            registerDivider()
+            registerBadge()
+            registerTextField()
+            registerCheckbox()
+            registerTabs()
+            registerIcon()
+            registerModal()
+        }
 
     /**
      * Everything the client can draw: the Material3 set plus the domain components.
@@ -55,8 +56,9 @@ object Material3Catalog {
      * this client render" is one question and it has one answer. An installation that covered only
      * the Material3 half would leave a surface half-drawn with no error anywhere.
      */
-    fun installAll(registry: ComponentRegistry) = registry.apply {
-        install(registry)
-        registerAppComponents()
-    }
+    fun installAll(registry: ComponentRegistry) =
+        registry.apply {
+            install(registry)
+            registerAppComponents()
+        }
 }

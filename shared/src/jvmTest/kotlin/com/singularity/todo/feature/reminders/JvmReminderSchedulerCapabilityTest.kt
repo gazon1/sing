@@ -39,7 +39,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class JvmReminderSchedulerCapabilityTest {
-
     private val clock = FakeClock()
 
     /** Records the argv it was handed; returns the exit code the scenario needs. */
@@ -118,24 +117,26 @@ class JvmReminderSchedulerCapabilityTest {
      * gets a reminder that never fires with no indication anything is wrong.
      */
     @Test
-    fun `schedule refuses rather than silently doing nothing`() = runTest {
-        val runner = RecordingRunner()
-        val scheduler = scheduler(runner = runner, systemdPresent = false)
+    fun `schedule refuses rather than silently doing nothing`() =
+        runTest {
+            val runner = RecordingRunner()
+            val scheduler = scheduler(runner = runner, systemdPresent = false)
 
-        val thrown = assertFailsWith<RemindersUnsupportedException> {
-            scheduler.schedule(reminder())
+            val thrown =
+                assertFailsWith<RemindersUnsupportedException> {
+                    scheduler.schedule(reminder())
+                }
+
+            assertEquals(
+                "schedule a reminder",
+                thrown.operation,
+                "the exception must name the operation, so a caller can tell which seam was inert",
+            )
+            assertTrue(
+                runner.calls.isEmpty(),
+                "an unsupported host must not shell out and hope",
+            )
         }
-
-        assertEquals(
-            "schedule a reminder",
-            thrown.operation,
-            "the exception must name the operation, so a caller can tell which seam was inert",
-        )
-        assertTrue(
-            runner.calls.isEmpty(),
-            "an unsupported host must not shell out and hope",
-        )
-    }
 
     /**
      * A `systemd-run` that fails is a reminder that was never armed.
@@ -146,16 +147,17 @@ class JvmReminderSchedulerCapabilityTest {
      * paper over by firing the reminder *immediately* instead.
      */
     @Test
-    fun `a failed systemd-run throws rather than reporting a reminder as armed`() = runTest {
-        val scheduler = scheduler(runner = RecordingRunner(exit = 1))
+    fun `a failed systemd-run throws rather than reporting a reminder as armed`() =
+        runTest {
+            val scheduler = scheduler(runner = RecordingRunner(exit = 1))
 
-        val thrown = assertFailsWith<IllegalStateException> { scheduler.schedule(reminder()) }
+            val thrown = assertFailsWith<IllegalStateException> { scheduler.schedule(reminder()) }
 
-        assertTrue(
-            thrown.message?.contains("was NOT scheduled") == true,
-            "the message must say the reminder is not scheduled, got: ${thrown.message}",
-        )
-    }
+            assertTrue(
+                thrown.message?.contains("was NOT scheduled") == true,
+                "the message must say the reminder is not scheduled, got: ${thrown.message}",
+            )
+        }
 
     /**
      * A reminder whose time has passed is not armed, and that is not a failure.
@@ -165,14 +167,15 @@ class JvmReminderSchedulerCapabilityTest {
      * not the "silently lies" case the throw guards.
      */
     @Test
-    fun `a reminder already due is not armed`() = runTest {
-        val runner = RecordingRunner()
-        val scheduler = scheduler(runner = runner)
+    fun `a reminder already due is not armed`() =
+        runTest {
+            val runner = RecordingRunner()
+            val scheduler = scheduler(runner = runner)
 
-        scheduler.schedule(reminder(fireAt = clock.now().toEpochMilliseconds() - 1))
+            scheduler.schedule(reminder(fireAt = clock.now().toEpochMilliseconds() - 1))
 
-        assertTrue(runner.calls.isEmpty(), "nothing to arm, so nothing may be run")
-    }
+            assertTrue(runner.calls.isEmpty(), "nothing to arm, so nothing may be run")
+        }
 
     // ─── Cancelling stays silent ───────────────────────────────────────────────
 
@@ -185,20 +188,21 @@ class JvmReminderSchedulerCapabilityTest {
      * written by a build whose units systemd has since reaped.
      */
     @Test
-    fun `cancel and cancelByTask stay silent when nothing is armed`() = runTest {
-        val runner = RecordingRunner(exit = 1)
-        val scheduler = scheduler(runner = runner, systemdPresent = false)
-        val reminder = reminder()
+    fun `cancel and cancelByTask stay silent when nothing is armed`() =
+        runTest {
+            val runner = RecordingRunner(exit = 1)
+            val scheduler = scheduler(runner = runner, systemdPresent = false)
+            val reminder = reminder()
 
-        scheduler.cancel(reminder.id, reminder.userId)
-        scheduler.cancelByTask(reminder.taskId, reminder.userId)
+            scheduler.cancel(reminder.id, reminder.userId)
+            scheduler.cancelByTask(reminder.taskId, reminder.userId)
 
-        assertTrue(
-            runner.calls.isEmpty(),
-            "an unsupported host must not shell out at all, not even to stop nothing",
-        )
-        assertFalse(scheduler.isSupported, "cleanup must not change what the platform supports")
-    }
+            assertTrue(
+                runner.calls.isEmpty(),
+                "an unsupported host must not shell out at all, not even to stop nothing",
+            )
+            assertFalse(scheduler.isSupported, "cleanup must not change what the platform supports")
+        }
 
     /**
      * On a supported host, cancelling targets **named** units.
@@ -208,27 +212,28 @@ class JvmReminderSchedulerCapabilityTest {
      * a user's own systemd timers are structurally unreachable.
      */
     @Test
-    fun `cancel stops only this app's own named units`() = runTest {
-        val runner = RecordingRunner()
-        val scheduler = scheduler(runner = runner)
-        val reminder = reminder()
+    fun `cancel stops only this app's own named units`() =
+        runTest {
+            val runner = RecordingRunner()
+            val scheduler = scheduler(runner = runner)
+            val reminder = reminder()
 
-        scheduler.cancel(reminder.id, reminder.userId)
+            scheduler.cancel(reminder.id, reminder.userId)
 
-        val unit = unitName(reminder.userId, reminder.id)
-        assertEquals(
-            listOf(
-                listOf("systemctl", "--user", "stop", "$unit.timer"),
-                listOf("systemctl", "--user", "stop", "$unit.service"),
-            ),
-            runner.calls,
-            "cancellation must be a targeted stop on names we chose, never an enumeration",
-        )
-        assertTrue(
-            runner.calls.all { it.none { arg -> arg == "list-units" || arg == "list-timers" } },
-            "enumerating system units is the failure that got at(1) deleted",
-        )
-    }
+            val unit = unitName(reminder.userId, reminder.id)
+            assertEquals(
+                listOf(
+                    listOf("systemctl", "--user", "stop", "$unit.timer"),
+                    listOf("systemctl", "--user", "stop", "$unit.service"),
+                ),
+                runner.calls,
+                "cancellation must be a targeted stop on names we chose, never an enumeration",
+            )
+            assertTrue(
+                runner.calls.all { it.none { arg -> arg == "list-units" || arg == "list-timers" } },
+                "enumerating system units is the failure that got at(1) deleted",
+            )
+        }
 
     // ─── Arming ────────────────────────────────────────────────────────────────
 
@@ -242,52 +247,54 @@ class JvmReminderSchedulerCapabilityTest {
      * `--on-calendar=@` is wall-clock, so a machine that suspends still fires on time.
      */
     @Test
-    fun `arming produces one transient timer that runs this app's own launcher`() = runTest {
-        val runner = RecordingRunner()
-        val scheduler = scheduler(runner = runner)
-        val reminder = reminder(fireAt = 1_800_000_000_000L)
+    fun `arming produces one transient timer that runs this app's own launcher`() =
+        runTest {
+            val runner = RecordingRunner()
+            val scheduler = scheduler(runner = runner)
+            val reminder = reminder(fireAt = 1_800_000_000_000L)
 
-        scheduler.schedule(reminder)
+            scheduler.schedule(reminder)
 
-        assertEquals(
-            listOf(
+            assertEquals(
                 listOf(
-                    "systemd-run",
-                    "--user",
-                    "--unit=${unitName(reminder.userId, reminder.id)}",
-                    "--on-calendar=@1800000000",
-                    "--timer-property=AccuracySec=1s",
-                    "--setenv=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus",
-                    "--",
-                    "/usr/bin/singularity-todo",
-                    "fire-reminder",
-                    reminder.id.value,
-                    reminder.userId.value,
+                    listOf(
+                        "systemd-run",
+                        "--user",
+                        "--unit=${unitName(reminder.userId, reminder.id)}",
+                        "--on-calendar=@1800000000",
+                        "--timer-property=AccuracySec=1s",
+                        "--setenv=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus",
+                        "--",
+                        "/usr/bin/singularity-todo",
+                        "fire-reminder",
+                        reminder.id.value,
+                        reminder.userId.value,
+                    ),
                 ),
-            ),
-            runner.calls,
-        )
-    }
+                runner.calls,
+            )
+        }
 
     /**
      * The values the unit receives come from the database, and a shell would give them a
      * way out. The same rule `JvmNotifier.post` holds for the title.
      */
     @Test
-    fun `ids stay separate argv elements and can never be read as flags`() = runTest {
-        val runner = RecordingRunner()
-        val scheduler = scheduler(runner = runner)
-        val hostile = reminder(userId = UserId("u1; rm -rf ~"))
+    fun `ids stay separate argv elements and can never be read as flags`() =
+        runTest {
+            val runner = RecordingRunner()
+            val scheduler = scheduler(runner = runner)
+            val hostile = reminder(userId = UserId("u1; rm -rf ~"))
 
-        scheduler.schedule(hostile)
+            scheduler.schedule(hostile)
 
-        val argv = runner.calls.single()
-        assertTrue("--" in argv, "option parsing must be terminated before the ids")
-        assertTrue(
-            hostile.userId.value in argv,
-            "the hostile id must arrive as one opaque element, got $argv",
-        )
-    }
+            val argv = runner.calls.single()
+            assertTrue("--" in argv, "option parsing must be terminated before the ids")
+            assertTrue(
+                hostile.userId.value in argv,
+                "the hostile id must arrive as one opaque element, got $argv",
+            )
+        }
 
     /**
      * `cancelByTask` reaches every reminder on that task, through the repository.
@@ -296,27 +303,28 @@ class JvmReminderSchedulerCapabilityTest {
      * (that was the `at` bug), so this depends entirely on the repository returning them.
      */
     @Test
-    fun `cancelByTask cancels every reminder the repository reports for the task`() = runTest {
-        val repo = FakeReminderRepository()
-        val taskId = TaskId("t-shared")
-        // `TestUsers.DEFAULT`, not an arbitrary id: `watchByTask` is scoped to the active
-        // user, so a reminder seeded under a different id is invisible by design.
-        val mine = reminder(taskId = taskId, userId = TestUsers.DEFAULT)
-        repo.seed(mine)
-        val runner = RecordingRunner()
-        val scheduler = scheduler(runner = runner, repo = repo)
+    fun `cancelByTask cancels every reminder the repository reports for the task`() =
+        runTest {
+            val repo = FakeReminderRepository()
+            val taskId = TaskId("t-shared")
+            // `TestUsers.DEFAULT`, not an arbitrary id: `watchByTask` is scoped to the active
+            // user, so a reminder seeded under a different id is invisible by design.
+            val mine = reminder(taskId = taskId, userId = TestUsers.DEFAULT)
+            repo.seed(mine)
+            val runner = RecordingRunner()
+            val scheduler = scheduler(runner = runner, repo = repo)
 
-        scheduler.cancelByTask(taskId, mine.userId)
+            scheduler.cancelByTask(taskId, mine.userId)
 
-        assertTrue(
-            runner.calls.isNotEmpty(),
-            "the seeded reminder should have produced a stop",
-        )
-        assertTrue(
-            runner.calls.all { call -> call.any { it.startsWith(unitName(mine.userId, mine.id)) } },
-            "every stop must name this reminder's own unit; got ${runner.calls}",
-        )
-    }
+            assertTrue(
+                runner.calls.isNotEmpty(),
+                "the seeded reminder should have produced a stop",
+            )
+            assertTrue(
+                runner.calls.all { call -> call.any { it.startsWith(unitName(mine.userId, mine.id)) } },
+                "every stop must name this reminder's own unit; got ${runner.calls}",
+            )
+        }
 
     /**
      * Reminders for another profile are left alone.
@@ -325,21 +333,22 @@ class JvmReminderSchedulerCapabilityTest {
      * applies to cancellation exactly as it does to arming.
      */
     @Test
-    fun `cancelByTask ignores another profile's reminders`() = runTest {
-        val repo = FakeReminderRepository()
-        val taskId = TaskId("t-shared")
-        val mine = reminder(taskId = taskId, userId = TestUsers.DEFAULT)
-        repo.seed(mine)
-        val runner = RecordingRunner()
-        val scheduler = scheduler(runner = runner, repo = repo)
+    fun `cancelByTask ignores another profile's reminders`() =
+        runTest {
+            val repo = FakeReminderRepository()
+            val taskId = TaskId("t-shared")
+            val mine = reminder(taskId = taskId, userId = TestUsers.DEFAULT)
+            repo.seed(mine)
+            val runner = RecordingRunner()
+            val scheduler = scheduler(runner = runner, repo = repo)
 
-        scheduler.cancelByTask(taskId, UserId("someone-else"))
+            scheduler.cancelByTask(taskId, UserId("someone-else"))
 
-        assertTrue(
-            runner.calls.isEmpty(),
-            "another profile's unit must not be stopped; got ${runner.calls}",
-        )
-    }
+            assertTrue(
+                runner.calls.isEmpty(),
+                "another profile's unit must not be stopped; got ${runner.calls}",
+            )
+        }
 
     // A project reminder has no scheduler on *any* platform, so there is deliberately
     // no test here for it: the project UI is gated by the separate

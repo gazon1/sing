@@ -48,7 +48,6 @@ import kotlin.time.Duration.Companion.hours
  */
 @Tag("fast")
 class HlcDriftIsNeverCorrectedTest {
-
     private val start = 1_700_000_000_000L
 
     @Test
@@ -90,26 +89,28 @@ class HlcDriftIsNeverCorrectedTest {
     }
 
     @Test
-    fun `sync-event now carries the hlc from the client that pushed it`() = runTest {
-        // The second half of #179. Now that `SyncEvent` carries `hlc`, the pull loop
-        // has something to hand `tock()` when it receives an event.
-        val serialized = StableJson.encodeToString(
-            SyncEvent(
-                serverLsn = 1,
-                entityId = "e1",
-                entityType = DocType.Task,
-                eventType = SyncEventType.UPDATED,
-                createdAt = start,
-                hlc = Hlc.of(start, 0, "remote-client"),
-            ),
-        )
+    fun `sync-event now carries the hlc from the client that pushed it`() =
+        runTest {
+            // The second half of #179. Now that `SyncEvent` carries `hlc`, the pull loop
+            // has something to hand `tock()` when it receives an event.
+            val serialized =
+                StableJson.encodeToString(
+                    SyncEvent(
+                        serverLsn = 1,
+                        entityId = "e1",
+                        entityType = DocType.Task,
+                        eventType = SyncEventType.UPDATED,
+                        createdAt = start,
+                        hlc = Hlc.of(start, 0, "remote-client"),
+                    ),
+                )
 
-        assertTrue(
-            "hlc" in serialized,
-            "SyncEvent no longer carries an HLC. If this fails, the field was removed; " +
-                "re-read #179 before changing this test.",
-        )
-    }
+            assertTrue(
+                "hlc" in serialized,
+                "SyncEvent no longer carries an HLC. If this fails, the field was removed; " +
+                    "re-read #179 before changing this test.",
+            )
+        }
 
     private companion object {
         val DAY = 24.hours.inWholeMilliseconds

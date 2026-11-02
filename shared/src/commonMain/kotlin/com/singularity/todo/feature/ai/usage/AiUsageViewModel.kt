@@ -2,9 +2,9 @@ package com.singularity.todo.feature.ai.usage
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.observability.CrashReportingPort
-import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.DailyUsage
 import com.singularity.todo.core.observability.ModelUsage
+import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.RoomUsageRecorder
 import com.singularity.todo.core.observability.ToolUsage
 import com.singularity.todo.core.observability.reportingScope
@@ -49,7 +49,6 @@ class AiUsageViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
-
     init {
         addCloseable(scope)
         scope.launch {
@@ -66,9 +65,11 @@ class AiUsageViewModel(
                 },
             ) { profile, (daily, tools, models) ->
                 val totalTokens = tools.sumOf { it.totalTokens }
-                val totalCost = tools.mapNotNull { it.totalCostUsdMicros }
-                    .takeIf { it.isNotEmpty() }
-                    ?.sum()
+                val totalCost =
+                    tools
+                        .mapNotNull { it.totalCostUsdMicros }
+                        .takeIf { it.isNotEmpty() }
+                        ?.sum()
                 AiUsageUiState(
                     isLoading = false,
                     profileName = profile.name,

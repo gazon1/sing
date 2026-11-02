@@ -1,8 +1,5 @@
 package com.singularity.todo
 
-import kotlin.time.Clock
-import com.singularity.todo.core.platform.todayAt
-import com.singularity.todo.core.platform.TimeZoneProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -12,6 +9,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import com.singularity.todo.core.appearance.AppearanceSettingsRepository
 import com.singularity.todo.core.auth.AuthGuard
+import com.singularity.todo.core.platform.TimeZoneProvider
+import com.singularity.todo.core.platform.todayAt
 import com.singularity.todo.core.settings.ThemeMode
 import com.singularity.todo.core.ui.LocalHaptic
 import com.singularity.todo.core.ui.preview.noopClick
@@ -32,6 +31,7 @@ import com.singularity.todo.shell.DesktopShellNav3Root
 import org.koin.compose.koinInject
 import java.awt.Desktop
 import java.net.URI
+import kotlin.time.Clock
 
 private const val RELEASES_URL = "https://github.com/singularity-todo/singularity/releases"
 
@@ -98,13 +98,14 @@ actual fun AppContent(
 ) {
     val state = rememberNav3State()
     val navigator = remember(state) { Navigator(state) }
-    val navCallbacks = remember(navigator) {
-        NavCallbacks(
-            navigate = navigator::open,
-            goBack = navigator::goBack,
-            close = navigator::close,
-        )
-    }
+    val navCallbacks =
+        remember(navigator) {
+            NavCallbacks(
+                navigate = navigator::open,
+                goBack = navigator::goBack,
+                close = navigator::close,
+            )
+        }
 
     // The deep link sets the tab *and* the stack of that tab, so "back" returns to
     // the tab's own screen. `LaunchedEffect` keyed by the target also makes a repeated
@@ -119,12 +120,13 @@ actual fun AppContent(
     // A tapped internal link opens the screen it names, in the app. The handler is
     // remembered so that the composition local's value does not change on every
     // recomposition — a link screen would otherwise be recomposed for nothing.
-    val internalLinkHandler = remember(navCallbacks) {
-        { link: TextLink.Internal ->
-            val destination = internalLinkDestination(link.target)
-            if (destination != null) navCallbacks.navigate(destination)
+    val internalLinkHandler =
+        remember(navCallbacks) {
+            { link: TextLink.Internal ->
+                val destination = internalLinkDestination(link.target)
+                if (destination != null) navCallbacks.navigate(destination)
+            }
         }
-    }
 
     SingularityTheme(themeMode = themeMode, accent = accent, fontSizeScale = fontSizeScale) {
         CompositionLocalProvider(
@@ -146,7 +148,11 @@ actual fun AppContent(
  * JVM Desktop actual implementation of [PlatformShell].
  */
 @Composable
-actual fun PlatformShell(state: Nav3State, navigator: Navigator, navCallbacks: NavCallbacks) {
+actual fun PlatformShell(
+    state: Nav3State,
+    navigator: Navigator,
+    navCallbacks: NavCallbacks,
+) {
     // The shell's `today` is read from the graph, not from the host (#91). This is the
     // last reach-around: the calendar anchor and the FAB prefill were computed in
     // `remember { }` outside Koin, so a test that bound a fixed `Clock` reached every

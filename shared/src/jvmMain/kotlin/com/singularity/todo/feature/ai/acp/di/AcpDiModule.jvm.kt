@@ -24,22 +24,23 @@ import org.koin.dsl.module
  * resolve, defaults included. An explicit lambda says what is injected and what is
  * left alone.
  */
-fun acpModule(): Module = module {
-    // The command that starts the tool server. One instance: it reads the
-    // environment once, and the environment does not change while the application runs.
-    single { McpServerCommandProvider() }
+fun acpModule(): Module =
+    module {
+        // The command that starts the tool server. One instance: it reads the
+        // environment once, and the environment does not change while the application runs.
+        single { McpServerCommandProvider() }
 
-    // How an agent is started. Bound rather than defaulted, so that the graph says
-    // what it does and a test can put its own launcher in its place.
-    single<AcpAgentLauncher> { SubprocessAcpAgentLauncher }
+        // How an agent is started. Bound rather than defaulted, so that the graph says
+        // what it does and a test can put its own launcher in its place.
+        single<AcpAgentLauncher> { SubprocessAcpAgentLauncher }
 
-    viewModel {
-        AcpExternalAgentViewModel(
-            idGen = get(),
-            profileRepository = get(),
-            commandProvider = get(),
-            launcher = get(),
-            crashReporter = get(),
-        )
+        viewModel {
+            AcpExternalAgentViewModel(
+                idGen = get(),
+                profileRepository = get(),
+                commandProvider = get(),
+                launcher = get(),
+                crashReporter = get(),
+            )
+        }
     }
-}

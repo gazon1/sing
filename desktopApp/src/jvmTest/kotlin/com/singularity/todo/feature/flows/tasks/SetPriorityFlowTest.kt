@@ -1,10 +1,9 @@
 package com.singularity.todo.feature.flows.tasks
 
-import kotlinx.datetime.LocalDate
-import com.singularity.todo.test.fakes.FakeClock
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.performClick
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.helpers.DesktopShell
 import com.singularity.todo.test.helpers.assertTagDisplayed
 import com.singularity.todo.test.helpers.assertTagExists
@@ -17,6 +16,7 @@ import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.scrollToTag
 import com.singularity.todo.test.helpers.tapTab
 import com.singularity.todo.test.helpers.tasks
+import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Tag
 import kotlin.test.Test
 import kotlin.time.Instant
@@ -45,56 +45,59 @@ class SetPriorityFlowTest {
     }
 
     @Test
-    fun the_priority_row_is_addressable_by_tag() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
-        tasks(koin).given(due = today)
-        openEditor("Buy milk")
+    fun the_priority_row_is_addressable_by_tag() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
+            tasks(koin).given(due = today)
+            openEditor("Buy milk")
 
-        // The attribute rows sit below the fold on a 1024x768 window: the row is
-        // composed, but "displayed" is a claim about the screen, not the tree.
-        scrollToTag(TestTags.TASK_EDITOR_PRIORITY_ROW)
-        assertTagDisplayed(TestTags.TASK_EDITOR_PRIORITY_ROW)
-    }
-
-    @Test
-    fun choosing_high_updates_the_row_label() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
-        tasks(koin).given(due = today)
-        openEditor("Buy milk")
-
-        scrollToTag(TestTags.TASK_EDITOR_PRIORITY_ROW)
-        assertTextDisplayed("No priority")
-        clickTagScrolled(TestTags.TASK_EDITOR_PRIORITY_ROW)
-        clickTag(TestTags.PRIORITY_OPTION_HIGH)
-
-        // The row relabels; the editor autosaves, so there is no save button here.
-        assertTextDisplayed("High priority")
-        assertTextNotExists("No priority")
-    }
-
-    @Test
-    fun every_priority_option_is_addressable() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
-        tasks(koin).given(due = today)
-        openEditor("Buy milk")
-        // The row is below the fold: a click on it would land outside the window
-        // and open nothing.
-        clickTagScrolled(TestTags.TASK_EDITOR_PRIORITY_ROW)
-
-        // The sheet renders TaskPriority.entries, so all five need an id —
-        // including Urgent, which the registry had no constant for until this MR.
-        //
-        // `assertExists`, not `assertIsDisplayed`: at the 768px test window the
-        // sheet host clips the last row below the fold. The question here is
-        // whether every option carries a tag, not whether the window is tall
-        // enough to show it — the first test covers the on-screen claim.
-        listOf(
-            TestTags.PRIORITY_OPTION_NONE,
-            TestTags.PRIORITY_OPTION_LOW,
-            TestTags.PRIORITY_OPTION_MEDIUM,
-            TestTags.PRIORITY_OPTION_HIGH,
-            TestTags.PRIORITY_OPTION_URGENT,
-        ).forEach { tag ->
-            assertTagExists(tag)
+            // The attribute rows sit below the fold on a 1024x768 window: the row is
+            // composed, but "displayed" is a claim about the screen, not the tree.
+            scrollToTag(TestTags.TASK_EDITOR_PRIORITY_ROW)
+            assertTagDisplayed(TestTags.TASK_EDITOR_PRIORITY_ROW)
         }
-    }
+
+    @Test
+    fun choosing_high_updates_the_row_label() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
+            tasks(koin).given(due = today)
+            openEditor("Buy milk")
+
+            scrollToTag(TestTags.TASK_EDITOR_PRIORITY_ROW)
+            assertTextDisplayed("No priority")
+            clickTagScrolled(TestTags.TASK_EDITOR_PRIORITY_ROW)
+            clickTag(TestTags.PRIORITY_OPTION_HIGH)
+
+            // The row relabels; the editor autosaves, so there is no save button here.
+            assertTextDisplayed("High priority")
+            assertTextNotExists("No priority")
+        }
+
+    @Test
+    fun every_priority_option_is_addressable() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
+            tasks(koin).given(due = today)
+            openEditor("Buy milk")
+            // The row is below the fold: a click on it would land outside the window
+            // and open nothing.
+            clickTagScrolled(TestTags.TASK_EDITOR_PRIORITY_ROW)
+
+            // The sheet renders TaskPriority.entries, so all five need an id —
+            // including Urgent, which the registry had no constant for until this MR.
+            //
+            // `assertExists`, not `assertIsDisplayed`: at the 768px test window the
+            // sheet host clips the last row below the fold. The question here is
+            // whether every option carries a tag, not whether the window is tall
+            // enough to show it — the first test covers the on-screen claim.
+            listOf(
+                TestTags.PRIORITY_OPTION_NONE,
+                TestTags.PRIORITY_OPTION_LOW,
+                TestTags.PRIORITY_OPTION_MEDIUM,
+                TestTags.PRIORITY_OPTION_HIGH,
+                TestTags.PRIORITY_OPTION_URGENT,
+            ).forEach { tag ->
+                assertTagExists(tag)
+            }
+        }
 
     private companion object {
         /** Mid-month, so no assertion in this file straddles a boundary. */

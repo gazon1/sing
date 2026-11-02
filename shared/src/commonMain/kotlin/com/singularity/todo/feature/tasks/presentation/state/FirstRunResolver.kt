@@ -7,7 +7,6 @@ package com.singularity.todo.feature.tasks.presentation.state
  * are all about *which cheap answer wins*, not about any I/O.
  */
 object FirstRunResolver {
-
     /** A task older than this is not "new" any more, whatever it contains. */
     const val NEW_TASK_WINDOW_MS: Long = 5 * 60 * 1000L
 
@@ -37,11 +36,12 @@ object FirstRunResolver {
         completedSubtaskCount: Int,
         ageMs: Long,
         loadFailed: Boolean = false,
-    ): FirstRun = when {
-        loadFailed -> FirstRun.Established
-        hasBody || checklistCount > 0 -> FirstRun.Established
-        completedSubtaskCount > 0 -> FirstRun.Established
-        ageMs < NEW_TASK_WINDOW_MS -> FirstRun.Offer
-        else -> FirstRun.Established
-    }
+    ): FirstRun =
+        when {
+            loadFailed -> FirstRun.Established
+            hasBody || checklistCount > 0 -> FirstRun.Established
+            completedSubtaskCount > 0 -> FirstRun.Established
+            ageMs < NEW_TASK_WINDOW_MS -> FirstRun.Offer
+            else -> FirstRun.Established
+        }
 }

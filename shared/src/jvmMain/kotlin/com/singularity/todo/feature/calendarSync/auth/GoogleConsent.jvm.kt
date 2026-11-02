@@ -46,7 +46,6 @@ private class JvmGoogleConsent(
     private val socket: OAuthRedirectSocket,
     private val scope: CoroutineScope,
 ) : GoogleConsent {
-
     /**
      * Whether this machine can do the consent at all.
      *
@@ -65,10 +64,11 @@ private class JvmGoogleConsent(
     ) {
         scope.launch {
             val flow = OAuthConsentFlow(browser, socket)
-            val result = flow.authorize(
-                buildUrl = buildUrl,
-                expectedState = expectedState,
-            )
+            val result =
+                flow.authorize(
+                    buildUrl = buildUrl,
+                    expectedState = expectedState,
+                )
             onResult(
                 result.map { grant ->
                     GoogleGrant.AuthorizationCode(code = grant.code, redirectUri = grant.redirectUri)

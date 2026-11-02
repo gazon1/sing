@@ -99,18 +99,25 @@ private const val GIBIBYTE = 1024L * 1024 * 1024
  * and the remainder handled separately so `bytes * 10` cannot overflow a `Long`, and
  * `%10` on the result yields the fractional digit without a second division.
  */
-fun formatFileSize(bytes: Long): String = when {
-    bytes < 1024 -> "$bytes B"
+fun formatFileSize(bytes: Long): String =
+    when {
+        bytes < 1024 -> {
+            "$bytes B"
+        }
 
-    bytes < 1024 * 1024 -> "${bytes / 1024} KB"
+        bytes < 1024 * 1024 -> {
+            "${bytes / 1024} KB"
+        }
 
-    bytes < GIBIBYTE -> "${bytes / (1024 * 1024)} MB"
+        bytes < GIBIBYTE -> {
+            "${bytes / (1024 * 1024)} MB"
+        }
 
-    else -> {
-        val tenths = (bytes / GIBIBYTE) * 10 + ((bytes % GIBIBYTE) * 10 + GIBIBYTE / 2) / GIBIBYTE
-        "${tenths / 10}.${tenths % 10} GB"
+        else -> {
+            val tenths = (bytes / GIBIBYTE) * 10 + ((bytes % GIBIBYTE) * 10 + GIBIBYTE / 2) / GIBIBYTE
+            "${tenths / 10}.${tenths % 10} GB"
+        }
     }
-}
 
 /**
  * [month] as a short English name: "Jan" … "Dec".
@@ -123,7 +130,10 @@ fun formatFileSize(bytes: Long): String = when {
  * language would be the inconsistency.
  */
 fun monthAbbreviation(month: Month): String =
-    month.name.take(3).lowercase().replaceFirstChar { it.uppercase() }
+    month.name
+        .take(3)
+        .lowercase()
+        .replaceFirstChar { it.uppercase() }
 
 /**
  * [month] as its full English name: "January" … "December".
@@ -132,8 +142,7 @@ fun monthAbbreviation(month: Month): String =
  * "Sep 2026" reads as a chip. Derived from the enum constant's name for the same
  * reason [monthAbbreviation] is: a month added to the enum cannot be missing here.
  */
-fun monthName(month: Month): String =
-    month.name.lowercase().replaceFirstChar { it.uppercase() }
+fun monthName(month: Month): String = month.name.lowercase().replaceFirstChar { it.uppercase() }
 
 /**
  * [day] as a short English name: "Mon" … "Sun".
@@ -142,7 +151,10 @@ fun monthName(month: Month): String =
  * table cannot fall behind the calendar it names.
  */
 fun weekdayAbbreviation(day: DayOfWeek): String =
-    day.name.take(3).lowercase().replaceFirstChar { it.uppercase() }
+    day.name
+        .take(3)
+        .lowercase()
+        .replaceFirstChar { it.uppercase() }
 
 /**
  * [instant] as "Nov 5, 14:30" in [zone] — the shape a time-tracking entry list

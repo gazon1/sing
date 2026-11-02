@@ -10,25 +10,27 @@ import kotlin.test.assertTrue
 
 @Tag("fast")
 class SyncProtocolTest {
-
-    private val json = Json {
-        ignoreUnknownKeys = true
-        encodeDefaults = true
-    }
+    private val json =
+        Json {
+            ignoreUnknownKeys = true
+            encodeDefaults = true
+        }
 
     @Test
     fun `DeltaPatch serializes and deserializes`() {
-        val patch = DeltaPatch(
-            patchId = "p1",
-            entityId = "e1",
-            entityType = DocType.Task,
-            baseVersion = 5L,
-            isDelete = false,
-            hlc = Hlc("1000:0:node-a"),
-            ops = listOf(
-                FieldChange("title", FieldOp.SET, JsonPrimitive("New Title")),
-            ),
-        )
+        val patch =
+            DeltaPatch(
+                patchId = "p1",
+                entityId = "e1",
+                entityType = DocType.Task,
+                baseVersion = 5L,
+                isDelete = false,
+                hlc = Hlc("1000:0:node-a"),
+                ops =
+                    listOf(
+                        FieldChange("title", FieldOp.SET, JsonPrimitive("New Title")),
+                    ),
+            )
 
         val serialized = json.encodeToString(patch)
         val deserialized = json.decodeFromString<DeltaPatch>(serialized)
@@ -45,19 +47,21 @@ class SyncProtocolTest {
 
     @Test
     fun `BatchPushRequest serializes correctly`() {
-        val request = BatchPushRequest(
-            protocolVersion = 1,
-            deviceId = "device-1",
-            profileId = "work",
-            patches = listOf(
-                DeltaPatch(
-                    patchId = "p1",
-                    entityId = "e1",
-                    entityType = DocType.Note,
-                    baseVersion = 0L,
-                ),
-            ),
-        )
+        val request =
+            BatchPushRequest(
+                protocolVersion = 1,
+                deviceId = "device-1",
+                profileId = "work",
+                patches =
+                    listOf(
+                        DeltaPatch(
+                            patchId = "p1",
+                            entityId = "e1",
+                            entityType = DocType.Note,
+                            baseVersion = 0L,
+                        ),
+                    ),
+            )
 
         val serialized = json.encodeToString(request)
         assertTrue(serialized.contains("\"deviceId\":\"device-1\""))
@@ -84,24 +88,26 @@ class SyncProtocolTest {
      */
     @Test
     fun `every error code the server can return is classified`() {
-        val terminal = listOf(
-            // The answer is a property of the request, not of the moment.
-            "shadow_mismatch",
-            "too_old",
-            "not_found",
-            "too_large",
-            "field_not_writable",
-            "row_unavailable",
-        )
-        val transientOrUnknown = listOf(
-            "network_timeout",
-            "server_error",
-            "rate_limited",
-            // Unseen by this build, and deliberately assumed transient: a wrong guess
-            // costs a retry budget and ends in the dead letter store, where the change
-            // is still there and someone can see it. Dropping it would lose the edit.
-            "a code this build has never seen",
-        )
+        val terminal =
+            listOf(
+                // The answer is a property of the request, not of the moment.
+                "shadow_mismatch",
+                "too_old",
+                "not_found",
+                "too_large",
+                "field_not_writable",
+                "row_unavailable",
+            )
+        val transientOrUnknown =
+            listOf(
+                "network_timeout",
+                "server_error",
+                "rate_limited",
+                // Unseen by this build, and deliberately assumed transient: a wrong guess
+                // costs a retry budget and ends in the dead letter store, where the change
+                // is still there and someone can see it. Dropping it would lose the edit.
+                "a code this build has never seen",
+            )
 
         terminal.forEach { code ->
             assertFalse(
@@ -130,14 +136,15 @@ class SyncProtocolTest {
         // The guard against the two drifting apart: the table above is documentation and
         // could happily list a code the classifier still retries, or omit one it already
         // gives up on. Either would be a bug the table alone cannot see.
-        val tableTerminal = listOf(
-            "shadow_mismatch",
-            "too_old",
-            "not_found",
-            "too_large",
-            "field_not_writable",
-            "row_unavailable",
-        )
+        val tableTerminal =
+            listOf(
+                "shadow_mismatch",
+                "too_old",
+                "not_found",
+                "too_large",
+                "field_not_writable",
+                "row_unavailable",
+            )
 
         assertEquals(
             tableTerminal.toSet(),
@@ -150,13 +157,14 @@ class SyncProtocolTest {
 
     @Test
     fun `SyncEvent roundtrips`() {
-        val event = SyncEvent(
-            serverLsn = 12345L,
-            entityId = "e1",
-            entityType = DocType.Project,
-            eventType = SyncEventType.UPDATED,
-            createdAt = System.currentTimeMillis(),
-        )
+        val event =
+            SyncEvent(
+                serverLsn = 12345L,
+                entityId = "e1",
+                entityType = DocType.Project,
+                eventType = SyncEventType.UPDATED,
+                createdAt = System.currentTimeMillis(),
+            )
 
         val serialized = json.encodeToString(event)
         val deserialized = json.decodeFromString<SyncEvent>(serialized)
@@ -177,14 +185,15 @@ class SyncProtocolTest {
 
     @Test
     fun `helper functions create correct patches`() {
-        val patch = deltaPatchSet(
-            "pid1",
-            "eid1",
-            DocType.Task,
-            5L,
-            "title",
-            kotlinx.serialization.json.JsonPrimitive("New Title"),
-        )
+        val patch =
+            deltaPatchSet(
+                "pid1",
+                "eid1",
+                DocType.Task,
+                5L,
+                "title",
+                kotlinx.serialization.json.JsonPrimitive("New Title"),
+            )
 
         assertEquals("pid1", patch.patchId)
         assertEquals("eid1", patch.entityId)

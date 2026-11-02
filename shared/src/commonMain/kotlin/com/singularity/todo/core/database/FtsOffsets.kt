@@ -51,7 +51,6 @@ data class FtsColumn(val column: SearchColumn, val text: String)
  * reported offset always lands on a character boundary.
  */
 object FtsOffsets {
-
     /**
      * The ranges the index reported, in the characters of the column's text.
      *
@@ -60,7 +59,10 @@ object FtsOffsets {
      * @return the ranges of every matched token, empty when the index
      *   reported nothing.
      */
-    fun ranges(raw: String?, columns: List<FtsColumn>): List<TextMatchRange> {
+    fun ranges(
+        raw: String?,
+        columns: List<FtsColumn>,
+    ): List<TextMatchRange> {
         val numbers = parse(raw)
         val ranges = mutableListOf<TextMatchRange>()
         var index = 0
@@ -90,7 +92,10 @@ object FtsOffsets {
      * @param text the text the offset was measured in.
      * @param byteOffset the offset, in UTF-8 bytes.
      */
-    fun characterIndexAt(text: String, byteOffset: Int): Int {
+    fun characterIndexAt(
+        text: String,
+        byteOffset: Int,
+    ): Int {
         if (byteOffset <= 0) return 0
         val bytes = text.encodeToByteArray()
         var byteIndex = 0
@@ -111,19 +116,21 @@ object FtsOffsets {
      */
     private fun parse(raw: String?): List<Int> {
         if (raw.isNullOrBlank()) return emptyList()
-        return raw.split(' ', '\t', '\n')
+        return raw
+            .split(' ', '\t', '\n')
             .filter { it.isNotBlank() }
             .mapNotNull { it.toIntOrNull() }
     }
 
     /** The length of the UTF-8 sequence that starts with [firstByte]. */
-    private fun sequenceLength(firstByte: Int): Int = when {
-        firstByte and 0x80 == 0 -> 1
-        firstByte and 0xE0 == 0xC0 -> 2
-        firstByte and 0xF0 == 0xE0 -> 3
-        firstByte and 0xF8 == 0xF0 -> FOUR_BYTE_SEQUENCE
-        else -> 1
-    }
+    private fun sequenceLength(firstByte: Int): Int =
+        when {
+            firstByte and 0x80 == 0 -> 1
+            firstByte and 0xE0 == 0xC0 -> 2
+            firstByte and 0xF0 == 0xE0 -> 3
+            firstByte and 0xF8 == 0xF0 -> FOUR_BYTE_SEQUENCE
+            else -> 1
+        }
 
     /** A UTF-8 sequence of four bytes is one code point and two UTF-16 units. */
     private const val FOUR_BYTE_SEQUENCE = 4

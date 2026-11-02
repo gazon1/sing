@@ -17,11 +17,12 @@ class SessionBuilder {
     var email = "test@x.com"
     var userId: UserId = UserId.generate()
 
-    fun build(): Session = if (signedIn) {
-        Session.SignedIn(userId, email, "access_tok", "refresh_tok")
-    } else {
-        Session.SignedOut
-    }
+    fun build(): Session =
+        if (signedIn) {
+            Session.SignedIn(userId, email, "access_tok", "refresh_tok")
+        } else {
+            Session.SignedOut
+        }
 }
 
 /**
@@ -38,7 +39,10 @@ class DeltaPatchBuilder {
     var hlc: Hlc? = null
     val ops = mutableListOf<FieldChange>()
 
-    fun set(field: String, value: String) {
+    fun set(
+        field: String,
+        value: String,
+    ) {
         ops.add(FieldChange(field, FieldOp.SET, JsonPrimitive(value)))
     }
 
@@ -46,15 +50,16 @@ class DeltaPatchBuilder {
         ops.add(FieldChange(field, FieldOp.UNSET, null))
     }
 
-    fun build(): DeltaPatch = DeltaPatch(
-        patchId = patchId,
-        entityId = entityId,
-        entityType = entityType,
-        baseVersion = baseVersion,
-        isDelete = isDelete,
-        hlc = hlc,
-        ops = ops,
-    )
+    fun build(): DeltaPatch =
+        DeltaPatch(
+            patchId = patchId,
+            entityId = entityId,
+            entityType = entityType,
+            baseVersion = baseVersion,
+            isDelete = isDelete,
+            hlc = hlc,
+            ops = ops,
+        )
 }
 
 /**
@@ -82,23 +87,25 @@ class SyncEventBuilder {
      */
     var data: JsonElement? = null
 
-    fun build(): SyncEvent = SyncEvent(
-        serverLsn = serverLsn,
-        entityId = entityId,
-        entityType = entityType,
-        eventType = eventType,
-        data = data,
-        createdAt = createdAt,
-        profileId = profileId,
-    )
+    fun build(): SyncEvent =
+        SyncEvent(
+            serverLsn = serverLsn,
+            entityId = entityId,
+            entityType = entityType,
+            eventType = eventType,
+            data = data,
+            createdAt = createdAt,
+            profileId = profileId,
+        )
 }
 
 /**
  * Creates a JsonObject for testing.
  */
-fun jsonObject(vararg pairs: Pair<String, String>): JsonObject = buildJsonObject {
-    pairs.forEach { (k, v) -> put(k, JsonPrimitive(v)) }
-}
+fun jsonObject(vararg pairs: Pair<String, String>): JsonObject =
+    buildJsonObject {
+        pairs.forEach { (k, v) -> put(k, JsonPrimitive(v)) }
+    }
 
 /**
  * Fake SyncApiClient for tests — no network needed.
@@ -192,7 +199,10 @@ open class FakeSyncApiClient(
         return if (pushResponses.isNotEmpty()) pushResponses.removeFirst() else pushResponse
     }
 
-    override suspend fun getEventsSince(sinceLsn: Long, limit: Int): List<SyncEvent> {
+    override suspend fun getEventsSince(
+        sinceLsn: Long,
+        limit: Int,
+    ): List<SyncEvent> {
         pullCalls.add(authenticatedAs to sinceLsn)
         failWith?.let { throw it }
         return pullEvents

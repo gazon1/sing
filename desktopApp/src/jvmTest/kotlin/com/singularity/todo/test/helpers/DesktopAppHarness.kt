@@ -36,7 +36,10 @@ private fun fakeModelModule(): Module = module { single<TextGenPort> { FakeTextG
  * Assembles the desktop app Koin graph for a test, reused by [runDesktopAppTest]
  * and by multi-instance harnesses so the module list is defined once.
  */
-fun buildDesktopAppKoin(clock: Clock? = null, overrides: Module = module {}): KoinApplication =
+fun buildDesktopAppKoin(
+    clock: Clock? = null,
+    overrides: Module = module {},
+): KoinApplication =
     koinApplication {
         modules(
             listOf(coreLoggingModule()) +
@@ -59,10 +62,11 @@ fun buildDesktopAppKoin(clock: Clock? = null, overrides: Module = module {}): Ko
 @OptIn(ExperimentalTestApi::class)
 private fun DesktopComposeUiTest.semanticsTreeAtFailure(): AssertionError =
     AssertionError(
-        "Semantics tree at failure:\n" + withFailurePathTimeout(
-            FailureBundle.SEMANTICS_DUMP_TIMEOUT_MS,
-            "<semantics tree unavailable: dump timed out>",
-        ) { dumpSemantics() },
+        "Semantics tree at failure:\n" +
+            withFailurePathTimeout(
+                FailureBundle.SEMANTICS_DUMP_TIMEOUT_MS,
+                "<semantics tree unavailable: dump timed out>",
+            ) { dumpSemantics() },
     )
 
 /**
@@ -79,10 +83,11 @@ private fun DesktopComposeUiTest.semanticsTreeAtFailure(): AssertionError =
  * project's own test code and is not the harness itself.
  */
 private fun currentTestClassSimpleName(): String {
-    val frame = Thread.currentThread().stackTrace.firstOrNull { el ->
-        val name = el.className
-        name.startsWith("com.singularity.todo") && !name.contains("test.helpers")
-    }
+    val frame =
+        Thread.currentThread().stackTrace.firstOrNull { el ->
+            val name = el.className
+            name.startsWith("com.singularity.todo") && !name.contains("test.helpers")
+        }
     return frame?.className?.substringAfterLast('.')?.removeSuffix("$") ?: "UnknownTest"
 }
 
@@ -196,15 +201,16 @@ fun runDesktopAppTest(
                 lastThrowable = t
                 // Bundle first: screenshot, FakeAppDatabase state and the Kermit
                 // ring-buffer, written to build/diagnostics/<TestClass>/attempt-N.
-                val bundle = FailureBundle.capture(
-                    testClassSimpleName = testClassName,
-                    testInstance = this,
-                    app = app.koin,
-                    attempt = currentAttempt,
-                    kermitBuffer = ringBuffer,
-                    steps = recorder,
-                    highlightTag = recorder.lastFailedStepDetail(),
-                )
+                val bundle =
+                    FailureBundle.capture(
+                        testClassSimpleName = testClassName,
+                        testInstance = this,
+                        app = app.koin,
+                        attempt = currentAttempt,
+                        kermitBuffer = ringBuffer,
+                        steps = recorder,
+                        highlightTag = recorder.lastFailedStepDetail(),
+                    )
                 bundle.addSuppressedTo(t)
 
                 // Last steps summary rides on the failure for CI visibility without
@@ -270,8 +276,9 @@ private fun runPostBodyDiagnostics(
     if (checkA11y) {
         val violations = runCatching { A11yChecker(test).scan() }.getOrNull() ?: emptyList()
         if (violations.isNotEmpty()) {
-            val a11yMessage = "A11y violations (${violations.size}):\n" +
-                violations.joinToString("\n")
+            val a11yMessage =
+                "A11y violations (${violations.size}):\n" +
+                    violations.joinToString("\n")
             println(a11yMessage)
             // Write to diagnostics directory so it is available post-run.
             val bundleDir = java.io.File("build/diagnostics/$testClassName/attempt-$currentAttempt")

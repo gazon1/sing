@@ -11,7 +11,6 @@ import kotlin.test.assertIs
  */
 @Tag("fast")
 class NotificationTest {
-
     @Test
     fun textNotificationCarriesTitleAndOptionalText() {
         val n = Notification.Text(title = "AI Result", text = "Buy milk")

@@ -3,6 +3,8 @@ package com.singularity.todo.feature.proposals.domain.usecase
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.feature.notes.Note
 import com.singularity.todo.feature.notes.NoteId
+import com.singularity.todo.feature.projects.domain.model.Project
+import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.proposals.domain.model.CreationBoundKind
 import com.singularity.todo.feature.proposals.domain.model.NoteBoundKind
 import com.singularity.todo.feature.proposals.domain.model.NoteValue
@@ -14,8 +16,6 @@ import com.singularity.todo.feature.proposals.domain.model.TagBoundKind
 import com.singularity.todo.feature.proposals.domain.model.TagValue
 import com.singularity.todo.feature.proposals.domain.model.TaskBoundKind
 import com.singularity.todo.feature.proposals.domain.model.TaskValue
-import com.singularity.todo.feature.projects.domain.model.Project
-import com.singularity.todo.feature.projects.domain.model.ProjectId
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.Task
@@ -37,7 +37,6 @@ import kotlin.time.Clock
  *   creation proposal brings into being.
  */
 class ProposalPlanner(private val clock: Clock) {
-
     /**
      * Plans a change about a note.
      *
@@ -46,28 +45,33 @@ class ProposalPlanner(private val clock: Clock) {
      * @param note The note fetched by the caller. Pass `null` if the note does not exist,
      *             in which case this function throws — for the changes that need it.
      */
-    fun planNoteItem(item: ProposalItem, kind: NoteBoundKind, note: Note?): ProposalPlan = when (kind) {
-        is ProposalItemKind.SetNoteField -> {
-            // The same refusal the other dictionaries make, and for the same
-            // reason: a value that does not read is not a change that can be
-            // applied, and the plan is built before the claim. It comes before
-            // the note lookup, because the reason the value does not read is
-            // the one the user has to hear — not that the note is missing.
-            kind.value.readFailure?.let { reason -> error(reason) }
-            val n = note ?: error("Note ${item.targetId} not found")
-            ProposalPlan.WriteNote(withNoteValue(n, kind.value))
-        }
+    fun planNoteItem(
+        item: ProposalItem,
+        kind: NoteBoundKind,
+        note: Note?,
+    ): ProposalPlan =
+        when (kind) {
+            is ProposalItemKind.SetNoteField -> {
+                // The same refusal the other dictionaries make, and for the same
+                // reason: a value that does not read is not a change that can be
+                // applied, and the plan is built before the claim. It comes before
+                // the note lookup, because the reason the value does not read is
+                // the one the user has to hear — not that the note is missing.
+                kind.value.readFailure?.let { reason -> error(reason) }
+                val n = note ?: error("Note ${item.targetId} not found")
+                ProposalPlan.WriteNote(withNoteValue(n, kind.value))
+            }
 
-        is ProposalItemKind.DeleteNote -> {
-            val noteId = NoteId(item.targetId)
-            ProposalPlan.DeleteNote(noteId, kind.reason)
-        }
+            is ProposalItemKind.DeleteNote -> {
+                val noteId = NoteId(item.targetId)
+                ProposalPlan.DeleteNote(noteId, kind.reason)
+            }
 
-        is ProposalItemKind.ExtractActions -> {
-            require(kind.actions.isNotEmpty()) { "ExtractActions is empty" }
-            ProposalPlan.ExtractNoteActions(NoteId(item.targetId), kind.actions)
+            is ProposalItemKind.ExtractActions -> {
+                require(kind.actions.isNotEmpty()) { "ExtractActions is empty" }
+                ProposalPlan.ExtractNoteActions(NoteId(item.targetId), kind.actions)
+            }
         }
-    }
 
     /**
      * Plans a change about a project.
@@ -75,17 +79,22 @@ class ProposalPlanner(private val clock: Clock) {
      * @param project The project fetched by the caller. Pass `null` if the project does
      *   not exist, in which case this function throws — for the changes that need it.
      */
-    fun planProjectItem(item: ProposalItem, kind: ProjectBoundKind, project: Project?): ProposalPlan = when (kind) {
-        is ProposalItemKind.SetProjectField -> {
-            val p = project ?: error("Project ${item.targetId} not found")
-            ProposalPlan.WriteProject(withProjectValue(p, kind.value))
-        }
+    fun planProjectItem(
+        item: ProposalItem,
+        kind: ProjectBoundKind,
+        project: Project?,
+    ): ProposalPlan =
+        when (kind) {
+            is ProposalItemKind.SetProjectField -> {
+                val p = project ?: error("Project ${item.targetId} not found")
+                ProposalPlan.WriteProject(withProjectValue(p, kind.value))
+            }
 
-        is ProposalItemKind.DeleteProject -> {
-            val projectId = ProjectId.fromString(item.targetId)
-            ProposalPlan.DeleteProject(projectId, kind.reason)
+            is ProposalItemKind.DeleteProject -> {
+                val projectId = ProjectId.fromString(item.targetId)
+                ProposalPlan.DeleteProject(projectId, kind.reason)
+            }
         }
-    }
 
     /**
      * Plans a change about a tag.
@@ -93,17 +102,22 @@ class ProposalPlanner(private val clock: Clock) {
      * @param tag The tag fetched by the caller. Pass `null` if the tag does not exist,
      *   in which case this function throws — for the changes that need it.
      */
-    fun planTagItem(item: ProposalItem, kind: TagBoundKind, tag: Tag?): ProposalPlan = when (kind) {
-        is ProposalItemKind.SetTagField -> {
-            val t = tag ?: error("Tag ${item.targetId} not found")
-            ProposalPlan.WriteTag(withTagValue(t, kind.value))
-        }
+    fun planTagItem(
+        item: ProposalItem,
+        kind: TagBoundKind,
+        tag: Tag?,
+    ): ProposalPlan =
+        when (kind) {
+            is ProposalItemKind.SetTagField -> {
+                val t = tag ?: error("Tag ${item.targetId} not found")
+                ProposalPlan.WriteTag(withTagValue(t, kind.value))
+            }
 
-        is ProposalItemKind.DeleteTag -> {
-            val tagId = TagId.fromString(item.targetId)
-            ProposalPlan.DeleteTag(tagId, kind.reason)
+            is ProposalItemKind.DeleteTag -> {
+                val tagId = TagId.fromString(item.targetId)
+                ProposalPlan.DeleteTag(tagId, kind.reason)
+            }
         }
-    }
 
     /**
      * Plans a creation.
@@ -114,12 +128,17 @@ class ProposalPlanner(private val clock: Clock) {
      *
      * @param userId The owner of the entity that will come into being.
      */
-    fun planCreateItem(item: ProposalItem, kind: CreationBoundKind, userId: UserId): ProposalPlan = when (kind) {
-        is ProposalItemKind.CreateTask -> ProposalPlan.CreateTask(buildTask(kind, item.targetId, userId))
-        is ProposalItemKind.CreateProject -> ProposalPlan.CreateProject(buildProject(kind, item.targetId, userId))
-        is ProposalItemKind.CreateNote -> ProposalPlan.CreateNote(buildNote(kind, item.targetId, userId))
-        is ProposalItemKind.CreateTag -> ProposalPlan.CreateTag(buildTag(kind, item.targetId, userId))
-    }
+    fun planCreateItem(
+        item: ProposalItem,
+        kind: CreationBoundKind,
+        userId: UserId,
+    ): ProposalPlan =
+        when (kind) {
+            is ProposalItemKind.CreateTask -> ProposalPlan.CreateTask(buildTask(kind, item.targetId, userId))
+            is ProposalItemKind.CreateProject -> ProposalPlan.CreateProject(buildProject(kind, item.targetId, userId))
+            is ProposalItemKind.CreateNote -> ProposalPlan.CreateNote(buildNote(kind, item.targetId, userId))
+            is ProposalItemKind.CreateTag -> ProposalPlan.CreateTag(buildTag(kind, item.targetId, userId))
+        }
 
     /**
      * Plans a change about a task.
@@ -208,46 +227,65 @@ class ProposalPlanner(private val clock: Clock) {
      * reachable from a unit test without a repository.
      */
     companion object {
-        fun withTaskValue(task: Task, value: TaskValue, clock: kotlin.time.Clock): Task = when (value) {
-            is TaskValue.Title -> {
-                val title = value.value.trim()
-                require(title.isNotEmpty()) { "Proposed title is blank" }
-                task.copy(title = title)
+        fun withTaskValue(
+            task: Task,
+            value: TaskValue,
+            clock: kotlin.time.Clock,
+        ): Task =
+            when (value) {
+                is TaskValue.Title -> {
+                    val title = value.value.trim()
+                    require(title.isNotEmpty()) { "Proposed title is blank" }
+                    task.copy(title = title)
+                }
+
+                is TaskValue.Description -> {
+                    task.copy(description = value.value.trim().takeIf(String::isNotEmpty))
+                }
+
+                is TaskValue.Priority -> {
+                    task.copy(priority = value.value)
+                }
+
+                is TaskValue.DueDate -> {
+                    task.copy(dueDate = value.value)
+                }
+
+                is TaskValue.Status -> {
+                    task.copy(completedAt = if (value.value == TaskStatus.Completed) clock.now() else null)
+                }
+
+                is TaskValue.EstimateMinutes -> {
+                    require(value.value >= 0) { "Proposed estimate is negative" }
+                    task.copy(estimateMinutes = value.value)
+                }
+
+                is TaskValue.Kind -> {
+                    task.copy(kind = value.value)
+                }
+
+                is TaskValue.DueTime -> {
+                    task.copy(dueTime = value.value)
+                }
+
+                is TaskValue.Project -> {
+                    val projectId = value.value.trim().takeIf { it.isNotEmpty() }
+                    task.copy(projectId = projectId?.let { ProjectId.fromString(it) })
+                }
+
+                is TaskValue.Someday -> {
+                    task.copy(someday = value.value)
+                }
+
+                // A value this build cannot read. The change stays on the card with the
+                // reason it cannot be applied, and the user can type a value that does
+                // read. It cannot be applied as it stands — and saying so is the point:
+                // the plan is built before the claim, so the change is neither decided
+                // nor lost.
+                is TaskValue.Unreadable -> {
+                    error(value.readFailure ?: "This value cannot be read.")
+                }
             }
-
-            is TaskValue.Description -> task.copy(description = value.value.trim().takeIf(String::isNotEmpty))
-
-            is TaskValue.Priority -> task.copy(priority = value.value)
-
-            is TaskValue.DueDate -> task.copy(dueDate = value.value)
-
-            is TaskValue.Status -> {
-                task.copy(completedAt = if (value.value == TaskStatus.Completed) clock.now() else null)
-            }
-
-            is TaskValue.EstimateMinutes -> {
-                require(value.value >= 0) { "Proposed estimate is negative" }
-                task.copy(estimateMinutes = value.value)
-            }
-
-            is TaskValue.Kind -> task.copy(kind = value.value)
-
-            is TaskValue.DueTime -> task.copy(dueTime = value.value)
-
-            is TaskValue.Project -> {
-                val projectId = value.value.trim().takeIf { it.isNotEmpty() }
-                task.copy(projectId = projectId?.let { ProjectId.fromString(it) })
-            }
-
-            is TaskValue.Someday -> task.copy(someday = value.value)
-
-            // A value this build cannot read. The change stays on the card with the
-            // reason it cannot be applied, and the user can type a value that does
-            // read. It cannot be applied as it stands — and saying so is the point:
-            // the plan is built before the claim, so the change is neither decided
-            // nor lost.
-            is TaskValue.Unreadable -> error(value.readFailure ?: "This value cannot be read.")
-        }
     }
 
     /**
@@ -257,64 +295,88 @@ class ProposalPlanner(private val clock: Clock) {
      * The note to write is built here, where the field is known: the dispatcher
      * writes a note, it does not decide which field of it to write.
      */
-    fun withNoteValue(note: Note, value: NoteValue): Note = when (value) {
-        is NoteValue.Title -> note.copy(title = value.value.trim())
+    fun withNoteValue(
+        note: Note,
+        value: NoteValue,
+    ): Note =
+        when (value) {
+            is NoteValue.Title -> note.copy(title = value.value.trim())
 
-        is NoteValue.Body -> note.copy(bodyHtml = value.value)
+            is NoteValue.Body -> note.copy(bodyHtml = value.value)
 
-        is NoteValue.Summary -> note.copy(bodyHtml = value.value)
+            is NoteValue.Summary -> note.copy(bodyHtml = value.value)
 
-        // A value this build cannot read. The change stays on the card with the
-        // reason it cannot be applied, and the user can type a value that does
-        // read.
-        is NoteValue.Unreadable -> error(value.readFailure ?: "This value cannot be read.")
-    }
+            // A value this build cannot read. The change stays on the card with the
+            // reason it cannot be applied, and the user can type a value that does
+            // read.
+            is NoteValue.Unreadable -> error(value.readFailure ?: "This value cannot be read.")
+        }
 
     /**
      * Returns [project] with [value] applied, or throws if the value is not something
      * the project can hold.
      */
-    fun withProjectValue(project: Project, value: ProjectValue): Project = when (value) {
-        is ProjectValue.Name -> {
-            val name = value.value.trim()
-            require(name.isNotEmpty()) { "Proposed project name is blank" }
-            project.copy(name = name)
+    fun withProjectValue(
+        project: Project,
+        value: ProjectValue,
+    ): Project =
+        when (value) {
+            is ProjectValue.Name -> {
+                val name = value.value.trim()
+                require(name.isNotEmpty()) { "Proposed project name is blank" }
+                project.copy(name = name)
+            }
+
+            is ProjectValue.Description -> {
+                project.copy(description = value.value.trim().takeIf(String::isNotEmpty))
+            }
+
+            is ProjectValue.Color -> {
+                project.copy(color = value.value)
+            }
+
+            is ProjectValue.Icon -> {
+                project.copy(icon = value.value.trim().takeIf(String::isNotEmpty))
+            }
+
+            // A value this build cannot read. The change stays on the card with the
+            // reason it cannot be applied, and the user can type a value that does
+            // read. It cannot be applied as it stands — and saying so is the point:
+            // the plan is built before the claim, so the change is neither decided
+            // nor lost.
+            is ProjectValue.Unreadable -> {
+                error(value.readFailure ?: "This value cannot be read.")
+            }
         }
-
-        is ProjectValue.Description -> project.copy(description = value.value.trim().takeIf(String::isNotEmpty))
-
-        is ProjectValue.Color -> project.copy(color = value.value)
-
-        is ProjectValue.Icon -> project.copy(icon = value.value.trim().takeIf(String::isNotEmpty))
-
-        // A value this build cannot read. The change stays on the card with the
-        // reason it cannot be applied, and the user can type a value that does
-        // read. It cannot be applied as it stands — and saying so is the point:
-        // the plan is built before the claim, so the change is neither decided
-        // nor lost.
-        is ProjectValue.Unreadable -> error(value.readFailure ?: "This value cannot be read.")
-    }
 
     /**
      * Returns [tag] with [value] applied, or throws if the value is not something
      * the tag can hold.
      */
-    fun withTagValue(tag: Tag, value: TagValue): Tag = when (value) {
-        is TagValue.Name -> {
-            val name = value.value.trim()
-            require(name.isNotEmpty()) { "Proposed tag name is blank" }
-            tag.copy(name = name)
+    fun withTagValue(
+        tag: Tag,
+        value: TagValue,
+    ): Tag =
+        when (value) {
+            is TagValue.Name -> {
+                val name = value.value.trim()
+                require(name.isNotEmpty()) { "Proposed tag name is blank" }
+                tag.copy(name = name)
+            }
+
+            is TagValue.Color -> {
+                tag.copy(color = value.value)
+            }
+
+            // A value this build cannot read. The change stays on the card with the
+            // reason it cannot be applied, and the user can type a value that does
+            // read. It cannot be applied as it stands — and saying so is the point:
+            // the plan is built before the claim, so the change is neither decided
+            // nor lost.
+            is TagValue.Unreadable -> {
+                error(value.readFailure ?: "This value cannot be read.")
+            }
         }
-
-        is TagValue.Color -> tag.copy(color = value.value)
-
-        // A value this build cannot read. The change stays on the card with the
-        // reason it cannot be applied, and the user can type a value that does
-        // read. It cannot be applied as it stands — and saying so is the point:
-        // the plan is built before the claim, so the change is neither decided
-        // nor lost.
-        is TagValue.Unreadable -> error(value.readFailure ?: "This value cannot be read.")
-    }
 
     // ── The creations ────────────────────────────────────────────────────────────
 

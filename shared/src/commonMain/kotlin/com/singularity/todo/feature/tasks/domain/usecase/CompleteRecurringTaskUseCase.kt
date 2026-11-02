@@ -75,32 +75,44 @@ open class CompleteRecurringTaskUseCase(
      * @return the closed occurrence, or a failure. A task with no rule is a
      *   failure — this path is only for a repeating task.
      */
-    open suspend operator fun invoke(taskId: TaskId, force: Boolean = false): Result<Task> {
+    open suspend operator fun invoke(
+        taskId: TaskId,
+        force: Boolean = false,
+    ): Result<Task> {
         val task = repo.get(taskId) ?: return Result.failure(IllegalArgumentException("Task not found: $taskId"))
-        val spec = task.recurrence
-            ?: return Result.failure(IllegalArgumentException("Task has no recurrence: $taskId"))
+        val spec =
+            task.recurrence
+                ?: return Result.failure(IllegalArgumentException("Task has no recurrence: $taskId"))
         return invoke(task, spec, force)
     }
 
-    private suspend fun invoke(task: Task, spec: RecurrenceSpec, force: Boolean): Result<Task> {
+    private suspend fun invoke(
+        task: Task,
+        spec: RecurrenceSpec,
+        force: Boolean,
+    ): Result<Task> {
         val now = clock.now()
         val zone = timeZoneProvider.current()
         val today = now.toLocalDateTime(zone).date
 
         return when (spec.base) {
-            RecurrenceSpec.RecurrenceBase.FROM_DUE ->
+            RecurrenceSpec.RecurrenceBase.FROM_DUE -> {
                 closeAndMaterialize(task, spec, anchor = task.dueDate ?: today, now = now, force = force)
+            }
 
-            RecurrenceSpec.RecurrenceBase.FROM_COMPLETION ->
+            RecurrenceSpec.RecurrenceBase.FROM_COMPLETION -> {
                 closeAndMaterialize(task, spec, anchor = today, now = now, force = force)
+            }
 
             RecurrenceSpec.RecurrenceBase.CATCH_UP -> {
                 // Catch-up fills the gaps between *scheduled* occurrences, so its
                 // anchor is the due date. The missed occurrences become closed
                 // rows dated in the past, in the same transaction as the close.
                 val anchor = task.dueDate ?: today
-                val missed = calculator.missedCount(spec, anchor, today)
-                    .coerceIn(0, RecurrenceSpec.MAX_MISSED)
+                val missed =
+                    calculator
+                        .missedCount(spec, anchor, today)
+                        .coerceIn(0, RecurrenceSpec.MAX_MISSED)
                 val missedAnchors = generateMissedAnchors(spec, anchor, missed)
                 closeAndMaterialize(
                     task = task,
@@ -120,7 +132,11 @@ open class CompleteRecurringTaskUseCase(
      * The rolling occurrence itself accounts for the most recent slot, so at most
      * `missed - 1` copies are produced — the same accounting the one-row model used.
      */
-    private fun generateMissedAnchors(spec: RecurrenceSpec, anchor: LocalDate, missed: Int): List<LocalDate> {
+    private fun generateMissedAnchors(
+        spec: RecurrenceSpec,
+        anchor: LocalDate,
+        missed: Int,
+    ): List<LocalDate> {
         val copies = (missed - 1).coerceAtLeast(0)
         val dates = mutableListOf<LocalDate>()
         var current = anchor
@@ -169,14 +185,19 @@ open class CompleteRecurringTaskUseCase(
      * transaction as the close: a refusal writes none of them, so a retry after the
      * user's confirmation does not write them twice.
      */
-    private suspend fun writeMissedCopies(task: Task, missedAnchors: List<LocalDate>, now: Instant) {
+    private suspend fun writeMissedCopies(
+        task: Task,
+        missedAnchors: List<LocalDate>,
+        now: Instant,
+    ) {
         missedAnchors.forEach { anchor ->
-            val historicalTask = task.copy(
-                id = TaskId.generate(),
-                completedAt = now,
-                dueDate = anchor,
-                updatedAt = now,
-            )
+            val historicalTask =
+                task.copy(
+                    id = TaskId.generate(),
+                    completedAt = now,
+                    dueDate = anchor,
+                    updatedAt = now,
+                )
             repo.create(historicalTask).getOrThrow()
         }
     }

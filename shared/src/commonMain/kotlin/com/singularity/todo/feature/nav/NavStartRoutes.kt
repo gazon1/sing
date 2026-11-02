@@ -21,33 +21,43 @@ import kotlinx.datetime.LocalDate
  */
 
 /** Converts [AppDestination.TasksStartRoute] to the inner [TasksRoute]. */
-internal fun AppDestination.TasksStartRoute.toTasksRoute(initialDueDate: LocalDate?): TasksRoute = when (this) {
-    is AppDestination.TasksStartRoute.Create -> TasksRoute.Create(initialDueDate, draftKey)
-    is AppDestination.TasksStartRoute.Detail -> TasksRoute.Detail(taskId, sourceViewId)
-}
+internal fun AppDestination.TasksStartRoute.toTasksRoute(initialDueDate: LocalDate?): TasksRoute =
+    when (this) {
+        is AppDestination.TasksStartRoute.Create -> TasksRoute.Create(initialDueDate, draftKey)
+        is AppDestination.TasksStartRoute.Detail -> TasksRoute.Detail(taskId, sourceViewId)
+    }
 
 /** Converts [AppDestination.ProjectsStartRoute] to the inner [ProjectsRoute]. */
-internal fun AppDestination.ProjectsStartRoute.toProjectsRoute(): ProjectsRoute = when (this) {
-    is AppDestination.ProjectsStartRoute.List -> ProjectsRoute.List
-    is AppDestination.ProjectsStartRoute.Editor -> ProjectsRoute.Editor(projectId)
-}
+internal fun AppDestination.ProjectsStartRoute.toProjectsRoute(): ProjectsRoute =
+    when (this) {
+        is AppDestination.ProjectsStartRoute.List -> ProjectsRoute.List
+        is AppDestination.ProjectsStartRoute.Editor -> ProjectsRoute.Editor(projectId)
+    }
 
 /** Converts [AppDestination.NotesStartRoute] to the inner [NotesRoute]. */
-internal fun AppDestination.NotesStartRoute.toNotesRoute(): NotesRoute = when (this) {
-    is AppDestination.NotesStartRoute.List -> NotesRoute.List
+internal fun AppDestination.NotesStartRoute.toNotesRoute(): NotesRoute =
+    when (this) {
+        is AppDestination.NotesStartRoute.List -> {
+            NotesRoute.List
+        }
 
-    is AppDestination.NotesStartRoute.Preview -> NotesRoute.Preview(noteId)
+        is AppDestination.NotesStartRoute.Preview -> {
+            NotesRoute.Preview(noteId)
+        }
 
-    is AppDestination.NotesStartRoute.EditorForTask -> NotesRoute.Editor(
-        noteId = null,
-        taskId = taskId,
-    )
-}
+        is AppDestination.NotesStartRoute.EditorForTask -> {
+            NotesRoute.Editor(
+                noteId = null,
+                taskId = taskId,
+            )
+        }
+    }
 
 /** Converts [AppDestination.CalendarStartRoute] to the inner [CalendarRoute]. */
-internal fun AppDestination.CalendarStartRoute.toCalendarRoute(): CalendarRoute = when (this) {
-    is AppDestination.CalendarStartRoute.Month -> CalendarRoute.Month(anchor)
-}
+internal fun AppDestination.CalendarStartRoute.toCalendarRoute(): CalendarRoute =
+    when (this) {
+        is AppDestination.CalendarStartRoute.Month -> CalendarRoute.Month(anchor)
+    }
 
 /** Identity conversion — [AgendaStartRoute] is used as-is inside [AppDestination.AgendaGraph]. */
 internal fun AgendaStartRoute.toAgendaStartRoute(): AgendaStartRoute = this

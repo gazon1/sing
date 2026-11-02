@@ -7,7 +7,6 @@ import kotlin.test.assertTrue
 
 @Tag("fast")
 class NoteContentMapperTest {
-
     @Test
     fun `toMarkdown converts HTML paragraph to plain text`() {
         val html = "<p>Hello world</p>"
@@ -56,7 +55,9 @@ class NoteContentMapperTest {
 
     @Test
     fun `outgoingLinkUrls extracts mixed note and task links`() {
-        val html = """<p><a href="note://n1">Note 1</a> and <a href="task://t1">Task 1</a> and <a href="note://n2">Note 2</a>.</p>"""
+        val html =
+            """<p><a href="note://n1">Note 1</a> and <a href="task://t1">Task 1</a> and """ +
+                """<a href="note://n2">Note 2</a>.</p>"""
         val links = NoteContentMapper.outgoingLinkUrls(html)
         assertEquals(3, links.size)
         assertEquals("note://n1", links[0])

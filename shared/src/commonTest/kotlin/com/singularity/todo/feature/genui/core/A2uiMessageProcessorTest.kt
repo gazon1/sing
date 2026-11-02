@@ -18,7 +18,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class A2uiMessageProcessorTest {
-
     private val controller = SurfaceController()
     private val parser = A2uiParser(SingularityCatalog)
     private val processor = A2uiMessageProcessor(A2uiValidator(SingularityCatalog), controller)
@@ -33,12 +32,13 @@ class A2uiMessageProcessorTest {
 
     @Test
     fun aRejectedComponentIsReportedAndTheRestIsApplied() {
-        val line = create(
-            "s1",
-            "root" to """{"id":"root","kind":"column","children":["a","b"]}""",
-            "a" to """{"id":"a","kind":"text","value":"kept"}""",
-            "b" to """{"id":"b","kind":"chart","series":[]}""",
-        )
+        val line =
+            create(
+                "s1",
+                "root" to """{"id":"root","kind":"column","children":["a","b"]}""",
+                "a" to """{"id":"a","kind":"text","value":"kept"}""",
+                "b" to """{"id":"b","kind":"chart","series":[]}""",
+            )
         val result = processor.process(line, parser)
         val applied = controller.snapshot(SurfaceId("s1"))
         assertNotNull(applied)
@@ -65,13 +65,14 @@ class A2uiMessageProcessorTest {
                 ) as A2uiParseOutcome.Parsed
             ).event,
         )
-        val again = processor.apply(
-            (
-                parser.parseLine(
-                    create("s1", "root" to """{"id":"root","kind":"text","value":"two"}"""),
-                ) as A2uiParseOutcome.Parsed
-            ).event,
-        )
+        val again =
+            processor.apply(
+                (
+                    parser.parseLine(
+                        create("s1", "root" to """{"id":"root","kind":"text","value":"two"}"""),
+                    ) as A2uiParseOutcome.Parsed
+                ).event,
+            )
         assertFalse(again.applied, "Replacing a surface under a streaming model leaves the two halves disagreeing")
         val surface = assertNotNull(controller.snapshot(SurfaceId("s1")))
         assertEquals("one", (surface.components["root"] as UiNode.Text).value)
@@ -79,11 +80,12 @@ class A2uiMessageProcessorTest {
 
     @Test
     fun aCycleIsBrokenBeforeItReachesTheScreens() {
-        val line = create(
-            "s1",
-            "a" to """{"id":"a","kind":"column","children":["b"]}""",
-            "b" to """{"id":"b","kind":"column","children":["a"]}""",
-        )
+        val line =
+            create(
+                "s1",
+                "a" to """{"id":"a","kind":"column","children":["b"]}""",
+                "b" to """{"id":"b","kind":"column","children":["a"]}""",
+            )
         val result = processor.apply((parser.parseLine(line) as A2uiParseOutcome.Parsed).event)
         assertTrue(result.errors.any { it.code == A2uiErrorCode.CYCLIC_REFERENCE })
         val surface = assertNotNull(controller.snapshot(SurfaceId("s1")))
@@ -104,11 +106,19 @@ class A2uiMessageProcessorTest {
         val model = assertNotNull(controller.snapshot(SurfaceId("s1"))).dataModel
         assertEquals(
             "Ada",
-            model.get(com.singularity.todo.feature.genui.schema.UiPath.parse("/user/name"))?.toString()?.trim('"'),
+            model
+                .get(
+                    com.singularity.todo.feature.genui.schema.UiPath
+                        .parse("/user/name"),
+                )?.toString()
+                ?.trim('"'),
         )
     }
 
-    private fun create(surfaceId: String, vararg components: Pair<String, String>): String {
+    private fun create(
+        surfaceId: String,
+        vararg components: Pair<String, String>,
+    ): String {
         val joined = components.joinToString(",") { it.second }
         return """{"createSurface":{"surfaceId":"$surfaceId",""" +
             """"rootId":"${components.first().first}","components":[$joined]}}"""

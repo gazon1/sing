@@ -9,7 +9,8 @@ import com.singularity.todo.feature.genui.render.material3.RenderSingle
  * should read [UiNode.Modal.openPath] against the surface data model and
  * show an actual [androidx.compose.material3.AlertDialog] shell when open.
  */
-internal fun ComponentRegistry.registerModal(): Unit = register("modal") { node, ctx, modifier ->
-    val m = node as UiNode.Modal
-    RenderSingle(m.child, ctx, modifier)
-}
+internal fun ComponentRegistry.registerModal(): Unit =
+    register("modal") { node, ctx, modifier ->
+        val m = node as UiNode.Modal
+        RenderSingle(m.child, ctx, modifier)
+    }

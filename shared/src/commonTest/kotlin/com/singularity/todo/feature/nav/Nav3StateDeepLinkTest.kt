@@ -20,18 +20,19 @@ import kotlin.test.assertEquals
  */
 @Tag("fast")
 class Nav3StateDeepLinkTest {
-
     private val today: AppNavKey = AppDestination.AgendaGraph(AgendaStartRoute.Today)
     private val plans: AppNavKey = AppDestination.Plans
 
-    private fun state(): Nav3State = Nav3State(
-        startRoute = today,
-        topLevelRouteState = mutableStateOf(today),
-        backStacks = mapOf(
-            today to NavBackStack(today),
-            plans to NavBackStack(plans),
-        ),
-    )
+    private fun state(): Nav3State =
+        Nav3State(
+            startRoute = today,
+            topLevelRouteState = mutableStateOf(today),
+            backStacks =
+                mapOf(
+                    today to NavBackStack(today),
+                    plans to NavBackStack(plans),
+                ),
+        )
 
     private fun detail(id: String): AppDestination =
         AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(TaskId(id)))

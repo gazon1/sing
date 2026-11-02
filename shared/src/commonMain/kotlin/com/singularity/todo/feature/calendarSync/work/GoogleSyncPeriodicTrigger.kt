@@ -33,7 +33,6 @@ import kotlin.time.Duration
  * nothing on the machine the user is sitting at.
  */
 interface GoogleSyncPeriodicTrigger {
-
     /**
      * Arms the trigger to fire every [interval].
      *

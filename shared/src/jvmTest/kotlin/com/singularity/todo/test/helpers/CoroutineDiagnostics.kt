@@ -18,7 +18,6 @@ import java.time.Instant
  * share the same classloader / JVM fork.
  */
 object CoroutineDiagnostics {
-
     /**
      * Writes the current coroutine snapshot to a string.
      *
@@ -45,14 +44,18 @@ object CoroutineDiagnostics {
         }
     }
 
-    private fun formatCoroutine(info: CoroutineInfo, index: Int): String = buildString {
-        appendLine("--- Coroutine #${index + 1} ---")
-        appendLine("state=${info.state}")
-        appendLine("context=${info.context}")
-        appendLine("job=${info.job?.let { DebugProbes.jobToString(it) } ?: "null"}")
-        appendLine("creationStackTrace:")
-        info.creationStackTrace.forEach { element -> appendLine("    at $element") }
-        appendLine("lastObservedStackTrace:")
-        info.lastObservedStackTrace().forEach { element -> appendLine("    at $element") }
-    }
+    private fun formatCoroutine(
+        info: CoroutineInfo,
+        index: Int,
+    ): String =
+        buildString {
+            appendLine("--- Coroutine #${index + 1} ---")
+            appendLine("state=${info.state}")
+            appendLine("context=${info.context}")
+            appendLine("job=${info.job?.let { DebugProbes.jobToString(it) } ?: "null"}")
+            appendLine("creationStackTrace:")
+            info.creationStackTrace.forEach { element -> appendLine("    at $element") }
+            appendLine("lastObservedStackTrace:")
+            info.lastObservedStackTrace().forEach { element -> appendLine("    at $element") }
+        }
 }

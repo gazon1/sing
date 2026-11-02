@@ -68,16 +68,16 @@ internal class SyncDocumentWriter(
     private val timeTrackingRepo: TimeTrackingRepository,
     private val currentUser: ProfileAwareCurrentUser,
 ) {
-
     /** The types this writer can store — the dispatch table, read as data. */
-    val supportedTypes: Set<DocType> = setOf(
-        DocType.Task,
-        DocType.Note,
-        DocType.Project,
-        DocType.Tag,
-        DocType.TagGroup,
-        DocType.TimeEntry,
-    )
+    val supportedTypes: Set<DocType> =
+        setOf(
+            DocType.Task,
+            DocType.Note,
+            DocType.Project,
+            DocType.Tag,
+            DocType.TagGroup,
+            DocType.TimeEntry,
+        )
 
     /**
      * Decodes [document] as [type] and upserts it.
@@ -95,7 +95,10 @@ internal class SyncDocumentWriter(
      * about, and the row of this profile is the only row this device may
      * speak about — see [belongsToThisProfile].
      */
-    suspend fun upsert(type: DocType, document: JsonObject) {
+    suspend fun upsert(
+        type: DocType,
+        document: JsonObject,
+    ) {
         when (type) {
             DocType.Task -> {
                 val taskDocument = taskDocument(document)
@@ -116,20 +119,25 @@ internal class SyncDocumentWriter(
                 taskRepo.upsert(taskDocument)
             }
 
-            DocType.Note ->
+            DocType.Note -> {
                 noteRepo.upsert(noteDocument(document))
+            }
 
-            DocType.Project ->
+            DocType.Project -> {
                 projectRepo.upsert(projectDocument(document))
+            }
 
-            DocType.Tag ->
+            DocType.Tag -> {
                 tagRepo.upsert(tagDocument(document))
+            }
 
-            DocType.TagGroup ->
+            DocType.TagGroup -> {
                 tagGroupRepo.upsert(tagGroupDocument(document))
+            }
 
-            DocType.TimeEntry ->
+            DocType.TimeEntry -> {
                 timeTrackingRepo.upsert(timeEntryDocument(document))
+            }
         }
     }
 
@@ -164,14 +172,15 @@ internal class SyncDocumentWriter(
         // The parts live outside the row — they are cross-reference tables, not
         // columns — so the row does not speak about them and the merge leaves
         // those keys to the document alone.
-        val task = mergedRow(
-            document = document,
-            read = { id: String -> taskRepo.get(TaskId.fromString(id)) },
-            toJson = { task: Task ->
-                JsonObject(task.toJson().filterKeys { it !in PARTS_OUTSIDE_THE_ROW })
-            },
-            decode = { merged -> StableJson.decodeFromString(serializer<Task>(), merged.toString()) },
-        )
+        val task =
+            mergedRow(
+                document = document,
+                read = { id: String -> taskRepo.get(TaskId.fromString(id)) },
+                toJson = { task: Task ->
+                    JsonObject(task.toJson().filterKeys { it !in PARTS_OUTSIDE_THE_ROW })
+                },
+                decode = { merged -> StableJson.decodeFromString(serializer<Task>(), merged.toString()) },
+            )
         return TaskDocument(
             task = task,
             tags = if (carriesTags) task.tags else null,
@@ -188,12 +197,13 @@ internal class SyncDocumentWriter(
      * for it, and writing that absence as "no body" would empty the note on this
      * device — silently, because the note is written whole.
      */
-    private suspend fun noteDocument(document: JsonObject): Note = mergedRow(
-        document = document,
-        read = { id: String -> noteRepo.get(NoteId.fromString(id)) },
-        toJson = { note: Note -> note.toJson() },
-        decode = { merged -> StableJson.decodeFromString(serializer<Note>(), merged.toString()) },
-    )
+    private suspend fun noteDocument(document: JsonObject): Note =
+        mergedRow(
+            document = document,
+            read = { id: String -> noteRepo.get(NoteId.fromString(id)) },
+            toJson = { note: Note -> note.toJson() },
+            decode = { merged -> StableJson.decodeFromString(serializer<Note>(), merged.toString()) },
+        )
 
     /**
      * The document as a project, read against the row that is already here.
@@ -216,14 +226,15 @@ internal class SyncDocumentWriter(
         // and the difference between "inherits nothing" and "says nothing about
         // the inheritance" is gone.
         val carriesInheritance = document.containsKey(INHERITED_TAG_GROUP_IDS_WIRE_NAME)
-        val project = mergedRow(
-            document = document,
-            read = { id: String -> projectRepo.get(ProjectId.fromString(id)) },
-            toJson = { project: Project ->
-                JsonObject(project.toJson().filterKeys { it != INHERITED_TAG_GROUP_IDS_WIRE_NAME })
-            },
-            decode = { merged -> StableJson.decodeFromString(serializer<Project>(), merged.toString()) },
-        )
+        val project =
+            mergedRow(
+                document = document,
+                read = { id: String -> projectRepo.get(ProjectId.fromString(id)) },
+                toJson = { project: Project ->
+                    JsonObject(project.toJson().filterKeys { it != INHERITED_TAG_GROUP_IDS_WIRE_NAME })
+                },
+                decode = { merged -> StableJson.decodeFromString(serializer<Project>(), merged.toString()) },
+            )
         return ProjectDocument(
             project = project,
             inheritedTagGroupIds = if (carriesInheritance) project.inheritedTagGroupIds else null,
@@ -231,30 +242,33 @@ internal class SyncDocumentWriter(
     }
 
     /** The document as a tag, read against the row that is already here. */
-    private suspend fun tagDocument(document: JsonObject): Tag = mergedRow(
-        document = document,
-        read = { id: String -> tagRepo.get(TagId.fromString(id)) },
-        toJson = { tag: Tag -> tag.toJson() },
-        decode = { merged -> StableJson.decodeFromString(serializer<Tag>(), merged.toString()) },
-    )
+    private suspend fun tagDocument(document: JsonObject): Tag =
+        mergedRow(
+            document = document,
+            read = { id: String -> tagRepo.get(TagId.fromString(id)) },
+            toJson = { tag: Tag -> tag.toJson() },
+            decode = { merged -> StableJson.decodeFromString(serializer<Tag>(), merged.toString()) },
+        )
 
     /** The document as a tag group, read against the row that is already here. */
-    private suspend fun tagGroupDocument(document: JsonObject): TagGroup = mergedRow(
-        document = document,
-        read = { id: String -> tagGroupRepo.get(TagGroupId.fromString(id)) },
-        toJson = { group: TagGroup -> group.toJson() },
-        decode = { merged -> StableJson.decodeFromString(serializer<TagGroup>(), merged.toString()) },
-    )
+    private suspend fun tagGroupDocument(document: JsonObject): TagGroup =
+        mergedRow(
+            document = document,
+            read = { id: String -> tagGroupRepo.get(TagGroupId.fromString(id)) },
+            toJson = { group: TagGroup -> group.toJson() },
+            decode = { merged -> StableJson.decodeFromString(serializer<TagGroup>(), merged.toString()) },
+        )
 
     /** The document as a time entry, read against the row that is already here. */
-    private suspend fun timeEntryDocument(document: JsonObject): TimeEntry = mergedRow(
-        document = document,
-        read = { id: String ->
-            timeTrackingRepo.get(TimeEntryId.fromString(id), currentUser.scopedUserId.value)
-        },
-        toJson = { entry: TimeEntry -> entry.toJson() },
-        decode = { merged -> StableJson.decodeFromString(serializer<TimeEntry>(), merged.toString()) },
-    )
+    private suspend fun timeEntryDocument(document: JsonObject): TimeEntry =
+        mergedRow(
+            document = document,
+            read = { id: String ->
+                timeTrackingRepo.get(TimeEntryId.fromString(id), currentUser.scopedUserId.value)
+            },
+            toJson = { entry: TimeEntry -> entry.toJson() },
+            decode = { merged -> StableJson.decodeFromString(serializer<TimeEntry>(), merged.toString()) },
+        )
 
     /**
      * The document as a row of the type it names, read against the row that is
@@ -309,14 +323,18 @@ internal class SyncDocumentWriter(
      * trash and all, on every other device. `SyncedEntityDeleteIsSoftTest` reads
      * [supportedTypes] and checks each repository it names. See #195.
      */
-    suspend fun delete(type: DocType, id: String): Result<Unit> = when (type) {
-        DocType.Task -> taskRepo.delete(TaskId.fromString(id))
-        DocType.Note -> noteRepo.delete(NoteId.fromString(id))
-        DocType.Project -> projectRepo.delete(ProjectId.fromString(id))
-        DocType.Tag -> tagRepo.delete(TagId.fromString(id))
-        DocType.TagGroup -> tagGroupRepo.delete(TagGroupId.fromString(id))
-        DocType.TimeEntry -> timeTrackingRepo.delete(TimeEntryId.fromString(id))
-    }
+    suspend fun delete(
+        type: DocType,
+        id: String,
+    ): Result<Unit> =
+        when (type) {
+            DocType.Task -> taskRepo.delete(TaskId.fromString(id))
+            DocType.Note -> noteRepo.delete(NoteId.fromString(id))
+            DocType.Project -> projectRepo.delete(ProjectId.fromString(id))
+            DocType.Tag -> tagRepo.delete(TagId.fromString(id))
+            DocType.TagGroup -> tagGroupRepo.delete(TagGroupId.fromString(id))
+            DocType.TimeEntry -> timeTrackingRepo.delete(TimeEntryId.fromString(id))
+        }
 }
 
 /**

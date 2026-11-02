@@ -6,10 +6,11 @@ import com.singularity.todo.core.database.ProjectReminderEntity
 import com.singularity.todo.core.database.SyncColumns
 import kotlinx.serialization.Serializable
 
+// ─── ProjectDto ───────────────────────────────────────────────────────────────
+
 /**
  * The project rows of a payload: the project, its reminders, and the tag groups it inherits.
  */
-// ─── ProjectDto ───────────────────────────────────────────────────────────────
 
 @Serializable
 data class ProjectDto(

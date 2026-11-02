@@ -60,7 +60,10 @@ interface BackupRepository {
      *
      * @return the remote reference (URL or path) on success.
      */
-    suspend fun push(backupId: BackupId, password: CharArray): Result<String>
+    suspend fun push(
+        backupId: BackupId,
+        password: CharArray,
+    ): Result<String>
 
     /**
      * The archives that live in the cloud, for this profile.
@@ -81,7 +84,10 @@ interface BackupRepository {
      * The archive is encrypted in the bucket and is opened here, under [password].
      * The password is consumed the way [push] consumes it.
      */
-    suspend fun restoreFromCloud(remoteRef: String, password: CharArray): Result<RestoreResult>
+    suspend fun restoreFromCloud(
+        remoteRef: String,
+        password: CharArray,
+    ): Result<RestoreResult>
 
     /**
      * Lets this device seal its own archives, so that a scheduled run needs no person.
@@ -149,7 +155,6 @@ interface BackupRepository {
  * would leave the second and the third cases looking like the first.
  */
 sealed interface ScheduledAuthorization {
-
     /** The archive in the cloud was sealed again, and opens with the new password. */
     data class Repushed(val remoteRef: String) : ScheduledAuthorization
 
@@ -233,20 +238,22 @@ class BackupRepositoryImpl(
         withContext(ioDispatcher) {
             runCatchingCancellable {
                 val userChosen = isUserChosenDestination(options.destPath)
-                val destPath = if (userChosen) {
-                    options.destPath
-                } else {
-                    fs.ensureDir(backupDir)
-                    resolveBackupDestination(backupDir, options.destPath)
-                }
-                exporter.export(
-                    options.copy(
-                        destPath = destPath,
-                        userId = currentUser.scopedUserId.value,
-                        ownerId = currentUser.userId.value,
-                        ownerUserId = currentUser.userId.value,
-                    ),
-                ).getOrThrow()
+                val destPath =
+                    if (userChosen) {
+                        options.destPath
+                    } else {
+                        fs.ensureDir(backupDir)
+                        resolveBackupDestination(backupDir, options.destPath)
+                    }
+                exporter
+                    .export(
+                        options.copy(
+                            destPath = destPath,
+                            userId = currentUser.scopedUserId.value,
+                            ownerId = currentUser.userId.value,
+                            ownerUserId = currentUser.userId.value,
+                        ),
+                    ).getOrThrow()
             }
         }
 
@@ -271,7 +278,10 @@ class BackupRepositoryImpl(
             }
         }
 
-    override suspend fun push(backupId: BackupId, password: CharArray): Result<String> =
+    override suspend fun push(
+        backupId: BackupId,
+        password: CharArray,
+    ): Result<String> =
         try {
             runCatchingCancellable {
                 val backup =
@@ -340,7 +350,10 @@ class BackupRepositoryImpl(
         }
 
     @Suppress("TooGenericExceptionCaught")
-    override suspend fun restoreFromCloud(remoteRef: String, password: CharArray): Result<RestoreResult> =
+    override suspend fun restoreFromCloud(
+        remoteRef: String,
+        password: CharArray,
+    ): Result<RestoreResult> =
         try {
             runCatchingCancellable {
                 // The name comes from the ref, and only the name: a ref is reduced to its
@@ -356,15 +369,16 @@ class BackupRepositoryImpl(
                         .download(remoteRef, destPath, currentUser.scopedUserId.value, password)
                         .getOrThrow()
                 try {
-                    importer.import(
-                        ImportOptions(
-                            sourcePath = destPath,
-                            targetUserId = currentUser.scopedUserId.value,
-                            ownerId = currentUser.userId.value,
-                            ownerUserId = currentUser.userId.value,
-                            entries = downloaded.entries,
-                        ),
-                    ).getOrThrow()
+                    importer
+                        .import(
+                            ImportOptions(
+                                sourcePath = destPath,
+                                targetUserId = currentUser.scopedUserId.value,
+                                ownerId = currentUser.userId.value,
+                                ownerUserId = currentUser.userId.value,
+                                entries = downloaded.entries,
+                            ),
+                        ).getOrThrow()
                 } catch (error: Exception) {
                     // The archive was fetched and could not be read: a file nobody asked
                     // for, and it would sit in the list of the backups this person can
@@ -414,10 +428,12 @@ class BackupRepositoryImpl(
                 // No block means no authorized device: the archive would be
                 // sealed under a key nobody can unwrap, and a backup that
                 // cannot be restored is not a backup.
-                val block = deviceKeyStore.keyBlock()
-                    ?: throw BackupStorageError.DeviceNotAuthorized("push backups on its own")
-                val backup = scanBackups().firstOrNull()
-                    ?: throw BackupStorageError.FileNotFound("there is no backup to push")
+                val block =
+                    deviceKeyStore.keyBlock()
+                        ?: throw BackupStorageError.DeviceNotAuthorized("push backups on its own")
+                val backup =
+                    scanBackups().firstOrNull()
+                        ?: throw BackupStorageError.FileNotFound("there is no backup to push")
                 val deviceKey = deviceKeyStore.deviceKey()
                 try {
                     // The same chain a person pushes by hand: the base and the
@@ -443,7 +459,10 @@ class BackupRepositoryImpl(
 internal fun isUserChosenDestination(destPath: String): Boolean =
     "://" in destPath || destPath.startsWith("content:") || '/' in destPath || '\\' in destPath
 
-internal fun resolveBackupDestination(backupDir: String, fileName: String): String {
+internal fun resolveBackupDestination(
+    backupDir: String,
+    fileName: String,
+): String {
     require(fileName.isNotBlank()) { "a backup needs a file name" }
     require('/' !in fileName && '\\' !in fileName) {
         "a backup destination is a file name inside the backup directory, not a path: $fileName"

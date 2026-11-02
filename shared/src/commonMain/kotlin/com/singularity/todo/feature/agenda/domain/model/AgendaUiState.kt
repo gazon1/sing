@@ -1,7 +1,7 @@
 package com.singularity.todo.feature.agenda.domain.model
+import com.singularity.todo.core.ui.components.formatRussianDueDate
 import com.singularity.todo.feature.tasks.domain.model.BlockedBulkCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
-import com.singularity.todo.core.ui.components.formatRussianDueDate
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.model.TaskMarking
 import com.singularity.todo.feature.tasks.presentation.model.TaskUi
@@ -38,6 +38,7 @@ import kotlinx.datetime.LocalDate
  */
 sealed interface AgendaUiState {
     data object Loading : AgendaUiState
+
     data class Loaded(
         val sections: ImmutableList<RenderedSection>,
         val today: LocalDate,
@@ -47,6 +48,7 @@ sealed interface AgendaUiState {
         val pendingBlockedClose: BlockedCloseRequest? = null,
         val pendingBlockedBulkClose: BlockedBulkCloseRequest? = null,
     ) : AgendaUiState
+
     data class Error(val message: String) : AgendaUiState
 }
 
@@ -115,19 +117,20 @@ data class AgendaRowItem(
     val projectColor: Int? = null,
 )
 
-fun AgendaRowItem.toTaskUi(isSelected: Boolean): TaskUi = TaskUi(
-    id = task.id,
-    title = task.title,
-    project = project,
-    projectColor = projectColor,
-    dueLabel = formatRussianDueDate(task.dueDate),
-    parentId = task.parentTaskId?.value,
-    indentLevel = if (task.parentTaskId != null) 1 else 0,
-    isPinned = task.isPinned,
-    priority = task.priority,
-    isCompleted = task.completedAt != null,
-    isSelected = isSelected,
-    blockedBy = task.blockedBy.toImmutableSet(),
-    markings = markings,
-    seriesDates = seriesDates,
-)
+fun AgendaRowItem.toTaskUi(isSelected: Boolean): TaskUi =
+    TaskUi(
+        id = task.id,
+        title = task.title,
+        project = project,
+        projectColor = projectColor,
+        dueLabel = formatRussianDueDate(task.dueDate),
+        parentId = task.parentTaskId?.value,
+        indentLevel = if (task.parentTaskId != null) 1 else 0,
+        isPinned = task.isPinned,
+        priority = task.priority,
+        isCompleted = task.completedAt != null,
+        isSelected = isSelected,
+        blockedBy = task.blockedBy.toImmutableSet(),
+        markings = markings,
+        seriesDates = seriesDates,
+    )

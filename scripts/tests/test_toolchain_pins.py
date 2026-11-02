@@ -1,7 +1,7 @@
 """The toolchain pins live in exactly one file.
 
-The four gate-tooling versions — lychee, yamllint, shellcheck-py and the
-actionlint release — used to be written out twice: once in the local install
+The gate-tooling versions — lychee, yamllint, shellcheck-py, the actionlint
+release and the ktlint release — used to be written out twice: once in the local install
 path (`scripts/ci/setup-local-tools.sh`) and once in the CI install path
 (`.github/actions/setup-python-tools/action.yml`). Two copies of a pin is a pin
 that can drift, and the drift does not announce itself: the local run and the
@@ -11,7 +11,7 @@ than as a version bump.
 So the pins now live in `config/toolchain-versions.env`, and this test holds
 that arrangement in place:
 
-* the pins file exists and declares exactly the four tools with a version;
+* the pins file exists and declares exactly the five tools with a version;
 * neither consumer repeats a version literal;
 * no version literal appears anywhere else in the repository.
 
@@ -46,13 +46,14 @@ CONSUMERS = (
     ROOT / ".github" / "actions" / "setup-python-tools" / "action.yml",
 )
 
-#: The four tools the gate suite shells out to, and the key each one is pinned
+#: The five tools the gate suite shells out to, and the key each one is pinned
 #: under. The keys are part of the contract: both consumers read them.
 EXPECTED_KEYS = (
     "LYCHEE_BIN_VERSION",
     "YAMLLINT_VERSION",
     "SHELLCHECK_PY_VERSION",
     "ACTIONLINT_VERSION",
+    "KTLINT_VERSION",
 )
 
 #: Directories that hold build output, caches or vendored tool state. They are
@@ -95,11 +96,20 @@ SKIP_DIRS = frozenset(
 #: the scan would have to know about it anyway. Generated files are skipped by
 #: path instead, below.
 ALLOWED_DUPLICATES = {
+    "gradle/libs.versions.toml": (
+        "the version catalog: androidx-appcompat happens to be 1.8.0, the same "
+        "spelling as the ktlint pin. Two different tools, two different "
+        "releases, one string."
+    ),
     ".agents/skills/singularity-todo-quality-tools/SKILL.md": (
         "skill page: prose that tells the reader which versions CI installs"
     ),
     "docs/decisions/2026-10-19-doc-links-gate-lychee.md": (
         "ADR: the historical record of the decision to adopt lychee"
+    ),
+    "docs/decisions/2026-11-02-ktlint-cli-replaces-the-detekt-formatting-layer.md": (
+        "ADR: the historical record of the decision to adopt ktlint CLI, with "
+        "the release it was pinned to"
     ),
     "openspec/changes/archive/2026-10-25-the-gates-run-on-every-machine/proposal.md": (
         "change proposal: the historical record of the proposal"
@@ -198,12 +208,12 @@ class PinsFileTest(unittest.TestCase):
     def test_pins_file_exists(self):
         self.assertTrue(PINS_FILE.is_file(), f"missing {PINS_FILE}")
 
-    def test_declares_exactly_the_four_tools(self):
+    def test_declares_exactly_the_five_tools(self):
         pins = read_pins()
         self.assertEqual(
             sorted(EXPECTED_KEYS),
             sorted(pins),
-            f"{PINS_FILE.name} must declare exactly the four pinned tools",
+            f"{PINS_FILE.name} must declare exactly the five pinned tools",
         )
 
     def test_every_pin_has_a_version(self):

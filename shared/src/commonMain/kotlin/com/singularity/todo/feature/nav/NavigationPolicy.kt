@@ -42,22 +42,25 @@ sealed interface OpenAction {
  * Pure commonMain — no Compose, no state; platform parity by construction (REQ-NAV-007).
  */
 object NavigationPolicy {
-
     /** The 13 top-level destinations: bottom-bar tabs + menu entries. */
     private val topLevelDestinations: Set<AppDestination> =
         DestinationKind.tabs.toSet() + DestinationKind.menuEntries.toSet()
 
-    fun resolve(from: AppNavKey, to: AppNavKey): OpenAction = when {
-        to !is AppDestination -> throw IllegalArgumentException(
-            "NavigationPolicy: cannot open $to from $from — " +
-                "a bare nested start route has no app-level entry. " +
-                "Address it through its graph wrapper, e.g. TasksGraph($to).",
-        )
+    fun resolve(
+        from: AppNavKey,
+        to: AppNavKey,
+    ): OpenAction =
+        when {
+            to !is AppDestination -> throw IllegalArgumentException(
+                "NavigationPolicy: cannot open $to from $from — " +
+                    "a bare nested start route has no app-level entry. " +
+                    "Address it through its graph wrapper, e.g. TasksGraph($to).",
+            )
 
-        to in topLevelDestinations -> OpenAction.SwitchTab
+            to in topLevelDestinations -> OpenAction.SwitchTab
 
-        familyOf(from) == familyOf(to) -> OpenAction.Push
+            familyOf(from) == familyOf(to) -> OpenAction.Push
 
-        else -> OpenAction.ExitAndOpen
-    }
+            else -> OpenAction.ExitAndOpen
+        }
 }

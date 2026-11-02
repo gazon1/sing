@@ -19,7 +19,6 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class SyncStatus01ScenarioTest {
-
     @Test
     @DisplayName("SYNC-STATUS-01 See what sync is doing, and start it by hand")
     fun sync_status_and_manual_sync_reachable() =

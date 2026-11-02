@@ -61,7 +61,6 @@ class FileLogWriter(
     private val fileSizeLimit: Long = DEFAULT_FILE_SIZE_LIMIT,
     private val fileCount: Int = LOG_FILE_COUNT,
 ) : LogWriter() {
-
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
     private val files = List(fileCount) { logDirectory.resolve("log.$it.txt") }
     private var written: Long
@@ -91,7 +90,12 @@ class FileLogWriter(
         sink = fileSystem.appendingSink(currentFile).buffer()
     }
 
-    override fun log(severity: Severity, message: String, tag: String, throwable: Throwable?) {
+    override fun log(
+        severity: Severity,
+        message: String,
+        tag: String,
+        throwable: Throwable?,
+    ) {
         val entry = formatEntry(Clock.System.now(), severity, tag, message, throwable)
         val writeJob = scope.launch { write(entry) }
         if (shuttingDown) {
@@ -133,7 +137,8 @@ class FileLogWriter(
             if (writingFailure) return@onFailure
             writingFailure = true
             try {
-                co.touchlab.kermit.Logger.e(e, tag = TAG) { "Failed to write log entry: ${e.message}" }
+                co.touchlab.kermit.Logger
+                    .e(e, tag = TAG) { "Failed to write log entry: ${e.message}" }
             } finally {
                 writingFailure = false
             }
@@ -157,22 +162,23 @@ class FileLogWriter(
 
         private const val MAX_TAG_LENGTH = 23
 
-        private val TIMESTAMP_FORMAT = kotlinx.datetime.LocalDateTime.Format {
-            year()
-            char('-')
-            monthNumber()
-            char('-')
-            day()
-            char('T')
-            hour()
-            char(':')
-            minute()
-            char(':')
-            second()
-            char('.')
-            secondFraction(3)
-            char('Z')
-        }
+        private val TIMESTAMP_FORMAT =
+            kotlinx.datetime.LocalDateTime.Format {
+                year()
+                char('-')
+                monthNumber()
+                char('-')
+                day()
+                char('T')
+                hour()
+                char(':')
+                minute()
+                char(':')
+                second()
+                char('.')
+                secondFraction(3)
+                char('Z')
+            }
 
         private fun formatEntry(
             timestamp: Instant,
@@ -180,20 +186,21 @@ class FileLogWriter(
             tag: String,
             message: String,
             throwable: Throwable?,
-        ): String = buildString {
-            append(TIMESTAMP_FORMAT.format(timestamp.toLocalDateTime(TimeZone.UTC)))
-            append(' ')
-            append(truncateTag(tag))
-            append(' ')
-            append(severity.name[0])
-            append(' ')
-            append(message)
-            append('\n')
-            throwable?.let {
-                append(it.stackTraceToString())
+        ): String =
+            buildString {
+                append(TIMESTAMP_FORMAT.format(timestamp.toLocalDateTime(TimeZone.UTC)))
+                append(' ')
+                append(truncateTag(tag))
+                append(' ')
+                append(severity.name[0])
+                append(' ')
+                append(message)
                 append('\n')
+                throwable?.let {
+                    append(it.stackTraceToString())
+                    append('\n')
+                }
             }
-        }
 
         private fun truncateTag(tag: String): String {
             val t = tag.take(MAX_TAG_LENGTH)

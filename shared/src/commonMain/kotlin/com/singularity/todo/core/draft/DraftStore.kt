@@ -26,16 +26,22 @@ import kotlinx.serialization.SerializationStrategy
  * ```
  */
 interface DraftStore {
-
     /**
      * Loads a draft by key. Returns null if not found or corrupted.
      */
-    suspend fun <T> load(key: String, deserializer: DeserializationStrategy<T>): T?
+    suspend fun <T> load(
+        key: String,
+        deserializer: DeserializationStrategy<T>,
+    ): T?
 
     /**
      * Saves a draft under the given key. Overwrites any existing draft.
      */
-    suspend fun <T> save(key: String, value: T, serializer: SerializationStrategy<T>)
+    suspend fun <T> save(
+        key: String,
+        value: T,
+        serializer: SerializationStrategy<T>,
+    )
 
     /**
      * Deletes a draft by key. Idempotent — deleting non-existent draft is a no-op.

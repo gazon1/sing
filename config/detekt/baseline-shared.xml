@@ -5,20 +5,18 @@
   </ManuallySuppressedIssues>
   <CurrentIssues>
     <ID>ComplexCondition:QueryTokenizer.kt:QueryTokenizer$pos &lt; input.length &amp;&amp; !input[pos].isWhitespace() &amp;&amp; input[pos] != '(' &amp;&amp; input[pos] != ')'</ID>
-    <ID>CyclomaticComplexMethod:BackupImporter.kt:BackupImporter$override suspend fun import: Result&lt;RestoreResult&gt;</ID>
     <ID>CyclomaticComplexMethod:CalendarSyncWorker.kt:CalendarSyncWorker$override suspend fun doWork: Result</ID>
     <ID>CyclomaticComplexMethod:EditorToolbar.kt:internal fun RichTextState.apply: RichTextState</ID>
     <ID>CyclomaticComplexMethod:EditorToolbar.kt:internal fun RichTextState.isActive: Boolean</ID>
-    <ID>CyclomaticComplexMethod:ProposalDispatch.kt:ProposalDispatch$suspend fun dispatch</ID>
     <ID>CyclomaticComplexMethod:SelectorMatcher.kt:fun Selector.matches: Boolean</ID>
     <ID>CyclomaticComplexMethod:SettingsDataStoreMigration.kt:SettingsDataStoreMigration$suspend fun run: Boolean</ID>
     <ID>CyclomaticComplexMethod:SimpleFilterMapper.kt:SimpleFilterMapper$fun toQuery: Result&lt;Query&gt;</ID>
     <ID>CyclomaticComplexMethod:TaskCreateViewModel.kt:TaskCreateViewModel$override fun onIntent</ID>
     <ID>CyclomaticComplexMethod:TaskDomain.kt:TaskDomain$fun matchesFilter: Boolean</ID>
     <ID>CyclomaticComplexMethod:TaskEditorContent.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable private fun TaskEditorContent</ID>
+    <ID>CyclomaticComplexMethod:TestTagsCatalog.kt:TestTagsCatalog$private fun scanDeclarations: List&lt;Pair&lt;String, String&gt;&gt;</ID>
     <ID>EmptyFunctionBlock:AgendaViewModelTest.kt:AgendaViewModelTest.&lt;no name provided&gt;${}</ID>
     <ID>EmptyFunctionBlock:NoopCalendarSyncRepositoryImpl.kt:NoopCalendarSyncRepositoryImpl${}</ID>
-    <ID>EndOfSentenceFormat:BackupCodec.kt:BackupCodec$* Creates a zip archive at `destPath` containing: * - `MANIFEST.json` — [manifestBytes] * - `payload.json` — [payloadBytes] * - `attachments/$name` — one entry per [attachments] pair (name → bytes)</ID>
     <ID>EndOfSentenceFormat:Daos.kt:DailyUsageRow$ Row type returned by observeByDay </ID>
     <ID>EndOfSentenceFormat:Daos.kt:ModelUsageRow$ Row type returned by observeByModel </ID>
     <ID>EndOfSentenceFormat:Daos.kt:ToolUsageRow$ Row type returned by observeByTool </ID>
@@ -40,7 +38,6 @@
     <ID>EndOfSentenceFormat:TaskEditorCallbacks.kt:TaskEditorCallbacks$ Attachments row — null = hidden </ID>
     <ID>EndOfSentenceFormat:TaskEditorCallbacks.kt:TaskEditorCallbacks$ Bottom bar content — null means no bottom bar </ID>
     <ID>EndOfSentenceFormat:TaskEditorCallbacks.kt:TaskEditorCallbacks$ Checklist row — null = hidden </ID>
-    <ID>EndOfSentenceFormat:TaskEditorCallbacks.kt:TaskEditorCallbacks$ Dependencies row — null = hidden </ID>
     <ID>EndOfSentenceFormat:TaskEditorCallbacks.kt:TaskEditorCallbacks$ Due date + time row — null = hidden </ID>
     <ID>EndOfSentenceFormat:TaskEditorCallbacks.kt:TaskEditorCallbacks$ Overflow menu items — empty list = no menu shown </ID>
     <ID>EndOfSentenceFormat:TaskEditorCallbacks.kt:TaskEditorCallbacks$ Pin/toggle row — null = hidden </ID>
@@ -52,28 +49,30 @@
     <ID>ForbiddenComment:CoreDiModule.kt:// TODO: when a real SDK is connected, replace with RealAnalytics(binding).</ID>
     <ID>InvalidPackageDeclaration:TagsRepository.kt:package com.singularity.todo.feature.tags</ID>
     <ID>InvalidPackageDeclaration:ToneColorTest.kt:package com.singularity.todo.feature.genui.render.material3.atoms</ID>
-    <ID>Kdoc:BackupFormatters.kt:/** * Pure formatting helpers for backup UI. * Moved out of [BackupScreen] so they can be unit-tested without Compose * and used in JVM-only environments without [java.text.SimpleDateFormat]. */</ID>
-    <ID>Kdoc:CalendarDateMath.kt:/** * Pure date arithmetic for the Calendar screen. * All functions are side-effect free and fully unit-testable. */</ID>
-    <ID>Kdoc:Formatters.kt:/** * Pure-Kotlin presentation helpers used by [core/ui/components]. No Compose * runtime — safe to unit-test directly from `commonTest` without Robolectric. * * Feature-specific formatters (e.g. `formatAiResult` in `feature/tasks`) live * next to their domain types to avoid core → feature back-references. */</ID>
-    <ID>Kdoc:Formatters.kt:/** * Visual state for the due-date chip on the task detail screen. * Used to determine background / text colour (overdue = error, today = warning, future = neutral). */</ID>
-    <ID>Kdoc:Nav3State.kt:/** * Handles navigation events (forward and back) by updating [state]. * * @param state The [Nav3State] instance to mutate. */</ID>
-    <ID>Kdoc:ToolFactories.kt:/** * Factory functions for creating Koog [SimpleTool] instances. * * Instead of one class file per tool, use these inline factories. * The DI module wires them directly. */</ID>
+    <ID>LargeClass:AgendaViewModelTest.kt:AgendaViewModelTest</ID>
+    <ID>LargeClass:ApplyProposalItemUseCaseTest.kt:ApplyProposalItemUseCaseTest</ID>
+    <ID>LargeClass:AuthViewModelTest.kt:AuthViewModelTest</ID>
+    <ID>LargeClass:ProfileResetReachesTheWholeProfileTest.kt:ProfileResetReachesTheWholeProfileTest</ID>
+    <ID>LargeClass:TaskRepositoryImpl.kt:TaskRepositoryImpl : TaskRepository</ID>
+    <ID>LongMethod:AcpExternalAgentScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable private fun AgentHeader</ID>
     <ID>LongMethod:AgendaContent.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun AgendaContent</ID>
+    <ID>LongMethod:AgendaContent.kt:@Preview @Composable private fun AgendaContentLoadedPreview</ID>
+    <ID>LongMethod:AgendaViewModel.kt:AgendaViewModel$@Suppress("CyclomaticComplexMethod") // 14 intents is intentional; extract when this grows further override fun onIntent</ID>
     <ID>LongMethod:AiProviderSettingsScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun AiProviderSettingsScreen</ID>
     <ID>LongMethod:AiToolsModule.android.kt:actual fun aiToolsModule: Module</ID>
     <ID>LongMethod:AiToolsModule.jvm.kt:actual fun aiToolsModule: Module</ID>
-    <ID>LongMethod:AndroidNavEntries.kt:@Composable fun createAppEntryProvider: (AppDestination) -&gt; NavEntry&lt;AppDestination&gt;</ID>
     <ID>LongMethod:AttachmentsSheet.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun AttachmentsSheet</ID>
+    <ID>LongMethod:BackupDelta.kt:BackupDeltaPlanner$private fun changedRows: BackupPayload</ID>
+    <ID>LongMethod:BackupDelta.kt:fun merge: BackupPayload</ID>
     <ID>LongMethod:BackupExporter.kt:BackupExporter$override suspend fun export: Result&lt;BackupResult&gt;</ID>
-    <ID>LongMethod:BackupImporter.kt:BackupImporter$override suspend fun import: Result&lt;RestoreResult&gt;</ID>
     <ID>LongMethod:BackupScreen.kt:@Composable private fun BackupScreenContentPreview</ID>
     <ID>LongMethod:BackupScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun BackupScreen</ID>
     <ID>LongMethod:CalendarSyncWorker.kt:CalendarSyncWorker$override suspend fun doWork: Result</ID>
     <ID>LongMethod:CoreDiModule.kt:fun coreModule: org.koin.core.module.Module</ID>
+    <ID>LongMethod:CreateTaskFromDraft.kt:CreateTaskFromDraftUseCase$suspend operator fun invoke: Either&lt;AppError, TaskId&gt;</ID>
     <ID>LongMethod:DesktopShellNav3.kt:@Composable fun DesktopShellNav3Root</ID>
     <ID>LongMethod:EditorToolbar.kt:@Composable fun EditorToolbar</ID>
     <ID>LongMethod:InternalLinkPickerSheet.kt:@OptIn(ExperimentalMaterial3Api::class, FlowPreview::class) @Composable fun InternalLinkPickerSheet</ID>
-    <ID>LongMethod:JvmNavEntries.kt:@Composable fun createJvmEntryProvider: (AppDestination) -&gt; NavEntry&lt;AppDestination&gt;</ID>
     <ID>LongMethod:LoginScreen.kt:@Composable fun LoginScreen</ID>
     <ID>LongMethod:NoteEditorScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun NoteEditorScreenContent</ID>
     <ID>LongMethod:NotePreviewScreen.kt:@OptIn(ExperimentalMaterial3Api::class, ExperimentalRichTextApi::class) @Composable fun NotePreviewScreenContent</ID>
@@ -81,45 +80,34 @@
     <ID>LongMethod:NotesListScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun NotesScreenContent</ID>
     <ID>LongMethod:PlatformModule.android.kt:actual fun platformModule: Module</ID>
     <ID>LongMethod:PlatformModule.jvm.kt:actual fun platformModule: Module</ID>
+    <ID>LongMethod:ProjectDetailViewModel.kt:ProjectDetailViewModel$@Suppress("CyclomaticComplexMethod") override fun onIntent</ID>
+    <ID>LongMethod:ProjectEditorScreen.kt:@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class) @Composable fun ProjectEditorContent</ID>
+    <ID>LongMethod:ProjectPickerSheet.kt:@OptIn(ExperimentalMaterial3Api::class) @Suppress("FunctionSignature") @Composable fun ProjectPickerSheet</ID>
+    <ID>LongMethod:ProposalDispatch.kt:ProposalDispatch$private suspend fun rowsOf: List&lt;ProposedRow&gt;</ID>
     <ID>LongMethod:RecurrencePickerSheet.kt:@OptIn(ExperimentalLayoutApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class) @Composable fun RecurrencePickerSheet</ID>
+    <ID>LongMethod:SavedAgendaCard.kt:@Composable fun SavedAgendaCard</ID>
+    <ID>LongMethod:SelectorMatcher.kt:fun Selector.matches: Boolean</ID>
+    <ID>LongMethod:SettingsExporter.kt:SettingsExporter$open suspend fun exportAsJson: String</ID>
     <ID>LongMethod:SettingsImporter.kt:SettingsImporter$open suspend fun importFromJson: ImportResult</ID>
     <ID>LongMethod:SimpleFilterSheet.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun SimpleFilterSheet</ID>
+    <ID>LongMethod:StatisticsScreen.kt:@Composable fun StatisticsScreen</ID>
+    <ID>LongMethod:TagsMd.kt:TagsMd$@Suppress("CyclomaticComplexMethod") private fun dynamicMeta: DynamicMeta</ID>
+    <ID>LongMethod:TaskAiSlot.kt:TaskAiSlot$private suspend fun buildProposalItems: List&lt;ProposalItem&gt;</ID>
+    <ID>LongMethod:TaskChip.kt:@Composable fun TaskChip</ID>
     <ID>LongMethod:TaskCreateScreen.kt:@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class) @Composable fun TaskCreateScreen</ID>
+    <ID>LongMethod:TaskCreateViewModel.kt:TaskCreateViewModel$override fun onIntent</ID>
+    <ID>LongMethod:TaskDomain.kt:TaskDomain$fun matchesFilter: Boolean</ID>
     <ID>LongMethod:TaskEditorContent.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable private fun TaskEditorContent</ID>
     <ID>LongMethod:TaskEditorSheetsHost.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun TaskEditorSheetsHost</ID>
     <ID>LongMethod:TaskMenuBuilder.kt:fun buildTaskContextMenu: ImmutableList&lt;MenuNode&gt;</ID>
+    <ID>LongMethod:TaskRepositoryImpl.kt:TaskRepositoryImpl$override fun observeByFilter: Flow&lt;List&lt;Task&gt;&gt;</ID>
+    <ID>LongMethod:Type.kt:fun createTypography: Typography</ID>
     <ID>LoopWithTooManyJumpStatements:CountdownStateMachine.kt:CountdownStateMachine$while</ID>
     <ID>LoopWithTooManyJumpStatements:EntityMapperCompletenessTest.kt:EntityMapperCompletenessTest$for</ID>
-    <ID>MaximumLineLength:AgendaEvaluatorTest.kt:AgendaEvaluatorTest$// discard removes matched tasks</ID>
-    <ID>MaximumLineLength:BackupCodecTest.kt:BackupCodecTest$)</ID>
-    <ID>MaximumLineLength:Entities.kt:TaskReminderEntity$// epoch millis of last fire; guards against re-firing recurring reminders too soon</ID>
-    <ID>MaximumLineLength:FakeRepositories.kt:FakeProjectsRepository$,</ID>
-    <ID>MaximumLineLength:LogBundleExporterTest.kt:FakeBackupCodec${</ID>
-    <ID>MaximumLineLength:NoteContentMapperTest.kt:NoteContentMapperTest$"""</ID>
-    <ID>MaximumLineLength:ProfileSwitcherScreen.kt:// Preview pattern: construct VM with Fake* deps directly</ID>
-    <ID>MaximumLineLength:SavedAgendaViewModelTest.kt:SavedAgendaViewModelTest$,</ID>
-    <ID>MaximumLineLength:SavedAgendaViewsRepositoryImplTest.kt:SavedAgendaViewsRepositoryImplTest$// other user — not returned by scoped query</ID>
-    <ID>MaximumLineLength:SettingsImporter.kt:SettingsImporter$)</ID>
-    <ID>MaximumLineLength:SyncSourceTest.kt:SyncSourceTest$// Periodic: immediate=false, AppResumed: immediate=false → first wins</ID>
-    <ID>MaximumLineLength:TaskRowContent.kt:,</ID>
+    <ID>LoopWithTooManyJumpStatements:TestTagsCatalog.kt:TestTagsCatalog$while</ID>
     <ID>NestedBlockDepth:DependencyValidatorImpl.kt:DependencyValidatorImpl$override suspend fun analyzeDependencies: DependencyAnalysis</ID>
-    <ID>PackageName:LlmUseCase.kt:package com.singularity.todo.feature.ai.use_cases</ID>
+    <ID>NoStateIn:AttachmentsViewModel.kt:AttachmentsViewModel$repository.watchByTask(taskId).stateIn(scope, SharingStarted.WhileSubscribed(5000), emptyList())</ID>
     <ID>PackageNaming:LlmUseCase.kt:package com.singularity.todo.feature.ai.use_cases</ID>
-    <ID>PropertyName:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$/** Reference "today" matching the AgendaSeed fixture. */ private val D: LocalDate = AgendaSeed.TODAY // 2026-10-14 (Wednesday)</ID>
-    <ID>PropertyName:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val Instant0 = kotlin.time.Instant.fromEpochMilliseconds(0)</ID>
-    <ID>PropertyName:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val PROJ_ALPHA = ProjectId("proj-alpha")</ID>
-    <ID>PropertyName:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val PROJ_BETA = ProjectId("proj-beta")</ID>
-    <ID>PropertyName:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val TAG_HOME = TagId("tag-home")</ID>
-    <ID>PropertyName:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val TAG_URGENT = TagId("tag-urgent")</ID>
-    <ID>PropertyName:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val TAG_WORK = TagId("tag-work")</ID>
-    <ID>PropertyName:AppDestination.kt:/** Title for the special "Menu" bottom-bar item that opens the bottom sheet. */ const val MenuButtonTitle = "Menu"</ID>
-    <ID>PropertyName:ColorInputTest.kt:ColorInputTest$private val DEFAULT = 0xFF2196F3.toInt() // ARGB blue</ID>
-    <ID>PropertyName:ColorInputTest.kt:ColorInputTest$private val FALLBACK = 0xFF9E9E9E.toInt() // ARGB grey</ID>
-    <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Gray = "\u001B[90m"</ID>
-    <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Green = "\u001B[32m"</ID>
-    <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Red = "\u001B[31m"</ID>
-    <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Reset = "\u001B[0m"</ID>
-    <ID>PropertyName:ColorizedWriter.kt:ColorizedWriter.Companion$private const val Yellow = "\u001B[33m"</ID>
     <ID>SwallowedException:RemoteConfigSnapshot.kt:RemoteConfigSnapshot.Companion$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:BackupImporter.kt:BackupImporter$e: Exception</ID>
     <ID>TooGenericExceptionCaught:CalendarSyncViewModel.kt:CalendarSyncViewModel$e: Exception</ID>
@@ -137,7 +125,6 @@
     <ID>TooGenericExceptionCaught:RemoteConfigSnapshot.kt:RemoteConfigSnapshot.Companion$e: Throwable</ID>
     <ID>TooGenericExceptionCaught:RewriteNoteTool.kt:RewriteNoteTool$e: Exception</ID>
     <ID>TooGenericExceptionCaught:RunCatching.kt:e: Exception</ID>
-    <ID>TooGenericExceptionCaught:RunCatching.kt:e: Exception</ID>
     <ID>TooGenericExceptionCaught:SearchViewModel.kt:SearchViewModel$e: Exception</ID>
     <ID>TooGenericExceptionCaught:SuggestTagsTool.kt:SuggestTagsTool$e: Exception</ID>
     <ID>TooGenericExceptionCaught:SummarizeNoteTool.kt:SummarizeNoteTool$e: Exception</ID>
@@ -146,7 +133,6 @@
     <ID>TooGenericExceptionCaught:ToolFactories.kt:&lt;no name provided&gt;$e: Exception</ID>
     <ID>TooGenericExceptionCaught:WeeklyPlanTool.kt:WeeklyPlanTool$e: Exception</ID>
     <ID>TooManyFunctions:AppDatabase.kt:AppDatabase : RoomDatabase</ID>
-    <ID>TooManyFunctions:AttachmentDao.kt:AttachmentDao</ID>
     <ID>TooManyFunctions:Daos.kt:NoteDao</ID>
     <ID>TooManyFunctions:Daos.kt:ProjectDao</ID>
     <ID>TooManyFunctions:Daos.kt:ReminderDao</ID>
@@ -155,10 +141,8 @@
     <ID>TooManyFunctions:ProjectDetailActions.kt:ProjectDetailActions</ID>
     <ID>TooManyFunctions:ProjectsRepositoryImpl.kt:ProjectsRepositoryImpl : ProjectsRepository</ID>
     <ID>TooManyFunctions:Prompts.kt:Prompts</ID>
-    <ID>TooManyFunctions:ReminderRepository.kt:ReminderRepository</ID>
     <ID>TooManyFunctions:TaskRepository.kt:TaskRepository : SoftDeletable</ID>
     <ID>TooManyFunctions:TaskRepositoryImpl.kt:TaskRepositoryImpl : TaskRepository</ID>
-    <ID>TopLevelPropertyNaming:AppDestination.kt:/** Title for the special "Menu" bottom-bar item that opens the bottom sheet. */ const val MenuButtonTitle = "Menu"</ID>
     <ID>UnusedParameter:AppVersionGateScreen.kt:playStoreUrl: String</ID>
     <ID>UnusedParameter:AttachmentUploadService.kt:StubAttachmentUploadService$remotePath: String</ID>
     <ID>UnusedParameter:AttachmentUploadService.kt:StubAttachmentUploadService$targetPath: String</ID>
@@ -173,24 +157,11 @@
     <ID>UnusedParameter:NoteAiActionSheet.kt:onClick: () -&gt; Unit</ID>
     <ID>UnusedParameter:NoteCard.kt:isSelected: Boolean</ID>
     <ID>UnusedParameter:NoteCard.kt:onLongClick: () -&gt; Unit = {}</ID>
-    <ID>UnusedParameter:NotesListScreen.kt:allNotes: List&lt;Note&gt;</ID>
     <ID>UnusedParameter:NotesListScreen.kt:route: NotesRoute.List</ID>
     <ID>UnusedParameter:ParentPickerSheet.kt:currentParentId: ProjectId?</ID>
     <ID>UnusedParameter:ProjectsScreen.kt:onCreateProject: () -&gt; Unit</ID>
-    <ID>UnusedParameter:RemoteBackupService.kt:StubRemoteBackupService$destPath: String</ID>
-    <ID>UnusedParameter:RemoteBackupService.kt:StubRemoteBackupService$remoteRef: String</ID>
-    <ID>UnusedParameter:RemoteBackupService.kt:StubRemoteBackupService$userId: UserId</ID>
     <ID>UnusedParameter:SavedAgendaListScreen.kt:viewId: SavedAgendaViewId</ID>
     <ID>UnusedParameter:SectionEditorCard.kt:index: Int</ID>
     <ID>UnusedParameter:TaskSaveBar.kt:isLoading: Boolean = false</ID>
-    <ID>VariableNaming:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$/** Reference "today" matching the AgendaSeed fixture. */ private val D: LocalDate = AgendaSeed.TODAY // 2026-10-14 (Wednesday)</ID>
-    <ID>VariableNaming:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val Instant0 = kotlin.time.Instant.fromEpochMilliseconds(0)</ID>
-    <ID>VariableNaming:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val PROJ_ALPHA = ProjectId("proj-alpha")</ID>
-    <ID>VariableNaming:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val PROJ_BETA = ProjectId("proj-beta")</ID>
-    <ID>VariableNaming:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val TAG_HOME = TagId("tag-home")</ID>
-    <ID>VariableNaming:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val TAG_URGENT = TagId("tag-urgent")</ID>
-    <ID>VariableNaming:AgendaEvaluatorMatrixTest.kt:AgendaEvaluatorMatrixTest$private val TAG_WORK = TagId("tag-work")</ID>
-    <ID>VariableNaming:ColorInputTest.kt:ColorInputTest$private val DEFAULT = 0xFF2196F3.toInt() // ARGB blue</ID>
-    <ID>VariableNaming:ColorInputTest.kt:ColorInputTest$private val FALLBACK = 0xFF9E9E9E.toInt() // ARGB grey</ID>
   </CurrentIssues>
 </SmellBaseline>

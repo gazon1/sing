@@ -13,17 +13,18 @@ import kotlinx.collections.immutable.toImmutableSet
  * timeline's row, computed by the one shared policy, so they are the same
  * markings the agenda shows.
  */
-fun TimelineTask.toTaskUi(): TaskUi = TaskUi(
-    id = task.id,
-    title = task.title,
-    project = null,
-    dueLabel = formatRussianDueDate(task.dueDate),
-    parentId = task.parentTaskId?.value,
-    indentLevel = if (task.parentTaskId != null) 1 else 0,
-    isPinned = task.isPinned,
-    priority = task.priority,
-    isCompleted = task.completedAt != null,
-    blockedBy = task.blockedBy.toImmutableSet(),
-    markings = markings,
-    seriesDates = seriesDates,
-)
+fun TimelineTask.toTaskUi(): TaskUi =
+    TaskUi(
+        id = task.id,
+        title = task.title,
+        project = null,
+        dueLabel = formatRussianDueDate(task.dueDate),
+        parentId = task.parentTaskId?.value,
+        indentLevel = if (task.parentTaskId != null) 1 else 0,
+        isPinned = task.isPinned,
+        priority = task.priority,
+        isCompleted = task.completedAt != null,
+        blockedBy = task.blockedBy.toImmutableSet(),
+        markings = markings,
+        seriesDates = seriesDates,
+    )

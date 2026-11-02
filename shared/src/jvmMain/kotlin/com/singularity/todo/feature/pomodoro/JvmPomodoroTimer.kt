@@ -43,7 +43,6 @@ class JvmPomodoroTimer(
     private val timeTrackingRepo: TimeTrackingRepository,
     private val currentUser: ProfileAwareCurrentUser,
 ) : PomodoroTimer {
-
     private val _state = MutableStateFlow(initialState())
     override val state: StateFlow<PomodoroState> = _state.asStateFlow()
 
@@ -53,13 +52,14 @@ class JvmPomodoroTimer(
         if (_state.value.isRunning) return
         val now = clock.now().toEpochMilliseconds()
         val dur = config.phaseSecondsOf(_state.value.phase)
-        _state.value = _state.value.copy(
-            isRunning = true,
-            taskId = taskId,
-            remainingSeconds = dur,
-            phaseDurationSeconds = dur,
-            phaseStartedAtEpochMs = now,
-        )
+        _state.value =
+            _state.value.copy(
+                isRunning = true,
+                taskId = taskId,
+                remainingSeconds = dur,
+                phaseDurationSeconds = dur,
+                phaseStartedAtEpochMs = now,
+            )
         startTicker()
     }
 
@@ -67,11 +67,12 @@ class JvmPomodoroTimer(
         tickerJob?.cancel()
         val now = clock.now().toEpochMilliseconds()
         val remaining = recomputeRemaining(_state.value, now)
-        _state.value = _state.value.copy(
-            isRunning = false,
-            remainingSeconds = remaining,
-            phaseStartedAtEpochMs = null,
-        )
+        _state.value =
+            _state.value.copy(
+                isRunning = false,
+                remainingSeconds = remaining,
+                phaseStartedAtEpochMs = null,
+            )
     }
 
     override fun resume() {
@@ -96,19 +97,20 @@ class JvmPomodoroTimer(
 
     private fun startTicker() {
         tickerJob?.cancel()
-        tickerJob = scope.launch {
-            while (_state.value.isRunning) {
-                delay(1000)
-                val now = clock.now().toEpochMilliseconds()
-                val remaining = recomputeRemaining(_state.value, now)
-                if (remaining <= 0) {
-                    _state.value = _state.value.copy(remainingSeconds = 0)
-                    onPhaseComplete()
-                    break
+        tickerJob =
+            scope.launch {
+                while (_state.value.isRunning) {
+                    delay(1000)
+                    val now = clock.now().toEpochMilliseconds()
+                    val remaining = recomputeRemaining(_state.value, now)
+                    if (remaining <= 0) {
+                        _state.value = _state.value.copy(remainingSeconds = 0)
+                        onPhaseComplete()
+                        break
+                    }
+                    _state.value = _state.value.copy(remainingSeconds = remaining)
                 }
-                _state.value = _state.value.copy(remainingSeconds = remaining)
             }
-        }
     }
 
     private fun onPhaseComplete() {
@@ -136,17 +138,21 @@ class JvmPomodoroTimer(
         _state.value = nextPhase(_state.value, config)
     }
 
-    private fun initialState() = PomodoroState(
-        remainingSeconds = config.phaseSecondsOf(PomodoroPhase.Work),
-        phaseDurationSeconds = config.phaseSecondsOf(PomodoroPhase.Work),
-    )
+    private fun initialState() =
+        PomodoroState(
+            remainingSeconds = config.phaseSecondsOf(PomodoroPhase.Work),
+            phaseDurationSeconds = config.phaseSecondsOf(PomodoroPhase.Work),
+        )
 }
 
 /**
  * Recomputes remaining seconds from phase start time.
  * Mirrors [AndroidPomodoroTimer.recomputeRemaining].
  */
-private fun recomputeRemaining(state: PomodoroState, nowEpochMs: Long): Int {
+private fun recomputeRemaining(
+    state: PomodoroState,
+    nowEpochMs: Long,
+): Int {
     val startedAt = state.phaseStartedAtEpochMs ?: return state.remainingSeconds
     val elapsed = ((nowEpochMs - startedAt) / 1000).toInt()
     return (state.phaseDurationSeconds - elapsed).coerceAtLeast(0)

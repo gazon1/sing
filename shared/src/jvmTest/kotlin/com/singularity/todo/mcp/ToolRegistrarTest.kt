@@ -26,7 +26,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class ToolRegistrarTest {
-
     private class EnabledTool : SimpleTool<Unit>(TypeToken.of(Unit::class.java), NAME, DESCRIPTION) {
         override suspend fun execute(args: Unit): String = "{}"
 
@@ -55,18 +54,21 @@ class ToolRegistrarTest {
      */
     private fun tools(): List<Tool<*, *>> = listOf(EnabledTool(), DisabledTool())
 
-    private fun server(): Server = Server(
-        serverInfo = Implementation(
-            name = "singularity-todo",
-            version = "0.0.0-test",
-            title = null,
-            websiteUrl = null,
-            icons = emptyList(),
-        ),
-        options = ServerOptions(
-            capabilities = ServerCapabilities(tools = ServerCapabilities.Tools(listChanged = true)),
-        ),
-    )
+    private fun server(): Server =
+        Server(
+            serverInfo =
+                Implementation(
+                    name = "singularity-todo",
+                    version = "0.0.0-test",
+                    title = null,
+                    websiteUrl = null,
+                    icons = emptyList(),
+                ),
+            options =
+                ServerOptions(
+                    capabilities = ServerCapabilities(tools = ServerCapabilities.Tools(listChanged = true)),
+                ),
+        )
 
     @Test
     fun `a disabled tool is never registered`() {

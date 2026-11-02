@@ -16,26 +16,27 @@ object ErrorMapper {
     private const val INTERNAL_ERROR_CODE = -32603
     private val log = Logger.withTag("ErrorMapper")
 
-    fun toResult(error: McpToolError): CallToolResult = when (error) {
-        is McpToolError.Internal -> {
-            log.e(error.format(), error.cause)
-            throw McpException(
-                code = INTERNAL_ERROR_CODE,
-                message = error.format(),
-                data = JsonNull,
-                cause = error.cause,
-            )
-        }
+    fun toResult(error: McpToolError): CallToolResult =
+        when (error) {
+            is McpToolError.Internal -> {
+                log.e(error.format(), error.cause)
+                throw McpException(
+                    code = INTERNAL_ERROR_CODE,
+                    message = error.format(),
+                    data = JsonNull,
+                    cause = error.cause,
+                )
+            }
 
-        is McpToolError.Validation,
-        is McpToolError.NotFound,
-        is McpToolError.Conflict,
-        is McpToolError.Unauthorized,
-        -> {
-            CallToolResult(
-                content = listOf(TextContent(text = error.format())),
-                isError = true,
-            )
+            is McpToolError.Validation,
+            is McpToolError.NotFound,
+            is McpToolError.Conflict,
+            is McpToolError.Unauthorized,
+            -> {
+                CallToolResult(
+                    content = listOf(TextContent(text = error.format())),
+                    isError = true,
+                )
+            }
         }
-    }
 }

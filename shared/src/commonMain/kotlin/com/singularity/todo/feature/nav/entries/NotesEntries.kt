@@ -15,7 +15,10 @@ import com.singularity.todo.feature.notes.presentation.nav.NotesNavGraph
  * @param nav the outer navigation callbacks.
  * @param stacks the stacks the platform hoists.
  */
-fun EntryProviderScope<AppDestination>.notesEntries(nav: NavCallbacks, stacks: AppNavStacks) {
+fun EntryProviderScope<AppDestination>.notesEntries(
+    nav: NavCallbacks,
+    stacks: AppNavStacks,
+) {
     entry<AppDestination.Notes>(clazzContentKey = { it.stableContentKey() }) {
         NotesNavGraph(
             navCallbacks = nav,

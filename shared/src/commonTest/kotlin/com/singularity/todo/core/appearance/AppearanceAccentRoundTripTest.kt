@@ -30,40 +30,41 @@ import kotlin.test.assertNotEquals
  */
 @Tag("fast")
 class AppearanceAccentRoundTripTest {
+    @Test
+    fun `every accent survives storage under its own name`() =
+        runTest {
+            val repository = DataStoreAppearanceSettingsRepository(inMemoryDataStore())
+
+            SingularityAccents.entries.forEach { accent ->
+                repository.setAccentColor(accent.name)
+
+                val stored = repository.accentColor.first()
+                val resolved = SingularityAccents.fromString(stored)
+                assertEquals(
+                    resolved,
+                    accent,
+                    "${accent.name} came back as $resolved after being stored as \"$stored\"",
+                )
+            }
+        }
 
     @Test
-    fun `every accent survives storage under its own name`() = runTest {
-        val repository = DataStoreAppearanceSettingsRepository(inMemoryDataStore())
-
-        SingularityAccents.entries.forEach { accent ->
-            repository.setAccentColor(accent.name)
-
-            val stored = repository.accentColor.first()
-            val resolved = SingularityAccents.fromString(stored)
-            assertEquals(
-                resolved,
-                accent,
-                "${accent.name} came back as $resolved after being stored as \"$stored\"",
-            )
+    fun `the accent is not case-sensitive on the way back`() =
+        runTest {
+            // Backup files are hand-edited and older builds wrote different casing.
+            SingularityAccents.entries.forEach { accent ->
+                assertEquals(
+                    accent,
+                    SingularityAccents.fromString(accent.name.lowercase()),
+                    "${accent.name.lowercase()} did not resolve to $accent",
+                )
+                assertEquals(
+                    accent,
+                    SingularityAccents.fromString(accent.name.uppercase()),
+                    "${accent.name.uppercase()} did not resolve to $accent",
+                )
+            }
         }
-    }
-
-    @Test
-    fun `the accent is not case-sensitive on the way back`() = runTest {
-        // Backup files are hand-edited and older builds wrote different casing.
-        SingularityAccents.entries.forEach { accent ->
-            assertEquals(
-                accent,
-                SingularityAccents.fromString(accent.name.lowercase()),
-                "${accent.name.lowercase()} did not resolve to $accent",
-            )
-            assertEquals(
-                accent,
-                SingularityAccents.fromString(accent.name.uppercase()),
-                "${accent.name.uppercase()} did not resolve to $accent",
-            )
-        }
-    }
 
     @Test
     fun `an accent that is not a known name falls back rather than throwing`() {
@@ -100,32 +101,31 @@ class AppearanceAccentRoundTripTest {
     }
 
     @Test
-    fun `the stored default is an accent this build can resolve`() = runTest {
-        val repository = DataStoreAppearanceSettingsRepository(inMemoryDataStore())
+    fun `the stored default is an accent this build can resolve`() =
+        runTest {
+            val repository = DataStoreAppearanceSettingsRepository(inMemoryDataStore())
 
-        val stored = repository.accentColor.first()
+            val stored = repository.accentColor.first()
 
-        // Compared as the resolved enum, not as a string: the stored spelling is
-        // lowercase ("blue") and the enum's name is not, and pinning those to each
-        // other would fail on a correct implementation.
-        assertEquals(
-            SingularityAccents.Blue,
-            SingularityAccents.fromString(stored),
-            "the shipped default \"$stored\" is not a name the enum can read back",
-        )
-    }
+            // Compared as the resolved enum, not as a string: the stored spelling is
+            // lowercase ("blue") and the enum's name is not, and pinning those to each
+            // other would fail on a correct implementation.
+            assertEquals(
+                SingularityAccents.Blue,
+                SingularityAccents.fromString(stored),
+                "the shipped default \"$stored\" is not a name the enum can read back",
+            )
+        }
 
     private companion object {
         /** A [DataStore] held in memory, so the test touches no files. */
-        fun inMemoryDataStore(
-            initial: Preferences = emptyPreferences(),
-        ): DataStore<Preferences> {
+        fun inMemoryDataStore(initial: Preferences = emptyPreferences()): DataStore<Preferences> {
             val state = MutableStateFlow(initial)
             return object : DataStore<Preferences> {
                 override val data: Flow<Preferences> = state
-                override suspend fun updateData(
-                    transform: suspend (Preferences) -> Preferences,
-                ): Preferences = transform(state.value).also { state.value = it }
+
+                override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences =
+                    transform(state.value).also { state.value = it }
             }
         }
     }

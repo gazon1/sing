@@ -7,7 +7,6 @@ import kotlin.test.assertEquals
 
 @Tag("fast")
 class QueryTokenizerTest {
-
     private fun tokens(input: String): List<Token> = QueryTokenizer(input).tokens()
 
     @Test

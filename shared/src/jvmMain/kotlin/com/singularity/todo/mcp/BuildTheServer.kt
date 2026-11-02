@@ -14,16 +14,17 @@ import io.modelcontextprotocol.kotlin.sdk.types.ServerCapabilities
  * toolbox a client sees is the toolbox the server announced when it started.
  */
 internal object BuildTheServer : ToolServerStartupStep {
-
     override val title: String = "build the server"
 
     override suspend fun run(context: ToolServerStartupContext): ToolServerStartup.Refused? {
-        val dependencies = checkNotNull(context.dependencies) {
-            "The order does not resolve the dependencies before this step."
-        }
-        val configuration = checkNotNull(context.configuration) {
-            "The order does not read the configuration before this step."
-        }
+        val dependencies =
+            checkNotNull(context.dependencies) {
+                "The order does not resolve the dependencies before this step."
+            }
+        val configuration =
+            checkNotNull(context.configuration) {
+                "The order does not read the configuration before this step."
+            }
         startupLog.i { "singularity-todo MCP server started" }
         context.server = build(dependencies, configuration, context.sessionContext)
         return null
@@ -41,37 +42,43 @@ private fun build(
     configuration: ToolConfiguration,
     sessionContext: SessionContextHolder,
 ): Server {
-    val server = Server(
-        serverInfo = Implementation(
-            name = "singularity-todo",
-            // The real application version, from the canonical source the desktop app
-            // and the Android build both use. A literal here would tell a client it had
-            // connected to a version nobody could check against the checkout.
-            version = appVersion().name,
-            title = null,
-            websiteUrl = null,
-            icons = emptyList(),
-        ),
-        options = ServerOptions(
-            capabilities = ServerCapabilities(
-                tools = ServerCapabilities.Tools(listChanged = true),
-                resources = ServerCapabilities.Resources(listChanged = true),
-            ),
-        ),
-        instructions = "Singularity Todo MCP server. Use tools to read/write tasks, notes, " +
-            "projects, tags, and ADR entries. Call describe_toolbox to see which tools this " +
-            "server is exposing and why. Surface contract version: " +
-            "${McpToolCatalog.SURFACE_CONTRACT_VERSION}.",
-    )
-    val registrar = ToolRegistrar(
-        server = server,
-        tools = dependencies.tools,
-        toolFlags = configuration.flags,
-        configurationStatus = configuration.status,
-        configurationFetchedAtEpochMillis = configuration.fetchedAtEpochMillis,
-        recorder = dependencies.recorder,
-        sessionContext = { sessionContext.current() },
-    )
+    val server =
+        Server(
+            serverInfo =
+                Implementation(
+                    name = "singularity-todo",
+                    // The real application version, from the canonical source the desktop app
+                    // and the Android build both use. A literal here would tell a client it had
+                    // connected to a version nobody could check against the checkout.
+                    version = appVersion().name,
+                    title = null,
+                    websiteUrl = null,
+                    icons = emptyList(),
+                ),
+            options =
+                ServerOptions(
+                    capabilities =
+                        ServerCapabilities(
+                            tools = ServerCapabilities.Tools(listChanged = true),
+                            resources = ServerCapabilities.Resources(listChanged = true),
+                        ),
+                ),
+            instructions =
+                "Singularity Todo MCP server. Use tools to read/write tasks, notes, " +
+                    "projects, tags, and ADR entries. Call describe_toolbox to see which tools this " +
+                    "server is exposing and why. Surface contract version: " +
+                    "${McpToolCatalog.SURFACE_CONTRACT_VERSION}.",
+        )
+    val registrar =
+        ToolRegistrar(
+            server = server,
+            tools = dependencies.tools,
+            toolFlags = configuration.flags,
+            configurationStatus = configuration.status,
+            configurationFetchedAtEpochMillis = configuration.fetchedAtEpochMillis,
+            recorder = dependencies.recorder,
+            sessionContext = { sessionContext.current() },
+        )
     registrar.registerAll()
     ToolboxTool(registrar.snapshot).register(server)
     ToolboxResources(

@@ -37,13 +37,13 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.singularity.todo.core.ui.TestTags
-import com.singularity.todo.core.ui.textfields.rememberAnchoredTextFieldState
-import com.singularity.todo.core.ui.textfields.dayOfMonthTransformation
-import com.singularity.todo.core.ui.textfields.recurrenceIntervalTransformation
 import com.singularity.todo.core.ui.components.sheet.DatePickerSheet
 import com.singularity.todo.core.ui.preview.PreviewSamples
 import com.singularity.todo.core.ui.preview.PreviewThemed
 import com.singularity.todo.core.ui.preview.noopClick
+import com.singularity.todo.core.ui.textfields.dayOfMonthTransformation
+import com.singularity.todo.core.ui.textfields.recurrenceIntervalTransformation
+import com.singularity.todo.core.ui.textfields.rememberAnchoredTextFieldState
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Interval
 import com.singularity.todo.feature.tasks.domain.model.RecurrenceSpec.Monthly
@@ -55,30 +55,41 @@ import com.singularity.todo.feature.tasks.presentation.components.RecurrenceForm
 import com.singularity.todo.feature.tasks.presentation.components.RecurrenceFormatters.baseLabel
 import com.singularity.todo.feature.tasks.presentation.components.RecurrenceFormatters.label
 import com.singularity.todo.feature.tasks.presentation.components.TaskEditorSheetHost
+import kotlinx.collections.immutable.ImmutableSet
+import kotlinx.collections.immutable.persistentSetOf
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.number
 import kotlinx.datetime.plus
-import kotlinx.collections.immutable.ImmutableSet
-import kotlinx.collections.immutable.persistentSetOf
-import kotlinx.collections.immutable.toImmutableSet
 
-private val WEEKDAY_NAMES = listOf(
-    "Mon" to 1,
-    "Tue" to 2,
-    "Wed" to 3,
-    "Thu" to 4,
-    "Fri" to 5,
-    "Sat" to 6,
-    "Sun" to 7,
-)
+private val WEEKDAY_NAMES =
+    listOf(
+        "Mon" to 1,
+        "Tue" to 2,
+        "Wed" to 3,
+        "Thu" to 4,
+        "Fri" to 5,
+        "Sat" to 6,
+        "Sun" to 7,
+    )
 
-private val MONTH_NAMES = listOf(
-    1 to "Jan", 2 to "Feb", 3 to "Mar", 4 to "Apr",
-    5 to "May", 6 to "Jun", 7 to "Jul", 8 to "Aug",
-    9 to "Sep", 10 to "Oct", 11 to "Nov", 12 to "Dec",
-)
+private val MONTH_NAMES =
+    listOf(
+        1 to "Jan",
+        2 to "Feb",
+        3 to "Mar",
+        4 to "Apr",
+        5 to "May",
+        6 to "Jun",
+        7 to "Jul",
+        8 to "Aug",
+        9 to "Sep",
+        10 to "Oct",
+        11 to "Nov",
+        12 to "Dec",
+    )
 
 /**
  * Recurrence rule picker bottom sheet.
@@ -150,29 +161,30 @@ fun RecurrencePickerSheet(
     var endDate by remember { mutableStateOf(currentSpec?.termination?.endDate) }
     var pickingEndDate by remember { mutableStateOf(false) }
 
-    val spec = remember(
-        selectedBase,
-        selectedType,
-        intervalAmount,
-        selectedUnit,
-        selectedWeekdays,
-        monthlyDay,
-        yearlyMonth,
-        yearlyDay,
-        endDate,
-    ) {
-        buildSpec(
-            endDate,
-            selectedType,
+    val spec =
+        remember(
             selectedBase,
+            selectedType,
             intervalAmount,
             selectedUnit,
             selectedWeekdays,
             monthlyDay,
             yearlyMonth,
             yearlyDay,
-        )
-    }
+            endDate,
+        ) {
+            buildSpec(
+                endDate,
+                selectedType,
+                selectedBase,
+                intervalAmount,
+                selectedUnit,
+                selectedWeekdays,
+                monthlyDay,
+                yearlyMonth,
+                yearlyDay,
+            )
+        }
 
     TaskEditorSheetHost(
         title = "Repeat",
@@ -185,20 +197,23 @@ fun RecurrencePickerSheet(
         testTagConfirm = TestTags.SHEET_CONFIRM,
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 8.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 8.dp),
         ) {
             // ── Clear recurrence ─────────────────────────────────────────────
             Row(
-                modifier = Modifier.fillMaxWidth()
-                    .testTag(TestTags.RECURRENCE_OPTION_NONE)
-                    .selectable(
-                        selected = currentSpec == null,
-                        onClick = { onApply(null) },
-                        role = Role.RadioButton,
-                    )
-                    .padding(vertical = 8.dp, horizontal = 8.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .testTag(TestTags.RECURRENCE_OPTION_NONE)
+                        .selectable(
+                            selected = currentSpec == null,
+                            onClick = { onApply(null) },
+                            role = Role.RadioButton,
+                        ).padding(vertical = 8.dp, horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 RadioButton(selected = currentSpec == null, onClick = null)
@@ -369,14 +384,15 @@ private fun FrequencySelector(
     Column(modifier = Modifier.selectableGroup()) {
         SpecType.entries.forEach { type ->
             Row(
-                modifier = Modifier.fillMaxWidth()
-                    .testTag(type.testTag())
-                    .selectable(
-                        selected = selectedType == type,
-                        onClick = { onSelectedTypeChange(type) },
-                        role = Role.RadioButton,
-                    )
-                    .padding(vertical = 6.dp, horizontal = 8.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .testTag(type.testTag())
+                        .selectable(
+                            selected = selectedType == type,
+                            onClick = { onSelectedTypeChange(type) },
+                            role = Role.RadioButton,
+                        ).padding(vertical = 6.dp, horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 RadioButton(selected = selectedType == type, onClick = null)
@@ -395,7 +411,10 @@ private fun FrequencySelector(
  * next occurrence based on the anchor date.
  */
 @Composable
-private fun PreviewSection(spec: RecurrenceSpec, anchorDate: LocalDate) {
+private fun PreviewSection(
+    spec: RecurrenceSpec,
+    anchorDate: LocalDate,
+) {
     Text(
         text = "Preview",
         style = MaterialTheme.typography.labelMedium,
@@ -403,8 +422,10 @@ private fun PreviewSection(spec: RecurrenceSpec, anchorDate: LocalDate) {
         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
     )
     Row(
-        modifier = Modifier.fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 8.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 8.dp),
     ) {
         Text(
             text = label(spec),
@@ -439,14 +460,15 @@ private fun TerminationSection(
         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
     )
     Row(
-        modifier = Modifier.fillMaxWidth()
-            .testTag(TestTags.RECURRENCE_ENDS_NEVER)
-            .selectable(
-                selected = endDate == null,
-                onClick = { onEndDateChange(null) },
-                role = Role.RadioButton,
-            )
-            .padding(vertical = 6.dp, horizontal = 8.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .testTag(TestTags.RECURRENCE_ENDS_NEVER)
+                .selectable(
+                    selected = endDate == null,
+                    onClick = { onEndDateChange(null) },
+                    role = Role.RadioButton,
+                ).padding(vertical = 6.dp, horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         RadioButton(selected = endDate == null, onClick = null)
@@ -457,16 +479,17 @@ private fun TerminationSection(
         )
     }
     Row(
-        modifier = Modifier.fillMaxWidth()
-            .testTag(TestTags.RECURRENCE_ENDS_ON_DATE)
-            .selectable(
-                selected = endDate != null,
-                // Default to a year out rather than today: an end date of
-                // today would stop the series on its very next occurrence.
-                onClick = { onEndDateChange(endDate ?: anchorDate.plus(1, DateTimeUnit.YEAR)) },
-                role = Role.RadioButton,
-            )
-            .padding(vertical = 6.dp, horizontal = 8.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .testTag(TestTags.RECURRENCE_ENDS_ON_DATE)
+                .selectable(
+                    selected = endDate != null,
+                    // Default to a year out rather than today: an end date of
+                    // today would stop the series on its very next occurrence.
+                    onClick = { onEndDateChange(endDate ?: anchorDate.plus(1, DateTimeUnit.YEAR)) },
+                    role = Role.RadioButton,
+                ).padding(vertical = 6.dp, horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         RadioButton(selected = endDate != null, onClick = null)
@@ -478,11 +501,12 @@ private fun TerminationSection(
     }
     if (endDate != null) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp)
-                .testTag(TestTags.RECURRENCE_END_DATE_VALUE)
-                .clickable { onPickEndDate() },
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                    .testTag(TestTags.RECURRENCE_END_DATE_VALUE)
+                    .clickable { onPickEndDate() },
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
@@ -508,13 +532,14 @@ private fun IntervalEditor(
     onAmountChange: (Int) -> Unit,
     onUnitChange: (DateTimeUnit.DateBased) -> Unit,
 ) {
-    val unitsForType = when (type) {
-        SpecType.INTERVAL_DAY -> listOf(DateTimeUnit.DAY to "day(s)")
-        SpecType.INTERVAL_WEEK -> listOf(DateTimeUnit.WEEK to "week(s)")
-        SpecType.INTERVAL_MONTH -> listOf(DateTimeUnit.MONTH to "month(s)")
-        SpecType.INTERVAL_YEAR -> listOf(DateTimeUnit.YEAR to "year(s)")
-        else -> emptyList()
-    }
+    val unitsForType =
+        when (type) {
+            SpecType.INTERVAL_DAY -> listOf(DateTimeUnit.DAY to "day(s)")
+            SpecType.INTERVAL_WEEK -> listOf(DateTimeUnit.WEEK to "week(s)")
+            SpecType.INTERVAL_MONTH -> listOf(DateTimeUnit.MONTH to "month(s)")
+            SpecType.INTERVAL_YEAR -> listOf(DateTimeUnit.YEAR to "year(s)")
+            else -> emptyList()
+        }
 
     // The field owns the text; the amount is only committed when the text is a valid
     // number. An invalid edit is rejected outright, so the text snaps back to the last
@@ -528,7 +553,8 @@ private fun IntervalEditor(
         snapshotFlow { amountState.text.toString() }
             .distinctUntilChanged()
             .collect { text ->
-                text.toIntOrNull()
+                text
+                    .toIntOrNull()
                     ?.let { v -> if (v > 0) onAmountChange(v) }
             }
     }
@@ -547,12 +573,13 @@ private fun IntervalEditor(
         Column {
             unitsForType.forEach { (u, label) ->
                 Row(
-                    modifier = Modifier.selectable(
-                        selected = unit == u,
-                        onClick = { onUnitChange(u) },
-                        role = Role.RadioButton,
-                    )
-                        .padding(vertical = 4.dp),
+                    modifier =
+                        Modifier
+                            .selectable(
+                                selected = unit == u,
+                                onClick = { onUnitChange(u) },
+                                role = Role.RadioButton,
+                            ).padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     RadioButton(selected = unit == u, onClick = null)
@@ -569,7 +596,10 @@ private fun IntervalEditor(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun WeekdayEditor(selected: ImmutableSet<Int>, onChange: (ImmutableSet<Int>) -> Unit) {
+private fun WeekdayEditor(
+    selected: ImmutableSet<Int>,
+    onChange: (ImmutableSet<Int>) -> Unit,
+) {
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -589,7 +619,10 @@ private fun WeekdayEditor(selected: ImmutableSet<Int>, onChange: (ImmutableSet<I
 }
 
 @Composable
-private fun DayOfMonthEditor(day: Int, onChange: (Int) -> Unit) {
+private fun DayOfMonthEditor(
+    day: Int,
+    onChange: (Int) -> Unit,
+) {
     // Same contract as the interval amount: the text snaps back when it is not a day
     // of the month. Anchored to the committed day, for the same reason.
     val dayState = rememberAnchoredTextFieldState(day.toString())
@@ -597,7 +630,8 @@ private fun DayOfMonthEditor(day: Int, onChange: (Int) -> Unit) {
         snapshotFlow { dayState.text.toString() }
             .distinctUntilChanged()
             .collect { text ->
-                text.toIntOrNull()
+                text
+                    .toIntOrNull()
                     ?.let { d -> if (d in 1..31) onChange(d) }
             }
     }
@@ -623,7 +657,12 @@ private fun DayOfMonthEditor(day: Int, onChange: (Int) -> Unit) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun YearlyEditor(month: Int, day: Int, onMonthChange: (Int) -> Unit, onDayChange: (Int) -> Unit) {
+private fun YearlyEditor(
+    month: Int,
+    day: Int,
+    onMonthChange: (Int) -> Unit,
+    onDayChange: (Int) -> Unit,
+) {
     Column {
         Text(
             text = "Month",
@@ -668,63 +707,78 @@ private enum class SpecType(val label: String) {
  * the two are the only places `TestTags.PRIORITY_OPTION_*` /
  * `TestTags.RECURRENCE_OPTION_*` and the user-visible copy meet.
  */
-private fun SpecType.testTag(): String = when (this) {
-    SpecType.INTERVAL_DAY -> TestTags.RECURRENCE_OPTION_DAILY
-    SpecType.INTERVAL_WEEK -> TestTags.RECURRENCE_OPTION_WEEKLY
-    SpecType.INTERVAL_MONTH -> TestTags.RECURRENCE_OPTION_MONTHLY
-    SpecType.INTERVAL_YEAR -> TestTags.RECURRENCE_OPTION_YEARLY
-    SpecType.WEEKLY -> TestTags.RECURRENCE_OPTION_SPECIFIC_WEEKDAYS
-    SpecType.MONTHLY -> TestTags.RECURRENCE_OPTION_DAY_OF_MONTH
-    SpecType.YEARLY -> TestTags.RECURRENCE_OPTION_YEARLY_ON_DATE
-}
+private fun SpecType.testTag(): String =
+    when (this) {
+        SpecType.INTERVAL_DAY -> TestTags.RECURRENCE_OPTION_DAILY
+        SpecType.INTERVAL_WEEK -> TestTags.RECURRENCE_OPTION_WEEKLY
+        SpecType.INTERVAL_MONTH -> TestTags.RECURRENCE_OPTION_MONTHLY
+        SpecType.INTERVAL_YEAR -> TestTags.RECURRENCE_OPTION_YEARLY
+        SpecType.WEEKLY -> TestTags.RECURRENCE_OPTION_SPECIFIC_WEEKDAYS
+        SpecType.MONTHLY -> TestTags.RECURRENCE_OPTION_DAY_OF_MONTH
+        SpecType.YEARLY -> TestTags.RECURRENCE_OPTION_YEARLY_ON_DATE
+    }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-private fun RecurrenceSpec.specType(): SpecType = when (this) {
-    is Interval -> when (unit) {
-        DateTimeUnit.DAY -> SpecType.INTERVAL_DAY
-        DateTimeUnit.WEEK -> SpecType.INTERVAL_WEEK
-        DateTimeUnit.MONTH -> SpecType.INTERVAL_MONTH
-        DateTimeUnit.YEAR -> SpecType.INTERVAL_YEAR
-        else -> SpecType.INTERVAL_DAY
+private fun RecurrenceSpec.specType(): SpecType =
+    when (this) {
+        is Interval -> {
+            when (unit) {
+                DateTimeUnit.DAY -> SpecType.INTERVAL_DAY
+                DateTimeUnit.WEEK -> SpecType.INTERVAL_WEEK
+                DateTimeUnit.MONTH -> SpecType.INTERVAL_MONTH
+                DateTimeUnit.YEAR -> SpecType.INTERVAL_YEAR
+                else -> SpecType.INTERVAL_DAY
+            }
+        }
+
+        is Weekly -> {
+            SpecType.WEEKLY
+        }
+
+        is Monthly -> {
+            SpecType.MONTHLY
+        }
+
+        is Yearly -> {
+            SpecType.YEARLY
+        }
     }
 
-    is Weekly -> SpecType.WEEKLY
+private fun RecurrenceSpec.intervalAmount(): Int =
+    (this as? Interval)?.amount
+        ?: 1
 
-    is Monthly -> SpecType.MONTHLY
-
-    is Yearly -> SpecType.YEARLY
-}
-
-private fun RecurrenceSpec.intervalAmount(): Int = (this as? Interval)?.amount
-    ?: 1
-
-private fun RecurrenceSpec.intervalUnit(): DateTimeUnit.DateBased = (this as? Interval)?.unit
-    ?: DateTimeUnit.WEEK
+private fun RecurrenceSpec.intervalUnit(): DateTimeUnit.DateBased =
+    (this as? Interval)?.unit
+        ?: DateTimeUnit.WEEK
 
 // ===== Preview =====
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun RecurrencePickerSheetPreview() = PreviewThemed(darkTheme = false) {
-    RecurrencePickerSheet(
-        currentSpec = null,
-        anchorDate = PreviewSamples.today,
-        onApply = { },
-        onDismiss = noopClick,
-    )
-}
+private fun RecurrencePickerSheetPreview() =
+    PreviewThemed(darkTheme = false) {
+        RecurrencePickerSheet(
+            currentSpec = null,
+            anchorDate = PreviewSamples.today,
+            onApply = { },
+            onDismiss = noopClick,
+        )
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun RecurrencePickerSheetWeeklyPreview() = PreviewThemed(darkTheme = false) {
-    RecurrencePickerSheet(
-        currentSpec = Weekly(
-            base = RecurrenceBase.FROM_DUE,
-            weekdays = setOf(1, 3, 5),
-        ),
-        anchorDate = PreviewSamples.today,
-        onApply = { },
-        onDismiss = noopClick,
-    )
-}
+private fun RecurrencePickerSheetWeeklyPreview() =
+    PreviewThemed(darkTheme = false) {
+        RecurrencePickerSheet(
+            currentSpec =
+                Weekly(
+                    base = RecurrenceBase.FROM_DUE,
+                    weekdays = setOf(1, 3, 5),
+                ),
+            anchorDate = PreviewSamples.today,
+            onApply = { },
+            onDismiss = noopClick,
+        )
+    }

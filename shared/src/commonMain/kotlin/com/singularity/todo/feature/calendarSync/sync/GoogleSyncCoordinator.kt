@@ -55,7 +55,6 @@ class GoogleSyncCoordinator(
     private val clock: Clock,
     private val logger: Logger = Logger.withTag("GoogleSyncCoordinator"),
 ) {
-
     /**
      * What one coordinator-driven pass did, for a caller that wants to log or report it.
      *

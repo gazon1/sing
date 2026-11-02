@@ -1,7 +1,7 @@
 package com.singularity.todo.arch
 
-import java.io.File
 import org.junit.jupiter.api.Tag
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
@@ -38,7 +38,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class PlatformSeamGuardTest {
-
     private companion object {
         /**
          * Marker a stub's `reason` must contain to decline a capability gate.
@@ -75,13 +74,14 @@ class PlatformSeamGuardTest {
         val declaresGate: Boolean get() = gate.isNotBlank() && gate != "-"
     }
 
-    private fun sourceRoot(property: String): File = File(
-        System.getProperty(property)
-            ?: error(
-                "$property system property is not set — " +
-                    "see the jvmTest task config in shared/build.gradle.kts",
-            ),
-    )
+    private fun sourceRoot(property: String): File =
+        File(
+            System.getProperty(property)
+                ?: error(
+                    "$property system property is not set — " +
+                        "see the jvmTest task config in shared/build.gradle.kts",
+                ),
+        )
 
     private val jvmPlatformModule =
         File(sourceRoot("jvmMain.root"), "com/singularity/todo/core/di/PlatformModule.jvm.kt")
@@ -101,12 +101,14 @@ class PlatformSeamGuardTest {
      * relative walk, and a gate that silently reads nothing is worse than no gate.
      */
     private fun registry(): List<Seam> {
-        val text = checkNotNull(javaClass.getResourceAsStream("/platform-seams.tsv")) {
-            "platform-seams.tsv is not on the test classpath — " +
-                "expected at shared/src/jvmTest/resources/platform-seams.tsv"
-        }.bufferedReader().use { it.readText() }
+        val text =
+            checkNotNull(javaClass.getResourceAsStream("/platform-seams.tsv")) {
+                "platform-seams.tsv is not on the test classpath — " +
+                    "expected at shared/src/jvmTest/resources/platform-seams.tsv"
+            }.bufferedReader().use { it.readText() }
 
-        return text.lineSequence()
+        return text
+            .lineSequence()
             .map { it.substringBefore('#').trim() }
             .filter { it.isNotEmpty() }
             .map { line ->
@@ -117,8 +119,7 @@ class PlatformSeamGuardTest {
                         "port|kind|androidImpl|jvmImpl|verdict|wiring|gate|reason — got: $line",
                 )
                 Seam(f[0], f[1], f[2], f[3], f[4], f[5], f[6], f[7])
-            }
-            .toList()
+            }.toList()
     }
 
     /**
@@ -173,9 +174,13 @@ class PlatformSeamGuardTest {
                     i++
                 }
 
-                c == quoteChar -> inString = true
+                c == quoteChar -> {
+                    inString = true
+                }
 
-                else -> out.append(c)
+                else -> {
+                    out.append(c)
+                }
             }
             i++
         }
@@ -195,24 +200,30 @@ class PlatformSeamGuardTest {
     private fun boundTypeNames(source: String): List<String> {
         val code = stripCommentsAndStrings(source)
         val opener = Regex("""\b(?:single|factory|viewModelOf|factoryOf|singleOf)\s*<""")
-        return opener.findAll(code)
+        return opener
+            .findAll(code)
             .mapNotNull { m ->
                 val close = closingAngle(code, m.range.last) ?: return@mapNotNull null
-                code.substring(m.range.last + 1, close)
+                code
+                    .substring(m.range.last + 1, close)
                     .substringBefore('<')
                     .substringAfterLast('.')
                     .trim()
-            }
-            .toList()
+            }.toList()
     }
 
     /** Index of the `>` that closes the `<` at [open], or null if the source runs out. */
-    private fun closingAngle(code: String, open: Int): Int? {
+    private fun closingAngle(
+        code: String,
+        open: Int,
+    ): Int? {
         var depth = 0
         var i = open
         while (i < code.length) {
             when (code[i]) {
-                '<' -> depth++
+                '<' -> {
+                    depth++
+                }
 
                 '>' -> {
                     depth--
@@ -221,7 +232,9 @@ class PlatformSeamGuardTest {
                     }
                 }
 
-                else -> Unit
+                else -> {
+                    Unit
+                }
             }
             i++
         }
@@ -261,22 +274,26 @@ class PlatformSeamGuardTest {
     @Test
     fun `a seam marked real is not actually a stub`() {
         val stubPattern = Regex("Noop|NoOp|Stub")
-        val offenders = registry()
-            .filterNot { it.isInfra }
-            .filter { it.verdict == "real" }
-            .filter { stubPattern.containsMatchIn(it.jvmImpl) }
-            .map { "${it.port} is marked real but bound to '${it.jvmImpl}'" }
+        val offenders =
+            registry()
+                .filterNot { it.isInfra }
+                .filter { it.verdict == "real" }
+                .filter { stubPattern.containsMatchIn(it.jvmImpl) }
+                .map { "${it.port} is marked real but bound to '${it.jvmImpl}'" }
 
         assertTrue(offenders.isEmpty(), offenders.joinToString("\n"))
     }
 
     @Test
     fun `a seam marked stub or exempt carries a written reason`() {
-        val offenders = registry()
-            .filterNot { it.isInfra }
-            .filter { it.verdict == "stub" || it.verdict == "exempt" }
-            .filter { it.reason.isBlank() }
-            .map { "${it.port} is '${it.verdict}' with no recorded reason — inert code must be a documented choice" }
+        val offenders =
+            registry()
+                .filterNot { it.isInfra }
+                .filter { it.verdict == "stub" || it.verdict == "exempt" }
+                .filter { it.reason.isBlank() }
+                .map {
+                    "${it.port} is '${it.verdict}' with no recorded reason — inert code must be a documented choice"
+                }
 
         assertTrue(offenders.isEmpty(), offenders.joinToString("\n"))
     }
@@ -285,8 +302,9 @@ class PlatformSeamGuardTest {
     fun `every typed binding in a platform module has a registry row`() {
         val registered = registry().map { it.port }.toSet()
         // DataStore binds as DataStore<Preferences>; the registry names it DataStore.
-        val bound = boundTypeNames(read(jvmPlatformModule)) +
-            boundTypeNames(read(androidPlatformModule))
+        val bound =
+            boundTypeNames(read(jvmPlatformModule)) +
+                boundTypeNames(read(androidPlatformModule))
         val extra = bound.distinct().filterNot { it in registered }
 
         assertTrue(
@@ -313,17 +331,20 @@ class PlatformSeamGuardTest {
      */
     @Test
     fun `a seam declared injected is referenced outside its own bindings`() {
-        val boundOnlyIn = setOf(
-            "com/singularity/todo/core/di/PlatformModule.android.kt",
-            "com/singularity/todo/core/di/PlatformModule.jvm.kt",
-        )
+        val boundOnlyIn =
+            setOf(
+                "com/singularity/todo/core/di/PlatformModule.android.kt",
+                "com/singularity/todo/core/di/PlatformModule.jvm.kt",
+            )
         val commonRoot = sourceRoot("commonMain.root")
-        val sharedBodies = commonRoot.walkTopDown()
-            .filter { it.isFile && it.extension == "kt" }
-            .filterNot { it.toString().substring(commonRoot.path.length).removePrefix("/") in boundOnlyIn }
-            .filterNot { it.name.contains("Test") }
-            .map { it.readText() }
-            .toList()
+        val sharedBodies =
+            commonRoot
+                .walkTopDown()
+                .filter { it.isFile && it.extension == "kt" }
+                .filterNot { it.toString().substring(commonRoot.path.length).removePrefix("/") in boundOnlyIn }
+                .filterNot { it.name.contains("Test") }
+                .map { it.readText() }
+                .toList()
 
         // `:adr-core` is scanned too, and not because the seam registry grew a second
         // module to be sorry about. `HostEnvironmentPort`'s only production consumer is
@@ -335,34 +356,37 @@ class PlatformSeamGuardTest {
         //
         // `boundOnlyIn` holds paths relative to `:shared`'s commonMain, so it applies to
         // that root only — applied to another root it would filter nothing.
-        val adrCoreBodies = sourceRoot("adrCoreCommonMain.root")
-            .walkTopDown()
-            .filter { it.isFile && it.extension == "kt" }
-            .filterNot { it.name.contains("Test") }
-            .map { it.readText() }
-            .toList()
+        val adrCoreBodies =
+            sourceRoot("adrCoreCommonMain.root")
+                .walkTopDown()
+                .filter { it.isFile && it.extension == "kt" }
+                .filterNot { it.name.contains("Test") }
+                .map { it.readText() }
+                .toList()
 
         val bodies = sharedBodies + adrCoreBodies
 
-        val orphans = registry()
-            .filterNot { it.isInfra }
-            .filter { it.wiring == "injected" }
-            .filterNot { seam -> bodies.any { seam.port in it } }
-            .map {
-                "${it.port} is declared injected but appears in no production file outside " +
-                    "its two bindings — declare it `unwired` with a reason, or inject it"
-            }
+        val orphans =
+            registry()
+                .filterNot { it.isInfra }
+                .filter { it.wiring == "injected" }
+                .filterNot { seam -> bodies.any { seam.port in it } }
+                .map {
+                    "${it.port} is declared injected but appears in no production file outside " +
+                        "its two bindings — declare it `unwired` with a reason, or inject it"
+                }
 
         assertTrue(orphans.isEmpty(), orphans.joinToString("\n"))
     }
 
     @Test
     fun `an unwired seam carries a written reason`() {
-        val offenders = registry()
-            .filterNot { it.isInfra }
-            .filter { it.wiring == "unwired" }
-            .filter { it.reason.isBlank() }
-            .map { "${it.port} is unwired with no recorded reason" }
+        val offenders =
+            registry()
+                .filterNot { it.isInfra }
+                .filter { it.wiring == "unwired" }
+                .filter { it.reason.isBlank() }
+                .map { "${it.port} is unwired with no recorded reason" }
         assertTrue(offenders.isEmpty(), offenders.joinToString("\n"))
     }
 
@@ -401,21 +425,24 @@ class PlatformSeamGuardTest {
     @Test
     fun `a seam declaring a capability gate reads that symbol in production code`() {
         val commonRoot = sourceRoot("commonMain.root")
-        val bodies = commonRoot.walkTopDown()
-            .filter { it.isFile && it.extension == "kt" }
-            .filterNot { it.name.contains("Test") }
-            .map { it.readText() }
-            .toList()
+        val bodies =
+            commonRoot
+                .walkTopDown()
+                .filter { it.isFile && it.extension == "kt" }
+                .filterNot { it.name.contains("Test") }
+                .map { it.readText() }
+                .toList()
 
-        val offenders = registry()
-            .filterNot { it.isInfra }
-            .filter { it.declaresGate }
-            .filterNot { seam -> bodies.any { seam.gate in it } }
-            .map {
-                "${it.port} declares gate '${it.gate}' but no production file reads it — " +
-                    "either check it before calling the inert implementation, or record " +
-                    "gate=- and say in the reason why no check is possible"
-            }
+        val offenders =
+            registry()
+                .filterNot { it.isInfra }
+                .filter { it.declaresGate }
+                .filterNot { seam -> bodies.any { seam.gate in it } }
+                .map {
+                    "${it.port} declares gate '${it.gate}' but no production file reads it — " +
+                        "either check it before calling the inert implementation, or record " +
+                        "gate=- and say in the reason why no check is possible"
+                }
 
         assertTrue(offenders.isEmpty(), offenders.joinToString("\n"))
     }
@@ -436,15 +463,16 @@ class PlatformSeamGuardTest {
      */
     @Test
     fun `a stub declared ungated carries an explicit exemption marker`() {
-        val offenders = registry()
-            .filterNot { it.isInfra }
-            .filter { it.verdict == "stub" }
-            .filterNot { it.declaresGate }
-            .filterNot { UNGATED_EXEMPTION in it.reason }
-            .map {
-                "${it.port} is a stub with no capability gate — add one, or start its reason " +
-                    "with '$UNGATED_EXEMPTION' stating why no check is possible"
-            }
+        val offenders =
+            registry()
+                .filterNot { it.isInfra }
+                .filter { it.verdict == "stub" }
+                .filterNot { it.declaresGate }
+                .filterNot { UNGATED_EXEMPTION in it.reason }
+                .map {
+                    "${it.port} is a stub with no capability gate — add one, or start its reason " +
+                        "with '$UNGATED_EXEMPTION' stating why no check is possible"
+                }
 
         assertTrue(offenders.isEmpty(), offenders.joinToString("\n"))
     }

@@ -20,7 +20,6 @@ import kotlin.test.assertEquals
  */
 @Tag("fast")
 class DataModelRevisionTest {
-
     @Test
     fun theFieldOwnWriteDoesNotMoveTheCount() {
         val model = DataModel()
@@ -73,24 +72,26 @@ class DataModelRevisionTest {
     }
 
     @Test
-    fun theFlowEmitsTheValueAndTheCountTogether() = runTest {
-        val model = DataModel()
-        model.setFromServer(UiPath.of("name"), JsonPrimitive("Alice"))
+    fun theFlowEmitsTheValueAndTheCountTogether() =
+        runTest {
+            val model = DataModel()
+            model.setFromServer(UiPath.of("name"), JsonPrimitive("Alice"))
 
-        val emitted = model.flowAt(UiPath.of("name")).first()
+            val emitted = model.flowAt(UiPath.of("name")).first()
 
-        assertEquals(JsonPrimitive("Alice"), emitted.value)
-        assertEquals(1L, emitted.revision)
-    }
+            assertEquals(JsonPrimitive("Alice"), emitted.value)
+            assertEquals(1L, emitted.revision)
+        }
 
     @Test
-    fun theFlowOfOnePathDoesNotSeeAnotherPathsWrite() = runTest {
-        val model = DataModel()
-        model.setFromServer(UiPath.of("first"), JsonPrimitive("Alice"))
+    fun theFlowOfOnePathDoesNotSeeAnotherPathsWrite() =
+        runTest {
+            val model = DataModel()
+            model.setFromServer(UiPath.of("first"), JsonPrimitive("Alice"))
 
-        val emitted = model.flowAt(UiPath.of("second")).first()
+            val emitted = model.flowAt(UiPath.of("second")).first()
 
-        assertEquals(null, emitted.value)
-        assertEquals(0L, emitted.revision)
-    }
+            assertEquals(null, emitted.value)
+            assertEquals(0L, emitted.revision)
+        }
 }

@@ -29,7 +29,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class ProposalOperationTest {
-
     @Test
     fun `a value that does not read is refused with the reason`() {
         val outcome = ProposalOperation.toItem("set_priority", "whenever", emptyList())

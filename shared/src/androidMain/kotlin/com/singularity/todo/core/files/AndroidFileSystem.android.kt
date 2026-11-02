@@ -2,8 +2,8 @@ package com.singularity.todo.core.files
 
 import android.content.Context
 import android.net.Uri
-import com.singularity.todo.core.error.runCatchingCancellable
 import android.provider.OpenableColumns
+import com.singularity.todo.core.error.runCatchingCancellable
 import java.io.File
 
 class AndroidFileSystem(private val context: Context) : FileSystem {
@@ -14,7 +14,10 @@ class AndroidFileSystem(private val context: Context) : FileSystem {
             File(path).readBytes()
         }
 
-    override suspend fun writeBytes(path: String, data: ByteArray) {
+    override suspend fun writeBytes(
+        path: String,
+        data: ByteArray,
+    ) {
         if (path.startsWith("content:")) {
             context.contentResolver.openOutputStream(Uri.parse(path))!!.use { it.write(data) }
         } else {
@@ -40,16 +43,17 @@ class AndroidFileSystem(private val context: Context) : FileSystem {
                 FileStat(path, System.currentTimeMillis(), 0L, false)
             } else {
                 cursor.use { c ->
-                    val size = if (c.moveToFirst()) {
-                        val idx = c.getColumnIndex(OpenableColumns.SIZE)
-                        if (idx >= 0) {
-                            c.getLong(idx)
+                    val size =
+                        if (c.moveToFirst()) {
+                            val idx = c.getColumnIndex(OpenableColumns.SIZE)
+                            if (idx >= 0) {
+                                c.getLong(idx)
+                            } else {
+                                0L
+                            }
                         } else {
                             0L
                         }
-                    } else {
-                        0L
-                    }
                     FileStat(path, System.currentTimeMillis(), size, false)
                 }
             }
@@ -69,7 +73,10 @@ class AndroidFileSystem(private val context: Context) : FileSystem {
      * the whole story; the copy is the exception, for a path that is somehow on
      * another filesystem.
      */
-    override suspend fun move(from: String, to: String) {
+    override suspend fun move(
+        from: String,
+        to: String,
+    ) {
         val source = File(from)
         val target = File(to)
         target.parentFile?.mkdirs()
@@ -95,29 +102,38 @@ class AndroidFileSystem(private val context: Context) : FileSystem {
     }
 
     override fun openRead(path: String): ByteSource {
-        val stream = if (path.startsWith("content:")) {
-            context.contentResolver.openInputStream(Uri.parse(path))!!
-        } else {
-            File(path).inputStream()
-        }
+        val stream =
+            if (path.startsWith("content:")) {
+                context.contentResolver.openInputStream(Uri.parse(path))!!
+            } else {
+                File(path).inputStream()
+            }
         return object : ByteSource {
-            override fun read(buffer: ByteArray, offset: Int, length: Int): Int =
-                stream.read(buffer, offset, length)
+            override fun read(
+                buffer: ByteArray,
+                offset: Int,
+                length: Int,
+            ): Int = stream.read(buffer, offset, length)
 
             override fun close() = stream.close()
         }
     }
 
     override fun openWrite(path: String): ByteSink {
-        val stream = if (path.startsWith("content:")) {
-            context.contentResolver.openOutputStream(Uri.parse(path))!!
-        } else {
-            val file = File(path)
-            file.parentFile?.mkdirs()
-            file.outputStream()
-        }
+        val stream =
+            if (path.startsWith("content:")) {
+                context.contentResolver.openOutputStream(Uri.parse(path))!!
+            } else {
+                val file = File(path)
+                file.parentFile?.mkdirs()
+                file.outputStream()
+            }
         return object : ByteSink {
-            override fun write(buffer: ByteArray, offset: Int, length: Int) {
+            override fun write(
+                buffer: ByteArray,
+                offset: Int,
+                length: Int,
+            ) {
                 stream.write(buffer, offset, length)
             }
 

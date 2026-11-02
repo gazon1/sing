@@ -2,9 +2,9 @@ package com.singularity.todo.core.auth
 
 import com.singularity.todo.core.ids.UserId
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -44,9 +44,10 @@ class CurrentUser(authRepository: AuthRepository, private val scope: CoroutineSc
      * Prefer this for any reactive or cross-component read; [userId] stays for
      * imperative reads, where an eagerly seeded value is exactly what you want.
      */
-    val liveUserId: Flow<UserId> = authRepository.currentSession
-        .map { AuthDomain.effectiveUserId(it) }
-        .distinctUntilChanged()
+    val liveUserId: Flow<UserId> =
+        authRepository.currentSession
+            .map { AuthDomain.effectiveUserId(it) }
+            .distinctUntilChanged()
 
     init {
         scope.launch {

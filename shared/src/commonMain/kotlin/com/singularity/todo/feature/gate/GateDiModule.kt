@@ -18,13 +18,14 @@ import org.koin.dsl.module
  * (Koin resolves all three constructor arguments via `get()`).
  * The [scope][AppVersionGateViewModel] defaults to [AutoCloseableCoroutineScope].
  */
-fun gateModule(playStoreUrl: String): Module = module {
-    viewModel {
-        AppVersionGateViewModel(
-            remoteConfigPort = get<RemoteConfigPort>(),
-            appVersion = appVersion(),
-            playStoreUrl = playStoreUrl,
-            crashReporter = get(),
-        )
+fun gateModule(playStoreUrl: String): Module =
+    module {
+        viewModel {
+            AppVersionGateViewModel(
+                remoteConfigPort = get<RemoteConfigPort>(),
+                appVersion = appVersion(),
+                playStoreUrl = playStoreUrl,
+                crashReporter = get(),
+            )
+        }
     }
-}

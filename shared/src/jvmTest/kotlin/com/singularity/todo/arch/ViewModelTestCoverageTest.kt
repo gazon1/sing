@@ -1,12 +1,12 @@
 package com.singularity.todo.arch
 
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import java.io.File
 import kotlin.test.assertTrue
 import kotlin.test.fail
-import org.junit.jupiter.api.Tag
 
-/**
+/*
  * Every production ViewModel has a test — or is on a list, with a reason.
  *
  * ## The bug class this catches
@@ -41,56 +41,65 @@ import org.junit.jupiter.api.Tag
 
 // ─── Scan ─────────────────────────────────────────────────────────────────────
 
-private val commonMainRoot: String = System.getProperty("commonMain.root")
-    ?: error("commonMain.root is not set — see the jvmTest config in shared/build.gradle.kts")
+private val commonMainRoot: String =
+    System.getProperty("commonMain.root")
+        ?: error("commonMain.root is not set — see the jvmTest config in shared/build.gradle.kts")
 
-private val commonTestRoot: String = System.getProperty("commonTest.root")
-    ?: error("commonTest.root is not set — see the jvmTest config in shared/build.gradle.kts")
+private val commonTestRoot: String =
+    System.getProperty("commonTest.root")
+        ?: error("commonTest.root is not set — see the jvmTest config in shared/build.gradle.kts")
 
-private val jvmTestRoot: String = System.getProperty("jvmTest.root")
-    ?: error("jvmTest.root is not set — see the jvmTest config in shared/build.gradle.kts")
+private val jvmTestRoot: String =
+    System.getProperty("jvmTest.root")
+        ?: error("jvmTest.root is not set — see the jvmTest config in shared/build.gradle.kts")
 
-private val desktopAppJvmTestRoot: String = System.getProperty("desktopAppJvmTest.root")
-    ?: error("desktopAppJvmTest.root is not set — see the jvmTest config in shared/build.gradle.kts")
+private val desktopAppJvmTestRoot: String =
+    System.getProperty("desktopAppJvmTest.root")
+        ?: error("desktopAppJvmTest.root is not set — see the jvmTest config in shared/build.gradle.kts")
 
 private val CLASS_DECL =
     Regex("""^\s*(?:internal |data |open |abstract |sealed )*class\s+(\w+)""", RegexOption.MULTILINE)
 
 /** Every `*ViewModel` class declared in commonMain production code. */
-private fun viewModels(): Set<String> = productionFiles()
-    .flatMapTo(mutableSetOf()) { file ->
-        CLASS_DECL.findAll(file.readText())
-            .map { it.groupValues[1] }
-            .filter { it.endsWith("ViewModel") }
-    }
+private fun viewModels(): Set<String> =
+    productionFiles()
+        .flatMapTo(mutableSetOf()) { file ->
+            CLASS_DECL
+                .findAll(file.readText())
+                .map { it.groupValues[1] }
+                .filter { it.endsWith("ViewModel") }
+        }
 
 /** Test class names declared anywhere in the test roots. */
-private fun declaredTestClasses(): Set<String> = testRoots()
-    .flatMap { root -> root.walkTopDown().filter { it.isFile && it.extension == "kt" } }
-    .flatMapTo(mutableSetOf()) { file -> CLASS_DECL.findAll(file.readText()).map { it.groupValues[1] } }
+private fun declaredTestClasses(): Set<String> =
+    testRoots()
+        .flatMap { root -> root.walkTopDown().filter { it.isFile && it.extension == "kt" } }
+        .flatMapTo(mutableSetOf()) { file -> CLASS_DECL.findAll(file.readText()).map { it.groupValues[1] } }
 
-private fun testRoots(): List<File> = listOf(commonTestRoot, jvmTestRoot, desktopAppJvmTestRoot)
-    .map(::File)
-    .filter { it.isDirectory }
+private fun testRoots(): List<File> =
+    listOf(commonTestRoot, jvmTestRoot, desktopAppJvmTestRoot)
+        .map(::File)
+        .filter { it.isDirectory }
 
-private fun productionFiles(): List<File> = File(commonMainRoot)
-    .walkTopDown()
-    .filter { it.isFile && it.extension == "kt" }
-    .filterNot { it.path.contains("${File.separator}test${File.separator}") }
-    .toList()
+private fun productionFiles(): List<File> =
+    File(commonMainRoot)
+        .walkTopDown()
+        .filter { it.isFile && it.extension == "kt" }
+        .filterNot { it.path.contains("${File.separator}test${File.separator}") }
+        .toList()
 
 /** ViewModels that ship without a test. Each is tracked in the backlog. */
-private val KNOWN_UNCOVERED = setOf(
-    "AccountSettingsViewModel",
-    "AiUsageViewModel",
-    "ArchiveViewModel",
-    "CalendarSyncViewModel",
-    "ProfileSwitcherViewModel",
-)
+private val KNOWN_UNCOVERED =
+    setOf(
+        "AccountSettingsViewModel",
+        "AiUsageViewModel",
+        "ArchiveViewModel",
+        "CalendarSyncViewModel",
+        "ProfileSwitcherViewModel",
+    )
 
 @Tag("fast")
 class ViewModelTestCoverageTest {
-
     private val tested: Set<String> by lazy {
         val tests = declaredTestClasses()
         viewModels().filterTo(mutableSetOf()) { "${it}Test" in tests }

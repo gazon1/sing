@@ -40,7 +40,6 @@ class AlarmHandler(
     private val notifier: Notifier,
     private val clock: Clock,
 ) {
-
     /**
      * A scheduled reminder reached its fire time.
      *
@@ -48,7 +47,10 @@ class AlarmHandler(
      * both the notification tag and the retirement, so a fire cannot touch another
      * profile's row.
      */
-    suspend fun reminderFired(reminderId: ReminderId, userId: UserId) {
+    suspend fun reminderFired(
+        reminderId: ReminderId,
+        userId: UserId,
+    ) {
         delivery.fire(reminderId, userId)
     }
 
@@ -60,11 +62,12 @@ class AlarmHandler(
      * reason `Notifier.post`'s tag exists, used the other way round.
      */
     suspend fun pomodoroPhaseEnded(phase: PomodoroPhase) {
-        val title = when (phase) {
-            PomodoroPhase.Work -> "Work session ended"
-            PomodoroPhase.ShortBreak -> "Short break ended"
-            PomodoroPhase.LongBreak -> "Long break ended"
-        }
+        val title =
+            when (phase) {
+                PomodoroPhase.Work -> "Work session ended"
+                PomodoroPhase.ShortBreak -> "Short break ended"
+                PomodoroPhase.LongBreak -> "Long break ended"
+            }
         val body = if (phase == PomodoroPhase.Work) "Time for a break ☕" else "Back to work!"
 
         notifier.post(
@@ -90,7 +93,9 @@ class AlarmHandler(
     suspend fun catchUp() {
         val now = clock.now().toEpochMilliseconds()
 
-        reminderRepo.watchRecentDueBefore(now, CATCH_UP_LIMIT).first()
+        reminderRepo
+            .watchRecentDueBefore(now, CATCH_UP_LIMIT)
+            .first()
             .forEach { delivery.fireKnown(it) }
 
         // Re-arm everything still in the future, across every profile.
@@ -99,7 +104,9 @@ class AlarmHandler(
         // reminder belonging to a profile that is not active would otherwise never be armed
         // until its owner switched to it and relaunched. A reminder that just fired has
         // already been retired by the loop above, so it cannot reappear here.
-        reminderRepo.observeAllProfiles().first()
+        reminderRepo
+            .observeAllProfiles()
+            .first()
             .filter { it.fireAt > now }
             .forEach { reminderScheduler.schedule(it) }
     }

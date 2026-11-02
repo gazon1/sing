@@ -56,27 +56,28 @@ fun createAppEntryProvider(
     today: LocalDate = systemToday(),
     pomodoroTimer: PomodoroTimer = koinInject(),
     pomodoroTaskList: PomodoroTaskListProvider = koinInject(),
-): (AppDestination) -> NavEntry<AppDestination> = entryProvider {
-    // No hoisted stacks on Android: each graph's stack is saved-state backed.
-    val stacks = AppNavStacks()
+): (AppDestination) -> NavEntry<AppDestination> =
+    entryProvider {
+        // No hoisted stacks on Android: each graph's stack is saved-state backed.
+        val stacks = AppNavStacks()
 
-    appEntries(nav, pomodoroTimer, pomodoroTaskList)
-    agendaEntries(nav, stacks, androidAgendaContextMenuHost())
-    calendarEntries(nav, stacks, today)
-    notesEntries(nav, stacks)
-    projectsEntries(nav, stacks)
-    plansEntries()
-    searchEntries(nav, stacks)
-    settingsEntries(nav, stacks)
+        appEntries(nav, pomodoroTimer, pomodoroTaskList)
+        agendaEntries(nav, stacks, androidAgendaContextMenuHost())
+        calendarEntries(nav, stacks, today)
+        notesEntries(nav, stacks)
+        projectsEntries(nav, stacks)
+        plansEntries()
+        searchEntries(nav, stacks)
+        settingsEntries(nav, stacks)
 
-    // The tasks graph entry stays platform-specific. On Desktop the pushed graph
-    // seeds its own per-entry stack and adds the detail route to it, so that the
-    // right frame renders immediately — a detail route pushed onto a stack whose
-    // top is the start route is not the frame the user asked for.
-    entry<AppDestination.TasksGraph>(clazzContentKey = { it.stableContentKey() }) { route ->
-        TasksNavGraph(
-            start = route.start.toTasksRoute(route.initialDueDate),
-            onExitGraph = nav.graphExit,
-        )
+        // The tasks graph entry stays platform-specific. On Desktop the pushed graph
+        // seeds its own per-entry stack and adds the detail route to it, so that the
+        // right frame renders immediately — a detail route pushed onto a stack whose
+        // top is the start route is not the frame the user asked for.
+        entry<AppDestination.TasksGraph>(clazzContentKey = { it.stableContentKey() }) { route ->
+            TasksNavGraph(
+                start = route.start.toTasksRoute(route.initialDueDate),
+                onExitGraph = nav.graphExit,
+            )
+        }
     }
-}

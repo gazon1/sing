@@ -22,19 +22,28 @@ class ColorizedWriter : LogWriter() {
     private val delegate: LogWriter = platformLogWriter(ColorizedFormatter)
     private val ansiEnabled: Boolean = detectAnsi()
 
-    override fun log(severity: Severity, message: String, tag: String, throwable: Throwable?) {
+    override fun log(
+        severity: Severity,
+        message: String,
+        tag: String,
+        throwable: Throwable?,
+    ) {
         val colored = if (ansiEnabled) decorate(severity, message) else message
         delegate.log(severity, colored, tag, throwable)
     }
 
-    private fun decorate(severity: Severity, message: String): String {
-        val color = when (severity) {
-            Severity.Verbose, Severity.Debug -> Gray
-            Severity.Info -> Green
-            Severity.Warn -> Yellow
-            Severity.Error, Severity.Assert -> Red
-        }
-        return "$color$message$Reset"
+    private fun decorate(
+        severity: Severity,
+        message: String,
+    ): String {
+        val color =
+            when (severity) {
+                Severity.Verbose, Severity.Debug -> GRAY
+                Severity.Info -> GREEN
+                Severity.Warn -> YELLOW
+                Severity.Error, Severity.Assert -> RED
+            }
+        return "$color$message$RESET"
     }
 
     private fun detectAnsi(): Boolean {
@@ -45,14 +54,15 @@ class ColorizedWriter : LogWriter() {
 
     private object ColorizedFormatter : MessageStringFormatter {
         override fun formatSeverity(severity: Severity): String = "$severity:"
+
         override fun formatTag(tag: Tag): String = if (tag.tag.isEmpty()) "" else "(${tag.tag})"
     }
 
     private companion object {
-        private const val Reset = "\u001B[0m"
-        private const val Gray = "\u001B[90m"
-        private const val Green = "\u001B[32m"
-        private const val Yellow = "\u001B[33m"
-        private const val Red = "\u001B[31m"
+        private const val RESET = "\u001B[0m"
+        private const val GRAY = "\u001B[90m"
+        private const val GREEN = "\u001B[32m"
+        private const val YELLOW = "\u001B[33m"
+        private const val RED = "\u001B[31m"
     }
 }

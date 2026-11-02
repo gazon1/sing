@@ -27,12 +27,14 @@ fun LoadingIndicator(modifier: Modifier = Modifier) {
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun LoadingIndicatorLightPreview() = PreviewThemed(darkTheme = false) {
-    LoadingIndicator()
-}
+private fun LoadingIndicatorLightPreview() =
+    PreviewThemed(darkTheme = false) {
+        LoadingIndicator()
+    }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun LoadingIndicatorDarkPreview() = PreviewThemed(darkTheme = true) {
-    LoadingIndicator()
-}
+private fun LoadingIndicatorDarkPreview() =
+    PreviewThemed(darkTheme = true) {
+        LoadingIndicator()
+    }

@@ -14,17 +14,19 @@ package com.singularity.todo.core.backup
  */
 
 /** The four bytes of [this], most significant first. */
-internal fun Int.toBytes(): ByteArray = byteArrayOf(
-    (this ushr 24).toByte(),
-    (this ushr 16).toByte(),
-    (this ushr 8).toByte(),
-    toByte(),
-)
+internal fun Int.toBytes(): ByteArray =
+    byteArrayOf(
+        (this ushr 24).toByte(),
+        (this ushr 16).toByte(),
+        (this ushr 8).toByte(),
+        toByte(),
+    )
 
 /** The eight bytes of [this], most significant first. */
-internal fun Long.toBytes(): ByteArray = ByteArray(8) { index ->
-    (this ushr (56 - 8 * index)).toByte()
-}
+internal fun Long.toBytes(): ByteArray =
+    ByteArray(8) { index ->
+        (this ushr (56 - 8 * index)).toByte()
+    }
 
 /** The big-endian int at [offset]. */
 internal fun ByteArray.intAt(offset: Int): Int =

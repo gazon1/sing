@@ -11,7 +11,6 @@ import kotlinx.coroutines.flow.Flow
  * from colliding with another feature's preferences.
  */
 interface PlansSettingsRepository {
-
     /** The granularity in effect for the current profile. */
     val granularity: Flow<PlansGranularity>
 

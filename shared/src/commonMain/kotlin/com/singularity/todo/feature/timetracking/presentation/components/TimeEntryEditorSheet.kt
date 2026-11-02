@@ -62,12 +62,15 @@ fun TimeEntryEditorSheet(
     onDismiss: () -> Unit,
 ) {
     // Default: start = task creation time, end = now
-    val defaultStart = taskStartedAtMs?.let {
-        kotlinx.datetime.Instant.fromEpochMilliseconds(it)
+    val defaultStart =
+        taskStartedAtMs?.let {
+            kotlinx.datetime.Instant
+                .fromEpochMilliseconds(it)
+                .toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
+        }
+    val defaultEnd =
+        now
             .toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
-    }
-    val defaultEnd = now
-        .toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
 
     var startedDate by mutableStateOf(defaultStart?.date)
     var startedTime by mutableStateOf(defaultStart?.time ?: LocalTime(9, 0))
@@ -119,28 +122,34 @@ fun TimeEntryEditorSheet(
     } else {
         BottomSheetHost(onDismiss = onDismiss) {
             SheetScaffold(
-                actions = SheetActions(
-                    onCancel = onDismiss,
-                    onConfirm = {
-                        val startDt = combine(startedDate, startedTime)
-                        val endDt = combine(endedDate, endedTime)
-                        if (startDt != null && endDt != null) {
-                            val startedAtMs = startDt.toInstant(
-                                kotlinx.datetime.TimeZone.currentSystemDefault(),
-                            ).toEpochMilliseconds()
-                            val endedAtMs = endDt.toInstant(
-                                kotlinx.datetime.TimeZone.currentSystemDefault(),
-                            ).toEpochMilliseconds()
-                            onSave(startedAtMs, endedAtMs, kind, noteState.text.toString().ifBlank { null })
-                        }
-                    },
-                    onClear = onDismiss,
-                ),
+                actions =
+                    SheetActions(
+                        onCancel = onDismiss,
+                        onConfirm = {
+                            val startDt = combine(startedDate, startedTime)
+                            val endDt = combine(endedDate, endedTime)
+                            if (startDt != null && endDt != null) {
+                                val startedAtMs =
+                                    startDt
+                                        .toInstant(
+                                            kotlinx.datetime.TimeZone.currentSystemDefault(),
+                                        ).toEpochMilliseconds()
+                                val endedAtMs =
+                                    endDt
+                                        .toInstant(
+                                            kotlinx.datetime.TimeZone.currentSystemDefault(),
+                                        ).toEpochMilliseconds()
+                                onSave(startedAtMs, endedAtMs, kind, noteState.text.toString().ifBlank { null })
+                            }
+                        },
+                        onClear = onDismiss,
+                    ),
             ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     // Start row
@@ -211,17 +220,26 @@ fun TimeEntryEditorSheet(
     }
 }
 
-private fun combine(date: LocalDate?, time: LocalTime?): LocalDateTime? {
+private fun combine(
+    date: LocalDate?,
+    time: LocalTime?,
+): LocalDateTime? {
     if (date == null || time == null) return null
     return LocalDateTime(date, time)
 }
 
 @Composable
-private fun DateRow(date: LocalDate?, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun DateRow(
+    date: LocalDate?,
+    label: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
     Row(
-        modifier = modifier
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
+        modifier =
+            modifier
+                .clickable(onClick = onClick)
+                .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Icon(
@@ -245,11 +263,17 @@ private fun DateRow(date: LocalDate?, label: String, modifier: Modifier = Modifi
 }
 
 @Composable
-private fun TimeRow(time: LocalTime?, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun TimeRow(
+    time: LocalTime?,
+    label: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
     Row(
-        modifier = modifier
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
+        modifier =
+            modifier
+                .clickable(onClick = onClick)
+                .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Icon(
@@ -276,11 +300,12 @@ private fun TimeRow(time: LocalTime?, label: String, modifier: Modifier = Modifi
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
-private fun TimeEntryEditorSheetPreview() = PreviewThemed(darkTheme = false) {
-    TimeEntryEditorSheet(
-        taskStartedAtMs = 1_757_000_000_000L,
-        now = kotlinx.datetime.Instant.fromEpochMilliseconds(1_757_000_000_000L),
-        onSave = { _, _, _, _ -> },
-        onDismiss = noopClick,
-    )
-}
+private fun TimeEntryEditorSheetPreview() =
+    PreviewThemed(darkTheme = false) {
+        TimeEntryEditorSheet(
+            taskStartedAtMs = 1_757_000_000_000L,
+            now = kotlinx.datetime.Instant.fromEpochMilliseconds(1_757_000_000_000L),
+            onSave = { _, _, _, _ -> },
+            onDismiss = noopClick,
+        )
+    }

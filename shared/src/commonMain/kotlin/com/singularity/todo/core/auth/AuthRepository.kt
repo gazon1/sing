@@ -12,12 +12,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.emptyFlow
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -78,8 +78,16 @@ interface AuthRepository {
      * afterwards.
      */
     val restoreFailures: Flow<Unit> get() = NoRestoreFailures
-    suspend fun signUp(email: String, password: String): Result<Unit>
-    suspend fun signIn(email: String, password: String): Result<Unit>
+
+    suspend fun signUp(
+        email: String,
+        password: String,
+    ): Result<Unit>
+
+    suspend fun signIn(
+        email: String,
+        password: String,
+    ): Result<Unit>
 
     /**
      * Starts a local, offline session — no account and no network.
@@ -112,7 +120,10 @@ interface AuthRepository {
      * Completes sign-in for an unconfirmed account by exchanging the token from
      * the magic link URL for a live session.
      */
-    suspend fun verifyMagicLink(email: String, token: String): Result<Unit>
+    suspend fun verifyMagicLink(
+        email: String,
+        token: String,
+    ): Result<Unit>
 }
 
 /**
@@ -162,7 +173,6 @@ class SupabaseAuthRepository(
     private val localOwnerStore: DataStoreSessionStore,
     private val scope: com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope,
 ) : AuthRepository {
-
     private val _currentSession = MutableStateFlow<Session>(Session.Loading)
     override val currentSession: StateFlow<Session> = _currentSession.asStateFlow()
 
@@ -232,9 +242,10 @@ class SupabaseAuthRepository(
      * never cancelled explicitly, and the repository is a process-lifetime singleton —
      * the same bargain every other background scope in this app makes.
      */
-    private val restoreScope: CoroutineScope = CoroutineScope(
-        scope.coroutineContext.minusKey(Job) + SupervisorJob(),
-    )
+    private val restoreScope: CoroutineScope =
+        CoroutineScope(
+            scope.coroutineContext.minusKey(Job) + SupervisorJob(),
+        )
 
     /**
      * The scope the observation of the provider's session runs in.
@@ -248,9 +259,10 @@ class SupabaseAuthRepository(
      * never cancelled explicitly, and the repository is a process-lifetime singleton —
      * the same bargain every other background scope in this app makes.
      */
-    private val observationScope: CoroutineScope = CoroutineScope(
-        scope.coroutineContext.minusKey(Job) + SupervisorJob(),
-    )
+    private val observationScope: CoroutineScope =
+        CoroutineScope(
+            scope.coroutineContext.minusKey(Job) + SupervisorJob(),
+        )
 
     /**
      * The reader that watches the provider.
@@ -334,15 +346,16 @@ class SupabaseAuthRepository(
         // 10 seconds is long enough for any legitimate storage operation (first
         // EncryptedSharedPreferences init, DataStore read, keychain access) and
         // short enough to not feel like a freeze when storage is truly unreachable.
-        val outcome = runCatchingCancellable {
-            restoreScope.boundedRead(
-                timeoutMs = RESTORE_SESSION_TIMEOUT,
-                onAbandonedFailure = ::reportAbandonedRestoreFailure,
-            ) { doRestoreSession() }
-        }.getOrElse { failure ->
-            log.e(failure) { "Session restore failed outright; falling back to the login screen" }
-            null
-        }
+        val outcome =
+            runCatchingCancellable {
+                restoreScope.boundedRead(
+                    timeoutMs = RESTORE_SESSION_TIMEOUT,
+                    onAbandonedFailure = ::reportAbandonedRestoreFailure,
+                ) { doRestoreSession() }
+            }.getOrElse { failure ->
+                log.e(failure) { "Session restore failed outright; falling back to the login screen" }
+                null
+            }
 
         // A timeout arrives as `TimedOut`, a throw as `null`, and a completed
         // restore as `Completed` — and the first two mean the same thing to the
@@ -407,7 +420,8 @@ class SupabaseAuthRepository(
             return
         }
 
-        gateway.refresh(stored.accessToken, stored.refreshToken)
+        gateway
+            .refresh(stored.accessToken, stored.refreshToken)
             .onSuccess { session ->
                 if (session == null) {
                     // The server refused the refresh token. Keeping it would mean
@@ -418,15 +432,15 @@ class SupabaseAuthRepository(
                 } else {
                     apply(session, session.email ?: stored.email.orEmpty())
                 }
-            }
-            .onFailure {
+            }.onFailure {
                 log.w(it) { "Could not refresh the stored session; keeping it for the next attempt" }
-                _currentSession.value = Session.SignedIn(
-                    UserId.fromString(stored.userId),
-                    stored.email.orEmpty(),
-                    stored.accessToken,
-                    stored.refreshToken,
-                )
+                _currentSession.value =
+                    Session.SignedIn(
+                        UserId.fromString(stored.userId),
+                        stored.email.orEmpty(),
+                        stored.accessToken,
+                        stored.refreshToken,
+                    )
             }
     }
 
@@ -469,19 +483,27 @@ class SupabaseAuthRepository(
         )
     }
 
-    override suspend fun signUp(email: String, password: String): Result<Unit> = attempt("sign up", email) {
-        val address = AuthDomain.normalizeEmail(email)
-        AuthDomain.validateEmail(address)
-        AuthDomain.validatePassword(password)
-        gateway.signUp(address, password)
-    }
+    override suspend fun signUp(
+        email: String,
+        password: String,
+    ): Result<Unit> =
+        attempt("sign up", email) {
+            val address = AuthDomain.normalizeEmail(email)
+            AuthDomain.validateEmail(address)
+            AuthDomain.validatePassword(password)
+            gateway.signUp(address, password)
+        }
 
-    override suspend fun signIn(email: String, password: String): Result<Unit> = attempt("sign in", email) {
-        val address = AuthDomain.normalizeEmail(email)
-        AuthDomain.validateEmail(address)
-        AuthDomain.validatePassword(password)
-        gateway.signIn(address, password)
-    }
+    override suspend fun signIn(
+        email: String,
+        password: String,
+    ): Result<Unit> =
+        attempt("sign in", email) {
+            val address = AuthDomain.normalizeEmail(email)
+            AuthDomain.validateEmail(address)
+            AuthDomain.validatePassword(password)
+            gateway.signIn(address, password)
+        }
 
     /**
      * Publishes a local, offline session and remembers that this install chose it.
@@ -563,8 +585,7 @@ class SupabaseAuthRepository(
                 } else {
                     apply(remote, remote.email.orEmpty())
                 }
-            }
-                .map { }
+            }.map { }
                 .onFailure { e ->
                     if (e.toAppError().code == SecureSessionManager.STORAGE_FAILED) endOrphanedSession(what)
                     log.e(e) { "Auth $what failed [email=${email?.let(Redaction::redactEmail) ?: "none"}]" }
@@ -598,16 +619,20 @@ class SupabaseAuthRepository(
      * reacts to the new session by reading a token finds it already there — which is
      * the order this method's callers rely on, and the reason the write is not here.
      */
-    private fun apply(remote: RemoteSession, email: String) {
+    private fun apply(
+        remote: RemoteSession,
+        email: String,
+    ) {
         if (remote.isAnonymous) {
             _currentSession.value = Session.Anonymous(UserId.fromString(remote.userId))
         } else {
-            _currentSession.value = Session.SignedIn(
-                userId = UserId.fromString(remote.userId),
-                email = email,
-                accessToken = remote.accessToken,
-                refreshToken = remote.refreshToken,
-            )
+            _currentSession.value =
+                Session.SignedIn(
+                    userId = UserId.fromString(remote.userId),
+                    email = email,
+                    accessToken = remote.accessToken,
+                    refreshToken = remote.refreshToken,
+                )
         }
     }
 
@@ -623,10 +648,11 @@ class SupabaseAuthRepository(
     override suspend fun signOut(): Result<Unit> {
         _isLoading.value = true
         return try {
-            val result = runCatchingResult {
-                localOwnerStore.clearLocalSession()
-                _currentSession.value = Session.SignedOut
-            }
+            val result =
+                runCatchingResult {
+                    localOwnerStore.clearLocalSession()
+                    _currentSession.value = Session.SignedOut
+                }
             // After the local state, not before: a server that is unreachable is
             // not a reason to keep credentials the user asked to be rid of. The
             // credential store is cleared by the provider's own sign-out, which is
@@ -669,7 +695,10 @@ class SupabaseAuthRepository(
         }
     }
 
-    override suspend fun verifyMagicLink(email: String, token: String): Result<Unit> {
+    override suspend fun verifyMagicLink(
+        email: String,
+        token: String,
+    ): Result<Unit> {
         _isLoading.value = true
         return try {
             runCatchingResult {

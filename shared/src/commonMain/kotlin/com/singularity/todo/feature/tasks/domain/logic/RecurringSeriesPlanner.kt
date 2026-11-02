@@ -70,7 +70,6 @@ data class SeriesMaterialisationPlan(val toCreate: List<Task>, val toMove: List<
  * @see RecurringSeriesWindow for the dates.
  */
 object RecurringSeriesPlanner {
-
     /**
      * The plan that makes [members] hold the window of [rule] from [anchor].
      *
@@ -94,8 +93,9 @@ object RecurringSeriesPlanner {
         horizonDays: Int = RecurringSeriesWindow.HORIZON_DAYS,
         maxFuture: Int = RecurringSeriesWindow.MAX_FUTURE,
     ): SeriesMaterialisationPlan {
-        val seriesId = template.seriesId
-            ?: error("A recurring series is planned around a row that carries a series id")
+        val seriesId =
+            template.seriesId
+                ?: error("A recurring series is planned around a row that carries a series id")
 
         val window = RecurringSeriesWindow.plan(rule, anchor, horizonDays, maxFuture)
         val openRows = members.filter { it.completedAt == null && !it.isTrashed }
@@ -105,9 +105,10 @@ object RecurringSeriesPlanner {
         // place: the window looks strictly after the anchor, so it is not part of
         // what the window plans for. Only the open rows *ahead* of the anchor are
         // matched to the window.
-        val aheadRows = openRows
-            .filter { row -> (row.dueDate ?: anchor) > anchor }
-            .sortedBy { it.dueDate }
+        val aheadRows =
+            openRows
+                .filter { row -> (row.dueDate ?: anchor) > anchor }
+                .sortedBy { it.dueDate }
 
         // Pair the open rows ahead of the anchor with the window dates positionally.
         // The pairing is by position, not by exact date, so a "from completion" close
@@ -116,14 +117,17 @@ object RecurringSeriesPlanner {
         // open row beyond the window leaves the series; a window date beyond the rows
         // is created.
         val paired = minOf(aheadRows.size, window.size)
-        val toMove = (0 until paired).mapNotNull { i ->
-            val row = aheadRows[i]
-            val date = window[i]
-            if (row.dueDate == date) null else row.copy(dueDate = date, updatedAt = now)
-        }
+        val toMove =
+            (0 until paired).mapNotNull { i ->
+                val row = aheadRows[i]
+                val date = window[i]
+                if (row.dueDate == date) null else row.copy(dueDate = date, updatedAt = now)
+            }
         val toDetach = aheadRows.drop(window.size).map { it.withRuleCleared() }
-        val toCreate = window.drop(aheadRows.size)
-            .map { date -> buildOccurrence(template, seriesId, date, now, rule) }
+        val toCreate =
+            window
+                .drop(aheadRows.size)
+                .map { date -> buildOccurrence(template, seriesId, date, now, rule) }
 
         // The ceiling: the series holds at most MAX_DATES rows. If creating the
         // window would cross it, the oldest closed rows rotate out — they are
@@ -169,32 +173,34 @@ object RecurringSeriesPlanner {
     ): Task {
         val primary = template.dueDate ?: date
         val delta = (date.toEpochDays() - primary.toEpochDays()).toInt()
-        return TaskDomain.buildTask(
-            input = com.singularity.todo.feature.tasks.domain.model.CreateTaskInput(
-                title = template.title,
-                description = template.description,
-                priority = template.priority,
-                kind = template.kind,
-                projectId = template.projectId,
-                parentTaskId = template.parentTaskId,
-                tagIds = template.tags,
-                dueDate = date,
-                dueTime = template.dueTime,
-                startDate = template.startDate?.shiftedBy(delta),
-                startTime = template.startTime,
-                endDate = template.endDate?.shiftedBy(delta),
-                endTime = template.endTime,
-                accentColor = template.accentColor,
-                emoji = template.emoji,
-                estimateMinutes = template.estimateMinutes,
-                someday = false,
-                recurrence = rule,
-            ),
-            id = TaskId.generate(),
-            createdAt = now,
-            updatedAt = now,
-            userId = template.userId,
-        ).copy(seriesId = seriesId)
+        return TaskDomain
+            .buildTask(
+                input =
+                    com.singularity.todo.feature.tasks.domain.model.CreateTaskInput(
+                        title = template.title,
+                        description = template.description,
+                        priority = template.priority,
+                        kind = template.kind,
+                        projectId = template.projectId,
+                        parentTaskId = template.parentTaskId,
+                        tagIds = template.tags,
+                        dueDate = date,
+                        dueTime = template.dueTime,
+                        startDate = template.startDate?.shiftedBy(delta),
+                        startTime = template.startTime,
+                        endDate = template.endDate?.shiftedBy(delta),
+                        endTime = template.endTime,
+                        accentColor = template.accentColor,
+                        emoji = template.emoji,
+                        estimateMinutes = template.estimateMinutes,
+                        someday = false,
+                        recurrence = rule,
+                    ),
+                id = TaskId.generate(),
+                createdAt = now,
+                updatedAt = now,
+                userId = template.userId,
+            ).copy(seriesId = seriesId)
     }
 
     private fun LocalDate.shiftedBy(days: Int): LocalDate =

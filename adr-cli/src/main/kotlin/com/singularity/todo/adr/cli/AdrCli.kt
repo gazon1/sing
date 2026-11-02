@@ -125,37 +125,66 @@ class AdrCli(
     private val err: Appendable,
     private val repoRoot: String = ".",
 ) {
-
-    private val json = Json { prettyPrint = true; encodeDefaults = true }
+    private val json =
+        Json {
+            prettyPrint = true
+            encodeDefaults = true
+        }
 
     fun run(argv: List<String>): Int {
         val args = ParsedArgs.parse(argv)
         return when (args.subcommand) {
-            null -> usage(ExitCode.USAGE)
+            null -> {
+                usage(ExitCode.USAGE)
+            }
 
-            "new" -> new(args)
+            "new" -> {
+                new(args)
+            }
 
-            "list" -> list(args)
+            "list" -> {
+                list(args)
+            }
 
-            "list-open" -> listOpen(args)
+            "list-open" -> {
+                listOpen(args)
+            }
 
-            "read" -> read(args)
+            "read" -> {
+                read(args)
+            }
 
-            "search" -> search(args)
+            "search" -> {
+                search(args)
+            }
 
-            "update" -> update(args)
+            "update" -> {
+                update(args)
+            }
 
-            "stale" -> stale(args)
+            "stale" -> {
+                stale(args)
+            }
 
-            "prune" -> prune(args)
+            "prune" -> {
+                prune(args)
+            }
 
-            "validate" -> validate()
+            "validate" -> {
+                validate()
+            }
 
-            "version" -> version(args)
+            "version" -> {
+                version(args)
+            }
 
-            "upgrade" -> upgrade(args)
+            "upgrade" -> {
+                upgrade(args)
+            }
 
-            "help", "--help", "-h" -> usage(ExitCode.OK)
+            "help", "--help", "-h" -> {
+                usage(ExitCode.OK)
+            }
 
             else -> {
                 err.appendLine("adr: unknown subcommand '${args.subcommand}'")
@@ -193,27 +222,29 @@ class AdrCli(
         }
     }
 
-    private fun list(args: ParsedArgs): Int = guarded {
-        val entries = storage.listAdrs()
-        if (args.json) {
-            emit(ListResult(entries))
-        } else if (entries.isEmpty()) {
-            out.appendLine("No ADRs found.")
-        } else {
-            entries.forEach { out.appendLine("${it.slug}  ${it.date}  ${it.title}") }
+    private fun list(args: ParsedArgs): Int =
+        guarded {
+            val entries = storage.listAdrs()
+            if (args.json) {
+                emit(ListResult(entries))
+            } else if (entries.isEmpty()) {
+                out.appendLine("No ADRs found.")
+            } else {
+                entries.forEach { out.appendLine("${it.slug}  ${it.date}  ${it.title}") }
+            }
         }
-    }
 
-    private fun listOpen(args: ParsedArgs): Int = guarded {
-        val entries = storage.listOpenDeferred()
-        if (args.json) {
-            emit(ListResult(entries))
-        } else if (entries.isEmpty()) {
-            out.appendLine("No open deferred entries.")
-        } else {
-            entries.forEach { out.appendLine("${it.slug}  ${it.date}  ${it.title}") }
+    private fun listOpen(args: ParsedArgs): Int =
+        guarded {
+            val entries = storage.listOpenDeferred()
+            if (args.json) {
+                emit(ListResult(entries))
+            } else if (entries.isEmpty()) {
+                out.appendLine("No open deferred entries.")
+            } else {
+                entries.forEach { out.appendLine("${it.slug}  ${it.date}  ${it.title}") }
+            }
         }
-    }
 
     /**
      * `adr search <query>`.
@@ -232,15 +263,16 @@ class AdrCli(
             err.appendLine("adr search: needs a query")
             return ExitCode.USAGE
         }
-        val envelope = try {
-            storage.search.searchDecisions(query)
-        } catch (e: CliFailure) {
-            err.appendLine("adr: ${e.message}")
-            return ExitCode.ERROR
-        } catch (e: IllegalArgumentException) {
-            err.appendLine("adr: ${e.message}")
-            return ExitCode.ERROR
-        }
+        val envelope =
+            try {
+                storage.search.searchDecisions(query)
+            } catch (e: CliFailure) {
+                err.appendLine("adr: ${e.message}")
+                return ExitCode.ERROR
+            } catch (e: IllegalArgumentException) {
+                err.appendLine("adr: ${e.message}")
+                return ExitCode.ERROR
+            }
         // The three answers stay apart, and each has its own exit code: a usage error is
         // not a failure of the corpus, and an empty result is not a failure of anything.
         return when {
@@ -275,8 +307,12 @@ class AdrCli(
     }
 
     private fun read(args: ParsedArgs): Int {
-        val slug = args.positionals.firstOrNull()
-            ?: run { err.appendLine("adr read: needs <slug>"); return ExitCode.USAGE }
+        val slug =
+            args.positionals.firstOrNull()
+                ?: run {
+                    err.appendLine("adr read: needs <slug>")
+                    return ExitCode.USAGE
+                }
         return guarded {
             val adr = storage.readAdr(slug) ?: throw CliFailure("ADR not found: $slug")
             if (args.json) {
@@ -331,15 +367,17 @@ class AdrCli(
         val wanted = args.status ?: DEFAULT_STALE_STATUS
         return guarded {
             val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
-            val entries = storage.listAdrs()
-                .filter { it.status.equals(wanted, ignoreCase = true) }
-                .mapNotNull { entry ->
-                    val date = runCatching { LocalDate.parse(entry.date) }.getOrNull()
-                        ?: return@mapNotNull null
-                    val age = today.daysUntil(date).let { -it }
-                    if (age >= days) StaleEntry(entry.slug, entry.date, age) else null
-                }
-                .sortedByDescending { it.ageDays }
+            val entries =
+                storage
+                    .listAdrs()
+                    .filter { it.status.equals(wanted, ignoreCase = true) }
+                    .mapNotNull { entry ->
+                        val date =
+                            runCatching { LocalDate.parse(entry.date) }.getOrNull()
+                                ?: return@mapNotNull null
+                        val age = today.daysUntil(date).let { -it }
+                        if (age >= days) StaleEntry(entry.slug, entry.date, age) else null
+                    }.sortedByDescending { it.ageDays }
 
             if (args.json) {
                 emit(StaleResult(days, wanted, entries))
@@ -370,19 +408,27 @@ class AdrCli(
             return ExitCode.ERROR
         }
         return guarded {
-            val process = ProcessBuilder("python3", script.absolutePath, "--list-cited")
-                .directory(java.io.File(repoRoot))
-                .redirectErrorStream(true)
-                .start()
+            val process =
+                ProcessBuilder("python3", script.absolutePath, "--list-cited")
+                    .directory(java.io.File(repoRoot))
+                    .redirectErrorStream(true)
+                    .start()
             val stdout = process.inputStream.bufferedReader().readText()
             val code = process.waitFor()
             if (code != 0) throw CliFailure("check-adr-references.py failed:\n$stdout")
 
-            val cited = stdout.lines().map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+            val cited =
+                stdout
+                    .lines()
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                    .toSet()
             val keep = args.keep.toSet()
-            val candidates = storage.listAdrs()
-                .filter { it.slug !in cited && it.slug !in keep }
-                .sortedByDescending { it.date }
+            val candidates =
+                storage
+                    .listAdrs()
+                    .filter { it.slug !in cited && it.slug !in keep }
+                    .sortedByDescending { it.date }
 
             if (args.json) {
                 emit(PruneResult(cited.size, candidates.map { PruneCandidate(it.slug, it.date, it.title) }))
@@ -401,10 +447,11 @@ class AdrCli(
             err.appendLine("adr validate: scripts/check_adr_status.py not found — run from the repository root")
             return ExitCode.ERROR
         }
-        val process = ProcessBuilder("python3", script.absolutePath)
-            .directory(java.io.File(repoRoot))
-            .redirectErrorStream(true)
-            .start()
+        val process =
+            ProcessBuilder("python3", script.absolutePath)
+                .directory(java.io.File(repoRoot))
+                .redirectErrorStream(true)
+                .start()
         val stdout = process.inputStream.bufferedReader().readText()
         out.append(stdout)
         return process.waitFor()
@@ -425,14 +472,15 @@ class AdrCli(
      * nothing, which is worse than having no check at all.
      */
     private fun version(args: ParsedArgs): Int {
-        val checkout = ProcessBuilder("git", "rev-parse", "--short=12", "HEAD")
-            .directory(java.io.File(repoRoot))
-            .redirectErrorStream(true)
-            .start()
-            .let { process ->
-                val stdout = process.inputStream.bufferedReader().readText()
-                process.waitFor() to stdout.trim()
-            }
+        val checkout =
+            ProcessBuilder("git", "rev-parse", "--short=12", "HEAD")
+                .directory(java.io.File(repoRoot))
+                .redirectErrorStream(true)
+                .start()
+                .let { process ->
+                    val stdout = process.inputStream.bufferedReader().readText()
+                    process.waitFor() to stdout.trim()
+                }
         val headSha = if (checkout.first == 0) checkout.second else AdrProvenance.UNKNOWN
 
         if (!args.check) {
@@ -469,19 +517,20 @@ class AdrCli(
      * MCP tools get. Here they become a message and an exit code, because a CLI that
      * prints a stack trace for "that ADR already exists" is not a CLI.
      */
-    private inline fun guarded(block: () -> Unit): Int = try {
-        block()
-        ExitCode.OK
-    } catch (e: CliFailure) {
-        err.appendLine("adr: ${e.message}")
-        ExitCode.ERROR
-    } catch (e: IllegalArgumentException) {
-        err.appendLine("adr: ${e.message}")
-        ExitCode.ERROR
-    } catch (e: IllegalStateException) {
-        err.appendLine("adr: ${e.message}")
-        ExitCode.ERROR
-    }
+    private inline fun guarded(block: () -> Unit): Int =
+        try {
+            block()
+            ExitCode.OK
+        } catch (e: CliFailure) {
+            err.appendLine("adr: ${e.message}")
+            ExitCode.ERROR
+        } catch (e: IllegalArgumentException) {
+            err.appendLine("adr: ${e.message}")
+            ExitCode.ERROR
+        } catch (e: IllegalStateException) {
+            err.appendLine("adr: ${e.message}")
+            ExitCode.ERROR
+        }
 
     private inline fun <reified T> emit(value: T) {
         out.appendLine(json.encodeToString(value))

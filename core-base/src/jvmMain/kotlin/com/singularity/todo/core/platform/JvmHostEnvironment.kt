@@ -13,7 +13,6 @@ package com.singularity.todo.core.platform
  * `:adr-cli` needs it and `:adr-cli` must not depend on the application.
  */
 class JvmHostEnvironment : HostEnvironmentPort {
-
     override fun workingDirectory(): String = property("user.dir")
 
     override fun homeDirectory(): String = property("user.home")
@@ -25,8 +24,7 @@ class JvmHostEnvironment : HostEnvironmentPort {
      * home directory belongs to the user, and an application that scatters its files
      * there is a guest that forgot to introduce itself.
      */
-    override fun applicationDataDirectory(): String =
-        property("user.home") + "/.singularity-todo"
+    override fun applicationDataDirectory(): String = property("user.home") + "/.singularity-todo"
 
     private fun property(key: String): String =
         System.getProperty(key)?.takeIf { it.isNotBlank() } ?: System.getProperty("user.home").orEmpty()

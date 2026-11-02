@@ -24,99 +24,97 @@ import com.singularity.todo.feature.tasks.domain.model.TaskStatus
  * @param input Raw user-supplied query string.
  */
 class SingularityQueryParser(input: String) : QueryParser(QueryTokenizer(input).tokens()) {
+    override val conditionMatches =
+        listOf(
+            // ── Status ──────────────────────────────────────────────────────────
+            ConditionMatch(Regex("""^-?state:(\w+)$""", RegexOption.IGNORE_CASE)) { m ->
+                val status = parseStatus(m.groupValues[1])
+                if (m.groupValues[0].startsWith("-")) {
+                    Condition.Not(Condition.HasStatus(status))
+                } else {
+                    Condition.HasStatus(status)
+                }
+            },
+            // ── Priority ─────────────────────────────────────────────────────────
+            ConditionMatch(Regex("""^-?priority:(\w+)$""", RegexOption.IGNORE_CASE)) { m ->
+                val priority = parsePriority(m.groupValues[1])
+                if (m.groupValues[0].startsWith("-")) {
+                    Condition.Not(Condition.HasPriority(priority))
+                } else {
+                    Condition.HasPriority(priority)
+                }
+            },
+            // ── Single tag ────────────────────────────────────────────────────────
+            // C2 — names and text are taken literally after the prefix. `tag:work` is the
+            // tag named `work`. Resolving that name to an id happens later, in the
+            // resolver, against the database.
+            ConditionMatch(Regex("""^-?tag:(\S+)$""")) { m ->
+                val tagName = m.groupValues[1]
+                if (m.groupValues[0].startsWith("-")) {
+                    Condition.Not(Condition.HasTag(tagName))
+                } else {
+                    Condition.HasTag(tagName)
+                }
+            },
+            // ── Multi-tag (AND) ────────────────────────────────────────────────────
+            // The explicit spelling of what C1 makes implicit: repeated `tag:` words
+            // accumulate into the same one `HasAllTags` condition.
+            ConditionMatch(Regex("""^-?tags:(.+)$""")) { m ->
+                val tagNames =
+                    m.groupValues[1]
+                        .split(',')
+                        .map { it.trim() }
+                        .filter { it.isNotEmpty() }
+                        .toSet()
+                if (m.groupValues[0].startsWith("-")) {
+                    Condition.Not(Condition.HasAllTags(tagNames))
+                } else {
+                    Condition.HasAllTags(tagNames)
+                }
+            },
+            // ── Project ───────────────────────────────────────────────────────────
+            // C2 — names and text are taken literally after the prefix. `project:Plans` is
+            // the project named `Plans`, not a lookup that ignores case.
+            ConditionMatch(Regex("""^project:(\S+)$""")) { m ->
+                Condition.InProject(m.groupValues[1])
+            },
+            // ── Due date ─────────────────────────────────────────────────────────
+            ConditionMatch(Regex("""^due:(.+)$""", RegexOption.IGNORE_CASE)) { m ->
+                parseDateCondition("due", m.groupValues[1])
+            },
+            // ── Scheduled date ────────────────────────────────────────────────────
+            ConditionMatch(Regex("""^scheduled:(.+)$""", RegexOption.IGNORE_CASE)) { m ->
+                parseDateCondition("scheduled", m.groupValues[1])
+            },
+            // ── Has description ───────────────────────────────────────────────────
+            ConditionMatch(Regex("""^has:description$""", RegexOption.IGNORE_CASE)) {
+                Condition.HasDescription
+            },
+            // ── Pinned ─────────────────────────────────────────────────────────────
+            ConditionMatch(Regex("""^pinned$""", RegexOption.IGNORE_CASE)) {
+                Condition.IsPinned
+            },
+            // ── Archived ───────────────────────────────────────────────────────────
+            ConditionMatch(Regex("""^archived$""", RegexOption.IGNORE_CASE)) {
+                Condition.IsArchived
+            },
+        )
 
-    override val conditionMatches = listOf(
-        // ── Status ──────────────────────────────────────────────────────────
-        ConditionMatch(Regex("""^-?state:(\w+)$""", RegexOption.IGNORE_CASE)) { m ->
-            val status = parseStatus(m.groupValues[1])
-            if (m.groupValues[0].startsWith("-")) {
-                Condition.Not(Condition.HasStatus(status))
-            } else {
-                Condition.HasStatus(status)
-            }
-        },
+    override val sortOrderMatches =
+        listOf(
+            SortOrderMatch(Regex("""^sort:priority$""", RegexOption.IGNORE_CASE), SortOrder.PRIORITY),
+            SortOrderMatch(Regex("""^sort:due$""", RegexOption.IGNORE_CASE), SortOrder.DUE),
+            SortOrderMatch(Regex("""^sort:title$""", RegexOption.IGNORE_CASE), SortOrder.TITLE),
+            SortOrderMatch(Regex("""^sort:created$""", RegexOption.IGNORE_CASE), SortOrder.CREATED),
+            SortOrderMatch(Regex("""^sort:updated$""", RegexOption.IGNORE_CASE), SortOrder.UPDATED),
+        )
 
-        // ── Priority ─────────────────────────────────────────────────────────
-        ConditionMatch(Regex("""^-?priority:(\w+)$""", RegexOption.IGNORE_CASE)) { m ->
-            val priority = parsePriority(m.groupValues[1])
-            if (m.groupValues[0].startsWith("-")) {
-                Condition.Not(Condition.HasPriority(priority))
-            } else {
-                Condition.HasPriority(priority)
-            }
-        },
-
-        // ── Single tag ────────────────────────────────────────────────────────
-        // C2 — names and text are taken literally after the prefix. `tag:work` is the
-        // tag named `work`. Resolving that name to an id happens later, in the
-        // resolver, against the database.
-        ConditionMatch(Regex("""^-?tag:(\S+)$""")) { m ->
-            val tagName = m.groupValues[1]
-            if (m.groupValues[0].startsWith("-")) {
-                Condition.Not(Condition.HasTag(tagName))
-            } else {
-                Condition.HasTag(tagName)
-            }
-        },
-
-        // ── Multi-tag (AND) ────────────────────────────────────────────────────
-        // The explicit spelling of what C1 makes implicit: repeated `tag:` words
-        // accumulate into the same one `HasAllTags` condition.
-        ConditionMatch(Regex("""^-?tags:(.+)$""")) { m ->
-            val tagNames = m.groupValues[1].split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
-            if (m.groupValues[0].startsWith("-")) {
-                Condition.Not(Condition.HasAllTags(tagNames))
-            } else {
-                Condition.HasAllTags(tagNames)
-            }
-        },
-
-        // ── Project ───────────────────────────────────────────────────────────
-        // C2 — names and text are taken literally after the prefix. `project:Plans` is
-        // the project named `Plans`, not a lookup that ignores case.
-        ConditionMatch(Regex("""^project:(\S+)$""")) { m ->
-            Condition.InProject(m.groupValues[1])
-        },
-
-        // ── Due date ─────────────────────────────────────────────────────────
-        ConditionMatch(Regex("""^due:(.+)$""", RegexOption.IGNORE_CASE)) { m ->
-            parseDateCondition("due", m.groupValues[1])
-        },
-
-        // ── Scheduled date ────────────────────────────────────────────────────
-        ConditionMatch(Regex("""^scheduled:(.+)$""", RegexOption.IGNORE_CASE)) { m ->
-            parseDateCondition("scheduled", m.groupValues[1])
-        },
-
-        // ── Has description ───────────────────────────────────────────────────
-        ConditionMatch(Regex("""^has:description$""", RegexOption.IGNORE_CASE)) {
-            Condition.HasDescription
-        },
-
-        // ── Pinned ─────────────────────────────────────────────────────────────
-        ConditionMatch(Regex("""^pinned$""", RegexOption.IGNORE_CASE)) {
-            Condition.IsPinned
-        },
-
-        // ── Archived ───────────────────────────────────────────────────────────
-        ConditionMatch(Regex("""^archived$""", RegexOption.IGNORE_CASE)) {
-            Condition.IsArchived
-        },
-    )
-
-    override val sortOrderMatches = listOf(
-        SortOrderMatch(Regex("""^sort:priority$""", RegexOption.IGNORE_CASE), SortOrder.PRIORITY),
-        SortOrderMatch(Regex("""^sort:due$""", RegexOption.IGNORE_CASE), SortOrder.DUE),
-        SortOrderMatch(Regex("""^sort:title$""", RegexOption.IGNORE_CASE), SortOrder.TITLE),
-        SortOrderMatch(Regex("""^sort:created$""", RegexOption.IGNORE_CASE), SortOrder.CREATED),
-        SortOrderMatch(Regex("""^sort:updated$""", RegexOption.IGNORE_CASE), SortOrder.UPDATED),
-    )
-
-    override val optionMatches = listOf(
-        OptionMatch(Regex("""^limit:(\d+)$""", RegexOption.IGNORE_CASE)) { m, opts ->
-            opts.copy(limit = m.groupValues[1].toIntOrNull()?.coerceIn(1, 1000) ?: opts.limit)
-        },
-    )
+    override val optionMatches =
+        listOf(
+            OptionMatch(Regex("""^limit:(\d+)$""", RegexOption.IGNORE_CASE)) { m, opts ->
+                opts.copy(limit = m.groupValues[1].toIntOrNull()?.coerceIn(1, 1000) ?: opts.limit)
+            },
+        )
 
     override fun parse(): Query {
         if (tokens.isEmpty()) return Query.EMPTY
@@ -160,9 +158,10 @@ class SingularityQueryParser(input: String) : QueryParser(QueryTokenizer(input).
 
         // ── Phase 2: parse condition from remaining tokens ─────────────────────
         val conditionTokens = tokens.filterIndexed { idx, _ -> idx !in consumedIndices }
-        val conditionParser = ConditionExprParser(conditionTokens, conditionMatches) { prefix, spec ->
-            parseDateCondition(prefix, spec)
-        }
+        val conditionParser =
+            ConditionExprParser(conditionTokens, conditionMatches) { prefix, spec ->
+                parseDateCondition(prefix, spec)
+            }
         val condition = conditionParser.parse()
 
         return Query(
@@ -175,45 +174,53 @@ class SingularityQueryParser(input: String) : QueryParser(QueryTokenizer(input).
 
     // ─── Value parsers ───────────────────────────────────────────────────────
 
-    private fun parseStatus(s: String): TaskStatus = when (s.lowercase()) {
-        "active" -> TaskStatus.Active
-        "completed", "done" -> TaskStatus.Completed
-        "all" -> TaskStatus.All
-        else -> throw QueryParseException("Unknown status: '$s'. Expected: active, completed, all", 0)
-    }
-
-    private fun parsePriority(s: String): TaskPriority = when (s.lowercase()) {
-        "none" -> TaskPriority.None
-        "low" -> TaskPriority.Low
-        "medium" -> TaskPriority.Medium
-        "high" -> TaskPriority.High
-        "urgent" -> TaskPriority.Urgent
-        else -> throw QueryParseException("Unknown priority: '$s'. Expected: none, low, medium, high, urgent", 0)
-    }
-
-    private fun parseDateCondition(prefix: String, spec: String): Condition {
-        val (relationStr, valueStr) = when {
-            spec.startsWith(">=") -> ">=" to spec.substring(2)
-            spec.startsWith("<=") -> "<=" to spec.substring(2)
-            spec.startsWith(">") -> ">" to spec.substring(1)
-            spec.startsWith("<") -> "<" to spec.substring(1)
-            spec.startsWith("=") -> "=" to spec.substring(1)
-            spec.startsWith("!=") -> "!=" to spec.substring(2)
-            else -> "<=" to spec // default: "within N days"
+    private fun parseStatus(s: String): TaskStatus =
+        when (s.lowercase()) {
+            "active" -> TaskStatus.Active
+            "completed", "done" -> TaskStatus.Completed
+            "all" -> TaskStatus.All
+            else -> throw QueryParseException("Unknown status: '$s'. Expected: active, completed, all", 0)
         }
 
-        val rel = when (relationStr) {
-            ">" -> Relation.GT
-            ">=" -> Relation.GE
-            "<" -> Relation.LT
-            "<=" -> Relation.LE
-            "=" -> Relation.EQ
-            "!=" -> Relation.NE
-            else -> Relation.LE
+    private fun parsePriority(s: String): TaskPriority =
+        when (s.lowercase()) {
+            "none" -> TaskPriority.None
+            "low" -> TaskPriority.Low
+            "medium" -> TaskPriority.Medium
+            "high" -> TaskPriority.High
+            "urgent" -> TaskPriority.Urgent
+            else -> throw QueryParseException("Unknown priority: '$s'. Expected: none, low, medium, high, urgent", 0)
         }
 
-        val interval = QueryInterval.parse(valueStr)
-            ?: throw QueryParseException("Unknown $prefix interval: '$valueStr'", 0)
+    private fun parseDateCondition(
+        prefix: String,
+        spec: String,
+    ): Condition {
+        val (relationStr, valueStr) =
+            when {
+                spec.startsWith(">=") -> ">=" to spec.substring(2)
+                spec.startsWith("<=") -> "<=" to spec.substring(2)
+                spec.startsWith(">") -> ">" to spec.substring(1)
+                spec.startsWith("<") -> "<" to spec.substring(1)
+                spec.startsWith("=") -> "=" to spec.substring(1)
+                spec.startsWith("!=") -> "!=" to spec.substring(2)
+                else -> "<=" to spec // default: "within N days"
+            }
+
+        val rel =
+            when (relationStr) {
+                ">" -> Relation.GT
+                ">=" -> Relation.GE
+                "<" -> Relation.LT
+                "<=" -> Relation.LE
+                "=" -> Relation.EQ
+                "!=" -> Relation.NE
+                else -> Relation.LE
+            }
+
+        val interval =
+            QueryInterval.parse(valueStr)
+                ?: throw QueryParseException("Unknown $prefix interval: '$valueStr'", 0)
 
         // `none` alias means "no date constraint" — skip the condition entirely
         if (interval.isNone) return Condition.And(emptyList())

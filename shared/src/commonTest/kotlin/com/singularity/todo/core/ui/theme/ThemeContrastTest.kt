@@ -8,7 +8,6 @@ import kotlin.test.assertTrue
 
 @Tag("fast")
 class ThemeContrastTest {
-
     @Test
     fun `onPrimary on primary and onSurface on surface pass WCAG AA in light and dark for every accent`() {
         SingularityAccents.entries.forEach { accent ->
@@ -28,7 +27,10 @@ class ThemeContrastTest {
         }
     }
 
-    private fun contrastRatio(foreground: Color, background: Color): Double {
+    private fun contrastRatio(
+        foreground: Color,
+        background: Color,
+    ): Double {
         val l1 = relativeLuminance(foreground)
         val l2 = relativeLuminance(background)
         val lighter = maxOf(l1, l2)

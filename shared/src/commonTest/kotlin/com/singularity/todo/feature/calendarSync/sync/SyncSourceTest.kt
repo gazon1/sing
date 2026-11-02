@@ -6,7 +6,6 @@ import kotlin.test.assertEquals
 
 @Tag("fast")
 class SyncSourceTest {
-
     // ── upgrade() truth table ───────────────────────────────────────────────────
 
     /** showIndicator beats non-showIndicator, regardless of immediate flag. */
@@ -31,7 +30,8 @@ class SyncSourceTest {
     @Test
     fun upgrade_both_nonShowIndicator_picks_immediate() {
         val result = SyncSource.Periodic.upgrade(SyncSource.AppResumed)
-        assertEquals(SyncSource.AppResumed, result) // Periodic: immediate=false, AppResumed: immediate=false → first wins
+        // Periodic: immediate=false, AppResumed: immediate=false → first wins
+        assertEquals(SyncSource.AppResumed, result)
     }
 
     @Test

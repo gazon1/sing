@@ -15,7 +15,6 @@ import com.singularity.todo.feature.calendarSync.domain.model.SyncedEventRef
  * @param desiredEvents The events we want reflected in the system calendar.
  */
 object SyncDiffMerge {
-
     /**
      * Computes the minimal sync plan to bring the system calendar in sync.
      *
@@ -29,7 +28,10 @@ object SyncDiffMerge {
      *    - Has eventId → Delete
      *    - No eventId → NoOp (already absent)
      */
-    fun diff(existingMap: Map<String, SyncedEventRef>, desiredEvents: List<CalendarSyncEvent>): List<SyncPlan> {
+    fun diff(
+        existingMap: Map<String, SyncedEventRef>,
+        desiredEvents: List<CalendarSyncEvent>,
+    ): List<SyncPlan> {
         val ops = mutableListOf<SyncPlan>()
         val seenTaskIds = mutableSetOf<String>()
 
@@ -77,12 +79,13 @@ object SyncDiffMerge {
  * Builds a stable hash from the fields that affect how an event displays in a calendar.
  * Changes to any of these fields produce a different hash → triggers a re-write.
  */
-fun CalendarSyncEvent.checksum(): Int = listOfNotNull(
-    title,
-    description,
-    startMs,
-    endMs,
-    if (allDay) 1 else 0,
-    rrule,
-    calendarId,
-).hashCode()
+fun CalendarSyncEvent.checksum(): Int =
+    listOfNotNull(
+        title,
+        description,
+        startMs,
+        endMs,
+        if (allDay) 1 else 0,
+        rrule,
+        calendarId,
+    ).hashCode()

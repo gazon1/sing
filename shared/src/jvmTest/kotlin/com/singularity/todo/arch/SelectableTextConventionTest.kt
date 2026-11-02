@@ -46,14 +46,15 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class SelectableTextConventionTest {
-
     @Test
     fun `every file that uses a text widget is classified`() {
         val classified = registry.keys.toSet()
-        val unclassified = SelectableTextScan.treatments()
-            .keys
-            .filterNot { it in classified }
-            .sorted()
+        val unclassified =
+            SelectableTextScan
+                .treatments()
+                .keys
+                .filterNot { it in classified }
+                .sorted()
 
         assertTrue(
             unclassified.isEmpty(),
@@ -68,28 +69,29 @@ class SelectableTextConventionTest {
     @Test
     fun `the classified treatment is the treatment the code uses`() {
         val sites = SelectableTextScan.treatments()
-        val mismatches = registry.mapNotNull { (path, declared) ->
-            if (path !in SelectableTextScan.files()) {
-                "  - $path: classified as $declared but there is no such file in commonMain " +
-                    "(stale row)"
-                return@mapNotNull null
-            }
-            val used = sites[path].orEmpty()
-            if (declared == TextTreatment.EXCLUDED) {
-                if (used.isEmpty()) {
-                    null
-                } else {
-                    "  - $path: classified as excluded but the file uses $used"
+        val mismatches =
+            registry.mapNotNull { (path, declared) ->
+                if (path !in SelectableTextScan.files()) {
+                    "  - $path: classified as $declared but there is no such file in commonMain " +
+                        "(stale row)"
+                    return@mapNotNull null
                 }
-            } else if (used.isEmpty()) {
-                "  - $path: classified as $declared but the file uses no text widget " +
-                    "any more (stale row)"
-            } else if (declared !in used) {
-                "  - $path: classified as $declared but the file uses $used"
-            } else {
-                null
+                val used = sites[path].orEmpty()
+                if (declared == TextTreatment.EXCLUDED) {
+                    if (used.isEmpty()) {
+                        null
+                    } else {
+                        "  - $path: classified as excluded but the file uses $used"
+                    }
+                } else if (used.isEmpty()) {
+                    "  - $path: classified as $declared but the file uses no text widget " +
+                        "any more (stale row)"
+                } else if (declared !in used) {
+                    "  - $path: classified as $declared but the file uses $used"
+                } else {
+                    null
+                }
             }
-        }
 
         assertTrue(
             mismatches.isEmpty(),
@@ -118,17 +120,18 @@ class SelectableTextConventionTest {
      * never read as a row of this one.
      */
     private fun skillInventory(): Map<String, TextTreatment> =
-        SkillTables.tableIn("singularity-todo-selectable-text/SKILL.md", "File", "Treatment", "Reason")
+        SkillTables
+            .tableIn("singularity-todo-selectable-text/SKILL.md", "File", "Treatment", "Reason")
             .mapNotNull { cells ->
                 val file = cells[0].removeSurrounding("`").trim()
                 if (!file.endsWith(".kt")) return@mapNotNull null
-                val treatment = cells[1]
-                    .removeSurrounding("`")
-                    .trim()
-                    .lowercase()
-                    .let { label -> TextTreatment.entries.firstOrNull { it.label == label } }
-                    ?: return@mapNotNull null
+                val treatment =
+                    cells[1]
+                        .removeSurrounding("`")
+                        .trim()
+                        .lowercase()
+                        .let { label -> TextTreatment.entries.firstOrNull { it.label == label } }
+                        ?: return@mapNotNull null
                 file to treatment
-            }
-            .toMap()
+            }.toMap()
 }

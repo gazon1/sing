@@ -4,35 +4,35 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
-import androidx.compose.ui.test.hasScrollAction
 import com.singularity.todo.core.ids.UserId
 import com.singularity.todo.core.ui.TestTags
 import com.singularity.todo.feature.agenda.SavedAgendaViewId
 import com.singularity.todo.feature.agenda.domain.model.AgendaDefinition
 import com.singularity.todo.feature.agenda.domain.model.SavedAgendaViewFactory
 import com.singularity.todo.feature.agenda.domain.model.toSectionsJson
-import com.singularity.todo.feature.agenda.domain.selector.SelectorTemplate
 import com.singularity.todo.feature.agenda.domain.port.SavedAgendaViewsRepository
+import com.singularity.todo.feature.agenda.domain.selector.SelectorTemplate
+import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tags.Tag
 import com.singularity.todo.feature.tags.TagId
-import com.singularity.todo.feature.profile.ProfileAwareCurrentUser
 import com.singularity.todo.feature.tags.TagsRepository
 import com.singularity.todo.test.helpers.assertNodeDisplayed
 import com.singularity.todo.test.helpers.assertTagDisplayed
+import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.awaitTag
 import com.singularity.todo.test.helpers.awaitTagGone
-import com.singularity.todo.test.helpers.assertTextDisplayed
 import com.singularity.todo.test.helpers.clickText
 import com.singularity.todo.test.helpers.runDesktopAppTest
 import com.singularity.todo.test.helpers.tapTab
+import org.koin.core.Koin
 import kotlin.test.Test
 import kotlin.test.assertTrue
-import org.koin.core.Koin
 import kotlin.time.Instant
 import org.junit.jupiter.api.Tag as JUnitTag
 
@@ -51,7 +51,6 @@ import org.junit.jupiter.api.Tag as JUnitTag
 @JUnitTag("slow")
 @OptIn(ExperimentalTestApi::class)
 class SavedAgendaSelectorConfiguratorFlowTest {
-
     private val fixedNow = Instant.fromEpochMilliseconds(1_700_000_000_000)
     private val viewId = SavedAgendaViewId.fromString("v-cfg")
 
@@ -61,7 +60,11 @@ class SavedAgendaSelectorConfiguratorFlowTest {
      * `observeAll()` and the picker opens empty — which looks exactly like the
      * configurator being broken.
      */
-    private suspend fun seedTag(koin: Koin, id: String, name: String) {
+    private suspend fun seedTag(
+        koin: Koin,
+        id: String,
+        name: String,
+    ) {
         val userId = koin.get<ProfileAwareCurrentUser>().scopedUserId.value
         koin.get<TagsRepository>().create(
             Tag(
@@ -123,18 +126,19 @@ class SavedAgendaSelectorConfiguratorFlowTest {
     }
 
     @Test
-    fun `a parameterless type is added in one step`() = runDesktopAppTest(checkA11y = true) { koin ->
-        createView(koin)
-        openEditorForConfigurable()
-        openAddSectionSheet()
+    fun `a parameterless type is added in one step`() =
+        runDesktopAppTest(checkA11y = true) { koin ->
+            createView(koin)
+            openEditorForConfigurable()
+            openAddSectionSheet()
 
-        // "Due today" needs no values, so picking it adds the section directly —
-        // no second sheet.
-        pickSectionTemplate("Due today")
+            // "Due today" needs no values, so picking it adds the section directly —
+            // no second sheet.
+            pickSectionTemplate("Due today")
 
-        assertTagDisplayed(TestTags.SAVED_AGENDA_SAVE_BUTTON).performClick()
-        awaitTagGone(TestTags.SAVED_AGENDA_NAME_INPUT)
-    }
+            assertTagDisplayed(TestTags.SAVED_AGENDA_SAVE_BUTTON).performClick()
+            awaitTagGone(TestTags.SAVED_AGENDA_NAME_INPUT)
+        }
 
     @Test
     fun `a parameterized type opens a second step whose confirm is disabled until a value is chosen`() =
@@ -156,34 +160,35 @@ class SavedAgendaSelectorConfiguratorFlowTest {
         }
 
     @Test
-    fun `the chosen value reaches the section, not just the picker`() = runDesktopAppTest(checkA11y = true) { koin ->
-        seedTag(koin, id = "tag-work", name = "work")
-        createView(koin)
-        openEditorForConfigurable()
-        openAddSectionSheet()
+    fun `the chosen value reaches the section, not just the picker`() =
+        runDesktopAppTest(checkA11y = true) { koin ->
+            seedTag(koin, id = "tag-work", name = "work")
+            createView(koin)
+            openEditorForConfigurable()
+            openAddSectionSheet()
 
-        pickSectionTemplate("By tag")
-        awaitTag(TestTags.agendaSelectorOption("tag-work")).performClick()
-        awaitTag(TestTags.SAVED_AGENDA_ADD_SECTION_CONFIRM).performClick()
+            pickSectionTemplate("By tag")
+            awaitTag(TestTags.agendaSelectorOption("tag-work")).performClick()
+            awaitTag(TestTags.SAVED_AGENDA_ADD_SECTION_CONFIRM).performClick()
 
-        // The section row renders the *resolved* selector's description, so this
-        // is where a dropped or empty selection would show up: a section built
-        // from Selector.Tags(emptySet()) would read "Any tag: 0", not "Any tag: 1".
-        // The section row renders the description twice — as the section name
-        // and as the row subtitle — so match the first, not "exactly one".
-        assertNodeDisplayed(hasText("Any tag: 1"), "Any tag: 1 row")
+            // The section row renders the *resolved* selector's description, so this
+            // is where a dropped or empty selection would show up: a section built
+            // from Selector.Tags(emptySet()) would read "Any tag: 0", not "Any tag: 1".
+            // The section row renders the description twice — as the section name
+            // and as the row subtitle — so match the first, not "exactly one".
+            assertNodeDisplayed(hasText("Any tag: 1"), "Any tag: 1 row")
 
-        assertTagDisplayed(TestTags.SAVED_AGENDA_SAVE_BUTTON).performClick()
-        awaitTagGone(TestTags.SAVED_AGENDA_NAME_INPUT)
+            assertTagDisplayed(TestTags.SAVED_AGENDA_SAVE_BUTTON).performClick()
+            awaitTagGone(TestTags.SAVED_AGENDA_NAME_INPUT)
 
-        // And it survives the round trip: reopen and the section is still there.
-        assertTextDisplayed("Configurable")
-        clickText("⋮")
-        onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
-        // The section row renders the description twice — as the section name
-        // and as the row subtitle — so match the first, not "exactly one".
-        assertNodeDisplayed(hasText("Any tag: 1"), "Any tag: 1 row")
-    }
+            // And it survives the round trip: reopen and the section is still there.
+            assertTextDisplayed("Configurable")
+            clickText("⋮")
+            onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
+            // The section row renders the description twice — as the section name
+            // and as the row subtitle — so match the first, not "exactly one".
+            assertNodeDisplayed(hasText("Any tag: 1"), "Any tag: 1 row")
+        }
 
     /**
      * The state facts are section types now, and a section built from one
@@ -195,29 +200,30 @@ class SavedAgendaSelectorConfiguratorFlowTest {
      * was serialized rather than dropped.
      */
     @Test
-    fun `a workflow-state section is offered and survives a save`() = runDesktopAppTest(checkA11y = true) { koin ->
-        val labels = SelectorTemplate.catalogue.map { it.label }
-        assertTrue("In progress" in labels, "the catalogue must offer the state sections: $labels")
-        assertTrue("Blocked" in labels, "the catalogue must offer the blocked section: $labels")
-        assertTrue("Follow-ups" in labels, "the catalogue must offer the follow-up section: $labels")
+    fun `a workflow-state section is offered and survives a save`() =
+        runDesktopAppTest(checkA11y = true) { koin ->
+            val labels = SelectorTemplate.catalogue.map { it.label }
+            assertTrue("In progress" in labels, "the catalogue must offer the state sections: $labels")
+            assertTrue("Blocked" in labels, "the catalogue must offer the blocked section: $labels")
+            assertTrue("Follow-ups" in labels, "the catalogue must offer the follow-up section: $labels")
 
-        createView(koin)
-        openEditorForConfigurable()
-        openAddSectionSheet()
+            createView(koin)
+            openEditorForConfigurable()
+            openAddSectionSheet()
 
-        pickSectionTemplate("In progress")
+            pickSectionTemplate("In progress")
 
-        // The section row renders the resolved description twice — as the name
-        // and as the subtitle — so match the first, not "exactly one".
-        assertNodeDisplayed(hasText("In progress"), "In progress row")
+            // The section row renders the resolved description twice — as the name
+            // and as the subtitle — so match the first, not "exactly one".
+            assertNodeDisplayed(hasText("In progress"), "In progress row")
 
-        assertTagDisplayed(TestTags.SAVED_AGENDA_SAVE_BUTTON).performClick()
-        awaitTagGone(TestTags.SAVED_AGENDA_NAME_INPUT)
+            assertTagDisplayed(TestTags.SAVED_AGENDA_SAVE_BUTTON).performClick()
+            awaitTagGone(TestTags.SAVED_AGENDA_NAME_INPUT)
 
-        // Reopen: the selector round-tripped through the stored JSON.
-        assertTextDisplayed("Configurable")
-        clickText("⋮")
-        onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
-        assertNodeDisplayed(hasText("In progress"), "In progress row after reopen")
-    }
+            // Reopen: the selector round-tripped through the stored JSON.
+            assertTextDisplayed("Configurable")
+            clickText("⋮")
+            onAllNodes(hasText("Edit") and hasClickAction()).onFirst().performClick()
+            assertNodeDisplayed(hasText("In progress"), "In progress row after reopen")
+        }
 }

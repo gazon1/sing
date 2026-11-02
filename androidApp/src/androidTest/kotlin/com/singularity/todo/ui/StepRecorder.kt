@@ -85,7 +85,12 @@ class StepRecorder {
                 detail = detail,
                 durationMs = elapsed(start),
                 ok = false,
-                errorLine = error::class.simpleName + ": " + error.message.orEmpty().lines().first(),
+                errorLine =
+                    error::class.simpleName + ": " +
+                        error.message
+                            .orEmpty()
+                            .lines()
+                            .first(),
             ),
         )
     }
@@ -99,20 +104,21 @@ class StepRecorder {
      * +1.47s  awaitObject(nav_tab_upcoming) FAIL  10.00s  AssertionError: ...
      * ```
      */
-    fun format(): String = buildString {
-        for (record in records) {
-            val sign = if (record.offsetMs >= 0) "+" else ""
-            val seconds = record.offsetMs / 1000.0
-            val duration = record.durationMs / 1000.0
-            val detail = record.detail?.let { "($it)" } ?: ""
-            val status = if (record.ok) "OK  " else "FAIL"
-            val error = record.errorLine?.let { "  $it" } ?: ""
-            appendLine(
-                "$sign${"%.2f".format(seconds)}s  ${record.name}$detail    $status  " +
-                    "${"%.2f".format(duration)}s$error",
-            )
+    fun format(): String =
+        buildString {
+            for (record in records) {
+                val sign = if (record.offsetMs >= 0) "+" else ""
+                val seconds = record.offsetMs / 1000.0
+                val duration = record.durationMs / 1000.0
+                val detail = record.detail?.let { "($it)" } ?: ""
+                val status = if (record.ok) "OK  " else "FAIL"
+                val error = record.errorLine?.let { "  $it" } ?: ""
+                appendLine(
+                    "$sign${"%.2f".format(seconds)}s  ${record.name}$detail    $status  " +
+                        "${"%.2f".format(duration)}s$error",
+                )
+            }
         }
-    }
 
     /**
      * The last few failed steps, for the failure message.

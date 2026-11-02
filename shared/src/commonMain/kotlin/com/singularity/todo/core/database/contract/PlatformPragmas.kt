@@ -19,20 +19,21 @@ import androidx.sqlite.execSQL
  * @see <https://www.sqlite.org/pragma.html>
  */
 object PlatformPragmas {
-
     /** File-level PRAGMAs — written once to the database file header. */
-    val FileLevelCommands: List<String> = listOf(
-        "PRAGMA journal_mode = WAL",
-    )
+    val FileLevelCommands: List<String> =
+        listOf(
+            "PRAGMA journal_mode = WAL",
+        )
 
     /** Per-connection PRAGMAs — must be set on every new connection. */
-    val PerConnectionCommands: List<String> = listOf(
-        "PRAGMA synchronous = NORMAL", // fsync cost: O(1) vs FULL
-        "PRAGMA cache_size = -2000", // 2 MiB page cache
-        "PRAGMA temp_store = MEMORY", // temporary tables & sorting in RAM
-        "PRAGMA foreign_keys = ON", // enforce FK constraints on this connection
-        "PRAGMA busy_timeout = 5000", // 5 s before returning SQLITE_BUSY
-    )
+    val PerConnectionCommands: List<String> =
+        listOf(
+            "PRAGMA synchronous = NORMAL", // fsync cost: O(1) vs FULL
+            "PRAGMA cache_size = -2000", // 2 MiB page cache
+            "PRAGMA temp_store = MEMORY", // temporary tables & sorting in RAM
+            "PRAGMA foreign_keys = ON", // enforce FK constraints on this connection
+            "PRAGMA busy_timeout = 5000", // 5 s before returning SQLITE_BUSY
+        )
 
     /**
      * Applies [FileLevelCommands] to [driver] against [path] using a single ephemeral
@@ -41,7 +42,10 @@ object PlatformPragmas {
      *
      * Idempotent — setting `journal_mode` on a WAL-mode database is a no-op.
      */
-    fun applyOnceToFile(driver: androidx.sqlite.SQLiteDriver, path: String) {
+    fun applyOnceToFile(
+        driver: androidx.sqlite.SQLiteDriver,
+        path: String,
+    ) {
         val conn: SQLiteConnection = driver.open(path)
         conn.use { conn ->
             for (sql in FileLevelCommands) {

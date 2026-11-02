@@ -8,15 +8,15 @@ import kotlin.test.assertEquals
 
 @Tag("fast")
 class BackupOptionsTest {
-
     @Test
     fun `exportOptions builds valid ExportOptions`() {
-        val opts = exportOptions {
-            userId = UserId.anonymous
-            destPath = "/tmp/backup.zip"
-            includeAttachments = true
-            appVersion = "1.0.0"
-        }
+        val opts =
+            exportOptions {
+                userId = UserId.anonymous
+                destPath = "/tmp/backup.zip"
+                includeAttachments = true
+                appVersion = "1.0.0"
+            }
         assertEquals(UserId.anonymous, opts.userId)
         assertEquals("/tmp/backup.zip", opts.destPath)
         assertEquals(true, opts.includeAttachments)
@@ -25,21 +25,23 @@ class BackupOptionsTest {
 
     @Test
     fun `exportOptions defaults includeAttachments and appVersion from runtime`() {
-        val opts = exportOptions {
-            userId = UserId.anonymous
-            destPath = "/tmp/backup.zip"
-        }
+        val opts =
+            exportOptions {
+                userId = UserId.anonymous
+                destPath = "/tmp/backup.zip"
+            }
         assertEquals(true, opts.includeAttachments)
         assertEquals(appVersion().name, opts.appVersion)
     }
 
     @Test
     fun `importOptions builds valid ImportOptions`() {
-        val opts = importOptions {
-            sourcePath = "/tmp/backup.zip"
-            targetUserId = UserId.anonymous
-            overwriteExisting = true
-        }
+        val opts =
+            importOptions {
+                sourcePath = "/tmp/backup.zip"
+                targetUserId = UserId.anonymous
+                overwriteExisting = true
+            }
         assertEquals("/tmp/backup.zip", opts.sourcePath)
         assertEquals(UserId.anonymous, opts.targetUserId)
         assertEquals(true, opts.overwriteExisting)
@@ -47,10 +49,11 @@ class BackupOptionsTest {
 
     @Test
     fun `importOptions defaults overwriteExisting to true`() {
-        val opts = importOptions {
-            sourcePath = "/tmp/backup.zip"
-            targetUserId = UserId.anonymous
-        }
+        val opts =
+            importOptions {
+                sourcePath = "/tmp/backup.zip"
+                targetUserId = UserId.anonymous
+            }
         assertEquals(true, opts.overwriteExisting)
     }
 

@@ -2,14 +2,6 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>LongMethod:McpServerEndToEndTest.kt:McpServerEndToEndTest$@Test fun create_task_then_read_task_returns_same_title</ID>
-    <ID>MatchingDeclarationName:CursorCodec.kt:Cursor</ID>
-    <ID>MaxLineLength:Main.kt:append("UPDATE $table SET user_id='").append(newUserId).append("' WHERE user_id='").append(localUserId).append("';")</ID>
-    <ID>MaxLineLength:Main.kt:instructions = "Singularity Todo MCP server. Use tools to read/write tasks, notes, projects, tags, and ADR entries."</ID>
-    <ID>MaxLineLength:Main.kt:val</ID>
-    <ID>TooGenericExceptionCaught:Main.kt:e: Throwable</ID>
-    <ID>TooGenericExceptionCaught:ToolRegistrar.kt:ToolRegistrar$e: Exception</ID>
-    <ID>UnusedParameter:Main.kt:profileId: String</ID>
-    <ID>UnusedParameter:Main.kt:profileId: String?</ID>
+    <ID>NoRealDelayInTest:McpServerEndToEndTest.kt:McpServerEndToEndTest$sleep(3_000)</ID>
   </CurrentIssues>
 </SmellBaseline>

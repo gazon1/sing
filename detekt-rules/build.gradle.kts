@@ -1,5 +1,5 @@
-import java.util.Properties
 import kotlinx.kover.gradle.plugin.dsl.CoverageUnit
+import java.util.Properties
 
 plugins {
     kotlin("jvm")
@@ -35,8 +35,6 @@ dependencies {
     testImplementation(libs.detekt.test)
     testImplementation(libs.detekt.test.utils)
     testImplementation(kotlin("test"))
-    // ktlint via detekt-formatting, so `just detekt-fix` also formats this module.
-    detektPlugins(libs.detekt.formatting)
 }
 
 // ── The memory budget ───────────────────────────────────────────────────────
@@ -51,14 +49,16 @@ dependencies {
 // declared before the record existed, recorded there so that the gate has one
 // place to compare it with. `scripts/check-memory-budget.py` is what keeps the
 // two in step.
-val memoryBudget = Properties().apply {
-    rootProject.file("config/docs/gradle-memory-budget.properties").inputStream().use { load(it) }
-}
-val testTaskHeap = memoryBudget.getProperty("test.heap.module.detekt-rules")
-    ?: throw GradleException(
-        "config/docs/gradle-memory-budget.properties declares no test.heap.module.detekt-rules — " +
-            "the heap of this module's test tasks has to be recorded somewhere."
-    )
+val memoryBudget =
+    Properties().apply {
+        rootProject.file("config/docs/gradle-memory-budget.properties").inputStream().use { load(it) }
+    }
+val testTaskHeap =
+    memoryBudget.getProperty("test.heap.module.detekt-rules")
+        ?: throw GradleException(
+            "config/docs/gradle-memory-budget.properties declares no test.heap.module.detekt-rules — " +
+                "the heap of this module's test tasks has to be recorded somewhere.",
+        )
 
 // JUnit Platform — same configuration as shared/desktopApp/mcp-server.
 // The heap is the record's — 3 GB, the value this module declared before the
@@ -78,9 +78,10 @@ tasks.withType<Test>().configureEach {
     // gate would not fire on exactly the edit it exists to catch. Verified: editing the
     // config alone produced BUILD SUCCESSFUL until this input was declared.
     inputs.file(rootProject.file("config/detekt/detekt.yml")).withPathSensitivity(PathSensitivity.RELATIVE)
-    inputs.file(
-        layout.projectDirectory.file("src/main/resources/META-INF/services/dev.detekt.api.RuleSetProvider"),
-    ).withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs
+        .file(
+            layout.projectDirectory.file("src/main/resources/META-INF/services/dev.detekt.api.RuleSetProvider"),
+        ).withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
 // kover — rule coverage
@@ -136,14 +137,14 @@ val DETEKT_RULE_BRANCH_FLOOR: Int =
         ?: error(
             "settings.gradle.kts must declare the detekt-rules branch coverage floor and " +
                 "publish it as gradle.extra[\"kover.detektRulesBranchCoverageFloor\"] — the " +
-                "floor is declared in one place, and this module only binds it."
+                "floor is declared in one place, and this module only binds it.",
         )
 
 kover {
     reports {
         total {
             html { onCheck = false }
-            xml { onCheck = true }   // generate report during test/check phase
+            xml { onCheck = true } // generate report during test/check phase
             verify {
                 rule("detekt-rules branch coverage") {
                     bound {

@@ -18,8 +18,8 @@ import com.singularity.todo.core.error.runCatchingCancellable
  * would be sending something the server already knows.
  */
 class SupabaseGoogleGrantRevoker(private val gateway: GoogleTokenGateway) : GoogleGrantRevoker {
-
-    override suspend fun revoke(userId: String): Result<Unit> = runCatchingCancellable {
-        gateway.revoke().getOrThrow()
-    }
+    override suspend fun revoke(userId: String): Result<Unit> =
+        runCatchingCancellable {
+            gateway.revoke().getOrThrow()
+        }
 }

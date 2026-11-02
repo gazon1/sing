@@ -21,14 +21,16 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class GoogleAuthorizationServiceTest {
-
     /** The narrow secure-store slice, in memory. */
     private class MapSecureStorage : SecureStorage {
         private val values = mutableMapOf<String, String>()
 
         override suspend fun read(key: String): String? = values[key]
 
-        override suspend fun write(key: String, value: String) {
+        override suspend fun write(
+            key: String,
+            value: String,
+        ) {
             values[key] = value
         }
 
@@ -39,9 +41,10 @@ class GoogleAuthorizationServiceTest {
 
     /** Records what the exchange was asked to redeem. */
     private class FakeGrantRedeemer(
-        private val result: Result<GoogleCredentials> = Result.success(
-            GoogleCredentials("access", "refresh", 42L),
-        ),
+        private val result: Result<GoogleCredentials> =
+            Result.success(
+                GoogleCredentials("access", "refresh", 42L),
+            ),
     ) : GoogleGrantRedeemer {
         var grant: GoogleGrant? = null
             private set
@@ -86,7 +89,10 @@ class GoogleAuthorizationServiceTest {
 
         override suspend fun load(userId: String): GoogleCredentials? = saved[userId]
 
-        override suspend fun save(userId: String, credentials: GoogleCredentials) {
+        override suspend fun save(
+            userId: String,
+            credentials: GoogleCredentials,
+        ) {
             saved[userId] = credentials
         }
 
@@ -104,16 +110,18 @@ class GoogleAuthorizationServiceTest {
     ): Triple<GoogleAuthorizationService, RecordingCredentialStore, FakeGrantRedeemer> {
         val recording = store as RecordingCredentialStore
         val token = redeemer as FakeGrantRedeemer
-        val resolver = GoogleClientIdResolver(
-            buildTime = { buildTimeClientId?.let { BuildTimeGoogleClientConfig(it) } },
-        )
-        val service = GoogleAuthorizationService(
-            clientIdResolver = resolver,
-            secureStorage = storage,
-            redeemer = token,
-            revoker = revoker,
-            credentialStore = recording,
-        )
+        val resolver =
+            GoogleClientIdResolver(
+                buildTime = { buildTimeClientId?.let { BuildTimeGoogleClientConfig(it) } },
+            )
+        val service =
+            GoogleAuthorizationService(
+                clientIdResolver = resolver,
+                secureStorage = storage,
+                redeemer = token,
+                revoker = revoker,
+                credentialStore = recording,
+            )
         return Triple(service, recording, token)
     }
 
@@ -125,21 +133,23 @@ class GoogleAuthorizationServiceTest {
      * on the returned value.
      */
     @Test
-    fun `a redeemed grant is stored for the user`() = runTest {
-        val (service, store, _) = service()
-        val pending = service.beginAuthorization().getOrThrow()
+    fun `a redeemed grant is stored for the user`() =
+        runTest {
+            val (service, store, _) = service()
+            val pending = service.beginAuthorization().getOrThrow()
 
-        val result = service.redeem(
-            pending = pending,
-            grant = GoogleGrant.ServerAuthCode("the-code"),
-            userId = "user-1",
-        )
+            val result =
+                service.redeem(
+                    pending = pending,
+                    grant = GoogleGrant.ServerAuthCode("the-code"),
+                    userId = "user-1",
+                )
 
-        assertTrue(result.isSuccess, "the sign-in failed: ${result.exceptionOrNull()}")
-        assertNotNull(store.saved["user-1"], "the credential must reach the store")
-        assertEquals("access", store.saved["user-1"]?.accessToken)
-        assertEquals("refresh", store.saved["user-1"]?.refreshToken)
-    }
+            assertTrue(result.isSuccess, "the sign-in failed: ${result.exceptionOrNull()}")
+            assertNotNull(store.saved["user-1"], "the credential must reach the store")
+            assertEquals("access", store.saved["user-1"]?.accessToken)
+            assertEquals("refresh", store.saved["user-1"]?.refreshToken)
+        }
 
     /**
      * The exchange presents what the consent produced.
@@ -148,20 +158,21 @@ class GoogleAuthorizationServiceTest {
      * secret half of the PKCE pair — the exchange is rejected without it.
      */
     @Test
-    fun `the exchange carries the grant, the client id and the verifier`() = runTest {
-        val (service, _, redeemer) = service()
-        val pending = service.beginAuthorization().getOrThrow()
+    fun `the exchange carries the grant, the client id and the verifier`() =
+        runTest {
+            val (service, _, redeemer) = service()
+            val pending = service.beginAuthorization().getOrThrow()
 
-        service.redeem(
-            pending = pending,
-            grant = GoogleGrant.ServerAuthCode("the-code"),
-            userId = "user-1",
-        )
+            service.redeem(
+                pending = pending,
+                grant = GoogleGrant.ServerAuthCode("the-code"),
+                userId = "user-1",
+            )
 
-        assertEquals(GoogleGrant.ServerAuthCode("the-code"), redeemer.grant)
-        assertEquals("build-time-id", redeemer.clientId)
-        assertEquals(pending.codeVerifier, redeemer.codeVerifier)
-    }
+            assertEquals(GoogleGrant.ServerAuthCode("the-code"), redeemer.grant)
+            assertEquals("build-time-id", redeemer.clientId)
+            assertEquals(pending.codeVerifier, redeemer.codeVerifier)
+        }
 
     /**
      * The prepared request carries what the consent needs — and not the secret half.
@@ -170,32 +181,34 @@ class GoogleAuthorizationServiceTest {
      * verifier in there would be a verifier on the screen.
      */
     @Test
-    fun `the prepared request carries the challenge and not the verifier`() = runTest {
-        val (service, _, _) = service()
+    fun `the prepared request carries the challenge and not the verifier`() =
+        runTest {
+            val (service, _, _) = service()
 
-        val pending = service.beginAuthorization().getOrThrow()
+            val pending = service.beginAuthorization().getOrThrow()
 
-        assertEquals("build-time-id", pending.request.clientId)
-        assertTrue(pending.request.scopes.isNotEmpty(), "the consent needs scopes")
-        assertTrue(pending.request.state.isNotBlank(), "the request needs a fingerprint")
-        assertTrue(pending.request.codeChallenge.isNotBlank(), "the request needs a challenge")
-        assertTrue(
-            pending.request.codeChallenge != pending.codeVerifier,
-            "the public half must not be the secret half",
-        )
-    }
+            assertEquals("build-time-id", pending.request.clientId)
+            assertTrue(pending.request.scopes.isNotEmpty(), "the consent needs scopes")
+            assertTrue(pending.request.state.isNotBlank(), "the request needs a fingerprint")
+            assertTrue(pending.request.codeChallenge.isNotBlank(), "the request needs a challenge")
+            assertTrue(
+                pending.request.codeChallenge != pending.codeVerifier,
+                "the public half must not be the secret half",
+            )
+        }
 
     /** Two requests must not share a fingerprint or a verifier. */
     @Test
-    fun `two prepared requests differ`() = runTest {
-        val (service, _, _) = service()
+    fun `two prepared requests differ`() =
+        runTest {
+            val (service, _, _) = service()
 
-        val first = service.beginAuthorization().getOrThrow()
-        val second = service.beginAuthorization().getOrThrow()
+            val first = service.beginAuthorization().getOrThrow()
+            val second = service.beginAuthorization().getOrThrow()
 
-        assertTrue(first.request.state != second.request.state, "the state must not repeat")
-        assertTrue(first.codeVerifier != second.codeVerifier, "the verifier must not repeat")
-    }
+            assertTrue(first.request.state != second.request.state, "the state must not repeat")
+            assertTrue(first.codeVerifier != second.codeVerifier, "the verifier must not repeat")
+        }
 
     /**
      * The pasted client id wins over the build-time one.
@@ -205,27 +218,29 @@ class GoogleAuthorizationServiceTest {
      * one anyway would write the user's events into somebody else's project.
      */
     @Test
-    fun `a stored client id wins over the build-time one`() = runTest {
-        val storage = MapSecureStorage()
-        val (service, _, redeemer) = service(storage = storage)
-        service.storeClientId("pasted-id")
+    fun `a stored client id wins over the build-time one`() =
+        runTest {
+            val storage = MapSecureStorage()
+            val (service, _, redeemer) = service(storage = storage)
+            service.storeClientId("pasted-id")
 
-        val pending = service.beginAuthorization().getOrThrow()
-        service.redeem(pending, GoogleGrant.ServerAuthCode("c"), "user-1")
+            val pending = service.beginAuthorization().getOrThrow()
+            service.redeem(pending, GoogleGrant.ServerAuthCode("c"), "user-1")
 
-        assertEquals("pasted-id", pending.request.clientId)
-        assertEquals("pasted-id", redeemer.clientId)
-    }
+            assertEquals("pasted-id", pending.request.clientId)
+            assertEquals("pasted-id", redeemer.clientId)
+        }
 
     /** With nothing stored, the build-time one applies. */
     @Test
-    fun `the build-time client id is used when nothing is stored`() = runTest {
-        val (service, _, _) = service(buildTimeClientId = "build-time-id")
+    fun `the build-time client id is used when nothing is stored`() =
+        runTest {
+            val (service, _, _) = service(buildTimeClientId = "build-time-id")
 
-        val pending = service.beginAuthorization().getOrThrow()
+            val pending = service.beginAuthorization().getOrThrow()
 
-        assertEquals("build-time-id", pending.request.clientId)
-    }
+            assertEquals("build-time-id", pending.request.clientId)
+        }
 
     /**
      * No client id at all is a failure that says what to do.
@@ -234,49 +249,54 @@ class GoogleAuthorizationServiceTest {
      * install — and it has to be an answer, not a crash or a silent no-op.
      */
     @Test
-    fun `a sign-in with no client id fails with a message that says what to do`() = runTest {
-        val (service, store, _) = service(buildTimeClientId = null)
+    fun `a sign-in with no client id fails with a message that says what to do`() =
+        runTest {
+            val (service, store, _) = service(buildTimeClientId = null)
 
-        val result = service.beginAuthorization()
+            val result = service.beginAuthorization()
 
-        assertTrue(result.isFailure, "a sign-in with no client id must not succeed")
-        val message = result.exceptionOrNull()?.message.orEmpty()
-        assertTrue(message.contains("client id"), "got $message")
-        assertTrue(store.saved.isEmpty(), "nothing may be stored when the sign-in did not happen")
-    }
+            assertTrue(result.isFailure, "a sign-in with no client id must not succeed")
+            val message = result.exceptionOrNull()?.message.orEmpty()
+            assertTrue(message.contains("client id"), "got $message")
+            assertTrue(store.saved.isEmpty(), "nothing may be stored when the sign-in did not happen")
+        }
 
     /** A blank client id is refused rather than stored. */
     @Test
-    fun `storing a blank client id is refused`() = runTest {
-        val (service, _, _) = service()
+    fun `storing a blank client id is refused`() =
+        runTest {
+            val (service, _, _) = service()
 
-        val failure = runCatching { service.storeClientId("  ") }.exceptionOrNull()
+            val failure = runCatching { service.storeClientId("  ") }.exceptionOrNull()
 
-        assertTrue(failure is IllegalArgumentException, "got $failure")
-    }
+            assertTrue(failure is IllegalArgumentException, "got $failure")
+        }
 
     /** The configured client id is what the screen asks about. */
     @Test
-    fun `the configured client id is reported`() = runTest {
-        val (service, _, _) = service(buildTimeClientId = "build-time-id")
+    fun `the configured client id is reported`() =
+        runTest {
+            val (service, _, _) = service(buildTimeClientId = "build-time-id")
 
-        assertEquals("build-time-id", service.configuredClientId())
-    }
+            assertEquals("build-time-id", service.configuredClientId())
+        }
 
     /** A failed exchange stores nothing. */
     @Test
-    fun `a refused grant stores nothing`() = runTest {
-        val redeemer = FakeGrantRedeemer(
-            Result.failure(GoogleAuthorizationException("access_denied")),
-        )
-        val (service, store, _) = service(redeemer = redeemer)
-        val pending = service.beginAuthorization().getOrThrow()
+    fun `a refused grant stores nothing`() =
+        runTest {
+            val redeemer =
+                FakeGrantRedeemer(
+                    Result.failure(GoogleAuthorizationException("access_denied")),
+                )
+            val (service, store, _) = service(redeemer = redeemer)
+            val pending = service.beginAuthorization().getOrThrow()
 
-        val result = service.redeem(pending, GoogleGrant.ServerAuthCode("c"), "user-1")
+            val result = service.redeem(pending, GoogleGrant.ServerAuthCode("c"), "user-1")
 
-        assertTrue(result.isFailure)
-        assertTrue(store.saved.isEmpty(), "a refused sign-in must not leave a credential")
-    }
+            assertTrue(result.isFailure)
+            assertTrue(store.saved.isEmpty(), "a refused sign-in must not leave a credential")
+        }
 
     /**
      * The revoke reaches the revoker, for the profile it names.
@@ -286,13 +306,14 @@ class GoogleAuthorizationServiceTest {
      * revoke that stopped at the authorizer would leave the grant alive.
      */
     @Test
-    fun `the revoke reaches the revoker`() = runTest {
-        val revoker = FakeGrantRevoker()
-        val (service, _, _) = service(revoker = revoker)
+    fun `the revoke reaches the revoker`() =
+        runTest {
+            val revoker = FakeGrantRevoker()
+            val (service, _, _) = service(revoker = revoker)
 
-        val result = service.revoke("user-1")
+            val result = service.revoke("user-1")
 
-        assertTrue(result.isSuccess, "the revoke must succeed: $result")
-        assertEquals("user-1", revoker.revokedFor)
-    }
+            assertTrue(result.isSuccess, "the revoke must succeed: $result")
+            assertEquals("user-1", revoker.revokedFor)
+        }
 }

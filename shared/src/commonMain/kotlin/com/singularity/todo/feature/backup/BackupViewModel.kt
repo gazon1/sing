@@ -7,17 +7,17 @@ import com.singularity.todo.core.backup.DefaultBackupFileNamer
 import com.singularity.todo.core.backup.RemoteBackup
 import com.singularity.todo.core.backup.exportOptions
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
+import com.singularity.todo.core.error.runCatchingCancellable
+import com.singularity.todo.core.files.FileSharePort
+import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.observability.CrashReportingPort
 import com.singularity.todo.core.observability.NoOpCrashReportingPort
 import com.singularity.todo.core.observability.reportingScope
-import com.singularity.todo.core.files.FileSharePort
-import com.singularity.todo.core.files.FileSourceFactory
 import com.singularity.todo.core.settings.SettingsImporter
 import com.singularity.todo.core.ui.MviViewModel
 import com.singularity.todo.feature.backup.BackupUiEvent.Error
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
-import com.singularity.todo.core.error.runCatchingCancellable
 
 data class BackupUiState(
     val isWorking: Boolean = false,
@@ -78,7 +78,6 @@ class BackupViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
-
     init {
         addCloseable(scope)
         scope.launch {
@@ -118,28 +117,29 @@ class BackupViewModel(
 
     private suspend fun runCreateBackupTo(destPath: String) {
         updateState { it.copy(isWorking = true) }
-        repository.export(
-            exportOptions {
-                this.destPath = destPath
-                includeAttachments = true
-            },
-        )
-            .onSuccess { br ->
+        repository
+            .export(
+                exportOptions {
+                    this.destPath = destPath
+                    includeAttachments = true
+                },
+            ).onSuccess { br ->
                 updateState {
                     it.copy(
                         isWorking = false,
-                        lastBackup = BackupSummary(
-                            destPath = br.destPath,
-                            byteSize = br.byteSize,
-                            entityCount = br.manifest.entityCounts.tasks +
-                                br.manifest.entityCounts.notes +
-                                br.manifest.entityCounts.projects,
-                        ),
+                        lastBackup =
+                            BackupSummary(
+                                destPath = br.destPath,
+                                byteSize = br.byteSize,
+                                entityCount =
+                                    br.manifest.entityCounts.tasks +
+                                        br.manifest.entityCounts.notes +
+                                        br.manifest.entityCounts.projects,
+                            ),
                     )
                 }
                 tryEmit(BackupUiEvent.ShowSnackbar("Backup created"))
-            }
-            .onFailure { e ->
+            }.onFailure { e ->
                 updateState { it.copy(isWorking = false) }
                 val failure = failure(e, BACKUP_EXPORT_FAILED, "Export failed")
                 crashReporter.report(e, failure.code)
@@ -149,12 +149,12 @@ class BackupViewModel(
 
     private suspend fun runRestore(sourcePath: String) {
         updateState { it.copy(isWorking = true) }
-        repository.import(sourcePath)
+        repository
+            .import(sourcePath)
             .onSuccess {
                 updateState { it.copy(isWorking = false) }
                 tryEmit(BackupUiEvent.ShowSnackbar("Restore complete"))
-            }
-            .onFailure { e ->
+            }.onFailure { e ->
                 updateState { it.copy(isWorking = false) }
                 val failure = failure(e, BACKUP_RESTORE_FAILED, "Import failed")
                 crashReporter.report(e, failure.code)
@@ -169,8 +169,7 @@ class BackupViewModel(
                 updateState { it.copy(isWorking = false) }
                 emit(BackupUiEvent.SettingsSnapshotExported(json))
                 tryEmit(BackupUiEvent.ShowSnackbar("Settings snapshot ready"))
-            }
-            .onFailure { e ->
+            }.onFailure { e ->
                 updateState { it.copy(isWorking = false) }
                 crashReporter.report(e, SETTINGS_EXPORT_FAILED)
                 emit(Error(e.message ?: "Settings export failed"))
@@ -187,9 +186,10 @@ class BackupViewModel(
      */
     private suspend fun runImportSettingsFrom(sourcePath: String) {
         updateState { it.copy(isWorking = true) }
-        val json = runCatchingCancellable {
-            fileSourceFactory(sourcePath).readBytes().decodeToString()
-        }
+        val json =
+            runCatchingCancellable {
+                fileSourceFactory(sourcePath).readBytes().decodeToString()
+            }
         json.onSuccess { runImportSettingsSnapshot(it) }.onFailure { e ->
             updateState { it.copy(isWorking = false) }
             // A SAF read failure is a platform problem, not a user picking the wrong file,
@@ -230,7 +230,8 @@ class BackupViewModel(
     }
 
     private suspend fun runDelete(backupId: com.singularity.todo.core.backup.BackupId) {
-        repository.delete(backupId)
+        repository
+            .delete(backupId)
             .onSuccess { tryEmit(BackupUiEvent.ShowSnackbar("Backup deleted")) }
             .onFailure { e ->
                 val failure = failure(e, BACKUP_DELETE_FAILED, "Delete failed")
@@ -251,7 +252,8 @@ class BackupViewModel(
         password: CharArray,
     ) {
         updateState { it.copy(isWorking = true) }
-        repository.push(backupId, password)
+        repository
+            .push(backupId, password)
             .onFailure { e ->
                 updateState { it.copy(isWorking = false) }
                 // The error's own code when it has one: a refused session, a
@@ -262,8 +264,7 @@ class BackupViewModel(
                 val failure = failure(e, BACKUP_PUSH_FAILED, "Push failed")
                 crashReporter.report(e, failure.code)
                 emit(Error(failure.message))
-            }
-            .onSuccess {
+            }.onSuccess {
                 updateState { it.copy(isWorking = false) }
                 tryEmit(BackupUiEvent.ShowSnackbar("Backup pushed"))
             }
@@ -277,14 +278,14 @@ class BackupViewModel(
      */
     private suspend fun runLoadRemoteBackups() {
         updateState { it.copy(isWorking = true) }
-        repository.listRemote()
+        repository
+            .listRemote()
             .onFailure { e ->
                 updateState { it.copy(isWorking = false) }
                 val failure = failure(e, BACKUP_LIST_FAILED, "Could not read the cloud backups")
                 crashReporter.report(e, failure.code)
                 emit(Error(failure.message))
-            }
-            .onSuccess { backups ->
+            }.onSuccess { backups ->
                 updateState {
                     it.copy(
                         isWorking = false,
@@ -308,14 +309,14 @@ class BackupViewModel(
      */
     private suspend fun runRestoreFromCloud(intent: BackupIntent.RestoreFromCloud) {
         updateState { it.copy(isWorking = true) }
-        repository.restoreFromCloud(intent.remoteRef, intent.password)
+        repository
+            .restoreFromCloud(intent.remoteRef, intent.password)
             .onFailure { e ->
                 updateState { it.copy(isWorking = false) }
                 val failure = failure(e, BACKUP_RESTORE_FAILED, "Restore from the cloud failed")
                 crashReporter.report(e, failure.code)
                 emit(Error(failure.message))
-            }
-            .onSuccess {
+            }.onSuccess {
                 updateState { it.copy(isWorking = false) }
                 tryEmit(BackupUiEvent.ShowSnackbar("Restore complete"))
             }
@@ -331,15 +332,15 @@ class BackupViewModel(
      */
     private suspend fun runAuthorizeScheduledBackup(intent: BackupIntent.AuthorizeScheduledBackup) {
         updateState { it.copy(isWorking = true) }
-        repository.authorizeScheduledBackup(intent.password)
+        repository
+            .authorizeScheduledBackup(intent.password)
             .onSuccess { authorization ->
                 updateState { it.copy(isWorking = false, scheduledBackupAuthorized = true) }
                 // What happened to the archive that was already in the cloud is
                 // part of the answer: it either opens with the new password now,
                 // or it still asks for the old one.
                 tryEmit(BackupUiEvent.ShowSnackbar(authorizationMessage(authorization)))
-            }
-            .onFailure { e ->
+            }.onFailure { e ->
                 updateState { it.copy(isWorking = false) }
                 val failure = failure(e, BACKUP_AUTHORIZE_FAILED, "Could not authorize this device")
                 crashReporter.report(e, failure.code)
@@ -376,8 +377,11 @@ class BackupViewModel(
      * family is something a person can act on. The mapping lives in one place —
      * [backupFailure] — so the screen and the report cannot drift apart.
      */
-    private fun failure(error: Throwable, fallbackCode: String, fallbackMessage: String): BackupFailure =
-        backupFailure(error, BackupFailure(fallbackCode, fallbackMessage))
+    private fun failure(
+        error: Throwable,
+        fallbackCode: String,
+        fallbackMessage: String,
+    ): BackupFailure = backupFailure(error, BackupFailure(fallbackCode, fallbackMessage))
 
     private companion object {
         // Machine-shaped grouping keys — these leave the device. The settings-decode

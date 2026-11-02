@@ -92,7 +92,6 @@ class NoteProposalsViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
-
     /**
      * The five operations, in one place.
      *
@@ -101,18 +100,20 @@ class NoteProposalsViewModel(
      * [ProposalDecisions] and this editor brings its own wording, its own
      * failure store and its own error sink.
      */
-    private val decisions = ProposalDecisions(
-        applyProposalItem = applyProposalItem,
-        editProposalItem = editProposalItem,
-        style = ProposalDecisionStyles.noteEditor,
-        errors = ProposalErrorSink { label, _, error ->
-            // The ViewModel's own error path: it reports the failure to the crash
-            // reporter and shows it as a one-shot event. The failure is rethrown
-            // into that path because the path is what reports it.
-            emitError(label, NoteProposalsUiEvent::ShowError) { throw error }
-        },
-        userId = { currentUser.scopedUserId.value },
-    )
+    private val decisions =
+        ProposalDecisions(
+            applyProposalItem = applyProposalItem,
+            editProposalItem = editProposalItem,
+            style = ProposalDecisionStyles.noteEditor,
+            errors =
+                ProposalErrorSink { label, _, error ->
+                    // The ViewModel's own error path: it reports the failure to the crash
+                    // reporter and shows it as a one-shot event. The failure is rethrown
+                    // into that path because the path is what reports it.
+                    emitError(label, NoteProposalsUiEvent::ShowError) { throw error }
+                },
+            userId = { currentUser.scopedUserId.value },
+        )
 
     /**
      * The reasons, mirrored into the state the editor draws from.
@@ -121,11 +122,12 @@ class NoteProposalsViewModel(
      * editor shows them. A reason kept inside the editor's own state alone was
      * lost on every rebuild.
      */
-    private val failureWatch = vmScope.launch {
-        decisions.failures.collect { reasons ->
-            updateState { state -> state.copy(failures = reasons.toImmutableMap()) }
+    private val failureWatch =
+        vmScope.launch {
+            decisions.failures.collect { reasons ->
+                updateState { state -> state.copy(failures = reasons.toImmutableMap()) }
+            }
         }
-    }
 
     /**
      * The collector of what is waiting.
@@ -134,16 +136,18 @@ class NoteProposalsViewModel(
      * initializer runs after the constructor's fields are assigned, so the collector
      * can never observe a half-built ViewModel.
      */
-    private val pendingWatch = vmScope.launch {
-        proposals.watchProposalsForNote(noteId)
-            .collect { list ->
-                // The failures are kept: a reason the user has not read yet is still a
-                // reason, and a new list of proposals must not wipe it.
-                updateState { state ->
-                    state.copy(proposals = list.filter { it.isWaiting }.toImmutableList())
+    private val pendingWatch =
+        vmScope.launch {
+            proposals
+                .watchProposalsForNote(noteId)
+                .collect { list ->
+                    // The failures are kept: a reason the user has not read yet is still a
+                    // reason, and a new list of proposals must not wipe it.
+                    updateState { state ->
+                        state.copy(proposals = list.filter { it.isWaiting }.toImmutableList())
+                    }
                 }
-            }
-    }
+        }
 
     /** The collector stops with the ViewModel. */
     override fun onCleared() {
@@ -154,23 +158,32 @@ class NoteProposalsViewModel(
 
     override fun onIntent(intent: NoteProposalsIntent) {
         when (intent) {
-            is NoteProposalsIntent.Confirm -> vmScope.launch { decisions.applyChange(intent.itemId) }
+            is NoteProposalsIntent.Confirm -> {
+                vmScope.launch { decisions.applyChange(intent.itemId) }
+            }
 
-            is NoteProposalsIntent.Reject -> vmScope.launch { decisions.turnDownChange(intent.itemId, intent.reason) }
+            is NoteProposalsIntent.Reject -> {
+                vmScope.launch { decisions.turnDownChange(intent.itemId, intent.reason) }
+            }
 
-            is NoteProposalsIntent.ConfirmAll -> vmScope.launch { decisions.applyAll(intent.proposalId) }
+            is NoteProposalsIntent.ConfirmAll -> {
+                vmScope.launch { decisions.applyAll(intent.proposalId) }
+            }
 
             is NoteProposalsIntent.Dismiss -> {
                 // The waiting changes are read when the intent arrives, the way they
                 // always were: the note editor already holds them.
-                val waiting = stateFlow.value.proposals
-                    .firstOrNull { it.id == intent.proposalId }
-                    ?.pendingItems
-                    .orEmpty()
+                val waiting =
+                    stateFlow.value.proposals
+                        .firstOrNull { it.id == intent.proposalId }
+                        ?.pendingItems
+                        .orEmpty()
                 vmScope.launch { decisions.dismiss { waiting } }
             }
 
-            is NoteProposalsIntent.Edit -> vmScope.launch { decisions.changeValue(intent.itemId, intent.text) }
+            is NoteProposalsIntent.Edit -> {
+                vmScope.launch { decisions.changeValue(intent.itemId, intent.text) }
+            }
         }
     }
 }

@@ -5,7 +5,10 @@ package com.singularity.todo.core.sync
  */
 sealed interface ConnectionResult {
     data object Idle : ConnectionResult
+
     data object InProgress : ConnectionResult
+
     data class Success(val version: String? = null) : ConnectionResult
+
     data class Error(val message: String) : ConnectionResult
 }

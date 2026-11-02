@@ -13,7 +13,6 @@ import kotlin.test.assertTrue
 
 @Tag("fast")
 class BackupMigrationsTest {
-
     private val json = Json { ignoreUnknownKeys = true }
 
     @Test
@@ -93,9 +92,10 @@ class BackupMigrationsTest {
     fun theV5ToV6StepSaysWhatTheTasksDoNotCarry() {
         val payload = payloadAt(5)
         val result = BackupMigrations.migrate(payload, 5, 6)
-        val task = (result["tasks"] as JsonArray).first().let {
-            it as JsonObject
-        }
+        val task =
+            (result["tasks"] as JsonArray).first().let {
+                it as JsonObject
+            }
         assertEquals(
             "Open",
             (task["workflowState"] as JsonPrimitive).content,
@@ -105,10 +105,11 @@ class BackupMigrationsTest {
 
     /** A payload as it would have been written at [version]. */
     private fun payloadAt(version: Int): JsonObject {
-        val jsonElement: JsonElement = json.decodeFromString(
-            JsonElement.serializer(),
-            """{"schemaVersion":$version,"tasks":[{"id":"t1","title":"A task","createdAt":1,"updatedAt":1}]}""",
-        )
+        val jsonElement: JsonElement =
+            json.decodeFromString(
+                JsonElement.serializer(),
+                """{"schemaVersion":$version,"tasks":[{"id":"t1","title":"A task","createdAt":1,"updatedAt":1}]}""",
+            )
         return jsonElement as JsonObject
     }
 }

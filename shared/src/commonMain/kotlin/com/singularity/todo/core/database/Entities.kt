@@ -50,7 +50,8 @@ data class TaskEntity(
     val someday: Boolean = false,
     @ColumnInfo("archived_at") val archivedAt: Long?, // epoch millis
     @ColumnInfo("is_pinned") val isPinned: Boolean = false,
-    @ColumnInfo("recurrence_rule") val recurrenceRule: String? = null, // JSON of RecurrenceSpec
+    // JSON of RecurrenceSpec
+    @ColumnInfo("recurrence_rule") val recurrenceRule: String? = null,
     /**
      * The id of the series this row belongs to; `null` for a task that stands alone.
      *
@@ -96,7 +97,7 @@ data class TaskTagCrossRef(
  * This mirrors the Taskwarrior `depends:` attribute. No cycles are
  * validated in the DB layer (see [com.singularity.todo.feature.tasks.domain.port.DependencyValidator]).
  *
- * @see com.singularity.todo.docs.decisions.2026-09-18-task-dependencies
+ * @see `com.singularity.todo.docs.decisions.2026-09-18-task-dependencies`
  */
 @Entity(
     tableName = "task_dependencies",
@@ -260,10 +261,12 @@ data class TaskReminderEntity(
     val type: String, // "gentle" | "annoying"
     @ColumnInfo("offset_minutes") val offsetMinutes: Int, // minutes before due (negative = after)
     @ColumnInfo("fire_at") val fireAt: Long, // epoch millis
-    @ColumnInfo("recurring_pattern") val recurringPattern: String?, // null or cron expr
+    // null or cron expr
+    @ColumnInfo("recurring_pattern") val recurringPattern: String?,
     /** SavedAgendaViewId — when a reminder is set from within a saved agenda view, this tracks which view it belongs to, enabling deeplink back to that view when the notification is tapped. */
     @ColumnInfo("view_id") val viewId: String?, // null for reminders not tied to a saved view
-    @ColumnInfo("last_fired_at") val lastFiredAt: Long? = null, // epoch millis of last fire; guards against re-firing recurring reminders too soon
+    // epoch millis of last fire; guards against re-firing recurring reminders too soon
+    @ColumnInfo("last_fired_at") val lastFiredAt: Long? = null,
     @ColumnInfo("created_at") val createdAt: Long,
     @ColumnInfo("updated_at") val updatedAt: Long,
 )
@@ -361,7 +364,8 @@ data class ProfileEntity(
     @ColumnInfo("color_idx") val colorIdx: Int,
     @ColumnInfo("is_default") val isDefault: Boolean,
     @ColumnInfo("created_at") val createdAt: Long, // epoch millis
-    @ColumnInfo("updated_at") val updatedAt: Long, // epoch millis
+    // epoch millis
+    @ColumnInfo("updated_at") val updatedAt: Long,
     /**
      * Whose profile this is, or null while it belongs to nobody.
      *

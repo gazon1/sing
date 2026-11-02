@@ -14,6 +14,9 @@ import androidx.compose.runtime.Composable
  * @param onBack ignored on Desktop.
  */
 @Composable
-actual fun SystemBackHandler(enabled: Boolean, onBack: () -> Unit) {
+actual fun SystemBackHandler(
+    enabled: Boolean,
+    onBack: () -> Unit,
+) {
     // Desktop has no system back gesture.
 }

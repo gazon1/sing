@@ -28,19 +28,19 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class ProjectsMenuOpenScenarioTest {
-
     @Test
     @DisplayName("MENU-02 tapping a project in the tree opens the project detail screen")
-    fun tapping_a_project_opens_it() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
-        seedProject(koin, "robot-root", "Product")
+    fun tapping_a_project_opens_it() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
+            seedProject(koin, "robot-root", "Product")
 
-        openDrawer()
-        awaitTag(TestTags.menuProjectNode("robot-root")).performScrollTo().performClick()
+            openDrawer()
+            awaitTag(TestTags.menuProjectNode("robot-root")).performScrollTo().performClick()
 
-        // The quick-add field only exists in the detail screen's content state.
-        // Waited for, not asserted: the tree's tap asks the projects graph to
-        // open the project, and the request travels through the graph's own
-        // composition — more than one frame.
-        awaitTag(TestTags.PROJECT_DETAIL_QUICK_ADD)
-    }
+            // The quick-add field only exists in the detail screen's content state.
+            // Waited for, not asserted: the tree's tap asks the projects graph to
+            // open the project, and the request travels through the graph's own
+            // composition — more than one frame.
+            awaitTag(TestTags.PROJECT_DETAIL_QUICK_ADD)
+        }
 }

@@ -24,7 +24,10 @@ import com.singularity.todo.core.search.TextMatchQuery
  * changed either. The fake answers the query surface now, and the expression
  * surface of the fake says loudly that it is not implemented.
  */
-internal fun matchesTextMatch(query: TextMatchQuery, vararg texts: String?): Boolean {
+internal fun matchesTextMatch(
+    query: TextMatchQuery,
+    vararg texts: String?,
+): Boolean {
     if (query.isEmpty) return false
     val results = query.terms.map { term -> TextMatch.matchesAny(texts.asList(), term) }
     return if (query.combinesWithOr) {

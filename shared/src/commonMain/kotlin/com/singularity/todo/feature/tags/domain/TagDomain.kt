@@ -10,7 +10,6 @@ import com.singularity.todo.feature.tags.Tag
  * No dependencies — fully testable without mocks or Compose.
  */
 object TagDomain {
-
     /**
      * Maximum tag name length, counted in visible characters.
      *
@@ -38,7 +37,10 @@ object TagDomain {
      * whatever it is handed. That is why the rule lives here: the tags screen
      * and the picker have to share it rather than each grow their own copy.
      */
-    fun findByName(tags: List<Tag>, name: String): Tag? {
+    fun findByName(
+        tags: List<Tag>,
+        name: String,
+    ): Tag? {
         val wanted = name.trim()
         if (wanted.isEmpty()) return null
         return tags.firstOrNull { it.name.trim().equals(wanted, ignoreCase = true) }
@@ -48,24 +50,32 @@ object TagDomain {
      * Validates tag creation input.
      * @return null if valid, error message otherwise.
      */
-    fun validateName(name: String): AppError.Validation? = when {
-        name.isBlank() -> AppError.Validation(BLANK_NAME_MESSAGE, code = "tag.name.blank")
+    fun validateName(name: String): AppError.Validation? =
+        when {
+            name.isBlank() -> {
+                AppError.Validation(BLANK_NAME_MESSAGE, code = "tag.name.blank")
+            }
 
-        name.visibleLength() > MAX_NAME_LENGTH -> AppError.Validation(
-            "Tag name too long (max $MAX_NAME_LENGTH characters)",
-            code = "tag.name.too_long",
-        )
+            name.visibleLength() > MAX_NAME_LENGTH -> {
+                AppError.Validation(
+                    "Tag name too long (max $MAX_NAME_LENGTH characters)",
+                    code = "tag.name.too_long",
+                )
+            }
 
-        else -> null
-    }
+            else -> {
+                null
+            }
+        }
 
     /**
      * Validates tag color (ARGB int).
      */
-    fun validateColor(color: Int): AppError.Validation? = when {
-        color == 0 -> AppError.Validation("Color cannot be transparent (ARGB=0)", code = "tag.color.transparent")
-        else -> null
-    }
+    fun validateColor(color: Int): AppError.Validation? =
+        when {
+            color == 0 -> AppError.Validation("Color cannot be transparent (ARGB=0)", code = "tag.color.transparent")
+            else -> null
+        }
 
     /**
      * Runs every tag write-rule, returning the first violation.
@@ -76,5 +86,8 @@ object TagDomain {
      *
      * @return null if valid, the first error otherwise.
      */
-    fun validate(name: String, color: Int): AppError.Validation? = validateName(name) ?: validateColor(color)
+    fun validate(
+        name: String,
+        color: Int,
+    ): AppError.Validation? = validateName(name) ?: validateColor(color)
 }

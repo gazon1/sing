@@ -21,7 +21,6 @@ import com.singularity.todo.core.ids.UserId
  * `singleWindowApplication`, so no window or AWT toolkit is initialised.
  */
 object JvmReminderFireCommand {
-
     const val COMMAND = "fire-reminder"
 
     /** A parsed, validated `fire-reminder` invocation. */

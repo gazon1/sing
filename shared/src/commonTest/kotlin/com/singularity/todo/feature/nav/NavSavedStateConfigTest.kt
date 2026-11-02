@@ -36,7 +36,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class NavSavedStateConfigTest {
-
     @Test
     fun `shared configuration builds`() {
         // The single call every NavGraph now uses. Building it is what used to throw.
@@ -61,18 +60,19 @@ class NavSavedStateConfigTest {
         // If a route is declared as `: NavKey` instead of `: AppNavKey`, it is
         // invisible to `subclassesOfSealed` and its screen crashes on open — so
         // assert the relationship, don't trust a comment.
-        val nested: List<AppNavKey> = listOf(
-            Settings,
-            Search,
-            TasksRoute.Detail(TaskId("t1")),
-            ProjectsRoute.List,
-            NotesRoute.List,
-            CalendarRoute.Month("2026-09"),
-            AgendaStartRoute.Today,
-            AppDestination.ProjectsStartRoute.List,
-            AppDestination.NotesStartRoute.List,
-            AppDestination.CalendarStartRoute.Month("2026-09"),
-        )
+        val nested: List<AppNavKey> =
+            listOf(
+                Settings,
+                Search,
+                TasksRoute.Detail(TaskId("t1")),
+                ProjectsRoute.List,
+                NotesRoute.List,
+                CalendarRoute.Month("2026-09"),
+                AgendaStartRoute.Today,
+                AppDestination.ProjectsStartRoute.List,
+                AppDestination.NotesStartRoute.List,
+                AppDestination.CalendarStartRoute.Month("2026-09"),
+            )
         assertTrue(nested.isNotEmpty())
     }
 
@@ -81,35 +81,36 @@ class NavSavedStateConfigTest {
         // The point of the sealed root: adding a destination must not require
         // editing a serializer list anywhere.
         val json = Json
-        val samples: List<AppDestination> = listOf(
-            AppDestination.AgendaGraph(AgendaStartRoute.Inbox),
-            AppDestination.AgendaGraph(AgendaStartRoute.Today),
-            AppDestination.Plans,
-            AppDestination.Pomodoro,
-            AppDestination.Statistics,
-            AppDestination.Calendar,
-            AppDestination.Notes,
-            AppDestination.AiChat,
-            AppDestination.Search,
-            AppDestination.Archive,
-            AppDestination.Settings,
-            AppDestination.AiUsage,
-            AppDestination.ProfileSwitcher,
-            AppDestination.AgendaGraph(AgendaStartRoute.Upcoming),
-            AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()),
-            // B2 round-trip inventory: the five routes now carry typed entity ids —
-            // value-class properties must survive the polymorphic encode/decode too.
-            AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(TaskId("t1"))),
-            AppDestination.TasksByProject(ProjectId("p1")),
-            AppDestination.NotesGraph(AppDestination.NotesStartRoute.Preview(NoteId("n1"))),
-            AppDestination.NotesGraph(AppDestination.NotesStartRoute.EditorForTask(TaskId("t1"))),
-            AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor(ProjectId("p1"))),
-            AppDestination.ProjectsGraph(),
-            AppDestination.NotesGraph(),
-            AppDestination.CalendarGraph(),
-            AppDestination.ProjectEditor(ProjectId("pr1")),
-            AppDestination.ProjectDetail(ProjectId("pr1")),
-        )
+        val samples: List<AppDestination> =
+            listOf(
+                AppDestination.AgendaGraph(AgendaStartRoute.Inbox),
+                AppDestination.AgendaGraph(AgendaStartRoute.Today),
+                AppDestination.Plans,
+                AppDestination.Pomodoro,
+                AppDestination.Statistics,
+                AppDestination.Calendar,
+                AppDestination.Notes,
+                AppDestination.AiChat,
+                AppDestination.Search,
+                AppDestination.Archive,
+                AppDestination.Settings,
+                AppDestination.AiUsage,
+                AppDestination.ProfileSwitcher,
+                AppDestination.AgendaGraph(AgendaStartRoute.Upcoming),
+                AppDestination.TasksGraph(AppDestination.TasksStartRoute.Create()),
+                // B2 round-trip inventory: the five routes now carry typed entity ids —
+                // value-class properties must survive the polymorphic encode/decode too.
+                AppDestination.TasksGraph(AppDestination.TasksStartRoute.Detail(TaskId("t1"))),
+                AppDestination.TasksByProject(ProjectId("p1")),
+                AppDestination.NotesGraph(AppDestination.NotesStartRoute.Preview(NoteId("n1"))),
+                AppDestination.NotesGraph(AppDestination.NotesStartRoute.EditorForTask(TaskId("t1"))),
+                AppDestination.ProjectsGraph(AppDestination.ProjectsStartRoute.Editor(ProjectId("p1"))),
+                AppDestination.ProjectsGraph(),
+                AppDestination.NotesGraph(),
+                AppDestination.CalendarGraph(),
+                AppDestination.ProjectEditor(ProjectId("pr1")),
+                AppDestination.ProjectDetail(ProjectId("pr1")),
+            )
 
         samples.forEach { destination ->
             val encoded = json.encodeToString(AppDestination.serializer(), destination)

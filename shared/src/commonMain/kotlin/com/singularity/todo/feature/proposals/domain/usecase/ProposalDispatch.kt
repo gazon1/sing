@@ -96,7 +96,10 @@ class ProposalDispatch(
      * This is the only `when` over [ProposalPlan] in the codebase; adding a new
      * [ProposalPlan] variant makes the compiler point here.
      */
-    suspend fun dispatch(plan: ProposalPlan, userId: UserId) {
+    suspend fun dispatch(
+        plan: ProposalPlan,
+        userId: UserId,
+    ) {
         writeAllOrNone(rowsOf(plan, userId))
     }
 
@@ -108,79 +111,121 @@ class ProposalDispatch(
      * three rows says so here, and the take-back of those three rows is the same
      * code for all of them.
      */
-    private suspend fun rowsOf(plan: ProposalPlan, userId: UserId): List<ProposedRow> = when (plan) {
-        is ProposalPlan.AddTags -> tagRow(plan.taskId) { taskId ->
-            val current = tasks.getTagIds(taskId).first().toSet()
-            tasks.setTags(taskId, (current + plan.tagIds).toList(), TagEditActor.AiProposal).getOrThrow()
+    private suspend fun rowsOf(
+        plan: ProposalPlan,
+        userId: UserId,
+    ): List<ProposedRow> =
+        when (plan) {
+            is ProposalPlan.AddTags -> {
+                tagRow(plan.taskId) { taskId ->
+                    val current = tasks.getTagIds(taskId).first().toSet()
+                    tasks.setTags(taskId, (current + plan.tagIds).toList(), TagEditActor.AiProposal).getOrThrow()
+                }
+            }
+
+            is ProposalPlan.RemoveTags -> {
+                tagRow(plan.taskId) { taskId ->
+                    val current = tasks.getTagIds(taskId).first().toSet()
+                    tasks.setTags(taskId, (current - plan.tagIds).toList(), TagEditActor.AiProposal).getOrThrow()
+                }
+            }
+
+            is ProposalPlan.SetTaskTags -> {
+                tagRow(plan.taskId) { taskId ->
+                    // A set, not an addition: the proposal says the task carries these tags
+                    // and no others, so the current set is replaced rather than merged.
+                    tasks.setTags(taskId, plan.tagIds.toList(), TagEditActor.AiProposal).getOrThrow()
+                }
+            }
+
+            is ProposalPlan.AddChecklistItems -> {
+                checklistRows(plan)
+            }
+
+            is ProposalPlan.AddSubtasks -> {
+                subtaskRows(plan.titles, plan.taskId, userId)
+            }
+
+            is ProposalPlan.AddTimeEntries -> {
+                timeEntryRows(plan, userId)
+            }
+
+            is ProposalPlan.ExtractNoteActions -> {
+                subtaskRows(
+                    plan.actions.map { it.trim() }.filter { it.isNotEmpty() },
+                    parentTaskId = null,
+                    userId = userId,
+                )
+            }
+
+            is ProposalPlan.WriteNote -> {
+                writeRow(plan.note.id) { notes.upsert(plan.note) }
+            }
+
+            is ProposalPlan.WriteProject -> {
+                writeRow(plan.project.id) { projects.update(plan.project).getOrThrow() }
+            }
+
+            is ProposalPlan.WriteTag -> {
+                writeRow(plan.tag.id) { tags.update(plan.tag).getOrThrow() }
+            }
+
+            is ProposalPlan.WriteTask -> {
+                writeTaskRow(plan)
+            }
+
+            is ProposalPlan.CreateTask -> {
+                createRow(
+                    id = plan.task.id,
+                    write = { tasks.create(plan.task).getOrThrow() },
+                    takeBack = { tasks.delete(plan.task.id) },
+                    isGone = { !tasks.exists(plan.task.id) },
+                )
+            }
+
+            is ProposalPlan.CreateProject -> {
+                createRow(
+                    id = plan.project.id,
+                    write = { projects.create(plan.project).getOrThrow() },
+                    takeBack = { projects.delete(plan.project.id) },
+                    isGone = { projects.get(plan.project.id) == null },
+                )
+            }
+
+            is ProposalPlan.CreateNote -> {
+                createRow(
+                    id = plan.note.id,
+                    write = { notes.create(plan.note).getOrThrow() },
+                    takeBack = { notes.delete(plan.note.id) },
+                    isGone = { notes.get(plan.note.id) == null },
+                )
+            }
+
+            is ProposalPlan.CreateTag -> {
+                createRow(
+                    id = plan.tag.id,
+                    write = { tags.create(plan.tag).getOrThrow() },
+                    takeBack = { tags.delete(plan.tag.id) },
+                    isGone = { tags.get(plan.tag.id) == null },
+                )
+            }
+
+            is ProposalPlan.DeleteNote -> {
+                deleteRow(plan.noteId) { notes.archive(plan.noteId).getOrThrow() }
+            }
+
+            is ProposalPlan.DeleteTask -> {
+                deleteRow(plan.delTaskId) { tasks.softDelete(plan.delTaskId).getOrThrow() }
+            }
+
+            is ProposalPlan.DeleteProject -> {
+                deleteRow(plan.projectId) { deleteProject(plan.projectId).getOrThrow() }
+            }
+
+            is ProposalPlan.DeleteTag -> {
+                deleteRow(plan.tagId) { tags.delete(plan.tagId).getOrThrow() }
+            }
         }
-
-        is ProposalPlan.RemoveTags -> tagRow(plan.taskId) { taskId ->
-            val current = tasks.getTagIds(taskId).first().toSet()
-            tasks.setTags(taskId, (current - plan.tagIds).toList(), TagEditActor.AiProposal).getOrThrow()
-        }
-
-        is ProposalPlan.SetTaskTags -> tagRow(plan.taskId) { taskId ->
-            // A set, not an addition: the proposal says the task carries these tags
-            // and no others, so the current set is replaced rather than merged.
-            tasks.setTags(taskId, plan.tagIds.toList(), TagEditActor.AiProposal).getOrThrow()
-        }
-
-        is ProposalPlan.AddChecklistItems -> checklistRows(plan)
-
-        is ProposalPlan.AddSubtasks -> subtaskRows(plan.titles, plan.taskId, userId)
-
-        is ProposalPlan.AddTimeEntries -> timeEntryRows(plan, userId)
-
-        is ProposalPlan.ExtractNoteActions -> subtaskRows(
-            plan.actions.map { it.trim() }.filter { it.isNotEmpty() },
-            parentTaskId = null,
-            userId = userId,
-        )
-
-        is ProposalPlan.WriteNote -> writeRow(plan.note.id) { notes.upsert(plan.note) }
-
-        is ProposalPlan.WriteProject -> writeRow(plan.project.id) { projects.update(plan.project).getOrThrow() }
-
-        is ProposalPlan.WriteTag -> writeRow(plan.tag.id) { tags.update(plan.tag).getOrThrow() }
-
-        is ProposalPlan.WriteTask -> writeTaskRow(plan)
-
-        is ProposalPlan.CreateTask -> createRow(
-            id = plan.task.id,
-            write = { tasks.create(plan.task).getOrThrow() },
-            takeBack = { tasks.delete(plan.task.id) },
-            isGone = { !tasks.exists(plan.task.id) },
-        )
-
-        is ProposalPlan.CreateProject -> createRow(
-            id = plan.project.id,
-            write = { projects.create(plan.project).getOrThrow() },
-            takeBack = { projects.delete(plan.project.id) },
-            isGone = { projects.get(plan.project.id) == null },
-        )
-
-        is ProposalPlan.CreateNote -> createRow(
-            id = plan.note.id,
-            write = { notes.create(plan.note).getOrThrow() },
-            takeBack = { notes.delete(plan.note.id) },
-            isGone = { notes.get(plan.note.id) == null },
-        )
-
-        is ProposalPlan.CreateTag -> createRow(
-            id = plan.tag.id,
-            write = { tags.create(plan.tag).getOrThrow() },
-            takeBack = { tags.delete(plan.tag.id) },
-            isGone = { tags.get(plan.tag.id) == null },
-        )
-
-        is ProposalPlan.DeleteNote -> deleteRow(plan.noteId) { notes.archive(plan.noteId).getOrThrow() }
-
-        is ProposalPlan.DeleteTask -> deleteRow(plan.delTaskId) { tasks.softDelete(plan.delTaskId).getOrThrow() }
-
-        is ProposalPlan.DeleteProject -> deleteRow(plan.projectId) { deleteProject(plan.projectId).getOrThrow() }
-
-        is ProposalPlan.DeleteTag -> deleteRow(plan.tagId) { tags.delete(plan.tagId).getOrThrow() }
-    }
 
     /**
      * The row of a task update.
@@ -194,15 +239,17 @@ class ProposalDispatch(
      * A plan type added later has to be handled there, and the compiler has to
      * say so — an `else` would move that from the build to a runtime error.
      */
-    private suspend fun writeTaskRow(plan: ProposalPlan.WriteTask): List<ProposedRow> = writeRow(plan.task.id) {
-        val current = tasks.get(plan.task.id)
-        val toWrite = if (current != null) {
-            ProposalPlanner.withTaskValue(current, plan.value, clock)
-        } else {
-            plan.task
+    private suspend fun writeTaskRow(plan: ProposalPlan.WriteTask): List<ProposedRow> =
+        writeRow(plan.task.id) {
+            val current = tasks.get(plan.task.id)
+            val toWrite =
+                if (current != null) {
+                    ProposalPlanner.withTaskValue(current, plan.value, clock)
+                } else {
+                    plan.task
+                }
+            tasks.update(toWrite).getOrThrow()
         }
-        tasks.update(toWrite).getOrThrow()
-    }
 
     /**
      * The row of an update.
@@ -211,9 +258,13 @@ class ProposalDispatch(
      * retry of it needs no undo — and a take-back that wrote the previous state
      * back would overwrite whatever the user did in the meantime.
      */
-    private fun writeRow(id: Any, write: suspend () -> Unit): List<ProposedRow> = listOf(
-        ProposedRow(id = ProposedRowId(id), write = write, takeBack = null, isGone = null),
-    )
+    private fun writeRow(
+        id: Any,
+        write: suspend () -> Unit,
+    ): List<ProposedRow> =
+        listOf(
+            ProposedRow(id = ProposedRowId(id), write = write, takeBack = null, isGone = null),
+        )
 
     /**
      * The row of a creation.
@@ -226,9 +277,10 @@ class ProposalDispatch(
         write: suspend () -> Unit,
         takeBack: suspend () -> Result<*>,
         isGone: suspend () -> Boolean,
-    ): List<ProposedRow> = listOf(
-        ProposedRow(id = ProposedRowId(id), write = write, takeBack = takeBack, isGone = isGone),
-    )
+    ): List<ProposedRow> =
+        listOf(
+            ProposedRow(id = ProposedRowId(id), write = write, takeBack = takeBack, isGone = isGone),
+        )
 
     /**
      * The row of a removal.
@@ -236,9 +288,13 @@ class ProposalDispatch(
      * A removal has no take-back: the thing is gone, and putting it back is a
      * decision the user has not made.
      */
-    private fun deleteRow(id: Any, write: suspend () -> Unit): List<ProposedRow> = listOf(
-        ProposedRow(id = ProposedRowId(id), write = write, takeBack = null, isGone = null),
-    )
+    private fun deleteRow(
+        id: Any,
+        write: suspend () -> Unit,
+    ): List<ProposedRow> =
+        listOf(
+            ProposedRow(id = ProposedRowId(id), write = write, takeBack = null, isGone = null),
+        )
 
     /**
      * The task's tags become what the proposal says.
@@ -246,14 +302,18 @@ class ProposalDispatch(
      * The write sets a set of tags, so a retry of it sets the same set: there is
      * nothing to take back. The id is the task's — the row this write touches.
      */
-    private fun tagRow(taskId: TaskId, write: suspend (TaskId) -> Unit): List<ProposedRow> = listOf(
-        ProposedRow(
-            id = ProposedRowId(taskId),
-            write = { write(taskId) },
-            takeBack = null,
-            isGone = null,
-        ),
-    )
+    private fun tagRow(
+        taskId: TaskId,
+        write: suspend (TaskId) -> Unit,
+    ): List<ProposedRow> =
+        listOf(
+            ProposedRow(
+                id = ProposedRowId(taskId),
+                write = { write(taskId) },
+                takeBack = null,
+                isGone = null,
+            ),
+        )
 
     /**
      * The checklist rows a proposal asked for.
@@ -263,15 +323,16 @@ class ProposalDispatch(
      * back to waiting when the write fails. So the rows this call wrote are taken back
      * when a later row fails.
      */
-    private fun checklistRows(plan: ProposalPlan.AddChecklistItems): List<ProposedRow> = plan.texts.map { text ->
-        val id = ChecklistItemId.generate()
-        ProposedRow(
-            id = ProposedRowId(id),
-            write = { checklist.addItem(plan.taskId.value, text, id).getOrThrow() },
-            takeBack = { checklist.delete(id) },
-            isGone = { checklist.watchByTask(plan.taskId.value).first().none { it.id == id } },
-        )
-    }
+    private fun checklistRows(plan: ProposalPlan.AddChecklistItems): List<ProposedRow> =
+        plan.texts.map { text ->
+            val id = ChecklistItemId.generate()
+            ProposedRow(
+                id = ProposedRowId(id),
+                write = { checklist.addItem(plan.taskId.value, text, id).getOrThrow() },
+                takeBack = { checklist.delete(id) },
+                isGone = { checklist.watchByTask(plan.taskId.value).first().none { it.id == id } },
+            )
+        }
 
     /**
      * The subtasks a proposal asked for — and the tasks a note's actions describe.
@@ -284,48 +345,54 @@ class ProposalDispatch(
         titles: List<String>,
         parentTaskId: TaskId?,
         userId: UserId,
-    ): List<ProposedRow> = titles.map { title ->
-        val id = TaskId.generate()
-        val now = clock.now()
-        ProposedRow(
-            id = ProposedRowId(id),
-            write = {
-                tasks.create(
-                    Task(
-                        id = id,
-                        title = title,
-                        parentTaskId = parentTaskId,
-                        userId = userId,
-                        createdAt = now,
-                        updatedAt = now,
-                    ),
-                ).getOrThrow()
-            },
-            // A delete travels to the server as an archive, so the take-back of a
-            // subtask is seen by the other device too — the row does not come back
-            // there as a live task.
-            takeBack = { tasks.delete(id) },
-            isGone = { !tasks.exists(id) },
-        )
-    }
+    ): List<ProposedRow> =
+        titles.map { title ->
+            val id = TaskId.generate()
+            val now = clock.now()
+            ProposedRow(
+                id = ProposedRowId(id),
+                write = {
+                    tasks
+                        .create(
+                            Task(
+                                id = id,
+                                title = title,
+                                parentTaskId = parentTaskId,
+                                userId = userId,
+                                createdAt = now,
+                                updatedAt = now,
+                            ),
+                        ).getOrThrow()
+                },
+                // A delete travels to the server as an archive, so the take-back of a
+                // subtask is seen by the other device too — the row does not come back
+                // there as a live task.
+                takeBack = { tasks.delete(id) },
+                isGone = { !tasks.exists(id) },
+            )
+        }
 
     /** The time entries a proposal asked for. All of them, or none — see [checklistRows]. */
-    private fun timeEntryRows(plan: ProposalPlan.AddTimeEntries, userId: UserId): List<ProposedRow> =
+    private fun timeEntryRows(
+        plan: ProposalPlan.AddTimeEntries,
+        userId: UserId,
+    ): List<ProposedRow> =
         plan.entries.map { entry ->
             val id = TimeEntryId.generate()
             ProposedRow(
                 id = ProposedRowId(id),
                 write = {
-                    timeTracking.createManualEntry(
-                        taskId = plan.taskId,
-                        userId = userId,
-                        startedAt = entry.startedAt,
-                        endedAt = entry.endedAt,
-                        kind = TimeEntryKind.Work,
-                        note = entry.note,
-                        source = TimeEntrySource.AiProposal,
-                        id = id,
-                    ).getOrThrow()
+                    timeTracking
+                        .createManualEntry(
+                            taskId = plan.taskId,
+                            userId = userId,
+                            startedAt = entry.startedAt,
+                            endedAt = entry.endedAt,
+                            kind = TimeEntryKind.Work,
+                            note = entry.note,
+                            source = TimeEntrySource.AiProposal,
+                            id = id,
+                        ).getOrThrow()
                 },
                 takeBack = { timeTracking.delete(id) },
                 isGone = { timeTracking.watchEntries(plan.taskId).first().none { it.id == id } },
@@ -353,15 +420,16 @@ class ProposalDispatch(
         val takenBack = mutableSetOf<ProposedRowId>()
         var settled = false
         try {
-            val result = runCatchingCancellable {
-                for (row in rows) {
-                    // The row is remembered before it is written: a write that is cut
-                    // short after the commit leaves a row behind, and the take-back
-                    // has to know which row it is.
-                    written += row
-                    row.write()
+            val result =
+                runCatchingCancellable {
+                    for (row in rows) {
+                        // The row is remembered before it is written: a write that is cut
+                        // short after the commit leaves a row behind, and the take-back
+                        // has to know which row it is.
+                        written += row
+                        row.write()
+                    }
                 }
-            }
             if (result.isFailure) {
                 // The take-back runs where a cancellation cannot stop it, on this
                 // path too: the scope may be cancelled while the rows are being
@@ -434,7 +502,10 @@ class ProposalDispatch(
      * archived, a time entry is marked as deleted. What matters for the retry is that
      * the row is not there to be seen.
      */
-    private fun failureWith(failure: Result<*>, takenBack: List<Result<*>>): Throwable {
+    private fun failureWith(
+        failure: Result<*>,
+        takenBack: List<Result<*>>,
+    ): Throwable {
         val error = failure.exceptionOrNull() ?: IllegalStateException("The change could not be applied")
         val stuck = takenBack.count { it.isFailure }
         return if (stuck == 0) {

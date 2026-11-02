@@ -49,7 +49,6 @@ import org.jetbrains.kotlin.psi.KtNameReferenceExpression
  * @see 2026-10-05-no-direct-dispatchers-rule-was-a-no-op for the shared failure mode.
  */
 class NoStaticProfileAwareCurrentUserRule(config: Config) : Rule(config, "", null) {
-
     override fun visitDotQualifiedExpression(expression: KtDotQualifiedExpression) {
         super.visitDotQualifiedExpression(expression)
         if (!NoStaticProfileAwareCurrentUserPolicy.isForbiddenAccess(expression)) return
@@ -73,7 +72,6 @@ class NoStaticProfileAwareCurrentUserRule(config: Config) : Rule(config, "", nul
  * is PSI is a rule whose no-op failure mode is invisible.
  */
 internal object NoStaticProfileAwareCurrentUserPolicy {
-
     const val SIMPLE_NAME = "ProfileAwareCurrentUser"
 
     private val COMPANION_MEMBERS = setOf("scopedUserId", "current", "instance", "setInstance")
@@ -103,8 +101,9 @@ internal object NoStaticProfileAwareCurrentUserPolicy {
     }
 
     fun messageFor(expression: KtDotQualifiedExpression): String {
-        val member = (expression.selectorExpression as? KtNameReferenceExpression)
-            ?.getReferencedName() ?: "?"
+        val member =
+            (expression.selectorExpression as? KtNameReferenceExpression)
+                ?.getReferencedName() ?: "?"
         return "ProfileAwareCurrentUser companion accessor '$member' is forbidden. " +
             "Access ProfileAwareCurrentUser via constructor injection. " +
             "The static companion was removed in PR12b."
@@ -117,12 +116,14 @@ internal object NoStaticProfileAwareCurrentUserPolicy {
  */
 class NoStaticProfileAwareCurrentUserProvider : RuleSetProvider {
     override val ruleSetId: RuleSetId = RuleSetId("no-static-profile-aware-current-user")
-    override fun instance(): RuleSet = RuleSet(
-        ruleSetId,
-        mapOf<RuleName, (Config) -> Rule>(
-            RuleName("NoStaticProfileAwareCurrentUser") to { cfg: Config ->
-                NoStaticProfileAwareCurrentUserRule(cfg)
-            },
-        ),
-    )
+
+    override fun instance(): RuleSet =
+        RuleSet(
+            ruleSetId,
+            mapOf<RuleName, (Config) -> Rule>(
+                RuleName("NoStaticProfileAwareCurrentUser") to { cfg: Config ->
+                    NoStaticProfileAwareCurrentUserRule(cfg)
+                },
+            ),
+        )
 }

@@ -35,6 +35,7 @@ data class SavedAgendaListDeps(
  */
 sealed interface SavedAgendaListState {
     data object Loading : SavedAgendaListState
+
     data class Loaded(val views: List<SavedAgendaView>) : SavedAgendaListState
 }
 
@@ -43,6 +44,7 @@ sealed interface SavedAgendaListState {
  */
 sealed interface SavedAgendaListIntent : MviIntent {
     data class Delete(val viewId: SavedAgendaViewId) : SavedAgendaListIntent
+
     data class CopyToProfile(val viewId: SavedAgendaViewId, val targetProfileId: ProfileId) : SavedAgendaListIntent
 }
 
@@ -52,6 +54,7 @@ sealed interface SavedAgendaListIntent : MviIntent {
  */
 sealed interface SavedAgendaListEvent : MviEvent {
     data class ShowError(val message: String) : SavedAgendaListEvent
+
     data class CopySuccess(val viewName: String, val targetProfileName: String) : SavedAgendaListEvent
 }
 
@@ -71,10 +74,10 @@ class SavedAgendaListViewModel(
         crashReporter = crashReporter,
         scope = scope,
     ) {
-
     init {
         scope.launch {
-            deps.repo.observeAll()
+            deps.repo
+                .observeAll()
                 .map { views -> SavedAgendaListState.Loaded(views) }
                 .collect { loaded -> setState(loaded) }
         }
@@ -82,50 +85,57 @@ class SavedAgendaListViewModel(
 
     override fun onIntent(intent: SavedAgendaListIntent) {
         when (intent) {
-            is SavedAgendaListIntent.Delete -> with(intent) {
-                emitError("Delete failed", SavedAgendaListEvent::ShowError) {
-                    deps.repo.delete(viewId)
+            is SavedAgendaListIntent.Delete -> {
+                with(intent) {
+                    emitError("Delete failed", SavedAgendaListEvent::ShowError) {
+                        deps.repo.delete(viewId)
+                    }
                 }
             }
 
-            is SavedAgendaListIntent.CopyToProfile -> with(intent) {
-                scope.launch {
-                    val sourceView = deps.repo.observe(viewId)
-                        .first()
-                    if (sourceView == null) {
-                        emit(SavedAgendaListEvent.ShowError("View not found"))
-                        return@launch
-                    }
-                    val targetProfile = deps.profileRepo.get(targetProfileId)
-                    if (targetProfile == null) {
-                        emit(SavedAgendaListEvent.ShowError("Profile not found"))
-                        return@launch
-                    }
-                    // The copy must land in the TARGET profile's data namespace,
-                    // so it needs the profile's SCOPED userId (default profile →
-                    // raw userId, else "{profileId}/{raw}") — not the profile
-                    // row's id. [scopedUserIdFor] is the shared mapping used by
-                    // [ProfileAwareCurrentUser] itself.
-                    val targetScopedId = scopedUserIdFor(
-                        profileId = targetProfile.id,
-                        userId = deps.currentUser.userId.value,
-                    )
-                    deps.repo.duplicateForProfile(sourceView, targetScopedId.value)
-                        .onSuccess {
-                            emit(
-                                SavedAgendaListEvent.CopySuccess(
-                                    sourceView.name.ifBlank { "Untitled" },
-                                    targetProfile.name,
-                                ),
-                            )
+            is SavedAgendaListIntent.CopyToProfile -> {
+                with(intent) {
+                    scope.launch {
+                        val sourceView =
+                            deps.repo
+                                .observe(viewId)
+                                .first()
+                        if (sourceView == null) {
+                            emit(SavedAgendaListEvent.ShowError("View not found"))
+                            return@launch
                         }
-                        .onFailure {
-                            emit(
-                                SavedAgendaListEvent.ShowError(
-                                    it.toMessage("Copy failed"),
-                                ),
-                            )
+                        val targetProfile = deps.profileRepo.get(targetProfileId)
+                        if (targetProfile == null) {
+                            emit(SavedAgendaListEvent.ShowError("Profile not found"))
+                            return@launch
                         }
+                        // The copy must land in the TARGET profile's data namespace,
+                        // so it needs the profile's SCOPED userId (default profile →
+                        // raw userId, else "{profileId}/{raw}") — not the profile
+                        // row's id. [scopedUserIdFor] is the shared mapping used by
+                        // [ProfileAwareCurrentUser] itself.
+                        val targetScopedId =
+                            scopedUserIdFor(
+                                profileId = targetProfile.id,
+                                userId = deps.currentUser.userId.value,
+                            )
+                        deps.repo
+                            .duplicateForProfile(sourceView, targetScopedId.value)
+                            .onSuccess {
+                                emit(
+                                    SavedAgendaListEvent.CopySuccess(
+                                        sourceView.name.ifBlank { "Untitled" },
+                                        targetProfile.name,
+                                    ),
+                                )
+                            }.onFailure {
+                                emit(
+                                    SavedAgendaListEvent.ShowError(
+                                        it.toMessage("Copy failed"),
+                                    ),
+                                )
+                            }
+                    }
                 }
             }
         }

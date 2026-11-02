@@ -1,8 +1,8 @@
 package com.singularity.todo.feature.tasks.domain.usecase
 
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 import com.singularity.todo.feature.tasks.domain.port.TaskRepository
-import com.singularity.todo.core.error.runCatchingCancellable
 
 /**
  * Single injection point for bulk task mutation operations.
@@ -14,7 +14,6 @@ import com.singularity.todo.core.error.runCatchingCancellable
  * @param repo The task repository to delegate to.
  */
 open class TaskMutationsUseCase(protected val repo: TaskRepository) {
-
     /**
      * Completes every task in [ids] — or none of them.
      *
@@ -34,33 +33,38 @@ open class TaskMutationsUseCase(protected val repo: TaskRepository) {
      * @param force close even the tasks whose prerequisite is open. The caller
      *   passes `true` only after the user has confirmed.
      */
-    suspend fun bulkComplete(ids: List<TaskId>, force: Boolean = false): Result<Unit> = runCatchingCancellable {
-        // Atomic: fail-fast if any ID doesn't exist, before mutating anything.
-        ids.forEach { id ->
-            if (!repo.exists(id)) return Result.failure(IllegalArgumentException("Task $id not found"))
-        }
-        if (!force) {
-            val blocked = repo.blockedTaskIds(ids)
-            if (blocked.isNotEmpty()) {
-                return Result.failure(BlockedTasksException(blocked))
+    suspend fun bulkComplete(
+        ids: List<TaskId>,
+        force: Boolean = false,
+    ): Result<Unit> =
+        runCatchingCancellable {
+            // Atomic: fail-fast if any ID doesn't exist, before mutating anything.
+            ids.forEach { id ->
+                if (!repo.exists(id)) return Result.failure(IllegalArgumentException("Task $id not found"))
+            }
+            if (!force) {
+                val blocked = repo.blockedTaskIds(ids)
+                if (blocked.isNotEmpty()) {
+                    return Result.failure(BlockedTasksException(blocked))
+                }
+            }
+            ids.forEach { id ->
+                val completed = repo.complete(id, force).getOrThrow()
+                if (!completed) {
+                    // The write refused although the check said nothing was in the
+                    // way: a prerequisite was reopened in between.
+                    throw BlockedTasksException(setOf(id))
+                }
             }
         }
-        ids.forEach { id ->
-            val completed = repo.complete(id, force).getOrThrow()
-            if (!completed) {
-                // The write refused although the check said nothing was in the
-                // way: a prerequisite was reopened in between.
-                throw BlockedTasksException(setOf(id))
-            }
-        }
-    }
 
-    suspend fun bulkDelete(ids: List<TaskId>): Result<Unit> = runCatchingCancellable {
-        ids.forEach { id ->
-            if (!repo.exists(id)) return Result.failure(IllegalArgumentException("Task $id not found"))
+    suspend fun bulkDelete(ids: List<TaskId>): Result<Unit> =
+        runCatchingCancellable {
+            ids.forEach { id ->
+                if (!repo.exists(id)) return Result.failure(IllegalArgumentException("Task $id not found"))
+            }
+            ids.forEach { repo.softDelete(it).getOrThrow() }
         }
-        ids.forEach { repo.softDelete(it).getOrThrow() }
-    }
 }
 
 /**

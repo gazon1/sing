@@ -21,7 +21,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class ToolServerStartupOrderTest {
-
     @Test
     fun `the steps run in the order they are written down`() {
         assertEquals(

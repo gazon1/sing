@@ -29,22 +29,22 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class PlansSectionHeaderScenarioTest {
-
     @Test
     @DisplayName("PLANS-08 a section header names the period it covers")
-    fun a_header_names_its_period() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
-        tasks(koin).given(due = TODAY, title = "Due today")
+    fun a_header_names_its_period() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
+            tasks(koin).given(due = TODAY, title = "Due today")
 
-        tapTab("Plans")
-        // The day header names the day.
-        awaitTag(TestTags.plansSection("day:2026-09-16"))
-        clickTag(TestTags.PLANS_GRANULARITY_WEEK)
-        // The week header names the range of that week.
-        awaitTag(TestTags.plansSection("week:2026-09-14"))
+            tapTab("Plans")
+            // The day header names the day.
+            awaitTag(TestTags.plansSection("day:2026-09-16"))
+            clickTag(TestTags.PLANS_GRANULARITY_WEEK)
+            // The week header names the range of that week.
+            awaitTag(TestTags.plansSection("week:2026-09-14"))
 
-        clickTag(TestTags.PLANS_GRANULARITY_MONTH)
-        // The month header names the month.
-        awaitTag(TestTags.plansSection("month:2026-9"))
-        assertTagDisplayed(TestTags.taskItem("Due today"))
-    }
+            clickTag(TestTags.PLANS_GRANULARITY_MONTH)
+            // The month header names the month.
+            awaitTag(TestTags.plansSection("month:2026-9"))
+            assertTagDisplayed(TestTags.taskItem("Due today"))
+        }
 }

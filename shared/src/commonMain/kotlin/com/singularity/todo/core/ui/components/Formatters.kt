@@ -12,17 +12,12 @@ import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Instant
 
-/**
+/*
  * Pure-Kotlin presentation helpers used by [core/ui/components]. No Compose
  * runtime — safe to unit-test directly from `commonTest` without Robolectric.
  *
  * Feature-specific formatters (e.g. `formatAiResult` in `feature/tasks`) live
  * next to their domain types to avoid core → feature back-references.
- */
-
-/**
- * Visual state for the due-date chip on the task detail screen.
- * Used to determine background / text colour (overdue = error, today = warning, future = neutral).
  */
 
 /**
@@ -33,17 +28,25 @@ import kotlin.time.Instant
  */
 @Composable
 @ReadOnlyComposable
-internal fun dueChipColors(state: DueVisualState?): Pair<Color, Color> = when (state) {
-    DueVisualState.Overdue ->
-        MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
+internal fun dueChipColors(state: DueVisualState?): Pair<Color, Color> =
+    when (state) {
+        DueVisualState.Overdue -> {
+            MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
+        }
 
-    DueVisualState.Today ->
-        MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
+        DueVisualState.Today -> {
+            MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
+        }
 
-    else ->
-        MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
-}
+        else -> {
+            MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
+        }
+    }
 
+/**
+ * Visual state for the due-date chip on the task detail screen.
+ * Used to determine background / text colour (overdue = error, today = warning, future = neutral).
+ */
 internal enum class DueVisualState {
     /** Past due date. */
     Overdue,
@@ -69,23 +72,29 @@ internal data class DueChipModel(val text: String, val state: DueVisualState)
  * [today] must be the current local date (passed in to avoid hardcoding `Clock` here —
  * pure functions must not call `Clock` directly).
  */
-internal fun formatDueChip(date: LocalDate?, time: String?, today: LocalDate): DueChipModel? {
+internal fun formatDueChip(
+    date: LocalDate?,
+    time: String?,
+    today: LocalDate,
+): DueChipModel? {
     if (date == null) return null
 
-    val datePart = when (date) {
-        today -> "Today"
-        today.plus(1, DateTimeUnit.DAY) -> "Tomorrow"
-        today.minus(1, DateTimeUnit.DAY) -> "Yesterday"
-        else -> date.toString() // "YYYY-MM-DD" — Composable layer can re-format
-    }
+    val datePart =
+        when (date) {
+            today -> "Today"
+            today.plus(1, DateTimeUnit.DAY) -> "Tomorrow"
+            today.minus(1, DateTimeUnit.DAY) -> "Yesterday"
+            else -> date.toString() // "YYYY-MM-DD" — Composable layer can re-format
+        }
 
     val fullText = if (time.isNullOrBlank()) datePart else "$datePart, $time"
 
-    val state = when {
-        date < today -> DueVisualState.Overdue
-        date == today -> DueVisualState.Today
-        else -> DueVisualState.Future
-    }
+    val state =
+        when {
+            date < today -> DueVisualState.Overdue
+            date == today -> DueVisualState.Today
+            else -> DueVisualState.Future
+        }
 
     return DueChipModel(text = fullText, state = state)
 }
@@ -96,7 +105,11 @@ internal fun formatDueChip(date: LocalDate?, time: String?, today: LocalDate): D
  * - createdAt: "Created Sep 8"
  * - updatedAt: "Updated 2m ago" (relative), or "Updated Sep 8" if >7 days old
  */
-internal fun formatTimestampsRelative(createdAt: Instant, updatedAt: Instant, now: Instant): TimestampsModel {
+internal fun formatTimestampsRelative(
+    createdAt: Instant,
+    updatedAt: Instant,
+    now: Instant,
+): TimestampsModel {
     val createdStr = formatCreatedDate(createdAt)
     val updatedStr = formatUpdatedRelative(updatedAt, now)
     return TimestampsModel(created = createdStr, updated = updatedStr)
@@ -109,20 +122,31 @@ private fun formatCreatedDate(instant: Instant): String {
     return "Created ${monthAbbreviation(local.month)} ${local.day}"
 }
 
-private fun formatUpdatedRelative(instant: Instant, now: Instant): String {
+private fun formatUpdatedRelative(
+    instant: Instant,
+    now: Instant,
+): String {
     val diffMs = now.toEpochMilliseconds() - instant.toEpochMilliseconds()
     val diffMinutes = diffMs / 60_000
     val diffHours = diffMinutes / 60
     val diffDays = diffHours / 24
 
     return when {
-        diffMinutes < 1 -> "Updated just now"
+        diffMinutes < 1 -> {
+            "Updated just now"
+        }
 
-        diffMinutes < 60 -> "Updated ${diffMinutes}m ago"
+        diffMinutes < 60 -> {
+            "Updated ${diffMinutes}m ago"
+        }
 
-        diffHours < 24 -> "Updated ${diffHours}h ago"
+        diffHours < 24 -> {
+            "Updated ${diffHours}h ago"
+        }
 
-        diffDays <= 7 -> "Updated ${diffDays}d ago"
+        diffDays <= 7 -> {
+            "Updated ${diffDays}d ago"
+        }
 
         else -> {
             val local = instant.toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())

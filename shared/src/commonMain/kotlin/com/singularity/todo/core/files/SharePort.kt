@@ -16,5 +16,8 @@ interface SharePort {
      * @return `true` if a share was started, `false` if the platform refused
      *   (e.g. no app on Android can handle `text/plain`).
      */
-    fun shareText(title: String, text: String): Boolean
+    fun shareText(
+        title: String,
+        text: String,
+    ): Boolean
 }

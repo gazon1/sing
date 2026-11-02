@@ -35,30 +35,31 @@ internal class AndroidGoogleSyncPeriodicTrigger(
     private val context: Context,
     private val coordinatorProvider: () -> GoogleSyncCoordinator,
 ) : GoogleSyncPeriodicTrigger {
-
     private val workManager: WorkManager
         get() = WorkManager.getInstance(context)
 
-    private val constraints = Constraints.Builder()
-        // A pass that cannot reach Google is a pass that fails, and WorkManager would spend
-        // its retry budget discovering that on a device with no connection.
-        .setRequiredNetworkType(NetworkType.CONNECTED)
-        .setRequiresBatteryNotLow(true)
-        .build()
+    private val constraints =
+        Constraints
+            .Builder()
+            // A pass that cannot reach Google is a pass that fails, and WorkManager would spend
+            // its retry budget discovering that on a device with no connection.
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .setRequiresBatteryNotLow(true)
+            .build()
 
     override fun start(interval: Duration) {
         // WorkManager clamps a periodic request to at least 15 minutes and throws at enqueue
         // time below that, taking the caller down with it — so the floor is applied here
         // rather than trusted to the constant.
         val period = maxOf(interval.inWholeMilliseconds, MIN_PERIODIC_MILLIS)
-        val request = PeriodicWorkRequestBuilder<GoogleSyncWorker>(period, TimeUnit.MILLISECONDS)
-            .setConstraints(constraints)
-            .setBackoffCriteria(
-                BackoffPolicy.EXPONENTIAL,
-                30,
-                TimeUnit.SECONDS,
-            )
-            .build()
+        val request =
+            PeriodicWorkRequestBuilder<GoogleSyncWorker>(period, TimeUnit.MILLISECONDS)
+                .setConstraints(constraints)
+                .setBackoffCriteria(
+                    BackoffPolicy.EXPONENTIAL,
+                    30,
+                    TimeUnit.SECONDS,
+                ).build()
 
         workManager.enqueueUniquePeriodicWork(
             WORK_NAME,

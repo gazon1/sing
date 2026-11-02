@@ -35,7 +35,6 @@ import kotlinx.coroutines.flow.Flow
  */
 @Dao
 interface ProposalItemDao {
-
     // ── Items ─────────────────────────────────────────────────────────────────
 
     @Upsert
@@ -51,7 +50,10 @@ interface ProposalItemDao {
     suspend fun getItemsForProposal(proposalId: String): List<ProposalItemEntity>
 
     @Query("SELECT COUNT(*) FROM ai_proposal_item WHERE proposal_id = :proposalId AND fingerprint = :fingerprint")
-    suspend fun countItemsWithFingerprint(proposalId: String, fingerprint: String): Int
+    suspend fun countItemsWithFingerprint(
+        proposalId: String,
+        fingerprint: String,
+    ): Int
 
     /**
      * The compare-and-set that makes confirm/reject exactly-once.
@@ -102,7 +104,10 @@ interface ProposalItemDao {
           AND status NOT IN ('Confirmed','Rejected','Retracted')
         """,
     )
-    suspend fun retractPendingItems(proposalId: String, userId: String): Int
+    suspend fun retractPendingItems(
+        proposalId: String,
+        userId: String,
+    ): Int
 
     /**
      * Puts a claimed item back into `Pending`.
@@ -129,7 +134,11 @@ interface ProposalItemDao {
           AND decided_actor = :actor
         """,
     )
-    suspend fun releaseClaim(userId: String, id: String, actor: String): Int
+    suspend fun releaseClaim(
+        userId: String,
+        id: String,
+        actor: String,
+    ): Int
 
     /**
      * Rewrites what a pending item asks for.
@@ -179,7 +188,10 @@ interface ProposalItemDao {
         LIMIT :limit
         """,
     )
-    suspend fun rejectedFingerprints(userId: String, limit: Int): List<String>
+    suspend fun rejectedFingerprints(
+        userId: String,
+        limit: Int,
+    ): List<String>
 
     /**
      * Claims an item and reads it back in one transaction.

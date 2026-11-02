@@ -12,7 +12,6 @@ import com.singularity.todo.feature.calendarSync.domain.model.CalendarAppInfo
  * JVM: returns an empty list (calendar sync is Android-only).
  */
 interface CalendarAppQueries {
-
     /**
      * Whether this port can do its job on this platform.
      *

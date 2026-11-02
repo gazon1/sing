@@ -38,7 +38,6 @@ import kotlin.test.assertTrue
 @Tag("slow")
 @Tag("slow:migration")
 class Migration40To41Test {
-
     private lateinit var tempDir: File
     private lateinit var dbPath: String
 
@@ -53,8 +52,7 @@ class Migration40To41Test {
         tempDir.deleteRecursively()
     }
 
-    private fun sharedDir(): File =
-        File(System.getProperty("commonMain.root")!!).parentFile.parentFile.parentFile
+    private fun sharedDir(): File = File(System.getProperty("commonMain.root")!!).parentFile.parentFile.parentFile
 
     private fun openMigrated(): AppDatabase {
         createSqlDriver().open(dbPath).use { applyExportedSchema(40, it) }
@@ -62,70 +60,73 @@ class Migration40To41Test {
     }
 
     @Test
-    fun `an existing sync row keeps its cursor and settings`() = runTest {
-        val db = openMigrated()
-        try {
-            val dao = db.syncStateDao()
-            dao.insertIfAbsent(
-                SyncStateEntity(
-                    ownerId = "user-1",
-                    profileId = "personal",
-                    lastLsn = 4_242L,
-                    deviceId = "device-a",
-                    autoSyncEnabled = false,
-                    scheduledIntervalMinutes = 90,
-                    seedCompleted = true,
-                ),
-            )
+    fun `an existing sync row keeps its cursor and settings`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                val dao = db.syncStateDao()
+                dao.insertIfAbsent(
+                    SyncStateEntity(
+                        ownerId = "user-1",
+                        profileId = "personal",
+                        lastLsn = 4_242L,
+                        deviceId = "device-a",
+                        autoSyncEnabled = false,
+                        scheduledIntervalMinutes = 90,
+                        seedCompleted = true,
+                    ),
+                )
 
-            val after = dao.observe("user-1", "personal").first()
+                val after = dao.observe("user-1", "personal").first()
 
-            assertEquals(4_242L, after?.lastLsn, "the LSN cursor must survive the upgrade")
-            assertEquals("device-a", after?.deviceId)
-            assertEquals(false, after?.autoSyncEnabled)
-            assertEquals(90, after?.scheduledIntervalMinutes)
-            assertEquals(true, after?.seedCompleted)
-        } finally {
-            db.close()
+                assertEquals(4_242L, after?.lastLsn, "the LSN cursor must survive the upgrade")
+                assertEquals("device-a", after?.deviceId)
+                assertEquals(false, after?.autoSyncEnabled)
+                assertEquals(90, after?.scheduledIntervalMinutes)
+                assertEquals(true, after?.seedCompleted)
+            } finally {
+                db.close()
+            }
         }
-    }
 
     @Test
-    fun `the new column reads as off for a row that predates it`() = runTest {
-        val db = openMigrated()
-        try {
-            val dao = db.syncStateDao()
-            dao.insertIfAbsent(SyncStateEntity(ownerId = "user-1", profileId = "personal"))
+    fun `the new column reads as off for a row that predates it`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                val dao = db.syncStateDao()
+                dao.insertIfAbsent(SyncStateEntity(ownerId = "user-1", profileId = "personal"))
 
-            assertFalse(
-                dao.observe("user-1", "personal").first()?.attachmentsSyncEnabled ?: true,
-                "an upgraded scope must not claim the user asked for attachment sync",
-            )
-        } finally {
-            db.close()
+                assertFalse(
+                    dao.observe("user-1", "personal").first()?.attachmentsSyncEnabled ?: true,
+                    "an upgraded scope must not claim the user asked for attachment sync",
+                )
+            } finally {
+                db.close()
+            }
         }
-    }
 
     @Test
-    fun `the preference round trips and stays scoped to one profile`() = runTest {
-        val db = openMigrated()
-        try {
-            val dao = db.syncStateDao()
-            dao.insertIfAbsent(SyncStateEntity(ownerId = "user-1", profileId = "personal"))
-            dao.insertIfAbsent(SyncStateEntity(ownerId = "user-1", profileId = "work"))
+    fun `the preference round trips and stays scoped to one profile`() =
+        runTest {
+            val db = openMigrated()
+            try {
+                val dao = db.syncStateDao()
+                dao.insertIfAbsent(SyncStateEntity(ownerId = "user-1", profileId = "personal"))
+                dao.insertIfAbsent(SyncStateEntity(ownerId = "user-1", profileId = "work"))
 
-            dao.setAttachmentsSyncEnabled("user-1", "personal", true)
+                dao.setAttachmentsSyncEnabled("user-1", "personal", true)
 
-            assertTrue(
-                dao.observe("user-1", "personal").first()?.attachmentsSyncEnabled == true,
-                "the write must be visible to the scope it was addressed to",
-            )
-            assertFalse(
-                dao.observe("user-1", "work").first()?.attachmentsSyncEnabled == true,
-                "a second profile must not inherit the first profile's answer",
-            )
-        } finally {
-            db.close()
+                assertTrue(
+                    dao.observe("user-1", "personal").first()?.attachmentsSyncEnabled == true,
+                    "the write must be visible to the scope it was addressed to",
+                )
+                assertFalse(
+                    dao.observe("user-1", "work").first()?.attachmentsSyncEnabled == true,
+                    "a second profile must not inherit the first profile's answer",
+                )
+            } finally {
+                db.close()
+            }
         }
-    }
 }

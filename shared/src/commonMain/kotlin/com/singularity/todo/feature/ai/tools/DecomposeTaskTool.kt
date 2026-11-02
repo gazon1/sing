@@ -10,11 +10,11 @@ import ai.koog.prompt.message.MessagePart
 import ai.koog.serialization.TypeToken
 import ai.koog.utils.time.KoogClock
 import co.touchlab.kermit.Logger
+import com.singularity.todo.core.error.runCatchingCancellable
 import com.singularity.todo.feature.ai.prompts.Prompts
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import kotlinx.coroutines.CancellationException
-import com.singularity.todo.core.error.runCatchingCancellable
 
 @Serializable
 data class DecomposeTaskInput(val title: String, val description: String? = null)
@@ -24,14 +24,14 @@ data class DecomposeTaskOutput(val subTasks: List<String>)
 
 class DecomposeTaskTool(private val promptExecutor: PromptExecutor, private val model: LLModel) :
     SimpleTool<DecomposeTaskInput>(TypeToken.of(DecomposeTaskInput::class.java), NAME, DESCRIPTION) {
-
     private val logger = Logger.withTag("DecomposeTask")
 
     override suspend fun execute(args: DecomposeTaskInput): String {
-        val p = prompt(Prompt.Empty, KoogClock.System) {
-            system(Prompts.decomposeTaskSystem)
-            user(Prompts.decomposeTaskUser(args.title, args.description))
-        }
+        val p =
+            prompt(Prompt.Empty, KoogClock.System) {
+                system(Prompts.decomposeTaskSystem)
+                user(Prompts.decomposeTaskUser(args.title, args.description))
+            }
         val response = promptExecutor.execute(p, model, emptyList())
         val text = extractText(response)
         return try {
@@ -51,6 +51,9 @@ class DecomposeTaskTool(private val promptExecutor: PromptExecutor, private val 
         const val DESCRIPTION = "Break a task into smaller, actionable sub-tasks."
 
         private fun extractText(response: Message.Assistant): String =
-            response.parts.filterIsInstance<MessagePart.Text>().joinToString("") { it.text }.trim()
+            response.parts
+                .filterIsInstance<MessagePart.Text>()
+                .joinToString("") { it.text }
+                .trim()
     }
 }

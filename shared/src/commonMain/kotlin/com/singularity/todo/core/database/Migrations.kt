@@ -77,7 +77,7 @@ class Migration12To13 : AutoMigrationSpec
  * No columns are added to the `tasks` table; dependencies are stored in a
  * separate join table (many-to-many, same pattern as `task_tags`).
  *
- * @see com.singularity.todo.docs.decisions.2026-09-18-task-dependencies
+ * @see `com.singularity.todo.docs.decisions.2026-09-18-task-dependencies`
  */
 class Migration13To14 : AutoMigrationSpec
 
@@ -128,7 +128,7 @@ class Migration16To17 : AutoMigrationSpec
  * rows continue to read back with `closedAt == null`, so every project that
  * existed before the upgrade is still an open project.
  *
- * @see com.singularity.todo.docs.decisions.2026-10-21-blocked-completion-guard
+ * @see `com.singularity.todo.docs.decisions.2026-10-21-blocked-completion-guard`
  */
 class Migration43To44 : AutoMigrationSpec
 

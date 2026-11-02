@@ -1,6 +1,5 @@
 package com.singularity.todo.core.work
 
-import kotlin.time.Duration
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDateTime
@@ -8,6 +7,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atTime
 import kotlinx.datetime.plus
 import kotlinx.datetime.toInstant
+import kotlin.time.Duration
 
 /**
  * When a background job should run.
@@ -32,7 +32,6 @@ import kotlinx.datetime.toInstant
  * sealed hierarchy and not an interval.
  */
 sealed interface JobSchedule {
-
     /** Run once, now. Equivalent to `BackgroundWorkScheduler.runNow`. */
     data object OnDemand : JobSchedule
 
@@ -51,8 +50,7 @@ sealed interface JobSchedule {
      * Null for [OnDemand] and [Periodic]: the first has no future occurrence by definition,
      * and the second is counted by the platform's own tick rather than by wall clock.
      */
-    fun nextOccurrence(now: LocalDateTime): LocalDateTime? =
-        JobScheduleMath.nextOccurrence(this, now)
+    fun nextOccurrence(now: LocalDateTime): LocalDateTime? = JobScheduleMath.nextOccurrence(this, now)
 }
 
 /**
@@ -69,22 +67,33 @@ sealed interface JobSchedule {
  * around it would then burn a core rather than fail loudly.
  */
 object JobScheduleMath {
-
     /** The first firing of [schedule] strictly after [now], in the job's zone. */
-    fun nextOccurrence(schedule: JobSchedule, now: LocalDateTime): LocalDateTime? = when (schedule) {
-        JobSchedule.OnDemand -> null
+    fun nextOccurrence(
+        schedule: JobSchedule,
+        now: LocalDateTime,
+    ): LocalDateTime? =
+        when (schedule) {
+            JobSchedule.OnDemand -> {
+                null
+            }
 
-        is JobSchedule.Periodic -> null
+            is JobSchedule.Periodic -> {
+                null
+            }
 
-        is JobSchedule.Daily -> nextDaily(now, schedule.atHour, schedule.atMinute)
+            is JobSchedule.Daily -> {
+                nextDaily(now, schedule.atHour, schedule.atMinute)
+            }
 
-        is JobSchedule.Weekly -> nextWeekly(
-            now = now,
-            dayOfWeek = schedule.dayOfWeek,
-            atHour = schedule.atHour,
-            atMinute = schedule.atMinute,
-        )
-    }
+            is JobSchedule.Weekly -> {
+                nextWeekly(
+                    now = now,
+                    dayOfWeek = schedule.dayOfWeek,
+                    atHour = schedule.atHour,
+                    atMinute = schedule.atMinute,
+                )
+            }
+        }
 
     /**
      * How long to sleep from [now] until [schedule] next fires.
@@ -92,13 +101,21 @@ object JobScheduleMath {
      * Zero when there is no boundary to wait for ([OnDemand], [Periodic]) so a caller can
      * loop on this without special-casing.
      */
-    fun delayUntil(schedule: JobSchedule, now: LocalDateTime, zone: TimeZone): Duration {
+    fun delayUntil(
+        schedule: JobSchedule,
+        now: LocalDateTime,
+        zone: TimeZone,
+    ): Duration {
         val next = schedule.nextOccurrence(now) ?: return Duration.ZERO
         val delta = next.toInstant(zone) - now.toInstant(zone)
         return if (delta > Duration.ZERO) delta else Duration.ZERO
     }
 
-    private fun nextDaily(now: LocalDateTime, atHour: Int, atMinute: Int): LocalDateTime {
+    private fun nextDaily(
+        now: LocalDateTime,
+        atHour: Int,
+        atMinute: Int,
+    ): LocalDateTime {
         val todayAt = now.date.atTime(atHour, atMinute)
         // LocalDateTime is Comparable, so this compares wall-clock fields — which is what
         // a wall-clock schedule means. `<=` rather than `<` is the whole point: a job that
@@ -120,12 +137,13 @@ object JobScheduleMath {
         val todayAt = now.date.atTime(atHour, atMinute)
         val daysAhead = (dayOfWeek.ordinal - now.date.dayOfWeek.ordinal + 7) % 7
         // `>` for the same reason as the daily case: equality is "already fired".
-        val date = if (daysAhead == 0 && todayAt > now) {
-            now.date
-        } else {
-            // Same weekday but today's slot has passed → next week, not next year.
-            now.date.plus(if (daysAhead == 0) 7 else daysAhead, DateTimeUnit.DAY)
-        }
+        val date =
+            if (daysAhead == 0 && todayAt > now) {
+                now.date
+            } else {
+                // Same weekday but today's slot has passed → next week, not next year.
+                now.date.plus(if (daysAhead == 0) 7 else daysAhead, DateTimeUnit.DAY)
+            }
         return date.atTime(atHour, atMinute)
     }
 }

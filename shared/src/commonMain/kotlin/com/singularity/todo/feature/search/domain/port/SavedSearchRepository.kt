@@ -11,7 +11,6 @@ import com.singularity.todo.feature.search.domain.SavedSearchId
  * Additionally supports [findByNameForUser] for duplicate-name detection.
  */
 interface SavedSearchRepository : GenericUserScopedRepository<SavedSearch, SavedSearchId> {
-
     /**
      * Returns the ambient userId string for this repository's scope.
      */
@@ -21,7 +20,10 @@ interface SavedSearchRepository : GenericUserScopedRepository<SavedSearch, Saved
      * Finds a saved search by name for the given user, or `null` if none exists.
      * Used for duplicate-name validation.
      */
-    suspend fun findByNameForUser(userId: String, name: String): SavedSearch?
+    suspend fun findByNameForUser(
+        userId: String,
+        name: String,
+    ): SavedSearch?
 
     /**
      * Creates or updates a saved search. Returns the saved search on success.

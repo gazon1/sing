@@ -3,10 +3,10 @@ package com.singularity.todo.feature.agenda.domain.selector
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.projects.domain.model.ProjectId
+import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
 import com.singularity.todo.feature.tasks.domain.model.TaskStatus
 import com.singularity.todo.feature.tasks.domain.model.TaskWorkflowState
-import com.singularity.todo.feature.tags.TagId
 
 /**
  * A section type the editor can offer, before its parameters are chosen.
@@ -48,6 +48,7 @@ sealed interface SelectorTemplate {
     /** Fixed types — picking one adds the section with no second step. */
     data class Fixed(override val label: String, val selector: Selector) : SelectorTemplate {
         override val requiresParameters: Boolean = false
+
         override fun resolve(chosenIds: Set<String>): Selector = selector
     }
 
@@ -55,6 +56,7 @@ sealed interface SelectorTemplate {
     data class ByTags(val matchAll: Boolean = false) : SelectorTemplate {
         override val label: String = "By tag"
         override val requiresParameters: Boolean = true
+
         override fun resolve(chosenIds: Set<String>): Selector? {
             val ids = chosenIds.mapNotNull { TagId.fromString(it) }.toSet()
             return if (ids.isEmpty()) null else Selector.Tags(ids, matchAll)
@@ -65,6 +67,7 @@ sealed interface SelectorTemplate {
     data object ByProjects : SelectorTemplate {
         override val label: String = "By project"
         override val requiresParameters: Boolean = true
+
         override fun resolve(chosenIds: Set<String>): Selector? {
             val ids = chosenIds.mapNotNull { ProjectId.fromString(it) }.toSet()
             return if (ids.isEmpty()) null else Selector.Projects(ids)
@@ -75,6 +78,7 @@ sealed interface SelectorTemplate {
     data class ByPriority(val atMost: Boolean = true) : SelectorTemplate {
         override val label: String = "By priority"
         override val requiresParameters: Boolean = true
+
         override fun resolve(chosenIds: Set<String>): Selector? {
             val levels = chosenIds.mapNotNull { key -> TaskPriority.entries.firstOrNull { it.name == key } }.toSet()
             return if (levels.isEmpty()) null else Selector.Priorities(levels, atMost)
@@ -85,10 +89,12 @@ sealed interface SelectorTemplate {
     data object ByStatus : SelectorTemplate {
         override val label: String = "By status"
         override val requiresParameters: Boolean = true
+
         override fun resolve(chosenIds: Set<String>): Selector? {
-            val statuses = chosenIds
-                .mapNotNull { key -> TaskStatus.entries.firstOrNull { it.name == key } }
-                .toSet()
+            val statuses =
+                chosenIds
+                    .mapNotNull { key -> TaskStatus.entries.firstOrNull { it.name == key } }
+                    .toSet()
             return if (statuses.isEmpty()) null else Selector.Statuses(statuses)
         }
     }
@@ -101,6 +107,7 @@ sealed interface SelectorTemplate {
     data class ByRegexp(val pattern: String = "") : SelectorTemplate {
         override val label: String = "By text pattern"
         override val requiresParameters: Boolean = false
+
         override fun resolve(chosenIds: Set<String>): Selector? {
             val p = pattern.takeIf { it.isNotBlank() } ?: return null
             return Selector.Regexp(p)
@@ -116,6 +123,7 @@ sealed interface SelectorTemplate {
         SelectorTemplate {
         override val label: String = "By date range"
         override val requiresParameters: Boolean = false
+
         override fun resolve(chosenIds: Set<String>): Selector? {
             val f = from ?: return null
             val t = to ?: return null
@@ -130,29 +138,30 @@ sealed interface SelectorTemplate {
          * Kept in one place so the sheet and any future entry point cannot
          * disagree about what the editor can build.
          */
-        val catalogue: List<SelectorTemplate> = listOf(
-            Fixed("Active tasks", Selector.Statuses(setOf(TaskStatus.Active))),
-            Fixed("Completed tasks", Selector.Statuses(setOf(TaskStatus.Completed))),
-            Fixed("Due today", Selector.DateBucket(RelativeBucket.Today)),
-            Fixed("Overdue", Selector.DateBucket(RelativeBucket.Overdue)),
-            Fixed("No date", Selector.DateBucket(RelativeBucket.NoDate)),
-            Fixed("This week", Selector.DateBucket(RelativeBucket.ThisWeek)),
-            Fixed("Next week", Selector.DateBucket(RelativeBucket.NextWeek)),
-            // The stored state and the two derived dependency conditions. `Blocked`
-            // has been in the hierarchy since before this catalogue existed; the
-            // entry is what makes it reachable at all.
-            Fixed("In progress", Selector.WorkflowState(TaskWorkflowState.InProgress)),
-            Fixed("Next up", Selector.WorkflowState(TaskWorkflowState.NextUp)),
-            Fixed("No state", Selector.WorkflowState(TaskWorkflowState.Open)),
-            Fixed("Blocked", Selector.Blocked),
-            Fixed("Follow-ups", Selector.FollowUp),
-            ByTags(),
-            ByProjects,
-            ByPriority(),
-            ByStatus,
-            ByRegexp(),
-            ByDateRange(),
-        )
+        val catalogue: List<SelectorTemplate> =
+            listOf(
+                Fixed("Active tasks", Selector.Statuses(setOf(TaskStatus.Active))),
+                Fixed("Completed tasks", Selector.Statuses(setOf(TaskStatus.Completed))),
+                Fixed("Due today", Selector.DateBucket(RelativeBucket.Today)),
+                Fixed("Overdue", Selector.DateBucket(RelativeBucket.Overdue)),
+                Fixed("No date", Selector.DateBucket(RelativeBucket.NoDate)),
+                Fixed("This week", Selector.DateBucket(RelativeBucket.ThisWeek)),
+                Fixed("Next week", Selector.DateBucket(RelativeBucket.NextWeek)),
+                // The stored state and the two derived dependency conditions. `Blocked`
+                // has been in the hierarchy since before this catalogue existed; the
+                // entry is what makes it reachable at all.
+                Fixed("In progress", Selector.WorkflowState(TaskWorkflowState.InProgress)),
+                Fixed("Next up", Selector.WorkflowState(TaskWorkflowState.NextUp)),
+                Fixed("No state", Selector.WorkflowState(TaskWorkflowState.Open)),
+                Fixed("Blocked", Selector.Blocked),
+                Fixed("Follow-ups", Selector.FollowUp),
+                ByTags(),
+                ByProjects,
+                ByPriority(),
+                ByStatus,
+                ByRegexp(),
+                ByDateRange(),
+            )
     }
 }
 

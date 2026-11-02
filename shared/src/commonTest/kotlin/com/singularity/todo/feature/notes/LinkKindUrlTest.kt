@@ -15,7 +15,6 @@ import kotlin.test.assertNull
  */
 @Tag("fast")
 class LinkKindUrlTest {
-
     @Test
     fun `a note link round-trips through the reader`() {
         val url = LinkKind.Note.urlFor("abc123")

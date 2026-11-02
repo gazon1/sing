@@ -23,11 +23,11 @@ import com.singularity.todo.feature.tasks.presentation.viewmodel.TaskDetailCoord
 import com.singularity.todo.test.helpers.testPlatformModule
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
+import org.junit.jupiter.api.Tag
 import org.koin.core.annotation.KoinInternalApi
 import org.koin.core.error.NoParameterFoundException
 import org.koin.core.parameter.parametersOf
 import org.koin.dsl.koinApplication
-import org.junit.jupiter.api.Tag
 import kotlin.reflect.KClass
 import kotlin.test.Test
 import kotlin.test.assertTrue
@@ -73,21 +73,21 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class DomainGraphResolutionTest {
-
     @Test
     fun `every domain definition can be created`() {
-        val app = koinApplication {
-            // KOIN-W003 here is an accepted, documented tradeoff — the same one
-            // `TaskDetailCoordinatorGraphTest` takes: the module set is computed
-            // at runtime, so the compile-time graph check cannot see it. This
-            // test is the runtime validation that replaces it.
-            @Suppress("KoinCompilationForInternal")
-            modules(
-                listOf(coreLoggingModule()) +
-                    domainModule() +
-                    listOf(testPlatformModule()),
-            )
-        }
+        val app =
+            koinApplication {
+                // KOIN-W003 here is an accepted, documented tradeoff — the same one
+                // `TaskDetailCoordinatorGraphTest` takes: the module set is computed
+                // at runtime, so the compile-time graph check cannot see it. This
+                // test is the runtime validation that replaces it.
+                @Suppress("KoinCompilationForInternal")
+                modules(
+                    listOf(coreLoggingModule()) +
+                        domainModule() +
+                        listOf(testPlatformModule()),
+                )
+            }
         try {
             val koin = app.koin
             val failures = mutableListOf<String>()
@@ -139,7 +139,8 @@ class DomainGraphResolutionTest {
             assertTrue(
                 used.size == runtimeParameters.size,
                 "These `runtimeParameters` entries match no definition in the graph:\n" +
-                    runtimeParameters.keys.filterNot { it in used }
+                    runtimeParameters.keys
+                        .filterNot { it in used }
                         .joinToString("\n") { "  - ${it.qualifiedName}" } +
                     "\n\nA stale entry hides the fact that the definition it was written " +
                     "for is gone — or has stopped needing a parameter.",
@@ -187,8 +188,7 @@ private fun List<Throwable>.describe(): String {
  * graph holds, and enumerating it is the whole point of the test.
  */
 @OptIn(KoinInternalApi::class)
-private fun org.koin.core.Koin.definitions() =
-    instanceRegistry.instances.values.map { it.beanDefinition }
+private fun org.koin.core.Koin.definitions() = instanceRegistry.instances.values.map { it.beanDefinition }
 
 /**
  * The runtime parameters of the definitions that take one.
@@ -202,28 +202,29 @@ private fun org.koin.core.Koin.definitions() =
  * (see `runtimeParameters` in the test body), and an entry that no longer matches a
  * definition fails it too.
  */
-private val runtimeParameters: Map<KClass<*>, List<Any>> = mapOf(
-    // CalendarViewModel(year, month, mode)
-    CalendarViewModel::class to listOf(2026, Month.SEPTEMBER, CalendarViewMode.MONTH),
-    // AttachmentAnnotationViewModel(attachmentId) — one panel per open attachment
-    AttachmentAnnotationViewModel::class to listOf(AttachmentId("attachment-1")),
-    // AttachmentsViewModel(taskId) — the panel of one task's attachments
-    AttachmentsViewModel::class to listOf(TaskId("task-1")),
-    // ProjectDetailViewModel(projectId)
-    ProjectDetailViewModel::class to listOf(ProjectId("project-1")),
-    // ProjectEditorViewModel(id)
-    ProjectEditorViewModel::class to listOf(ProjectId("project-1")),
-    // TaskDetailCoordinator(route) — the route carries the task and the view it came from
-    TaskDetailCoordinator::class to listOf(TasksRoute.Detail(TaskId("task-1"))),
-    // TaskCreateViewModel(initialDueDate, draftKey)
-    TaskCreateViewModel::class to listOf(LocalDate(2026, 9, 16), "section-1"),
-    // AgendaViewModel(definition)
-    AgendaViewModel::class to listOf(sampleAgendaDefinition()),
-    // SavedAgendaViewModel(mode)
-    SavedAgendaViewModel::class to listOf(SavedAgendaScreenMode.Create(sampleAgendaDefinition())),
-    // NoteProposalsViewModel(noteId) — the pending-proposal panel of one note
-    NoteProposalsViewModel::class to listOf(NoteId("note-1")),
-)
+private val runtimeParameters: Map<KClass<*>, List<Any>> =
+    mapOf(
+        // CalendarViewModel(year, month, mode)
+        CalendarViewModel::class to listOf(2026, Month.SEPTEMBER, CalendarViewMode.MONTH),
+        // AttachmentAnnotationViewModel(attachmentId) — one panel per open attachment
+        AttachmentAnnotationViewModel::class to listOf(AttachmentId("attachment-1")),
+        // AttachmentsViewModel(taskId) — the panel of one task's attachments
+        AttachmentsViewModel::class to listOf(TaskId("task-1")),
+        // ProjectDetailViewModel(projectId)
+        ProjectDetailViewModel::class to listOf(ProjectId("project-1")),
+        // ProjectEditorViewModel(id)
+        ProjectEditorViewModel::class to listOf(ProjectId("project-1")),
+        // TaskDetailCoordinator(route) — the route carries the task and the view it came from
+        TaskDetailCoordinator::class to listOf(TasksRoute.Detail(TaskId("task-1"))),
+        // TaskCreateViewModel(initialDueDate, draftKey)
+        TaskCreateViewModel::class to listOf(LocalDate(2026, 9, 16), "section-1"),
+        // AgendaViewModel(definition)
+        AgendaViewModel::class to listOf(sampleAgendaDefinition()),
+        // SavedAgendaViewModel(mode)
+        SavedAgendaViewModel::class to listOf(SavedAgendaScreenMode.Create(sampleAgendaDefinition())),
+        // NoteProposalsViewModel(noteId) — the pending-proposal panel of one note
+        NoteProposalsViewModel::class to listOf(NoteId("note-1")),
+    )
 
 /** An [AgendaDefinition] with no sections — enough to construct a ViewModel with it. */
 private fun sampleAgendaDefinition() = AgendaDefinition(title = "Sample", sections = emptyList())

@@ -59,7 +59,6 @@ package com.singularity.todo.core.search
  * and `docs/decisions/2026-10-23-the-mode-is-a-property-of-every-search-surface.md`.
  */
 enum class SearchMode {
-
     /** The word-prefix rule — the rule of the index. */
     Word,
 
@@ -73,10 +72,14 @@ enum class SearchMode {
      * @param text the searchable text of a record; `null` matches nothing.
      * @param term the term to look for.
      */
-    fun matches(text: String?, term: String): Boolean = when (this) {
-        Word -> TextMatch.matches(text, term)
-        Contains -> TextMatch.contains(text, term)
-    }
+    fun matches(
+        text: String?,
+        term: String,
+    ): Boolean =
+        when (this) {
+            Word -> TextMatch.matches(text, term)
+            Contains -> TextMatch.contains(text, term)
+        }
 
     /**
      * True when [term] matches [record] under this mode's rule.
@@ -88,8 +91,10 @@ enum class SearchMode {
      * @param record the record to match.
      * @param term the term to look for.
      */
-    fun matches(record: Searchable, term: String): Boolean =
-        matchesAny(record.searchableSurfaces, term)
+    fun matches(
+        record: Searchable,
+        term: String,
+    ): Boolean = matchesAny(record.searchableSurfaces, term)
 
     /**
      * True when [term] matches any of [texts] under this mode's rule.
@@ -100,6 +105,8 @@ enum class SearchMode {
      * @param texts the searchable texts of a record.
      * @param term the term to look for.
      */
-    fun matchesAny(texts: Iterable<String?>, term: String): Boolean =
-        texts.any { text -> matches(text, term) }
+    fun matchesAny(
+        texts: Iterable<String?>,
+        term: String,
+    ): Boolean = texts.any { text -> matches(text, term) }
 }

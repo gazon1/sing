@@ -30,31 +30,31 @@ import kotlin.test.Test
 @Tag("slow")
 @Tag("slow:compose")
 class PlansGranularityControlScenarioTest {
-
     @Test
     @DisplayName("PLANS-03 the granularity control switches the grouping and names the selection")
-    fun the_control_switches_and_names() = runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
-        // One robot for both: a fresh robot starts its id counter again, and
-        // two tasks with the same id are one task.
-        tasks(koin)
-            .given(due = TODAY, title = "Due today")
-            .given(due = TODAY.plus(70, DateTimeUnit.DAY), title = "Due in two months")
+    fun the_control_switches_and_names() =
+        runDesktopAppTest(clock = CLOCK, checkA11y = true) { koin ->
+            // One robot for both: a fresh robot starts its id counter again, and
+            // two tasks with the same id are one task.
+            tasks(koin)
+                .given(due = TODAY, title = "Due today")
+                .given(due = TODAY.plus(70, DateTimeUnit.DAY), title = "Due in two months")
 
-        tapTab("Plans")
+            tapTab("Plans")
 
-        // The control names the granularity that is in effect.
-        assertTagSelected(TestTags.PLANS_GRANULARITY_DAY)
-        awaitTag(TestTags.plansSection("day:2026-09-16"))
+            // The control names the granularity that is in effect.
+            assertTagSelected(TestTags.PLANS_GRANULARITY_DAY)
+            awaitTag(TestTags.plansSection("day:2026-09-16"))
 
-        clickTag(TestTags.PLANS_GRANULARITY_WEEK)
-        assertTagSelected(TestTags.PLANS_GRANULARITY_WEEK)
-        // A week header is a range running Monday to Sunday.
-        awaitTag(TestTags.plansSection("week:2026-09-14"))
+            clickTag(TestTags.PLANS_GRANULARITY_WEEK)
+            assertTagSelected(TestTags.PLANS_GRANULARITY_WEEK)
+            // A week header is a range running Monday to Sunday.
+            awaitTag(TestTags.plansSection("week:2026-09-14"))
 
-        clickTag(TestTags.PLANS_GRANULARITY_MONTH)
-        assertTagSelected(TestTags.PLANS_GRANULARITY_MONTH)
-        // A month header is the calendar month.
-        awaitTag(TestTags.plansSection("month:2026-9"))
-        assertTagDisplayed(TestTags.taskItem("Due in two months"))
-    }
+            clickTag(TestTags.PLANS_GRANULARITY_MONTH)
+            assertTagSelected(TestTags.PLANS_GRANULARITY_MONTH)
+            // A month header is the calendar month.
+            awaitTag(TestTags.plansSection("month:2026-9"))
+            assertTagDisplayed(TestTags.taskItem("Due in two months"))
+        }
 }

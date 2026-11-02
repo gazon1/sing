@@ -1,9 +1,10 @@
 package com.singularity.todo.feature.search.presentation.viewmodel
 
-import com.singularity.todo.core.search.FreeTextRule
 import com.singularity.todo.core.auth.Session
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ids.UserId
+import com.singularity.todo.core.search.FreeTextRule
+import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.feature.search.SearchContent
 import com.singularity.todo.feature.search.SearchIntent
 import com.singularity.todo.feature.search.SearchUseCase
@@ -16,7 +17,6 @@ import com.singularity.todo.feature.search.query.ProjectLookup
 import com.singularity.todo.feature.search.query.ProjectLookupResult
 import com.singularity.todo.feature.search.query.Query
 import com.singularity.todo.feature.search.query.ResolvedSearchQuery
-import com.singularity.todo.core.search.SearchMode
 import com.singularity.todo.feature.search.query.SearchQueryResolver
 import com.singularity.todo.feature.search.query.SimpleFilter
 import com.singularity.todo.feature.search.query.SingularityQueryParser
@@ -32,8 +32,8 @@ import com.singularity.todo.test.fakes.FakeClock
 import com.singularity.todo.test.fakes.FakeNotesRepository
 import com.singularity.todo.test.fakes.FakeProfileAwareCurrentUser
 import com.singularity.todo.test.fakes.FakeProjectsRepository
-import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.test.fakes.FakeSearchTextIndex
+import com.singularity.todo.test.fakes.FakeTagsRepository
 import com.singularity.todo.test.fakes.FakeTaskRepository
 import com.singularity.todo.test.fakes.TEST_TZ
 import com.singularity.todo.test.fakes.TestUsers
@@ -116,12 +116,13 @@ class SearchViewModelTest {
                     noteRepo = fakeNotesRepo,
                     projectRepo = fakeProjectsRepo,
                     tagRepo = fakeTagsRepo,
-                    textIndex = FakeSearchTextIndex(
-                        taskRepo = fakeTaskRepo,
-                        noteRepo = fakeNotesRepo,
-                        projectRepo = fakeProjectsRepo,
-                        tagRepo = fakeTagsRepo,
-                    ),
+                    textIndex =
+                        FakeSearchTextIndex(
+                            taskRepo = fakeTaskRepo,
+                            noteRepo = fakeNotesRepo,
+                            projectRepo = fakeProjectsRepo,
+                            tagRepo = fakeTagsRepo,
+                        ),
                     queryResolver = stubResolver,
                 ),
             savedSearchRepo = fakeSavedSearchRepo,
@@ -167,12 +168,13 @@ class SearchViewModelTest {
                     noteRepo = fakeNotesRepo,
                     projectRepo = fakeProjectsRepo,
                     tagRepo = fakeTagsRepo,
-                    textIndex = FakeSearchTextIndex(
-                        taskRepo = fakeTaskRepo,
-                        noteRepo = fakeNotesRepo,
-                        projectRepo = fakeProjectsRepo,
-                        tagRepo = fakeTagsRepo,
-                    ),
+                    textIndex =
+                        FakeSearchTextIndex(
+                            taskRepo = fakeTaskRepo,
+                            noteRepo = fakeNotesRepo,
+                            projectRepo = fakeProjectsRepo,
+                            tagRepo = fakeTagsRepo,
+                        ),
                     queryResolver =
                         DefaultSearchQueryResolver(
                             tagLookup = NO_TAGS,
@@ -499,7 +501,8 @@ class SearchViewModelTest {
             advanceTimeBy(400L)
             runCurrent()
             assertTrue(
-                vm.stateFlow.value.results.tasks.isEmpty(),
+                vm.stateFlow.value.results.tasks
+                    .isEmpty(),
                 "the word \"airport\" does not begin with \"port\"",
             )
 
@@ -509,7 +512,8 @@ class SearchViewModelTest {
 
             assertEquals(
                 listOf("Airport transfer"),
-                vm.stateFlow.value.results.tasks.map { it.record.title },
+                vm.stateFlow.value.results.tasks
+                    .map { it.record.title },
             )
         }
 
@@ -519,13 +523,21 @@ class SearchViewModelTest {
         val NOW: Instant = Instant.fromEpochMilliseconds(1_760_000_000_000)
 
         /** No tag and no project exist in these tests, so every lookup misses. */
-        val NO_TAGS = object : TagLookup {
-            override suspend fun findByName(userId: String, name: String): TagLookupResult? = null
-        }
+        val NO_TAGS =
+            object : TagLookup {
+                override suspend fun findByName(
+                    userId: String,
+                    name: String,
+                ): TagLookupResult? = null
+            }
 
-        val NO_PROJECTS = object : ProjectLookup {
-            override suspend fun findByName(userId: String, name: String): ProjectLookupResult? = null
-        }
+        val NO_PROJECTS =
+            object : ProjectLookup {
+                override suspend fun findByName(
+                    userId: String,
+                    name: String,
+                ): ProjectLookupResult? = null
+            }
 
         /**
          * In-memory [SavedSearchRepository] for [SearchViewModel] tests.

@@ -110,10 +110,10 @@ done < <(grep -rhoE 'RuleSetId\("[^"]+"\)' "$SRC" --include="*.kt" \
 #    vacuously and leave a block configuring nothing).
 while IFS= read -r key; do
     [[ -z "$key" ]] && continue
-    # Built-in detekt/ktlint sections — not provider-backed.
+    # Built-in detekt sections — not provider-backed.
     case "$key" in
         config|processors|console-reports|comments|complexity|coroutines|\
-empty-blocks|exceptions|naming|performance|potential-bugs|style|ktlint) continue ;;
+empty-blocks|exceptions|naming|performance|potential-bugs|style) continue ;;
     esac
     if ! grep -rqE "RuleSetId\(\"${key}\"\)" "$SRC" --include="*.kt"; then
         err "detekt.yml block '${key}' has no provider declaring that rule-set id"

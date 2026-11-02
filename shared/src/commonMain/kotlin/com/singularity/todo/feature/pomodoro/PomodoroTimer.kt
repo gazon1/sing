@@ -15,9 +15,14 @@ interface PomodoroTimer {
 
     /** Timer configuration. Exposed so [PomodoroScreen] can read phase durations without hardcoding them. */
     val config: PomodoroConfig
+
     fun start(taskId: String?)
+
     fun pause()
+
     fun resume()
+
     fun stop()
+
     fun skip()
 }

@@ -27,48 +27,49 @@ enum class FileCategory {
  * while no code validated anything at all.
  */
 object MimeTypes {
-    private val TABLE = mapOf(
-        // Images
-        "png" to "image/png",
-        "jpg" to "image/jpeg",
-        "jpeg" to "image/jpeg",
-        "gif" to "image/gif",
-        "webp" to "image/webp",
-        "svg" to "image/svg+xml",
-        "heic" to "image/heic",
-        "heif" to "image/heif",
-        // Documents
-        "pdf" to "application/pdf",
-        "doc" to "application/msword",
-        "docx" to "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "xls" to "application/vnd.ms-excel",
-        "xlsx" to "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "ppt" to "application/vnd.ms-powerpoint",
-        "pptx" to "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        "txt" to "text/plain",
-        "rtf" to "application/rtf",
-        "csv" to "text/csv",
-        // Audio
-        "mp3" to "audio/mpeg",
-        "wav" to "audio/wav",
-        "ogg" to "audio/ogg",
-        "m4a" to "audio/mp4",
-        "aac" to "audio/aac",
-        // Video
-        "mp4" to "video/mp4",
-        "mov" to "video/quicktime",
-        "avi" to "video/x-msvideo",
-        "mkv" to "video/x-matroska",
-        "webm" to "video/webm",
-        // Archives
-        "zip" to "application/zip",
-        "rar" to "application/x-rar-compressed",
-        "7z" to "application/x-7z-compressed",
-        "tar" to "application/x-tar",
-        "gz" to "application/gzip",
-        // Other
-        "" to "application/octet-stream",
-    )
+    private val TABLE =
+        mapOf(
+            // Images
+            "png" to "image/png",
+            "jpg" to "image/jpeg",
+            "jpeg" to "image/jpeg",
+            "gif" to "image/gif",
+            "webp" to "image/webp",
+            "svg" to "image/svg+xml",
+            "heic" to "image/heic",
+            "heif" to "image/heif",
+            // Documents
+            "pdf" to "application/pdf",
+            "doc" to "application/msword",
+            "docx" to "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "xls" to "application/vnd.ms-excel",
+            "xlsx" to "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "ppt" to "application/vnd.ms-powerpoint",
+            "pptx" to "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            "txt" to "text/plain",
+            "rtf" to "application/rtf",
+            "csv" to "text/csv",
+            // Audio
+            "mp3" to "audio/mpeg",
+            "wav" to "audio/wav",
+            "ogg" to "audio/ogg",
+            "m4a" to "audio/mp4",
+            "aac" to "audio/aac",
+            // Video
+            "mp4" to "video/mp4",
+            "mov" to "video/quicktime",
+            "avi" to "video/x-msvideo",
+            "mkv" to "video/x-matroska",
+            "webm" to "video/webm",
+            // Archives
+            "zip" to "application/zip",
+            "rar" to "application/x-rar-compressed",
+            "7z" to "application/x-7z-compressed",
+            "tar" to "application/x-tar",
+            "gz" to "application/gzip",
+            // Other
+            "" to "application/octet-stream",
+        )
 
     fun fromExtension(ext: String): String = TABLE[ext.lowercase()] ?: "application/octet-stream"
 
@@ -89,14 +90,34 @@ object MimeTypes {
      * in-app renderer, which is exactly why `FileCategory` is a separate question from
      * `supportedExtensions`.
      */
-    private val TEXT_EXTENSIONS = setOf(
-        "txt", "md", "markdown", "json", "csv", "log", "xml", "yml", "yaml",
-        // Source. `ts`/`tsx`/`jsx` sit next to `js` deliberately: a file of code is
-        // read in an editor, and the in-app text viewer is the closest thing this app
-        // has to one for an attachment.
-        "css", "js", "jsx", "ts", "tsx",
-        "kt", "kts", "java", "py", "sh", "sql", "ini", "toml",
-    )
+    private val TEXT_EXTENSIONS =
+        setOf(
+            "txt",
+            "md",
+            "markdown",
+            "json",
+            "csv",
+            "log",
+            "xml",
+            "yml",
+            "yaml",
+            // Source. `ts`/`tsx`/`jsx` sit next to `js` deliberately: a file of code is
+            // read in an editor, and the in-app text viewer is the closest thing this app
+            // has to one for an attachment.
+            "css",
+            "js",
+            "jsx",
+            "ts",
+            "tsx",
+            "kt",
+            "kts",
+            "java",
+            "py",
+            "sh",
+            "sql",
+            "ini",
+            "toml",
+        )
 
     /**
      * Extensions the in-app image viewer can render.
@@ -125,23 +146,27 @@ object MimeTypes {
     }
 
     /** Classify by a MIME type. An unknown or blank type falls back to [classify]. */
-    fun classifyMime(mimeType: String?, fileName: String? = null): FileCategory {
+    fun classifyMime(
+        mimeType: String?,
+        fileName: String? = null,
+    ): FileCategory {
         val mime = mimeType?.lowercase()
-        val byMime = when {
-            mime.isNullOrBlank() -> FileCategory.External
+        val byMime =
+            when {
+                mime.isNullOrBlank() -> FileCategory.External
 
-            mime == "image/svg+xml" -> FileCategory.External
+                mime == "image/svg+xml" -> FileCategory.External
 
-            mime.startsWith("image/") -> FileCategory.Image
+                mime.startsWith("image/") -> FileCategory.Image
 
-            mime.startsWith("text/") ||
-                mime == "application/json" ||
-                mime == "application/xml" ||
-                mime == "application/javascript" ||
-                mime == "application/x-sh" -> FileCategory.Text
+                mime.startsWith("text/") ||
+                    mime == "application/json" ||
+                    mime == "application/xml" ||
+                    mime == "application/javascript" ||
+                    mime == "application/x-sh" -> FileCategory.Text
 
-            else -> FileCategory.External
-        }
+                else -> FileCategory.External
+            }
         if (byMime != FileCategory.External) return byMime
         // The MIME type said "not something I render". That is not the same as "I know
         // what this is and cannot show it": `application/octet-stream` is what a file
@@ -165,12 +190,18 @@ object MimeTypes {
             "image/",
         ) && m != "image/svg+xml"
     }
-    fun isDocument(mime: String): Boolean = mime == "application/pdf" ||
-        mime.startsWith("application/msword") ||
-        mime.startsWith("application/vnd.openxmlformats")
+
+    fun isDocument(mime: String): Boolean =
+        mime == "application/pdf" ||
+            mime.startsWith("application/msword") ||
+            mime.startsWith("application/vnd.openxmlformats")
+
     fun isAudio(mime: String): Boolean = mime.startsWith("audio/")
+
     fun isVideo(mime: String): Boolean = mime.startsWith("video/")
-    fun isArchive(mime: String): Boolean = mime == "application/zip" ||
-        mime == "application/x-rar-compressed" ||
-        mime == "application/x-7z-compressed"
+
+    fun isArchive(mime: String): Boolean =
+        mime == "application/zip" ||
+            mime == "application/x-rar-compressed" ||
+            mime == "application/x-7z-compressed"
 }

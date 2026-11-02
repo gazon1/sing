@@ -50,29 +50,35 @@ class UpdateNoteTool(
     private val currentUser: ProfileAwareCurrentUser,
     private val clock: Clock,
 ) : SimpleTool<UpdateNoteInput>(TypeToken.of(UpdateNoteInput::class.java), NAME, DESCRIPTION) {
-
     override suspend fun execute(args: UpdateNoteInput): String {
-        val existing = notesRepository.get(NoteId(args.noteId))
-            ?: return failure(args.noteId, "There is no note with id \"${args.noteId}\".")
+        val existing =
+            notesRepository.get(NoteId(args.noteId))
+                ?: return failure(args.noteId, "There is no note with id \"${args.noteId}\".")
 
         val kinds = changes(args, existing)
         if (kinds.isEmpty()) {
             return failure(args.noteId, "The note already has these values — there is nothing to change.")
         }
 
-        val result = proposeChange(
-            proposals = proposals,
-            userId = currentUser.scopedUserId.value,
-            clock = clock,
-            items = proposalItems(kinds, args.noteId),
-            targetId = args.noteId,
-        )
+        val result =
+            proposeChange(
+                proposals = proposals,
+                userId = currentUser.scopedUserId.value,
+                clock = clock,
+                items = proposalItems(kinds, args.noteId),
+                targetId = args.noteId,
+            )
 
         return ToolOutputJson.encodeToString(
             UpdateNoteOutput.serializer(),
             UpdateNoteOutput(
                 proposalCreated = result.isSuccess,
-                proposalId = result.getOrNull()?.id?.value.orEmpty(),
+                proposalId =
+                    result
+                        .getOrNull()
+                        ?.id
+                        ?.value
+                        .orEmpty(),
                 noteId = args.noteId,
                 error = result.exceptionOrNull()?.message,
             ),
@@ -80,7 +86,10 @@ class UpdateNoteTool(
     }
 
     /** The changes the request asks for: one item per field that actually differs. */
-    private fun changes(args: UpdateNoteInput, existing: Note): List<ProposalItemKind> {
+    private fun changes(
+        args: UpdateNoteInput,
+        existing: Note,
+    ): List<ProposalItemKind> {
         val kinds = mutableListOf<ProposalItemKind>()
 
         args.title?.let { value ->
@@ -102,10 +111,14 @@ class UpdateNoteTool(
         return kinds
     }
 
-    private fun failure(noteId: String, message: String): String = ToolOutputJson.encodeToString(
-        UpdateNoteOutput.serializer(),
-        UpdateNoteOutput(proposalCreated = false, proposalId = "", noteId = noteId, error = message),
-    )
+    private fun failure(
+        noteId: String,
+        message: String,
+    ): String =
+        ToolOutputJson.encodeToString(
+            UpdateNoteOutput.serializer(),
+            UpdateNoteOutput(proposalCreated = false, proposalId = "", noteId = noteId, error = message),
+        )
 
     companion object {
         const val NAME = "update_note"

@@ -2,9 +2,9 @@ package com.singularity.todo.feature.profile
 
 import com.singularity.todo.core.auth.CurrentUser
 import com.singularity.todo.core.auth.Session
+import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.core.coroutines.loggingBackgroundFailureHandler
 import com.singularity.todo.core.ids.UserId
-import com.singularity.todo.core.coroutines.createBackgroundScope
 import com.singularity.todo.test.fakes.FakeAuthRepository
 import com.singularity.todo.test.fakes.FakeProfileRepository
 import kotlinx.coroutines.flow.first
@@ -33,49 +33,51 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class ProfileIdentityAccessorsTest {
-
     private val localUserId = UserId.fromString("u-1")
 
     private fun newUser(): Triple<ProfileAwareCurrentUser, FakeAuthRepository, FakeProfileRepository> {
         val auth = FakeAuthRepository(initialSession = Session.Anonymous(localUserId))
         val profiles = FakeProfileRepository()
-        val currentUser = ProfileAwareCurrentUser(
-            currentUser = CurrentUser(auth, scope = createBackgroundScope(loggingBackgroundFailureHandler())),
-            profileRepository = profiles,
-            scope = createBackgroundScope(loggingBackgroundFailureHandler()),
-        )
+        val currentUser =
+            ProfileAwareCurrentUser(
+                currentUser = CurrentUser(auth, scope = createBackgroundScope(loggingBackgroundFailureHandler())),
+                profileRepository = profiles,
+                scope = createBackgroundScope(loggingBackgroundFailureHandler()),
+            )
         return Triple(currentUser, auth, profiles)
     }
 
     @Test
-    fun liveLocalUserId_is_invariant_across_a_profile_switch() = kotlinx.coroutines.test.runTest {
-        val (currentUser, _, profiles) = newUser()
-        val before = currentUser.liveLocalUserId.first().value
+    fun liveLocalUserId_is_invariant_across_a_profile_switch() =
+        kotlinx.coroutines.test.runTest {
+            val (currentUser, _, profiles) = newUser()
+            val before = currentUser.liveLocalUserId.first().value
 
-        profiles.switchTo(ProfileId.fromString("ai-agent"))
+            profiles.switchTo(ProfileId.fromString("ai-agent"))
 
-        // The whole point: a caller that must describe the identity *before* the
-        // switch gets the same answer on both sides of it, so it cannot accidentally
-        // build a doubly-scoped id.
-        assertEquals(localUserId.value, before, "pre-switch id must be the un-scoped local id")
-        assertEquals(
-            before,
-            currentUser.liveLocalUserId.first().value,
-            "liveLocalUserId must not change when the profile changes",
-        )
-    }
+            // The whole point: a caller that must describe the identity *before* the
+            // switch gets the same answer on both sides of it, so it cannot accidentally
+            // build a doubly-scoped id.
+            assertEquals(localUserId.value, before, "pre-switch id must be the un-scoped local id")
+            assertEquals(
+                before,
+                currentUser.liveLocalUserId.first().value,
+                "liveLocalUserId must not change when the profile changes",
+            )
+        }
 
     @Test
-    fun liveScopedUserId_reflects_the_switch_immediately() = kotlinx.coroutines.test.runTest {
-        val (currentUser, _, profiles) = newUser()
-        assertEquals(localUserId.value, currentUser.liveScopedUserId.first().value)
+    fun liveScopedUserId_reflects_the_switch_immediately() =
+        kotlinx.coroutines.test.runTest {
+            val (currentUser, _, profiles) = newUser()
+            assertEquals(localUserId.value, currentUser.liveScopedUserId.first().value)
 
-        profiles.switchTo(ProfileId.fromString("ai-agent"))
+            profiles.switchTo(ProfileId.fromString("ai-agent"))
 
-        val scoped = currentUser.liveScopedUserId.first()
-        assertEquals("ai-agent/${localUserId.value}", scoped.value)
-        assertNotEquals(currentUser.liveLocalUserId.first(), scoped)
-    }
+            val scoped = currentUser.liveScopedUserId.first()
+            assertEquals("ai-agent/${localUserId.value}", scoped.value)
+            assertNotEquals(currentUser.liveLocalUserId.first(), scoped)
+        }
 
     @Test
     fun liveUserId_never_reports_the_anonymous_seed_for_a_signed_in_session() =

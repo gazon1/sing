@@ -12,14 +12,14 @@ import kotlin.test.assertSame
 
 @Tag("fast")
 class SelectorBuilderTest {
-
     // ─── allOf ────────────────────────────────────────────────────────────────
 
     @Test
     fun `allOf with vararg`() {
-        val s = selector {
-            allOf(Selector.DateBucket(RelativeBucket.Today), Selector.Pinned)
-        }
+        val s =
+            selector {
+                allOf(Selector.DateBucket(RelativeBucket.Today), Selector.Pinned)
+            }
         val allOf = s as Selector.AllOf
         assertEquals(2, allOf.children.size)
         assertIs<Selector.DateBucket>(allOf.children[0])
@@ -38,18 +38,20 @@ class SelectorBuilderTest {
 
     @Test
     fun `anyOf with vararg`() {
-        val s = selector {
-            anyOf(Selector.Pinned, Selector.DateBucket(RelativeBucket.Overdue))
-        }
+        val s =
+            selector {
+                anyOf(Selector.Pinned, Selector.DateBucket(RelativeBucket.Overdue))
+            }
         val anyOf = s as Selector.AnyOf
         assertEquals(2, anyOf.children.size)
     }
 
     @Test
     fun `anyOf with List`() {
-        val s = selector {
-            anyOf(listOf(Selector.Pinned, Selector.DateBucket(RelativeBucket.Overdue)))
-        }
+        val s =
+            selector {
+                anyOf(listOf(Selector.Pinned, Selector.DateBucket(RelativeBucket.Overdue)))
+            }
         assertIs<Selector.AnyOf>(s)
     }
 
@@ -95,12 +97,13 @@ class SelectorBuilderTest {
 
     @Test
     fun `nested composition works`() {
-        val result = selector {
-            allOf(
-                Selector.Tags(setOf(), matchAll = false),
-            )
-            not(Selector.Completed)
-        }
+        val result =
+            selector {
+                allOf(
+                    Selector.Tags(setOf(), matchAll = false),
+                )
+                not(Selector.Completed)
+            }
         // build() returns AllOf(children) for size>1
         assertIs<Selector.AllOf>(result)
         assertEquals(2, result.children.size)

@@ -51,7 +51,10 @@ interface A2uiCatalog {
     fun component(name: String): A2uiComponentSchema? = components[name]
 
     /** Returns true when [childKind] may appear directly inside [parentKind]. */
-    fun allowsChild(parentKind: String, childKind: String): Boolean {
+    fun allowsChild(
+        parentKind: String,
+        childKind: String,
+    ): Boolean {
         val parent: A2uiComponentSchema = components[parentKind] ?: return false
         if (childKind !in components) return false
         val allowed: Set<String>? = components[childKind]?.allowedParents
@@ -137,8 +140,7 @@ data class A2uiComponentSchema(
     val allowedParents: Set<String>? = null,
 ) {
     /** Returns the schema of [propertyName], or null when the component does not declare it. */
-    fun property(propertyName: String): A2uiProperty? =
-        properties.firstOrNull { it.name == propertyName }
+    fun property(propertyName: String): A2uiProperty? = properties.firstOrNull { it.name == propertyName }
 
     /** Returns the names of every required property, in declaration order. */
     val requiredProperties: List<String> get() = properties.filter { it.required }.map { it.name }

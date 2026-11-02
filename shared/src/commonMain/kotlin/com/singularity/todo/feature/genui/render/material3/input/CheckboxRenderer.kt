@@ -18,10 +18,11 @@ import com.singularity.todo.feature.genui.render.genuiTag
 import com.singularity.todo.feature.genui.render.resolveText
 import kotlinx.serialization.json.JsonPrimitive
 
-internal fun ComponentRegistry.registerCheckbox(): Unit = register("checkbox") { node, ctx, modifier ->
-    val c = node as UiNode.Checkbox
-    BoundCheckbox(c, ctx, modifier)
-}
+internal fun ComponentRegistry.registerCheckbox(): Unit =
+    register("checkbox") { node, ctx, modifier ->
+        val c = node as UiNode.Checkbox
+        BoundCheckbox(c, ctx, modifier)
+    }
 
 /**
  * A checkbox reading and writing the data model.
@@ -40,9 +41,10 @@ private fun BoundCheckbox(
     val checked: Boolean = (bound as? JsonPrimitive)?.content?.toBooleanStrictOrNull() ?: c.initial
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
-            .genuiTag("checkbox_${c.label.replace(" ", "_")}", "Checkbox: ${c.label}")
-            .selectable(selected = checked, onClick = { ctx.write(c.path, JsonPrimitive(!checked)) }),
+        modifier =
+            modifier
+                .genuiTag("checkbox_${c.label.replace(" ", "_")}", "Checkbox: ${c.label}")
+                .selectable(selected = checked, onClick = { ctx.write(c.path, JsonPrimitive(!checked)) }),
     ) {
         Checkbox(checked = checked, onCheckedChange = null)
         Spacer(Modifier.width(8.dp))

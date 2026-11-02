@@ -1,7 +1,7 @@
 package com.singularity.todo.core.backup
 
-import java.io.File
 import org.junit.jupiter.api.Tag
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -39,7 +39,6 @@ import kotlin.test.assertTrue
  */
 @Tag("fast")
 class BackupBucketPolicyTest {
-
     private val sql: String = File(migrationPath).readText()
 
     @Test
@@ -109,23 +108,27 @@ class BackupBucketPolicyTest {
         )
     }
 
-    private fun policies(): List<Policy> = POLICY.findAll(sql).map { match ->
-        Policy(
-            name = match.groupValues[1],
-            command = match.groupValues[2],
-            body = match.groupValues[3],
-        )
-    }.toList()
+    private fun policies(): List<Policy> =
+        POLICY
+            .findAll(sql)
+            .map { match ->
+                Policy(
+                    name = match.groupValues[1],
+                    command = match.groupValues[2],
+                    body = match.groupValues[3],
+                )
+            }.toList()
 
     private data class Policy(val name: String, val command: String, val body: String)
 
     private companion object {
         /** The path of the migration, declared by the jvmTest task. */
-        val migrationPath: String = System.getProperty("backupBucketPolicy.migration")
-            ?: error(
-                "backupBucketPolicy.migration system property is not set — " +
-                    "see the jvmTest task config in shared/build.gradle.kts",
-            )
+        val migrationPath: String =
+            System.getProperty("backupBucketPolicy.migration")
+                ?: error(
+                    "backupBucketPolicy.migration system property is not set — " +
+                        "see the jvmTest task config in shared/build.gradle.kts",
+                )
 
         /**
          * The last folder of an object's path.
@@ -136,13 +139,13 @@ class BackupBucketPolicyTest {
         const val LAST_FOLDER = "(storage.foldername(name))[array_length(storage.foldername(name), 1)]"
 
         /** A `create policy` statement and the body that decides who it covers. */
-        val POLICY = Regex(
-            """create policy "([^"]+)"\s+on storage\.objects\s+for\s+(\w+)\s+to\s+authenticated\s+(.*?);""",
-            RegexOption.DOT_MATCHES_ALL,
-        )
+        val POLICY =
+            Regex(
+                """create policy "([^"]+)"\s+on storage\.objects\s+for\s+(\w+)\s+to\s+authenticated\s+(.*?);""",
+                RegexOption.DOT_MATCHES_ALL,
+            )
 
         /** Whether the policy body keeps the caller inside their own uid folder. */
-        fun isUidScoped(body: String): Boolean =
-            body.contains("auth.uid()") && body.contains(LAST_FOLDER)
+        fun isUidScoped(body: String): Boolean = body.contains("auth.uid()") && body.contains(LAST_FOLDER)
     }
 }

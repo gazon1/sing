@@ -12,7 +12,6 @@ package com.singularity.todo.feature.calendarSync.error
  * Inspired by Tasks.org layered `SyncException` hierarchy.
  */
 sealed class CalendarSyncException(message: String, cause: Throwable? = null) : Exception(message, cause) {
-
     /** READ_CALENDAR / WRITE_CALENDAR permission was revoked or never granted. */
     class PermissionRevokedException(message: String = "Calendar permission revoked") : CalendarSyncException(message)
 

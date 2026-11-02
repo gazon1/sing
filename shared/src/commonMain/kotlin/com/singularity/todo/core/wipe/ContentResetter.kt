@@ -26,7 +26,6 @@ package com.singularity.todo.core.wipe
  *   at rows it should not see, so a partial reset is worse than a failure.
  */
 interface ContentResetter {
-
     /**
      * Empties the active profile's content.
      *

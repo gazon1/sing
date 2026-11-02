@@ -11,7 +11,6 @@ import kotlin.test.assertTrue
 
 @Tag("fast")
 class AuthDomainTest {
-
     @Test
     fun `validateEmail accepts valid email`() {
         listOf("a@b.com", "test@example.org", "user.name@domain.co.uk").forEach { email ->
@@ -91,9 +90,10 @@ class AuthDomainTest {
     fun `a password at the bound is accepted and one character over is refused`() {
         AuthDomain.validatePassword("a".repeat(AuthDomain.MAX_PASSWORD_BYTES))
 
-        val error = assertFailsWith<AppError.Validation> {
-            AuthDomain.validatePassword("a".repeat(AuthDomain.MAX_PASSWORD_BYTES + 1))
-        }
+        val error =
+            assertFailsWith<AppError.Validation> {
+                AuthDomain.validatePassword("a".repeat(AuthDomain.MAX_PASSWORD_BYTES + 1))
+            }
         assertEquals("auth.password.too_long", error.code)
     }
 

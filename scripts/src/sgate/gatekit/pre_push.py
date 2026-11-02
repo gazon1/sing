@@ -273,6 +273,28 @@ PRE_PUSH_STEPS: tuple[PrePushStep, ...] = (
             "or push with --no-verify."
         ),
     ),
+    # The formatting.
+    #
+    # ktlint owns the layout rules, and it is fast enough to run here: the
+    # whole tree is ten seconds, a narrow change is less. The check runs
+    # against the tree that is being pushed, like every other gate here, and
+    # it skips itself when the pushed tree predates the tool — a branch cut
+    # before this change has no formatting rules to violate.
+    #
+    # The script skips itself when ktlint is not installed and says so: a
+    # gate that cannot run must not become a reason a push cannot happen,
+    # and CI runs the same check either way.
+    PrePushStep(
+        label="ktlint gate",
+        script="scripts/ktlint-lint.py",
+        args=("--root", "@TREE@"),
+        script_from="tree",
+        pythonpath_from="none",
+        when="if-script",
+        message="pre-push FAILED — the Kotlin sources in the tree of @REF@ are not formatted.",
+        hint="Format them with: just ktlint-fix (or push with --no-verify).",
+        show_output=True,
+    ),
 )
 
 #: The scripts the hook runs that are not gates.

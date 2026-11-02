@@ -33,12 +33,17 @@ import kotlinx.coroutines.flow.Flow
  * repository has to survive.
  */
 interface AuthGateway {
-
     /** Creates an account. Fails if the address is already registered. */
-    suspend fun signUp(email: String, password: String): Result<RemoteSession>
+    suspend fun signUp(
+        email: String,
+        password: String,
+    ): Result<RemoteSession>
 
     /** Signs in to an existing account. */
-    suspend fun signIn(email: String, password: String): Result<RemoteSession>
+    suspend fun signIn(
+        email: String,
+        password: String,
+    ): Result<RemoteSession>
 
     /** Ends the session provider-side. */
     suspend fun signOut(): Result<Unit>
@@ -65,7 +70,10 @@ interface AuthGateway {
      * Completes the sign-in for an unconfirmed account: exchanges the token from
      * the magic link for a live session.
      */
-    suspend fun verifyMagicLink(email: String, token: String): Result<RemoteSession>
+    suspend fun verifyMagicLink(
+        email: String,
+        token: String,
+    ): Result<RemoteSession>
 
     /**
      * Exchanges a refresh token for a new access token.
@@ -74,7 +82,10 @@ interface AuthGateway {
      * is the difference between "expired" and "unrecoverable" and the only reason
      * the repository can tell whether to retry or to sign the user out.
      */
-    suspend fun refresh(accessToken: String, refreshToken: String): Result<RemoteSession?>
+    suspend fun refresh(
+        accessToken: String,
+        refreshToken: String,
+    ): Result<RemoteSession?>
 
     /**
      * The live session, or null when the device holds none.

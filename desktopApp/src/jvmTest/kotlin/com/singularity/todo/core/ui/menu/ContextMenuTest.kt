@@ -19,71 +19,91 @@ import kotlin.test.Test
  */
 @Tag("fast")
 class ContextMenuTest {
-
-    private fun buildSampleEntries() = buildMenuNodes {
-        item("pin", "Pin", checked = false) {}
-        item("complete", "Mark as completed", checked = false) {}
-        divider()
-        subMenu("ai", "AI Actions", children = buildMenuNodes {
-            item("ai_refine", "Improve with SMART") {}
-            item("ai_gen", "Generate description") {}
-        })
-        divider()
-        item("delete", "Delete", danger = true) {}
-    }
+    private fun buildSampleEntries() =
+        buildMenuNodes {
+            item("pin", "Pin", checked = false) {}
+            item("complete", "Mark as completed", checked = false) {}
+            divider()
+            subMenu(
+                "ai",
+                "AI Actions",
+                children =
+                    buildMenuNodes {
+                        item("ai_refine", "Improve with SMART") {}
+                        item("ai_gen", "Generate description") {}
+                    },
+            )
+            divider()
+            item("delete", "Delete", danger = true) {}
+        }
 
     @Test
-    fun context_menu_host_with_null_state_renders_nothing() = runDesktopComposeUiTest {
-        setContent {
-            ContextMenuHost(
-                openState = null,
-                onDismiss = {},
-                entries = buildSampleEntries(),
-            )
+    fun context_menu_host_with_null_state_renders_nothing() =
+        runDesktopComposeUiTest {
+            setContent {
+                ContextMenuHost(
+                    openState = null,
+                    onDismiss = {},
+                    entries = buildSampleEntries(),
+                )
+            }
+            // null state = hidden; no UI rendered.
         }
-        // null state = hidden; no UI rendered.
-    }
 
     @Test
-    fun context_menu_host_with_open_state_does_not_crash() = runDesktopComposeUiTest {
-        setContent {
-            ContextMenuHost(
-                openState = ContextMenuOpenState(DpOffset(100.dp, 200.dp)),
-                onDismiss = {},
-                entries = buildSampleEntries(),
-            )
+    fun context_menu_host_with_open_state_does_not_crash() =
+        runDesktopComposeUiTest {
+            setContent {
+                ContextMenuHost(
+                    openState = ContextMenuOpenState(DpOffset(100.dp, 200.dp)),
+                    onDismiss = {},
+                    entries = buildSampleEntries(),
+                )
+            }
+            // Smoke test: verifies no crash when menu is open.
         }
-        // Smoke test: verifies no crash when menu is open.
-    }
 
     @Test
-    fun context_menu_host_with_empty_entries_does_not_crash() = runDesktopComposeUiTest {
-        setContent {
-            ContextMenuHost(
-                openState = ContextMenuOpenState(DpOffset(0.dp, 0.dp)),
-                onDismiss = {},
-                entries = persistentListOf(),
-            )
+    fun context_menu_host_with_empty_entries_does_not_crash() =
+        runDesktopComposeUiTest {
+            setContent {
+                ContextMenuHost(
+                    openState = ContextMenuOpenState(DpOffset(0.dp, 0.dp)),
+                    onDismiss = {},
+                    entries = persistentListOf(),
+                )
+            }
         }
-    }
 
     @Test
-    fun context_menu_host_with_nested_submenus_does_not_crash() = runDesktopComposeUiTest {
-        val nested = buildMenuNodes {
-            subMenu("move", "Move to", children = buildMenuNodes {
-                subMenu("project", "Project", children = buildMenuNodes {
-                    item("proj_a", "Project A") {}
-                    item("proj_b", "Project B") {}
-                })
-                item("inbox", "Inbox") {}
-            })
+    fun context_menu_host_with_nested_submenus_does_not_crash() =
+        runDesktopComposeUiTest {
+            val nested =
+                buildMenuNodes {
+                    subMenu(
+                        "move",
+                        "Move to",
+                        children =
+                            buildMenuNodes {
+                                subMenu(
+                                    "project",
+                                    "Project",
+                                    children =
+                                        buildMenuNodes {
+                                            item("proj_a", "Project A") {}
+                                            item("proj_b", "Project B") {}
+                                        },
+                                )
+                                item("inbox", "Inbox") {}
+                            },
+                    )
+                }
+            setContent {
+                ContextMenuHost(
+                    openState = ContextMenuOpenState(DpOffset(50.dp, 50.dp)),
+                    onDismiss = {},
+                    entries = nested,
+                )
+            }
         }
-        setContent {
-            ContextMenuHost(
-                openState = ContextMenuOpenState(DpOffset(50.dp, 50.dp)),
-                onDismiss = {},
-                entries = nested,
-            )
-        }
-    }
 }

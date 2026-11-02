@@ -58,10 +58,11 @@ interface OwnerOperationCounts {
 
     companion object {
         /** Sum of the 12 shared data/sync counters. */
-        fun sum(counts: OwnerOperationCounts): Int = with(counts) {
-            tasks + notes + projects + tags + tagGroups +
-                taskReminders + projectReminders + timeEntries + agendaViews +
-                outbox + deadLetter + shadows
-        }
+        fun sum(counts: OwnerOperationCounts): Int =
+            with(counts) {
+                tasks + notes + projects + tags + tagGroups +
+                    taskReminders + projectReminders + timeEntries + agendaViews +
+                    outbox + deadLetter + shadows
+            }
     }
 }
