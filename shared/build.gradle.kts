@@ -1240,6 +1240,11 @@ afterEvaluate {
             // says "the phone reads an archive under a budget" has to live here, and
             // this list is what makes the task run it.
             "com/singularity/todo/core/backup/AndroidBackupCodecBudgetTest.class",
+            // The phone's move. `AndroidFileSystem` lives in androidMain and the
+            // contract test that pins the `FileSystem` port lives in jvmTest, so
+            // the phone's own implementation had no test at all — and the move is
+            // what makes the backup's writes atomic.
+            "com/singularity/todo/core/files/AndroidFileSystemMoveTest.class",
         )
     }
 }

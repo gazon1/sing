@@ -1,6 +1,9 @@
 package com.singularity.todo.core.files
 
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.Paths
+import java.nio.file.StandardCopyOption
 
 /**
  * JVM platform implementation of [FileSystem] backed by [java.io.File].
@@ -19,21 +22,26 @@ class JvmFileSystem : FileSystem {
     /**
      * The rename, which is atomic within one filesystem.
      *
-     * A rename across two filesystems cannot be done by a rename, and a copy is
-     * not atomic — but the app's own files are all in one place, so the copy is
-     * the exception rather than the rule.
+     * `Files.move` is the platform's own rename: the target is replaced and the
+     * source is gone. `ATOMIC_MOVE` is what makes it *one* rename — without it
+     * the platform unlinks the target first, so there is a window in which the
+     * target is not there at all, and a reader can find it missing.
+     *
+     * A move across two filesystems cannot be done by a rename, and a copy is
+     * not atomic, so the platform refuses it rather than quietly copying.
      */
     override suspend fun move(
         from: String,
         to: String,
     ) {
-        val source = File(from)
-        val target = File(to)
-        target.parentFile?.mkdirs()
-        if (!source.renameTo(target)) {
-            source.copyTo(target, overwrite = true)
-            source.delete()
-        }
+        val target = Paths.get(to)
+        target.parent?.let { Files.createDirectories(it) }
+        Files.move(
+            Paths.get(from),
+            target,
+            StandardCopyOption.REPLACE_EXISTING,
+            StandardCopyOption.ATOMIC_MOVE,
+        )
     }
 
     override suspend fun delete(path: String): Boolean = File(path).delete()

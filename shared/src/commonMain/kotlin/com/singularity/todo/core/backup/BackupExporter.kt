@@ -195,9 +195,7 @@ class BackupExporter(
                 } finally {
                     // A temporary file that did not become the archive is litter,
                     // and litter in the backup directory is a file the person may see.
-                    if (fs.exists(temporary)) {
-                        runCatchingCancellable { fs.delete(temporary) }
-                    }
+                    runCatchingCancellable { fs.delete(temporary) }
                 }
             }
 
@@ -298,7 +296,18 @@ class BackupExporter(
             )
         val bytes = json.encodeToString(BackupDelta.serializer(), delta).encodeToByteArray()
         val deltaPath = "${options.destPath}$DELTA_SUFFIX"
-        fs.writeBytes(deltaPath, bytes)
+        // The change is written under a temporary name and moved over the real
+        // one, like the snapshot: a failure half way leaves the previous change
+        // and not half of the new one.
+        val temporary = "$deltaPath$TEMPORARY_SUFFIX"
+        try {
+            fs.writeBytes(temporary, bytes)
+            fs.move(temporary, deltaPath)
+        } finally {
+            // A temporary file that did not become the change is litter, and
+            // litter in the backup directory is a file the person may see.
+            runCatchingCancellable { fs.delete(temporary) }
+        }
 
         val entries =
             state.entries +
@@ -378,7 +387,7 @@ class BackupExporter(
         const val DELTA_SUFFIX = ".delta"
 
         /**
-         * The suffix of the file the archive is written to before it is moved.
+         * The suffix of the file that is written before it is moved into place.
          *
          * Not `.zip`: the backup directory is scanned for `.zip`, and a
          * half-written archive must not be one of the files that scan finds.
