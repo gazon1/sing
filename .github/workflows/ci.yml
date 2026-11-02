@@ -448,6 +448,20 @@ jobs:
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
+      # The formatting tool, pinned. The job that judges the code needs the
+      # formatter as much as it needs the analyser: ktlint owns the layout
+      # rules now, and detekt owns the semantics (ADR
+      # docs/decisions/2026-11-02-ktlint-cli-replaces-the-detekt-formatting-layer.md).
+      #
+      # The same install path every other job uses, so a local run and a CI
+      # run of the formatting check agree about the version.
+      - uses: ./.github/actions/setup-python-tools
+        with:
+          with-yaml-lint: 'false'
+          with-action-lint: 'false'
+          with-link-lint: 'false'
+          with-kt-lint: 'true'
+
       # Correct first, measure second — and do not let the correction hide the debt.
       #
       # `--auto-correct` works; the claim that it was inert is superseded by
@@ -478,6 +492,12 @@ jobs:
       # docs/decisions/2026-10-17-detekt-auto-fix-ci-commit.md.
       - name: Detekt auto-correct (commit + push)
         run: bash scripts/ci/detekt-auto-fix.sh "detekt" "${{ github.run_id }}"
+
+      # The formatting check, after the correction: a tree that detekt rewrote
+      # is a tree nobody has formatted yet. Blocking — a soft step here would
+      # read as a gate.
+      - name: ktlint (formatting)
+        run: python3 scripts/ktlint-lint.py --require
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

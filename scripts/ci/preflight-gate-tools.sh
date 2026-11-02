@@ -138,6 +138,12 @@ else
     report no shellcheck "actionlint's shellcheck integration (it is disabled without it)"
 fi
 
+if have_binary ktlint; then
+    report ok ktlint "the 'Kotlin is formatted' check"
+else
+    report no ktlint "the 'Kotlin is formatted' check"
+fi
+
 if [ "$missing" -gt 0 ]; then
     cat >&2 <<MSG
 
