@@ -48,6 +48,14 @@ class DiFacadeTest {
         /** Koin declarations that must not appear loose in a DI file. */
         private val BINDING_CALLS = setOf("single", "factory", "viewModel", "singleOf", "factoryOf", "viewModelOf")
 
+        /**
+         * Suffixes that mean an expression continues on the next line.
+         *
+         * The shape ktlint's multiline-expression-wrapping produces: a trailing
+         * operator, or a trailing comma of an argument list that is still open.
+         */
+        private val CONTINUATION_SUFFIXES = listOf(",", "+", "-", "*", "/", "&&", "||", "?:", ":")
+
         /** Package name derived from the file path, as [ArchitectureTest] does. */
         private fun KoFileDeclaration.packageName(): String {
             val normalizedPath = path.replace('\\', '/')
@@ -115,6 +123,104 @@ class DiFacadeTest {
         kotlin.test.assertEquals(1, strayDeclarations.size, "expected the one stray binding")
     }
 
+    /**
+     * Positive control: the same detection, against a facade whose body ktlint put on
+     * the line BELOW the `=`.
+     *
+     * This is the layout the scan has to survive: the facade name is read on one line,
+     * the body arrives on the next. A scan that ends the body at the signature line
+     * sees a stray binding after the facade as belonging to the facade and lets it
+     * through — the guard stops guarding exactly where the code was reformatted.
+     */
+    @Test
+    fun positiveControlDetectsLooseBindingAfterABodyOnTheNextLine() {
+        val synthetic =
+            """
+            package com.example
+
+            fun coreLoggingModule(): Module =
+                module {
+                    factory { Logger.withTag("App") }
+                }
+
+            fun strayHelper() {
+                single { SomethingElse(get()) }
+            }
+            """.trimIndent()
+
+        val strayDeclarations = bindingDeclarationsIn(synthetic, facadeNames = setOf("coreLoggingModule"))
+
+        if (strayDeclarations.isEmpty()) {
+            fail(
+                "a binding declared after a facade whose body sits on the next line was not " +
+                    "reported — the scan ends the facade body at the signature line, so the " +
+                    "binding is credited to the facade and the guard is dead",
+            )
+        }
+        kotlin.test.assertEquals(1, strayDeclarations.size, "expected the one stray binding")
+    }
+
+    /**
+     * Positive control: a facade whose body is an expression with no braces at all.
+     *
+     * `fun domainModule(): List<Module> = compute()` has no block to follow, so the
+     * body ends on the signature line. A scan that waits for a block never closes
+     * that body, credits the next top-level binding to the facade, and lets it
+     * through.
+     */
+    @Test
+    fun positiveControlDetectsLooseBindingAfterABracelessFacade() {
+        val synthetic =
+            """
+            package com.example
+
+            fun coreLoggingModule(): Module = compute()
+
+            fun strayHelper() {
+                single { SomethingElse(get()) }
+            }
+            """.trimIndent()
+
+        val strayDeclarations = bindingDeclarationsIn(synthetic, facadeNames = setOf("coreLoggingModule"))
+
+        if (strayDeclarations.isEmpty()) {
+            fail(
+                "a binding declared after a brace-less facade was not reported — the scan " +
+                    "keeps the facade open forever, so the binding is credited to the facade " +
+                    "and the guard is dead",
+            )
+        }
+        kotlin.test.assertEquals(1, strayDeclarations.size, "expected the one stray binding")
+    }
+
+    /**
+     * Negative control: a facade whose body sits on the next line and declares a
+     * binding — that binding is inside the facade and must not be reported.
+     *
+     * The positive controls above would also pass if the scan reported everything.
+     * This one fails when it does.
+     */
+    @Test
+    fun aFacadeWithItsBodyOnTheNextLineReportsNothing() {
+        val synthetic =
+            """
+            package com.example
+
+            fun coreLoggingModule(): Module =
+                module {
+                    factory { Logger.withTag("App") }
+                }
+            """.trimIndent()
+
+        val strayDeclarations = bindingDeclarationsIn(synthetic, facadeNames = setOf("coreLoggingModule"))
+
+        kotlin.test.assertEquals(
+            emptyList<String>(),
+            strayDeclarations,
+            "a binding declared inside a facade is not a stray binding",
+        )
+    }
+
     @Test
     fun `Modules kt declares no binding outside a facade function`() {
         val stray = bindingDeclarationsIn(modulesFile.codeOnly(), FACADE_FUNCTIONS)
@@ -177,12 +283,20 @@ class DiFacadeTest {
         val offenders = mutableListOf<String>()
         var depth = 0
         var enclosingFns = mutableListOf<String>()
+        // Whether the body of the function whose name was just read starts on a LATER
+        // line. The name is known before the body starts, so the body must not be
+        // treated as finished until it has been seen — and it must not stay pending
+        // forever either, or the next top-level binding would be credited to the
+        // facade and let through unreported.
+        var bodyPending = false
 
         source.lines().forEachIndexed { index, rawLine ->
             val line = rawLine.trim()
 
             // A top-level `fun name(` opens a function body at depth 0.
             if (depth == 0 && line.startsWith("fun ")) {
+                // The previous top-level function is over.
+                enclosingFns.clear()
                 enclosingFns.add(
                     line
                         .substringAfter("fun ")
@@ -191,6 +305,25 @@ class DiFacadeTest {
                         .substringBefore(":")
                         .trim(),
                 )
+                // The body opens on this line when the line carries the brace. When the
+                // signature ends with `=` it opens BELOW — the shape ktlint's
+                // multiline-expression-wrapping produces. A body that is an expression
+                // without braces (`= compute()`) ends on the signature line itself.
+                bodyPending = !line.contains('{') && line.endsWith("=")
+            } else if (depth == 0 && bodyPending) {
+                // This line carries the body of the function whose name was read above.
+                // The body ends with this line unless it opens a brace — the depth
+                // counter then says where it ends — or the expression continues on the
+                // next line.
+                if (line.isNotEmpty()) {
+                    val opensBlock = line.contains('{')
+                    val continues = !opensBlock && expressionContinuesOnNextLine(line)
+                    bodyPending = continues
+                    if (!opensBlock && !continues) {
+                        // The body is over; the next line is at file level again.
+                        enclosingFns.clear()
+                    }
+                }
             }
 
             val firstToken =
@@ -206,11 +339,31 @@ class DiFacadeTest {
 
             depth += line.count { it == '{' }
             depth -= line.count { it == '}' }
-            if (depth <= 0) {
+            if (depth > 0) {
+                // The body has started — the function is no longer "pending".
+                bodyPending = false
+            }
+            if (depth <= 0 && !bodyPending) {
                 depth = 0
                 enclosingFns.clear()
             }
         }
         return offenders
+    }
+
+    /**
+     * Whether the expression on [line] carries on to the next line.
+     *
+     * An expression body that does not fit is wrapped by ktlint, and the wrap shows
+     * up as a trailing operator, a trailing comma inside an argument list, or an
+     * unclosed parenthesis. Without this the scanner would end the body at the first
+     * wrapped line and credit the next top-level binding to the facade — the failure
+     * mode this scan exists to catch.
+     */
+    private fun expressionContinuesOnNextLine(line: String): Boolean {
+        if (line.count { it == '(' } > line.count { it == ')' }) {
+            return true
+        }
+        return CONTINUATION_SUFFIXES.any { line.endsWith(it) }
     }
 }

@@ -97,6 +97,43 @@ class SyncedEntityDeleteIsSoftTest {
     }
 
     @Test
+    fun the_scanner_reads_a_body_that_sits_below_the_equals_sign() {
+        // ktlint's multiline-expression-wrapping puts the body on the line BELOW the
+        // `=` when it does not fit — the shape six of the production repositories
+        // are written in. A reader that takes the `=` line itself reads an empty
+        // body, finds no soft delete in it, and reports every one of them as a
+        // hard delete.
+        val source =
+            """
+            override suspend fun delete(id: NoteId): Result<Unit> =
+                runCatchingCancellable {
+                    noteDao.softDeleteForUser(id.value, 0, uid)
+                }
+            """.trimIndent()
+        assertTrue(deletesSoftly(source), "a soft delete below the `=` is still a soft delete")
+    }
+
+    @Test
+    fun the_scanner_flags_a_hard_delete_below_the_equals_sign() {
+        // The other direction: the wrapped layout must not turn a hard delete into
+        // an unread one. A reader that searches the whole remainder for a soft
+        // delete would find one in a neighbouring member and pass the gate.
+        val source =
+            """
+            override suspend fun delete(id: NoteId): Result<Unit> =
+                runCatchingCancellable {
+                    noteDao.hardDelete(id.value)
+                }
+
+            override suspend fun restore(id: NoteId): Result<Unit> =
+                runCatchingCancellable {
+                    noteDao.softDeleteForUser(id.value, 0, uid)
+                }
+            """.trimIndent()
+        assertTrue(!deletesSoftly(source), "a hard delete below the `=` must be reported")
+    }
+
+    @Test
     fun the_scanner_ignores_a_soft_delete_that_merely_appears_in_prose() {
         // The word in a comment must not stand in for the call. Otherwise a hard
         // delete whose body says "this is a soft delete" passes the gate, which is
@@ -306,24 +343,57 @@ class SyncedEntityDeleteIsSoftTest {
      *  - `= softDelete(id)` — `TaskRepositoryImpl`, an expression body with no brace at
      *    all. Read to the end of the line.
      *  - `= dao.hardDelete(id)` for the negative case.
+     *
+     * And the body can sit on the line BELOW the `=` — the shape ktlint's
+     * multiline-expression-wrapping produces when the expression does not fit:
+     *
+     *     override suspend fun delete(id: NoteId): Result<Unit> =
+     *         runCatchingCancellable { … }
+     *
+     * A reader that takes the line right after the `=` reads an empty string there and
+     * reports five soft deletes as hard ones.
      */
     private fun deleteBody(source: String): String? {
         val signature =
             Regex("""override\s+suspend\s+fun\s+delete\s*\(""")
                 .find(source) ?: return null
         val afterSignature = source.substring(signature.range.last + 1)
-        val equals = afterSignature.indexOf('=')
-        if (equals < 0) return null
-        val afterEquals = afterSignature.substring(equals + 1)
-        val firstLine = afterEquals.lineSequence().first()
+        // No `=` means no expression body to read.
+        val afterEquals = afterSignature.substringAfter('=', missingDelimiterValue = "")
+        // The body may start on the NEXT line: ktlint's multiline-expression-wrapping
+        // puts the body below the `=` when it does not fit, so the remainder of the
+        // `=` line can be empty and the body arrives on the next non-blank line.
+        val bodyStart = bodyStartOffset(afterEquals) ?: return null
+        val bodyText = afterEquals.substring(bodyStart)
+        // The body's OWN line decides whether it is a block or an expression. The
+        // search is bounded to that line on purpose — an unbounded one finds the `{`
+        // of the *next* member, so `= softDelete(id)` (TaskRepositoryImpl, a soft
+        // delete) was read as a block belonging to whatever came next and reported as
+        // not soft.
+        val firstLine = bodyText.substringBefore('\n')
         val brace = firstLine.indexOf('{')
-        // No brace on the signature's own line: the body is an expression and the
-        // member ends with that line. The search is bounded to the first line on
-        // purpose — an unbounded one finds the `{` of the *next* member, so
-        // `= softDelete(id)` (TaskRepositoryImpl, a soft delete) was read as a block
-        // belonging to whatever came next and reported as not soft.
-        if (brace < 0) return firstLine.trim()
-        return bracedBlock(afterEquals.substring(brace)) ?: afterEquals
+        return if (brace < 0) firstLine.trim() else bracedBlock(bodyText.substring(brace)) ?: bodyText
+    }
+
+    /**
+     * Offset of the first character of the delete body inside [afterEquals].
+     *
+     * [afterEquals] starts right after the `=` of the signature, so its first line is
+     * the remainder of the signature line. That remainder is either the body itself
+     * (`= softDelete(id)`) or nothing at all, in which case the body is on the next
+     * non-blank line — the layout ktlint's multiline-expression-wrapping produces.
+     */
+    private fun bodyStartOffset(afterEquals: String): Int? {
+        val lines = afterEquals.lines()
+        var offset = 0
+        for (line in lines) {
+            val firstMeaningful = line.indexOfFirst { !it.isWhitespace() }
+            if (firstMeaningful >= 0) {
+                return offset + firstMeaningful
+            }
+            offset += line.length + 1
+        }
+        return null
     }
 
     /** [source] from its first `{` through the matching `}`, or null if unbalanced. */
