@@ -134,8 +134,9 @@ build/config/settings change; exits 0 when no module files changed), so a typica
 is fast. `BASE_REF` (`github.base_ref`) and `fetch-depth: 0` are required for the base
 comparison; without them it falls back to correcting every module.
 
-ktlint is bundled via detekt-formatting, so this single loop covers both. Do not add
-a push-to-main trigger: it would commit to the trunk and risk a run loop.
+The layout is corrected by ktlint, which is a separate CLI now: `python3
+scripts/ktlint-lint.py --format`. Do not add a push-to-main trigger: it would
+commit to the trunk and risk a run loop.
 
 ## The review verdict is a file, not a recollection
 

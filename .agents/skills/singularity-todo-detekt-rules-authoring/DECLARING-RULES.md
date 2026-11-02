@@ -12,32 +12,23 @@ silently:
 | Ruleset | Key validation | Correct spelling |
 |---|---|---|
 | `naming:`, `style:` | **strict** — an unknown key is a hard build failure listing the allowed properties | the detekt property name, e.g. `ConstructorParameterNaming` |
-| `ktlint:` | **none** — an unknown key is ignored | **camelCase**, e.g. `BackingPropertyNaming` — *not* `backing-property-naming` |
 
-The kebab-case ids that look more correct are the no-ops. This file already
-contained both `ImportOrdering` and `FunctionSignature` in camelCase next to
-`no-wildcard-imports` and `parameter-list-wrapping` in kebab; the kebab ones were
-doing nothing.
+The key spelling depends on which ruleset the rule belongs to, and getting it
+wrong fails silently: the file already contained both `ImportOrdering` and
+`FunctionSignature` in camelCase next to `no-wildcard-imports` and
+`parameter-list-wrapping` in kebab; the kebab ones were doing nothing.
 
-**How to find out which is which, without guessing:** declare it wrong under
-`style:` on purpose. detekt replies `Property 'style>Foo' is misspelled or does
-not exist. Did you mean '…'? Allowed properties: [...]` — that single message
-tells you whether the rule is a detekt property at all, and if it is not, it
-belongs to the ktlint wrapper.
+**There is no `ktlint:` ruleset any more.** The ktlint wrapper was removed from
+detekt (ADR `2026-11-02-ktlint-cli-replaces-the-detekt-formatting-layer.md`):
+formatting rules live in the standalone ktlint CLI and are configured in
+`.editorconfig` under `ktlint_*` keys. A detekt rule that was only a formatting
+wrapper has no home in detekt's config — it is either deleted or rewritten as a
+semantic rule.
 
-**How to confirm a `ktlint:` declaration worked:** the section does not validate,
-so the only proof is measurement. Declare it, then regenerate the baseline and
-watch that rule's entries disappear:
-
-```bash
-rm -f config/detekt/baseline-shared.xml config/detekt/baseline-desktopApp.xml
-./gradlew :shared:detektBaseline :desktopApp:detektBaseline \
-    --rerun-tasks --no-build-cache --no-configuration-cache --no-daemon
-grep -c "<ID>BackingPropertyNaming:" config/detekt/baseline-shared.xml   # expect 0
-```
-
-If the count is unchanged, the key is wrong. Do not report the declaration as
-done on the strength of the file looking right.
+**How to find out whether a key is a detekt property at all, without guessing:**
+declare it wrong under `style:` on purpose. detekt replies `Property 'style>Foo'
+is misspelled or does not exist. Did you mean '…'? Allowed properties: [...]` —
+that single message names the rule set that owns it.
 
 **A stale report is not evidence.** `detektBaseline` combined with `:detekt` in
 one invocation can leave the report from a previous run on disk. A

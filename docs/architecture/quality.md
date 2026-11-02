@@ -19,7 +19,7 @@ others. The config is `config/detekt/detekt.yml`; the reasons live in comments
 | `NestedBlockDepth` | 5 | 4 | |
 | `LargeClass` | 600 lines | 600 | |
 | `ReturnCount` | 4 | 2 | |
-| `max_line_length` | 120 | 120 | `.editorconfig` and detekt have to agree — otherwise `--format` and the gate fight each other. |
+| `max_line_length` | 120 | 120 | ktlint owns it, through `.editorconfig`; detekt's own `MaxLineLength` is off. |
 
 `config/detekt/baseline-*.xml` holds what is already known. **The baseline only ever
 shrinks** — a new finding is a finding, not a line to add to the baseline.
@@ -43,7 +43,7 @@ out of the `when` entirely.
 
 `scripts/lint/normalize-when-blank-lines.py` applies that rule to a file: it reads
 the branches, works out whether any of them is multi-line, and puts the blank lines
-where the rule wants them. It is a helper, not a gate — the gate is detekt's.
+where the rule wants them. It is a helper, not a gate — the gate is ktlint's.
 
 ### detekt: `ClassSignature`
 
@@ -52,11 +52,25 @@ sets `ktlint_class_signature_rule_force_multiline_when_parameter_count_greater_o
 to a value no real count reaches, so ktlint does not fight the rule.
 ADR `2026-10-09-detekt-class-signature-gotcha`.
 
-### detekt: `MaximumLineLength`
+### ktlint: line length
 
-The `formatting` ruleset's line length is **off** in detekt — ktlint owns line length
-through `.editorconfig` (120). Two owners of one rule is how a formatter and a gate
-end up arguing.
+detekt's own `MaxLineLength` is **off** — ktlint owns line length through
+`.editorconfig` (120). Two owners of one rule is how a formatter and a gate end up
+arguing.
+
+## The two tools
+
+`config/detekt/detekt.yml` holds the **semantic** rules: logic, complexity,
+naming, performance, exceptions, style. The **layout** rules — indentation,
+wrapping, imports, line length — belong to ktlint, and they are configured in
+`.editorconfig`, not in detekt. The two are separate tools now, run separately:
+
+```bash
+just ktlint        # the layout — seconds
+just detekt        # the semantics — minutes
+```
+
+ADR `2026-11-02-ktlint-cli-replaces-the-detekt-formatting-layer.md`.
 
 ## The rules this repository wrote for itself
 
