@@ -1163,6 +1163,11 @@ afterEvaluate {
             "com/singularity/todo/core/notifications/AndroidNotifierTest.class",
             "com/singularity/todo/core/observability/AndroidRecordRetentionTest.class",
             "com/singularity/todo/core/security/ArchiveCryptoGoldenAndroidTest.class",
+            // The Android half of the backup decoder's budget. The decoder lives in
+            // androidMain, and the JVM lane cannot reach it — so the one test that
+            // says "the phone reads an archive under a budget" has to live here, and
+            // this list is what makes the task run it.
+            "com/singularity/todo/core/backup/AndroidBackupCodecBudgetTest.class",
         )
     }
 }

@@ -1,5 +1,6 @@
 package com.singularity.todo.core.security
 
+import com.singularity.todo.core.error.runCatchingCancellable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.DataInputStream
@@ -45,8 +46,28 @@ open class JvmSecureStorage : SecureStoragePort {
         secretToolRead(key) ?: fallbackReadWithRecovery(key)
     }
 
+    /**
+     * Writes the secret to the keyring, and keeps the file from disagreeing.
+     *
+     * The keyring and the fallback file are one store with two doors, and a
+     * read that finds nothing in the keyring goes to the file. So a file that
+     * still holds the value from **before** the keyring took the secret answers
+     * with an old credential — an old API key, an old refresh token — with no
+     * error anywhere. When the keyring accepts the value, the file's copy of it
+     * is dropped: the two stores then hold the same thing, or the file holds
+     * nothing for that key at all.
+     */
     override suspend fun write(key: String, value: String) = withContext(Dispatchers.IO) {
-        if (!secretToolWrite(key, value)) fallbackWriteWithRecovery(key, value)
+        if (secretToolWrite(key, value)) {
+            // The file's copy of the key is dropped, best effort: the write that
+            // reached the keyring stands either way, and a file that cannot be
+            // parsed is left exactly as it is — it holds nothing this key could
+            // be read from.
+            runCatchingCancellable { fallbackDelete(key) }
+            Unit
+        } else {
+            fallbackWriteWithRecovery(key, value)
+        }
     }
 
     override suspend fun delete(key: String) = withContext(Dispatchers.IO) {
@@ -78,7 +99,14 @@ open class JvmSecureStorage : SecureStoragePort {
     protected open fun secretToolRead(key: String): String? {
         val kr = keyring ?: return null
         return try {
-            kr.getPassword(SERVICE_NAME, key)?.trim()?.takeIf { it.isNotEmpty() }
+            // The value the keyring holds, as it is. It used to be trimmed and
+            // an empty one was reported as absent: a secret with surrounding
+            // whitespace came back without it, and a secret that was the empty
+            // string came back as `null` — which the port says means "there is
+            // no such key". The fallback file returns its value verbatim, so the
+            // same key answered with two different values depending on which
+            // backend had it.
+            kr.getPassword(SERVICE_NAME, key)
         } catch (_: com.github.javakeyring.PasswordAccessException) {
             null
         }
@@ -119,10 +147,16 @@ open class JvmSecureStorage : SecureStoragePort {
             return legacyDerivedKey()
         }
         synchronized(keyLock) {
-            val stored = secretToolRead(fallbackKeyName)
+            // The key is base64, so it is never blank: a blank value is not a
+            // key, it is an absent one.
+            val stored = secretToolRead(fallbackKeyName)?.takeIf { it.isNotBlank() }
             if (stored != null) {
                 return try {
-                    SecretKeySpec(java.util.Base64.getDecoder().decode(stored), "AES")
+                    // The MIME decoder skips the whitespace a keyring may have
+                    // wrapped the value in. The plain decoder would refuse it and
+                    // the key would be regenerated, which orphans every entry in
+                    // the fallback file.
+                    SecretKeySpec(java.util.Base64.getMimeDecoder().decode(stored), "AES")
                 } catch (_: IllegalArgumentException) {
                     null
                 } ?: regenerateKey()

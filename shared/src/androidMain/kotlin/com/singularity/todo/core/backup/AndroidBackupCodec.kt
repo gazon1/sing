@@ -18,6 +18,10 @@ import java.util.zip.ZipOutputStream
  * Same shape as [com.singularity.todo.core.backup.JvmBackupCodec]: the zip is
  * written through `fs.openWrite` and each attachment is copied from its own file
  * in chunks, so no whole archive or attachment is held in memory.
+ *
+ * The read side is bounded by [ArchiveBudget], the same budget the JVM decoder
+ * reads under: the two decoders drifted once, and the half that had no budget
+ * was the one that could be killed by a small archive.
  */
 class AndroidBackupCodec : BackupCodec {
 
@@ -80,8 +84,16 @@ class AndroidBackupCodec : BackupCodec {
 
         ZipInputStream(stream).use { zis ->
             var entry: ZipEntry? = zis.nextEntry
+            var entryCount = 0
+            var totalBytes = 0L
             while (entry != null) {
-                val data = zis.readBytes()
+                entryCount++
+                ArchiveBudget.check(entryCount, totalBytes)
+                val data = ArchiveBudget.readEntryBounded(ArchiveBudget.MAX_TOTAL_BYTES - totalBytes) { buffer ->
+                    zis.read(buffer)
+                }
+                totalBytes += data.size
+                ArchiveBudget.check(entryCount, totalBytes)
                 when (entry.name) {
                     BackupFormat.ENTRY_MANIFEST -> manifest = data
 
