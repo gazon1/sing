@@ -167,6 +167,17 @@ class FormattersTest {
         assertEquals("-2", formatDecimal(-1.5, 0))
     }
 
+    /**
+     * A negative number that rounds to zero has no sign: "-0%" is a value the
+     * number does not contain, and the reader of the screen cannot read it.
+     */
+    @Test
+    fun `decimal does not print a minus sign in front of zero`() {
+        assertEquals("0.0", formatDecimal(-0.04, 1))
+        assertEquals("0.0", formatDecimal(-0.0, 1))
+        assertEquals("0", formatDecimal(-0.4, 0))
+    }
+
     // ─── formatPadded ───────────────────────────────────────────────────────────
 
     /**

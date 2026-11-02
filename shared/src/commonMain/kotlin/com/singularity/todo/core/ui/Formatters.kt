@@ -63,7 +63,9 @@ fun formatDecimal(
     var scale = 1L
     repeat(decimals) { scale *= 10 }
     val magnitude = floor(abs(value) * scale + 0.5).toLong()
-    val sign = if (value < 0) "-" else ""
+    // A negative number that rounds to zero has no minus sign: "-0%" is a
+    // value the number does not contain.
+    val sign = if (value < 0 && magnitude != 0L) "-" else ""
     val fraction = (magnitude % scale).toString().padStart(decimals, '0')
     return sign + (magnitude / scale) + if (decimals > 0) ".$fraction" else ""
 }
