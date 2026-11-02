@@ -1,5 +1,7 @@
 package com.singularity.todo
 
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
@@ -10,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -138,16 +139,18 @@ actual fun AppContent(
     //
     // The activity is reached through the context rather than injected, because
     // the edge-to-edge style is a property of the window the app is drawn in.
+    // The effect is keyed by the polarity, so the window is touched when the
+    // theme changes and not on every recomposition.
     val isDark = themeMode.resolvedIsDark()
     val context = LocalContext.current
-    SideEffect {
-        val activity = context as? ComponentActivity
+    LaunchedEffect(context, isDark) {
+        val activity = context.findActivity() ?: return@LaunchedEffect
         val style = if (isDark) {
             SystemBarStyle.dark(Color.TRANSPARENT)
         } else {
             SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
         }
-        activity?.enableEdgeToEdge(
+        activity.enableEdgeToEdge(
             statusBarStyle = style,
             navigationBarStyle = style,
         )
@@ -183,4 +186,17 @@ actual fun PlatformShell(state: Nav3State, navigator: Navigator, navCallbacks: N
         navCallbacks = navCallbacks,
         today = com.singularity.todo.core.platform.todayAt(shellClock, shellZone.current()),
     )
+}
+
+/**
+ * Finds the activity the composition is hosted in.
+ *
+ * `LocalContext.current` is the activity itself in the common case, but it may be
+ * a themed wrapper around it — so the chain is unwrapped rather than cast, and a
+ * context that leads nowhere yields `null` rather than a crash.
+ */
+private tailrec fun Context.findActivity(): ComponentActivity? = when (this) {
+    is ComponentActivity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }

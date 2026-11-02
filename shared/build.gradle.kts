@@ -337,7 +337,7 @@ kotlin {
             // resolved in commonMain. The alternative (the style is applied from
             // the activity, before the mode is known) would leave the bars
             // following the operating system while the app follows the user.
-            implementation(libs.androidx.activity.compose)
+            implementation(libs.androidx.activity)
 
             // Google's authorization API — the offline authorization request that
             // produces the one-time code the server redeems.
