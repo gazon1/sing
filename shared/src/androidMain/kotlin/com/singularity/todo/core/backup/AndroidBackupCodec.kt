@@ -89,9 +89,10 @@ class AndroidBackupCodec : BackupCodec {
             while (entry != null) {
                 entryCount++
                 ArchiveBudget.check(entryCount, totalBytes)
-                val data = ArchiveBudget.readEntryBounded(ArchiveBudget.MAX_TOTAL_BYTES - totalBytes) { buffer ->
-                    zis.read(buffer)
-                }
+                val data =
+                    ArchiveBudget.readEntryBounded(ArchiveBudget.MAX_TOTAL_BYTES - totalBytes) { buffer ->
+                        zis.read(buffer)
+                    }
                 totalBytes += data.size
                 ArchiveBudget.check(entryCount, totalBytes)
                 when (entry.name) {

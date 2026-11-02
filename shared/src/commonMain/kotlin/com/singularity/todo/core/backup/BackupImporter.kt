@@ -661,7 +661,10 @@ class BackupImporter(
      * the emptiness of the entry is a verdict in that case — an entry with no
      * bytes is a truncated one.
      */
-    private fun isIntact(att: AttachmentDto, bytes: ByteArray): Boolean {
+    private fun isIntact(
+        att: AttachmentDto,
+        bytes: ByteArray,
+    ): Boolean {
         if (bytes.isEmpty()) return false
         val expectedChecksum = att.checksum
         if (expectedChecksum != null) {

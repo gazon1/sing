@@ -21,7 +21,6 @@ import okio.Buffer
  * two constants.
  */
 object ArchiveBudget {
-
     /** Maximum number of entries in a backup archive. */
     const val MAX_ENTRIES = 100_000
 
@@ -34,7 +33,10 @@ object ArchiveBudget {
      * The count and the byte total are checked together: an archive can be
      * small in bytes and large in entries, or the other way round.
      */
-    fun check(entryCount: Int, totalBytes: Long) {
+    fun check(
+        entryCount: Int,
+        totalBytes: Long,
+    ) {
         if (entryCount > MAX_ENTRIES || totalBytes > MAX_TOTAL_BYTES) {
             throw IllegalStateException("backup archive exceeds limits: entries=$entryCount bytes=$totalBytes")
         }
@@ -48,7 +50,10 @@ object ArchiveBudget {
      * bounded: the bytes are counted as they arrive, not after the entry has
      * already been read whole.
      */
-    fun readEntryBounded(limit: Long, readChunk: (buffer: ByteArray) -> Int): ByteArray {
+    fun readEntryBounded(
+        limit: Long,
+        readChunk: (buffer: ByteArray) -> Int,
+    ): ByteArray {
         if (limit < 0) {
             throw IllegalStateException("backup archive entry exceeds remaining byte budget")
         }
