@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.backup
 
+import com.singularity.todo.core.ui.formatPadded
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.number
 import kotlinx.datetime.toLocalDateTime
@@ -19,11 +20,6 @@ internal fun formatBackupDate(
         kotlin.time.Instant
             .fromEpochMilliseconds(epochMillis)
             .toLocalDateTime(zone)
-    return "%04d-%02d-%02d %02d:%02d".format(
-        ldt.year,
-        ldt.month.number,
-        ldt.day,
-        ldt.hour,
-        ldt.minute,
-    )
+    return "${formatPadded(ldt.year, 4)}-${formatPadded(ldt.month.number)}-${formatPadded(ldt.day)} " +
+        "${formatPadded(ldt.hour)}:${formatPadded(ldt.minute)}"
 }

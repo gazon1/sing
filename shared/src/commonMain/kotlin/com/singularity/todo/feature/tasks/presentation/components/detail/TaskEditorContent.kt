@@ -628,14 +628,6 @@ private fun priorityLabel(priority: TaskPriority): String =
         TaskPriority.Urgent -> "Urgent"
     }
 
-private fun dueDateLabel(
-    date: LocalDate?,
-    time: LocalTime?,
-): String {
-    if (date == null) return "Добавить дату"
-    return formatRussianDueDateWithTime(date, time)
-}
-
 // ===== Preview =====
 
 @Preview

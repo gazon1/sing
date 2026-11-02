@@ -6,12 +6,15 @@ import kotlinx.datetime.LocalTime
 import kotlinx.datetime.Month
 
 /**
- * Formats a date as a short Russian label: "Сб, 05 сент 2026".
- * Returns `null` when [date] is `null`.
+ * Formats a date as a short Russian label: "Сб, 05 сен 2026".
+ *
+ * Not nullable: a caller that has no date has no label to format, and a
+ * `String?` return here forced every caller to invent a fallback — two of them
+ * fell back to the raw ISO date, which is the very shape this label replaced.
+ * A caller whose date *is* optional asks [formatRussianDueDateOrNull].
  */
-internal fun formatRussianDueDate(date: LocalDate?): String? {
-    if (date == null) return null
-    return "${
+internal fun formatRussianDueDate(date: LocalDate): String =
+    "${
         shortWeekday(
             date.dayOfWeek,
         )
@@ -19,7 +22,9 @@ internal fun formatRussianDueDate(date: LocalDate?): String? {
         date.day.toString()
             .padStart(2, '0')
     } ${shortMonth(date.month)} ${date.year}"
-}
+
+/** [formatRussianDueDate] for a date that may be absent: `null` in, `null` out. */
+internal fun formatRussianDueDateOrNull(date: LocalDate?): String? = date?.let(::formatRussianDueDate)
 
 /**
  * The date a task editor row shows: the same label the agenda list shows, with
@@ -81,7 +86,7 @@ internal fun formatRussianMonthYear(date: LocalDate): String = "${longMonth(date
 internal val russianWeekdayHeaders: List<String> = listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс")
 
 /**
- * Formats a date the way a list of dates reads well: "05 сент".
+ * Formats a date the way a list of dates reads well: "05 сен".
  *
  * Shorter than [formatRussianDueDate], which carries the weekday and the year —
  * right for one date on its own row, too long when several are on one row.

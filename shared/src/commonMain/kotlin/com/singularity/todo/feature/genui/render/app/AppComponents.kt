@@ -200,12 +200,12 @@ private fun dueDateText(
         }
 
         UiNode.DueStyle.Absolute -> {
-            formatRussianDueDate(date) ?: date.toString()
+            formatRussianDueDate(date)
         }
 
         UiNode.DueStyle.Both -> {
             val relative: String = formatDueChip(date, null, today)?.text ?: date.toString()
-            val absolute: String = formatRussianDueDate(date) ?: date.toString()
+            val absolute: String = formatRussianDueDate(date)
             "$relative, $absolute"
         }
     }

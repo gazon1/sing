@@ -1,5 +1,6 @@
 package com.singularity.todo.feature.agenda.domain.selector
 
+import com.singularity.todo.core.ui.formatPadded
 import com.singularity.todo.feature.agenda.domain.model.RelativeBucket
 import com.singularity.todo.feature.agenda.domain.model.Selector
 import com.singularity.todo.feature.tasks.domain.model.TaskPriority
@@ -128,7 +129,9 @@ val Selector.typeDescription: String
                 val startMin = minStartMinutes % 60
                 val endHour = maxEndMinutes / 60
                 val endMin = maxEndMinutes % 60
-                "Work block: %02d:%02d–%02d:%02d".format(startHour, startMin, endHour, endMin)
+                val start = "${formatPadded(startHour)}:${formatPadded(startMin)}"
+                val end = "${formatPadded(endHour)}:${formatPadded(endMin)}"
+                "Work block: $start–$end"
             }
         }
 

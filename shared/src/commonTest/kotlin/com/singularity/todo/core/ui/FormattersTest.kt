@@ -166,4 +166,31 @@ class FormattersTest {
         assertEquals("-1.5", formatDecimal(-1.5, 1))
         assertEquals("-2", formatDecimal(-1.5, 0))
     }
+
+    /**
+     * A negative number that rounds to zero has no sign: "-0%" is a value the
+     * number does not contain, and the reader of the screen cannot read it.
+     */
+    @Test
+    fun `decimal does not print a minus sign in front of zero`() {
+        assertEquals("0.0", formatDecimal(-0.04, 1))
+        assertEquals("0.0", formatDecimal(-0.0, 1))
+        assertEquals("0", formatDecimal(-0.4, 0))
+    }
+
+    // ─── formatPadded ───────────────────────────────────────────────────────────
+
+    /**
+     * The digits are the app's own.
+     *
+     * `"%02d".format(x)` follows the *device* locale and writes "١٤" on an Arabic
+     * phone — where the app means "14". Padding by hand cannot have a locale.
+     */
+    @Test
+    fun `padded integers keep the app's own digits`() {
+        assertEquals("07", formatPadded(7))
+        assertEquals("14", formatPadded(14))
+        assertEquals("2026", formatPadded(2026, 4))
+        assertEquals("2026", formatPadded(2026))
+    }
 }

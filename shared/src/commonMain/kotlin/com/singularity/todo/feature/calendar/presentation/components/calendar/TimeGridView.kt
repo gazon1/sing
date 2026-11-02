@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.singularity.todo.core.ui.TestTags
+import com.singularity.todo.core.ui.formatPadded
 import com.singularity.todo.feature.calendar.domain.logic.dayOfWeekShort
 import com.singularity.todo.feature.calendar.domain.logic.isoLocalDate
 import com.singularity.todo.feature.calendar.domain.model.CalendarTaskUi
@@ -232,7 +233,7 @@ private fun HourRow(
             contentAlignment = Alignment.TopEnd,
         ) {
             Text(
-                text = "%02d:00".format(hour),
+                text = "${formatPadded(hour)}:00",
                 color = palette.textMuted,
                 fontSize = 11.sp,
                 modifier = Modifier.padding(end = 8.dp, top = 2.dp),
