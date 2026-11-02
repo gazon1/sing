@@ -89,12 +89,12 @@ internal object A2uiDateFunctions {
 
             "both" -> {
                 val relativeText: String = relative(date, ctx.today) ?: return null
-                val absoluteText: String = formatRussianDueDate(date) ?: return null
+                val absoluteText: String = formatRussianDueDate(date)
                 JsonPrimitive("$relativeText, $absoluteText")
             }
 
             else -> {
-                JsonPrimitive(formatRussianDueDate(date) ?: date.toString())
+                JsonPrimitive(formatRussianDueDate(date))
             }
         }
     }

@@ -512,7 +512,7 @@ private fun TerminationSection(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
-                text = formatRussianDueDate(endDate) ?: endDate.toString(),
+                text = formatRussianDueDate(endDate),
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(

@@ -114,7 +114,7 @@ private fun TaskRowContentPreview() {
                         id = TaskId.fromString("1"),
                         title = "Позвонить родителям в сб или вс",
                         project = "Семья",
-                        dueLabel = "Сб, 05 сент 2026",
+                        dueLabel = "Сб, 05 сен 2026",
                         markings = persistentSetOf(TaskMarking.Recurring),
                         priority = TaskPriority.Medium,
                     ),

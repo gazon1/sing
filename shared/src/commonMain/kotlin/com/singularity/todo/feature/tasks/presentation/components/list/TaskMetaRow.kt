@@ -147,7 +147,7 @@ private fun TaskMetaRowPreview() {
     PreviewThemed(darkTheme = true, useSurface = true) {
         Column(verticalArrangement = Arrangement.spacedBy(TaskListSpacing.Md)) {
             TaskMetaRow(
-                "Сб, 05 сент 2026",
+                "Сб, 05 сен 2026",
                 "Семья",
                 persistentSetOf(TaskMarking.Recurring),
             )

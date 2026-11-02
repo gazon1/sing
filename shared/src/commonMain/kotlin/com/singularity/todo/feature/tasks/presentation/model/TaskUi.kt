@@ -59,7 +59,7 @@ data class TaskUi(
      * project up. The Compose conversion is `Color(projectColor)`.
      */
     val projectColor: Int? = null,
-    val dueLabel: String?, // pre-formatted date: "Сб, 05 сент 2026"
+    val dueLabel: String?, // pre-formatted date: "Сб, 05 сен 2026"
     val parentId: String? = null, // null = top-level, otherwise parent TaskId.value
     val indentLevel: Int = 0, // 0 for top-level, 1 for direct child
     val isPinned: Boolean = false, // MR-1: lifted from domainTask to avoid reference

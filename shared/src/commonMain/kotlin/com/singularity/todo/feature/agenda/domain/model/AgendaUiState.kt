@@ -1,5 +1,5 @@
 package com.singularity.todo.feature.agenda.domain.model
-import com.singularity.todo.core.ui.components.formatRussianDueDate
+import com.singularity.todo.core.ui.components.formatRussianDueDateOrNull
 import com.singularity.todo.feature.tasks.domain.model.BlockedBulkCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -123,7 +123,7 @@ fun AgendaRowItem.toTaskUi(isSelected: Boolean): TaskUi =
         title = task.title,
         project = project,
         projectColor = projectColor,
-        dueLabel = formatRussianDueDate(task.dueDate),
+        dueLabel = formatRussianDueDateOrNull(task.dueDate),
         parentId = task.parentTaskId?.value,
         indentLevel = if (task.parentTaskId != null) 1 else 0,
         isPinned = task.isPinned,
