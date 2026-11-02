@@ -325,6 +325,37 @@ class DiFacadeTest {
         )
     }
 
+    /**
+     * Positive control: a facade whose body carries a string with a brace and a paren.
+     *
+     * The scanner counts braces and parentheses to know where a body ends, and a
+     * string literal carries characters that are not code. Counting the `(` of
+     * `"App ( {"` leaves the facade open forever, so the binding after it is credited
+     * to the facade and the guard misses exactly what it exists to catch.
+     */
+    @Test
+    fun aStrayBindingAfterAFacadeWithBracesInAStringIsReported() {
+        val synthetic =
+            """
+            package com.example
+
+            fun coreLoggingModule(): Module =
+                module {
+                    factory { Logger.withTag("App ( {") }
+                }
+
+            single { SomethingElse(get()) }
+            """.trimIndent()
+
+        val strayDeclarations = bindingDeclarationsIn(synthetic, facadeNames = setOf("coreLoggingModule"))
+
+        kotlin.test.assertEquals(
+            1,
+            strayDeclarations.size,
+            "a binding after a facade whose body carries a string with braces is loose",
+        )
+    }
+
     @Test
     fun `Modules kt declares no binding outside a facade function`() {
         val stray = bindingDeclarationsIn(modulesFile.codeOnly(), FACADE_FUNCTIONS)
@@ -412,6 +443,10 @@ class DiFacadeTest {
             // A comment carries no code: it must not open a body, count a brace, or
             // end the body of a function that is waiting for one.
             if (isComment(line)) return@forEachIndexed
+            // A string literal carries characters that are not code. A `(` or a `{`
+            // inside a literal would unbalance the counters and leave the facade open
+            // forever, so the counters read the line without the literal content.
+            val code = codeWithoutStrings(line)
 
             // A top-level `fun name(` opens a function body at depth 0.
             if (depth == 0 && line.startsWith("fun ")) {
@@ -431,16 +466,16 @@ class DiFacadeTest {
                 // produces. A body that is an expression without braces (`= compute()`)
                 // ends on the signature line itself.
                 bodyPending =
-                    !line.contains('{') &&
-                    (line.endsWith("=") || expressionContinuesOnNextLine(line))
+                    !code.contains('{') &&
+                    (line.endsWith("=") || expressionContinuesOnNextLine(code))
             } else if (depth == 0 && bodyPending) {
                 // This line carries the body of the function whose name was read above.
                 // The body ends with this line unless it opens a brace — the depth
                 // counter then says where it ends — or the expression continues on the
                 // next line.
                 if (line.isNotEmpty()) {
-                    val opensBlock = line.contains('{')
-                    val continues = !opensBlock && expressionContinuesOnNextLine(line)
+                    val opensBlock = code.contains('{')
+                    val continues = !opensBlock && expressionContinuesOnNextLine(code)
                     bodyPending = continues
                     if (!opensBlock && !continues) {
                         // The body is over; the next line is at file level again.
@@ -460,12 +495,12 @@ class DiFacadeTest {
                 offenders += "line ${index + 1} in $owner"
             }
 
-            depth += line.count { it == '{' }
-            depth -= line.count { it == '}' }
+            depth += code.count { it == '{' }
+            depth -= code.count { it == '}' }
             // An argument list that is still open keeps the function open too: the
             // bindings inside it belong to the facade, not to the file body.
-            parenDepth += line.count { it == '(' }
-            parenDepth -= line.count { it == ')' }
+            parenDepth += code.count { it == '(' }
+            parenDepth -= code.count { it == ')' }
             if (parenDepth < 0) parenDepth = 0
             if (depth > 0) {
                 // The body has started — the function is no longer "pending".
@@ -501,4 +536,64 @@ class DiFacadeTest {
             line.startsWith("/*") ||
             line == "*/" ||
             (line.startsWith("*") && (line.length == 1 || line[1].isWhitespace()))
+
+    /**
+     * [line] with the CONTENT of every string literal removed; the quotes stay.
+     *
+     * The scanner counts braces and parentheses to know where a body ends, and a
+     * literal carries characters that are not code: the `(` of `"App ("` would leave
+     * the facade open forever, and the next loose binding would be credited to it.
+     * Keeping the quotes preserves the shape of the line — a trailing comma outside
+     * a literal is still the last character.
+     */
+    private fun codeWithoutStrings(line: String): String {
+        val out = StringBuilder(line.length)
+        var i = 0
+        while (i < line.length) {
+            when {
+                line.startsWith("\"\"\"", i) -> {
+                    val end = line.indexOf("\"\"\"", i + 3)
+                    if (end < 0) {
+                        out.append(line, i, line.length)
+                        i = line.length
+                    } else {
+                        out.append("\"\"\"")
+                        i = end + 3
+                    }
+                }
+
+                line[i] == '"' -> {
+                    out.append('"')
+                    i++
+                    while (i < line.length && line[i] != '"') {
+                        if (line[i] == '\\') i++
+                        i++
+                    }
+                    if (i < line.length) {
+                        out.append('"')
+                        i++
+                    }
+                }
+
+                line[i] == '\'' -> {
+                    out.append('\'')
+                    i++
+                    while (i < line.length && line[i] != '\'') {
+                        if (line[i] == '\\') i++
+                        i++
+                    }
+                    if (i < line.length) {
+                        out.append('\'')
+                        i++
+                    }
+                }
+
+                else -> {
+                    out.append(line[i])
+                    i++
+                }
+            }
+        }
+        return out.toString()
+    }
 }
