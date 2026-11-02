@@ -44,6 +44,18 @@ val LocalAccentColor = compositionLocalOf { SingularityAccents.Blue }
 val LocalIsDarkTheme = compositionLocalOf { false }
 
 /**
+ * Resolves the mode to the dark flag the app paints with, reading the operating
+ * system's appearance only when the mode follows it.
+ *
+ * This is the **single point** where the operating system's appearance is read:
+ * every other part of the app derives its answer from the mode. The resolution
+ * itself lives on the mode ([ThemeMode.isDark]) — this function only supplies
+ * the system flag that the "follow the system" mode needs.
+ */
+@Composable
+fun ThemeMode.resolvedIsDark(): Boolean = isDark(isSystemInDarkTheme())
+
+/**
  * The Material 3 palette is derived at runtime from [SingularityTheme]'s `accent` seed color
  * (MaterialKolor / Google's `material-color-utilities`), so light and dark are a single call
  * and adding an accent is a data change rather than a palette redesign.
@@ -69,11 +81,7 @@ fun SingularityTheme(
 ) {
     // Single resolution point: the tri-state is resolved to a boolean exactly once,
     // here, using the current system appearance only when the mode is System.
-    val isDark = when (themeMode) {
-        ThemeMode.System -> isSystemInDarkTheme()
-        ThemeMode.Light -> false
-        ThemeMode.Dark -> true
-    }
+    val isDark = themeMode.resolvedIsDark()
 
     val colorScheme = rememberDynamicColorScheme(
         seedColor = accent.color,

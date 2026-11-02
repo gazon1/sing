@@ -34,6 +34,23 @@ sealed class ThemeMode {
     abstract val name: String
 
     /**
+     * Resolves the mode to the dark flag the app paints with.
+     *
+     * This is the **single definition** of that resolution: [System] follows the
+     * operating system, [Light] and [Dark] do not. The theme and the Android
+     * system bars both resolve through here, so the palette and the bars cannot
+     * disagree about whether the app is dark.
+     *
+     * @param systemDark whether the operating system is in dark mode — read by
+     *   the caller, and used only for [System].
+     */
+    fun isDark(systemDark: Boolean): Boolean = when (this) {
+        System -> systemDark
+        Light -> false
+        Dark -> true
+    }
+
+    /**
      * Serialises to the storage string.
      * Matching is case-insensitive on read; write produces lowercase.
      */

@@ -332,6 +332,13 @@ kotlin {
             implementation(libs.compose.ui.tooling)
             implementation(libs.compose.ui.tooling.preview)
 
+            // ComponentActivity, SystemBarStyle and enableEdgeToEdge — the system
+            // bars take their polarity from the app's theme mode, which is
+            // resolved in commonMain. The alternative (the style is applied from
+            // the activity, before the mode is known) would leave the bars
+            // following the operating system while the app follows the user.
+            implementation(libs.androidx.activity.compose)
+
             // Google's authorization API — the offline authorization request that
             // produces the one-time code the server redeems.
             //

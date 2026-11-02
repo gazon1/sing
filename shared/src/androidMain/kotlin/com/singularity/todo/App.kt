@@ -1,11 +1,16 @@
 package com.singularity.todo
 
 import android.content.Intent
+import android.graphics.Color
 import android.net.Uri
+import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -21,6 +26,7 @@ import com.singularity.todo.core.ui.text.LocalInternalLinkHandler
 import com.singularity.todo.core.ui.text.TextLink
 import com.singularity.todo.core.ui.theme.SingularityAccents
 import com.singularity.todo.core.ui.theme.SingularityTheme
+import com.singularity.todo.core.ui.theme.resolvedIsDark
 import com.singularity.todo.feature.gate.presentation.screen.AppVersionGateScreen
 import com.singularity.todo.feature.nav.LocalAppNavigator
 import com.singularity.todo.feature.nav.Nav3State
@@ -123,6 +129,28 @@ actual fun AppContent(
             val destination = internalLinkDestination(link.target)
             if (destination != null) navCallbacks.navigate(destination)
         }
+    }
+
+    // The system bars follow the app's theme, not the operating system's. The
+    // flag comes from the same resolution the palette is built from, so the bars
+    // and the painted palette cannot disagree: a user who forces light mode on a
+    // dark phone gets light bars, not dark ones over a light app.
+    //
+    // The activity is reached through the context rather than injected, because
+    // the edge-to-edge style is a property of the window the app is drawn in.
+    val isDark = themeMode.resolvedIsDark()
+    val context = LocalContext.current
+    SideEffect {
+        val activity = context as? ComponentActivity
+        val style = if (isDark) {
+            SystemBarStyle.dark(Color.TRANSPARENT)
+        } else {
+            SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+        }
+        activity?.enableEdgeToEdge(
+            statusBarStyle = style,
+            navigationBarStyle = style,
+        )
     }
 
     SingularityTheme(themeMode = themeMode, accent = accent, fontSizeScale = fontSizeScale) {
