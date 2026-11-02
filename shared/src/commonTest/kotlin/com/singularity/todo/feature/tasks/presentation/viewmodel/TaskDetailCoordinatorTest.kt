@@ -228,6 +228,7 @@ class TaskDetailCoordinatorTest {
                         com.singularity.todo.feature.checklist.ChecklistItemId
                             .fromString("ci"),
                     ),
+                    TaskDetailIntent.Domain.RestoreChecklistItem(placeholderChecklistItem()),
                     TaskDetailIntent.Domain.AddChecklistItem("item"),
                     TaskDetailIntent.Domain.ToggleSubtask(task("c1")),
                     TaskDetailIntent.Domain.DeleteSubtask(task("c1")),

@@ -1,6 +1,7 @@
 package com.singularity.todo.feature.tasks.presentation.state
 
 import com.singularity.todo.core.ui.MviEvent
+import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.tags.TagId
 import com.singularity.todo.feature.tasks.domain.model.TaskId
 
@@ -18,6 +19,9 @@ sealed interface TaskDetailUiEvent : MviEvent {
 
     /** A tag was taken off the task, and the user may want it back. */
     data class UndoRemoveTag(val tagId: TagId, val tagName: String) : TaskDetailUiEvent
+
+    /** A checklist item was deleted, and the user may want it back. */
+    data class UndoDeleteChecklistItem(val item: ChecklistItem) : TaskDetailUiEvent
 
     /**
      * The whole series was deleted, and the user may want it back.

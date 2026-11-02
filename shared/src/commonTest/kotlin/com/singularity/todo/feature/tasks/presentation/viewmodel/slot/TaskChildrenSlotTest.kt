@@ -2,6 +2,7 @@
 
 package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
+import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.Task
 import com.singularity.todo.feature.tasks.domain.model.TaskId
@@ -29,6 +30,7 @@ class TaskChildrenSlotTest {
         allTasks: List<Task> = emptyList(),
         onBlockedClose: (BlockedCloseRequest) -> Unit = {},
         onSaved: (String) -> Unit = {},
+        onUndoDeleteChecklistItem: (ChecklistItem) -> Unit = {},
     ) = TaskChildrenSlot(
         taskId = TaskId("t1"),
         core = fakes.core(),
@@ -40,6 +42,7 @@ class TaskChildrenSlotTest {
         onError = {},
         onSaved = onSaved,
         onBlockedClose = onBlockedClose,
+        onUndoDeleteChecklistItem = onUndoDeleteChecklistItem,
     )
 
     @Test
@@ -165,6 +168,63 @@ class TaskChildrenSlotTest {
             assertNotNull(
                 fakes.taskRepo.tasks.value["c1"]
                     ?.archivedAt,
+            )
+        }
+
+    // ─── The undo of a removed child ─────────────────────────────────────────
+
+    @Test
+    fun `deleting a checklist item offers an undo`() =
+        runTest {
+            val fakes = SlotFakes()
+            val source = TaskSource(task("t1"))
+            val undone = mutableListOf<ChecklistItem>()
+            val slot =
+                slot(
+                    fakes,
+                    source,
+                    backgroundScope,
+                    onUndoDeleteChecklistItem = { undone += it },
+                )
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.AddChecklistItem("Buy milk"))
+            runCurrent()
+            val item =
+                fakes.checklistRepo.items.value.values
+                    .first()
+
+            slot.onIntent(TaskDetailIntent.Domain.DeleteChecklistItem(item.id))
+            runCurrent()
+
+            assertEquals(1, undone.size, "the user must be offered a way back")
+            assertEquals("Buy milk", undone.single().title)
+        }
+
+    @Test
+    fun `the undo puts the checklist item back`() =
+        runTest {
+            val fakes = SlotFakes()
+            val source = TaskSource(task("t1"))
+            val slot = slot(fakes, source, backgroundScope)
+            runCurrent()
+
+            slot.onIntent(TaskDetailIntent.Domain.AddChecklistItem("Buy milk"))
+            runCurrent()
+            val item =
+                fakes.checklistRepo.items.value.values
+                    .first()
+            slot.onIntent(TaskDetailIntent.Domain.DeleteChecklistItem(item.id))
+            runCurrent()
+            assertNull(fakes.checklistRepo.items.value[item.id.value])
+
+            slot.onIntent(TaskDetailIntent.Domain.RestoreChecklistItem(item))
+            runCurrent()
+
+            assertEquals(
+                "Buy milk",
+                fakes.checklistRepo.items.value[item.id.value]
+                    ?.title,
             )
         }
 

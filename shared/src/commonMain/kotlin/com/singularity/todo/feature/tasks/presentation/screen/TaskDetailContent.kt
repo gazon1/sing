@@ -169,6 +169,20 @@ fun TaskDetailContent(
                     )
                 }
 
+                is TaskDetailUiEvent.UndoDeleteChecklistItem -> {
+                    notifications.send(
+                        Notification.Undo(
+                            title = "Item deleted",
+                            actionLabel = "Undo",
+                            onAction = {
+                                coordinator.onIntent(
+                                    TaskDetailIntent.Domain.RestoreChecklistItem(event.item),
+                                )
+                            },
+                        ),
+                    )
+                }
+
                 is TaskDetailUiEvent.UndoDeleteSeries -> {
                     notifications.send(
                         Notification.Undo(

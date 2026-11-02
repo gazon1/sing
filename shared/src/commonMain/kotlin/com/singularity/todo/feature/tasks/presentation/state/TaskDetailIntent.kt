@@ -143,6 +143,17 @@ sealed interface TaskDetailIntent : MviIntent {
             Domain,
             TaskChildrenIntent
 
+        /**
+         * Puts a removed checklist item back.
+         *
+         * The undo of [DeleteChecklistItem]: the snapshot travels with the intent,
+         * because the row is gone from the database and the write has to be given
+         * the item it puts back.
+         */
+        data class RestoreChecklistItem(val item: ChecklistItem) :
+            Domain,
+            TaskChildrenIntent
+
         data class AddChecklistItem(val title: String) :
             Domain,
             TaskChildrenIntent

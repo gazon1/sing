@@ -2,6 +2,7 @@ package com.singularity.todo.feature.tasks.presentation.viewmodel.slot
 
 import com.singularity.todo.core.coroutines.AutoCloseableCoroutineScope
 import com.singularity.todo.core.ui.featureSlot.FeatureSlot
+import com.singularity.todo.feature.checklist.ChecklistItem
 import com.singularity.todo.feature.tasks.domain.logic.Blocking
 import com.singularity.todo.feature.tasks.domain.model.BlockedCloseRequest
 import com.singularity.todo.feature.tasks.domain.model.CreateTaskInput
@@ -45,6 +46,8 @@ class TaskChildrenSlot(
     private val onSaved: (String) -> Unit,
     /** Raised when a close is refused until the user confirms. */
     private val onBlockedClose: (BlockedCloseRequest) -> Unit,
+    /** A checklist item was deleted, and the user may want it back. */
+    private val onUndoDeleteChecklistItem: (ChecklistItem) -> Unit = {},
 ) : FeatureSlot<TaskChildrenState, TaskChildrenIntent> {
     private val _state = MutableStateFlow(TaskChildrenState())
     override val state: StateFlow<TaskChildrenState> = _state.asStateFlow()
@@ -94,6 +97,10 @@ class TaskChildrenSlot(
             is TaskDetailIntent.Domain.DeleteSubtask -> {
                 deleteSubtask(intent.task)
             }
+
+            is TaskDetailIntent.Domain.RestoreChecklistItem -> {
+                restoreChecklistItem(intent.item)
+            }
         }
     }
 
@@ -115,11 +122,28 @@ class TaskChildrenSlot(
                 .onFailure { onError("Toggle failed") }
         }
 
+    /**
+     * Deletes the item and offers to put it back.
+     *
+     * The item is read before the write — afterwards the row is gone and the
+     * snapshot is the only copy of it there is.
+     */
     private fun deleteChecklistItem(intent: TaskDetailIntent.Domain.DeleteChecklistItem) =
         scope.launch {
+            val item = _state.value.checklist.firstOrNull { it.id == intent.id }
             children.checklistRepository
                 .delete(intent.id)
+                .onSuccess { if (item != null) onUndoDeleteChecklistItem(item) }
                 .onFailure { onError("Delete failed") }
+        }
+
+    /** Puts a deleted checklist item back, with the id and the place it had. */
+    private fun restoreChecklistItem(item: ChecklistItem) =
+        scope.launch {
+            children.checklistRepository
+                .upsert(item)
+                .onSuccess { onSaved("Item restored") }
+                .onFailure { onError("Restore failed") }
         }
 
     // ── Subtasks ────────────────────────────────────────────────────────────
