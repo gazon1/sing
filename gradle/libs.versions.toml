@@ -102,7 +102,7 @@ atomicfu = "0.23.1"
 kotlinxCollectionsImmutable = "0.5.2"
 
 # FileKit
-filekit = "0.16.0"
+filekit = "0.17.0"
 
 # Rich Text Editor
 rich-editor = "1.2.1"
