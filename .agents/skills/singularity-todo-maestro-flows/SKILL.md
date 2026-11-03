@@ -126,13 +126,6 @@ selector — leave it. So are calendar day numbers (unique within a month) and
 the Material3 `contentDescription` regexes: Maestro 2.10 has no `content-desc`
 selector to fall back on.
 
-## Seed fixtures, never type them
-
-**Seed, never type.** The walkthrough — why typing a fixture into the editor does
-not work, the `seed.yaml` query keys, `${RUN_ID}` prefixing, the runner's cleanup
-sweep — is in the runbook:
-[Seed fixtures, never type them](runbook.md#seed-fixtures-never-type-them).
-
 ## Adaptive scrolling: `scrollUntilVisible` over hardcoded swipe
 
 **Never use fixed swipe coordinates.** The phone AVD viewport is 320×640px
@@ -307,7 +300,7 @@ suite. See `singularity-todo-emulator-launch`.
 Start from `launch-clean`, then `seed.yaml` when the flow needs data. Make new
 flows self-seeding rather than inheriting state from an earlier flow. Note that
 `launch-clean` does not clear Room, so a fixture written by a previous run is
-still there — see [Seed fixtures, never type them](runbook.md#seed-fixtures-never-type-them).
+still there.
 
 ## The runbook
 
