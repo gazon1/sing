@@ -91,4 +91,18 @@ class FormattersTest {
         assertEquals("Пт, 30 окт 2026", formatRussianDueDateWithTime(date, null))
         assertEquals("Пт, 30 окт 2026 14:30", formatRussianDueDateWithTime(date, LocalTime(14, 30)))
     }
+
+    /**
+     * A time that carries seconds must show them: a time that lost five
+     * seconds on the way to the screen is a time the user did not set.
+     */
+    @Test
+    fun formatRussianDueDateWithTimeKeepsTheSeconds() {
+        val date = LocalDate(2026, 10, 30)
+
+        assertEquals(
+            "Пт, 30 окт 2026 14:30:05",
+            formatRussianDueDateWithTime(date, LocalTime(14, 30, 5)),
+        )
+    }
 }
