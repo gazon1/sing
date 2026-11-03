@@ -10,8 +10,7 @@ tags:
   - system
 ---
 - runFlow: ../../helpers/launch-clean.yaml
-- tapOn:
-    id: nav_menu_button
+- runFlow: ../../helpers/open-app-menu.yaml
 # The sheet renders in its own window; the first menu item is the reliable
 # signal that it is open and interactive.
 - extendedWaitUntil:

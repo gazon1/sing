@@ -41,11 +41,10 @@ tags:
 # the row this flow seeded instead of adding a second one. The subtask below is
 # typed into the editor, so its title keeps the run id: a typed title is this
 # flow's own row, and the run id keeps it apart from any other run's.
-- openLink: "todo-debug://seed?task=Parent%20Task&due=today"
-- extendedWaitUntil:
-    visible:
-      id: nav_tab_today
-    timeout: 30000
+- runFlow:
+    file: ../../../helpers/seed.yaml
+    env:
+      QUERY: "task=Parent%20Task&due=today"
 
 # ── Open the task detail view ────────────────────────────────────
 - extendedWaitUntil:

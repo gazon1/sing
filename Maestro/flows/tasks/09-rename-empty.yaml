@@ -11,11 +11,10 @@ tags:
   - smoke
 ---
 # Seed a task with a known title.
-- openLink: "todo-debug://seed?task=RenameMe&due=today"
-- extendedWaitUntil:
-    visible:
-      id: nav_tab_today
-    timeout: 30000
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=RenameMe&due=today"
 
 # Open the task in the editor.
 - tapOn:

@@ -17,11 +17,10 @@ tags:
 - runFlow: ../../helpers/launch-clean.yaml
 # The task the link names. The id is part of the seed, so the link addresses
 # the row the seed wrote.
-- openLink: "todo-debug://seed?task=Deep%20link%20target&id=deeplinktarget01"
-- extendedWaitUntil:
-    visible:
-      id: nav_tab_today
-    timeout: 30000
+- runFlow:
+    file: ../../helpers/seed.yaml
+    env:
+      QUERY: "task=Deep%20link%20target&id=deeplinktarget01"
 # The link arrives as an intent. Maestro has no `launchApp: intent:` in 2.10 —
 # `openLink` is the command that sends one: it asks the system to handle the URL
 # with `android.intent.action.VIEW`, which is exactly the intent a link from a
